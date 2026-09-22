@@ -1,0 +1,46 @@
+name: Production smoke checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      BASE_URL: https://drop-rate-api-live-production.up.railway.app
+    steps:
+      - name: Verify live and ready endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          live_status=""
+          for attempt in {1..30}; do
+            live_status="$(curl --silent --show-error --output live.json --write-out "%{http_code}" "$BASE_URL/health/live" || true)"
+            if [ "$live_status" = "200" ]; then
+              break
+            fi
+            sleep 10
+          done
+          test "$live_status" = "200"
+          cat live.json
+
+          ready_status="$(curl --silent --show-error --output ready.json --write-out "%{http_code}" "$BASE_URL/health/ready")"
+          test "$ready_status" = "200"
+          cat ready.json
+
+      - name: Verify inventory requires authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          protected_status="$(curl --silent --show-error --output protected.json --write-out "%{http_code}" "$BASE_URL/api/v1/inventory")"
+          test "$protected_status" = "401"
+          cat protected.json
