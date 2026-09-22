@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0d12">
+  <title>Drop Rate — Founder Dashboard</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <main class="shell">
+    <section id="auth-view" class="auth-layout">
+      <div class="brand-panel">
+        <div class="brand-lockup"><span class="brand-mark">DR</span><span>DROP RATE</span></div>
+        <div class="brand-copy">
+          <p class="eyebrow">Founder operations</p>
+          <h1>Your collection.<br><em>Under control.</em></h1>
+          <p class="lead">A private workspace for inventory, ownership and pricing decisions.</p>
+        </div>
+        <div class="trust-row"><span>Private access</span><span>Owner scoped</span><span>Audit ready</span></div>
+      </div>
+
+      <div class="auth-panel">
+        <div class="mobile-brand"><span class="brand-mark">DR</span><span>DROP RATE</span></div>
+
+        <form id="login-form" class="auth-card">
+          <p class="eyebrow">Welcome back</p>
+          <h2>Founder sign in</h2>
+          <p class="muted">Use the email connected to your Drop Rate account.</p>
+          <label>Email address<input id="login-email" type="email" autocomplete="email" required></label>
+          <label>Password<input id="login-password" type="password" autocomplete="current-password" required minlength="8"></label>
+          <div id="login-message" class="message" role="status"></div>
+          <button class="primary-button" type="submit">Sign in <span>→</span></button>
+          <button id="show-reset" class="text-button" type="button">Forgot your password?</button>
+        </form>
+
+        <form id="request-reset-form" class="auth-card hidden">
+          <button class="back-button" type="button" data-back-login>← Back</button>
+          <p class="eyebrow">Account recovery</p>
+          <h2>Reset your password</h2>
+          <p class="muted">We’ll send a secure recovery link to your email.</p>
+          <label>Email address<input id="reset-email" type="email" autocomplete="email" required></label>
+          <div id="reset-message" class="message" role="status"></div>
+          <button class="primary-button" type="submit">Send recovery email <span>→</span></button>
+        </form>
+
+        <form id="new-password-form" class="auth-card hidden">
+          <p class="eyebrow">Secure your account</p>
+          <h2>Choose a new password</h2>
+          <p class="muted">Use at least 10 characters and avoid a password used elsewhere.</p>
+          <label>New password<input id="new-password" type="password" autocomplete="new-password" required minlength="10"></label>
+          <label>Confirm password<input id="confirm-password" type="password" autocomplete="new-password" required minlength="10"></label>
+          <div id="password-message" class="message" role="status"></div>
+          <button class="primary-button" type="submit">Save password <span>→</span></button>
+        </form>
+      </div>
+    </section>
+
+    <section id="dashboard-view" class="dashboard hidden">
+      <header class="topbar">
+        <div class="brand-lockup"><span class="brand-mark">DR</span><span>DROP RATE</span></div>
+        <div class="topbar-actions">
+          <div class="user-chip"><span id="owner-initial">S</span><div><strong id="owner-name">Founder</strong><small id="owner-email"></small></div></div>
+          <button id="logout-button" class="ghost-button" type="button">Sign out</button>
+        </div>
+      </header>
+
+      <div class="dashboard-content">
+        <div class="page-heading">
+          <div><p class="eyebrow">Collection control</p><h1>Inventory</h1><p class="muted">Your cards, ownership and pricing data in one secure place.</p></div>
+          <button id="refresh-button" class="ghost-button" type="button">↻ Refresh</button>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card stat-accent"><span>Total inventory</span><strong id="total-count">—</strong><small>Owned items</small></article>
+          <article class="stat-card"><span>Current view</span><strong id="visible-count">—</strong><small>Items on this page</small></article>
+          <article class="stat-card"><span>Owner</span><strong id="stat-owner">—</strong><small>Verified membership</small></article>
+        </div>
+
+        <div class="inventory-panel">
+          <div class="toolbar">
+            <label class="search-box"><span>⌕</span><input id="search-input" type="search" placeholder="Search card, set, code or game…"></label>
+            <select id="status-filter" aria-label="Filter inventory status">
+              <option value="">All statuses</option><option value="DRAFT">Draft</option><option value="INSPECTION">Inspection</option><option value="WITHDRAWN">Withdrawn</option>
+            </select>
+          </div>
+          <div id="inventory-message" class="message panel-message" role="status"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Card</th><th>Set</th><th>Condition</th><th>Cost</th><th>Store price</th><th>Status</th></tr></thead>
+              <tbody id="inventory-body"></tbody>
+            </table>
+          </div>
+          <div id="empty-state" class="empty-state hidden"><div>◇</div><h3>No cards found</h3><p>Try removing a filter or using a different search.</p></div>
+          <div class="pagination"><button id="previous-page" class="ghost-button" type="button">← Previous</button><span id="page-label">Page 1</span><button id="next-page" class="ghost-button" type="button">Next →</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>
