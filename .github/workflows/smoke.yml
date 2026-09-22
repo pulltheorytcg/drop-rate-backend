@@ -31,11 +31,22 @@ jobs:
             sleep 10
           done
           test "$live_status" = "200"
-          cat live.json
-
           ready_status="$(curl --silent --show-error --output ready.json --write-out "%{http_code}" "$BASE_URL/health/ready")"
           test "$ready_status" = "200"
-          cat ready.json
+
+      - name: Verify founder dashboard and public configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          dashboard_status="$(curl --silent --show-error --output dashboard.html --write-out "%{http_code}" "$BASE_URL/")"
+          test "$dashboard_status" = "200"
+          grep --quiet "Founder sign in" dashboard.html
+
+          config_status="$(curl --silent --show-error --output config.json --write-out "%{http_code}" "$BASE_URL/api/v1/public-config")"
+          test "$config_status" = "200"
+          jq -e '.supabase_url == "https://ozrxenrdladkooixutmm.supabase.co"' config.json
+          jq -e '.publishable_key | startswith("sb_publishable_")' config.json
+          ! grep --quiet --ignore-case "service_role\|postgresql://" config.json
 
       - name: Verify inventory requires authentication
         shell: bash
@@ -43,4 +54,3 @@ jobs:
           set -euo pipefail
           protected_status="$(curl --silent --show-error --output protected.json --write-out "%{http_code}" "$BASE_URL/api/v1/inventory")"
           test "$protected_status" = "401"
-          cat protected.json
