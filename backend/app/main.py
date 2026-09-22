@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .db import create_pool
 from .settings import get_settings
+
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 def _valid_request_id(value: str | None) -> str:
@@ -33,7 +38,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Drop Rate API",
-        version="0.3.0",
+        version="0.4.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -47,26 +52,35 @@ def create_app() -> FastAPI:
         try:
             response = await call_next(request)
         except Exception:
-            response = JSONResponse(
-                status_code=500,
-                content={
-                    "detail": "Internal server error",
-                    "request_id": request_id,
-                },
-            )
+            response = JSONResponse(status_code=500, content={"detail": "Internal server error", "request_id": request_id})
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self'; style-src 'self'; img-src 'self' data:; "
+            f"connect-src 'self' {settings.supabase_url}; "
+            "font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        )
         return response
+
+    @app.get("/", include_in_schema=False)
+    async def dashboard() -> FileResponse:
+        return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/api/v1/public-config", include_in_schema=False)
+    async def public_config() -> dict:
+        return {
+            "supabase_url": settings.supabase_url,
+            "publishable_key": settings.supabase_publishable_key,
+        }
 
     @app.get("/health/live")
     async def live() -> dict:
-        return {
-            "status": "ok",
-            "service": "drop-rate-api",
-            "environment": settings.environment,
-        }
+        return {"status": "ok", "service": "drop-rate-api", "environment": settings.environment}
 
     @app.get("/health/ready")
     async def ready(request: Request):
@@ -76,11 +90,9 @@ def create_app() -> FastAPI:
             if value != 1:
                 raise RuntimeError("Unexpected readiness response")
         except Exception:
-            return JSONResponse(
-                status_code=503,
-                content={"status": "not_ready", "database": "unavailable"},
-            )
+            return JSONResponse(status_code=503, content={"status": "not_ready", "database": "unavailable"})
         return {"status": "ready", "database": "connected"}
 
+    app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(router)
     return app

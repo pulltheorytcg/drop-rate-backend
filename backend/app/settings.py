@@ -29,6 +29,8 @@ class Settings:
     auth_issuer: str
     auth_audience: str
     jwks_url: str
+    supabase_url: str
+    supabase_publishable_key: str
     environment: str
     db_pool_min: int
     db_pool_max: int
@@ -40,13 +42,15 @@ class Settings:
         pool_max = _positive_int("TCG_DB_POOL_MAX", 5)
         if pool_min > pool_max:
             raise RuntimeError("TCG_DB_POOL_MIN cannot exceed TCG_DB_POOL_MAX")
+        if not issuer.endswith("/auth/v1"):
+            raise RuntimeError("TCG_AUTH_ISSUER must end with /auth/v1")
         return cls(
             database_url=_required("TCG_DATABASE_URL"),
             auth_issuer=issuer,
             auth_audience=_required("TCG_AUTH_AUDIENCE"),
-            jwks_url=os.getenv(
-                "TCG_JWKS_URL", f"{issuer}/.well-known/jwks.json"
-            ).strip(),
+            jwks_url=os.getenv("TCG_JWKS_URL", f"{issuer}/.well-known/jwks.json").strip(),
+            supabase_url=issuer.removesuffix("/auth/v1"),
+            supabase_publishable_key=_required("TCG_SUPABASE_PUBLISHABLE_KEY"),
             environment=os.getenv("TCG_ENVIRONMENT", "development").strip(),
             db_pool_min=pool_min,
             db_pool_max=pool_max,
