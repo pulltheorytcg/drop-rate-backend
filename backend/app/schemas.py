@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, model_validator
 InventoryStatus = Literal["DRAFT", "INSPECTION", "APPROVED", "WITHDRAWN"]
 EditableInventoryStatus = Literal["DRAFT", "INSPECTION", "WITHDRAWN"]
 AllocationMethod = Literal["MANUAL", "EQUAL", "VALUE_WEIGHTED"]
+SealStatus = Literal["SEALED", "UNSEALED"]
 ReadinessIssue = Literal[
     "missing_cost",
     "missing_condition",
@@ -25,6 +26,7 @@ class InventoryPatch(BaseModel):
     acquisition_cost_minor: int | None = Field(default=None, ge=0)
     acquisition_date: date | None = None
     condition: str | None = Field(default=None, max_length=80)
+    seal_status: SealStatus | None = None
     grading_company: str | None = Field(default=None, max_length=40)
     grade: str | None = Field(default=None, max_length=40)
     certificate_number: str | None = Field(default=None, max_length=120)
