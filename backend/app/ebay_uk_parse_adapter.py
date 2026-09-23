@@ -23,6 +23,13 @@ def _normalise_text(value: object) -> str:
     return " ".join(_SPACE_RE.sub(" ", value.casefold()).split())
 
 
+def _contains_term(normalised_title: str, term: object) -> bool:
+    normalised_term = _normalise_text(term)
+    if not normalised_term:
+        return False
+    return f" {normalised_term} " in f" {normalised_title} "
+
+
 def _parse_mapping_spec(value: str) -> dict[str, Any]:
     try:
         payload = json.loads(value)
@@ -134,13 +141,11 @@ def _matches_listing(
         required_terms.append(spec["grade"])
 
     for term in required_terms:
-        normalised_term = _normalise_text(term)
-        if normalised_term and normalised_term not in normalised_title:
+        if not _contains_term(normalised_title, term):
             return False
 
     for term in spec["forbidden_title_terms"]:
-        normalised_term = _normalise_text(term)
-        if normalised_term and normalised_term in normalised_title:
+        if _contains_term(normalised_title, term):
             return False
 
     return True
