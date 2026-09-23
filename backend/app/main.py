@@ -5,7 +5,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
@@ -27,6 +27,14 @@ def _valid_request_id(value: str | None) -> str:
         except ValueError:
             pass
     return str(uuid4())
+
+
+def _dashboard_html() -> str:
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    intake_script = '<script src="/assets/inventory-intake.js" defer></script>'
+    if intake_script not in html:
+        html = html.replace("</body>", f"  {intake_script}\n</body>")
+    return html
 
 
 def create_app() -> FastAPI:
@@ -72,8 +80,8 @@ def create_app() -> FastAPI:
         return response
 
     @app.get("/", include_in_schema=False)
-    async def dashboard() -> FileResponse:
-        return FileResponse(STATIC_DIR / "index.html")
+    async def dashboard() -> HTMLResponse:
+        return HTMLResponse(_dashboard_html())
 
     @app.get("/api/v1/public-config", include_in_schema=False)
     async def public_config() -> dict:
