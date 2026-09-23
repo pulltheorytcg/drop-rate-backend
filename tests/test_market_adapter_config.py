@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from app.cardmarket_parse_adapter import CardmarketParseAdapter
 from app.collectr_parse_adapter import CollectrParseAdapter
+from app.ebay_uk_parse_adapter import EbayUkParseAdapter
 from app.fx import FxQuote
 from app.market_adapter_config import configure_market_adapters
 from app.settings import Settings
@@ -53,7 +54,12 @@ def test_parse_key_absent_keeps_parse_adapters_unregistered(monkeypatch) -> None
 
     result = configure_market_adapters(settings(parse_api_key=None), fx_provider=FakeFxProvider())
 
-    assert result == {"TCGPLAYER": False, "CARDMARKET": False, "COLLECTR": False}
+    assert result == {
+        "EBAY": False,
+        "TCGPLAYER": False,
+        "CARDMARKET": False,
+        "COLLECTR": False,
+    }
     assert registered == []
 
 
@@ -69,11 +75,17 @@ def test_parse_key_and_fx_provider_register_market_adapters(monkeypatch) -> None
         fx_provider=FakeFxProvider(),
     )
 
-    assert result == {"TCGPLAYER": True, "CARDMARKET": True, "COLLECTR": True}
-    assert len(registered) == 3
-    assert isinstance(registered[0], TcgplayerParseAdapter)
-    assert isinstance(registered[1], CardmarketParseAdapter)
-    assert isinstance(registered[2], CollectrParseAdapter)
+    assert result == {
+        "EBAY": True,
+        "TCGPLAYER": True,
+        "CARDMARKET": True,
+        "COLLECTR": True,
+    }
+    assert len(registered) == 4
+    assert isinstance(registered[0], EbayUkParseAdapter)
+    assert isinstance(registered[1], TcgplayerParseAdapter)
+    assert isinstance(registered[2], CardmarketParseAdapter)
+    assert isinstance(registered[3], CollectrParseAdapter)
 
 
 def test_default_ecb_provider_is_lazy_and_does_not_call_network_at_configuration(monkeypatch) -> None:
@@ -94,9 +106,15 @@ def test_default_ecb_provider_is_lazy_and_does_not_call_network_at_configuration
 
     result = configure_market_adapters(settings(parse_api_key="secret-test-key"))
 
-    assert result == {"TCGPLAYER": True, "CARDMARKET": True, "COLLECTR": True}
-    assert len(registered) == 3
-    assert isinstance(registered[0], TcgplayerParseAdapter)
-    assert isinstance(registered[1], CardmarketParseAdapter)
-    assert isinstance(registered[2], CollectrParseAdapter)
+    assert result == {
+        "EBAY": True,
+        "TCGPLAYER": True,
+        "CARDMARKET": True,
+        "COLLECTR": True,
+    }
+    assert len(registered) == 4
+    assert isinstance(registered[0], EbayUkParseAdapter)
+    assert isinstance(registered[1], TcgplayerParseAdapter)
+    assert isinstance(registered[2], CardmarketParseAdapter)
+    assert isinstance(registered[3], CollectrParseAdapter)
     assert network_calls == []
