@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .db import create_pool
+from .finance import router as finance_router
 from .imports import router as imports_router
 from .inventory_intake import router as inventory_intake_router
 from .inventory_state import router as inventory_state_router
@@ -35,6 +36,7 @@ def _dashboard_html() -> str:
     scripts = (
         '<script src="/assets/inventory-intake.js" defer></script>',
         '<script src="/assets/inventory-imports.js" defer></script>',
+        '<script src="/assets/founder-finance.js" defer></script>',
     )
     for script in scripts:
         if script not in html:
@@ -55,7 +57,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Drop Rate API",
-        version="1.0.0",
+        version="1.1.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -112,6 +114,7 @@ def create_app() -> FastAPI:
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(router)
+    app.include_router(finance_router)
     app.include_router(imports_router)
     app.include_router(inventory_intake_router)
     app.include_router(inventory_state_router)
