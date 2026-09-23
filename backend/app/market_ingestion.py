@@ -18,6 +18,7 @@ from .market_adapters import (
     adapter_availability,
     get_adapter,
 )
+from .parse_client import ParseApiError
 
 
 router = APIRouter(prefix="/api/v1/market", tags=["market-data"])
@@ -62,6 +63,28 @@ def derive_run_status(*, mapping_count: int, failed_mapping_count: int, accepted
     if failed_mapping_count >= mapping_count and accepted_count == 0:
         return "FAILED"
     return "PARTIAL"
+
+
+def safe_ingestion_error(exc: Exception) -> dict[str, object]:
+    """Return a persistence-safe error payload without provider secrets or raw bodies."""
+    if isinstance(exc, ParseApiError):
+        return {
+            "detail": exc.detail,
+            "provider_status_code": exc.status_code,
+            "retryable": exc.retryable,
+            "error_type": "PROVIDER_ERROR",
+        }
+    if isinstance(exc, (ValueError, TypeError)):
+        return {
+            "detail": "Provider data failed validation",
+            "retryable": False,
+            "error_type": "VALIDATION_ERROR",
+        }
+    return {
+        "detail": "Unexpected market ingestion failure",
+        "retryable": False,
+        "error_type": "INTERNAL_ERROR",
+    }
 
 
 async def _record_run(
@@ -239,11 +262,12 @@ async def execute_source_ingestion(
                     duplicate_count += 1
         except Exception as exc:
             failed_mapping_count += 1
+            safe_error = safe_ingestion_error(exc)
             errors.append(
                 {
                     "mapping_id": str(mapping["id"]),
                     "catalogue_id": str(mapping["catalogue_id"]),
-                    "detail": str(exc)[:500],
+                    **safe_error,
                 }
             )
 

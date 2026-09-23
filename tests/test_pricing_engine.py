@@ -138,3 +138,24 @@ def test_no_comparable_observations_fails_closed() -> None:
     observations = [obs("EBAY", 10000, language="Japanese")]
     with pytest.raises(ValueError, match="No comparable"):
         calculate_price(observations, target=target(), as_of=NOW)
+
+
+def test_us_and_global_only_evidence_cannot_set_uk_market_value() -> None:
+    observations = [
+        obs("TCGPLAYER", 15000, country="US", sample_size=8),
+        obs("COLLECTR", 14800, kind="MARKET_AGGREGATE", sample_size=8),
+    ]
+    with pytest.raises(ValueError, match="No UK/EU market anchor"):
+        calculate_price(observations, target=target(), as_of=NOW)
+
+
+def test_extreme_us_price_does_not_move_displayed_uk_market_value() -> None:
+    observations = [
+        obs("EBAY", 10000, country="GB", sample_size=5),
+        obs("CARDMARKET", 10100, kind="MARKET_AGGREGATE", sample_size=8),
+        obs("TCGPLAYER", 30000, country="US", sample_size=8),
+        obs("COLLECTR", 28000, kind="MARKET_AGGREGATE", sample_size=8),
+    ]
+    result = calculate_price(observations, target=target(), as_of=NOW)
+    assert 10000 <= result.market_value_minor <= 10100
+    assert result.market_value_minor not in (28000, 30000)
