@@ -65,6 +65,14 @@ def test_smoke_diagnostic_logging_is_isolated_by_savepoint() -> None:
     assert '"stage": "PROVIDER_FETCH_OR_VALIDATION"' in source
 
 
+def test_provider_wait_does_not_hold_one_long_database_transaction() -> None:
+    source = SMOKE.read_text()
+    assert "select clock_timestamp()" in source
+    assert "No database connection or transaction is held while waiting on Parse/eBay." in source
+    assert source.count("async with user_connection(") >= 3
+    assert source.index("await adapter.fetch_observations(") > source.index("started_at = await connection.fetchval")
+
+
 def test_smoke_failure_is_visible_in_safe_runtime_logs() -> None:
     source = SMOKE.read_text()
     assert "market_smoke_failed" in source

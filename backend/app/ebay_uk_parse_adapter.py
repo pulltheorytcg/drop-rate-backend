@@ -24,10 +24,24 @@ def _normalise_text(value: object) -> str:
 
 
 def _contains_term(normalised_title: str, term: object) -> bool:
+    """Match a verified identity term by tokens, not seller word order.
+
+    eBay titles are free-form, so the same card identity is commonly written as
+    ``Monkey.D.Luffy``, ``Monkey D Luffy`` or ``Luffy Monkey D``. We still
+    require every token from every verified term to be present as a complete
+    token; we simply do not require those tokens to be adjacent or ordered.
+
+    This deliberately is not fuzzy matching: ``063`` will not match ``63`` and
+    grade ``9`` will not match ``90``. Strong identifiers therefore remain
+    strict while punctuation and seller title ordering can vary safely.
+    """
+
     normalised_term = _normalise_text(term)
     if not normalised_term:
         return False
-    return f" {normalised_term} " in f" {normalised_title} "
+    title_tokens = set(normalised_title.split())
+    term_tokens = normalised_term.split()
+    return all(token in title_tokens for token in term_tokens)
 
 
 def _parse_mapping_spec(value: str) -> dict[str, Any]:
@@ -187,9 +201,11 @@ class EbayUkParseAdapter:
     """eBay UK adapter using the user-approved Parse API.
 
     VERIFIED mappings use a strict JSON search identity in source_product_id.
-    Search results are accepted only when their titles satisfy every verified
-    required term and none of the forbidden terms. This prevents eBay Best Match
-    from silently substituting a different card, printing, grade or proxy.
+    Search results are accepted only when their titles contain every token from
+    every verified required term and none of the forbidden terms. Token order
+    and punctuation may vary, but identifiers, variant markers and grades stay
+    exact. This prevents eBay Best Match from silently substituting a different
+    card, printing, grade or proxy while tolerating normal seller wording.
 
     eBay UK sold/completed results are SOLD evidence. Active search results are
     ACTIVE evidence only; an active result's display badge such as "99+ sold" is

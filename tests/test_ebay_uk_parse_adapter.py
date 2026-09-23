@@ -2,7 +2,11 @@ import json
 
 import pytest
 
-from app.ebay_uk_parse_adapter import EbayUkParseAdapter
+from app.ebay_uk_parse_adapter import (
+    EbayUkParseAdapter,
+    _contains_term,
+    _normalise_text,
+)
 
 
 CATALOGUE_ID = "11111111-1111-1111-1111-111111111111"
@@ -110,6 +114,18 @@ class FakePsaParseClient:
                 },
             ]
         }
+
+
+def test_identity_terms_ignore_punctuation_and_seller_word_order() -> None:
+    title = _normalise_text("ONE PIECE OP05-119 SEC Luffy Monkey D Japanese Card")
+    assert _contains_term(title, "Monkey.D.Luffy")
+    assert _contains_term(title, "OP05-119")
+
+
+def test_identity_terms_remain_exact_tokens_not_fuzzy_substrings() -> None:
+    title = _normalise_text("Pokemon Charizard 40/102 PSA 100")
+    assert not _contains_term(title, "4/102")
+    assert not _contains_term(title, "10")
 
 
 @pytest.mark.asyncio
