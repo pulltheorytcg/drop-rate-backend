@@ -109,9 +109,17 @@ async def list_inventory(
     search: str | None = Query(default=None, max_length=200),
     status_filter: str | None = Query(default=None, alias="status", max_length=30),
     issue: ReadinessIssue | None = Query(default=None),
+    storage_location_id: UUID | None = Query(default=None),
+    unlocated: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> dict:
+    if storage_location_id is not None and unlocated:
+        raise HTTPException(
+            status_code=422,
+            detail="Choose either a storage location or unlocated inventory, not both",
+        )
+
     search_value = (search or "").strip()
     async with user_connection(
         request.app.state.db_pool, user.user_id, _request_id(request)
@@ -130,6 +138,7 @@ async def list_inventory(
                     or p.set_name ilike ${index}
                     or coalesce(p.card_number, '') ilike ${index}
                     or p.game ilike ${index}
+                    or coalesce(i.location, '') ilike ${index}
                 )"""
             )
         if status_filter:
@@ -137,6 +146,11 @@ async def list_inventory(
             filters.append(f"i.status = ${len(params)}")
         if issue:
             filters.append(ISSUE_FILTERS[issue])
+        if storage_location_id is not None:
+            params.append(storage_location_id)
+            filters.append(f"i.storage_location_id = ${len(params)}")
+        if unlocated:
+            filters.append("i.storage_location_id is null")
 
         where = " and ".join(filters)
         total = await connection.fetchval(
@@ -151,8 +165,9 @@ async def list_inventory(
             select
                 i.id, i.inventory_code, i.acquisition_cost_minor, i.acquisition_date,
                 i.currency, i.condition, i.grading_company, i.grade,
-                i.certificate_number, i.language, i.location, i.store_price_minor,
-                i.imported_valuation_minor, i.imported_valuation_date,
+                i.certificate_number, i.language, i.location, i.storage_location_id,
+                sl.code as storage_location_code, sl.label as storage_location_label,
+                i.store_price_minor, i.imported_valuation_minor, i.imported_valuation_date,
                 i.imported_price_override_minor, i.identity_confirmed, i.status,
                 i.notes, i.version, i.created_at, i.updated_at, i.purchase_lot_id,
                 pl.lot_code as purchase_lot_code,
@@ -161,6 +176,7 @@ async def list_inventory(
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id = i.catalogue_id
             left join tcg.purchase_lots pl on pl.id = i.purchase_lot_id
+            left join tcg.storage_locations sl on sl.id = i.storage_location_id
             where {where}
             order by i.updated_at desc, i.inventory_code
             limit ${len(params) - 1} offset ${len(params)}
@@ -184,11 +200,31 @@ async def update_inventory(
     expected_version = values.pop("version")
     if not values:
         raise HTTPException(status_code=422, detail="At least one editable field is required")
+    if "location" in values:
+        raise HTTPException(
+            status_code=422,
+            detail="Physical location must be changed using a registered storage location",
+        )
 
     async with user_connection(
         request.app.state.db_pool, user.user_id, _request_id(request)
     ) as connection:
         owner = await _owner(connection)
+
+        if "storage_location_id" in values and values["storage_location_id"] is not None:
+            visible_location = await connection.fetchrow(
+                """
+                select id, active from tcg.storage_locations
+                where id = $1 and owner_id = $2
+                """,
+                values["storage_location_id"],
+                owner["id"],
+            )
+            if visible_location is None:
+                raise HTTPException(status_code=404, detail="Storage location not found")
+            if not visible_location["active"]:
+                raise HTTPException(status_code=422, detail="Cannot assign inventory to an inactive location")
+
         assignments: list[str] = []
         params: list[object] = [inventory_id, owner["id"], expected_version]
         for column, value in values.items():

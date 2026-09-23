@@ -11,6 +11,7 @@ InventoryStatus = Literal["DRAFT", "INSPECTION", "APPROVED", "WITHDRAWN"]
 EditableInventoryStatus = Literal["DRAFT", "INSPECTION", "WITHDRAWN"]
 AllocationMethod = Literal["MANUAL", "EQUAL", "VALUE_WEIGHTED"]
 SealStatus = Literal["SEALED", "UNSEALED"]
+StorageLocationType = Literal["BINDER", "BOX", "SHELF", "DRAWER", "VAULT", "DISPLAY", "OTHER"]
 ReadinessIssue = Literal[
     "missing_cost",
     "missing_condition",
@@ -32,6 +33,7 @@ class InventoryPatch(BaseModel):
     certificate_number: str | None = Field(default=None, max_length=120)
     language: str | None = Field(default=None, max_length=80)
     location: str | None = Field(default=None, max_length=160)
+    storage_location_id: UUID | None = None
     store_price_minor: int | None = Field(default=None, ge=0)
     identity_confirmed: bool | None = None
     status: EditableInventoryStatus | None = None
@@ -153,6 +155,63 @@ class PurchaseLotAllocation(BaseModel):
 
     @model_validator(mode="after")
     def validate_items(self) -> "PurchaseLotAllocation":
+        ids = [item.inventory_id for item in self.items]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Each inventory item may appear only once")
+        return self
+
+
+class StorageLocationCreate(BaseModel):
+    code: str = Field(min_length=2, max_length=80)
+    label: str = Field(min_length=1, max_length=160)
+    location_type: StorageLocationType
+    notes: str = Field(default="", max_length=1000)
+
+    @model_validator(mode="after")
+    def normalise(self) -> "StorageLocationCreate":
+        self.code = self.code.upper().strip()
+        self.label = self.label.strip()
+        self.notes = self.notes.strip()
+        if not self.label:
+            raise ValueError("label cannot be blank")
+        return self
+
+
+class StorageLocationPatch(BaseModel):
+    version: int = Field(ge=1)
+    label: str | None = Field(default=None, max_length=160)
+    location_type: StorageLocationType | None = None
+    active: bool | None = None
+    notes: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def validate_patch(self) -> "StorageLocationPatch":
+        supplied = self.model_fields_set - {"version"}
+        if not supplied:
+            raise ValueError("At least one storage location field is required")
+        if "label" in supplied:
+            if self.label is None or not self.label.strip():
+                raise ValueError("label cannot be blank")
+            self.label = self.label.strip()
+        if "location_type" in supplied and self.location_type is None:
+            raise ValueError("location_type cannot be blank")
+        if "active" in supplied and self.active is None:
+            raise ValueError("active cannot be blank")
+        if "notes" in supplied:
+            self.notes = (self.notes or "").strip()
+        return self
+
+
+class StorageLocationAssignmentItem(BaseModel):
+    inventory_id: UUID
+    version: int = Field(ge=1)
+
+
+class StorageLocationAssignment(BaseModel):
+    items: list[StorageLocationAssignmentItem] = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_items(self) -> "StorageLocationAssignment":
         ids = [item.inventory_id for item in self.items]
         if len(ids) != len(set(ids)):
             raise ValueError("Each inventory item may appear only once")
