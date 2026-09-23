@@ -36,6 +36,9 @@ create index import_candidates_batch_status_idx
     on tcg.import_candidates(batch_id, status, source_row);
 create index import_candidates_owner_created_idx
     on tcg.import_candidates(owner_id, created_at desc);
+create index import_candidates_catalogue_idx
+    on tcg.import_candidates(catalogue_id)
+    where catalogue_id is not null;
 
 alter table tcg.import_candidates enable row level security;
 
