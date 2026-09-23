@@ -74,7 +74,8 @@ def test_dashboard_shell_has_expected_seller_views() -> None:
     js = (STATIC / "dashboard-shell.js").read_text()
     for view in ("dashboard", "inventory", "sales", "reports", "balance", "settings"):
         assert f'["{view}",' in js
-    assert 'apiRequest("/api/v1/pricing/adapters")' in js
+    assert 'apiRequest("/api/v1/market/status")' in js
+    assert 'apiRequest("/api/v1/pricing/inventory?limit=8&offset=0")' in js
     assert "history.replaceState" in js
 
 
