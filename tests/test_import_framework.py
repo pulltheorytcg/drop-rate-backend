@@ -1,6 +1,9 @@
+import pytest
+
 from app.imports import (
     _detect_adapter,
     _field_map,
+    _json_value,
     _money_minor,
     _normalized_row,
     _quantity,
@@ -37,6 +40,24 @@ def test_non_gbp_cost_is_flagged_not_converted() -> None:
     value, issues = _money_minor("10.00", "USD")
     assert value is None
     assert issues == ["non_gbp_purchase_cost"]
+
+
+def test_persisted_json_decodes_text_or_accepts_decoded_value() -> None:
+    payload = {"condition": "Near Mint", "acquisition_cost_minor": None}
+    assert _json_value(payload, expected_type=dict, fallback={}) == payload
+    assert _json_value(
+        '{"condition":"Near Mint","acquisition_cost_minor":null}',
+        expected_type=dict,
+        fallback={},
+    ) == payload
+    assert _json_value('["catalogue_not_found"]', expected_type=list, fallback=[]) == [
+        "catalogue_not_found"
+    ]
+
+
+def test_persisted_json_rejects_wrong_shape() -> None:
+    with pytest.raises(ValueError, match="unexpected shape"):
+        _json_value('["not", "a", "dict"]', expected_type=dict, fallback={})
 
 
 def test_card_condition_uses_tcgplayer_scale() -> None:
