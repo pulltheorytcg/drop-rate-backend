@@ -42,10 +42,13 @@ def test_smoke_request_limits_provider_identity_size() -> None:
         )
 
 
-def test_smoke_endpoint_is_read_only() -> None:
+def test_smoke_endpoint_logs_diagnostics_but_not_market_data() -> None:
     source = SMOKE.read_text()
     lowered = source.lower()
 
+    assert '"diagnostic": "smoke_test"' in lowered
+    assert "_record_run(" in source
+    assert "inserted_count=0" in source
     assert '"persisted": false' in lowered
     assert "insert into tcg.market_observations" not in lowered
     assert "insert into tcg.pricing_snapshots" not in lowered
