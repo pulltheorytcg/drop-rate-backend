@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field, model_validator
 
@@ -61,10 +61,6 @@ class ImportCandidateResolveRequest(BaseModel):
             raise ValueError("grading_company and grade must be updated together")
         if company_set and ((self.grading_company is None) != (self.grade is None)):
             raise ValueError("grading_company and grade must both be set or both cleared")
-        if "certificate_number" in supplied and self.certificate_number is not None:
-            company = self.grading_company if company_set else None
-            if company is None:
-                raise ValueError("certificate_number requires grading_company and grade")
         if self.condition is not None and self.condition not in CARD_CONDITIONS:
             raise ValueError("condition must use the Drop Rate / TCGplayer condition scale")
         return self
@@ -210,6 +206,56 @@ async def _create_or_reuse_catalogue(
     return catalogue, False
 
 
+@router.get("/{batch_id}/review")
+async def list_import_review_candidates(
+    batch_id: UUID,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> dict:
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        owner = await _owner(connection)
+        batch = await connection.fetchrow(
+            "select id, status, version from tcg.import_batches where id = $1 and owner_id = $2",
+            batch_id,
+            owner["id"],
+        )
+        if batch is None:
+            raise HTTPException(status_code=404, detail="Import batch not found")
+        total = await connection.fetchval(
+            """
+            select count(*) from tcg.import_candidates
+            where batch_id = $1 and owner_id = $2 and status = 'REVIEW'
+            """,
+            batch_id,
+            owner["id"],
+        )
+        rows = await connection.fetch(
+            """
+            select id, source_row, quantity, raw_record, normalized_record,
+                   catalogue_id, status, issues
+            from tcg.import_candidates
+            where batch_id = $1 and owner_id = $2 and status = 'REVIEW'
+            order by source_row, id
+            limit $3 offset $4
+            """,
+            batch_id,
+            owner["id"],
+            limit,
+            offset,
+        )
+        return jsonable_encoder(
+            {
+                "batch": dict(batch),
+                "total": int(total or 0),
+                "limit": limit,
+                "offset": offset,
+                "items": [dict(row) for row in rows],
+            }
+        )
+
+
 @router.post("/{batch_id}/candidates/{candidate_id}/resolve")
 async def resolve_import_candidate(
     batch_id: UUID,
@@ -295,14 +341,15 @@ async def resolve_import_candidate(
                 )
                 quantity = int(normalized.get("quantity") or candidate["quantity"])
                 normalized["quantity"] = quantity
+                next_status = "READY" if not issues else "REVIEW"
                 updated_candidate = await connection.fetchrow(
                     """
                     update tcg.import_candidates
                     set quantity = $2,
                         normalized_record = $3::jsonb,
                         catalogue_id = $4,
-                        status = 'READY',
-                        issues = $5::jsonb
+                        status = $5,
+                        issues = $6::jsonb
                     where id = $1
                     returning *
                     """,
@@ -310,6 +357,7 @@ async def resolve_import_candidate(
                     quantity,
                     json.dumps(normalized),
                     catalogue["id"],
+                    next_status,
                     json.dumps(issues),
                 )
 
