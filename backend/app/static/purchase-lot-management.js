@@ -20,7 +20,7 @@ function ensureLotManagementDialog() {
         <label>Purchase price (£)<input id="manage-price" type="number" min="0" step="0.01" required></label>
         <label>Fees (£)<input id="manage-fees" type="number" min="0" step="0.01" required></label>
         <label>Shipping (£)<input id="manage-shipping" type="number" min="0" step="0.01" required></label>
-        <label>Allocation method<select id="manage-method"><option value="MANUAL">Manual</option><option value="EQUAL">Equal split</option><option value="VALUE_WEIGHTED">Value weighted</option></select></label>
+        <label>Allocation method<select id="manage-method"><option value="MANUAL">Manual</option><option value="EQUAL">Equal split</option></select></label>
         <label class="full-width">Notes<textarea id="manage-notes" maxlength="2000" rows="2"></textarea></label>
       </div>
       <div class="allocation-summary"><span id="manage-count"></span><strong id="manage-summary"></strong></div>
@@ -61,7 +61,7 @@ function renderManagedLot() {
   byId("manage-price").value = minorToInput(lot.purchase_price_minor);
   byId("manage-fees").value = minorToInput(lot.fees_minor);
   byId("manage-shipping").value = minorToInput(lot.shipping_minor);
-  byId("manage-method").value = lot.allocation_method;
+  byId("manage-method").value = ["MANUAL", "EQUAL"].includes(lot.allocation_method) ? lot.allocation_method : "MANUAL";
   byId("manage-notes").value = lot.notes || "";
   byId("manage-count").textContent = `${lot.item_count} item${lot.item_count === 1 ? "" : "s"}`;
   byId("manage-summary").textContent = lot.remaining_cost_minor === 0
@@ -160,7 +160,7 @@ function updateManagedAddSummary() {
 function splitManagedRemaining() {
   const rows = managedAddRows();
   if (!rows.length) return;
-  let amount = managedLot.lot.remaining_cost_minor;
+  const amount = managedLot.lot.remaining_cost_minor;
   const base = Math.floor(amount / rows.length);
   let remainder = amount - (base * rows.length);
   rows.forEach((row) => {
@@ -194,6 +194,8 @@ async function refreshManagedLot(message = "") {
 
 async function saveManagedLot(event) {
   event.preventDefault();
+  const form = event.currentTarget;
+  setBusy(form, true);
   showMessage("lot-manage-message");
   try {
     const payload = {
@@ -216,6 +218,8 @@ async function saveManagedLot(event) {
     showMessage("lot-manage-message", "Purchase lot updated and audit history recorded.", "success");
   } catch (error) {
     showMessage("lot-manage-message", error.message, "error");
+  } finally {
+    setBusy(form, false);
   }
 }
 
