@@ -12,6 +12,7 @@ EditableInventoryStatus = Literal["DRAFT", "INSPECTION", "WITHDRAWN"]
 AllocationMethod = Literal["MANUAL", "EQUAL", "VALUE_WEIGHTED"]
 SealStatus = Literal["SEALED", "UNSEALED"]
 StorageLocationType = Literal["BINDER", "BOX", "SHELF", "DRAWER", "VAULT", "DISPLAY", "OTHER"]
+CatalogueProductType = Literal["CARD", "SEALED", "COLLECTION"]
 ReadinessIssue = Literal[
     "missing_cost",
     "missing_condition",
@@ -215,4 +216,63 @@ class StorageLocationAssignment(BaseModel):
         ids = [item.inventory_id for item in self.items]
         if len(ids) != len(set(ids)):
             raise ValueError("Each inventory item may appear only once")
+        return self
+
+
+class ManualCatalogueCreate(BaseModel):
+    product_type: CatalogueProductType = "CARD"
+    game: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=300)
+    set_name: str = Field(min_length=1, max_length=200)
+    card_number: str | None = Field(default=None, max_length=80)
+    variant: str = Field(default="", max_length=160)
+    rarity: str = Field(default="", max_length=80)
+    language: str | None = Field(default=None, max_length=80)
+
+    @model_validator(mode="after")
+    def normalise(self) -> "ManualCatalogueCreate":
+        self.game = self.game.strip()
+        self.name = self.name.strip()
+        self.set_name = self.set_name.strip()
+        self.card_number = self.card_number.strip() if self.card_number else None
+        self.variant = self.variant.strip()
+        self.rarity = self.rarity.strip()
+        self.language = self.language.strip() if self.language else None
+        if not self.game or not self.name or not self.set_name:
+            raise ValueError("game, name and set_name cannot be blank")
+        if self.product_type == "CARD" and not self.card_number:
+            raise ValueError("card_number is required for a manually created card")
+        return self
+
+
+class ManualInventoryCreate(BaseModel):
+    catalogue_id: UUID | None = None
+    new_catalogue: ManualCatalogueCreate | None = None
+    acquisition_cost_minor: int | None = Field(default=None, ge=0)
+    acquisition_date: date | None = None
+    condition: str | None = Field(default=None, max_length=80)
+    seal_status: SealStatus | None = None
+    grading_company: str | None = Field(default=None, max_length=40)
+    grade: str | None = Field(default=None, max_length=40)
+    certificate_number: str | None = Field(default=None, max_length=120)
+    language: str | None = Field(default=None, max_length=80)
+    storage_location_id: UUID | None = None
+    store_price_minor: int | None = Field(default=None, ge=0)
+    identity_confirmed: bool = False
+    notes: str = Field(default="", max_length=2000)
+
+    @model_validator(mode="after")
+    def validate_intake(self) -> "ManualInventoryCreate":
+        if (self.catalogue_id is None) == (self.new_catalogue is None):
+            raise ValueError("Choose exactly one existing catalogue product or new catalogue product")
+        if (self.grading_company is None) != (self.grade is None):
+            raise ValueError("grading_company and grade must both be set or both cleared")
+        if self.certificate_number and not self.grading_company:
+            raise ValueError("certificate_number requires grading_company and grade")
+        self.condition = self.condition.strip() if self.condition else None
+        self.grading_company = self.grading_company.strip() if self.grading_company else None
+        self.grade = self.grade.strip() if self.grade else None
+        self.certificate_number = self.certificate_number.strip() if self.certificate_number else None
+        self.language = self.language.strip() if self.language else None
+        self.notes = self.notes.strip()
         return self
