@@ -83,15 +83,23 @@ class PurchaseLotCreate(BaseModel):
     currency: str = Field(default="GBP", min_length=3, max_length=3)
     allocation_method: AllocationMethod = "MANUAL"
     notes: str = Field(default="", max_length=2000)
+    items: list[BulkCostItem] = Field(default_factory=list, max_length=500)
 
     @model_validator(mode="after")
-    def normalise_text(self) -> "PurchaseLotCreate":
+    def validate_purchase_lot(self) -> "PurchaseLotCreate":
         self.description = self.description.strip()
         self.source = self.source.strip() if self.source else None
         self.currency = self.currency.upper().strip()
         self.notes = self.notes.strip()
         if not self.description:
             raise ValueError("description cannot be blank")
+        ids = [item.inventory_id for item in self.items]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Each inventory item may appear only once")
+        landed_cost = self.purchase_price_minor + self.fees_minor + self.shipping_minor
+        allocated = sum(item.acquisition_cost_minor for item in self.items)
+        if allocated > landed_cost:
+            raise ValueError("Allocated item costs cannot exceed the landed purchase cost")
         return self
 
 
