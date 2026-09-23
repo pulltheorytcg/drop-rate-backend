@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -55,6 +55,50 @@ def _manual_identity_key(product: ManualCatalogueCreate) -> str:
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     return f"manual:v1:{digest}"
+
+
+def _manual_intake_payload_hash(payload: ManualInventoryCreate) -> str:
+    canonical = payload.model_dump(mode="json")
+    return hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+async def _existing_receipt(
+    connection: asyncpg.Connection,
+    owner_id: UUID,
+    request_key: UUID,
+) -> asyncpg.Record | None:
+    return await connection.fetchrow(
+        """
+        select payload_hash, response
+        from tcg.request_receipts
+        where owner_id = $1 and request_key = $2
+        """,
+        owner_id,
+        request_key,
+    )
+
+
+def _receipt_response(receipt: Any, payload_hash: str) -> dict:
+    if receipt["payload_hash"] != payload_hash:
+        raise HTTPException(
+            status_code=409,
+            detail="Idempotency-Key was already used with a different inventory intake payload",
+        )
+
+    stored = receipt["response"]
+    if isinstance(stored, str):
+        try:
+            stored = json.loads(stored)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Stored intake receipt JSON is invalid") from exc
+    if not isinstance(stored, dict):
+        raise RuntimeError("Stored intake receipt has an invalid response shape")
+
+    replay = dict(stored)
+    replay["replayed"] = True
+    return replay
 
 
 async def _find_exact_catalogue(
@@ -247,6 +291,8 @@ async def create_inventory_intake(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Idempotency-Key must be a UUID") from exc
 
+    payload_hash = _manual_intake_payload_hash(payload)
+
     async with user_connection(
         request.app.state.db_pool,
         user.user_id,
@@ -254,9 +300,19 @@ async def create_inventory_intake(
     ) as connection:
         owner = await _owner(connection)
 
+        receipt = await _existing_receipt(connection, owner["id"], request_key)
+        if receipt is not None:
+            return jsonable_encoder(_receipt_response(receipt, payload_hash))
+
+        # There are no legacy manual intakes in production at rollout time. If an
+        # inventory row ever exists without its matching receipt, fail closed: we
+        # cannot prove that a reused key represents the same original request.
         existing = await _existing_intake(connection, owner["id"], request_key)
         if existing is not None:
-            return jsonable_encoder(_existing_response(existing))
+            raise HTTPException(
+                status_code=409,
+                detail="Idempotency-Key already exists without a verifiable intake receipt",
+            )
 
         catalogue_created = False
         catalogue_reused = False
@@ -365,12 +421,15 @@ async def create_inventory_intake(
         )
 
         if inventory is None:
-            existing = await _existing_intake(connection, owner["id"], request_key)
-            if existing is None:
-                raise HTTPException(status_code=409, detail="Inventory intake conflicted. Retry with the same Idempotency-Key.")
-            return jsonable_encoder(_existing_response(existing))
+            receipt = await _existing_receipt(connection, owner["id"], request_key)
+            if receipt is not None:
+                return jsonable_encoder(_receipt_response(receipt, payload_hash))
+            raise HTTPException(
+                status_code=409,
+                detail="Inventory intake conflicted without a verifiable receipt; retry with a new Idempotency-Key",
+            )
 
-        return jsonable_encoder(
+        response = jsonable_encoder(
             {
                 "inventory": dict(inventory),
                 "catalogue": dict(catalogue),
@@ -379,3 +438,23 @@ async def create_inventory_intake(
                 "replayed": False,
             }
         )
+
+        receipt_insert = await connection.fetchrow(
+            """
+            insert into tcg.request_receipts(owner_id, request_key, payload_hash, response)
+            values ($1, $2, $3, $4::jsonb)
+            on conflict (owner_id, request_key) do nothing
+            returning id
+            """,
+            owner["id"],
+            request_key,
+            payload_hash,
+            json.dumps(response),
+        )
+        if receipt_insert is None:
+            receipt = await _existing_receipt(connection, owner["id"], request_key)
+            if receipt is None:
+                raise HTTPException(status_code=409, detail="Inventory intake receipt conflicted; retry")
+            return jsonable_encoder(_receipt_response(receipt, payload_hash))
+
+        return response
