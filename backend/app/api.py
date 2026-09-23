@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import asyncpg
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
@@ -14,6 +14,8 @@ from .schemas import (
     BulkCostAllocation,
     InventoryApproval,
     InventoryPatch,
+    PurchaseLotAllocation,
+    PurchaseLotCreate,
     ReadinessIssue,
 )
 
@@ -152,11 +154,13 @@ async def list_inventory(
                 i.certificate_number, i.language, i.location, i.store_price_minor,
                 i.imported_valuation_minor, i.imported_valuation_date,
                 i.imported_price_override_minor, i.identity_confirmed, i.status,
-                i.notes, i.version, i.created_at, i.updated_at,
+                i.notes, i.version, i.created_at, i.updated_at, i.purchase_lot_id,
+                pl.lot_code as purchase_lot_code,
                 p.id as catalogue_id, p.product_type, p.game, p.name, p.set_name,
                 p.card_number, p.variant, p.rarity, p.language as catalogue_language
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id = i.catalogue_id
+            left join tcg.purchase_lots pl on pl.id = i.purchase_lot_id
             where {where}
             order by i.updated_at desc, i.inventory_code
             limit ${len(params) - 1} offset ${len(params)}
@@ -293,6 +297,167 @@ async def allocate_bulk_cost(
         return jsonable_encoder({
             "total_cost_minor": payload.total_cost_minor,
             "updated_count": len(updated), "items": updated,
+        })
+
+
+@router.get("/purchase-lots")
+async def list_purchase_lots(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, _request_id(request)
+    ) as connection:
+        owner = await _owner(connection)
+        rows = await connection.fetch(
+            """
+            select
+                pl.id, pl.lot_code, pl.description, pl.source, pl.purchase_date,
+                pl.purchase_price_minor, pl.fees_minor, pl.shipping_minor,
+                pl.total_cost_minor, pl.currency, pl.allocation_method, pl.notes,
+                pl.version, pl.created_at, pl.updated_at,
+                count(i.id)::int as item_count,
+                coalesce(sum(i.acquisition_cost_minor), 0)::bigint as allocated_cost_minor,
+                (pl.total_cost_minor - coalesce(sum(i.acquisition_cost_minor), 0))::bigint
+                    as remaining_cost_minor
+            from tcg.purchase_lots pl
+            left join tcg.inventory_items i on i.purchase_lot_id = pl.id
+            where pl.owner_id = $1
+            group by pl.id
+            order by pl.created_at desc
+            """,
+            owner["id"],
+        )
+        return jsonable_encoder({"items": [dict(row) for row in rows]})
+
+
+@router.post("/purchase-lots", status_code=201)
+async def create_purchase_lot(
+    payload: PurchaseLotCreate,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, _request_id(request)
+    ) as connection:
+        owner = await _owner(connection)
+        lot_id = uuid4()
+        year = payload.purchase_date.year if payload.purchase_date else 0
+        prefix = str(year) if year else "UNDATED"
+        lot_code = f"LOT-{prefix}-{lot_id.hex[:8].upper()}"
+        row = await connection.fetchrow(
+            """
+            insert into tcg.purchase_lots(
+                id, owner_id, lot_code, description, source, purchase_date,
+                purchase_price_minor, fees_minor, shipping_minor, currency,
+                allocation_method, notes
+            ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            returning *
+            """,
+            lot_id, owner["id"], lot_code, payload.description, payload.source,
+            payload.purchase_date, payload.purchase_price_minor, payload.fees_minor,
+            payload.shipping_minor, payload.currency, payload.allocation_method,
+            payload.notes,
+        )
+        return jsonable_encoder(dict(row))
+
+
+@router.post("/purchase-lots/{lot_id}/allocate")
+async def allocate_purchase_lot(
+    lot_id: UUID,
+    payload: PurchaseLotAllocation,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, _request_id(request)
+    ) as connection:
+        owner = await _owner(connection)
+        lot = await connection.fetchrow(
+            """select * from tcg.purchase_lots
+            where id = $1 and owner_id = $2 for update""",
+            lot_id, owner["id"],
+        )
+        if lot is None:
+            raise HTTPException(status_code=404, detail="Purchase lot not found")
+        if lot["version"] != payload.version:
+            raise HTTPException(status_code=409, detail={
+                "message": "Purchase lot changed", "current_version": lot["version"],
+            })
+
+        ids = [item.inventory_id for item in payload.items]
+        rows = await connection.fetch(
+            """select id, version, purchase_lot_id from tcg.inventory_items
+            where owner_id = $1 and id = any($2::uuid[]) order by id for update""",
+            owner["id"], ids,
+        )
+        if len(rows) != len(ids):
+            raise HTTPException(status_code=404, detail="One or more inventory items were not found")
+
+        current = {row["id"]: row for row in rows}
+        stale = [
+            {"inventory_id": str(item.inventory_id), "current_version": current[item.inventory_id]["version"]}
+            for item in payload.items
+            if current[item.inventory_id]["version"] != item.version
+        ]
+        if stale:
+            raise HTTPException(status_code=409, detail={
+                "message": "One or more inventory items changed", "items": stale,
+            })
+
+        conflicts = [
+            str(item.inventory_id) for item in payload.items
+            if current[item.inventory_id]["purchase_lot_id"] not in (None, lot_id)
+        ]
+        if conflicts:
+            raise HTTPException(status_code=409, detail={
+                "message": "One or more inventory items already belong to another purchase lot",
+                "items": conflicts,
+            })
+
+        existing_other_cost = await connection.fetchval(
+            """select coalesce(sum(acquisition_cost_minor), 0)
+            from tcg.inventory_items
+            where purchase_lot_id = $1 and not (id = any($2::uuid[]))""",
+            lot_id, ids,
+        )
+        proposed_cost = sum(item.acquisition_cost_minor for item in payload.items)
+        final_allocated_cost = existing_other_cost + proposed_cost
+        if final_allocated_cost > lot["total_cost_minor"]:
+            raise HTTPException(status_code=422, detail={
+                "message": "Allocation exceeds purchase lot total",
+                "total_cost_minor": lot["total_cost_minor"],
+                "proposed_allocated_cost_minor": final_allocated_cost,
+            })
+
+        updated = []
+        for item in payload.items:
+            row = await connection.fetchrow(
+                """update tcg.inventory_items
+                set purchase_lot_id = $1, acquisition_cost_minor = $2,
+                    acquisition_date = $3, currency = $4,
+                    version = version + 1, updated_at = now()
+                where id = $5 and owner_id = $6 and version = $7
+                returning id, inventory_code, purchase_lot_id,
+                    acquisition_cost_minor, acquisition_date, currency, version""",
+                lot_id, item.acquisition_cost_minor, lot["purchase_date"],
+                lot["currency"], item.inventory_id, owner["id"], item.version,
+            )
+            updated.append(dict(row))
+
+        lot_row = await connection.fetchrow(
+            """update tcg.purchase_lots
+            set version = version + 1, updated_at = now()
+            where id = $1 and owner_id = $2 and version = $3
+            returning *""",
+            lot_id, owner["id"], payload.version,
+        )
+        return jsonable_encoder({
+            "lot": dict(lot_row),
+            "allocated_cost_minor": final_allocated_cost,
+            "remaining_cost_minor": lot["total_cost_minor"] - final_allocated_cost,
+            "updated_count": len(updated),
+            "items": updated,
         })
 
 
