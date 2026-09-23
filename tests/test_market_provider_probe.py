@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from app.market_provider_probe import COLLECTR_PROBE_SCRAPER_ID, PROBES, _summarise_payload
 
 
@@ -17,6 +19,13 @@ def test_probe_matrix_is_exactly_five_free_tier_calls() -> None:
         "TCGPlayer search",
         "Collectr search",
     ]
+    assert [probe["result_key"] for probe in PROBES] == [
+        "items",
+        "items",
+        "results",
+        "cards",
+        "items",
+    ]
 
 
 def test_collectr_probe_uses_current_canonical_parse_api() -> None:
@@ -26,22 +35,32 @@ def test_collectr_probe_uses_current_canonical_parse_api() -> None:
     assert collectr["endpoint"] == "search_cards"
 
 
-def test_probe_summary_returns_counts_and_safe_samples_only() -> None:
+def test_probe_summary_counts_only_canonical_result_array() -> None:
     summary = _summarise_payload(
         {
-            "items": [
+            "available_sets": [{"name": f"set-{index}"} for index in range(151)],
+            "cards": [
                 {
-                    "title": "Charizard 4/102",
-                    "price": "£100.00",
+                    "name": "Charizard",
+                    "market_price": 100,
                     "secret": "must-not-leak",
                 }
+                for _ in range(10)
             ],
-            "query": "Charizard",
-        }
+        },
+        result_key="cards",
     )
-    assert summary["list_counts"] == {"items": 1}
-    assert summary["samples"] == [{"title": "Charizard 4/102", "price": "£100.00"}]
+    assert summary["list_counts"] == {"available_sets": 151, "cards": 10}
+    assert summary["result_key"] == "cards"
+    assert summary["result_count"] == 10
+    assert len(summary["samples"]) == 3
+    assert summary["samples"][0] == {"name": "Charizard", "market_price": 100}
     assert "secret" not in summary["samples"][0]
+
+
+def test_probe_summary_rejects_unexpected_response_shape() -> None:
+    with pytest.raises(ValueError, match="expected result array"):
+        _summarise_payload({"available_sets": []}, result_key="cards")
 
 
 def test_probe_uses_current_parse_release_and_never_persists() -> None:
