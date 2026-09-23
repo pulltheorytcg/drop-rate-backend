@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import router
 from .db import create_pool
 from .finance import router as finance_router
+from .import_resolution import router as import_resolution_router
 from .imports import router as imports_router
 from .inventory_intake import router as inventory_intake_router
 from .inventory_state import router as inventory_state_router
@@ -39,6 +40,7 @@ def _dashboard_html() -> str:
     scripts = (
         '<script src="/assets/inventory-intake.js" defer></script>',
         '<script src="/assets/inventory-imports.js" defer></script>',
+        '<script src="/assets/inventory-import-review.js" defer></script>',
         '<script src="/assets/founder-finance.js" defer></script>',
         '<script src="/assets/dashboard-shell.js" defer></script>',
     )
@@ -61,7 +63,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Drop Rate API",
-        version="1.5.0",
+        version="1.6.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -123,6 +125,7 @@ def create_app() -> FastAPI:
     app.include_router(pricing_router)
     app.include_router(market_ingestion_router)
     app.include_router(imports_router)
+    app.include_router(import_resolution_router)
     app.include_router(inventory_intake_router)
     app.include_router(inventory_state_router)
     app.include_router(purchase_lots_router)
