@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -8,6 +9,7 @@ import httpx
 
 
 PARSE_API_BASE_URL = "https://api.parse.bot"
+logger = logging.getLogger("uvicorn.error")
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +22,33 @@ class ParseApiError(Exception):
 
     def __str__(self) -> str:
         return self.detail
+
+
+def _response_shape_diagnostics(data: dict[str, Any]) -> tuple[list[str], dict[str, int], list[str]]:
+    """Return a secret-safe summary of a Parse response for live diagnostics.
+
+    We deliberately keep this to field names, list sizes and a few listing titles.
+    API keys, request headers, URLs and raw response bodies are never logged.
+    """
+
+    keys = sorted(str(key) for key in data)
+    list_counts: dict[str, int] = {}
+    sample_titles: list[str] = []
+
+    for key, value in data.items():
+        if not isinstance(value, list):
+            continue
+        list_counts[str(key)] = len(value)
+        if sample_titles:
+            continue
+        for item in value[:5]:
+            if not isinstance(item, dict):
+                continue
+            title = item.get("title")
+            if isinstance(title, str) and title.strip():
+                sample_titles.append(title.strip()[:200])
+
+    return keys, list_counts, sample_titles
 
 
 class ParseHttpClient:
@@ -144,4 +173,13 @@ class ParseHttpClient:
         data = payload.get("data", payload)
         if not isinstance(data, dict):
             raise ParseApiError("Provider response data must be an object")
+
+        keys, list_counts, sample_titles = _response_shape_diagnostics(data)
+        logger.warning(
+            "parse_response_shape endpoint=%s keys=%s list_counts=%s sample_titles=%s",
+            endpoint,
+            keys,
+            list_counts,
+            sample_titles,
+        )
         return data
