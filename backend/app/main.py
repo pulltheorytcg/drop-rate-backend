@@ -15,6 +15,7 @@ from .imports import router as imports_router
 from .inventory_intake import router as inventory_intake_router
 from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
+from .market_adapter_config import configure_market_adapters
 from .market_ingestion import router as market_ingestion_router
 from .pricing import router as pricing_router
 from .purchase_lots import router as purchase_lots_router
@@ -52,6 +53,7 @@ def _dashboard_html() -> str:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    configure_market_adapters(settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
