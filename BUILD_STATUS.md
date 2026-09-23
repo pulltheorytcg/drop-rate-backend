@@ -6,20 +6,27 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## Current progress
 
-- **Full Drop Rate roadmap:** ~42%
-- **Milestone 1 — Founder inventory control:** ~98%
-- **Internal commerce / founder finance foundation:** ~80%
-- **Milestone 2 — Shopify sale attribution:** intentionally deferred until Shopify store setup
-- **Milestone 3 — Automated market valuation/pricing:** ~60%
+- **Full Drop Rate roadmap:** ~46%
+- **Milestone 1 — Founder inventory control:** ~99% technically complete; final regression QA + data cleanup remain
+- **Internal commerce / founder finance foundation:** ~82%
+- **Milestone 2 — Shopify sale attribution:** not started against live Shopify yet; internal deterministic finance foundation exists
+- **Milestone 3 — Automated market valuation/pricing:** ~70% technically complete; live provider validation remains the current gate
 
 ## Current stage
 
-**Core founder operations, internal finance, dashboard navigation and provider-neutral pricing/market-data infrastructure are live. Next work is final QA, import-review refinement and legitimate live provider adapters before Shopify.**
+**Close-out / regression chapter for the core backend.**
+
+The founder inventory, import, purchase-lot, storage, audit, internal finance, market-data and pricing foundations are live. Current work is deliberately focused on:
+
+1. finishing live eBay/Parse diagnostics;
+2. verifying every completed core workflow for regressions and failure handling;
+3. correcting any defects found before starting Shopify integration;
+4. deferring inventory cost cleanup to the next working session.
 
 ## Production-verified foundation
 
 ### Architecture / infrastructure
-- GitHub private repository + CI
+- private GitHub repository + PR workflow
 - Railway production deployment
 - Supabase/PostgreSQL master database
 - FastAPI deterministic business layer
@@ -28,6 +35,8 @@ This file is the persistent source of truth for project progress. A feature coun
 - optimistic version protection
 - browser security headers
 - single-founder scope for current phase
+- provider adapters kept separate from deterministic pricing logic
+- n8n intentionally not used as database or core business-logic layer
 
 ### Inventory
 - canonical catalogue separated from physical inventory
@@ -47,6 +56,13 @@ This file is the persistent source of truth for project progress. A feature coun
 - conservative catalogue matching with REVIEW state for ambiguous rows
 - raw import provenance and SHA-256 duplicate-file protection
 - approval workflow
+- manual import REVIEW-row resolution now live:
+  - search canonical catalogue
+  - explicitly select the correct match
+  - skip invalid/unwanted source rows
+  - preserve unrelated physical-data validation issues
+  - batch version protection prevents stale review actions
+- persisted import JSONB is decoded safely before final inventory commit
 
 ### Internal commerce / founder finance
 - internal orders and physical order items
@@ -64,7 +80,7 @@ This file is the persistent source of truth for project progress. A feature coun
 - manual/off-platform sale support before Shopify
 
 ### Founder seller portal
-Production navigation is now split into:
+Production navigation is split into:
 
 - **Dashboard**
 - **Inventory**
@@ -88,8 +104,26 @@ Existing working inventory/finance components were reorganised rather than rewri
 - per-run fetched / inserted / duplicate / failed-mapping counts
 - market provider health/status API
 - dashboard Settings visibility for mapping count, observation count and latest run status
-- no provider scraping assumed or enabled
-- no live provider adapter enabled without legitimate access
+- permitted Parse API integration configured for live provider access
+- eBay UK Parse adapter implemented with separate sold / active pathways
+- UK pricing guardrail requires UK/EU anchor evidence before trusted displayed Market Value
+- TCGplayer / Collectr remain supporting evidence rather than sole UK Market Value anchors
+- no raw provider response is allowed to silently overwrite deterministic pricing state
+
+### Live eBay / Parse diagnostic status
+Current production state after PRs #23–#26:
+
+- Parse authentication is working with the current `pmx_...` API key
+- five-card smoke matrix stays within current request-rate constraints by using sold evidence only
+- all five smoke requests now complete through the Drop Rate endpoint with HTTP 200
+- prior idle-in-transaction timeout on the graded Charizard case is fixed
+- provider calls no longer wait while a PostgreSQL transaction remains open
+- smoke-run timestamps now use the database clock and diagnostic rows persist correctly
+- eBay title matching now tolerates punctuation and seller word-order variation while keeping identity tokens exact
+- latest smoke run still returned **0 accepted observations for all five cases**
+- no observations, pricing snapshots or Store Prices were written by smoke testing
+- PR #26 adds safe Parse response diagnostics showing returned keys, list counts and sample titles without logging credentials, request headers or raw response bodies
+- **Next gate:** run the five-card smoke matrix once with PR #26 live, inspect Railway diagnostics, then fix the precise response-shape/query/filter issue rather than loosening matching blindly
 
 ### Pricing engine
 - robust source-level weighted pricing rather than simple average
@@ -112,6 +146,27 @@ Existing working inventory/finance components were reorganised rather than rewri
 - latest pricing outputs visible in Settings
 - **Store Price is never silently overwritten by pricing calculation**
 
+## Current live inventory readiness
+
+Production checkpoint on 23 September 2026:
+
+- physical inventory items: **328**
+- status: **328 DRAFT**
+- unknown acquisition cost: **326**
+- missing condition: **10**
+- missing storage location: **328**
+- missing Store Price: **328**
+- identity not yet confirmed: **328**
+- largest known cleanup group: **178 Phantasmal Flames items**, currently all with unknown acquisition cost
+
+Inventory-cost allocation is deliberately deferred until the next working session. Unknown cost must remain NULL until deliberately assigned.
+
+## Known data-quality items
+
+- One Piece catalogue currently contains both `Carrying On His Will` and `Carrying on His Will`; normalize this carefully in the catalogue-quality pass rather than silently merging records without verifying identities/references.
+- packaged One Piece smoke-test cases remain blocked until physical `seal_status` is confirmed.
+- Supabase leaked-password protection remains disabled and must be enabled before launch.
+
 ## Milestone 1 checklist
 
 | Requirement | Status |
@@ -121,8 +176,9 @@ Existing working inventory/finance components were reorganised rather than rewri
 | Ownership | ✅ Complete |
 | Manual add inventory | ✅ Complete |
 | Import inventory files | ✅ Complete |
+| Manual import REVIEW resolution | ✅ Complete |
 | Search/filter inventory | ✅ Complete |
-| Acquisition cost | ✅ Complete |
+| Acquisition cost model | ✅ Complete |
 | Purchase provenance | ✅ Complete |
 | Card condition | ✅ Complete |
 | Sealed/unsealed state | ✅ Complete |
@@ -130,7 +186,9 @@ Existing working inventory/finance components were reorganised rather than rewri
 | Language | ✅ Complete |
 | Controlled physical locations | ✅ Complete |
 | Stock audit/location counts | ✅ Complete |
-| Final end-to-end regression QA | 🚧 Remaining |
+| Approval/readiness workflow | ✅ Complete |
+| Final end-to-end regression QA | 🚧 In progress |
+| Production inventory data cleanup | 🚧 Operational task; code largely complete |
 
 ## Founder dashboard modules
 
@@ -141,49 +199,109 @@ Existing working inventory/finance components were reorganised rather than rewri
 | Purchase Lots / cost basis | ✅ Live under Inventory |
 | Storage Locations | ✅ Live under Inventory |
 | Manual inventory intake | ✅ Live |
-| Inventory imports | ✅ Live |
+| Inventory imports | ✅ Live, including manual review resolution |
 | Sales | ✅ Live foundation |
 | Reports | ✅ Core finance metrics live |
 | Balance | ✅ Live |
 | Payout requests | ✅ Live |
 | Settings / market pricing status | ✅ Live foundation |
+| Live market smoke tests | 🚧 Live diagnostic workflow working; eBay evidence acceptance still unresolved |
 
-## Supabase live capacity checkpoint
+## Supabase live checkpoint
 
-Checked after the market-ingestion deployment:
+Current known state:
 
-- organisation plan: **Free**
+- project: `pull-theory-dev`
+- region: `eu-west-2`
 - PostgreSQL: **17.6**
-- `tcg` tables: **22**
-- foreign-key relationships: **35**
-- database size: **~14 MB**
-- direct database connection ceiling: **60**
-- connections observed during check: **9**
+- physical inventory: **328**
 - market observations: **0**
 - pricing snapshots: **0**
-- market ingestion runs: **0**
+- live eBay smoke diagnostic runs are now persisting successfully
 
-The schema itself is nowhere near a practical PostgreSQL table-count limit. The first expected storage pressure is append-only market evidence once automated provider ingestion begins.
+Earlier capacity checkpoint found 22 `tcg` tables, 35 foreign-key relationships and ~14 MB database size. The schema is comfortably within normal PostgreSQL capacity; append-only market evidence is the expected future storage-growth area.
 
-The Supabase Schema Visualizer relationship between `tcg.owner_memberships.user_id` and `auth.users.id` is now enforced by a real foreign key. Visual node layout itself is Studio/browser UI state rather than database state.
+The Supabase Schema Visualizer relationship between `tcg.owner_memberships.user_id` and `auth.users.id` is enforced by a real foreign key. Visual node layout itself is Studio/browser UI state rather than database state.
 
-Current Supabase advisor state:
-- performance: only unused-index INFO notices expected on newly created / currently empty tables
-- security: leaked-password protection remains disabled in Supabase Auth and should be enabled before production launch
+Current Supabase advisor/security note:
+- performance: unused-index INFO notices are expected on newly created / currently empty tables
+- security: leaked-password protection should be enabled before production launch
+
+## Core regression / close-out checklist
+
+The current chapter is not considered closed until these are verified against production behaviour and/or focused tests:
+
+### Authentication / security
+- authenticated routes reject unauthenticated requests
+- owner-scoped queries do not leak another owner's records
+- RLS / application owner checks remain consistent
+- secrets never appear in logs, URLs or API responses
+- stale/version-conflict requests fail safely
+
+### Inventory
+- manual add is idempotent
+- unknown acquisition cost stays NULL, never coerced to £0
+- edit flow preserves version protection
+- Action Required filters are correct
+- identity confirmation / approval transitions are valid
+- storage assignment and stock-audit counts remain correct
+- ownership cannot be silently changed through unrelated edits
+
+### Purchase lots / cost allocation
+- total cost = purchase price + fees + shipping
+- equal / manual allocation remains penny-perfect
+- assignment cannot double-allocate items incorrectly
+- unknown values remain unknown until deliberate assignment
+- full operational cost cleanup is deferred until next session
+
+### Imports
+- duplicate-file SHA protection works
+- ambiguous/unmatched rows remain REVIEW
+- manual catalogue resolution only clears identity-related issues
+- invalid physical data remains Action Required
+- skipped rows do not create inventory
+- stale batch version fails safely
+- commit creates the correct number of physical inventory items
+- raw source provenance remains intact
+
+### Internal sales / finance
+- one physical inventory item cannot be sold twice
+- sale snapshots acquisition cost correctly
+- owner ledger remains append-only
+- fees / shipping / COGS / profit are deterministic
+- refund/return paths reverse the correct financial effects
+- payout reserve / cancel / paid-out states reconcile exactly
+- repeated/idempotent actions do not duplicate financial entries
+
+### Market data / pricing
+- live eBay diagnostic root cause resolved
+- strict identity guard prevents wrong variants/grades/proxies from entering evidence
+- smoke tests never persist observations
+- real ingestion is immutable and deduplicated
+- UK/EU anchor rule prevents unsupported UK Market Value
+- low-confidence / insufficient-data cases enter Action Required rather than inventing a price
+- Store Price is never silently changed by market recalculation
+
+### Production / deployment
+- Railway health/readiness remains green
+- startup succeeds from clean deployment
+- latest GitHub main commit matches production deployment
+- Supabase migration history matches repository migrations
+- no pending/staged Railway configuration changes are left unintentionally
 
 ## Build roadmap
 
 | Phase | Area | Status |
 |---|---|---|
-| 1 | Architecture / documentation | ✅ Core complete; documentation continues |
-| 2 | Database / authentication | ✅ Core complete |
-| 3 | Founder account / inventory / ownership | ✅ Core complete; final regression QA remains |
+| 1 | Architecture / documentation | ✅ Core complete; documentation continuously updated |
+| 2 | Database / authentication | ✅ Core complete; pre-launch auth hardening remains |
+| 3 | Founder account / inventory / ownership | 🚧 Core complete; final regression + operational cleanup remain |
 | 4 | Inventory dashboard functionality | ✅ Core complete |
 | 4.5 | Founder dashboard UX/navigation cleanup | ✅ Structural seller-portal navigation live; visual polish remains |
-| 5 | Shopify integration | ⏸ Deferred until backend/pricing is clean and store exists |
-| 6 | Orders / ownership allocation / settlements | 🚧 Core internal commerce/finance live; refinement remains |
-| 7 | Market-data infrastructure | 🚧 Core + ingestion framework live; real provider adapters/access pending |
-| 8 | Pricing engine | 🚧 Core deterministic engine live; automatic publication pending provider data + Shopify |
+| 5 | Shopify integration | ⬜ Next major build after current close-out chapter |
+| 6 | Orders / ownership allocation / settlements | 🚧 Internal deterministic foundation live; Shopify event integration + final QA remain |
+| 7 | Market-data infrastructure | 🚧 Core framework + eBay live diagnostic path live; provider validation remains |
+| 8 | Pricing engine | 🚧 Core deterministic engine live; trusted live evidence + automatic execution remain |
 | 9 | AI card identification | ⬜ Not started |
 | 10 | Consignment | ⬜ Not started |
 | 11 | AI product listings | ⬜ Not started |
@@ -193,25 +311,34 @@ Current Supabase advisor state:
 | 15 | n8n orchestration | ⬜ Advanced workflows not started |
 | 16 | Analytics / optimisation | ⬜ Not started |
 
-## Resume here next session
+## Immediate work order
 
-1. Complete final Milestone 1 regression / failure QA.
-2. Finish import candidate REVIEW-row resolution so unmatched imports can be manually corrected/matched.
-3. Verify finance, refund, balance and payout workflows end to end with rollback-safe test scenarios.
-4. Obtain/confirm legitimate provider access and implement live adapters one at a time.
-5. Build source-mapping review tooling for live provider IDs.
-6. Add scheduled market ingestion with purpose-built service authentication; n8n must only orchestrate backend APIs.
-7. Add automatic repricing policy execution only after reliable live data exists.
-8. Prepare Shopify integration after the backend/accounting/pricing loop is clean.
+### Today — close the current chapter
+1. Run PR #26 live eBay diagnostics and identify the exact provider-result/matcher failure.
+2. Fix and re-test until at least representative raw and graded eBay cases can produce correctly matched smoke evidence without persistence.
+3. Work backwards through the core regression checklist above.
+4. Fix defects found through small, isolated PRs with tests.
+5. Re-run production health / Supabase integrity checks.
+6. Update this document again with the final close-out state.
+
+### Next session
+1. Review physical inventory and confirm card identities.
+2. Create/assign storage locations.
+3. Allocate acquisition costs, starting with the 178-card Phantasmal Flames group / binder workflow.
+4. Resolve the remaining 10 missing conditions.
+5. Prepare approved inventory for the Shopify milestone.
+
+### Next major engineering milestone
+**Shopify integration:** approved inventory → Shopify product/SKU → Shopify order/refund/cancellation webhooks → deterministic inventory attribution and financial allocation, with webhook signature verification and idempotency.
 
 ## Major deferred decisions / features
 
-- Shopify storefront setup is not required yet.
-- Canonical catalogue product → Shopify Product and physical inventory → Shopify Variant/SKU remains the intended mapping to validate during Shopify work.
-- value-weighted Purchase Lot allocation waits for reliable market reference values.
-- multi-founder ownership is deferred; current build remains single-founder.
-- consignors/consignment come after the core founder sale loop.
-- AI marketing, SEO automation and advanced n8n orchestration come after core inventory, commerce and pricing foundations.
+- multi-founder ownership remains deferred; current build stays single-founder
+- consignors/consignment come after the founder sale loop
+- AI identification comes after core commerce/pricing reliability
+- AI marketing, SEO automation and advanced n8n orchestration come after inventory, Shopify, settlement and market pricing foundations
+- value-weighted Purchase Lot allocation waits for reliable market reference values
+- no automatic money movement until settlement reporting is thoroughly verified
 
 ## Completion rule
 
