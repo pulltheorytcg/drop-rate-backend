@@ -1,7 +1,5 @@
 from datetime import datetime, timezone
 
-import pytest
-
 from app.pricing_engine import (
     ALGORITHM_VERSION,
     ComparableTarget,
@@ -15,7 +13,12 @@ from app.pricing_engine import (
 NOW = datetime(2026, 9, 23, 19, 0, tzinfo=timezone.utc)
 
 
-def graded_observation(*, grade: str = "9", condition: str | None = "Used") -> MarketObservation:
+def graded_observation(
+    *,
+    grade: str = "9",
+    condition: str | None = "Used",
+    grading_company: str = "PSA",
+) -> MarketObservation:
     return MarketObservation(
         source="EBAY",
         observation_type="SOLD",
@@ -24,7 +27,7 @@ def graded_observation(*, grade: str = "9", condition: str | None = "Used") -> M
         sample_size=5,
         evidence_quality=1.0,
         condition=condition,
-        grading_company="PSA",
+        grading_company=grading_company,
         grade=grade,
         language="English",
         source_country="GB",
@@ -47,15 +50,8 @@ def test_graded_comparable_ignores_marketplace_raw_condition_label() -> None:
 
 
 def test_graded_comparable_still_requires_exact_grading_company_and_grade() -> None:
-    wrong_grade = graded_observation(grade="10")
-    wrong_company = MarketObservation(
-        **{
-            **graded_observation().__dict__,
-            "grading_company": "CGC",
-        }
-    )
-    assert comparable_quality(wrong_grade, graded_target()) == 0.0
-    assert comparable_quality(wrong_company, graded_target()) == 0.0
+    assert comparable_quality(graded_observation(grade="10"), graded_target()) == 0.0
+    assert comparable_quality(graded_observation(grading_company="CGC"), graded_target()) == 0.0
 
 
 def test_graded_uk_sale_can_set_market_value_despite_generic_listing_condition() -> None:
