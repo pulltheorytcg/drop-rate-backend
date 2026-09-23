@@ -1,4 +1,8 @@
 from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
 
 
 ROOT = Path(__file__).parents[1]
@@ -6,13 +10,13 @@ STATIC = ROOT / "backend" / "app" / "static"
 
 
 def test_dashboard_assets_exist() -> None:
-    for name in ("index.html", "styles.css", "app.js"):
+    for name in ("index.html", "styles.css", "app.js", "purchase-lots.js"):
         path = STATIC / name
         assert path.is_file()
         assert path.stat().st_size > 500
 
 
-def test_dashboard_has_auth_and_inventory_controls() -> None:
+def test_dashboard_has_auth_inventory_and_purchase_lot_controls() -> None:
     html = (STATIC / "index.html").read_text()
     for element_id in (
         "login-form",
@@ -22,6 +26,10 @@ def test_dashboard_has_auth_and_inventory_controls() -> None:
         "inventory-body",
         "editor-dialog",
         "bulk-dialog",
+        "purchase-lot-dialog",
+        "purchase-lot-form",
+        "purchase-lots-list",
+        "new-lot-button",
         "issue-buttons",
         "logout-button",
     ):
@@ -29,7 +37,22 @@ def test_dashboard_has_auth_and_inventory_controls() -> None:
 
 
 def test_client_does_not_contain_privileged_credentials() -> None:
-    combined = "\n".join((STATIC / name).read_text() for name in ("index.html", "styles.css", "app.js"))
+    combined = "\n".join(
+        (STATIC / name).read_text()
+        for name in ("index.html", "styles.css", "app.js", "purchase-lots.js")
+    )
     assert "service_role" not in combined
     assert "TCG_DATABASE_URL" not in combined
     assert "postgresql://" not in combined
+
+
+def test_unknown_bulk_cost_is_not_forced_to_zero_in_purchase_lot_flow() -> None:
+    js = (STATIC / "purchase-lots.js").read_text()
+    assert 'placeholder = "Unknown"' in js
+    assert 'row.querySelector("input").value = ""' in js
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is not installed")
+def test_dashboard_javascript_has_valid_syntax() -> None:
+    for name in ("app.js", "purchase-lots.js"):
+        subprocess.run(["node", "--check", str(STATIC / name)], check=True)

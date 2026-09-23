@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .db import create_pool
+from .purchase_lots import router as purchase_lots_router
 from .settings import get_settings
 
 
@@ -38,7 +39,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Drop Rate API",
-        version="0.5.0",
+        version="0.6.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -95,4 +96,5 @@ def create_app() -> FastAPI:
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(router)
+    app.include_router(purchase_lots_router)
     return app

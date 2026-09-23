@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 
 InventoryStatus = Literal["DRAFT", "INSPECTION", "APPROVED", "WITHDRAWN"]
 EditableInventoryStatus = Literal["DRAFT", "INSPECTION", "WITHDRAWN"]
+AllocationMethod = Literal["MANUAL", "EQUAL", "VALUE_WEIGHTED"]
 ReadinessIssue = Literal[
     "missing_cost",
     "missing_condition",
@@ -69,4 +70,46 @@ class BulkCostAllocation(BaseModel):
         allocated = sum(item.acquisition_cost_minor for item in self.items)
         if allocated != self.total_cost_minor:
             raise ValueError("Allocated item costs must exactly match the total cost")
+        return self
+
+
+class PurchaseLotCreate(BaseModel):
+    description: str = Field(min_length=1, max_length=200)
+    source: str | None = Field(default=None, max_length=160)
+    purchase_date: date | None = None
+    purchase_price_minor: int = Field(ge=0)
+    fees_minor: int = Field(default=0, ge=0)
+    shipping_minor: int = Field(default=0, ge=0)
+    currency: str = Field(default="GBP", min_length=3, max_length=3)
+    allocation_method: AllocationMethod = "MANUAL"
+    notes: str = Field(default="", max_length=2000)
+    items: list[BulkCostItem] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_purchase_lot(self) -> "PurchaseLotCreate":
+        self.description = self.description.strip()
+        self.source = self.source.strip() if self.source else None
+        self.currency = self.currency.upper().strip()
+        self.notes = self.notes.strip()
+        if not self.description:
+            raise ValueError("description cannot be blank")
+        ids = [item.inventory_id for item in self.items]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Each inventory item may appear only once")
+        landed_cost = self.purchase_price_minor + self.fees_minor + self.shipping_minor
+        allocated = sum(item.acquisition_cost_minor for item in self.items)
+        if allocated > landed_cost:
+            raise ValueError("Allocated item costs cannot exceed the landed purchase cost")
+        return self
+
+
+class PurchaseLotAllocation(BaseModel):
+    version: int = Field(ge=1)
+    items: list[BulkCostItem] = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_items(self) -> "PurchaseLotAllocation":
+        ids = [item.inventory_id for item in self.items]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Each inventory item may appear only once")
         return self
