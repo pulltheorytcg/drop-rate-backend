@@ -24,6 +24,7 @@ PROBES: tuple[dict[str, Any], ...] = (
         "label": "eBay UK active",
         "scraper_id": "923c816c-9218-4c32-ae0c-2eac3d514be5",
         "endpoint": "search_listings",
+        "result_key": "items",
         "params": {"query": "Charizard", "page": 1, "category_id": "0"},
     },
     {
@@ -31,6 +32,7 @@ PROBES: tuple[dict[str, Any], ...] = (
         "label": "eBay UK sold",
         "scraper_id": "923c816c-9218-4c32-ae0c-2eac3d514be5",
         "endpoint": "search_sold_listings",
+        "result_key": "items",
         "params": {"query": "Charizard", "page": 1, "category_id": "0"},
     },
     {
@@ -38,6 +40,7 @@ PROBES: tuple[dict[str, Any], ...] = (
         "label": "Cardmarket search",
         "scraper_id": "6e8ae7ea-a15a-4125-aada-1e116c8060b5",
         "endpoint": "search_singles",
+        "result_key": "results",
         "params": {"game": "Pokemon", "query": "Charizard", "page": 1},
     },
     {
@@ -45,6 +48,7 @@ PROBES: tuple[dict[str, Any], ...] = (
         "label": "TCGPlayer search",
         "scraper_id": "5d1e8a71-43a6-400a-9f41-6f2a4ad5cbe7",
         "endpoint": "search_cards",
+        "result_key": "cards",
         "params": {"query": "Charizard", "limit": 10, "offset": 0},
     },
     {
@@ -52,6 +56,7 @@ PROBES: tuple[dict[str, Any], ...] = (
         "label": "Collectr search",
         "scraper_id": COLLECTR_PROBE_SCRAPER_ID,
         "endpoint": "search_cards",
+        "result_key": "items",
         "params": {"query": "Charizard", "page": 1},
     },
 )
@@ -83,24 +88,31 @@ def _safe_sample(item: dict[str, Any]) -> dict[str, Any]:
     return sample
 
 
-def _summarise_payload(data: dict[str, Any]) -> dict[str, Any]:
+def _summarise_payload(data: dict[str, Any], *, result_key: str) -> dict[str, Any]:
     keys = sorted(str(key) for key in data)
-    list_counts: dict[str, int] = {}
+    list_counts = {
+        str(key): len(value)
+        for key, value in data.items()
+        if isinstance(value, list)
+    }
+    result_rows = data.get(result_key)
+    if not isinstance(result_rows, list):
+        raise ValueError("Provider response is missing the expected result array")
+
     samples: list[dict[str, Any]] = []
+    for item in result_rows[:3]:
+        if isinstance(item, dict):
+            safe = _safe_sample(item)
+            if safe:
+                samples.append(safe)
 
-    for key, value in data.items():
-        if not isinstance(value, list):
-            continue
-        list_counts[str(key)] = len(value)
-        if samples:
-            continue
-        for item in value[:3]:
-            if isinstance(item, dict):
-                safe = _safe_sample(item)
-                if safe:
-                    samples.append(safe)
-
-    return {"keys": keys, "list_counts": list_counts, "samples": samples}
+    return {
+        "keys": keys,
+        "list_counts": list_counts,
+        "result_key": result_key,
+        "result_count": len(result_rows),
+        "samples": samples,
+    }
 
 
 @router.post("/provider-probe")
@@ -130,15 +142,14 @@ async def provider_probe(
                 snapshot_version=None,
                 params=probe["params"],
             )
-            summary = _summarise_payload(data)
-            result_count = max(summary["list_counts"].values(), default=0)
+            summary = _summarise_payload(data, result_key=probe["result_key"])
+            result_count = int(summary["result_count"])
             results.append(
                 {
                     "source": probe["source"],
                     "label": probe["label"],
                     "endpoint": probe["endpoint"],
                     "status": "SUCCEEDED" if result_count > 0 else "EMPTY",
-                    "result_count": result_count,
                     **summary,
                 }
             )
