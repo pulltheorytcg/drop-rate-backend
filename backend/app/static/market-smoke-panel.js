@@ -13,7 +13,7 @@ const MARKET_SMOKE_CASES = [
       forbidden_title_terms: ["reverse", "graded", "PSA", "CGC", "BGS", "proxy", "custom", "digital"],
       language: "English",
       include_sold: true,
-      include_active: true,
+      include_active: false,
     },
   },
   {
@@ -28,7 +28,7 @@ const MARKET_SMOKE_CASES = [
       forbidden_title_terms: ["graded", "PSA", "CGC", "BGS", "proxy", "custom", "digital"],
       language: "English",
       include_sold: true,
-      include_active: true,
+      include_active: false,
     },
   },
   {
@@ -45,7 +45,7 @@ const MARKET_SMOKE_CASES = [
       grade: "9",
       language: "English",
       include_sold: true,
-      include_active: true,
+      include_active: false,
     },
   },
   {
@@ -60,7 +60,7 @@ const MARKET_SMOKE_CASES = [
       forbidden_title_terms: ["manga", "parallel", "alternate", "alt art", "anniversary", "wanted", "PSA", "CGC", "BGS", "proxy", "custom", "digital"],
       language: "English",
       include_sold: true,
-      include_active: true,
+      include_active: false,
     },
   },
   {
@@ -77,7 +77,7 @@ const MARKET_SMOKE_CASES = [
       grade: "9",
       language: "English",
       include_sold: true,
-      include_active: true,
+      include_active: false,
     },
   },
   {
@@ -183,7 +183,7 @@ function installMarketSmokePanel() {
       <div>
         <p class="eyebrow">Live validation</p>
         <h2>Market data smoke tests</h2>
-        <p class="muted">Fetch live provider evidence for a small mixed sample without adding observations or changing Market Value. Diagnostic summaries are logged for review.</p>
+        <p class="muted">Fetch live sold-price evidence for a small mixed sample without adding observations or changing Market Value. The matrix uses one provider call per card so it stays within the current free-tier request limit.</p>
       </div>
       <div class="topbar-actions">
         <button id="market-smoke-run" class="primary-button" type="button">Run smoke tests</button>

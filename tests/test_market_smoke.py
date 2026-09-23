@@ -9,6 +9,7 @@ from app.market_smoke import MarketSmokeRequest, _price_summary
 
 ROOT = Path(__file__).parents[1]
 SMOKE = ROOT / "backend" / "app" / "market_smoke.py"
+SMOKE_PANEL = ROOT / "backend" / "app" / "static" / "market-smoke-panel.js"
 MAIN = ROOT / "backend" / "app" / "main.py"
 
 
@@ -62,6 +63,21 @@ def test_smoke_diagnostic_logging_is_isolated_by_savepoint() -> None:
     assert "return None, False" in source
     assert '"diagnostic_logged": diagnostic_logged' in source
     assert '"stage": "PROVIDER_FETCH_OR_VALIDATION"' in source
+
+
+def test_smoke_failure_is_visible_in_safe_runtime_logs() -> None:
+    source = SMOKE.read_text()
+    assert "market_smoke_failed" in source
+    assert 'safe_error.get("detail")' in source
+    assert 'safe_error.get("provider_status_code")' in source
+    assert 'safe_error.get("retryable")' in source
+
+
+def test_dashboard_smoke_matrix_stays_within_free_tier_request_limit() -> None:
+    source = SMOKE_PANEL.read_text()
+    assert source.count("include_sold: true") == 5
+    assert source.count("include_active: false") == 5
+    assert "include_active: true" not in source
 
 
 def test_smoke_router_is_wired_into_app() -> None:

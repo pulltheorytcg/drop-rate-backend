@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from statistics import median
 from typing import Annotated
@@ -21,6 +22,7 @@ from .market_ingestion import (
 )
 
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/market", tags=["market-data"])
 
 
@@ -153,6 +155,17 @@ async def smoke_test_market_source(
                 started_at=started_at,
                 metadata={**base_metadata, "failure_stage": "PROVIDER_FETCH_OR_VALIDATION"},
             )
+            logger.warning(
+                "market_smoke_failed source=%s catalogue_id=%s stage=%s error_type=%s detail=%s provider_status_code=%s retryable=%s diagnostic_logged=%s",
+                source,
+                payload.catalogue_id,
+                "PROVIDER_FETCH_OR_VALIDATION",
+                safe_error.get("error_type"),
+                safe_error.get("detail"),
+                safe_error.get("provider_status_code"),
+                safe_error.get("retryable"),
+                diagnostic_logged,
+            )
             return jsonable_encoder(
                 {
                     "run_id": run_id,
@@ -198,6 +211,14 @@ async def smoke_test_market_source(
                 "price_summary_gbp": price_summary,
                 "samples": samples,
             },
+        )
+        logger.info(
+            "market_smoke_completed source=%s catalogue_id=%s status=%s observations=%s diagnostic_logged=%s",
+            source,
+            payload.catalogue_id,
+            status,
+            len(validated),
+            diagnostic_logged,
         )
 
         return jsonable_encoder(
