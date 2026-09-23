@@ -2,31 +2,28 @@
 
 _Last updated: 23 September 2026_
 
-This file is the persistent source of truth for project progress. A feature counts as **Completed** only after merge, production deployment and production verification.
+This file is the persistent source of truth for project progress. A feature counts as **Completed** only after merge, production deployment and production verification where applicable.
 
 ## Current progress
 
-- **Full Drop Rate roadmap:** ~46%
-- **Milestone 1 — Founder inventory control:** ~99% technically complete; final regression QA + data cleanup remain
-- **Internal commerce / founder finance foundation:** ~82%
-- **Milestone 2 — Shopify sale attribution:** not started against live Shopify yet; internal deterministic finance foundation exists
-- **Milestone 3 — Automated market valuation/pricing:** ~70% technically complete; live provider validation remains the current gate
+- **Full Drop Rate roadmap:** ~49%
+- **Milestone 1 — Founder inventory control:** ~99% technically complete; remaining work is mainly operational inventory cleanup + one pre-launch auth setting
+- **Internal commerce / founder finance foundation:** ~85%
+- **Milestone 2 — Shopify sale attribution:** live Shopify integration not started; deterministic internal order/finance foundation is in place
+- **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
 
 ## Current stage
 
-**Close-out / regression chapter for the core backend.**
+**Core backend hardening / regression chapter: CLOSED.**
 
-The founder inventory, import, purchase-lot, storage, audit, internal finance, market-data and pricing foundations are live. Current work is deliberately focused on:
+The current single-founder backend has been worked back through for production integrity, failure handling, permissions, idempotency, market/provider diagnostics and deployment consistency. Defects found during this pass were fixed through isolated PRs with tests.
 
-1. finishing live eBay/Parse diagnostics;
-2. verifying every completed core workflow for regressions and failure handling;
-3. correcting any defects found before starting Shopify integration;
-4. deferring inventory cost cleanup to the next working session.
+The next working session is intentionally operational: review card identities, storage locations and acquisition costs. The next major engineering milestone after that is Shopify integration.
 
 ## Production-verified foundation
 
 ### Architecture / infrastructure
-- private GitHub repository + PR workflow
+- private GitHub repository + branch / PR / CI workflow
 - Railway production deployment
 - Supabase/PostgreSQL master database
 - FastAPI deterministic business layer
@@ -35,8 +32,10 @@ The founder inventory, import, purchase-lot, storage, audit, internal finance, m
 - optimistic version protection
 - browser security headers
 - single-founder scope for current phase
-- provider adapters kept separate from deterministic pricing logic
+- provider adapters separated from deterministic pricing logic
 - n8n intentionally not used as database or core business-logic layer
+- both `migrations/**` and `database/migrations/**` are watched by Railway for future deployment triggers
+- Supabase-native migration history is the authoritative applied-migration ledger; the old `tcg.schema_migrations` bootstrap table is legacy only
 
 ### Inventory
 - canonical catalogue separated from physical inventory
@@ -50,19 +49,25 @@ The founder inventory, import, purchase-lot, storage, audit, internal finance, m
 - grading company / grade / certificate
 - language
 - registered Storage Locations + stock audit
-- manual single-item intake with idempotency
+- manual single-item intake
+- manual intake idempotency now validates payload identity: same key + same payload replays; same key + different payload returns conflict
 - unified CSV import framework
 - Collectr / eBay Purchases / HoloDex / Generic CSV presets
 - conservative catalogue matching with REVIEW state for ambiguous rows
 - raw import provenance and SHA-256 duplicate-file protection
-- approval workflow
-- manual import REVIEW-row resolution now live:
-  - search canonical catalogue
-  - explicitly select the correct match
-  - skip invalid/unwanted source rows
-  - preserve unrelated physical-data validation issues
-  - batch version protection prevents stale review actions
-- persisted import JSONB is decoded safely before final inventory commit
+- manual import REVIEW-row resolution
+- approval/readiness workflow
+- persisted JSON/JSONB is decoded consistently at the asyncpg connection boundary
+- PostgreSQL now enforces physical-state invariants regardless of write path
+- SOLD/historical mutation failures are returned as safe conflict responses rather than generic server errors
+
+### Purchase lots / storage
+- deterministic total landed cost = purchase price + fees + shipping
+- equal/manual allocation support
+- penny-perfect allocation
+- storage-location trigger remains compatible with legacy approval/readiness location checks
+- unnecessary `DELETE` permission on purchase lots was removed from the application role
+- missing application-role UPDATE grants for newer inventory fields were fixed, including storage, purchase-lot, seal-state and pricing-output fields
 
 ### Internal commerce / founder finance
 - internal orders and physical order items
@@ -78,6 +83,7 @@ The founder inventory, import, purchase-lot, storage, audit, internal finance, m
 - payout request + cancellation workflow
 - no automatic money movement
 - manual/off-platform sale support before Shopify
+- duplicate/repeated actions protected by source/reference uniqueness and idempotent paths
 
 ### Founder seller portal
 Production navigation is split into:
@@ -91,39 +97,55 @@ Production navigation is split into:
 
 Existing working inventory/finance components were reorganised rather than rewritten. URL hashes such as `#inventory` and `#balance` are supported.
 
-### Market-data infrastructure
+## Market-data infrastructure
+
+### Core market framework
 - provider-neutral source mappings
-- supported source slots: eBay, Collectr, TCGplayer, Cardmarket
+- supported source slots: eBay, Cardmarket, TCGplayer, Collectr
 - VERIFIED mapping gate before automatic ingestion
 - immutable historical market observations
 - observation deduplication by `(source, source_record_key)`
 - source / condition / grade / language / seal-state normalization fields
 - GBP-normalized values + FX provenance fields
-- provider-neutral adapter protocol + registry
+- provider-neutral adapter registry
 - immutable market-ingestion run history
-- per-run fetched / inserted / duplicate / failed-mapping counts
-- market provider health/status API
-- dashboard Settings visibility for mapping count, observation count and latest run status
-- permitted Parse API integration configured for live provider access
-- eBay UK Parse adapter implemented with separate sold / active pathways
-- UK pricing guardrail requires UK/EU anchor evidence before trusted displayed Market Value
+- provider health/status API
+- deterministic pricing engine remains separate from provider access
+- no raw provider response can silently overwrite Store Price
+- UK pricing guardrail requires UK/EU anchor evidence for trusted displayed Market Value
 - TCGplayer / Collectr remain supporting evidence rather than sole UK Market Value anchors
-- no raw provider response is allowed to silently overwrite deterministic pricing state
 
-### Live eBay / Parse diagnostic status
-Current production state after PRs #23–#26:
+### Market hardening completed in this chapter
+- Parse authentication verified with the current production key
+- safe provider error messages do not expose credentials or raw response bodies
+- smoke/provider diagnostics are authenticated and non-persistent
+- provider calls no longer hold a PostgreSQL transaction open while waiting on external HTTP
+- real ingestion was refactored to avoid the same idle-in-transaction failure class
+- diagnostic run timestamps use the database clock
+- diagnostic run logging persists correctly
+- Parse snapshot pinning is optional; current canonical releases can be used deliberately
+- eBay retrieval queries were broadened while post-retrieval identity acceptance remains strict
+- title matching tolerates punctuation / seller word order without weakening hard card/variant/grade identity checks
+- real production ingestion is **explicitly gated off by default**; presence of a Parse key alone cannot enable persistence
+- provider probe counts the provider-specific result collection instead of the largest array in the response
 
-- Parse authentication is working with the current `pmx_...` API key
-- five-card smoke matrix stays within current request-rate constraints by using sold evidence only
-- all five smoke requests now complete through the Drop Rate endpoint with HTTP 200
-- prior idle-in-transaction timeout on the graded Charizard case is fixed
-- provider calls no longer wait while a PostgreSQL transaction remains open
-- smoke-run timestamps now use the database clock and diagnostic rows persist correctly
-- eBay title matching now tolerates punctuation and seller word-order variation while keeping identity tokens exact
-- latest smoke run still returned **0 accepted observations for all five cases**
-- no observations, pricing snapshots or Store Prices were written by smoke testing
-- PR #26 adds safe Parse response diagnostics showing returned keys, list counts and sample titles without logging credentials, request headers or raw response bodies
-- **Next gate:** run the five-card smoke matrix once with PR #26 live, inspect Railway diagnostics, then fix the precise response-shape/query/filter issue rather than loosening matching blindly
+### Final cross-provider live validation
+Final production probe on 23 September 2026:
+
+| Source / endpoint | Result | Interpretation |
+|---|---:|---|
+| eBay UK active | **72 listings** | ✅ live provider access working |
+| eBay UK sold | **0 listings** | ⚠️ isolated upstream sold-search issue; Drop Rate receives an empty provider array before matching |
+| TCGPlayer search | **10 cards** | ✅ live provider access working |
+| Collectr search | **30 items** | ✅ live provider access working |
+| Cardmarket search | earlier probe: **29 results** | ✅ provider previously validated; final run did not emit a response-shape line and should be rechecked before production ingestion |
+
+Important conclusions:
+- Drop Rate's provider plumbing is working; the system is not generally blocked on market APIs.
+- eBay's active path works, while the Parse/eBay UK sold path currently returns an empty `items` array before Drop Rate filtering.
+- Cardmarket is the strongest currently validated UK/EU pricing-anchor candidate, but production ingestion remains gated until source access/terms and live contract are approved.
+- TCGPlayer and Collectr can provide supporting/global evidence after source-specific ingestion re-validation.
+- eBay sold should be treated as an independent provider issue rather than blocking the rest of the platform.
 
 ### Pricing engine
 - robust source-level weighted pricing rather than simple average
@@ -145,6 +167,8 @@ Current production state after PRs #23–#26:
 - pricing history API
 - latest pricing outputs visible in Settings
 - **Store Price is never silently overwritten by pricing calculation**
+- graded-card comparison now treats grading company + grade as the condition dimension rather than incorrectly requiring a raw marketplace condition too
+- current pricing algorithm version after that correction: `drop-rate-market-v4`
 
 ## Current live inventory readiness
 
@@ -157,15 +181,94 @@ Production checkpoint on 23 September 2026:
 - missing storage location: **328**
 - missing Store Price: **328**
 - identity not yet confirmed: **328**
+- missing owner: **0**
+- missing catalogue reference: **0**
+- duplicate Inventory IDs: **0**
 - largest known cleanup group: **178 Phantasmal Flames items**, currently all with unknown acquisition cost
 
 Inventory-cost allocation is deliberately deferred until the next working session. Unknown cost must remain NULL until deliberately assigned.
 
-## Known data-quality items
+## Supabase live checkpoint
 
-- One Piece catalogue currently contains both `Carrying On His Will` and `Carrying on His Will`; normalize this carefully in the catalogue-quality pass rather than silently merging records without verifying identities/references.
-- packaged One Piece smoke-test cases remain blocked until physical `seal_status` is confirmed.
-- Supabase leaked-password protection remains disabled and must be enabled before launch.
+Current production data after the hardening pass:
+
+- project: `pull-theory-dev`
+- region: `eu-west-2`
+- PostgreSQL: **17.6**
+- physical inventory: **328**
+- market observations: **0**
+- pricing snapshots: **0**
+- market ingestion/diagnostic runs: **15**
+- audit events: **650**
+- RLS remains enabled across business tables
+- provider diagnostics have **not** polluted market observations, pricing snapshots or inventory values
+
+Supabase security advisor status:
+- database/security configuration reviewed during this chapter
+- leaked-password protection is still disabled and remains a **manual pre-launch Auth setting** to enable in Supabase
+- currently-unused-index notices are expected on newly created / low-row-count modules and are not being removed prematurely
+
+## Regression / hardening work completed
+
+The following areas were reviewed and defects found were corrected:
+
+### Authentication / security
+- authenticated dashboard/API routes verified in production
+- owner/catalogue integrity checked in live inventory
+- RLS coverage reviewed
+- provider credentials kept out of logs and API responses
+- historical/immutable mutation errors normalized safely
+- application-role privileges reviewed and tightened
+
+### Inventory / imports
+- unknown acquisition cost remains NULL
+- inventory-code uniqueness verified
+- manual intake idempotency strengthened against key reuse with different payloads
+- import REVIEW resolution completed
+- JSONB decode path fixed for import commit and generalized at DB connection boundary
+- physical-state database invariants added/verified
+- live inventory contains zero physical-state invariant violations
+
+### Purchase lots / storage
+- storage/readiness compatibility verified
+- application-role UPDATE permissions corrected for newer columns
+- purchase-lot DELETE privilege removed
+
+### Finance
+- append-only / uniqueness protection reviewed
+- SOLD-state protections reviewed
+- refund/payout/ledger foundations retained
+- database conflict failures no longer fall through as generic 500s where historical mutation is rejected
+
+### Market / pricing
+- provider transaction boundary fixed in smoke tests and real ingestion
+- ingestion-run logging fixed
+- flexible-but-strict eBay identity matching added
+- provider-response diagnostics added
+- production-ingestion safety gate added
+- graded comparable-condition bug fixed
+- cross-provider live access validated as recorded above
+
+### Deployment / reproducibility
+- Railway production health checked repeatedly after changes
+- latest live service remains `drop-rate-api-live`
+- health endpoint returns 200 after clean deployments
+- both migration directories are watched for future deployment triggers
+- Supabase-native migration ledger confirmed as the migration source of truth
+- no unintended staged Railway configuration remains
+
+## Known remaining items
+
+These are **not blockers to closing this hardening chapter**, but remain explicit work:
+
+1. **eBay UK sold via Parse:** provider returns an empty list; investigate separately or use an alternative official/permitted source path.
+2. **Cardmarket production ingestion:** re-probe/contract validation plus source-access/terms approval before persistence.
+3. **Collectr production adapter:** diagnostic search is live, but the production detail/graded-price contract must be re-validated before enabling ingestion.
+4. **TCGPlayer production ingestion:** supporting evidence only; validate the exact live detail/pricing endpoints before enabling persistence.
+5. **Supabase leaked-password protection:** enable manually before launch.
+6. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
+7. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
+8. **Operational inventory cleanup:** identities, storage, costs, missing conditions and Store Prices.
 
 ## Milestone 1 checklist
 
@@ -179,7 +282,7 @@ Inventory-cost allocation is deliberately deferred until the next working sessio
 | Manual import REVIEW resolution | ✅ Complete |
 | Search/filter inventory | ✅ Complete |
 | Acquisition cost model | ✅ Complete |
-| Purchase provenance | ✅ Complete |
+| Purchase provenance / cost lots | ✅ Complete |
 | Card condition | ✅ Complete |
 | Sealed/unsealed state | ✅ Complete |
 | Grade/certificate | ✅ Complete |
@@ -187,121 +290,23 @@ Inventory-cost allocation is deliberately deferred until the next working sessio
 | Controlled physical locations | ✅ Complete |
 | Stock audit/location counts | ✅ Complete |
 | Approval/readiness workflow | ✅ Complete |
-| Final end-to-end regression QA | 🚧 In progress |
-| Production inventory data cleanup | 🚧 Operational task; code largely complete |
-
-## Founder dashboard modules
-
-| Module | State |
-|---|---|
-| Dashboard overview | ✅ Structural view live; KPI/activity polish remains |
-| Inventory | ✅ Live |
-| Purchase Lots / cost basis | ✅ Live under Inventory |
-| Storage Locations | ✅ Live under Inventory |
-| Manual inventory intake | ✅ Live |
-| Inventory imports | ✅ Live, including manual review resolution |
-| Sales | ✅ Live foundation |
-| Reports | ✅ Core finance metrics live |
-| Balance | ✅ Live |
-| Payout requests | ✅ Live |
-| Settings / market pricing status | ✅ Live foundation |
-| Live market smoke tests | 🚧 Live diagnostic workflow working; eBay evidence acceptance still unresolved |
-
-## Supabase live checkpoint
-
-Current known state:
-
-- project: `pull-theory-dev`
-- region: `eu-west-2`
-- PostgreSQL: **17.6**
-- physical inventory: **328**
-- market observations: **0**
-- pricing snapshots: **0**
-- live eBay smoke diagnostic runs are now persisting successfully
-
-Earlier capacity checkpoint found 22 `tcg` tables, 35 foreign-key relationships and ~14 MB database size. The schema is comfortably within normal PostgreSQL capacity; append-only market evidence is the expected future storage-growth area.
-
-The Supabase Schema Visualizer relationship between `tcg.owner_memberships.user_id` and `auth.users.id` is enforced by a real foreign key. Visual node layout itself is Studio/browser UI state rather than database state.
-
-Current Supabase advisor/security note:
-- performance: unused-index INFO notices are expected on newly created / currently empty tables
-- security: leaked-password protection should be enabled before production launch
-
-## Core regression / close-out checklist
-
-The current chapter is not considered closed until these are verified against production behaviour and/or focused tests:
-
-### Authentication / security
-- authenticated routes reject unauthenticated requests
-- owner-scoped queries do not leak another owner's records
-- RLS / application owner checks remain consistent
-- secrets never appear in logs, URLs or API responses
-- stale/version-conflict requests fail safely
-
-### Inventory
-- manual add is idempotent
-- unknown acquisition cost stays NULL, never coerced to £0
-- edit flow preserves version protection
-- Action Required filters are correct
-- identity confirmation / approval transitions are valid
-- storage assignment and stock-audit counts remain correct
-- ownership cannot be silently changed through unrelated edits
-
-### Purchase lots / cost allocation
-- total cost = purchase price + fees + shipping
-- equal / manual allocation remains penny-perfect
-- assignment cannot double-allocate items incorrectly
-- unknown values remain unknown until deliberate assignment
-- full operational cost cleanup is deferred until next session
-
-### Imports
-- duplicate-file SHA protection works
-- ambiguous/unmatched rows remain REVIEW
-- manual catalogue resolution only clears identity-related issues
-- invalid physical data remains Action Required
-- skipped rows do not create inventory
-- stale batch version fails safely
-- commit creates the correct number of physical inventory items
-- raw source provenance remains intact
-
-### Internal sales / finance
-- one physical inventory item cannot be sold twice
-- sale snapshots acquisition cost correctly
-- owner ledger remains append-only
-- fees / shipping / COGS / profit are deterministic
-- refund/return paths reverse the correct financial effects
-- payout reserve / cancel / paid-out states reconcile exactly
-- repeated/idempotent actions do not duplicate financial entries
-
-### Market data / pricing
-- live eBay diagnostic root cause resolved
-- strict identity guard prevents wrong variants/grades/proxies from entering evidence
-- smoke tests never persist observations
-- real ingestion is immutable and deduplicated
-- UK/EU anchor rule prevents unsupported UK Market Value
-- low-confidence / insufficient-data cases enter Action Required rather than inventing a price
-- Store Price is never silently changed by market recalculation
-
-### Production / deployment
-- Railway health/readiness remains green
-- startup succeeds from clean deployment
-- latest GitHub main commit matches production deployment
-- Supabase migration history matches repository migrations
-- no pending/staged Railway configuration changes are left unintentionally
+| Core regression / hardening pass | ✅ Complete |
+| Production inventory data cleanup | 🚧 Operational task for next session |
+| Leaked-password Auth setting | 🚧 Manual pre-launch action |
 
 ## Build roadmap
 
 | Phase | Area | Status |
 |---|---|---|
-| 1 | Architecture / documentation | ✅ Core complete; documentation continuously updated |
-| 2 | Database / authentication | ✅ Core complete; pre-launch auth hardening remains |
-| 3 | Founder account / inventory / ownership | 🚧 Core complete; final regression + operational cleanup remain |
+| 1 | Architecture / documentation | ✅ Core complete; documentation maintained continuously |
+| 2 | Database / authentication | ✅ Core complete; one manual pre-launch Auth setting remains |
+| 3 | Founder account / inventory / ownership | ✅ Technical foundation complete; operational data cleanup remains |
 | 4 | Inventory dashboard functionality | ✅ Core complete |
-| 4.5 | Founder dashboard UX/navigation cleanup | ✅ Structural seller-portal navigation live; visual polish remains |
-| 5 | Shopify integration | ⬜ Next major build after current close-out chapter |
-| 6 | Orders / ownership allocation / settlements | 🚧 Internal deterministic foundation live; Shopify event integration + final QA remain |
-| 7 | Market-data infrastructure | 🚧 Core framework + eBay live diagnostic path live; provider validation remains |
-| 8 | Pricing engine | 🚧 Core deterministic engine live; trusted live evidence + automatic execution remain |
+| 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
+| 5 | Shopify integration | ⬜ **Next major engineering build** |
+| 6 | Orders / allocation / settlements | 🚧 Internal deterministic foundation live; Shopify event integration remains |
+| 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
+| 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
 | 9 | AI card identification | ⬜ Not started |
 | 10 | Consignment | ⬜ Not started |
 | 11 | AI product listings | ⬜ Not started |
@@ -313,23 +318,34 @@ The current chapter is not considered closed until these are verified against pr
 
 ## Immediate work order
 
-### Today — close the current chapter
-1. Run PR #26 live eBay diagnostics and identify the exact provider-result/matcher failure.
-2. Fix and re-test until at least representative raw and graded eBay cases can produce correctly matched smoke evidence without persistence.
-3. Work backwards through the core regression checklist above.
-4. Fix defects found through small, isolated PRs with tests.
-5. Re-run production health / Supabase integrity checks.
-6. Update this document again with the final close-out state.
+### Next session — inventory operations
+1. Review/confirm physical card identities.
+2. Create and assign real storage locations.
+3. Allocate acquisition costs, starting with the **178 Phantasmal Flames** group/binder workflow.
+4. Resolve the remaining **10 missing conditions**.
+5. Assign deliberate Store Prices only when cards are ready.
+6. Move genuinely ready inventory through approval.
 
-### Next session
-1. Review physical inventory and confirm card identities.
-2. Create/assign storage locations.
-3. Allocate acquisition costs, starting with the 178-card Phantasmal Flames group / binder workflow.
-4. Resolve the remaining 10 missing conditions.
-5. Prepare approved inventory for the Shopify milestone.
+### Next major engineering milestone — Shopify
+Build the complete controlled sale loop:
 
-### Next major engineering milestone
-**Shopify integration:** approved inventory → Shopify product/SKU → Shopify order/refund/cancellation webhooks → deterministic inventory attribution and financial allocation, with webhook signature verification and idempotency.
+`Approved inventory → Shopify product/SKU → Shopify checkout/order → webhook verification → physical Inventory ID → owner attribution → deterministic fees/proceeds → refund/cancellation handling → auditable settlement report`
+
+Required controls:
+- Shopify webhook signature verification
+- webhook/event idempotency
+- duplicate-order protection
+- no ownership inference from Shopify alone
+- backend/Supabase remains source of truth
+- failure/exception queue for sync and order-allocation problems
+
+### Market work after/alongside Shopify
+- re-validate Cardmarket detail/pricing contract and source permission
+- re-validate Collectr production adapter contract
+- validate TCGPlayer detail/pricing support path
+- keep eBay active as listing/liquidity context
+- solve eBay sold independently rather than blocking the wider provider model
+- only then enable persisted observations and automatic pricing runs source by source
 
 ## Major deferred decisions / features
 
@@ -344,5 +360,6 @@ The current chapter is not considered closed until these are verified against pr
 
 - **Coding only:** In Progress.
 - **PR open / CI green:** In Progress.
-- **Merged but not deployed:** In Progress.
+- **Merged but not deployed:** In Progress where deployment is applicable.
 - **Production deployment + health verification successful:** Completed.
+- **External provider limitation:** recorded explicitly; does not silently count as platform failure.
