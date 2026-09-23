@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 import asyncpg
@@ -58,11 +58,13 @@ def validate_provider_observation(
 def derive_run_status(*, mapping_count: int, failed_mapping_count: int, accepted_count: int) -> str:
     if mapping_count == 0:
         return "BLOCKED"
-    if failed_mapping_count == 0:
-        return "SUCCEEDED"
     if failed_mapping_count >= mapping_count and accepted_count == 0:
         return "FAILED"
-    return "PARTIAL"
+    if failed_mapping_count > 0:
+        return "PARTIAL"
+    if accepted_count == 0:
+        return "BLOCKED"
+    return "SUCCEEDED"
 
 
 def safe_ingestion_error(exc: Exception) -> dict[str, object]:
@@ -119,7 +121,10 @@ async def _record_run(
             metadata,
             started_at,
             completed_at
-        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,now())
+        ) values (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12,
+            greatest(clock_timestamp(), $12)
+        )
         returning *
         """,
         owner_id,
@@ -194,53 +199,36 @@ async def _insert_observation(
     return row is not None
 
 
-async def execute_source_ingestion(
+async def _load_verified_mappings(
     connection: asyncpg.Connection,
-    *,
-    owner_id: UUID,
     source: str,
-    adapter: MarketDataAdapter,
-    trigger_type: str = "MANUAL",
-) -> dict:
-    source = source.upper().strip()
-    if source not in SUPPORTED_MARKET_SOURCES:
-        raise ValueError(f"Unsupported market source: {source}")
-    if adapter.source.upper().strip() != source:
-        raise ValueError("Adapter source does not match requested source")
-
-    started_at = datetime.now(timezone.utc)
-    mappings = await connection.fetch(
+) -> list[dict[str, Any]]:
+    rows = await connection.fetch(
         """
-        select id, catalogue_id, source_product_id, source_variant_id
+        select id, catalogue_id, source, source_product_id, source_variant_id, version
         from tcg.market_source_mappings
         where source = $1 and match_status = 'VERIFIED'
         order by created_at, id
         """,
         source,
     )
-    mapping_count = len(mappings)
-    fetched_count = 0
-    inserted_count = 0
-    duplicate_count = 0
-    failed_mapping_count = 0
-    errors: list[dict] = []
+    return [dict(row) for row in rows]
 
-    if not mappings:
-        run = await _record_run(
-            connection,
-            owner_id=owner_id,
-            source=source,
-            trigger_type=trigger_type,
-            status="BLOCKED",
-            mapping_count=0,
-            fetched_count=0,
-            inserted_count=0,
-            duplicate_count=0,
-            failed_mapping_count=0,
-            errors=[{"detail": "No VERIFIED source mappings are available"}],
-            started_at=started_at,
-        )
-        return dict(run)
+
+async def fetch_source_evidence(
+    mappings: list[dict[str, Any]],
+    *,
+    source: str,
+    adapter: MarketDataAdapter,
+) -> tuple[list[dict[str, Any]], int]:
+    """Fetch and validate provider evidence without holding a database connection.
+
+    All observations for one mapping are validated before any can be persisted.
+    This avoids partial writes from a provider response that later proves invalid.
+    """
+
+    results: list[dict[str, Any]] = []
+    fetched_count = 0
 
     for mapping in mappings:
         try:
@@ -250,45 +238,141 @@ async def execute_source_ingestion(
                 source_variant_id=mapping["source_variant_id"],
             )
             fetched_count += len(observations)
-            for observation in observations:
+            validated = [
                 validate_provider_observation(
                     observation,
                     expected_source=source,
                     expected_catalogue_id=mapping["catalogue_id"],
                 )
-                if await _insert_observation(connection, observation):
-                    inserted_count += 1
-                else:
-                    duplicate_count += 1
-        except Exception as exc:
-            failed_mapping_count += 1
-            safe_error = safe_ingestion_error(exc)
-            errors.append(
+                for observation in observations
+            ]
+            results.append(
                 {
-                    "mapping_id": str(mapping["id"]),
-                    "catalogue_id": str(mapping["catalogue_id"]),
-                    **safe_error,
+                    "mapping": mapping,
+                    "observations": validated,
+                    "error": None,
+                }
+            )
+        except Exception as exc:
+            results.append(
+                {
+                    "mapping": mapping,
+                    "observations": [],
+                    "error": safe_ingestion_error(exc),
                 }
             )
 
+    return results, fetched_count
+
+
+async def _current_mapping_rows(
+    connection: asyncpg.Connection,
+    mapping_ids: list[UUID],
+) -> dict[UUID, dict[str, Any]]:
+    if not mapping_ids:
+        return {}
+    rows = await connection.fetch(
+        """
+        select id, catalogue_id, source, source_product_id, source_variant_id,
+               match_status, version
+        from tcg.market_source_mappings
+        where id = any($1::uuid[])
+        """,
+        mapping_ids,
+    )
+    return {row["id"]: dict(row) for row in rows}
+
+
+def _mapping_is_current(snapshot: dict[str, Any], current: dict[str, Any] | None) -> bool:
+    if current is None or current.get("match_status") != "VERIFIED":
+        return False
+    keys = (
+        "catalogue_id",
+        "source",
+        "source_product_id",
+        "source_variant_id",
+        "version",
+    )
+    return all(current.get(key) == snapshot.get(key) for key in keys)
+
+
+async def persist_source_evidence(
+    connection: asyncpg.Connection,
+    *,
+    owner_id: UUID,
+    source: str,
+    trigger_type: str,
+    mapping_results: list[dict[str, Any]],
+    fetched_count: int,
+    started_at: datetime,
+) -> dict:
+    """Persist only evidence whose VERIFIED mapping is unchanged since fetch time."""
+
+    mapping_ids = [result["mapping"]["id"] for result in mapping_results]
+    current_rows = await _current_mapping_rows(connection, mapping_ids)
+
+    inserted_count = 0
+    duplicate_count = 0
+    failed_mapping_count = 0
+    errors: list[dict] = []
+
+    for result in mapping_results:
+        mapping = result["mapping"]
+        mapping_id = mapping["id"]
+        error = result["error"]
+
+        if error is not None:
+            failed_mapping_count += 1
+            errors.append(
+                {
+                    "mapping_id": str(mapping_id),
+                    "catalogue_id": str(mapping["catalogue_id"]),
+                    **error,
+                }
+            )
+            continue
+
+        if not _mapping_is_current(mapping, current_rows.get(mapping_id)):
+            failed_mapping_count += 1
+            errors.append(
+                {
+                    "mapping_id": str(mapping_id),
+                    "catalogue_id": str(mapping["catalogue_id"]),
+                    "detail": "Source mapping changed during provider fetch",
+                    "retryable": True,
+                    "error_type": "STALE_MAPPING",
+                }
+            )
+            continue
+
+        for observation in result["observations"]:
+            if await _insert_observation(connection, observation):
+                inserted_count += 1
+            else:
+                duplicate_count += 1
+
     status = derive_run_status(
-        mapping_count=mapping_count,
+        mapping_count=len(mapping_results),
         failed_mapping_count=failed_mapping_count,
         accepted_count=inserted_count + duplicate_count,
     )
+    if status == "BLOCKED" and not errors:
+        errors.append({"detail": "Provider returned no acceptable observations"})
+
     run = await _record_run(
         connection,
         owner_id=owner_id,
         source=source,
         trigger_type=trigger_type,
         status=status,
-        mapping_count=mapping_count,
+        mapping_count=len(mapping_results),
         fetched_count=fetched_count,
         inserted_count=inserted_count,
         duplicate_count=duplicate_count,
         failed_mapping_count=failed_mapping_count,
         errors=errors,
         started_at=started_at,
+        metadata={"transaction_safe_provider_fetch": True},
     )
     return dict(run)
 
@@ -379,45 +463,83 @@ async def run_market_ingestion(
     if source not in SUPPORTED_MARKET_SOURCES:
         raise HTTPException(status_code=404, detail="Unsupported market data source")
 
+    adapter = get_adapter(source)
+    blocked_error: dict[str, Any] | None = None
+    blocked_run: dict[str, Any] | None = None
+
+    # Phase 1: authorise and snapshot VERIFIED mappings in one short transaction.
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         owner = await _owner(connection)
-        adapter = get_adapter(source)
+        owner_id = owner["id"]
+        started_at = await connection.fetchval("select clock_timestamp()")
+        mappings = await _load_verified_mappings(connection, source)
+
         if adapter is None:
-            mapping_count = await connection.fetchval(
-                """
-                select count(*)
-                from tcg.market_source_mappings
-                where source = $1 and match_status = 'VERIFIED'
-                """,
-                source,
-            )
             run = await _record_run(
                 connection,
-                owner_id=owner["id"],
+                owner_id=owner_id,
                 source=source,
                 trigger_type="MANUAL",
                 status="BLOCKED",
-                mapping_count=int(mapping_count or 0),
+                mapping_count=len(mappings),
                 fetched_count=0,
                 inserted_count=0,
                 duplicate_count=0,
                 failed_mapping_count=0,
                 errors=[{"detail": "Provider adapter access is not configured"}],
-                started_at=datetime.now(timezone.utc),
+                started_at=started_at,
+                metadata={"transaction_safe_provider_fetch": True},
             )
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "message": "Provider adapter access is not configured",
-                    "source": source,
-                    "run_id": str(run["id"]),
-                },
+            blocked_run = dict(run)
+            blocked_error = {
+                "message": "Provider adapter access is not configured",
+                "source": source,
+                "run_id": str(run["id"]),
+            }
+        elif not mappings:
+            run = await _record_run(
+                connection,
+                owner_id=owner_id,
+                source=source,
+                trigger_type="MANUAL",
+                status="BLOCKED",
+                mapping_count=0,
+                fetched_count=0,
+                inserted_count=0,
+                duplicate_count=0,
+                failed_mapping_count=0,
+                errors=[{"detail": "No VERIFIED source mappings are available"}],
+                started_at=started_at,
+                metadata={"transaction_safe_provider_fetch": True},
             )
+            blocked_run = dict(run)
 
-        result = await execute_source_ingestion(
+    # Raising only after the transaction has exited ensures the diagnostic run is committed.
+    if blocked_error is not None:
+        raise HTTPException(status_code=409, detail=blocked_error)
+    if blocked_run is not None:
+        return jsonable_encoder(blocked_run)
+
+    # Phase 2: provider I/O happens with no database connection or transaction held.
+    mapping_results, fetched_count = await fetch_source_evidence(
+        mappings,
+        source=source,
+        adapter=adapter,
+    )
+
+    # Phase 3: re-check mapping versions and persist immutable observations atomically.
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        current_owner = await _owner(connection)
+        if current_owner["id"] != owner_id:
+            raise HTTPException(status_code=409, detail="Owner context changed during ingestion")
+        result = await persist_source_evidence(
             connection,
-            owner_id=owner["id"],
+            owner_id=owner_id,
             source=source,
-            adapter=adapter,
+            trigger_type="MANUAL",
+            mapping_results=mapping_results,
+            fetched_count=fetched_count,
+            started_at=started_at,
         )
-        return jsonable_encoder(result)
+
+    return jsonable_encoder(result)
