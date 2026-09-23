@@ -7,7 +7,7 @@ from statistics import median
 from typing import Iterable
 
 
-ALGORITHM_VERSION = "drop-rate-market-v2"
+ALGORITHM_VERSION = "drop-rate-market-v3"
 
 SOURCE_RELIABILITY = {
     "EBAY": 1.00,
@@ -17,10 +17,10 @@ SOURCE_RELIABILITY = {
     "MANUAL": 1.00,
 }
 
-# Drop Rate is a UK marketplace. These factors affect how much a provider's
-# estimate can influence a UK valuation; they do not alter the provider's
-# underlying observed price. They are intentionally conservative until we have
-# enough overlapping observations to calibrate empirical UK/US/EU spreads.
+# Drop Rate is a UK marketplace. These factors affect confidence/supporting
+# evidence only. The displayed Market Value is derived exclusively from UK/EU
+# anchor observations (eBay UK and Cardmarket) so US/global prices can never
+# become the customer-facing UK valuation by currency conversion alone.
 UK_MARKET_RELEVANCE = {
     "EBAY": 1.00,
     "CARDMARKET": 0.95,
@@ -185,26 +185,18 @@ def _remove_extreme_outliers(observations: list[MarketObservation]) -> list[Mark
 
 def _market_relevance(source: str, observations: list[MarketObservation]) -> float:
     if source == "EBAY":
-        # eBay observations are marketplace-specific. UK sold/listing evidence
-        # is the closest direct signal for a UK storefront; non-UK eBay is
-        # still useful but should not be allowed to anchor the valuation.
         if any((item.source_country or "").upper() == "GB" for item in observations):
             return 1.20
         return 0.65
     return UK_MARKET_RELEVANCE.get(source, 0.65)
 
 
-def _has_uk_eu_anchor(observations: list[MarketObservation], target: ComparableTarget) -> bool:
-    for observation in observations:
-        if comparable_quality(observation, target) <= 0:
-            continue
-        source = observation.source.upper().strip()
-        country = (observation.source_country or "").upper().strip()
-        if source == "CARDMARKET":
-            return True
-        if source == "EBAY" and country == "GB":
-            return True
-    return False
+def _is_uk_eu_anchor(observation: MarketObservation, target: ComparableTarget) -> bool:
+    if comparable_quality(observation, target) <= 0:
+        return False
+    source = observation.source.upper().strip()
+    country = (observation.source_country or "").upper().strip()
+    return source == "CARDMARKET" or (source == "EBAY" and country == "GB")
 
 
 def _source_estimate(
@@ -303,13 +295,33 @@ def calculate_price(
     if not estimates:
         raise ValueError("No comparable market observations supplied")
 
-    has_regional_anchor = _has_uk_eu_anchor(observations, target)
-    market_value = weighted_median([(estimate.estimate_minor, estimate.weight) for estimate in estimates])
+    anchor_observations = [item for item in observations if _is_uk_eu_anchor(item, target)]
+    if not anchor_observations:
+        raise ValueError("No UK/EU market anchor available")
+
+    anchors_by_source: dict[str, list[MarketObservation]] = {}
+    for observation in anchor_observations:
+        anchors_by_source.setdefault(observation.source, []).append(observation)
+    anchor_estimates = tuple(
+        estimate
+        for source, source_observations in sorted(anchors_by_source.items())
+        if (estimate := _source_estimate(source, source_observations, target, as_of)) is not None
+    )
+    if not anchor_estimates:
+        raise ValueError("No comparable UK/EU market anchor available")
+
+    # The displayed UK Market Value is determined exclusively by UK/EU anchors.
+    # US/global estimates remain in source_estimates and can strengthen or weaken
+    # confidence, but they never directly move the customer-facing £ valuation.
+    market_value = weighted_median(
+        [(estimate.estimate_minor, estimate.weight) for estimate in anchor_estimates]
+    )
     observation_count = sum(estimate.observation_count for estimate in estimates)
     sold_count = sum(estimate.sold_observation_count for estimate in estimates)
     source_count = len(estimates)
+    regional_sold_count = sum(estimate.sold_observation_count for estimate in anchor_estimates)
     newest = max(estimate.newest_observation_at for estimate in estimates)
-    volatility = _volatility_pct(estimates, market_value)
+    volatility = _volatility_pct(anchor_estimates, market_value)
 
     source_score = min(source_count / 3.0, 1.0)
     sample_score = min((sold_count / 8.0) + ((observation_count - sold_count) / 12.0), 1.0)
@@ -317,8 +329,6 @@ def calculate_price(
     quality_score = sum(estimate.evidence_quality for estimate in estimates) / source_count
     confidence = 0.30 * source_score + 0.25 * sample_score + 0.25 * freshness_score + 0.20 * quality_score
     confidence -= 0.15 * min(volatility / max(policy.max_volatility_pct, 1.0), 1.0)
-    if not has_regional_anchor:
-        confidence -= 0.15
     confidence = round(max(0.0, min(confidence, 1.0)), 4)
 
     recommended = max(0, round(market_value * policy.retail_multiplier))
@@ -330,8 +340,8 @@ def calculate_price(
         block_reasons.append("LOW_CONFIDENCE")
     if source_count < policy.min_sources and sold_count < 5:
         block_reasons.append("INSUFFICIENT_SOURCE_DIVERSITY")
-    if not has_regional_anchor:
-        block_reasons.append("NO_UK_EU_MARKET_ANCHOR")
+    if len(anchor_estimates) < 2 and regional_sold_count < 5:
+        block_reasons.append("INSUFFICIENT_REGIONAL_EVIDENCE")
     if volatility > policy.max_volatility_pct:
         block_reasons.append("HIGH_VOLATILITY")
     if recommended >= policy.high_value_review_minor:
