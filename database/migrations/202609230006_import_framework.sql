@@ -1,13 +1,21 @@
 begin;
 
 alter table tcg.import_batches
+    drop constraint if exists import_batches_source_check,
+    drop constraint if exists import_batches_owner_id_source_key;
+
+alter table tcg.import_batches
     add column if not exists filename text,
     add column if not exists adapter text not null default 'LEGACY',
     add column if not exists status text not null default 'COMMITTED'
         check (status in ('PREVIEW', 'COMMITTED', 'CANCELLED')),
     add column if not exists warnings jsonb not null default '[]'::jsonb,
     add column if not exists version integer not null default 1 check (version >= 1),
-    add column if not exists committed_at timestamptz;
+    add column if not exists committed_at timestamptz,
+    add constraint import_batches_source_nonblank_check check (btrim(source) <> ''),
+    add constraint import_batches_adapter_check
+        check (adapter in ('LEGACY', 'COLLECTR', 'EBAY_PURCHASES', 'HOLODEX', 'GENERIC_CSV')),
+    add constraint import_batches_owner_source_sha256_key unique (owner_id, source_sha256);
 
 create table tcg.import_candidates (
     id uuid primary key default gen_random_uuid(),
