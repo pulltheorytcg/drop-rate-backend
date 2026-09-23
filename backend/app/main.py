@@ -68,6 +68,30 @@ def _database_error_response(exc: asyncpg.PostgresError, request_id: str) -> JSO
                 "request_id": request_id,
             },
         )
+    if exc.sqlstate == "23505":
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": "Operation conflicts with an existing record",
+                "request_id": request_id,
+            },
+        )
+    if exc.sqlstate == "23503":
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": "Operation conflicts with a referenced record",
+                "request_id": request_id,
+            },
+        )
+    if exc.sqlstate in {"23514", "23502"}:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": "Operation violates a data integrity rule",
+                "request_id": request_id,
+            },
+        )
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error", "request_id": request_id},
