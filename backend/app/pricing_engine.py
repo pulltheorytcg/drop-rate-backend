@@ -7,7 +7,7 @@ from statistics import median
 from typing import Iterable
 
 
-ALGORITHM_VERSION = "drop-rate-market-v3"
+ALGORITHM_VERSION = "drop-rate-market-v4"
 
 SOURCE_RELIABILITY = {
     "EBAY": 1.00,
@@ -132,13 +132,30 @@ def _dimension_match(observed: str | None, target: str | None, *, strict_missing
 
 
 def comparable_quality(observation: MarketObservation, target: ComparableTarget) -> float:
+    """Return deterministic comparable quality for one market observation.
+
+    For graded cards, grading company + exact grade define physical condition.
+    Marketplace condition labels such as "Used" or "New (other)" describe the
+    slab/listing and must not cause an otherwise exact PSA/CGC/BGS comparable to
+    be discarded. Raw cards still require the normal condition comparison.
+    """
+
+    graded_target = _norm(target.grading_company) is not None and _norm(target.grade) is not None
+
     company_ok, company_factor = _dimension_match(
-        observation.grading_company, target.grading_company, strict_missing=target.grading_company is not None
+        observation.grading_company,
+        target.grading_company,
+        strict_missing=target.grading_company is not None,
     )
     grade_ok, grade_factor = _dimension_match(
-        observation.grade, target.grade, strict_missing=target.grade is not None
+        observation.grade,
+        target.grade,
+        strict_missing=target.grade is not None,
     )
-    condition_ok, condition_factor = _dimension_match(observation.condition, target.condition)
+    if graded_target:
+        condition_ok, condition_factor = True, 1.0
+    else:
+        condition_ok, condition_factor = _dimension_match(observation.condition, target.condition)
     language_ok, language_factor = _dimension_match(observation.language, target.language)
     seal_ok, seal_factor = _dimension_match(observation.seal_status, target.seal_status)
     if not all((company_ok, grade_ok, condition_ok, language_ok, seal_ok)):
