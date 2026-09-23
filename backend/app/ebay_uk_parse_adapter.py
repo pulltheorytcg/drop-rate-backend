@@ -11,7 +11,11 @@ from .parse_client import ParseHttpClient
 
 
 EBAY_UK_PARSE_SCRAPER_ID = "923c816c-9218-4c32-ae0c-2eac3d514be5"
-EBAY_UK_PARSE_SNAPSHOT_VERSION = 10
+# Use Parse's current canonical eBay UK release during live validation. The
+# previous hard-coded snapshot (10) returned successful responses with empty
+# result sets even though the current marketplace endpoint is healthy. Once a
+# known-good current snapshot number is explicitly available, we can pin it.
+EBAY_UK_PARSE_SNAPSHOT_VERSION: int | None = None
 
 _MONEY_RE = re.compile(r"£\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)", re.IGNORECASE)
 _SPACE_RE = re.compile(r"[^a-z0-9]+", re.IGNORECASE)

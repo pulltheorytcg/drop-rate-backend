@@ -8,7 +8,7 @@ const MARKET_SMOKE_CASES = [
     catalogue_id: "5cc2da17-f1f8-4add-8e53-ef78237ec689",
     source_variant_id: null,
     mapping: {
-      query: "Absol 063/094 Phantasmal Flames",
+      query: "Absol 063/094",
       required_title_terms: ["Absol", "063/094"],
       forbidden_title_terms: ["reverse", "graded", "PSA", "CGC", "BGS", "proxy", "custom", "digital"],
       language: "English",
@@ -23,7 +23,7 @@ const MARKET_SMOKE_CASES = [
     catalogue_id: "62a2d049-cebb-4c14-a7db-e7f3bd63af58",
     source_variant_id: null,
     mapping: {
-      query: "Absol 063/094 Phantasmal Flames Reverse Holo",
+      query: "Absol 063/094 Reverse",
       required_title_terms: ["Absol", "063/094", "Reverse"],
       forbidden_title_terms: ["graded", "PSA", "CGC", "BGS", "proxy", "custom", "digital"],
       language: "English",
@@ -38,7 +38,7 @@ const MARKET_SMOKE_CASES = [
     catalogue_id: "9e4574cf-00e5-4739-a576-822caefd547e",
     source_variant_id: null,
     mapping: {
-      query: "Charizard V 019/189 Darkness Ablaze",
+      query: "Charizard V 019/189",
       required_title_terms: ["Charizard V", "019/189"],
       forbidden_title_terms: ["proxy", "custom", "digital"],
       grading_company: "PSA",
@@ -55,7 +55,7 @@ const MARKET_SMOKE_CASES = [
     catalogue_id: "0a9e70d9-fd75-4ec5-9837-673fc0a97014",
     source_variant_id: null,
     mapping: {
-      query: "Monkey D Luffy OP05-119 Awakening of the New Era",
+      query: "Luffy OP05-119",
       required_title_terms: ["Monkey D Luffy", "OP05-119"],
       forbidden_title_terms: ["manga", "parallel", "alternate", "alt art", "anniversary", "wanted", "PSA", "CGC", "BGS", "proxy", "custom", "digital"],
       language: "English",
@@ -70,7 +70,7 @@ const MARKET_SMOKE_CASES = [
     catalogue_id: "a36d35d2-2e34-4483-8ee0-fee1e4674b10",
     source_variant_id: null,
     mapping: {
-      query: "Monkey D Luffy ST10-006 3rd Anniversary Treasure Campaign Pack",
+      query: "Luffy ST10-006",
       required_title_terms: ["Monkey D Luffy", "ST10-006", "3rd Anniversary"],
       forbidden_title_terms: ["proxy", "custom", "digital"],
       grading_company: "PSA",
@@ -183,7 +183,7 @@ function installMarketSmokePanel() {
       <div>
         <p class="eyebrow">Live validation</p>
         <h2>Market data smoke tests</h2>
-        <p class="muted">Fetch live sold-price evidence for a small mixed sample without adding observations or changing Market Value. The matrix uses one provider call per card so it stays within the current free-tier request limit.</p>
+        <p class="muted">Fetch live sold-price evidence for a small mixed sample without adding observations or changing Market Value. Retrieval queries stay broad while deterministic identity rules decide what evidence is accepted. The matrix uses one provider call per card so it stays within the current free-tier request limit.</p>
       </div>
       <div class="topbar-actions">
         <button id="market-smoke-run" class="primary-button" type="button">Run smoke tests</button>
