@@ -45,6 +45,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/inventory-imports.js" defer></script>',
         '<script src="/assets/founder-finance.js" defer></script>',
         '<script src="/assets/dashboard-shell.js" defer></script>',
+        '<script src="/assets/market-smoke-panel.js" defer></script>',
         '<script src="/assets/market-value-column.js" defer></script>',
     )
     for script in scripts:
