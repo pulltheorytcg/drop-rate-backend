@@ -4,7 +4,12 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from app.inventory_intake import _manual_identity_key, _validate_physical_state
+from app.inventory_intake import (
+    _manual_identity_key,
+    _manual_intake_payload_hash,
+    _receipt_response,
+    _validate_physical_state,
+)
 from app.schemas import ManualCatalogueCreate, ManualInventoryCreate
 
 
@@ -113,6 +118,43 @@ def test_manual_intake_idempotency_is_nullable_and_unique() -> None:
     assert "intake_request_key uuid" in sql
     assert "unique (intake_request_key)" in sql.lower()
     assert "where intake_request_key is not null" not in sql.lower()
+
+
+def test_manual_intake_payload_hash_is_stable_and_payload_sensitive() -> None:
+    first = ManualInventoryCreate(
+        catalogue_id="3f0e3d90-b56f-4e57-adf2-55cecc207820",
+        condition="Near Mint",
+        acquisition_cost_minor=None,
+    )
+    same = ManualInventoryCreate(
+        catalogue_id="3f0e3d90-b56f-4e57-adf2-55cecc207820",
+        condition="Near Mint",
+        acquisition_cost_minor=None,
+    )
+    changed = ManualInventoryCreate(
+        catalogue_id="3f0e3d90-b56f-4e57-adf2-55cecc207820",
+        condition="Lightly Played",
+        acquisition_cost_minor=None,
+    )
+    assert _manual_intake_payload_hash(first) == _manual_intake_payload_hash(same)
+    assert _manual_intake_payload_hash(first) != _manual_intake_payload_hash(changed)
+
+
+def test_manual_intake_receipt_rejects_key_reuse_for_different_payload() -> None:
+    receipt = {"payload_hash": "first", "response": {"replayed": False, "inventory": {"id": "x"}}}
+    with pytest.raises(HTTPException) as exc_info:
+        _receipt_response(receipt, "different")
+    assert exc_info.value.status_code == 409
+
+
+def test_manual_intake_receipt_replays_same_payload() -> None:
+    receipt = {
+        "payload_hash": "same",
+        "response": '{"replayed":false,"inventory":{"id":"x"}}',
+    }
+    replay = _receipt_response(receipt, "same")
+    assert replay["replayed"] is True
+    assert replay["inventory"]["id"] == "x"
 
 
 def test_manual_intake_frontend_sends_idempotency_key_and_uses_registered_location() -> None:
