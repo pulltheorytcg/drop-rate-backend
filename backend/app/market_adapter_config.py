@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .cardmarket_parse_adapter import CardmarketParseAdapter
+from .collectr_parse_adapter import CollectrParseAdapter
 from .fx import EcbHistoricalFxProvider, FxRateProvider
 from .market_adapters import register_adapter
 from .parse_client import ParseHttpClient
@@ -20,7 +21,7 @@ def configure_market_adapters(
     Tests can inject a fake FX provider instead.
     """
 
-    configured = {"TCGPLAYER": False, "CARDMARKET": False}
+    configured = {"TCGPLAYER": False, "CARDMARKET": False, "COLLECTR": False}
 
     if settings.parse_api_key:
         provider = fx_provider or EcbHistoricalFxProvider()
@@ -41,5 +42,13 @@ def configure_market_adapters(
             )
         )
         configured["CARDMARKET"] = True
+
+        register_adapter(
+            CollectrParseAdapter(
+                client=client,
+                fx_provider=provider,
+            )
+        )
+        configured["COLLECTR"] = True
 
     return configured
