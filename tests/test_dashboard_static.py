@@ -1,4 +1,8 @@
 from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
 
 
 ROOT = Path(__file__).parents[1]
@@ -46,3 +50,9 @@ def test_unknown_bulk_cost_is_not_forced_to_zero_in_purchase_lot_flow() -> None:
     js = (STATIC / "purchase-lots.js").read_text()
     assert 'placeholder = "Unknown"' in js
     assert 'row.querySelector("input").value = ""' in js
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is not installed")
+def test_dashboard_javascript_has_valid_syntax() -> None:
+    for name in ("app.js", "purchase-lots.js"):
+        subprocess.run(["node", "--check", str(STATIC / name)], check=True)
