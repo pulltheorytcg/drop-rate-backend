@@ -6,7 +6,7 @@ from typing import Annotated
 from uuid import UUID, uuid4
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 
 from .auth import AuthenticatedUser, require_user
@@ -93,6 +93,81 @@ async def _find_exact_catalogue(
     return rows[0] if rows else None
 
 
+async def _existing_intake(
+    connection: asyncpg.Connection,
+    owner_id: UUID,
+    request_key: UUID,
+) -> asyncpg.Record | None:
+    return await connection.fetchrow(
+        """
+        select
+            i.*,
+            p.product_type as catalogue_product_type,
+            p.game as catalogue_game,
+            p.name as catalogue_name,
+            p.set_name as catalogue_set_name,
+            p.card_number as catalogue_card_number,
+            p.variant as catalogue_variant,
+            p.rarity as catalogue_rarity,
+            p.language as catalogue_language
+        from tcg.inventory_items i
+        join tcg.catalogue_products p on p.id = i.catalogue_id
+        where i.owner_id = $1 and i.intake_request_key = $2
+        """,
+        owner_id,
+        request_key,
+    )
+
+
+def _existing_response(row: asyncpg.Record) -> dict:
+    catalogue = {
+        "id": row["catalogue_id"],
+        "product_type": row["catalogue_product_type"],
+        "game": row["catalogue_game"],
+        "name": row["catalogue_name"],
+        "set_name": row["catalogue_set_name"],
+        "card_number": row["catalogue_card_number"],
+        "variant": row["catalogue_variant"],
+        "rarity": row["catalogue_rarity"],
+        "language": row["catalogue_language"],
+    }
+    inventory = {
+        key: row[key]
+        for key in (
+            "id",
+            "inventory_code",
+            "catalogue_id",
+            "owner_id",
+            "acquisition_cost_minor",
+            "acquisition_date",
+            "currency",
+            "condition",
+            "seal_status",
+            "grading_company",
+            "grade",
+            "certificate_number",
+            "language",
+            "location",
+            "storage_location_id",
+            "store_price_minor",
+            "identity_confirmed",
+            "status",
+            "notes",
+            "version",
+            "created_at",
+            "updated_at",
+            "intake_request_key",
+        )
+    }
+    return {
+        "inventory": inventory,
+        "catalogue": catalogue,
+        "catalogue_created": False,
+        "catalogue_reused": False,
+        "replayed": True,
+    }
+
+
 def _validate_physical_state(product_type: str, payload: ManualInventoryCreate) -> None:
     if product_type == "CARD":
         if payload.seal_status is not None:
@@ -165,13 +240,23 @@ async def create_inventory_intake(
     payload: ManualInventoryCreate,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=96)],
 ) -> dict:
+    try:
+        request_key = UUID(idempotency_key.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Idempotency-Key must be a UUID") from exc
+
     async with user_connection(
         request.app.state.db_pool,
         user.user_id,
         request.state.request_id,
     ) as connection:
         owner = await _owner(connection)
+
+        existing = await _existing_intake(connection, owner["id"], request_key)
+        if existing is not None:
+            return jsonable_encoder(_existing_response(existing))
 
         catalogue_created = False
         catalogue_reused = False
@@ -189,27 +274,26 @@ async def create_inventory_intake(
             if catalogue is not None:
                 catalogue_reused = True
             else:
-                try:
-                    catalogue = await connection.fetchrow(
-                        """
-                        insert into tcg.catalogue_products(
-                            identity_key, product_type, game, name, set_name,
-                            card_number, variant, rarity, language
-                        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                        returning *
-                        """,
-                        _manual_identity_key(payload.new_catalogue),
-                        payload.new_catalogue.product_type,
-                        payload.new_catalogue.game,
-                        payload.new_catalogue.name,
-                        payload.new_catalogue.set_name,
-                        payload.new_catalogue.card_number,
-                        payload.new_catalogue.variant,
-                        payload.new_catalogue.rarity,
-                        payload.new_catalogue.language,
-                    )
-                    catalogue_created = True
-                except asyncpg.UniqueViolationError:
+                catalogue = await connection.fetchrow(
+                    """
+                    insert into tcg.catalogue_products(
+                        identity_key, product_type, game, name, set_name,
+                        card_number, variant, rarity, language
+                    ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    on conflict (identity_key) do nothing
+                    returning *
+                    """,
+                    _manual_identity_key(payload.new_catalogue),
+                    payload.new_catalogue.product_type,
+                    payload.new_catalogue.game,
+                    payload.new_catalogue.name,
+                    payload.new_catalogue.set_name,
+                    payload.new_catalogue.card_number,
+                    payload.new_catalogue.variant,
+                    payload.new_catalogue.rarity,
+                    payload.new_catalogue.language,
+                )
+                if catalogue is None:
                     catalogue = await _find_exact_catalogue(connection, payload.new_catalogue)
                     if catalogue is None:
                         raise HTTPException(
@@ -217,6 +301,8 @@ async def create_inventory_intake(
                             detail="Catalogue identity was created concurrently. Search the catalogue and retry.",
                         )
                     catalogue_reused = True
+                else:
+                    catalogue_created = True
 
         _validate_physical_state(catalogue["product_type"], payload)
 
@@ -246,14 +332,17 @@ async def create_inventory_intake(
                 acquisition_cost_minor, acquisition_date, currency,
                 condition, seal_status, grading_company, grade,
                 certificate_number, language, storage_location_id,
-                store_price_minor, identity_confirmed, status, notes
+                store_price_minor, identity_confirmed, status, notes,
+                intake_request_key
             ) values (
                 $1, $2, $3, $4,
                 $5, $6, 'GBP',
                 $7, $8, $9, $10,
                 $11, $12, $13,
-                $14, $15, 'DRAFT', $16
+                $14, $15, 'DRAFT', $16,
+                $17
             )
+            on conflict (intake_request_key) do nothing
             returning *
             """,
             inventory_id,
@@ -272,7 +361,14 @@ async def create_inventory_intake(
             payload.store_price_minor,
             payload.identity_confirmed,
             payload.notes,
+            request_key,
         )
+
+        if inventory is None:
+            existing = await _existing_intake(connection, owner["id"], request_key)
+            if existing is None:
+                raise HTTPException(status_code=409, detail="Inventory intake conflicted. Retry with the same Idempotency-Key.")
+            return jsonable_encoder(_existing_response(existing))
 
         return jsonable_encoder(
             {
@@ -280,5 +376,6 @@ async def create_inventory_intake(
                 "catalogue": dict(catalogue),
                 "catalogue_created": catalogue_created,
                 "catalogue_reused": catalogue_reused,
+                "replayed": False,
             }
         )
