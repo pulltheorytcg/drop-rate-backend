@@ -7,7 +7,7 @@ import json
 import re
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -73,6 +73,22 @@ CARD_CONDITION_MAP = {
     "damaged": "Damaged",
     "dmg": "Damaged",
 }
+
+
+def _json_value(value: Any, *, expected_type: type, fallback: Any) -> Any:
+    """Decode persisted JSON/JSONB whether asyncpg returns text or an object."""
+
+    if value is None:
+        return fallback
+    decoded = value
+    if isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise ValueError("Stored import JSON is invalid") from exc
+    if not isinstance(decoded, expected_type):
+        raise ValueError("Stored import JSON has an unexpected shape")
+    return decoded
 
 
 def _header_key(value: str) -> str:
@@ -405,7 +421,15 @@ async def get_import_batch(
             """,
             batch_id, owner["id"],
         )
-        return jsonable_encoder({"batch": dict(batch), "candidates": [dict(row) for row in candidates]})
+        candidate_payloads = []
+        for row in candidates:
+            item = dict(row)
+            item["normalized_record"] = _json_value(
+                item.get("normalized_record"), expected_type=dict, fallback={}
+            )
+            item["issues"] = _json_value(item.get("issues"), expected_type=list, fallback=[])
+            candidate_payloads.append(item)
+        return jsonable_encoder({"batch": dict(batch), "candidates": candidate_payloads})
 
 
 @router.post("/{batch_id}/commit")
@@ -451,7 +475,10 @@ async def commit_import_batch(
             )
             created_count = 0
             for candidate in candidates:
-                normalized = candidate["normalized_record"]
+                normalized = _json_value(
+                    candidate["normalized_record"], expected_type=dict, fallback={}
+                )
+                raw_record = _json_value(candidate["raw_record"], expected_type=dict, fallback={})
                 for copy_number in range(1, candidate["quantity"] + 1):
                     inventory_id = uuid4()
                     inventory_code = f"INV-{inventory_id.hex.upper()}"
@@ -477,7 +504,7 @@ async def commit_import_batch(
                         normalized.get("grading_company"), normalized.get("grade"),
                         normalized.get("certificate_number"), normalized.get("language"),
                         batch_id, candidate["source_row"], copy_number,
-                        json.dumps(candidate["raw_record"]),
+                        json.dumps(raw_record),
                     )
                     created_count += 1
                 await connection.execute(
