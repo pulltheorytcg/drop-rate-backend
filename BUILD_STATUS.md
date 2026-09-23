@@ -8,27 +8,28 @@ Percentages are weighted estimates, not simple phase counts, and should be updat
 
 ## Current progress
 
-- **Full Drop Rate roadmap:** ~22%
-- **Milestone 1 — Founder inventory control:** ~75%
+- **Full Drop Rate roadmap:** ~24%
+- **Milestone 1 — Founder inventory control:** ~88%
 - **Milestone 2 — Shopify sale attribution:** 0%
 - **Milestone 3 — Automated market valuation/pricing:** 0%
 
 ## Current stage
 
-**Phase 3–4: Inventory foundation + founder inventory dashboard**
+**Phase 3–4 finalisation: Inventory foundation + founder inventory dashboard**
 
 ### In progress now
 
-**Storage Locations + Stock Auditing**
+**Manual Single-Item Inventory Intake**
 
 Goal:
-- replace free-form physical locations with a controlled location registry
-- support codes such as `BINDER-01/PAGE-04`, `BOX-03/SLOT-18`, `SHELF-A/BIN-02`
-- link every physical inventory item to a registered location
-- bulk-assign selected inventory to a location
-- filter inventory by location
-- show inventory counts by location and an Unlocated count
-- preserve audit history and optimistic version protection
+- let the founder add a brand-new physical card/product from the dashboard
+- search and select an existing canonical catalogue product where possible
+- create a controlled catalogue record when the product is genuinely missing
+- generate a unique physical Inventory ID server-side
+- attach owner, cost/date, condition or seal state, grade/certificate, language, registered storage location, store price, identity confirmation and notes
+- keep unknown acquisition cost as `NULL`
+- create new stock as `DRAFT`; never silently approve or publish it
+- preserve audit history and deterministic validation
 
 ## Successfully completed and production-verified
 
@@ -54,7 +55,6 @@ Goal:
 - condition
 - grading company / grade / certificate number
 - language
-- free-form location field (being replaced by registered Storage Locations)
 - store price
 - identity confirmation
 - inventory status
@@ -97,6 +97,26 @@ Goal:
 - value-weighted allocation intentionally deferred until the pricing engine has reliable reference values
 - Purchase Lot v2 deployed and production-verified
 
+### Storage Locations / stock auditing
+- owner-scoped registered Storage Locations
+- stable physical location codes such as `BINDER-01/PAGE-04` and `BOX-03/SLOT-18`
+- inventory links to a registered `storage_location_id`
+- human-readable `location` mirrors the registered location code automatically
+- free-text location edits are blocked
+- create/edit/deactivate location workflow
+- location codes and ownership are immutable
+- occupied locations cannot be deactivated until stock is moved
+- inactive/cross-owner locations cannot receive inventory
+- bulk location assignment with stale-version protection
+- location filtering and search
+- Unlocated inventory count
+- per-location inventory counts
+- founder dashboard Storage Locations controls
+- database RLS, grants and audit trigger verified
+- rollback smoke test verified code mirroring and deactivation protection
+- all 328 pre-existing items remained unchanged/unlocated after migration
+- production deployment verified healthy
+
 ## Milestone 1 checklist
 
 Milestone 1 definition:
@@ -114,9 +134,9 @@ Milestone 1 definition:
 | Grade/certificate | ✅ Complete |
 | Language | ✅ Complete |
 | Purchase provenance | ✅ Complete |
-| Controlled physical locations | 🚧 In progress |
-| Stock audit/location counts | 🚧 In progress |
-| Add a brand-new physical inventory item manually | ⬜ Not built |
+| Controlled physical locations | ✅ Complete |
+| Stock audit/location counts | ✅ Complete |
+| Add a brand-new physical inventory item manually | 🚧 In progress |
 | Final Milestone 1 production QA | ⬜ Not started |
 
 ## Build roadmap
@@ -125,8 +145,8 @@ Milestone 1 definition:
 |---|---|---|
 | 1 | Architecture / documentation | ✅ Core complete; documentation continues |
 | 2 | Database / authentication | ✅ Core complete |
-| 3 | Founder account / inventory / ownership | 🚧 Mostly complete |
-| 4 | Inventory dashboard | 🚧 Mostly complete |
+| 3 | Founder account / inventory / ownership | 🚧 Finalising manual intake |
+| 4 | Inventory dashboard | 🚧 Finalising manual intake + QA |
 | 5 | Shopify integration | ⬜ Not started |
 | 6 | Orders / ownership allocation / settlements | ⬜ Not started |
 | 7 | Market-data infrastructure | ⬜ Not started |
@@ -142,10 +162,10 @@ Milestone 1 definition:
 
 ## Immediate next work
 
-1. Finish Storage Locations + Stock Auditing.
-2. Build manual single-item inventory intake so a new physical card/product can be added cleanly.
-3. Run Milestone 1 end-to-end QA and close remaining inventory foundation gaps.
-4. Start Milestone 2: Shopify integration.
+1. Build manual single-item inventory intake so a new physical card/product can be added cleanly.
+2. Run Milestone 1 end-to-end QA and close remaining inventory foundation gaps.
+3. Start Milestone 2: Shopify integration.
+4. Decide and document the Shopify catalogue mapping before sync implementation.
 5. Implement APPROVED inventory → Shopify product/variant synchronisation.
 6. Implement verified, idempotent Shopify order/refund/cancellation webhooks.
 7. Link Shopify order item → physical Inventory ID → deterministic sale attribution.
