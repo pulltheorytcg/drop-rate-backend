@@ -51,6 +51,25 @@ def _response_shape_diagnostics(data: dict[str, Any]) -> tuple[list[str], dict[s
     return keys, list_counts, sample_titles
 
 
+def _request_headers(*, api_key: str, snapshot_version: int | None) -> dict[str, str]:
+    """Build Parse headers without exposing or implicitly pinning a stale release.
+
+    Parse marketplace APIs may be called against the current canonical release by
+    omitting ``API-Snapshot-Version``. Adapters can still deliberately pin a known
+    good release by passing an explicit positive snapshot version.
+    """
+
+    headers = {
+        "X-API-Key": api_key,
+        "Accept": "application/json",
+    }
+    if snapshot_version is not None:
+        if snapshot_version < 1:
+            raise ValueError("snapshot_version must be positive")
+        headers["API-Snapshot-Version"] = str(snapshot_version)
+    return headers
+
+
 class ParseHttpClient:
     """Minimal async client for Parse marketplace APIs.
 
@@ -81,7 +100,7 @@ class ParseHttpClient:
         *,
         scraper_id: str,
         endpoint: str,
-        snapshot_version: int,
+        snapshot_version: int | None = None,
         params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return await self._request(
@@ -97,7 +116,7 @@ class ParseHttpClient:
         *,
         scraper_id: str,
         endpoint: str,
-        snapshot_version: int,
+        snapshot_version: int | None = None,
         json_body: Any,
     ) -> dict[str, Any]:
         return await self._request(
@@ -114,7 +133,7 @@ class ParseHttpClient:
         method: str,
         scraper_id: str,
         endpoint: str,
-        snapshot_version: int,
+        snapshot_version: int | None,
         params: dict[str, Any] | None = None,
         json_body: Any = None,
     ) -> dict[str, Any]:
@@ -124,15 +143,9 @@ class ParseHttpClient:
             raise ValueError("scraper_id must be a UUID") from exc
         if not endpoint or not endpoint.replace("_", "").isalnum():
             raise ValueError("endpoint must contain only letters, numbers and underscores")
-        if snapshot_version < 1:
-            raise ValueError("snapshot_version must be positive")
 
         url = f"{self._base_url}/scraper/{scraper_id}/{endpoint}"
-        headers = {
-            "X-API-Key": self._api_key,
-            "API-Snapshot-Version": str(snapshot_version),
-            "Accept": "application/json",
-        }
+        headers = _request_headers(api_key=self._api_key, snapshot_version=snapshot_version)
 
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
@@ -176,8 +189,9 @@ class ParseHttpClient:
 
         keys, list_counts, sample_titles = _response_shape_diagnostics(data)
         logger.warning(
-            "parse_response_shape endpoint=%s keys=%s list_counts=%s sample_titles=%s",
+            "parse_response_shape endpoint=%s snapshot=%s keys=%s list_counts=%s sample_titles=%s",
             endpoint,
+            snapshot_version if snapshot_version is not None else "CURRENT",
             keys,
             list_counts,
             sample_titles,
