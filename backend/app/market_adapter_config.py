@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .cardmarket_parse_adapter import CardmarketParseAdapter
 from .collectr_parse_adapter import CollectrParseAdapter
+from .ebay_uk_parse_adapter import EbayUkParseAdapter
 from .fx import EcbHistoricalFxProvider, FxRateProvider
 from .market_adapters import register_adapter
 from .parse_client import ParseHttpClient
@@ -18,14 +19,23 @@ def configure_market_adapters(
 
     The official ECB historical reference-rate provider is used by default when
     Parse access exists, keeping USD/EUR normalisation deterministic and auditable.
+    eBay UK is GBP-native and uses the same Parse client without FX conversion.
     Tests can inject a fake FX provider instead.
     """
 
-    configured = {"TCGPLAYER": False, "CARDMARKET": False, "COLLECTR": False}
+    configured = {
+        "EBAY": False,
+        "TCGPLAYER": False,
+        "CARDMARKET": False,
+        "COLLECTR": False,
+    }
 
     if settings.parse_api_key:
         provider = fx_provider or EcbHistoricalFxProvider()
         client = ParseHttpClient(api_key=settings.parse_api_key)
+
+        register_adapter(EbayUkParseAdapter(client=client))
+        configured["EBAY"] = True
 
         register_adapter(
             TcgplayerParseAdapter(
