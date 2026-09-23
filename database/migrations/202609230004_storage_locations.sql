@@ -62,6 +62,8 @@ begin
 end;
 $$;
 
+revoke all on function tcg.audit_storage_location_change() from public;
+
 create trigger storage_locations_audit
     after insert or update or delete on tcg.storage_locations
     for each row execute function tcg.audit_storage_location_change();
@@ -79,6 +81,8 @@ begin
     return new;
 end;
 $$;
+
+revoke all on function tcg.guard_storage_location_code() from public;
 
 create trigger storage_location_code_guard
     before update of code on tcg.storage_locations
@@ -112,6 +116,8 @@ begin
     return new;
 end;
 $$;
+
+revoke all on function tcg.sync_inventory_storage_location() from public;
 
 create trigger inventory_storage_location_sync
     before insert or update of storage_location_id on tcg.inventory_items
