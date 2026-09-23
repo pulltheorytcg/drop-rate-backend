@@ -14,6 +14,7 @@ from .finance import router as finance_router
 from .imports import router as imports_router
 from .inventory_intake import router as inventory_intake_router
 from .inventory_state import router as inventory_state_router
+from .pricing import router as pricing_router
 from .purchase_lots import router as purchase_lots_router
 from .refunds import router as refunds_router
 from .settings import get_settings
@@ -58,7 +59,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Drop Rate API",
-        version="1.2.0",
+        version="1.3.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -117,6 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(router)
     app.include_router(finance_router)
     app.include_router(refunds_router)
+    app.include_router(pricing_router)
     app.include_router(imports_router)
     app.include_router(inventory_intake_router)
     app.include_router(inventory_state_router)
