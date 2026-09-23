@@ -1,49 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Protocol
 
+from .fx import FxQuote, FxRateProvider
 from .market_adapters import NormalizedMarketObservation, stable_source_record_key
 from .parse_client import ParseHttpClient
 
 
 TCGPLAYER_PARSE_SCRAPER_ID = "5d1e8a71-43a6-400a-9f41-6f2a4ad5cbe7"
 TCGPLAYER_PARSE_SNAPSHOT_VERSION = 14
-
-
-@dataclass(frozen=True, slots=True)
-class FxQuote:
-    base_currency: str
-    quote_currency: str
-    rate: Decimal
-    effective_at: datetime
-    retrieved_at: datetime
-    source: str
-
-    def validate(self) -> "FxQuote":
-        if self.base_currency.upper() != "USD" or self.quote_currency.upper() != "GBP":
-            raise ValueError("TCGPlayer adapter requires a USD to GBP FX quote")
-        if self.rate <= 0:
-            raise ValueError("FX rate must be positive")
-        if self.effective_at.tzinfo is None or self.retrieved_at.tzinfo is None:
-            raise ValueError("FX timestamps must be timezone-aware")
-        if not self.source.strip():
-            raise ValueError("FX source is required")
-        return self
-
-
-class FxRateProvider(Protocol):
-    async def quote(
-        self,
-        *,
-        base_currency: str,
-        quote_currency: str,
-        at: datetime,
-    ) -> FxQuote:
-        """Return an auditable FX quote for the requested observation time."""
-        ...
 
 
 def _parse_datetime(value: object) -> datetime:
@@ -131,7 +97,10 @@ class TcgplayerParseAdapter:
                     quote_currency="GBP",
                     at=observed_at,
                 )
-                fx_cache[key] = quote.validate()
+                quote.validate()
+                if quote.base_currency.upper() != "USD" or quote.quote_currency.upper() != "GBP":
+                    raise ValueError("TCGPlayer adapter requires a USD to GBP FX quote")
+                fx_cache[key] = quote
             return fx_cache[key]
 
         for sale in sales.get("sales", []):
