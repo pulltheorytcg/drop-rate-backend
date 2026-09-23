@@ -64,6 +64,24 @@ function importIssueLabel(issue) {
   return issue.replaceAll("_", " ");
 }
 
+function importJsonValue(value, fallback) {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeImportCandidate(candidate) {
+  return {
+    ...candidate,
+    normalized_record: importJsonValue(candidate.normalized_record, {}),
+    issues: importJsonValue(candidate.issues, []),
+  };
+}
+
 function importCandidateStatus(candidate) {
   if (candidate.status === "READY") return "Ready";
   if (candidate.status === "SKIPPED") return "Skipped";
@@ -84,8 +102,9 @@ function applyImportReviewResult(result) {
   activeImportPreview.review_rows = result.summary.review_rows;
   activeImportPreview.skipped_rows = result.summary.skipped_rows;
 
-  const index = activeImportPreview.candidates.findIndex((candidate) => candidate.id === result.candidate.id);
-  if (index >= 0) activeImportPreview.candidates[index] = result.candidate;
+  const normalizedCandidate = normalizeImportCandidate(result.candidate);
+  const index = activeImportPreview.candidates.findIndex((candidate) => candidate.id === normalizedCandidate.id);
+  if (index >= 0) activeImportPreview.candidates[index] = normalizedCandidate;
   renderImportPreview(activeImportPreview);
 }
 
@@ -305,10 +324,11 @@ async function previewInventoryImport(event) {
     // client-side. Re-read the persisted batch so every Action Required row has
     // its immutable candidate ID for explicit resolve/skip actions.
     const stored = await apiRequest(`/api/v1/imports/${data.batch_id}`);
+    const candidates = stored.candidates.map(normalizeImportCandidate);
     activeImportPreview = {
       ...data,
-      candidates: stored.candidates,
-      preview_truncated: data.source_rows > stored.candidates.length,
+      candidates,
+      preview_truncated: data.source_rows > candidates.length,
       skipped_rows: 0,
     };
     renderImportPreview(activeImportPreview);
