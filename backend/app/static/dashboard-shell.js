@@ -79,6 +79,7 @@ function buildSellerViews(content) {
   views.className = "seller-views";
   SELLER_VIEWS.forEach(([key]) => {
     const section = document.createElement("section");
+    section.id = `seller-view-${key}`;
     section.className = "seller-view hidden";
     section.dataset.sellerView = key;
     section.setAttribute("aria-labelledby", `seller-tab-${key}`);
@@ -106,9 +107,11 @@ function buildSellerNav() {
     button.dataset.targetView = key;
     button.textContent = label;
     button.setAttribute("aria-controls", `seller-view-${key}`);
+    button.setAttribute("role", "tab");
     button.addEventListener("click", () => activateSellerView(key, true));
     nav.append(button);
   });
+  nav.setAttribute("role", "tablist");
   topbar.insertAdjacentElement("afterend", nav);
 }
 
@@ -123,6 +126,7 @@ function activateSellerView(name, updateHash = false) {
     const active = button.dataset.targetView === valid;
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", active ? "true" : "false");
+    button.tabIndex = active ? 0 : -1;
   });
   if (updateHash) history.replaceState(null, "", `#${valid}`);
 }
@@ -177,7 +181,8 @@ function populateSellerViews() {
   settings.append(pricingCard);
 
   originalChildren.forEach((node) => {
-    if (node.parentElement === content && node.id !== "seller-views") node.remove();
+    if (node.parentElement !== content || node.id === "seller-views" || node.id === "founder-finance-panel") return;
+    node.remove();
   });
   content.dataset.tabbed = "true";
 }
