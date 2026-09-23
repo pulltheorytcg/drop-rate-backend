@@ -86,6 +86,15 @@
           <div id="issue-buttons" class="issue-buttons"></div>
         </section>
 
+        <section class="inventory-panel" aria-labelledby="lots-heading">
+          <div class="page-heading">
+            <div><p class="eyebrow">Acquisition accounting</p><h2 id="lots-heading">Purchase Lots</h2><p class="muted">Track binder, collection and set purchases back to their original landed cost.</p></div>
+            <div class="topbar-actions"><button id="refresh-lots-button" class="ghost-button" type="button">↻ Refresh lots</button><button id="new-lot-button" class="primary-button compact" type="button">New purchase lot</button></div>
+          </div>
+          <div id="lots-message" class="message panel-message" role="status"></div>
+          <div id="purchase-lots-list" class="allocation-list"><p class="muted">Open this section to load purchase lots.</p></div>
+        </section>
+
         <div class="inventory-panel">
           <div class="toolbar">
             <label class="search-box"><span>⌕</span><input id="search-input" type="search" placeholder="Search card, set, code or game…"></label>
@@ -140,6 +149,28 @@
       <div class="modal-actions"><button class="ghost-button" type="button" data-close="bulk-dialog">Cancel</button><button id="bulk-save" class="primary-button compact" type="submit">Save allocation</button></div>
     </form>
   </dialog>
+
+  <dialog id="purchase-lot-dialog" class="modal">
+    <form id="purchase-lot-form" class="modal-card wide">
+      <div class="modal-heading"><div><p class="eyebrow">Acquisition record</p><h2>New purchase lot</h2><p class="muted">Record the binder or collection purchase, then optionally allocate the cards currently selected in inventory.</p></div><button class="icon-button" type="button" data-close="purchase-lot-dialog" aria-label="Close">×</button></div>
+      <div class="form-grid">
+        <label class="full-width">Description<input id="lot-description" maxlength="200" placeholder="e.g. Phantasmal Flames binder" required></label>
+        <label>Source / seller<input id="lot-source" maxlength="160" placeholder="e.g. Private collection"></label>
+        <label>Purchase date<input id="lot-date" type="date"></label>
+        <label>Purchase price (£)<input id="lot-price" type="number" min="0" step="0.01" required></label>
+        <label>Fees (£)<input id="lot-fees" type="number" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Shipping (£)<input id="lot-shipping" type="number" min="0" step="0.01" placeholder="0.00"></label>
+        <label>Allocation method<select id="lot-method"><option value="MANUAL">Manual</option><option value="EQUAL">Equal split</option></select></label>
+        <label class="full-width">Notes<textarea id="lot-notes" maxlength="2000" rows="2"></textarea></label>
+      </div>
+      <div class="allocation-summary"><span id="lot-item-count">0 selected cards</span><strong id="lot-remaining">Create a lot without cards, or select cards first.</strong></div>
+      <button id="lot-equal-split" class="ghost-button" type="button">Split landed cost equally</button>
+      <div id="lot-allocation-list" class="allocation-list"></div>
+      <div id="lot-message" class="message" role="status"></div>
+      <div class="modal-actions"><button class="ghost-button" type="button" data-close="purchase-lot-dialog">Cancel</button><button id="lot-save" class="primary-button compact" type="submit">Create purchase lot</button></div>
+    </form>
+  </dialog>
   <script src="/assets/app.js" defer></script>
+  <script src="/assets/purchase-lots.js" defer></script>
 </body>
 </html>
