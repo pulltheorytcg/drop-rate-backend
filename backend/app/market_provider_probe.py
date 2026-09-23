@@ -12,10 +12,10 @@ from .settings import get_settings
 
 router = APIRouter(prefix="/api/v1/market", tags=["market-data"])
 
-# Current public Parse Getcollectr API used only by the non-persistent probe.
-# The production Collectr adapter remains separately gated until its full
-# product/detail contract is re-validated for ingestion.
-COLLECTR_PROBE_SCRAPER_ID = "431c8f3b-b286-45b3-bc03-24589edf1797"
+# Parse's marketplace page has its own catalogue page ID, but calls must use
+# the scraper ID published in the endpoint URL. This is used only by the
+# non-persistent provider probe.
+COLLECTR_PROBE_SCRAPER_ID = "deec24d2-ffc5-41bd-b3fd-99cd817443e2"
 
 
 PROBES: tuple[dict[str, Any], ...] = (
