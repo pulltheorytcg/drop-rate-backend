@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from .auth import AuthenticatedUser, require_user
+from .collectr_parse_adapter import COLLECTR_PARSE_SCRAPER_ID
 from .parse_client import ParseApiError, ParseHttpClient
 from .settings import get_settings
 
@@ -45,7 +46,7 @@ PROBES: tuple[dict[str, Any], ...] = (
     {
         "source": "COLLECTR",
         "label": "Collectr search",
-        "scraper_id": "deec24d2-ffc5-41bd-b3fd-99cd817443e2",
+        "scraper_id": COLLECTR_PARSE_SCRAPER_ID,
         "endpoint": "search_cards",
         "params": {"query": "Charizard", "page": 1},
     },
