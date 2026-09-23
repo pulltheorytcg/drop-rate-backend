@@ -170,6 +170,46 @@ async function runMarketSmokeMatrix() {
   button.textContent = button.dataset.label;
 }
 
+function providerProbeRow(item) {
+  const row = document.createElement("div");
+  row.className = "allocation-row";
+
+  const details = document.createElement("div");
+  const name = document.createElement("strong");
+  name.textContent = item.label;
+  const note = document.createElement("small");
+  const sample = item.samples?.[0];
+  const sampleName = sample?.title || sample?.name || sample?.product_name || sample?.card_name || "";
+  note.textContent = item.error?.detail || `${item.result_count || 0} results${sampleName ? ` · sample: ${sampleName}` : ""}`;
+  details.append(name, note);
+
+  const status = document.createElement("small");
+  status.textContent = item.status;
+  row.append(details, status);
+  return row;
+}
+
+async function runProviderProbe() {
+  const button = byId("market-provider-probe-run");
+  const results = byId("market-provider-probe-results");
+  if (!button || !results || !state.session?.access_token) return;
+
+  button.disabled = true;
+  button.dataset.label ||= button.textContent;
+  button.textContent = "Probing providers…";
+  results.textContent = "Calling eBay active/sold, Cardmarket, TCGPlayer and Collectr…";
+
+  try {
+    const data = await apiRequest("/api/v1/market/provider-probe", {method: "POST"});
+    results.replaceChildren(...(data.results || []).map(providerProbeRow));
+  } catch (error) {
+    results.textContent = error.message;
+  } finally {
+    button.disabled = false;
+    button.textContent = button.dataset.label;
+  }
+}
+
 function installMarketSmokePanel() {
   if (byId("market-smoke-panel")) return;
   const settings = byId("seller-view-settings");
@@ -189,12 +229,24 @@ function installMarketSmokePanel() {
         <button id="market-smoke-run" class="primary-button" type="button">Run smoke tests</button>
       </div>
     </div>
-    <div id="market-smoke-results" class="allocation-list"></div>`;
+    <div id="market-smoke-results" class="allocation-list"></div>
+    <div class="page-heading" style="margin-top: 1rem;">
+      <div>
+        <p class="eyebrow">Provider isolation</p>
+        <h3>Cross-provider live probe</h3>
+        <p class="muted">Runs five non-persistent discovery calls: eBay UK active, eBay UK sold, Cardmarket, TCGPlayer and Collectr. Use this instead of the eBay smoke matrix when isolating an upstream provider problem.</p>
+      </div>
+      <div class="topbar-actions">
+        <button id="market-provider-probe-run" class="secondary-button" type="button">Probe providers</button>
+      </div>
+    </div>
+    <div id="market-provider-probe-results" class="allocation-list"></div>`;
   settings.append(panel);
 
   const results = byId("market-smoke-results");
   results.replaceChildren(...MARKET_SMOKE_CASES.map(marketSmokeResultRow));
   byId("market-smoke-run").addEventListener("click", runMarketSmokeMatrix);
+  byId("market-provider-probe-run").addEventListener("click", runProviderProbe);
 }
 
 window.addEventListener("DOMContentLoaded", installMarketSmokePanel);
