@@ -181,9 +181,13 @@ function populateSellerViews() {
   pricingCard.className = "inventory-panel";
   pricingCard.innerHTML = `
     <div class="page-heading">
-      <div><p class="eyebrow">Market pricing</p><h2>Pricing engine</h2><p class="muted">The deterministic pricing engine is active in Drop Rate. Live marketplace adapters remain disabled until approved provider access is connected.</p></div>
+      <div><p class="eyebrow">Market pricing</p><h2>Pricing engine</h2><p class="muted">Provider evidence flows into Drop Rate first. Store Price is never silently overwritten; future Shopify publishing remains behind pricing policy guardrails.</p></div>
     </div>
-    <div id="pricing-adapter-status" class="allocation-list"><p class="muted">Open Settings while signed in to check provider readiness.</p></div>`;
+    <div id="pricing-adapter-status" class="allocation-list"><p class="muted">Open Settings while signed in to check provider readiness.</p></div>
+    <div class="page-heading pricing-subheading">
+      <div><p class="eyebrow">Recent calculations</p><h2>Pricing outputs</h2><p class="muted">Latest Market Value and Recommended Retail calculations stored by the backend.</p></div>
+    </div>
+    <div id="pricing-output-list" class="allocation-list"><p class="muted">No pricing calculations loaded yet.</p></div>`;
   settings.append(pricingCard);
 
   originalChildren.forEach((node) => {
@@ -193,13 +197,26 @@ function populateSellerViews() {
   content.dataset.tabbed = "true";
 }
 
+function pricingStatusText(adapter) {
+  const parts = [adapter.status === "ACCESS_REQUIRED" ? "Access required" : adapter.status];
+  parts.push(`${adapter.verified_mapping_count || 0} verified mappings`);
+  parts.push(`${adapter.observation_count || 0} observations`);
+  if (adapter.latest_run?.status) parts.push(`last run: ${adapter.latest_run.status}`);
+  return parts.join(" · ");
+}
+
 async function loadPricingAdapterStatus() {
   const container = byId("pricing-adapter-status");
-  if (!container || !state.session?.access_token) return;
+  const output = byId("pricing-output-list");
+  if (!container || !output || !state.session?.access_token) return;
   try {
-    const data = await apiRequest("/api/v1/pricing/adapters");
+    const [marketData, pricingData] = await Promise.all([
+      apiRequest("/api/v1/market/status"),
+      apiRequest("/api/v1/pricing/inventory?limit=8&offset=0"),
+    ]);
+
     container.replaceChildren();
-    (data.items || []).forEach((adapter) => {
+    (marketData.items || []).forEach((adapter) => {
       const row = document.createElement("div");
       row.className = "allocation-row";
       const details = document.createElement("div");
@@ -208,13 +225,42 @@ async function loadPricingAdapterStatus() {
       const note = document.createElement("small");
       note.textContent = adapter.note;
       details.append(name, note);
-      const stateLabel = document.createElement("strong");
-      stateLabel.textContent = adapter.status === "ACCESS_REQUIRED" ? "Access required" : adapter.status;
+      const stateLabel = document.createElement("small");
+      stateLabel.textContent = pricingStatusText(adapter);
       row.append(details, stateLabel);
       container.append(row);
     });
+
+    output.replaceChildren();
+    const priced = (pricingData.items || []).filter((item) => item.pricing_updated_at);
+    if (!priced.length) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "No pricing snapshots yet. Calculations will appear after market observations are available.";
+      output.append(empty);
+    } else {
+      priced.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "allocation-row";
+        const details = document.createElement("div");
+        const name = document.createElement("strong");
+        name.textContent = item.name;
+        const note = document.createElement("small");
+        const sourceText = item.source_count ? `${item.source_count} sources` : "No source count";
+        const confidenceText = item.confidence === null || item.confidence === undefined
+          ? "No confidence"
+          : `${Math.round(Number(item.confidence) * 100)}% confidence`;
+        note.textContent = [item.set_name, item.card_number, sourceText, confidenceText].filter(Boolean).join(" · ");
+        details.append(name, note);
+        const prices = document.createElement("strong");
+        prices.textContent = `${money(item.market_value_minor)} market · ${money(item.recommended_retail_minor)} retail`;
+        row.append(details, prices);
+        output.append(row);
+      });
+    }
   } catch (error) {
     container.textContent = error.message;
+    output.textContent = "Pricing status could not be loaded.";
   }
 }
 
