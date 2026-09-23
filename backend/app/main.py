@@ -12,6 +12,7 @@ from .api import router
 from .db import create_pool
 from .finance import router as finance_router
 from .imports import router as imports_router
+from .import_review import router as import_review_router
 from .inventory_intake import router as inventory_intake_router
 from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
@@ -132,6 +133,7 @@ def create_app() -> FastAPI:
     app.include_router(market_mappings_router)
     app.include_router(market_smoke_router)
     app.include_router(imports_router)
+    app.include_router(import_review_router)
     app.include_router(inventory_intake_router)
     app.include_router(inventory_market_values_router)
     app.include_router(inventory_state_router)
