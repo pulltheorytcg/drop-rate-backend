@@ -28,8 +28,8 @@ def test_probe_matrix_is_exactly_five_free_tier_calls() -> None:
     ]
 
 
-def test_collectr_probe_uses_current_canonical_parse_api() -> None:
-    assert COLLECTR_PROBE_SCRAPER_ID == "431c8f3b-b286-45b3-bc03-24589edf1797"
+def test_collectr_probe_uses_published_scraper_id() -> None:
+    assert COLLECTR_PROBE_SCRAPER_ID == "deec24d2-ffc5-41bd-b3fd-99cd817443e2"
     collectr = next(probe for probe in PROBES if probe["source"] == "COLLECTR")
     assert collectr["scraper_id"] == COLLECTR_PROBE_SCRAPER_ID
     assert collectr["endpoint"] == "search_cards"
