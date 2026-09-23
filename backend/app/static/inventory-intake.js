@@ -59,9 +59,9 @@ function ensureInventoryIntakeUI() {
         <p class="muted">Use this only when the exact product does not already exist in Drop Rate.</p>
         <div class="form-grid">
           <label>Product type<select id="intake-product-type"><option value="CARD">Card</option><option value="SEALED">Sealed product</option><option value="COLLECTION">Collection</option></select></label>
-          <label>Game<input id="intake-game" maxlength="80" placeholder="e.g. Pokemon" required></label>
-          <label>Name<input id="intake-name" maxlength="300" required></label>
-          <label>Set<input id="intake-set" maxlength="200" required></label>
+          <label>Game<input id="intake-game" maxlength="80" placeholder="e.g. Pokemon"></label>
+          <label>Name<input id="intake-name" maxlength="300"></label>
+          <label>Set<input id="intake-set" maxlength="200"></label>
           <label id="intake-card-number-label">Card number<input id="intake-card-number" maxlength="80" placeholder="e.g. 199/165"></label>
           <label>Variant<input id="intake-variant" maxlength="160" placeholder="e.g. Normal, Reverse Holo"></label>
           <label>Rarity<input id="intake-rarity" maxlength="80"></label>
@@ -165,6 +165,9 @@ function selectedIntakeProductType() {
 function updateIntakePhysicalControls() {
   const productType = selectedIntakeProductType();
   const isCard = productType === "CARD";
+  ["intake-game", "intake-name", "intake-set"].forEach((id) => {
+    byId(id).required = intakeNewCatalogueMode;
+  });
   byId("intake-condition-label").classList.toggle("hidden", !isCard);
   byId("intake-seal-label").classList.toggle("hidden", isCard);
   byId("intake-grading-company-label").classList.toggle("hidden", !isCard);
