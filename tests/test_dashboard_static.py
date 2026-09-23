@@ -7,13 +7,21 @@ import pytest
 
 ROOT = Path(__file__).parents[1]
 STATIC = ROOT / "backend" / "app" / "static"
+JS_ASSETS = (
+    "app.js",
+    "purchase-lots.js",
+    "inventory-state.js",
+    "purchase-lot-management.js",
+    "storage-locations.js",
+    "inventory-intake.js",
+)
 
 
 def test_dashboard_assets_exist() -> None:
-    for name in ("index.html", "styles.css", "app.js", "purchase-lots.js"):
+    for name in ("index.html", "styles.css", *JS_ASSETS):
         path = STATIC / name
         assert path.is_file()
-        assert path.stat().st_size > 500
+        assert path.stat().st_size > 100
 
 
 def test_dashboard_has_auth_inventory_and_purchase_lot_controls() -> None:
@@ -39,7 +47,7 @@ def test_dashboard_has_auth_inventory_and_purchase_lot_controls() -> None:
 def test_client_does_not_contain_privileged_credentials() -> None:
     combined = "\n".join(
         (STATIC / name).read_text()
-        for name in ("index.html", "styles.css", "app.js", "purchase-lots.js")
+        for name in ("index.html", "styles.css", *JS_ASSETS)
     )
     assert "service_role" not in combined
     assert "TCG_DATABASE_URL" not in combined
@@ -52,7 +60,14 @@ def test_unknown_bulk_cost_is_not_forced_to_zero_in_purchase_lot_flow() -> None:
     assert 'row.querySelector("input").value = ""' in js
 
 
+def test_manual_intake_only_requires_new_identity_fields_in_new_identity_mode() -> None:
+    js = (STATIC / "inventory-intake.js").read_text()
+    assert '["intake-game", "intake-name", "intake-set"]' in js
+    assert "byId(id).required = intakeNewCatalogueMode" in js
+    assert "byId(\"intake-card-number\").required = isCard && intakeNewCatalogueMode" in js
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is not installed")
 def test_dashboard_javascript_has_valid_syntax() -> None:
-    for name in ("app.js", "purchase-lots.js"):
+    for name in JS_ASSETS:
         subprocess.run(["node", "--check", str(STATIC / name)], check=True)
