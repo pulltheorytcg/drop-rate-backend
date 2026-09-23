@@ -139,11 +139,20 @@ async def smoke_test_market_source(
                 started_at=started_at,
                 metadata=base_metadata,
             )
-            status_code = 502 if safe_error["error_type"] == "PROVIDER_ERROR" else 422
-            raise HTTPException(
-                status_code=status_code,
-                detail={**safe_error, "run_id": str(run["id"])},
-            ) from exc
+            return jsonable_encoder(
+                {
+                    "run_id": run["id"],
+                    "status": "FAILED",
+                    "source": source,
+                    "catalogue_id": payload.catalogue_id,
+                    "observation_count": 0,
+                    "counts_by_type": {},
+                    "price_summary_gbp": None,
+                    "samples": [],
+                    "error": safe_error,
+                    "persisted": False,
+                }
+            )
 
         type_counts: dict[str, int] = {}
         for observation in validated:
