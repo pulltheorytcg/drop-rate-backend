@@ -179,6 +179,22 @@ $$;
 revoke all on function tcg.prevent_finance_mutation() from public;
 grant execute on function tcg.prevent_finance_mutation() to tcg_api;
 
+create or replace function tcg.protect_sold_inventory()
+returns trigger
+language plpgsql
+set search_path = pg_catalog
+as $$
+begin
+    if old.status = 'SOLD' then
+        raise exception 'Sold inventory is immutable; use the refund/return workflow'
+            using errcode = '55000';
+    end if;
+    return new;
+end;
+$$;
+revoke all on function tcg.protect_sold_inventory() from public;
+grant execute on function tcg.protect_sold_inventory() to tcg_api;
+
 create trigger orders_audit
     after insert or update or delete on tcg.orders
     for each row execute function tcg.audit_finance_change();
@@ -198,5 +214,8 @@ create trigger order_items_immutable
 create trigger financial_ledger_immutable
     before update or delete on tcg.financial_ledger_entries
     for each row execute function tcg.prevent_finance_mutation();
+create trigger inventory_sold_immutable
+    before update on tcg.inventory_items
+    for each row execute function tcg.protect_sold_inventory();
 
 commit;
