@@ -17,8 +17,11 @@ Supported adapter slots:
 
 Adapters stay disabled until legitimate provider access is available. Scraping is not assumed to be permitted.
 
+Diagnostic provider access and production ingestion are deliberately separate. A configured Parse credential may be used for non-persistent smoke tests/provider probes, but real ingestion remains blocked unless `TCG_MARKET_INGESTION_ENABLED=true` is explicitly configured after the relevant provider/access method has been approved for production use.
+
 ## Integrity rules
 
+- Production market ingestion is disabled by default and requires an explicit environment-level approval switch.
 - Only `VERIFIED` source mappings may be ingested automatically.
 - An adapter must return the same provider source and catalogue ID requested by the runner.
 - Provider observations must have timezone-aware timestamps.
@@ -27,6 +30,7 @@ Adapters stay disabled until legitimate provider access is available. Scraping i
 - Provider failures are isolated per mapping; one failed card does not discard valid evidence for other mappings.
 - Each run records fetched, inserted, duplicate and failed-mapping counts in immutable ingestion history.
 - Store Price is not overwritten by ingestion or pricing calculation.
+- Non-persistent smoke tests and provider probes do not write observations, pricing snapshots or inventory prices.
 
 ## Automation
 

@@ -123,15 +123,28 @@ def create_app() -> FastAPI:
     async def request_context(request: Request, call_next):
         request_id = _valid_request_id(request.headers.get("X-Request-ID"))
         request.state.request_id = request_id
-        try:
-            response = await call_next(request)
-        except asyncpg.PostgresError as exc:
-            response = _database_error_response(exc, request_id)
-        except Exception:
+        if (
+            request.method.upper() == "POST"
+            and request.url.path.startswith("/api/v1/market/ingestion/")
+            and not settings.market_ingestion_enabled
+        ):
             response = JSONResponse(
-                status_code=500,
-                content={"detail": "Internal server error", "request_id": request_id},
+                status_code=409,
+                content={
+                    "detail": "Production market ingestion is disabled until provider access is explicitly approved",
+                    "request_id": request_id,
+                },
             )
+        else:
+            try:
+                response = await call_next(request)
+            except asyncpg.PostgresError as exc:
+                response = _database_error_response(exc, request_id)
+            except Exception:
+                response = JSONResponse(
+                    status_code=500,
+                    content={"detail": "Internal server error", "request_id": request_id},
+                )
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"

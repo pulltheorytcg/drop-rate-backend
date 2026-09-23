@@ -28,6 +28,18 @@ def _positive_int(name: str, default: int) -> int:
     return value
 
 
+def _boolean(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    value = raw.strip().casefold()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(f"{name} must be a boolean")
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     database_url: str
@@ -40,6 +52,7 @@ class Settings:
     db_pool_min: int
     db_pool_max: int
     parse_api_key: str | None
+    market_ingestion_enabled: bool = False
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -61,6 +74,7 @@ class Settings:
             db_pool_min=pool_min,
             db_pool_max=pool_max,
             parse_api_key=_optional("TCG_PARSE_API_KEY"),
+            market_ingestion_enabled=_boolean("TCG_MARKET_INGESTION_ENABLED", False),
         )
 
 
