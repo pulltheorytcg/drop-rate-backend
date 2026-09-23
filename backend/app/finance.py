@@ -156,7 +156,16 @@ async def finance_summary(
             owner["id"],
         )
         cogs = await connection.fetchval(
-            "select coalesce(sum(cost_basis_minor), 0)::bigint from tcg.order_items where owner_id = $1",
+            """
+            select coalesce(sum(oi.cost_basis_minor), 0)::bigint
+            from tcg.order_items oi
+            where oi.owner_id = $1
+              and not exists (
+                  select 1
+                  from tcg.refund_events r
+                  where r.order_item_id = oi.id and r.return_to_stock
+              )
+            """,
             owner["id"],
         )
         sales_revenue = int(ledger["sales_revenue_minor"] or 0)
@@ -217,6 +226,10 @@ async def finance_sales(
                 o.source, o.source_reference, o.order_number, o.status as order_status,
                 oi.sale_price_minor, oi.discount_minor, oi.net_sale_minor,
                 oi.cost_basis_minor, oi.sold_at,
+                exists(
+                    select 1 from tcg.refund_events r
+                    where r.order_item_id = oi.id and r.return_to_stock
+                ) as returned_to_stock,
                 coalesce(sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_REVENUE'), 0)::bigint as shipping_revenue_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'PLATFORM_FEE'), 0)::bigint as platform_fee_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'PAYMENT_FEE'), 0)::bigint as payment_fee_minor,
@@ -237,6 +250,8 @@ async def finance_sales(
         items = []
         for row in rows:
             item = dict(row)
+            effective_cost = 0 if item["returned_to_stock"] else int(item["cost_basis_minor"])
+            item["effective_cost_basis_minor"] = effective_cost
             item["profit_minor"] = (
                 int(item["net_sale_minor"])
                 + int(item["shipping_revenue_minor"])
@@ -244,7 +259,7 @@ async def finance_sales(
                 - int(item["payment_fee_minor"])
                 - int(item["shipping_cost_minor"])
                 - int(item["refund_minor"])
-                - int(item["cost_basis_minor"])
+                - effective_cost
             )
             items.append(item)
         return jsonable_encoder({"total": total, "limit": limit, "offset": offset, "items": items})
