@@ -38,6 +38,10 @@ class NormalizedMarketObservation:
             raise ValueError(f"Unsupported market source: {self.source}")
         if self.observation_type not in SUPPORTED_OBSERVATION_TYPES:
             raise ValueError(f"Unsupported observation type: {self.observation_type}")
+        if not self.source_record_key.strip():
+            raise ValueError("source_record_key is required")
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("observed_at must be timezone-aware")
         if self.price_minor <= 0 or self.price_gbp_minor <= 0:
             raise ValueError("Market prices must be positive")
         if len(self.currency.strip()) != 3:
@@ -52,15 +56,43 @@ class NormalizedMarketObservation:
             raise ValueError("grading_company and grade must be supplied together")
         if self.seal_status not in (None, "SEALED", "UNSEALED"):
             raise ValueError("seal_status must be SEALED, UNSEALED or null")
+        if self.source_country is not None and len(self.source_country.strip()) != 2:
+            raise ValueError("source_country must be a 2-letter code")
         return self
 
 
 class MarketDataAdapter(Protocol):
     source: str
 
-    async def fetch_observations(self, *, catalogue_id: str, source_product_id: str, source_variant_id: str | None) -> list[NormalizedMarketObservation]:
+    async def fetch_observations(
+        self,
+        *,
+        catalogue_id: str,
+        source_product_id: str,
+        source_variant_id: str | None,
+    ) -> list[NormalizedMarketObservation]:
         """Fetch permitted provider data and normalize it into Drop Rate observations."""
         ...
+
+
+_ADAPTERS: dict[str, MarketDataAdapter] = {}
+_PROVIDER_NOTES = {
+    "EBAY": "Use only official/permitted eBay developer data or user-provided exports.",
+    "COLLECTR": "Adapter slot reserved for permitted Collectr export/API access.",
+    "TCGPLAYER": "TCGplayer currently requires existing approved API access.",
+    "CARDMARKET": "Cardmarket currently requires existing approved API access.",
+}
+
+
+def register_adapter(adapter: MarketDataAdapter) -> None:
+    source = adapter.source.upper().strip()
+    if source not in SUPPORTED_MARKET_SOURCES:
+        raise ValueError(f"Unsupported market source: {source}")
+    _ADAPTERS[source] = adapter
+
+
+def get_adapter(source: str) -> MarketDataAdapter | None:
+    return _ADAPTERS.get(source.upper().strip())
 
 
 def stable_source_record_key(*parts: object) -> str:
@@ -71,29 +103,15 @@ def stable_source_record_key(*parts: object) -> str:
 
 def adapter_availability() -> list[dict[str, str | bool]]:
     """Describe live-adapter readiness without pretending credentials/access exist."""
-    return [
-        {
-            "source": "EBAY",
-            "implemented": False,
-            "status": "ACCESS_REQUIRED",
-            "note": "Use only official/permitted eBay developer data or user-provided exports.",
-        },
-        {
-            "source": "COLLECTR",
-            "implemented": False,
-            "status": "ACCESS_REQUIRED",
-            "note": "Adapter slot reserved for permitted Collectr export/API access.",
-        },
-        {
-            "source": "TCGPLAYER",
-            "implemented": False,
-            "status": "ACCESS_REQUIRED",
-            "note": "TCGplayer currently requires existing approved API access.",
-        },
-        {
-            "source": "CARDMARKET",
-            "implemented": False,
-            "status": "ACCESS_REQUIRED",
-            "note": "Cardmarket currently requires existing approved API access.",
-        },
-    ]
+    items: list[dict[str, str | bool]] = []
+    for source in ("EBAY", "COLLECTR", "TCGPLAYER", "CARDMARKET"):
+        implemented = source in _ADAPTERS
+        items.append(
+            {
+                "source": source,
+                "implemented": implemented,
+                "status": "READY" if implemented else "ACCESS_REQUIRED",
+                "note": _PROVIDER_NOTES[source],
+            }
+        )
+    return items
