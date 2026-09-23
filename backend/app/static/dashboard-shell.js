@@ -23,16 +23,32 @@ function makeSellerHeading(eyebrow, title, description) {
   return heading;
 }
 
-function moveFinanceSections(overview, sales, reports, balance) {
+function moveFinanceSections(sales, reports, balance) {
   const finance = byId("founder-finance-panel");
   if (!finance) return;
 
+  const originalHeading = finance.querySelector(":scope > .page-heading");
+  const balanceHeading = makeSellerHeading(
+    "Founder finance",
+    "Balance",
+    "Available and pending balance, payout requests and withdrawal history."
+  );
+  if (originalHeading) {
+    const actions = originalHeading.querySelector(".topbar-actions");
+    if (actions) balanceHeading.append(actions);
+    originalHeading.remove();
+  }
+  balance.append(balanceHeading);
+
   const grids = Array.from(finance.querySelectorAll(":scope > .stats-grid"));
-  if (grids[0]) overview.append(grids[0]);
+  if (grids[0]) balance.append(grids[0]);
   if (grids[1]) {
     reports.append(makeSellerHeading("Performance", "Reports", "Revenue, cost of goods, fees, shipping and realised profit."));
     reports.append(grids[1]);
   }
+
+  const financeMessage = byId("finance-message");
+  if (financeMessage) balance.append(financeMessage);
 
   const salesBody = byId("finance-sales-body");
   if (salesBody) {
@@ -45,10 +61,6 @@ function moveFinanceSections(overview, sales, reports, balance) {
     if (salesEmpty) sales.append(salesEmpty);
   }
 
-  balance.append(makeSellerHeading("Founder finance", "Balance", "Available and pending balance, payout requests and withdrawal history."));
-  const financeMessage = byId("finance-message");
-  if (financeMessage) balance.append(financeMessage);
-
   const payoutBody = byId("finance-payouts-body");
   if (payoutBody) {
     const payoutTable = payoutBody.closest(".table-wrap");
@@ -57,13 +69,6 @@ function moveFinanceSections(overview, sales, reports, balance) {
     if (payoutTable) balance.append(payoutTable);
     const payoutsEmpty = byId("finance-payouts-empty");
     if (payoutsEmpty) balance.append(payoutsEmpty);
-  }
-
-  const originalHeading = finance.querySelector(":scope > .page-heading");
-  if (originalHeading) {
-    const actions = originalHeading.querySelector(".topbar-actions");
-    if (actions) balance.querySelector(".seller-view-heading")?.append(actions);
-    originalHeading.remove();
   }
 
   finance.classList.add("hidden");
@@ -99,6 +104,7 @@ function buildSellerNav() {
   nav.id = "seller-nav";
   nav.className = "seller-nav";
   nav.setAttribute("aria-label", "Founder dashboard sections");
+  nav.setAttribute("role", "tablist");
   SELLER_VIEWS.forEach(([key, label]) => {
     const button = document.createElement("button");
     button.id = `seller-tab-${key}`;
@@ -111,7 +117,6 @@ function buildSellerNav() {
     button.addEventListener("click", () => activateSellerView(key, true));
     nav.append(button);
   });
-  nav.setAttribute("role", "tablist");
   topbar.insertAdjacentElement("afterend", nav);
 }
 
@@ -129,6 +134,7 @@ function activateSellerView(name, updateHash = false) {
     button.tabIndex = active ? 0 : -1;
   });
   if (updateHash) history.replaceState(null, "", `#${valid}`);
+  if (valid === "settings") loadPricingAdapterStatus();
 }
 
 function populateSellerViews() {
@@ -148,10 +154,10 @@ function populateSellerViews() {
   const inventoryStats = originalChildren.find((node) => node.classList?.contains("stats-grid"));
   const actionPanel = originalChildren.find((node) => node.classList?.contains("action-panel"));
   const locations = byId("storage-locations-section");
-  const lots = document.querySelector('[aria-labelledby="lots-heading"]');
+  const lots = byId("purchase-lots-list")?.closest('[aria-labelledby="lots-heading"]');
   const inventoryPanel = Array.from(content.querySelectorAll(":scope > .inventory-panel")).find((node) => !node.id && node !== lots);
 
-  overview.append(makeSellerHeading("Founder overview", "Dashboard", "Your stock, finance and action-required snapshot."));
+  overview.append(makeSellerHeading("Founder overview", "Dashboard", "Your stock position and action-required snapshot."));
   if (inventoryStats) overview.append(inventoryStats);
   if (actionPanel) overview.append(actionPanel);
 
@@ -168,7 +174,7 @@ function populateSellerViews() {
   if (lots) inventory.append(lots);
   if (inventoryPanel) inventory.append(inventoryPanel);
 
-  moveFinanceSections(overview, sales, reports, balance);
+  moveFinanceSections(sales, reports, balance);
 
   settings.append(makeSellerHeading("Configuration", "Settings", "Pricing automation and future storefront integrations are controlled here."));
   const pricingCard = document.createElement("section");
@@ -218,8 +224,14 @@ function ensureSellerDashboardShell() {
   populateSellerViews();
   const requested = location.hash.replace(/^#/, "");
   activateSellerView(requested || "dashboard");
-  loadPricingAdapterStatus();
 }
+
+const previousReloadDashboardForShell = reloadDashboard;
+reloadDashboard = async function (...args) {
+  const result = await previousReloadDashboardForShell(...args);
+  await loadPricingAdapterStatus();
+  return result;
+};
 
 window.addEventListener("hashchange", () => activateSellerView(location.hash.replace(/^#/, "") || "dashboard"));
 window.addEventListener("DOMContentLoaded", ensureSellerDashboardShell);
