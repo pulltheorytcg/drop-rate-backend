@@ -46,8 +46,32 @@ create policy own_records on tcg.purchase_lots
 
 grant select, insert, update, delete on tcg.purchase_lots to tcg_api;
 
+create function tcg.audit_purchase_lot_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, tcg
+as $$
+begin
+    insert into tcg.audit_events(
+        actor, request_id, action, entity_type, entity_id, old_values, new_values
+    ) values (
+        coalesce(nullif(current_setting('tcg.user_id', true), ''), session_user::text),
+        nullif(current_setting('tcg.request_id', true), ''),
+        TG_OP,
+        TG_TABLE_NAME,
+        case when TG_OP = 'DELETE' then OLD.id else NEW.id end,
+        case when TG_OP = 'INSERT' then null else to_jsonb(OLD) end,
+        case when TG_OP = 'DELETE' then null else to_jsonb(NEW) end
+    );
+    return null;
+end;
+$$;
+
+revoke all on function tcg.audit_purchase_lot_change() from public;
+
 create trigger purchase_lots_audit
     after insert or update or delete on tcg.purchase_lots
-    for each row execute function tcg.audit_change();
+    for each row execute function tcg.audit_purchase_lot_change();
 
 commit;
