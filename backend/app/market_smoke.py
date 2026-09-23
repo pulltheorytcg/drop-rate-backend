@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 from statistics import median
 from typing import Annotated
 from uuid import UUID
@@ -75,18 +74,14 @@ async def _try_record_smoke_run(
     connection: asyncpg.Connection,
     **kwargs,
 ) -> tuple[str | None, bool]:
-    """Record a diagnostic run without letting a logging failure hide the smoke result.
-
-    The request already runs inside a user-scoped transaction. A nested transaction
-    creates a savepoint so a failed diagnostic insert can roll back independently
-    without poisoning the outer request transaction.
-    """
+    """Record diagnostics without allowing audit persistence to hide provider results."""
 
     try:
         async with connection.transaction():
             run = await _record_run(connection, **kwargs)
         return str(run["id"]), True
     except Exception:
+        logger.exception("market_smoke_diagnostic_log_failed")
         return None, False
 
 
@@ -97,52 +92,68 @@ async def smoke_test_market_source(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    """Fetch and validate provider evidence without persisting market observations."""
+    """Fetch and validate provider evidence without persisting market observations.
+
+    Database transactions are intentionally short. External provider calls can
+    take several seconds, so they must never run while a PostgreSQL transaction
+    is idle; otherwise idle_in_transaction_session_timeout can terminate an
+    otherwise healthy smoke test.
+    """
 
     source = source.upper().strip()
     if source not in SUPPORTED_MARKET_SOURCES:
         raise HTTPException(status_code=404, detail="Unsupported market data source")
 
+    adapter = get_adapter(source)
+    if adapter is None:
+        raise HTTPException(status_code=409, detail="Provider adapter access is not configured")
+
+    # First short transaction: authorise ownership, verify the catalogue row,
+    # and take the start time from PostgreSQL itself. Using the database clock
+    # avoids millisecond clock skew violating completed_at >= started_at.
     async with user_connection(
         request.app.state.db_pool,
         user.user_id,
         request.state.request_id,
     ) as connection:
         owner = await _owner(connection)
+        owner_id = owner["id"]
         if not await _catalogue_exists(connection, payload.catalogue_id):
             raise HTTPException(status_code=404, detail="Catalogue product not found")
+        started_at = await connection.fetchval("select clock_timestamp()")
 
-        adapter = get_adapter(source)
-        if adapter is None:
-            raise HTTPException(status_code=409, detail="Provider adapter access is not configured")
+    base_metadata = {
+        "diagnostic": "SMOKE_TEST",
+        "catalogue_id": str(payload.catalogue_id),
+        "source_variant_id": payload.source_variant_id,
+        "persisted_observations": False,
+    }
 
-        started_at = datetime.now(timezone.utc)
-        base_metadata = {
-            "diagnostic": "SMOKE_TEST",
-            "catalogue_id": str(payload.catalogue_id),
-            "source_variant_id": payload.source_variant_id,
-            "persisted_observations": False,
-        }
-
-        try:
-            observations = await adapter.fetch_observations(
-                catalogue_id=str(payload.catalogue_id),
-                source_product_id=payload.source_product_id,
-                source_variant_id=payload.source_variant_id,
+    # No database connection or transaction is held while waiting on Parse/eBay.
+    try:
+        observations = await adapter.fetch_observations(
+            catalogue_id=str(payload.catalogue_id),
+            source_product_id=payload.source_product_id,
+            source_variant_id=payload.source_variant_id,
+        )
+        validated = [
+            validate_provider_observation(
+                observation,
+                expected_source=source,
+                expected_catalogue_id=payload.catalogue_id,
             )
-            validated = [
-                validate_provider_observation(
-                    observation,
-                    expected_source=source,
-                    expected_catalogue_id=payload.catalogue_id,
-                )
-                for observation in observations
-            ]
-        except Exception as exc:
-            safe_error = safe_ingestion_error(exc)
+            for observation in observations
+        ]
+    except Exception as exc:
+        safe_error = safe_ingestion_error(exc)
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
             run_id, diagnostic_logged = await _try_record_smoke_run(
                 connection,
-                owner_id=owner["id"],
+                owner_id=owner_id,
                 source=source,
                 trigger_type="MANUAL",
                 status="FAILED",
@@ -155,46 +166,53 @@ async def smoke_test_market_source(
                 started_at=started_at,
                 metadata={**base_metadata, "failure_stage": "PROVIDER_FETCH_OR_VALIDATION"},
             )
-            logger.warning(
-                "market_smoke_failed source=%s catalogue_id=%s stage=%s error_type=%s detail=%s provider_status_code=%s retryable=%s diagnostic_logged=%s",
-                source,
-                payload.catalogue_id,
-                "PROVIDER_FETCH_OR_VALIDATION",
-                safe_error.get("error_type"),
-                safe_error.get("detail"),
-                safe_error.get("provider_status_code"),
-                safe_error.get("retryable"),
-                diagnostic_logged,
-            )
-            return jsonable_encoder(
-                {
-                    "run_id": run_id,
-                    "diagnostic_logged": diagnostic_logged,
-                    "status": "FAILED",
-                    "stage": "PROVIDER_FETCH_OR_VALIDATION",
-                    "source": source,
-                    "catalogue_id": payload.catalogue_id,
-                    "observation_count": 0,
-                    "counts_by_type": {},
-                    "price_summary_gbp": None,
-                    "samples": [],
-                    "error": safe_error,
-                    "persisted": False,
-                }
-            )
+        logger.warning(
+            "market_smoke_failed source=%s catalogue_id=%s stage=%s error_type=%s detail=%s provider_status_code=%s retryable=%s diagnostic_logged=%s",
+            source,
+            payload.catalogue_id,
+            "PROVIDER_FETCH_OR_VALIDATION",
+            safe_error.get("error_type"),
+            safe_error.get("detail"),
+            safe_error.get("provider_status_code"),
+            safe_error.get("retryable"),
+            diagnostic_logged,
+        )
+        return jsonable_encoder(
+            {
+                "run_id": run_id,
+                "diagnostic_logged": diagnostic_logged,
+                "status": "FAILED",
+                "stage": "PROVIDER_FETCH_OR_VALIDATION",
+                "source": source,
+                "catalogue_id": payload.catalogue_id,
+                "observation_count": 0,
+                "counts_by_type": {},
+                "price_summary_gbp": None,
+                "samples": [],
+                "error": safe_error,
+                "persisted": False,
+            }
+        )
 
-        type_counts: dict[str, int] = {}
-        for observation in validated:
-            type_counts[observation.observation_type] = type_counts.get(observation.observation_type, 0) + 1
+    type_counts: dict[str, int] = {}
+    for observation in validated:
+        type_counts[observation.observation_type] = type_counts.get(observation.observation_type, 0) + 1
 
-        price_summary = _price_summary([observation.price_gbp_minor for observation in validated])
-        samples = _sample_observations(validated)
-        status = "SUCCEEDED" if validated else "BLOCKED"
-        errors = [] if validated else [{"detail": "No matching observations returned"}]
+    price_summary = _price_summary([observation.price_gbp_minor for observation in validated])
+    samples = _sample_observations(validated)
+    status = "SUCCEEDED" if validated else "BLOCKED"
+    errors = [] if validated else [{"detail": "No matching observations returned"}]
 
+    # Second short transaction: persist diagnostics only. Market observations and
+    # Market Value are still deliberately untouched by the smoke test.
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
         run_id, diagnostic_logged = await _try_record_smoke_run(
             connection,
-            owner_id=owner["id"],
+            owner_id=owner_id,
             source=source,
             trigger_type="MANUAL",
             status=status,
@@ -212,26 +230,27 @@ async def smoke_test_market_source(
                 "samples": samples,
             },
         )
-        logger.info(
-            "market_smoke_completed source=%s catalogue_id=%s status=%s observations=%s diagnostic_logged=%s",
-            source,
-            payload.catalogue_id,
-            status,
-            len(validated),
-            diagnostic_logged,
-        )
 
-        return jsonable_encoder(
-            {
-                "run_id": run_id,
-                "diagnostic_logged": diagnostic_logged,
-                "status": status,
-                "source": source,
-                "catalogue_id": payload.catalogue_id,
-                "observation_count": len(validated),
-                "counts_by_type": type_counts,
-                "price_summary_gbp": price_summary,
-                "samples": samples,
-                "persisted": False,
-            }
-        )
+    logger.info(
+        "market_smoke_completed source=%s catalogue_id=%s status=%s observations=%s diagnostic_logged=%s",
+        source,
+        payload.catalogue_id,
+        status,
+        len(validated),
+        diagnostic_logged,
+    )
+
+    return jsonable_encoder(
+        {
+            "run_id": run_id,
+            "diagnostic_logged": diagnostic_logged,
+            "status": status,
+            "source": source,
+            "catalogue_id": payload.catalogue_id,
+            "observation_count": len(validated),
+            "counts_by_type": type_counts,
+            "price_summary_gbp": price_summary,
+            "samples": samples,
+            "persisted": False,
+        }
+    )
