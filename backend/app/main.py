@@ -34,6 +34,9 @@ def _valid_request_id(value: str | None) -> str:
 
 def _dashboard_html() -> str:
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    portal_stylesheet = '<link rel="stylesheet" href="/assets/portal.css">'
+    if portal_stylesheet not in html:
+        html = html.replace("</head>", f"  {portal_stylesheet}\n</head>")
     scripts = (
         '<script src="/assets/inventory-intake.js" defer></script>',
         '<script src="/assets/inventory-imports.js" defer></script>',
