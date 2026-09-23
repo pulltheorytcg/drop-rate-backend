@@ -56,6 +56,14 @@ def test_smoke_endpoint_logs_diagnostics_but_not_market_data() -> None:
     assert "delete from tcg.market_observations" not in lowered
 
 
+def test_smoke_diagnostic_logging_is_isolated_by_savepoint() -> None:
+    source = SMOKE.read_text()
+    assert "async with connection.transaction():" in source
+    assert "return None, False" in source
+    assert '"diagnostic_logged": diagnostic_logged' in source
+    assert '"stage": "PROVIDER_FETCH_OR_VALIDATION"' in source
+
+
 def test_smoke_router_is_wired_into_app() -> None:
     main = MAIN.read_text()
     assert "from .market_smoke import router as market_smoke_router" in main

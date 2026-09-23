@@ -69,6 +69,25 @@ def _sample_observations(observations: list) -> list[dict]:
     return samples
 
 
+async def _try_record_smoke_run(
+    connection: asyncpg.Connection,
+    **kwargs,
+) -> tuple[str | None, bool]:
+    """Record a diagnostic run without letting a logging failure hide the smoke result.
+
+    The request already runs inside a user-scoped transaction. A nested transaction
+    creates a savepoint so a failed diagnostic insert can roll back independently
+    without poisoning the outer request transaction.
+    """
+
+    try:
+        async with connection.transaction():
+            run = await _record_run(connection, **kwargs)
+        return str(run["id"]), True
+    except Exception:
+        return None, False
+
+
 @router.post("/smoke-test/{source}")
 async def smoke_test_market_source(
     source: str,
@@ -76,12 +95,7 @@ async def smoke_test_market_source(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    """Fetch and validate provider evidence without persisting market observations.
-
-    A compact diagnostic summary is recorded in market_ingestion_runs so operators
-    can inspect test outcomes later. No observation, pricing snapshot or inventory
-    valuation is written by this endpoint.
-    """
+    """Fetch and validate provider evidence without persisting market observations."""
 
     source = source.upper().strip()
     if source not in SUPPORTED_MARKET_SOURCES:
@@ -124,7 +138,7 @@ async def smoke_test_market_source(
             ]
         except Exception as exc:
             safe_error = safe_ingestion_error(exc)
-            run = await _record_run(
+            run_id, diagnostic_logged = await _try_record_smoke_run(
                 connection,
                 owner_id=owner["id"],
                 source=source,
@@ -137,12 +151,14 @@ async def smoke_test_market_source(
                 failed_mapping_count=1,
                 errors=[{"catalogue_id": str(payload.catalogue_id), **safe_error}],
                 started_at=started_at,
-                metadata=base_metadata,
+                metadata={**base_metadata, "failure_stage": "PROVIDER_FETCH_OR_VALIDATION"},
             )
             return jsonable_encoder(
                 {
-                    "run_id": run["id"],
+                    "run_id": run_id,
+                    "diagnostic_logged": diagnostic_logged,
                     "status": "FAILED",
+                    "stage": "PROVIDER_FETCH_OR_VALIDATION",
                     "source": source,
                     "catalogue_id": payload.catalogue_id,
                     "observation_count": 0,
@@ -163,7 +179,7 @@ async def smoke_test_market_source(
         status = "SUCCEEDED" if validated else "BLOCKED"
         errors = [] if validated else [{"detail": "No matching observations returned"}]
 
-        run = await _record_run(
+        run_id, diagnostic_logged = await _try_record_smoke_run(
             connection,
             owner_id=owner["id"],
             source=source,
@@ -186,7 +202,8 @@ async def smoke_test_market_source(
 
         return jsonable_encoder(
             {
-                "run_id": run["id"],
+                "run_id": run_id,
+                "diagnostic_logged": diagnostic_logged,
                 "status": status,
                 "source": source,
                 "catalogue_id": payload.catalogue_id,
