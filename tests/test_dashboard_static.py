@@ -20,6 +20,9 @@ def test_dashboard_has_auth_and_inventory_controls() -> None:
         "new-password-form",
         "dashboard-view",
         "inventory-body",
+        "editor-dialog",
+        "bulk-dialog",
+        "issue-buttons",
         "logout-button",
     ):
         assert f'id="{element_id}"' in html

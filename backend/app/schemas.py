@@ -2,11 +2,21 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
 
-InventoryStatus = Literal["DRAFT", "INSPECTION", "WITHDRAWN"]
+InventoryStatus = Literal["DRAFT", "INSPECTION", "APPROVED", "WITHDRAWN"]
+EditableInventoryStatus = Literal["DRAFT", "INSPECTION", "WITHDRAWN"]
+ReadinessIssue = Literal[
+    "missing_cost",
+    "missing_condition",
+    "missing_location",
+    "missing_price",
+    "identity_unconfirmed",
+    "approval_ready",
+]
 
 
 class InventoryPatch(BaseModel):
@@ -21,7 +31,7 @@ class InventoryPatch(BaseModel):
     location: str | None = Field(default=None, max_length=160)
     store_price_minor: int | None = Field(default=None, ge=0)
     identity_confirmed: bool | None = None
-    status: InventoryStatus | None = None
+    status: EditableInventoryStatus | None = None
     notes: str | None = Field(default=None, max_length=2000)
 
     @model_validator(mode="after")
@@ -33,4 +43,30 @@ class InventoryPatch(BaseModel):
             raise ValueError("grading_company and grade must be updated together")
         if company_set and ((self.grading_company is None) != (self.grade is None)):
             raise ValueError("grading_company and grade must both be set or both cleared")
+        return self
+
+
+class InventoryApproval(BaseModel):
+    version: int = Field(ge=1)
+
+
+class BulkCostItem(BaseModel):
+    inventory_id: UUID
+    version: int = Field(ge=1)
+    acquisition_cost_minor: int = Field(ge=0)
+
+
+class BulkCostAllocation(BaseModel):
+    total_cost_minor: int = Field(ge=0)
+    acquisition_date: date | None = None
+    items: list[BulkCostItem] = Field(min_length=2, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_allocation(self) -> "BulkCostAllocation":
+        ids = [item.inventory_id for item in self.items]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Each inventory item may appear only once")
+        allocated = sum(item.acquisition_cost_minor for item in self.items)
+        if allocated != self.total_cost_minor:
+            raise ValueError("Allocated item costs must exactly match the total cost")
         return self

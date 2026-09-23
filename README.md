@@ -1,37 +1,17 @@
 # Drop Rate Backend
 
-Private FastAPI backend for Drop Rate's founder inventory system.
+Private FastAPI backend and founder dashboard for Drop Rate's inventory system.
 
-## Responsibilities
+## Inventory workflow
 
-- Verify Supabase founder access tokens.
-- Enforce owner-scoped inventory access through PostgreSQL row-level security.
-- Search and update physical inventory records.
-- Produce idempotent inventory-review reports for n8n.
-- Expose Railway liveness and database-readiness checks.
+- Search and filter owner-scoped inventory.
+- Edit acquisition, condition, grading, location, pricing and audit details.
+- Allocate one binder or set purchase total across multiple cards atomically.
+- Review missing information in the Action Required queue.
+- Approve complete stock records through a dedicated validation endpoint.
+- Record every inventory change through the database audit trigger.
 
-Shopify remains the customer-facing storefront. PostgreSQL/Supabase remains the source of truth, and n8n only orchestrates calls to this API.
-
-## Runtime
-
-Required environment variables:
-
-- `TCG_DATABASE_URL`
-- `TCG_AUTH_ISSUER`
-- `TCG_AUTH_AUDIENCE`
-- `TCG_ENVIRONMENT`
-
-Optional:
-
-- `TCG_JWKS_URL`
-- `TCG_DB_POOL_MIN`
-- `TCG_DB_POOL_MAX`
-
-Start command:
-
-```bash
-uvicorn app.main:create_app --factory --app-dir backend --host 0.0.0.0 --port ${PORT:-8000}
-```
+Unknown acquisition costs remain `null`; the dashboard never converts them to zero. Bulk allocations use integer minor units and must reconcile exactly to the purchase total.
 
 ## API
 
@@ -39,7 +19,10 @@ uvicorn app.main:create_app --factory --app-dir backend --host 0.0.0.0 --port ${
 - `GET /health/ready`
 - `GET /api/v1/me`
 - `GET /api/v1/inventory`
+- `GET /api/v1/inventory/readiness`
 - `PATCH /api/v1/inventory/{inventory_id}`
+- `POST /api/v1/inventory/{inventory_id}/approve`
+- `POST /api/v1/inventory/bulk-cost`
 - `POST /api/v1/automation/inventory-review`
 
-Protected routes require a valid Supabase bearer token. The database session receives the verified user ID with `SET LOCAL`; RLS then determines which owner and inventory rows are visible.
+Protected routes require a valid Supabase bearer token. The verified user ID is applied to the transaction with `SET LOCAL`, and PostgreSQL row-level security determines which owner and inventory rows are visible.

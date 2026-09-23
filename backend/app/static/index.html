@@ -76,21 +76,28 @@
 
         <div class="stats-grid">
           <article class="stat-card stat-accent"><span>Total inventory</span><strong id="total-count">—</strong><small>Owned items</small></article>
-          <article class="stat-card"><span>Current view</span><strong id="visible-count">—</strong><small>Items on this page</small></article>
-          <article class="stat-card"><span>Owner</span><strong id="stat-owner">—</strong><small>Verified membership</small></article>
+          <article class="stat-card"><span>Action required</span><strong id="action-count">—</strong><small>Missing core information</small></article>
+          <article class="stat-card"><span>Ready to approve</span><strong id="ready-count">—</strong><small>Completed audits</small></article>
+          <article class="stat-card"><span>Approved</span><strong id="approved-count">—</strong><small>Stock ready</small></article>
         </div>
+
+        <section class="action-panel" aria-labelledby="action-heading">
+          <div><p class="eyebrow">Stock audit</p><h2 id="action-heading">Action Required</h2><p class="muted">Work through missing details, then approve each verified item.</p></div>
+          <div id="issue-buttons" class="issue-buttons"></div>
+        </section>
 
         <div class="inventory-panel">
           <div class="toolbar">
             <label class="search-box"><span>⌕</span><input id="search-input" type="search" placeholder="Search card, set, code or game…"></label>
             <select id="status-filter" aria-label="Filter inventory status">
-              <option value="">All statuses</option><option value="DRAFT">Draft</option><option value="INSPECTION">Inspection</option><option value="WITHDRAWN">Withdrawn</option>
+              <option value="">All statuses</option><option value="DRAFT">Draft</option><option value="INSPECTION">Inspection</option><option value="APPROVED">Approved</option><option value="WITHDRAWN">Withdrawn</option>
             </select>
+            <button id="bulk-cost-button" class="ghost-button" type="button" disabled>Allocate cost <span id="selected-count">0</span></button>
           </div>
           <div id="inventory-message" class="message panel-message" role="status"></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Card</th><th>Set</th><th>Condition</th><th>Cost</th><th>Store price</th><th>Status</th></tr></thead>
+              <thead><tr><th><input id="select-page" type="checkbox" aria-label="Select page"></th><th>Card</th><th>Set</th><th>Condition</th><th>Cost</th><th>Store price</th><th>Status</th><th></th></tr></thead>
               <tbody id="inventory-body"></tbody>
             </table>
           </div>
@@ -100,6 +107,39 @@
       </div>
     </section>
   </main>
+
+  <dialog id="editor-dialog" class="modal">
+    <form id="editor-form" class="modal-card">
+      <div class="modal-heading"><div><p class="eyebrow">Inventory record</p><h2 id="editor-title">Edit card</h2><p id="editor-meta" class="muted"></p></div><button class="icon-button" type="button" data-close="editor-dialog" aria-label="Close">×</button></div>
+      <div class="form-grid">
+        <label>Acquisition cost (£)<input id="edit-cost" type="number" min="0" step="0.01" inputmode="decimal"></label>
+        <label>Acquisition date<input id="edit-date" type="date"></label>
+        <label>Condition<input id="edit-condition" maxlength="80" placeholder="e.g. Near Mint"></label>
+        <label>Language<input id="edit-language" maxlength="80" placeholder="e.g. English"></label>
+        <label>Location<input id="edit-location" maxlength="160" placeholder="e.g. Binder A · Page 4"></label>
+        <label>Store price (£)<input id="edit-price" type="number" min="0" step="0.01" inputmode="decimal"></label>
+        <label>Grading company<input id="edit-grading-company" maxlength="40" placeholder="Leave both grade fields blank if raw"></label>
+        <label>Grade<input id="edit-grade" maxlength="40"></label>
+        <label>Certificate number<input id="edit-certificate" maxlength="120"></label>
+        <label>Status<select id="edit-status"><option value="DRAFT">Draft</option><option value="INSPECTION">Inspection</option><option value="WITHDRAWN">Withdrawn</option></select></label>
+        <label class="full-width">Notes<textarea id="edit-notes" maxlength="2000" rows="3"></textarea></label>
+        <label class="check-field full-width"><input id="edit-identity" type="checkbox"><span>I have physically checked this card and confirmed its identity.</span></label>
+      </div>
+      <div id="editor-message" class="message" role="status"></div>
+      <div class="modal-actions"><button id="approve-button" class="approve-button" type="button">Approve stock</button><button class="ghost-button" type="button" data-close="editor-dialog">Cancel</button><button class="primary-button compact" type="submit">Save changes</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="bulk-dialog" class="modal">
+    <form id="bulk-form" class="modal-card wide">
+      <div class="modal-heading"><div><p class="eyebrow">Binder or set purchase</p><h2>Allocate acquisition cost</h2><p class="muted">Split one purchase total across the selected cards. Every penny must be allocated.</p></div><button class="icon-button" type="button" data-close="bulk-dialog" aria-label="Close">×</button></div>
+      <div class="bulk-controls"><label>Total paid (£)<input id="bulk-total" type="number" min="0" step="0.01" required></label><label>Acquisition date<input id="bulk-date" type="date"></label><button id="equal-split" class="ghost-button" type="button">Split equally</button></div>
+      <div class="allocation-summary"><span id="bulk-item-count"></span><strong id="bulk-remaining">Enter a total</strong></div>
+      <div id="allocation-list" class="allocation-list"></div>
+      <div id="bulk-message" class="message" role="status"></div>
+      <div class="modal-actions"><button class="ghost-button" type="button" data-close="bulk-dialog">Cancel</button><button id="bulk-save" class="primary-button compact" type="submit">Save allocation</button></div>
+    </form>
+  </dialog>
   <script src="/assets/app.js" defer></script>
 </body>
 </html>
