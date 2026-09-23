@@ -59,11 +59,49 @@ def test_purchase_lot_calculates_landed_cost_inputs_without_requiring_allocation
     assert lot.fees_minor == 1500
     assert lot.shipping_minor == 500
     assert lot.currency == "GBP"
+    assert lot.items == []
 
 
 def test_purchase_lot_rejects_blank_description() -> None:
     with pytest.raises(ValidationError, match="description cannot be blank"):
         PurchaseLotCreate(description="   ", purchase_price_minor=1000)
+
+
+def test_purchase_lot_rejects_duplicate_initial_cards() -> None:
+    item_id = uuid4()
+    with pytest.raises(ValidationError, match="only once"):
+        PurchaseLotCreate(
+            description="Binder",
+            purchase_price_minor=1000,
+            items=[
+                {"inventory_id": item_id, "version": 1, "acquisition_cost_minor": 500},
+                {"inventory_id": item_id, "version": 1, "acquisition_cost_minor": 500},
+            ],
+        )
+
+
+def test_purchase_lot_rejects_initial_allocation_above_landed_cost() -> None:
+    with pytest.raises(ValidationError, match="cannot exceed"):
+        PurchaseLotCreate(
+            description="Binder",
+            purchase_price_minor=1000,
+            fees_minor=100,
+            shipping_minor=100,
+            items=[
+                {"inventory_id": uuid4(), "version": 1, "acquisition_cost_minor": 1201},
+            ],
+        )
+
+
+def test_purchase_lot_allows_partial_initial_allocation() -> None:
+    lot = PurchaseLotCreate(
+        description="Binder",
+        purchase_price_minor=1000,
+        items=[
+            {"inventory_id": uuid4(), "version": 1, "acquisition_cost_minor": 600},
+        ],
+    )
+    assert sum(item.acquisition_cost_minor for item in lot.items) == 600
 
 
 def test_purchase_lot_allocation_rejects_duplicate_cards() -> None:
