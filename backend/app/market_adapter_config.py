@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from .fx import EcbHistoricalFxProvider, FxRateProvider
 from .market_adapters import register_adapter
 from .parse_client import ParseHttpClient
 from .settings import Settings
-from .tcgplayer_parse_adapter import FxRateProvider, TcgplayerParseAdapter
+from .tcgplayer_parse_adapter import TcgplayerParseAdapter
 
 
 def configure_market_adapters(
@@ -13,17 +14,19 @@ def configure_market_adapters(
 ) -> dict[str, bool]:
     """Register provider adapters only when every required dependency exists.
 
-    Parse credentials alone are intentionally insufficient for TCGPlayer because
-    USD observations must never be normalised using a guessed FX rate.
+    The official ECB historical reference-rate provider is used by default when
+    Parse access exists, keeping USD/EUR normalisation deterministic and auditable.
+    Tests can inject a fake FX provider instead.
     """
 
     configured = {"TCGPLAYER": False}
 
-    if settings.parse_api_key and fx_provider is not None:
+    if settings.parse_api_key:
+        provider = fx_provider or EcbHistoricalFxProvider()
         register_adapter(
             TcgplayerParseAdapter(
                 client=ParseHttpClient(api_key=settings.parse_api_key),
-                fx_provider=fx_provider,
+                fx_provider=provider,
             )
         )
         configured["TCGPLAYER"] = True
