@@ -10,11 +10,11 @@ const INTAKE_CARD_CONDITIONS = [
 
 let intakeSelectedCatalogue = null;
 let intakeNewCatalogueMode = false;
+let intakeRequestKey = null;
 
 function ensureInventoryIntakeUI() {
   if (byId("new-inventory-button")) return;
 
-  const heading = document.querySelector("#dashboard-view .dashboard-content > .page-heading");
   const refresh = byId("refresh-button");
   const actions = document.createElement("div");
   actions.className = "topbar-actions";
@@ -120,6 +120,7 @@ function ensureInventoryIntakeUI() {
 function resetInventoryIntake() {
   intakeSelectedCatalogue = null;
   intakeNewCatalogueMode = false;
+  intakeRequestKey = crypto.randomUUID();
   byId("inventory-intake-form").reset();
   byId("intake-search-results").replaceChildren();
   byId("intake-selected-catalogue").replaceChildren();
@@ -318,13 +319,16 @@ async function submitInventoryIntake(event) {
     };
     const result = await apiRequest("/api/v1/inventory/intake", {
       method: "POST",
+      headers: { "Idempotency-Key": intakeRequestKey },
       body: JSON.stringify(payload),
     });
     byId("inventory-intake-dialog").close();
     await Promise.all([reloadDashboard(), loadStorageLocations()]);
-    const identityNote = result.catalogue_created
-      ? " New catalogue identity created."
-      : result.catalogue_reused ? " Existing matching catalogue identity reused." : "";
+    const identityNote = result.replayed
+      ? " Submission safely replayed; no duplicate item was created."
+      : result.catalogue_created
+        ? " New catalogue identity created."
+        : result.catalogue_reused ? " Existing matching catalogue identity reused." : "";
     showMessage("inventory-message", `${result.inventory.inventory_code} created as Draft.${identityNote}`, "success");
   } catch (error) {
     showMessage("inventory-intake-message", error.message, "error");
