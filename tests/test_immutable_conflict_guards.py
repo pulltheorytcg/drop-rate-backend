@@ -19,6 +19,15 @@ def test_database_immutability_guard_is_translated_to_safe_conflict() -> None:
     assert "status_code=409" in source
 
 
+def test_database_integrity_errors_are_safely_classified() -> None:
+    source = (BACKEND / "main.py").read_text()
+    block = source.split("def _database_error_response", 1)[1].split("def create_app", 1)[0]
+    assert 'exc.sqlstate == "23505"' in block
+    assert 'exc.sqlstate == "23503"' in block
+    assert 'exc.sqlstate in {"23514", "23502"}' in block
+    assert "Operation violates a data integrity rule" in block
+
+
 def test_database_error_response_never_exposes_raw_database_error() -> None:
     source = (BACKEND / "main.py").read_text()
     block = source.split("def _database_error_response", 1)[1].split("def create_app", 1)[0]
