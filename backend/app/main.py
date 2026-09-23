@@ -5,11 +5,12 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .db import create_pool
+from .inventory_intake import router as inventory_intake_router
 from .inventory_state import router as inventory_state_router
 from .purchase_lots import router as purchase_lots_router
 from .settings import get_settings
@@ -28,6 +29,14 @@ def _valid_request_id(value: str | None) -> str:
     return str(uuid4())
 
 
+def _dashboard_html() -> str:
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    intake_script = '<script src="/assets/inventory-intake.js" defer></script>'
+    if intake_script not in html:
+        html = html.replace("</body>", f"  {intake_script}\n</body>")
+    return html
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
 
@@ -41,7 +50,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Drop Rate API",
-        version="0.8.0",
+        version="0.9.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -71,8 +80,8 @@ def create_app() -> FastAPI:
         return response
 
     @app.get("/", include_in_schema=False)
-    async def dashboard() -> FileResponse:
-        return FileResponse(STATIC_DIR / "index.html")
+    async def dashboard() -> HTMLResponse:
+        return HTMLResponse(_dashboard_html())
 
     @app.get("/api/v1/public-config", include_in_schema=False)
     async def public_config() -> dict:
@@ -98,6 +107,7 @@ def create_app() -> FastAPI:
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(router)
+    app.include_router(inventory_intake_router)
     app.include_router(inventory_state_router)
     app.include_router(purchase_lots_router)
     app.include_router(storage_locations_router)
