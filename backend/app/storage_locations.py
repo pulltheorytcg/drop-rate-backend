@@ -243,7 +243,7 @@ async def assign_storage_location(
         ids = [item.inventory_id for item in payload.items]
         rows = await connection.fetch(
             """
-            select id, version
+            select id, version, status
             from tcg.inventory_items
             where owner_id = $1 and id = any($2::uuid[])
             order by id
@@ -254,6 +254,15 @@ async def assign_storage_location(
         )
         if len(rows) != len(ids):
             raise HTTPException(status_code=404, detail="One or more inventory items were not found")
+        sold = [str(row["id"]) for row in rows if row["status"] == "SOLD"]
+        if sold:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Sold inventory cannot be moved; use the refund/return workflow",
+                    "items": sold,
+                },
+            )
         current = {row["id"]: row["version"] for row in rows}
         stale = [
             {

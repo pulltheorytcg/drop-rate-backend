@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import UUID, uuid4
 
+import asyncpg
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -56,6 +57,23 @@ def _dashboard_html() -> str:
     return html
 
 
+def _database_error_response(exc: asyncpg.PostgresError, request_id: str) -> JSONResponse:
+    """Translate known database guard failures without exposing SQL/provider details."""
+
+    if exc.sqlstate == "55000":
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": "Operation conflicts with an immutable or historical record state",
+                "request_id": request_id,
+            },
+        )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "request_id": request_id},
+    )
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_market_adapters(settings)
@@ -83,8 +101,13 @@ def create_app() -> FastAPI:
         request.state.request_id = request_id
         try:
             response = await call_next(request)
+        except asyncpg.PostgresError as exc:
+            response = _database_error_response(exc, request_id)
         except Exception:
-            response = JSONResponse(status_code=500, content={"detail": "Internal server error", "request_id": request_id})
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error", "request_id": request_id},
+            )
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
