@@ -105,6 +105,48 @@ class PurchaseLotCreate(BaseModel):
         return self
 
 
+class PurchaseLotPatch(BaseModel):
+    version: int = Field(ge=1)
+    description: str | None = Field(default=None, max_length=200)
+    source: str | None = Field(default=None, max_length=160)
+    purchase_date: date | None = None
+    purchase_price_minor: int | None = Field(default=None, ge=0)
+    fees_minor: int | None = Field(default=None, ge=0)
+    shipping_minor: int | None = Field(default=None, ge=0)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    allocation_method: AllocationMethod | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def validate_patch(self) -> "PurchaseLotPatch":
+        supplied = self.model_fields_set - {"version"}
+        if not supplied:
+            raise ValueError("At least one purchase lot field is required")
+        if "description" in supplied:
+            if self.description is None or not self.description.strip():
+                raise ValueError("description cannot be blank")
+            self.description = self.description.strip()
+        if "source" in supplied and self.source is not None:
+            self.source = self.source.strip() or None
+        if "currency" in supplied:
+            if self.currency is None:
+                raise ValueError("currency cannot be blank")
+            self.currency = self.currency.upper().strip()
+        if "notes" in supplied:
+            self.notes = (self.notes or "").strip()
+        for field_name in ("purchase_price_minor", "fees_minor", "shipping_minor"):
+            if field_name in supplied and getattr(self, field_name) is None:
+                raise ValueError(f"{field_name} cannot be blank")
+        if "allocation_method" in supplied and self.allocation_method is None:
+            raise ValueError("allocation_method cannot be blank")
+        return self
+
+
+class PurchaseLotDetach(BaseModel):
+    version: int = Field(ge=1)
+    inventory_version: int = Field(ge=1)
+
+
 class PurchaseLotAllocation(BaseModel):
     version: int = Field(ge=1)
     items: list[BulkCostItem] = Field(min_length=1, max_length=500)
