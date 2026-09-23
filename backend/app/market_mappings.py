@@ -254,8 +254,9 @@ async def update_market_mapping(
             if payload.match_confidence is not None
             else float(current["match_confidence"])
         )
-        metadata = payload.metadata if payload.metadata is not None else dict(current["metadata"] or {})
-        metadata = dict(metadata)
+        metadata = dict(current["metadata"] or {})
+        if payload.metadata is not None:
+            metadata.update(payload.metadata)
         metadata["last_edited_by_user_id"] = str(user.user_id)
 
         try:
@@ -311,6 +312,7 @@ async def _decide_mapping(
         user_id=user_id,
         reason=payload.reason,
     )
+    confidence = payload.match_confidence if status == "VERIFIED" else 0.0
     row = await connection.fetchrow(
         """
         update tcg.market_source_mappings
@@ -326,7 +328,7 @@ async def _decide_mapping(
         """,
         mapping_id,
         status,
-        payload.match_confidence,
+        confidence,
         json.dumps(metadata),
         payload.expected_version,
     )
