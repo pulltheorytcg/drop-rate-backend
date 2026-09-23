@@ -14,6 +14,9 @@ JS_ASSETS = (
     "purchase-lot-management.js",
     "storage-locations.js",
     "inventory-intake.js",
+    "inventory-imports.js",
+    "founder-finance.js",
+    "dashboard-shell.js",
 )
 
 
@@ -65,6 +68,26 @@ def test_manual_intake_only_requires_new_identity_fields_in_new_identity_mode() 
     assert '["intake-game", "intake-name", "intake-set"]' in js
     assert "byId(id).required = intakeNewCatalogueMode" in js
     assert "byId(\"intake-card-number\").required = isCard && intakeNewCatalogueMode" in js
+
+
+def test_dashboard_shell_has_expected_seller_views() -> None:
+    js = (STATIC / "dashboard-shell.js").read_text()
+    for view in ("dashboard", "inventory", "sales", "reports", "balance", "settings"):
+        assert f'["{view}",' in js
+    assert 'apiRequest("/api/v1/pricing/adapters")' in js
+    assert "history.replaceState" in js
+
+
+def test_dashboard_shell_preserves_working_component_ids() -> None:
+    js = (STATIC / "dashboard-shell.js").read_text()
+    for element_id in (
+        "founder-finance-panel",
+        "finance-sales-body",
+        "finance-payouts-body",
+        "storage-locations-section",
+        "purchase-lots-list",
+    ):
+        assert element_id in js
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is not installed")
