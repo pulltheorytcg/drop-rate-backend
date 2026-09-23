@@ -24,18 +24,15 @@ function renderPurchaseLots(data) {
     container.append(empty);
     return;
   }
-
   data.items.forEach((lot) => {
     const row = document.createElement("div");
     row.className = "allocation-row";
-
     const details = document.createElement("div");
     const title = document.createElement("strong");
     title.textContent = lot.description;
     const meta = document.createElement("small");
     meta.textContent = [lot.lot_code, lot.source, lot.purchase_date, `${lot.item_count} card${lot.item_count === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
     details.append(title, meta);
-
     const totals = document.createElement("div");
     totals.className = "card-name";
     const total = document.createElement("strong");
@@ -43,7 +40,6 @@ function renderPurchaseLots(data) {
     const remaining = document.createElement("small");
     remaining.textContent = lot.remaining_cost_minor === 0 ? "Fully allocated" : `${money(lot.remaining_cost_minor, lot.currency)} remaining`;
     totals.append(total, remaining);
-
     row.append(details, totals);
     container.append(row);
   });
@@ -102,19 +98,16 @@ function renderSelectedLotCards() {
   byId("lot-item-count").textContent = `${items.length} selected card${items.length === 1 ? "" : "s"}`;
   const list = byId("lot-allocation-list");
   list.replaceChildren();
-
   items.forEach((item) => {
     const row = document.createElement("div");
     row.className = "allocation-row";
     row.dataset.id = item.id;
-
     const details = document.createElement("div");
     const title = document.createElement("strong");
     title.textContent = item.name;
     const meta = document.createElement("small");
     meta.textContent = [item.set_name, item.inventory_code, item.purchase_lot_code ? `Already: ${item.purchase_lot_code}` : null].filter(Boolean).join(" · ");
     details.append(title, meta);
-
     const input = document.createElement("input");
     input.type = "number";
     input.min = "0";
@@ -123,7 +116,6 @@ function renderSelectedLotCards() {
     input.value = minorToInput(item.acquisition_cost_minor);
     input.setAttribute("aria-label", `Allocated cost for ${item.name}`);
     input.addEventListener("input", updateLotAllocationRemaining);
-
     row.append(details, input);
     list.append(row);
   });
@@ -162,20 +154,7 @@ async function savePurchaseLot(event) {
   setBusy(form, true);
   showMessage("lot-message");
   try {
-    const payload = {
-      description: byId("lot-description").value.trim(),
-      source: emptyToNull(byId("lot-source").value),
-      purchase_date: byId("lot-date").value || null,
-      purchase_price_minor: lotMoneyInput("lot-price"),
-      fees_minor: lotMoneyInput("lot-fees", true),
-      shipping_minor: lotMoneyInput("lot-shipping", true),
-      currency: "GBP",
-      allocation_method: byId("lot-method").value,
-      notes: byId("lot-notes").value.trim(),
-    };
-
-    const rows = selectedLotRows();
-    const allocationItems = rows.map((row) => {
+    const allocationItems = selectedLotRows().map((row) => {
       const selected = state.selected.get(row.dataset.id);
       const input = row.querySelector("input");
       if (!input.value.trim()) throw new Error(`Enter an allocated cost for ${selected.name}, or remove it from the selection.`);
@@ -186,29 +165,28 @@ async function savePurchaseLot(event) {
         acquisition_cost_minor: inputToMinor(input.value, false),
       };
     });
-
-    const allocated = allocationItems.reduce((sum, item) => sum + item.acquisition_cost_minor, 0);
-    const total = payload.purchase_price_minor + payload.fees_minor + payload.shipping_minor;
-    if (allocated > total) throw new Error("Allocated card costs cannot exceed the landed purchase cost.");
-
-    const lot = await apiRequest("/api/v1/purchase-lots", {
+    const payload = {
+      description: byId("lot-description").value.trim(),
+      source: emptyToNull(byId("lot-source").value),
+      purchase_date: byId("lot-date").value || null,
+      purchase_price_minor: lotMoneyInput("lot-price"),
+      fees_minor: lotMoneyInput("lot-fees", true),
+      shipping_minor: lotMoneyInput("lot-shipping", true),
+      currency: "GBP",
+      allocation_method: byId("lot-method").value,
+      notes: byId("lot-notes").value.trim(),
+      items: allocationItems,
+    };
+    const result = await apiRequest("/api/v1/purchase-lots/create-with-allocation", {
       method: "POST",
       body: JSON.stringify(payload),
     });
-
-    if (allocationItems.length) {
-      await apiRequest(`/api/v1/purchase-lots/${lot.id}/allocate`, {
-        method: "POST",
-        body: JSON.stringify({ version: lot.version, items: allocationItems }),
-      });
-    }
-
     state.selected.clear();
     byId("purchase-lot-dialog").close();
     await Promise.all([reloadDashboard(), loadPurchaseLots()]);
     showMessage("lots-message", allocationItems.length
-      ? `Purchase lot ${lot.lot_code} created and ${allocationItems.length} cards allocated.`
-      : `Purchase lot ${lot.lot_code} created.`, "success");
+      ? `Purchase lot ${result.lot.lot_code} created and ${allocationItems.length} cards allocated.`
+      : `Purchase lot ${result.lot.lot_code} created.`, "success");
   } catch (error) {
     showMessage("lot-message", error.message, "error");
   } finally {
@@ -225,8 +203,6 @@ byId("lot-equal-split").addEventListener("click", splitLotEqually);
 byId("purchase-lot-form").addEventListener("submit", savePurchaseLot);
 ["lot-price", "lot-fees", "lot-shipping"].forEach((id) => byId(id).addEventListener("input", updateLotAllocationRemaining));
 
-// Preserve the accounting distinction between an unknown cost and a genuine £0 cost.
-// The original bulk dialog pre-dates purchase lots and displayed unknown values as 0.00.
 byId("bulk-cost-button").addEventListener("click", () => {
   allocationRows().forEach((row) => {
     const selected = state.selected.get(row.dataset.id);
