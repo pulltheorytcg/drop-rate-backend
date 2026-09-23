@@ -12,6 +12,11 @@ def _required(name: str) -> str:
     return value
 
 
+def _optional(name: str) -> str | None:
+    value = os.getenv(name, "").strip()
+    return value or None
+
+
 def _positive_int(name: str, default: int) -> int:
     raw = os.getenv(name, str(default))
     try:
@@ -34,6 +39,7 @@ class Settings:
     environment: str
     db_pool_min: int
     db_pool_max: int
+    parse_api_key: str | None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -54,6 +60,7 @@ class Settings:
             environment=os.getenv("TCG_ENVIRONMENT", "development").strip(),
             db_pool_min=pool_min,
             db_pool_max=pool_max,
+            parse_api_key=_optional("TCG_PARSE_API_KEY"),
         )
 
 
