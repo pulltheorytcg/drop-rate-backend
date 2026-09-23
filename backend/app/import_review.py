@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 import asyncpg
@@ -36,6 +36,19 @@ class ImportCandidateResolutionRequest(BaseModel):
 
 class ImportCandidateSkipRequest(BaseModel):
     version: int = Field(ge=1)
+
+
+def _json_value(value: Any, *, expected_type: type, fallback: Any) -> Any:
+    """Handle asyncpg JSON/JSONB values whether returned decoded or as text."""
+
+    if value is None:
+        return fallback
+    decoded = value
+    if isinstance(value, str):
+        decoded = json.loads(value)
+    if not isinstance(decoded, expected_type):
+        raise ValueError("Stored import JSON has an unexpected shape")
+    return decoded
 
 
 def remaining_issues_after_catalogue_selection(issues: list[str]) -> list[str]:
@@ -158,6 +171,15 @@ async def _bump_batch_version(
     return int(version)
 
 
+def _candidate_response(row: asyncpg.Record) -> dict[str, Any]:
+    payload = dict(row)
+    payload["normalized_record"] = _json_value(
+        payload.get("normalized_record"), expected_type=dict, fallback={}
+    )
+    payload["issues"] = _json_value(payload.get("issues"), expected_type=list, fallback=[])
+    return payload
+
+
 @router.post("/{batch_id}/candidates/{candidate_id}/resolve")
 async def resolve_import_candidate(
     batch_id: UUID,
@@ -204,7 +226,9 @@ async def resolve_import_candidate(
         if catalogue is None:
             raise HTTPException(status_code=404, detail="Catalogue product not found")
 
-        normalized = dict(candidate["normalized_record"] or {})
+        normalized = _json_value(
+            candidate["normalized_record"], expected_type=dict, fallback={}
+        )
         expected_product_type = normalized.get("product_type")
         if expected_product_type and catalogue["product_type"] != expected_product_type:
             raise HTTPException(
@@ -216,7 +240,7 @@ async def resolve_import_candidate(
                 },
             )
 
-        original_issues = list(candidate["issues"] or [])
+        original_issues = _json_value(candidate["issues"], expected_type=list, fallback=[])
         remaining_issues = remaining_issues_after_catalogue_selection(original_issues)
         new_status = "READY" if not remaining_issues else "REVIEW"
 
@@ -253,7 +277,7 @@ async def resolve_import_candidate(
             {
                 "batch_id": batch_id,
                 "version": new_version,
-                "candidate": dict(updated_candidate),
+                "candidate": _candidate_response(updated_candidate),
                 "catalogue": dict(catalogue),
                 "summary": summary,
             }
@@ -322,7 +346,7 @@ async def skip_import_candidate(
             {
                 "batch_id": batch_id,
                 "version": new_version,
-                "candidate": dict(updated_candidate),
+                "candidate": _candidate_response(updated_candidate),
                 "summary": summary,
             }
         )
