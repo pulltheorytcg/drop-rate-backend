@@ -13,6 +13,7 @@ from .db import create_pool
 from .inventory_state import router as inventory_state_router
 from .purchase_lots import router as purchase_lots_router
 from .settings import get_settings
+from .storage_locations import router as storage_locations_router
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -40,7 +41,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Drop Rate API",
-        version="0.7.0",
+        version="0.8.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -99,4 +100,5 @@ def create_app() -> FastAPI:
     app.include_router(router)
     app.include_router(inventory_state_router)
     app.include_router(purchase_lots_router)
+    app.include_router(storage_locations_router)
     return app
