@@ -6,92 +6,111 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## Current progress
 
-- **Full Drop Rate roadmap:** ~34%
+- **Full Drop Rate roadmap:** ~42%
 - **Milestone 1 — Founder inventory control:** ~98%
-- **Internal commerce / founder finance foundation:** ~70%
+- **Internal commerce / founder finance foundation:** ~80%
 - **Milestone 2 — Shopify sale attribution:** intentionally deferred until Shopify store setup
-- **Milestone 3 — Automated market valuation/pricing:** 0%
+- **Milestone 3 — Automated market valuation/pricing:** ~60%
 
 ## Current stage
 
-**Founder operations platform: inventory foundation complete; functionality QA + commerce/finance refinement in progress**
+**Core founder operations, internal finance, dashboard navigation and provider-neutral pricing/market-data infrastructure are live. Next work is final QA, import-review refinement and legitimate live provider adapters before Shopify.**
 
-## In progress now
-
-1. Final Milestone 1 end-to-end QA
-2. Import review / unmatched-row resolution refinement
-3. Founder finance and commerce workflow verification
-4. Refund / fee / shipping / settlement workflow refinement
-5. Founder dashboard functional verification
-
-## Successfully completed and production-verified
+## Production-verified foundation
 
 ### Architecture / infrastructure
-- GitHub private repository
+- GitHub private repository + CI
 - Railway production deployment
 - Supabase/PostgreSQL master database
-- FastAPI backend
+- FastAPI deterministic business layer
 - Supabase authentication
-- GitHub Actions CI
-- audit logging foundation
+- audit logging
 - optimistic version protection
-- deterministic business rules in FastAPI/PostgreSQL
+- browser security headers
+- single-founder scope for current phase
 
-### Inventory foundation
+### Inventory
 - canonical catalogue separated from physical inventory
 - unique physical Inventory IDs
-- single-founder ownership model for current phase
-- inventory search, filters and pagination
+- search / filters / pagination
 - Action Required workflow
-- acquisition cost and acquisition date
-- unknown cost remains NULL, never silently £0
-- store price
-- identity confirmation
-- notes/status
-- TCGplayer raw-card condition scale
-- SEALED / UNSEALED state for sealed products
+- acquisition cost/date with unknown cost preserved as NULL
+- Purchase Lots, fees, shipping and landed-cost allocation
+- raw-card TCGplayer condition scale
+- sealed/unsealed inventory state
 - grading company / grade / certificate
 - language
-- approval readiness and approval workflow
-- Purchase Lots with purchase price, fees, shipping and landed cost
-- equal/manual binder allocation
-- Purchase Lot management v2
-- registered Storage Locations
-- stock location filtering and Unlocated counts
-- manual single-item inventory intake
-- duplicate-safe idempotent manual intake
-- unified CSV inventory import framework
+- registered Storage Locations + stock audit
+- manual single-item intake with idempotency
+- unified CSV import framework
 - Collectr / eBay Purchases / HoloDex / Generic CSV presets
-- conservative catalogue matching; ambiguous rows enter Review
-- raw source row + SHA-256 file provenance
+- conservative catalogue matching with REVIEW state for ambiguous rows
+- raw import provenance and SHA-256 duplicate-file protection
+- approval workflow
 
 ### Internal commerce / founder finance
-- internal orders
-- physical order items
-- acquisition-cost snapshots at sale time
+- internal orders and physical order items
+- acquisition-cost snapshot at sale time
 - SOLD inventory state
-- append-only financial ledger
-- sales revenue entries
-- platform/payment fees
-- shipping revenue and shipping cost
-- refunds and adjustments foundation
-- deterministic penny-perfect fee/shipping allocation
-- manual/off-platform sale API for testing before Shopify
-- founder finance summary
-- sales revenue
-- COGS
-- gross/net profit
-- pending balance
-- available balance
-- reserved payout balance
-- paid-out balance
-- recent sales
-- payout request workflow
-- payout cancellation workflow
+- append-only owner financial ledger
+- revenue / COGS / gross profit / net profit
+- payment/platform fees
+- shipping income / shipping cost
+- refund/return foundation
+- deterministic penny-perfect allocation
+- pending / available / reserved / paid-out balances
+- payout request + cancellation workflow
 - no automatic money movement
-- Balance & Profit dashboard section
-- Recent Sales dashboard section
-- Payout Requests dashboard section
+- manual/off-platform sale support before Shopify
+
+### Founder seller portal
+Production navigation is now split into:
+
+- **Dashboard**
+- **Inventory**
+- **Sales**
+- **Reports**
+- **Balance**
+- **Settings**
+
+Existing working inventory/finance components were reorganised rather than rewritten. URL hashes such as `#inventory` and `#balance` are supported.
+
+### Market-data infrastructure
+- provider-neutral source mappings
+- supported source slots: eBay, Collectr, TCGplayer, Cardmarket
+- VERIFIED mapping gate before automatic ingestion
+- immutable historical market observations
+- observation deduplication by `(source, source_record_key)`
+- source / condition / grade / language / seal-state normalization fields
+- GBP-normalized values + FX provenance fields
+- provider-neutral adapter protocol + registry
+- immutable market-ingestion run history
+- per-run fetched / inserted / duplicate / failed-mapping counts
+- market provider health/status API
+- dashboard Settings visibility for mapping count, observation count and latest run status
+- no provider scraping assumed or enabled
+- no live provider adapter enabled without legitimate access
+
+### Pricing engine
+- robust source-level weighted pricing rather than simple average
+- sold vs active-listing weighting
+- recency weighting / half-life logic
+- comparability by condition / grading / language / seal state
+- outlier handling
+- volatility and confidence calculation
+- source-count and evidence-quality weighting
+- outputs:
+  - Market Value
+  - Recommended Retail
+  - Quick-Sale Price
+  - Target Acquisition Price
+- immutable pricing snapshots
+- pricing policy configuration
+- high-value / low-confidence / volatile-price review guards
+- batch and single-item recalculation API
+- pricing history API
+- latest pricing outputs visible in Settings
+- **Store Price is never silently overwritten by pricing calculation**
 
 ## Milestone 1 checklist
 
@@ -111,86 +130,46 @@ This file is the persistent source of truth for project progress. A feature coun
 | Language | ✅ Complete |
 | Controlled physical locations | ✅ Complete |
 | Stock audit/location counts | ✅ Complete |
-| Final end-to-end production QA | 🚧 In progress |
+| Final end-to-end regression QA | 🚧 Remaining |
 
 ## Founder dashboard modules
 
-| Module | Functional state | UX state |
-|---|---|---|
-| Dashboard overview | 🚧 Needs final KPI/activity composition | 🚧 Redesign planned |
-| Inventory | ✅ Live | 🚧 Redesign planned |
-| Purchase Lots / cost basis | ✅ Live | 🚧 Move under Inventory/Purchases |
-| Storage Locations | ✅ Live | 🚧 Move under Inventory |
-| Manual inventory intake | ✅ Live | 🚧 Move under Inventory |
-| Inventory imports | ✅ Live | 🚧 Move under Inventory |
-| Sales | ✅ Backend + recent sales UI | 🚧 Dedicated Sales tab planned |
-| Reports | ✅ Core finance metrics available | 🚧 Dedicated Reports tab planned |
-| Balance | ✅ Backend + payout UI | 🚧 Dedicated Balance tab planned |
-| Payout requests | ✅ Live | 🚧 Move under Balance |
-| Settings / integrations | ⬜ Future | ⬜ Future |
+| Module | State |
+|---|---|
+| Dashboard overview | ✅ Structural view live; KPI/activity polish remains |
+| Inventory | ✅ Live |
+| Purchase Lots / cost basis | ✅ Live under Inventory |
+| Storage Locations | ✅ Live under Inventory |
+| Manual inventory intake | ✅ Live |
+| Inventory imports | ✅ Live |
+| Sales | ✅ Live foundation |
+| Reports | ✅ Core finance metrics live |
+| Balance | ✅ Live |
+| Payout requests | ✅ Live |
+| Settings / market pricing status | ✅ Live foundation |
 
-## Planned dashboard UX / information architecture phase
+## Supabase live capacity checkpoint
 
-**Do this only after the current functional QA pass.** Do not redesign core workflows while their business logic is still being verified.
+Checked after the market-ingestion deployment:
 
-Target founder/seller portal navigation:
+- organisation plan: **Free**
+- PostgreSQL: **17.6**
+- `tcg` tables: **22**
+- foreign-key relationships: **35**
+- database size: **~14 MB**
+- direct database connection ceiling: **60**
+- connections observed during check: **9**
+- market observations: **0**
+- pricing snapshots: **0**
+- market ingestion runs: **0**
 
-1. **Dashboard**
-   - available/pending balance summary
-   - revenue / net profit snapshot
-   - stock count/value snapshot
-   - Action Required queue
-   - recent sales/activity
-   - quick actions
+The schema itself is nowhere near a practical PostgreSQL table-count limit. The first expected storage pressure is append-only market evidence once automated provider ingestion begins.
 
-2. **Inventory**
-   - all stock
-   - add inventory manually
-   - import inventory
-   - Purchase Lots / acquisitions
-   - Storage Locations
-   - stock audit
-   - condition / grade / sealed-state review
+The Supabase Schema Visualizer relationship between `tcg.owner_memberships.user_id` and `auth.users.id` is now enforced by a real foreign key. Visual node layout itself is Studio/browser UI state rather than database state.
 
-3. **Sales**
-   - orders
-   - sold physical items
-   - order details
-   - refunds / returns
-   - sale attribution
-
-4. **Reports**
-   - revenue
-   - gross profit / net profit
-   - COGS
-   - platform/payment fees
-   - shipping income and shipping cost
-   - sell-through and inventory performance later
-   - date-range reporting / exports later
-
-5. **Balance**
-   - pending balance
-   - available balance
-   - reserved balance
-   - total paid out
-   - payout request
-   - payout history
-   - settlement details
-
-6. **Settings** (later)
-   - account/profile
-   - Shopify integration
-   - import/integration settings
-   - commission / business configuration where permitted
-
-UX rules:
-- do not put every business function on one scrolling page
-- top-level navigation/tabs should change views without duplicating business logic
-- mobile/responsive navigation required
-- preserve browser security headers and auth/session handling
-- Action Required should surface on Dashboard but deep-link to the relevant workflow
-- financial figures must come only from the deterministic ledger
-- no placeholder/fake metrics
+Current Supabase advisor state:
+- performance: only unused-index INFO notices expected on newly created / currently empty tables
+- security: leaked-password protection remains disabled in Supabase Auth and should be enabled before production launch
 
 ## Build roadmap
 
@@ -198,13 +177,13 @@ UX rules:
 |---|---|---|
 | 1 | Architecture / documentation | ✅ Core complete; documentation continues |
 | 2 | Database / authentication | ✅ Core complete |
-| 3 | Founder account / inventory / ownership | ✅ Core complete; final QA in progress |
-| 4 | Inventory dashboard functionality | ✅ Core complete; final QA in progress |
-| 4.5 | Founder dashboard UX/navigation cleanup | ⬜ Planned after functionality QA |
-| 5 | Shopify integration | ⏸ Deferred until store exists and backend is ready |
-| 6 | Orders / ownership allocation / settlements | 🚧 Internal commerce foundation built; refining |
-| 7 | Market-data infrastructure | ⬜ Not started |
-| 8 | Pricing engine | ⬜ Not started |
+| 3 | Founder account / inventory / ownership | ✅ Core complete; final regression QA remains |
+| 4 | Inventory dashboard functionality | ✅ Core complete |
+| 4.5 | Founder dashboard UX/navigation cleanup | ✅ Structural seller-portal navigation live; visual polish remains |
+| 5 | Shopify integration | ⏸ Deferred until backend/pricing is clean and store exists |
+| 6 | Orders / ownership allocation / settlements | 🚧 Core internal commerce/finance live; refinement remains |
+| 7 | Market-data infrastructure | 🚧 Core + ingestion framework live; real provider adapters/access pending |
+| 8 | Pricing engine | 🚧 Core deterministic engine live; automatic publication pending provider data + Shopify |
 | 9 | AI card identification | ⬜ Not started |
 | 10 | Consignment | ⬜ Not started |
 | 11 | AI product listings | ⬜ Not started |
@@ -214,23 +193,23 @@ UX rules:
 | 15 | n8n orchestration | ⬜ Advanced workflows not started |
 | 16 | Analytics / optimisation | ⬜ Not started |
 
-## Immediate next work
+## Resume here next session
 
-1. Complete final inventory foundation end-to-end QA.
-2. Verify finance calculations, balances, payouts and sale state transitions end to end.
-3. Finish import candidate review / row-resolution workflow.
-4. Refine refunds, fees, shipping and settlement workflows.
-5. Run failure/security tests across inventory + finance.
-6. Build the founder dashboard top-navigation/tab redesign.
-7. Only after the backend and dashboard are clean, prepare Shopify integration when the Shopify store exists.
-8. Then move into market-data infrastructure and pricing.
+1. Complete final Milestone 1 regression / failure QA.
+2. Finish import candidate REVIEW-row resolution so unmatched imports can be manually corrected/matched.
+3. Verify finance, refund, balance and payout workflows end to end with rollback-safe test scenarios.
+4. Obtain/confirm legitimate provider access and implement live adapters one at a time.
+5. Build source-mapping review tooling for live provider IDs.
+6. Add scheduled market ingestion with purpose-built service authentication; n8n must only orchestrate backend APIs.
+7. Add automatic repricing policy execution only after reliable live data exists.
+8. Prepare Shopify integration after the backend/accounting/pricing loop is clean.
 
 ## Major deferred decisions / features
 
-- Shopify storefront/store setup is not required yet.
-- Canonical Card/Product → Shopify Product and Physical Inventory → Shopify Variant remains the planned mapping to validate when Shopify work begins.
+- Shopify storefront setup is not required yet.
+- Canonical catalogue product → Shopify Product and physical inventory → Shopify Variant/SKU remains the intended mapping to validate during Shopify work.
 - value-weighted Purchase Lot allocation waits for reliable market reference values.
-- multi-founder ownership is deferred; current build is single-founder.
+- multi-founder ownership is deferred; current build remains single-founder.
 - consignors/consignment come after the core founder sale loop.
 - AI marketing, SEO automation and advanced n8n orchestration come after core inventory, commerce and pricing foundations.
 
