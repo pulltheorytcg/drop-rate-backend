@@ -52,3 +52,8 @@ def test_purchase_lot_management_asset_is_loaded() -> None:
     assert "openManagedLot" in js
     assert "detachManagedItem" in js
     assert "addSelectedToManagedLot" in js
+
+
+def test_value_weighted_allocation_stays_deferred_until_pricing_engine() -> None:
+    js = (STATIC / "purchase-lot-management.js").read_text()
+    assert 'value="VALUE_WEIGHTED"' not in js
