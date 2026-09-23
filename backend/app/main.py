@@ -38,6 +38,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/inventory-intake.js" defer></script>',
         '<script src="/assets/inventory-imports.js" defer></script>',
         '<script src="/assets/founder-finance.js" defer></script>',
+        '<script src="/assets/dashboard-navigation.js" defer></script>',
     )
     for script in scripts:
         if script not in html:
@@ -58,7 +59,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Drop Rate API",
-        version="1.2.0",
+        version="1.3.0",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
