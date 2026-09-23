@@ -13,6 +13,7 @@ from .db import create_pool
 from .finance import router as finance_router
 from .imports import router as imports_router
 from .inventory_intake import router as inventory_intake_router
+from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
 from .market_ingestion import router as market_ingestion_router
 from .pricing import router as pricing_router
@@ -41,6 +42,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/inventory-imports.js" defer></script>',
         '<script src="/assets/founder-finance.js" defer></script>',
         '<script src="/assets/dashboard-shell.js" defer></script>',
+        '<script src="/assets/market-value-column.js" defer></script>',
     )
     for script in scripts:
         if script not in html:
@@ -124,6 +126,7 @@ def create_app() -> FastAPI:
     app.include_router(market_ingestion_router)
     app.include_router(imports_router)
     app.include_router(inventory_intake_router)
+    app.include_router(inventory_market_values_router)
     app.include_router(inventory_state_router)
     app.include_router(purchase_lots_router)
     app.include_router(storage_locations_router)
