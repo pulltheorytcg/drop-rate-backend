@@ -4,7 +4,7 @@ create table tcg.storage_locations (
     id uuid primary key default gen_random_uuid(),
     owner_id uuid not null references tcg.owners(id),
     code text not null,
-    label text not null,
+    label text not null check (btrim(label) <> ''),
     location_type text not null
         check (location_type in ('BINDER', 'BOX', 'SHELF', 'DRAWER', 'VAULT', 'DISPLAY', 'OTHER')),
     active boolean not null default true,
@@ -38,25 +38,26 @@ create policy own_records on tcg.storage_locations
     using (owner_id in (select id from tcg.owners))
     with check (owner_id in (select id from tcg.owners));
 
-grant select, insert, update, delete on tcg.storage_locations to tcg_api;
+revoke all on tcg.storage_locations from anon, authenticated;
+grant select, insert, update on tcg.storage_locations to tcg_api;
 
 create function tcg.audit_storage_location_change()
 returns trigger
 language plpgsql
 security definer
-set search_path = pg_catalog, tcg
+set search_path = ''
 as $$
 begin
     insert into tcg.audit_events(
         actor, request_id, action, entity_type, entity_id, old_values, new_values
     ) values (
-        coalesce(nullif(current_setting('tcg.user_id', true), ''), session_user::text),
-        nullif(current_setting('tcg.request_id', true), ''),
+        coalesce(nullif(pg_catalog.current_setting('tcg.user_id', true), ''), session_user::text),
+        nullif(pg_catalog.current_setting('tcg.request_id', true), ''),
         tg_op,
         tg_table_name,
         case when tg_op = 'DELETE' then old.id else new.id end,
-        case when tg_op = 'INSERT' then null else to_jsonb(old) end,
-        case when tg_op = 'DELETE' then null else to_jsonb(new) end
+        case when tg_op = 'INSERT' then null else pg_catalog.to_jsonb(old) end,
+        case when tg_op = 'DELETE' then null else pg_catalog.to_jsonb(new) end
     );
     return null;
 end;
@@ -68,30 +69,58 @@ create trigger storage_locations_audit
     after insert or update or delete on tcg.storage_locations
     for each row execute function tcg.audit_storage_location_change();
 
-create function tcg.guard_storage_location_code()
+create function tcg.guard_storage_location_identity()
 returns trigger
 language plpgsql
-set search_path = pg_catalog, tcg
+set search_path = ''
 as $$
 begin
     if old.code is distinct from new.code then
         raise exception 'Storage location code is immutable once created'
             using errcode = '23514';
     end if;
+    if old.owner_id is distinct from new.owner_id then
+        raise exception 'Storage location owner is immutable once created'
+            using errcode = '23514';
+    end if;
     return new;
 end;
 $$;
 
-revoke all on function tcg.guard_storage_location_code() from public;
+revoke all on function tcg.guard_storage_location_identity() from public;
 
-create trigger storage_location_code_guard
-    before update of code on tcg.storage_locations
-    for each row execute function tcg.guard_storage_location_code();
+create trigger storage_location_identity_guard
+    before update of code, owner_id on tcg.storage_locations
+    for each row execute function tcg.guard_storage_location_identity();
+
+create function tcg.guard_storage_location_deactivation()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if old.active and not new.active and exists (
+        select 1
+        from tcg.inventory_items i
+        where i.storage_location_id = old.id
+    ) then
+        raise exception 'Move inventory out of this location before deactivating it'
+            using errcode = '23514';
+    end if;
+    return new;
+end;
+$$;
+
+revoke all on function tcg.guard_storage_location_deactivation() from public;
+
+create trigger storage_location_deactivation_guard
+    before update of active on tcg.storage_locations
+    for each row execute function tcg.guard_storage_location_deactivation();
 
 create function tcg.sync_inventory_storage_location()
 returns trigger
 language plpgsql
-set search_path = pg_catalog, tcg
+set search_path = ''
 as $$
 declare
     location_code text;
@@ -101,11 +130,11 @@ begin
         return new;
     end if;
 
-    select code into location_code
-    from tcg.storage_locations
-    where id = new.storage_location_id
-      and owner_id = new.owner_id
-      and active;
+    select sl.code into location_code
+    from tcg.storage_locations sl
+    where sl.id = new.storage_location_id
+      and sl.owner_id = new.owner_id
+      and sl.active;
 
     if location_code is null then
         raise exception 'Storage location is missing, inactive, or belongs to another owner'
@@ -120,7 +149,7 @@ $$;
 revoke all on function tcg.sync_inventory_storage_location() from public;
 
 create trigger inventory_storage_location_sync
-    before insert or update of storage_location_id on tcg.inventory_items
+    before insert or update of storage_location_id, owner_id on tcg.inventory_items
     for each row execute function tcg.sync_inventory_storage_location();
 
 commit;
