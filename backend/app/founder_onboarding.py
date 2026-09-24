@@ -8,7 +8,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
@@ -23,7 +23,7 @@ def _token_hash(token: str) -> str:
 
 class FounderInviteCreate(BaseModel):
     invited_name: str = Field(min_length=1, max_length=120)
-    invited_email: EmailStr | None = None
+    invited_email: str | None = Field(default=None, max_length=320)
     founder_slot: int = Field(ge=1, le=3)
     expires_in_days: int = Field(default=7, ge=1, le=30)
 
@@ -32,16 +32,34 @@ class FounderInviteCreate(BaseModel):
     def clean_name(cls, value: str) -> str:
         return value.strip()
 
+    @field_validator("invited_email")
+    @classmethod
+    def clean_optional_email(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        clean = value.strip().lower()
+        if "@" not in clean or clean.startswith("@") or clean.endswith("@"):
+            raise ValueError("Enter a valid email address")
+        return clean
+
 
 class FounderInviteRedeem(BaseModel):
     token: str = Field(min_length=20, max_length=500)
     display_name: str = Field(min_length=1, max_length=120)
-    email: EmailStr
+    email: str = Field(min_length=3, max_length=320)
 
     @field_validator("token", "display_name")
     @classmethod
     def clean_text(cls, value: str) -> str:
         return value.strip()
+
+    @field_validator("email")
+    @classmethod
+    def clean_email(cls, value: str) -> str:
+        clean = value.strip().lower()
+        if "@" not in clean or clean.startswith("@") or clean.endswith("@"):
+            raise ValueError("Enter a valid email address")
+        return clean
 
 
 @router.post("/api/v1/founder-invites")
@@ -66,7 +84,7 @@ async def create_founder_invite(
             _token_hash(raw_token),
             payload.invited_name,
             payload.founder_slot,
-            str(payload.invited_email) if payload.invited_email else None,
+            payload.invited_email,
             expires_at,
         )
 
@@ -119,7 +137,7 @@ async def redeem_founder_invite(
             "select * from tcg.redeem_founder_invite($1,$2,$3)",
             _token_hash(payload.token),
             payload.display_name,
-            str(payload.email),
+            payload.email,
         )
 
     if row is None:
