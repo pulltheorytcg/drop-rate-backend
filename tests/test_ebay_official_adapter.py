@@ -123,16 +123,6 @@ def test_variant_matching_is_finish_specific() -> None:
     assert _variant_matches("Absol 063/094 Holo", "Holofoil") is True
     assert _variant_matches("Absol 063/094 Reverse Holo", "Holofoil") is False
     assert _variant_matches("Charizard V 019/189 PSA 9", "Holofoil") is False
-    assert _variant_matches(
-        "Charizard V 019/189 PSA 9",
-        "Holofoil",
-        allow_implicit_finish=True,
-    ) is True
-    assert _variant_matches(
-        "Charizard V 019/189 Reverse Holo PSA 9",
-        "Holofoil",
-        allow_implicit_finish=True,
-    ) is False
 
 
 def test_multi_item_detection_rejects_lots_and_multiple_card_numbers() -> None:
@@ -175,7 +165,7 @@ def test_identity_rules_reject_wrong_rarity_and_reprints() -> None:
     ) is False
 
 
-def test_graded_listing_can_omit_inherent_finish_but_not_conflict() -> None:
+def test_graded_listing_missing_finish_fails_closed() -> None:
     spec = json.loads(
         mapping(
             required_title_terms=["Charizard V", "019/189"],
@@ -186,6 +176,11 @@ def test_graded_listing_can_omit_inherent_finish_but_not_conflict() -> None:
 
     assert _matches_listing(
         "Pokemon Charizard V 019/189 PSA 9",
+        spec=spec,
+        source_variant_id="Holofoil",
+    ) is False
+    assert _matches_listing(
+        "Pokemon Charizard V 019/189 Holo PSA 9",
         spec=spec,
         source_variant_id="Holofoil",
     ) is True
