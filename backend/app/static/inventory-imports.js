@@ -255,7 +255,14 @@ function renderImportPreview(data) {
     const title = document.createElement("strong");
     title.textContent = normalized.name || `Source row ${candidate.source_row}`;
     const meta = document.createElement("small");
-    meta.textContent = [normalized.game, normalized.set_name, normalized.card_number, `Qty ${candidate.quantity}`].filter(Boolean).join(" · ");
+    const reconciliation = normalized.reconciliation === "SNAPSHOT_DELTA"
+      ? [
+          `Previous ${normalized.previous_quantity ?? 0}`,
+          `Snapshot ${normalized.snapshot_quantity ?? candidate.quantity}`,
+          `Add ${Math.max(0, Number(normalized.delta_quantity || 0))}`,
+        ].join(" · ")
+      : `Qty ${candidate.quantity}`;
+    meta.textContent = [normalized.game, normalized.set_name, normalized.card_number, reconciliation].filter(Boolean).join(" · ");
     details.append(title, meta);
 
     const state = document.createElement("div");
@@ -329,7 +336,7 @@ async function previewInventoryImport(event) {
       ...data,
       candidates,
       preview_truncated: data.source_rows > candidates.length,
-      skipped_rows: 0,
+      skipped_rows: data.skipped_rows || 0,
     };
     renderImportPreview(activeImportPreview);
     showMessage(
