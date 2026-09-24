@@ -29,3 +29,9 @@ def test_pricing_history_remains_snapshot_based() -> None:
 def test_batch_repricing_is_bounded() -> None:
     pricing = PRICING.read_text()
     assert "max_length=100" in pricing
+
+
+def test_pricing_recalculation_blocks_historical_inventory() -> None:
+    pricing = PRICING.read_text()
+    assert 'item["status"] in {"SOLD", "WITHDRAWN"}' in pricing
+    assert "Sold or withdrawn inventory cannot be repriced" in pricing
