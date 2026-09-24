@@ -260,7 +260,7 @@ def test_failed_webhook_deliveries_remain_retryable() -> None:
     assert 'if event["status"] in {"PROCESSED", "IGNORED"}:' in source
     assert "FAILED" not in source[
         source.index('if event["status"] in {"PROCESSED", "IGNORED"}:'):
-        source.index("if initial_status == "IGNORED":")
+        source.index('if initial_status == "IGNORED":')
     ]
 
 
