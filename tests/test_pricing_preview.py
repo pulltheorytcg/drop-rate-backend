@@ -3,7 +3,7 @@ from pathlib import Path
 
 from app.market_adapters import NormalizedMarketObservation
 from app.pricing_engine import PricingPolicy
-from app.pricing_preview import PREVIEW_SOURCES, _pricing_observation, _pricing_policy
+from app.pricing_preview import PREVIEW_SOURCES, _evidence_sample, _pricing_observation, _pricing_policy
 
 
 ROOT = Path(__file__).parents[1]
@@ -70,3 +70,48 @@ def test_workbench_calls_preview_and_discloses_non_persistence() -> None:
     assert "/api/v1/pricing/preview/" in source
     assert "/api/v1/pricing/preview-items/" in source
     assert "no observations, snapshots, Market Value or Store Price are saved" in source
+
+
+def test_evidence_sample_exposes_only_normalized_fields() -> None:
+    observed_at = datetime.now(timezone.utc)
+    normalized = NormalizedMarketObservation(
+        source="TCGPLAYER",
+        source_record_key="secret-record-key",
+        observation_type="SOLD",
+        observed_at=observed_at,
+        price_minor=10000,
+        currency="USD",
+        price_gbp_minor=7500,
+        fx_rate_to_gbp=0.75,
+        catalogue_id="catalogue-1",
+        shipping_minor=500,
+        shipping_gbp_minor=375,
+        condition="Near Mint",
+        language="English",
+        source_country="US",
+        sample_size=1,
+        evidence_quality=1.0,
+        metadata={
+            "listing_title": "raw provider title",
+            "seller": "do-not-expose",
+            "api_key": "never",
+        },
+    )
+
+    sample = _evidence_sample(normalized)
+
+    assert sample["source"] == "TCGPLAYER"
+    assert sample["price_gbp_minor"] == 7500
+    assert sample["shipping_gbp_minor"] == 375
+    assert sample["condition"] == "Near Mint"
+    assert "metadata" not in sample
+    assert "source_record_key" not in sample
+    assert "seller" not in sample
+    assert "api_key" not in sample
+
+
+def test_workbench_renders_sanitized_evidence_rows() -> None:
+    source = WORKBENCH.read_text()
+    assert "renderEvidenceSources" in source
+    assert "evidence_sample" in source
+    assert "price_gbp_minor" in source
