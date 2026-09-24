@@ -19,6 +19,7 @@ from .market_adapters import (
     get_adapter,
 )
 from .parse_client import ParseApiError
+from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/market", tags=["market-data"])
@@ -428,7 +429,7 @@ async def market_data_status(
                     "latest_run": dict(latest) if latest else None,
                 }
             )
-        return jsonable_encoder({"items": items})
+        return jsonable_encoder({"ingestion_enabled": get_settings().market_ingestion_enabled, "items": items})
 
 
 @router.get("/ingestion/runs")
