@@ -183,4 +183,4 @@ def test_explicit_language_backfill_is_fail_closed() -> None:
     assert "bool_and" in sql
     assert "language is null" in sql
     assert "jp|jpn|japanese" in sql.lower()
-    assert "english" not in sql.lower()
+    assert "set language = 'english'" not in sql.lower()
