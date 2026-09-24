@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.inventory_intake import (
+    _catalogue_search_terms,
     _manual_identity_key,
     _manual_intake_payload_hash,
     _receipt_response,
@@ -164,3 +165,21 @@ def test_manual_intake_frontend_sends_idempotency_key_and_uses_registered_locati
     assert "intake-storage-location" in js
     assert "/api/v1/catalogue/search" in js
     assert "/api/v1/inventory/intake" in js
+
+
+def test_catalogue_search_splits_human_query_into_literal_terms() -> None:
+    assert _catalogue_search_terms("  Absol   063/094  ") == ["Absol", "063/094"]
+    assert _catalogue_search_terms("Phantasmal Flames Absol") == [
+        "Phantasmal",
+        "Flames",
+        "Absol",
+    ]
+
+
+def test_catalogue_search_requires_every_term_across_searchable_fields() -> None:
+    source = (ROOT / "backend" / "app" / "inventory_intake.py").read_text()
+    assert "from unnest($1::text[]) as search(term)" in source
+    assert "where not (" in source
+    assert "strpos(lower(p.name), lower(search.term)) > 0" in source
+    assert "strpos(lower(coalesce(p.card_number, '')), lower(search.term)) > 0" in source
+    assert "or strpos(lower(coalesce(p.variant, '')), lower(search.term)) > 0" in source
