@@ -527,11 +527,11 @@ class ShopifyAdminClient:
                     "name": "available",
                     "reason": "correction",
                     "referenceDocumentUri": f"drop-rate://inventory/{idempotency_key}",
-                    "ignoreCompareQuantity": True,
                     "quantities": [{
                         "inventoryItemId": inventory_item_id,
                         "locationId": location_id,
                         "quantity": quantity,
+                        "changeFromQuantity": None,
                     }],
                 },
                 "idempotencyKey": idempotency_key,
