@@ -14,7 +14,7 @@ from app.imports import _detect_adapter, _field_map, _normalized_row
 
 ROOT = Path(__file__).parents[1]
 IMPORTS = ROOT / "backend" / "app" / "imports.py"
-LANGUAGE_MIGRATION = ROOT / "migrations" / "008_normalize_explicit_card_languages.sql"
+LANGUAGE_MIGRATION = ROOT / "database" / "migrations" / "20260924195341_normalize_explicit_card_languages.sql"
 
 
 def collectr_row(**overrides):
