@@ -197,8 +197,13 @@ function populateSellerViews() {
   content.dataset.tabbed = "true";
 }
 
-function pricingStatusText(adapter) {
-  const parts = [adapter.status === "ACCESS_REQUIRED" ? "Access required" : adapter.status];
+function pricingStatusText(adapter, ingestionEnabled = false) {
+  const adapterState = adapter.status === "ACCESS_REQUIRED"
+    ? "Access required"
+    : ingestionEnabled
+      ? adapter.status
+      : "DIAGNOSTIC ONLY";
+  const parts = [adapterState];
   parts.push(`${adapter.verified_mapping_count || 0} verified mappings`);
   parts.push(`${adapter.observation_count || 0} observations`);
   if (adapter.latest_run?.status) parts.push(`last run: ${adapter.latest_run.status}`);
@@ -226,7 +231,7 @@ async function loadPricingAdapterStatus() {
       note.textContent = adapter.note;
       details.append(name, note);
       const stateLabel = document.createElement("small");
-      stateLabel.textContent = pricingStatusText(adapter);
+      stateLabel.textContent = pricingStatusText(adapter, Boolean(marketData.ingestion_enabled));
       row.append(details, stateLabel);
       container.append(row);
     });

@@ -19,6 +19,7 @@ from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
 from .market_adapter_config import configure_market_adapters
 from .market_ingestion import router as market_ingestion_router
+from .market_discovery import router as market_discovery_router
 from .market_mappings import router as market_mappings_router
 from .market_provider_probe import router as market_provider_probe_router
 from .market_smoke import router as market_smoke_router
@@ -49,6 +50,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/founder-finance.js" defer></script>',
         '<script src="/assets/dashboard-shell.js" defer></script>',
         '<script src="/assets/market-smoke-panel.js" defer></script>',
+        '<script src="/assets/market-mapping-workbench.js" defer></script>',
         '<script src="/assets/market-value-column.js" defer></script>',
     )
     for script in scripts:
@@ -192,6 +194,7 @@ def create_app() -> FastAPI:
     app.include_router(pricing_router)
     app.include_router(market_ingestion_router)
     app.include_router(market_mappings_router)
+    app.include_router(market_discovery_router)
     app.include_router(market_provider_probe_router)
     app.include_router(market_smoke_router)
     app.include_router(imports_router)
