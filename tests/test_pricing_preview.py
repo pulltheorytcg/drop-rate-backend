@@ -115,3 +115,12 @@ def test_workbench_renders_sanitized_evidence_rows() -> None:
     assert "renderEvidenceSources" in source
     assert "evidence_sample" in source
     assert "price_gbp_minor" in source
+
+
+def test_unconfirmed_identity_blocks_before_provider_fetch() -> None:
+    source = PREVIEW.read_text()
+    identity_guard = 'if not item["identity_confirmed"]:'
+    provider_loop = "for source in PREVIEW_SOURCES:"
+    assert identity_guard in source
+    assert 'block_reasons": ["Physical card identity has not been confirmed"]' in source
+    assert source.index(identity_guard) < source.index(provider_loop)

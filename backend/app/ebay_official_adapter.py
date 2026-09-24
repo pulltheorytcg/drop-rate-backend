@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any
@@ -10,6 +11,10 @@ from .market_adapters import NormalizedMarketObservation, stable_source_record_k
 
 
 _RAW_GRADED_TERMS = ("psa", "cgc", "bgs", "beckett", "graded", "slab")
+_EXPLICIT_MULTI_ITEM_TERMS = ("bundle", "job lot", "playset", "lot of")
+_QUANTITY_RE = re.compile(r"\b(?:x\s*([2-9]\d*)|([2-9]\d*)\s*x)\b", re.IGNORECASE)
+_NUMERIC_CARD_NUMBER_RE = re.compile(r"\b\d{1,4}\s*/\s*\d{1,4}\b", re.IGNORECASE)
+_CODE_CARD_NUMBER_RE = re.compile(r"\b(?:OP|ST|EB|PRB|P|DON|FB|FS|BT|EX|TB|SD|DB|MANGA)[A-Z0-9]{0,3}-\d{2,4}\b", re.IGNORECASE)
 
 
 def _money_minor(money: object, *, expected_currency: str = "GBP") -> int | None:
@@ -83,6 +88,24 @@ def _variant_matches(title: object, source_variant_id: str | None) -> bool:
     return _contains_term(normalized_title, source_variant_id)
 
 
+def _looks_like_multi_item_listing(title: object) -> bool:
+    if not isinstance(title, str) or not title.strip():
+        return True
+
+    normalized_title = _normalise_text(title)
+    if any(_contains_term(normalized_title, term) for term in _EXPLICIT_MULTI_ITEM_TERMS):
+        return True
+    if _QUANTITY_RE.search(title):
+        return True
+
+    identifiers = {
+        re.sub(r"\s+", "", match.group(0)).upper()
+        for pattern in (_NUMERIC_CARD_NUMBER_RE, _CODE_CARD_NUMBER_RE)
+        for match in pattern.finditer(title)
+    }
+    return len(identifiers) > 1
+
+
 def _matches_listing(
     title: object,
     *,
@@ -91,6 +114,8 @@ def _matches_listing(
 ) -> bool:
     normalized_title = _normalise_text(title)
     if not normalized_title:
+        return False
+    if _looks_like_multi_item_listing(title):
         return False
 
     for term in spec["required_title_terms"]:
@@ -101,10 +126,10 @@ def _matches_listing(
         if _contains_term(normalized_title, term):
             return False
 
-    if spec["grading_company"]:
+    if spec.get("grading_company"):
         if not _contains_term(normalized_title, spec["grading_company"]):
             return False
-        if not _contains_term(normalized_title, spec["grade"]):
+        if not _contains_term(normalized_title, spec.get("grade")):
             return False
     else:
         for term in _RAW_GRADED_TERMS:
