@@ -5,7 +5,7 @@ const PAGE_SIZE = 25;
 const ISSUE_LABELS = {
   missing_cost: "Missing cost", missing_condition: "Missing raw condition",
   missing_seal_status: "Missing seal status",
-  missing_location: "Missing location", missing_price: "Missing store price",
+  missing_location: "Missing location", missing_language: "Missing language", missing_price: "Missing store price",
   identity_unconfirmed: "Identity unchecked", approval_ready: "Ready to approve",
 };
 const state = {
