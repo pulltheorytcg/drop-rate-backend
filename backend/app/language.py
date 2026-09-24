@@ -57,8 +57,9 @@ def parse_title_language(title: object) -> tuple[str, str | None]:
 
 
 def display_title(name: object, language: object) -> str:
-    base = " ".join(str(name or "").strip().split())
-    code = language_code(language)
+    base, title_language = parse_title_language(name)
+    canonical_language = clean_language(language) or title_language
+    code = language_code(canonical_language)
     if not base:
         return code or ""
     return f"{base} · {code}" if code else base
