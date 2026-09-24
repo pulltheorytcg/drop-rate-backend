@@ -252,181 +252,190 @@ async def sync_one_test_item(
         raise HTTPException(status_code=409, detail="Shopify test location/publication is not configured")
 
     client = _client()
-    async with user_connection(
-        request.app.state.db_pool, user.user_id, request.state.request_id
-    ) as connection:
-        owner = await _founder(connection)
-        async with connection.transaction():
-            item = await connection.fetchrow(
-                """
-                select
-                    i.*, p.product_type, p.game, p.name, p.set_name, p.card_number,
-                    p.variant, p.rarity, p.language as catalogue_language,
-                    sl.id as registered_location_id, sl.active as registered_location_active
-                from tcg.inventory_items i
-                join tcg.catalogue_products p on p.id=i.catalogue_id
-                left join tcg.storage_locations sl on sl.id=i.storage_location_id
-                where i.id=$1 and i.owner_id=$2
-                for update of i
-                """,
-                inventory_id, owner["id"],
-            )
-            if item is None:
-                raise HTTPException(status_code=404, detail="Inventory item not found")
-            if item["version"] != payload.version:
-                raise HTTPException(status_code=409, detail={
-                    "message": "Inventory item changed",
-                    "current_version": item["version"],
-                })
-            existing = await connection.fetchrow(
-                "select * from tcg.shopify_inventory_links where inventory_id=$1",
-                inventory_id,
-            )
-            if existing is not None:
-                return jsonable_encoder({
-                    "status": "ALREADY_LINKED",
-                    "link": dict(existing),
-                })
-            pooled_membership = await connection.fetchrow(
-                """
-                select id,listing_id,state
-                from tcg.listing_inventory_members
-                where inventory_id=$1 and state <> 'REMOVED'
-                """,
-                inventory_id,
-            )
-            if pooled_membership is not None:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Inventory belongs to the marketplace listing/reservation system and cannot use the legacy single-item Shopify test path",
+    try:
+        async with user_connection(
+            request.app.state.db_pool, user.user_id, request.state.request_id
+        ) as connection:
+            owner = await _founder(connection)
+            async with connection.transaction():
+                item = await connection.fetchrow(
+                    """
+                    select
+                        i.*, p.product_type, p.game, p.name, p.set_name, p.card_number,
+                        p.variant, p.rarity, p.language as catalogue_language,
+                        sl.id as registered_location_id, sl.active as registered_location_active
+                    from tcg.inventory_items i
+                    join tcg.catalogue_products p on p.id=i.catalogue_id
+                    left join tcg.storage_locations sl on sl.id=i.storage_location_id
+                    where i.id=$1 and i.owner_id=$2
+                    for update of i
+                    """,
+                    inventory_id, owner["id"],
                 )
-            missing = _test_sync_missing(item)
-            if missing:
-                raise HTTPException(status_code=422, detail={
-                    "message": "Inventory is not eligible for Shopify test sync",
-                    "missing": missing,
-                })
-
-            handle = _handle(item["inventory_code"])
-            listing_key = f"test:{inventory_id}"
-            remote = await client.find_product_by_handle(handle)
-            if remote is not None:
-                metafield = remote.get("metafield")
-                remote_inventory_id = (
-                    metafield.get("value") if isinstance(metafield, dict) else None
+                if item is None:
+                    raise HTTPException(status_code=404, detail="Inventory item not found")
+                if item["version"] != payload.version:
+                    raise HTTPException(status_code=409, detail={
+                        "message": "Inventory item changed",
+                        "current_version": item["version"],
+                    })
+                existing = await connection.fetchrow(
+                    "select * from tcg.shopify_inventory_links where inventory_id=$1",
+                    inventory_id,
                 )
-                if remote_inventory_id != str(inventory_id):
+                if existing is not None:
+                    return jsonable_encoder({
+                        "status": "ALREADY_LINKED",
+                        "link": dict(existing),
+                    })
+                pooled_membership = await connection.fetchrow(
+                    """
+                    select id,listing_id,state
+                    from tcg.listing_inventory_members
+                    where inventory_id=$1 and state <> 'REMOVED'
+                    """,
+                    inventory_id,
+                )
+                if pooled_membership is not None:
                     raise HTTPException(
                         status_code=409,
-                        detail="The deterministic Shopify handle belongs to a different inventory item",
+                        detail="Inventory belongs to the marketplace listing/reservation system and cannot use the legacy single-item Shopify test path",
                     )
-                product = remote
-            else:
-                product = await client.create_product({
-                    "title": _title(item),
-                    "handle": handle,
-                    "status": "DRAFT",
-                    "vendor": "Drop Rate",
-                    "productType": item["game"],
-                    "tags": [
-                        value for value in [
-                            "Drop Rate",
-                            brand_for_game(item["game"]),
-                            item["game"],
-                            item["set_name"],
-                            item["variant"],
-                            "single-item-test",
-                        ]
-                        if value
-                    ],
-                    "metafields": [{
-                        "namespace": "drop_rate",
-                        "key": "inventory_id",
-                        "type": "single_line_text_field",
-                        "value": str(inventory_id),
-                    }],
+                missing = _test_sync_missing(item)
+                if missing:
+                    raise HTTPException(status_code=422, detail={
+                        "message": "Inventory is not eligible for Shopify test sync",
+                        "missing": missing,
+                    })
+
+                handle = _handle(item["inventory_code"])
+                listing_key = f"test:{inventory_id}"
+                remote = await client.find_product_by_handle(handle)
+                if remote is not None:
+                    metafield = remote.get("metafield")
+                    remote_inventory_id = (
+                        metafield.get("value") if isinstance(metafield, dict) else None
+                    )
+                    if remote_inventory_id != str(inventory_id):
+                        raise HTTPException(
+                            status_code=409,
+                            detail="The deterministic Shopify handle belongs to a different inventory item",
+                        )
+                    product = remote
+                else:
+                    product = await client.create_product({
+                        "title": _title(item),
+                        "handle": handle,
+                        "status": "DRAFT",
+                        "vendor": "Drop Rate",
+                        "productType": item["game"],
+                        "tags": [
+                            value for value in [
+                                "Drop Rate",
+                                brand_for_game(item["game"]),
+                                item["game"],
+                                item["set_name"],
+                                item["variant"],
+                                "single-item-test",
+                            ]
+                            if value
+                        ],
+                        "metafields": [{
+                            "namespace": "drop_rate",
+                            "key": "inventory_id",
+                            "type": "single_line_text_field",
+                            "value": str(inventory_id),
+                        }],
+                    })
+
+                variants = product.get("variants")
+                nodes = variants.get("nodes") if isinstance(variants, dict) else None
+                if not isinstance(nodes, list) or len(nodes) != 1 or not isinstance(nodes[0], dict):
+                    raise HTTPException(status_code=502, detail="Shopify test product must have exactly one variant")
+                variant = nodes[0]
+                variant_id = str(variant.get("id") or "")
+                if not variant_id:
+                    raise HTTPException(status_code=502, detail="Shopify variant ID is missing")
+
+                updated_variant = await client.update_variant(
+                    product_id=str(product["id"]),
+                    variant_id=variant_id,
+                    price=_money(int(item["store_price_minor"])),
+                    sku=item["inventory_code"],
+                    cost=_money(int(item["acquisition_cost_minor"])),
+                )
+                inventory_item = updated_variant.get("inventoryItem")
+                if not isinstance(inventory_item, dict) or not inventory_item.get("id"):
+                    raise HTTPException(status_code=502, detail="Shopify inventory item ID is missing")
+                inventory_item_id = str(inventory_item["id"])
+
+                await client.activate_inventory(
+                    inventory_item_id=inventory_item_id,
+                    location_id=settings.shopify_location_gid,
+                    quantity=1,
+                    idempotency_key=f"activate-{inventory_id}",
+                )
+                await client.set_inventory_quantity(
+                    inventory_item_id=inventory_item_id,
+                    location_id=settings.shopify_location_gid,
+                    quantity=1,
+                    idempotency_key=f"quantity-{inventory_id}-{item['version']}",
+                )
+
+                link = await connection.fetchrow(
+                    """
+                    insert into tcg.shopify_inventory_links(
+                        inventory_id, owner_id, created_by_user_id, listing_key,
+                        allocation_priority, shop_domain, shopify_product_gid,
+                        shopify_variant_gid, shopify_inventory_item_gid,
+                        shopify_location_gid, shopify_publication_gid, sku,
+                        sync_state, test_mode, synced_price_minor
+                    ) values(
+                        $1,$2,$3,$4,1,$5,$6,$7,$8,$9,$10,$11,'DRAFT',true,$12
+                    )
+                    returning *
+                    """,
+                    inventory_id, owner["id"], user.user_id, listing_key,
+                    settings.shopify_shop_domain, str(product["id"]), variant_id,
+                    inventory_item_id, settings.shopify_location_gid,
+                    settings.shopify_publication_gid, item["inventory_code"],
+                    int(item["store_price_minor"]),
+                )
+
+                await client.set_product_status(product_id=str(product["id"]), status="ACTIVE")
+                await client.publish_product(
+                    product_id=str(product["id"]),
+                    publication_id=settings.shopify_publication_gid,
+                )
+                link = await connection.fetchrow(
+                    """
+                    update tcg.shopify_inventory_links
+                    set sync_state='PUBLISHED', last_synced_at=clock_timestamp(),
+                        version=version+1
+                    where id=$1
+                    returning *
+                    """,
+                    link["id"],
+                )
+                return jsonable_encoder({
+                    "status": "PUBLISHED_TEST_ITEM",
+                    "inventory": {
+                        "id": item["id"],
+                        "inventory_code": item["inventory_code"],
+                        "name": item["name"],
+                        "store_price_minor": item["store_price_minor"],
+                    },
+                    "link": dict(link),
                 })
 
-            variants = product.get("variants")
-            nodes = variants.get("nodes") if isinstance(variants, dict) else None
-            if not isinstance(nodes, list) or len(nodes) != 1 or not isinstance(nodes[0], dict):
-                raise HTTPException(status_code=502, detail="Shopify test product must have exactly one variant")
-            variant = nodes[0]
-            variant_id = str(variant.get("id") or "")
-            if not variant_id:
-                raise HTTPException(status_code=502, detail="Shopify variant ID is missing")
-
-            updated_variant = await client.update_variant(
-                product_id=str(product["id"]),
-                variant_id=variant_id,
-                price=_money(int(item["store_price_minor"])),
-                sku=item["inventory_code"],
-                cost=_money(int(item["acquisition_cost_minor"])),
-            )
-            inventory_item = updated_variant.get("inventoryItem")
-            if not isinstance(inventory_item, dict) or not inventory_item.get("id"):
-                raise HTTPException(status_code=502, detail="Shopify inventory item ID is missing")
-            inventory_item_id = str(inventory_item["id"])
-
-            await client.activate_inventory(
-                inventory_item_id=inventory_item_id,
-                location_id=settings.shopify_location_gid,
-                quantity=1,
-                idempotency_key=f"activate-{inventory_id}",
-            )
-            await client.set_inventory_quantity(
-                inventory_item_id=inventory_item_id,
-                location_id=settings.shopify_location_gid,
-                quantity=1,
-                idempotency_key=f"quantity-{inventory_id}-{item['version']}",
-            )
-
-            link = await connection.fetchrow(
-                """
-                insert into tcg.shopify_inventory_links(
-                    inventory_id, owner_id, created_by_user_id, listing_key,
-                    allocation_priority, shop_domain, shopify_product_gid,
-                    shopify_variant_gid, shopify_inventory_item_gid,
-                    shopify_location_gid, shopify_publication_gid, sku,
-                    sync_state, test_mode, synced_price_minor
-                ) values(
-                    $1,$2,$3,$4,1,$5,$6,$7,$8,$9,$10,$11,'DRAFT',true,$12
-                )
-                returning *
-                """,
-                inventory_id, owner["id"], user.user_id, listing_key,
-                settings.shopify_shop_domain, str(product["id"]), variant_id,
-                inventory_item_id, settings.shopify_location_gid,
-                settings.shopify_publication_gid, item["inventory_code"],
-                int(item["store_price_minor"]),
-            )
-
-            await client.set_product_status(product_id=str(product["id"]), status="ACTIVE")
-            await client.publish_product(
-                product_id=str(product["id"]),
-                publication_id=settings.shopify_publication_gid,
-            )
-            link = await connection.fetchrow(
-                """
-                update tcg.shopify_inventory_links
-                set sync_state='PUBLISHED', last_synced_at=clock_timestamp(),
-                    version=version+1
-                where id=$1
-                returning *
-                """,
-                link["id"],
-            )
-            return jsonable_encoder({
-                "status": "PUBLISHED_TEST_ITEM",
-                "inventory": {
-                    "id": item["id"],
-                    "inventory_code": item["inventory_code"],
-                    "name": item["name"],
-                    "store_price_minor": item["store_price_minor"],
-                },
-                "link": dict(link),
-            })
-
+    except ShopifyApiError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "message": "Shopify test sync failed",
+                "retryable": exc.retryable,
+            },
+        ) from exc
 
 async def process_shopify_webhook(
     connection: asyncpg.Connection,
