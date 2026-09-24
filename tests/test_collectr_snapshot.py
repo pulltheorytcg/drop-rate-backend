@@ -14,6 +14,7 @@ from app.imports import _detect_adapter, _field_map, _normalized_row
 
 ROOT = Path(__file__).parents[1]
 IMPORTS = ROOT / "backend" / "app" / "imports.py"
+LANGUAGE_MIGRATION = ROOT / "migrations" / "008_normalize_explicit_card_languages.sql"
 
 
 def collectr_row(**overrides):
@@ -174,3 +175,12 @@ def test_explicit_language_conflict_requires_review() -> None:
     )
     assert normalized["language"] == "English"
     assert "language_conflict" in issues
+
+
+def test_explicit_language_backfill_is_fail_closed() -> None:
+    sql = LANGUAGE_MIGRATION.read_text()
+    assert "set language = 'Japanese'" in sql
+    assert "bool_and" in sql
+    assert "language is null" in sql
+    assert "jp|jpn|japanese" in sql.lower()
+    assert "english" not in sql.lower()
