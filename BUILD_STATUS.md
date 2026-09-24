@@ -181,17 +181,30 @@ Production checkpoint on 24 September 2026:
 - status: **509 DRAFT**
 - unknown acquisition cost: **0**
 - missing condition: **10**
-- missing storage location: **509**
+- missing storage location: **508** (Baltoy test candidate is assigned to `ROOM-BOX`)
 - missing Store Price: **509**
 - identity not yet confirmed: **509**
 - missing owner: **0**
 - missing catalogue reference: **0**
 - duplicate Inventory IDs: **0**
-- language: **413 English / 96 Japanese / 0 missing**
+- language: **0 English / 96 Japanese / 413 unknown/review required**
 - portfolio acquisition cost basis: **£951.83 total (£1.87 per physical unit)**
 - largest known cleanup group: **178 Phantasmal Flames items**
 
 Acquisition cost is now populated for the current imported portfolio. Future unknown costs must still remain NULL until deliberately assigned.
+
+### Language evidence correction — production verified
+
+A production audit found that all **413** rows previously marked English had been changed from `NULL → English` in one unsupported bulk operation. None of those 413 source records contained explicit English evidence, while all **96 Japanese** rows contained explicit JP/Japanese evidence.
+
+The unsupported English backfill was therefore rolled back fail-closed:
+- inventory: **0 English / 413 unknown / 96 Japanese**
+- affected catalogue identities: **373** changed from English to unknown
+- audit trail: **413 inventory + 373 catalogue** English→NULL events under migration request `migration:20260924220735_revert_unsupported_english_language_backfill`
+- current Collectr importer already sends missing language to REVIEW and does **not** infer English
+- Shopify links/listings/reservations remained **0** throughout the correction
+
+The first physical test candidate, Baltoy `INV-041416049F4249C6BB29A846E29DDC37`, remains **DRAFT**. Near Mint condition and physical location `ROOM-BOX` are retained, but identity confirmation was revoked after the imported `Ninja Spinner 046/083 + English` combination failed external identity validation. Its Store Price remains NULL and it has not been published to Shopify.
 
 ## Supabase live checkpoint
 
@@ -204,7 +217,7 @@ Current production data after the latest hardening + language pass:
 - market observations: **0**
 - pricing snapshots: **0**
 - market ingestion/diagnostic runs: **25**
-- audit events: **2,773**
+- audit events: **3,562**
 - active Shopify inventory links: **0**
 - marketplace listings: **0**
 - active reservations: **0**
@@ -238,6 +251,8 @@ The following areas were reviewed and defects found were corrected:
 - JSONB decode path fixed for import commit and generalized at DB connection boundary
 - physical-state database invariants added/verified
 - live inventory contains zero physical-state invariant violations
+- unsupported historical English-language backfill identified from audit history and rolled back to unknown without altering the 96 evidence-backed Japanese items
+- Baltoy physical verification trail preserved as CONFIRMED then REVOKED after catalogue/language conflict discovery; physical condition and storage remain intact
 
 ### Purchase lots / storage
 - approval/readiness now requires the canonical registered Storage Location, matching the Shopify test-sync gate
@@ -263,13 +278,13 @@ The following areas were reviewed and defects found were corrected:
 
 ### Deployment / reproducibility
 - Railway production service remains `drop-rate-api-live`
-- latest production deployment is **SUCCESS** on commit `17104d8dc88703d900dde27dfcaac33780622ed0`; `/health/ready` returned **200 OK**
+- latest production deployment for the language-correction release is **SUCCESS** on commit `6d44f74f6b9bc734d26d0c52bef0ef75e18dddaa`; `/health/ready` returned **200 OK**
 - PR and post-merge GitHub CI are green for the latest hardening commits
 - Railway production has a **pre-deploy compile + pytest gate**; the missing `pytest-asyncio` dependency was fixed after deployment logs exposed 43 silently skipped async tests
 - Railway now installs pinned **Node 22.23.3 LTS** alongside Python through `RAILPACK_PACKAGES`, so frontend/static checks run in the production pre-deploy gate too
-- current Railway regression result: **368 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
+- current Railway regression result: **369 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
 - live database integrity checks: **0 duplicate Inventory Codes, 0 language mismatches, 0 confirmed-without-evidence, 0 active-reservation/state mismatches**
-- migration history reconciled: `normalize_explicit_card_languages` is now present in the Supabase-native ledger as `20260924195341`
+- migration history reconciled: `normalize_explicit_card_languages` is present as `20260924195341`, and the production language correction is recorded exactly as `20260924220735_revert_unsupported_english_language_backfill`
 - `database/migrations/**` is now the only canonical location for new migration files
 - Railway `Wait for CI` still reads **OFF** (`checkSuites=false`) after two attempted staged updates; treat this as an external Railway/GitHub-integration permission/configuration blocker until the setting can be re-authorised and verified
 - the guarded Supabase migration workflow is merged (`workflow_dispatch`, dry-run by default, explicit apply mode). Its required GitHub secrets and first production dry-run still need to be verified before the next schema change
@@ -288,7 +303,7 @@ A feature is not considered complete merely because its unit tests pass. For mat
 7. **Failure testing:** deliberate bad inputs, duplicate events, stale versions, unavailable records and provider failures are tested before a feature is treated as safe.
 8. **Release decision:** any unresolved critical integrity issue keeps the feature gated, even when CI is green.
 
-Current production regression baseline: **368 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero language/catalogue mismatches, zero identity confirmations without evidence, zero active reservation/state mismatches, zero active Shopify links and zero marketplace listings.
+Current production regression baseline: **369 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero language/catalogue mismatches, zero identity confirmations without evidence, zero active reservation/state mismatches, zero active Shopify links and zero marketplace listings.
 
 GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
 
@@ -306,7 +321,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 8. **Supabase leaked-password protection:** enable manually before launch.
 9. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
 10. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
-11. **Operational inventory cleanup:** identities, registered storage, the remaining 10 conditions and Store Prices. Current acquisition costs are populated; future unknown costs must still remain NULL.
+11. **Operational inventory cleanup:** 413 language reviews, identities, 508 remaining registered-storage assignments, the remaining 10 conditions and Store Prices. Current acquisition costs are populated; future unknown costs must still remain NULL.
 
 ## Milestone 1 checklist
 
@@ -357,12 +372,12 @@ These are **not blockers to the current backend foundation**, but remain explici
 ## Immediate work order
 
 ### Next session — inventory operations + controlled verification
-1. Review/confirm physical card identities.
-2. Create and assign real storage locations.
-3. Resolve the remaining **10 missing conditions**.
-4. Assign deliberate Store Prices only when cards are ready.
-5. Move genuinely ready inventory through approval.
-6. Before any Shopify publication, run the complete single-item sale test through reservation/order/refund paths and verify the resulting owner/finance ledger.
+1. Select a low-risk first-sale card with externally validated canonical identity.
+2. Physically confirm its language, card identity, condition and registered storage location.
+3. Resolve the remaining **10 missing conditions** as inventory is reviewed.
+4. Assign a deliberate Store Price only after trusted market evidence is checked.
+5. Move the genuinely ready test item through approval.
+6. Run the complete single-item Shopify sale test through order/webhook/duplicate/refund paths and verify exact Inventory ID attribution plus the owner/finance ledger.
 
 ### Next major engineering milestone — Shopify
 Build the complete controlled sale loop:
