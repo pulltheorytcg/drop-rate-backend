@@ -254,17 +254,41 @@ create trigger inventory_reserved_guard
 before update on tcg.inventory_items
 for each row execute function tcg.protect_reserved_inventory();
 
-drop trigger if exists sellable_listings_audit on tcg.sellable_listings;
-create trigger sellable_listings_audit
-after insert or update or delete on tcg.sellable_listings
-for each row execute function tcg.audit_change();
+create table if not exists tcg.marketplace_audit_events (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references tcg.owners(id),
+  actor_user_id uuid not null,
+  action text not null,
+  entity_type text not null
+    check (entity_type in ('LISTING','MEMBERSHIP','RESERVATION')),
+  entity_id uuid not null,
+  old_values jsonb,
+  new_values jsonb,
+  notes text not null default '',
+  created_at timestamptz not null default clock_timestamp()
+);
 
-drop trigger if exists listing_inventory_members_audit on tcg.listing_inventory_members;
-create trigger listing_inventory_members_audit
-after insert or update or delete on tcg.listing_inventory_members
-for each row execute function tcg.audit_change();
+create index if not exists marketplace_audit_events_owner_time_idx
+  on tcg.marketplace_audit_events(owner_id,created_at desc);
+create index if not exists marketplace_audit_events_entity_idx
+  on tcg.marketplace_audit_events(entity_type,entity_id,created_at desc);
 
-drop trigger if exists inventory_reservations_audit on tcg.inventory_reservations;
-create trigger inventory_reservations_audit
-after insert or update or delete on tcg.inventory_reservations
-for each row execute function tcg.audit_change();
+alter table tcg.marketplace_audit_events enable row level security;
+alter table tcg.marketplace_audit_events force row level security;
+
+revoke all on table tcg.marketplace_audit_events from public;
+revoke all on table tcg.marketplace_audit_events from anon, authenticated;
+grant select,insert on table tcg.marketplace_audit_events to tcg_api;
+
+drop policy if exists marketplace_audit_owner_read on tcg.marketplace_audit_events;
+create policy marketplace_audit_owner_read
+  on tcg.marketplace_audit_events for select to tcg_api
+  using (owner_id in (select id from tcg.owners));
+
+drop policy if exists marketplace_audit_owner_insert on tcg.marketplace_audit_events;
+create policy marketplace_audit_owner_insert
+  on tcg.marketplace_audit_events for insert to tcg_api
+  with check (
+    owner_id in (select id from tcg.owners)
+    and actor_user_id = tcg.current_user_id()
+  );
