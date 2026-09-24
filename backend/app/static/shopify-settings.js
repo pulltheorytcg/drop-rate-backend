@@ -94,8 +94,8 @@ async function loadShopifyStatus() {
         "Publishing",
         data.publish_enabled ? "ENABLED" : "LOCKED OFF",
         data.publish_enabled
-          ? "Approved inventory may be eligible for publishing."
-          : "No product creation or price publishing can run."
+          ? "Normal/bulk approved-stock publishing is enabled."
+          : "Normal/bulk publishing is locked off. The separate guarded single-item test can still run when its own test gate is enabled."
       ),
       shopifyStatusRow(
         "Webhook secret",
