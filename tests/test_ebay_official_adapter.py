@@ -1,0 +1,128 @@
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from app.ebay_official_adapter import (
+    EbayOfficialBrowseAdapter,
+    _money_minor,
+    _variant_matches,
+)
+
+
+CATALOGUE_ID = "11111111-1111-1111-1111-111111111111"
+
+
+class FakeEbayClient:
+    marketplace_id = "EBAY_GB"
+
+    async def search_items(self, **kwargs):
+        assert kwargs["item_location_country"] == "GB"
+        return {
+            "itemSummaries": [
+                {
+                    "itemId": "v1|123|0",
+                    "title": "Absol 063/094 Phantasmal Flames Pokemon",
+                    "price": {"value": "12.50", "currency": "GBP"},
+                    "condition": "Ungraded - Near mint or better",
+                    "itemLocation": {"country": "GB"},
+                    "shippingOptions": [
+                        {"shippingCost": {"value": "2.99", "currency": "GBP"}}
+                    ],
+                    "itemWebUrl": "https://www.ebay.co.uk/itm/123",
+                    "buyingOptions": ["FIXED_PRICE"],
+                },
+                {
+                    "itemId": "v1|124|0",
+                    "title": "Absol 063/094 Reverse Holo Phantasmal Flames",
+                    "price": {"value": "20.00", "currency": "GBP"},
+                    "condition": "Ungraded - Near mint or better",
+                    "itemLocation": {"country": "GB"},
+                    "itemWebUrl": "https://www.ebay.co.uk/itm/124",
+                },
+                {
+                    "itemId": "v1|125|0",
+                    "title": "Absol 063/094 PSA 10 Phantasmal Flames",
+                    "price": {"value": "50.00", "currency": "GBP"},
+                    "itemLocation": {"country": "GB"},
+                    "itemWebUrl": "https://www.ebay.co.uk/itm/125",
+                },
+                {
+                    "itemId": "v1|126|0",
+                    "title": "Absol 063/094 Phantasmal Flames Pokemon",
+                    "price": {"value": "9.00", "currency": "USD"},
+                    "itemLocation": {"country": "GB"},
+                },
+                {
+                    "itemId": "v1|127|0",
+                    "title": "Absol 063/094 Phantasmal Flames Pokemon",
+                    "price": {"value": "10.00", "currency": "GBP"},
+                    "itemLocation": {"country": "US"},
+                },
+            ]
+        }
+
+
+def mapping(**overrides) -> str:
+    payload = {
+        "query": "Absol 063/094 Phantasmal Flames",
+        "required_title_terms": ["Absol", "063/094"],
+        "forbidden_title_terms": ["proxy", "custom", "digital"],
+        "language": "English",
+        "include_sold": True,
+        "include_active": True,
+    }
+    payload.update(overrides)
+    return json.dumps(payload)
+
+
+@pytest.mark.asyncio
+async def test_official_browse_emits_only_exact_gb_active_evidence() -> None:
+    adapter = EbayOfficialBrowseAdapter(client=FakeEbayClient())
+
+    observations = await adapter.fetch_observations(
+        catalogue_id=CATALOGUE_ID,
+        source_product_id=mapping(),
+        source_variant_id="Normal",
+    )
+
+    assert len(observations) == 1
+    observation = observations[0]
+    assert observation.observation_type == "ACTIVE"
+    assert observation.price_gbp_minor == 1250
+    assert observation.shipping_gbp_minor == 299
+    assert observation.condition == "Near Mint"
+    assert observation.language == "English"
+    assert observation.source_country == "GB"
+    assert observation.metadata["access_method"] == "OFFICIAL_EBAY_BROWSE"
+    assert observation.metadata["marketplace"] == "EBAY_GB"
+    assert observation.metadata["sold_history_available"] is False
+
+
+@pytest.mark.asyncio
+async def test_official_browse_never_synthesizes_sold_history() -> None:
+    adapter = EbayOfficialBrowseAdapter(client=FakeEbayClient())
+
+    observations = await adapter.fetch_observations(
+        catalogue_id=CATALOGUE_ID,
+        source_product_id=mapping(include_sold=True, include_active=True),
+        source_variant_id="Normal",
+    )
+
+    assert observations
+    assert {item.observation_type for item in observations} == {"ACTIVE"}
+
+
+def test_variant_matching_is_finish_specific() -> None:
+    assert _variant_matches("Absol 063/094 Pokemon", "Normal") is True
+    assert _variant_matches("Absol 063/094 Reverse Holo", "Normal") is False
+    assert _variant_matches("Absol 063/094 Reverse Holo", "Reverse Holofoil") is True
+    assert _variant_matches("Absol 063/094 Holo", "Holofoil") is True
+    assert _variant_matches("Absol 063/094 Reverse Holo", "Holofoil") is False
+
+
+def test_money_parser_requires_gbp() -> None:
+    assert _money_minor({"value": "12.34", "currency": "GBP"}) == 1234
+    assert _money_minor({"value": "12.34", "currency": "USD"}) is None
+    assert _money_minor({"value": "0", "currency": "GBP"}) is None
