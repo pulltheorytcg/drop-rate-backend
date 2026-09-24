@@ -55,8 +55,8 @@ class Settings:
     ebay_client_id: str | None
     ebay_client_secret: str | None
     ebay_marketplace_id: str
-    ebay_deletion_verification_token: str | None
-    ebay_deletion_endpoint: str | None
+    ebay_deletion_verification_token: str | None = None
+    ebay_deletion_endpoint: str | None = None
     market_ingestion_enabled: bool = False
 
     @classmethod
