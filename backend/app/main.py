@@ -13,6 +13,7 @@ from .api import router
 from .db import create_pool
 from .finance import router as finance_router
 from .founder_onboarding import router as founder_onboarding_router
+from .ebay_privacy import router as ebay_privacy_router
 from .imports import router as imports_router
 from .import_review import router as import_review_router
 from .inventory_intake import router as inventory_intake_router
@@ -197,6 +198,7 @@ def create_app() -> FastAPI:
     app.include_router(router)
     app.include_router(finance_router)
     app.include_router(founder_onboarding_router)
+    app.include_router(ebay_privacy_router)
     app.include_router(refunds_router)
     app.include_router(pricing_router)
     app.include_router(pricing_preview_router)
