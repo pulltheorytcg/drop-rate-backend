@@ -7,6 +7,7 @@ from app.shopify_pipeline import (
     _handle,
     _minor,
     _money,
+    _parse_order_lines,
     _product_gid_matches,
     _test_sync_missing,
     _title,
@@ -21,6 +22,7 @@ CLIENT = ROOT / "backend" / "app" / "shopify_client.py"
 MAIN = ROOT / "backend" / "app" / "main.py"
 SHOPIFY_SETTINGS = ROOT / "backend" / "app" / "static" / "shopify-settings.js"
 MIGRATION = ROOT / "migrations" / "006_shopify_inventory_links.sql"
+PENDING_MIGRATION = ROOT / "database" / "migrations" / "20260924230955_shopify_pending_order_reservations.sql"
 
 
 def test_money_helpers_are_penny_exact() -> None:
@@ -134,6 +136,80 @@ def test_remote_retry_identity_is_inventory_id_not_title_similarity() -> None:
     assert "deterministic Shopify handle belongs to a different inventory item" in source
 
 
+def test_order_line_parser_requires_exact_ids_prices_and_gbp() -> None:
+    payload = {
+        "id": 1001,
+        "currency": "GBP",
+        "line_items": [{
+            "id": 2001,
+            "quantity": 1,
+            "variant_id": 3001,
+            "price": "0.49",
+            "total_discount": "0.00",
+            "sku": "INV-1",
+            "product_id": 4001,
+        }],
+    }
+    order_reference, specs, variants = _parse_order_lines(
+        payload,
+        event_label="created order",
+    )
+    assert order_reference == "1001"
+    assert variants == ["gid://shopify/ProductVariant/3001"]
+    assert specs[0]["line_reference"] == "2001"
+    assert specs[0]["unit_price_minor"] == 49
+
+    bad = {**payload, "currency": "USD"}
+    with pytest.raises(ShopifyProcessingError, match="Only GBP"):
+        _parse_order_lines(bad, event_label="created order")
+
+
+def test_pending_shopify_orders_have_a_dedicated_reservation_state_contract() -> None:
+    sql = PENDING_MIGRATION.read_text().casefold()
+    assert "'pending'::text" in sql
+    assert "reserved_order_reference text" in sql
+    assert "reserved_line_reference text" in sql
+    assert "reserved_at timestamptz" in sql
+    assert "shopify_inventory_links_reservation_tuple_check" in sql
+    assert "shopify_inventory_links_reserved_order_idx" in sql
+
+
+def test_order_create_reserves_without_creating_financial_entries() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def _process_created_order(")
+    end = source.index("async def _process_paid_order(", start)
+    created = source[start:end]
+    assert "set status='RESERVED'" in created
+    assert "reserved_order_reference=$2" in created
+    assert "values($1,'SHOPIFY',$2,$3,'GBP','PENDING',$4)" in created
+    assert "financial_ledger_entries" not in created
+    assert "order_items(" not in created
+
+
+def test_paid_order_consumes_matching_reservation_or_falls_back_to_approved() -> None:
+    source = PIPELINE.read_text()
+    assert 'link["inventory_status"] == "APPROVED"' in source
+    assert 'link["inventory_status"] == "RESERVED"' in source
+    assert 'link["reserved_order_reference"] == order_reference' in source
+    assert "INVENTORY_RESERVED_OTHER_ORDER" in source
+    assert "expected_status = link["inventory_status"]" in source
+    assert "reserved_order_reference=null" in source
+    assert "reserved_line_reference=null" in source
+    assert "reserved_at=null" in source
+
+
+def test_cancel_releases_pending_reservation_and_writes_tombstone_for_late_create() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def _process_cancelled_order(")
+    end = source.index("async def _process_refund(", start)
+    cancelled = source[start:end]
+    assert "set status='APPROVED'" in cancelled
+    assert "where sil.reserved_order_reference=$1" in cancelled
+    assert "PENDING_ORDER_RELEASED" in cancelled
+    assert "MANAGED_ORDER_CANCELLED_WITHOUT_RESERVATION" in cancelled
+    assert "on conflict(source,source_reference) do update" in cancelled
+
+
 def test_paid_order_allocation_is_exact_and_fail_closed() -> None:
     source = PIPELINE.read_text()
     assert "where sil.owner_id=$1" in source
@@ -142,7 +218,7 @@ def test_paid_order_allocation_is_exact_and_fail_closed() -> None:
     assert "order by sil.allocation_priority, sil.linked_at, sil.inventory_id" in source
     assert "for update of sil, i" in source
     assert "INSUFFICIENT_LINKED_STOCK" in source
-    assert "INVENTORY_NOT_APPROVED" in source
+    assert "INVENTORY_RESERVED_OTHER_ORDER" in source
     assert "PRICE_DRIFT" in source
     assert "SKU_MISMATCH" in source
     assert "PRODUCT_MISMATCH" in source
@@ -171,7 +247,7 @@ def test_sale_snapshots_cost_and_marks_exact_inventory_sold() -> None:
     assert "cost_basis_minor" in source
     assert "link[\"acquisition_cost_minor\"]" in source
     assert "set status='SOLD'" in source
-    assert "where id=$1 and owner_id=$2 and status='APPROVED'" in source
+    assert "where id=$1 and owner_id=$2 and status=$3" in source
     assert "set sync_state='SOLD'" in source
     assert "shopify_order_item_links" in source
 
