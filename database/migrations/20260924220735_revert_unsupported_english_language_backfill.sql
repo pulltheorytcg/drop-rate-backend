@@ -42,8 +42,31 @@ where i.language = 'English'
          '(\\(|\\[|\\s)(en|eng|english)(\\)|\\]|\\s|$)'
   )
   and not (
-      lie.event_type = 'CONFIRMED'
-      and coalesce(lie.physical_snapshot->>'language', '') ~* '^(en|eng|english)$'
+      i.identity_confirmed
+      and lie.event_type = 'CONFIRMED'
+      and coalesce(lie.physical_snapshot->>'language', '') ~* '^(en|eng|english)
+
+update tcg.inventory_items i
+set language = null,
+    version = i.version + 1,
+    updated_at = clock_timestamp()
+where i.id in (select id from tmp_unsupported_english_inventory)
+  and i.language = 'English';
+
+update tcg.catalogue_products p
+set language = null
+where p.language = 'English'
+  and p.id in (
+      select distinct catalogue_id
+      from tmp_unsupported_english_inventory
+  )
+  and not exists (
+      select 1
+      from tcg.inventory_items i
+      where i.catalogue_id = p.id
+        and i.language = 'English'
+  );
+
   );
 
 update tcg.inventory_items i
