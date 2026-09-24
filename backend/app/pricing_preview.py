@@ -177,6 +177,17 @@ async def preview_inventory_price(
     """Calculate a live diagnostic price without persisting provider evidence."""
 
     item, mappings, policy = await _preview_snapshot(request, user, inventory_id)
+    if not item["identity_confirmed"]:
+        return jsonable_encoder(
+            {
+                "persisted": False,
+                "publishable": False,
+                "status": "BLOCKED",
+                "inventory": item,
+                "block_reasons": ["Physical card identity has not been confirmed"],
+                "sources": [],
+            }
+        )
     if not mappings:
         return jsonable_encoder(
             {
@@ -256,8 +267,6 @@ async def preview_inventory_price(
         seal_status=item["seal_status"],
     )
     warnings: list[str] = []
-    if not item["identity_confirmed"]:
-        warnings.append("Physical card identity has not yet been confirmed")
     if item["condition"] is None and item["grading_company"] is None and item["seal_status"] is None:
         warnings.append("Physical condition/state is incomplete, so comparable evidence may be unavailable")
 
