@@ -456,7 +456,6 @@ class ShopifyAdminClient:
         *,
         inventory_item_id: str,
         location_id: str,
-        quantity: int,
         idempotency_key: str,
     ) -> None:
         data = await self.graphql(
@@ -464,15 +463,11 @@ class ShopifyAdminClient:
             mutation DropRateInventoryActivate(
               $inventoryItemId: ID!,
               $locationId: ID!,
-              $available: Int!,
-              $onHand: Int!,
               $idempotencyKey: String!
             ) {
               inventoryActivate(
                 inventoryItemId: $inventoryItemId,
-                locationId: $locationId,
-                available: $available,
-                onHand: $onHand
+                locationId: $locationId
               ) @idempotent(key: $idempotencyKey) {
                 inventoryLevel { id }
                 userErrors { field message }
@@ -482,8 +477,6 @@ class ShopifyAdminClient:
             variables={
                 "inventoryItemId": inventory_item_id,
                 "locationId": location_id,
-                "available": quantity,
-                "onHand": quantity,
                 "idempotencyKey": idempotency_key,
             },
         )

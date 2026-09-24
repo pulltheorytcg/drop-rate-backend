@@ -84,6 +84,46 @@ def test_shopify_status_does_not_return_credentials() -> None:
 
 
 @pytest.mark.asyncio
+async def test_shopify_inventory_activation_sets_no_conflicting_quantities() -> None:
+    client = ShopifyAdminClient(
+        shop_domain="drop-rate.myshopify.com",
+        client_id="client-id",
+        client_secret="client-secret",
+        api_version="2026-07",
+    )
+    captured: dict[str, object] = {}
+
+    async def fake_graphql(*, query: str, variables: dict | None = None) -> dict:
+        captured["query"] = query
+        captured["variables"] = variables
+        return {
+            "inventoryActivate": {
+                "inventoryLevel": {"id": "gid://shopify/InventoryLevel/1"},
+                "userErrors": [],
+            }
+        }
+
+    client.graphql = fake_graphql  # type: ignore[method-assign]
+    await client.activate_inventory(
+        inventory_item_id="gid://shopify/InventoryItem/123",
+        location_id="gid://shopify/Location/456",
+        idempotency_key="activate-test",
+    )
+
+    variables = captured["variables"]
+    assert isinstance(variables, dict)
+    assert variables == {
+        "inventoryItemId": "gid://shopify/InventoryItem/123",
+        "locationId": "gid://shopify/Location/456",
+        "idempotencyKey": "activate-test",
+    }
+    query = str(captured["query"])
+    assert "available:" not in query
+    assert "onHand:" not in query
+    assert "@idempotent" in query
+
+
+@pytest.mark.asyncio
 async def test_shopify_inventory_set_uses_2026_07_quantity_shape() -> None:
     client = ShopifyAdminClient(
         shop_domain="drop-rate.myshopify.com",
