@@ -31,6 +31,7 @@ from .pricing_preview import router as pricing_preview_router
 from .purchase_lots import router as purchase_lots_router
 from .refunds import router as refunds_router
 from .settings import get_settings
+from .shopify import router as shopify_router
 from .storage_locations import router as storage_locations_router
 
 
@@ -54,6 +55,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/founder-finance.js" defer></script>',
         '<script src="/assets/dashboard-shell.js" defer></script>',
         '<script src="/assets/identity-review.js" defer></script>',
+        '<script src="/assets/shopify-settings.js" defer></script>',
         '<script src="/assets/market-smoke-panel.js" defer></script>',
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
         '<script src="/assets/market-value-column.js" defer></script>',
@@ -215,6 +217,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_market_values_router)
     app.include_router(inventory_state_router)
     app.include_router(identity_review_router)
+    app.include_router(shopify_router)
     app.include_router(purchase_lots_router)
     app.include_router(storage_locations_router)
     return app
