@@ -63,6 +63,7 @@ Configure these variables only in the server/Railway environment. Do not place t
 - `TCG_SHOPIFY_CLIENT_ID=<app client ID>`
 - `TCG_SHOPIFY_CLIENT_SECRET=<app client secret>`
 - `TCG_SHOPIFY_API_VERSION=2026-07`
+- `TCG_SHOPIFY_WEBHOOK_ENDPOINT=https://drop-rate-api-live-production.up.railway.app/api/v1/shopify/webhooks`
 - `TCG_SHOPIFY_PUBLISH_ENABLED=false`
 
 The shop domain must be the canonical `*.myshopify.com` domain, not a custom storefront domain or URL with a scheme/path. Drop Rate exchanges the Client ID + Client Secret for a short-lived Shopify Admin API token and refreshes it automatically before expiry; access tokens are not configured manually.
@@ -75,3 +76,6 @@ Initial webhook topics expected by Drop Rate are:
 - `app/uninstalled`
 
 Webhook deliveries are acknowledged and deduplicated, but order/refund business processing is deliberately not enabled in this foundation phase. Publishing and order processing are separate guarded phases.
+
+
+Webhook registration is founder-controlled and idempotent through `POST /api/v1/shopify/webhooks/register`. It first verifies the configured shop through the Admin API, refuses conflicting or duplicate topic registrations, creates only missing subscriptions, and re-reads Shopify to verify exactly one canonical subscription for each required topic. Provider-side partial creation is safe to retry because exact existing subscriptions are treated as already complete.
