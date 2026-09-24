@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from .auth import AuthenticatedUser, require_user
+from .ebay_official_client import EbayApiError, EbayOfficialClient
 from .parse_client import ParseApiError, ParseHttpClient
 from .settings import get_settings
 
@@ -18,23 +19,7 @@ router = APIRouter(prefix="/api/v1/market", tags=["market-data"])
 COLLECTR_PROBE_SCRAPER_ID = "deec24d2-ffc5-41bd-b3fd-99cd817443e2"
 
 
-PROBES: tuple[dict[str, Any], ...] = (
-    {
-        "source": "EBAY",
-        "label": "eBay UK active",
-        "scraper_id": "923c816c-9218-4c32-ae0c-2eac3d514be5",
-        "endpoint": "search_listings",
-        "result_key": "items",
-        "params": {"query": "Charizard", "page": 1, "category_id": "0"},
-    },
-    {
-        "source": "EBAY",
-        "label": "eBay UK sold",
-        "scraper_id": "923c816c-9218-4c32-ae0c-2eac3d514be5",
-        "endpoint": "search_sold_listings",
-        "result_key": "items",
-        "params": {"query": "Charizard", "page": 1, "category_id": "0"},
-    },
+SUPPORTING_PROBES: tuple[dict[str, Any], ...] = (
     {
         "source": "CARDMARKET",
         "label": "Cardmarket search",
@@ -119,46 +104,46 @@ def _summarise_payload(data: dict[str, Any], *, result_key: str) -> dict[str, An
 async def provider_probe(
     _user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    """Probe provider discovery endpoints without touching Drop Rate market data.
+    """Probe providers without persisting market observations or pricing.
 
-    Exactly five Parse calls are made sequentially so the free-tier 5 req/min
-    allowance is respected. Current canonical Parse releases are used rather than
-    pinned snapshots. No observations, mappings, pricing snapshots or inventory
-    rows are written.
+    eBay ACTIVE uses the official Browse API. eBay SOLD is reported explicitly
+    as restricted unless Marketplace Insights access is separately configured.
+    Supporting providers continue to use their permitted Parse-backed adapters.
     """
 
     settings = get_settings()
-    if not settings.parse_api_key:
-        raise HTTPException(status_code=409, detail="Parse provider access is not configured")
-
-    client = ParseHttpClient(api_key=settings.parse_api_key, timeout_seconds=20.0)
     results: list[dict[str, Any]] = []
 
-    for probe in PROBES:
+    if settings.ebay_client_id and settings.ebay_client_secret:
+        ebay = EbayOfficialClient(
+            client_id=settings.ebay_client_id,
+            client_secret=settings.ebay_client_secret,
+            marketplace_id=settings.ebay_marketplace_id,
+            timeout_seconds=20.0,
+        )
         try:
-            data = await client.get(
-                scraper_id=probe["scraper_id"],
-                endpoint=probe["endpoint"],
-                snapshot_version=None,
-                params=probe["params"],
+            data = await ebay.search_items(
+                query="Charizard",
+                limit=10,
+                item_location_country="GB",
             )
-            summary = _summarise_payload(data, result_key=probe["result_key"])
+            summary = _summarise_payload(data, result_key="itemSummaries")
             result_count = int(summary["result_count"])
             results.append(
                 {
-                    "source": probe["source"],
-                    "label": probe["label"],
-                    "endpoint": probe["endpoint"],
+                    "source": "EBAY",
+                    "label": "eBay UK active · official Browse",
+                    "endpoint": "GET /buy/browse/v1/item_summary/search",
                     "status": "SUCCEEDED" if result_count > 0 else "EMPTY",
                     **summary,
                 }
             )
-        except ParseApiError as exc:
+        except EbayApiError as exc:
             results.append(
                 {
-                    "source": probe["source"],
-                    "label": probe["label"],
-                    "endpoint": probe["endpoint"],
+                    "source": "EBAY",
+                    "label": "eBay UK active · official Browse",
+                    "endpoint": "GET /buy/browse/v1/item_summary/search",
                     "status": "FAILED",
                     "result_count": 0,
                     "keys": [],
@@ -174,15 +159,114 @@ async def provider_probe(
         except Exception:
             results.append(
                 {
-                    "source": probe["source"],
-                    "label": probe["label"],
-                    "endpoint": probe["endpoint"],
+                    "source": "EBAY",
+                    "label": "eBay UK active · official Browse",
+                    "endpoint": "GET /buy/browse/v1/item_summary/search",
                     "status": "FAILED",
                     "result_count": 0,
                     "keys": [],
                     "list_counts": {},
                     "samples": [],
-                    "error": {"detail": "Provider probe failed validation"},
+                    "error": {"detail": "Official eBay probe failed validation"},
+                }
+            )
+    else:
+        results.append(
+            {
+                "source": "EBAY",
+                "label": "eBay UK active · official Browse",
+                "endpoint": "GET /buy/browse/v1/item_summary/search",
+                "status": "NOT_CONFIGURED",
+                "result_count": 0,
+                "keys": [],
+                "list_counts": {},
+                "samples": [],
+                "error": {"detail": "Official eBay production credentials are not configured"},
+            }
+        )
+
+    results.append(
+        {
+            "source": "EBAY",
+            "label": "eBay UK sold history",
+            "endpoint": "Marketplace Insights",
+            "status": "RESTRICTED",
+            "result_count": 0,
+            "keys": [],
+            "list_counts": {},
+            "samples": [],
+            "error": {
+                "detail": "Sold history is not inferred from Browse. Marketplace Insights access must be granted separately by eBay."
+            },
+        }
+    )
+
+    if settings.parse_api_key:
+        client = ParseHttpClient(api_key=settings.parse_api_key, timeout_seconds=20.0)
+        for probe in SUPPORTING_PROBES:
+            try:
+                data = await client.get(
+                    scraper_id=probe["scraper_id"],
+                    endpoint=probe["endpoint"],
+                    snapshot_version=None,
+                    params=probe["params"],
+                )
+                summary = _summarise_payload(data, result_key=probe["result_key"])
+                result_count = int(summary["result_count"])
+                results.append(
+                    {
+                        "source": probe["source"],
+                        "label": probe["label"],
+                        "endpoint": probe["endpoint"],
+                        "status": "SUCCEEDED" if result_count > 0 else "EMPTY",
+                        **summary,
+                    }
+                )
+            except ParseApiError as exc:
+                results.append(
+                    {
+                        "source": probe["source"],
+                        "label": probe["label"],
+                        "endpoint": probe["endpoint"],
+                        "status": "FAILED",
+                        "result_count": 0,
+                        "keys": [],
+                        "list_counts": {},
+                        "samples": [],
+                        "error": {
+                            "detail": exc.detail,
+                            "provider_status_code": exc.status_code,
+                            "retryable": exc.retryable,
+                        },
+                    }
+                )
+            except Exception:
+                results.append(
+                    {
+                        "source": probe["source"],
+                        "label": probe["label"],
+                        "endpoint": probe["endpoint"],
+                        "status": "FAILED",
+                        "result_count": 0,
+                        "keys": [],
+                        "list_counts": {},
+                        "samples": [],
+                        "error": {"detail": "Provider probe failed validation"},
+                    }
+                )
+    else:
+        for probe in SUPPORTING_PROBES:
+            results.append(
+                {
+                    "source": probe["source"],
+                    "label": probe["label"],
+                    "endpoint": probe["endpoint"],
+                    "status": "NOT_CONFIGURED",
+                    "result_count": 0,
+                    "keys": [],
+                    "list_counts": {},
+                    "samples": [],
+                    "error": {"detail": "Parse provider access is not configured"},
                 }
             )
 
