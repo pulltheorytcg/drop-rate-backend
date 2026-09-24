@@ -101,3 +101,20 @@ Shopify paid-order processing resolves the Shopify variant back to `tcg.shopify_
 Sale and shipping revenue from Shopify begin as `PENDING`. Platform/payment fees are not guessed from the order webhook and must be added from a verified settlement source before net proceeds are considered final.
 
 Refunds are linked back to the exact physical order item. A Shopify restock is accepted only when the physical item sale value is fully refunded; returned inventory moves to `INSPECTION`, never directly back to `APPROVED`.
+
+
+## Marketplace sellable listings and reservations
+
+Drop Rate separates the canonical card, the customer-facing sellable listing, and each exact physical Inventory ID.
+
+A `sellable_listing` is the storefront concept. Multiple physical copies can join one listing only when they are genuinely equivalent. In the first pooling version, automatic pooling is restricted to raw cards with the same canonical catalogue identity, confirmed language, and condition. Graded cards and non-card stock default to `UNIQUE`. A raw card can also be forced unique for high-value or copy-specific stock.
+
+Each physical copy joins through `listing_inventory_members`, which preserves its owner, owner context, minimum acceptable sale price, allocation priority, and eligibility start time. The customer-facing listing price is independent from owner cost basis. A copy is excluded from available quantity whenever the listing price is below that copy's minimum sale price.
+
+Allocation is deterministic: allocation priority, then oldest eligible membership, then Inventory ID. Reservation code uses row locking with `FOR UPDATE SKIP LOCKED` so concurrent orders cannot reserve the same physical item. The exact Inventory ID moves `APPROVED → RESERVED`; release or expiry returns it to `APPROVED`, while consumption moves it to `SOLD`. Reserved inventory is protected by a database trigger from generic edits, cost changes, location moves, identity changes, or manual approval.
+
+Reservations snapshot the physical owner, acquisition cost, listing price, owner minimum price, allocation priority, and inventory version. Reservation requests are idempotent by source/reference/line/allocation index, and one physical Inventory ID can have at most one active reservation.
+
+The old single-item Shopify test path and the pooled listing path are mutually exclusive for the same Inventory ID. This prevents one physical card from being simultaneously exposed through two independent inventory-control paths.
+
+The current implementation keeps Shopify bulk publishing disabled. The listing/reservation engine is the future allocation foundation; Shopify migration to listing-level quantities should happen only after the reservation engine has been verified with controlled test inventory.
