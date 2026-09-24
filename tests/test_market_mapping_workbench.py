@@ -17,8 +17,9 @@ def test_market_mapping_workbench_uses_review_then_explicit_decision() -> None:
     source = WORKBENCH.read_text()
     assert "Create REVIEW mapping" in source
     assert "/api/v1/market/mappings" in source
-    assert "/verify" in source
-    assert "/reject" in source
+    assert "mappingDecisionButton" in source
+    assert 'mappingDecisionButton(mapping, "verify")' in source
+    assert 'mappingDecisionButton(mapping, "reject")' in source
     assert "discovery_signals" in source
 
 
