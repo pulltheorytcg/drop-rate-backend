@@ -192,7 +192,7 @@ def test_paid_order_consumes_matching_reservation_or_falls_back_to_approved() ->
     assert 'link["inventory_status"] == "RESERVED"' in source
     assert 'link["reserved_order_reference"] == order_reference' in source
     assert "INVENTORY_RESERVED_OTHER_ORDER" in source
-    assert "expected_status = link["inventory_status"]" in source
+    assert 'expected_status = link["inventory_status"]' in source
     assert "reserved_order_reference=null" in source
     assert "reserved_line_reference=null" in source
     assert "reserved_at=null" in source
