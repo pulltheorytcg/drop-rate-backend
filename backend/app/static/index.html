@@ -140,7 +140,7 @@
         <label>Certificate number<input id="edit-certificate" maxlength="120"></label>
         <label>Status<select id="edit-status"><option value="DRAFT">Draft</option><option value="INSPECTION">Inspection</option><option value="WITHDRAWN">Withdrawn</option></select></label>
         <label class="full-width">Notes<textarea id="edit-notes" maxlength="2000" rows="3"></textarea></label>
-        <label class="check-field full-width"><input id="edit-identity" type="checkbox"><span>I have physically checked this card and confirmed its identity.</span></label>
+        <label class="check-field full-width"><input id="edit-identity" type="checkbox" disabled><span>Identity verification is managed in the Verify tab with an audit record.</span></label>
       </div>
       <div id="editor-message" class="message" role="status"></div>
       <div class="modal-actions"><button id="approve-button" class="approve-button" type="button">Approve stock</button><button class="ghost-button" type="button" data-close="editor-dialog">Cancel</button><button class="primary-button compact" type="submit">Save changes</button></div>
