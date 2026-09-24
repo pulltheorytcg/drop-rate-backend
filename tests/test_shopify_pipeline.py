@@ -118,6 +118,14 @@ def test_single_item_sync_requires_all_local_sellability_gates() -> None:
     assert '"single-item-test"' in source
 
 
+def test_single_item_sync_returns_safe_gateway_error_for_shopify_failures() -> None:
+    source = PIPELINE.read_text()
+    assert "except ShopifyApiError as exc:" in source
+    assert '"message": "Shopify test sync failed"' in source
+    assert '"retryable": exc.retryable' in source
+    assert "status_code=502" in source
+
+
 def test_remote_retry_identity_is_inventory_id_not_title_similarity() -> None:
     source = PIPELINE.read_text()
     assert '"namespace": "drop_rate"' in source
