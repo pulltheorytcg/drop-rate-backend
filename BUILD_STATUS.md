@@ -1,6 +1,6 @@
 # Drop Rate — Live Build Status
 
-_Last updated: 23 September 2026_
+_Last updated: 24 September 2026_
 
 This file is the persistent source of truth for project progress. A feature counts as **Completed** only after merge, production deployment and production verification where applicable.
 
@@ -14,11 +14,13 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## Current stage
 
-**Core backend hardening / regression chapter: CLOSED.**
+**Core backend hardening / regression chapter: ACTIVE — quality gate strengthened.**
 
-The current single-founder backend has been worked back through for production integrity, failure handling, permissions, idempotency, market/provider diagnostics and deployment consistency. Defects found during this pass were fixed through isolated PRs with tests.
+The latest pass exposed an important process improvement: we were testing individual features well, but not performing a sufficiently explicit system-level regression/review after every cluster of changes. From this point forward, every material feature is subject to a repeatable quality gate covering code tests, failure-path review, database invariants, migration reproducibility, production deployment/health and live-data verification.
 
-The next working session is intentionally operational: review card identities, storage locations and acquisition costs. The next major engineering milestone after that is Shopify integration.
+The current backend is intentionally fail-closed: identity confirmation is required before pricing/listing, Shopify bulk publishing is disabled, market-data persistence is disabled, and no automatic money movement is enabled.
+
+The next working session remains operational inventory work, but Shopify engineering will not advance past controlled testing until the quality gates below have passed for the full sale path.
 
 ## Production-verified foundation
 
@@ -34,8 +36,9 @@ The next working session is intentionally operational: review card identities, s
 - single-founder scope for current phase
 - provider adapters separated from deterministic pricing logic
 - n8n intentionally not used as database or core business-logic layer
-- both `migrations/**` and `database/migrations/**` are watched by Railway for future deployment triggers
-- Supabase-native migration history is the authoritative applied-migration ledger; the old `tcg.schema_migrations` bootstrap table is legacy only
+- `database/migrations/**` is the canonical version-controlled migration directory
+- legacy `migrations/**` is frozen historical material; new migrations must not be added there
+- Supabase-native migration history is the authoritative applied-migration ledger
 
 ### Inventory
 - canonical catalogue separated from physical inventory
@@ -172,34 +175,40 @@ Important conclusions:
 
 ## Current live inventory readiness
 
-Production checkpoint on 23 September 2026:
+Production checkpoint on 24 September 2026:
 
-- physical inventory items: **328**
-- status: **328 DRAFT**
-- unknown acquisition cost: **326**
+- physical inventory items: **509**
+- status: **509 DRAFT**
+- unknown acquisition cost: **0**
 - missing condition: **10**
-- missing storage location: **328**
-- missing Store Price: **328**
-- identity not yet confirmed: **328**
+- missing storage location: **509**
+- missing Store Price: **509**
+- identity not yet confirmed: **509**
 - missing owner: **0**
 - missing catalogue reference: **0**
 - duplicate Inventory IDs: **0**
-- largest known cleanup group: **178 Phantasmal Flames items**, currently all with unknown acquisition cost
+- language: **413 English / 96 Japanese / 0 missing**
+- portfolio acquisition cost basis: **£951.83 total (£1.87 per physical unit)**
+- largest known cleanup group: **178 Phantasmal Flames items**
 
-Inventory-cost allocation is deliberately deferred until the next working session. Unknown cost must remain NULL until deliberately assigned.
+Acquisition cost is now populated for the current imported portfolio. Future unknown costs must still remain NULL until deliberately assigned.
 
 ## Supabase live checkpoint
 
-Current production data after the hardening pass:
+Current production data after the latest hardening + language pass:
 
 - project: `pull-theory-dev`
 - region: `eu-west-2`
 - PostgreSQL: **17.6**
-- physical inventory: **328**
+- physical inventory: **509**
 - market observations: **0**
 - pricing snapshots: **0**
-- market ingestion/diagnostic runs: **15**
-- audit events: **650**
+- market ingestion/diagnostic runs: **25**
+- audit events: **2,773**
+- active Shopify inventory links: **0**
+- marketplace listings: **0**
+- active reservations: **0**
+- identity confirmations: **0**
 - RLS remains enabled across business tables
 - provider diagnostics have **not** polluted market observations, pricing snapshots or inventory values
 
@@ -250,25 +259,44 @@ The following areas were reviewed and defects found were corrected:
 - cross-provider live access validated as recorded above
 
 ### Deployment / reproducibility
-- Railway production health checked repeatedly after changes
-- latest live service remains `drop-rate-api-live`
-- health endpoint returns 200 after clean deployments
-- both migration directories are watched for future deployment triggers
-- Supabase-native migration ledger confirmed as the migration source of truth
+- Railway production service remains `drop-rate-api-live`
+- latest deployment for language work is **SUCCESS** on commit `5fc2af6d5b356bc2377d380551a6bc856e0f8f38`
+- latest PR CI: **363 tests passed**, compile check passed
+- live database integrity checks: **0 duplicate Inventory Codes, 0 language mismatches, 0 confirmed-without-evidence, 0 active-reservation/state mismatches**
+- migration history reconciled: `normalize_explicit_card_languages` is now present in the Supabase-native ledger as `20260924195341`
+- `database/migrations/**` is now the only canonical location for new migration files
 - no unintended staged Railway configuration remains
+
+## Quality / regression gate
+
+A feature is not considered complete merely because its unit tests pass. For material changes, the following gates are now mandatory:
+
+1. **Design review:** what is changing, why it belongs, dependencies, failure modes and exact test plan are recorded before implementation.
+2. **Automated regression:** targeted tests plus the full backend suite must pass.
+3. **Security / integrity review:** RLS/permissions, ownership boundaries, idempotency, concurrency and immutable/audit behaviour are checked where relevant.
+4. **Migration review:** every database change has a version-controlled migration in `database/migrations/**`; production migration history must match the repository.
+5. **Production deployment:** Railway deployment succeeds and health/readiness is verified.
+6. **Live invariants:** production queries verify counts, uniqueness, state transitions and cross-table relationships after deployment or data mutations.
+7. **Failure testing:** deliberate bad inputs, duplicate events, stale versions, unavailable records and provider failures are tested before a feature is treated as safe.
+8. **Release decision:** any unresolved critical integrity issue keeps the feature gated, even when CI is green.
+
+Current regression baseline: **363 automated tests passed** on the latest language PR. Live inventory integrity currently reports zero duplicate Inventory Codes, zero language/catalogue mismatches, zero identity confirmations without evidence, zero active reservation/state mismatches, zero active Shopify links and zero marketplace listings.
+
+GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development.
 
 ## Known remaining items
 
 These are **not blockers to closing this hardening chapter**, but remain explicit work:
 
-1. **eBay UK sold via Parse:** provider returns an empty list; investigate separately or use an alternative official/permitted source path.
-2. **Cardmarket production ingestion:** re-probe/contract validation plus source-access/terms approval before persistence.
-3. **Collectr production adapter:** diagnostic search is live, but the production detail/graded-price contract must be re-validated before enabling ingestion.
-4. **TCGPlayer production ingestion:** supporting evidence only; validate the exact live detail/pricing endpoints before enabling persistence.
-5. **Supabase leaked-password protection:** enable manually before launch.
-6. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
-7. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
-8. **Operational inventory cleanup:** identities, storage, costs, missing conditions and Store Prices.
+1. **GitHub branch protection:** verify `main` requires pull requests + passing CI before the project expands to multiple contributors.
+2. **eBay UK sold via Parse:** provider returns an empty list; investigate separately or use an alternative official/permitted source path.
+3. **Cardmarket production ingestion:** re-probe/contract validation plus source-access/terms approval before persistence.
+4. **Collectr production adapter:** diagnostic search is live, but the production detail/graded-price contract must be re-validated before enabling ingestion.
+5. **TCGPlayer production ingestion:** supporting evidence only; validate the exact live detail/pricing endpoints before enabling persistence.
+6. **Supabase leaked-password protection:** enable manually before launch.
+7. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
+8. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
+9. **Operational inventory cleanup: identities, storage, costs, missing conditions and Store Prices.
 
 ## Milestone 1 checklist
 
@@ -318,13 +346,13 @@ These are **not blockers to closing this hardening chapter**, but remain explici
 
 ## Immediate work order
 
-### Next session — inventory operations
+### Next session — inventory operations + controlled verification
 1. Review/confirm physical card identities.
 2. Create and assign real storage locations.
-3. Allocate acquisition costs, starting with the **178 Phantasmal Flames** group/binder workflow.
-4. Resolve the remaining **10 missing conditions**.
-5. Assign deliberate Store Prices only when cards are ready.
-6. Move genuinely ready inventory through approval.
+3. Resolve the remaining **10 missing conditions**.
+4. Assign deliberate Store Prices only when cards are ready.
+5. Move genuinely ready inventory through approval.
+6. Before any Shopify publication, run the complete single-item sale test through reservation/order/refund paths and verify the resulting owner/finance ledger.
 
 ### Next major engineering milestone — Shopify
 Build the complete controlled sale loop:
