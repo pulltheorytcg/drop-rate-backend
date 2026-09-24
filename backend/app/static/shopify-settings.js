@@ -29,11 +29,27 @@ function installShopifySettingsPanel() {
         <p class="muted">Webhook signatures are verified before JSON is trusted. Delivery IDs are deduplicated, and raw customer/payment payloads are not stored in the delivery ledger.</p>
       </div>
     </div>
-    <div id="shopify-webhook-list" class="allocation-list"></div>`;
+    <div id="shopify-webhook-list" class="allocation-list"></div>
+    <div class="page-heading pricing-subheading">
+      <div>
+        <p class="eyebrow">Controlled milestone test</p>
+        <h3>Single-item Shopify sync</h3>
+        <p class="muted">Only an APPROVED, physically verified item can be synced here. Bulk publishing remains locked off.</p>
+      </div>
+    </div>
+    <div class="toolbar">
+      <select id="shopify-test-candidate" aria-label="Choose approved inventory for Shopify test">
+        <option value="">No eligible approved inventory</option>
+      </select>
+      <button id="shopify-test-sync-button" class="primary-button compact" type="button" disabled>Sync one test item</button>
+    </div>
+    <div id="shopify-test-status" class="allocation-list"></div>`;
   settings.append(panel);
 
   byId("shopify-register-button").addEventListener("click", registerShopifyWebhooks);
   byId("shopify-refresh-button").addEventListener("click", loadShopifyStatus);
+  byId("shopify-test-candidate").addEventListener("change", refreshShopifyTestButton);
+  byId("shopify-test-sync-button").addEventListener("click", syncSelectedShopifyTestItem);
 }
 
 function shopifyStatusRow(label, value, note = "") {
@@ -59,7 +75,10 @@ async function loadShopifyStatus() {
 
   showMessage("shopify-settings-message", "Loading Shopify integration status…");
   try {
-    const data = await apiRequest("/api/v1/shopify/status");
+    const [data, testData] = await Promise.all([
+      apiRequest("/api/v1/shopify/status"),
+      apiRequest("/api/v1/shopify/test-sync"),
+    ]);
     list.replaceChildren(
       shopifyStatusRow(
         "Store configuration",
@@ -114,11 +133,94 @@ async function loadShopifyStatus() {
       )
     );
     byId("shopify-register-button").disabled = !data.webhook_registration_ready;
+    renderShopifyTestCandidates(testData);
     showMessage("shopify-settings-message");
   } catch (error) {
     list.textContent = "Shopify status could not be loaded.";
     webhookList.replaceChildren();
     showMessage("shopify-settings-message", error.message, "error");
+  }
+}
+
+function renderShopifyTestCandidates(data) {
+  const select = byId("shopify-test-candidate");
+  const status = byId("shopify-test-status");
+  if (!select || !status) return;
+  select.replaceChildren();
+  const candidates = data.candidates || [];
+  if (!candidates.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No eligible approved inventory";
+    select.append(option);
+  } else {
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "Choose one approved item…";
+    select.append(blank);
+    candidates.forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item.id;
+      option.dataset.version = item.version;
+      option.textContent = [
+        item.name,
+        item.card_number,
+        item.variant,
+        item.inventory_code,
+        item.store_price_minor == null ? null : `£${(item.store_price_minor / 100).toFixed(2)}`,
+      ].filter(Boolean).join(" · ");
+      select.append(option);
+    });
+  }
+
+  const counts = data.counts || {};
+  status.replaceChildren(
+    shopifyStatusRow(
+      "Single-item test gate",
+      data.test_publish_enabled ? "ENABLED" : "LOCKED OFF",
+      data.bulk_publish_enabled
+        ? "Bulk publishing is enabled — test mode will refuse to run."
+        : "Bulk publishing remains locked off."
+    ),
+    shopifyStatusRow(
+      "Test listings",
+      `${counts.published_test || 0} live · ${counts.sold_test || 0} sold`,
+      `${counts.error_test || 0} error`
+    )
+  );
+  select.dataset.testEnabled = data.test_publish_enabled ? "true" : "false";
+  refreshShopifyTestButton();
+}
+
+function refreshShopifyTestButton() {
+  const select = byId("shopify-test-candidate");
+  const button = byId("shopify-test-sync-button");
+  if (!select || !button) return;
+  button.disabled = !select.value || select.dataset.testEnabled !== "true";
+}
+
+async function syncSelectedShopifyTestItem() {
+  const select = byId("shopify-test-candidate");
+  const option = select?.selectedOptions?.[0];
+  if (!option?.value) return;
+  const button = byId("shopify-test-sync-button");
+  button.disabled = true;
+  showMessage("shopify-settings-message", "Creating one guarded Shopify test listing…");
+  try {
+    const data = await apiRequest(`/api/v1/shopify/test-sync/${option.value}`, {
+      method: "POST",
+      body: JSON.stringify({version: Number(option.dataset.version)}),
+    });
+    const item = data.inventory || {};
+    showMessage(
+      "shopify-settings-message",
+      `Single-item Shopify test sync succeeded: ${item.inventory_code || option.value}. Bulk publishing is still locked off.`,
+      "success"
+    );
+    await loadShopifyStatus();
+  } catch (error) {
+    showMessage("shopify-settings-message", error.message, "error");
+    refreshShopifyTestButton();
   }
 }
 

@@ -135,3 +135,12 @@ def test_shopify_settings_ui_never_collects_server_credentials() -> None:
     assert "TCG_SHOPIFY_CLIENT_SECRET" not in js
     assert "shpat_" not in js.casefold()
     assert 'type="password"' not in js.casefold()
+
+
+def test_shopify_dashboard_exposes_only_guarded_single_item_test_sync() -> None:
+    js = (STATIC / "shopify-settings.js").read_text()
+    assert "/api/v1/shopify/test-sync" in js
+    assert "Sync one test item" in js
+    assert "Bulk publishing remains locked off" in js
+    assert "shopify-test-candidate" in js
+    assert "bulk-sync" not in js

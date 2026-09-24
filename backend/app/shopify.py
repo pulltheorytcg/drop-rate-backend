@@ -16,6 +16,7 @@ from .db import user_connection
 from .ownership import current_owner as _owner
 from .settings import get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
+from .shopify_pipeline import ShopifyProcessingError, process_shopify_webhook
 
 
 router = APIRouter(prefix="/api/v1/shopify", tags=["shopify"])
@@ -350,56 +351,30 @@ async def register_shopify_webhooks(
 @router.post("/webhooks")
 async def shopify_webhook(
     request: Request,
-    x_shopify_hmac_sha256: str | None = Header(
-        default=None,
-        alias="X-Shopify-Hmac-Sha256",
-    ),
-    x_shopify_webhook_id: str | None = Header(
-        default=None,
-        alias="X-Shopify-Webhook-Id",
-    ),
+    x_shopify_hmac_sha256: str | None = Header(default=None, alias="X-Shopify-Hmac-Sha256"),
+    x_shopify_webhook_id: str | None = Header(default=None, alias="X-Shopify-Webhook-Id"),
     x_shopify_topic: str | None = Header(default=None, alias="X-Shopify-Topic"),
-    x_shopify_shop_domain: str | None = Header(
-        default=None,
-        alias="X-Shopify-Shop-Domain",
-    ),
-    x_shopify_api_version: str | None = Header(
-        default=None,
-        alias="X-Shopify-Api-Version",
-    ),
-    x_shopify_triggered_at: str | None = Header(
-        default=None,
-        alias="X-Shopify-Triggered-At",
-    ),
-    x_shopify_event_id: str | None = Header(
-        default=None,
-        alias="X-Shopify-Event-Id",
-    ),
+    x_shopify_shop_domain: str | None = Header(default=None, alias="X-Shopify-Shop-Domain"),
+    x_shopify_api_version: str | None = Header(default=None, alias="X-Shopify-Api-Version"),
+    x_shopify_triggered_at: str | None = Header(default=None, alias="X-Shopify-Triggered-At"),
+    x_shopify_event_id: str | None = Header(default=None, alias="X-Shopify-Event-Id"),
 ) -> JSONResponse:
     settings = get_settings()
     if not settings.shopify_client_secret or not settings.shopify_shop_domain:
-        raise HTTPException(
-            status_code=503,
-            detail="Shopify webhook verification is not configured",
-        )
+        raise HTTPException(status_code=503, detail="Shopify webhook verification is not configured")
 
     content_length = request.headers.get("content-length")
     if content_length:
         try:
             if int(content_length) > MAX_WEBHOOK_BODY_BYTES:
                 raise HTTPException(status_code=413, detail="Shopify webhook body is too large")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid Content-Length header")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length header") from exc
 
     raw_body = await request.body()
     if len(raw_body) > MAX_WEBHOOK_BODY_BYTES:
         raise HTTPException(status_code=413, detail="Shopify webhook body is too large")
-
-    if not verify_shopify_hmac(
-        raw_body,
-        x_shopify_hmac_sha256,
-        settings.shopify_client_secret,
-    ):
+    if not verify_shopify_hmac(raw_body, x_shopify_hmac_sha256, settings.shopify_client_secret):
         raise HTTPException(status_code=401, detail="Invalid Shopify webhook signature")
 
     shop_domain = (x_shopify_shop_domain or "").strip().casefold()
@@ -423,61 +398,132 @@ async def shopify_webhook(
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="Shopify webhook body must be a JSON object")
 
-    status = "RECEIVED" if topic in INITIAL_WEBHOOK_TOPICS else "IGNORED"
+    initial_status = "RECEIVED" if topic in INITIAL_WEBHOOK_TOPICS else "IGNORED"
     payload_sha256 = hashlib.sha256(raw_body).hexdigest()
 
     async with request.app.state.db_pool.acquire() as connection:
-        async with connection.transaction():
-            inserted = await connection.fetchrow(
+        inserted = await connection.fetchrow(
+            """
+            insert into tcg.shopify_webhook_events(
+                webhook_id,event_id,topic,shop_domain,api_version,triggered_at,
+                resource_id,payload_sha256,status,processed_at
+            ) values(
+                $1,$2,$3,$4,$5,$6,$7,$8,$9,
+                case when $9='IGNORED' then clock_timestamp() else null end
+            )
+            on conflict(webhook_id) do nothing
+            returning id,status,payload_sha256
+            """,
+            webhook_id,
+            (x_shopify_event_id or "").strip() or None,
+            topic,
+            shop_domain,
+            (x_shopify_api_version or "").strip() or None,
+            triggered_at,
+            _resource_id(payload),
+            payload_sha256,
+            initial_status,
+        )
+
+        duplicate = inserted is None
+        event = inserted
+        if duplicate:
+            event = await connection.fetchrow(
                 """
-                insert into tcg.shopify_webhook_events(
-                    webhook_id, event_id, topic, shop_domain, api_version,
-                    triggered_at, resource_id, payload_sha256, status,
-                    processed_at
-                ) values(
-                    $1,$2,$3,$4,$5,$6,$7,$8,$9,
-                    case when $9='IGNORED' then clock_timestamp() else null end
-                )
-                on conflict(webhook_id) do nothing
-                returning id,status,received_at
+                select id,status,payload_sha256
+                from tcg.shopify_webhook_events
+                where webhook_id=$1
                 """,
                 webhook_id,
-                (x_shopify_event_id or "").strip() or None,
-                topic,
-                shop_domain,
-                (x_shopify_api_version or "").strip() or None,
-                triggered_at,
-                _resource_id(payload),
-                payload_sha256,
-                status,
             )
-            if inserted is None:
-                existing = await connection.fetchrow(
-                    """
-                    select id,status,received_at
-                    from tcg.shopify_webhook_events
-                    where webhook_id=$1
-                    """,
-                    webhook_id,
-                )
+            if event is None:
+                raise HTTPException(status_code=500, detail="Webhook deduplication state is missing")
+            if event["payload_sha256"] != payload_sha256:
+                raise HTTPException(status_code=409, detail="Webhook ID was reused with a different payload")
+            if event["status"] in {"PROCESSED", "IGNORED"}:
                 return JSONResponse(
                     status_code=200,
-                    content=jsonable_encoder(
-                        {
-                            "received": True,
-                            "duplicate": True,
-                            "status": existing["status"] if existing else "RECEIVED",
-                        }
-                    ),
+                    content=jsonable_encoder({
+                        "received": True,
+                        "duplicate": True,
+                        "status": event["status"],
+                    }),
                 )
+
+        if initial_status == "IGNORED":
+            return JSONResponse(
+                status_code=200,
+                content=jsonable_encoder({
+                    "received": True,
+                    "duplicate": duplicate,
+                    "status": "IGNORED",
+                }),
+            )
+
+        try:
+            async with connection.transaction():
+                result = await process_shopify_webhook(
+                    connection,
+                    topic=topic,
+                    payload=payload,
+                    webhook_id=webhook_id,
+                )
+                next_status = result.get("status", "PROCESSED")
+                await connection.execute(
+                    """
+                    update tcg.shopify_webhook_events
+                    set status=$2,processed_at=clock_timestamp(),error_code=null
+                    where id=$1
+                    """,
+                    event["id"], next_status,
+                )
+        except ShopifyProcessingError as exc:
+            await connection.execute(
+                """
+                update tcg.shopify_webhook_events
+                set status='FAILED',processed_at=clock_timestamp(),error_code=$2
+                where id=$1
+                """,
+                event["id"], exc.code,
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"received": True, "processed": False, "error_code": exc.code},
+            )
+        except ShopifyApiError:
+            await connection.execute(
+                """
+                update tcg.shopify_webhook_events
+                set status='FAILED',processed_at=clock_timestamp(),error_code='SHOPIFY_API_ERROR'
+                where id=$1
+                """,
+                event["id"],
+            )
+            return JSONResponse(
+                status_code=502,
+                content={"received": True, "processed": False, "error_code": "SHOPIFY_API_ERROR"},
+            )
+        except Exception:
+            await connection.execute(
+                """
+                update tcg.shopify_webhook_events
+                set status='FAILED',processed_at=clock_timestamp(),error_code='UNEXPECTED_PROCESSING_ERROR'
+                where id=$1
+                """,
+                event["id"],
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"received": True, "processed": False, "error_code": "UNEXPECTED_PROCESSING_ERROR"},
+            )
 
     return JSONResponse(
         status_code=200,
-        content=jsonable_encoder(
-            {
-                "received": True,
-                "duplicate": False,
-                "status": status,
-            }
-        ),
+        content=jsonable_encoder({
+            "received": True,
+            "duplicate": duplicate,
+            "status": result.get("status", "PROCESSED"),
+            "action": result.get("action"),
+        }),
     )
+

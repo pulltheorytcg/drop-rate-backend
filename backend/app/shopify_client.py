@@ -326,3 +326,263 @@ class ShopifyAdminClient:
             "topic": subscription.get("topic"),
             "uri": subscription.get("uri"),
         }
+
+
+    async def find_product_by_handle(self, handle: str) -> dict[str, Any] | None:
+        safe_handle = handle.strip()
+        data = await self.graphql(
+            query="""
+            query DropRateProductByHandle($query: String!) {
+              products(first: 2, query: $query) {
+                nodes {
+                  id
+                  handle
+                  status
+                  metafield(namespace: "drop_rate", key: "inventory_id") {
+                    value
+                  }
+                  variants(first: 1) {
+                    nodes {
+                      id
+                      price
+                      inventoryItem {
+                        id
+                        sku
+                        tracked
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """,
+            variables={"query": f"handle:{safe_handle}"},
+        )
+        products = data.get("products")
+        if not isinstance(products, dict) or not isinstance(products.get("nodes"), list):
+            raise ShopifyApiError("Shopify product lookup returned an invalid response")
+        exact = [
+            product
+            for product in products["nodes"]
+            if isinstance(product, dict) and product.get("handle") == safe_handle
+        ]
+        if not exact:
+            return None
+        if len(exact) != 1:
+            raise ShopifyApiError("Shopify product handle is not unique")
+        return exact[0]
+
+    async def create_product(self, product: dict[str, Any]) -> dict[str, Any]:
+        data = await self.graphql(
+            query="""
+            mutation DropRateProductCreate($product: ProductCreateInput!) {
+              productCreate(product: $product) {
+                product {
+                  id
+                  handle
+                  status
+                  variants(first: 1) {
+                    nodes {
+                      id
+                      inventoryItem { id sku tracked }
+                    }
+                  }
+                }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={"product": product},
+        )
+        payload = data.get("productCreate")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError("Shopify product creation returned an invalid response")
+        self._raise_user_errors(payload, "Shopify rejected product creation")
+        product_row = payload.get("product")
+        if not isinstance(product_row, dict):
+            raise ShopifyApiError("Shopify did not return the created product")
+        return product_row
+
+    async def update_variant(
+        self,
+        *,
+        product_id: str,
+        variant_id: str,
+        price: str,
+        sku: str,
+        cost: str | None,
+    ) -> dict[str, Any]:
+        inventory_item: dict[str, Any] = {"sku": sku, "tracked": True}
+        if cost is not None:
+            inventory_item["cost"] = cost
+        data = await self.graphql(
+            query="""
+            mutation DropRateVariantUpdate(
+              $productId: ID!,
+              $variants: [ProductVariantsBulkInput!]!
+            ) {
+              productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+                productVariants {
+                  id
+                  price
+                  inventoryPolicy
+                  inventoryItem { id sku tracked }
+                }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={
+                "productId": product_id,
+                "variants": [{
+                    "id": variant_id,
+                    "price": price,
+                    "inventoryPolicy": "DENY",
+                    "inventoryItem": inventory_item,
+                }],
+            },
+        )
+        payload = data.get("productVariantsBulkUpdate")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError("Shopify variant update returned an invalid response")
+        self._raise_user_errors(payload, "Shopify rejected variant update")
+        variants = payload.get("productVariants")
+        if not isinstance(variants, list) or len(variants) != 1 or not isinstance(variants[0], dict):
+            raise ShopifyApiError("Shopify did not return exactly one updated variant")
+        return variants[0]
+
+    async def activate_inventory(
+        self,
+        *,
+        inventory_item_id: str,
+        location_id: str,
+        quantity: int,
+        idempotency_key: str,
+    ) -> None:
+        data = await self.graphql(
+            query="""
+            mutation DropRateInventoryActivate(
+              $inventoryItemId: ID!,
+              $locationId: ID!,
+              $available: Int!,
+              $onHand: Int!,
+              $idempotencyKey: String!
+            ) {
+              inventoryActivate(
+                inventoryItemId: $inventoryItemId,
+                locationId: $locationId,
+                available: $available,
+                onHand: $onHand
+              ) @idempotent(key: $idempotencyKey) {
+                inventoryLevel { id }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={
+                "inventoryItemId": inventory_item_id,
+                "locationId": location_id,
+                "available": quantity,
+                "onHand": quantity,
+                "idempotencyKey": idempotency_key,
+            },
+        )
+        payload = data.get("inventoryActivate")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError("Shopify inventory activation returned an invalid response")
+        errors = payload.get("userErrors")
+        if isinstance(errors, list) and errors:
+            messages = " ".join(
+                str(error.get("message") or "")
+                for error in errors
+                if isinstance(error, dict)
+            ).casefold()
+            if "already" not in messages and "activated" not in messages:
+                self._raise_user_errors(payload, "Shopify rejected inventory activation")
+
+    async def set_inventory_quantity(
+        self,
+        *,
+        inventory_item_id: str,
+        location_id: str,
+        quantity: int,
+        idempotency_key: str,
+    ) -> None:
+        data = await self.graphql(
+            query="""
+            mutation DropRateInventorySet(
+              $input: InventorySetQuantitiesInput!,
+              $idempotencyKey: String!
+            ) {
+              inventorySetQuantities(input: $input) @idempotent(key: $idempotencyKey) {
+                inventoryAdjustmentGroup {
+                  changes { name delta quantityAfterChange }
+                }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={
+                "input": {
+                    "name": "available",
+                    "reason": "correction",
+                    "referenceDocumentUri": f"drop-rate://inventory/{idempotency_key}",
+                    "ignoreCompareQuantity": True,
+                    "quantities": [{
+                        "inventoryItemId": inventory_item_id,
+                        "locationId": location_id,
+                        "quantity": quantity,
+                    }],
+                },
+                "idempotencyKey": idempotency_key,
+            },
+        )
+        payload = data.get("inventorySetQuantities")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError("Shopify inventory quantity update returned an invalid response")
+        self._raise_user_errors(payload, "Shopify rejected inventory quantity update")
+
+    async def set_product_status(self, *, product_id: str, status: str) -> None:
+        data = await self.graphql(
+            query="""
+            mutation DropRateProductStatus($product: ProductUpdateInput!) {
+              productUpdate(product: $product) {
+                product { id status }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={"product": {"id": product_id, "status": status}},
+        )
+        payload = data.get("productUpdate")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError("Shopify product status update returned an invalid response")
+        self._raise_user_errors(payload, "Shopify rejected product status update")
+
+    async def publish_product(self, *, product_id: str, publication_id: str) -> None:
+        data = await self.graphql(
+            query="""
+            mutation DropRatePublishProduct($id: ID!, $input: [PublicationInput!]!) {
+              publishablePublish(id: $id, input: $input) {
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={"id": product_id, "input": [{"publicationId": publication_id}]},
+        )
+        payload = data.get("publishablePublish")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError("Shopify product publication returned an invalid response")
+        self._raise_user_errors(payload, "Shopify rejected product publication")
+
+    @staticmethod
+    def _raise_user_errors(payload: dict[str, Any], default: str) -> None:
+        errors = payload.get("userErrors")
+        if not isinstance(errors, list) or not errors:
+            return
+        messages = [
+            str(error.get("message") or "").strip()
+            for error in errors
+            if isinstance(error, dict)
+        ]
+        raise ShopifyApiError("; ".join(message for message in messages if message) or default)
