@@ -64,6 +64,45 @@ def _minor(value: object, *, field: str) -> int:
     return int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
+def _refund_shipping_minor(payload: dict[str, Any]) -> int:
+    lines = payload.get("refund_shipping_lines")
+    if lines is None:
+        return 0
+    if not isinstance(lines, list):
+        raise ShopifyProcessingError(
+            "INVALID_REFUND_SHIPPING",
+            "Shopify refund shipping lines are invalid",
+        )
+
+    total = 0
+    for line in lines:
+        if not isinstance(line, dict):
+            raise ShopifyProcessingError(
+                "INVALID_REFUND_SHIPPING",
+                "Shopify refund shipping line is invalid",
+            )
+        amount_set = line.get("subtotal_amount_set")
+        if not isinstance(amount_set, dict):
+            raise ShopifyProcessingError(
+                "INVALID_REFUND_SHIPPING",
+                "Shopify refund shipping amount is missing",
+            )
+        shop_money = amount_set.get("shop_money")
+        if not isinstance(shop_money, dict):
+            raise ShopifyProcessingError(
+                "INVALID_REFUND_SHIPPING",
+                "Shopify refund shipping shop money is missing",
+            )
+        currency = str(shop_money.get("currency_code") or "").upper()
+        if currency != "GBP":
+            raise ShopifyProcessingError(
+                "SHIPPING_REFUND_CURRENCY_MISMATCH",
+                "Shopify shipping refund currency is not GBP",
+            )
+        total += _minor(shop_money.get("amount"), field="shipping refund")
+    return total
+
+
 def _parse_time(value: object) -> datetime:
     if isinstance(value, str) and value.strip():
         try:
