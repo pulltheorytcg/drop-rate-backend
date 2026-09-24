@@ -199,6 +199,7 @@ def test_unsupported_english_rollback_is_evidence_scoped_and_fail_closed() -> No
     assert "new_values->>'language' = 'english'" in lowered
     assert "source_record->>'language'" in lowered
     assert "identity_verification_events" in lowered
+    assert "i.identity_confirmed" in lowered
     assert "event_type = 'confirmed'" in lowered
     assert "set language = null" in lowered
     assert "set language = \'japanese\'" not in lowered
