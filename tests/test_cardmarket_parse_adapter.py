@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.cardmarket_parse_adapter import CardmarketParseAdapter
+from app.cardmarket_parse_adapter import CardmarketParseAdapter, _pokemon_listing_matches_variant
 from app.fx import FxQuote
 
 
@@ -89,7 +89,7 @@ class MissingFxProvider:
 
 
 @pytest.mark.asyncio
-async def test_normalizes_history_as_aggregate_and_current_offers_as_active() -> None:
+async def test_pokemon_uses_variant_safe_active_offers_only() -> None:
     adapter = CardmarketParseAdapter(client=FakeParseClient(), fx_provider=FakeFxProvider())
 
     observations = await adapter.fetch_observations(
@@ -98,24 +98,13 @@ async def test_normalizes_history_as_aggregate_and_current_offers_as_active() ->
         source_variant_id="Holo",
     )
 
-    assert len(observations) == 3
-    aggregates = [item for item in observations if item.observation_type == "MARKET_AGGREGATE"]
-    active = next(item for item in observations if item.observation_type == "ACTIVE")
+    assert len(observations) == 1
+    active = observations[0]
 
-    assert len(aggregates) == 2
-    assert all(item.source == "CARDMARKET" for item in observations)
-    assert all(item.currency == "EUR" for item in observations)
-    assert all(item.source_country == "EU" for item in observations)
-    assert all(item.observation_type != "SOLD" for item in observations)
-
-    day_two = next(item for item in aggregates if item.price_minor == 11000)
-    assert day_two.price_gbp_minor == 9350
-    assert day_two.condition is None
-    assert day_two.language is None
-    assert day_two.metadata["statistic"] == "DAILY_AVERAGE_SELL_PRICE"
-    assert day_two.metadata["card_wide_statistic"] is True
-    assert day_two.metadata["language_condition_breakdown_available"] is False
-
+    assert active.source == "CARDMARKET"
+    assert active.currency == "EUR"
+    assert active.source_country == "EU"
+    assert active.observation_type == "ACTIVE"
     assert active.price_minor == 12550
     assert active.price_gbp_minor == 10668
     assert active.condition == "NM"
@@ -126,19 +115,23 @@ async def test_normalizes_history_as_aggregate_and_current_offers_as_active() ->
     assert active.metadata["fx_source"] == "TEST_ECB"
 
 
+def test_pokemon_listing_variant_filter_separates_reverse_holo() -> None:
+    assert _pokemon_listing_matches_variant(["English", "Holo"], "Normal") is True
+    assert _pokemon_listing_matches_variant(["English", "Reverse Holo"], "Normal") is False
+    assert _pokemon_listing_matches_variant(["English", "Reverse Holo"], "Reverse Holofoil") is True
+    assert _pokemon_listing_matches_variant(["English", "Holo"], "Reverse Holofoil") is False
+
+
 @pytest.mark.asyncio
-async def test_duplicate_history_points_across_chart_periods_are_deduped() -> None:
+async def test_pokemon_mapping_requires_source_variant() -> None:
     adapter = CardmarketParseAdapter(client=FakeParseClient(), fx_provider=FakeFxProvider())
 
-    observations = await adapter.fetch_observations(
-        catalogue_id=CATALOGUE_ID,
-        source_product_id=CARDMARKET_URL,
-        source_variant_id=None,
-    )
-
-    aggregates = [item for item in observations if item.observation_type == "MARKET_AGGREGATE"]
-    assert len(aggregates) == 2
-    assert len({item.source_record_key for item in aggregates}) == 2
+    with pytest.raises(ValueError, match="requires source_variant_id"):
+        await adapter.fetch_observations(
+            catalogue_id=CATALOGUE_ID,
+            source_product_id=CARDMARKET_URL,
+            source_variant_id=None,
+        )
 
 
 @pytest.mark.asyncio
@@ -149,7 +142,7 @@ async def test_fx_is_required_and_never_guessed() -> None:
         await adapter.fetch_observations(
             catalogue_id=CATALOGUE_ID,
             source_product_id=CARDMARKET_URL,
-            source_variant_id=None,
+            source_variant_id="Normal",
         )
 
 

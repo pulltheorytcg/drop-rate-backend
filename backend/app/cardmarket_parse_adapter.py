@@ -97,6 +97,25 @@ def _listing_language(attributes: object) -> str | None:
     return None
 
 
+def _pokemon_variant_mode(source_variant_id: str | None) -> str:
+    value = (source_variant_id or "").strip().casefold()
+    if not value:
+        raise ValueError("Cardmarket Pokemon mapping requires source_variant_id")
+    if value in {"reverse holo", "reverse holofoil", "reverse"}:
+        return "REVERSE_HOLO"
+    return "BASE_PRINTING"
+
+
+def _is_reverse_holo_listing(attributes: list[str]) -> bool:
+    return any("reverse holo" in attribute.casefold() for attribute in attributes)
+
+
+def _pokemon_listing_matches_variant(attributes: list[str], source_variant_id: str | None) -> bool:
+    mode = _pokemon_variant_mode(source_variant_id)
+    is_reverse = _is_reverse_holo_listing(attributes)
+    return is_reverse if mode == "REVERSE_HOLO" else not is_reverse
+
+
 def _assert_identity(payload: dict, *, game: str, expansion: str, card: str) -> None:
     returned_game = payload.get("game")
     returned_expansion = payload.get("expansion")
@@ -136,12 +155,21 @@ class CardmarketParseAdapter:
     ) -> list[NormalizedMarketObservation]:
         game, expansion, card, canonical_url = _parse_cardmarket_url(source_product_id)
 
-        history = await self._client.get(
-            scraper_id=CARDMARKET_PARSE_SCRAPER_ID,
-            endpoint="get_price_history",
-            snapshot_version=CARDMARKET_PARSE_SNAPSHOT_VERSION,
-            params={"game": game, "expansion": expansion, "card": card},
-        )
+        pokemon_variant_mode = None
+        if game.casefold() == "pokemon":
+            pokemon_variant_mode = _pokemon_variant_mode(source_variant_id)
+
+        # Cardmarket's Pokemon price history is product-wide and does not expose
+        # the Reverse Holo listing attribute. It is therefore unsafe for
+        # variant-specific pricing and is deliberately skipped for Pokemon.
+        history = None
+        if pokemon_variant_mode is None:
+            history = await self._client.get(
+                scraper_id=CARDMARKET_PARSE_SCRAPER_ID,
+                endpoint="get_price_history",
+                snapshot_version=CARDMARKET_PARSE_SNAPSHOT_VERSION,
+                params={"game": game, "expansion": expansion, "card": card},
+            )
         listings = await self._client.get(
             scraper_id=CARDMARKET_PARSE_SCRAPER_ID,
             endpoint="get_card_listings",
@@ -154,7 +182,8 @@ class CardmarketParseAdapter:
                 "sort": "price_asc",
             },
         )
-        _assert_identity(history, game=game, expansion=expansion, card=card)
+        if history is not None:
+            _assert_identity(history, game=game, expansion=expansion, card=card)
         _assert_identity(listings, game=game, expansion=expansion, card=card)
 
         fx_cache: dict[str, FxQuote] = {}
@@ -175,7 +204,7 @@ class CardmarketParseAdapter:
 
         observations: dict[str, NormalizedMarketObservation] = {}
 
-        charts = history.get("price_history", [])
+        charts = history.get("price_history", []) if history is not None else []
         if not isinstance(charts, list):
             raise ValueError("Cardmarket price_history must be an array")
 
@@ -263,6 +292,11 @@ class CardmarketParseAdapter:
                 for value in row.get("attributes", [])
                 if isinstance(value, str) and value.strip()
             ] if isinstance(row.get("attributes"), list) else []
+            if pokemon_variant_mode is not None and not _pokemon_listing_matches_variant(
+                attributes,
+                source_variant_id,
+            ):
+                continue
             language = _listing_language(attributes)
             listing_id = str(row.get("listing_id") or "").strip() or None
             try:
@@ -311,6 +345,7 @@ class CardmarketParseAdapter:
                     "endpoint": "get_card_listings",
                     "source_product_id": canonical_url,
                     "source_variant_id": source_variant_id,
+                    "pokemon_variant_mode": pokemon_variant_mode,
                     "game": game,
                     "expansion_slug": expansion,
                     "card_slug": card,

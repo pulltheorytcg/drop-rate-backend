@@ -121,6 +121,10 @@ async def test_verification_promotes_human_verified_mapping_to_full_confidence(m
                 "match_status": "REVIEW",
                 "version": 4,
                 "metadata": {"candidate": "exact"},
+                "source": "TCGPLAYER",
+                "game": "Pokemon",
+                "source_variant_id": None,
+                "variant": "Normal",
             },
             {
                 "id": MAPPING_ID,
@@ -204,3 +208,71 @@ def test_verified_mapping_uniqueness_is_enforced_by_migration() -> None:
     assert "unique index" in migration.casefold()
     assert "catalogue_id, source" in migration
     assert "match_status = 'VERIFIED'" in migration
+
+
+@pytest.mark.asyncio
+async def test_cardmarket_pokemon_mapping_requires_matching_provider_variant(monkeypatch) -> None:
+    async def fake_mapping_row(connection, mapping_id):
+        return {
+            "id": mapping_id,
+            "match_status": "REVIEW",
+            "version": 1,
+            "metadata": {},
+            "source": "CARDMARKET",
+            "game": "Pokemon",
+            "source_variant_id": None,
+            "variant": "Normal",
+        }
+
+    monkeypatch.setattr(market_mappings, "_mapping_row", fake_mapping_row)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _decide_mapping(
+            FakeConnection(),
+            mapping_id=MAPPING_ID,
+            payload=MarketMappingDecision(expected_version=1),
+            user_id="user-123",
+            status="VERIFIED",
+        )
+
+    assert exc_info.value.status_code == 409
+    assert "requires a provider variant" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_cardmarket_reverse_holo_alias_can_be_verified(monkeypatch) -> None:
+    rows = iter(
+        [
+            {
+                "id": MAPPING_ID,
+                "match_status": "REVIEW",
+                "version": 2,
+                "metadata": {},
+                "source": "CARDMARKET",
+                "game": "Pokemon",
+                "source_variant_id": "Reverse Holo",
+                "variant": "Reverse Holofoil",
+            },
+            {
+                "id": MAPPING_ID,
+                "match_status": "VERIFIED",
+                "version": 3,
+                "metadata": {},
+            },
+        ]
+    )
+
+    async def fake_mapping_row(connection, mapping_id):
+        return next(rows)
+
+    monkeypatch.setattr(market_mappings, "_mapping_row", fake_mapping_row)
+
+    result = await _decide_mapping(
+        FakeConnection(),
+        mapping_id=MAPPING_ID,
+        payload=MarketMappingDecision(expected_version=2),
+        user_id="user-123",
+        status="VERIFIED",
+    )
+
+    assert result["match_status"] == "VERIFIED"
