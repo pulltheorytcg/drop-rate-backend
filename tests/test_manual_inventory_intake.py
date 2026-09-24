@@ -110,7 +110,7 @@ def test_non_card_inventory_uses_seal_status_not_card_condition() -> None:
         catalogue_id="3f0e3d90-b56f-4e57-adf2-55cecc207820",
         condition="Near Mint",
     )
-    with pytest.raises(HTTPException, match="seal_status"):
+    with pytest.raises(HTTPException, match="raw card condition"):
         _validate_physical_state("SEALED", payload)
 
 
@@ -183,3 +183,23 @@ def test_catalogue_search_requires_every_term_across_searchable_fields() -> None
     assert "strpos(lower(p.name), lower(search.term)) > 0" in source
     assert "strpos(lower(coalesce(p.card_number, '')), lower(search.term)) > 0" in source
     assert "or strpos(lower(coalesce(p.variant, '')), lower(search.term)) > 0" in source
+
+
+def test_graded_manual_card_cannot_also_have_raw_condition() -> None:
+    payload = ManualInventoryCreate(
+        catalogue_id="3f0e3d90-b56f-4e57-adf2-55cecc207820",
+        condition="Near Mint",
+        grading_company="PSA",
+        grade="10",
+    )
+    with pytest.raises(HTTPException, match="raw card condition"):
+        _validate_physical_state("CARD", payload)
+
+
+def test_manual_sealed_product_keeps_condition_null() -> None:
+    payload = ManualInventoryCreate(
+        catalogue_id="3f0e3d90-b56f-4e57-adf2-55cecc207820",
+        seal_status="SEALED",
+    )
+    _validate_physical_state("SEALED", payload)
+    assert payload.condition is None

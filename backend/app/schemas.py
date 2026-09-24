@@ -16,6 +16,7 @@ CatalogueProductType = Literal["CARD", "SEALED", "COLLECTION"]
 ReadinessIssue = Literal[
     "missing_cost",
     "missing_condition",
+    "missing_seal_status",
     "missing_location",
     "missing_price",
     "identity_unconfirmed",

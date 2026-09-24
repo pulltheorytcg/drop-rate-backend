@@ -3,7 +3,8 @@
 const SESSION_KEY = "drop_rate_founder_session";
 const PAGE_SIZE = 25;
 const ISSUE_LABELS = {
-  missing_cost: "Missing cost", missing_condition: "Missing condition",
+  missing_cost: "Missing cost", missing_condition: "Missing raw condition",
+  missing_seal_status: "Missing seal status",
   missing_location: "Missing location", missing_price: "Missing store price",
   identity_unconfirmed: "Identity unchecked", approval_ready: "Ready to approve",
 };
@@ -150,13 +151,16 @@ function renderInventory(data) {
     selectCell.append(checkbox);
     row.append(selectCell);
     const name = document.createElement("td");
-    name.dataset.label = "Card";
+    name.dataset.label = "Item";
     const wrap = document.createElement("div");
     wrap.className = "card-name";
     const strong = document.createElement("strong");
     strong.textContent = item.name;
     const meta = document.createElement("small");
-    meta.textContent = [item.game, item.card_number, item.variant].filter(Boolean).join(" · ") || "Uncatalogued";
+    const productLabel = item.product_type === "SEALED"
+      ? "Sealed product"
+      : item.product_type === "COLLECTION" ? "Collection" : null;
+    meta.textContent = [productLabel, item.game, item.card_number, item.variant].filter(Boolean).join(" · ") || "Uncatalogued";
     const code = document.createElement("span");
     code.className = "code";
     code.textContent = item.inventory_code;
@@ -164,7 +168,9 @@ function renderInventory(data) {
     name.append(wrap);
     row.append(name);
     row.append(textCell("Set", item.set_name || "—", "set-detail"));
-    row.append(textCell("Condition", item.grade ? `${item.grading_company} ${item.grade}` : (item.condition || "—")));
+    row.append(textCell("Condition", item.product_type === "CARD" && !item.grade ? (item.condition || "—") : "—"));
+    row.append(textCell("Grading", item.product_type === "CARD" && item.grade ? `${item.grading_company || "Graded"} ${item.grade}` : "—"));
+    row.append(textCell("Seal", item.product_type !== "CARD" ? (item.seal_status === "SEALED" ? "Sealed" : item.seal_status === "UNSEALED" ? "Unsealed" : "—") : "—"));
     row.append(textCell("Cost", money(item.acquisition_cost_minor, item.currency)));
     row.append(textCell("Store price", money(item.store_price_minor, item.currency)));
     const status = document.createElement("td");
@@ -243,7 +249,10 @@ async function reloadDashboard(message = "") {
 function openEditor(item) {
   state.editing = item;
   byId("editor-title").textContent = item.name;
-  byId("editor-meta").textContent = [item.set_name, item.card_number, item.inventory_code].filter(Boolean).join(" · ");
+  const productLabel = item.product_type === "SEALED"
+    ? "Sealed product"
+    : item.product_type === "COLLECTION" ? "Collection" : "Card";
+  byId("editor-meta").textContent = [productLabel, item.set_name, item.card_number, item.inventory_code].filter(Boolean).join(" · ");
   byId("edit-cost").value = minorToInput(item.acquisition_cost_minor);
   byId("edit-date").value = item.acquisition_date || "";
   byId("edit-condition").value = item.condition || "";

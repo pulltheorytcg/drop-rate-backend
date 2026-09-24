@@ -75,7 +75,8 @@ function ensureInventoryIntakeUI() {
         <div class="form-grid">
           <label>Acquisition cost (£)<input id="intake-cost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Leave blank if unknown"></label>
           <label>Acquisition date<input id="intake-date" type="date"></label>
-          <label id="intake-condition-label">Condition<select id="intake-condition"><option value="">Select condition later</option></select></label>
+          <label id="intake-card-state-label">Card state<select id="intake-card-state"><option value="RAW">Raw card</option><option value="GRADED">Graded card</option></select></label>
+          <label id="intake-condition-label">Raw card condition<select id="intake-condition"><option value="">Select condition later</option></select></label>
           <label id="intake-seal-label" class="hidden">Seal status<select id="intake-seal-status"><option value="">Select later</option><option value="SEALED">Sealed</option><option value="UNSEALED">Unsealed</option></select></label>
           <label>Physical language<input id="intake-language" maxlength="80" placeholder="e.g. English"></label>
           <label>Storage location<select id="intake-storage-location"><option value="">Unlocated</option></select></label>
@@ -108,6 +109,7 @@ function ensureInventoryIntakeUI() {
   byId("intake-search-button").addEventListener("click", searchIntakeCatalogue);
   byId("intake-new-catalogue-button").addEventListener("click", () => setIntakeNewCatalogueMode(!intakeNewCatalogueMode));
   byId("intake-product-type").addEventListener("change", updateIntakePhysicalControls);
+  byId("intake-card-state").addEventListener("change", updateIntakePhysicalControls);
   byId("inventory-intake-form").addEventListener("submit", submitInventoryIntake);
   byId("intake-catalogue-search").addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -165,18 +167,30 @@ function selectedIntakeProductType() {
 function updateIntakePhysicalControls() {
   const productType = selectedIntakeProductType();
   const isCard = productType === "CARD";
+  const isGraded = isCard && byId("intake-card-state").value === "GRADED";
+
   ["intake-game", "intake-name", "intake-set"].forEach((id) => {
     byId(id).required = intakeNewCatalogueMode;
   });
-  byId("intake-condition-label").classList.toggle("hidden", !isCard);
+
+  byId("intake-card-state-label").classList.toggle("hidden", !isCard);
+  byId("intake-condition-label").classList.toggle("hidden", !isCard || isGraded);
   byId("intake-seal-label").classList.toggle("hidden", isCard);
-  byId("intake-grading-company-label").classList.toggle("hidden", !isCard);
-  byId("intake-grade-label").classList.toggle("hidden", !isCard);
-  byId("intake-certificate-label").classList.toggle("hidden", !isCard);
+  byId("intake-grading-company-label").classList.toggle("hidden", !isGraded);
+  byId("intake-grade-label").classList.toggle("hidden", !isGraded);
+  byId("intake-certificate-label").classList.toggle("hidden", !isGraded);
   byId("intake-card-number-label").classList.toggle("hidden", !isCard);
   byId("intake-card-number").required = isCard && intakeNewCatalogueMode;
+
   if (isCard) {
     byId("intake-seal-status").value = "";
+    if (isGraded) {
+      byId("intake-condition").value = "";
+    } else {
+      byId("intake-grading-company").value = "";
+      byId("intake-grade").value = "";
+      byId("intake-certificate").value = "";
+    }
   } else {
     byId("intake-condition").value = "";
     byId("intake-grading-company").value = "";
@@ -201,7 +215,10 @@ function setIntakeNewCatalogueMode(enabled) {
 }
 
 function catalogueResultLabel(item) {
-  return [item.game, item.name, item.set_name, item.card_number, item.variant, item.rarity, item.language].filter(Boolean).join(" · ");
+  const productLabel = item.product_type === "SEALED"
+    ? "Sealed product"
+    : item.product_type === "COLLECTION" ? "Collection" : "Card";
+  return [productLabel, item.game, item.name, item.set_name, item.card_number, item.variant, item.rarity, item.language].filter(Boolean).join(" · ");
 }
 
 async function searchIntakeCatalogue() {
@@ -304,16 +321,17 @@ async function submitInventoryIntake(event) {
   showMessage("inventory-intake-message", "Creating Draft inventory…");
   try {
     const isCard = selectedIntakeProductType() === "CARD";
+    const isGraded = isCard && byId("intake-card-state").value === "GRADED";
     const payload = {
       catalogue_id: intakeSelectedCatalogue?.id || null,
       new_catalogue: intakeNewCatalogueMode ? buildNewCataloguePayload() : null,
       acquisition_cost_minor: intakeMoney("intake-cost"),
       acquisition_date: byId("intake-date").value || null,
-      condition: isCard ? (byId("intake-condition").value || null) : null,
+      condition: isCard && !isGraded ? (byId("intake-condition").value || null) : null,
       seal_status: isCard ? null : (byId("intake-seal-status").value || null),
-      grading_company: isCard ? emptyToNull(byId("intake-grading-company").value) : null,
-      grade: isCard ? emptyToNull(byId("intake-grade").value) : null,
-      certificate_number: isCard ? emptyToNull(byId("intake-certificate").value) : null,
+      grading_company: isGraded ? emptyToNull(byId("intake-grading-company").value) : null,
+      grade: isGraded ? emptyToNull(byId("intake-grade").value) : null,
+      certificate_number: isGraded ? emptyToNull(byId("intake-certificate").value) : null,
       language: emptyToNull(byId("intake-language").value),
       storage_location_id: byId("intake-storage-location").value || null,
       store_price_minor: intakeMoney("intake-price"),
