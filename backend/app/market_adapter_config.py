@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from .cardmarket_parse_adapter import CardmarketParseAdapter
 from .collectr_parse_adapter import CollectrParseAdapter
+from .ebay_official_adapter import EbayOfficialBrowseAdapter
+from .ebay_official_client import EbayOfficialClient
 from .ebay_uk_parse_adapter import EbayUkParseAdapter
 from .fx import EcbHistoricalFxProvider, FxRateProvider
 from .market_adapters import register_adapter
@@ -15,12 +17,11 @@ def configure_market_adapters(
     *,
     fx_provider: FxRateProvider | None = None,
 ) -> dict[str, bool]:
-    """Register Parse-backed market adapters when required dependencies exist.
+    """Register market adapters from explicitly configured provider access.
 
-    The official ECB historical reference-rate provider is used by default when
-    Parse access exists, keeping USD/EUR normalisation deterministic and auditable.
-    eBay UK is GBP-native and uses the same Parse client without FX conversion.
-    Tests can inject a fake FX provider instead.
+    Official eBay credentials take precedence over the legacy Parse-backed eBay
+    diagnostic adapter. Parse remains available for Cardmarket/TCGPlayer/Collectr
+    while those provider integrations are validated independently.
     """
 
     configured = {
@@ -30,12 +31,25 @@ def configure_market_adapters(
         "COLLECTR": False,
     }
 
+    if settings.ebay_client_id and settings.ebay_client_secret:
+        register_adapter(
+            EbayOfficialBrowseAdapter(
+                client=EbayOfficialClient(
+                    client_id=settings.ebay_client_id,
+                    client_secret=settings.ebay_client_secret,
+                    marketplace_id=settings.ebay_marketplace_id,
+                )
+            )
+        )
+        configured["EBAY"] = True
+
     if settings.parse_api_key:
         provider = fx_provider or EcbHistoricalFxProvider()
         client = ParseHttpClient(api_key=settings.parse_api_key)
 
-        register_adapter(EbayUkParseAdapter(client=client))
-        configured["EBAY"] = True
+        if not configured["EBAY"]:
+            register_adapter(EbayUkParseAdapter(client=client))
+            configured["EBAY"] = True
 
         register_adapter(
             TcgplayerParseAdapter(
