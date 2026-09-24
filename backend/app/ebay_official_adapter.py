@@ -57,12 +57,7 @@ def _condition(row: dict[str, Any]) -> str | None:
     return None
 
 
-def _variant_matches(
-    title: object,
-    source_variant_id: str | None,
-    *,
-    allow_implicit_finish: bool = False,
-) -> bool:
+def _variant_matches(title: object, source_variant_id: str | None) -> bool:
     variant = _normalise_text(source_variant_id)
     if not variant:
         return True
@@ -88,15 +83,11 @@ def _variant_matches(
             return False
         if _contains_term(normalized_title, "non holo") or _contains_term(normalized_title, "nonholo"):
             return False
-        return (
-            _contains_term(normalized_title, "holo")
-            or _contains_term(normalized_title, "holofoil")
-            or allow_implicit_finish
-        )
+        return _contains_term(normalized_title, "holo") or _contains_term(normalized_title, "holofoil")
     if variant == "foil":
         if _contains_term(normalized_title, "non foil") or _contains_term(normalized_title, "nonfoil"):
             return False
-        return _contains_term(normalized_title, "foil") or allow_implicit_finish
+        return _contains_term(normalized_title, "foil")
     return _contains_term(normalized_title, source_variant_id)
 
 
@@ -144,11 +135,7 @@ def _matches_listing(
             if _contains_term(normalized_title, term):
                 return False
 
-    return _variant_matches(
-        title,
-        source_variant_id,
-        allow_implicit_finish=bool(spec["grading_company"]),
-    )
+    return _variant_matches(title, source_variant_id)
 
 
 class EbayOfficialBrowseAdapter:
