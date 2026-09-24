@@ -95,3 +95,13 @@ def test_dashboard_shell_preserves_working_component_ids() -> None:
 def test_dashboard_javascript_has_valid_syntax() -> None:
     for name in JS_ASSETS:
         subprocess.run(["node", "--check", str(STATIC / name)], check=True)
+
+
+def test_dashboard_has_brand_filter_and_dynamic_brand_counts() -> None:
+    html = (STATIC / "index.html").read_text()
+    js = (STATIC / "app.js").read_text()
+    assert 'id="brand-filter"' in html
+    assert "All brands / TCGs" in html
+    assert "/api/v1/inventory/brands" in js
+    assert 'params.set("brand", state.brand)' in js
+    assert 'item.game !== item.brand' in js
