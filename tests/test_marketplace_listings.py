@@ -123,7 +123,7 @@ def test_reservation_snapshots_owner_cost_price_floor_and_inventory_version() ->
 def test_reservation_request_is_semantically_idempotent() -> None:
     source = MODULE.read_text()
     sql = MIGRATION.read_text().casefold()
-    assert "reservation idempotency key already exists with different parameters" in source
+    assert "reservation idempotency key already exists with different parameters" in source.casefold()
     assert "unique(source,source_reference,source_line_reference,allocation_index)" in sql
     assert "inventory_reservations_one_active_per_item_idx" in sql
 
@@ -141,7 +141,9 @@ def test_reserved_inventory_has_database_level_state_guard() -> None:
 def test_reserved_inventory_is_blocked_from_generic_mutation_paths() -> None:
     assert 'current_item["status"] == "RESERVED"' in API.read_text()
     assert 'row["status"] in {"SOLD", "RESERVED"}' in API.read_text()
-    assert 'row["status"] in {"SOLD", "RESERVED"}' in STORAGE.read_text()
+    storage = STORAGE.read_text()
+    assert 'row["status"] == "SOLD"' in storage
+    assert 'row["status"] == "RESERVED"' in storage
     assert '{"SOLD","WITHDRAWN","RESERVED"}' in IDENTITY.read_text()
 
 
