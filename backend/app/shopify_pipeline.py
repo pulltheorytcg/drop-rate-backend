@@ -233,6 +233,8 @@ async def sync_one_test_item(
             if item["status"] != "APPROVED": missing.append("APPROVED status")
             if not item["identity_confirmed"]: missing.append("identity confirmation")
             if item["acquisition_cost_minor"] is None: missing.append("acquisition cost")
+            if item["product_type"] == "CARD" and not (item["language"] or item["catalogue_language"]):
+                missing.append("card language")
             if item["store_price_minor"] is None: missing.append("store price")
             if item["storage_location_id"] is None: missing.append("registered storage location")
             if item["registered_location_id"] is not None and not item["registered_location_active"]:
