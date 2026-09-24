@@ -23,6 +23,7 @@ MAIN = ROOT / "backend" / "app" / "main.py"
 SHOPIFY_SETTINGS = ROOT / "backend" / "app" / "static" / "shopify-settings.js"
 MIGRATION = ROOT / "migrations" / "006_shopify_inventory_links.sql"
 PENDING_MIGRATION = ROOT / "database" / "migrations" / "20260924230955_shopify_pending_order_reservations.sql"
+FINAL_ORDER_MIGRATION = ROOT / "database" / "migrations" / "20260924232925_remove_pending_finance_order_status.sql"
 
 
 def test_money_helpers_are_penny_exact() -> None:
@@ -164,24 +165,33 @@ def test_order_line_parser_requires_exact_ids_prices_and_gbp() -> None:
         _parse_order_lines(bad, event_label="created order")
 
 
-def test_pending_shopify_orders_have_a_dedicated_reservation_state_contract() -> None:
-    sql = PENDING_MIGRATION.read_text().casefold()
-    assert "'pending'::text" in sql
-    assert "reserved_order_reference text" in sql
-    assert "reserved_line_reference text" in sql
-    assert "reserved_at timestamptz" in sql
-    assert "shopify_inventory_links_reservation_tuple_check" in sql
-    assert "shopify_inventory_links_reserved_order_idx" in sql
+def test_unpaid_shopify_orders_use_reservations_not_finance_order_state() -> None:
+    reservation_sql = PENDING_MIGRATION.read_text().casefold()
+    final_sql = FINAL_ORDER_MIGRATION.read_text().casefold()
+    assert "reserved_order_reference text" in reservation_sql
+    assert "reserved_line_reference text" in reservation_sql
+    assert "reserved_at timestamptz" in reservation_sql
+    assert "shopify_inventory_links_reservation_tuple_check" in reservation_sql
+    assert "shopify_inventory_links_reserved_order_idx" in reservation_sql
+    assert "where status='pending'" in final_sql
+    assert "'paid'::text" in final_sql
+    assert "'partially_refunded'::text" in final_sql
+    assert "'refunded'::text" in final_sql
+    assert "'cancelled'::text" in final_sql
+    constraint_start = final_sql.index("add constraint orders_status_check")
+    assert "'pending'::text" not in final_sql[constraint_start:]
 
 
-def test_order_create_reserves_without_creating_financial_entries() -> None:
+def test_order_create_reserves_without_creating_financial_records() -> None:
     source = PIPELINE.read_text()
     start = source.index("async def _process_created_order(")
     end = source.index("async def _process_paid_order(", start)
     created = source[start:end]
     assert "set status='RESERVED'" in created
     assert "reserved_order_reference=$2" in created
-    assert "values($1,'SHOPIFY',$2,$3,'GBP','PENDING',$4)" in created
+    assert "shopify_webhook_events" in created
+    assert "ORDER_ALREADY_CANCELLED" in created
+    assert "insert into tcg.orders" not in created
     assert "financial_ledger_entries" not in created
     assert "order_items(" not in created
 
@@ -198,16 +208,21 @@ def test_paid_order_consumes_matching_reservation_or_falls_back_to_approved() ->
     assert "reserved_at=null" in source
 
 
-def test_cancel_releases_pending_reservation_and_writes_tombstone_for_late_create() -> None:
+def test_cancel_releases_reservation_without_writing_unpaid_finance_order() -> None:
     source = PIPELINE.read_text()
-    start = source.index("async def _process_cancelled_order(")
-    end = source.index("async def _process_refund(", start)
-    cancelled = source[start:end]
+    created_start = source.index("async def _process_created_order(")
+    paid_start = source.index("async def _process_paid_order(", created_start)
+    created = source[created_start:paid_start]
+    cancel_start = source.index("async def _process_cancelled_order(")
+    refund_start = source.index("async def _process_refund(", cancel_start)
+    cancelled = source[cancel_start:refund_start]
     assert "set status='APPROVED'" in cancelled
     assert "where sil.reserved_order_reference=$1" in cancelled
     assert "PENDING_ORDER_RELEASED" in cancelled
     assert "MANAGED_ORDER_CANCELLED_WITHOUT_RESERVATION" in cancelled
-    assert "on conflict(source,source_reference) do update" in cancelled
+    assert "insert into tcg.orders" not in cancelled
+    assert "shopify_webhook_events" in created
+    assert "ORDER_ALREADY_CANCELLED" in created
 
 
 def test_paid_order_allocation_is_exact_and_fail_closed() -> None:
