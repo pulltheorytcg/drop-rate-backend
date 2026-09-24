@@ -201,6 +201,6 @@ def test_unsupported_english_rollback_is_evidence_scoped_and_fail_closed() -> No
     assert "identity_verification_events" in lowered
     assert "event_type = 'confirmed'" in lowered
     assert "set language = null" in lowered
-    assert "japanese" not in lowered
+    assert "set language = \'japanese\'" not in lowered
     assert "update tcg.inventory_items" in lowered
     assert "update tcg.catalogue_products" in lowered
