@@ -1,9 +1,6 @@
--- Normalize explicit language tags already present in imported card titles.
--- This is intentionally fail-closed: only explicit JP/Japanese title markers are
--- promoted to structured language. Untagged cards remain unresolved rather than
--- being guessed as English.
-
-begin;
+-- Reconcile the explicit-language data migration into the Supabase migration ledger.
+-- This migration is idempotent: production already contains the normalized records.
+-- Untagged cards are intentionally not inferred as English by this migration.
 
 with jp_inventory as (
   select i.id
@@ -38,5 +35,3 @@ set name = j.clean_name,
     language = 'Japanese'
 from jp_catalogues j
 where p.id = j.id;
-
-commit;
