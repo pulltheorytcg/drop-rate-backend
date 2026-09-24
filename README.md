@@ -79,3 +79,25 @@ Webhook deliveries are acknowledged and deduplicated, but order/refund business 
 
 
 Webhook registration is founder-controlled and idempotent through `POST /api/v1/shopify/webhooks/register`. It first verifies the configured shop through the Admin API, refuses conflicting or duplicate topic registrations, creates only missing subscriptions, and re-reads Shopify to verify exactly one canonical subscription for each required topic. Provider-side partial creation is safe to retry because exact existing subscriptions are treated as already complete.
+
+
+## Controlled Shopify single-item milestone test
+
+Bulk Shopify publishing remains disabled by default. The first product/order milestone is exercised through a separate single-item test gate.
+
+Additional server variables:
+
+- `TCG_SHOPIFY_LOCATION_GID=gid://shopify/Location/...`
+- `TCG_SHOPIFY_PUBLICATION_GID=gid://shopify/Publication/...`
+- `TCG_SHOPIFY_TEST_PUBLISH_ENABLED=true`
+- keep `TCG_SHOPIFY_PUBLISH_ENABLED=false`
+
+An inventory item is eligible for the test only after it is physically identity-confirmed, has a known acquisition cost, an active registered storage location, a store price, and status `APPROVED`.
+
+Test sync is one physical Inventory ID at a time. The Shopify product uses a deterministic handle and a `drop_rate.inventory_id` metafield so retries can recover an externally-created product without matching by title. The variant SKU is the Drop Rate Inventory Code, inventory tracking is enabled, overselling is denied, and quantity begins at exactly one.
+
+Shopify paid-order processing resolves the Shopify variant back to `tcg.shopify_inventory_links`, row-locks eligible links, validates product/SKU/price/state, creates the Drop Rate `SHOPIFY` order and physical order item, snapshots acquisition cost, marks the exact Inventory ID `SOLD`, and records the external line-item allocation. Duplicate deliveries and duplicate semantic orders are idempotent.
+
+Sale and shipping revenue from Shopify begin as `PENDING`. Platform/payment fees are not guessed from the order webhook and must be added from a verified settlement source before net proceeds are considered final.
+
+Refunds are linked back to the exact physical order item. A Shopify restock is accepted only when the physical item sale value is fully refunded; returned inventory moves to `INSPECTION`, never directly back to `APPROVED`.
