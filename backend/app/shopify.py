@@ -68,14 +68,19 @@ def _resource_id(payload: Any) -> str | None:
 
 def _shopify_client() -> ShopifyAdminClient:
     settings = get_settings()
-    if not settings.shopify_shop_domain or not settings.shopify_access_token:
+    if (
+        not settings.shopify_shop_domain
+        or not settings.shopify_client_id
+        or not settings.shopify_client_secret
+    ):
         raise HTTPException(
             status_code=409,
             detail="Shopify Admin API connection is not configured",
         )
     return ShopifyAdminClient(
         shop_domain=settings.shopify_shop_domain,
-        access_token=settings.shopify_access_token,
+        client_id=settings.shopify_client_id,
+        client_secret=settings.shopify_client_secret,
         api_version=settings.shopify_api_version,
     )
 
@@ -105,7 +110,7 @@ async def shopify_status(
         )
     configured = bool(
         settings.shopify_shop_domain
-        and settings.shopify_access_token
+        and settings.shopify_client_id
         and settings.shopify_client_secret
     )
     return jsonable_encoder(
@@ -114,7 +119,9 @@ async def shopify_status(
             "shop_domain": settings.shopify_shop_domain,
             "api_version": settings.shopify_api_version,
             "admin_api_configured": bool(
-                settings.shopify_shop_domain and settings.shopify_access_token
+                settings.shopify_shop_domain
+                and settings.shopify_client_id
+                and settings.shopify_client_secret
             ),
             "webhook_secret_configured": bool(settings.shopify_client_secret),
             "publish_enabled": settings.shopify_publish_enabled,
