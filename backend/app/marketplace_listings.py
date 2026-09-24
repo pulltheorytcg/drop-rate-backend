@@ -649,7 +649,6 @@ async def list_sellable_listings(
             item = dict(row)
             item["pool"] = {
                 "listing_active": pool["listing_active"],
-                "listing_active": pool["listing_active"],
                 "eligible_quantity": pool["eligible_quantity"],
                 "price_floor_blocked_quantity": pool["price_floor_blocked_quantity"],
                 "unavailable_quantity": pool["unavailable_quantity"],
@@ -880,11 +879,18 @@ async def create_or_join_listing(
             sale_price_minor=int(listing["store_price_minor"]),
         )
         return jsonable_encoder({
-            "status": "CREATED" if created else "JOINED_POOL",
+            "status": (
+                "CREATED"
+                if created
+                else "REACTIVATED"
+                if removed_membership is not None
+                else "JOINED_POOL"
+            ),
             "listing": dict(listing),
             "membership": dict(membership),
             "eligible_now": listing["status"] == "ACTIVE" and int(listing["store_price_minor"]) >= minimum,
             "pool": {
+                "listing_active": pool["listing_active"],
                 "eligible_quantity": pool["eligible_quantity"],
                 "price_floor_blocked_quantity": pool["price_floor_blocked_quantity"],
                 "unavailable_quantity": pool["unavailable_quantity"],
