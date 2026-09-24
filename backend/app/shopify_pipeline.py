@@ -479,7 +479,7 @@ async def _resolve_order_owner_scope(
         select distinct owner_id, created_by_user_id
         from tcg.shopify_inventory_links
         where shopify_variant_gid=any($1::text[])
-          and sync_state='PUBLISHED'
+          and sync_state in ('PUBLISHED','SOLD')
         """,
         variant_gids,
     )
@@ -611,6 +611,12 @@ async def _process_created_order(
             "order_reference": order_reference,
         }
 
+    owner_id, user_id = await _resolve_order_owner_scope(
+        connection,
+        variant_gids=variant_gids,
+    )
+    await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
+
     existing = await connection.fetchrow(
         "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1",
         order_reference,
@@ -621,12 +627,6 @@ async def _process_created_order(
             "action": "ORDER_ALREADY_FINALIZED",
             "order_id": str(existing["id"]),
         }
-
-    owner_id, user_id = await _resolve_order_owner_scope(
-        connection,
-        variant_gids=variant_gids,
-    )
-    await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
 
     reservations = await connection.fetch(
         """
@@ -744,6 +744,12 @@ async def _process_paid_order(
         event_label="paid order",
     )
 
+    owner_id, user_id = await _resolve_order_owner_scope(
+        connection,
+        variant_gids=variant_gids,
+    )
+    await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
+
     existing = await connection.fetchrow(
         "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1",
         order_reference,
@@ -754,12 +760,6 @@ async def _process_paid_order(
             "action": "ORDER_ALREADY_RECORDED",
             "order_id": str(existing["id"]),
         }
-
-    owner_id, user_id = await _resolve_order_owner_scope(
-        connection,
-        variant_gids=variant_gids,
-    )
-    await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
 
     selected_units = await _select_order_units(
         connection,
