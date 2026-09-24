@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, model_validator
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .language import clean_language, parse_title_language
 from .collectr_snapshot import (
     collectr_adapter_headers,
     collectr_catalogue_identity_key,
@@ -198,7 +199,13 @@ def _normalized_row(
     seal = _seal_status(_cell(row, mapping, "seal_status"))
 
     game = _cell(row, mapping, "game") or default_game
-    name = _cell(row, mapping, "name")
+    raw_name = _cell(row, mapping, "name")
+    parsed_name, title_language = parse_title_language(raw_name)
+    explicit_language = clean_language(_cell(row, mapping, "language"))
+    if explicit_language and title_language and explicit_language != title_language:
+        issues.append("language_conflict")
+    language = explicit_language or title_language
+    name = parsed_name
     set_name = _cell(row, mapping, "set_name")
     card_number = _cell(row, mapping, "card_number")
     rarity = _cell(row, mapping, "rarity") or ""
@@ -261,7 +268,7 @@ def _normalized_row(
         "card_number": card_number,
         "variant": _cell(row, mapping, "variant") or "",
         "rarity": rarity,
-        "language": _cell(row, mapping, "language"),
+        "language": language,
         "quantity": quantity,
         "condition": condition,
         "seal_status": seal,
