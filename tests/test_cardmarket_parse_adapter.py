@@ -130,7 +130,7 @@ async def test_pokemon_mapping_requires_source_variant() -> None:
         await adapter.fetch_observations(
             catalogue_id=CATALOGUE_ID,
             source_product_id=CARDMARKET_URL,
-            source_variant_id="Normal",
+            source_variant_id=None,
         )
 
 
@@ -142,7 +142,7 @@ async def test_fx_is_required_and_never_guessed() -> None:
         await adapter.fetch_observations(
             catalogue_id=CATALOGUE_ID,
             source_product_id=CARDMARKET_URL,
-            source_variant_id=None,
+            source_variant_id="Normal",
         )
 
 
