@@ -64,6 +64,9 @@ def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
         "TCG_SHOPIFY_CLIENT_SECRET",
         "TCG_SHOPIFY_API_VERSION",
         "TCG_SHOPIFY_WEBHOOK_ENDPOINT",
+        "TCG_SHOPIFY_LOCATION_GID",
+        "TCG_SHOPIFY_PUBLICATION_GID",
+        "TCG_SHOPIFY_TEST_PUBLISH_ENABLED",
         "TCG_SHOPIFY_PUBLISH_ENABLED",
     ):
         monkeypatch.delenv(name, raising=False)
@@ -73,6 +76,9 @@ def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
     assert settings.shopify_client_secret is None
     assert settings.shopify_api_version == "2026-07"
     assert settings.shopify_webhook_endpoint is None
+    assert settings.shopify_location_gid is None
+    assert settings.shopify_publication_gid is None
+    assert settings.shopify_test_publish_enabled is False
     assert settings.shopify_publish_enabled is False
 
 
@@ -93,6 +99,9 @@ def test_shopify_settings_read_server_side_credentials(monkeypatch):
         "TCG_SHOPIFY_WEBHOOK_ENDPOINT",
         "https://drop-rate.example/api/v1/shopify/webhooks",
     )
+    monkeypatch.setenv("TCG_SHOPIFY_LOCATION_GID", "gid://shopify/Location/123")
+    monkeypatch.setenv("TCG_SHOPIFY_PUBLICATION_GID", "gid://shopify/Publication/456")
+    monkeypatch.setenv("TCG_SHOPIFY_TEST_PUBLISH_ENABLED", "true")
     monkeypatch.setenv("TCG_SHOPIFY_PUBLISH_ENABLED", "false")
     settings = Settings.from_env()
     assert settings.shopify_shop_domain == "drop-rate.myshopify.com"
@@ -100,6 +109,9 @@ def test_shopify_settings_read_server_side_credentials(monkeypatch):
     assert settings.shopify_client_secret == "secret"
     assert settings.shopify_api_version == "2026-07"
     assert settings.shopify_webhook_endpoint == "https://drop-rate.example/api/v1/shopify/webhooks"
+    assert settings.shopify_location_gid == "gid://shopify/Location/123"
+    assert settings.shopify_publication_gid == "gid://shopify/Publication/456"
+    assert settings.shopify_test_publish_enabled is True
     assert settings.shopify_publish_enabled is False
 
 
