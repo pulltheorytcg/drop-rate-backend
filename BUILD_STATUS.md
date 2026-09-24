@@ -9,12 +9,12 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Full Drop Rate roadmap:** ~49%
 - **Milestone 1 — Founder inventory control:** ~99% technically complete; remaining work is mainly operational inventory cleanup + one pre-launch auth setting
 - **Internal commerce / founder finance foundation:** ~85%
-- **Milestone 2 — Shopify sale attribution:** live Shopify integration not started; deterministic internal order/finance foundation is in place
+- **Milestone 2 — Shopify sale attribution:** guarded Shopify product/webhook/order/refund foundation is live; the remaining milestone proof is one controlled real sale/refund with exact physical-item and finance-ledger verification
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
 
 ## Current stage
 
-**Core backend hardening / regression chapter: ACTIVE — quality gate strengthened.**
+**Controlled commerce verification: ACTIVE — hardening gates are now enforced before the first real Shopify sale test.**
 
 The latest pass exposed an important process improvement: we were testing individual features well, but not performing a sufficiently explicit system-level regression/review after every cluster of changes. From this point forward, every material feature is subject to a repeatable quality gate covering code tests, failure-path review, database invariants, migration reproducibility, production deployment/health and live-data verification.
 
@@ -68,7 +68,7 @@ The next working session remains operational inventory work, but Shopify enginee
 - deterministic total landed cost = purchase price + fees + shipping
 - equal/manual allocation support
 - penny-perfect allocation
-- storage-location trigger remains compatible with legacy approval/readiness location checks
+- registered `storage_location_id` is now the canonical approval/readiness location gate; the legacy text `location` field is synchronized from the registered location
 - unnecessary `DELETE` permission on purchase lots was removed from the application role
 - missing application-role UPDATE grants for newer inventory fields were fixed, including storage, purchase-lot, seal-state and pricing-output fields
 
@@ -209,12 +209,13 @@ Current production data after the latest hardening + language pass:
 - marketplace listings: **0**
 - active reservations: **0**
 - identity confirmations: **0**
-- RLS remains enabled across business tables
+- RLS remains enabled across operational business tables; `tcg.schema_migrations` is the known exception and currently grants only `SELECT` to `tcg_api`
 - provider diagnostics have **not** polluted market observations, pricing snapshots or inventory values
 
 Supabase security advisor status:
 - database/security configuration reviewed during this chapter
 - leaked-password protection is still disabled and remains a **manual pre-launch Auth setting** to enable in Supabase
+- `tcg.schema_migrations` currently has RLS disabled; current grants were checked and only `tcg_api` has `SELECT`. Do not enable RLS blindly without a migration-tooling policy.
 - currently-unused-index notices are expected on newly created / low-row-count modules and are not being removed prematurely
 
 ## Regression / hardening work completed
@@ -239,7 +240,7 @@ The following areas were reviewed and defects found were corrected:
 - live inventory contains zero physical-state invariant violations
 
 ### Purchase lots / storage
-- storage/readiness compatibility verified
+- approval/readiness now requires the canonical registered Storage Location, matching the Shopify test-sync gate
 - application-role UPDATE permissions corrected for newer columns
 - purchase-lot DELETE privilege removed
 
@@ -255,19 +256,22 @@ The following areas were reviewed and defects found were corrected:
 - flexible-but-strict eBay identity matching added
 - provider-response diagnostics added
 - production-ingestion safety gate added
+- guarded Shopify single-item readiness now exposes exact blockers and uses the same eligibility function as the actual publish action
+- registered storage location is enforced consistently by approval/readiness and Shopify sync
 - graded comparable-condition bug fixed
 - cross-provider live access validated as recorded above
 
 ### Deployment / reproducibility
 - Railway production service remains `drop-rate-api-live`
-- latest deployment for language work is **SUCCESS** on commit `5fc2af6d5b356bc2377d380551a6bc856e0f8f38`
-- latest PR CI: **364 tests passed**, compile check passed
-- Railway production now has a **pre-deploy compile + full pytest gate**; a failing test blocks the deployment before the new container starts
+- latest production deployment is **SUCCESS** on commit `17104d8dc88703d900dde27dfcaac33780622ed0`; `/health/ready` returned **200 OK**
+- PR and post-merge GitHub CI are green for the latest hardening commits
+- Railway production has a **pre-deploy compile + pytest gate**; the missing `pytest-asyncio` dependency was fixed after deployment logs exposed 43 silently skipped async tests
+- current Railway regression result after that fix: **365 passed, 3 skipped**; async tests now execute, and pytest skip reasons are being made visible with `-rs`
 - live database integrity checks: **0 duplicate Inventory Codes, 0 language mismatches, 0 confirmed-without-evidence, 0 active-reservation/state mismatches**
 - migration history reconciled: `normalize_explicit_card_languages` is now present in the Supabase-native ledger as `20260924195341`
 - `database/migrations/**` is now the only canonical location for new migration files
-- Railway `Wait for CI` is currently **OFF** (`checkSuites=false`); the pre-deploy test gate is the immediate safety net, but Wait for CI should still be enabled manually
-- database migrations are versioned and tracked, but **future production migration application is not yet automated**; build the controlled Supabase CI/CD migration path before the next production schema change
+- Railway `Wait for CI` still reads **OFF** (`checkSuites=false`) after two attempted staged updates; treat this as an external Railway/GitHub-integration permission/configuration blocker until the setting can be re-authorised and verified
+- the guarded Supabase migration workflow is merged (`workflow_dispatch`, dry-run by default, explicit apply mode). Its required GitHub secrets and first production dry-run still need to be verified before the next schema change
 - no unintended staged Railway configuration remains
 
 ## Quality / regression gate
@@ -283,7 +287,7 @@ A feature is not considered complete merely because its unit tests pass. For mat
 7. **Failure testing:** deliberate bad inputs, duplicate events, stale versions, unavailable records and provider failures are tested before a feature is treated as safe.
 8. **Release decision:** any unresolved critical integrity issue keeps the feature gated, even when CI is green.
 
-Current regression baseline: **363 automated tests passed** on the latest language PR. Live inventory integrity currently reports zero duplicate Inventory Codes, zero language/catalogue mismatches, zero identity confirmations without evidence, zero active reservation/state mismatches, zero active Shopify links and zero marketplace listings.
+Current production regression baseline: **365 passed, 3 skipped** in Railway pre-deploy after restoring async-test execution; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero language/catalogue mismatches, zero identity confirmations without evidence, zero active reservation/state mismatches, zero active Shopify links and zero marketplace listings.
 
 GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
 
@@ -292,8 +296,8 @@ GitHub status checks can be required on protected branches, but the current conn
 These are **not blockers to the current backend foundation**, but remain explicit work:
 
 1. **GitHub branch protection:** verify `main` requires pull requests + passing CI before the project expands to multiple contributors.
-2. **Railway Wait for CI:** enable `checkSuites`/Wait for CI on the production service so CI becomes a deployment prerequisite rather than only a pre-deploy backstop.
-3. **Supabase migration delivery:** implement a controlled CI/CD path that applies versioned database migrations to production and verifies migration history before deployment.
+2. **Railway Wait for CI:** `checkSuites` remains false despite two attempted updates; re-authorise/check the Railway GitHub App permissions and verify the toggle persists.
+3. **Supabase migration delivery:** guarded workflow is merged; configure/verify its two GitHub secrets and run a production dry-run before the next schema change.
 4. **eBay UK sold via Parse:** provider returns an empty list; investigate separately or use an alternative official/permitted source path.
 5. **Cardmarket production ingestion:** re-probe/contract validation plus source-access/terms approval before persistence.
 6. **Collectr production adapter:** diagnostic search is live, but the production detail/graded-price contract must be re-validated before enabling ingestion.
@@ -301,7 +305,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 8. **Supabase leaked-password protection:** enable manually before launch.
 9. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
 10. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
-11. **Operational inventory cleanup: identities, storage, costs, missing conditions and Store Prices.
+11. **Operational inventory cleanup:** identities, registered storage, the remaining 10 conditions and Store Prices. Current acquisition costs are populated; future unknown costs must still remain NULL.
 
 ## Milestone 1 checklist
 
@@ -336,8 +340,8 @@ These are **not blockers to the current backend foundation**, but remain explici
 | 3 | Founder account / inventory / ownership | ✅ Technical foundation complete; operational data cleanup remains |
 | 4 | Inventory dashboard functionality | ✅ Core complete |
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
-| 5 | Shopify integration | ⬜ **Next major engineering build** |
-| 6 | Orders / allocation / settlements | 🚧 Internal deterministic foundation live; Shopify event integration remains |
+| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item sale/refund pipeline live; controlled real sale still required |
+| 6 | Orders / allocation / settlements | 🚧 Deterministic Shopify attribution/ledger foundation live; real end-to-end verification and settlement reporting remain |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
 | 9 | AI card identification | ⬜ Not started |
