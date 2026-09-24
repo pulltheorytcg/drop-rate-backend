@@ -210,6 +210,10 @@ async def pool_state(
     caller_user_id = await connection.fetchval(
         "select nullif(current_setting('tcg.user_id',true),'')"
     )
+    listing_status = await connection.fetchval(
+        "select status from tcg.sellable_listings where id=$1",
+        listing_id,
+    )
     members = await connection.fetch(
         """
         select
@@ -284,7 +288,11 @@ async def pool_state(
             str(row["inventory_id"]),
         )
     )
+    listing_active = listing_status == "ACTIVE"
+    if not listing_active:
+        eligible = []
     return {
+        "listing_active": listing_active,
         "eligible": eligible,
         "eligible_quantity": len(eligible),
         "price_floor_blocked_quantity": ineligible_price,
@@ -464,6 +472,9 @@ async def reserve_listing_units(
             )
             selected.append(dict(reservation))
     finally:
+        await connection.execute(
+            "select set_config('tcg.allow_reserved_transition','off',true)"
+        )
         if caller_user_id:
             await _set_user_context(connection, caller_user_id)
 
@@ -582,6 +593,9 @@ async def transition_reservation(
             "inventory": dict(updated_item),
         }
     finally:
+        await connection.execute(
+            "select set_config('tcg.allow_reserved_transition','off',true)"
+        )
         if caller_user_id:
             await _set_user_context(connection, caller_user_id)
 
@@ -634,6 +648,8 @@ async def list_sellable_listings(
             )
             item = dict(row)
             item["pool"] = {
+                "listing_active": pool["listing_active"],
+                "listing_active": pool["listing_active"],
                 "eligible_quantity": pool["eligible_quantity"],
                 "price_floor_blocked_quantity": pool["price_floor_blocked_quantity"],
                 "unavailable_quantity": pool["unavailable_quantity"],
@@ -756,6 +772,7 @@ async def create_or_join_listing(
             shape["fingerprint"],
         )
         created = False
+        removed_membership = None
         if listing is None:
             listing = await connection.fetchrow(
                 """
@@ -792,27 +809,28 @@ async def create_or_join_listing(
                 entity_id=listing["id"],
                 new_values=dict(listing),
             )
-        elif listing["pooling_mode"] == "UNIQUE":
-            raise HTTPException(
-                status_code=409,
-                detail="Unique listings cannot accept another physical inventory item",
+        else:
+            removed_membership = await connection.fetchrow(
+                """
+                select *
+                from tcg.listing_inventory_members
+                where listing_id=$1 and inventory_id=$2 and owner_id=$3 and state='REMOVED'
+                for update
+                """,
+                listing["id"],
+                inventory_id,
+                owner["id"],
             )
+            if listing["pooling_mode"] == "UNIQUE" and removed_membership is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Unique listings cannot accept another physical inventory item",
+                )
 
         minimum = (
             payload.minimum_sale_price_minor
             if payload.minimum_sale_price_minor is not None
             else int(item["store_price_minor"])
-        )
-        removed_membership = await connection.fetchrow(
-            """
-            select *
-            from tcg.listing_inventory_members
-            where listing_id=$1 and inventory_id=$2 and owner_id=$3 and state='REMOVED'
-            for update
-            """,
-            listing["id"],
-            inventory_id,
-            owner["id"],
         )
         if removed_membership is not None:
             membership = await connection.fetchrow(
@@ -865,7 +883,7 @@ async def create_or_join_listing(
             "status": "CREATED" if created else "JOINED_POOL",
             "listing": dict(listing),
             "membership": dict(membership),
-            "eligible_now": int(listing["store_price_minor"]) >= minimum,
+            "eligible_now": listing["status"] == "ACTIVE" and int(listing["store_price_minor"]) >= minimum,
             "pool": {
                 "eligible_quantity": pool["eligible_quantity"],
                 "price_floor_blocked_quantity": pool["price_floor_blocked_quantity"],
