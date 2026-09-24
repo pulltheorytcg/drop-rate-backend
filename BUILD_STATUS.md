@@ -315,7 +315,7 @@ A feature is not considered complete merely because its unit tests pass. For mat
 7. **Failure testing:** deliberate bad inputs, duplicate events, stale versions, unavailable records and provider failures are tested before a feature is treated as safe.
 8. **Release decision:** any unresolved critical integrity issue keeps the feature gated, even when CI is green.
 
-Current production regression baseline: **369 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero language/catalogue mismatches, zero identity confirmations without evidence, zero active reservation/state mismatches, zero active Shopify links and zero marketplace listings.
+Current production regression baseline: **372 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero language/catalogue mismatches, zero identity confirmations without evidence, zero active reservation/state mismatches, zero active Shopify links and zero marketplace listings.
 
 GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
 
@@ -447,7 +447,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 ### Next session — inventory operations + controlled verification
 1. ✅ Seel 021/094 selected, physically verified, priced and moved to APPROVED.
 2. Verify the live Shopify test-publish flag is ON and bulk publish flag is OFF through the authenticated app/runtime.
-3. Publish only Seel `INV-06F489A853594CDC80E418271933D044` through the guarded single-item test path.
+3. Complete the guarded Seel sync retry after the Shopify 2026-07 activation/quantity contract fixes; verify ACTIVE status, quantity 1, publication and exact Supabase link before checkout.
 4. Execute one controlled checkout/order and verify webhook signature + duplicate delivery handling.
 5. Verify exact Inventory ID → owner attribution, COGS snapshot and owner/finance ledger.
 6. Execute cancellation/refund/return test and verify state restoration + audit trail.
