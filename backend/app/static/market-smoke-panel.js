@@ -56,8 +56,8 @@ const MARKET_SMOKE_CASES = [
     source_variant_id: "Foil",
     mapping: {
       query: "Luffy OP05-119",
-      required_title_terms: ["Monkey D Luffy", "OP05-119"],
-      forbidden_title_terms: ["manga", "parallel", "alternate", "alt art", "anniversary", "wanted", "PSA", "CGC", "BGS", "proxy", "custom", "digital"],
+      required_title_terms: ["Monkey D Luffy", "OP05-119", "SEC"],
+      forbidden_title_terms: ["SR", "manga", "parallel", "alternate", "alt art", "anniversary", "wanted", "reprint", "premium booster", "the best", "PSA", "CGC", "BGS", "proxy", "custom", "digital"],
       language: "English",
       include_sold: false,
       include_active: true,
