@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .ownership import current_owner as _owner
 from .settings import get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
 
@@ -28,6 +29,12 @@ INITIAL_WEBHOOK_TOPICS = frozenset(
         "app/uninstalled",
     }
 )
+SHOPIFY_WEBHOOK_TOPIC_ENUMS = {
+    "orders/paid": "ORDERS_PAID",
+    "orders/cancelled": "ORDERS_CANCELLED",
+    "refunds/create": "REFUNDS_CREATE",
+    "app/uninstalled": "APP_UNINSTALLED",
+}
 
 
 def verify_shopify_hmac(raw_body: bytes, header_value: str | None, secret: str) -> bool:
@@ -124,8 +131,13 @@ async def shopify_status(
                 and settings.shopify_client_secret
             ),
             "webhook_secret_configured": bool(settings.shopify_client_secret),
+            "webhook_endpoint_configured": bool(settings.shopify_webhook_endpoint),
+            "webhook_registration_ready": bool(
+                configured and settings.shopify_webhook_endpoint
+            ),
             "publish_enabled": settings.shopify_publish_enabled,
             "webhook_path": "/api/v1/shopify/webhooks",
+            "webhook_endpoint": settings.shopify_webhook_endpoint,
             "webhook_topics": sorted(INITIAL_WEBHOOK_TOPICS),
             "deliveries": dict(delivery),
         }
@@ -162,6 +174,165 @@ async def probe_shopify(
             "shop": shop,
             "api_version": client.api_version,
             "publish_enabled": settings.shopify_publish_enabled,
+        }
+    )
+
+
+@router.post("/webhooks/register")
+async def register_shopify_webhooks(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    settings = get_settings()
+    endpoint = settings.shopify_webhook_endpoint
+    if not endpoint:
+        raise HTTPException(
+            status_code=409,
+            detail="Shopify webhook endpoint is not configured",
+        )
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        if owner["role"] != "FOUNDER":
+            raise HTTPException(
+                status_code=403,
+                detail="Only a founder can change Shopify webhook registration",
+            )
+
+    client = _shopify_client()
+    try:
+        shop = await client.probe_shop()
+        returned_domain = str(shop.get("myshopify_domain") or "").casefold()
+        if returned_domain != settings.shopify_shop_domain:
+            raise HTTPException(
+                status_code=409,
+                detail="Shopify Admin API returned a different shop domain",
+            )
+
+        existing = await client.list_webhook_subscriptions()
+        conflicts: list[dict[str, Any]] = []
+        present: list[dict[str, Any]] = []
+        missing: list[tuple[str, str]] = []
+
+        for rest_topic, enum_topic in SHOPIFY_WEBHOOK_TOPIC_ENUMS.items():
+            topic_subscriptions = [
+                subscription
+                for subscription in existing
+                if subscription.get("topic") == enum_topic
+            ]
+            exact = [
+                subscription
+                for subscription in topic_subscriptions
+                if str(subscription.get("uri") or "").rstrip("/") == endpoint
+            ]
+
+            if len(topic_subscriptions) == 0:
+                missing.append((rest_topic, enum_topic))
+                continue
+            if len(topic_subscriptions) == 1 and len(exact) == 1:
+                present.append(
+                    {
+                        "topic": rest_topic,
+                        "shopify_topic": enum_topic,
+                        "subscription_id": exact[0].get("id"),
+                        "uri": endpoint,
+                        "state": "EXISTING",
+                    }
+                )
+                continue
+
+            conflicts.append(
+                {
+                    "topic": rest_topic,
+                    "shopify_topic": enum_topic,
+                    "existing": [
+                        {
+                            "subscription_id": subscription.get("id"),
+                            "uri": subscription.get("uri"),
+                        }
+                        for subscription in topic_subscriptions
+                    ],
+                }
+            )
+
+        if conflicts:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": (
+                        "Shopify has conflicting webhook subscriptions. "
+                        "No new subscriptions were created."
+                    ),
+                    "conflicts": conflicts,
+                },
+            )
+
+        created: list[dict[str, Any]] = []
+        for rest_topic, enum_topic in missing:
+            subscription = await client.create_webhook_subscription(
+                topic=enum_topic,
+                uri=endpoint,
+            )
+            created.append(
+                {
+                    "topic": rest_topic,
+                    "shopify_topic": enum_topic,
+                    "subscription_id": subscription.get("id"),
+                    "uri": subscription.get("uri"),
+                    "state": "CREATED",
+                }
+            )
+
+        verified = await client.list_webhook_subscriptions()
+        verification: list[dict[str, Any]] = []
+        for rest_topic, enum_topic in SHOPIFY_WEBHOOK_TOPIC_ENUMS.items():
+            exact = [
+                subscription
+                for subscription in verified
+                if subscription.get("topic") == enum_topic
+                and str(subscription.get("uri") or "").rstrip("/") == endpoint
+            ]
+            if len(exact) != 1:
+                raise ShopifyApiError(
+                    "Shopify webhook registration could not be verified"
+                )
+            verification.append(
+                {
+                    "topic": rest_topic,
+                    "shopify_topic": enum_topic,
+                    "subscription_id": exact[0].get("id"),
+                    "uri": endpoint,
+                    "state": "VERIFIED",
+                }
+            )
+
+    except HTTPException:
+        raise
+    except ShopifyApiError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "message": exc.detail,
+                "retryable": exc.retryable,
+                "provider_status": exc.status_code,
+                "created_before_failure": created if "created" in locals() else [],
+            },
+        ) from exc
+
+    return jsonable_encoder(
+        {
+            "status": "SUCCEEDED",
+            "shop": shop,
+            "api_version": client.api_version,
+            "publish_enabled": settings.shopify_publish_enabled,
+            "endpoint": endpoint,
+            "existing_count": len(present),
+            "created_count": len(created),
+            "subscriptions": verification,
         }
     )
 
