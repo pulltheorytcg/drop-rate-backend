@@ -278,6 +278,8 @@ async def update_inventory(
             raise HTTPException(status_code=404, detail="Inventory item not found")
         if current_item["status"] == "SOLD":
             raise HTTPException(status_code=409, detail="Sold inventory is immutable; use the refund/return workflow")
+        if current_item["status"] == "RESERVED":
+            raise HTTPException(status_code=409, detail="Reserved inventory is immutable; use the reservation workflow")
 
         physical_fields = {
             field: values.get(field, current_item[field])
@@ -364,6 +366,8 @@ async def approve_inventory(
             })
         if item["status"] == "SOLD":
             raise HTTPException(status_code=409, detail="Sold inventory cannot be approved again")
+        if item["status"] == "RESERVED":
+            raise HTTPException(status_code=409, detail="Reserved inventory cannot be approved; release its reservation first")
         try:
             validate_physical_state(
                 product_type=item["product_type"],
@@ -419,11 +423,11 @@ async def allocate_bulk_cost(
         )
         if len(rows) != len(ids):
             raise HTTPException(status_code=404, detail="One or more inventory items were not found")
-        sold = [str(row["id"]) for row in rows if row["status"] == "SOLD"]
-        if sold:
+        locked = [str(row["id"]) for row in rows if row["status"] in {"SOLD", "RESERVED"}]
+        if locked:
             raise HTTPException(status_code=409, detail={
-                "message": "Acquisition cost cannot be changed after sale",
-                "items": sold,
+                "message": "Acquisition cost cannot be changed while inventory is sold or reserved",
+                "items": locked,
             })
         current = {row["id"]: row["version"] for row in rows}
         stale = [
@@ -545,11 +549,11 @@ async def allocate_purchase_lot(
         )
         if len(rows) != len(ids):
             raise HTTPException(status_code=404, detail="One or more inventory items were not found")
-        sold = [str(row["id"]) for row in rows if row["status"] == "SOLD"]
-        if sold:
+        locked = [str(row["id"]) for row in rows if row["status"] in {"SOLD", "RESERVED"}]
+        if locked:
             raise HTTPException(status_code=409, detail={
-                "message": "Sold inventory cannot be reallocated to a purchase lot",
-                "items": sold,
+                "message": "Sold or reserved inventory cannot be reallocated to a purchase lot",
+                "items": locked,
             })
 
         current = {row["id"]: row for row in rows}
