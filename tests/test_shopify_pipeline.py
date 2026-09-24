@@ -9,6 +9,7 @@ from app.shopify_pipeline import (
     _money,
     _parse_order_lines,
     _product_gid_matches,
+    _refund_shipping_minor,
     _test_sync_missing,
     _title,
     _variant_gid,
@@ -24,6 +25,7 @@ SHOPIFY_SETTINGS = ROOT / "backend" / "app" / "static" / "shopify-settings.js"
 MIGRATION = ROOT / "migrations" / "006_shopify_inventory_links.sql"
 PENDING_MIGRATION = ROOT / "database" / "migrations" / "20260924230955_shopify_pending_order_reservations.sql"
 FINAL_ORDER_MIGRATION = ROOT / "database" / "migrations" / "20260924232925_remove_pending_finance_order_status.sql"
+SHIPPING_REFUND_MIGRATION = ROOT / "database" / "migrations" / "20260924235450_shopify_shipping_refunds.sql"
 
 
 def test_money_helpers_are_penny_exact() -> None:
@@ -163,6 +165,56 @@ def test_order_line_parser_requires_exact_ids_prices_and_gbp() -> None:
     bad = {**payload, "currency": "USD"}
     with pytest.raises(ShopifyProcessingError, match="Only GBP"):
         _parse_order_lines(bad, event_label="created order")
+
+
+def test_shipping_refund_parser_is_penny_exact_and_gbp_only() -> None:
+    payload = {
+        "refund_shipping_lines": [{
+            "subtotal_amount_set": {
+                "shop_money": {"amount": "4.99", "currency_code": "GBP"}
+            }
+        }]
+    }
+    assert _refund_shipping_minor(payload) == 499
+    assert _refund_shipping_minor({"refund_shipping_lines": []}) == 0
+    assert _refund_shipping_minor({}) == 0
+
+    bad = {
+        "refund_shipping_lines": [{
+            "subtotal_amount_set": {
+                "shop_money": {"amount": "4.99", "currency_code": "USD"}
+            }
+        }]
+    }
+    with pytest.raises(
+        ShopifyProcessingError,
+        match="shipping refund currency",
+    ):
+        _refund_shipping_minor(bad)
+
+
+def test_shipping_refund_ledger_type_is_versioned() -> None:
+    sql = SHIPPING_REFUND_MIGRATION.read_text().casefold()
+    assert "financial_ledger_entries_entry_type_check" in sql
+    assert "'shipping_refund'::text" in sql
+
+
+def test_shopify_refund_reverses_shipping_and_caps_over_refunds() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def _process_refund(")
+    refund = source[start:]
+    assert "shipping_refund_minor = _refund_shipping_minor(payload)" in refund
+    assert "entry_type='SHIPPING_REFUND'" in refund
+    assert "'SHIPPING_REFUND',$4" in refund
+    assert "SHIPPING_REFUND_EXCEEDS_REVENUE" in refund
+    assert "SHIPPING_REFUND_WITHOUT_REVENUE" in refund
+    assert "SHIPPING_REFUND_ALLOCATION_EXCEEDED" in refund
+    assert "allocate_minor(" in refund
+    assert "for update" in refund
+    assert "entry_type in ('SALE_REVENUE','SHIPPING_REVENUE')" in refund
+    assert "entry_type in ('REFUND','SHIPPING_REFUND')" in refund
+    assert "REFUND_EXCEEDS_GROSS_REVENUE" in refund
+    assert '"shipping_refund_minor": shipping_refund_minor' in refund
 
 
 def test_unpaid_shopify_orders_use_reservations_not_finance_order_state() -> None:
