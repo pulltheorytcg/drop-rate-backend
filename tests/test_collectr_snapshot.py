@@ -15,6 +15,7 @@ from app.imports import _detect_adapter, _field_map, _normalized_row
 ROOT = Path(__file__).parents[1]
 IMPORTS = ROOT / "backend" / "app" / "imports.py"
 LANGUAGE_MIGRATION = ROOT / "database" / "migrations" / "20260924195341_normalize_explicit_card_languages.sql"
+LANGUAGE_ROLLBACK_MIGRATION = ROOT / "database" / "migrations" / "20260924220735_revert_unsupported_english_language_backfill.sql"
 
 
 def collectr_row(**overrides):
@@ -189,3 +190,17 @@ def test_explicit_language_backfill_is_fail_closed() -> None:
     assert "language is null" in sql
     assert "jp|jpn|japanese" in sql.lower()
     assert "set language = 'english'" not in sql.lower()
+
+
+def test_unsupported_english_rollback_is_evidence_scoped_and_fail_closed() -> None:
+    sql = LANGUAGE_ROLLBACK_MIGRATION.read_text()
+    lowered = sql.lower()
+    assert "old_values->>'language' is null" in lowered
+    assert "new_values->>'language' = 'english'" in lowered
+    assert "source_record->>'language'" in lowered
+    assert "identity_verification_events" in lowered
+    assert "event_type = 'confirmed'" in lowered
+    assert "set language = null" in lowered
+    assert "japanese" not in lowered
+    assert "update tcg.inventory_items" in lowered
+    assert "update tcg.catalogue_products" in lowered
