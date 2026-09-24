@@ -342,8 +342,8 @@ async def revoke_identity_group(
             for row in rows:
                 if row["catalogue_id"] != catalogue_id:
                     raise HTTPException(status_code=422, detail="Selected copies do not all belong to this canonical card")
-                if row["status"] in {"SOLD","WITHDRAWN"}:
-                    raise HTTPException(status_code=409, detail="Sold or withdrawn inventory cannot be changed here")
+                if row["status"] in {"SOLD","WITHDRAWN","RESERVED"}:
+                    raise HTTPException(status_code=409, detail="Sold, withdrawn, or reserved inventory cannot be changed here")
                 if not row["identity_confirmed"]:
                     raise HTTPException(status_code=409, detail="One or more selected copies are already unconfirmed")
             stale = [
