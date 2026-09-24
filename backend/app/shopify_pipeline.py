@@ -592,11 +592,30 @@ async def _process_created_order(
         event_label="created order",
     )
 
+    cancellation_seen = await connection.fetchval(
+        """
+        select exists(
+          select 1
+          from tcg.shopify_webhook_events
+          where topic='orders/cancelled'
+            and resource_id=$1
+            and status in ('RECEIVED','PROCESSED','FAILED')
+        )
+        """,
+        order_reference,
+    )
+    if cancellation_seen:
+        return {
+            "status": "PROCESSED",
+            "action": "ORDER_ALREADY_CANCELLED",
+            "order_reference": order_reference,
+        }
+
     existing = await connection.fetchrow(
         "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1",
         order_reference,
     )
-    if existing is not None and existing["status"] != "PENDING":
+    if existing is not None:
         return {
             "status": "PROCESSED",
             "action": "ORDER_ALREADY_FINALIZED",
@@ -609,25 +628,50 @@ async def _process_created_order(
     )
     await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
 
-    if existing is not None:
-        expected = sum(spec["quantity"] for spec in line_specs)
-        actual = await connection.fetchval(
-            """
-            select count(*)::int
-            from tcg.shopify_inventory_links
-            where owner_id=$1 and reserved_order_reference=$2
-            """,
-            owner_id, order_reference,
-        )
-        if int(actual or 0) != expected:
+    reservations = await connection.fetch(
+        """
+        select
+          sil.reserved_line_reference,
+          i.status as inventory_status
+        from tcg.shopify_inventory_links sil
+        join tcg.inventory_items i on i.id=sil.inventory_id
+        where sil.owner_id=$1
+          and sil.reserved_order_reference=$2
+        order by sil.allocation_priority,sil.inventory_id
+        for update of sil,i
+        """,
+        owner_id, order_reference,
+    )
+    if reservations:
+        expected_count = sum(spec["quantity"] for spec in line_specs)
+        if len(reservations) != expected_count:
             raise ShopifyProcessingError(
                 "PENDING_RESERVATION_MISMATCH",
-                "Pending Shopify order reservation count does not match the order",
+                "Pending Shopify reservation count does not match the order",
+            )
+        expected_lines: dict[str, int] = {}
+        for spec in line_specs:
+            expected_lines[spec["line_reference"]] = (
+                expected_lines.get(spec["line_reference"], 0) + spec["quantity"]
+            )
+        actual_lines: dict[str, int] = {}
+        for reservation in reservations:
+            if reservation["inventory_status"] != "RESERVED":
+                raise ShopifyProcessingError(
+                    "RESERVATION_STATE_MISMATCH",
+                    "Shopify reservation is not backed by RESERVED inventory",
+                )
+            line_reference = str(reservation["reserved_line_reference"] or "")
+            actual_lines[line_reference] = actual_lines.get(line_reference, 0) + 1
+        if actual_lines != expected_lines:
+            raise ShopifyProcessingError(
+                "PENDING_RESERVATION_MISMATCH",
+                "Pending Shopify reservation lines do not match the order",
             )
         return {
             "status": "PROCESSED",
             "action": "PENDING_ORDER_ALREADY_RESERVED",
-            "order_id": str(existing["id"]),
+            "order_reference": order_reference,
         }
 
     selected_units = await _select_order_units(
@@ -635,17 +679,6 @@ async def _process_created_order(
         owner_id=owner_id,
         order_reference=order_reference,
         line_specs=line_specs,
-    )
-
-    order_id = uuid4()
-    placed_at = _parse_time(payload.get("created_at"))
-    order_number = str(payload.get("name") or payload.get("order_number") or "").strip() or None
-    await connection.execute(
-        """
-        insert into tcg.orders(id,source,source_reference,order_number,currency,status,placed_at)
-        values($1,'SHOPIFY',$2,$3,'GBP','PENDING',$4)
-        """,
-        order_id, order_reference, order_number, placed_at,
     )
 
     reserved: list[dict[str, str]] = []
@@ -695,7 +728,7 @@ async def _process_created_order(
     return {
         "status": "PROCESSED",
         "action": "PENDING_ORDER_RESERVED",
-        "order_id": str(order_id),
+        "order_reference": order_reference,
         "items": reserved,
     }
 
@@ -715,7 +748,7 @@ async def _process_paid_order(
         "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1",
         order_reference,
     )
-    if existing is not None and existing["status"] != "PENDING":
+    if existing is not None:
         return {
             "status": "PROCESSED",
             "action": "ORDER_ALREADY_RECORDED",
@@ -735,35 +768,16 @@ async def _process_paid_order(
         line_specs=line_specs,
     )
 
+    order_id = uuid4()
     placed_at = _parse_time(payload.get("processed_at") or payload.get("created_at"))
     order_number = str(payload.get("name") or payload.get("order_number") or "").strip() or None
-    if existing is None:
-        order_id = uuid4()
-        await connection.execute(
-            """
-            insert into tcg.orders(id,source,source_reference,order_number,currency,status,placed_at)
-            values($1,'SHOPIFY',$2,$3,'GBP','PAID',$4)
-            """,
-            order_id, order_reference, order_number, placed_at,
-        )
-    else:
-        order_id = existing["id"]
-        updated_order = await connection.fetchrow(
-            """
-            update tcg.orders
-            set status='PAID',
-                order_number=coalesce(order_number,$2),
-                updated_at=now()
-            where id=$1 and status='PENDING'
-            returning id
-            """,
-            order_id, order_number,
-        )
-        if updated_order is None:
-            raise ShopifyProcessingError(
-                "ORDER_STATE_CHANGED",
-                "Pending Shopify order changed before payment could be recorded",
-            )
+    await connection.execute(
+        """
+        insert into tcg.orders(id,source,source_reference,order_number,currency,status,placed_at)
+        values($1,'SHOPIFY',$2,$3,'GBP','PAID',$4)
+        """,
+        order_id, order_reference, order_number, placed_at,
+    )
 
     discount_offsets: dict[str, list[int]] = {}
     for spec in line_specs:
@@ -949,25 +963,10 @@ async def _process_cancelled_order(
                 """,
                 reservation["id"], order_reference,
             )
-
-        order = await connection.fetchrow(
-            """
-            update tcg.orders
-            set status='CANCELLED',updated_at=now()
-            where source='SHOPIFY' and source_reference=$1 and status='PENDING'
-            returning id
-            """,
-            order_reference,
-        )
-        if order is None:
-            raise ShopifyProcessingError(
-                "PENDING_ORDER_MISSING",
-                "Reserved Shopify order has no matching PENDING order",
-            )
         return {
             "status": "PROCESSED",
             "action": "PENDING_ORDER_RELEASED",
-            "order_id": str(order["id"]),
+            "order_reference": order_reference,
         }
 
     sold_bootstrap = await connection.fetchrow(
@@ -1011,40 +1010,22 @@ async def _process_cancelled_order(
                 continue
 
     if variant_gids:
-        bootstrap = await connection.fetch(
+        managed = await connection.fetchval(
             """
-            select distinct owner_id,created_by_user_id
-            from tcg.shopify_inventory_links
-            where shopify_variant_gid=any($1::text[])
-              and sync_state in ('PUBLISHED','SOLD')
+            select exists(
+              select 1
+              from tcg.shopify_inventory_links
+              where shopify_variant_gid=any($1::text[])
+                and sync_state in ('PUBLISHED','SOLD')
+            )
             """,
             variant_gids,
         )
-        if len(bootstrap) == 1:
-            owner_id = bootstrap[0]["owner_id"]
-            user_id = bootstrap[0]["created_by_user_id"]
-            await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
-            placed_at = _parse_time(payload.get("created_at"))
-            order_number = str(payload.get("name") or payload.get("order_number") or "").strip() or None
-            tombstone = await connection.fetchrow(
-                """
-                insert into tcg.orders(
-                  id,source,source_reference,order_number,currency,status,placed_at
-                ) values($1,'SHOPIFY',$2,$3,'GBP','CANCELLED',$4)
-                on conflict(source,source_reference) do update
-                set status=case
-                      when tcg.orders.status='PENDING' then 'CANCELLED'
-                      else tcg.orders.status
-                    end,
-                    updated_at=now()
-                returning id,status
-                """,
-                uuid4(), order_reference, order_number, placed_at,
-            )
+        if managed:
             return {
                 "status": "PROCESSED",
                 "action": "MANAGED_ORDER_CANCELLED_WITHOUT_RESERVATION",
-                "order_id": str(tombstone["id"]),
+                "order_reference": order_reference,
             }
 
     return {"status": "PROCESSED", "action": "UNMANAGED_ORDER_CANCELLATION"}
