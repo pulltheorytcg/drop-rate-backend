@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.tcgplayer_parse_adapter import FxQuote, TcgplayerParseAdapter
+from app.tcgplayer_parse_adapter import FxQuote, TcgplayerParseAdapter, _variant_matches
 
 
 CATALOGUE_ID = "11111111-1111-1111-1111-111111111111"
@@ -162,3 +162,11 @@ async def test_rejects_non_numeric_tcgplayer_product_id() -> None:
             source_product_id="not-a-product-id",
             source_variant_id=None,
         )
+
+
+def test_variant_aliases_are_normalized_safely() -> None:
+    assert _variant_matches("Holo", "Holofoil") is True
+    assert _variant_matches("Reverse Holo", "Reverse Holofoil") is True
+    assert _variant_matches("Normal", "Normal") is True
+    assert _variant_matches("Holofoil", "Normal") is False
+    assert _variant_matches(None, "Normal") is False
