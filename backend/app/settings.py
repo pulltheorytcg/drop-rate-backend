@@ -98,6 +98,9 @@ class Settings:
     shopify_client_secret: str | None = None
     shopify_api_version: str = "2026-07"
     shopify_webhook_endpoint: str | None = None
+    shopify_location_gid: str | None = None
+    shopify_publication_gid: str | None = None
+    shopify_test_publish_enabled: bool = False
     shopify_publish_enabled: bool = False
 
     @classmethod
@@ -131,6 +134,9 @@ class Settings:
             shopify_client_secret=_optional("TCG_SHOPIFY_CLIENT_SECRET"),
             shopify_api_version=_shopify_api_version("TCG_SHOPIFY_API_VERSION", "2026-07"),
             shopify_webhook_endpoint=_https_endpoint("TCG_SHOPIFY_WEBHOOK_ENDPOINT"),
+            shopify_location_gid=_optional("TCG_SHOPIFY_LOCATION_GID"),
+            shopify_publication_gid=_optional("TCG_SHOPIFY_PUBLICATION_GID"),
+            shopify_test_publish_enabled=_boolean("TCG_SHOPIFY_TEST_PUBLISH_ENABLED", False),
             shopify_publish_enabled=_boolean("TCG_SHOPIFY_PUBLISH_ENABLED", False),
         )
 
