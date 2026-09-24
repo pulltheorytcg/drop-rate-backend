@@ -24,7 +24,7 @@ from .schemas import (
 
 router = APIRouter(prefix="/api/v1")
 
-ACTIVE_INVENTORY_SQL = "i.status not in ('SOLD', 'WITHDRAWN')"
+ACTIVE_INVENTORY_SQL = "i.status in ('DRAFT', 'INSPECTION', 'APPROVED')"
 BRAND_SQL = brand_sql("p")
 RAW_CARD_READY_SQL = """
     p.product_type = 'CARD'
@@ -57,6 +57,7 @@ READY_SQL = f"""
     i.acquisition_cost_minor is not null
     and ({PHYSICAL_STATE_READY_SQL})
     and i.location is not null and btrim(i.location) <> ''
+    and i.language is not null and btrim(i.language) <> ''
     and i.store_price_minor is not null
     and i.identity_confirmed
     and {ACTIVE_INVENTORY_SQL}
@@ -73,6 +74,7 @@ ISSUE_FILTERS = {
         and p.product_type <> 'CARD'
         and i.seal_status is null""",
     "missing_location": f"({ACTIVE_INVENTORY_SQL}) and (i.location is null or btrim(i.location) = '')",
+    "missing_language": f"({ACTIVE_INVENTORY_SQL}) and (i.language is null or btrim(i.language) = '')",
     "missing_price": f"({ACTIVE_INVENTORY_SQL}) and i.store_price_minor is null",
     "identity_unconfirmed": f"({ACTIVE_INVENTORY_SQL}) and not i.identity_confirmed",
     "approval_ready": f"i.status in ('DRAFT', 'INSPECTION') and ({READY_SQL})",
@@ -113,6 +115,7 @@ async def inventory_readiness(
                 count(*) filter (where {ISSUE_FILTERS['missing_condition']})::int as missing_condition,
                 count(*) filter (where {ISSUE_FILTERS['missing_seal_status']})::int as missing_seal_status,
                 count(*) filter (where {ISSUE_FILTERS['missing_location']})::int as missing_location,
+                count(*) filter (where {ISSUE_FILTERS['missing_language']})::int as missing_language,
                 count(*) filter (where {ISSUE_FILTERS['missing_price']})::int as missing_price,
                 count(*) filter (where {ISSUE_FILTERS['identity_unconfirmed']})::int as identity_unconfirmed,
                 count(*) filter (where i.status = 'APPROVED')::int as approved,
@@ -278,6 +281,8 @@ async def update_inventory(
             raise HTTPException(status_code=404, detail="Inventory item not found")
         if current_item["status"] == "SOLD":
             raise HTTPException(status_code=409, detail="Sold inventory is immutable; use the refund/return workflow")
+        if current_item["status"] == "RESERVED":
+            raise HTTPException(status_code=409, detail="Reserved inventory is immutable; use the reservation workflow")
 
         physical_fields = {
             field: values.get(field, current_item[field])
@@ -364,6 +369,8 @@ async def approve_inventory(
             })
         if item["status"] == "SOLD":
             raise HTTPException(status_code=409, detail="Sold inventory cannot be approved again")
+        if item["status"] == "RESERVED":
+            raise HTTPException(status_code=409, detail="Reserved inventory cannot be approved; release its reservation first")
         try:
             validate_physical_state(
                 product_type=item["product_type"],
@@ -385,6 +392,7 @@ async def approve_inventory(
         elif item["seal_status"] is None:
             missing.append("seal status")
         if not (item["location"] or "").strip(): missing.append("location")
+        if not (item["language"] or "").strip(): missing.append("language")
         if item["store_price_minor"] is None: missing.append("store price")
         if not item["identity_confirmed"]: missing.append("identity confirmation")
         if item["status"] == "WITHDRAWN": missing.append("active status")
@@ -419,11 +427,11 @@ async def allocate_bulk_cost(
         )
         if len(rows) != len(ids):
             raise HTTPException(status_code=404, detail="One or more inventory items were not found")
-        sold = [str(row["id"]) for row in rows if row["status"] == "SOLD"]
-        if sold:
+        locked = [str(row["id"]) for row in rows if row["status"] in {"SOLD", "RESERVED"}]
+        if locked:
             raise HTTPException(status_code=409, detail={
-                "message": "Acquisition cost cannot be changed after sale",
-                "items": sold,
+                "message": "Acquisition cost cannot be changed while inventory is sold or reserved",
+                "items": locked,
             })
         current = {row["id"]: row["version"] for row in rows}
         stale = [
@@ -545,11 +553,11 @@ async def allocate_purchase_lot(
         )
         if len(rows) != len(ids):
             raise HTTPException(status_code=404, detail="One or more inventory items were not found")
-        sold = [str(row["id"]) for row in rows if row["status"] == "SOLD"]
-        if sold:
+        locked = [str(row["id"]) for row in rows if row["status"] in {"SOLD", "RESERVED"}]
+        if locked:
             raise HTTPException(status_code=409, detail={
-                "message": "Sold inventory cannot be reallocated to a purchase lot",
-                "items": sold,
+                "message": "Sold or reserved inventory cannot be reallocated to a purchase lot",
+                "items": locked,
             })
 
         current = {row["id"]: row for row in rows}
@@ -640,11 +648,11 @@ async def inventory_review(
         if existing is not None:
             return jsonable_encoder({"run_id": existing["id"], "created_at": existing["created_at"], "replayed": True, "result": existing["result"]})
         counts = await connection.fetchrow(
-            """select count(*) filter (where status not in ('SOLD', 'WITHDRAWN'))::int as total_items,
-            count(*) filter (where status not in ('SOLD', 'WITHDRAWN') and acquisition_cost_minor is null)::int as missing_acquisition_cost,
-            count(*) filter (where status not in ('SOLD', 'WITHDRAWN') and (location is null or btrim(location) = ''))::int as missing_location,
-            count(*) filter (where status not in ('SOLD', 'WITHDRAWN') and store_price_minor is null)::int as missing_store_price,
-            count(*) filter (where status not in ('SOLD', 'WITHDRAWN') and not identity_confirmed)::int as identity_unconfirmed
+            """select count(*) filter (where status in ('DRAFT', 'INSPECTION', 'APPROVED'))::int as total_items,
+            count(*) filter (where status in ('DRAFT', 'INSPECTION', 'APPROVED') and acquisition_cost_minor is null)::int as missing_acquisition_cost,
+            count(*) filter (where status in ('DRAFT', 'INSPECTION', 'APPROVED') and (location is null or btrim(location) = ''))::int as missing_location,
+            count(*) filter (where status in ('DRAFT', 'INSPECTION', 'APPROVED') and store_price_minor is null)::int as missing_store_price,
+            count(*) filter (where status in ('DRAFT', 'INSPECTION', 'APPROVED') and not identity_confirmed)::int as identity_unconfirmed
             from tcg.inventory_items where owner_id = $1""", owner["id"],
         )
         result = dict(counts)

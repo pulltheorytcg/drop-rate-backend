@@ -107,7 +107,7 @@
               <option value="Riftbound">Riftbound</option>
             </select>
             <select id="status-filter" aria-label="Filter inventory status">
-              <option value="">All statuses</option><option value="DRAFT">Draft</option><option value="INSPECTION">Inspection</option><option value="APPROVED">Approved</option><option value="WITHDRAWN">Withdrawn</option>
+              <option value="">All statuses</option><option value="DRAFT">Draft</option><option value="INSPECTION">Inspection</option><option value="APPROVED">Approved</option><option value="RESERVED">Reserved</option><option value="SOLD">Sold</option><option value="WITHDRAWN">Withdrawn</option>
             </select>
             <button id="bulk-cost-button" class="ghost-button" type="button" disabled>Allocate cost <span id="selected-count">0</span></button>
           </div>
@@ -138,7 +138,7 @@
         <label>Grading company<input id="edit-grading-company" maxlength="40" placeholder="Leave both grade fields blank if raw"></label>
         <label>Grade<input id="edit-grade" maxlength="40"></label>
         <label>Certificate number<input id="edit-certificate" maxlength="120"></label>
-        <label>Status<select id="edit-status"><option value="DRAFT">Draft</option><option value="INSPECTION">Inspection</option><option value="WITHDRAWN">Withdrawn</option></select></label>
+        <label>Status<select id="edit-status"><option value="DRAFT">Draft</option><option value="INSPECTION">Inspection</option><option value="APPROVED">Approved</option><option value="RESERVED">Reserved</option><option value="SOLD">Sold</option><option value="WITHDRAWN">Withdrawn</option></select></label>
         <label class="full-width">Notes<textarea id="edit-notes" maxlength="2000" rows="3"></textarea></label>
         <label class="check-field full-width"><input id="edit-identity" type="checkbox" disabled><span>Identity verification is managed in the Verify tab with an audit record.</span></label>
       </div>

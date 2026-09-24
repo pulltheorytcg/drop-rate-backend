@@ -132,9 +132,12 @@ async def test_sync_status(
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id=i.catalogue_id
             left join tcg.shopify_inventory_links sil on sil.inventory_id=i.id
+            left join tcg.listing_inventory_members lim
+              on lim.inventory_id=i.id and lim.state <> 'REMOVED'
             where i.owner_id=$1
               and i.status='APPROVED'
               and sil.id is null
+              and lim.id is null
             order by i.updated_at, i.inventory_code
             limit 25
             """,
@@ -212,6 +215,19 @@ async def sync_one_test_item(
                     "status": "ALREADY_LINKED",
                     "link": dict(existing),
                 })
+            pooled_membership = await connection.fetchrow(
+                """
+                select id,listing_id,state
+                from tcg.listing_inventory_members
+                where inventory_id=$1 and state <> 'REMOVED'
+                """,
+                inventory_id,
+            )
+            if pooled_membership is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Inventory belongs to the marketplace listing/reservation system and cannot use the legacy single-item Shopify test path",
+                )
             missing: list[str] = []
             if item["status"] != "APPROVED": missing.append("APPROVED status")
             if not item["identity_confirmed"]: missing.append("identity confirmation")

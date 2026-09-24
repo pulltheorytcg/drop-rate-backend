@@ -16,7 +16,7 @@ from .ownership import current_owner as _owner
 
 router = APIRouter(prefix="/api/v1/identity-review", tags=["identity-review"])
 BRAND_SQL = brand_sql("p")
-ACTIVE_SQL = "i.status not in ('SOLD', 'WITHDRAWN')"
+ACTIVE_SQL = "i.status in ('DRAFT', 'INSPECTION', 'APPROVED')"
 
 
 class IdentityReviewSelection(BaseModel):
@@ -205,7 +205,7 @@ async def identity_review_group(
             from tcg.inventory_items i
             left join tcg.storage_locations sl on sl.id=i.storage_location_id
             where i.owner_id=$1 and i.catalogue_id=$2
-              and i.status not in ('SOLD','WITHDRAWN')
+              and i.status in ('DRAFT','INSPECTION','APPROVED')
             order by i.identity_confirmed,i.inventory_code
             """,
             owner["id"], catalogue_id,
@@ -342,8 +342,8 @@ async def revoke_identity_group(
             for row in rows:
                 if row["catalogue_id"] != catalogue_id:
                     raise HTTPException(status_code=422, detail="Selected copies do not all belong to this canonical card")
-                if row["status"] in {"SOLD","WITHDRAWN"}:
-                    raise HTTPException(status_code=409, detail="Sold or withdrawn inventory cannot be changed here")
+                if row["status"] in {"SOLD","WITHDRAWN","RESERVED"}:
+                    raise HTTPException(status_code=409, detail="Sold, withdrawn, or reserved inventory cannot be changed here")
                 if not row["identity_confirmed"]:
                     raise HTTPException(status_code=409, detail="One or more selected copies are already unconfirmed")
             stale = [

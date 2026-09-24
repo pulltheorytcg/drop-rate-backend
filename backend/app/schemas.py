@@ -18,6 +18,7 @@ ReadinessIssue = Literal[
     "missing_condition",
     "missing_seal_status",
     "missing_location",
+    "missing_language",
     "missing_price",
     "identity_unconfirmed",
     "approval_ready",

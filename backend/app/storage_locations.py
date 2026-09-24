@@ -250,6 +250,15 @@ async def assign_storage_location(
                     "items": sold,
                 },
             )
+        reserved = [str(row["id"]) for row in rows if row["status"] == "RESERVED"]
+        if reserved:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Reserved inventory cannot be moved; release its reservation first",
+                    "items": reserved,
+                },
+            )
         current = {row["id"]: row["version"] for row in rows}
         stale = [
             {
