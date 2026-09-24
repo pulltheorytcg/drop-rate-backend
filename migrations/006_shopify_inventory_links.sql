@@ -68,6 +68,8 @@ create table if not exists tcg.shopify_order_item_links (
 
 create index if not exists shopify_order_item_links_order_line_idx
   on tcg.shopify_order_item_links(shopify_order_id, shopify_line_item_id);
+create index if not exists shopify_order_item_links_owner_idx
+  on tcg.shopify_order_item_links(owner_id);
 
 alter table tcg.shopify_order_item_links enable row level security;
 alter table tcg.shopify_order_item_links force row level security;
