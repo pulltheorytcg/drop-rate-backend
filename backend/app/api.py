@@ -24,7 +24,7 @@ from .schemas import (
 
 router = APIRouter(prefix="/api/v1")
 
-ACTIVE_INVENTORY_SQL = "i.status not in ('SOLD', 'WITHDRAWN')"
+ACTIVE_INVENTORY_SQL = "i.status in ('DRAFT', 'INSPECTION', 'APPROVED')"
 BRAND_SQL = brand_sql("p")
 RAW_CARD_READY_SQL = """
     p.product_type = 'CARD'
@@ -648,11 +648,11 @@ async def inventory_review(
         if existing is not None:
             return jsonable_encoder({"run_id": existing["id"], "created_at": existing["created_at"], "replayed": True, "result": existing["result"]})
         counts = await connection.fetchrow(
-            """select count(*) filter (where status not in ('SOLD', 'WITHDRAWN'))::int as total_items,
-            count(*) filter (where status not in ('SOLD', 'WITHDRAWN') and acquisition_cost_minor is null)::int as missing_acquisition_cost,
-            count(*) filter (where status not in ('SOLD', 'WITHDRAWN') and (location is null or btrim(location) = ''))::int as missing_location,
-            count(*) filter (where status not in ('SOLD', 'WITHDRAWN') and store_price_minor is null)::int as missing_store_price,
-            count(*) filter (where status not in ('SOLD', 'WITHDRAWN') and not identity_confirmed)::int as identity_unconfirmed
+            """select count(*) filter (where status in ('DRAFT', 'INSPECTION', 'APPROVED'))::int as total_items,
+            count(*) filter (where status in ('DRAFT', 'INSPECTION', 'APPROVED') and acquisition_cost_minor is null)::int as missing_acquisition_cost,
+            count(*) filter (where status in ('DRAFT', 'INSPECTION', 'APPROVED') and (location is null or btrim(location) = ''))::int as missing_location,
+            count(*) filter (where status in ('DRAFT', 'INSPECTION', 'APPROVED') and store_price_minor is null)::int as missing_store_price,
+            count(*) filter (where status in ('DRAFT', 'INSPECTION', 'APPROVED') and not identity_confirmed)::int as identity_unconfirmed
             from tcg.inventory_items where owner_id = $1""", owner["id"],
         )
         result = dict(counts)
