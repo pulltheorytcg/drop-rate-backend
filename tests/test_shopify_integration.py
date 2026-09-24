@@ -7,7 +7,9 @@ from pathlib import Path
 
 from app.shopify import (
     INITIAL_WEBHOOK_TOPICS,
+    SHOPIFY_WEBHOOK_TOPIC_ENUMS,
     _resource_id,
+    plan_webhook_registration,
     verify_shopify_hmac,
 )
 from app.shopify_client import ShopifyAdminClient
@@ -105,3 +107,98 @@ def test_shopify_router_is_wired_and_publishing_has_no_mutation_path() -> None:
     assert "app.include_router(shopify_router)" in main
     assert 'shopify-settings.js' in main
     assert "productCreate" not in source
+
+
+def test_shopify_webhook_topic_mapping_matches_expected_api_enums() -> None:
+    assert SHOPIFY_WEBHOOK_TOPIC_ENUMS == {
+        "orders/paid": "ORDERS_PAID",
+        "orders/cancelled": "ORDERS_CANCELLED",
+        "refunds/create": "REFUNDS_CREATE",
+        "app/uninstalled": "APP_UNINSTALLED",
+    }
+
+
+def test_webhook_registration_plan_is_idempotent_for_exact_subscriptions() -> None:
+    endpoint = "https://drop-rate.example/api/v1/shopify/webhooks"
+    existing = [
+        {"id": f"gid://shopify/WebhookSubscription/{index}", "topic": topic, "uri": endpoint}
+        for index, topic in enumerate(SHOPIFY_WEBHOOK_TOPIC_ENUMS.values(), start=1)
+    ]
+    present, missing, conflicts = plan_webhook_registration(existing, endpoint)
+    assert len(present) == 4
+    assert missing == []
+    assert conflicts == []
+
+
+def test_webhook_registration_plan_creates_only_missing_topics() -> None:
+    endpoint = "https://drop-rate.example/api/v1/shopify/webhooks"
+    existing = [
+        {
+            "id": "gid://shopify/WebhookSubscription/1",
+            "topic": "ORDERS_PAID",
+            "uri": endpoint,
+        }
+    ]
+    present, missing, conflicts = plan_webhook_registration(existing, endpoint)
+    assert [item["shopify_topic"] for item in present] == ["ORDERS_PAID"]
+    assert {topic for _, topic in missing} == {
+        "ORDERS_CANCELLED",
+        "REFUNDS_CREATE",
+        "APP_UNINSTALLED",
+    }
+    assert conflicts == []
+
+
+def test_webhook_registration_plan_fails_closed_on_wrong_endpoint() -> None:
+    endpoint = "https://drop-rate.example/api/v1/shopify/webhooks"
+    existing = [
+        {
+            "id": "gid://shopify/WebhookSubscription/1",
+            "topic": "ORDERS_PAID",
+            "uri": "https://old.example/webhooks",
+        }
+    ]
+    present, missing, conflicts = plan_webhook_registration(existing, endpoint)
+    assert present == []
+    assert ("orders/paid", "ORDERS_PAID") not in missing
+    assert conflicts == [
+        {
+            "topic": "orders/paid",
+            "shopify_topic": "ORDERS_PAID",
+            "existing": [
+                {
+                    "subscription_id": "gid://shopify/WebhookSubscription/1",
+                    "uri": "https://old.example/webhooks",
+                }
+            ],
+        }
+    ]
+
+
+def test_webhook_registration_plan_fails_closed_on_duplicate_exact_subscription() -> None:
+    endpoint = "https://drop-rate.example/api/v1/shopify/webhooks"
+    existing = [
+        {"id": "gid://shopify/WebhookSubscription/1", "topic": "ORDERS_PAID", "uri": endpoint},
+        {"id": "gid://shopify/WebhookSubscription/2", "topic": "ORDERS_PAID", "uri": endpoint},
+    ]
+    present, missing, conflicts = plan_webhook_registration(existing, endpoint)
+    assert present == []
+    assert ("orders/paid", "ORDERS_PAID") not in missing
+    assert len(conflicts) == 1
+
+
+def test_webhook_registration_is_founder_scoped_and_reverifies_remote_state() -> None:
+    source = SHOPIFY.read_text()
+    assert '@router.post("/webhooks/register")' in source
+    assert 'owner["role"] != "FOUNDER"' in source
+    assert "plan_webhook_registration(existing, endpoint)" in source
+    assert "verified = await client.list_webhook_subscriptions()" in source
+    assert "Shopify webhook registration could not be verified" in source
+
+
+def test_shopify_client_lists_and_creates_webhook_subscriptions() -> None:
+    source = CLIENT.read_text()
+    assert "async def list_webhook_subscriptions" in source
+    assert "webhookSubscriptions(first: $first, after: $after)" in source
+    assert "async def create_webhook_subscription" in source
+    assert "webhookSubscriptionCreate" in source
