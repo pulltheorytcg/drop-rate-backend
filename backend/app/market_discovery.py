@@ -215,6 +215,7 @@ async def _discover_tcgplayer(
         item = _candidate(
             source="TCGPLAYER",
             source_product_id=product_id,
+            source_variant_id=catalogue.get("variant"),
             name=row.get("name"),
             set_name=row.get("set_name"),
             card_number=row.get("card_number") or row.get("number"),
