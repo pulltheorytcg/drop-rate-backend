@@ -288,12 +288,15 @@ async function discoverMarketSource(source) {
 }
 
 function previewItemMeta(item) {
-  const physical = item.grade
-    ? `${item.grading_company || "Graded"} ${item.grade}`
-    : (item.condition || item.seal_status || "Physical state incomplete");
+  const physical = [
+    item.condition ? `Condition: ${item.condition}` : null,
+    item.grade ? `Grading: ${item.grading_company || "Graded"} ${item.grade}` : null,
+    item.seal_status ? `Seal: ${item.seal_status === "SEALED" ? "Sealed" : "Unsealed"}` : null,
+  ].filter(Boolean);
   return [
     item.inventory_code,
-    physical,
+    ...physical,
+    physical.length ? null : "Physical state incomplete",
     item.language,
     item.identity_confirmed ? "identity confirmed" : "identity unconfirmed",
     item.status,
@@ -311,13 +314,16 @@ function renderEvidenceSources(container, sources) {
 
     (source.evidence_sample || []).forEach((evidence) => {
       const row = document.createElement("small");
-      const physical = evidence.grade
-        ? `${evidence.grading_company || "Graded"} ${evidence.grade}`
-        : (evidence.condition || evidence.seal_status || "condition unspecified");
+      const physical = [
+        evidence.condition ? `Condition: ${evidence.condition}` : null,
+        evidence.grade ? `Grading: ${evidence.grading_company || "Graded"} ${evidence.grade}` : null,
+        evidence.seal_status ? `Seal: ${evidence.seal_status === "SEALED" ? "Sealed" : "Unsealed"}` : null,
+      ].filter(Boolean);
       row.textContent = [
         evidence.observation_type,
         money(evidence.price_gbp_minor),
-        physical,
+        ...physical,
+        physical.length ? null : "physical state unspecified",
         evidence.language,
         evidence.source_country,
         evidence.sample_size > 1 ? `sample ${evidence.sample_size}` : null,
