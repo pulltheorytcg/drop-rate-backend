@@ -44,6 +44,26 @@ def _pricing_policy(row: dict[str, Any] | None) -> PricingPolicy:
     )
 
 
+def _evidence_sample(item: NormalizedMarketObservation) -> dict[str, Any]:
+    """Expose only normalized, decision-useful evidence to the diagnostic UI."""
+
+    return {
+        "source": item.source,
+        "observation_type": item.observation_type,
+        "observed_at": item.observed_at,
+        "price_gbp_minor": item.price_gbp_minor,
+        "shipping_gbp_minor": item.shipping_gbp_minor,
+        "condition": item.condition,
+        "grading_company": item.grading_company,
+        "grade": item.grade,
+        "language": item.language,
+        "seal_status": item.seal_status,
+        "source_country": item.source_country,
+        "sample_size": item.sample_size,
+        "evidence_quality": item.evidence_quality,
+    }
+
+
 def _pricing_observation(item: NormalizedMarketObservation) -> MarketObservation:
     return MarketObservation(
         source=item.source,
@@ -200,12 +220,14 @@ async def preview_inventory_price(
         )
         accepted_count = 0
         errors: list[dict[str, Any]] = []
+        source_observations: list[NormalizedMarketObservation] = []
         for mapping_result in mapping_results:
             if mapping_result["error"] is not None:
                 errors.append(mapping_result["error"])
                 continue
             observations = mapping_result["observations"]
             normalized.extend(observations)
+            source_observations.extend(observations)
             accepted_count += len(observations)
 
         source_results.append(
@@ -215,6 +237,14 @@ async def preview_inventory_price(
                 "fetched_count": fetched_count,
                 "observation_count": accepted_count,
                 "errors": errors,
+                "evidence_sample": [
+                    _evidence_sample(observation)
+                    for observation in sorted(
+                        source_observations,
+                        key=lambda observation: observation.observed_at,
+                        reverse=True,
+                    )[:8]
+                ],
             }
         )
 
