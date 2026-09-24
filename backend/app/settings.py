@@ -52,6 +52,17 @@ def _shopify_api_version(name: str, default: str) -> str:
     return value
 
 
+def _https_endpoint(name: str) -> str | None:
+    value = _optional(name)
+    if value is None:
+        return None
+    if not value.startswith("https://"):
+        raise RuntimeError(f"{name} must be an https:// URL")
+    if "?" in value or "#" in value:
+        raise RuntimeError(f"{name} must not include query parameters or fragments")
+    return value.rstrip("/")
+
+
 def _boolean(name: str, default: bool = False) -> bool:
     raw = os.getenv(name)
     if raw is None or not raw.strip():
@@ -86,6 +97,7 @@ class Settings:
     shopify_client_id: str | None = None
     shopify_client_secret: str | None = None
     shopify_api_version: str = "2026-07"
+    shopify_webhook_endpoint: str | None = None
     shopify_publish_enabled: bool = False
 
     @classmethod
@@ -118,6 +130,7 @@ class Settings:
             shopify_client_id=_optional("TCG_SHOPIFY_CLIENT_ID"),
             shopify_client_secret=_optional("TCG_SHOPIFY_CLIENT_SECRET"),
             shopify_api_version=_shopify_api_version("TCG_SHOPIFY_API_VERSION", "2026-07"),
+            shopify_webhook_endpoint=_https_endpoint("TCG_SHOPIFY_WEBHOOK_ENDPOINT"),
             shopify_publish_enabled=_boolean("TCG_SHOPIFY_PUBLISH_ENABLED", False),
         )
 
