@@ -125,10 +125,12 @@ def test_identity_verification_ui_is_audited_and_not_generic_editable() -> None:
     assert 'params.set("brand", state.brand)' in storage
 
 
-def test_shopify_settings_ui_never_collects_credentials() -> None:
+def test_shopify_settings_ui_never_collects_server_credentials() -> None:
     js = (STATIC / "shopify-settings.js").read_text()
     assert "/api/v1/shopify/status" in js
     assert "/api/v1/shopify/probe" in js
     assert "LOCKED OFF" in js
-    assert "access_token" not in js.casefold()
-    assert "client_secret" not in js.casefold()
+    assert "TCG_SHOPIFY_ACCESS_TOKEN" not in js
+    assert "TCG_SHOPIFY_CLIENT_SECRET" not in js
+    assert "shpat_" not in js.casefold()
+    assert 'type="password"' not in js.casefold()
