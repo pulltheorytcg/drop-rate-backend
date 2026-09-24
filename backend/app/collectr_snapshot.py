@@ -6,6 +6,8 @@ import re
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any
 
+from .language import clean_language, parse_title_language
+
 
 _GRADE_RE = re.compile(r"^(PSA|ACE|CGC|BGS|BECKETT)\s+([0-9]+(?:\.[0-9]+)?)\b", re.IGNORECASE)
 
@@ -74,19 +76,22 @@ def collectr_cost_minor(value: str | None) -> tuple[int | None, list[str]]:
 
 
 def collectr_snapshot_key(normalized: dict[str, Any]) -> tuple[str, ...]:
+    legacy_name, title_language = parse_title_language(normalized.get("name"))
+    language = clean_language(normalized.get("language")) or title_language
     return tuple(
-        normalise_text(normalized.get(field))
-        for field in (
-            "product_type",
-            "game",
-            "set_name",
-            "name",
-            "card_number",
-            "rarity",
-            "variant",
-            "grading_company",
-            "grade",
-            "condition",
+        normalise_text(value)
+        for value in (
+            normalized.get("product_type"),
+            normalized.get("game"),
+            normalized.get("set_name"),
+            legacy_name,
+            normalized.get("card_number"),
+            normalized.get("rarity"),
+            normalized.get("variant"),
+            normalized.get("grading_company"),
+            normalized.get("grade"),
+            normalized.get("condition"),
+            language,
         )
     )
 
