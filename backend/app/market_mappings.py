@@ -306,6 +306,29 @@ async def _decide_mapping(
     if current["version"] != payload.expected_version:
         raise HTTPException(status_code=409, detail="Mapping version conflict")
 
+    if (
+        status == "VERIFIED"
+        and current["source"] == "CARDMARKET"
+        and str(current["game"]).strip().casefold() == "pokemon"
+    ):
+        provider_variant = str(current["source_variant_id"] or "").strip().casefold()
+        catalogue_variant = str(current["variant"] or "").strip().casefold()
+        aliases = {
+            "reverse holo": "reverse holofoil",
+            "reverse": "reverse holofoil",
+        }
+        provider_variant = aliases.get(provider_variant, provider_variant)
+        if not provider_variant:
+            raise HTTPException(
+                status_code=409,
+                detail="Cardmarket Pokemon mapping requires a provider variant before verification",
+            )
+        if provider_variant != catalogue_variant:
+            raise HTTPException(
+                status_code=409,
+                detail="Cardmarket provider variant does not match the catalogue variant",
+            )
+
     metadata = _decision_metadata(
         dict(current["metadata"] or {}),
         action=status,
