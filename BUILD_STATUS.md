@@ -178,16 +178,16 @@ Important conclusions:
 Production checkpoint on 24 September 2026:
 
 - physical inventory items: **509**
-- status: **509 DRAFT**
+- status: **508 DRAFT / 1 APPROVED**
 - unknown acquisition cost: **0**
 - missing condition: **10**
-- missing storage location: **508** (Baltoy test candidate is assigned to `ROOM-BOX`)
-- missing Store Price: **509**
-- identity not yet confirmed: **509**
+- missing storage location: **507** (Baltoy is in `ROOM-BOX`; approved Seel test candidate is in `ROOM-BOX/BINDER-01`)
+- missing Store Price: **508**
+- identity not yet confirmed: **508**
 - missing owner: **0**
 - missing catalogue reference: **0**
 - duplicate Inventory IDs: **0**
-- language: **0 English / 96 Japanese / 413 unknown/review required**
+- language: **1 English / 96 Japanese / 412 unknown/review required**
 - portfolio acquisition cost basis: **£951.83 total (£1.87 per physical unit)**
 - largest known cleanup group: **178 Phantasmal Flames items**
 
@@ -205,6 +205,18 @@ The unsupported English backfill was therefore rolled back fail-closed:
 - Shopify links/listings/reservations remained **0** throughout the correction
 
 The first physical test candidate, Baltoy `INV-041416049F4249C6BB29A846E29DDC37`, remains **DRAFT**. Near Mint condition and physical location `ROOM-BOX` are retained, but identity confirmation was revoked after the imported `Ninja Spinner 046/083 + English` combination failed external identity validation. Its Store Price remains NULL and it has not been published to Shopify.
+
+The controlled Shopify candidate is now Seel `INV-06F489A853594CDC80E418271933D044`:
+- canonical identity: **Seel / Phantasmal Flames / 021/094 / Normal / English**
+- physical condition: **Near Mint**
+- registered storage: **ROOM-BOX/BINDER-01**
+- acquisition cost: **£1.87**
+- manual controlled-test Store Price: **£0.49**
+- status: **APPROVED**
+- identity confirmation: **physically verified**
+- current inventory version: **6**
+- this is the **only APPROVED inventory item**
+- Shopify link still absent; no external product has been created yet
 
 ## Supabase live checkpoint
 
@@ -321,7 +333,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 8. **Supabase leaked-password protection:** enable manually before launch.
 9. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
 10. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
-11. **Operational inventory cleanup:** 413 language reviews, identities, 508 remaining registered-storage assignments, the remaining 10 conditions and Store Prices. Current acquisition costs are populated; future unknown costs must still remain NULL.
+11. **Operational inventory cleanup:** 412 remaining language reviews, 508 unconfirmed identities, 507 remaining registered-storage assignments, the remaining 10 conditions and 508 Store Prices. Current acquisition costs are populated; future unknown costs must still remain NULL.
 
 ## Milestone 1 checklist
 
@@ -372,12 +384,12 @@ These are **not blockers to the current backend foundation**, but remain explici
 ## Immediate work order
 
 ### Next session — inventory operations + controlled verification
-1. Select a low-risk first-sale card with externally validated canonical identity.
-2. Physically confirm its language, card identity, condition and registered storage location.
-3. Resolve the remaining **10 missing conditions** as inventory is reviewed.
-4. Assign a deliberate Store Price only after trusted market evidence is checked.
-5. Move the genuinely ready test item through approval.
-6. Run the complete single-item Shopify sale test through order/webhook/duplicate/refund paths and verify exact Inventory ID attribution plus the owner/finance ledger.
+1. ✅ Seel 021/094 selected, physically verified, priced and moved to APPROVED.
+2. Verify the live Shopify test-publish flag is ON and bulk publish flag is OFF through the authenticated app/runtime.
+3. Publish only Seel `INV-06F489A853594CDC80E418271933D044` through the guarded single-item test path.
+4. Execute one controlled checkout/order and verify webhook signature + duplicate delivery handling.
+5. Verify exact Inventory ID → owner attribution, COGS snapshot and owner/finance ledger.
+6. Execute cancellation/refund/return test and verify state restoration + audit trail.
 
 ### Next major engineering milestone — Shopify
 Build the complete controlled sale loop:
