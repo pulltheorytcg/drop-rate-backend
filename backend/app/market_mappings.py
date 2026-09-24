@@ -312,9 +312,12 @@ async def _decide_mapping(
         user_id=user_id,
         reason=payload.reason,
     )
-    confidence = payload.match_confidence if status == "VERIFIED" else 0.0
-    row = await connection.fetchrow(
-        """
+    # VERIFIED is a binary human trust decision: if identity is still uncertain,
+    # leave the mapping in REVIEW rather than passing uncertain evidence downstream.
+    confidence = 1.0 if status == "VERIFIED" else 0.0
+    try:
+        row = await connection.fetchrow(
+            """
         update tcg.market_source_mappings
         set match_status = $2,
             match_confidence = $3,
@@ -330,8 +333,13 @@ async def _decide_mapping(
         status,
         confidence,
         json.dumps(metadata),
-        payload.expected_version,
-    )
+            payload.expected_version,
+        )
+    except asyncpg.UniqueViolationError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="A VERIFIED mapping already exists for this catalogue product and source",
+        ) from exc
     if row is None:
         raise HTTPException(status_code=409, detail="Mapping changed during review")
     return dict(await _mapping_row(connection, mapping_id))

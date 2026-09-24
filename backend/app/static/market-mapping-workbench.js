@@ -4,6 +4,7 @@ const marketMappingState = {
   catalogue: null,
   mappings: [],
   candidates: [],
+  previewItems: [],
   source: null,
 };
 
@@ -88,6 +89,7 @@ async function loadMarketMappings() {
     );
     marketMappingState.mappings = data.items || [];
     renderMarketMappings();
+    await loadPricingPreviewItems();
   } catch (error) {
     container.textContent = error.message;
   }
@@ -268,6 +270,120 @@ async function discoverMarketSource(source) {
   }
 }
 
+function previewItemMeta(item) {
+  const physical = item.grade
+    ? `${item.grading_company || "Graded"} ${item.grade}`
+    : (item.condition || item.seal_status || "Physical state incomplete");
+  return [
+    item.inventory_code,
+    physical,
+    item.language,
+    item.identity_confirmed ? "identity confirmed" : "identity unconfirmed",
+    item.status,
+  ].filter(Boolean).join(" · ");
+}
+
+function renderPricingPreviewResult(container, data) {
+  container.replaceChildren();
+  const headline = document.createElement("strong");
+  const details = document.createElement("small");
+
+  if (data.status !== "PREVIEW" || !data.pricing) {
+    headline.textContent = "Preview blocked safely";
+    details.textContent = [
+      ...(data.block_reasons || []),
+      ...(data.warnings || []),
+    ].join(" · ") || "No comparable live evidence was available.";
+    container.append(headline, details);
+    return;
+  }
+
+  const pricing = data.pricing;
+  headline.textContent =
+    `${money(pricing.market_value_minor)} market · ${money(pricing.recommended_retail_minor)} retail`;
+  details.textContent = [
+    `${money(pricing.quick_sale_minor)} quick sale`,
+    `${money(pricing.target_acquisition_minor)} target acquisition`,
+    `${Math.round(Number(pricing.confidence || 0) * 100)}% confidence`,
+    `${pricing.source_count} sources`,
+    `${pricing.observation_count} comparable observations`,
+    ...(data.warnings || []),
+    ...(pricing.engine_block_reasons || []),
+  ].join(" · ");
+  container.append(headline, details);
+}
+
+async function runPricingPreview(item, button, resultNode) {
+  button.disabled = true;
+  button.dataset.label ||= button.textContent;
+  button.textContent = "Calculating…";
+  resultNode.textContent = "Fetching live evidence and running the deterministic pricing engine…";
+  try {
+    const data = await apiRequest(`/api/v1/pricing/preview/${item.id}`, {method: "POST"});
+    renderPricingPreviewResult(resultNode, data);
+  } catch (error) {
+    resultNode.textContent = error.message;
+  } finally {
+    button.disabled = false;
+    button.textContent = button.dataset.label;
+  }
+}
+
+function renderPricingPreviewItems() {
+  const container = byId("market-pricing-preview-items");
+  if (!container) return;
+  container.replaceChildren();
+
+  if (!marketMappingState.previewItems.length) {
+    container.textContent = "No active physical inventory copies reference this catalogue card.";
+    return;
+  }
+
+  const hasVerified = marketMappingState.mappings.some((mapping) => mapping.match_status === "VERIFIED");
+
+  marketMappingState.previewItems.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "allocation-row";
+
+    const details = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = item.inventory_code;
+    const meta = document.createElement("small");
+    meta.textContent = previewItemMeta(item);
+    const result = document.createElement("small");
+    result.textContent = hasVerified
+      ? "Nothing will be saved. Run a live diagnostic preview when ready."
+      : "Verify at least one provider mapping before previewing.";
+    details.append(title, meta, result);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost-button";
+    button.textContent = "Preview live price";
+    button.disabled = !hasVerified;
+    button.addEventListener("click", () => runPricingPreview(item, button, result));
+
+    row.append(details, button);
+    container.append(row);
+  });
+}
+
+async function loadPricingPreviewItems() {
+  const container = byId("market-pricing-preview-items");
+  if (!container || !marketMappingState.catalogue) return;
+  container.textContent = "Loading physical copies…";
+  try {
+    const data = await apiRequest(
+      `/api/v1/pricing/preview-items/${encodeURIComponent(marketMappingState.catalogue.id)}`,
+    );
+    marketMappingState.previewItems = data.items || [];
+    renderPricingPreviewItems();
+  } catch (error) {
+    marketMappingState.previewItems = [];
+    container.textContent = error.message;
+  }
+}
+
 async function selectMarketCatalogue(item) {
   marketMappingState.catalogue = item;
   marketMappingState.candidates = [];
@@ -317,6 +433,14 @@ function installMarketMappingWorkbench() {
       <div id="market-mapping-existing" class="allocation-list"></div>
       <div class="page-heading pricing-subheading"><div><p class="eyebrow">Discovery</p><h3>Provider candidates</h3></div></div>
       <div id="market-mapping-candidates" class="allocation-list"></div>
+      <div class="page-heading pricing-subheading">
+        <div>
+          <p class="eyebrow">End-to-end validation</p>
+          <h3>Diagnostic pricing preview</h3>
+          <p class="muted">Uses the selected card's VERIFIED mappings and a real physical inventory copy. Live evidence is normalized and priced in memory only: no observations, snapshots, Market Value or Store Price are saved.</p>
+        </div>
+      </div>
+      <div id="market-pricing-preview-items" class="allocation-list"><p class="muted">Select a catalogue card to load physical copies.</p></div>
     </div>`;
 
   settings.append(panel);
