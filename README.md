@@ -118,3 +118,8 @@ Reservations snapshot the physical owner, acquisition cost, listing price, owner
 The old single-item Shopify test path and the pooled listing path are mutually exclusive for the same Inventory ID. This prevents one physical card from being simultaneously exposed through two independent inventory-control paths.
 
 The current implementation keeps Shopify bulk publishing disabled. The listing/reservation engine is the future allocation foundation; Shopify migration to listing-level quantities should happen only after the reservation engine has been verified with controlled test inventory.
+
+
+Marketplace mutations use a dedicated immutable `tcg.marketplace_audit_events` ledger rather than weakening the existing privileged global audit trigger. The application role can insert/read its authorized audit events but cannot update or delete them.
+
+Language is now part of inventory approval readiness. Physical stock cannot become APPROVED, and therefore cannot join a pooled sellable listing, until its language is explicitly recorded. This is required to prevent visually similar but non-equivalent language variants from sharing storefront quantity.
