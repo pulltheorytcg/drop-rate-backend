@@ -89,7 +89,8 @@ def test_shopify_admin_client_mints_and_caches_client_credentials_token() -> Non
     assert '"client_secret": self._client_secret' in source
     assert '"X-Shopify-Access-Token": token' in source
     assert "_token_expires_at" in source
-    assert "productCreate" not in source
+    assert "async def create_product" in source
+    assert "async def set_inventory_quantity" in source
     client = ShopifyAdminClient(
         shop_domain="drop-rate.myshopify.com",
         client_id="client-id",
