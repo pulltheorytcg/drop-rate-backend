@@ -118,10 +118,10 @@ def test_single_item_sync_requires_all_local_sellability_gates() -> None:
     assert '"single-item-test"' in source
 
 
-def test_single_item_sync_returns_safe_gateway_error_for_shopify_failures() -> None:
-    source = PIPELINE.read_text()
+def test_shopify_api_failures_return_safe_gateway_response() -> None:
+    source = MAIN.read_text()
     assert "except ShopifyApiError as exc:" in source
-    assert '"message": "Shopify test sync failed"' in source
+    assert '"detail": "Shopify operation failed"' in source
     assert '"retryable": exc.retryable' in source
     assert "status_code=502" in source
 
