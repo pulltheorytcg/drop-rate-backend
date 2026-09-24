@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import router
 from .db import create_pool
 from .finance import router as finance_router
+from .founder_onboarding import router as founder_onboarding_router
 from .imports import router as imports_router
 from .import_review import router as import_review_router
 from .inventory_intake import router as inventory_intake_router
@@ -166,6 +167,10 @@ def create_app() -> FastAPI:
     async def dashboard() -> HTMLResponse:
         return HTMLResponse(_dashboard_html())
 
+    @app.get("/join", include_in_schema=False)
+    async def founder_join() -> HTMLResponse:
+        return HTMLResponse((STATIC_DIR / "join.html").read_text(encoding="utf-8"))
+
     @app.get("/api/v1/public-config", include_in_schema=False)
     async def public_config() -> dict:
         return {
@@ -191,6 +196,7 @@ def create_app() -> FastAPI:
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(router)
     app.include_router(finance_router)
+    app.include_router(founder_onboarding_router)
     app.include_router(refunds_router)
     app.include_router(pricing_router)
     app.include_router(pricing_preview_router)
