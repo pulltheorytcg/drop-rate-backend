@@ -33,6 +33,7 @@ from .purchase_lots import router as purchase_lots_router
 from .refunds import router as refunds_router
 from .settings import get_settings
 from .shopify import router as shopify_router
+from .shopify_client import ShopifyApiError
 from .shopify_pipeline import router as shopify_pipeline_router
 from .storage_locations import router as storage_locations_router
 
@@ -151,6 +152,15 @@ def create_app() -> FastAPI:
                 response = await call_next(request)
             except asyncpg.PostgresError as exc:
                 response = _database_error_response(exc, request_id)
+            except ShopifyApiError as exc:
+                response = JSONResponse(
+                    status_code=502,
+                    content={
+                        "detail": "Shopify operation failed",
+                        "retryable": exc.retryable,
+                        "request_id": request_id,
+                    },
+                )
             except Exception:
                 response = JSONResponse(
                     status_code=500,
