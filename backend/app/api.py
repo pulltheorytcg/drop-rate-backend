@@ -57,6 +57,7 @@ READY_SQL = f"""
     i.acquisition_cost_minor is not null
     and ({PHYSICAL_STATE_READY_SQL})
     and i.location is not null and btrim(i.location) <> ''
+    and i.language is not null and btrim(i.language) <> ''
     and i.store_price_minor is not null
     and i.identity_confirmed
     and {ACTIVE_INVENTORY_SQL}
@@ -73,6 +74,7 @@ ISSUE_FILTERS = {
         and p.product_type <> 'CARD'
         and i.seal_status is null""",
     "missing_location": f"({ACTIVE_INVENTORY_SQL}) and (i.location is null or btrim(i.location) = '')",
+    "missing_language": f"({ACTIVE_INVENTORY_SQL}) and (i.language is null or btrim(i.language) = '')",
     "missing_price": f"({ACTIVE_INVENTORY_SQL}) and i.store_price_minor is null",
     "identity_unconfirmed": f"({ACTIVE_INVENTORY_SQL}) and not i.identity_confirmed",
     "approval_ready": f"i.status in ('DRAFT', 'INSPECTION') and ({READY_SQL})",
@@ -113,6 +115,7 @@ async def inventory_readiness(
                 count(*) filter (where {ISSUE_FILTERS['missing_condition']})::int as missing_condition,
                 count(*) filter (where {ISSUE_FILTERS['missing_seal_status']})::int as missing_seal_status,
                 count(*) filter (where {ISSUE_FILTERS['missing_location']})::int as missing_location,
+                count(*) filter (where {ISSUE_FILTERS['missing_language']})::int as missing_language,
                 count(*) filter (where {ISSUE_FILTERS['missing_price']})::int as missing_price,
                 count(*) filter (where {ISSUE_FILTERS['identity_unconfirmed']})::int as identity_unconfirmed,
                 count(*) filter (where i.status = 'APPROVED')::int as approved,
@@ -389,6 +392,7 @@ async def approve_inventory(
         elif item["seal_status"] is None:
             missing.append("seal status")
         if not (item["location"] or "").strip(): missing.append("location")
+        if not (item["language"] or "").strip(): missing.append("language")
         if item["store_price_minor"] is None: missing.append("store price")
         if not item["identity_confirmed"]: missing.append("identity confirmation")
         if item["status"] == "WITHDRAWN": missing.append("active status")
