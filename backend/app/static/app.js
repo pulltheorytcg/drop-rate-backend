@@ -304,19 +304,36 @@ function openEditor(item) {
   byId("edit-grading-company").value = item.grading_company || "";
   byId("edit-grade").value = item.grade || "";
   byId("edit-certificate").value = item.certificate_number || "";
-  byId("edit-status").value = item.status === "APPROVED" ? "DRAFT" : item.status;
-  byId("edit-status").disabled = item.status === "APPROVED";
+  const workflowLocked = ["RESERVED", "SOLD"].includes(item.status);
+  byId("edit-status").value = item.status;
+  byId("edit-status").disabled = item.status === "APPROVED" || workflowLocked;
   byId("edit-notes").value = item.notes || "";
   byId("edit-identity").checked = item.identity_confirmed;
   byId("edit-identity").disabled = true;
-  byId("approve-button").disabled = item.status === "APPROVED";
-  byId("approve-button").textContent = item.status === "APPROVED" ? "Already approved" : "Approve stock";
-  showMessage("editor-message");
+  byId("approve-button").disabled = item.status === "APPROVED" || workflowLocked;
+  byId("approve-button").textContent =
+    item.status === "APPROVED" ? "Already approved" :
+    item.status === "RESERVED" ? "Reserved for order" :
+    item.status === "SOLD" ? "Sold" : "Approve stock";
+  const saveButton = byId("editor-form").querySelector('button[type="submit"]');
+  if (saveButton) saveButton.disabled = workflowLocked;
+  showMessage(
+    "editor-message",
+    workflowLocked
+      ? (item.status === "RESERVED"
+          ? "This physical item is reserved for an order. Release or consume its reservation before editing it."
+          : "Sold inventory is historical and cannot be edited.")
+      : ""
+  );
   byId("editor-dialog").showModal();
 }
 async function saveEditor(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  if (["RESERVED", "SOLD"].includes(state.editing?.status)) {
+    showMessage("editor-message", "Reserved or sold inventory cannot be edited here.", "error");
+    return;
+  }
   setBusy(form, true);
   showMessage("editor-message");
   try {
