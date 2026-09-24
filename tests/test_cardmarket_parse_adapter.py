@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.cardmarket_parse_adapter import CardmarketParseAdapter, _pokemon_listing_matches_variant
+from app.cardmarket_parse_adapter import CardmarketParseAdapter, _normalise_cardmarket_condition, _pokemon_listing_matches_variant
 from app.fx import FxQuote
 
 
@@ -107,7 +107,7 @@ async def test_pokemon_uses_variant_safe_active_offers_only() -> None:
     assert active.observation_type == "ACTIVE"
     assert active.price_minor == 12550
     assert active.price_gbp_minor == 10668
-    assert active.condition == "NM"
+    assert active.condition == "Near Mint"
     assert active.language == "English"
     assert active.metadata["listing_id"] == "123456789"
     assert active.metadata["listing_quantity"] == 2
@@ -115,11 +115,24 @@ async def test_pokemon_uses_variant_safe_active_offers_only() -> None:
     assert active.metadata["fx_source"] == "TEST_ECB"
 
 
-def test_pokemon_listing_variant_filter_separates_reverse_holo() -> None:
-    assert _pokemon_listing_matches_variant(["English", "Holo"], "Normal") is True
+def test_pokemon_listing_variant_filter_separates_all_supported_finishes() -> None:
+    assert _pokemon_listing_matches_variant(["English"], "Normal") is True
+    assert _pokemon_listing_matches_variant(["English", "Holo"], "Normal") is False
     assert _pokemon_listing_matches_variant(["English", "Reverse Holo"], "Normal") is False
+
+    assert _pokemon_listing_matches_variant(["English", "Holo"], "Holofoil") is True
+    assert _pokemon_listing_matches_variant(["English"], "Holofoil") is False
+    assert _pokemon_listing_matches_variant(["English", "Reverse Holo"], "Holofoil") is False
+
     assert _pokemon_listing_matches_variant(["English", "Reverse Holo"], "Reverse Holofoil") is True
     assert _pokemon_listing_matches_variant(["English", "Holo"], "Reverse Holofoil") is False
+
+
+def test_cardmarket_condition_normalisation_is_conservative() -> None:
+    assert _normalise_cardmarket_condition("NM") == "Near Mint"
+    assert _normalise_cardmarket_condition("Near Mint") == "Near Mint"
+    assert _normalise_cardmarket_condition("EX") == "EX"
+    assert _normalise_cardmarket_condition(None) is None
 
 
 @pytest.mark.asyncio
