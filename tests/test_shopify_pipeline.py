@@ -225,6 +225,45 @@ def test_cancel_releases_reservation_without_writing_unpaid_finance_order() -> N
     assert "ORDER_ALREADY_CANCELLED" in created
 
 
+def test_out_of_order_shopify_webhooks_resolve_owner_before_order_lookup() -> None:
+    source = PIPELINE.read_text()
+    scope_start = source.index("async def _resolve_order_owner_scope(")
+    scope_end = source.index("async def _select_order_units(", scope_start)
+    scope = source[scope_start:scope_end]
+    assert "sync_state in ('PUBLISHED','SOLD')" in scope
+
+    create_start = source.index("async def _process_created_order(")
+    create_end = source.index("async def _process_paid_order(", create_start)
+    created = source[create_start:create_end]
+    assert created.index("_resolve_order_owner_scope(") < created.index(
+        "select id,status from tcg.orders"
+    )
+    assert created.index("set_config('tcg.user_id'") < created.index(
+        "select id,status from tcg.orders"
+    )
+    assert "ORDER_ALREADY_FINALIZED" in created
+
+    paid_start = source.index("async def _process_paid_order(")
+    paid_end = source.index("async def _process_cancelled_order(", paid_start)
+    paid = source[paid_start:paid_end]
+    assert paid.index("_resolve_order_owner_scope(") < paid.index(
+        "select id,status from tcg.orders"
+    )
+    assert paid.index("set_config('tcg.user_id'") < paid.index(
+        "select id,status from tcg.orders"
+    )
+    assert "ORDER_ALREADY_RECORDED" in paid
+
+
+def test_failed_webhook_deliveries_remain_retryable() -> None:
+    source = (BACKEND / "shopify.py").read_text()
+    assert 'if event["status"] in {"PROCESSED", "IGNORED"}:' in source
+    assert "FAILED" not in source[
+        source.index('if event["status"] in {"PROCESSED", "IGNORED"}:'):
+        source.index("if initial_status == "IGNORED":")
+    ]
+
+
 def test_paid_order_allocation_is_exact_and_fail_closed() -> None:
     source = PIPELINE.read_text()
     assert "where sil.owner_id=$1" in source
