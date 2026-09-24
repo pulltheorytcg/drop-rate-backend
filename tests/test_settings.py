@@ -32,3 +32,25 @@ def test_publishable_key_is_required(monkeypatch):
     monkeypatch.delenv("TCG_SUPABASE_PUBLISHABLE_KEY")
     with pytest.raises(RuntimeError, match="TCG_SUPABASE_PUBLISHABLE_KEY"):
         Settings.from_env()
+
+
+def test_ebay_settings_default_to_gb_and_optional_credentials(monkeypatch):
+    _base_env(monkeypatch)
+    monkeypatch.delenv("TCG_EBAY_CLIENT_ID", raising=False)
+    monkeypatch.delenv("TCG_EBAY_CLIENT_SECRET", raising=False)
+    monkeypatch.delenv("TCG_EBAY_MARKETPLACE_ID", raising=False)
+    settings = Settings.from_env()
+    assert settings.ebay_client_id is None
+    assert settings.ebay_client_secret is None
+    assert settings.ebay_marketplace_id == "EBAY_GB"
+
+
+def test_ebay_settings_read_production_credentials(monkeypatch):
+    _base_env(monkeypatch)
+    monkeypatch.setenv("TCG_EBAY_CLIENT_ID", "client")
+    monkeypatch.setenv("TCG_EBAY_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("TCG_EBAY_MARKETPLACE_ID", "EBAY_GB")
+    settings = Settings.from_env()
+    assert settings.ebay_client_id == "client"
+    assert settings.ebay_client_secret == "secret"
+    assert settings.ebay_marketplace_id == "EBAY_GB"
