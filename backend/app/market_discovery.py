@@ -142,6 +142,7 @@ async def _discover_cardmarket(
         item = _candidate(
             source="CARDMARKET",
             source_product_id=url,
+            source_variant_id=catalogue.get("variant"),
             name=row.get("name"),
             set_name=row.get("expansion") or row.get("set_name"),
             card_number=row.get("card_number") or row.get("number"),
