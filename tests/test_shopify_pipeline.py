@@ -8,6 +8,7 @@ from app.shopify_pipeline import (
     _minor,
     _money,
     _product_gid_matches,
+    _title,
     _variant_gid,
 )
 
@@ -163,3 +164,31 @@ def test_shopify_client_has_only_explicit_mutation_primitives() -> None:
         assert f"async def {method}" in source
     assert "inventoryPolicy" in source
     assert '"DENY"' in source
+
+
+def test_shopify_titles_always_show_structured_card_language() -> None:
+    item = {
+        "name": "Eiscue ex",
+        "language": "Japanese",
+        "catalogue_language": None,
+        "card_number": "178",
+        "variant": "Foil",
+        "grading_company": None,
+        "grade": None,
+        "condition": "Near Mint",
+    }
+    assert _title(item) == "Eiscue ex · JP · 178 · Foil · Near Mint"
+
+
+def test_shopify_title_does_not_duplicate_existing_language_tag() -> None:
+    item = {
+        "name": "Eiscue ex (JP)",
+        "language": "Japanese",
+        "catalogue_language": None,
+        "card_number": "178",
+        "variant": "",
+        "grading_company": "PSA",
+        "grade": "10",
+        "condition": None,
+    }
+    assert _title(item) == "Eiscue ex · JP · 178 · PSA 10"
