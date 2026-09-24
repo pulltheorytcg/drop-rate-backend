@@ -440,7 +440,7 @@ async def transition_reservation(
     connection: asyncpg.Connection,
     *,
     reservation_id: UUID,
-    target: Literal["RELEASED", "CONSUMED"],
+    target: Literal["RELEASED", "CONSUMED", "EXPIRED"],
     notes: str,
 ) -> dict[str, object]:
     caller_user_id = await connection.fetchval(
@@ -486,7 +486,7 @@ async def transition_reservation(
         await connection.execute(
             "select set_config('tcg.allow_reserved_transition','on',true)"
         )
-        next_inventory_status = "APPROVED" if target == "RELEASED" else "SOLD"
+        next_inventory_status = "SOLD" if target == "CONSUMED" else "APPROVED"
         updated_item = await connection.fetchrow(
             """
             update tcg.inventory_items
@@ -505,7 +505,7 @@ async def transition_reservation(
                 detail="Physical inventory changed during reservation transition",
             )
 
-        timestamp_column = "released_at" if target == "RELEASED" else "consumed_at"
+        timestamp_column = "consumed_at" if target == "CONSUMED" else "released_at"
         updated_reservation = await connection.fetchrow(
             f"""
             update tcg.inventory_reservations
@@ -660,6 +660,21 @@ async def create_or_join_listing(
                 },
             )
 
+        active_shopify_link = await connection.fetchval(
+            """
+            select exists(
+              select 1 from tcg.shopify_inventory_links
+              where inventory_id=$1 and sync_state in ('DRAFT','PUBLISHED')
+            )
+            """,
+            inventory_id,
+        )
+        if active_shopify_link:
+            raise HTTPException(
+                status_code=409,
+                detail="Inventory already has an active single-item Shopify link; migrate or archive that link before pooling",
+            )
+
         existing_membership = await connection.fetchrow(
             """
             select m.*,l.listing_code,l.status as listing_status,
@@ -725,20 +740,49 @@ async def create_or_join_listing(
             if payload.minimum_sale_price_minor is not None
             else int(item["store_price_minor"])
         )
-        membership = await connection.fetchrow(
+        removed_membership = await connection.fetchrow(
             """
-            insert into tcg.listing_inventory_members(
-              listing_id,inventory_id,owner_id,owner_context_user_id,
-              minimum_sale_price_minor,allocation_priority,state
-            ) values($1,$2,$3,$4,$5,100,'ACTIVE')
-            returning *
+            select *
+            from tcg.listing_inventory_members
+            where listing_id=$1 and inventory_id=$2 and owner_id=$3 and state='REMOVED'
+            for update
             """,
             listing["id"],
             inventory_id,
             owner["id"],
-            user.user_id,
-            minimum,
         )
+        if removed_membership is not None:
+            membership = await connection.fetchrow(
+                """
+                update tcg.listing_inventory_members
+                set state='ACTIVE',
+                    minimum_sale_price_minor=$2,
+                    owner_context_user_id=$3,
+                    eligible_since=clock_timestamp(),
+                    version=version+1,
+                    updated_at=clock_timestamp()
+                where id=$1
+                returning *
+                """,
+                removed_membership["id"],
+                minimum,
+                user.user_id,
+            )
+        else:
+            membership = await connection.fetchrow(
+                """
+                insert into tcg.listing_inventory_members(
+                  listing_id,inventory_id,owner_id,owner_context_user_id,
+                  minimum_sale_price_minor,allocation_priority,state
+                ) values($1,$2,$3,$4,$5,100,'ACTIVE')
+                returning *
+                """,
+                listing["id"],
+                inventory_id,
+                owner["id"],
+                user.user_id,
+                minimum,
+            )
         pool = await pool_state(
             connection,
             listing_id=listing["id"],
@@ -927,6 +971,49 @@ async def create_test_reservation(
             "status": "RESERVED",
             "quantity": len(reservations),
             "reservations": reservations,
+        })
+
+
+@router.post("/reservations/expire-due")
+async def expire_due_reservations(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _require_founder(connection)
+        rows = await connection.fetch(
+            """
+            select r.id
+            from tcg.inventory_reservations r
+            join tcg.sellable_listings l on l.id=r.listing_id
+            where l.managed_by_owner_id=$1
+              and r.status='ACTIVE'
+              and r.expires_at is not null
+              and r.expires_at <= clock_timestamp()
+            order by r.expires_at,r.id
+            limit $2
+            for update of r skip locked
+            """,
+            owner["id"],
+            limit,
+        )
+        expired = []
+        for row in rows:
+            result = await transition_reservation(
+                connection,
+                reservation_id=row["id"],
+                target="EXPIRED",
+                notes="Reservation expiry sweep",
+            )
+            expired.append(result)
+        return jsonable_encoder({
+            "expired_count": len(expired),
+            "items": expired,
         })
 
 
