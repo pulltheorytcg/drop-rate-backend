@@ -19,6 +19,7 @@ from .import_review import router as import_review_router
 from .inventory_intake import router as inventory_intake_router
 from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
+from .identity_review import router as identity_review_router
 from .market_adapter_config import configure_market_adapters
 from .market_ingestion import router as market_ingestion_router
 from .market_discovery import router as market_discovery_router
@@ -52,6 +53,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/inventory-imports.js" defer></script>',
         '<script src="/assets/founder-finance.js" defer></script>',
         '<script src="/assets/dashboard-shell.js" defer></script>',
+        '<script src="/assets/identity-review.js" defer></script>',
         '<script src="/assets/market-smoke-panel.js" defer></script>',
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
         '<script src="/assets/market-value-column.js" defer></script>',
@@ -212,6 +214,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_intake_router)
     app.include_router(inventory_market_values_router)
     app.include_router(inventory_state_router)
+    app.include_router(identity_review_router)
     app.include_router(purchase_lots_router)
     app.include_router(storage_locations_router)
     return app
