@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field, model_validator
 
+from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 
@@ -65,20 +66,6 @@ class PayoutRequestCreate(BaseModel):
 class PayoutCancel(BaseModel):
     version: int = Field(ge=1)
 
-
-async def _owner(connection: asyncpg.Connection) -> asyncpg.Record:
-    row = await connection.fetchrow(
-        """
-        select id, display_name, owner_type, founder_slot
-        from tcg.owners
-        where active
-        order by founder_slot nulls last
-        limit 1
-        """
-    )
-    if row is None:
-        raise HTTPException(status_code=403, detail="No active owner membership")
-    return row
 
 
 def allocate_minor(total: int, weights: list[int]) -> list[int]:
