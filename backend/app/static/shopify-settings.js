@@ -174,7 +174,19 @@ function renderShopifyTestCandidates(data) {
   }
 
   const counts = data.counts || {};
-  status.replaceChildren(
+  const readiness = data.readiness || {};
+  const blockerLabels = {
+    "APPROVED status": "Approval",
+    "identity confirmation": "Identity confirmation",
+    "acquisition cost": "Acquisition cost",
+    "raw card condition": "Raw card condition",
+    "seal status": "Seal status",
+    "card language": "Card language",
+    "store price": "Store Price",
+    "registered storage location": "Registered storage location",
+    "active storage location": "Active storage location",
+  };
+  const rows = [
     shopifyStatusRow(
       "Single-item test gate",
       data.test_publish_enabled ? "ENABLED" : "LOCKED OFF",
@@ -186,8 +198,39 @@ function renderShopifyTestCandidates(data) {
       "Test listings",
       `${counts.published_test || 0} live · ${counts.sold_test || 0} sold`,
       `${counts.error_test || 0} error`
-    )
-  );
+    ),
+    shopifyStatusRow(
+      "Eligible inventory",
+      `${readiness.eligible || 0} ready · ${readiness.blocked || 0} blocked`,
+      `${readiness.considered || 0} unlinked active inventory items checked with the same rules used by the publish action.`
+    ),
+  ];
+  Object.entries(readiness.blockers || {})
+    .filter(([, count]) => Number(count) > 0)
+    .sort((a, b) => Number(b[1]) - Number(a[1]) || a[0].localeCompare(b[0]))
+    .forEach(([blocker, count]) => {
+      rows.push(
+        shopifyStatusRow(
+          `Readiness · ${blockerLabels[blocker] || blocker}`,
+          Number(count).toLocaleString("en-GB"),
+          "Resolve this before the affected inventory can enter the controlled Shopify test."
+        )
+      );
+    });
+  const nextItem = (readiness.next_items || [])[0];
+  if (nextItem) {
+    const itemName = [nextItem.name, nextItem.card_number, nextItem.variant]
+      .filter(Boolean)
+      .join(" · ");
+    rows.push(
+      shopifyStatusRow(
+        "Closest item to ready",
+        nextItem.inventory_code,
+        `${itemName || "Inventory item"} · Missing: ${(nextItem.missing || []).join(", ")}`
+      )
+    );
+  }
+  status.replaceChildren(...rows);
   select.dataset.testEnabled = data.test_publish_enabled ? "true" : "false";
   refreshShopifyTestButton();
 }
