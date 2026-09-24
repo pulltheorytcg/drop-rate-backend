@@ -4,6 +4,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -18,6 +19,8 @@ from .settings import get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
 from .shopify_pipeline import ShopifyProcessingError, process_shopify_webhook
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/shopify", tags=["shopify"])
 
@@ -505,7 +508,16 @@ async def shopify_webhook(
                 status_code=502,
                 content={"received": True, "processed": False, "error_code": "SHOPIFY_API_ERROR"},
             )
-        except Exception:
+        except Exception as exc:
+            logger.exception(
+                "Unexpected Shopify webhook processing failure",
+                extra={
+                    "shopify_webhook_id": webhook_id,
+                    "shopify_topic": topic,
+                    "shopify_resource_id": _resource_id(payload),
+                    "exception_type": type(exc).__name__,
+                },
+            )
             await connection.execute(
                 """
                 update tcg.shopify_webhook_events
