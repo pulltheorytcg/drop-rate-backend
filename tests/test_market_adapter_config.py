@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from app.cardmarket_parse_adapter import CardmarketParseAdapter
 from app.collectr_parse_adapter import CollectrParseAdapter
+from app.ebay_official_adapter import EbayOfficialBrowseAdapter
 from app.ebay_uk_parse_adapter import EbayUkParseAdapter
 from app.fx import FxQuote
 from app.market_adapter_config import configure_market_adapters
@@ -30,7 +31,12 @@ class FakeFxProvider:
         )
 
 
-def settings(*, parse_api_key: str | None) -> Settings:
+def settings(
+    *,
+    parse_api_key: str | None,
+    ebay_client_id: str | None = None,
+    ebay_client_secret: str | None = None,
+) -> Settings:
     return Settings(
         database_url="postgresql://example",
         auth_issuer="https://example.supabase.co/auth/v1",
@@ -42,6 +48,9 @@ def settings(*, parse_api_key: str | None) -> Settings:
         db_pool_min=1,
         db_pool_max=2,
         parse_api_key=parse_api_key,
+        ebay_client_id=ebay_client_id,
+        ebay_client_secret=ebay_client_secret,
+        ebay_marketplace_id="EBAY_GB",
     )
 
 
@@ -118,3 +127,25 @@ def test_default_ecb_provider_is_lazy_and_does_not_call_network_at_configuration
     assert isinstance(registered[2], CardmarketParseAdapter)
     assert isinstance(registered[3], CollectrParseAdapter)
     assert network_calls == []
+
+
+def test_official_ebay_credentials_take_precedence_over_parse_ebay(monkeypatch) -> None:
+    registered = []
+    monkeypatch.setattr(
+        "app.market_adapter_config.register_adapter",
+        lambda adapter: registered.append(adapter),
+    )
+
+    result = configure_market_adapters(
+        settings(
+            parse_api_key="parse-test-key",
+            ebay_client_id="ebay-client",
+            ebay_client_secret="ebay-secret",
+        ),
+        fx_provider=FakeFxProvider(),
+    )
+
+    assert result["EBAY"] is True
+    assert len(registered) == 4
+    assert isinstance(registered[0], EbayOfficialBrowseAdapter)
+    assert not any(isinstance(adapter, EbayUkParseAdapter) for adapter in registered)

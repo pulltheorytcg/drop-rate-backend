@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from app.market_provider_probe import COLLECTR_PROBE_SCRAPER_ID, PROBES, _summarise_payload
+from app.market_provider_probe import COLLECTR_PROBE_SCRAPER_ID, SUPPORTING_PROBES, _summarise_payload
 
 
 ROOT = Path(__file__).parents[1]
@@ -10,18 +10,14 @@ MAIN = ROOT / "backend" / "app" / "main.py"
 PROBE = ROOT / "backend" / "app" / "market_provider_probe.py"
 
 
-def test_probe_matrix_is_exactly_five_free_tier_calls() -> None:
-    assert len(PROBES) == 5
-    assert [probe["label"] for probe in PROBES] == [
-        "eBay UK active",
-        "eBay UK sold",
+def test_supporting_probe_matrix_is_three_parse_calls() -> None:
+    assert len(SUPPORTING_PROBES) == 3
+    assert [probe["label"] for probe in SUPPORTING_PROBES] == [
         "Cardmarket search",
         "TCGPlayer search",
         "Collectr search",
     ]
-    assert [probe["result_key"] for probe in PROBES] == [
-        "items",
-        "items",
+    assert [probe["result_key"] for probe in SUPPORTING_PROBES] == [
         "results",
         "cards",
         "items",
@@ -30,7 +26,7 @@ def test_probe_matrix_is_exactly_five_free_tier_calls() -> None:
 
 def test_collectr_probe_uses_published_scraper_id() -> None:
     assert COLLECTR_PROBE_SCRAPER_ID == "deec24d2-ffc5-41bd-b3fd-99cd817443e2"
-    collectr = next(probe for probe in PROBES if probe["source"] == "COLLECTR")
+    collectr = next(probe for probe in SUPPORTING_PROBES if probe["source"] == "COLLECTR")
     assert collectr["scraper_id"] == COLLECTR_PROBE_SCRAPER_ID
     assert collectr["endpoint"] == "search_cards"
 
@@ -75,3 +71,11 @@ def test_probe_router_is_wired_into_app() -> None:
     main = MAIN.read_text()
     assert "from .market_provider_probe import router as market_provider_probe_router" in main
     assert "app.include_router(market_provider_probe_router)" in main
+
+
+def test_probe_uses_official_ebay_and_never_infers_sold_history() -> None:
+    source = PROBE.read_text()
+    assert "EbayOfficialClient" in source
+    assert "eBay UK active · official Browse" in source
+    assert '"status": "RESTRICTED"' in source
+    assert "Sold history is not inferred from Browse" in source

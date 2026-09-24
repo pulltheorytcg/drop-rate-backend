@@ -6,14 +6,14 @@ const MARKET_SMOKE_CASES = [
     label: "Pokémon raw · Absol 063/094 · Normal",
     source: "EBAY",
     catalogue_id: "5cc2da17-f1f8-4add-8e53-ef78237ec689",
-    source_variant_id: null,
+    source_variant_id: "Normal",
     mapping: {
       query: "Absol 063/094",
       required_title_terms: ["Absol", "063/094"],
       forbidden_title_terms: ["reverse", "graded", "PSA", "CGC", "BGS", "proxy", "custom", "digital"],
       language: "English",
-      include_sold: true,
-      include_active: false,
+      include_sold: false,
+      include_active: true,
     },
   },
   {
@@ -21,14 +21,14 @@ const MARKET_SMOKE_CASES = [
     label: "Pokémon raw · Absol 063/094 · Reverse Holofoil",
     source: "EBAY",
     catalogue_id: "62a2d049-cebb-4c14-a7db-e7f3bd63af58",
-    source_variant_id: null,
+    source_variant_id: "Reverse Holofoil",
     mapping: {
       query: "Absol 063/094 Reverse",
       required_title_terms: ["Absol", "063/094", "Reverse"],
       forbidden_title_terms: ["graded", "PSA", "CGC", "BGS", "proxy", "custom", "digital"],
       language: "English",
-      include_sold: true,
-      include_active: false,
+      include_sold: false,
+      include_active: true,
     },
   },
   {
@@ -36,7 +36,7 @@ const MARKET_SMOKE_CASES = [
     label: "Pokémon graded · Charizard V 019/189 · PSA 9",
     source: "EBAY",
     catalogue_id: "9e4574cf-00e5-4739-a576-822caefd547e",
-    source_variant_id: null,
+    source_variant_id: "Holofoil",
     mapping: {
       query: "Charizard V 019/189",
       required_title_terms: ["Charizard V", "019/189"],
@@ -44,8 +44,8 @@ const MARKET_SMOKE_CASES = [
       grading_company: "PSA",
       grade: "9",
       language: "English",
-      include_sold: true,
-      include_active: false,
+      include_sold: false,
+      include_active: true,
     },
   },
   {
@@ -53,14 +53,14 @@ const MARKET_SMOKE_CASES = [
     label: "One Piece raw · Monkey.D.Luffy OP05-119 · SEC",
     source: "EBAY",
     catalogue_id: "0a9e70d9-fd75-4ec5-9837-673fc0a97014",
-    source_variant_id: null,
+    source_variant_id: "Foil",
     mapping: {
       query: "Luffy OP05-119",
       required_title_terms: ["Monkey D Luffy", "OP05-119"],
       forbidden_title_terms: ["manga", "parallel", "alternate", "alt art", "anniversary", "wanted", "PSA", "CGC", "BGS", "proxy", "custom", "digital"],
       language: "English",
-      include_sold: true,
-      include_active: false,
+      include_sold: false,
+      include_active: true,
     },
   },
   {
@@ -68,7 +68,7 @@ const MARKET_SMOKE_CASES = [
     label: "One Piece graded · Monkey.D.Luffy ST10-006 · PSA 9",
     source: "EBAY",
     catalogue_id: "a36d35d2-2e34-4483-8ee0-fee1e4674b10",
-    source_variant_id: null,
+    source_variant_id: "Foil",
     mapping: {
       query: "Luffy ST10-006",
       required_title_terms: ["Monkey D Luffy", "ST10-006", "3rd Anniversary"],
@@ -76,8 +76,8 @@ const MARKET_SMOKE_CASES = [
       grading_company: "PSA",
       grade: "9",
       language: "English",
-      include_sold: true,
-      include_active: false,
+      include_sold: false,
+      include_active: true,
     },
   },
   {
@@ -197,7 +197,7 @@ async function runProviderProbe() {
   button.disabled = true;
   button.dataset.label ||= button.textContent;
   button.textContent = "Probing providers…";
-  results.textContent = "Calling eBay active/sold, Cardmarket, TCGPlayer and Collectr…";
+  results.textContent = "Calling official eBay UK active plus supporting providers…";
 
   try {
     const data = await apiRequest("/api/v1/market/provider-probe", {method: "POST"});
@@ -223,7 +223,7 @@ function installMarketSmokePanel() {
       <div>
         <p class="eyebrow">Live validation</p>
         <h2>Market data smoke tests</h2>
-        <p class="muted">Fetch live sold-price evidence for a small mixed sample without adding observations or changing Market Value. Retrieval queries stay broad while deterministic identity rules decide what evidence is accepted. The matrix uses one provider call per card so it stays within the current free-tier request limit.</p>
+        <p class="muted">Fetch live official eBay UK active-listing evidence for a small mixed sample without adding observations or changing Market Value. This validates OAuth, EBAY_GB routing and deterministic identity matching. Sold-history access remains a separate restricted capability and is never inferred from active listings.</p>
       </div>
       <div class="topbar-actions">
         <button id="market-smoke-run" class="primary-button" type="button">Run smoke tests</button>
@@ -234,7 +234,7 @@ function installMarketSmokePanel() {
       <div>
         <p class="eyebrow">Provider isolation</p>
         <h3>Cross-provider live probe</h3>
-        <p class="muted">Runs five non-persistent discovery calls: eBay UK active, eBay UK sold, Cardmarket, TCGPlayer and Collectr. Use this instead of the eBay smoke matrix when isolating an upstream provider problem.</p>
+        <p class="muted">Runs non-persistent provider checks. eBay active uses the official Browse API; sold-history availability is reported separately. Cardmarket, TCGPlayer and Collectr remain independent provider checks.</p>
       </div>
       <div class="topbar-actions">
         <button id="market-provider-probe-run" class="secondary-button" type="button">Probe providers</button>

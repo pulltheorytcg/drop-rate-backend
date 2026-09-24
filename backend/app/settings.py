@@ -52,6 +52,9 @@ class Settings:
     db_pool_min: int
     db_pool_max: int
     parse_api_key: str | None
+    ebay_client_id: str | None
+    ebay_client_secret: str | None
+    ebay_marketplace_id: str
     market_ingestion_enabled: bool = False
 
     @classmethod
@@ -74,6 +77,9 @@ class Settings:
             db_pool_min=pool_min,
             db_pool_max=pool_max,
             parse_api_key=_optional("TCG_PARSE_API_KEY"),
+            ebay_client_id=_optional("TCG_EBAY_CLIENT_ID"),
+            ebay_client_secret=_optional("TCG_EBAY_CLIENT_SECRET"),
+            ebay_marketplace_id=os.getenv("TCG_EBAY_MARKETPLACE_ID", "EBAY_GB").strip() or "EBAY_GB",
             market_ingestion_enabled=_boolean("TCG_MARKET_INGESTION_ENABLED", False),
         )
 

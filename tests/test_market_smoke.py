@@ -81,11 +81,11 @@ def test_smoke_failure_is_visible_in_safe_runtime_logs() -> None:
     assert 'safe_error.get("retryable")' in source
 
 
-def test_dashboard_smoke_matrix_stays_within_free_tier_request_limit() -> None:
+def test_dashboard_smoke_matrix_uses_official_active_ebay_only() -> None:
     source = SMOKE_PANEL.read_text()
-    assert source.count("include_sold: true") == 5
-    assert source.count("include_active: false") == 5
-    assert "include_active: true" not in source
+    assert source.count("include_sold: false") == 5
+    assert source.count("include_active: true") == 5
+    assert "sold-history access remains a separate restricted capability" in source.casefold()
 
 
 def test_smoke_router_is_wired_into_app() -> None:
