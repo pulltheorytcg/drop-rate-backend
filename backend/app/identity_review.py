@@ -140,16 +140,19 @@ async def list_identity_review_groups(
                     or p.game ilike ${idx}
                 )"""
             )
-        if only_unconfirmed:
-            filters.append("not i.identity_confirmed")
-
         where = " and ".join(filters)
+        count_where = where + (" and not i.identity_confirmed" if only_unconfirmed else "")
         total_groups = await connection.fetchval(
             f"""select count(distinct p.id)::int
                 from tcg.inventory_items i
                 join tcg.catalogue_products p on p.id=i.catalogue_id
-                where {where}""",
+                where {count_where}""",
             *params,
+        )
+        group_having = (
+            "having count(*) filter(where not i.identity_confirmed) > 0"
+            if only_unconfirmed
+            else ""
         )
         params.extend([limit, offset])
         rows = await connection.fetch(
@@ -167,6 +170,7 @@ async def list_identity_review_groups(
             join tcg.catalogue_products p on p.id=i.catalogue_id
             where {where}
             group by p.id,p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language
+            {group_having}
             order by count(*) filter(where not i.identity_confirmed) desc,
                      p.game,p.set_name,p.name,p.card_number nulls last
             limit ${len(params)-1} offset ${len(params)}
