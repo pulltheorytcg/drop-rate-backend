@@ -105,7 +105,7 @@ function mappingDecisionButton(mapping, action) {
         method: "POST",
         body: JSON.stringify({
           expected_version: mapping.version,
-          match_confidence: action === "verify" ? Number(mapping.match_confidence || 1) : 0,
+          match_confidence: action === "verify" ? 1.0 : 0,
           reason: action === "verify"
             ? "Founder verified in market mapping workbench"
             : "Founder rejected in market mapping workbench",
