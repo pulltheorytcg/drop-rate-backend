@@ -36,3 +36,15 @@ def test_provider_status_exposes_ingestion_gate_and_dashboard_labels_it() -> Non
     assert '"ingestion_enabled": get_settings().market_ingestion_enabled' in ingestion
     assert "DIAGNOSTIC ONLY" in shell
     assert "marketData.ingestion_enabled" in shell
+
+
+def test_workbench_blocks_legacy_cardmarket_mapping_without_variant() -> None:
+    source = WORKBENCH.read_text()
+    assert "Missing provider variant — reject and recreate this mapping." in source
+    assert "unsafeLegacyCardmarket" in source
+
+
+def test_workbench_locks_cardmarket_pokemon_variant_field() -> None:
+    source = WORKBENCH.read_text()
+    assert "variantInput.readOnly = true" in source
+    assert 'candidate.source === "CARDMARKET"' in source
