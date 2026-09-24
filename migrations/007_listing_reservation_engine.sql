@@ -65,7 +65,7 @@ create index if not exists sellable_listings_manager_status_idx
 create table if not exists tcg.listing_inventory_members (
   id uuid primary key default gen_random_uuid(),
   listing_id uuid not null references tcg.sellable_listings(id),
-  inventory_id uuid not null unique references tcg.inventory_items(id),
+  inventory_id uuid not null references tcg.inventory_items(id),
   owner_id uuid not null references tcg.owners(id),
   owner_context_user_id uuid not null,
   minimum_sale_price_minor bigint not null
@@ -81,6 +81,9 @@ create table if not exists tcg.listing_inventory_members (
   unique(listing_id,inventory_id)
 );
 
+create unique index if not exists listing_inventory_members_one_live_membership_idx
+  on tcg.listing_inventory_members(inventory_id)
+  where state <> 'REMOVED';
 create index if not exists listing_inventory_members_listing_state_idx
   on tcg.listing_inventory_members(
     listing_id,state,allocation_priority,eligible_since,inventory_id
