@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from app.language import display_title, language_code, parse_title_language
 from app.collectr_snapshot import (
     collectr_adapter_headers,
     collectr_catalogue_identity_key,
@@ -120,3 +121,56 @@ def test_import_commit_contains_snapshot_baseline_concurrency_guard() -> None:
     assert "snapshot_quantity" in source
     assert "delta_quantity" in source
     assert "collectr_create_catalogue" in source
+
+
+def test_explicit_title_language_is_parsed_and_removed_from_card_name() -> None:
+    assert parse_title_language("Eiscue ex (JP)") == ("Eiscue ex", "Japanese")
+    assert parse_title_language("Charizard - English") == ("Charizard", "English")
+    assert parse_title_language("Luffy [EN]") == ("Luffy", "English")
+
+
+def test_language_aliases_and_display_codes_are_deterministic() -> None:
+    assert language_code("English") == "EN"
+    assert language_code("EN") == "EN"
+    assert language_code("Japanese") == "JP"
+    assert language_code("JPN") == "JP"
+    assert display_title("Eiscue ex (JP)", "Japanese") == "Eiscue ex · JP"
+
+
+def test_collectr_title_language_populates_structured_language() -> None:
+    row = collectr_row(**{"Product Name": "Eiscue ex (JP)"})
+    normalized, issues = _normalized_row(
+        row,
+        _field_map(list(row)),
+        None,
+        adapter="COLLECTR",
+    )
+    assert issues == []
+    assert normalized["name"] == "Eiscue ex"
+    assert normalized["language"] == "Japanese"
+
+
+def test_collectr_missing_language_requires_review() -> None:
+    row = collectr_row()
+    normalized, issues = _normalized_row(
+        row,
+        _field_map(list(row)),
+        None,
+        adapter="COLLECTR",
+    )
+    assert normalized["language"] is None
+    assert "missing_language" in issues
+
+
+def test_explicit_language_conflict_requires_review() -> None:
+    row = collectr_row(**{"Product Name": "Eiscue ex (JP)", "Language": "English"})
+    row["Language"] = "English"
+    headers = list(row)
+    normalized, issues = _normalized_row(
+        row,
+        _field_map(headers),
+        None,
+        adapter="COLLECTR",
+    )
+    assert normalized["language"] == "English"
+    assert "language_conflict" in issues
