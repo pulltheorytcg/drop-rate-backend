@@ -241,13 +241,22 @@ async def assign_storage_location(
         )
         if len(rows) != len(ids):
             raise HTTPException(status_code=404, detail="One or more inventory items were not found")
-        locked = [str(row["id"]) for row in rows if row["status"] in {"SOLD", "RESERVED"}]
-        if locked:
+        sold = [str(row["id"]) for row in rows if row["status"] == "SOLD"]
+        if sold:
             raise HTTPException(
                 status_code=409,
                 detail={
-                    "message": "Sold or reserved inventory cannot be moved",
-                    "items": locked,
+                    "message": "Sold inventory cannot be moved; use the refund/return workflow",
+                    "items": sold,
+                },
+            )
+        reserved = [str(row["id"]) for row in rows if row["status"] == "RESERVED"]
+        if reserved:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Reserved inventory cannot be moved; release its reservation first",
+                    "items": reserved,
                 },
             )
         current = {row["id"]: row["version"] for row in rows}
