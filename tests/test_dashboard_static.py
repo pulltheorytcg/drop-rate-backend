@@ -17,6 +17,7 @@ JS_ASSETS = (
     "inventory-imports.js",
     "founder-finance.js",
     "dashboard-shell.js",
+    "identity-review.js",
 )
 
 
@@ -72,7 +73,7 @@ def test_manual_intake_only_requires_new_identity_fields_in_new_identity_mode() 
 
 def test_dashboard_shell_has_expected_seller_views() -> None:
     js = (STATIC / "dashboard-shell.js").read_text()
-    for view in ("dashboard", "inventory", "sales", "reports", "balance", "settings"):
+    for view in ("dashboard", "inventory", "verification", "sales", "reports", "balance", "settings"):
         assert f'["{view}",' in js
     assert 'apiRequest("/api/v1/market/status")' in js
     assert 'apiRequest("/api/v1/pricing/inventory?limit=8&offset=0")' in js
@@ -105,3 +106,19 @@ def test_dashboard_has_brand_filter_and_dynamic_brand_counts() -> None:
     assert "/api/v1/inventory/brands" in js
     assert 'params.set("brand", state.brand)' in js
     assert 'item.game !== item.brand' in js
+
+
+def test_identity_verification_ui_is_audited_and_not_generic_editable() -> None:
+    html = (STATIC / "index.html").read_text()
+    app = (STATIC / "app.js").read_text()
+    intake = (STATIC / "inventory-intake.js").read_text()
+    review = (STATIC / "identity-review.js").read_text()
+    storage = (STATIC / "storage-locations.js").read_text()
+
+    assert "Identity verification is managed in the Verify tab" in html
+    assert 'identity_confirmed: byId("edit-identity").checked' not in app
+    assert 'identity_confirmed: byId("intake-identity-confirmed").checked' not in intake
+    assert "/api/v1/identity-review/" in review
+    assert "Select all unconfirmed" in review
+    assert "storage_location_id" in review
+    assert 'params.set("brand", state.brand)' in storage

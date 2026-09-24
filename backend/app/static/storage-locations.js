@@ -342,6 +342,7 @@ loadInventory = async function loadInventoryWithStorageLocation() {
   const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(state.offset) });
   if (state.search) params.set("search", state.search);
   if (state.status) params.set("status", state.status);
+  if (state.brand) params.set("brand", state.brand);
   if (state.issue) params.set("issue", state.issue);
   if (state.storageLocationFilter === "__UNLOCATED__") params.set("unlocated", "true");
   else if (state.storageLocationFilter) params.set("storage_location_id", state.storageLocationFilter);

@@ -44,6 +44,8 @@ class InventoryPatch(BaseModel):
     @model_validator(mode="after")
     def validate_grading_pair(self) -> "InventoryPatch":
         supplied = self.model_fields_set
+        if "identity_confirmed" in supplied:
+            raise ValueError("Identity confirmation must use the Verify workflow")
         company_set = "grading_company" in supplied
         grade_set = "grade" in supplied
         if company_set != grade_set:
@@ -264,6 +266,8 @@ class ManualInventoryCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_intake(self) -> "ManualInventoryCreate":
+        if self.identity_confirmed:
+            raise ValueError("New inventory must be verified through the Verify workflow")
         if (self.catalogue_id is None) == (self.new_catalogue is None):
             raise ValueError("Choose exactly one existing catalogue product or new catalogue product")
         if (self.grading_company is None) != (self.grade is None):

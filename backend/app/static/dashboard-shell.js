@@ -3,6 +3,7 @@
 const SELLER_VIEWS = [
   ["dashboard", "Dashboard"],
   ["inventory", "Inventory"],
+  ["verification", "Verify"],
   ["sales", "Sales"],
   ["reports", "Reports"],
   ["balance", "Balance"],
@@ -145,6 +146,7 @@ function populateSellerViews() {
   buildSellerViews(content);
   const overview = sellerView("dashboard");
   const inventory = sellerView("inventory");
+  const verification = sellerView("verification");
   const sales = sellerView("sales");
   const reports = sellerView("reports");
   const balance = sellerView("balance");
@@ -173,6 +175,12 @@ function populateSellerViews() {
   if (locations) inventory.append(locations);
   if (lots) inventory.append(lots);
   if (inventoryPanel) inventory.append(inventoryPanel);
+
+  verification.append(makeSellerHeading(
+    "Identity control",
+    "Verify stock",
+    "Physically confirm canonical card identity before pricing, approval or Shopify publishing."
+  ));
 
   moveFinanceSections(sales, reports, balance);
 

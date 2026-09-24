@@ -308,6 +308,7 @@ function openEditor(item) {
   byId("edit-status").disabled = item.status === "APPROVED";
   byId("edit-notes").value = item.notes || "";
   byId("edit-identity").checked = item.identity_confirmed;
+  byId("edit-identity").disabled = true;
   byId("approve-button").disabled = item.status === "APPROVED";
   byId("approve-button").textContent = item.status === "APPROVED" ? "Already approved" : "Approve stock";
   showMessage("editor-message");
@@ -333,7 +334,6 @@ async function saveEditor(event) {
       grading_company: company, grade,
       certificate_number: emptyToNull(byId("edit-certificate").value),
       notes: byId("edit-notes").value.trim(),
-      identity_confirmed: byId("edit-identity").checked,
     };
     if (state.editing.status !== "APPROVED") payload.status = byId("edit-status").value;
     await apiRequest(`/api/v1/inventory/${state.editing.id}`, { method: "PATCH", body: JSON.stringify(payload) });
