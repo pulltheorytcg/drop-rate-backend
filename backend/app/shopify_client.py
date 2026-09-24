@@ -214,3 +214,115 @@ class ShopifyAdminClient:
             "myshopify_domain": shop.get("myshopifyDomain"),
             "currency_code": shop.get("currencyCode"),
         }
+
+
+    async def list_webhook_subscriptions(self) -> list[dict[str, Any]]:
+        subscriptions: list[dict[str, Any]] = []
+        cursor: str | None = None
+        while True:
+            data = await self.graphql(
+                query="""
+                query DropRateWebhookSubscriptions($first: Int!, $after: String) {
+                  webhookSubscriptions(first: $first, after: $after) {
+                    nodes {
+                      id
+                      topic
+                      uri
+                    }
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
+                  }
+                }
+                """,
+                variables={"first": 100, "after": cursor},
+            )
+            connection = data.get("webhookSubscriptions")
+            if not isinstance(connection, dict):
+                raise ShopifyApiError(
+                    "Shopify webhook subscription query returned an invalid response"
+                )
+            nodes = connection.get("nodes")
+            if not isinstance(nodes, list):
+                raise ShopifyApiError(
+                    "Shopify webhook subscription query is missing nodes"
+                )
+            for node in nodes:
+                if isinstance(node, dict):
+                    subscriptions.append(
+                        {
+                            "id": node.get("id"),
+                            "topic": node.get("topic"),
+                            "uri": node.get("uri"),
+                        }
+                    )
+            page_info = connection.get("pageInfo")
+            if not isinstance(page_info, dict) or not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+            if not isinstance(cursor, str) or not cursor:
+                raise ShopifyApiError(
+                    "Shopify webhook subscription pagination is invalid"
+                )
+        return subscriptions
+
+    async def create_webhook_subscription(
+        self,
+        *,
+        topic: str,
+        uri: str,
+    ) -> dict[str, Any]:
+        data = await self.graphql(
+            query="""
+            mutation DropRateWebhookSubscriptionCreate(
+              $topic: WebhookSubscriptionTopic!,
+              $webhookSubscription: WebhookSubscriptionInput!
+            ) {
+              webhookSubscriptionCreate(
+                topic: $topic,
+                webhookSubscription: $webhookSubscription
+              ) {
+                webhookSubscription {
+                  id
+                  topic
+                  uri
+                }
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }
+            """,
+            variables={
+                "topic": topic,
+                "webhookSubscription": {"uri": uri},
+            },
+        )
+        payload = data.get("webhookSubscriptionCreate")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError(
+                "Shopify webhook subscription mutation returned an invalid response"
+            )
+        user_errors = payload.get("userErrors")
+        if isinstance(user_errors, list) and user_errors:
+            messages = [
+                str(error.get("message") or "").strip()
+                for error in user_errors
+                if isinstance(error, dict)
+            ]
+            detail = "; ".join(message for message in messages if message)
+            raise ShopifyApiError(
+                detail or "Shopify rejected the webhook subscription"
+            )
+        subscription = payload.get("webhookSubscription")
+        if not isinstance(subscription, dict):
+            raise ShopifyApiError(
+                "Shopify did not return the created webhook subscription"
+            )
+        return {
+            "id": subscription.get("id"),
+            "topic": subscription.get("topic"),
+            "uri": subscription.get("uri"),
+        }
