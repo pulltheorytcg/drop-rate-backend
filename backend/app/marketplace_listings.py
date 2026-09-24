@@ -169,6 +169,38 @@ async def _set_user_context(connection: asyncpg.Connection, user_id: UUID | str)
     )
 
 
+async def _audit_marketplace(
+    connection: asyncpg.Connection,
+    *,
+    owner_id: UUID,
+    actor_user_id: UUID,
+    action: str,
+    entity_type: str,
+    entity_id: UUID,
+    old_values: object | None = None,
+    new_values: object | None = None,
+    notes: str = "",
+) -> None:
+    old_payload = json.dumps(jsonable_encoder(old_values)) if old_values is not None else None
+    new_payload = json.dumps(jsonable_encoder(new_values)) if new_values is not None else None
+    await connection.execute(
+        """
+        insert into tcg.marketplace_audit_events(
+          owner_id,actor_user_id,action,entity_type,entity_id,
+          old_values,new_values,notes
+        ) values($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8)
+        """,
+        owner_id,
+        actor_user_id,
+        action,
+        entity_type,
+        entity_id,
+        old_payload,
+        new_payload,
+        notes,
+    )
+
+
 async def pool_state(
     connection: asyncpg.Connection,
     *,
@@ -420,6 +452,16 @@ async def reserve_listing_units(
                 expires_at,
                 notes,
             )
+            await _audit_marketplace(
+                connection,
+                owner_id=candidate["owner_id"],
+                actor_user_id=candidate["owner_context_user_id"],
+                action="RESERVATION_CREATED",
+                entity_type="RESERVATION",
+                entity_id=reservation["id"],
+                new_values=dict(reservation),
+                notes=notes,
+            )
             selected.append(dict(reservation))
     finally:
         if caller_user_id:
@@ -524,6 +566,17 @@ async def transition_reservation(
                 status_code=409,
                 detail="Reservation changed during transition",
             )
+        await _audit_marketplace(
+            connection,
+            owner_id=reservation["owner_id"],
+            actor_user_id=reservation["owner_context_user_id"],
+            action=f"RESERVATION_{target}",
+            entity_type="RESERVATION",
+            entity_id=reservation["id"],
+            old_values=dict(reservation),
+            new_values=dict(updated_reservation),
+            notes=notes,
+        )
         return {
             "reservation": dict(updated_reservation),
             "inventory": dict(updated_item),
@@ -730,6 +783,15 @@ async def create_or_join_listing(
                 item["store_price_minor"],
             )
             created = True
+            await _audit_marketplace(
+                connection,
+                owner_id=owner["id"],
+                actor_user_id=user.user_id,
+                action="LISTING_CREATED",
+                entity_type="LISTING",
+                entity_id=listing["id"],
+                new_values=dict(listing),
+            )
         elif listing["pooling_mode"] == "UNIQUE":
             raise HTTPException(
                 status_code=409,
@@ -784,6 +846,16 @@ async def create_or_join_listing(
                 user.user_id,
                 minimum,
             )
+        await _audit_marketplace(
+            connection,
+            owner_id=owner["id"],
+            actor_user_id=user.user_id,
+            action="MEMBERSHIP_REACTIVATED" if removed_membership is not None else "MEMBERSHIP_JOINED",
+            entity_type="MEMBERSHIP",
+            entity_id=membership["id"],
+            old_values=dict(removed_membership) if removed_membership is not None else None,
+            new_values=dict(membership),
+        )
         pool = await pool_state(
             connection,
             listing_id=listing["id"],
@@ -852,6 +924,16 @@ async def update_listing(
             returning *
             """,
             *params,
+        )
+        await _audit_marketplace(
+            connection,
+            owner_id=owner["id"],
+            actor_user_id=user.user_id,
+            action="LISTING_UPDATED",
+            entity_type="LISTING",
+            entity_id=row["id"],
+            old_values=dict(listing),
+            new_values=dict(row),
         )
         return jsonable_encoder(dict(row))
 
@@ -924,6 +1006,16 @@ async def update_my_listing_membership(
             returning *
             """,
             *params,
+        )
+        await _audit_marketplace(
+            connection,
+            owner_id=owner["id"],
+            actor_user_id=user.user_id,
+            action="MEMBERSHIP_UPDATED",
+            entity_type="MEMBERSHIP",
+            entity_id=row["id"],
+            old_values=dict(membership),
+            new_values=dict(row),
         )
         return jsonable_encoder(dict(row))
 
