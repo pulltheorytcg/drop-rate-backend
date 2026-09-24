@@ -147,7 +147,7 @@ def test_reserved_inventory_is_blocked_from_generic_mutation_paths() -> None:
 
 def test_price_floor_controls_eligibility_without_changing_owner_cost() -> None:
     source = MODULE.read_text()
-    assert 'minimum_sale_price_minor") > sale_price_minor' in source
+    assert 'int(member["minimum_sale_price_minor"]) > sale_price_minor' in source
     assert "price_floor_blocked_quantity" in source
     assert "acquisition_cost_minor" in source
     assert "minimum_sale_price_minor" in source
@@ -205,3 +205,61 @@ def test_dashboard_exposes_reserved_and_sold_status_without_editing_them() -> No
     assert '<option value="SOLD">Sold</option>' in html
     assert '["RESERVED", "SOLD"].includes(item.status)' in js
     assert "Reserved for order" in js
+
+
+def test_marketplace_audit_ledger_is_immutable_and_owner_scoped() -> None:
+    sql = MIGRATION.read_text().casefold()
+    source = MODULE.read_text()
+    assert "create table if not exists tcg.marketplace_audit_events" in sql
+    assert "force row level security" in sql
+    assert "grant select,insert on table tcg.marketplace_audit_events to tcg_api" in sql
+    assert "grant update" not in sql.split("tcg.marketplace_audit_events", 1)[1].split("create policy", 1)[0]
+    assert "grant delete" not in sql
+    assert "actor_user_id = tcg.current_user_id()" in sql
+    assert "async def _audit_marketplace" in source
+    for action in (
+        "LISTING_CREATED",
+        "MEMBERSHIP_JOINED",
+        "LISTING_UPDATED",
+        "MEMBERSHIP_UPDATED",
+        "RESERVATION_CREATED",
+    ):
+        assert action in source
+
+
+def test_reservation_transition_flag_is_reset_after_workflow() -> None:
+    source = MODULE.read_text()
+    assert source.count("set_config('tcg.allow_reserved_transition','off',true)") >= 2
+
+
+def test_inactive_listing_reports_zero_eligible_stock() -> None:
+    source = MODULE.read_text()
+    assert 'listing_active = listing_status == "ACTIVE"' in source
+    assert "if not listing_active:" in source
+    assert "eligible = []" in source
+
+
+def test_removed_unique_membership_can_be_reactivated_but_not_shared() -> None:
+    source = MODULE.read_text()
+    assert "removed_membership = None" in source
+    assert 'listing["pooling_mode"] == "UNIQUE" and removed_membership is None' in source
+    assert '"REACTIVATED"' in source
+
+
+def test_language_is_required_before_approval_and_pooling() -> None:
+    api = API.read_text()
+    app = (ROOT / "backend" / "app" / "static" / "app.js").read_text()
+    schemas = (ROOT / "backend" / "app" / "schemas.py").read_text()
+    assert "i.language is not null and btrim(i.language) <> ''" in api
+    assert 'missing.append("language")' in api
+    assert '"missing_language"' in schemas
+    assert 'missing_language: "Missing language"' in app
+
+
+def test_reserved_stock_is_visible_but_excluded_from_work_queues() -> None:
+    api = API.read_text()
+    identity = IDENTITY.read_text()
+    html = (ROOT / "backend" / "app" / "static" / "index.html").read_text()
+    assert 'ACTIVE_INVENTORY_SQL = "i.status in (\'DRAFT\', \'INSPECTION\', \'APPROVED\')"' in api
+    assert 'ACTIVE_SQL = "i.status in (\'DRAFT\', \'INSPECTION\', \'APPROVED\')"' in identity
+    assert '<option value="RESERVED">Reserved</option>' in html
