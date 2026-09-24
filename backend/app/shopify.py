@@ -37,6 +37,59 @@ SHOPIFY_WEBHOOK_TOPIC_ENUMS = {
 }
 
 
+
+def plan_webhook_registration(
+    existing: list[dict[str, Any]],
+    endpoint: str,
+) -> tuple[list[dict[str, Any]], list[tuple[str, str]], list[dict[str, Any]]]:
+    present: list[dict[str, Any]] = []
+    missing: list[tuple[str, str]] = []
+    conflicts: list[dict[str, Any]] = []
+
+    for rest_topic, enum_topic in SHOPIFY_WEBHOOK_TOPIC_ENUMS.items():
+        topic_subscriptions = [
+            subscription
+            for subscription in existing
+            if subscription.get("topic") == enum_topic
+        ]
+        exact = [
+            subscription
+            for subscription in topic_subscriptions
+            if str(subscription.get("uri") or "").rstrip("/") == endpoint
+        ]
+
+        if len(topic_subscriptions) == 0:
+            missing.append((rest_topic, enum_topic))
+            continue
+        if len(topic_subscriptions) == 1 and len(exact) == 1:
+            present.append(
+                {
+                    "topic": rest_topic,
+                    "shopify_topic": enum_topic,
+                    "subscription_id": exact[0].get("id"),
+                    "uri": endpoint,
+                    "state": "EXISTING",
+                }
+            )
+            continue
+
+        conflicts.append(
+            {
+                "topic": rest_topic,
+                "shopify_topic": enum_topic,
+                "existing": [
+                    {
+                        "subscription_id": subscription.get("id"),
+                        "uri": subscription.get("uri"),
+                    }
+                    for subscription in topic_subscriptions
+                ],
+            }
+        )
+
+    return present, missing, conflicts
+
+
 def verify_shopify_hmac(raw_body: bytes, header_value: str | None, secret: str) -> bool:
     if not raw_body or not header_value or not secret:
         return False
@@ -214,50 +267,7 @@ async def register_shopify_webhooks(
             )
 
         existing = await client.list_webhook_subscriptions()
-        conflicts: list[dict[str, Any]] = []
-        present: list[dict[str, Any]] = []
-        missing: list[tuple[str, str]] = []
-
-        for rest_topic, enum_topic in SHOPIFY_WEBHOOK_TOPIC_ENUMS.items():
-            topic_subscriptions = [
-                subscription
-                for subscription in existing
-                if subscription.get("topic") == enum_topic
-            ]
-            exact = [
-                subscription
-                for subscription in topic_subscriptions
-                if str(subscription.get("uri") or "").rstrip("/") == endpoint
-            ]
-
-            if len(topic_subscriptions) == 0:
-                missing.append((rest_topic, enum_topic))
-                continue
-            if len(topic_subscriptions) == 1 and len(exact) == 1:
-                present.append(
-                    {
-                        "topic": rest_topic,
-                        "shopify_topic": enum_topic,
-                        "subscription_id": exact[0].get("id"),
-                        "uri": endpoint,
-                        "state": "EXISTING",
-                    }
-                )
-                continue
-
-            conflicts.append(
-                {
-                    "topic": rest_topic,
-                    "shopify_topic": enum_topic,
-                    "existing": [
-                        {
-                            "subscription_id": subscription.get("id"),
-                            "uri": subscription.get("uri"),
-                        }
-                        for subscription in topic_subscriptions
-                    ],
-                }
-            )
+        present, missing, conflicts = plan_webhook_registration(existing, endpoint)
 
         if conflicts:
             raise HTTPException(
