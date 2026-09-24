@@ -246,6 +246,8 @@ def _normalized_row(
     )
     if product_type == "CARD" and not card_number and not is_collectr_don:
         issues.append("missing_card_number")
+    if product_type == "CARD" and not language:
+        issues.append("missing_language")
 
     if adapter == "COLLECTR":
         grading_company, grade, grade_issues = collectr_grade(_cell(row, mapping, "grade"))
