@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -37,6 +38,38 @@ def _same(left: object, right: object) -> bool:
     return bool(a and b and a.casefold() == b.casefold())
 
 
+def _card_number_matches(provider_value: object, catalogue_value: object) -> bool:
+    provider, catalogue = _clean(provider_value), _clean(catalogue_value)
+    if not provider or not catalogue:
+        return False
+    provider_key = provider.casefold()
+    catalogue_key = catalogue.casefold()
+    if provider_key == catalogue_key:
+        return True
+    # Cardmarket commonly returns the collector number without the set denominator,
+    # e.g. 063 for Drop Rate's canonical 063/094.
+    if "/" in catalogue_key and provider_key == catalogue_key.split("/", 1)[0]:
+        return True
+    return False
+
+
+def _cardmarket_identity(row: dict[str, Any]) -> tuple[object, object]:
+    """Extract canonical identity hints from Cardmarket search labels.
+
+    Search results commonly look like "Absol (PFL 063)" instead of returning
+    name/card_number as separate fields.
+    """
+
+    name = row.get("name")
+    number = row.get("card_number") or row.get("number")
+    if isinstance(name, str):
+        match = re.match(r"^(.+?)\s*\([A-Za-z0-9-]+\s+([0-9]+[A-Za-z]?)\)\s*$", name.strip())
+        if match:
+            name = match.group(1).strip()
+            number = number or match.group(2)
+    return name, number
+
+
 def _signals(candidate: dict[str, Any], catalogue: dict[str, Any]) -> tuple[list[str], float]:
     signals: list[str] = []
     score = 0.0
@@ -46,7 +79,7 @@ def _signals(candidate: dict[str, Any], catalogue: dict[str, Any]) -> tuple[list
     if _same(candidate.get("set_name"), catalogue.get("set_name")):
         signals.append("set")
         score += 0.35
-    if _same(candidate.get("card_number"), catalogue.get("card_number")):
+    if _card_number_matches(candidate.get("card_number"), catalogue.get("card_number")):
         signals.append("card_number")
         score += 0.30
     return signals, round(min(score, 1.0), 2)
@@ -139,18 +172,21 @@ async def _discover_cardmarket(
             _parse_cardmarket_url(url)
         except ValueError:
             continue
+        cardmarket_name, cardmarket_number = _cardmarket_identity(row)
         item = _candidate(
             source="CARDMARKET",
             source_product_id=url,
             source_variant_id=catalogue.get("variant"),
-            name=row.get("name"),
+            name=cardmarket_name,
             set_name=row.get("expansion") or row.get("set_name"),
-            card_number=row.get("card_number") or row.get("number"),
+            card_number=cardmarket_number,
             rarity=row.get("rarity"),
-            market_price=row.get("lowest_price"),
+            # Discovery search-price fields are not trusted pricing evidence.
+            # Only adapter-normalized listings/history may feed valuation.
+            market_price=None,
             catalogue=catalogue,
         )
-        if item:
+        if item and float(item["suggested_confidence"]) > 0:
             candidates.append(item)
     return candidates
 
@@ -186,7 +222,7 @@ async def _discover_tcgplayer(
             market_price=row.get("market_price"),
             catalogue=catalogue,
         )
-        if item:
+        if item and float(item["suggested_confidence"]) > 0:
             candidates.append(item)
     return candidates
 
@@ -223,7 +259,7 @@ async def _discover_collectr(
             market_price=row.get("market_price"),
             catalogue=catalogue,
         )
-        if item:
+        if item and float(item["suggested_confidence"]) > 0:
             candidates.append(item)
     return candidates
 
