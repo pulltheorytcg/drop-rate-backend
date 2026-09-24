@@ -49,3 +49,30 @@ def test_database_guard_restricts_raw_card_conditions() -> None:
     assert "'Moderately Played'" in sql
     assert "'Heavily Played'" in sql
     assert "'Damaged'" in sql
+
+
+def test_inventory_table_keeps_condition_grading_and_seal_in_separate_columns() -> None:
+    index = (STATIC / "index.html").read_text()
+    app = (STATIC / "app.js").read_text()
+    assert "<th>Condition</th><th>Grading</th><th>Seal</th>" in index
+    assert 'textCell("Condition"' in app
+    assert 'textCell("Grading"' in app
+    assert 'textCell("Seal"' in app
+    assert '"Sealed product"' in app
+
+
+def test_inventory_editor_has_explicit_raw_and_graded_modes() -> None:
+    js = (STATIC / "inventory-state.js").read_text()
+    assert '"RAW", "Raw card"' in js
+    assert '"GRADED", "Graded card"' in js
+    assert "Graded cards require both grading company and grade." in js
+    assert "payload.condition = null" in js
+    assert "payload.seal_status" in js
+
+
+def test_manual_intake_has_explicit_card_state_selector() -> None:
+    js = (STATIC / "inventory-intake.js").read_text()
+    assert 'id="intake-card-state"' in js
+    assert '<option value="RAW">Raw card</option>' in js
+    assert '<option value="GRADED">Graded card</option>' in js
+    assert "const isGraded" in js
