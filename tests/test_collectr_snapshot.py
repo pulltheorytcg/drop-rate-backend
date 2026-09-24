@@ -102,10 +102,14 @@ def test_snapshot_identity_includes_finish_grade_and_condition() -> None:
     reverse = dict(normalized, variant="Reverse Holofoil")
     psa = dict(normalized, grading_company="PSA", grade="10")
     played = dict(normalized, condition="Lightly Played")
+    japanese = dict(normalized, language="Japanese")
+    legacy_japanese = dict(normalized, name="Basil Hawkins (JP)", language=None)
 
     assert collectr_snapshot_key(reverse) != raw_key
     assert collectr_snapshot_key(psa) != raw_key
     assert collectr_snapshot_key(played) != raw_key
+    assert collectr_snapshot_key(japanese) != raw_key
+    assert collectr_snapshot_key(legacy_japanese) == collectr_snapshot_key(japanese)
 
 
 def test_collectr_catalogue_identity_key_is_deterministic() -> None:
