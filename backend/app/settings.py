@@ -83,7 +83,7 @@ class Settings:
     ebay_deletion_endpoint: str | None = None
     market_ingestion_enabled: bool = False
     shopify_shop_domain: str | None = None
-    shopify_access_token: str | None = None
+    shopify_client_id: str | None = None
     shopify_client_secret: str | None = None
     shopify_api_version: str = "2026-07"
     shopify_publish_enabled: bool = False
@@ -115,7 +115,7 @@ class Settings:
             ebay_deletion_endpoint=_optional("TCG_EBAY_DELETION_ENDPOINT"),
             market_ingestion_enabled=_boolean("TCG_MARKET_INGESTION_ENABLED", False),
             shopify_shop_domain=_shopify_domain("TCG_SHOPIFY_SHOP_DOMAIN"),
-            shopify_access_token=_optional("TCG_SHOPIFY_ACCESS_TOKEN"),
+            shopify_client_id=_optional("TCG_SHOPIFY_CLIENT_ID"),
             shopify_client_secret=_optional("TCG_SHOPIFY_CLIENT_SECRET"),
             shopify_api_version=_shopify_api_version("TCG_SHOPIFY_API_VERSION", "2026-07"),
             shopify_publish_enabled=_boolean("TCG_SHOPIFY_PUBLISH_ENABLED", False),

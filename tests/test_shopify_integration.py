@@ -72,20 +72,26 @@ def test_shopify_status_does_not_return_credentials() -> None:
     status_start = source.index('async def shopify_status(')
     status_end = source.index('@router.post("/probe")')
     status_source = source[status_start:status_end]
-    assert '"shopify_access_token"' not in status_source
+    assert '"shopify_client_id"' not in status_source
     assert '"shopify_client_secret"' not in status_source
-    assert '"access_token"' not in status_source
+    assert '"client_id"' not in status_source
     assert '"client_secret"' not in status_source
+    assert '"access_token"' not in status_source
 
 
-def test_shopify_admin_client_is_graphql_and_server_side() -> None:
+def test_shopify_admin_client_mints_and_caches_client_credentials_token() -> None:
     source = CLIENT.read_text()
-    assert "/graphql.json" in source
-    assert '"X-Shopify-Access-Token": self._access_token' in source
+    assert "/admin/oauth/access_token" in source
+    assert '"grant_type": "client_credentials"' in source
+    assert '"client_id": self._client_id' in source
+    assert '"client_secret": self._client_secret' in source
+    assert '"X-Shopify-Access-Token": token' in source
+    assert "_token_expires_at" in source
     assert "productCreate" not in source
     client = ShopifyAdminClient(
         shop_domain="drop-rate.myshopify.com",
-        access_token="test-token",
+        client_id="client-id",
+        client_secret="client-secret",
         api_version="2026-07",
     )
     assert client.shop_domain == "drop-rate.myshopify.com"

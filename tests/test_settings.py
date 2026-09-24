@@ -60,7 +60,7 @@ def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
     _base_env(monkeypatch)
     for name in (
         "TCG_SHOPIFY_SHOP_DOMAIN",
-        "TCG_SHOPIFY_ACCESS_TOKEN",
+        "TCG_SHOPIFY_CLIENT_ID",
         "TCG_SHOPIFY_CLIENT_SECRET",
         "TCG_SHOPIFY_API_VERSION",
         "TCG_SHOPIFY_PUBLISH_ENABLED",
@@ -68,7 +68,7 @@ def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
         monkeypatch.delenv(name, raising=False)
     settings = Settings.from_env()
     assert settings.shopify_shop_domain is None
-    assert settings.shopify_access_token is None
+    assert settings.shopify_client_id is None
     assert settings.shopify_client_secret is None
     assert settings.shopify_api_version == "2026-07"
     assert settings.shopify_publish_enabled is False
@@ -84,13 +84,13 @@ def test_shopify_domain_requires_canonical_myshopify_domain(monkeypatch):
 def test_shopify_settings_read_server_side_credentials(monkeypatch):
     _base_env(monkeypatch)
     monkeypatch.setenv("TCG_SHOPIFY_SHOP_DOMAIN", "Drop-Rate.myshopify.com")
-    monkeypatch.setenv("TCG_SHOPIFY_ACCESS_TOKEN", "shpat_test")
+    monkeypatch.setenv("TCG_SHOPIFY_CLIENT_ID", "client-id")
     monkeypatch.setenv("TCG_SHOPIFY_CLIENT_SECRET", "secret")
     monkeypatch.setenv("TCG_SHOPIFY_API_VERSION", "2026-07")
     monkeypatch.setenv("TCG_SHOPIFY_PUBLISH_ENABLED", "false")
     settings = Settings.from_env()
     assert settings.shopify_shop_domain == "drop-rate.myshopify.com"
-    assert settings.shopify_access_token == "shpat_test"
+    assert settings.shopify_client_id == "client-id"
     assert settings.shopify_client_secret == "secret"
     assert settings.shopify_api_version == "2026-07"
     assert settings.shopify_publish_enabled is False
