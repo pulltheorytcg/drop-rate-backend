@@ -9,12 +9,12 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Full Drop Rate roadmap:** ~49%
 - **Milestone 1 — Founder inventory control:** ~99% technically complete; remaining work is mainly operational inventory cleanup + one pre-launch auth setting
 - **Internal commerce / founder finance foundation:** ~85%
-- **Milestone 2 — Shopify sale attribution:** guarded Shopify product/webhook/order/refund foundation is live; the remaining milestone proof is one controlled real sale/refund with exact physical-item and finance-ledger verification
+- **Milestone 2 — Shopify sale attribution:** first real paid sale is production-verified end to end; remaining proof is refund/restock handling plus final settlement/report verification
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
 
 ## Current stage
 
-**Controlled commerce verification: ACTIVE — hardening gates are now enforced before the first real Shopify sale test.**
+**Controlled commerce verification: ACTIVE — first real paid Shopify sale verified; refund/restock verification is next.**
 
 The latest pass exposed an important process improvement: we were testing individual features well, but not performing a sufficiently explicit system-level regression/review after every cluster of changes. From this point forward, every material feature is subject to a repeatable quality gate covering code tests, failure-path review, database invariants, migration reproducibility, production deployment/health and live-data verification.
 
@@ -178,7 +178,7 @@ Important conclusions:
 Production checkpoint on 24 September 2026:
 
 - physical inventory items: **509**
-- status: **508 DRAFT / 1 APPROVED**
+- status: **508 DRAFT / 1 SOLD**
 - unknown acquisition cost: **0**
 - missing condition: **10**
 - missing storage location: **507** (Baltoy is in `ROOM-BOX`; approved Seel test candidate is in `ROOM-BOX/BINDER-01`)
@@ -206,17 +206,22 @@ The unsupported English backfill was therefore rolled back fail-closed:
 
 The first physical test candidate, Baltoy `INV-041416049F4249C6BB29A846E29DDC37`, remains **DRAFT**. Near Mint condition and physical location `ROOM-BOX` are retained, but identity confirmation was revoked after the imported `Ninja Spinner 046/083 + English` combination failed external identity validation. Its Store Price remains NULL and it has not been published to Shopify.
 
-The controlled Shopify candidate is now Seel `INV-06F489A853594CDC80E418271933D044`:
+The controlled Shopify candidate Seel `INV-06F489A853594CDC80E418271933D044` is now the first production-verified paid sale:
 - canonical identity: **Seel / Phantasmal Flames / 021/094 / Normal / English**
 - physical condition: **Near Mint**
 - registered storage: **ROOM-BOX/BINDER-01**
-- acquisition cost: **£1.87**
-- manual controlled-test Store Price: **£0.49**
-- status: **APPROVED**
-- identity confirmation: **physically verified**
-- current inventory version: **6**
-- this is the **only APPROVED inventory item**
-- Shopify link still absent; no external product has been created yet
+- acquisition cost snapshot: **£1.87**
+- Store Price / sale price: **£0.49**
+- Shopify order: **#1002**
+- Shopify financial status: **PAID**
+- real Shopify Payments transaction: **SUCCESS / £5.48 / not test mode**
+- shipping charged: **£4.99**
+- Drop Rate inventory state: **SOLD**
+- exact Shopify Inventory ID/SKU link: verified
+- exact order-item allocation to this physical Inventory ID: verified
+- ledger: **£0.49 SALE_REVENUE + £4.99 SHIPPING_REVENUE**, both **PENDING**
+- payment/platform fees and shipping cost are intentionally not guessed and are not yet settled
+- Shopify delivered `orders/paid` before `orders/create`; the late create initially failed, then the event-ordering/idempotency path was hardened and deployed so paid-before-create and semantic duplicate paid events fail closed/no-op correctly
 
 ## Supabase live checkpoint
 
@@ -229,11 +234,11 @@ Current production data after the latest hardening + language pass:
 - market observations: **0**
 - pricing snapshots: **0**
 - market ingestion/diagnostic runs: **25**
-- audit events: **3,562**
-- active Shopify inventory links: **0**
+- audit events: **3,572**
+- active Shopify inventory links: **1**
 - marketplace listings: **0**
 - active reservations: **0**
-- identity confirmations: **0**
+- physical identity confirmation events: **2**
 - RLS remains enabled across operational business tables; `tcg.schema_migrations` is the known exception and currently grants only `SELECT` to `tcg_api`
 - provider diagnostics have **not** polluted market observations, pricing snapshots or inventory values
 
@@ -285,18 +290,24 @@ The following areas were reviewed and defects found were corrected:
 - production-ingestion safety gate added
 - guarded Shopify single-item readiness now exposes exact blockers and uses the same eligibility function as the actual publish action
 - registered storage location is enforced consistently by approval/readiness and Shopify sync
+- Shopify 2026-07 inventory quantity payload fixed (`changeFromQuantity`, no obsolete `ignoreCompareQuantity`)
+- Shopify inventory activation fixed to avoid conflicting `available` + `onHand` arguments
+- unpaid checkout reservations are tracked on exact physical Shopify links/inventory state, not in finance orders
+- `tcg.orders` again rejects PENDING rows at the database constraint level; unpaid checkout state stays outside finance records
+- first real paid order #1002 verified exact Inventory ID → SOLD → order item → COGS snapshot → sale/shipping ledger
+- paid-before-create webhook ordering and semantic duplicate paid handling hardened after Shopify delivered #1002 events out of order
 - graded comparable-condition bug fixed
 - cross-provider live access validated as recorded above
 
 ### Deployment / reproducibility
 - Railway production service remains `drop-rate-api-live`
-- latest production deployment for the language-correction release is **SUCCESS** on commit `6d44f74f6b9bc734d26d0c52bef0ef75e18dddaa`; `/health/ready` returned **200 OK**
+- latest production deployment is **SUCCESS** on commit `5de0026ec3de2e46ca697ad032dc1762725265ae`; `/health/ready` returned **200 OK**
 - PR and post-merge GitHub CI are green for the latest hardening commits
 - Railway production has a **pre-deploy compile + pytest gate**; the missing `pytest-asyncio` dependency was fixed after deployment logs exposed 43 silently skipped async tests
 - Railway now installs pinned **Node 22.23.3 LTS** alongside Python through `RAILPACK_PACKAGES`, so frontend/static checks run in the production pre-deploy gate too
-- current Railway regression result: **369 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
+- current Railway regression result: **380 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
 - live database integrity checks: **0 duplicate Inventory Codes, 0 language mismatches, 0 confirmed-without-evidence, 0 active-reservation/state mismatches**
-- migration history reconciled: `normalize_explicit_card_languages` is present as `20260924195341`, and the production language correction is recorded exactly as `20260924220735_revert_unsupported_english_language_backfill`
+- migration history reconciled through `20260924232925_remove_pending_finance_order_status`, including the production language correction and Shopify pending-reservation schema changes
 - `database/migrations/**` is now the only canonical location for new migration files
 - Railway `Wait for CI` still reads **OFF** (`checkSuites=false`) after two attempted staged updates; treat this as an external Railway/GitHub-integration permission/configuration blocker until the setting can be re-authorised and verified
 - the guarded Supabase migration workflow is merged (`workflow_dispatch`, dry-run by default, explicit apply mode). Its required GitHub secrets and first production dry-run still need to be verified before the next schema change
@@ -315,7 +326,7 @@ A feature is not considered complete merely because its unit tests pass. For mat
 7. **Failure testing:** deliberate bad inputs, duplicate events, stale versions, unavailable records and provider failures are tested before a feature is treated as safe.
 8. **Release decision:** any unresolved critical integrity issue keeps the feature gated, even when CI is green.
 
-Current production regression baseline: **372 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero language/catalogue mismatches, zero identity confirmations without evidence, zero active reservation/state mismatches, zero active Shopify links and zero marketplace listings.
+Current production regression baseline: **380 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero active reservation/state mismatches and one production Shopify link for the sold Seel test item.
 
 GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
 
@@ -429,8 +440,8 @@ These are **not blockers to the current backend foundation**, but remain explici
 | 3 | Founder account / inventory / ownership | ✅ Technical foundation complete; operational data cleanup remains |
 | 4 | Inventory dashboard functionality | ✅ Core complete |
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
-| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item sale/refund pipeline live; product-completeness/media contract now defined; controlled real sale still required |
-| 6 | Orders / allocation / settlements | 🚧 Deterministic Shopify attribution/ledger foundation live; real end-to-end verification and settlement reporting remain |
+| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale path production-verified; product-completeness/media contract defined; refund/restock verification remains |
+| 6 | Orders / allocation / settlements | 🚧 Exact Shopify Inventory ID attribution + COGS + gross sale/shipping ledger production-verified on real payment; refund/fees/settlement reporting remain |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
 | 9 | AI card identification | ⬜ Not started |
@@ -445,12 +456,12 @@ These are **not blockers to the current backend foundation**, but remain explici
 ## Immediate work order
 
 ### Next session — inventory operations + controlled verification
-1. ✅ Seel 021/094 selected, physically verified, priced and moved to APPROVED.
-2. Verify the live Shopify test-publish flag is ON and bulk publish flag is OFF through the authenticated app/runtime.
-3. Complete the guarded Seel sync retry after the Shopify 2026-07 activation/quantity contract fixes; verify ACTIVE status, quantity 1, publication and exact Supabase link before checkout.
-4. Execute one controlled checkout/order and verify webhook signature + duplicate delivery handling.
-5. Verify exact Inventory ID → owner attribution, COGS snapshot and owner/finance ledger.
-6. Execute cancellation/refund/return test and verify state restoration + audit trail.
+1. ✅ Seel 021/094 selected, physically verified, priced and published through the guarded single-item path.
+2. ✅ Shopify product sync verified: exact SKU/Inventory ID, ACTIVE product, publication and quantity handling.
+3. ✅ Real paid Shopify order #1002 verified: exact physical Inventory ID attribution, SOLD state, £1.87 COGS snapshot, £0.49 sale revenue and £4.99 shipping revenue.
+4. ✅ Shopify 2026-07 inventory API incompatibilities and paid-before-create webhook ordering defects found in live testing and hardened.
+5. Execute the controlled **refund + restock** test and verify Shopify refund webhook → financial reversal → physical item returns to **INSPECTION**, never directly APPROVED.
+6. Verify duplicate refund delivery/idempotency, payment/platform fee treatment and final settlement/reporting invariants.
 
 ### Next major engineering milestone — Shopify
 Build the complete controlled sale loop:
