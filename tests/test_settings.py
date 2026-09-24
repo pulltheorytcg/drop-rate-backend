@@ -63,6 +63,7 @@ def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
         "TCG_SHOPIFY_CLIENT_ID",
         "TCG_SHOPIFY_CLIENT_SECRET",
         "TCG_SHOPIFY_API_VERSION",
+        "TCG_SHOPIFY_WEBHOOK_ENDPOINT",
         "TCG_SHOPIFY_PUBLISH_ENABLED",
     ):
         monkeypatch.delenv(name, raising=False)
@@ -71,6 +72,7 @@ def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
     assert settings.shopify_client_id is None
     assert settings.shopify_client_secret is None
     assert settings.shopify_api_version == "2026-07"
+    assert settings.shopify_webhook_endpoint is None
     assert settings.shopify_publish_enabled is False
 
 
@@ -87,10 +89,35 @@ def test_shopify_settings_read_server_side_credentials(monkeypatch):
     monkeypatch.setenv("TCG_SHOPIFY_CLIENT_ID", "client-id")
     monkeypatch.setenv("TCG_SHOPIFY_CLIENT_SECRET", "secret")
     monkeypatch.setenv("TCG_SHOPIFY_API_VERSION", "2026-07")
+    monkeypatch.setenv(
+        "TCG_SHOPIFY_WEBHOOK_ENDPOINT",
+        "https://drop-rate.example/api/v1/shopify/webhooks",
+    )
     monkeypatch.setenv("TCG_SHOPIFY_PUBLISH_ENABLED", "false")
     settings = Settings.from_env()
     assert settings.shopify_shop_domain == "drop-rate.myshopify.com"
     assert settings.shopify_client_id == "client-id"
     assert settings.shopify_client_secret == "secret"
     assert settings.shopify_api_version == "2026-07"
+    assert settings.shopify_webhook_endpoint == "https://drop-rate.example/api/v1/shopify/webhooks"
     assert settings.shopify_publish_enabled is False
+
+
+def test_shopify_webhook_endpoint_must_be_https(monkeypatch):
+    _base_env(monkeypatch)
+    monkeypatch.setenv(
+        "TCG_SHOPIFY_WEBHOOK_ENDPOINT",
+        "http://drop-rate.example/api/v1/shopify/webhooks",
+    )
+    with pytest.raises(RuntimeError, match="https://"):
+        Settings.from_env()
+
+
+def test_shopify_webhook_endpoint_rejects_query_or_fragment(monkeypatch):
+    _base_env(monkeypatch)
+    monkeypatch.setenv(
+        "TCG_SHOPIFY_WEBHOOK_ENDPOINT",
+        "https://drop-rate.example/api/v1/shopify/webhooks?debug=1",
+    )
+    with pytest.raises(RuntimeError, match="query parameters"):
+        Settings.from_env()
