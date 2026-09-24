@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
+from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .market_adapters import adapter_availability
@@ -37,20 +38,6 @@ class PricingPolicyPatch(BaseModel):
 class BatchRecalculate(BaseModel):
     inventory_ids: list[UUID] = Field(min_length=1, max_length=100)
 
-
-async def _owner(connection: asyncpg.Connection) -> asyncpg.Record:
-    row = await connection.fetchrow(
-        """
-        select id
-        from tcg.owners
-        where active
-        order by founder_slot nulls last
-        limit 1
-        """
-    )
-    if row is None:
-        raise HTTPException(status_code=403, detail="No active owner membership")
-    return row
 
 
 async def _policy_row(connection: asyncpg.Connection, owner_id: UUID) -> asyncpg.Record:
