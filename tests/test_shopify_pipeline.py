@@ -61,6 +61,8 @@ def test_single_item_sync_requires_all_local_sellability_gates() -> None:
     assert 'item["status"] != "APPROVED"' in source
     assert 'not item["identity_confirmed"]' in source
     assert 'item["acquisition_cost_minor"] is None' in source
+    assert 'item["product_type"] == "CARD"' in source
+    assert 'missing.append("card language")' in source
     assert 'item["store_price_minor"] is None' in source
     assert 'item["storage_location_id"] is None' in source
     assert '"single-item-test"' in source
