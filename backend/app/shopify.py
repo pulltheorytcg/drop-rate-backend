@@ -24,6 +24,7 @@ router = APIRouter(prefix="/api/v1/shopify", tags=["shopify"])
 MAX_WEBHOOK_BODY_BYTES = 2_000_000
 INITIAL_WEBHOOK_TOPICS = frozenset(
     {
+        "orders/create",
         "orders/paid",
         "orders/cancelled",
         "refunds/create",
@@ -31,6 +32,7 @@ INITIAL_WEBHOOK_TOPICS = frozenset(
     }
 )
 SHOPIFY_WEBHOOK_TOPIC_ENUMS = {
+    "orders/create": "ORDERS_CREATE",
     "orders/paid": "ORDERS_PAID",
     "orders/cancelled": "ORDERS_CANCELLED",
     "refunds/create": "REFUNDS_CREATE",
