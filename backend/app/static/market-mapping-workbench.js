@@ -149,7 +149,17 @@ function renderMarketMappings() {
     details.append(title, meta);
 
     const actions = document.createElement("div");
-    if (mapping.match_status === "REVIEW") {
+    const unsafeLegacyCardmarket =
+      mapping.match_status === "REVIEW" &&
+      mapping.source === "CARDMARKET" &&
+      String(marketMappingState.catalogue?.game || "").toLowerCase() === "pokemon" &&
+      !mapping.source_variant_id;
+
+    if (unsafeLegacyCardmarket) {
+      const warning = document.createElement("small");
+      warning.textContent = "Missing provider variant — reject and recreate this mapping.";
+      actions.append(warning, mappingDecisionButton(mapping, "reject"));
+    } else if (mapping.match_status === "REVIEW") {
       actions.append(mappingDecisionButton(mapping, "verify"), mappingDecisionButton(mapping, "reject"));
     } else {
       const status = document.createElement("strong");
@@ -237,6 +247,13 @@ function renderMarketCandidates() {
     variantInput.maxLength = 1000;
     variantInput.placeholder = "Provider variant (optional)";
     variantInput.value = candidate.source_variant_id || "";
+    if (
+      candidate.source === "CARDMARKET" &&
+      String(marketMappingState.catalogue?.game || "").toLowerCase() === "pokemon"
+    ) {
+      variantInput.readOnly = true;
+      variantInput.placeholder = "Cardmarket variant";
+    }
 
     const button = document.createElement("button");
     button.type = "button";
