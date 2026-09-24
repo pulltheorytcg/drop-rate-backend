@@ -72,6 +72,19 @@ def test_webhook_intake_verifies_hmac_before_parsing_json_and_uses_delivery_id()
     assert "raw_body" not in MIGRATION.read_text()
 
 
+def test_unexpected_webhook_failures_are_logged_without_raw_payload() -> None:
+    source = SHOPIFY.read_text()
+    assert "logger.exception(" in source
+    assert '"shopify_webhook_id": webhook_id' in source
+    assert '"shopify_topic": topic' in source
+    assert '"shopify_resource_id": _resource_id(payload)' in source
+    logging_start = source.index("logger.exception(")
+    logging_end = source.index("await connection.execute(", logging_start)
+    logging_block = source[logging_start:logging_end]
+    assert "raw_body" not in logging_block
+    assert "payload_sha256" not in logging_block
+
+
 def test_shopify_status_does_not_return_credentials() -> None:
     source = SHOPIFY.read_text()
     status_start = source.index('async def shopify_status(')
