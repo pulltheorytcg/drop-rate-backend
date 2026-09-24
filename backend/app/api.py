@@ -11,6 +11,7 @@ from fastapi.encoders import jsonable_encoder
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .physical_state import validate_physical_state
 from .schemas import (
     BulkCostAllocation,
     InventoryApproval,
@@ -23,9 +24,36 @@ from .schemas import (
 router = APIRouter(prefix="/api/v1")
 
 ACTIVE_INVENTORY_SQL = "i.status not in ('SOLD', 'WITHDRAWN')"
+RAW_CARD_READY_SQL = """
+    p.product_type = 'CARD'
+    and i.grading_company is null
+    and i.grade is null
+    and i.condition is not null
+    and btrim(i.condition) <> ''
+    and i.seal_status is null
+"""
+GRADED_CARD_READY_SQL = """
+    p.product_type = 'CARD'
+    and i.grading_company is not null
+    and btrim(i.grading_company) <> ''
+    and i.grade is not null
+    and btrim(i.grade) <> ''
+    and (i.condition is null or btrim(i.condition) = '')
+    and i.seal_status is null
+"""
+NON_CARD_READY_SQL = """
+    p.product_type <> 'CARD'
+    and i.seal_status is not null
+    and (i.condition is null or btrim(i.condition) = '')
+    and i.grading_company is null
+    and i.grade is null
+"""
+PHYSICAL_STATE_READY_SQL = f"""
+    (({RAW_CARD_READY_SQL}) or ({GRADED_CARD_READY_SQL}) or ({NON_CARD_READY_SQL}))
+"""
 READY_SQL = f"""
     i.acquisition_cost_minor is not null
-    and i.condition is not null and btrim(i.condition) <> ''
+    and ({PHYSICAL_STATE_READY_SQL})
     and i.location is not null and btrim(i.location) <> ''
     and i.store_price_minor is not null
     and i.identity_confirmed
@@ -34,7 +62,14 @@ READY_SQL = f"""
 
 ISSUE_FILTERS = {
     "missing_cost": f"({ACTIVE_INVENTORY_SQL}) and i.acquisition_cost_minor is null",
-    "missing_condition": f"({ACTIVE_INVENTORY_SQL}) and (i.condition is null or btrim(i.condition) = '')",
+    "missing_condition": f"""({ACTIVE_INVENTORY_SQL})
+        and p.product_type = 'CARD'
+        and i.grading_company is null
+        and i.grade is null
+        and (i.condition is null or btrim(i.condition) = '')""",
+    "missing_seal_status": f"""({ACTIVE_INVENTORY_SQL})
+        and p.product_type <> 'CARD'
+        and i.seal_status is null""",
     "missing_location": f"({ACTIVE_INVENTORY_SQL}) and (i.location is null or btrim(i.location) = '')",
     "missing_price": f"({ACTIVE_INVENTORY_SQL}) and i.store_price_minor is null",
     "identity_unconfirmed": f"({ACTIVE_INVENTORY_SQL}) and not i.identity_confirmed",
@@ -74,12 +109,14 @@ async def inventory_readiness(
                 count(*) filter (where {ACTIVE_INVENTORY_SQL})::int as total,
                 count(*) filter (where {ISSUE_FILTERS['missing_cost']})::int as missing_cost,
                 count(*) filter (where {ISSUE_FILTERS['missing_condition']})::int as missing_condition,
+                count(*) filter (where {ISSUE_FILTERS['missing_seal_status']})::int as missing_seal_status,
                 count(*) filter (where {ISSUE_FILTERS['missing_location']})::int as missing_location,
                 count(*) filter (where {ISSUE_FILTERS['missing_price']})::int as missing_price,
                 count(*) filter (where {ISSUE_FILTERS['identity_unconfirmed']})::int as identity_unconfirmed,
                 count(*) filter (where i.status = 'APPROVED')::int as approved,
                 count(*) filter (where {ISSUE_FILTERS['approval_ready']})::int as approval_ready
             from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id = i.catalogue_id
             where i.owner_id = $1
             """,
             owner["id"],
@@ -149,7 +186,7 @@ async def list_inventory(
             f"""
             select
                 i.id, i.inventory_code, i.acquisition_cost_minor, i.acquisition_date,
-                i.currency, i.condition, i.grading_company, i.grade,
+                i.currency, i.condition, i.seal_status, i.grading_company, i.grade,
                 i.certificate_number, i.language, i.location, i.storage_location_id,
                 sl.code as storage_location_code, sl.label as storage_location_label,
                 i.store_price_minor, i.imported_valuation_minor, i.imported_valuation_date,
@@ -196,13 +233,39 @@ async def update_inventory(
     ) as connection:
         owner = await _owner(connection)
         current_item = await connection.fetchrow(
-            "select status, version from tcg.inventory_items where id = $1 and owner_id = $2",
+            """
+            select
+                i.status, i.version, i.condition, i.seal_status,
+                i.grading_company, i.grade, i.certificate_number,
+                p.product_type
+            from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id = i.catalogue_id
+            where i.id = $1 and i.owner_id = $2
+            """,
             inventory_id, owner["id"],
         )
         if current_item is None:
             raise HTTPException(status_code=404, detail="Inventory item not found")
         if current_item["status"] == "SOLD":
             raise HTTPException(status_code=409, detail="Sold inventory is immutable; use the refund/return workflow")
+
+        physical_fields = {
+            field: values.get(field, current_item[field])
+            for field in (
+                "condition",
+                "seal_status",
+                "grading_company",
+                "grade",
+                "certificate_number",
+            )
+        }
+        try:
+            validate_physical_state(
+                product_type=current_item["product_type"],
+                **physical_fields,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
         if "storage_location_id" in values and values["storage_location_id"] is not None:
             visible_location = await connection.fetchrow(
@@ -254,8 +317,13 @@ async def approve_inventory(
     ) as connection:
         owner = await _owner(connection)
         item = await connection.fetchrow(
-            """select * from tcg.inventory_items
-            where id = $1 and owner_id = $2 for update""",
+            """
+            select i.*, p.product_type
+            from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id = i.catalogue_id
+            where i.id = $1 and i.owner_id = $2
+            for update of i
+            """,
             inventory_id, owner["id"],
         )
         if item is None:
@@ -266,9 +334,26 @@ async def approve_inventory(
             })
         if item["status"] == "SOLD":
             raise HTTPException(status_code=409, detail="Sold inventory cannot be approved again")
+        try:
+            validate_physical_state(
+                product_type=item["product_type"],
+                condition=item["condition"],
+                seal_status=item["seal_status"],
+                grading_company=item["grading_company"],
+                grade=item["grade"],
+                certificate_number=item["certificate_number"],
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
         missing = []
         if item["acquisition_cost_minor"] is None: missing.append("acquisition cost")
-        if not (item["condition"] or "").strip(): missing.append("condition")
+        if item["product_type"] == "CARD":
+            is_graded = bool((item["grading_company"] or "").strip() and (item["grade"] or "").strip())
+            if not is_graded and not (item["condition"] or "").strip():
+                missing.append("raw card condition")
+        elif item["seal_status"] is None:
+            missing.append("seal status")
         if not (item["location"] or "").strip(): missing.append("location")
         if item["store_price_minor"] is None: missing.append("store price")
         if not item["identity_confirmed"]: missing.append("identity confirmation")
