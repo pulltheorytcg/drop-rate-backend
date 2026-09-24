@@ -60,12 +60,12 @@ The current Shopify integration is intentionally non-publishing. It provides:
 Configure these variables only in the server/Railway environment. Do not place them in browser code or commit them to Git:
 
 - `TCG_SHOPIFY_SHOP_DOMAIN=<store>.myshopify.com`
-- `TCG_SHOPIFY_ACCESS_TOKEN=<Admin API token>`
+- `TCG_SHOPIFY_CLIENT_ID=<app client ID>`
 - `TCG_SHOPIFY_CLIENT_SECRET=<app client secret>`
 - `TCG_SHOPIFY_API_VERSION=2026-07`
 - `TCG_SHOPIFY_PUBLISH_ENABLED=false`
 
-The shop domain must be the canonical `*.myshopify.com` domain, not a custom storefront domain or URL with a scheme/path.
+The shop domain must be the canonical `*.myshopify.com` domain, not a custom storefront domain or URL with a scheme/path. Drop Rate exchanges the Client ID + Client Secret for a short-lived Shopify Admin API token and refreshes it automatically before expiry; access tokens are not configured manually.
 
 Initial webhook topics expected by Drop Rate are:
 
