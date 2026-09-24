@@ -16,7 +16,7 @@ function installShopifySettingsPanel() {
         <p class="muted">Drop Rate remains the inventory source of truth. This connection is read-only until approved stock publishing is explicitly enabled.</p>
       </div>
       <div class="topbar-actions">
-        <button id="shopify-probe-button" class="ghost-button" type="button">Test store connection</button>
+        <button id="shopify-register-button" class="primary-button compact" type="button">Verify Shopify + Register webhooks</button>
         <button id="shopify-refresh-button" class="ghost-button" type="button">↻ Refresh</button>
       </div>
     </div>
@@ -32,7 +32,7 @@ function installShopifySettingsPanel() {
     <div id="shopify-webhook-list" class="allocation-list"></div>`;
   settings.append(panel);
 
-  byId("shopify-probe-button").addEventListener("click", probeShopifyConnection);
+  byId("shopify-register-button").addEventListener("click", registerShopifyWebhooks);
   byId("shopify-refresh-button").addEventListener("click", loadShopifyStatus);
 }
 
@@ -82,6 +82,11 @@ async function loadShopifyStatus() {
         "Webhook secret",
         data.webhook_secret_configured ? "Configured" : "Required",
         "Used only server-side for HMAC verification."
+      ),
+      shopifyStatusRow(
+        "Webhook destination",
+        data.webhook_endpoint_configured ? "Configured" : "Required",
+        data.webhook_endpoint || "Canonical HTTPS webhook destination is not configured."
       )
     );
 
@@ -108,7 +113,7 @@ async function loadShopifyStatus() {
         ].join(" · ")
       )
     );
-    byId("shopify-probe-button").disabled = !data.admin_api_configured;
+    byId("shopify-register-button").disabled = !data.webhook_registration_ready;
     showMessage("shopify-settings-message");
   } catch (error) {
     list.textContent = "Shopify status could not be loaded.";
@@ -117,12 +122,15 @@ async function loadShopifyStatus() {
   }
 }
 
-async function probeShopifyConnection() {
-  const button = byId("shopify-probe-button");
+async function registerShopifyWebhooks() {
+  const button = byId("shopify-register-button");
   button.disabled = true;
-  showMessage("shopify-settings-message", "Testing the Shopify Admin API connection…");
+  showMessage(
+    "shopify-settings-message",
+    "Verifying the Shopify Admin API connection and webhook subscriptions…"
+  );
   try {
-    const data = await apiRequest("/api/v1/shopify/probe", {method: "POST"});
+    const data = await apiRequest("/api/v1/shopify/webhooks/register", {method: "POST"});
     const shop = data.shop || {};
     const parts = [
       shop.name,
@@ -131,7 +139,7 @@ async function probeShopifyConnection() {
     ].filter(Boolean);
     showMessage(
       "shopify-settings-message",
-      `Shopify connection verified${parts.length ? `: ${parts.join(" · ")}` : ""}. Publishing remains ${data.publish_enabled ? "enabled" : "locked off"}.`,
+      `Shopify verified${parts.length ? `: ${parts.join(" · ")}` : ""}. ${data.subscriptions?.length || 0} webhook subscriptions verified; ${data.created_count || 0} created. Publishing remains ${data.publish_enabled ? "enabled" : "locked off"}.`,
       "success"
     );
     await loadShopifyStatus();

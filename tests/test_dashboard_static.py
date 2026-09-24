@@ -128,7 +128,8 @@ def test_identity_verification_ui_is_audited_and_not_generic_editable() -> None:
 def test_shopify_settings_ui_never_collects_server_credentials() -> None:
     js = (STATIC / "shopify-settings.js").read_text()
     assert "/api/v1/shopify/status" in js
-    assert "/api/v1/shopify/probe" in js
+    assert "/api/v1/shopify/webhooks/register" in js
+    assert "Verify Shopify + Register webhooks" in js
     assert "LOCKED OFF" in js
     assert "TCG_SHOPIFY_ACCESS_TOKEN" not in js
     assert "TCG_SHOPIFY_CLIENT_SECRET" not in js
