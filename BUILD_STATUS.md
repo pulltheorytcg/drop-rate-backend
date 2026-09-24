@@ -286,7 +286,7 @@ GitHub status checks can be required on protected branches, but the current conn
 
 ## Known remaining items
 
-These are **not blockers to closing this hardening chapter**, but remain explicit work:
+These are **not blockers to the current backend foundation**, but remain explicit work:
 
 1. **GitHub branch protection:** verify `main` requires pull requests + passing CI before the project expands to multiple contributors.
 2. **eBay UK sold via Parse:** provider returns an empty list; investigate separately or use an alternative official/permitted source path.
@@ -296,7 +296,7 @@ These are **not blockers to closing this hardening chapter**, but remain explici
 6. **Supabase leaked-password protection:** enable manually before launch.
 7. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
 8. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
-9. **Operational inventory cleanup: identities, storage, costs, missing conditions and Store Prices.
+9. **Operational inventory cleanup:** identities, storage, costs, missing conditions and Store Prices.
 
 ## Milestone 1 checklist
 
