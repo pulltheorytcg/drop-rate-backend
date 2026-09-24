@@ -151,7 +151,7 @@ function renderInventory(data) {
     selectCell.append(checkbox);
     row.append(selectCell);
     const name = document.createElement("td");
-    name.dataset.label = "Card";
+    name.dataset.label = "Item";
     const wrap = document.createElement("div");
     wrap.className = "card-name";
     const strong = document.createElement("strong");
@@ -249,7 +249,10 @@ async function reloadDashboard(message = "") {
 function openEditor(item) {
   state.editing = item;
   byId("editor-title").textContent = item.name;
-  byId("editor-meta").textContent = [item.set_name, item.card_number, item.inventory_code].filter(Boolean).join(" · ");
+  const productLabel = item.product_type === "SEALED"
+    ? "Sealed product"
+    : item.product_type === "COLLECTION" ? "Collection" : "Card";
+  byId("editor-meta").textContent = [productLabel, item.set_name, item.card_number, item.inventory_code].filter(Boolean).join(" · ");
   byId("edit-cost").value = minorToInput(item.acquisition_cost_minor);
   byId("edit-date").value = item.acquisition_date || "";
   byId("edit-condition").value = item.condition || "";
