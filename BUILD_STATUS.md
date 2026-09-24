@@ -319,6 +319,67 @@ Current production regression baseline: **369 passed, 0 skipped** in Railway pre
 
 GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
 
+## Shopify product completeness contract
+
+A Shopify product is not considered publishable merely because a product/variant exists. The backend must treat **product completeness as a deterministic publication gate**. Products remain `DRAFT` until every required field below has an approved source, passes validation and is written successfully.
+
+| Shopify field | Source / rule |
+|---|---|
+| Title | Deterministic backend template from canonical card identity + explicit language + card number + variant + condition/grade. Never AI-invented. |
+| Description | Structured facts from Supabase; AI may polish wording, but validators must prevent invented set/rarity/condition/grade/language/price claims. |
+| Media | Approved media pipeline only; provenance and source rights must be stored. See media strategy below. Missing required media blocks publication. |
+| Category | Deterministic Shopify taxonomy mapping by product type/game. |
+| Price | `store_price_minor` from Drop Rate only. Shopify never becomes pricing source of truth. |
+| Inventory | Exact sellable physical quantity from Drop Rate. Single-item listing = 1; no overselling. |
+| Shipping | Deterministic shipping profile/weight/dimensions from approved product-type configuration; no AI assumptions. |
+| Variants | Unique/physical-item listings use one controlled variant unless a deliberate pooled-listing model says otherwise. Language/condition/grade must never be silently collapsed. |
+| Product metafields | Exact Drop Rate identifiers and structured card facts. Inventory ID is mandatory for single-item listings. Ownership remains backend-private and is not customer-facing. |
+| Search engine listing | Deterministic handle plus validated SEO title/meta description generated from real database facts. |
+| Status | `DRAFT` until completeness gate passes; only then `ACTIVE`. |
+| Publishing | Publish only to explicitly configured publication/channel after all gates pass. Bulk publishing stays separately controlled. |
+| Sales | Shopify records checkout/order facts; Drop Rate resolves each sale back to exact physical Inventory ID and owner. |
+| Product organisation | Deterministic product type, vendor, normalized collections and tags from game/set/variant/language/status rules. |
+| Theme template | Explicit product template selected by product type/listing model; never Shopify default by accident. |
+
+### Media strategy — avoid manually scanning the whole inventory
+
+The system should support two media classes:
+
+1. **Canonical/licensed reference media** for ordinary raw cards where a permitted provider supplies reusable card imagery. The source URL/provider/license/provenance must be recorded against the canonical CARD. One approved canonical image can serve multiple equivalent physical copies.
+2. **Physical-item media** for high-value, graded, unusual-condition, signed, altered, sealed or otherwise item-specific inventory. These items should require actual front/back/item photography before publication.
+
+The intended operational workflow is **batch capture, not manual scanning**:
+- camera/phone capture station
+- Inventory ID / QR or barcode associates each shot with the exact item
+- automatic crop/deskew/background cleanup
+- AI may help detect front/back, orientation and image quality
+- human review only for low-confidence/image-quality exceptions
+- approved files stored once and referenced by the backend
+- Shopify receives only media that has passed provenance + quality checks
+
+Do **not** assume card-image reuse from eBay, Collectr, TCGplayer, Cardmarket or other providers is permitted. Reuse only when provider terms/licensing explicitly allow it. If no permitted canonical media exists, the item remains DRAFT until approved physical media is captured.
+
+### Product completeness release rule
+
+Before activation/publication, the backend must verify at minimum:
+- canonical identity confirmed
+- language explicit
+- condition/grade valid
+- registered physical location
+- acquisition cost known
+- Store Price known
+- exact SKU / Inventory ID
+- media policy satisfied
+- shipping profile resolved
+- required metafields present
+- title/description/SEO validators pass
+- product type/vendor/collections/tags/template resolved
+- Shopify quantity matches backend sellable quantity
+- publication target configured
+- no duplicate active Shopify link for the physical item
+
+Any failed check leaves the product DRAFT and creates an Action Required reason rather than guessing.
+
 ## Known remaining items
 
 These are **not blockers to the current backend foundation**, but remain explicit work:
@@ -368,7 +429,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 | 3 | Founder account / inventory / ownership | ✅ Technical foundation complete; operational data cleanup remains |
 | 4 | Inventory dashboard functionality | ✅ Core complete |
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
-| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item sale/refund pipeline live; controlled real sale still required |
+| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item sale/refund pipeline live; product-completeness/media contract now defined; controlled real sale still required |
 | 6 | Orders / allocation / settlements | 🚧 Deterministic Shopify attribution/ledger foundation live; real end-to-end verification and settlement reporting remain |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
@@ -416,7 +477,7 @@ Required controls:
 
 - multi-founder ownership remains deferred; current build stays single-founder
 - consignors/consignment come after the founder sale loop
-- AI identification comes after core commerce/pricing reliability
+- automated media intake/product-enrichment follows the controlled Shopify sale loop; AI identification comes after core commerce/pricing reliability
 - AI marketing, SEO automation and advanced n8n orchestration come after inventory, Shopify, settlement and market pricing foundations
 - value-weighted Purchase Lot allocation waits for reliable market reference values
 - no automatic money movement until settlement reporting is thoroughly verified
