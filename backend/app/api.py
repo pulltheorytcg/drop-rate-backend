@@ -10,6 +10,7 @@ from fastapi.encoders import jsonable_encoder
 
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
+from .brands import brand_sql
 from .db import user_connection
 from .physical_state import validate_physical_state
 from .schemas import (
@@ -24,6 +25,7 @@ from .schemas import (
 router = APIRouter(prefix="/api/v1")
 
 ACTIVE_INVENTORY_SQL = "i.status not in ('SOLD', 'WITHDRAWN')"
+BRAND_SQL = brand_sql("p")
 RAW_CARD_READY_SQL = """
     p.product_type = 'CARD'
     and i.grading_company is null
@@ -124,12 +126,36 @@ async def inventory_readiness(
         return jsonable_encoder(dict(row))
 
 
+@router.get("/inventory/brands")
+async def inventory_brands(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, _request_id(request)
+    ) as connection:
+        owner = await _owner(connection)
+        rows = await connection.fetch(
+            f"""
+            select {BRAND_SQL} as brand, count(*)::int as count
+            from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id = i.catalogue_id
+            where i.owner_id = $1
+            group by 1
+            order by 1
+            """,
+            owner["id"],
+        )
+        return jsonable_encoder({"items": [dict(row) for row in rows]})
+
+
 @router.get("/inventory")
 async def list_inventory(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
     search: str | None = Query(default=None, max_length=200),
     status_filter: str | None = Query(default=None, alias="status", max_length=30),
+    brand_filter: str | None = Query(default=None, alias="brand", max_length=80),
     issue: ReadinessIssue | None = Query(default=None),
     storage_location_id: UUID | None = Query(default=None),
     unlocated: bool = Query(default=False),
@@ -166,6 +192,9 @@ async def list_inventory(
         if status_filter:
             params.append(status_filter)
             filters.append(f"i.status = ${len(params)}")
+        if brand_filter:
+            params.append(brand_filter.strip())
+            filters.append(f"({BRAND_SQL}) = ${len(params)}")
         if issue:
             filters.append(ISSUE_FILTERS[issue])
         if storage_location_id is not None:
@@ -193,8 +222,9 @@ async def list_inventory(
                 i.imported_price_override_minor, i.identity_confirmed, i.status,
                 i.notes, i.version, i.created_at, i.updated_at, i.purchase_lot_id,
                 pl.lot_code as purchase_lot_code,
-                p.id as catalogue_id, p.product_type, p.game, p.name, p.set_name,
-                p.card_number, p.variant, p.rarity, p.language as catalogue_language
+                p.id as catalogue_id, p.product_type, p.game, {BRAND_SQL} as brand,
+                p.name, p.set_name, p.card_number, p.variant, p.rarity,
+                p.language as catalogue_language
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id = i.catalogue_id
             left join tcg.purchase_lots pl on pl.id = i.purchase_lot_id
