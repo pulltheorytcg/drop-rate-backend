@@ -215,7 +215,10 @@ function setIntakeNewCatalogueMode(enabled) {
 }
 
 function catalogueResultLabel(item) {
-  return [item.game, item.name, item.set_name, item.card_number, item.variant, item.rarity, item.language].filter(Boolean).join(" · ");
+  const productLabel = item.product_type === "SEALED"
+    ? "Sealed product"
+    : item.product_type === "COLLECTION" ? "Collection" : "Card";
+  return [productLabel, item.game, item.name, item.set_name, item.card_number, item.variant, item.rarity, item.language].filter(Boolean).join(" · ");
 }
 
 async function searchIntakeCatalogue() {
