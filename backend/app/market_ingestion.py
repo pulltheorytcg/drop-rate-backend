@@ -9,6 +9,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 
+from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .market_adapters import (
@@ -24,20 +25,6 @@ from .settings import get_settings
 
 router = APIRouter(prefix="/api/v1/market", tags=["market-data"])
 
-
-async def _owner(connection: asyncpg.Connection) -> asyncpg.Record:
-    row = await connection.fetchrow(
-        """
-        select id
-        from tcg.owners
-        where active
-        order by founder_slot nulls last
-        limit 1
-        """
-    )
-    if row is None:
-        raise HTTPException(status_code=403, detail="No active owner membership")
-    return row
 
 
 def validate_provider_observation(

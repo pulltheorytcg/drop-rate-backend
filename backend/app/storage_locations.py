@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 
 from .auth import AuthenticatedUser, require_user
+from .ownership import current_owner as _owner
 from .db import user_connection
 from .schemas import (
     StorageLocationAssignment,
@@ -18,20 +19,6 @@ from .schemas import (
 
 router = APIRouter(prefix="/api/v1")
 
-
-async def _owner(connection: asyncpg.Connection) -> asyncpg.Record:
-    row = await connection.fetchrow(
-        """
-        select id, display_name, owner_type, founder_slot
-        from tcg.owners
-        where active
-        order by founder_slot nulls last
-        limit 1
-        """
-    )
-    if row is None:
-        raise HTTPException(status_code=403, detail="No active owner membership")
-    return row
 
 
 async def _location_summary(

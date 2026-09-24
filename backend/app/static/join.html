@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0d12">
+  <title>Join Drop Rate</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <main class="shell">
+    <section class="auth-layout">
+      <div class="brand-panel">
+        <div class="brand-lockup"><span class="brand-mark">DR</span><span>DROP RATE</span></div>
+        <div class="brand-copy">
+          <p class="eyebrow">Founder onboarding</p>
+          <h1>Bring your collection.<br><em>Keep ownership clear.</em></h1>
+          <p class="lead">Your inventory, purchase costs and activity stay linked to your own founder account.</p>
+        </div>
+        <div class="trust-row"><span>Invite only</span><span>Owner scoped</span><span>Audit ready</span></div>
+      </div>
+
+      <div class="auth-panel">
+        <div class="mobile-brand"><span class="brand-mark">DR</span><span>DROP RATE</span></div>
+
+        <div id="invite-loading" class="auth-card">
+          <p class="eyebrow">Checking invitation</p>
+          <h2>One moment…</h2>
+          <p class="muted">We’re validating your founder invitation.</p>
+        </div>
+
+        <form id="join-form" class="auth-card hidden">
+          <p class="eyebrow">Private founder invitation</p>
+          <h2>Join Drop Rate</h2>
+          <p id="invite-summary" class="muted"></p>
+          <label>Your name<input id="join-name" type="text" autocomplete="name" required maxlength="120"></label>
+          <label>Email address<input id="join-email" type="email" autocomplete="email" required maxlength="320"></label>
+          <label>Password<input id="join-password" type="password" autocomplete="new-password" required minlength="10"></label>
+          <label>Confirm password<input id="join-confirm-password" type="password" autocomplete="new-password" required minlength="10"></label>
+          <div id="join-message" class="message" role="status"></div>
+          <button class="primary-button" type="submit">Create founder account <span>→</span></button>
+          <button id="show-existing-login" class="text-button" type="button">Already have a Drop Rate login?</button>
+        </form>
+
+        <form id="existing-login-form" class="auth-card hidden">
+          <button id="back-to-join" class="back-button" type="button">← Back</button>
+          <p class="eyebrow">Existing account</p>
+          <h2>Sign in to accept invitation</h2>
+          <label>Email address<input id="existing-email" type="email" autocomplete="email" required></label>
+          <label>Password<input id="existing-password" type="password" autocomplete="current-password" required></label>
+          <div id="existing-message" class="message" role="status"></div>
+          <button class="primary-button" type="submit">Sign in & accept <span>→</span></button>
+        </form>
+
+        <div id="invite-invalid" class="auth-card hidden">
+          <p class="eyebrow">Invitation unavailable</p>
+          <h2>This link can’t be used</h2>
+          <p id="invite-invalid-message" class="muted">Ask the founder who invited you for a new link.</p>
+          <a class="text-button" href="/">Back to Drop Rate</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/assets/join.js" defer></script>
+</body>
+</html>
