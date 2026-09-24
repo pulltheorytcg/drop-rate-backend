@@ -101,8 +101,11 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
     )
     if item is None:
         raise HTTPException(status_code=404, detail="Inventory item not found")
-    if item["status"] == "WITHDRAWN":
-        raise HTTPException(status_code=409, detail="Withdrawn inventory cannot be repriced")
+    if item["status"] in {"SOLD", "WITHDRAWN"}:
+        raise HTTPException(
+            status_code=409,
+            detail="Sold or withdrawn inventory cannot be repriced",
+        )
 
     rows = await connection.fetch(
         """
