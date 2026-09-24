@@ -140,7 +140,7 @@ def test_language_aliases_and_display_codes_are_deterministic() -> None:
 
 
 def test_collectr_title_language_populates_structured_language() -> None:
-    row = collectr_row(**{"Product Name": "Eiscue ex (JP)"})
+    row = collectr_row(**{"Product Name": "Eiscue ex (JP)", "Language": ""})
     normalized, issues = _normalized_row(
         row,
         _field_map(list(row)),
