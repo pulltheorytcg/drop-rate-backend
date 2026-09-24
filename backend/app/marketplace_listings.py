@@ -27,6 +27,7 @@ MemberState = Literal["ACTIVE", "PAUSED", "REMOVED"]
 class ListingFromInventoryCreate(BaseModel):
     version: int = Field(ge=1)
     minimum_sale_price_minor: int | None = Field(default=None, ge=0)
+    force_unique: bool = False
 
 
 class ListingPatch(BaseModel):
@@ -89,7 +90,7 @@ def _key(value: object) -> str | None:
     return text.casefold() if text else None
 
 
-def listing_shape(item: asyncpg.Record) -> dict[str, object]:
+def listing_shape(item: asyncpg.Record, *, force_unique: bool = False) -> dict[str, object]:
     product_type = str(item["product_type"])
     language = _clean(item["language"] or item["catalogue_language"])
     condition = _clean(item["condition"])
@@ -97,7 +98,7 @@ def listing_shape(item: asyncpg.Record) -> dict[str, object]:
     grade = _clean(item["grade"])
     seal_status = _clean(item["seal_status"])
 
-    if product_type == "CARD" and not grading_company and not grade:
+    if product_type == "CARD" and not grading_company and not grade and not force_unique:
         if not language:
             raise HTTPException(
                 status_code=422,
@@ -691,7 +692,7 @@ async def create_or_join_listing(
                 "membership": dict(existing_membership),
             })
 
-        shape = listing_shape(item)
+        shape = listing_shape(item, force_unique=payload.force_unique)
         listing = await connection.fetchrow(
             """
             select *
