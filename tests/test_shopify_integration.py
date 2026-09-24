@@ -43,6 +43,7 @@ def test_shopify_resource_id_is_metadata_only() -> None:
 
 def test_initial_webhook_topics_cover_order_refund_and_uninstall_boundaries() -> None:
     assert INITIAL_WEBHOOK_TOPICS == {
+        "orders/create",
         "orders/paid",
         "orders/cancelled",
         "refunds/create",
@@ -199,6 +200,7 @@ def test_shopify_router_is_wired_and_publishing_has_no_mutation_path() -> None:
 
 def test_shopify_webhook_topic_mapping_matches_expected_api_enums() -> None:
     assert SHOPIFY_WEBHOOK_TOPIC_ENUMS == {
+        "orders/create": "ORDERS_CREATE",
         "orders/paid": "ORDERS_PAID",
         "orders/cancelled": "ORDERS_CANCELLED",
         "refunds/create": "REFUNDS_CREATE",
@@ -213,7 +215,7 @@ def test_webhook_registration_plan_is_idempotent_for_exact_subscriptions() -> No
         for index, topic in enumerate(SHOPIFY_WEBHOOK_TOPIC_ENUMS.values(), start=1)
     ]
     present, missing, conflicts = plan_webhook_registration(existing, endpoint)
-    assert len(present) == 4
+    assert len(present) == 5
     assert missing == []
     assert conflicts == []
 
@@ -230,6 +232,7 @@ def test_webhook_registration_plan_creates_only_missing_topics() -> None:
     present, missing, conflicts = plan_webhook_registration(existing, endpoint)
     assert [item["shopify_topic"] for item in present] == ["ORDERS_PAID"]
     assert {topic for _, topic in missing} == {
+        "ORDERS_CREATE",
         "ORDERS_CANCELLED",
         "REFUNDS_CREATE",
         "APP_UNINSTALLED",
