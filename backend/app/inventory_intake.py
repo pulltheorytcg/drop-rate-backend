@@ -25,6 +25,17 @@ CARD_CONDITIONS = {
 }
 
 
+def _catalogue_search_terms(query: str) -> list[str]:
+    """Split a human catalogue query into literal terms.
+
+    Every term must match at least one searchable catalogue field. This makes
+    searches such as "Absol 063/094" work without turning spaces into an
+    accidental exact-phrase requirement.
+    """
+
+    return [term for term in query.split() if term]
+
+
 async def _owner(connection: asyncpg.Connection) -> asyncpg.Record:
     row = await connection.fetchrow(
         """
@@ -256,23 +267,37 @@ async def search_catalogue(
         request.state.request_id,
     ) as connection:
         await _owner(connection)
-        pattern = f"%{query}%"
+        terms = _catalogue_search_terms(query)
         rows = await connection.fetch(
             """
             select
                 id, product_type, game, name, set_name, card_number,
                 variant, rarity, language
-            from tcg.catalogue_products
-            where name ilike $1
-               or set_name ilike $1
-               or coalesce(card_number, '') ilike $1
-               or game ilike $1
+            from tcg.catalogue_products p
+            where not exists (
+                select 1
+                from unnest($1::text[]) as search(term)
+                where not (
+                    strpos(lower(p.name), lower(search.term)) > 0
+                    or strpos(lower(p.set_name), lower(search.term)) > 0
+                    or strpos(lower(coalesce(p.card_number, '')), lower(search.term)) > 0
+                    or strpos(lower(p.game), lower(search.term)) > 0
+                    or strpos(lower(coalesce(p.variant, '')), lower(search.term)) > 0
+                    or strpos(lower(coalesce(p.rarity, '')), lower(search.term)) > 0
+                    or strpos(lower(coalesce(p.language, '')), lower(search.term)) > 0
+                )
+            )
             order by
-                case when lower(coalesce(card_number, '')) = lower($2) then 0 else 1 end,
-                name, set_name, card_number nulls last
-            limit $3
+                case
+                    when lower(coalesce(p.card_number, '')) = any($2::text[]) then 0
+                    else 1
+                end,
+                case when lower(p.name) = lower($3) then 0 else 1 end,
+                p.name, p.set_name, p.card_number nulls last, p.variant
+            limit $4
             """,
-            pattern,
+            terms,
+            [term.casefold() for term in terms],
             query,
             limit,
         )
