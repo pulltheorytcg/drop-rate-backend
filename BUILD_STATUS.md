@@ -261,10 +261,13 @@ The following areas were reviewed and defects found were corrected:
 ### Deployment / reproducibility
 - Railway production service remains `drop-rate-api-live`
 - latest deployment for language work is **SUCCESS** on commit `5fc2af6d5b356bc2377d380551a6bc856e0f8f38`
-- latest PR CI: **363 tests passed**, compile check passed
+- latest PR CI: **364 tests passed**, compile check passed
+- Railway production now has a **pre-deploy compile + full pytest gate**; a failing test blocks the deployment before the new container starts
 - live database integrity checks: **0 duplicate Inventory Codes, 0 language mismatches, 0 confirmed-without-evidence, 0 active-reservation/state mismatches**
 - migration history reconciled: `normalize_explicit_card_languages` is now present in the Supabase-native ledger as `20260924195341`
 - `database/migrations/**` is now the only canonical location for new migration files
+- Railway `Wait for CI` is currently **OFF** (`checkSuites=false`); the pre-deploy test gate is the immediate safety net, but Wait for CI should still be enabled manually
+- database migrations are versioned and tracked, but **future production migration application is not yet automated**; build the controlled Supabase CI/CD migration path before the next production schema change
 - no unintended staged Railway configuration remains
 
 ## Quality / regression gate
@@ -282,21 +285,23 @@ A feature is not considered complete merely because its unit tests pass. For mat
 
 Current regression baseline: **363 automated tests passed** on the latest language PR. Live inventory integrity currently reports zero duplicate Inventory Codes, zero language/catalogue mismatches, zero identity confirmations without evidence, zero active reservation/state mismatches, zero active Shopify links and zero marketplace listings.
 
-GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development.
+GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
 
 ## Known remaining items
 
 These are **not blockers to the current backend foundation**, but remain explicit work:
 
 1. **GitHub branch protection:** verify `main` requires pull requests + passing CI before the project expands to multiple contributors.
-2. **eBay UK sold via Parse:** provider returns an empty list; investigate separately or use an alternative official/permitted source path.
-3. **Cardmarket production ingestion:** re-probe/contract validation plus source-access/terms approval before persistence.
-4. **Collectr production adapter:** diagnostic search is live, but the production detail/graded-price contract must be re-validated before enabling ingestion.
-5. **TCGPlayer production ingestion:** supporting evidence only; validate the exact live detail/pricing endpoints before enabling persistence.
-6. **Supabase leaked-password protection:** enable manually before launch.
-7. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
-8. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
-9. **Operational inventory cleanup:** identities, storage, costs, missing conditions and Store Prices.
+2. **Railway Wait for CI:** enable `checkSuites`/Wait for CI on the production service so CI becomes a deployment prerequisite rather than only a pre-deploy backstop.
+3. **Supabase migration delivery:** implement a controlled CI/CD path that applies versioned database migrations to production and verifies migration history before deployment.
+4. **eBay UK sold via Parse:** provider returns an empty list; investigate separately or use an alternative official/permitted source path.
+5. **Cardmarket production ingestion:** re-probe/contract validation plus source-access/terms approval before persistence.
+6. **Collectr production adapter:** diagnostic search is live, but the production detail/graded-price contract must be re-validated before enabling ingestion.
+7. **TCGPlayer production ingestion:** supporting evidence only; validate the exact live detail/pricing endpoints before enabling persistence.
+8. **Supabase leaked-password protection:** enable manually before launch.
+9. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
+10. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
+11. **Operational inventory cleanup: identities, storage, costs, missing conditions and Store Prices.
 
 ## Milestone 1 checklist
 
