@@ -203,5 +203,6 @@ def test_unsupported_english_rollback_is_evidence_scoped_and_fail_closed() -> No
     assert "event_type = 'confirmed'" in lowered
     assert "set language = null" in lowered
     assert "set language = \'japanese\'" not in lowered
-    assert "update tcg.inventory_items" in lowered
-    assert "update tcg.catalogue_products" in lowered
+    assert lowered.count("update tcg.inventory_items") == 1
+    assert lowered.count("update tcg.catalogue_products") == 1
+    assert "migration:20260924220735_revert_unsupported_english_language_backfill" in lowered
