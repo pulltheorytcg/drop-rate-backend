@@ -85,7 +85,7 @@ function ensureInventoryIntakeUI() {
           <label id="intake-grade-label">Grade<input id="intake-grade" maxlength="40" placeholder="e.g. 10"></label>
           <label id="intake-certificate-label">Certificate number<input id="intake-certificate" maxlength="120"></label>
           <label class="full-width">Notes<textarea id="intake-notes" maxlength="2000" rows="2"></textarea></label>
-          <label class="check-field full-width"><input id="intake-identity-confirmed" type="checkbox"><span>I have physically checked this item and confirmed its identity.</span></label>
+          <p class="muted full-width">New inventory starts unconfirmed. Physically verify it in the Verify tab before pricing or approval.</p>
         </div>
       </section>
 
@@ -335,7 +335,6 @@ async function submitInventoryIntake(event) {
       language: emptyToNull(byId("intake-language").value),
       storage_location_id: byId("intake-storage-location").value || null,
       store_price_minor: intakeMoney("intake-price"),
-      identity_confirmed: byId("intake-identity-confirmed").checked,
       notes: byId("intake-notes").value.trim(),
     };
     const result = await apiRequest("/api/v1/inventory/intake", {
