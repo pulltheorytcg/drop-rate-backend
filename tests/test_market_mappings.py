@@ -113,7 +113,7 @@ async def test_verified_mapping_cannot_be_decided_again(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_verification_uses_explicit_match_confidence(monkeypatch) -> None:
+async def test_verification_promotes_human_verified_mapping_to_full_confidence(monkeypatch) -> None:
     rows = iter(
         [
             {
@@ -148,7 +148,7 @@ async def test_verification_uses_explicit_match_confidence(monkeypatch) -> None:
     assert result["match_status"] == "VERIFIED"
     update_args = connection.calls[0][1]
     assert update_args[1] == "VERIFIED"
-    assert update_args[2] == pytest.approx(0.97)
+    assert update_args[2] == pytest.approx(1.0)
     assert update_args[4] == 4
 
 
@@ -190,3 +190,17 @@ async def test_rejection_forces_zero_match_confidence(monkeypatch) -> None:
     assert update_args[1] == "REJECTED"
     assert update_args[2] == 0.0
     assert update_args[4] == 7
+
+
+def test_verified_mapping_uniqueness_is_enforced_by_migration() -> None:
+    from pathlib import Path
+
+    migration = (
+        Path(__file__).parents[1]
+        / "database"
+        / "migrations"
+        / "202609240002_unique_verified_market_mapping.sql"
+    ).read_text()
+    assert "unique index" in migration.casefold()
+    assert "catalogue_id, source" in migration
+    assert "match_status = 'VERIFIED'" in migration
