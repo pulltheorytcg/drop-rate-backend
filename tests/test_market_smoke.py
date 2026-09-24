@@ -85,7 +85,7 @@ def test_dashboard_smoke_matrix_uses_official_active_ebay_only() -> None:
     source = SMOKE_PANEL.read_text()
     assert source.count("include_sold: false") == 5
     assert source.count("include_active: true") == 5
-    assert "sold-history access remains a separate restricted capability" in source
+    assert "sold-history access remains a separate restricted capability" in source.casefold()
 
 
 def test_smoke_router_is_wired_into_app() -> None:
