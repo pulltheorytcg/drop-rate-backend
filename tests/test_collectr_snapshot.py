@@ -35,6 +35,7 @@ def collectr_row(**overrides):
         "Watchlist": "false",
         "Date Added": "2026-09-04",
         "Notes": "",
+        "Language": "English",
     }
     row.update(overrides)
     return row
@@ -152,7 +153,7 @@ def test_collectr_title_language_populates_structured_language() -> None:
 
 
 def test_collectr_missing_language_requires_review() -> None:
-    row = collectr_row()
+    row = collectr_row(**{"Language": ""})
     normalized, issues = _normalized_row(
         row,
         _field_map(list(row)),
