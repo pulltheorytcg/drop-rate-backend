@@ -38,12 +38,26 @@ def _to_gbp_minor(usd_minor: int, quote: FxQuote) -> int:
     return int((Decimal(usd_minor) * quote.rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
+def _normalise_variant(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    clean = value.strip().casefold()
+    if not clean:
+        return None
+    aliases = {
+        "holo": "holofoil",
+        "reverse holo": "reverse holofoil",
+        "reverse": "reverse holofoil",
+    }
+    return aliases.get(clean, clean)
+
+
 def _variant_matches(observed: object, expected: str | None) -> bool:
     if expected is None or not expected.strip():
         return True
-    if not isinstance(observed, str):
-        return False
-    return observed.strip().casefold() == expected.strip().casefold()
+    observed_norm = _normalise_variant(observed)
+    expected_norm = _normalise_variant(expected)
+    return observed_norm is not None and observed_norm == expected_norm
 
 
 class TcgplayerParseAdapter:

@@ -123,7 +123,7 @@ async def test_verification_promotes_human_verified_mapping_to_full_confidence(m
                 "metadata": {"candidate": "exact"},
                 "source": "TCGPLAYER",
                 "game": "Pokemon",
-                "source_variant_id": None,
+                "source_variant_id": "Normal",
                 "variant": "Normal",
             },
             {
@@ -276,3 +276,32 @@ async def test_cardmarket_reverse_holo_alias_can_be_verified(monkeypatch) -> Non
     )
 
     assert result["match_status"] == "VERIFIED"
+
+
+@pytest.mark.asyncio
+async def test_tcgplayer_pokemon_mapping_requires_variant_before_verification(monkeypatch) -> None:
+    async def fake_mapping_row(connection, mapping_id):
+        return {
+            "id": mapping_id,
+            "match_status": "REVIEW",
+            "version": 1,
+            "metadata": {},
+            "source": "TCGPLAYER",
+            "game": "Pokemon",
+            "source_variant_id": None,
+            "variant": "Normal",
+        }
+
+    monkeypatch.setattr(market_mappings, "_mapping_row", fake_mapping_row)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _decide_mapping(
+            FakeConnection(),
+            mapping_id=MAPPING_ID,
+            payload=MarketMappingDecision(expected_version=1),
+            user_id="user-123",
+            status="VERIFIED",
+        )
+
+    assert exc_info.value.status_code == 409
+    assert "TCGPLAYER Pokemon mapping requires a provider variant" in exc_info.value.detail

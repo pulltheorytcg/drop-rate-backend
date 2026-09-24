@@ -101,19 +101,48 @@ def _pokemon_variant_mode(source_variant_id: str | None) -> str:
     value = (source_variant_id or "").strip().casefold()
     if not value:
         raise ValueError("Cardmarket Pokemon mapping requires source_variant_id")
+    if value == "normal":
+        return "NORMAL"
+    if value in {"holo", "holofoil"}:
+        return "HOLO"
     if value in {"reverse holo", "reverse holofoil", "reverse"}:
         return "REVERSE_HOLO"
-    return "BASE_PRINTING"
+    raise ValueError("Cardmarket Pokemon mapping uses an unsupported provider variant")
 
 
 def _is_reverse_holo_listing(attributes: list[str]) -> bool:
     return any("reverse holo" in attribute.casefold() for attribute in attributes)
 
 
+def _is_holo_listing(attributes: list[str]) -> bool:
+    return any(
+        "holo" in attribute.casefold() and "reverse holo" not in attribute.casefold()
+        for attribute in attributes
+    )
+
+
 def _pokemon_listing_matches_variant(attributes: list[str], source_variant_id: str | None) -> bool:
     mode = _pokemon_variant_mode(source_variant_id)
     is_reverse = _is_reverse_holo_listing(attributes)
-    return is_reverse if mode == "REVERSE_HOLO" else not is_reverse
+    is_holo = _is_holo_listing(attributes)
+    if mode == "REVERSE_HOLO":
+        return is_reverse
+    if mode == "HOLO":
+        return is_holo and not is_reverse
+    return not is_holo and not is_reverse
+
+
+def _normalise_cardmarket_condition(value: object) -> str | None:
+    """Map only high-confidence provider aliases into Drop Rate condition buckets."""
+
+    if not isinstance(value, str):
+        return None
+    clean = value.strip()
+    if not clean:
+        return None
+    if clean.casefold() in {"nm", "near mint"}:
+        return "Near Mint"
+    return clean
 
 
 def _assert_identity(payload: dict, *, game: str, expansion: str, card: str) -> None:
@@ -286,7 +315,8 @@ class CardmarketParseAdapter:
             if active_fx is None:
                 raise RuntimeError("Cardmarket active listing FX quote is unavailable")
 
-            condition = row.get("condition") if isinstance(row.get("condition"), str) else None
+            provider_condition = row.get("condition") if isinstance(row.get("condition"), str) else None
+            condition = _normalise_cardmarket_condition(provider_condition)
             attributes = [
                 value.strip()
                 for value in row.get("attributes", [])
@@ -351,6 +381,7 @@ class CardmarketParseAdapter:
                     "card_slug": card,
                     "listing_id": listing_id,
                     "listing_quantity": quantity,
+                    "provider_condition": provider_condition,
                     "attributes": attributes,
                     "seller_country": seller_country,
                     "page": listings.get("page", 1),

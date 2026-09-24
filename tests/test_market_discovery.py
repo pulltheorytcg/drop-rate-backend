@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.market_discovery import DISCOVERY_SOURCES, _candidate
+from app.market_discovery import DISCOVERY_SOURCES, _candidate, _cardmarket_identity
 from app.collectr_parse_adapter import COLLECTR_PARSE_SCRAPER_ID
 
 
@@ -66,3 +66,39 @@ def test_discovery_router_is_wired_into_app() -> None:
     main = MAIN.read_text()
     assert "from .market_discovery import router as market_discovery_router" in main
     assert "app.include_router(market_discovery_router)" in main
+
+
+def test_cardmarket_search_label_yields_name_and_short_collector_number() -> None:
+    name, number = _cardmarket_identity({"name": "Absol (PFL 063)"})
+    assert name == "Absol"
+    assert number == "063"
+
+
+def test_short_provider_number_matches_canonical_number_with_denominator() -> None:
+    candidate = _candidate(
+        source="CARDMARKET",
+        source_product_id="https://www.cardmarket.com/en/Pokemon/Products/Singles/Phantasmal-Flames/Absol-PFL063",
+        source_variant_id="Normal",
+        name="Absol",
+        set_name="Phantasmal Flames",
+        card_number="063",
+        catalogue=catalogue(),
+    )
+    assert candidate is not None
+    assert candidate["match_signals"] == ["name", "set", "card_number"]
+    assert candidate["suggested_confidence"] == 1.0
+
+
+def test_discovery_price_hint_is_not_required_for_identity_confidence() -> None:
+    candidate = _candidate(
+        source="CARDMARKET",
+        source_product_id="cardmarket-url",
+        name="Absol",
+        set_name="Phantasmal Flames",
+        card_number="063",
+        market_price=None,
+        catalogue=catalogue(),
+    )
+    assert candidate is not None
+    assert candidate["suggested_confidence"] == 1.0
+    assert candidate["market_price"] is None

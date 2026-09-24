@@ -308,25 +308,27 @@ async def _decide_mapping(
 
     if (
         status == "VERIFIED"
-        and current["source"] == "CARDMARKET"
+        and current["source"] in {"CARDMARKET", "TCGPLAYER"}
         and str(current["game"]).strip().casefold() == "pokemon"
     ):
         provider_variant = str(current["source_variant_id"] or "").strip().casefold()
         catalogue_variant = str(current["variant"] or "").strip().casefold()
         aliases = {
+            "holo": "holofoil",
             "reverse holo": "reverse holofoil",
             "reverse": "reverse holofoil",
         }
         provider_variant = aliases.get(provider_variant, provider_variant)
-        if not provider_variant:
+        catalogue_variant = aliases.get(catalogue_variant, catalogue_variant)
+        if catalogue_variant and not provider_variant:
             raise HTTPException(
                 status_code=409,
-                detail="Cardmarket Pokemon mapping requires a provider variant before verification",
+                detail=f"{current['source']} Pokemon mapping requires a provider variant before verification",
             )
-        if provider_variant != catalogue_variant:
+        if catalogue_variant and provider_variant != catalogue_variant:
             raise HTTPException(
                 status_code=409,
-                detail="Cardmarket provider variant does not match the catalogue variant",
+                detail=f"{current['source']} provider variant does not match the catalogue variant",
             )
 
     metadata = _decision_metadata(
