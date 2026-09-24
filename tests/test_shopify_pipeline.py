@@ -8,6 +8,7 @@ from app.shopify_pipeline import (
     _minor,
     _money,
     _product_gid_matches,
+    _test_sync_missing,
     _title,
     _variant_gid,
 )
@@ -18,6 +19,7 @@ PIPELINE = ROOT / "backend" / "app" / "shopify_pipeline.py"
 SHOPIFY = ROOT / "backend" / "app" / "shopify.py"
 CLIENT = ROOT / "backend" / "app" / "shopify_client.py"
 MAIN = ROOT / "backend" / "app" / "main.py"
+SHOPIFY_SETTINGS = ROOT / "backend" / "app" / "static" / "shopify-settings.js"
 MIGRATION = ROOT / "migrations" / "006_shopify_inventory_links.sql"
 
 
@@ -52,6 +54,54 @@ def test_product_gid_matching_never_fuzzy_matches() -> None:
 def test_test_product_handle_is_inventory_specific_and_deterministic() -> None:
     assert _handle("INV-ABC-001") == "drop-rate-inv-abc-001"
     assert _handle("INV ABC 001") == "drop-rate-inv-abc-001"
+
+
+def test_test_sync_gate_reports_exact_local_blockers() -> None:
+    ready = {
+        "status": "APPROVED",
+        "identity_confirmed": True,
+        "acquisition_cost_minor": 187,
+        "product_type": "CARD",
+        "grading_company": None,
+        "grade": None,
+        "condition": "Near Mint",
+        "seal_status": None,
+        "language": "English",
+        "catalogue_language": None,
+        "store_price_minor": 499,
+        "storage_location_id": "location-id",
+        "registered_location_id": "location-id",
+        "registered_location_active": True,
+    }
+    assert _test_sync_missing(ready) == []
+
+    blocked = {
+        **ready,
+        "status": "DRAFT",
+        "identity_confirmed": False,
+        "store_price_minor": None,
+        "storage_location_id": None,
+        "registered_location_id": None,
+        "registered_location_active": None,
+    }
+    assert _test_sync_missing(blocked) == [
+        "APPROVED status",
+        "identity confirmation",
+        "store price",
+        "registered storage location",
+    ]
+
+
+def test_shopify_test_status_exposes_same_gate_blockers_to_dashboard() -> None:
+    source = PIPELINE.read_text()
+    frontend = SHOPIFY_SETTINGS.read_text()
+    assert "missing = _test_sync_missing(row)" in source
+    assert "missing = _test_sync_missing(item)" in source
+    assert '"readiness": {' in source
+    assert '"blockers": blocker_counts' in source
+    assert "Eligible inventory" in frontend
+    assert "Closest item to ready" in frontend
+    assert "Readiness ·" in frontend
 
 
 def test_single_item_sync_requires_all_local_sellability_gates() -> None:

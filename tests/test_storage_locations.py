@@ -67,6 +67,14 @@ def test_api_blocks_free_text_location_and_stocked_deactivation() -> None:
     assert "One or more inventory items changed" in location_source
 
 
+def test_approval_and_readiness_use_registered_storage_location() -> None:
+    api_source = (BACKEND / "api.py").read_text()
+    assert "and i.storage_location_id is not null" in api_source
+    assert '"missing_location": f"({ACTIVE_INVENTORY_SQL}) and i.storage_location_id is null"' in api_source
+    assert 'item["storage_location_id"] is None' in api_source
+    assert 'missing.append("registered storage location")' in api_source
+
+
 def test_inventory_supports_location_filters() -> None:
     api_source = (BACKEND / "api.py").read_text()
     assert "storage_location_id: UUID | None" in api_source

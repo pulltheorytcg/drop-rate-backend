@@ -56,7 +56,7 @@ PHYSICAL_STATE_READY_SQL = f"""
 READY_SQL = f"""
     i.acquisition_cost_minor is not null
     and ({PHYSICAL_STATE_READY_SQL})
-    and i.location is not null and btrim(i.location) <> ''
+    and i.storage_location_id is not null
     and (p.product_type <> 'CARD' or (i.language is not null and btrim(i.language) <> ''))
     and i.store_price_minor is not null
     and i.identity_confirmed
@@ -73,7 +73,7 @@ ISSUE_FILTERS = {
     "missing_seal_status": f"""({ACTIVE_INVENTORY_SQL})
         and p.product_type <> 'CARD'
         and i.seal_status is null""",
-    "missing_location": f"({ACTIVE_INVENTORY_SQL}) and (i.location is null or btrim(i.location) = '')",
+    "missing_location": f"({ACTIVE_INVENTORY_SQL}) and i.storage_location_id is null",
     "missing_language": f"({ACTIVE_INVENTORY_SQL}) and p.product_type = 'CARD' and (i.language is null or btrim(i.language) = '')",
     "missing_price": f"({ACTIVE_INVENTORY_SQL}) and i.store_price_minor is null",
     "identity_unconfirmed": f"({ACTIVE_INVENTORY_SQL}) and not i.identity_confirmed",
@@ -391,7 +391,7 @@ async def approve_inventory(
                 missing.append("raw card condition")
         elif item["seal_status"] is None:
             missing.append("seal status")
-        if not (item["location"] or "").strip(): missing.append("location")
+        if item["storage_location_id"] is None: missing.append("registered storage location")
         if not (item["language"] or "").strip(): missing.append("language")
         if item["store_price_minor"] is None: missing.append("store price")
         if not item["identity_confirmed"]: missing.append("identity confirmation")

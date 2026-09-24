@@ -108,6 +108,39 @@ def _handle(inventory_code: str) -> str:
     return f"drop-rate-{inventory_code.casefold().replace('_', '-').replace(' ', '-')}"
 
 
+def _test_sync_missing(item: Any) -> list[str]:
+    missing: list[str] = []
+    if item["status"] != "APPROVED":
+        missing.append("APPROVED status")
+    if not item["identity_confirmed"]:
+        missing.append("identity confirmation")
+    if item["acquisition_cost_minor"] is None:
+        missing.append("acquisition cost")
+
+    if item["product_type"] == "CARD":
+        is_graded = bool(
+            str(item["grading_company"] or "").strip()
+            and str(item["grade"] or "").strip()
+        )
+        if not is_graded and not str(item["condition"] or "").strip():
+            missing.append("raw card condition")
+        if not (item["language"] or item["catalogue_language"]):
+            missing.append("card language")
+    elif item["seal_status"] is None:
+        missing.append("seal status")
+
+    if item["store_price_minor"] is None:
+        missing.append("store price")
+    if item["storage_location_id"] is None:
+        missing.append("registered storage location")
+    elif (
+        item["registered_location_id"] is None
+        or not item["registered_location_active"]
+    ):
+        missing.append("active storage location")
+    return missing
+
+
 async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
     owner = await _owner(connection)
     if owner["role"] != "FOUNDER":
@@ -125,24 +158,55 @@ async def test_sync_status(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
-        candidates = await connection.fetch(
+        pool = await connection.fetch(
             """
             select
-                i.id, i.inventory_code, i.version, i.store_price_minor,
-                p.game, p.name, p.set_name, p.card_number, p.variant, p.rarity
+                i.id, i.inventory_code, i.version, i.status,
+                i.identity_confirmed, i.acquisition_cost_minor,
+                i.store_price_minor, i.storage_location_id, i.language,
+                i.condition, i.seal_status, i.grading_company, i.grade,
+                p.product_type, p.game, p.name, p.set_name, p.card_number,
+                p.variant, p.rarity, p.language as catalogue_language,
+                sl.id as registered_location_id,
+                sl.active as registered_location_active
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id=i.catalogue_id
+            left join tcg.storage_locations sl on sl.id=i.storage_location_id
             left join tcg.shopify_inventory_links sil on sil.inventory_id=i.id
             left join tcg.listing_inventory_members lim
               on lim.inventory_id=i.id and lim.state <> 'REMOVED'
             where i.owner_id=$1
-              and i.status='APPROVED'
+              and i.status in ('DRAFT','INSPECTION','APPROVED')
               and sil.id is null
               and lim.id is null
             order by i.updated_at, i.inventory_code
-            limit 25
             """,
             owner["id"],
+        )
+        candidates: list[dict[str, Any]] = []
+        blocked_items: list[dict[str, Any]] = []
+        blocker_counts: dict[str, int] = {}
+        eligible_count = 0
+        for row in pool:
+            missing = _test_sync_missing(row)
+            if not missing:
+                eligible_count += 1
+                if len(candidates) < 25:
+                    candidates.append(dict(row))
+                continue
+            for blocker in missing:
+                blocker_counts[blocker] = blocker_counts.get(blocker, 0) + 1
+            blocked_items.append({
+                "id": row["id"],
+                "inventory_code": row["inventory_code"],
+                "name": row["name"],
+                "card_number": row["card_number"],
+                "variant": row["variant"],
+                "status": row["status"],
+                "missing": missing,
+            })
+        blocked_items.sort(
+            key=lambda item: (len(item["missing"]), item["inventory_code"])
         )
         counts = await connection.fetchrow(
             """
@@ -160,7 +224,14 @@ async def test_sync_status(
             "bulk_publish_enabled": settings.shopify_publish_enabled,
             "location_configured": bool(settings.shopify_location_gid),
             "publication_configured": bool(settings.shopify_publication_gid),
-            "candidates": [dict(row) for row in candidates],
+            "candidates": candidates,
+            "readiness": {
+                "considered": len(pool),
+                "eligible": eligible_count,
+                "blocked": len(pool) - eligible_count,
+                "blockers": blocker_counts,
+                "next_items": blocked_items[:10],
+            },
             "counts": dict(counts),
         })
 
@@ -229,16 +300,7 @@ async def sync_one_test_item(
                     status_code=409,
                     detail="Inventory belongs to the marketplace listing/reservation system and cannot use the legacy single-item Shopify test path",
                 )
-            missing: list[str] = []
-            if item["status"] != "APPROVED": missing.append("APPROVED status")
-            if not item["identity_confirmed"]: missing.append("identity confirmation")
-            if item["acquisition_cost_minor"] is None: missing.append("acquisition cost")
-            if item["product_type"] == "CARD" and not (item["language"] or item["catalogue_language"]):
-                missing.append("card language")
-            if item["store_price_minor"] is None: missing.append("store price")
-            if item["storage_location_id"] is None: missing.append("registered storage location")
-            if item["registered_location_id"] is not None and not item["registered_location_active"]:
-                missing.append("active storage location")
+            missing = _test_sync_missing(item)
             if missing:
                 raise HTTPException(status_code=422, detail={
                     "message": "Inventory is not eligible for Shopify test sync",
