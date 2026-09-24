@@ -8,6 +8,37 @@ const CARD_CONDITIONS = [
   "Damaged",
 ];
 
+function gradingLabels() {
+  return {
+    company: byId("edit-grading-company").closest("label"),
+    grade: byId("edit-grade").closest("label"),
+    certificate: byId("edit-certificate").closest("label"),
+  };
+}
+
+function configureCardEditorMode(mode, {clearInactive = false} = {}) {
+  const conditionInput = byId("edit-condition");
+  const conditionSelect = byId("edit-condition-select");
+  const conditionLabel = conditionInput.closest("label");
+  const labels = gradingLabels();
+  const graded = mode === "GRADED";
+
+  conditionLabel.hidden = graded;
+  labels.company.hidden = !graded;
+  labels.grade.hidden = !graded;
+  labels.certificate.hidden = !graded;
+
+  if (!clearInactive) return;
+  if (graded) {
+    conditionSelect.value = "";
+    conditionInput.value = "";
+  } else {
+    byId("edit-grading-company").value = "";
+    byId("edit-grade").value = "";
+    byId("edit-certificate").value = "";
+  }
+}
+
 function ensureInventoryStateControls() {
   if (byId("edit-condition-select")) return;
 
@@ -15,13 +46,34 @@ function ensureInventoryStateControls() {
   const conditionLabel = conditionInput.closest("label");
   conditionInput.hidden = true;
 
+  const cardStateLabel = document.createElement("label");
+  cardStateLabel.id = "edit-card-state-label";
+  cardStateLabel.append(document.createTextNode("Card state"));
+
+  const cardStateSelect = document.createElement("select");
+  cardStateSelect.id = "edit-card-state";
+  [
+    ["RAW", "Raw card"],
+    ["GRADED", "Graded card"],
+  ].forEach(([value, text]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = text;
+    cardStateSelect.append(option);
+  });
+  cardStateSelect.addEventListener("change", () => {
+    configureCardEditorMode(cardStateSelect.value, {clearInactive: true});
+  });
+  cardStateLabel.append(cardStateSelect);
+  conditionLabel.insertAdjacentElement("beforebegin", cardStateLabel);
+
   const conditionSelect = document.createElement("select");
   conditionSelect.id = "edit-condition-select";
-  conditionSelect.setAttribute("aria-label", "Card condition");
+  conditionSelect.setAttribute("aria-label", "Raw card condition");
 
   const blankCondition = document.createElement("option");
   blankCondition.value = "";
-  blankCondition.textContent = "Select card condition";
+  blankCondition.textContent = "Select raw condition";
   conditionSelect.append(blankCondition);
 
   CARD_CONDITIONS.forEach((condition) => {
@@ -52,11 +104,6 @@ function ensureInventoryStateControls() {
     option.textContent = text;
     sealSelect.append(option);
   });
-  sealSelect.addEventListener("change", () => {
-    conditionInput.value = sealSelect.value === "SEALED"
-      ? "Sealed"
-      : sealSelect.value === "UNSEALED" ? "Unsealed" : "";
-  });
   sealLabel.append(sealSelect);
   conditionLabel.insertAdjacentElement("afterend", sealLabel);
 }
@@ -76,16 +123,6 @@ async function loadInventoryState(items) {
     const selected = state.selected.get(item.id);
     if (selected) Object.assign(selected, extra);
   });
-
-  const rows = [...byId("inventory-body").querySelectorAll("tr")];
-  rows.forEach((row, index) => {
-    const item = items[index];
-    if (!item || !row.children[3]) return;
-    const display = item.product_type === "CARD"
-      ? (item.grade ? `${item.grading_company} ${item.grade}` : (item.condition || "—"))
-      : (item.seal_status === "SEALED" ? "Sealed" : item.seal_status === "UNSEALED" ? "Unsealed" : "—");
-    row.children[3].textContent = display;
-  });
 }
 
 function configureInventoryStateEditor(item) {
@@ -93,22 +130,35 @@ function configureInventoryStateEditor(item) {
   const conditionInput = byId("edit-condition");
   const conditionSelect = byId("edit-condition-select");
   const conditionLabel = conditionInput.closest("label");
+  const cardStateLabel = byId("edit-card-state-label");
+  const cardStateSelect = byId("edit-card-state");
   const sealLabel = byId("edit-seal-label");
   const sealSelect = byId("edit-seal-status");
+  const labels = gradingLabels();
 
   if (item.product_type === "CARD") {
-    conditionLabel.hidden = false;
-    conditionSelect.value = CARD_CONDITIONS.includes(item.condition) ? item.condition : "";
-    conditionInput.value = conditionSelect.value;
+    cardStateLabel.hidden = false;
     sealLabel.hidden = true;
     sealSelect.value = "";
+
+    const mode = item.grading_company && item.grade ? "GRADED" : "RAW";
+    cardStateSelect.value = mode;
+    conditionSelect.value = CARD_CONDITIONS.includes(item.condition) ? item.condition : "";
+    conditionInput.value = conditionSelect.value;
+    configureCardEditorMode(mode);
   } else {
+    cardStateLabel.hidden = true;
     conditionLabel.hidden = true;
+    labels.company.hidden = true;
+    labels.grade.hidden = true;
+    labels.certificate.hidden = true;
     sealLabel.hidden = false;
     sealSelect.value = item.seal_status || "";
-    conditionInput.value = sealSelect.value === "SEALED"
-      ? "Sealed"
-      : sealSelect.value === "UNSEALED" ? "Unsealed" : "";
+    conditionSelect.value = "";
+    conditionInput.value = "";
+    byId("edit-grading-company").value = "";
+    byId("edit-grade").value = "";
+    byId("edit-certificate").value = "";
   }
 }
 
@@ -142,18 +192,36 @@ apiRequest = async function apiRequestWithInventoryState(path, options = {}, ret
     && state.editing
   ) {
     const payload = JSON.parse(options.body);
+
     if (state.editing.product_type === "CARD") {
-      const selectedCondition = byId("edit-condition-select").value;
-      payload.condition = selectedCondition || null;
+      const mode = byId("edit-card-state").value;
       payload.seal_status = null;
+
+      if (mode === "GRADED") {
+        const company = emptyToNull(byId("edit-grading-company").value);
+        const grade = emptyToNull(byId("edit-grade").value);
+        if (!company || !grade) {
+          throw new Error("Graded cards require both grading company and grade.");
+        }
+        payload.condition = null;
+        payload.grading_company = company;
+        payload.grade = grade;
+        payload.certificate_number = emptyToNull(byId("edit-certificate").value);
+      } else {
+        payload.condition = byId("edit-condition-select").value || null;
+        payload.grading_company = null;
+        payload.grade = null;
+        payload.certificate_number = null;
+      }
     } else {
-      const sealStatus = byId("edit-seal-status").value || null;
-      payload.seal_status = sealStatus;
-      payload.condition = sealStatus === "SEALED"
-        ? "Sealed"
-        : sealStatus === "UNSEALED" ? "Unsealed" : null;
+      payload.condition = null;
+      payload.grading_company = null;
+      payload.grade = null;
+      payload.certificate_number = null;
+      payload.seal_status = byId("edit-seal-status").value || null;
     }
-    options = { ...options, body: JSON.stringify(payload) };
+
+    options = {...options, body: JSON.stringify(payload)};
   }
   return baseApiRequest(path, options, retry);
 };
