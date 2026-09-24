@@ -13,17 +13,10 @@ from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
+from .physical_state import validate_physical_state
 
 
 router = APIRouter(prefix="/api/v1")
-
-CARD_CONDITIONS = {
-    "Near Mint",
-    "Lightly Played",
-    "Moderately Played",
-    "Heavily Played",
-    "Damaged",
-}
 
 
 def _catalogue_search_terms(query: str) -> list[str]:
@@ -211,30 +204,17 @@ def _existing_response(row: asyncpg.Record) -> dict:
 
 
 def _validate_physical_state(product_type: str, payload: ManualInventoryCreate) -> None:
-    if product_type == "CARD":
-        if payload.seal_status is not None:
-            raise HTTPException(status_code=422, detail="Raw cards do not use seal_status")
-        if payload.condition is not None and payload.condition not in CARD_CONDITIONS:
-            raise HTTPException(
-                status_code=422,
-                detail="Card condition must use the Drop Rate / TCGplayer condition scale",
-            )
-    else:
-        if payload.condition is not None:
-            raise HTTPException(
-                status_code=422,
-                detail="Sealed or collection products use seal_status instead of raw card condition",
-            )
-        if payload.grading_company is not None or payload.grade is not None:
-            raise HTTPException(
-                status_code=422,
-                detail="Grading fields are only supported for card inventory",
-            )
-        if payload.certificate_number is not None:
-            raise HTTPException(
-                status_code=422,
-                detail="Certificate number is only supported for graded card inventory",
-            )
+    try:
+        validate_physical_state(
+            product_type=product_type,
+            condition=payload.condition,
+            seal_status=payload.seal_status,
+            grading_company=payload.grading_company,
+            grade=payload.grade,
+            certificate_number=payload.certificate_number,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/catalogue/search")
