@@ -41,3 +41,37 @@ Official eBay UK active-listing access uses the eBay Browse API with an Applicat
 When official eBay credentials are present, the backend prefers the official Browse adapter over the legacy Parse-backed eBay diagnostic adapter. Browse results are always normalized as `ACTIVE` evidence only; the system never converts active listings into sold observations.
 
 Historical eBay sold data is a separate capability. Drop Rate will only treat eBay sales-history results as `SOLD` evidence when access is provided through an official/permitted historical-sales source such as eBay Marketplace Insights. Until then, Cardmarket remains the UK/EU valuation anchor and eBay Browse is used for current supply/asking-price context.
+
+
+## Shopify foundation
+
+Shopify is the storefront; Drop Rate remains authoritative for canonical card identity, physical inventory, ownership, cost, pricing and settlement.
+
+The current Shopify integration is intentionally non-publishing. It provides:
+
+- a read-only GraphQL Admin API connection probe;
+- verified HTTPS webhook intake at `/api/v1/shopify/webhooks`;
+- HMAC-SHA256 verification against the raw request body before JSON is trusted;
+- delivery-level idempotency using `X-Shopify-Webhook-Id`;
+- a metadata-only webhook delivery ledger (raw customer/payment payloads are not stored);
+- founder-visible integration status in Settings;
+- a publishing feature flag that defaults to disabled.
+
+Configure these variables only in the server/Railway environment. Do not place them in browser code or commit them to Git:
+
+- `TCG_SHOPIFY_SHOP_DOMAIN=<store>.myshopify.com`
+- `TCG_SHOPIFY_ACCESS_TOKEN=<Admin API token>`
+- `TCG_SHOPIFY_CLIENT_SECRET=<app client secret>`
+- `TCG_SHOPIFY_API_VERSION=2026-07`
+- `TCG_SHOPIFY_PUBLISH_ENABLED=false`
+
+The shop domain must be the canonical `*.myshopify.com` domain, not a custom storefront domain or URL with a scheme/path.
+
+Initial webhook topics expected by Drop Rate are:
+
+- `orders/paid`
+- `orders/cancelled`
+- `refunds/create`
+- `app/uninstalled`
+
+Webhook deliveries are acknowledged and deduplicated, but order/refund business processing is deliberately not enabled in this foundation phase. Publishing and order processing are separate guarded phases.
