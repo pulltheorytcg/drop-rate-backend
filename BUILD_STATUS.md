@@ -266,7 +266,8 @@ The following areas were reviewed and defects found were corrected:
 - latest production deployment is **SUCCESS** on commit `17104d8dc88703d900dde27dfcaac33780622ed0`; `/health/ready` returned **200 OK**
 - PR and post-merge GitHub CI are green for the latest hardening commits
 - Railway production has a **pre-deploy compile + pytest gate**; the missing `pytest-asyncio` dependency was fixed after deployment logs exposed 43 silently skipped async tests
-- current Railway regression result after that fix: **365 passed, 3 skipped**; async tests now execute, and pytest skip reasons are being made visible with `-rs`
+- Railway now installs pinned **Node 22.23.3 LTS** alongside Python through `RAILPACK_PACKAGES`, so frontend/static checks run in the production pre-deploy gate too
+- current Railway regression result: **368 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
 - live database integrity checks: **0 duplicate Inventory Codes, 0 language mismatches, 0 confirmed-without-evidence, 0 active-reservation/state mismatches**
 - migration history reconciled: `normalize_explicit_card_languages` is now present in the Supabase-native ledger as `20260924195341`
 - `database/migrations/**` is now the only canonical location for new migration files
@@ -287,7 +288,7 @@ A feature is not considered complete merely because its unit tests pass. For mat
 7. **Failure testing:** deliberate bad inputs, duplicate events, stale versions, unavailable records and provider failures are tested before a feature is treated as safe.
 8. **Release decision:** any unresolved critical integrity issue keeps the feature gated, even when CI is green.
 
-Current production regression baseline: **365 passed, 3 skipped** in Railway pre-deploy after restoring async-test execution; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero language/catalogue mismatches, zero identity confirmations without evidence, zero active reservation/state mismatches, zero active Shopify links and zero marketplace listings.
+Current production regression baseline: **368 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero language/catalogue mismatches, zero identity confirmations without evidence, zero active reservation/state mismatches, zero active Shopify links and zero marketplace listings.
 
 GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
 
