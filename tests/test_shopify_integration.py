@@ -3,6 +3,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+
+import pytest
 from pathlib import Path
 
 from app.shopify import (
@@ -79,6 +81,51 @@ def test_shopify_status_does_not_return_credentials() -> None:
     assert '"client_id"' not in status_source
     assert '"client_secret"' not in status_source
     assert '"access_token"' not in status_source
+
+
+@pytest.mark.asyncio
+async def test_shopify_inventory_set_uses_2026_07_quantity_shape() -> None:
+    client = ShopifyAdminClient(
+        shop_domain="drop-rate.myshopify.com",
+        client_id="client-id",
+        client_secret="client-secret",
+        api_version="2026-07",
+    )
+    captured: dict[str, object] = {}
+
+    async def fake_graphql(*, query: str, variables: dict | None = None) -> dict:
+        captured["query"] = query
+        captured["variables"] = variables
+        return {
+            "inventorySetQuantities": {
+                "inventoryAdjustmentGroup": {"changes": []},
+                "userErrors": [],
+            }
+        }
+
+    client.graphql = fake_graphql  # type: ignore[method-assign]
+    await client.set_inventory_quantity(
+        inventory_item_id="gid://shopify/InventoryItem/123",
+        location_id="gid://shopify/Location/456",
+        quantity=1,
+        idempotency_key="quantity-test",
+    )
+
+    variables = captured["variables"]
+    assert isinstance(variables, dict)
+    input_data = variables["input"]
+    assert isinstance(input_data, dict)
+    assert "ignoreCompareQuantity" not in input_data
+    quantities = input_data["quantities"]
+    assert isinstance(quantities, list)
+    assert quantities == [{
+        "inventoryItemId": "gid://shopify/InventoryItem/123",
+        "locationId": "gid://shopify/Location/456",
+        "quantity": 1,
+        "changeFromQuantity": None,
+    }]
+    assert variables["idempotencyKey"] == "quantity-test"
+    assert "@idempotent" in str(captured["query"])
 
 
 def test_shopify_admin_client_mints_and_caches_client_credentials_token() -> None:
