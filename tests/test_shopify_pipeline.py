@@ -256,7 +256,7 @@ def test_out_of_order_shopify_webhooks_resolve_owner_before_order_lookup() -> No
 
 
 def test_failed_webhook_deliveries_remain_retryable() -> None:
-    source = (BACKEND / "shopify.py").read_text()
+    source = SHOPIFY.read_text()
     assert 'if event["status"] in {"PROCESSED", "IGNORED"}:' in source
     assert "FAILED" not in source[
         source.index('if event["status"] in {"PROCESSED", "IGNORED"}:'):
