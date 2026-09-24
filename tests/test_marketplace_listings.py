@@ -66,6 +66,15 @@ def test_raw_card_without_language_fails_closed() -> None:
     assert "language" in str(exc.value.detail).casefold()
 
 
+def test_raw_card_can_be_forced_unique_for_high_value_or_copy_specific_stock() -> None:
+    item = _raw_item()
+    pooled = listing_shape(item)
+    unique = listing_shape(item, force_unique=True)
+    assert pooled["pooling_mode"] == "POOLED"
+    assert unique["pooling_mode"] == "UNIQUE"
+    assert pooled["fingerprint"] != unique["fingerprint"]
+
+
 def test_graded_cards_are_never_auto_pooled() -> None:
     catalogue_id = uuid4()
     base = {
@@ -187,3 +196,12 @@ def test_marketplace_router_is_wired() -> None:
     main = MAIN.read_text()
     assert "from .marketplace_listings import router as marketplace_listings_router" in main
     assert "app.include_router(marketplace_listings_router)" in main
+
+
+def test_dashboard_exposes_reserved_and_sold_status_without_editing_them() -> None:
+    html = (ROOT / "backend" / "app" / "static" / "index.html").read_text()
+    js = (ROOT / "backend" / "app" / "static" / "app.js").read_text()
+    assert '<option value="RESERVED">Reserved</option>' in html
+    assert '<option value="SOLD">Sold</option>' in html
+    assert '["RESERVED", "SOLD"].includes(item.status)' in js
+    assert "Reserved for order" in js
