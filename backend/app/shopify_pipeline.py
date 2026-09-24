@@ -371,7 +371,6 @@ async def sync_one_test_item(
             await client.activate_inventory(
                 inventory_item_id=inventory_item_id,
                 location_id=settings.shopify_location_gid,
-                quantity=1,
                 idempotency_key=f"activate-{inventory_id}",
             )
             await client.set_inventory_quantity(
