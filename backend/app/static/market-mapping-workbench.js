@@ -300,6 +300,35 @@ function previewItemMeta(item) {
   ].filter(Boolean).join(" · ");
 }
 
+function renderEvidenceSources(container, sources) {
+  (sources || []).forEach((source) => {
+    const sourceBlock = document.createElement("div");
+    sourceBlock.className = "pricing-evidence-source";
+
+    const heading = document.createElement("small");
+    heading.textContent = `${source.source} · ${source.status} · ${source.observation_count || 0} observations`;
+    sourceBlock.append(heading);
+
+    (source.evidence_sample || []).forEach((evidence) => {
+      const row = document.createElement("small");
+      const physical = evidence.grade
+        ? `${evidence.grading_company || "Graded"} ${evidence.grade}`
+        : (evidence.condition || evidence.seal_status || "condition unspecified");
+      row.textContent = [
+        evidence.observation_type,
+        money(evidence.price_gbp_minor),
+        physical,
+        evidence.language,
+        evidence.source_country,
+        evidence.sample_size > 1 ? `sample ${evidence.sample_size}` : null,
+      ].filter(Boolean).join(" · ");
+      sourceBlock.append(row);
+    });
+
+    container.append(sourceBlock);
+  });
+}
+
 function renderPricingPreviewResult(container, data) {
   container.replaceChildren();
   const headline = document.createElement("strong");
@@ -312,6 +341,7 @@ function renderPricingPreviewResult(container, data) {
       ...(data.warnings || []),
     ].join(" · ") || "No comparable live evidence was available.";
     container.append(headline, details);
+    renderEvidenceSources(container, data.sources);
     return;
   }
 
@@ -328,6 +358,7 @@ function renderPricingPreviewResult(container, data) {
     ...(pricing.engine_block_reasons || []),
   ].join(" · ");
   container.append(headline, details);
+  renderEvidenceSources(container, data.sources);
 }
 
 async function runPricingPreview(item, button, resultNode) {
