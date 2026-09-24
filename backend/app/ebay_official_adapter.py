@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any
@@ -10,6 +11,9 @@ from .market_adapters import NormalizedMarketObservation, stable_source_record_k
 
 
 _RAW_GRADED_TERMS = ("psa", "cgc", "bgs", "beckett", "graded", "slab")
+_EXPLICIT_MULTI_ITEM_TERMS = ("bundle", "job lot", "playset", "lot of")
+_CARD_NUMBER_RE = re.compile(r"\b\d{1,3}/\d{1,3}\b")
+_QUANTITY_RE = re.compile(r"\b(?:x\s*([2-9]\d*)|([2-9]\d*)\s*x)\b", re.IGNORECASE)
 
 
 def _money_minor(money: object, *, expected_currency: str = "GBP") -> int | None:
@@ -53,7 +57,12 @@ def _condition(row: dict[str, Any]) -> str | None:
     return None
 
 
-def _variant_matches(title: object, source_variant_id: str | None) -> bool:
+def _variant_matches(
+    title: object,
+    source_variant_id: str | None,
+    *,
+    allow_implicit_finish: bool = False,
+) -> bool:
     variant = _normalise_text(source_variant_id)
     if not variant:
         return True
@@ -67,6 +76,7 @@ def _variant_matches(title: object, source_variant_id: str | None) -> bool:
             "reverse" not in normalized_title.split()
             and "holo" not in normalized_title.split()
             and "holofoil" not in normalized_title.split()
+            and "foil" not in normalized_title.split()
         )
     if variant in {"reverse holo", "reverse holofoil", "reverse"}:
         return _contains_term(normalized_title, "reverse") and (
@@ -74,13 +84,34 @@ def _variant_matches(title: object, source_variant_id: str | None) -> bool:
             or _contains_term(normalized_title, "holofoil")
         )
     if variant in {"holo", "holofoil"}:
+        if _contains_term(normalized_title, "reverse"):
+            return False
+        if _contains_term(normalized_title, "non holo") or _contains_term(normalized_title, "nonholo"):
+            return False
         return (
-            (_contains_term(normalized_title, "holo") or _contains_term(normalized_title, "holofoil"))
-            and not _contains_term(normalized_title, "reverse")
+            _contains_term(normalized_title, "holo")
+            or _contains_term(normalized_title, "holofoil")
+            or allow_implicit_finish
         )
     if variant == "foil":
-        return _contains_term(normalized_title, "foil")
+        if _contains_term(normalized_title, "non foil") or _contains_term(normalized_title, "nonfoil"):
+            return False
+        return _contains_term(normalized_title, "foil") or allow_implicit_finish
     return _contains_term(normalized_title, source_variant_id)
+
+
+def _looks_like_multi_item_listing(title: object) -> bool:
+    normalized_title = _normalise_text(title)
+    if not normalized_title:
+        return True
+
+    if any(_contains_term(normalized_title, term) for term in _EXPLICIT_MULTI_ITEM_TERMS):
+        return True
+    if _QUANTITY_RE.search(normalized_title):
+        return True
+
+    card_numbers = {match.group(0) for match in _CARD_NUMBER_RE.finditer(normalized_title)}
+    return len(card_numbers) > 1
 
 
 def _matches_listing(
@@ -91,6 +122,8 @@ def _matches_listing(
 ) -> bool:
     normalized_title = _normalise_text(title)
     if not normalized_title:
+        return False
+    if _looks_like_multi_item_listing(title):
         return False
 
     for term in spec["required_title_terms"]:
@@ -111,7 +144,11 @@ def _matches_listing(
             if _contains_term(normalized_title, term):
                 return False
 
-    return _variant_matches(title, source_variant_id)
+    return _variant_matches(
+        title,
+        source_variant_id,
+        allow_implicit_finish=bool(spec["grading_company"]),
+    )
 
 
 class EbayOfficialBrowseAdapter:
