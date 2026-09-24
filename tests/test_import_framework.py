@@ -67,6 +67,7 @@ def test_card_condition_uses_tcgplayer_scale() -> None:
         "Card Number": "4/102",
         "Game": "Pokemon",
         "Condition": "NM",
+        "Language": "English",
     }
     mapping = _field_map(list(row))
     normalized, issues = _normalized_row(row, mapping, None)

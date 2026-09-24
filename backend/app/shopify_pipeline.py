@@ -15,6 +15,7 @@ from .brands import brand_for_game
 from .db import user_connection
 from .finance import allocate_minor
 from .ownership import current_owner as _owner
+from .language import display_title
 from .settings import get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
 
@@ -91,7 +92,7 @@ def _product_gid_matches(gid: str, value: object) -> bool:
 
 
 def _title(item: asyncpg.Record) -> str:
-    parts = [item["name"]]
+    parts = [display_title(item["name"], item["language"] or item["catalogue_language"])]
     if item["card_number"]:
         parts.append(item["card_number"])
     if item["variant"]:
@@ -232,6 +233,8 @@ async def sync_one_test_item(
             if item["status"] != "APPROVED": missing.append("APPROVED status")
             if not item["identity_confirmed"]: missing.append("identity confirmation")
             if item["acquisition_cost_minor"] is None: missing.append("acquisition cost")
+            if item["product_type"] == "CARD" and not (item["language"] or item["catalogue_language"]):
+                missing.append("card language")
             if item["store_price_minor"] is None: missing.append("store price")
             if item["storage_location_id"] is None: missing.append("registered storage location")
             if item["registered_location_id"] is not None and not item["registered_location_active"]:

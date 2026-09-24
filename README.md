@@ -123,3 +123,16 @@ The current implementation keeps Shopify bulk publishing disabled. The listing/r
 Marketplace mutations use a dedicated immutable `tcg.marketplace_audit_events` ledger rather than weakening the existing privileged global audit trigger. The application role can insert/read its authorized audit events but cannot update or delete them.
 
 Language is now part of inventory approval readiness. Physical stock cannot become APPROVED, and therefore cannot join a pooled sellable listing, until its language is explicitly recorded. This is required to prevent visually similar but non-equivalent language variants from sharing storefront quantity.
+
+
+## Card language policy
+
+Language is a first-class identity/pricing attribute. For physical cards, language must be explicit before approval or sellable listing.
+
+Imports accept structured language fields such as `English`/`EN` and `Japanese`/`JP`. They also deterministically parse explicit language suffixes in card titles, including `(EN)`, `English`, `[JP]`, and `(Japanese)`. The parsed language tag is removed from the canonical card name so the canonical name remains clean.
+
+If a structured language field conflicts with an explicit title language, the row enters REVIEW rather than choosing one silently. If a card has no explicit language, it enters REVIEW rather than being guessed as English.
+
+Customer-facing Shopify titles always include a visible language code such as `EN` or `JP`, while the structured `language` field remains the source of truth for pricing, identity matching and allocation.
+
+The existing imported portfolio had 96 physical units with explicit JP/Japanese title markers. Those can be promoted safely to structured Japanese language; the remaining untagged cards are deliberately not auto-labelled English.

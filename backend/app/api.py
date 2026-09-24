@@ -57,7 +57,7 @@ READY_SQL = f"""
     i.acquisition_cost_minor is not null
     and ({PHYSICAL_STATE_READY_SQL})
     and i.location is not null and btrim(i.location) <> ''
-    and i.language is not null and btrim(i.language) <> ''
+    and (p.product_type <> 'CARD' or (i.language is not null and btrim(i.language) <> ''))
     and i.store_price_minor is not null
     and i.identity_confirmed
     and {ACTIVE_INVENTORY_SQL}
@@ -74,7 +74,7 @@ ISSUE_FILTERS = {
         and p.product_type <> 'CARD'
         and i.seal_status is null""",
     "missing_location": f"({ACTIVE_INVENTORY_SQL}) and (i.location is null or btrim(i.location) = '')",
-    "missing_language": f"({ACTIVE_INVENTORY_SQL}) and (i.language is null or btrim(i.language) = '')",
+    "missing_language": f"({ACTIVE_INVENTORY_SQL}) and p.product_type = 'CARD' and (i.language is null or btrim(i.language) = '')",
     "missing_price": f"({ACTIVE_INVENTORY_SQL}) and i.store_price_minor is null",
     "identity_unconfirmed": f"({ACTIVE_INVENTORY_SQL}) and not i.identity_confirmed",
     "approval_ready": f"i.status in ('DRAFT', 'INSPECTION') and ({READY_SQL})",
