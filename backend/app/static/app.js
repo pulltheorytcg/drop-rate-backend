@@ -10,7 +10,7 @@ const ISSUE_LABELS = {
 };
 const state = {
   config: null, session: null, offset: 0, total: 0, search: "", status: "",
-  issue: "", items: new Map(), selected: new Map(), editing: null, readiness: null,
+  brand: "", issue: "", items: new Map(), selected: new Map(), editing: null, readiness: null,
 };
 const byId = (id) => document.getElementById(id);
 
@@ -160,7 +160,13 @@ function renderInventory(data) {
     const productLabel = item.product_type === "SEALED"
       ? "Sealed product"
       : item.product_type === "COLLECTION" ? "Collection" : null;
-    meta.textContent = [productLabel, item.game, item.card_number, item.variant].filter(Boolean).join(" · ") || "Uncatalogued";
+    meta.textContent = [
+      productLabel,
+      item.brand,
+      item.game && item.game !== item.brand ? item.game : null,
+      item.card_number,
+      item.variant,
+    ].filter(Boolean).join(" · ") || "Uncatalogued";
     const code = document.createElement("span");
     code.className = "code";
     code.textContent = item.inventory_code;
@@ -227,11 +233,47 @@ function renderReadiness(data) {
 async function loadReadiness() {
   renderReadiness(await apiRequest("/api/v1/inventory/readiness"));
 }
+
+async function loadBrandOptions() {
+  const select = byId("brand-filter");
+  const current = state.brand;
+  const data = await apiRequest("/api/v1/inventory/brands");
+  const preferred = ["One Piece", "Pokemon", "Dragon Ball", "Naruto", "Riftbound"];
+  const labels = {Pokemon: "Pokémon"};
+  const counts = new Map((data.items || []).map((item) => [item.brand, item.count]));
+  const discovered = [...counts.keys()].filter((brand) => !preferred.includes(brand)).sort();
+  const brands = [...preferred, ...discovered];
+
+  select.replaceChildren();
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "All brands / TCGs";
+  select.append(all);
+
+  brands.forEach((brand) => {
+    const option = document.createElement("option");
+    option.value = brand;
+    const count = counts.get(brand);
+    option.textContent = count === undefined
+      ? (labels[brand] || brand)
+      : `${labels[brand] || brand} (${Number(count).toLocaleString("en-GB")})`;
+    select.append(option);
+  });
+
+  if ([...select.options].some((option) => option.value === current)) {
+    select.value = current;
+  } else {
+    state.brand = "";
+    select.value = "";
+  }
+}
+
 async function loadInventory() {
   showMessage("inventory-message", "Loading inventory…");
   const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(state.offset) });
   if (state.search) params.set("search", state.search);
   if (state.status) params.set("status", state.status);
+  if (state.brand) params.set("brand", state.brand);
   if (state.issue) params.set("issue", state.issue);
   try {
     renderInventory(await apiRequest(`/api/v1/inventory?${params}`));
@@ -242,7 +284,7 @@ async function loadInventory() {
   }
 }
 async function reloadDashboard(message = "") {
-  await Promise.all([loadReadiness(), loadInventory()]);
+  await Promise.all([loadReadiness(), loadBrandOptions(), loadInventory()]);
   if (message) showMessage("inventory-message", message, "success");
 }
 
@@ -468,6 +510,7 @@ byId("new-password-form").addEventListener("submit", async (event) => {
 
 let searchTimer;
 byId("search-input").addEventListener("input", (event) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.search = event.target.value.trim(); state.offset = 0; loadInventory(); }, 350); });
+byId("brand-filter").addEventListener("change", (event) => { state.brand = event.target.value; state.offset = 0; loadInventory(); });
 byId("status-filter").addEventListener("change", (event) => { state.status = event.target.value; state.offset = 0; loadInventory(); });
 byId("previous-page").addEventListener("click", () => { state.offset = Math.max(0, state.offset - PAGE_SIZE); loadInventory(); });
 byId("next-page").addEventListener("click", () => { if (state.offset + PAGE_SIZE < state.total) { state.offset += PAGE_SIZE; loadInventory(); } });
