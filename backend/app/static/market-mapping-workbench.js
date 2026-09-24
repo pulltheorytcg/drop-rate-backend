@@ -398,7 +398,8 @@ function renderPricingPreviewItems() {
     title.textContent = item.inventory_code;
     const meta = document.createElement("small");
     meta.textContent = previewItemMeta(item);
-    const result = document.createElement("small");
+    const result = document.createElement("div");
+    result.className = "pricing-preview-result";
     result.textContent = hasVerified
       ? "Nothing will be saved. Run a live diagnostic preview when ready."
       : "Verify at least one provider mapping before previewing.";
