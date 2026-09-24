@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import time
 from typing import Any
 
 import httpx
@@ -20,33 +22,44 @@ class ShopifyApiError(RuntimeError):
 
 
 class ShopifyAdminClient:
-    """Minimal server-side Shopify GraphQL Admin API client.
+    """Server-side Shopify GraphQL Admin API client using client credentials.
 
-    This client never exposes the Admin API access token in responses or errors.
-    Publishing mutations are intentionally not implemented in this foundation.
+    The app exchanges its Client ID + Client Secret for a short-lived Admin API
+    token, caches it in memory, and refreshes it before expiry. Credentials and
+    access tokens never leave the server process.
     """
 
     def __init__(
         self,
         *,
         shop_domain: str,
-        access_token: str,
+        client_id: str,
+        client_secret: str,
         api_version: str,
         timeout_seconds: float = 20.0,
     ) -> None:
         domain = shop_domain.strip().casefold()
-        token = access_token.strip()
+        app_id = client_id.strip()
+        app_secret = client_secret.strip()
         version = api_version.strip()
+
         if not domain.endswith(".myshopify.com"):
             raise ValueError("A canonical Shopify myshopify.com domain is required")
-        if not token:
-            raise ValueError("Shopify Admin API access token is required")
+        if not app_id:
+            raise ValueError("Shopify Client ID is required")
+        if not app_secret:
+            raise ValueError("Shopify Client Secret is required")
         if not version:
             raise ValueError("Shopify API version is required")
+
         self._shop_domain = domain
-        self._access_token = token
+        self._client_id = app_id
+        self._client_secret = app_secret
         self._api_version = version
         self._timeout = timeout_seconds
+        self._access_token: str | None = None
+        self._token_expires_at = 0.0
+        self._token_lock = asyncio.Lock()
 
     @property
     def shop_domain(self) -> str:
@@ -56,6 +69,73 @@ class ShopifyAdminClient:
     def api_version(self) -> str:
         return self._api_version
 
+    async def _mint_access_token(self) -> tuple[str, int]:
+        url = f"https://{self._shop_domain}/admin/oauth/access_token"
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.post(
+                    url,
+                    headers={
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Accept": "application/json",
+                    },
+                    data={
+                        "grant_type": "client_credentials",
+                        "client_id": self._client_id,
+                        "client_secret": self._client_secret,
+                    },
+                )
+        except httpx.TimeoutException as exc:
+            raise ShopifyApiError(
+                "Shopify OAuth token request timed out",
+                retryable=True,
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise ShopifyApiError(
+                "Shopify OAuth token request failed",
+                retryable=True,
+            ) from exc
+
+        if response.status_code != 200:
+            raise ShopifyApiError(
+                "Shopify OAuth rejected the app credentials or store access",
+                status_code=response.status_code,
+                retryable=response.status_code == 429 or response.status_code >= 500,
+            )
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise ShopifyApiError("Shopify OAuth returned invalid JSON") from exc
+        if not isinstance(payload, dict):
+            raise ShopifyApiError("Shopify OAuth returned an invalid response shape")
+
+        token = payload.get("access_token")
+        expires_in = payload.get("expires_in")
+        if not isinstance(token, str) or not token.strip():
+            raise ShopifyApiError("Shopify OAuth response is missing an access token")
+        if not isinstance(expires_in, int) or expires_in <= 0:
+            raise ShopifyApiError("Shopify OAuth response has an invalid expiry")
+        return token.strip(), expires_in
+
+    async def access_token(self) -> str:
+        now = time.monotonic()
+        if self._access_token and now < self._token_expires_at:
+            return self._access_token
+
+        async with self._token_lock:
+            now = time.monotonic()
+            if self._access_token and now < self._token_expires_at:
+                return self._access_token
+
+            token, expires_in = await self._mint_access_token()
+            self._access_token = token
+            # Shopify client-credentials tokens last 24 hours. Refresh at least
+            # five minutes before expiry so a token never expires mid-request.
+            margin = min(300, max(30, expires_in // 20))
+            self._token_expires_at = time.monotonic() + max(1, expires_in - margin)
+            return token
+
     async def graphql(
         self,
         *,
@@ -64,6 +144,8 @@ class ShopifyAdminClient:
     ) -> dict[str, Any]:
         if not query.strip():
             raise ValueError("Shopify GraphQL query is required")
+
+        token = await self.access_token()
         url = (
             f"https://{self._shop_domain}/admin/api/"
             f"{self._api_version}/graphql.json"
@@ -73,7 +155,7 @@ class ShopifyAdminClient:
                 response = await client.post(
                     url,
                     headers={
-                        "X-Shopify-Access-Token": self._access_token,
+                        "X-Shopify-Access-Token": token,
                         "Content-Type": "application/json",
                         "Accept": "application/json",
                     },
@@ -103,8 +185,7 @@ class ShopifyAdminClient:
             raise ShopifyApiError("Shopify Admin API returned invalid JSON") from exc
         if not isinstance(payload, dict):
             raise ShopifyApiError("Shopify Admin API returned an invalid response shape")
-        errors = payload.get("errors")
-        if errors:
+        if payload.get("errors"):
             raise ShopifyApiError("Shopify Admin API returned GraphQL errors")
         data = payload.get("data")
         if not isinstance(data, dict):
