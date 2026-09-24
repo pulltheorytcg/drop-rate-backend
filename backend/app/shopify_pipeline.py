@@ -248,12 +248,15 @@ async def sync_one_test_item(
                     "vendor": "Drop Rate",
                     "productType": item["game"],
                     "tags": [
-                        "Drop Rate",
-                        brand_for_game(item["game"]),
-                        item["game"],
-                        item["set_name"],
-                        item["variant"] or "",
-                        "single-item-test",
+                        value for value in [
+                            "Drop Rate",
+                            brand_for_game(item["game"]),
+                            item["game"],
+                            item["set_name"],
+                            item["variant"],
+                            "single-item-test",
+                        ]
+                        if value
                     ],
                     "metafields": [{
                         "namespace": "drop_rate",
