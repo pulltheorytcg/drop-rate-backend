@@ -57,3 +57,11 @@ def test_join_route_and_onboarding_router_are_wired() -> None:
     main = MAIN.read_text()
     assert '@app.get("/join"' in main
     assert "app.include_router(founder_onboarding_router)" in main
+
+
+def test_main_auth_callback_preserves_pending_founder_invite() -> None:
+    app_js = (ROOT / "backend" / "app" / "static" / "app.js").read_text()
+    assert "redirectPendingFounderInviteCallback" in app_js
+    assert 'localStorage.getItem("drop_rate_pending_founder_invite")' in app_js
+    assert 'params.get("type") === "recovery"' in app_js
+    assert "/join?invite=" in app_js

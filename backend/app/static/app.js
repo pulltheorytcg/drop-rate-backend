@@ -72,6 +72,19 @@ async function apiRequest(path, options = {}, retry = true) {
   }
   return readJson(response);
 }
+function redirectPendingFounderInviteCallback() {
+  const pendingInvite = localStorage.getItem("drop_rate_pending_founder_invite");
+  if (!pendingInvite || !window.location.hash) return false;
+
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  if (!params.get("access_token") || params.get("type") === "recovery") return false;
+
+  window.location.replace(
+    `/join?invite=${encodeURIComponent(pendingInvite)}${window.location.hash}`
+  );
+  return true;
+}
+
 function parseRecoverySession() {
   const params = new URLSearchParams(window.location.hash.slice(1));
   if (params.get("type") !== "recovery" || !params.get("access_token")) return false;
@@ -406,6 +419,7 @@ function logout() {
 async function initialise() {
   try { state.config = await readJson(await fetch("/api/v1/public-config")); }
   catch (_error) { showMessage("login-message", "The dashboard is temporarily unavailable. Please refresh shortly.", "error"); return; }
+  if (redirectPendingFounderInviteCallback()) return;
   if (parseRecoverySession()) return;
   try {
     const stored = JSON.parse(sessionStorage.getItem(SESSION_KEY));
