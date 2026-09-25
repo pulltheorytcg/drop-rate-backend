@@ -33,7 +33,7 @@ def test_card_product_plan_fills_customer_and_merchant_fields() -> None:
     assert plan["title"] == "Seel · EN · 021/094 · Phantasmal Flames · Normal · Near Mint"
     assert plan["category"] == CARD_CATEGORY_GID
     assert plan["categoryName"] == "Non-Sports Trading Cards"
-    assert plan["vendor"] == "Pokemon"
+    assert plan["vendor"] == "Pokémon"
     assert plan["productType"] == "Trading Card"
     assert plan["seo"]["title"]
     assert plan["seo"]["description"]
@@ -43,7 +43,7 @@ def test_card_product_plan_fills_customer_and_merchant_fields() -> None:
     assert plan["requiresShipping"] is True
     assert plan["inventoryTracked"] is True
     assert plan["inventoryPolicy"] == "DENY"
-    assert plan["requiredCollections"] == ["Trading Cards", "Pokemon"]
+    assert plan["requiredCollections"] == ["Trading Cards", "Pokémon"]
     assert "Language:English" in plan["tags"]
     assert "Condition:Near Mint" in plan["tags"]
 
@@ -89,7 +89,7 @@ def test_launch_completeness_fails_closed_for_media_and_collections() -> None:
     assert result["complete"] is False
     assert "approved media" in result["blockers"]
     assert "collection: Trading Cards" in result["blockers"]
-    assert "collection: Pokemon" in result["blockers"]
+    assert "collection: Pokémon" in result["blockers"]
 
 
 def test_launch_completeness_passes_when_every_required_surface_is_ready() -> None:
@@ -99,7 +99,7 @@ def test_launch_completeness_passes_when_every_required_surface_is_ready() -> No
         store_price_minor=499,
         inventory_code="INV-PKM-TEST-001",
         approved_media_count=1,
-        existing_collection_titles={"Home page", "Trading Cards", "Pokemon"},
+        existing_collection_titles={"Home page", "Trading Cards", "Pokémon"},
         publication_configured=True,
         location_configured=True,
     )
@@ -114,7 +114,7 @@ def test_product_create_input_contains_complete_deterministic_shopify_fields() -
     assert payload["descriptionHtml"] == plan["descriptionHtml"]
     assert payload["category"] == CARD_CATEGORY_GID
     assert payload["seo"] == plan["seo"]
-    assert payload["vendor"] == "Pokemon"
+    assert payload["vendor"] == "Pokémon"
     assert payload["productType"] == "Trading Card"
     assert payload["tags"] == plan["tags"]
     assert payload["metafields"] == plan["metafields"]
