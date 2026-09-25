@@ -48,6 +48,9 @@ function moveFinanceSections(sales, reports, balance) {
     reports.append(grids[1]);
   }
 
+  const settlementSection = byId("finance-settlement-section");
+  if (settlementSection) reports.append(settlementSection);
+
   const financeMessage = byId("finance-message");
   if (financeMessage) balance.append(financeMessage);
 
