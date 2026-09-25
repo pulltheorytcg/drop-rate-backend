@@ -19,6 +19,7 @@ from .ebay_official_adapter import _looks_like_multi_item_listing, _variant_matc
 from .ebay_uk_parse_adapter import _contains_term, _normalise_text
 from .market_adapters import NormalizedMarketObservation, stable_source_record_key
 from .ownership import current_owner as _owner
+from .pricing_rules import store_price_floor
 from .settings import get_settings
 
 
@@ -336,10 +337,14 @@ def select_five_newest_comps(payload: dict[str, Any], *, target: dict[str, Any])
     return sorted(accepted.values(), key=lambda comp: comp.sold_at, reverse=True)[:5]
 
 
-def five_sold_store_price(comps: list[SoldComparable]) -> int:
+def five_sold_market_value(comps: list[SoldComparable]) -> int:
     if len(comps) != 5:
         raise ValueError("Exactly five comparable sold records are required")
     return int(median([comp.price_minor for comp in comps]))
+
+
+def five_sold_store_price(comps: list[SoldComparable]) -> int:
+    return store_price_floor(five_sold_market_value(comps))
 
 
 async def _target_snapshot(connection, owner_id: UUID, inventory_id: UUID) -> dict[str, Any]:
@@ -411,13 +416,15 @@ async def _fetch_comp_result(target: dict[str, Any]) -> dict[str, Any]:
             "comps": comps,
             "store_price_minor": None,
         }
+    market_value_minor = five_sold_market_value(comps)
     return {
         "status": "READY",
         "reason": None,
         "query": _query_for_target(target),
         "comparable_count": 5,
         "comps": comps,
-        "store_price_minor": five_sold_store_price(comps),
+        "market_value_minor": market_value_minor,
+        "store_price_minor": store_price_floor(market_value_minor),
     }
 
 
@@ -491,18 +498,21 @@ async def _pricing_snapshot(
     query: str,
 ) -> UUID:
     prices = [comp.price_minor for comp in comps]
+    market_value_minor = five_sold_market_value(comps)
     volatility_pct = (
-        (pstdev(prices) / store_price_minor) * 100
-        if store_price_minor > 0 and len(prices) > 1
+        (pstdev(prices) / market_value_minor) * 100
+        if market_value_minor > 0 and len(prices) > 1
         else 0.0
     )
-    quick_sale_minor = int(
-        (Decimal(store_price_minor) * Decimal("0.92")).quantize(
-            Decimal("1"), rounding=ROUND_HALF_UP
+    quick_sale_minor = store_price_floor(
+        int(
+            (Decimal(market_value_minor) * Decimal("0.92")).quantize(
+                Decimal("1"), rounding=ROUND_HALF_UP
+            )
         )
     )
     target_acquisition_minor = int(
-        (Decimal(store_price_minor) * Decimal("0.70")).quantize(
+        (Decimal(market_value_minor) * Decimal("0.70")).quantize(
             Decimal("1"), rounding=ROUND_HALF_UP
         )
     )
@@ -532,21 +542,26 @@ async def _pricing_snapshot(
             volatility_pct,newest_observation_at,algorithm_version,evidence,
             auto_publish_eligible,block_reasons
         ) values(
-            $1,$2,$3,$4,$4,$5,$6,
-            1.0,1,5,5,$7,$8,'ebay-five-sold-v1',$9::jsonb,
-            false,$10::jsonb
+            $1,$2,$3,$4,$5,$6,$7,
+            1.0,1,5,5,$8,$9,'ebay-five-sold-v2-floor',$10::jsonb,
+            false,$11::jsonb
         )
         returning id
         """,
         inventory_id,
         target["catalogue_id"],
         owner_id,
+        market_value_minor,
         store_price_minor,
         quick_sale_minor,
         target_acquisition_minor,
         volatility_pct,
         max(comp.sold_at for comp in comps),
-        json.dumps(evidence),
+        json.dumps({
+            **evidence,
+            "market_value_minor": market_value_minor,
+            "store_price_floor_applied": store_price_minor > market_value_minor,
+        }),
         json.dumps(["single-source founder pricing rule"]),
     )
     return snapshot["id"]
@@ -692,18 +707,19 @@ async def _price_one(
                     """
                     update tcg.inventory_items
                        set store_price_minor=$1,
-                           market_value_minor=$1,
+                           market_value_minor=$2,
                            recommended_retail_minor=$1,
                            pricing_updated_at=now(),
-                           latest_pricing_snapshot_id=$2,
+                           latest_pricing_snapshot_id=$3,
                            version=version+1,
                            updated_at=now()
-                     where id=$3 and owner_id=$4 and version=$5
+                     where id=$4 and owner_id=$5 and version=$6
                      returning id,inventory_code,store_price_minor,market_value_minor,
                                recommended_retail_minor,pricing_updated_at,
                                latest_pricing_snapshot_id,version
                     """,
                     result["store_price_minor"],
+                    result["market_value_minor"],
                     snapshot_id,
                     locked_item["id"],
                     owner_id,
