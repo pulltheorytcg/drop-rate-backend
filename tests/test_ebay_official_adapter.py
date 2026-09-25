@@ -120,9 +120,14 @@ async def test_official_browse_never_synthesizes_sold_history() -> None:
 def test_variant_matching_is_finish_specific() -> None:
     assert _variant_matches("Absol 063/094 Pokemon", "Normal") is True
     assert _variant_matches("Absol 063/094 Reverse Holo", "Normal") is False
+    assert _variant_matches("Absol 063/094 Foil", "Normal") is False
     assert _variant_matches("Absol 063/094 Reverse Holo", "Reverse Holofoil") is True
     assert _variant_matches("Absol 063/094 Holo", "Holofoil") is True
     assert _variant_matches("Absol 063/094 Reverse Holo", "Holofoil") is False
+    assert _variant_matches("Absol 063/094 Non Holo", "Holofoil") is False
+    assert _variant_matches("Absol 063/094 Non-Holofoil", "Holofoil") is False
+    assert _variant_matches("Monkey D Luffy OP05-119 Foil", "Foil") is True
+    assert _variant_matches("Monkey D Luffy OP05-119 Non Foil", "Foil") is False
 
 
 def test_money_parser_requires_gbp() -> None:
