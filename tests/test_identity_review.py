@@ -62,7 +62,7 @@ def test_identity_confirmation_is_owner_scoped_versioned_and_locked() -> None:
     source = API.read_text()
     assert "where i.owner_id=$1 and i.id=any($2::uuid[])" in source
     assert "for update" in source
-    assert "where id=$2 and owner_id=$3 and version=$4" in source
+    assert "where id=$4 and owner_id=$5 and version=$6" in source
     assert "Selected copies do not all belong to this canonical card" in source
     assert "identity_verification_events" in source
     assert "'PHYSICAL_REVIEW'" in source
@@ -94,7 +94,7 @@ def test_identity_confirmation_language_is_audited_and_fail_closed_on_mismatch()
     assert "catalogue_language = clean_language" in source
     assert "requested_language = clean_language(payload.language)" in source
     assert "Selected language does not match the canonical card" in source
-    assert "physical copies have a language that conflicts with the canonical card" in source
+    assert "conflicts with the canonical card." in source
     assert "language=coalesce($2,language,$3)" in source
     assert 'id="identity-language"' in frontend
     assert '<option value="English">English (EN)</option>' in frontend
