@@ -45,3 +45,16 @@ def test_inventory_ui_exposes_core_readiness_per_item() -> None:
     assert '"Price"' in app_js
     assert '"Identity"' in app_js
     assert "core-readiness" in app_js
+
+
+def test_inventory_ui_has_read_only_five_sold_preview() -> None:
+    app_js = (
+        Path(__file__).parents[1] / "backend" / "app" / "static" / "app.js"
+    ).read_text()
+    assert "function openFiveSoldPreview(item)" in app_js
+    assert "/api/v1/pricing/ebay-five-sold/${item.id}/preview" in app_js
+    assert "Preview only — Store Price has not been changed" in app_js
+    assert 'preview.textContent = "5 sold"' in app_js
+    assert "item.identity_confirmed" in app_js
+    preview_block = app_js[app_js.index("function openFiveSoldPreview(item)"):app_js.index("function renderInventory(data)")]
+    assert "/apply" not in preview_block
