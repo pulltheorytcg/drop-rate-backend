@@ -5,6 +5,7 @@ import pytest
 from app.ebay_sold_pricing import (
     _matches_comp,
     _query_for_target,
+    five_sold_market_value,
     five_sold_store_price,
     select_five_newest_comps,
 )
@@ -229,3 +230,22 @@ def test_five_sold_pricing_requires_confirmed_identity_before_provider_lookup() 
     source = (BACKEND / "ebay_sold_pricing.py").read_text()
     assert "i.identity_confirmed" in source
     assert "Canonical card identity must be confirmed before automated pricing" in source
+
+
+def test_five_sold_floor_does_not_distort_market_value() -> None:
+    comps = select_five_newest_comps(
+        {
+            "site": "EBAY_GB",
+            "currency": "GBP",
+            "results": [
+                sold("1", price=0.20, date="2026-09-25T00:00:00.000Z"),
+                sold("2", price=0.30, date="2026-09-24T00:00:00.000Z"),
+                sold("3", price=0.35, date="2026-09-23T00:00:00.000Z"),
+                sold("4", price=0.40, date="2026-09-22T00:00:00.000Z"),
+                sold("5", price=0.50, date="2026-09-21T00:00:00.000Z"),
+            ],
+        },
+        target=target(),
+    )
+    assert five_sold_market_value(comps) == 35
+    assert five_sold_store_price(comps) == 100

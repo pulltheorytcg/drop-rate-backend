@@ -6,14 +6,16 @@ from math import exp, log, sqrt
 from statistics import median
 from typing import Iterable
 
+from .pricing_rules import store_price_floor
+
 
 ALGORITHM_VERSION = "drop-rate-market-v4"
 
 SOURCE_RELIABILITY = {
     "EBAY": 1.00,
-    "COLLECTR": 0.95,
-    "CARDMARKET": 0.90,
-    "TCGPLAYER": 0.85,
+    "CARDMARKET": 0.98,
+    "COLLECTR": 0.70,
+    "TCGPLAYER": 0.75,
     "MANUAL": 1.00,
 }
 
@@ -348,8 +350,8 @@ def calculate_price(
     confidence -= 0.15 * min(volatility / max(policy.max_volatility_pct, 1.0), 1.0)
     confidence = round(max(0.0, min(confidence, 1.0)), 4)
 
-    recommended = max(0, round(market_value * policy.retail_multiplier))
-    quick_sale = max(0, round(market_value * policy.quick_sale_multiplier))
+    recommended = store_price_floor(round(market_value * policy.retail_multiplier))
+    quick_sale = store_price_floor(round(market_value * policy.quick_sale_multiplier))
     acquisition = max(0, round(market_value * policy.acquisition_multiplier))
 
     block_reasons: list[str] = []

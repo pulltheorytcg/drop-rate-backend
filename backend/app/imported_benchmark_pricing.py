@@ -15,6 +15,7 @@ from .db import user_connection
 from .fx import EcbHistoricalFxProvider, FxQuote
 from .market_adapters import stable_source_record_key
 from .ownership import current_owner as _owner
+from .pricing_rules import store_price_floor
 
 
 router = APIRouter(prefix="/api/v1/pricing/imported-benchmark", tags=["pricing"])
@@ -219,23 +220,25 @@ async def _apply_one(
     if source_price_minor <= 0:
         raise HTTPException(status_code=422, detail="Imported benchmark must be positive")
 
-    price_minor = _to_gbp_minor(source_price_minor, fx_quote)
-    if price_minor <= 0:
+    market_value_minor = _to_gbp_minor(source_price_minor, fx_quote)
+    if market_value_minor <= 0:
         raise HTTPException(status_code=422, detail="GBP-normalized benchmark must be positive")
 
+    store_price_minor = store_price_floor(market_value_minor)
     source_count = 1
     observation_count = 1
     newest_observation_at = benchmark["observed_at"]
-    market_value_minor = price_minor
     confidence = 0.35
 
-    quick_sale_minor = int(
-        (Decimal(price_minor) * Decimal("0.92")).quantize(
-            Decimal("1"), rounding=ROUND_HALF_UP
+    quick_sale_minor = store_price_floor(
+        int(
+            (Decimal(market_value_minor) * Decimal("0.92")).quantize(
+                Decimal("1"), rounding=ROUND_HALF_UP
+            )
         )
     )
     acquisition_minor = int(
-        (Decimal(price_minor) * Decimal("0.70")).quantize(
+        (Decimal(market_value_minor) * Decimal("0.70")).quantize(
             Decimal("1"), rounding=ROUND_HALF_UP
         )
     )
@@ -244,7 +247,7 @@ async def _apply_one(
         connection,
         item,
         fx_quote,
-        price_minor,
+        market_value_minor,
     )
 
     evidence = {
@@ -263,7 +266,9 @@ async def _apply_one(
         "fx_source": fx_quote.source,
         "fx_effective_at": fx_quote.effective_at.isoformat(),
         "fx_retrieved_at": fx_quote.retrieved_at.isoformat(),
-        "normalized_gbp_minor": price_minor,
+        "normalized_gbp_minor": market_value_minor,
+        "store_price_minor": store_price_minor,
+        "store_price_floor_applied": store_price_minor > market_value_minor,
         "import_batch_id": str(item["import_batch_id"]) if item["import_batch_id"] else None,
         "source_row": item["source_row"],
         "identity_confirmed": bool(item["identity_confirmed"]),
@@ -296,7 +301,7 @@ async def _apply_one(
         item["catalogue_id"],
         owner_id,
         market_value_minor,
-        price_minor,
+        store_price_minor,
         quick_sale_minor,
         acquisition_minor,
         confidence,
@@ -327,7 +332,7 @@ async def _apply_one(
         returning id,inventory_code,store_price_minor,market_value_minor,
                   recommended_retail_minor,latest_pricing_snapshot_id,version
         """,
-        price_minor,
+        store_price_minor,
         market_value_minor,
         snapshot["id"],
         item["id"],
@@ -350,7 +355,8 @@ async def _apply_one(
         "source_currency": "USD",
         "source_price_minor": source_price_minor,
         "fx_rate_to_gbp": str(fx_quote.rate),
-        "store_price_minor": price_minor,
+        "market_value_minor": market_value_minor,
+        "store_price_minor": store_price_minor,
         "inserted_market_observation": inserted_observation,
         "snapshot_id": snapshot["id"],
         "version": updated["version"],

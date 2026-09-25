@@ -37,7 +37,7 @@ class InventoryPatch(BaseModel):
     language: str | None = Field(default=None, max_length=80)
     location: str | None = Field(default=None, max_length=160)
     storage_location_id: UUID | None = None
-    store_price_minor: int | None = Field(default=None, ge=0)
+    store_price_minor: int | None = Field(default=None, ge=100)
     identity_confirmed: bool | None = None
     status: EditableInventoryStatus | None = None
     notes: str | None = Field(default=None, max_length=2000)
@@ -261,7 +261,7 @@ class ManualInventoryCreate(BaseModel):
     certificate_number: str | None = Field(default=None, max_length=120)
     language: str | None = Field(default=None, max_length=80)
     storage_location_id: UUID | None = None
-    store_price_minor: int | None = Field(default=None, ge=0)
+    store_price_minor: int | None = Field(default=None, ge=100)
     identity_confirmed: bool = False
     notes: str = Field(default="", max_length=2000)
 
