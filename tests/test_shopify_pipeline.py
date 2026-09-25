@@ -29,6 +29,7 @@ SHIPPING_REFUND_MIGRATION = ROOT / "database" / "migrations" / "20260924235450_s
 MEDIA_REGISTRY_MIGRATION = ROOT / "database" / "migrations" / "20260925154423_media_assets_registry.sql"
 SHIPPING_PROFILE_MIGRATION = ROOT / "database" / "migrations" / "20260925162748_shopify_shipping_profiles.sql"
 FULFILMENT_COST_MIGRATION = ROOT / "database" / "migrations" / "20260925172500_fulfilment_cost_components.sql"
+FULFILMENT_ALLOCATION_MIGRATION = ROOT / "database" / "migrations" / "20260925182500_fulfilment_material_allocation.sql"
 
 
 def test_money_helpers_are_penny_exact() -> None:
@@ -382,6 +383,10 @@ def test_fulfilment_cost_api_is_versioned_owner_scoped_and_gbp_only() -> None:
     assert "Fulfilment cost component changed" in source
     assert "native_currency='GBP'" in source
     assert "accounting_unit_cost_minor_gbp=$6" in source
+    assert '"PER_ORDER" if component_key == "PACKAGING" else "PER_ITEM"' in source
+    assert "allocation_basis=$7" in source
+    allocation_sql = FULFILMENT_ALLOCATION_MIGRATION.read_text()
+    assert "allocation_basis in (\'PER_ORDER\', \'PER_ITEM\')" in allocation_sql
     assert "package_length_mm" in source
     assert "empty_package_weight_grams" in source
 

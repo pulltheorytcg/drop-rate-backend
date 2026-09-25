@@ -14,6 +14,8 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## Current stage
 
+**Fulfilment allocation: IMPLEMENTED IN THIS RELEASE — packaging is allocated once per shipped order, per-card protection is allocated per item, and both remain separate from actual Royal Mail postage in the ledger.**
+
 **Controlled commerce verification: ACTIVE — first real paid Shopify sale and full £5.48 refund/restock are production-verified; Finance Reconciliation v1 + Owner Settlement Report v1 are deployed and awaiting live #1002 reconciliation verification.**
 
 The latest pass exposed an important process improvement: we were testing individual features well, but not performing a sufficiently explicit system-level regression/review after every cluster of changes. From this point forward, every material feature is subject to a repeatable quality gate covering code tests, failure-path review, database invariants, migration reproducibility, production deployment/health and live-data verification.

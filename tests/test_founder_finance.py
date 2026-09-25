@@ -8,6 +8,7 @@ from app.finance import (
     ManualSaleCreate,
     PayoutRequestCreate,
     ShopifyPostageReconcile,
+    _fulfilment_material_allocations,
     _settlement_amounts,
     _settlement_reconciliation_state,
     allocate_minor,
@@ -28,6 +29,57 @@ def test_allocate_minor_uses_equal_split_when_all_weights_are_zero() -> None:
     assert allocation == [34, 33, 33]
     assert sum(allocation) == 100
 
+
+
+
+def test_fulfilment_materials_allocate_package_once_and_toploader_per_item() -> None:
+    allocations = _fulfilment_material_allocations(
+        [{"net_sale_minor": 700}, {"net_sale_minor": 300}],
+        [
+            {
+                "quantity": "1",
+                "accounting_unit_cost_minor_gbp": 75,
+                "allocation_basis": "PER_ORDER",
+            },
+            {
+                "quantity": "1",
+                "accounting_unit_cost_minor_gbp": 8,
+                "allocation_basis": "PER_ITEM",
+            },
+        ],
+    )
+    assert allocations == [61, 30]
+    assert sum(allocations) == 91
+
+
+def test_fulfilment_materials_fail_closed_without_gbp_cost() -> None:
+    with pytest.raises(ValueError, match="GBP accounting cost"):
+        _fulfilment_material_allocations(
+            [{"net_sale_minor": 100}],
+            [
+                {
+                    "quantity": "1",
+                    "accounting_unit_cost_minor_gbp": None,
+                    "allocation_basis": "PER_ITEM",
+                }
+            ],
+        )
+
+
+def test_fulfilment_material_ledger_is_separate_and_idempotent() -> None:
+    source = (ROOT / "backend" / "app" / "finance.py").read_text()
+    migration = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20260925182500_fulfilment_material_allocation.sql"
+    ).read_text()
+    assert "FULFILMENT_MATERIAL_COST" in migration
+    assert "allocation_basis in ('PER_ORDER', 'PER_ITEM')" in migration
+    assert "FULFILMENT_MATERIAL_COST" in source
+    assert "pg_advisory_xact_lock" in source
+    assert "on conflict(source_key) do nothing" in source
+    assert "Mixed shipping profiles" in source
 
 def test_manual_sale_rejects_duplicate_physical_inventory() -> None:
     inventory_id = uuid4()
@@ -168,14 +220,15 @@ def test_owner_settlement_separates_proceeds_from_profit() -> None:
         platform_fees_minor=50,
         payment_fees_minor=30,
         shipping_cost_minor=100,
+        fulfilment_material_cost_minor=91,
         adjustments_minor=0,
         effective_cogs_minor=400,
     )
     assert result == {
         "gross_proceeds_minor": 1200,
-        "external_deductions_minor": 180,
-        "net_owner_proceeds_minor": 1020,
-        "owner_profit_minor": 620,
+        "external_deductions_minor": 271,
+        "net_owner_proceeds_minor": 929,
+        "owner_profit_minor": 529,
     }
 
 
@@ -188,6 +241,7 @@ def test_settlement_adjustments_change_proceeds_and_profit_explicitly() -> None:
         platform_fees_minor=0,
         payment_fees_minor=0,
         shipping_cost_minor=0,
+        fulfilment_material_cost_minor=0,
         adjustments_minor=-125,
         effective_cogs_minor=400,
     )
@@ -205,12 +259,13 @@ def test_returned_refunded_order_restores_cost_basis_but_keeps_processing_loss()
         platform_fees_minor=0,
         payment_fees_minor=36,
         shipping_cost_minor=0,
+        fulfilment_material_cost_minor=83,
         adjustments_minor=0,
         effective_cogs_minor=0,
     )
     assert result["gross_proceeds_minor"] == 0
-    assert result["net_owner_proceeds_minor"] == -36
-    assert result["owner_profit_minor"] == -36
+    assert result["net_owner_proceeds_minor"] == -119
+    assert result["owner_profit_minor"] == -119
 
 
 def test_settlement_reconciliation_state_is_fail_closed_for_shopify() -> None:

@@ -54,7 +54,8 @@ function ensureFounderFinanceUI() {
       <article class="stat-card"><span>Sales revenue</span><strong id="finance-sales-revenue">£0.00</strong><small>After item discounts</small></article>
       <article class="stat-card"><span>Cost of goods</span><strong id="finance-cogs">£0.00</strong><small>Acquisition cost snapshot</small></article>
       <article class="stat-card"><span>Fees</span><strong id="finance-fees">£0.00</strong><small id="finance-fees-note">Platform + payment fees</small></article>
-      <article class="stat-card"><span>Postage cost</span><strong id="finance-shipping-cost">£0.00</strong><small id="finance-shipping-cost-note">Fulfilment/postage cost</small></article>
+      <article class="stat-card"><span>Postage cost</span><strong id="finance-shipping-cost">£0.00</strong><small id="finance-shipping-cost-note">Royal Mail postage</small></article>
+      <article class="stat-card"><span>Materials</span><strong id="finance-material-cost">£0.00</strong><small>Packaging + card protection</small></article>
       <article class="stat-card"><span>Refunds</span><strong id="finance-refunds">£0.00</strong><small>Item + shipping refunds</small></article>
       <article class="stat-card"><span>Paid out</span><strong id="finance-paid-out">£0.00</strong><small>Completed withdrawals</small></article>
       <article class="stat-card"><span>Reserved for payout</span><strong id="finance-reserved">£0.00</strong><small>Requested / approved payouts</small></article>
@@ -181,8 +182,11 @@ function renderFinanceSummary(summary) {
     ? formatFinanceMoney(summary.shipping_cost_minor)
     : "Pending";
   byId("finance-shipping-cost-note").textContent = summary.shipping_cost_complete
-    ? "Fulfilment/postage cost"
+    ? "Royal Mail postage"
     : `${formatFinanceMoney(summary.shipping_cost_minor)} recorded · postage not entered`;
+  byId("finance-material-cost").textContent = formatFinanceMoney(
+    summary.fulfilment_material_cost_minor
+  );
   byId("finance-refunds").textContent = formatFinanceMoney(
     (summary.refunds_minor || 0) + (summary.shipping_refunds_minor || 0)
   );
@@ -202,7 +206,8 @@ function renderFinanceSales(items) {
     const feesPostage =
       (sale.platform_fee_minor || 0)
       + (sale.payment_fee_minor || 0)
-      + (sale.shipping_cost_minor || 0);
+      + (sale.shipping_cost_minor || 0)
+      + (sale.fulfilment_material_cost_minor || 0);
     const soldAt = sale.sold_at
       ? new Date(sale.sold_at).toLocaleDateString("en-GB")
       : "—";
@@ -223,7 +228,7 @@ function renderFinanceSales(items) {
       <td data-label="Order"></td>
       <td class="finance-money-cell" data-label="Revenue"><strong></strong><small></small></td>
       <td data-label="Cost"></td>
-      <td class="finance-money-cell" data-label="Fees + postage"><strong></strong><small></small></td>
+      <td class="finance-money-cell" data-label="Fees + fulfilment"><strong></strong><small></small></td>
       <td class="finance-money-cell" data-label="Profit"><strong></strong><small></small></td>
       <td data-label="Sold"></td>`;
 
@@ -247,7 +252,7 @@ function renderFinanceSales(items) {
     const costsCell = row.cells[4];
     if (costsComplete) {
       costsCell.querySelector("strong").textContent = formatFinanceMoney(feesPostage);
-      costsCell.querySelector("small").textContent = "Recorded fees + postage";
+      costsCell.querySelector("small").textContent = "Recorded fees + postage + materials";
     } else {
       costsCell.querySelector("strong").textContent = "Pending";
       const pending = [];
@@ -424,7 +429,7 @@ async function reconcileShopifyPostage(sale) {
 
   showMessage("finance-message", `Recording postage for ${sale.order_number || "order"}…`);
   try {
-    await apiRequest(
+    const result = await apiRequest(
       `/api/v1/finance/shopify/orders/${sale.order_id}/postage`,
       {
         method: "POST",
@@ -440,7 +445,7 @@ async function reconcileShopifyPostage(sale) {
     await loadFounderFinance();
     showMessage(
       "finance-message",
-      `Postage reconciled at ${formatFinanceMoney(amountMinor)}.`,
+      `Postage ${formatFinanceMoney(amountMinor)} + materials ${formatFinanceMoney(result.fulfilment_material_cost_minor)} reconciled.`,
       "success"
     );
   } catch (error) {
