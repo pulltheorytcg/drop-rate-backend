@@ -219,3 +219,13 @@ def test_provider_io_is_explicitly_outside_database_write_transaction() -> None:
     provider_call = source.index("result = await _fetch_comp_result(target)")
     transaction = source.index("async with connection.transaction():", phase_3)
     assert phase_1 < phase_2 < provider_call < phase_3 < transaction
+
+
+def test_english_search_query_stays_broad_and_post_filters_details() -> None:
+    assert _query_for_target(target()) == "Seel 021/094"
+
+
+def test_five_sold_pricing_requires_confirmed_identity_before_provider_lookup() -> None:
+    source = (BACKEND / "ebay_sold_pricing.py").read_text()
+    assert "i.identity_confirmed" in source
+    assert "Canonical card identity must be confirmed before automated pricing" in source
