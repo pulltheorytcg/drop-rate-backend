@@ -27,6 +27,7 @@ from .market_mappings import router as market_mappings_router
 from .marketplace_listings import router as marketplace_listings_router
 from .market_provider_probe import router as market_provider_probe_router
 from .market_smoke import router as market_smoke_router
+from .media import router as media_router
 from .pricing import router as pricing_router
 from .pricing_preview import router as pricing_preview_router
 from .purchase_lots import router as purchase_lots_router
@@ -224,6 +225,7 @@ def create_app() -> FastAPI:
     app.include_router(market_discovery_router)
     app.include_router(market_provider_probe_router)
     app.include_router(market_smoke_router)
+    app.include_router(media_router)
     app.include_router(imports_router)
     app.include_router(import_review_router)
     app.include_router(inventory_intake_router)
