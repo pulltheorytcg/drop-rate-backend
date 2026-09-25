@@ -20,6 +20,8 @@ This file is the persistent source of truth for project progress. A feature coun
 
 **Controlled commerce verification: ACTIVE — first real paid Shopify sale and full £5.48 refund/restock are production-verified; Finance Reconciliation v1 + Owner Settlement Report v1 are deployed, #1002 has exactly one £0.36 payment fee and explicit £0 postage reconciled, and a founder-only bounded batch fee-sync path is now live. External Shopify refund settlement remains the final #1002 check.**
 
+**Provider-independent sold-history evidence status v1: DEPLOYED — confirmed inventory can now report how many exact immutable SOLD observations Drop Rate already owns, dedupe the same external sale across multiple access paths, select the newest 5–10 exact comps, and recommend a refresh only when fewer than 5 usable sales exist or the newest evidence is stale. No provider call or Store Price write occurs in this status path. PR #125 / `386b466` is production-verified with 474 tests and `/health/ready` 200.**
+
 The latest pass exposed an important process improvement: we were testing individual features well, but not performing a sufficiently explicit system-level regression/review after every cluster of changes. From this point forward, every material feature is subject to a repeatable quality gate covering code tests, failure-path review, database invariants, migration reproducibility, production deployment/health and live-data verification.
 
 The current backend is intentionally fail-closed: identity confirmation is required before pricing/listing, Shopify bulk publishing is disabled, market-data persistence is disabled, and no automatic money movement is enabled.
