@@ -273,6 +273,143 @@ def _media_assets_for_item(
     return selected
 
 
+def _build_media_intake_queue(
+    items: list[Mapping[str, Any]],
+    assets: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Build a capture-first media queue independent of Shopify publish readiness.
+
+    Raw cards share one canonical FRONT image across equivalent physical copies.
+    Graded cards remain item-specific and require physical FRONT + BACK images.
+    Approved/rights-verified assets that are already queued for Shopify processing
+    count as captured so founders are not prompted to photograph the same side twice.
+    FAILED assets do not count and re-enter the capture queue.
+    """
+
+    captured_canonical: dict[str, set[str]] = {}
+    captured_inventory: dict[str, set[str]] = {}
+    ready_canonical: dict[str, set[str]] = {}
+    ready_inventory: dict[str, set[str]] = {}
+
+    for asset in assets:
+        if str(asset.get("approval_status") or "") != "APPROVED":
+            continue
+        if str(asset.get("rights_status") or "") != "VERIFIED":
+            continue
+        status = str(asset.get("shopify_file_status") or "")
+        if status == "FAILED":
+            continue
+        side = str(asset.get("side") or "")
+        if side not in {"FRONT", "BACK", "OTHER"}:
+            continue
+
+        scope = str(asset.get("scope") or "")
+        if scope == "CANONICAL_CARD":
+            key = str(asset.get("catalogue_id") or "")
+            if not key:
+                continue
+            captured_canonical.setdefault(key, set()).add(side)
+            if status == "READY":
+                ready_canonical.setdefault(key, set()).add(side)
+        elif scope == "INVENTORY_ITEM":
+            key = str(asset.get("inventory_id") or "")
+            if not key:
+                continue
+            captured_inventory.setdefault(key, set()).add(side)
+            if status == "READY":
+                ready_inventory.setdefault(key, set()).add(side)
+
+    raw_groups: dict[str, dict[str, Any]] = {}
+    graded_queue: list[dict[str, Any]] = []
+
+    for source in items:
+        item = dict(source)
+        if str(item.get("product_type") or "") != "CARD":
+            continue
+        inventory_id = str(item.get("id") or "")
+        catalogue_id = str(item.get("catalogue_id") or "")
+        if not inventory_id or not catalogue_id:
+            continue
+
+        grading_company = str(item.get("grading_company") or "").strip()
+        grade = str(item.get("grade") or "").strip()
+        is_graded = bool(grading_company and grade)
+
+        base = {
+            "catalogue_id": catalogue_id,
+            "game": item.get("game"),
+            "name": item.get("name"),
+            "set_name": item.get("set_name"),
+            "card_number": item.get("card_number"),
+            "variant": item.get("variant"),
+            "language": item.get("language") or item.get("catalogue_language"),
+        }
+
+        if is_graded:
+            captured = captured_inventory.get(inventory_id, set())
+            ready = ready_inventory.get(inventory_id, set())
+            missing = [side for side in ("FRONT", "BACK") if side not in captured]
+            if not missing:
+                continue
+            graded_queue.append({
+                **base,
+                "queue_key": f"INVENTORY_ITEM:{inventory_id}",
+                "required_scope": "INVENTORY_ITEM",
+                "inventory_id": inventory_id,
+                "inventory_code": item.get("inventory_code"),
+                "grading_company": grading_company,
+                "grade": grade,
+                "copy_count": 1,
+                "missing_sides": missing,
+                "ready_sides": sorted(ready),
+            })
+            continue
+
+        group = raw_groups.setdefault(
+            catalogue_id,
+            {
+                **base,
+                "queue_key": f"CANONICAL_CARD:{catalogue_id}",
+                "required_scope": "CANONICAL_CARD",
+                "inventory_id": inventory_id,
+                "inventory_code": item.get("inventory_code"),
+                "grading_company": None,
+                "grade": None,
+                "copy_count": 0,
+                "missing_sides": [],
+                "ready_sides": sorted(ready_canonical.get(catalogue_id, set())),
+            },
+        )
+        group["copy_count"] += 1
+
+    raw_queue: list[dict[str, Any]] = []
+    for catalogue_id, group in raw_groups.items():
+        captured = captured_canonical.get(catalogue_id, set())
+        missing = [side for side in ("FRONT",) if side not in captured]
+        if not missing:
+            continue
+        group["missing_sides"] = missing
+        raw_queue.append(group)
+
+    queue = raw_queue + graded_queue
+    queue.sort(
+        key=lambda item: (
+            str(item.get("game") or ""),
+            str(item.get("set_name") or ""),
+            str(item.get("name") or ""),
+            str(item.get("card_number") or ""),
+            str(item.get("inventory_code") or ""),
+        )
+    )
+    return {
+        "items": queue,
+        "queue_count": len(queue),
+        "missing_side_count": sum(len(item["missing_sides"]) for item in queue),
+        "raw_canonical_groups_pending": len(raw_queue),
+        "graded_items_pending": len(graded_queue),
+    }
+
+
 def _launch_completeness(
     item: Any,
     *,
@@ -702,6 +839,52 @@ async def create_media_upload_target(
         "mime_type": payload.mime_type,
         "file_size": payload.file_size,
     }
+
+
+@router.get("/media-assets/intake-queue")
+async def media_intake_queue(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Return capture work even when inventory is not yet price/publish ready."""
+
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        items = await connection.fetch(
+            """
+            select
+                i.id,i.catalogue_id,i.inventory_code,i.status,i.language,
+                i.grading_company,i.grade,
+                p.product_type,p.game,p.name,p.set_name,p.card_number,
+                p.variant,p.language as catalogue_language
+            from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id=i.catalogue_id
+            where i.owner_id=$1
+              and i.status in ('DRAFT','INSPECTION','APPROVED')
+              and p.product_type='CARD'
+            order by p.game,p.set_name,p.name,p.card_number,i.inventory_code
+            """,
+            owner["id"],
+        )
+        assets = await connection.fetch(
+            """
+            select
+                catalogue_id,inventory_id,scope,side,
+                approval_status,rights_status,shopify_file_status
+            from tcg.media_assets
+            where owner_id=$1
+            order by created_at,id
+            """,
+            owner["id"],
+        )
+    return jsonable_encoder(
+        _build_media_intake_queue(
+            [dict(row) for row in items],
+            [dict(row) for row in assets],
+        )
+    )
 
 
 @router.get("/media-assets")

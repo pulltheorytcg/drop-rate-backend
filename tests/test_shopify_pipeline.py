@@ -4,6 +4,7 @@ import pytest
 
 from app.shopify_pipeline import (
     ShopifyProcessingError,
+    _build_media_intake_queue,
     _handle,
     _minor,
     _money,
@@ -678,3 +679,141 @@ def test_founder_media_intake_is_visible_and_requires_explicit_rights_confirmati
     assert '/api/v1/shopify/media-assets/upload-target' in frontend
     assert '/approve' in frontend
     assert '/sync' in frontend
+
+
+
+def test_media_intake_queue_groups_raw_copies_and_keeps_graded_item_specific() -> None:
+    raw_a = {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "catalogue_id": "10000000-0000-0000-0000-000000000001",
+        "inventory_code": "INV-RAW-1",
+        "product_type": "CARD",
+        "game": "Pokemon",
+        "name": "Seel",
+        "set_name": "Phantasmal Flames",
+        "card_number": "021/094",
+        "variant": "Normal",
+        "language": "English",
+        "catalogue_language": None,
+        "grading_company": None,
+        "grade": None,
+    }
+    raw_b = {
+        **raw_a,
+        "id": "00000000-0000-0000-0000-000000000002",
+        "inventory_code": "INV-RAW-2",
+    }
+    graded = {
+        **raw_a,
+        "id": "00000000-0000-0000-0000-000000000003",
+        "catalogue_id": "10000000-0000-0000-0000-000000000002",
+        "inventory_code": "INV-PSA-1",
+        "name": "Charizard",
+        "card_number": "4/102",
+        "grading_company": "PSA",
+        "grade": "10",
+    }
+
+    result = _build_media_intake_queue([raw_a, raw_b, graded], [])
+
+    assert result["queue_count"] == 2
+    assert result["missing_side_count"] == 3
+    assert result["raw_canonical_groups_pending"] == 1
+    assert result["graded_items_pending"] == 1
+
+    raw = next(item for item in result["items"] if item["required_scope"] == "CANONICAL_CARD")
+    assert raw["copy_count"] == 2
+    assert raw["missing_sides"] == ["FRONT"]
+    assert raw["catalogue_id"] == raw_a["catalogue_id"]
+
+    slab = next(item for item in result["items"] if item["required_scope"] == "INVENTORY_ITEM")
+    assert slab["inventory_id"] == graded["id"]
+    assert slab["missing_sides"] == ["FRONT", "BACK"]
+
+
+def test_media_intake_queue_does_not_recapture_approved_processing_media() -> None:
+    raw = {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "catalogue_id": "10000000-0000-0000-0000-000000000001",
+        "inventory_code": "INV-RAW-1",
+        "product_type": "CARD",
+        "game": "Pokemon",
+        "name": "Seel",
+        "set_name": "Phantasmal Flames",
+        "card_number": "021/094",
+        "variant": "Normal",
+        "language": "English",
+        "catalogue_language": None,
+        "grading_company": None,
+        "grade": None,
+    }
+    asset = {
+        "scope": "CANONICAL_CARD",
+        "catalogue_id": raw["catalogue_id"],
+        "inventory_id": None,
+        "side": "FRONT",
+        "approval_status": "APPROVED",
+        "rights_status": "VERIFIED",
+        "shopify_file_status": "PROCESSING",
+    }
+
+    result = _build_media_intake_queue([raw], [asset])
+
+    assert result["queue_count"] == 0
+    assert result["missing_side_count"] == 0
+
+
+def test_failed_media_reenters_capture_queue() -> None:
+    graded = {
+        "id": "00000000-0000-0000-0000-000000000003",
+        "catalogue_id": "10000000-0000-0000-0000-000000000002",
+        "inventory_code": "INV-PSA-1",
+        "product_type": "CARD",
+        "game": "Pokemon",
+        "name": "Charizard",
+        "set_name": "Base Set",
+        "card_number": "4/102",
+        "variant": "Holofoil",
+        "language": "English",
+        "catalogue_language": None,
+        "grading_company": "PSA",
+        "grade": "10",
+    }
+    assets = [
+        {
+            "scope": "INVENTORY_ITEM",
+            "catalogue_id": graded["catalogue_id"],
+            "inventory_id": graded["id"],
+            "side": "FRONT",
+            "approval_status": "APPROVED",
+            "rights_status": "VERIFIED",
+            "shopify_file_status": "READY",
+        },
+        {
+            "scope": "INVENTORY_ITEM",
+            "catalogue_id": graded["catalogue_id"],
+            "inventory_id": graded["id"],
+            "side": "BACK",
+            "approval_status": "APPROVED",
+            "rights_status": "VERIFIED",
+            "shopify_file_status": "FAILED",
+        },
+    ]
+
+    result = _build_media_intake_queue([graded], assets)
+
+    assert result["queue_count"] == 1
+    assert result["items"][0]["missing_sides"] == ["BACK"]
+    assert result["items"][0]["ready_sides"] == ["FRONT"]
+
+
+def test_founder_media_ui_uses_dedicated_capture_queue_not_test_publish_candidates() -> None:
+    frontend = SHOPIFY_SETTINGS.read_text()
+    source = PIPELINE.read_text()
+
+    assert '@router.get("/media-assets/intake-queue")' in source
+    assert 'id="shopify-media-candidate"' in frontend
+    assert 'apiRequest("/api/v1/shopify/media-assets/intake-queue")' in frontend
+    assert 'byId("shopify-media-candidate")?.selectedOptions?.[0]' in frontend
+    assert 'dataset.mediaScope' in frontend
+    assert 'copies share this image' in frontend
