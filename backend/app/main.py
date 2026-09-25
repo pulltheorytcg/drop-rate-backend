@@ -28,6 +28,7 @@ from .marketplace_listings import router as marketplace_listings_router
 from .market_provider_probe import router as market_provider_probe_router
 from .market_smoke import router as market_smoke_router
 from .pricing import router as pricing_router
+from .ebay_sold_pricing import router as ebay_sold_pricing_router
 from .pricing_preview import router as pricing_preview_router
 from .purchase_lots import router as purchase_lots_router
 from .refunds import router as refunds_router
@@ -217,6 +218,7 @@ def create_app() -> FastAPI:
     app.include_router(ebay_privacy_router)
     app.include_router(refunds_router)
     app.include_router(pricing_router)
+    app.include_router(ebay_sold_pricing_router)
     app.include_router(pricing_preview_router)
     app.include_router(market_ingestion_router)
     app.include_router(market_mappings_router)
