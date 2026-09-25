@@ -94,6 +94,7 @@ def test_identity_confirmation_language_is_audited_and_fail_closed_on_mismatch()
     assert "catalogue_language = clean_language" in source
     assert "requested_language = clean_language(payload.language)" in source
     assert "Selected language does not match the canonical card" in source
+    assert "Language must be physically verified before identity" in source
     assert "conflicts with the canonical card." in source
     assert "language=coalesce($2,language,$3)" in source
     assert 'id="identity-language"' in frontend
