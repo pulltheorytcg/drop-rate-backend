@@ -202,7 +202,7 @@ def _normalized_row(
     raw_name = _cell(row, mapping, "name")
     parsed_name, title_language = parse_title_language(raw_name)
     raw_set_name = _cell(row, mapping, "set_name")
-    parsed_set_name, set_language = parse_title_language(raw_set_name)
+    _parsed_set_name, set_language = parse_title_language(raw_set_name)
     explicit_language = clean_language(_cell(row, mapping, "language"))
     language_evidence = [
         value for value in (explicit_language, title_language, set_language) if value
@@ -211,7 +211,7 @@ def _normalized_row(
         issues.append("language_conflict")
     language = explicit_language or title_language or set_language
     name = parsed_name
-    set_name = parsed_set_name
+    set_name = raw_set_name
     card_number = _cell(row, mapping, "card_number")
     rarity = _cell(row, mapping, "rarity") or ""
 
