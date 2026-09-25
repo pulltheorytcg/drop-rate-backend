@@ -547,7 +547,18 @@ class ShopifyAdminClient:
             raise ShopifyApiError(
                 "Shopify file association returned an invalid response"
             )
-        self._raise_user_errors(payload, "Shopify rejected file association")
+        errors = payload.get("userErrors")
+        if isinstance(errors, list) and errors:
+            messages = " ".join(
+                str(error.get("message") or "")
+                for error in errors
+                if isinstance(error, dict)
+            ).casefold()
+            if "already" not in messages:
+                self._raise_user_errors(
+                    payload,
+                    "Shopify rejected file association",
+                )
 
 
     async def find_product_by_handle(self, handle: str) -> dict[str, Any] | None:
