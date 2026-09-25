@@ -373,6 +373,48 @@ class ShopifyAdminClient:
         }
 
 
+    async def list_collection_titles(self) -> set[str]:
+        titles: set[str] = set()
+        cursor: str | None = None
+        while True:
+            data = await self.graphql(
+                query="""
+                query DropRateCollections($first: Int!, $after: String) {
+                  collections(first: $first, after: $after) {
+                    nodes { id title handle }
+                    pageInfo { hasNextPage endCursor }
+                  }
+                }
+                """,
+                variables={"first": 100, "after": cursor},
+            )
+            connection = data.get("collections")
+            if not isinstance(connection, dict):
+                raise ShopifyApiError(
+                    "Shopify collection query returned an invalid response"
+                )
+            nodes = connection.get("nodes")
+            if not isinstance(nodes, list):
+                raise ShopifyApiError(
+                    "Shopify collection query is missing nodes"
+                )
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                title = str(node.get("title") or "").strip()
+                if title:
+                    titles.add(title)
+            page_info = connection.get("pageInfo")
+            if not isinstance(page_info, dict) or not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+            if not isinstance(cursor, str) or not cursor:
+                raise ShopifyApiError(
+                    "Shopify collection pagination is invalid"
+                )
+        return titles
+
+
     async def find_product_by_handle(self, handle: str) -> dict[str, Any] | None:
         safe_handle = handle.strip()
         data = await self.graphql(
@@ -457,7 +499,11 @@ class ShopifyAdminClient:
         sku: str,
         cost: str | None,
     ) -> dict[str, Any]:
-        inventory_item: dict[str, Any] = {"sku": sku, "tracked": True}
+        inventory_item: dict[str, Any] = {
+            "sku": sku,
+            "tracked": True,
+            "requiresShipping": True,
+        }
         if cost is not None:
             inventory_item["cost"] = cost
         data = await self.graphql(
