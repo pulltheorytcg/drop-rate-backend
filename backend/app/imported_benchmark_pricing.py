@@ -186,7 +186,7 @@ async def _insert_collectr_observation(
             $1,'COLLECTR',$2,'MARKET_AGGREGATE',$3,
             $4,null,'USD',$5,null,
             $6,$7,$8,$9,$10,$11,
-            null,1,0.65,$10::jsonb
+            null,1,0.65,$12::jsonb
         )
         on conflict (source,source_record_key) do nothing
         returning id
