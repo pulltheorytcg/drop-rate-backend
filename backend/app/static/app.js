@@ -119,6 +119,32 @@ function textCell(label, text, className = "") {
   return td;
 }
 
+function itemCoreReadiness(item) {
+  const checks = [];
+  const isCard = item.product_type === "CARD";
+  const isGraded = isCard
+    && Boolean((item.grading_company || "").trim())
+    && Boolean((item.grade || "").trim());
+
+  checks.push({
+    label: isCard ? (isGraded ? "Grade" : "Condition") : "Seal",
+    ok: isCard
+      ? (isGraded || Boolean((item.condition || "").trim()))
+      : Boolean(item.seal_status),
+  });
+  checks.push({ label: "Cost", ok: item.acquisition_cost_minor !== null && item.acquisition_cost_minor !== undefined });
+  if (isCard) checks.push({ label: "Language", ok: Boolean((item.language || "").trim()) });
+  checks.push({ label: "Location", ok: Boolean(item.storage_location_id) });
+  checks.push({ label: "Price", ok: item.store_price_minor !== null && item.store_price_minor !== undefined });
+  checks.push({ label: "Identity", ok: Boolean(item.identity_confirmed) });
+
+  return {
+    complete: checks.filter((check) => check.ok).length,
+    total: checks.length,
+    missing: checks.filter((check) => !check.ok).map((check) => check.label),
+  };
+}
+
 function refreshSelectionControls() {
   const count = state.selected.size;
   byId("selected-count").textContent = String(count);
@@ -170,7 +196,13 @@ function renderInventory(data) {
     const code = document.createElement("span");
     code.className = "code";
     code.textContent = item.inventory_code;
-    wrap.append(strong, meta, code);
+    const readiness = itemCoreReadiness(item);
+    const readinessLine = document.createElement("span");
+    readinessLine.className = `core-readiness${readiness.complete === readiness.total ? " complete" : ""}`;
+    readinessLine.textContent = readiness.complete === readiness.total
+      ? `Core ${readiness.complete}/${readiness.total} ✓`
+      : `Core ${readiness.complete}/${readiness.total} · Needs ${readiness.missing.join(", ")}`;
+    wrap.append(strong, meta, code, readinessLine);
     name.append(wrap);
     row.append(name);
     row.append(textCell("Set", item.set_name || "—", "set-detail"));
