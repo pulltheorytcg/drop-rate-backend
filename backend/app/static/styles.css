@@ -44,3 +44,27 @@
 }
 
 .core-readiness{display:inline-flex;align-items:center;width:max-content;max-width:100%;margin-top:2px;padding:4px 7px;border-radius:999px;background:rgba(255,187,85,.09);color:#ffc46d;font-size:.63rem;font-weight:750;line-height:1.25;white-space:normal}.core-readiness.complete{background:rgba(93,219,145,.11);color:#72e6a3}
+
+
+/* Portfolio intelligence — functional v1; full Drop Rate brand redesign is a later UI pass. */
+.portfolio-intelligence-panel{padding:22px;margin-bottom:20px;overflow:visible}
+.portfolio-intelligence-heading{margin-bottom:18px}
+.portfolio-intelligence-heading h2{margin:4px 0;font-size:1.55rem}
+.portfolio-value-grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:18px}
+.portfolio-insight-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.portfolio-insight-card{min-width:0}
+.portfolio-insight-heading{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px}
+.portfolio-insight-heading h3{margin:2px 0 0;font-size:1.05rem}
+.portfolio-insight-heading .eyebrow{margin-bottom:5px}
+.portfolio-ranking-row,.portfolio-mover-row{grid-template-columns:minmax(0,1fr) auto}
+.portfolio-value-stack{display:grid;gap:3px;text-align:right;justify-items:end}
+.portfolio-value-stack>strong{white-space:nowrap}
+.portfolio-value-stack>small{color:var(--muted);font-size:.67rem;white-space:nowrap}
+.portfolio-empty{padding:16px;margin:0}
+.portfolio-history-empty{display:grid;gap:5px;padding:18px}
+.portfolio-history-empty>small{color:var(--muted);line-height:1.45}
+.portfolio-mover-label{padding:8px 13px;border-bottom:1px solid var(--line);color:var(--muted);font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+.mover-up{color:var(--success)}
+.mover-down{color:var(--danger)}
+@media(max-width:900px){.portfolio-insight-grid{grid-template-columns:1fr}}
+@media(max-width:560px){.portfolio-intelligence-panel{padding:16px}.portfolio-value-grid{grid-template-columns:1fr}.portfolio-ranking-row,.portfolio-mover-row{grid-template-columns:minmax(0,1fr) auto}}
