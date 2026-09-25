@@ -502,6 +502,23 @@ async def shopify_product_preview(
         )
         if item is None:
             raise HTTPException(status_code=404, detail="Inventory item not found")
+        media_rows = await connection.fetch(
+            """
+            select *
+            from tcg.media_assets
+            where approval_status='APPROVED'
+              and rights_status='VERIFIED'
+              and shopify_file_status='READY'
+              and (
+                (scope='INVENTORY_ITEM' and inventory_id=$1)
+                or
+                (scope='CANONICAL_CARD' and catalogue_id=$2)
+              )
+            order by scope,side,created_at,id
+            """,
+            item["id"], item["catalogue_id"],
+        )
+        media_assets = [dict(row) for row in media_rows]
         try:
             collection_titles = await client.list_collection_titles()
         except ShopifyApiError as exc:
@@ -518,6 +535,7 @@ async def shopify_product_preview(
             collection_titles=collection_titles,
             publication_configured=bool(settings.shopify_publication_gid),
             location_configured=bool(settings.shopify_location_gid),
+            media_assets=media_assets,
         )
         operational_missing = _test_sync_missing(item)
         return jsonable_encoder({
@@ -556,7 +574,8 @@ async def test_sync_status(
         pool = await connection.fetch(
             """
             select
-                i.id, i.inventory_code, i.version, i.status,
+                i.id, i.catalogue_id, i.owner_id,
+                i.inventory_code, i.version, i.status,
                 i.identity_confirmed, i.acquisition_cost_minor,
                 i.store_price_minor, i.storage_location_id, i.language,
                 i.condition, i.seal_status, i.grading_company, i.grade,
@@ -578,6 +597,17 @@ async def test_sync_status(
             """,
             owner["id"],
         )
+        ready_media_rows = await connection.fetch(
+            """
+            select *
+            from tcg.media_assets
+            where approval_status='APPROVED'
+              and rights_status='VERIFIED'
+              and shopify_file_status='READY'
+            order by scope,side,created_at,id
+            """
+        )
+        ready_media_assets = [dict(row) for row in ready_media_rows]
         candidates: list[dict[str, Any]] = []
         blocked_items: list[dict[str, Any]] = []
         blocker_counts: dict[str, int] = {}
@@ -591,6 +621,7 @@ async def test_sync_status(
                 collection_titles=collection_titles,
                 publication_configured=bool(settings.shopify_publication_gid),
                 location_configured=bool(settings.shopify_location_gid),
+                media_assets=_media_assets_for_item(row, ready_media_assets),
             )
             if not missing:
                 eligible_count += 1
@@ -649,7 +680,7 @@ async def test_sync_status(
                 "blocked": len(pool) - launch_ready_count,
                 "blockers": launch_blocker_counts,
                 "verified_collections": sorted(collection_titles),
-                "media_registry_status": "NOT_BUILT_FAIL_CLOSED",
+                "media_registry_status": "ACTIVE_FAIL_CLOSED",
             },
             "counts": dict(counts),
         })
