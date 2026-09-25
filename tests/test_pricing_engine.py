@@ -6,6 +6,7 @@ from app.pricing_engine import (
     ComparableTarget,
     MarketObservation,
     PricingPolicy,
+    SOURCE_RELIABILITY,
     calculate_price,
     weighted_median,
 )
@@ -159,3 +160,25 @@ def test_extreme_us_price_does_not_move_displayed_uk_market_value() -> None:
     result = calculate_price(observations, target=target(), as_of=NOW)
     assert 10000 <= result.market_value_minor <= 10100
     assert result.market_value_minor not in (28000, 30000)
+
+
+def test_low_market_value_keeps_true_value_but_floors_sellable_prices() -> None:
+    policy = PricingPolicy(
+        min_confidence=0.0,
+        min_sources=1,
+        high_value_review_minor=1_000_000,
+        retail_multiplier=1.0,
+        quick_sale_multiplier=0.92,
+    )
+    observations = [obs("EBAY", 35, country="GB", sample_size=8)]
+    result = calculate_price(observations, target=target(), policy=policy, as_of=NOW)
+
+    assert result.market_value_minor == 35
+    assert result.recommended_retail_minor == 100
+    assert result.quick_sale_minor == 100
+    assert result.target_acquisition_minor == 24
+
+
+def test_uk_sources_are_prioritised_above_collectr_supporting_evidence() -> None:
+    assert SOURCE_RELIABILITY["EBAY"] > SOURCE_RELIABILITY["COLLECTR"]
+    assert SOURCE_RELIABILITY["CARDMARKET"] > SOURCE_RELIABILITY["COLLECTR"]
