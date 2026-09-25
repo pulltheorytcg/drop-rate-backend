@@ -33,3 +33,12 @@
 
 #founder-finance-panel .finance-reconcile-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
 #founder-finance-panel .finance-reconcile-actions .ghost-button{padding:5px 8px;font-size:.68rem;line-height:1.1}
+
+#founder-finance-panel .finance-settlement-section{margin-top:20px}
+.finance-settlement-table{min-width:1180px}
+.finance-settlement-row td>strong{display:block;color:#eef1f5;font-size:.82rem;line-height:1.25}
+.finance-settlement-row td>small{display:block;color:var(--muted);font-size:.67rem;line-height:1.35;margin-top:3px;max-width:190px}
+@media(max-width:560px){
+  .finance-settlement-table{min-width:0}
+  .finance-settlement-row td>small{max-width:none}
+}
