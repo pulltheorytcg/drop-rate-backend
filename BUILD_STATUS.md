@@ -446,7 +446,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 11. **Operational inventory cleanup:** 412 remaining language reviews, 508 unconfirmed identities, 507 remaining registered-storage assignments, the remaining 10 conditions and 508 Store Prices. Current acquisition costs are populated; future unknown costs must still remain NULL.
 12. **Shopify settlement enrichment:** Finance Reconciliation v1 + Owner Settlement Report v1 are deployed. Live-verify #1002 fee import, postage-cost reconciliation and the resulting settlement row, then automate recurring fee reconciliation / shipping-provider cost ingestion.
 13. **Refund settlement follow-up:** Shopify accepted the £5.48 refund for #1002, but the external refund transaction was still pending at the last check; verify completion before any further order action.
-14. **Shopify shipping profile configuration:** registry and hard publication gate are live. RAW_CARD is configured at 40g for Royal Mail Tracked 48 using a 110x145x21mm package; GRADED_CARD remains launch-blocked until its physical package and operating weight are measured.
+14. **Shopify shipping profile configuration:** registry and hard publication gate are live. RAW_CARD is configured at 40g for Royal Mail Tracked 48 using a 110x145x21mm package; Settings now exposes the package facts and audited £0.83 material total (£0.75 packaging + £0.08 top loader). GRADED_CARD remains launch-blocked until its physical package and operating weight are measured.
 15. **Shopify media readiness:** completeness/media registry is fail-closed; approve permitted canonical media for normal raw cards and item-specific front/back media where the physical item requires it before scaling publication.
 
 ## Milestone 1 checklist
