@@ -141,6 +141,197 @@ function activateSellerView(name, updateHash = false) {
   if (valid === "settings") loadPricingAdapterStatus();
 }
 
+function buildPortfolioIntelligencePanel() {
+  const existing = byId("portfolio-intelligence-panel");
+  if (existing) return existing;
+
+  const section = document.createElement("section");
+  section.id = "portfolio-intelligence-panel";
+  section.className = "inventory-panel portfolio-intelligence-panel";
+  section.innerHTML = `
+    <div class="page-heading portfolio-intelligence-heading">
+      <div>
+        <p class="eyebrow">Inventory intelligence</p>
+        <h2>Portfolio value</h2>
+        <p class="muted">Current market position, highest-value stock and genuine 7-day market movement.</p>
+      </div>
+    </div>
+    <div class="stats-grid portfolio-value-grid">
+      <article class="stat-card">
+        <span>Inventory market value</span>
+        <strong id="portfolio-market-value">—</strong>
+        <small id="portfolio-market-coverage">Current physical stock</small>
+      </article>
+      <article class="stat-card">
+        <span>Store price value</span>
+        <strong id="portfolio-store-value">—</strong>
+        <small id="portfolio-store-coverage">Sellable asking value</small>
+      </article>
+    </div>
+    <div class="portfolio-insight-grid">
+      <section class="portfolio-insight-card">
+        <div class="portfolio-insight-heading">
+          <div><p class="eyebrow">Highest value</p><h3>Top 5 products</h3></div>
+        </div>
+        <div id="top-valuable-list" class="allocation-list">
+          <p class="muted portfolio-empty">Loading value ranking…</p>
+        </div>
+      </section>
+      <section class="portfolio-insight-card">
+        <div class="portfolio-insight-heading">
+          <div><p class="eyebrow">7-day change</p><h3>Weekly top movers</h3></div>
+        </div>
+        <div id="weekly-movers-list" class="allocation-list">
+          <p class="muted portfolio-empty">Building price history…</p>
+        </div>
+      </section>
+    </div>
+  `;
+  return section;
+}
+
+function portfolioIdentityMeta(item) {
+  const grade = item.grading_company && item.grade
+    ? `${item.grading_company} ${item.grade}`
+    : item.condition;
+  return [
+    item.set_name,
+    item.card_number,
+    item.language,
+    grade,
+    Number(item.quantity || 0) > 1 ? `${item.quantity} copies` : null,
+  ].filter(Boolean).join(" · ");
+}
+
+function renderTopValuable(items) {
+  const container = byId("top-valuable-list");
+  if (!container) return;
+  container.replaceChildren();
+  if (!items?.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted portfolio-empty";
+    empty.textContent = "No Market Values are available yet.";
+    container.append(empty);
+    return;
+  }
+
+  items.forEach((item, index) => {
+    const row = document.createElement("div");
+    row.className = "allocation-row portfolio-ranking-row";
+
+    const details = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = `#${index + 1} ${item.name}`;
+    const meta = document.createElement("small");
+    meta.textContent = portfolioIdentityMeta(item);
+    details.append(name, meta);
+
+    const value = document.createElement("div");
+    value.className = "portfolio-value-stack";
+    const perUnit = document.createElement("strong");
+    perUnit.textContent = money(item.market_value_minor);
+    const holding = document.createElement("small");
+    holding.textContent = Number(item.quantity || 0) > 1
+      ? `${money(item.holding_value_minor)} holding value`
+      : "Market Value";
+    value.append(perUnit, holding);
+
+    row.append(details, value);
+    container.append(row);
+  });
+}
+
+function moverRow(item, direction) {
+  const row = document.createElement("div");
+  row.className = "allocation-row portfolio-mover-row";
+
+  const details = document.createElement("div");
+  const name = document.createElement("strong");
+  name.textContent = item.name;
+  const meta = document.createElement("small");
+  meta.textContent = portfolioIdentityMeta(item);
+  details.append(name, meta);
+
+  const value = document.createElement("div");
+  value.className = "portfolio-value-stack";
+  const change = document.createElement("strong");
+  change.className = direction === "up" ? "mover-up" : "mover-down";
+  const pct = Math.abs(Number(item.change_pct || 0)).toFixed(1);
+  change.textContent = `${direction === "up" ? "▲" : "▼"} ${pct}%`;
+  const prices = document.createElement("small");
+  prices.textContent = `${money(item.prior_market_value_minor)} → ${money(item.current_market_value_minor)}`;
+  value.append(change, prices);
+
+  row.append(details, value);
+  return row;
+}
+
+function renderWeeklyMovers(data, windowDays) {
+  const container = byId("weekly-movers-list");
+  if (!container) return;
+  container.replaceChildren();
+
+  if (!data?.history_ready) {
+    const empty = document.createElement("div");
+    empty.className = "portfolio-history-empty";
+    const title = document.createElement("strong");
+    title.textContent = "Building genuine price history";
+    const note = document.createElement("small");
+    note.textContent = `Weekly movers will appear once a real ${windowDays}-day Market Value baseline exists. We do not manufacture movement from today's backfill.`;
+    empty.append(title, note);
+    container.append(empty);
+    return;
+  }
+
+  const gainers = data.gainers || [];
+  const decliners = data.decliners || [];
+  if (!gainers.length && !decliners.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted portfolio-empty";
+    empty.textContent = "No Market Value changes were recorded across the comparison window.";
+    container.append(empty);
+    return;
+  }
+
+  if (gainers.length) {
+    const label = document.createElement("div");
+    label.className = "portfolio-mover-label";
+    label.textContent = "Top risers";
+    container.append(label, ...gainers.map((item) => moverRow(item, "up")));
+  }
+  if (decliners.length) {
+    const label = document.createElement("div");
+    label.className = "portfolio-mover-label";
+    label.textContent = "Top fallers";
+    container.append(label, ...decliners.map((item) => moverRow(item, "down")));
+  }
+}
+
+async function loadPortfolioIntelligence() {
+  if (!state.session?.access_token) return;
+  const marketValue = byId("portfolio-market-value");
+  if (!marketValue) return;
+  try {
+    const data = await apiRequest("/api/v1/inventory/intelligence?top_limit=5&window_days=7");
+    const totals = data.totals || {};
+    byId("portfolio-market-value").textContent = money(totals.inventory_market_value_minor || 0);
+    byId("portfolio-store-value").textContent = money(totals.inventory_store_value_minor || 0);
+    byId("portfolio-market-coverage").textContent =
+      `${Number(totals.market_valued_item_count || 0).toLocaleString("en-GB")} of ${Number(totals.active_inventory_count || 0).toLocaleString("en-GB")} active items valued`;
+    byId("portfolio-store-coverage").textContent =
+      `${Number(totals.store_priced_item_count || 0).toLocaleString("en-GB")} active items priced`;
+    renderTopValuable(data.top_valuable || []);
+    renderWeeklyMovers(data.weekly_movers || {}, Number(data.window_days || 7));
+  } catch (error) {
+    byId("portfolio-market-value").textContent = "—";
+    byId("portfolio-store-value").textContent = "—";
+    const top = byId("top-valuable-list");
+    const movers = byId("weekly-movers-list");
+    if (top) top.textContent = "Inventory intelligence could not be loaded.";
+    if (movers) movers.textContent = error.message;
+  }
+}
+
 function populateSellerViews() {
   const content = byId("dashboard-view")?.querySelector(".dashboard-content");
   if (!content || content.dataset.tabbed === "true") return;
@@ -164,6 +355,7 @@ function populateSellerViews() {
 
   overview.append(makeSellerHeading("Founder overview", "Dashboard", "Your stock position and action-required snapshot."));
   if (inventoryStats) overview.append(inventoryStats);
+  overview.append(buildPortfolioIntelligencePanel());
   if (actionPanel) overview.append(actionPanel);
 
   if (inventoryHeading) {
@@ -291,7 +483,7 @@ function ensureSellerDashboardShell() {
 const previousReloadDashboardForShell = reloadDashboard;
 reloadDashboard = async function (...args) {
   const result = await previousReloadDashboardForShell(...args);
-  await loadPricingAdapterStatus();
+  await Promise.all([loadPricingAdapterStatus(), loadPortfolioIntelligence()]);
   return result;
 };
 
