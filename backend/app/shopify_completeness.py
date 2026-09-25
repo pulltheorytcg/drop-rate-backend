@@ -191,6 +191,178 @@ def media_policy(item: Mapping[str, Any]) -> str:
     return "CANONICAL_CARD_ALLOWED"
 
 
+def media_completeness(
+    media_policy_name: str,
+    assets: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    ready_assets = [
+        asset
+        for asset in assets
+        if _text(asset.get("approval_status")) == "APPROVED"
+        and _text(asset.get("rights_status")) == "VERIFIED"
+        and _text(asset.get("shopify_file_status")) == "READY"
+        and _text(asset.get("media_kind")) == "IMAGE"
+        and _text(asset.get("shopify_file_gid"))
+    ]
+
+    blockers: list[str] = []
+    if media_policy_name == "PHYSICAL_ITEM_REQUIRED":
+        item_assets = [
+            asset
+            for asset in ready_assets
+            if _text(asset.get("scope")) == "INVENTORY_ITEM"
+        ]
+        sides = {_text(asset.get("side")) for asset in item_assets}
+        if "FRONT" not in sides:
+            blockers.append("approved physical-item front image")
+        if "BACK" not in sides:
+            blockers.append("approved physical-item back image")
+        selected = item_assets
+    else:
+        selected = ready_assets
+        sides = {_text(asset.get("side")) for asset in selected}
+        if "FRONT" not in sides:
+            blockers.append("approved front image")
+
+    file_ids = [
+        _text(asset.get("shopify_file_gid"))
+        for asset in selected
+        if _text(asset.get("shopify_file_gid"))
+    ]
+    return {
+        "complete": not blockers,
+        "blockers": blockers,
+        "approvedMediaCount": len(selected),
+        "shopifyFileIds": list(dict.fromkeys(file_ids)),
+        "mediaPolicy": media_policy_name,
+    }
+
+
+def verify_remote_product(
+    plan: Mapping[str, Any],
+    snapshot: Mapping[str, Any],
+    *,
+    expected_price: str,
+    expected_sku: str,
+    expected_collection_titles: set[str],
+    expected_media_file_ids: set[str],
+) -> dict[str, Any]:
+    blockers: list[str] = []
+
+    expected_template = _text(plan.get("template"))
+    actual_template = _text(snapshot.get("templateSuffix")) or DEFAULT_THEME_TEMPLATE
+
+    checks = {
+        "title": (_text(snapshot.get("title")), _text(plan.get("title"))),
+        "description": (
+            _text(snapshot.get("descriptionHtml")),
+            _text(plan.get("descriptionHtml")),
+        ),
+        "vendor": (_text(snapshot.get("vendor")), _text(plan.get("vendor"))),
+        "product type": (
+            _text(snapshot.get("productType")),
+            _text(plan.get("productType")),
+        ),
+        "theme template": (actual_template, expected_template),
+    }
+    for label, (actual, expected) in checks.items():
+        if actual != expected:
+            blockers.append(f"remote {label}")
+
+    category = snapshot.get("category")
+    actual_category = (
+        _text(category.get("id")) if isinstance(category, Mapping) else ""
+    )
+    if actual_category != _text(plan.get("category")):
+        blockers.append("remote category")
+
+    actual_tags = {_text(tag) for tag in snapshot.get("tags", []) if _text(tag)}
+    expected_tags = {_text(tag) for tag in plan.get("tags", []) if _text(tag)}
+    if actual_tags != expected_tags:
+        blockers.append("remote tags")
+
+    actual_seo = snapshot.get("seo")
+    expected_seo = plan.get("seo")
+    if not isinstance(actual_seo, Mapping) or not isinstance(expected_seo, Mapping):
+        blockers.append("remote SEO")
+    else:
+        if _text(actual_seo.get("title")) != _text(expected_seo.get("title")):
+            blockers.append("remote SEO title")
+        if _text(actual_seo.get("description")) != _text(
+            expected_seo.get("description")
+        ):
+            blockers.append("remote SEO description")
+
+    metafields = snapshot.get("metafields")
+    nodes = metafields.get("nodes") if isinstance(metafields, Mapping) else None
+    actual_metafields = {
+        _text(node.get("key")): _text(node.get("value"))
+        for node in nodes or []
+        if isinstance(node, Mapping)
+    }
+    expected_metafields = {
+        _text(row.get("key")): _text(row.get("value"))
+        for row in plan.get("metafields", [])
+        if isinstance(row, Mapping)
+    }
+    for key, value in expected_metafields.items():
+        if actual_metafields.get(key) != value:
+            blockers.append(f"remote metafield: {key}")
+
+    collections = snapshot.get("collections")
+    collection_nodes = (
+        collections.get("nodes") if isinstance(collections, Mapping) else None
+    )
+    actual_collections = {
+        _text(node.get("title"))
+        for node in collection_nodes or []
+        if isinstance(node, Mapping) and _text(node.get("title"))
+    }
+    if not expected_collection_titles.issubset(actual_collections):
+        blockers.append("remote collections")
+
+    variants = snapshot.get("variants")
+    variant_nodes = variants.get("nodes") if isinstance(variants, Mapping) else None
+    if (
+        not isinstance(variant_nodes, list)
+        or len(variant_nodes) != 1
+        or not isinstance(variant_nodes[0], Mapping)
+    ):
+        blockers.append("remote single variant")
+    else:
+        variant = variant_nodes[0]
+        if _text(variant.get("price")) != expected_price:
+            blockers.append("remote price")
+        if _text(variant.get("inventoryPolicy")) != "DENY":
+            blockers.append("remote oversell protection")
+        inventory_item = variant.get("inventoryItem")
+        if not isinstance(inventory_item, Mapping):
+            blockers.append("remote inventory item")
+        else:
+            if _text(inventory_item.get("sku")) != expected_sku:
+                blockers.append("remote SKU")
+            if inventory_item.get("tracked") is not True:
+                blockers.append("remote inventory tracking")
+            if inventory_item.get("requiresShipping") is not True:
+                blockers.append("remote shipping requirement")
+
+    media = snapshot.get("media")
+    media_nodes = media.get("nodes") if isinstance(media, Mapping) else None
+    actual_media_ids = {
+        _text(node.get("id"))
+        for node in media_nodes or []
+        if isinstance(node, Mapping) and _text(node.get("id"))
+    }
+    if not expected_media_file_ids.issubset(actual_media_ids):
+        blockers.append("remote media")
+
+    if _text(snapshot.get("status")) != "ACTIVE":
+        blockers.append("remote active status")
+
+    unique = list(dict.fromkeys(blockers))
+    return {"complete": not unique, "blockers": unique}
+
+
 def build_shopify_product_plan(item: Mapping[str, Any]) -> dict[str, Any]:
     product_type = _text(item.get("product_type"))
     category_id = CARD_CATEGORY_GID if product_type == "CARD" else None
@@ -247,6 +419,7 @@ def product_completeness(
     existing_collection_titles: set[str],
     publication_configured: bool,
     location_configured: bool,
+    media_blockers: list[str] | None = None,
 ) -> dict[str, Any]:
     blockers: list[str] = []
 
@@ -286,7 +459,9 @@ def product_completeness(
     if missing_collections:
         blockers.extend(f"collection: {name}" for name in missing_collections)
 
-    if approved_media_count <= 0:
+    if media_blockers:
+        blockers.extend(media_blockers)
+    elif approved_media_count <= 0:
         blockers.append("approved media")
     if not publication_configured:
         blockers.append("Shopify publication")
