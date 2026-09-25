@@ -38,15 +38,15 @@ function ensureFounderFinanceUI() {
     <div class="stats-grid">
       <article class="stat-card stat-accent"><span>Available balance</span><strong id="finance-available">£0.00</strong><small>Available to withdraw</small></article>
       <article class="stat-card"><span>Pending balance</span><strong id="finance-pending">£0.00</strong><small>Not yet available</small></article>
-      <article class="stat-card"><span>Net profit</span><strong id="finance-net-profit">£0.00</strong><small>After cost, fees & shipping</small></article>
+      <article class="stat-card"><span>Net profit</span><strong id="finance-net-profit">£0.00</strong><small id="finance-net-profit-note">After cost, fees & postage</small></article>
       <article class="stat-card"><span>Cards / items sold</span><strong id="finance-sold-items">0</strong><small>Physical inventory sold</small></article>
     </div>
 
     <div class="stats-grid">
       <article class="stat-card"><span>Sales revenue</span><strong id="finance-sales-revenue">£0.00</strong><small>After item discounts</small></article>
       <article class="stat-card"><span>Cost of goods</span><strong id="finance-cogs">£0.00</strong><small>Acquisition cost snapshot</small></article>
-      <article class="stat-card"><span>Fees</span><strong id="finance-fees">£0.00</strong><small>Platform + payment fees</small></article>
-      <article class="stat-card"><span>Shipping cost</span><strong id="finance-shipping-cost">£0.00</strong><small>Fulfilment/postage cost</small></article>
+      <article class="stat-card"><span>Fees</span><strong id="finance-fees">£0.00</strong><small id="finance-fees-note">Platform + payment fees</small></article>
+      <article class="stat-card"><span>Postage cost</span><strong id="finance-shipping-cost">£0.00</strong><small id="finance-shipping-cost-note">Fulfilment/postage cost</small></article>
       <article class="stat-card"><span>Refunds</span><strong id="finance-refunds">£0.00</strong><small>Item + shipping refunds</small></article>
       <article class="stat-card"><span>Paid out</span><strong id="finance-paid-out">£0.00</strong><small>Completed withdrawals</small></article>
       <article class="stat-card"><span>Reserved for payout</span><strong id="finance-reserved">£0.00</strong><small>Requested / approved payouts</small></article>
@@ -60,7 +60,7 @@ function ensureFounderFinanceUI() {
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Item</th><th>Order</th><th>Revenue</th><th>Cost</th><th>Fees + shipping</th><th>Profit</th><th>Sold</th></tr></thead>
+        <thead><tr><th>Item</th><th>Order</th><th>Revenue</th><th>Cost</th><th>Fees + postage</th><th>Profit</th><th>Sold</th></tr></thead>
         <tbody id="finance-sales-body"></tbody>
       </table>
     </div>
@@ -115,12 +115,32 @@ function ensureFounderFinanceUI() {
 function renderFinanceSummary(summary) {
   byId("finance-available").textContent = formatFinanceMoney(summary.available_to_withdraw_minor);
   byId("finance-pending").textContent = formatFinanceMoney(summary.pending_minor);
-  byId("finance-net-profit").textContent = formatFinanceMoney(summary.net_profit_minor);
+  const provisionalNetProfit = formatFinanceMoney(summary.net_profit_minor);
+  if (summary.net_profit_complete) {
+    byId("finance-net-profit").textContent = provisionalNetProfit;
+    byId("finance-net-profit-note").textContent = "After cost, fees & postage";
+  } else {
+    byId("finance-net-profit").textContent = "Pending";
+    byId("finance-net-profit-note").textContent = `Provisional ${provisionalNetProfit} · awaiting settlement costs`;
+  }
   byId("finance-sold-items").textContent = String(summary.sold_items || 0);
   byId("finance-sales-revenue").textContent = formatFinanceMoney(summary.sales_revenue_minor);
   byId("finance-cogs").textContent = formatFinanceMoney(summary.cost_of_goods_minor);
-  byId("finance-fees").textContent = formatFinanceMoney((summary.platform_fees_minor || 0) + (summary.payment_fees_minor || 0));
-  byId("finance-shipping-cost").textContent = formatFinanceMoney(summary.shipping_cost_minor);
+
+  const recordedFees = (summary.platform_fees_minor || 0) + (summary.payment_fees_minor || 0);
+  byId("finance-fees").textContent = summary.fees_complete
+    ? formatFinanceMoney(recordedFees)
+    : "Pending";
+  byId("finance-fees-note").textContent = summary.fees_complete
+    ? "Platform + payment fees"
+    : `${formatFinanceMoney(recordedFees)} recorded · awaiting Shopify fees`;
+
+  byId("finance-shipping-cost").textContent = summary.shipping_cost_complete
+    ? formatFinanceMoney(summary.shipping_cost_minor)
+    : "Pending";
+  byId("finance-shipping-cost-note").textContent = summary.shipping_cost_complete
+    ? "Fulfilment/postage cost"
+    : `${formatFinanceMoney(summary.shipping_cost_minor)} recorded · postage not entered`;
   byId("finance-refunds").textContent = formatFinanceMoney(
     (summary.refunds_minor || 0) + (summary.shipping_refunds_minor || 0)
   );
@@ -136,18 +156,75 @@ function renderFinanceSales(items) {
   byId("finance-sales-empty").classList.toggle("hidden", items.length > 0);
   items.forEach((sale) => {
     const row = document.createElement("tr");
-    const feesShipping = (sale.platform_fee_minor || 0) + (sale.payment_fee_minor || 0) + (sale.shipping_cost_minor || 0);
-    const soldAt = sale.sold_at ? new Date(sale.sold_at).toLocaleDateString("en-GB") : "—";
+    row.className = "finance-sale-row";
+    const feesPostage =
+      (sale.platform_fee_minor || 0)
+      + (sale.payment_fee_minor || 0)
+      + (sale.shipping_cost_minor || 0);
+    const soldAt = sale.sold_at
+      ? new Date(sale.sold_at).toLocaleDateString("en-GB")
+      : "—";
+    const itemMeta = [sale.set_name, sale.card_number, sale.variant]
+      .filter(Boolean)
+      .join(" · ");
+    const shippingPaid = Number(sale.shipping_revenue_minor || 0);
+    const costsComplete = Boolean(
+      sale.fees_complete && sale.shipping_cost_complete
+    );
+
     row.innerHTML = `
-      <td><strong></strong><small></small></td>
-      <td></td><td></td><td></td><td></td><td></td><td></td>`;
-    row.cells[0].querySelector("strong").textContent = sale.name || sale.inventory_code;
-    row.cells[0].querySelector("small").textContent = [sale.inventory_code, sale.card_number, sale.set_name].filter(Boolean).join(" · ");
+      <td class="finance-item-cell" data-label="Item">
+        <strong></strong>
+        <small class="finance-item-meta"></small>
+        <span class="code finance-item-code"></span>
+      </td>
+      <td data-label="Order"></td>
+      <td class="finance-money-cell" data-label="Revenue"><strong></strong><small></small></td>
+      <td data-label="Cost"></td>
+      <td class="finance-money-cell" data-label="Fees + postage"><strong></strong><small></small></td>
+      <td class="finance-money-cell" data-label="Profit"><strong></strong><small></small></td>
+      <td data-label="Sold"></td>`;
+
+    const itemCell = row.cells[0];
+    itemCell.querySelector("strong").textContent = sale.name || "Unnamed item";
+    itemCell.querySelector(".finance-item-meta").textContent = itemMeta || "—";
+    const code = itemCell.querySelector(".finance-item-code");
+    code.textContent = sale.inventory_code;
+    code.title = sale.inventory_code;
+
     row.cells[1].textContent = sale.order_number || sale.source_reference || "—";
-    row.cells[2].textContent = formatFinanceMoney(sale.net_sale_minor);
+
+    const revenueCell = row.cells[2];
+    revenueCell.querySelector("strong").textContent = formatFinanceMoney(sale.net_sale_minor);
+    revenueCell.querySelector("small").textContent = shippingPaid
+      ? `+ ${formatFinanceMoney(shippingPaid)} shipping paid`
+      : "No shipping charged";
+
     row.cells[3].textContent = formatFinanceMoney(sale.cost_basis_minor);
-    row.cells[4].textContent = formatFinanceMoney(feesShipping);
-    row.cells[5].textContent = formatFinanceMoney(sale.profit_minor);
+
+    const costsCell = row.cells[4];
+    if (costsComplete) {
+      costsCell.querySelector("strong").textContent = formatFinanceMoney(feesPostage);
+      costsCell.querySelector("small").textContent = "Recorded fees + postage";
+    } else {
+      costsCell.querySelector("strong").textContent = "Pending";
+      const pending = [];
+      if (!sale.fees_complete) pending.push("fees");
+      if (!sale.shipping_cost_complete) pending.push("postage");
+      costsCell.querySelector("small").textContent =
+        `${formatFinanceMoney(feesPostage)} recorded · awaiting ${pending.join(" + ")}`;
+    }
+
+    const profitCell = row.cells[5];
+    if (sale.profit_complete) {
+      profitCell.querySelector("strong").textContent = formatFinanceMoney(sale.profit_minor);
+      profitCell.querySelector("small").textContent = "Final";
+    } else {
+      profitCell.querySelector("strong").textContent = "Pending";
+      profitCell.querySelector("small").textContent =
+        `Provisional ${formatFinanceMoney(sale.profit_minor)}`;
+    }
+
     row.cells[6].textContent = soldAt;
     body.append(row);
   });
