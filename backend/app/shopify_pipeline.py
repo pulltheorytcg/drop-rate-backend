@@ -292,6 +292,162 @@ async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
     return owner
 
 
+def _validated_shipping_package_gid(value: str | None) -> str | None:
+    clean = str(value or "").strip()
+    if not clean:
+        return None
+    prefix = "gid://shopify/Package/"
+    if not clean.startswith(prefix) or not clean[len(prefix):].isdigit():
+        raise HTTPException(
+            status_code=422,
+            detail="shipping_package_gid must be a Shopify Package GID",
+        )
+    return clean
+
+
+@router.get("/shipping-profiles")
+async def list_shipping_profiles(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    include_inactive: bool = False,
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        rows = await connection.fetch(
+            """
+            select *
+            from tcg.shopify_shipping_profiles
+            where owner_id=$1 and ($2::boolean or active)
+            order by active desc,profile_key
+            """,
+            owner["id"], include_inactive,
+        )
+        present = {str(row["profile_key"]) for row in rows if row["active"]}
+        required = {"RAW_CARD", "GRADED_CARD"}
+        return jsonable_encoder({
+            "items": [dict(row) for row in rows],
+            "required_profile_keys": sorted(required),
+            "missing_required_profile_keys": sorted(required - present),
+        })
+
+
+@router.post("/shipping-profiles", status_code=201)
+async def create_shipping_profile(
+    payload: ShippingProfileCreate,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    if payload.profile_key not in {"RAW_CARD", "GRADED_CARD"}:
+        raise HTTPException(
+            status_code=422,
+            detail="Supported shipping profile keys are RAW_CARD and GRADED_CARD",
+        )
+    package_gid = _validated_shipping_package_gid(payload.shipping_package_gid)
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        try:
+            row = await connection.fetchrow(
+                """
+                insert into tcg.shopify_shipping_profiles(
+                  owner_id,profile_key,label,weight_value,weight_unit,
+                  shipping_package_gid,notes,created_by_user_id
+                ) values($1,$2,$3,$4,$5,$6,$7,$8)
+                returning *
+                """,
+                owner["id"], payload.profile_key, payload.label.strip(),
+                payload.weight_value, payload.weight_unit, package_gid,
+                payload.notes.strip(), user.user_id,
+            )
+        except asyncpg.UniqueViolationError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="A shipping profile with this key already exists",
+            ) from exc
+        except asyncpg.CheckViolationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="Shipping profile failed database validation",
+            ) from exc
+        return jsonable_encoder({"profile": dict(row)})
+
+
+@router.patch("/shipping-profiles/{profile_id}")
+async def update_shipping_profile(
+    profile_id: UUID,
+    payload: ShippingProfilePatch,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    values = payload.model_dump(exclude_unset=True)
+    expected_version = int(values.pop("version"))
+    if "label" in values and values["label"] is not None:
+        values["label"] = str(values["label"]).strip()
+    if "notes" in values and values["notes"] is not None:
+        values["notes"] = str(values["notes"]).strip()
+    if "shipping_package_gid" in values:
+        values["shipping_package_gid"] = _validated_shipping_package_gid(
+            values["shipping_package_gid"]
+        )
+
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        current = await connection.fetchrow(
+            """
+            select *
+            from tcg.shopify_shipping_profiles
+            where id=$1 and owner_id=$2
+            for update
+            """,
+            profile_id, owner["id"],
+        )
+        if current is None:
+            raise HTTPException(status_code=404, detail="Shipping profile not found")
+        if int(current["version"]) != expected_version:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Shipping profile changed",
+                    "current_version": current["version"],
+                },
+            )
+        if not values:
+            return jsonable_encoder({"profile": dict(current)})
+
+        assignments: list[str] = []
+        params: list[object] = [profile_id, owner["id"], expected_version]
+        for column, value in values.items():
+            params.append(value)
+            assignments.append(f"{column} = ${len(params)}")
+        assignments.extend([
+            "version = version + 1",
+            "updated_at = clock_timestamp()",
+        ])
+        try:
+            updated = await connection.fetchrow(
+                f"""
+                update tcg.shopify_shipping_profiles
+                set {", ".join(assignments)}
+                where id=$1 and owner_id=$2 and version=$3
+                returning *
+                """,
+                *params,
+            )
+        except asyncpg.CheckViolationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="Shipping profile failed database validation",
+            ) from exc
+        if updated is None:
+            raise HTTPException(status_code=409, detail="Shipping profile changed")
+        return jsonable_encoder({"profile": dict(updated)})
+
+
 @router.get("/media-assets")
 async def list_media_assets(
     request: Request,
