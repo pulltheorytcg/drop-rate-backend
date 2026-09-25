@@ -434,6 +434,7 @@ async def sync_media_asset(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
+        shipping_profiles = await _shipping_profiles(connection, owner["id"])
         async with connection.transaction():
             asset = await connection.fetchrow(
                 """
@@ -530,6 +531,7 @@ async def shopify_product_preview(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
+        shipping_profiles = await _shipping_profiles(connection, owner["id"])
         item = await connection.fetchrow(
             """
             select
@@ -580,6 +582,7 @@ async def shopify_product_preview(
             publication_configured=bool(settings.shopify_publication_gid),
             location_configured=bool(settings.shopify_location_gid),
             media_assets=media_assets,
+            shipping_profiles=shipping_profiles,
         )
         operational_missing = _test_sync_missing(item)
         return jsonable_encoder({
@@ -615,6 +618,7 @@ async def test_sync_status(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
+        shipping_profiles = await _shipping_profiles(connection, owner["id"])
         pool = await connection.fetch(
             """
             select
@@ -666,6 +670,7 @@ async def test_sync_status(
                 publication_configured=bool(settings.shopify_publication_gid),
                 location_configured=bool(settings.shopify_location_gid),
                 media_assets=_media_assets_for_item(row, ready_media_assets),
+                shipping_profiles=shipping_profiles,
             )
             if not missing:
                 eligible_count += 1
@@ -856,6 +861,7 @@ async def sync_one_test_item(
                 publication_configured=bool(settings.shopify_publication_gid),
                 location_configured=bool(settings.shopify_location_gid),
                 media_assets=media_assets,
+                shipping_profiles=shipping_profiles,
             )
             if not launch["complete"]:
                 raise HTTPException(
@@ -946,6 +952,7 @@ async def sync_one_test_item(
                 price=_money(int(item["store_price_minor"])),
                 sku=item["inventory_code"],
                 cost=_money(int(item["acquisition_cost_minor"])),
+                shipping_spec=launch["shippingSpec"],
             )
             inventory_item = updated_variant.get("inventoryItem")
             if (
@@ -980,6 +987,7 @@ async def sync_one_test_item(
                 expected_media_file_ids=media_file_ids,
                 expected_quantity=1,
                 expected_status="DRAFT",
+                expected_shipping_spec=launch["shippingSpec"],
             )
             if not draft_verification["complete"]:
                 raise HTTPException(
@@ -1032,6 +1040,7 @@ async def sync_one_test_item(
                 expected_media_file_ids=media_file_ids,
                 expected_quantity=1,
                 expected_status="ACTIVE",
+                expected_shipping_spec=launch["shippingSpec"],
             )
             published = await client.product_published_on_publication(
                 product_id=product_id,
