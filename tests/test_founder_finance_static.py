@@ -52,6 +52,7 @@ def test_owner_settlement_report_is_rendered_in_reports_ui() -> None:
     assert "Settlement report" in js
     assert "Net owner proceeds" in js
     assert "Owner profit" in js
+    assert "Adjustments" in js
     assert "/api/v1/finance/settlements?limit=50&offset=0" in js
     assert "renderFinanceSettlements" in js
     assert 'byId("finance-settlement-section")' in shell
