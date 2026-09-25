@@ -529,6 +529,9 @@ async def upsert_fulfilment_cost_component(
             rounding=ROUND_HALF_UP,
         )
     )
+    allocation_basis = (
+        "PER_ORDER" if component_key == "PACKAGING" else "PER_ITEM"
+    )
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
@@ -571,14 +574,15 @@ async def upsert_fulfilment_cost_component(
                         insert into tcg.fulfilment_cost_components(
                           owner_id,shipping_profile_key,component_key,label,
                           quantity,native_unit_cost_minor,native_currency,
-                          accounting_unit_cost_minor_gbp,active,notes,
-                          created_by_user_id
-                        ) values($1,$2,$3,$4,$5,$6,'GBP',$6,true,$7,$8)
+                          accounting_unit_cost_minor_gbp,allocation_basis,
+                          active,notes,created_by_user_id
+                        ) values($1,$2,$3,$4,$5,$6,'GBP',$6,$7,true,$8,$9)
                         returning *
                         """,
                         owner["id"], profile["profile_key"], component_key,
                         payload.label.strip(), payload.quantity,
-                        unit_cost_minor, payload.notes.strip(), user.user_id,
+                        unit_cost_minor, allocation_basis,
+                        payload.notes.strip(), user.user_id,
                     )
                 else:
                     if (
@@ -600,20 +604,21 @@ async def upsert_fulfilment_cost_component(
                             native_unit_cost_minor=$6,
                             native_currency='GBP',
                             accounting_unit_cost_minor_gbp=$6,
+                            allocation_basis=$7,
                             active=true,
-                            notes=$7,
+                            notes=$8,
                             version=version+1,
                             updated_at=clock_timestamp()
                         where owner_id=$1
                           and shipping_profile_key=$2
                           and component_key=$3
-                          and version=$8
+                          and version=$9
                         returning *
                         """,
                         owner["id"], profile["profile_key"], component_key,
                         payload.label.strip(), payload.quantity,
-                        unit_cost_minor, payload.notes.strip(),
-                        payload.version,
+                        unit_cost_minor, allocation_basis,
+                        payload.notes.strip(), payload.version,
                     )
                     if updated is None:
                         raise HTTPException(
