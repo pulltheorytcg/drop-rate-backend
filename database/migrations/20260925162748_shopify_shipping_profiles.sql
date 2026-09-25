@@ -47,7 +47,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $audit$
 begin
     insert into tcg.audit_events(
         actor, request_id, action, entity_type, entity_id, old_values, new_values
@@ -65,7 +65,7 @@ begin
     );
     return null;
 end;
-$;
+$audit$;
 
 revoke all on function tcg.audit_shopify_shipping_profile_change() from public;
 
