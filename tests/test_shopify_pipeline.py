@@ -645,3 +645,36 @@ def test_shopify_title_does_not_duplicate_existing_language_tag() -> None:
         "condition": None,
     }
     assert _title(item) == "Eiscue ex · JP · 178 · PSA 10"
+
+
+def test_founder_media_upload_target_is_fail_closed_and_scope_gated() -> None:
+    source = PIPELINE.read_text()
+    client = CLIENT.read_text()
+    assert 'class MediaUploadTargetRequest(BaseModel):' in source
+    assert '@router.get("/media-assets/upload-capability")' in source
+    assert '@router.post("/media-assets/upload-target")' in source
+    assert '"write_files" not in scopes' in source
+    assert '"Cache-Control"] = "no-store"' in source
+    assert 'le=20 * 1024 * 1024' in source
+    assert 'pattern=r"^image/(jpeg|png|webp)$"' in source
+    assert 'async def access_scopes' in client
+    assert 'currentAppInstallation' in client
+    assert 'async def create_staged_image_upload' in client
+    assert 'stagedUploadsCreate' in client
+    assert '"resource": "IMAGE"' in client
+
+
+def test_founder_media_intake_is_visible_and_requires_explicit_rights_confirmation() -> None:
+    frontend = SHOPIFY_SETTINGS.read_text()
+    assert 'id="shopify-media-file"' in frontend
+    assert 'id="shopify-media-rights"' in frontend
+    assert 'id="shopify-media-upload-button"' in frontend
+    assert 'I own or am authorised to use this image' in frontend
+    assert 'button.dataset.scopeReady !== "true"' in frontend
+    assert 'source_type: "FOUNDER_UPLOAD"' in frontend
+    assert 'Founder-owned original photograph; rights explicitly confirmed during upload' in frontend
+    assert 'new FormData()' in frontend
+    assert 'form.append("file", file)' in frontend
+    assert '/api/v1/shopify/media-assets/upload-target' in frontend
+    assert '/approve' in frontend
+    assert '/sync' in frontend

@@ -40,6 +40,31 @@ function installShopifySettingsPanel() {
     <div id="shopify-shipping-profile-list" class="allocation-list"></div>
     <div class="page-heading pricing-subheading">
       <div>
+        <p class="eyebrow">Storefront media</p>
+        <h3>Founder card photos</h3>
+        <p class="muted">Upload founder-owned card images directly into the governed media registry. Rights confirmation is explicit, Shopify file access is verified first, and incomplete media never bypasses the publication gate.</p>
+      </div>
+    </div>
+    <div id="shopify-media-capability" class="allocation-list"></div>
+    <div class="toolbar">
+      <input id="shopify-media-file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose card image">
+      <select id="shopify-media-scope" aria-label="Media scope">
+        <option value="INVENTORY_ITEM">This physical card</option>
+        <option value="CANONICAL_CARD">Canonical card image</option>
+      </select>
+      <select id="shopify-media-side" aria-label="Card image side">
+        <option value="FRONT">Front</option>
+        <option value="BACK">Back</option>
+      </select>
+    </div>
+    <div class="toolbar">
+      <input id="shopify-media-alt" type="text" maxlength="500" placeholder="Alt text, e.g. Seel 021/094 front">
+      <label class="muted"><input id="shopify-media-rights" type="checkbox"> I own or am authorised to use this image</label>
+      <button id="shopify-media-upload-button" class="primary-button compact" type="button" disabled>Upload & approve image</button>
+    </div>
+    <div id="shopify-media-list" class="allocation-list"></div>
+    <div class="page-heading pricing-subheading">
+      <div>
         <p class="eyebrow">Controlled milestone test</p>
         <h3>Single-item Shopify sync</h3>
         <p class="muted">Only an APPROVED, physically verified item can be synced here. Bulk publishing remains locked off.</p>
@@ -59,6 +84,12 @@ function installShopifySettingsPanel() {
   byId("shopify-test-candidate").addEventListener("change", refreshShopifyTestButton);
   byId("shopify-product-preview-button").addEventListener("click", previewSelectedShopifyProduct);
   byId("shopify-test-sync-button").addEventListener("click", syncSelectedShopifyTestItem);
+  byId("shopify-media-file").addEventListener("change", refreshShopifyMediaButton);
+  byId("shopify-media-scope").addEventListener("change", refreshShopifyMediaButton);
+  byId("shopify-media-side").addEventListener("change", refreshShopifyMediaButton);
+  byId("shopify-media-alt").addEventListener("input", refreshShopifyMediaButton);
+  byId("shopify-media-rights").addEventListener("change", refreshShopifyMediaButton);
+  byId("shopify-media-upload-button").addEventListener("click", uploadFounderMedia);
 }
 
 function shopifyStatusRow(label, value, note = "") {
@@ -84,10 +115,12 @@ async function loadShopifyStatus() {
 
   showMessage("shopify-settings-message", "Loading Shopify integration status…");
   try {
-    const [data, testData, shippingData] = await Promise.all([
+    const [data, testData, shippingData, mediaCapability, mediaData] = await Promise.all([
       apiRequest("/api/v1/shopify/status"),
       apiRequest("/api/v1/shopify/test-sync"),
       apiRequest("/api/v1/shopify/shipping-profiles?include_inactive=true"),
+      apiRequest("/api/v1/shopify/media-assets/upload-capability"),
+      apiRequest("/api/v1/shopify/media-assets"),
     ]);
     list.replaceChildren(
       shopifyStatusRow(
@@ -145,6 +178,7 @@ async function loadShopifyStatus() {
     byId("shopify-register-button").disabled = !data.webhook_registration_ready;
     renderShopifyShippingProfiles(shippingData);
     renderShopifyTestCandidates(testData);
+    renderShopifyMedia(mediaCapability, mediaData);
     showMessage("shopify-settings-message");
   } catch (error) {
     list.textContent = "Shopify status could not be loaded.";
@@ -406,6 +440,195 @@ async function configureFulfilmentCosts(profile) {
 }
 
 
+function renderShopifyMedia(capability, data) {
+  const capabilityPanel = byId("shopify-media-capability");
+  const list = byId("shopify-media-list");
+  const button = byId("shopify-media-upload-button");
+  if (!capabilityPanel || !list || !button) return;
+
+  const ready = capability?.ready === true;
+  button.dataset.scopeReady = ready ? "true" : "false";
+  capabilityPanel.replaceChildren(
+    shopifyStatusRow(
+      "Shopify file permission",
+      ready ? "READY" : "ACTION REQUIRED",
+      ready
+        ? "write_files is granted. Founder images can be staged without storing image bytes in Drop Rate."
+        : "Grant the Shopify app write_files scope, then use Verify Shopify + Register webhooks before uploading images."
+    )
+  );
+
+  const assets = (data?.items || []).slice(0, 12);
+  if (!assets.length) {
+    list.innerHTML = "<p class=\"muted\">No governed media assets yet.</p>";
+    refreshShopifyMediaButton();
+    return;
+  }
+
+  const rows = assets.map((asset) => {
+    const scope = asset.scope === "INVENTORY_ITEM" ? "Physical item" : "Canonical card";
+    const state = [
+      asset.approval_status,
+      asset.rights_status,
+      asset.shopify_file_status,
+    ].filter(Boolean).join(" · ");
+    const row = shopifyStatusRow(
+      `${scope} · ${asset.side}`,
+      state,
+      [asset.source_reference, asset.alt_text, `v${asset.version}`].filter(Boolean).join(" · ")
+    );
+    if (
+      asset.approval_status === "APPROVED"
+      && asset.rights_status === "VERIFIED"
+      && ["NOT_UPLOADED", "UPLOADED", "PROCESSING"].includes(asset.shopify_file_status)
+    ) {
+      const sync = document.createElement("button");
+      sync.type = "button";
+      sync.className = "ghost-button compact";
+      sync.textContent = asset.shopify_file_status === "PROCESSING"
+        ? "Check Shopify"
+        : "Sync to Shopify";
+      sync.addEventListener("click", () => syncFounderMedia(asset.id, Number(asset.version)));
+      row.append(sync);
+    }
+    return row;
+  });
+  list.replaceChildren(...rows);
+  refreshShopifyMediaButton();
+}
+
+function refreshShopifyMediaButton() {
+  const button = byId("shopify-media-upload-button");
+  const candidate = byId("shopify-test-candidate")?.selectedOptions?.[0];
+  const file = byId("shopify-media-file")?.files?.[0];
+  const rights = byId("shopify-media-rights")?.checked === true;
+  if (!button) return;
+  button.disabled =
+    button.dataset.scopeReady !== "true"
+    || !candidate?.value
+    || !file
+    || !rights;
+}
+
+function founderMediaAltText(option, side) {
+  const supplied = String(byId("shopify-media-alt")?.value || "").trim();
+  if (supplied) return supplied;
+  const cardName = String(option?.textContent || "Trading card").split(" · ")[0].trim();
+  return `${cardName} ${String(side || "FRONT").toLowerCase()}`;
+}
+
+async function syncFounderMedia(assetId, version) {
+  showMessage("shopify-settings-message", "Checking the image in Shopify…");
+  try {
+    const result = await apiRequest(`/api/v1/shopify/media-assets/${assetId}/sync`, {
+      method: "POST",
+      body: JSON.stringify({version}),
+    });
+    showMessage(
+      "shopify-settings-message",
+      result.ready
+        ? "Image is ready in Shopify and can satisfy the product media gate."
+        : "Image reached Shopify and is still processing. Use Check Shopify again shortly.",
+      result.ready ? "success" : ""
+    );
+    await loadShopifyStatus();
+  } catch (error) {
+    showMessage("shopify-settings-message", error.message, "error");
+  }
+}
+
+async function uploadFounderMedia() {
+  const option = byId("shopify-test-candidate")?.selectedOptions?.[0];
+  const fileInput = byId("shopify-media-file");
+  const file = fileInput?.files?.[0];
+  const scope = byId("shopify-media-scope")?.value || "INVENTORY_ITEM";
+  const side = byId("shopify-media-side")?.value || "FRONT";
+  const rightsConfirmed = byId("shopify-media-rights")?.checked === true;
+  const button = byId("shopify-media-upload-button");
+  if (!option?.value || !file || !rightsConfirmed || !button) return;
+
+  const accepted = ["image/jpeg", "image/png", "image/webp"];
+  if (!accepted.includes(file.type)) {
+    showMessage("shopify-settings-message", "Use a JPG, PNG or WebP image.", "error");
+    return;
+  }
+  if (file.size <= 0 || file.size > 20 * 1024 * 1024) {
+    showMessage("shopify-settings-message", "Image must be between 1 byte and 20 MB.", "error");
+    return;
+  }
+  const catalogueId = option.dataset.catalogueId || "";
+  if (scope === "CANONICAL_CARD" && !catalogueId) {
+    showMessage("shopify-settings-message", "This card is missing its catalogue identity.", "error");
+    return;
+  }
+
+  button.disabled = true;
+  showMessage("shopify-settings-message", "Preparing secure Shopify image upload…");
+  try {
+    const staged = await apiRequest("/api/v1/shopify/media-assets/upload-target", {
+      method: "POST",
+      body: JSON.stringify({
+        filename: file.name,
+        mime_type: file.type,
+        file_size: file.size,
+      }),
+    });
+    const target = staged.target || {};
+    const form = new FormData();
+    (target.parameters || []).forEach((parameter) => {
+      form.append(parameter.name, parameter.value);
+    });
+    form.append("file", file);
+    const uploadResponse = await fetch(target.url, {method: "POST", body: form});
+    if (!uploadResponse.ok) {
+      throw new Error(`Shopify staged upload failed (${uploadResponse.status}).`);
+    }
+
+    const altText = founderMediaAltText(option, side);
+    const rightsBasis = "Founder-owned original photograph; rights explicitly confirmed during upload";
+    const created = await apiRequest("/api/v1/shopify/media-assets", {
+      method: "POST",
+      body: JSON.stringify({
+        catalogue_id: scope === "CANONICAL_CARD" ? catalogueId : null,
+        inventory_id: scope === "INVENTORY_ITEM" ? option.value : null,
+        side,
+        source_type: "FOUNDER_UPLOAD",
+        source_reference: file.name,
+        public_source_url: target.resourceUrl,
+        rights_basis: rightsBasis,
+        alt_text: altText,
+      }),
+    });
+    const approved = await apiRequest(`/api/v1/shopify/media-assets/${created.asset.id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({
+        version: Number(created.asset.version),
+        rights_basis: rightsBasis,
+        alt_text: altText,
+      }),
+    });
+    const synced = await apiRequest(`/api/v1/shopify/media-assets/${approved.asset.id}/sync`, {
+      method: "POST",
+      body: JSON.stringify({version: Number(approved.asset.version)}),
+    });
+    if (fileInput) fileInput.value = "";
+    const rights = byId("shopify-media-rights");
+    if (rights) rights.checked = false;
+    showMessage(
+      "shopify-settings-message",
+      synced.ready
+        ? "Founder image uploaded, rights-approved and ready in Shopify."
+        : "Founder image uploaded and approved. Shopify is still processing it; use Check Shopify to finish verification.",
+      synced.ready ? "success" : ""
+    );
+    await loadShopifyStatus();
+  } catch (error) {
+    showMessage("shopify-settings-message", error.message, "error");
+    refreshShopifyMediaButton();
+  }
+}
+
+
 function renderShopifyTestCandidates(data) {
   const select = byId("shopify-test-candidate");
   const status = byId("shopify-test-status");
@@ -426,6 +649,7 @@ function renderShopifyTestCandidates(data) {
       const option = document.createElement("option");
       option.value = item.id;
       option.dataset.version = item.version;
+      option.dataset.catalogueId = item.catalogue_id || "";
       option.dataset.launchReady = item.launch_ready ? "true" : "false";
       option.textContent = [
         item.name,
@@ -539,6 +763,7 @@ function refreshShopifyTestButton() {
     !select.value
     || select.dataset.testEnabled !== "true"
     || !launchReady;
+  refreshShopifyMediaButton();
 }
 
 async function previewSelectedShopifyProduct() {

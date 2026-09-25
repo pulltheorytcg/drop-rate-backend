@@ -314,6 +314,68 @@ async def test_shopify_media_uses_unified_file_create_and_reference_association(
 
 
 @pytest.mark.asyncio
+async def test_shopify_staged_media_upload_is_scope_checked_and_typed() -> None:
+    client = ShopifyAdminClient(
+        shop_domain="drop-rate.myshopify.com",
+        client_id="client-id",
+        client_secret="client-secret",
+        api_version="2026-07",
+    )
+    calls: list[tuple[str, dict | None]] = []
+
+    async def fake_graphql(*, query: str, variables: dict | None = None) -> dict:
+        calls.append((query, variables))
+        if "DropRateAccessScopes" in query:
+            return {
+                "currentAppInstallation": {
+                    "accessScopes": [
+                        {"handle": "read_products"},
+                        {"handle": "write_files"},
+                    ]
+                }
+            }
+        return {
+            "stagedUploadsCreate": {
+                "stagedTargets": [{
+                    "url": "https://storage.example/upload",
+                    "resourceUrl": "https://storage.example/resource/seel-front.jpg",
+                    "parameters": [
+                        {"name": "key", "value": "staged/key"},
+                        {"name": "policy", "value": "signed-policy"},
+                    ],
+                }],
+                "userErrors": [],
+            }
+        }
+
+    client.graphql = fake_graphql  # type: ignore[method-assign]
+    assert await client.access_scopes() == {"read_products", "write_files"}
+
+    target = await client.create_staged_image_upload(
+        filename="seel-front.jpg",
+        mime_type="image/jpeg",
+        file_size=123456,
+    )
+    assert target == {
+        "url": "https://storage.example/upload",
+        "resourceUrl": "https://storage.example/resource/seel-front.jpg",
+        "parameters": [
+            {"name": "key", "value": "staged/key"},
+            {"name": "policy", "value": "signed-policy"},
+        ],
+    }
+    assert calls[1][1] == {
+        "input": [{
+            "filename": "seel-front.jpg",
+            "mimeType": "image/jpeg",
+            "httpMethod": "POST",
+            "resource": "IMAGE",
+            "fileSize": "123456",
+        }]
+    }
+
+
+@pytest.mark.asyncio
 async def test_shopify_product_snapshot_and_publication_are_read_back() -> None:
     client = ShopifyAdminClient(
         shop_domain="drop-rate.myshopify.com",

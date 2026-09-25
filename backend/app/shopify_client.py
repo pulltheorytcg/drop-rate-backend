@@ -561,6 +561,111 @@ class ShopifyAdminClient:
                 )
 
 
+    async def access_scopes(self) -> set[str]:
+        data = await self.graphql(
+            query="""
+            query DropRateAccessScopes {
+              currentAppInstallation {
+                accessScopes { handle }
+              }
+            }
+            """,
+        )
+        installation = data.get("currentAppInstallation")
+        if not isinstance(installation, dict):
+            raise ShopifyApiError(
+                "Shopify access-scope response is invalid"
+            )
+        rows = installation.get("accessScopes")
+        if not isinstance(rows, list):
+            raise ShopifyApiError(
+                "Shopify access-scope response is missing scopes"
+            )
+        scopes: set[str] = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            handle = str(row.get("handle") or "").strip()
+            if handle:
+                scopes.add(handle)
+        return scopes
+
+    async def create_staged_image_upload(
+        self,
+        *,
+        filename: str,
+        mime_type: str,
+        file_size: int,
+    ) -> dict[str, Any]:
+        data = await self.graphql(
+            query="""
+            mutation DropRateStagedUpload($input: [StagedUploadInput!]!) {
+              stagedUploadsCreate(input: $input) {
+                stagedTargets {
+                  url
+                  resourceUrl
+                  parameters { name value }
+                }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={
+                "input": [{
+                    "filename": filename,
+                    "mimeType": mime_type,
+                    "httpMethod": "POST",
+                    "resource": "IMAGE",
+                    "fileSize": str(file_size),
+                }]
+            },
+        )
+        payload = data.get("stagedUploadsCreate")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError(
+                "Shopify staged upload returned an invalid response"
+            )
+        self._raise_user_errors(payload, "Shopify rejected staged image upload")
+        targets = payload.get("stagedTargets")
+        if (
+            not isinstance(targets, list)
+            or len(targets) != 1
+            or not isinstance(targets[0], dict)
+        ):
+            raise ShopifyApiError(
+                "Shopify did not return exactly one staged upload target"
+            )
+        target = targets[0]
+        url = str(target.get("url") or "").strip()
+        resource_url = str(target.get("resourceUrl") or "").strip()
+        parameters = target.get("parameters")
+        if (
+            not url.startswith("https://")
+            or not resource_url.startswith("https://")
+            or not isinstance(parameters, list)
+        ):
+            raise ShopifyApiError(
+                "Shopify staged upload target is incomplete"
+            )
+        normalized_parameters: list[dict[str, str]] = []
+        for parameter in parameters:
+            if not isinstance(parameter, dict):
+                raise ShopifyApiError(
+                    "Shopify staged upload parameters are invalid"
+                )
+            name = str(parameter.get("name") or "").strip()
+            value = str(parameter.get("value") or "")
+            if not name:
+                raise ShopifyApiError(
+                    "Shopify staged upload parameter is missing its name"
+                )
+            normalized_parameters.append({"name": name, "value": value})
+        return {
+            "url": url,
+            "resourceUrl": resource_url,
+            "parameters": normalized_parameters,
+        }
+
     async def find_product_by_handle(self, handle: str) -> dict[str, Any] | None:
         safe_handle = handle.strip()
         data = await self.graphql(
