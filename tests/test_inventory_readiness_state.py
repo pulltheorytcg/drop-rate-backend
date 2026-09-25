@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.api import (
     GRADED_CARD_READY_SQL,
     ISSUE_FILTERS,
@@ -31,3 +33,15 @@ def test_action_required_separates_raw_condition_from_seal_status() -> None:
     assert "i.grading_company is null" in ISSUE_FILTERS["missing_condition"]
     assert "p.product_type <> 'CARD'" in ISSUE_FILTERS["missing_seal_status"]
     assert "i.seal_status is null" in ISSUE_FILTERS["missing_seal_status"]
+
+
+def test_inventory_ui_exposes_core_readiness_per_item() -> None:
+    app_js = (
+        Path(__file__).parents[1] / "backend" / "app" / "static" / "app.js"
+    ).read_text()
+    assert "function itemCoreReadiness(item)" in app_js
+    assert '"Language"' in app_js
+    assert '"Location"' in app_js
+    assert '"Price"' in app_js
+    assert '"Identity"' in app_js
+    assert "core-readiness" in app_js
