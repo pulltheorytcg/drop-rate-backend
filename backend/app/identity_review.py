@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, model_validator
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
 from .db import user_connection
+from .language import clean_language
 from .ownership import current_owner as _owner
 
 
@@ -27,6 +28,7 @@ class IdentityReviewSelection(BaseModel):
 class IdentityConfirmRequest(BaseModel):
     items: list[IdentityReviewSelection] = Field(min_length=1, max_length=500)
     storage_location_id: UUID | None = None
+    language: str | None = Field(default=None, max_length=80)
     notes: str = Field(default="", max_length=1000)
 
     @model_validator(mode="after")
@@ -34,6 +36,7 @@ class IdentityConfirmRequest(BaseModel):
         ids = [item.inventory_id for item in self.items]
         if len(ids) != len(set(ids)):
             raise ValueError("Each inventory item may appear only once")
+        self.language = clean_language(self.language)
         self.notes = self.notes.strip()
         return self
 
@@ -278,6 +281,47 @@ async def confirm_identity_group(
             if already:
                 raise HTTPException(status_code=409, detail={"message":"One or more selected copies are already confirmed","items":already})
 
+            catalogue_language = clean_language(catalogue["catalogue_language"])
+            requested_language = clean_language(payload.language)
+            if (
+                catalogue_language
+                and requested_language
+                and catalogue_language != requested_language
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "message": (
+                            "Selected language does not match the canonical card. "
+                            "Correct the canonical identity instead of confirming a mismatch."
+                        ),
+                        "catalogue_language": catalogue_language,
+                        "selected_language": requested_language,
+                    },
+                )
+            if catalogue_language and not requested_language:
+                conflicting_language = [
+                    {
+                        "inventory_id": str(row["id"]),
+                        "language": clean_language(row["language"]),
+                    }
+                    for row in rows
+                    if clean_language(row["language"])
+                    and clean_language(row["language"]) != catalogue_language
+                ]
+                if conflicting_language:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "message": (
+                                "One or more physical copies have a language that "
+                                "conflicts with the canonical card."
+                            ),
+                            "catalogue_language": catalogue_language,
+                            "items": conflicting_language,
+                        },
+                    )
+
             stale = [
                 {"inventory_id":str(item.inventory_id),"current_version":by_id[item.inventory_id]["version"]}
                 for item in payload.items if by_id[item.inventory_id]["version"] != item.version
@@ -293,11 +337,17 @@ async def confirm_identity_group(
                     update tcg.inventory_items
                     set identity_confirmed=true,
                         storage_location_id=coalesce($1,storage_location_id),
+                        language=coalesce($2,language,$3),
                         version=version+1,updated_at=now()
-                    where id=$2 and owner_id=$3 and version=$4
+                    where id=$4 and owner_id=$5 and version=$6
                     returning *
                     """,
-                    payload.storage_location_id,item.inventory_id,owner["id"],item.version,
+                    payload.storage_location_id,
+                    requested_language,
+                    catalogue_language,
+                    item.inventory_id,
+                    owner["id"],
+                    item.version,
                 )
                 if row is None:
                     raise HTTPException(status_code=409, detail="Inventory item changed during identity confirmation")
