@@ -81,13 +81,17 @@ def test_launch_completeness_fails_closed_for_media_and_collections() -> None:
         plan,
         store_price_minor=499,
         inventory_code="INV-PKM-TEST-001",
-        approved_media_count=0,
+        media_readiness={
+            "complete": False,
+            "blockers": ["approved front media"],
+            "approvedMediaCount": 0,
+        },
         existing_collection_titles={"Home page"},
         publication_configured=True,
         location_configured=True,
     )
     assert result["complete"] is False
-    assert "approved media" in result["blockers"]
+    assert "approved front media" in result["blockers"]
     assert "collection: Trading Cards" in result["blockers"]
     assert "collection: Pokémon" in result["blockers"]
 
@@ -98,7 +102,11 @@ def test_launch_completeness_passes_when_every_required_surface_is_ready() -> No
         plan,
         store_price_minor=499,
         inventory_code="INV-PKM-TEST-001",
-        approved_media_count=1,
+        media_readiness={
+            "complete": True,
+            "blockers": [],
+            "approvedMediaCount": 1,
+        },
         existing_collection_titles={"Home page", "Trading Cards", "Pokémon"},
         publication_configured=True,
         location_configured=True,
