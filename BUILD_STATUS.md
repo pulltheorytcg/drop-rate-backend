@@ -330,9 +330,9 @@ The following areas were reviewed and defects found were corrected:
 - PR and post-merge GitHub CI are green for the latest hardening commits
 - Railway production has a **pre-deploy compile + pytest gate**; the missing `pytest-asyncio` dependency was fixed after deployment logs exposed 43 silently skipped async tests
 - Railway now installs pinned **Node 22.23.3 LTS** alongside Python through `RAILPACK_PACKAGES`, so frontend/static checks run in the production pre-deploy gate too
-- current Railway regression result: **400 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
+- current Railway regression result: **423 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
 - live database integrity checks: **0 duplicate Inventory Codes, 0 language mismatches, 0 confirmed-without-evidence, 0 active-reservation/state mismatches**
-- migration history reconciled through `20260925144808_fix_order_item_reconciliation_audit_trigger`, including Finance Reconciliation v1 and the reconciliation-specific audit-trigger hotfix
+- migration history reconciled through `20260925154423_media_assets_registry`, including Finance Reconciliation v1, the reconciliation audit hotfix and Shopify media-registry foundation
 - `database/migrations/**` is now the only canonical location for new migration files
 - Railway `Wait for CI` still reads **OFF** (`checkSuites=false`) after two attempted staged updates; treat this as an external Railway/GitHub-integration permission/configuration blocker until the setting can be re-authorised and verified
 - the guarded Supabase migration workflow is merged (`workflow_dispatch`, dry-run by default, explicit apply mode). Its required GitHub secrets and first production dry-run still need to be verified before the next schema change
@@ -351,7 +351,7 @@ A feature is not considered complete merely because its unit tests pass. For mat
 7. **Failure testing:** deliberate bad inputs, duplicate events, stale versions, unavailable records and provider failures are tested before a feature is treated as safe.
 8. **Release decision:** any unresolved critical integrity issue keeps the feature gated, even when CI is green.
 
-Current production regression baseline: **400 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero active reservation/state mismatches and one archived Shopify link for the refunded Seel test item now in INSPECTION.
+Current production regression baseline: **423 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero active reservation/state mismatches and one archived Shopify link for the refunded Seel test item now in INSPECTION.
 
 GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
 
@@ -394,6 +394,19 @@ The intended operational workflow is **batch capture, not manual scanning**:
 - Shopify receives only media that has passed provenance + quality checks
 
 Do **not** assume card-image reuse from eBay, Collectr, TCGplayer, Cardmarket or other providers is permitted. Reuse only when provider terms/licensing explicitly allow it. If no permitted canonical media exists, the item remains DRAFT until approved physical media is captured.
+
+### Completeness v2 production state
+
+Shopify Product Completeness v2 is now deployed and enforced:
+- approved media is stored in the RLS-protected `tcg.media_assets` registry with explicit source, rights status, approval, alt text, Shopify file state and audit history
+- raw cards may reuse a rights-verified approved canonical front image; graded cards require item-specific approved front + back images
+- Shopify collections are actually assigned, not merely checked for existence
+- approved media uses Shopify's unified file system so one canonical image can be reused across multiple physical copies without duplicate uploads
+- existing draft products can be deterministically repaired on retry
+- product sync verifies the complete remote Shopify state while DRAFT before publication, then verifies ACTIVE status, exact quantity 1 and publication afterward
+- failed final verification forces the remote product back to DRAFT and Drop Rate refuses to mark the link PUBLISHED
+- the production media registry currently contains **0 assets**, so publication remains intentionally fail-closed
+- the Drop Rate Shopify app's live `write_files` scope still requires explicit verification before media upload is considered operational
 
 ### Product completeness release rule
 
@@ -467,7 +480,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 | 3 | Founder account / inventory / ownership | ✅ Technical foundation complete; operational data cleanup remains |
 | 4 | Inventory dashboard functionality | ✅ Core complete |
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
-| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; product-completeness/media contract defined; Finance Reconciliation v1 deployed; live reconciliation/refund-settlement verification remains |
+| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; Product Completeness v2 + media registry deployed; rights-cleared media intake and final app-scope verification remain before scale publication |
 | 6 | Orders / allocation / settlements | 🚧 Exact Shopify Inventory ID attribution + COGS + sale/shipping revenue + item/shipping refund reversal production-verified; fee/postage reconciliation and Owner Settlement Report v1 are deployed; live #1002 reconciliation verification remains |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
@@ -493,6 +506,8 @@ These are **not blockers to the current backend foundation**, but remain explici
 8. ✅ **Finance Reconciliation v1 live-verified on #1002:** retry returned HTTP 200 for both actions; exactly one **−£0.36 PAYMENT_FEE** was recorded, postage was explicitly reconciled at **£0.00** using `TEST-NOT-SHIPPED`, and reconciliation audit INSERT/UPDATE events were written against the correct `order_item_id`. Fee reconciliation remains intentionally incomplete while Shopify's REFUND transaction is still PENDING.
 9. ✅ **Owner Settlement Report v1 deployed:** Reports now show gross proceeds, deductions, signed adjustments, net owner proceeds, effective cost basis, owner profit, reconciliation state and pending/available funds without moving money.
 10. Re-check the Shopify Payments refund settlement, then live-verify #1002 fee/postage reconciliation, duplicate reconciliation idempotency and its final settlement row.
+11. ✅ **Shopify Product Completeness v2 deployed:** media rights/approval registry, deterministic collection assignment, unified-file media association and full remote read-back publication verification are live.
+12. **Next:** verify the Drop Rate Shopify app's `write_files` permission and build the founder-facing media intake/approval workflow. Keep bulk publishing locked off until rights-cleared canonical media is available.
 
 ### Next major engineering milestone — Shopify
 Build the complete controlled sale loop:
