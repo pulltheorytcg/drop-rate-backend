@@ -763,10 +763,7 @@ async def sync_one_test_item(
             if pooled_membership is not None:
                 raise HTTPException(
                     status_code=409,
-                    detail=(
-                        "Inventory belongs to the marketplace listing/reservation "
-                        "system and cannot use the legacy single-item Shopify test path"
-                    ),
+                    detail="Inventory belongs to the marketplace listing/reservation system and cannot use the legacy single-item Shopify test path",
                 )
 
             missing = _test_sync_missing(item)
@@ -843,10 +840,7 @@ async def sync_one_test_item(
                 if remote_inventory_code != item["inventory_code"]:
                     raise HTTPException(
                         status_code=409,
-                        detail=(
-                            "The deterministic Shopify handle belongs to a "
-                            "different inventory item"
-                        ),
+                        detail="The deterministic Shopify handle belongs to a different inventory item",
                     )
                 product = await client.update_product(
                     product_id=str(remote["id"]),
