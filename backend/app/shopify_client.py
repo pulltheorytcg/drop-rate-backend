@@ -594,6 +594,57 @@ class ShopifyAdminClient:
             raise ShopifyApiError("Shopify product handle is not unique")
         return exact[0]
 
+    async def get_product_snapshot(self, product_id: str) -> dict[str, Any]:
+        data = await self.graphql(
+            query="""
+            query DropRateProductSnapshot($id: ID!) {
+              product(id: $id) {
+                id
+                title
+                descriptionHtml
+                handle
+                status
+                vendor
+                productType
+                tags
+                templateSuffix
+                seo { title description }
+                category { id }
+                metafields(first: 50, namespace: "drop_rate") {
+                  nodes { key value type }
+                }
+                collections(first: 100) {
+                  nodes { id title }
+                }
+                media(first: 20) {
+                  nodes { id }
+                }
+                variants(first: 2) {
+                  nodes {
+                    id
+                    price
+                    inventoryPolicy
+                    inventoryItem {
+                      id
+                      sku
+                      tracked
+                      requiresShipping
+                    }
+                  }
+                }
+              }
+            }
+            """,
+            variables={"id": product_id},
+        )
+        product = data.get("product")
+        if not isinstance(product, dict):
+            raise ShopifyApiError(
+                "Shopify product verification returned no product"
+            )
+        return product
+
+
     async def create_product(self, product: dict[str, Any]) -> dict[str, Any]:
         data = await self.graphql(
             query="""
