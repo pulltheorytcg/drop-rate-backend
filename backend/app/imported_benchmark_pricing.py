@@ -133,7 +133,7 @@ async def _candidate_rows(connection, owner_id: UUID, limit: int) -> list[dict[s
         limit $2
         """,
         owner_id,
-        limit,
+        2000,
     )
 
     candidates: list[dict[str, Any]] = []
