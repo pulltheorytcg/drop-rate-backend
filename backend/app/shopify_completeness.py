@@ -4,7 +4,7 @@ from html import escape
 from typing import Any, Mapping
 
 from .brands import brand_for_game
-from .language import clean_language, language_code
+from .language import clean_language, display_title, language_code
 
 
 CARD_CATEGORY_GID = "gid://shopify/TaxonomyCategory/ae-2-2-3-3"
@@ -42,12 +42,11 @@ def _condition_label(item: Mapping[str, Any]) -> str:
 
 def product_title(item: Mapping[str, Any]) -> str:
     language = _language(item)
-    lang = language_code(language) or language
     parts = [
-        _text(item.get("name")),
+        display_title(item.get("name"), language),
         _text(item.get("card_number")),
         _text(item.get("set_name")),
-        lang,
+        _text(item.get("variant")),
         _condition_label(item),
     ]
     return _trim(" · ".join(part for part in parts if part), PRODUCT_TITLE_MAX)
