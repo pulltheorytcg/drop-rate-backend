@@ -157,7 +157,7 @@ function renderIdentityReviewGroups(data) {
       group.rarity,
     ].filter(Boolean).join(" · ");
     const progress = document.createElement("small");
-    progress.textContent = `${group.confirmed_copies}/${group.active_copies} confirmed · ${group.located_copies}/${group.active_copies} located`;
+    progress.textContent = `${group.confirmed_copies}/${group.active_copies} confirmed · ${group.language_copies}/${group.active_copies} language · ${group.located_copies}/${group.active_copies} located`;
     details.append(title, meta, progress);
 
     const actions = document.createElement("div");
