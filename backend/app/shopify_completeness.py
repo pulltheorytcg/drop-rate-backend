@@ -32,6 +32,13 @@ def _language(item: Mapping[str, Any]) -> str:
     return clean_language(item.get("language") or item.get("catalogue_language")) or ""
 
 
+def _storefront_brand(game: object) -> str:
+    brand = brand_for_game(_text(game))
+    if brand == "Pokemon":
+        return "Pokémon"
+    return brand
+
+
 def _condition_label(item: Mapping[str, Any]) -> str:
     grading_company = _text(item.get("grading_company"))
     grade = _text(item.get("grade"))
@@ -171,7 +178,7 @@ def product_metafields(item: Mapping[str, Any]) -> list[dict[str, str]]:
 
 
 def required_collection_titles(item: Mapping[str, Any]) -> list[str]:
-    brand = brand_for_game(_text(item.get("game")))
+    brand = _storefront_brand(item.get("game"))
     result = [BASE_COLLECTION]
     if brand:
         result.append(brand)
@@ -187,7 +194,7 @@ def media_policy(item: Mapping[str, Any]) -> str:
 def build_shopify_product_plan(item: Mapping[str, Any]) -> dict[str, Any]:
     product_type = _text(item.get("product_type"))
     category_id = CARD_CATEGORY_GID if product_type == "CARD" else None
-    vendor = brand_for_game(_text(item.get("game")))
+    vendor = _storefront_brand(item.get("game"))
     return {
         "title": product_title(item),
         "descriptionHtml": product_description_html(item),
