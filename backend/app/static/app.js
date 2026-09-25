@@ -154,6 +154,125 @@ function refreshSelectionControls() {
   byId("select-page").indeterminate = visible.some((item) => state.selected.has(item.id)) && !byId("select-page").checked;
 }
 
+function ensureFiveSoldPreviewDialog() {
+  let dialog = byId("five-sold-preview-dialog");
+  if (dialog) return dialog;
+
+  dialog = document.createElement("dialog");
+  dialog.id = "five-sold-preview-dialog";
+  dialog.className = "modal";
+  dialog.innerHTML = `
+    <div class="modal-card wide">
+      <div class="modal-heading">
+        <div>
+          <p class="eyebrow">Read-only pricing check</p>
+          <h2 id="five-sold-preview-title">Five latest sold comps</h2>
+          <p id="five-sold-preview-meta" class="muted"></p>
+        </div>
+        <button id="five-sold-preview-close" class="icon-button" type="button" aria-label="Close">×</button>
+      </div>
+      <div id="five-sold-preview-message" class="message"></div>
+      <div id="five-sold-preview-summary" class="allocation-list"></div>
+      <div id="five-sold-preview-results" class="allocation-list"></div>
+      <div class="modal-actions">
+        <button id="five-sold-preview-close-bottom" class="ghost-button" type="button">Close</button>
+      </div>
+    </div>`;
+  document.body.append(dialog);
+
+  const close = () => dialog.close();
+  byId("five-sold-preview-close").addEventListener("click", close);
+  byId("five-sold-preview-close-bottom").addEventListener("click", close);
+  return dialog;
+}
+
+function soldCompRow(comp) {
+  const row = document.createElement("div");
+  row.className = "allocation-row";
+
+  const details = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent = comp.title || comp.item_id || "eBay sale";
+  const note = document.createElement("small");
+  const soldDate = comp.sold_at ? new Date(comp.sold_at).toLocaleDateString("en-GB") : "date unavailable";
+  const shipping = comp.shipping_minor === null || comp.shipping_minor === undefined
+    ? "shipping unknown"
+    : `${money(comp.shipping_minor)} shipping`;
+  note.textContent = [soldDate, shipping, comp.item_id ? `eBay ${comp.item_id}` : null]
+    .filter(Boolean)
+    .join(" · ");
+  details.append(title, note);
+
+  const price = document.createElement("strong");
+  price.textContent = money(comp.price_minor);
+  row.append(details, price);
+  return row;
+}
+
+async function openFiveSoldPreview(item) {
+  const dialog = ensureFiveSoldPreviewDialog();
+  byId("five-sold-preview-title").textContent = `${item.name} · five sold preview`;
+  byId("five-sold-preview-meta").textContent = [
+    item.set_name,
+    item.card_number,
+    item.language || item.catalogue_language,
+    item.variant,
+    item.grading_company && item.grade ? `${item.grading_company} ${item.grade}` : item.condition,
+    item.inventory_code,
+  ].filter(Boolean).join(" · ");
+  byId("five-sold-preview-summary").replaceChildren();
+  byId("five-sold-preview-results").replaceChildren();
+  showMessage("five-sold-preview-message", "Calling Trawl and validating sold listings…");
+  dialog.showModal();
+
+  try {
+    const data = await apiRequest(
+      `/api/v1/pricing/ebay-five-sold/${item.id}/preview`,
+      {method: "POST"}
+    );
+
+    const summary = byId("five-sold-preview-summary");
+    const methodRow = document.createElement("div");
+    methodRow.className = "allocation-row";
+    const methodDetails = document.createElement("div");
+    const methodTitle = document.createElement("strong");
+    methodTitle.textContent = data.status === "READY" ? "Five exact sold comps found" : "Preview blocked safely";
+    const methodNote = document.createElement("small");
+    methodNote.textContent = [
+      data.query ? `Query: ${data.query}` : null,
+      data.reason || null,
+      "Preview only — Store Price has not been changed",
+    ].filter(Boolean).join(" · ");
+    methodDetails.append(methodTitle, methodNote);
+    const methodValue = document.createElement("strong");
+    methodValue.textContent = data.status === "READY"
+      ? money(data.store_price_minor)
+      : `${data.comparable_count || 0}/5 comps`;
+    methodRow.append(methodDetails, methodValue);
+    summary.append(methodRow);
+
+    const results = byId("five-sold-preview-results");
+    const comps = data.comps || [];
+    if (comps.length) {
+      results.replaceChildren(...comps.map(soldCompRow));
+    } else {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "No sold listings passed Drop Rate's exact-card matcher.";
+      results.replaceChildren(empty);
+    }
+    showMessage(
+      "five-sold-preview-message",
+      data.status === "READY"
+        ? "Read-only preview complete. Review all five sales before any price is applied."
+        : "Read-only preview complete. Nothing was written.",
+      data.status === "READY" ? "success" : ""
+    );
+  } catch (error) {
+    showMessage("five-sold-preview-message", error.message, "error");
+  }
+}
+
 function renderInventory(data) {
   state.total = data.total;
   state.items = new Map(data.items.map((item) => [item.id, item]));
@@ -226,6 +345,15 @@ function renderInventory(data) {
     edit.textContent = "Review";
     edit.addEventListener("click", () => openEditor(item));
     actions.append(edit);
+    if (item.product_type === "CARD" && item.identity_confirmed) {
+      const preview = document.createElement("button");
+      preview.className = "row-button";
+      preview.type = "button";
+      preview.textContent = "5 sold";
+      preview.title = "Preview the five newest exact comparable eBay UK sales";
+      preview.addEventListener("click", () => openFiveSoldPreview(item));
+      actions.append(preview);
+    }
     row.append(actions);
     body.append(row);
   });
