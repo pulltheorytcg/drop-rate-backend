@@ -223,6 +223,34 @@ def _test_sync_missing(item: Any) -> list[str]:
     return missing
 
 
+def _media_readiness_summary(
+    raw_items: list[Mapping[str, Any]],
+    graded_items: list[Mapping[str, Any]],
+) -> dict[str, int]:
+    raw_ready = [row for row in raw_items if bool(row.get("ready"))]
+    graded_ready = [row for row in graded_items if bool(row.get("ready"))]
+    raw_physical_total = sum(int(row.get("physical_copies") or 0) for row in raw_items)
+    raw_physical_covered = sum(
+        int(row.get("physical_copies") or 0) for row in raw_ready
+    )
+    return {
+        "raw_physical_cards": raw_physical_total,
+        "raw_unique_identities": len(raw_items),
+        "raw_ready_identities": len(raw_ready),
+        "raw_missing_identities": len(raw_items) - len(raw_ready),
+        "raw_physical_covered": raw_physical_covered,
+        "raw_physical_missing": raw_physical_total - raw_physical_covered,
+        "graded_physical_cards": len(graded_items),
+        "graded_ready_items": len(graded_ready),
+        "graded_missing_items": len(graded_items) - len(graded_ready),
+        "total_ready_physical_cards": raw_physical_covered + len(graded_ready),
+        "total_missing_physical_cards": (
+            raw_physical_total - raw_physical_covered
+            + len(graded_items) - len(graded_ready)
+        ),
+    }
+
+
 def _media_assets_for_item(
     item: Mapping[str, Any],
     assets: list[Mapping[str, Any]],
@@ -586,15 +614,10 @@ async def media_readiness(
 
         raw_items = [dict(row) for row in raw_rows]
         graded_items = [dict(row) for row in graded_rows]
-        raw_ready = [row for row in raw_items if row["ready"]]
         raw_missing = [row for row in raw_items if not row["ready"]]
-        graded_ready = [row for row in graded_items if row["ready"]]
         graded_missing = [row for row in graded_items if not row["ready"]]
+        summary = _media_readiness_summary(raw_items, graded_items)
 
-        raw_physical_total = sum(int(row["physical_copies"]) for row in raw_items)
-        raw_physical_covered = sum(
-            int(row["physical_copies"]) for row in raw_ready
-        )
         return jsonable_encoder({
             "policy": {
                 "raw_cards": "CANONICAL_CARD_ALLOWED",
@@ -606,23 +629,7 @@ async def media_readiness(
                     "counts toward launch readiness."
                 ),
             },
-            "summary": {
-                "raw_physical_cards": raw_physical_total,
-                "raw_unique_identities": len(raw_items),
-                "raw_ready_identities": len(raw_ready),
-                "raw_missing_identities": len(raw_missing),
-                "raw_physical_covered": raw_physical_covered,
-                "raw_physical_missing": raw_physical_total - raw_physical_covered,
-                "graded_physical_cards": len(graded_items),
-                "graded_ready_items": len(graded_ready),
-                "graded_missing_items": len(graded_missing),
-                "total_ready_physical_cards": (
-                    raw_physical_covered + len(graded_ready)
-                ),
-                "total_missing_physical_cards": (
-                    raw_physical_total - raw_physical_covered + len(graded_missing)
-                ),
-            },
+            "summary": summary,
             "canonical_queue": raw_missing[:limit],
             "physical_queue": graded_missing[:limit],
         })
