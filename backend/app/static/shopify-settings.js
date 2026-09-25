@@ -49,6 +49,7 @@ function installShopifySettingsPanel() {
   byId("shopify-register-button").addEventListener("click", registerShopifyWebhooks);
   byId("shopify-refresh-button").addEventListener("click", loadShopifyStatus);
   byId("shopify-test-candidate").addEventListener("change", refreshShopifyTestButton);
+  byId("shopify-product-preview-button").addEventListener("click", previewSelectedShopifyProduct);
   byId("shopify-test-sync-button").addEventListener("click", syncSelectedShopifyTestItem);
 }
 
