@@ -6,7 +6,7 @@ from typing import Annotated, Any, Mapping
 from uuid import UUID, uuid4
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
@@ -112,6 +112,12 @@ class MediaAssetApprove(BaseModel):
 
 class MediaAssetSync(BaseModel):
     version: int = Field(ge=1)
+
+
+class MediaUploadTargetRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    mime_type: str = Field(pattern=r"^image/(jpeg|png|webp)$")
+    file_size: int = Field(ge=1, le=20 * 1024 * 1024)
 
 
 def _client() -> ShopifyAdminClient:
@@ -631,6 +637,71 @@ async def upsert_fulfilment_cost_component(
                     detail="Fulfilment cost component failed database validation",
                 ) from exc
         return jsonable_encoder({"component": dict(updated)})
+
+
+@router.get("/media-assets/upload-capability")
+async def media_upload_capability(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        await _founder(connection)
+    scopes = await _client().access_scopes()
+    return {
+        "ready": "write_files" in scopes,
+        "required_scope": "write_files",
+        "granted_scopes": sorted(scopes),
+        "accepted_mime_types": ["image/jpeg", "image/png", "image/webp"],
+        "max_file_size_bytes": 20 * 1024 * 1024,
+    }
+
+
+@router.post("/media-assets/upload-target")
+async def create_media_upload_target(
+    payload: MediaUploadTargetRequest,
+    request: Request,
+    response: Response,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    filename = payload.filename.strip()
+    if not filename or "/" in filename or "\\" in filename or "\x00" in filename:
+        raise HTTPException(
+            status_code=422,
+            detail="Media filename must be a plain file name without path segments",
+        )
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        await _founder(connection)
+
+    client = _client()
+    scopes = await client.access_scopes()
+    if "write_files" not in scopes:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Shopify media upload is not authorised for this app",
+                "required_scope": "write_files",
+                "manual_action": (
+                    "Grant the Shopify app write_files scope, then verify the "
+                    "connection again before uploading card images."
+                ),
+            },
+        )
+    target = await client.create_staged_image_upload(
+        filename=filename,
+        mime_type=payload.mime_type,
+        file_size=payload.file_size,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "target": target,
+        "filename": filename,
+        "mime_type": payload.mime_type,
+        "file_size": payload.file_size,
+    }
 
 
 @router.get("/media-assets")
