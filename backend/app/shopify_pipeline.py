@@ -448,6 +448,186 @@ async def update_shipping_profile(
         return jsonable_encoder({"profile": dict(updated)})
 
 
+@router.get("/media-readiness")
+async def media_readiness(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = 50,
+) -> dict:
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 100")
+
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+
+        raw_rows = await connection.fetch(
+            """
+            with raw_inventory as (
+              select
+                i.catalogue_id,
+                count(*)::int as physical_copies,
+                min(i.inventory_code) as first_inventory_code,
+                p.game,p.name,p.set_name,p.card_number,p.variant,p.language
+              from tcg.inventory_items i
+              join tcg.catalogue_products p on p.id=i.catalogue_id
+              where i.owner_id=$1
+                and i.status in ('DRAFT','INSPECTION','APPROVED')
+                and p.product_type='CARD'
+                and nullif(btrim(i.grading_company),'') is null
+                and nullif(btrim(i.grade),'') is null
+              group by
+                i.catalogue_id,p.game,p.name,p.set_name,p.card_number,
+                p.variant,p.language
+            ),
+            canonical_media as (
+              select
+                catalogue_id,
+                bool_or(
+                  side='FRONT'
+                  and approval_status='APPROVED'
+                  and rights_status='VERIFIED'
+                  and shopify_file_status='READY'
+                  and nullif(btrim(shopify_file_gid),'') is not null
+                ) as ready_front,
+                count(*) filter (
+                  where side='FRONT'
+                )::int as registered_front_assets,
+                count(*) filter (
+                  where side='FRONT'
+                    and (
+                      approval_status<>'APPROVED'
+                      or rights_status<>'VERIFIED'
+                      or shopify_file_status<>'READY'
+                    )
+                )::int as pending_front_assets
+              from tcg.media_assets
+              where scope='CANONICAL_CARD'
+              group by catalogue_id
+            )
+            select
+              r.*,
+              coalesce(m.ready_front,false) as ready,
+              coalesce(m.registered_front_assets,0)::int
+                as registered_front_assets,
+              coalesce(m.pending_front_assets,0)::int as pending_front_assets
+            from raw_inventory r
+            left join canonical_media m on m.catalogue_id=r.catalogue_id
+            order by
+              coalesce(m.ready_front,false) asc,
+              r.physical_copies desc,
+              r.game,r.set_name,r.name,r.card_number,r.catalogue_id
+            """,
+            owner["id"],
+        )
+
+        graded_rows = await connection.fetch(
+            """
+            with graded_inventory as (
+              select
+                i.id as inventory_id,
+                i.catalogue_id,
+                i.inventory_code,
+                i.grading_company,
+                i.grade,
+                i.status,
+                p.game,p.name,p.set_name,p.card_number,p.variant,p.language
+              from tcg.inventory_items i
+              join tcg.catalogue_products p on p.id=i.catalogue_id
+              where i.owner_id=$1
+                and i.status in ('DRAFT','INSPECTION','APPROVED')
+                and p.product_type='CARD'
+                and nullif(btrim(i.grading_company),'') is not null
+                and nullif(btrim(i.grade),'') is not null
+            ),
+            item_media as (
+              select
+                inventory_id,
+                bool_or(
+                  side='FRONT'
+                  and approval_status='APPROVED'
+                  and rights_status='VERIFIED'
+                  and shopify_file_status='READY'
+                  and nullif(btrim(shopify_file_gid),'') is not null
+                ) as ready_front,
+                bool_or(
+                  side='BACK'
+                  and approval_status='APPROVED'
+                  and rights_status='VERIFIED'
+                  and shopify_file_status='READY'
+                  and nullif(btrim(shopify_file_gid),'') is not null
+                ) as ready_back,
+                count(*)::int as registered_assets
+              from tcg.media_assets
+              where scope='INVENTORY_ITEM'
+              group by inventory_id
+            )
+            select
+              g.*,
+              coalesce(m.ready_front,false) as ready_front,
+              coalesce(m.ready_back,false) as ready_back,
+              (
+                coalesce(m.ready_front,false)
+                and coalesce(m.ready_back,false)
+              ) as ready,
+              coalesce(m.registered_assets,0)::int as registered_assets
+            from graded_inventory g
+            left join item_media m on m.inventory_id=g.inventory_id
+            order by
+              (
+                coalesce(m.ready_front,false)
+                and coalesce(m.ready_back,false)
+              ) asc,
+              g.game,g.set_name,g.name,g.inventory_code
+            """,
+            owner["id"],
+        )
+
+        raw_items = [dict(row) for row in raw_rows]
+        graded_items = [dict(row) for row in graded_rows]
+        raw_ready = [row for row in raw_items if row["ready"]]
+        raw_missing = [row for row in raw_items if not row["ready"]]
+        graded_ready = [row for row in graded_items if row["ready"]]
+        graded_missing = [row for row in graded_items if not row["ready"]]
+
+        raw_physical_total = sum(int(row["physical_copies"]) for row in raw_items)
+        raw_physical_covered = sum(
+            int(row["physical_copies"]) for row in raw_ready
+        )
+        return jsonable_encoder({
+            "policy": {
+                "raw_cards": "CANONICAL_CARD_ALLOWED",
+                "graded_cards": "PHYSICAL_ITEM_REQUIRED",
+                "raw_required_sides": ["FRONT"],
+                "graded_required_sides": ["FRONT", "BACK"],
+                "rights_rule": (
+                    "Only rights-verified, human-approved Shopify READY media "
+                    "counts toward launch readiness."
+                ),
+            },
+            "summary": {
+                "raw_physical_cards": raw_physical_total,
+                "raw_unique_identities": len(raw_items),
+                "raw_ready_identities": len(raw_ready),
+                "raw_missing_identities": len(raw_missing),
+                "raw_physical_covered": raw_physical_covered,
+                "raw_physical_missing": raw_physical_total - raw_physical_covered,
+                "graded_physical_cards": len(graded_items),
+                "graded_ready_items": len(graded_ready),
+                "graded_missing_items": len(graded_missing),
+                "total_ready_physical_cards": (
+                    raw_physical_covered + len(graded_ready)
+                ),
+                "total_missing_physical_cards": (
+                    raw_physical_total - raw_physical_covered + len(graded_missing)
+                ),
+            },
+            "canonical_queue": raw_missing[:limit],
+            "physical_queue": graded_missing[:limit],
+        })
+
+
 @router.get("/media-assets")
 async def list_media_assets(
     request: Request,
@@ -590,7 +770,6 @@ async def sync_media_asset(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
-        shipping_profiles = await _shipping_profiles(connection, owner["id"])
         async with connection.transaction():
             asset = await connection.fetchrow(
                 """
