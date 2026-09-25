@@ -886,6 +886,10 @@ async def test_sync_status(
                 "blockers": launch_blocker_counts,
                 "verified_collections": sorted(collection_titles),
                 "media_registry_status": "ACTIVE_FAIL_CLOSED",
+                "shipping_profile_keys": sorted(shipping_profiles),
+                "missing_shipping_profile_keys": sorted(
+                    {"RAW_CARD", "GRADED_CARD"} - set(shipping_profiles)
+                ),
             },
             "counts": dict(counts),
         })
