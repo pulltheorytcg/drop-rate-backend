@@ -98,3 +98,31 @@ def test_sealed_products_do_not_use_raw_card_condition() -> None:
     assert normalized["seal_status"] == "SEALED"
     assert normalized["condition"] is None
     assert issues == []
+
+
+def test_language_can_be_preserved_from_trailing_set_token() -> None:
+    row = {
+        "Product Name": "Monkey.D.Luffy",
+        "Set": "One Piece Promotion Cards (JP)",
+        "Card Number": "P-001",
+        "Category": "One Piece",
+    }
+    mapping = _field_map(list(row))
+    normalized, issues = _normalized_row(row, mapping, None, adapter="COLLECTR")
+    assert normalized["name"] == "Monkey.D.Luffy"
+    assert normalized["set_name"] == "One Piece Promotion Cards"
+    assert normalized["language"] == "Japanese"
+    assert "missing_language" not in issues
+
+
+def test_conflicting_title_and_set_language_evidence_fails_closed() -> None:
+    row = {
+        "Product Name": "Charizard (EN)",
+        "Set": "Promo Set (JP)",
+        "Card Number": "001",
+        "Game": "Pokemon",
+    }
+    mapping = _field_map(list(row))
+    normalized, issues = _normalized_row(row, mapping, None)
+    assert normalized["language"] == "English"
+    assert "language_conflict" in issues
