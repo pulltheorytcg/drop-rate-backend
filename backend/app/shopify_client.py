@@ -641,6 +641,9 @@ class ShopifyAdminClient:
                       sku
                       tracked
                       requiresShipping
+                      measurement {
+                        weight { value unit }
+                      }
                     }
                   }
                 }
@@ -764,12 +767,25 @@ class ShopifyAdminClient:
         price: str,
         sku: str,
         cost: str | None,
+        shipping_spec: dict[str, Any],
     ) -> dict[str, Any]:
+        weight = shipping_spec.get("weight")
+        if not isinstance(weight, dict):
+            raise ShopifyApiError("Shipping specification is missing a weight")
         inventory_item: dict[str, Any] = {
             "sku": sku,
             "tracked": True,
             "requiresShipping": True,
+            "measurement": {
+                "weight": {
+                    "value": float(weight["value"]),
+                    "unit": str(weight["unit"]),
+                }
+            },
         }
+        package_id = shipping_spec.get("shippingPackageId")
+        if package_id:
+            inventory_item["measurement"]["shippingPackageId"] = str(package_id)
         if cost is not None:
             inventory_item["cost"] = cost
         data = await self.graphql(
