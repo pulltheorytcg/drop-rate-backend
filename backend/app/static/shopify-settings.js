@@ -41,9 +41,9 @@ function installShopifySettingsPanel() {
       <select id="shopify-test-candidate" aria-label="Choose approved inventory for Shopify test">
         <option value="">No eligible approved inventory</option>
       </select>
-      <button id="shopify-test-sync-button" class="primary-button compact" type="button" disabled>Sync one test item</button>
+      <button id="shopify-product-preview-button" class="ghost-button compact" type="button" disabled>Preview Shopify page</button>\n      <button id="shopify-test-sync-button" class="primary-button compact" type="button" disabled>Sync one test item</button>
     </div>
-    <div id="shopify-test-status" class="allocation-list"></div>`;
+    <div id="shopify-product-preview" class="allocation-list"></div>\n    <div id="shopify-test-status" class="allocation-list"></div>`;
   settings.append(panel);
 
   byId("shopify-register-button").addEventListener("click", registerShopifyWebhooks);
