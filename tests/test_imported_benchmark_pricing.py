@@ -103,7 +103,7 @@ def test_price_override_is_not_misrepresented_as_market_observation() -> None:
         / "app"
         / "imported_benchmark_pricing.py"
     ).read_text()
-    assert 'if benchmark["basis"] != "MARKET_PRICE":' in source
+    assert 'if benchmark["basis"] != "MARKET_PRICE" or not item["identity_confirmed"]:' in source
     assert "return False" in source
 
 
