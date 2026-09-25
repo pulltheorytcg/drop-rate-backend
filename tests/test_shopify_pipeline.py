@@ -817,3 +817,23 @@ def test_founder_media_ui_uses_dedicated_capture_queue_not_test_publish_candidat
     assert 'byId("shopify-media-candidate")?.selectedOptions?.[0]' in frontend
     assert 'dataset.mediaScope' in frontend
     assert 'copies share this image' in frontend
+
+
+def test_shopify_price_sync_is_bounded_price_only_and_fail_closed() -> None:
+    source = PIPELINE.read_text()
+    start = source.index('@router.post("/price-sync")')
+    end = source.index('@router.post("/test-sync/{inventory_id}")')
+    block = source[start:end]
+
+    assert "limit < 1 or limit > 100" in block
+    assert "sil.sync_state in ('DRAFT','PUBLISHED')" in block
+    assert "i.status='APPROVED'" in block
+    assert "i.store_price_minor <> sil.synced_price_minor" in block
+    assert "client.update_variant_price(" in block
+    assert "Phase 2: Shopify I/O with no DB transaction open." in block
+    assert "for update of sil,i" in block
+    assert '"RETRY_REQUIRED"' in block
+    assert "set synced_price_minor=$1" in block
+    assert "publish_product" not in block
+    assert "set_inventory_quantity" not in block
+    assert "activate_inventory" not in block
