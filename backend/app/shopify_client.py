@@ -645,6 +645,34 @@ class ShopifyAdminClient:
         return product
 
 
+    async def product_published_on_publication(
+        self,
+        *,
+        product_id: str,
+        publication_id: str,
+    ) -> bool:
+        data = await self.graphql(
+            query="""
+            query DropRatePublicationCheck($id: ID!, $publicationId: ID!) {
+              product(id: $id) {
+                id
+                publishedOnPublication(publicationId: $publicationId)
+              }
+            }
+            """,
+            variables={
+                "id": product_id,
+                "publicationId": publication_id,
+            },
+        )
+        product = data.get("product")
+        if not isinstance(product, dict):
+            raise ShopifyApiError(
+                "Shopify publication verification returned no product"
+            )
+        return product.get("publishedOnPublication") is True
+
+
     async def create_product(self, product: dict[str, Any]) -> dict[str, Any]:
         data = await self.graphql(
             query="""
