@@ -672,3 +672,45 @@ async def test_shopify_variant_update_writes_verified_shipping_weight() -> None:
         "weight": {"value": 25.0, "unit": "GRAMS"}
     }
     assert "shippingPackageId" not in inventory_item["measurement"]
+
+
+@pytest.mark.asyncio
+async def test_shopify_price_only_update_does_not_touch_inventory_fields() -> None:
+    client = ShopifyAdminClient(
+        shop_domain="drop-rate.myshopify.com",
+        client_id="client-id",
+        client_secret="client-secret",
+        api_version="2026-07",
+    )
+    captured: dict[str, object] = {}
+
+    async def fake_graphql(*, query: str, variables: dict | None = None) -> dict:
+        captured["query"] = query
+        captured["variables"] = variables
+        return {
+            "productVariantsBulkUpdate": {
+                "productVariants": [{
+                    "id": "gid://shopify/ProductVariant/1",
+                    "price": "12.34",
+                }],
+                "userErrors": [],
+            }
+        }
+
+    client.graphql = fake_graphql  # type: ignore[method-assign]
+    result = await client.update_variant_price(
+        product_id="gid://shopify/Product/1",
+        variant_id="gid://shopify/ProductVariant/1",
+        price="12.34",
+    )
+
+    assert result["price"] == "12.34"
+    variables = captured["variables"]
+    assert isinstance(variables, dict)
+    variant = variables["variants"][0]
+    assert variant == {
+        "id": "gid://shopify/ProductVariant/1",
+        "price": "12.34",
+    }
+    assert "inventoryItem" not in variant
+    assert "inventoryPolicy" not in variant
