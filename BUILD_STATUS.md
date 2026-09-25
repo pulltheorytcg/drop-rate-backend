@@ -14,6 +14,8 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## Current stage
 
+**Physical identity + language review v1: DEPLOYED — the verification queue now combines physical identity, EN/JP language evidence and optional registered location in one audited, version-protected review step. Identity confirmation fails closed while language is unknown or conflicts with the canonical card.**
+
 **Founder media intake v1: DEPLOYED — founder-owned JPG/PNG/WebP card photos can now use Shopify staged uploads, explicit rights confirmation, governed media approval and the existing fail-closed Shopify media readiness gate. The first authenticated `write_files` scope + real-image upload remains a manual production verification.**
 
 **Controlled commerce verification: ACTIVE — first real paid Shopify sale and full £5.48 refund/restock are production-verified; Finance Reconciliation v1 + Owner Settlement Report v1 are deployed and awaiting live #1002 reconciliation verification.**
@@ -445,7 +447,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 8. **Supabase leaked-password protection:** enable manually before launch.
 9. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
 10. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
-11. **Operational inventory cleanup:** 412 remaining language reviews, 508 unconfirmed identities, 507 remaining registered-storage assignments, the remaining 10 conditions and 508 Store Prices. Current acquisition costs are populated; future unknown costs must still remain NULL.
+11. **Operational inventory cleanup:** live snapshot after the identity-language release: 508 unconfirmed identities, 410 card-language reviews, 507 registered-storage assignments, 508 Store Prices and 1 missing sealed-product seal status. Acquisition costs and raw-card conditions are currently complete; future unknown costs must still remain NULL. The verification screen now handles identity + language + optional location together so physical evidence is captured once.
 12. **Shopify settlement enrichment:** Finance Reconciliation v1 + Owner Settlement Report v1 are deployed. Live-verify #1002 fee import, postage-cost reconciliation and the resulting settlement row, then automate recurring fee reconciliation / shipping-provider cost ingestion.
 13. **Refund settlement follow-up:** Shopify accepted the £5.48 refund for #1002, but the external refund transaction was still pending at the last check; verify completion before any further order action.
 14. **Shopify shipping profile configuration:** registry and hard publication gate are live. RAW_CARD is configured at 40g for Royal Mail Tracked 48 using a 110x145x21mm package; Settings now exposes the package facts and audited £0.83 material total (£0.75 packaging + £0.08 top loader). GRADED_CARD is active at 120g for Royal Mail Tracked 48 using the founder-supplied 116x164x25mm, 33g box. Packaging is £1.20 per order; see `docs/GRADED_CARD_FULFILMENT_RESEARCH.md`. Because 25mm is the exact Large Letter ceiling, every sealed package must pass a thickness gauge.
@@ -481,7 +483,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 |---|---|---|
 | 1 | Architecture / documentation | ✅ Core complete; documentation maintained continuously |
 | 2 | Database / authentication | ✅ Core complete; one manual pre-launch Auth setting remains |
-| 3 | Founder account / inventory / ownership | ✅ Technical foundation complete; operational data cleanup remains |
+| 3 | Founder account / inventory / ownership | ✅ Technical foundation complete; audited identity + language + location review workflow deployed; operational data cleanup remains |
 | 4 | Inventory dashboard functionality | ✅ Core complete |
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
 | 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; deterministic product-completeness/media/shipping gates and Founder Media Intake v1 are deployed; bulk publishing remains locked; first live founder-image upload + refund settlement follow-up remain |
@@ -513,6 +515,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 11. ✅ **Shopify deterministic shipping-spec engine deployed:** owner-scoped RAW_CARD/GRADED_CARD registry, fail-closed completeness gate, Shopify weight write/read-back verification and Settings controls are live.
 12. ✅ **RAW_CARD shipping configured:** 40g operating weight, 110x145x21mm package, 27g empty package and Royal Mail Tracked 48. Packaging cost is £0.75 per order. GRADED_CARD is configured and active at 120g using the 116x164x25mm, 33g box with £1.20 packaging allocated once per order.
 13. ✅ **Founder Media Intake v1 deployed:** Shopify Settings now supports founder image selection, physical-vs-canonical scope, front/back side, alt text and explicit rights confirmation; the backend validates Shopify `write_files` and issues no-store staged upload targets so image bytes go directly to Shopify. GitHub CI and Railway pre-deploy both passed **436 tests** and the production readiness healthcheck returned 200. First authenticated scope + real-image upload remains manual verification.
+14. ✅ **Physical identity + language review v1 deployed (PR #113 / `eb1381f`):** the founder verification queue exposes identity/language/location progress; confirmation can set English/Japanese and optional registered location in the same locked/versioned transaction; unknown language or a canonical-language mismatch blocks confirmation rather than guessing. Railway pre-deploy passed **439 tests** and `/health/ready` returned 200.
 
 ### Next major engineering milestone — Shopify
 Build the complete controlled sale loop:
