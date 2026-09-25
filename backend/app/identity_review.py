@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, model_validator
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
 from .db import user_connection
-from .language import clean_language
+from .language import clean_language, parse_title_language
 from .ownership import current_owner as _owner
 
 
@@ -87,6 +87,95 @@ def _physical_snapshot(row) -> dict:
         "identity_confirmed": row["identity_confirmed"],
         "version": row["version"],
     }
+
+
+def _identity_text(value: object) -> str:
+    return " ".join(str(value or "").strip().split()).casefold()
+
+
+def _variant_equivalent(source_variant: object, canonical_variant: object) -> bool:
+    source = _identity_text(source_variant)
+    canonical = _identity_text(canonical_variant)
+    if source == canonical:
+        return True
+    return source in {"foil", "holofoil"} and canonical in {"foil", "holofoil"}
+
+
+def _source_record_dict(value: object) -> dict:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def import_exact_evidence(row) -> dict | None:
+    """Validate exact original-import identity without pretending physical review.
+
+    Required evidence: normalized name, set, collector number, compatible
+    variant/finish and one explicit EN/JP language marker in the original
+    imported name or set. Current physical/canonical language must agree.
+    """
+    source = _source_record_dict(row["source_record"])
+    source_name, name_language = parse_title_language(source.get("Product Name"))
+    source_set, set_language = parse_title_language(source.get("Set"))
+    languages = {
+        clean_language(value)
+        for value in (name_language, set_language)
+        if clean_language(value)
+    }
+    if len(languages) != 1:
+        return None
+    language = next(iter(languages))
+
+    if clean_language(row["language"]) != language:
+        return None
+    catalogue_language = clean_language(row["catalogue_language"])
+    if catalogue_language and catalogue_language != language:
+        return None
+    if _identity_text(source_name) != _identity_text(row["name"]):
+        return None
+    if _identity_text(source_set) != _identity_text(row["set_name"]):
+        return None
+    if _identity_text(source.get("Card Number")) != _identity_text(row["card_number"]):
+        return None
+    if not _variant_equivalent(source.get("Variance"), row["variant"]):
+        return None
+
+    return {
+        "verification_method": "IMPORT_EXACT",
+        "language": language,
+        "source_name": source.get("Product Name"),
+        "source_set": source.get("Set"),
+        "source_card_number": source.get("Card Number"),
+        "source_variant": source.get("Variance"),
+    }
+
+
+async def _import_exact_rows(connection, owner_id: UUID):
+    return await connection.fetch(
+        f"""
+        select
+            i.id,i.inventory_code,i.catalogue_id,i.condition,i.seal_status,
+            i.grading_company,i.grade,i.certificate_number,i.language,
+            i.storage_location_id,i.location,i.identity_confirmed,i.status,
+            i.version,i.source_record,
+            p.product_type,p.game,{BRAND_SQL} as brand,p.name,p.set_name,
+            p.card_number,p.variant,p.rarity,p.language as catalogue_language
+        from tcg.inventory_items i
+        join tcg.catalogue_products p on p.id=i.catalogue_id
+        where i.owner_id=$1
+          and {ACTIVE_SQL}
+          and not i.identity_confirmed
+          and p.product_type='CARD'
+        order by i.id
+        """,
+        owner_id,
+    )
 
 
 async def _catalogue_for_owner(connection, owner_id: UUID, catalogue_id: UUID):
@@ -187,6 +276,180 @@ async def list_identity_review_groups(
             "offset": offset,
             "items": [dict(row) for row in rows],
         })
+
+
+@router.get("/import-exact/status")
+async def import_exact_status(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        rows = await _import_exact_rows(connection, owner["id"])
+
+    by_language: dict[str, int] = {}
+    candidates: list[dict] = []
+    for row in rows:
+        evidence = import_exact_evidence(row)
+        if evidence is None:
+            continue
+        by_language[evidence["language"]] = by_language.get(evidence["language"], 0) + 1
+        candidates.append({
+            "inventory_id": row["id"],
+            "inventory_code": row["inventory_code"],
+            "catalogue_id": row["catalogue_id"],
+            "name": row["name"],
+            "set_name": row["set_name"],
+            "card_number": row["card_number"],
+            "variant": row["variant"],
+            "language": evidence["language"],
+            "version": row["version"],
+        })
+
+    return jsonable_encoder({
+        "candidate_count": len(candidates),
+        "by_language": by_language,
+        "items": candidates[:100],
+        "verification_method": "IMPORT_EXACT",
+    })
+
+
+@router.post("/import-exact/confirm")
+async def confirm_import_exact(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict:
+    # Phase 1: identify bounded candidates without holding row locks.
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        owner_id = owner["id"]
+        rows = await _import_exact_rows(connection, owner_id)
+        candidate_ids = [
+            row["id"]
+            for row in rows
+            if import_exact_evidence(row) is not None
+        ][:limit]
+
+    if not candidate_ids:
+        return {
+            "confirmed_count": 0,
+            "skipped_count": 0,
+            "verification_method": "IMPORT_EXACT",
+            "items": [],
+        }
+
+    # Phase 2: re-lock and revalidate every candidate before writing.
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        current_owner = await _owner(connection)
+        if current_owner["id"] != owner_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Owner context changed during import-exact verification",
+            )
+
+        async with connection.transaction():
+            locked = await connection.fetch(
+                f"""
+                select
+                    i.id,i.inventory_code,i.catalogue_id,i.condition,i.seal_status,
+                    i.grading_company,i.grade,i.certificate_number,i.language,
+                    i.storage_location_id,i.location,i.identity_confirmed,i.status,
+                    i.version,i.source_record,
+                    p.product_type,p.game,{BRAND_SQL} as brand,p.name,p.set_name,
+                    p.card_number,p.variant,p.rarity,p.language as catalogue_language
+                from tcg.inventory_items i
+                join tcg.catalogue_products p on p.id=i.catalogue_id
+                where i.owner_id=$1
+                  and i.id=any($2::uuid[])
+                  and {ACTIVE_SQL}
+                order by i.id
+                for update of i
+                """,
+                owner_id,
+                candidate_ids,
+            )
+
+            updated: list[dict] = []
+            skipped: list[str] = []
+            for row in locked:
+                if row["identity_confirmed"]:
+                    skipped.append(str(row["id"]))
+                    continue
+                evidence = import_exact_evidence(row)
+                if evidence is None:
+                    skipped.append(str(row["id"]))
+                    continue
+
+                updated_row = await connection.fetchrow(
+                    """
+                    update tcg.inventory_items
+                    set identity_confirmed=true,
+                        language=$1,
+                        version=version+1,
+                        updated_at=now()
+                    where id=$2
+                      and owner_id=$3
+                      and version=$4
+                      and not identity_confirmed
+                    returning *
+                    """,
+                    evidence["language"],
+                    row["id"],
+                    owner_id,
+                    row["version"],
+                )
+                if updated_row is None:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Inventory changed during import-exact verification",
+                    )
+
+                catalogue_snapshot = _catalogue_snapshot(row)
+                physical_snapshot = _physical_snapshot(updated_row)
+                physical_snapshot["verification_evidence"] = evidence
+                await connection.execute(
+                    """
+                    insert into tcg.identity_verification_events(
+                        owner_id,inventory_id,catalogue_id,event_type,actor_user_id,
+                        verification_method,inventory_version,catalogue_snapshot,
+                        physical_snapshot,notes
+                    ) values(
+                        $1,$2,$3,'CONFIRMED',$4,'IMPORT_EXACT',$5,$6::jsonb,$7::jsonb,$8
+                    )
+                    """,
+                    owner_id,
+                    updated_row["id"],
+                    row["catalogue_id"],
+                    user.user_id,
+                    updated_row["version"],
+                    json.dumps(catalogue_snapshot),
+                    json.dumps(physical_snapshot),
+                    (
+                        "Exact original import match: name, set, card number, "
+                        "variant/finish and explicit language marker."
+                    ),
+                )
+                updated.append(dict(updated_row))
+
+    return jsonable_encoder({
+        "confirmed_count": len(updated),
+        "skipped_count": len(skipped),
+        "verification_method": "IMPORT_EXACT",
+        "items": updated,
+    })
 
 
 @router.get("/{catalogue_id}")
