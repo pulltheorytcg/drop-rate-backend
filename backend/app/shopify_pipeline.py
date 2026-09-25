@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from typing import Annotated, Any
+from typing import Annotated, Any, Mapping
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -18,9 +18,11 @@ from .ownership import current_owner as _owner
 from .settings import get_settings
 from .shopify_completeness import (
     build_shopify_product_plan,
+    media_completeness,
     product_completeness,
     product_create_input,
     product_title,
+    verify_remote_product,
 )
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
 
@@ -36,6 +38,29 @@ class ShopifyProcessingError(RuntimeError):
 
 
 class TestSyncRequest(BaseModel):
+    version: int = Field(ge=1)
+
+
+class MediaAssetCreate(BaseModel):
+    catalogue_id: UUID | None = None
+    inventory_id: UUID | None = None
+    side: str = Field(pattern="^(FRONT|BACK|OTHER)$")
+    source_type: str = Field(
+        pattern="^(FOUNDER_UPLOAD|CONSIGNOR_UPLOAD|LICENSED_PROVIDER|OFFICIAL_PROVIDER)$"
+    )
+    source_reference: str = Field(min_length=1, max_length=1000)
+    public_source_url: str | None = Field(default=None, max_length=4000)
+    rights_basis: str | None = Field(default=None, max_length=1000)
+    alt_text: str = Field(default="", max_length=500)
+
+
+class MediaAssetApprove(BaseModel):
+    version: int = Field(ge=1)
+    rights_basis: str = Field(min_length=1, max_length=1000)
+    alt_text: str = Field(min_length=1, max_length=500)
+
+
+class MediaAssetSync(BaseModel):
     version: int = Field(ge=1)
 
 
@@ -176,25 +201,43 @@ def _test_sync_missing(item: Any) -> list[str]:
     return missing
 
 
+def _media_assets_for_item(
+    item: Mapping[str, Any],
+    assets: list[Mapping[str, Any]],
+) -> list[Mapping[str, Any]]:
+    inventory_id = str(item.get("id") or "")
+    catalogue_id = str(item.get("catalogue_id") or "")
+    selected: list[Mapping[str, Any]] = []
+    for asset in assets:
+        scope = str(asset.get("scope") or "")
+        if scope == "INVENTORY_ITEM" and str(asset.get("inventory_id") or "") == inventory_id:
+            selected.append(asset)
+        elif scope == "CANONICAL_CARD" and str(asset.get("catalogue_id") or "") == catalogue_id:
+            selected.append(asset)
+    return selected
+
+
 def _launch_completeness(
     item: Any,
     *,
     collection_titles: set[str],
     publication_configured: bool,
     location_configured: bool,
+    media_assets: list[Mapping[str, Any]],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     plan = build_shopify_product_plan(item)
+    media = media_completeness(plan["mediaPolicy"], media_assets)
     completeness = product_completeness(
         plan,
         store_price_minor=item["store_price_minor"],
         inventory_code=item["inventory_code"],
-        # Media is intentionally fail-closed until the approved media asset
-        # registry/capture pipeline is built. Never infer image rights/readiness.
-        approved_media_count=0,
+        approved_media_count=media["approvedMediaCount"],
         existing_collection_titles=collection_titles,
         publication_configured=publication_configured,
         location_configured=location_configured,
+        media_blockers=media["blockers"],
     )
+    completeness["mediaReadiness"] = media
     return plan, completeness
 
 
