@@ -303,6 +303,7 @@ The following areas were reviewed and defects found were corrected:
 - owner settlement reporting keeps **net owner proceeds** separate from **owner profit** so acquisition cost is never incorrectly withheld from owner proceeds
 - first live `Sync fees` and `Set postage` attempts returned HTTP 500 because the generic finance audit trigger assumed an `id` column; `order_item_reconciliations` is keyed by `order_item_id`
 - production migration `20260925144808_fix_order_item_reconciliation_audit_trigger` now uses a dedicated audited trigger keyed by `order_item_id`; RLS and finance rules were not weakened, PUBLIC execute was revoked, and regression coverage was added
+- post-hotfix live retry verified both reconciliation endpoints at HTTP 200; payment fee ledger now contains exactly one −£0.36 entry and £0 postage is explicitly reconciled without a fake zero-value ledger row
 - settlement adjustments are explicit signed ledger components; pending vs available cash remains separate from reconciliation readiness
 - returned-to-stock items use effective COGS £0 for that realised sale because the physical asset has returned to inventory
 
@@ -489,7 +490,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 5. ✅ Full **£5.48 refund + restock** verified: −£0.49 item refund, −£4.99 shipping refund, order REFUNDED, physical item INSPECTION, Shopify link ARCHIVED and available stock 0.
 6. **Next check (26 Sep):** verify the Shopify Payments refund transaction has finished settling before taking any further order action. Do not cancel #1002 merely because it is fully refunded; first confirm the final Shopify refund/order state.
 7. ✅ **Finance Reconciliation v1 deployed:** typed Shopify transaction-fee ingestion, auditable reconciliation metadata, explicit £0 postage support, refund invalidation and Sales-tab controls are live.
-8. **Live verification retry required:** the first #1002 **Sync fees** / **Set postage** attempts exposed and triggered the reconciliation-audit hotfix. Retry both actions after migration `20260925144808`; Shopify currently exposes a £0.36 processing fee and postage for this unshipped test is £0.00.
+8. ✅ **Finance Reconciliation v1 live-verified on #1002:** retry returned HTTP 200 for both actions; exactly one **−£0.36 PAYMENT_FEE** was recorded, postage was explicitly reconciled at **£0.00** using `TEST-NOT-SHIPPED`, and reconciliation audit INSERT/UPDATE events were written against the correct `order_item_id`. Fee reconciliation remains intentionally incomplete while Shopify's REFUND transaction is still PENDING.
 9. ✅ **Owner Settlement Report v1 deployed:** Reports now show gross proceeds, deductions, signed adjustments, net owner proceeds, effective cost basis, owner profit, reconciliation state and pending/available funds without moving money.
 10. Re-check the Shopify Payments refund settlement, then live-verify #1002 fee/postage reconciliation, duplicate reconciliation idempotency and its final settlement row.
 
