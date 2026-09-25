@@ -133,6 +133,7 @@ def test_collectr_observation_preserves_usd_and_fx_provenance() -> None:
     assert "'USD',$5,null" in source
     assert '"fx_source": fx_quote.source' in source
     assert '"fx_effective_at": fx_quote.effective_at.isoformat()' in source
-    assert '"normalized_gbp_minor": price_minor' in source
+    assert '"normalized_gbp_minor": market_value_minor' in source
+    assert '"store_price_floor_applied": store_price_minor > market_value_minor' in source
     assert "EcbHistoricalFxProvider()" in source
     assert "Phase 2: fetch auditable historical FX quotes outside any DB transaction." in source
