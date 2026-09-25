@@ -247,6 +247,7 @@ def verify_remote_product(
     expected_collection_titles: set[str],
     expected_media_file_ids: set[str],
     expected_quantity: int,
+    expected_status: str,
 ) -> dict[str, Any]:
     blockers: list[str] = []
 
@@ -363,8 +364,8 @@ def verify_remote_product(
     if not expected_media_file_ids.issubset(actual_media_ids):
         blockers.append("remote media")
 
-    if _text(snapshot.get("status")) != "ACTIVE":
-        blockers.append("remote active status")
+    if _text(snapshot.get("status")) != expected_status:
+        blockers.append(f"remote status: {expected_status}")
 
     unique = list(dict.fromkeys(blockers))
     return {"complete": not unique, "blockers": unique}
