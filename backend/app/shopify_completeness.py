@@ -289,6 +289,7 @@ def verify_remote_product(
     expected_media_file_ids: set[str],
     expected_quantity: int,
     expected_status: str,
+    expected_shipping_spec: Mapping[str, Any],
 ) -> dict[str, Any]:
     blockers: list[str] = []
 
@@ -394,6 +395,29 @@ def verify_remote_product(
                 blockers.append("remote inventory tracking")
             if inventory_item.get("requiresShipping") is not True:
                 blockers.append("remote shipping requirement")
+
+            measurement = inventory_item.get("measurement")
+            weight = (
+                measurement.get("weight")
+                if isinstance(measurement, Mapping)
+                else None
+            )
+            expected_weight = expected_shipping_spec.get("weight")
+            if not isinstance(weight, Mapping) or not isinstance(
+                expected_weight, Mapping
+            ):
+                blockers.append("remote shipping weight")
+            else:
+                try:
+                    actual_weight_value = float(weight.get("value"))
+                    expected_weight_value = float(expected_weight.get("value"))
+                except (TypeError, ValueError):
+                    blockers.append("remote shipping weight")
+                else:
+                    if abs(actual_weight_value - expected_weight_value) > 0.000001:
+                        blockers.append("remote shipping weight")
+                if _text(weight.get("unit")) != _text(expected_weight.get("unit")):
+                    blockers.append("remote shipping weight unit")
 
     media = snapshot.get("media")
     media_nodes = media.get("nodes") if isinstance(media, Mapping) else None
