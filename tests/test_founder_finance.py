@@ -153,6 +153,7 @@ def test_owner_settlement_separates_proceeds_from_profit() -> None:
         platform_fees_minor=50,
         payment_fees_minor=30,
         shipping_cost_minor=100,
+        adjustments_minor=0,
         effective_cogs_minor=400,
     )
     assert result == {
@@ -161,6 +162,23 @@ def test_owner_settlement_separates_proceeds_from_profit() -> None:
         "net_owner_proceeds_minor": 1020,
         "owner_profit_minor": 620,
     }
+
+
+def test_settlement_adjustments_change_proceeds_and_profit_explicitly() -> None:
+    result = _settlement_amounts(
+        item_revenue_minor=1000,
+        shipping_revenue_minor=0,
+        item_refunds_minor=0,
+        shipping_refunds_minor=0,
+        platform_fees_minor=0,
+        payment_fees_minor=0,
+        shipping_cost_minor=0,
+        adjustments_minor=-125,
+        effective_cogs_minor=400,
+    )
+    assert result["gross_proceeds_minor"] == 1000
+    assert result["net_owner_proceeds_minor"] == 875
+    assert result["owner_profit_minor"] == 475
 
 
 def test_returned_refunded_order_restores_cost_basis_but_keeps_processing_loss() -> None:
@@ -172,6 +190,7 @@ def test_returned_refunded_order_restores_cost_basis_but_keeps_processing_loss()
         platform_fees_minor=0,
         payment_fees_minor=36,
         shipping_cost_minor=0,
+        adjustments_minor=0,
         effective_cogs_minor=0,
     )
     assert result["gross_proceeds_minor"] == 0
