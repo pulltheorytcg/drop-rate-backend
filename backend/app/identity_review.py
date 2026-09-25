@@ -300,6 +300,27 @@ async def confirm_identity_group(
                         "selected_language": requested_language,
                     },
                 )
+            missing_language = [
+                str(row["id"])
+                for row in rows
+                if not (
+                    requested_language
+                    or clean_language(row["language"])
+                    or catalogue_language
+                )
+            ]
+            if missing_language:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "message": (
+                            "Language must be physically verified before identity "
+                            "can be confirmed."
+                        ),
+                        "items": missing_language,
+                    },
+                )
+
             if catalogue_language and not requested_language:
                 conflicting_language = [
                     {
