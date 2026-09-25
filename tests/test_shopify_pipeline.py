@@ -329,8 +329,9 @@ def test_shopify_test_sync_fails_before_remote_create_when_launch_incomplete() -
     create_pos = sync.index("client.create_product(")
     assert completeness_pos < create_pos
     assert "No remote product was created or published." in sync
-    assert "approved_media_count=0" in source
-    assert "NOT_BUILT_FAIL_CLOSED" in source
+    assert "resolve_media_readiness(connection, item)" in source
+    assert "resolve_media_readiness_batch(" in source
+    assert "ACTIVE_FAIL_CLOSED" in source
 
 
 def test_shopify_sync_uses_complete_product_plan_not_legacy_minimal_payload() -> None:
