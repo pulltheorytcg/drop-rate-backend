@@ -216,6 +216,51 @@ class ShopifyAdminClient:
         }
 
 
+    async def get_order_transactions(self, order_id: str) -> list[dict[str, Any]]:
+        data = await self.graphql(
+            query="""
+            query DropRateOrderTransactions($id: ID!) {
+              order(id: $id) {
+                id
+                transactions(first: 100) {
+                  id
+                  kind
+                  status
+                  processedAt
+                  fees {
+                    id
+                    type
+                    amount { amount currencyCode }
+                  }
+                }
+              }
+            }
+            """,
+            variables={"id": order_id},
+        )
+        order = data.get("order")
+        if not isinstance(order, dict):
+            raise ShopifyApiError("Shopify order transaction query returned no order")
+        transactions = order.get("transactions")
+        if not isinstance(transactions, list):
+            raise ShopifyApiError(
+                "Shopify order transaction query returned an invalid response"
+            )
+        result: list[dict[str, Any]] = []
+        for transaction in transactions:
+            if not isinstance(transaction, dict):
+                raise ShopifyApiError(
+                    "Shopify order transaction query returned an invalid transaction"
+                )
+            fees = transaction.get("fees")
+            if not isinstance(fees, list):
+                raise ShopifyApiError(
+                    "Shopify order transaction query returned invalid fees"
+                )
+            result.append(transaction)
+        return result
+
+
     async def list_webhook_subscriptions(self) -> list[dict[str, Any]]:
         subscriptions: list[dict[str, Any]] = []
         cursor: str | None = None
