@@ -38,6 +38,7 @@ function ensureFounderFinanceUI() {
         <p class="muted">Deterministic sales, fees, shipping, profit and payout tracking from the Drop Rate ledger.</p>
       </div>
       <div class="topbar-actions">
+        <button id="finance-reconcile-pending" class="ghost-button" type="button">Sync pending Shopify fees</button>
         <button id="finance-refresh" class="ghost-button" type="button">↻ Refresh finance</button>
         <button id="finance-payout-button" class="primary-button compact" type="button">Request payout</button>
       </div>
@@ -143,6 +144,7 @@ function ensureFounderFinanceUI() {
     </form>`;
   document.body.append(dialog);
 
+  byId("finance-reconcile-pending").addEventListener("click", reconcilePendingShopifyFees);
   byId("finance-refresh").addEventListener("click", loadFounderFinance);
   byId("finance-payout-button").addEventListener("click", () => {
     byId("finance-payout-form").reset();
@@ -376,6 +378,49 @@ function renderFinancePayouts(items) {
     body.append(row);
   });
 }
+
+async function reconcilePendingShopifyFees() {
+  const button = byId("finance-reconcile-pending");
+  if (button) button.disabled = true;
+  showMessage("finance-message", "Checking pending Shopify fee settlements…");
+  try {
+    const result = await apiRequest(
+      "/api/v1/finance/shopify/reconcile-pending-fees?limit=25",
+      { method: "POST" }
+    );
+    await loadFounderFinance();
+    if (!result.considered) {
+      showMessage("finance-message", "No Shopify fee reconciliations are pending.", "success");
+      return;
+    }
+    if (result.blocked) {
+      showMessage(
+        "finance-message",
+        `Checked ${result.considered} order(s): ${result.reconciled} reconciled, ${result.pending} still settling, ${result.blocked} require review.`,
+        "error"
+      );
+      return;
+    }
+    if (result.pending) {
+      showMessage(
+        "finance-message",
+        `Checked ${result.considered} order(s): ${result.reconciled} reconciled and ${result.pending} still settling at Shopify.`,
+        "success"
+      );
+      return;
+    }
+    showMessage(
+      "finance-message",
+      `Shopify fees reconciled for ${result.reconciled} order(s).`,
+      "success"
+    );
+  } catch (error) {
+    showMessage("finance-message", error.message, "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 
 async function reconcileShopifyFees(sale) {
   showMessage("finance-message", `Syncing Shopify fees for ${sale.order_number || "order"}…`);

@@ -2,6 +2,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.finance import (
@@ -9,6 +10,7 @@ from app.finance import (
     PayoutRequestCreate,
     ShopifyPostageReconcile,
     _fulfilment_material_allocations,
+    _parse_shopify_fee_transactions,
     _settlement_amounts,
     _settlement_reconciliation_state,
     allocate_minor,
@@ -200,6 +202,99 @@ def test_shopify_fee_reconciliation_is_fail_closed_and_idempotent() -> None:
     assert "on conflict(source_key) do nothing" in source
     assert "SHOPIFY_ORDER_TRANSACTIONS" in source
     assert "exactly one visible order item" in source
+
+
+def test_shopify_fee_parser_records_success_and_keeps_pending_refund_open() -> None:
+    rows, unsettled = _parse_shopify_fee_transactions([
+        {
+            "id": "gid://shopify/OrderTransaction/1",
+            "status": "SUCCESS",
+            "fees": [{
+                "id": "gid://shopify/TransactionFee/1",
+                "type": "processing_fee",
+                "amount": {"amount": "0.36", "currencyCode": "GBP"},
+            }],
+        },
+        {
+            "id": "gid://shopify/OrderTransaction/2",
+            "status": "PENDING",
+            "fees": [],
+        },
+    ])
+
+    assert rows == [(
+        "PAYMENT_FEE",
+        "gid://shopify/OrderTransaction/1:gid://shopify/TransactionFee/1",
+        36,
+    )]
+    assert unsettled == ["PENDING"]
+
+
+def test_shopify_fee_parser_fails_closed_for_unmapped_fee_type() -> None:
+    with pytest.raises(HTTPException) as exc:
+        _parse_shopify_fee_transactions([
+            {
+                "id": "gid://shopify/OrderTransaction/1",
+                "status": "SUCCESS",
+                "fees": [{
+                    "id": "gid://shopify/TransactionFee/1",
+                    "type": "mystery_fee",
+                    "amount": {"amount": "0.10", "currencyCode": "GBP"},
+                }],
+            }
+        ])
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == {
+        "message": "Shopify returned an unmapped fee type",
+        "fee_types": ["mystery_fee"],
+    }
+
+
+def test_shopify_fee_reconciliation_releases_db_transaction_for_remote_call() -> None:
+    source = (ROOT / "backend" / "app" / "finance.py").read_text()
+    start = source.index("async def _reconcile_shopify_fees_once(")
+    end = source.index(
+        '@router.post("/finance/shopify/orders/{order_id}/reconcile-fees")',
+        start,
+    )
+    helper = source[start:end]
+    first_db = helper.index(
+        "async with user_connection(pool, user_id, request_id) as connection:"
+    )
+    remote = helper.index("get_order_transactions(")
+    second_db = helper.index(
+        "async with user_connection(pool, user_id, request_id) as connection:",
+        first_db + 1,
+    )
+    assert first_db < remote < second_db
+    assert "pg_advisory_xact_lock" in source
+
+
+def test_batch_shopify_fee_reconciliation_is_founder_scoped_and_bounded() -> None:
+    source = (ROOT / "backend" / "app" / "finance.py").read_text()
+    start = source.index(
+        '@router.post("/finance/shopify/reconcile-pending-fees")'
+    )
+    end = source.index(
+        '@router.post("/finance/shopify/orders/{order_id}/postage")',
+        start,
+    )
+    batch = source[start:end]
+    assert 'owner["role"] != "FOUNDER"' in batch
+    assert "limit: int = Query(default=25, ge=1, le=50)" in batch
+    assert "rec.fees_reconciled_at is null" in batch
+    assert '"status": "BLOCKED"' in batch
+    assert "_reconcile_shopify_fees_once(" in batch
+
+
+def test_founder_finance_exposes_batch_shopify_fee_sync_control() -> None:
+    source = (ROOT / "backend" / "app" / "static" / "founder-finance.js").read_text()
+    assert 'id="finance-reconcile-pending"' in source
+    assert "reconcilePendingShopifyFees" in source
+    assert "/api/v1/finance/shopify/reconcile-pending-fees?limit=25" in source
+    assert "still settling at Shopify" in source
+    assert "require review" in source
 
 
 def test_finance_completeness_uses_reconciliation_metadata_not_nonzero_ledger_rows() -> None:
