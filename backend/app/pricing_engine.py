@@ -6,7 +6,7 @@ from math import exp, log, sqrt
 from statistics import median
 from typing import Iterable
 
-from .pricing_rules import MIN_STORE_PRICE_MINOR, store_price_floor
+from .pricing_rules import store_price_floor
 
 
 ALGORITHM_VERSION = "drop-rate-market-v4"
