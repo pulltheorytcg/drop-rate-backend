@@ -17,6 +17,7 @@ from .ebay_privacy import router as ebay_privacy_router
 from .imports import router as imports_router
 from .import_review import router as import_review_router
 from .inventory_intake import router as inventory_intake_router
+from .inventory_intelligence import router as inventory_intelligence_router
 from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
 from .identity_review import router as identity_review_router
@@ -231,6 +232,7 @@ def create_app() -> FastAPI:
     app.include_router(imports_router)
     app.include_router(import_review_router)
     app.include_router(inventory_intake_router)
+    app.include_router(inventory_intelligence_router)
     app.include_router(inventory_market_values_router)
     app.include_router(inventory_state_router)
     app.include_router(identity_review_router)
