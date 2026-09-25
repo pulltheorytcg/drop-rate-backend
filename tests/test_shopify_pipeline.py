@@ -366,6 +366,15 @@ def test_sale_ledger_stays_pending_until_shopify_fees_are_known() -> None:
     assert "platform/payment fees are not yet settled" in source
 
 
+def test_refund_invalidates_previous_shopify_fee_reconciliation() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def _process_refund(")
+    refund = source[start:]
+    assert "update tcg.order_item_reconciliations" in refund
+    assert "fees_reconciled_at=null" in refund
+    assert "fees_source=null" in refund
+
+
 def test_refund_restock_never_returns_directly_to_approved() -> None:
     source = PIPELINE.read_text()
     assert "PARTIAL_RESTOCK_REFUND" in source
