@@ -348,7 +348,13 @@ def test_shopify_shipping_profile_registry_is_rls_protected_and_audited() -> Non
     assert "weight_value" in sql
     assert "weight_unit" in sql
     assert "shopify_shipping_profiles_audit" in sql
-    assert "profile_key is immutable" in sql
+    assert "shipping profile key is immutable once created" in sql
+    assert "audit_shopify_shipping_profile_change" in sql
+    assert "security definer" in sql
+    assert (
+        "revoke all on function tcg.audit_shopify_shipping_profile_change() "
+        "from public"
+    ) in sql
 
 
 def test_shopify_sync_requires_shipping_profile_before_remote_create() -> None:
