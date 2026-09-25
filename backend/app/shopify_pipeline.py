@@ -41,6 +41,28 @@ class TestSyncRequest(BaseModel):
     version: int = Field(ge=1)
 
 
+class ShippingProfileCreate(BaseModel):
+    profile_key: str = Field(pattern="^[A-Z][A-Z0-9_]{1,63}$")
+    label: str = Field(min_length=1, max_length=120)
+    weight_value: float = Field(gt=0, le=100000)
+    weight_unit: str = Field(pattern="^(GRAMS|KILOGRAMS|OUNCES|POUNDS)$")
+    shipping_package_gid: str | None = Field(default=None, max_length=255)
+    notes: str = Field(default="", max_length=1000)
+
+
+class ShippingProfilePatch(BaseModel):
+    version: int = Field(ge=1)
+    label: str | None = Field(default=None, min_length=1, max_length=120)
+    weight_value: float | None = Field(default=None, gt=0, le=100000)
+    weight_unit: str | None = Field(
+        default=None,
+        pattern="^(GRAMS|KILOGRAMS|OUNCES|POUNDS)$",
+    )
+    shipping_package_gid: str | None = Field(default=None, max_length=255)
+    active: bool | None = None
+    notes: str | None = Field(default=None, max_length=1000)
+
+
 class MediaAssetCreate(BaseModel):
     catalogue_id: UUID | None = None
     inventory_id: UUID | None = None
@@ -224,9 +246,11 @@ def _launch_completeness(
     publication_configured: bool,
     location_configured: bool,
     media_assets: list[Mapping[str, Any]],
+    shipping_profiles: Mapping[str, Mapping[str, Any]],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     plan = build_shopify_product_plan(item)
     media = media_completeness(plan["mediaPolicy"], media_assets)
+    profile = shipping_profiles.get(str(plan["shippingProfileKey"]))
     completeness = product_completeness(
         plan,
         store_price_minor=item["store_price_minor"],
@@ -235,10 +259,30 @@ def _launch_completeness(
         existing_collection_titles=collection_titles,
         publication_configured=publication_configured,
         location_configured=location_configured,
+        shipping_profile=profile,
         media_blockers=media["blockers"],
     )
     completeness["mediaReadiness"] = media
     return plan, completeness
+
+
+async def _shipping_profiles(
+    connection: asyncpg.Connection,
+    owner_id: UUID,
+) -> dict[str, dict[str, Any]]:
+    rows = await connection.fetch(
+        """
+        select *
+        from tcg.shopify_shipping_profiles
+        where owner_id=$1 and active
+        order by profile_key
+        """,
+        owner_id,
+    )
+    return {
+        str(row["profile_key"]): dict(row)
+        for row in rows
+    }
 
 
 async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
