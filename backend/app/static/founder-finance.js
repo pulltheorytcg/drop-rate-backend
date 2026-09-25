@@ -47,7 +47,7 @@ function ensureFounderFinanceUI() {
       <article class="stat-card"><span>Cost of goods</span><strong id="finance-cogs">£0.00</strong><small>Acquisition cost snapshot</small></article>
       <article class="stat-card"><span>Fees</span><strong id="finance-fees">£0.00</strong><small>Platform + payment fees</small></article>
       <article class="stat-card"><span>Shipping cost</span><strong id="finance-shipping-cost">£0.00</strong><small>Fulfilment/postage cost</small></article>
-      <article class="stat-card"><span>Refunds</span><strong id="finance-refunds">£0.00</strong><small>Refund ledger entries</small></article>
+      <article class="stat-card"><span>Refunds</span><strong id="finance-refunds">£0.00</strong><small>Item + shipping refunds</small></article>
       <article class="stat-card"><span>Paid out</span><strong id="finance-paid-out">£0.00</strong><small>Completed withdrawals</small></article>
       <article class="stat-card"><span>Reserved for payout</span><strong id="finance-reserved">£0.00</strong><small>Requested / approved payouts</small></article>
       <article class="stat-card"><span>Shipping income</span><strong id="finance-shipping-revenue">£0.00</strong><small>Shipping paid by customers</small></article>
@@ -121,7 +121,9 @@ function renderFinanceSummary(summary) {
   byId("finance-cogs").textContent = formatFinanceMoney(summary.cost_of_goods_minor);
   byId("finance-fees").textContent = formatFinanceMoney((summary.platform_fees_minor || 0) + (summary.payment_fees_minor || 0));
   byId("finance-shipping-cost").textContent = formatFinanceMoney(summary.shipping_cost_minor);
-  byId("finance-refunds").textContent = formatFinanceMoney(summary.refunds_minor);
+  byId("finance-refunds").textContent = formatFinanceMoney(
+    (summary.refunds_minor || 0) + (summary.shipping_refunds_minor || 0)
+  );
   byId("finance-paid-out").textContent = formatFinanceMoney(summary.paid_out_minor);
   byId("finance-reserved").textContent = formatFinanceMoney(summary.reserved_payout_minor);
   byId("finance-shipping-revenue").textContent = formatFinanceMoney(summary.shipping_revenue_minor);

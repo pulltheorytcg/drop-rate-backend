@@ -64,6 +64,45 @@ def _minor(value: object, *, field: str) -> int:
     return int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
+def _refund_shipping_minor(payload: dict[str, Any]) -> int:
+    lines = payload.get("refund_shipping_lines")
+    if lines is None:
+        return 0
+    if not isinstance(lines, list):
+        raise ShopifyProcessingError(
+            "INVALID_REFUND_SHIPPING",
+            "Shopify refund shipping lines are invalid",
+        )
+
+    total = 0
+    for line in lines:
+        if not isinstance(line, dict):
+            raise ShopifyProcessingError(
+                "INVALID_REFUND_SHIPPING",
+                "Shopify refund shipping line is invalid",
+            )
+        amount_set = line.get("subtotal_amount_set")
+        if not isinstance(amount_set, dict):
+            raise ShopifyProcessingError(
+                "INVALID_REFUND_SHIPPING",
+                "Shopify refund shipping amount is missing",
+            )
+        shop_money = amount_set.get("shop_money")
+        if not isinstance(shop_money, dict):
+            raise ShopifyProcessingError(
+                "INVALID_REFUND_SHIPPING",
+                "Shopify refund shipping shop money is missing",
+            )
+        currency = str(shop_money.get("currency_code") or "").upper()
+        if currency != "GBP":
+            raise ShopifyProcessingError(
+                "SHIPPING_REFUND_CURRENCY_MISMATCH",
+                "Shopify shipping refund currency is not GBP",
+            )
+        total += _minor(shop_money.get("amount"), field="shipping refund")
+    return total
+
+
 def _parse_time(value: object) -> datetime:
     if isinstance(value, str) and value.strip():
         try:
@@ -1044,6 +1083,7 @@ async def _process_refund(
     refund_lines = payload.get("refund_line_items")
     if not isinstance(refund_lines, list):
         raise ShopifyProcessingError("INVALID_REFUND", "Shopify refund line items are invalid")
+    shipping_refund_minor = _refund_shipping_minor(payload)
 
     bootstrap = await connection.fetchrow(
         """
@@ -1061,6 +1101,23 @@ async def _process_refund(
     user_id = bootstrap["created_by_user_id"]
     await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
 
+    order = await connection.fetchrow(
+        """
+        select id,status
+        from tcg.orders
+        where source='SHOPIFY' and source_reference=$1
+        for update
+        """,
+        order_reference,
+    )
+    if order is None:
+        raise ShopifyProcessingError(
+            "ORDER_NOT_FOUND",
+            "Managed Shopify refund has no matching Drop Rate order",
+        )
+
+    occurred_at = _parse_time(payload.get("processed_at") or payload.get("created_at"))
+    note = str(payload.get("note") or "").strip()
     created = []
     client: ShopifyAdminClient | None = None
     for refund_line in refund_lines:
@@ -1088,10 +1145,15 @@ async def _process_refund(
             order_reference, line_item_id,
         )
         if len(allocations) < quantity:
-            raise ShopifyProcessingError("REFUND_ALLOCATION_MISMATCH", "Refund quantity exceeds Drop Rate allocation")
+            raise ShopifyProcessingError(
+                "REFUND_ALLOCATION_MISMATCH",
+                "Refund quantity exceeds Drop Rate allocation",
+            )
         amounts = allocate_minor(subtotal_minor, [1] * quantity)
         for idx, allocation in enumerate(allocations[:quantity]):
-            source_reference = f"shopify:{refund_id}:{line_item_id}:{allocation['allocation_index']}"
+            source_reference = (
+                f"shopify:{refund_id}:{line_item_id}:{allocation['allocation_index']}"
+            )
             duplicate = await connection.fetchval(
                 """
                 select exists(
@@ -1103,11 +1165,20 @@ async def _process_refund(
             )
             if duplicate:
                 continue
-            restock_type = str(refund_line.get("restock_type") or "no_restock").casefold()
-            return_to_stock = restock_type in {"return", "cancel", "legacy_restock"}
+            restock_type = str(
+                refund_line.get("restock_type") or "no_restock"
+            ).casefold()
+            return_to_stock = restock_type in {
+                "return",
+                "cancel",
+                "legacy_restock",
+            }
             amount_minor = amounts[idx]
             if return_to_stock and amount_minor < int(allocation["net_sale_minor"]):
-                raise ShopifyProcessingError("PARTIAL_RESTOCK_REFUND", "Restocking requires the full item sale value to be refunded")
+                raise ShopifyProcessingError(
+                    "PARTIAL_RESTOCK_REFUND",
+                    "Restocking requires the full item sale value to be refunded",
+                )
             await connection.execute(
                 """
                 insert into tcg.refund_events(
@@ -1117,8 +1188,7 @@ async def _process_refund(
                 """,
                 owner_id, allocation["order_id"], allocation["order_item_id"],
                 allocation["inventory_id"], source_reference, amount_minor,
-                return_to_stock, str(payload.get("note") or "").strip(),
-                _parse_time(payload.get("processed_at") or payload.get("created_at")),
+                return_to_stock, note, occurred_at,
             )
             if amount_minor:
                 await connection.execute(
@@ -1129,9 +1199,9 @@ async def _process_refund(
                     ) values($1,$2,$3,'REFUND',$4,'GBP','PENDING',$5,$6,$7)
                     """,
                     owner_id, allocation["order_id"], allocation["order_item_id"],
-                    -amount_minor, f"refund:{allocation['order_item_id']}:{source_reference}",
-                    _parse_time(payload.get("processed_at") or payload.get("created_at")),
-                    str(payload.get("note") or "").strip(),
+                    -amount_minor,
+                    f"refund:{allocation['order_item_id']}:{source_reference}",
+                    occurred_at, note,
                 )
             if return_to_stock:
                 if client is None:
@@ -1140,9 +1210,13 @@ async def _process_refund(
                     inventory_item_id=allocation["shopify_inventory_item_gid"],
                     location_id=allocation["shopify_location_gid"],
                     quantity=0,
-                    idempotency_key=f"refund-zero-{refund_id}-{allocation['allocation_index']}",
+                    idempotency_key=(
+                        f"refund-zero-{refund_id}-{allocation['allocation_index']}"
+                    ),
                 )
-                await connection.execute("select set_config('tcg.allow_sold_return','on',true)")
+                await connection.execute(
+                    "select set_config('tcg.allow_sold_return','on',true)"
+                )
                 returned = await connection.fetchrow(
                     """
                     update tcg.inventory_items
@@ -1153,11 +1227,16 @@ async def _process_refund(
                     allocation["inventory_id"], owner_id,
                 )
                 if returned is None:
-                    raise ShopifyProcessingError("RETURN_STATE_MISMATCH", "Returned inventory is not SOLD")
+                    raise ShopifyProcessingError(
+                        "RETURN_STATE_MISMATCH",
+                        "Returned inventory is not SOLD",
+                    )
                 await connection.execute(
                     """
                     update tcg.shopify_inventory_links
-                    set sync_state='ARCHIVED',last_synced_at=clock_timestamp(),version=version+1
+                    set sync_state='ARCHIVED',
+                        last_synced_at=clock_timestamp(),
+                        version=version+1
                     where id=$1
                     """,
                     allocation["inventory_link_id"],
@@ -1168,22 +1247,139 @@ async def _process_refund(
                 "return_to_stock": return_to_stock,
             })
 
-    order = await connection.fetchrow(
-        "select id from tcg.orders where source='SHOPIFY' and source_reference=$1",
-        order_reference,
+    shipping_created: list[dict[str, Any]] = []
+    if shipping_refund_minor:
+        duplicate_shipping = await connection.fetchval(
+            """
+            select exists(
+              select 1
+              from tcg.financial_ledger_entries
+              where order_id=$1
+                and entry_type='SHIPPING_REFUND'
+                and source_key like $2
+            )
+            """,
+            order["id"], f"shopify:{refund_id}:shipping:%",
+        )
+        if not duplicate_shipping:
+            shipping_rows = await connection.fetch(
+                """
+                select
+                  oi.id as order_item_id,
+                  oi.owner_id,
+                  coalesce(
+                    sum(le.amount_minor)
+                      filter (where le.entry_type='SHIPPING_REVENUE'),
+                    0
+                  )::bigint as shipping_revenue_minor,
+                  coalesce(
+                    -sum(le.amount_minor)
+                      filter (where le.entry_type='SHIPPING_REFUND'),
+                    0
+                  )::bigint as shipping_refunded_minor
+                from tcg.order_items oi
+                left join tcg.financial_ledger_entries le
+                  on le.order_item_id=oi.id
+                where oi.order_id=$1
+                group by oi.id,oi.owner_id
+                order by oi.id
+                """,
+                order["id"],
+            )
+            remaining_shipping = [
+                max(
+                    int(row["shipping_revenue_minor"] or 0)
+                    - int(row["shipping_refunded_minor"] or 0),
+                    0,
+                )
+                for row in shipping_rows
+            ]
+            remaining_total = sum(remaining_shipping)
+            if shipping_refund_minor > remaining_total:
+                raise ShopifyProcessingError(
+                    "SHIPPING_REFUND_EXCEEDS_REVENUE",
+                    "Shopify shipping refund exceeds remaining recorded shipping revenue",
+                )
+            if remaining_total <= 0:
+                raise ShopifyProcessingError(
+                    "SHIPPING_REFUND_WITHOUT_REVENUE",
+                    "Shopify refunded shipping but Drop Rate has no refundable shipping revenue",
+                )
+            shipping_allocations = allocate_minor(
+                shipping_refund_minor,
+                remaining_shipping,
+            )
+            for row, amount_minor, capacity in zip(
+                shipping_rows,
+                shipping_allocations,
+                remaining_shipping,
+            ):
+                if amount_minor <= 0:
+                    continue
+                if amount_minor > capacity:
+                    raise ShopifyProcessingError(
+                        "SHIPPING_REFUND_ALLOCATION_EXCEEDED",
+                        "Shipping refund allocation exceeded recorded shipping revenue",
+                    )
+                source_key = (
+                    f"shopify:{refund_id}:shipping:{row['order_item_id']}"
+                )
+                await connection.execute(
+                    """
+                    insert into tcg.financial_ledger_entries(
+                      owner_id,order_id,order_item_id,entry_type,amount_minor,
+                      currency,funds_status,source_key,occurred_at,notes
+                    ) values($1,$2,$3,'SHIPPING_REFUND',$4,'GBP','PENDING',$5,$6,$7)
+                    on conflict(source_key) do nothing
+                    """,
+                    row["owner_id"], order["id"], row["order_item_id"],
+                    -amount_minor, source_key, occurred_at,
+                    "Shopify shipping refund allocated against original shipping revenue.",
+                )
+                shipping_created.append({
+                    "order_item_id": str(row["order_item_id"]),
+                    "amount_minor": amount_minor,
+                })
+
+    gross_revenue = await connection.fetchval(
+        """
+        select coalesce(sum(amount_minor),0)::bigint
+        from tcg.financial_ledger_entries
+        where order_id=$1
+          and entry_type in ('SALE_REVENUE','SHIPPING_REVENUE')
+        """,
+        order["id"],
     )
-    if order is not None:
-        total_sale = await connection.fetchval(
-            "select coalesce(sum(net_sale_minor),0)::bigint from tcg.order_items where order_id=$1",
-            order["id"],
+    total_refund = await connection.fetchval(
+        """
+        select coalesce(-sum(amount_minor),0)::bigint
+        from tcg.financial_ledger_entries
+        where order_id=$1
+          and entry_type in ('REFUND','SHIPPING_REFUND')
+        """,
+        order["id"],
+    )
+    gross_revenue_minor = int(gross_revenue or 0)
+    total_refund_minor = int(total_refund or 0)
+    if total_refund_minor > gross_revenue_minor:
+        raise ShopifyProcessingError(
+            "REFUND_EXCEEDS_GROSS_REVENUE",
+            "Recorded refunds exceed original Shopify gross revenue",
         )
-        total_refund = await connection.fetchval(
-            "select coalesce(sum(amount_minor),0)::bigint from tcg.refund_events where order_id=$1",
-            order["id"],
-        )
-        next_status = "REFUNDED" if int(total_refund or 0) >= int(total_sale or 0) else "PARTIALLY_REFUNDED"
-        await connection.execute(
-            "update tcg.orders set status=$2,updated_at=now() where id=$1",
-            order["id"], next_status,
-        )
-    return {"status": "PROCESSED", "action": "REFUND_RECORDED", "items": created}
+    next_status = (
+        "REFUNDED"
+        if gross_revenue_minor > 0 and total_refund_minor >= gross_revenue_minor
+        else "PARTIALLY_REFUNDED"
+    )
+    await connection.execute(
+        "update tcg.orders set status=$2,updated_at=now() where id=$1",
+        order["id"], next_status,
+    )
+    return {
+        "status": "PROCESSED",
+        "action": "REFUND_RECORDED",
+        "items": created,
+        "shipping_refund_minor": shipping_refund_minor,
+        "shipping_allocations": shipping_created,
+    }
+

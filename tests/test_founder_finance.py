@@ -63,6 +63,21 @@ def test_finance_migration_has_immutable_ledger_and_sold_state() -> None:
     assert "revoke delete" in sql
 
 
+def test_finance_summary_accounts_for_shipping_refunds_separately() -> None:
+    source = (ROOT / "backend" / "app" / "finance.py").read_text()
+    migration = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20260924235450_shopify_shipping_refunds.sql"
+    ).read_text()
+    assert "SHIPPING_REFUND" in migration
+    assert "shipping_refunds_minor" in source
+    assert "entry_type = 'SHIPPING_REFUND'" in source
+    assert '- shipping_refunds' in source
+    assert 'int(item["shipping_refund_minor"])' in source
+
+
 def test_finance_dashboard_exposes_required_sections() -> None:
     js = (ROOT / "backend" / "app" / "static" / "founder-finance.js").read_text()
     for text in (
@@ -73,6 +88,7 @@ def test_finance_dashboard_exposes_required_sections() -> None:
         "Cost of goods",
         "Shipping cost",
         "Refunds",
+        "Item + shipping refunds",
         "Payout requests",
         "Request payout",
     ):

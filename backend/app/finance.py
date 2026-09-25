@@ -136,6 +136,7 @@ async def finance_summary(
                 coalesce(-sum(amount_minor) filter (where entry_type = 'PAYMENT_FEE'), 0)::bigint as payment_fees_minor,
                 coalesce(-sum(amount_minor) filter (where entry_type = 'SHIPPING_COST'), 0)::bigint as shipping_cost_minor,
                 coalesce(-sum(amount_minor) filter (where entry_type = 'REFUND'), 0)::bigint as refunds_minor,
+                coalesce(-sum(amount_minor) filter (where entry_type = 'SHIPPING_REFUND'), 0)::bigint as shipping_refunds_minor,
                 count(distinct order_item_id) filter (where entry_type = 'SALE_REVENUE')::int as sold_items
             from tcg.financial_ledger_entries
             where owner_id = $1
@@ -161,12 +162,14 @@ async def finance_summary(
         payment_fees = int(ledger["payment_fees_minor"] or 0)
         shipping_cost = int(ledger["shipping_cost_minor"] or 0)
         refunds = int(ledger["refunds_minor"] or 0)
+        shipping_refunds = int(ledger["shipping_refunds_minor"] or 0)
         cost_of_goods = int(cogs or 0)
         gross_profit = sales_revenue - refunds - cost_of_goods
         net_profit = (
             sales_revenue
             + shipping_revenue
             - refunds
+            - shipping_refunds
             - platform_fees
             - payment_fees
             - shipping_cost
@@ -182,6 +185,7 @@ async def finance_summary(
             "payment_fees_minor": payment_fees,
             "shipping_cost_minor": shipping_cost,
             "refunds_minor": refunds,
+            "shipping_refunds_minor": shipping_refunds,
             "cost_of_goods_minor": cost_of_goods,
             "gross_profit_minor": gross_profit,
             "net_profit_minor": net_profit,
@@ -221,7 +225,8 @@ async def finance_sales(
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'PLATFORM_FEE'), 0)::bigint as platform_fee_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'PAYMENT_FEE'), 0)::bigint as payment_fee_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_COST'), 0)::bigint as shipping_cost_minor,
-                coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'REFUND'), 0)::bigint as refund_minor
+                coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'REFUND'), 0)::bigint as refund_minor,
+                coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_REFUND'), 0)::bigint as shipping_refund_minor
             from tcg.order_items oi
             join tcg.orders o on o.id = oi.order_id
             join tcg.inventory_items i on i.id = oi.inventory_id
@@ -246,6 +251,7 @@ async def finance_sales(
                 - int(item["payment_fee_minor"])
                 - int(item["shipping_cost_minor"])
                 - int(item["refund_minor"])
+                - int(item["shipping_refund_minor"])
                 - effective_cost
             )
             items.append(item)
