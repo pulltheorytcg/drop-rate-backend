@@ -359,6 +359,9 @@ async def test_shopify_product_snapshot_and_publication_are_read_back() -> None:
                             "sku": "INV-1",
                             "tracked": True,
                             "requiresShipping": True,
+                            "measurement": {
+                                "weight": {"value": 25.0, "unit": "GRAMS"}
+                            },
                         },
                     }]
                 },
@@ -373,6 +376,7 @@ async def test_shopify_product_snapshot_and_publication_are_read_back() -> None:
         publication_id="gid://shopify/Publication/3",
     ) is True
     assert any("inventoryQuantity" in query for query in calls)
+    assert any("measurement" in query and "weight" in query for query in calls)
     assert any("publishedOnPublication" in query for query in calls)
 
 
@@ -550,3 +554,59 @@ def test_shopify_variant_update_marks_cards_as_physical_shipping_items() -> None
     assert '"requiresShipping": True' in source
     assert '"tracked": True' in source
     assert '"inventoryPolicy": "DENY"' in source
+    assert '"measurement"' in source
+    assert '"weight"' in source
+
+
+@pytest.mark.asyncio
+async def test_shopify_variant_update_writes_verified_shipping_weight() -> None:
+    client = ShopifyAdminClient(
+        shop_domain="drop-rate.myshopify.com",
+        client_id="client-id",
+        client_secret="client-secret",
+        api_version="2026-07",
+    )
+    captured: dict[str, object] = {}
+
+    async def fake_graphql(*, query: str, variables: dict | None = None) -> dict:
+        captured["query"] = query
+        captured["variables"] = variables
+        return {
+            "productVariantsBulkUpdate": {
+                "productVariants": [{
+                    "id": "gid://shopify/ProductVariant/1",
+                    "price": "4.99",
+                    "inventoryPolicy": "DENY",
+                    "inventoryItem": {
+                        "id": "gid://shopify/InventoryItem/1",
+                        "sku": "INV-1",
+                        "tracked": True,
+                    },
+                }],
+                "userErrors": [],
+            }
+        }
+
+    client.graphql = fake_graphql  # type: ignore[method-assign]
+    await client.update_variant(
+        product_id="gid://shopify/Product/1",
+        variant_id="gid://shopify/ProductVariant/1",
+        price="4.99",
+        sku="INV-1",
+        cost="1.87",
+        shipping_spec={
+            "weight": {"value": 25.0, "unit": "GRAMS"},
+            "shippingPackageId": None,
+        },
+    )
+
+    variables = captured["variables"]
+    assert isinstance(variables, dict)
+    variant = variables["variants"][0]
+    inventory_item = variant["inventoryItem"]
+    assert inventory_item["requiresShipping"] is True
+    assert inventory_item["tracked"] is True
+    assert inventory_item["measurement"] == {
+        "weight": {"value": 25.0, "unit": "GRAMS"}
+    }
+    assert "shippingPackageId" not in inventory_item["measurement"]
