@@ -304,3 +304,64 @@ async def assign_storage_location(
                 "items": updated,
             }
         )
+
+
+@router.post("/storage-locations/{location_id}/assign-unlocated")
+async def assign_all_unlocated_inventory(
+    location_id: UUID,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Assign all currently unlocated movable stock to one registered location.
+
+    This is intentionally owner-scoped and idempotent: rerunning it only touches
+    inventory whose storage_location_id is still NULL. Sold/reserved stock is
+    never moved by this bulk operation.
+    """
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        async with connection.transaction():
+            location = await connection.fetchrow(
+                """
+                select id, code, label, active
+                from tcg.storage_locations
+                where id = $1 and owner_id = $2
+                for update
+                """,
+                location_id,
+                owner["id"],
+            )
+            if location is None:
+                raise HTTPException(status_code=404, detail="Storage location not found")
+            if not location["active"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Cannot assign inventory to an inactive location",
+                )
+
+            rows = await connection.fetch(
+                """
+                update tcg.inventory_items
+                set storage_location_id = $1,
+                    version = version + 1,
+                    updated_at = now()
+                where owner_id = $2
+                  and storage_location_id is null
+                  and status in ('DRAFT', 'INSPECTION', 'APPROVED', 'WITHDRAWN')
+                returning id, inventory_code, storage_location_id, location, version
+                """,
+                location_id,
+                owner["id"],
+            )
+
+        return jsonable_encoder(
+            {
+                "location": dict(location),
+                "updated_count": len(rows),
+                "items": [dict(row) for row in rows],
+            }
+        )
