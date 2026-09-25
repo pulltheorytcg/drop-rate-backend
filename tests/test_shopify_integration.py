@@ -182,6 +182,49 @@ async def test_shopify_inventory_set_uses_2026_07_quantity_shape() -> None:
     assert "@idempotent" in str(captured["query"])
 
 
+@pytest.mark.asyncio
+async def test_shopify_order_transactions_return_typed_fee_data() -> None:
+    client = ShopifyAdminClient(
+        shop_domain="drop-rate.myshopify.com",
+        client_id="client-id",
+        client_secret="client-secret",
+        api_version="2026-07",
+    )
+    captured: dict[str, object] = {}
+
+    async def fake_graphql(*, query: str, variables: dict | None = None) -> dict:
+        captured["query"] = query
+        captured["variables"] = variables
+        return {
+            "order": {
+                "id": "gid://shopify/Order/1002",
+                "transactions": [{
+                    "id": "gid://shopify/OrderTransaction/1",
+                    "kind": "SALE",
+                    "status": "SUCCESS",
+                    "processedAt": "2026-09-25T12:00:00Z",
+                    "fees": [{
+                        "id": "gid://shopify/TransactionFee/1",
+                        "type": "processing_fee",
+                        "amount": {"amount": "0.36", "currencyCode": "GBP"},
+                    }],
+                }],
+            }
+        }
+
+    client.graphql = fake_graphql  # type: ignore[method-assign]
+    rows = await client.get_order_transactions("gid://shopify/Order/1002")
+    assert len(rows) == 1
+    assert rows[0]["status"] == "SUCCESS"
+    assert rows[0]["fees"][0]["type"] == "processing_fee"
+    assert rows[0]["fees"][0]["amount"]["amount"] == "0.36"
+    assert captured["variables"] == {"id": "gid://shopify/Order/1002"}
+    query = str(captured["query"])
+    assert "transactions(first: 100)" in query
+    assert "fees {" in query
+    assert "amount { amount currencyCode }" in query
+
+
 def test_shopify_admin_client_mints_and_caches_client_credentials_token() -> None:
     source = CLIENT.read_text()
     assert "/admin/oauth/access_token" in source
