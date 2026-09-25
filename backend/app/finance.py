@@ -168,6 +168,7 @@ def _settlement_amounts(
     platform_fees_minor: int,
     payment_fees_minor: int,
     shipping_cost_minor: int,
+    adjustments_minor: int,
     effective_cogs_minor: int,
 ) -> dict[str, int]:
     gross_proceeds = (
@@ -181,7 +182,7 @@ def _settlement_amounts(
         + payment_fees_minor
         + shipping_cost_minor
     )
-    net_owner_proceeds = gross_proceeds - external_deductions
+    net_owner_proceeds = gross_proceeds - external_deductions + adjustments_minor
     owner_profit = net_owner_proceeds - effective_cogs_minor
     return {
         "gross_proceeds_minor": gross_proceeds,
@@ -503,6 +504,11 @@ async def finance_settlements(
                 )::bigint as shipping_cost_minor,
                 coalesce(
                   sum(le.amount_minor)
+                    filter (where le.entry_type='ADJUSTMENT'),
+                  0
+                )::bigint as adjustments_minor,
+                coalesce(
+                  sum(le.amount_minor)
                     filter (where le.funds_status='PENDING'),
                   0
                 )::bigint as pending_ledger_minor,
@@ -543,6 +549,7 @@ async def finance_settlements(
               coalesce(lr.platform_fees_minor,0)::bigint as platform_fees_minor,
               coalesce(lr.payment_fees_minor,0)::bigint as payment_fees_minor,
               coalesce(lr.shipping_cost_minor,0)::bigint as shipping_cost_minor,
+              coalesce(lr.adjustments_minor,0)::bigint as adjustments_minor,
               coalesce(lr.pending_ledger_minor,0)::bigint as pending_ledger_minor,
               coalesce(lr.available_ledger_minor,0)::bigint
                 as available_ledger_minor
@@ -566,6 +573,7 @@ async def finance_settlements(
             platform_fees = int(item["platform_fees_minor"] or 0)
             payment_fees = int(item["payment_fees_minor"] or 0)
             shipping_cost = int(item["shipping_cost_minor"] or 0)
+            adjustments = int(item["adjustments_minor"] or 0)
             effective_cogs = int(item["effective_cogs_minor"] or 0)
 
             amounts = _settlement_amounts(
@@ -576,6 +584,7 @@ async def finance_settlements(
                 platform_fees_minor=platform_fees,
                 payment_fees_minor=payment_fees,
                 shipping_cost_minor=shipping_cost,
+                adjustments_minor=adjustments,
                 effective_cogs_minor=effective_cogs,
             )
 
