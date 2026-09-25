@@ -3,8 +3,10 @@ from __future__ import annotations
 from app.shopify_completeness import (
     CARD_CATEGORY_GID,
     build_shopify_product_plan,
+    media_completeness,
     product_completeness,
     product_create_input,
+    verify_remote_product,
 )
 
 
@@ -67,6 +69,71 @@ def test_description_does_not_claim_item_specific_media() -> None:
     assert "exact card pictured" not in plan["descriptionHtml"].casefold()
 
 
+def _ready_asset(
+    *,
+    scope="CANONICAL_CARD",
+    side="FRONT",
+    file_id="gid://shopify/MediaImage/1",
+):
+    return {
+        "scope": scope,
+        "side": side,
+        "media_kind": "IMAGE",
+        "approval_status": "APPROVED",
+        "rights_status": "VERIFIED",
+        "shopify_file_status": "READY",
+        "shopify_file_gid": file_id,
+    }
+
+
+def test_raw_card_media_can_use_approved_canonical_front() -> None:
+    result = media_completeness(
+        "CANONICAL_CARD_ALLOWED",
+        [_ready_asset()],
+    )
+    assert result["complete"] is True
+    assert result["blockers"] == []
+    assert result["shopifyFileIds"] == ["gid://shopify/MediaImage/1"]
+
+
+def test_graded_card_media_requires_item_specific_front_and_back() -> None:
+    canonical_front = _ready_asset()
+    missing_back = media_completeness(
+        "PHYSICAL_ITEM_REQUIRED",
+        [
+            canonical_front,
+            _ready_asset(
+                scope="INVENTORY_ITEM",
+                side="FRONT",
+                file_id="gid://shopify/MediaImage/2",
+            ),
+        ],
+    )
+    assert missing_back["complete"] is False
+    assert missing_back["blockers"] == ["approved physical-item back image"]
+
+    complete = media_completeness(
+        "PHYSICAL_ITEM_REQUIRED",
+        [
+            _ready_asset(
+                scope="INVENTORY_ITEM",
+                side="FRONT",
+                file_id="gid://shopify/MediaImage/2",
+            ),
+            _ready_asset(
+                scope="INVENTORY_ITEM",
+                side="BACK",
+                file_id="gid://shopify/MediaImage/3",
+            ),
+        ],
+    )
+    assert complete["complete"] is True
+    assert complete["shopifyFileIds"] == [
+        "gid://shopify/MediaImage/2",
+        "gid://shopify/MediaImage/3",
+    ]
+
+
 def test_graded_cards_require_item_specific_physical_media() -> None:
     plan = build_shopify_product_plan(
         _card(condition=None, grading_company="PSA", grade="10")
@@ -105,6 +172,83 @@ def test_launch_completeness_passes_when_every_required_surface_is_ready() -> No
     )
     assert result["complete"] is True
     assert result["blockers"] == []
+
+
+def test_remote_product_verification_checks_every_launch_surface() -> None:
+    plan = build_shopify_product_plan(_card())
+    expected_metafields = {
+        row["key"]: row["value"]
+        for row in plan["metafields"]
+    }
+    snapshot = {
+        "title": plan["title"],
+        "descriptionHtml": plan["descriptionHtml"],
+        "status": "ACTIVE",
+        "vendor": plan["vendor"],
+        "productType": plan["productType"],
+        "tags": plan["tags"],
+        "templateSuffix": None,
+        "seo": plan["seo"],
+        "category": {"id": plan["category"]},
+        "metafields": {
+            "nodes": [
+                {
+                    "key": key,
+                    "value": value,
+                    "type": "single_line_text_field",
+                }
+                for key, value in expected_metafields.items()
+            ]
+        },
+        "collections": {
+            "nodes": [
+                {"id": "gid://shopify/Collection/1", "title": "Trading Cards"},
+                {"id": "gid://shopify/Collection/2", "title": "Pokémon"},
+            ]
+        },
+        "media": {
+            "nodes": [{"id": "gid://shopify/MediaImage/1"}]
+        },
+        "variants": {
+            "nodes": [{
+                "id": "gid://shopify/ProductVariant/1",
+                "price": "4.99",
+                "inventoryPolicy": "DENY",
+                "inventoryQuantity": 1,
+                "inventoryItem": {
+                    "id": "gid://shopify/InventoryItem/1",
+                    "sku": "INV-PKM-TEST-001",
+                    "tracked": True,
+                    "requiresShipping": True,
+                },
+            }]
+        },
+    }
+    result = verify_remote_product(
+        plan,
+        snapshot,
+        expected_price="4.99",
+        expected_sku="INV-PKM-TEST-001",
+        expected_collection_titles={"Trading Cards", "Pokémon"},
+        expected_media_file_ids={"gid://shopify/MediaImage/1"},
+        expected_quantity=1,
+        expected_status="ACTIVE",
+    )
+    assert result == {"complete": True, "blockers": []}
+
+    snapshot["variants"]["nodes"][0]["inventoryQuantity"] = 0
+    broken = verify_remote_product(
+        plan,
+        snapshot,
+        expected_price="4.99",
+        expected_sku="INV-PKM-TEST-001",
+        expected_collection_titles={"Trading Cards", "Pokémon"},
+        expected_media_file_ids={"gid://shopify/MediaImage/1"},
+        expected_quantity=1,
+        expected_status="ACTIVE",
+    )
+    assert broken["complete"] is False
+    assert "remote inventory quantity" in broken["blockers"]
 
 
 def test_product_create_input_contains_complete_deterministic_shopify_fields() -> None:
