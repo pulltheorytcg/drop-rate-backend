@@ -446,7 +446,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 11. **Operational inventory cleanup:** 412 remaining language reviews, 508 unconfirmed identities, 507 remaining registered-storage assignments, the remaining 10 conditions and 508 Store Prices. Current acquisition costs are populated; future unknown costs must still remain NULL.
 12. **Shopify settlement enrichment:** Finance Reconciliation v1 + Owner Settlement Report v1 are deployed. Live-verify #1002 fee import, postage-cost reconciliation and the resulting settlement row, then automate recurring fee reconciliation / shipping-provider cost ingestion.
 13. **Refund settlement follow-up:** Shopify accepted the £5.48 refund for #1002, but the external refund transaction was still pending at the last check; verify completion before any further order action.
-14. **Shopify shipping profile configuration:** registry and hard publication gate are live, but no RAW_CARD/GRADED_CARD weights are configured yet. Founder must enter approved operating weights in Settings; Drop Rate will not guess them.
+14. **Shopify shipping profile configuration:** registry and hard publication gate are live. RAW_CARD is configured at 40g for Royal Mail Tracked 48 using a 110x145x21mm package; GRADED_CARD remains launch-blocked until its physical package and operating weight are measured.
 15. **Shopify media readiness:** completeness/media registry is fail-closed; approve permitted canonical media for normal raw cards and item-specific front/back media where the physical item requires it before scaling publication.
 
 ## Milestone 1 checklist
@@ -509,7 +509,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 9. ✅ **Owner Settlement Report v1 deployed:** Reports now show gross proceeds, deductions, signed adjustments, net owner proceeds, effective cost basis, owner profit, reconciliation state and pending/available funds without moving money.
 10. Re-check the Shopify Payments refund settlement, then verify duplicate reconciliation idempotency and #1002's final settlement row.
 11. ✅ **Shopify deterministic shipping-spec engine deployed:** owner-scoped RAW_CARD/GRADED_CARD registry, fail-closed completeness gate, Shopify weight write/read-back verification and Settings controls are live.
-12. **Founder setup required:** configure the approved RAW_CARD and GRADED_CARD shipping weights once in **Settings → Shopify → Shipping specifications**. Until configured, affected products remain launch-blocked.
+12. ✅ **RAW_CARD shipping configured:** 40g operating weight, 110x145x21mm package, 27g empty package and Royal Mail Tracked 48. Packaging cost is £0.75 per order. GRADED_CARD remains launch-blocked until measured and configured.
 
 ### Next major engineering milestone — Shopify
 Build the complete controlled sale loop:
@@ -537,6 +537,7 @@ Required controls:
 - multi-founder ownership remains deferred; current build stays single-founder
 - consignors/consignment come after the founder sale loop
 - automated media intake/product-enrichment follows the controlled Shopify sale loop; AI identification comes after core commerce/pricing reliability
+- the future iOS-assisted scan-to-list workflow is specified in `docs/MOBILE_CARD_CAPTURE_BLUEPRINT.md`: camera identification, explicit confirmation, manual card-number recovery, physical inventory creation and guarded Shopify publication through the backend
 - AI marketing, SEO automation and advanced n8n orchestration come after inventory, Shopify, settlement and market pricing foundations
 - value-weighted Purchase Lot allocation waits for reliable market reference values
 - no automatic money movement until settlement reporting is thoroughly verified
