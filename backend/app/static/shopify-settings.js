@@ -40,6 +40,14 @@ function installShopifySettingsPanel() {
     <div id="shopify-shipping-profile-list" class="allocation-list"></div>
     <div class="page-heading pricing-subheading">
       <div>
+        <p class="eyebrow">Media readiness</p>
+        <h3>Canonical reuse + physical-photo queue</h3>
+        <p class="muted">Ordinary raw cards can share one rights-approved canonical front image per card identity. Graded cards require item-specific front and back images. No source is copied or approved automatically.</p>
+      </div>
+    </div>
+    <div id="shopify-media-readiness" class="allocation-list"></div>
+    <div class="page-heading pricing-subheading">
+      <div>
         <p class="eyebrow">Controlled milestone test</p>
         <h3>Single-item Shopify sync</h3>
         <p class="muted">Only an APPROVED, physically verified item can be synced here. Bulk publishing remains locked off.</p>
@@ -84,10 +92,11 @@ async function loadShopifyStatus() {
 
   showMessage("shopify-settings-message", "Loading Shopify integration status…");
   try {
-    const [data, testData, shippingData] = await Promise.all([
+    const [data, testData, shippingData, mediaData] = await Promise.all([
       apiRequest("/api/v1/shopify/status"),
       apiRequest("/api/v1/shopify/test-sync"),
       apiRequest("/api/v1/shopify/shipping-profiles?include_inactive=true"),
+      apiRequest("/api/v1/shopify/media-readiness?limit=12"),
     ]);
     list.replaceChildren(
       shopifyStatusRow(
@@ -144,6 +153,7 @@ async function loadShopifyStatus() {
     );
     byId("shopify-register-button").disabled = !data.webhook_registration_ready;
     renderShopifyShippingProfiles(shippingData);
+    renderShopifyMediaReadiness(mediaData);
     renderShopifyTestCandidates(testData);
     showMessage("shopify-settings-message");
   } catch (error) {
@@ -244,6 +254,68 @@ async function configureShopifyShippingProfile(key, existing = null) {
   } catch (error) {
     showMessage("shopify-settings-message", error.message, "error");
   }
+}
+
+
+function mediaQueueLabel(item) {
+  return [
+    item.name,
+    item.card_number,
+    item.variant,
+    item.language,
+  ].filter(Boolean).join(" · ");
+}
+
+function renderShopifyMediaReadiness(data) {
+  const container = byId("shopify-media-readiness");
+  if (!container) return;
+  const summary = data.summary || {};
+  const rows = [
+    shopifyStatusRow(
+      "Raw-card media workload",
+      `${Number(summary.raw_ready_identities || 0).toLocaleString("en-GB")} / ${Number(summary.raw_unique_identities || 0).toLocaleString("en-GB")} identities ready`,
+      [
+        `${Number(summary.raw_physical_cards || 0).toLocaleString("en-GB")} physical raw cards`,
+        `${Number(summary.raw_physical_covered || 0).toLocaleString("en-GB")} covered by approved canonical media`,
+        "one approved canonical front can cover duplicate physical copies",
+      ].join(" · ")
+    ),
+    shopifyStatusRow(
+      "Graded-card media workload",
+      `${Number(summary.graded_ready_items || 0).toLocaleString("en-GB")} / ${Number(summary.graded_physical_cards || 0).toLocaleString("en-GB")} items ready`,
+      "Each graded physical item requires its own approved FRONT + BACK images."
+    ),
+    shopifyStatusRow(
+      "Launch media coverage",
+      `${Number(summary.total_ready_physical_cards || 0).toLocaleString("en-GB")} ready · ${Number(summary.total_missing_physical_cards || 0).toLocaleString("en-GB")} missing`,
+      data.policy?.rights_rule || "Media remains fail-closed until rights and approval are verified."
+    ),
+  ];
+
+  (data.canonical_queue || []).forEach((item, index) => {
+    rows.push(
+      shopifyStatusRow(
+        `Canonical priority ${index + 1}`,
+        `${Number(item.physical_copies || 0).toLocaleString("en-GB")} physical cop${Number(item.physical_copies || 0) === 1 ? "y" : "ies"}`,
+        `${mediaQueueLabel(item)} · ${item.set_name || "Unknown set"} · needs one approved canonical FRONT`
+      )
+    );
+  });
+
+  (data.physical_queue || []).forEach((item, index) => {
+    const missingSides = [];
+    if (!item.ready_front) missingSides.push("FRONT");
+    if (!item.ready_back) missingSides.push("BACK");
+    rows.push(
+      shopifyStatusRow(
+        `Physical-photo priority ${index + 1}`,
+        item.inventory_code,
+        `${mediaQueueLabel(item)} · ${item.grading_company || "Graded"} ${item.grade || ""} · needs ${missingSides.join(" + ")}`
+      )
+    );
+  });
+
+  container.replaceChildren(...rows);
 }
 
 
