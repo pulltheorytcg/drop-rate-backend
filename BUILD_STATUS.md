@@ -301,6 +301,8 @@ The following areas were reviewed and defects found were corrected:
 - unknown Shopify/payment fees and postage cost display as **Pending**, not £0.00
 - profit remains **Pending** with a provisional figure until fee/postage entries actually exist
 - owner settlement reporting keeps **net owner proceeds** separate from **owner profit** so acquisition cost is never incorrectly withheld from owner proceeds
+- first live `Sync fees` and `Set postage` attempts returned HTTP 500 because the generic finance audit trigger assumed an `id` column; `order_item_reconciliations` is keyed by `order_item_id`
+- production migration `20260925144808_fix_order_item_reconciliation_audit_trigger` now uses a dedicated audited trigger keyed by `order_item_id`; RLS and finance rules were not weakened, PUBLIC execute was revoked, and regression coverage was added
 - settlement adjustments are explicit signed ledger components; pending vs available cash remains separate from reconciliation readiness
 - returned-to-stock items use effective COGS £0 for that realised sale because the physical asset has returned to inventory
 
@@ -327,9 +329,9 @@ The following areas were reviewed and defects found were corrected:
 - PR and post-merge GitHub CI are green for the latest hardening commits
 - Railway production has a **pre-deploy compile + pytest gate**; the missing `pytest-asyncio` dependency was fixed after deployment logs exposed 43 silently skipped async tests
 - Railway now installs pinned **Node 22.23.3 LTS** alongside Python through `RAILPACK_PACKAGES`, so frontend/static checks run in the production pre-deploy gate too
-- current Railway regression result: **399 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
+- current Railway regression result: **400 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
 - live database integrity checks: **0 duplicate Inventory Codes, 0 language mismatches, 0 confirmed-without-evidence, 0 active-reservation/state mismatches**
-- migration history reconciled through `20260925141327_order_item_reconciliation`, including language correction, Shopify pending-reservation hardening and explicit shipping-refund ledger support
+- migration history reconciled through `20260925144808_fix_order_item_reconciliation_audit_trigger`, including Finance Reconciliation v1 and the reconciliation-specific audit-trigger hotfix
 - `database/migrations/**` is now the only canonical location for new migration files
 - Railway `Wait for CI` still reads **OFF** (`checkSuites=false`) after two attempted staged updates; treat this as an external Railway/GitHub-integration permission/configuration blocker until the setting can be re-authorised and verified
 - the guarded Supabase migration workflow is merged (`workflow_dispatch`, dry-run by default, explicit apply mode). Its required GitHub secrets and first production dry-run still need to be verified before the next schema change
@@ -348,7 +350,7 @@ A feature is not considered complete merely because its unit tests pass. For mat
 7. **Failure testing:** deliberate bad inputs, duplicate events, stale versions, unavailable records and provider failures are tested before a feature is treated as safe.
 8. **Release decision:** any unresolved critical integrity issue keeps the feature gated, even when CI is green.
 
-Current production regression baseline: **399 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero active reservation/state mismatches and one archived Shopify link for the refunded Seel test item now in INSPECTION.
+Current production regression baseline: **400 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero active reservation/state mismatches and one archived Shopify link for the refunded Seel test item now in INSPECTION.
 
 GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
 
@@ -487,7 +489,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 5. ✅ Full **£5.48 refund + restock** verified: −£0.49 item refund, −£4.99 shipping refund, order REFUNDED, physical item INSPECTION, Shopify link ARCHIVED and available stock 0.
 6. **Next check (26 Sep):** verify the Shopify Payments refund transaction has finished settling before taking any further order action. Do not cancel #1002 merely because it is fully refunded; first confirm the final Shopify refund/order state.
 7. ✅ **Finance Reconciliation v1 deployed:** typed Shopify transaction-fee ingestion, auditable reconciliation metadata, explicit £0 postage support, refund invalidation and Sales-tab controls are live.
-8. **Live verification:** on #1002 use **Sync fees** (Shopify currently exposes a £0.36 processing fee; fee status must remain incomplete while the refund transaction is still pending) and **Set postage** with the actual fulfilment cost.
+8. **Live verification retry required:** the first #1002 **Sync fees** / **Set postage** attempts exposed and triggered the reconciliation-audit hotfix. Retry both actions after migration `20260925144808`; Shopify currently exposes a £0.36 processing fee and postage for this unshipped test is £0.00.
 9. ✅ **Owner Settlement Report v1 deployed:** Reports now show gross proceeds, deductions, signed adjustments, net owner proceeds, effective cost basis, owner profit, reconciliation state and pending/available funds without moving money.
 10. Re-check the Shopify Payments refund settlement, then live-verify #1002 fee/postage reconciliation, duplicate reconciliation idempotency and its final settlement row.
 
