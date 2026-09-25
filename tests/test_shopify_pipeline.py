@@ -28,6 +28,7 @@ FINAL_ORDER_MIGRATION = ROOT / "database" / "migrations" / "20260924232925_remov
 SHIPPING_REFUND_MIGRATION = ROOT / "database" / "migrations" / "20260924235450_shopify_shipping_refunds.sql"
 MEDIA_REGISTRY_MIGRATION = ROOT / "database" / "migrations" / "20260925154423_media_assets_registry.sql"
 SHIPPING_PROFILE_MIGRATION = ROOT / "database" / "migrations" / "20260925162748_shopify_shipping_profiles.sql"
+FULFILMENT_COST_MIGRATION = ROOT / "database" / "migrations" / "20260925172500_fulfilment_cost_components.sql"
 
 
 def test_money_helpers_are_penny_exact() -> None:
@@ -357,6 +358,34 @@ def test_shopify_shipping_profile_registry_is_rls_protected_and_audited() -> Non
     ) in sql
 
 
+def test_fulfilment_cost_registry_is_owner_scoped_audited_and_penny_exact() -> None:
+    sql = FULFILMENT_COST_MIGRATION.read_text().casefold()
+    assert "create table tcg.fulfilment_cost_components" in sql
+    assert "enable row level security" in sql
+    assert "create policy own_records" in sql
+    assert "revoke delete" in sql
+    assert "native_unit_cost_minor" in sql
+    assert "accounting_unit_cost_minor_gbp" in sql
+    assert "fulfilment_cost_components_audit" in sql
+    assert "fulfilment cost owner is immutable once created" in sql
+
+
+def test_fulfilment_cost_api_is_versioned_owner_scoped_and_gbp_only() -> None:
+    source = PIPELINE.read_text()
+    assert (
+        '@router.put(\n'
+        '    "/shipping-profiles/{profile_id}/cost-components/{component_key}"\n'
+        ')' in source
+    )
+    assert 'component_key not in {"PACKAGING", "TOPLOADER"}' in source
+    assert "where id=$1 and owner_id=$2" in source
+    assert "Fulfilment cost component changed" in source
+    assert "native_currency='GBP'" in source
+    assert "accounting_unit_cost_minor_gbp=$6" in source
+    assert "package_length_mm" in source
+    assert "empty_package_weight_grams" in source
+
+
 def test_shopify_sync_requires_shipping_profile_before_remote_create() -> None:
     source = PIPELINE.read_text()
     start = source.index("async def sync_one_test_item(")
@@ -454,6 +483,10 @@ def test_shopify_dashboard_surfaces_launch_completeness_and_preview() -> None:
     assert "Shipping specifications" in frontend
     assert "/api/v1/shopify/shipping-profiles" in frontend
     assert "configureShopifyShippingProfile" in frontend
+    assert "configureFulfilmentCosts" in frontend
+    assert "shopifyFulfilmentSummary" in frontend
+    assert "cost-components" in frontend
+    assert "Package dimensions in millimetres" in frontend
     assert "Required profile:" in frontend
 
 
