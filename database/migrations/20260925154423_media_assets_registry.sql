@@ -133,6 +133,30 @@ create policy own_asset_writes on tcg.media_assets
 grant select,insert,update on tcg.media_assets to tcg_api;
 revoke delete on tcg.media_assets from tcg_api;
 
+create or replace function tcg.audit_media_asset_change()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'pg_catalog'
+as $function$
+begin
+    insert into tcg.audit_events(
+        actor, request_id, action, entity_type, entity_id, old_values, new_values
+    ) values (
+        coalesce(nullif(current_setting('tcg.user_id', true), ''), session_user::text),
+        nullif(current_setting('tcg.request_id', true), ''),
+        tg_op,
+        tg_table_name,
+        case when tg_op='DELETE' then old.id else new.id end,
+        case when tg_op='INSERT' then null else to_jsonb(old) end,
+        case when tg_op='DELETE' then null else to_jsonb(new) end
+    );
+    return null;
+end;
+$function$;
+
+revoke all on function tcg.audit_media_asset_change() from public;
+
 create trigger media_assets_audit
     after insert or update or delete on tcg.media_assets
-    for each row execute function tcg.audit_change();
+    for each row execute function tcg.audit_media_asset_change();
