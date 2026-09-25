@@ -27,6 +27,7 @@ PENDING_MIGRATION = ROOT / "database" / "migrations" / "20260924230955_shopify_p
 FINAL_ORDER_MIGRATION = ROOT / "database" / "migrations" / "20260924232925_remove_pending_finance_order_status.sql"
 SHIPPING_REFUND_MIGRATION = ROOT / "database" / "migrations" / "20260924235450_shopify_shipping_refunds.sql"
 MEDIA_REGISTRY_MIGRATION = ROOT / "database" / "migrations" / "20260925154423_media_assets_registry.sql"
+SHIPPING_PROFILE_MIGRATION = ROOT / "database" / "migrations" / "20260925162748_shopify_shipping_profiles.sql"
 
 
 def test_money_helpers_are_penny_exact() -> None:
@@ -337,6 +338,42 @@ def test_shopify_test_sync_fails_before_remote_create_when_launch_incomplete() -
     assert "shopify_file_status='READY'" in source
 
 
+def test_shopify_shipping_profile_registry_is_rls_protected_and_audited() -> None:
+    sql = SHIPPING_PROFILE_MIGRATION.read_text().casefold()
+    assert "create table tcg.shopify_shipping_profiles" in sql
+    assert "enable row level security" in sql
+    assert "create policy own_records" in sql
+    assert "grant select, insert, update" in sql
+    assert "revoke delete" in sql
+    assert "weight_value" in sql
+    assert "weight_unit" in sql
+    assert "shopify_shipping_profiles_audit" in sql
+    assert "profile_key is immutable" in sql
+
+
+def test_shopify_sync_requires_shipping_profile_before_remote_create() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def sync_one_test_item(")
+    end = source.index("def _parse_order_lines(", start)
+    sync = source[start:end]
+    assert "_shipping_profiles(" in source
+    assert "shipping_profiles=shipping_profiles" in sync
+    assert 'shipping_spec=launch["shippingSpec"]' in sync
+    assert 'expected_shipping_spec=launch["shippingSpec"]' in sync
+    assert sync.index('if not launch["complete"]:') < sync.index("client.create_product(")
+
+
+def test_shopify_shipping_profile_api_is_versioned_and_owner_scoped() -> None:
+    source = PIPELINE.read_text()
+    assert '@router.get("/shipping-profiles")' in source
+    assert '@router.post("/shipping-profiles", status_code=201)' in source
+    assert '@router.patch("/shipping-profiles/{profile_id}")' in source
+    assert "where id=$1 and owner_id=$2" in source
+    assert "current_version" in source
+    assert "RAW_CARD" in source
+    assert "GRADED_CARD" in source
+
+
 def test_media_registry_is_rls_protected_rights_gated_and_audited() -> None:
     sql = MEDIA_REGISTRY_MIGRATION.read_text().casefold()
     assert "create table tcg.media_assets" in sql
@@ -408,6 +445,10 @@ def test_shopify_dashboard_surfaces_launch_completeness_and_preview() -> None:
     assert "/api/v1/shopify/product-preview/" in frontend
     assert "productPlan" in frontend
     assert "productCompleteness" in frontend
+    assert "Shipping specifications" in frontend
+    assert "/api/v1/shopify/shipping-profiles" in frontend
+    assert "configureShopifyShippingProfile" in frontend
+    assert "Required profile:" in frontend
 
 
 def test_shopify_dashboard_disables_sync_until_launch_ready() -> None:
