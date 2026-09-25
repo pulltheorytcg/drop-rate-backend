@@ -133,3 +133,11 @@ def test_shopify_webhook_endpoint_rejects_query_or_fragment(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="query parameters"):
         Settings.from_env()
+
+
+def test_trawl_api_key_is_optional_and_server_side(monkeypatch):
+    _base_env(monkeypatch)
+    monkeypatch.delenv("TCG_TRAWL_API_KEY", raising=False)
+    assert Settings.from_env().trawl_api_key is None
+    monkeypatch.setenv("TCG_TRAWL_API_KEY", "trawl-secret")
+    assert Settings.from_env().trawl_api_key == "trawl-secret"
