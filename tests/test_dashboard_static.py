@@ -87,6 +87,7 @@ def test_dashboard_shell_preserves_working_component_ids() -> None:
         "founder-finance-panel",
         "finance-sales-body",
         "finance-payouts-body",
+        "finance-settlement-section",
         "storage-locations-section",
         "purchase-lots-list",
     ):
