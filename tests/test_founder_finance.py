@@ -4,7 +4,12 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from app.finance import ManualSaleCreate, PayoutRequestCreate, allocate_minor
+from app.finance import (
+    ManualSaleCreate,
+    PayoutRequestCreate,
+    ShopifyPostageReconcile,
+    allocate_minor,
+)
 
 
 ROOT = Path(__file__).parents[1]
@@ -88,6 +93,53 @@ def test_shopify_sales_do_not_present_unknown_settlement_costs_as_final_profit()
     assert 'item["fees_complete"]' in source
     assert 'item["shipping_cost_complete"]' in source
     assert 'item["profit_complete"]' in source
+
+
+def test_order_item_reconciliation_metadata_is_rls_protected_and_audited() -> None:
+    sql = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20260925141327_order_item_reconciliation.sql"
+    ).read_text().casefold()
+    assert "create table tcg.order_item_reconciliations" in sql
+    assert "fees_reconciled_at" in sql
+    assert "shipping_cost_reconciled_at" in sql
+    assert "enable row level security" in sql
+    assert "create policy own_records" in sql
+    assert "grant select, insert, update" in sql
+    assert "revoke delete" in sql
+    assert "order_item_reconciliations_audit" in sql
+
+
+def test_zero_postage_can_be_explicitly_reconciled() -> None:
+    payload = ShopifyPostageReconcile(
+        amount_minor=0,
+        reference="not-shipped-test-order",
+    )
+    assert payload.amount_minor == 0
+    assert payload.reference == "not-shipped-test-order"
+
+
+def test_shopify_fee_reconciliation_is_fail_closed_and_idempotent() -> None:
+    source = (ROOT / "backend" / "app" / "finance.py").read_text()
+    assert "get_order_transactions(" in source
+    assert '"processing_fee": "PAYMENT_FEE"' in source
+    assert "unmapped fee type" in source
+    assert "AWAITING_RESPONSE" in source
+    assert "UNKNOWN" in source
+    assert "on conflict(source_key) do nothing" in source
+    assert "SHOPIFY_ORDER_TRANSACTIONS" in source
+    assert "exactly one visible order item" in source
+
+
+def test_finance_completeness_uses_reconciliation_metadata_not_nonzero_ledger_rows() -> None:
+    source = (ROOT / "backend" / "app" / "finance.py").read_text()
+    assert "tcg.order_item_reconciliations" in source
+    assert "fees_reconciled_at is not null" in source
+    assert "shipping_cost_reconciled_at is not null" in source
+    assert 'item["fees_complete"]' in source
+    assert 'item["shipping_cost_complete"]' in source
 
 
 def test_finance_dashboard_exposes_required_sections() -> None:
