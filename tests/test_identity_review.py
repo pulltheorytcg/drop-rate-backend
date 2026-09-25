@@ -3,12 +3,19 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from app.identity_review import IdentityConfirmRequest, IdentityReviewSelection
+from app.identity_review import (
+    IdentityConfirmRequest,
+    IdentityReviewSelection,
+    import_exact_evidence,
+)
 from app.schemas import InventoryPatch, ManualInventoryCreate
 
 
 ROOT = Path(__file__).parents[1]
 MIGRATION = ROOT / "migrations" / "004_identity_verification_events.sql"
+IMPORT_EXACT_MIGRATION = (
+    ROOT / "database" / "migrations" / "20260926001000_identity_import_exact_method.sql"
+)
 API = ROOT / "backend" / "app" / "identity_review.py"
 MAIN = ROOT / "backend" / "app" / "main.py"
 FRONTEND = ROOT / "backend" / "app" / "static" / "identity-review.js"
@@ -110,3 +117,74 @@ def test_identity_review_queue_reports_language_completeness() -> None:
     assert "count(*) filter(where i.language is not null)::int as language_copies" in source
     assert "group.language_copies" in frontend
     assert "language ·" in frontend
+
+
+def _import_row(**overrides):
+    row = {
+        "source_record": {
+            "Product Name": "Sanji (JP)",
+            "Set": "Carrying on His Will",
+            "Card Number": "OP13-027",
+            "Variance": "Foil",
+        },
+        "name": "Sanji",
+        "set_name": "Carrying On His Will",
+        "card_number": "OP13-027",
+        "variant": "Foil",
+        "language": "Japanese",
+        "catalogue_language": "Japanese",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_import_exact_accepts_explicit_japanese_suffix_and_normalized_identity() -> None:
+    evidence = import_exact_evidence(_import_row())
+    assert evidence is not None
+    assert evidence["verification_method"] == "IMPORT_EXACT"
+    assert evidence["language"] == "Japanese"
+
+
+def test_import_exact_rejects_missing_explicit_language_evidence() -> None:
+    row = _import_row(
+        source_record={
+            "Product Name": "Sanji",
+            "Set": "Carrying on His Will",
+            "Card Number": "OP13-027",
+            "Variance": "Foil",
+        }
+    )
+    assert import_exact_evidence(row) is None
+
+
+def test_import_exact_rejects_language_or_variant_mismatch() -> None:
+    assert import_exact_evidence(_import_row(language="English")) is None
+    row = _import_row()
+    row["source_record"] = dict(row["source_record"], Variance="Normal")
+    assert import_exact_evidence(row) is None
+
+
+def test_import_exact_allows_foil_holofoil_synonym_only() -> None:
+    row = _import_row(variant="Holofoil")
+    assert import_exact_evidence(row) is not None
+
+
+def test_import_exact_endpoint_is_owner_scoped_locked_revalidated_and_audited() -> None:
+    source = API.read_text()
+    assert '@router.get("/import-exact/status")' in source
+    assert '@router.post("/import-exact/confirm")' in source
+    assert "where i.owner_id=$1" in source
+    assert "for update of i" in source
+    assert "evidence = import_exact_evidence(row)" in source
+    assert "'IMPORT_EXACT'" in source
+    assert "verification_evidence" in source
+    assert "Exact original import match" in source
+
+
+def test_import_exact_verification_method_is_versioned_in_canonical_migration() -> None:
+    sql = IMPORT_EXACT_MIGRATION.read_text()
+    assert "identity_verification_events_verification_method_check" in sql
+    assert "'IMPORT_EXACT'" in sql
+    assert "'PHYSICAL_REVIEW'" in sql
+    assert "'CORRECTION'" in sql
+    assert "'SYSTEM_INVALIDATION'" in sql
