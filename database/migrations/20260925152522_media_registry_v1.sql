@@ -190,6 +190,9 @@ create trigger media_assets_audit
     for each row execute function tcg.audit_media_asset_change();
 
 alter table tcg.media_assets enable row level security;
+alter table tcg.media_assets force row level security;
+
+revoke all on table tcg.media_assets from public, anon, authenticated;
 
 create policy admin_access on tcg.media_assets
     for all to postgres using (true) with check (true);
