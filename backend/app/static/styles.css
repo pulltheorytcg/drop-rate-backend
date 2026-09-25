@@ -30,3 +30,6 @@
   #founder-finance-panel .finance-money-cell{white-space:normal}
   #founder-finance-panel .finance-money-cell>small{max-width:none}
 }
+
+#founder-finance-panel .finance-reconcile-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+#founder-finance-panel .finance-reconcile-actions .ghost-button{padding:5px 8px;font-size:.68rem;line-height:1.1}
