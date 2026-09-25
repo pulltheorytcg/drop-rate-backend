@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Mapping
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -135,6 +135,43 @@ def allocate_minor(total: int, weights: list[int]) -> list[int]:
     return base
 
 
+def _fulfilment_material_allocations(
+    items: list[Mapping[str, object]],
+    components: list[Mapping[str, object]],
+) -> list[int]:
+    """Allocate configured material costs without losing or creating pennies."""
+    if not items:
+        raise ValueError("At least one order item is required")
+    if not components:
+        raise ValueError("No active fulfilment cost components are configured")
+
+    weights = [int(item["net_sale_minor"]) for item in items]
+    allocations = [0] * len(items)
+    for component in components:
+        unit_cost = component["accounting_unit_cost_minor_gbp"]
+        if unit_cost is None:
+            raise ValueError("Fulfilment component is missing its GBP accounting cost")
+        quantity = Decimal(str(component["quantity"]))
+        component_cost = int(
+            (Decimal(int(unit_cost)) * quantity).quantize(
+                Decimal("1"),
+                rounding=ROUND_HALF_UP,
+            )
+        )
+        basis = str(component["allocation_basis"])
+        if basis == "PER_ORDER":
+            shared = allocate_minor(component_cost, weights)
+            allocations = [
+                current + shared[index]
+                for index, current in enumerate(allocations)
+            ]
+        elif basis == "PER_ITEM":
+            allocations = [current + component_cost for current in allocations]
+        else:
+            raise ValueError(f"Unsupported fulfilment allocation basis: {basis}")
+    return allocations
+
+
 def _settlement_reconciliation_state(
     *,
     source: str,
@@ -168,6 +205,7 @@ def _settlement_amounts(
     platform_fees_minor: int,
     payment_fees_minor: int,
     shipping_cost_minor: int,
+    fulfilment_material_cost_minor: int,
     adjustments_minor: int,
     effective_cogs_minor: int,
 ) -> dict[str, int]:
@@ -181,6 +219,7 @@ def _settlement_amounts(
         platform_fees_minor
         + payment_fees_minor
         + shipping_cost_minor
+        + fulfilment_material_cost_minor
     )
     net_owner_proceeds = gross_proceeds - external_deductions + adjustments_minor
     owner_profit = net_owner_proceeds - effective_cogs_minor
@@ -240,6 +279,7 @@ async def finance_summary(
                 coalesce(-sum(amount_minor) filter (where entry_type = 'PLATFORM_FEE'), 0)::bigint as platform_fees_minor,
                 coalesce(-sum(amount_minor) filter (where entry_type = 'PAYMENT_FEE'), 0)::bigint as payment_fees_minor,
                 coalesce(-sum(amount_minor) filter (where entry_type = 'SHIPPING_COST'), 0)::bigint as shipping_cost_minor,
+                coalesce(-sum(amount_minor) filter (where entry_type = 'FULFILMENT_MATERIAL_COST'), 0)::bigint as fulfilment_material_cost_minor,
                 coalesce(-sum(amount_minor) filter (where entry_type = 'REFUND'), 0)::bigint as refunds_minor,
                 coalesce(-sum(amount_minor) filter (where entry_type = 'SHIPPING_REFUND'), 0)::bigint as shipping_refunds_minor,
                 count(distinct order_item_id) filter (where entry_type = 'SALE_REVENUE')::int as sold_items
@@ -300,6 +340,9 @@ async def finance_summary(
         platform_fees = int(ledger["platform_fees_minor"] or 0)
         payment_fees = int(ledger["payment_fees_minor"] or 0)
         shipping_cost = int(ledger["shipping_cost_minor"] or 0)
+        fulfilment_material_cost = int(
+            ledger["fulfilment_material_cost_minor"] or 0
+        )
         refunds = int(ledger["refunds_minor"] or 0)
         shipping_refunds = int(ledger["shipping_refunds_minor"] or 0)
         cost_of_goods = int(cogs or 0)
@@ -312,6 +355,7 @@ async def finance_summary(
             - platform_fees
             - payment_fees
             - shipping_cost
+            - fulfilment_material_cost
             - cost_of_goods
         )
         balances = await _balance_components(connection, owner["id"])
@@ -323,6 +367,7 @@ async def finance_summary(
             "platform_fees_minor": platform_fees,
             "payment_fees_minor": payment_fees,
             "shipping_cost_minor": shipping_cost,
+            "fulfilment_material_cost_minor": fulfilment_material_cost,
             "refunds_minor": refunds,
             "shipping_refunds_minor": shipping_refunds,
             "cost_of_goods_minor": cost_of_goods,
@@ -368,6 +413,7 @@ async def finance_sales(
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'PLATFORM_FEE'), 0)::bigint as platform_fee_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'PAYMENT_FEE'), 0)::bigint as payment_fee_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_COST'), 0)::bigint as shipping_cost_minor,
+                coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'FULFILMENT_MATERIAL_COST'), 0)::bigint as fulfilment_material_cost_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'REFUND'), 0)::bigint as refund_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_REFUND'), 0)::bigint as shipping_refund_minor,
                 (rec.fees_reconciled_at is not null) as fees_reconciled,
@@ -405,6 +451,7 @@ async def finance_sales(
                 - int(item["platform_fee_minor"])
                 - int(item["payment_fee_minor"])
                 - int(item["shipping_cost_minor"])
+                - int(item["fulfilment_material_cost_minor"])
                 - int(item["refund_minor"])
                 - int(item["shipping_refund_minor"])
                 - effective_cost
@@ -503,6 +550,11 @@ async def finance_settlements(
                   0
                 )::bigint as shipping_cost_minor,
                 coalesce(
+                  -sum(le.amount_minor)
+                    filter (where le.entry_type='FULFILMENT_MATERIAL_COST'),
+                  0
+                )::bigint as fulfilment_material_cost_minor,
+                coalesce(
                   sum(le.amount_minor)
                     filter (where le.entry_type='ADJUSTMENT'),
                   0
@@ -549,6 +601,8 @@ async def finance_settlements(
               coalesce(lr.platform_fees_minor,0)::bigint as platform_fees_minor,
               coalesce(lr.payment_fees_minor,0)::bigint as payment_fees_minor,
               coalesce(lr.shipping_cost_minor,0)::bigint as shipping_cost_minor,
+              coalesce(lr.fulfilment_material_cost_minor,0)::bigint
+                as fulfilment_material_cost_minor,
               coalesce(lr.adjustments_minor,0)::bigint as adjustments_minor,
               coalesce(lr.pending_ledger_minor,0)::bigint as pending_ledger_minor,
               coalesce(lr.available_ledger_minor,0)::bigint
@@ -573,6 +627,9 @@ async def finance_settlements(
             platform_fees = int(item["platform_fees_minor"] or 0)
             payment_fees = int(item["payment_fees_minor"] or 0)
             shipping_cost = int(item["shipping_cost_minor"] or 0)
+            fulfilment_material_cost = int(
+                item["fulfilment_material_cost_minor"] or 0
+            )
             adjustments = int(item["adjustments_minor"] or 0)
             effective_cogs = int(item["effective_cogs_minor"] or 0)
 
@@ -584,6 +641,7 @@ async def finance_settlements(
                 platform_fees_minor=platform_fees,
                 payment_fees_minor=payment_fees,
                 shipping_cost_minor=shipping_cost,
+                fulfilment_material_cost_minor=fulfilment_material_cost,
                 adjustments_minor=adjustments,
                 effective_cogs_minor=effective_cogs,
             )
@@ -831,15 +889,22 @@ async def reconcile_shopify_postage(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _owner(connection)
-        row = await connection.fetchrow(
+        await connection.execute(
+            "select pg_advisory_xact_lock(hashtext($1::text))",
+            order_id,
+        )
+        rows = await connection.fetch(
             """
             select
-              o.id,o.source,o.order_number,
-              oi.id as order_item_id,
+              o.source,o.order_number,
+              oi.id as order_item_id,oi.net_sale_minor,
+              p.product_type,i.grading_company,i.grade,
               rec.shipping_cost_reconciled_at,
               rec.shipping_cost_source
             from tcg.orders o
             join tcg.order_items oi on oi.order_id=o.id
+            join tcg.inventory_items i on i.id=oi.inventory_id
+            join tcg.catalogue_products p on p.id=i.catalogue_id
             left join tcg.order_item_reconciliations rec
               on rec.order_item_id=oi.id
             where o.id=$1 and oi.owner_id=$2
@@ -847,77 +912,151 @@ async def reconcile_shopify_postage(
             """,
             order_id, owner["id"],
         )
-        item_count = await connection.fetchval(
-            """
-            select count(*)::int
-            from tcg.order_items
-            where order_id=$1 and owner_id=$2
-            """,
-            order_id, owner["id"],
-        )
-        if row is None:
+        if not rows:
             raise HTTPException(status_code=404, detail="Order not found")
-        if row["source"] != "SHOPIFY":
+        if rows[0]["source"] != "SHOPIFY":
             raise HTTPException(
                 status_code=422,
                 detail="Postage reconciliation is only available for Shopify orders",
             )
-        if int(item_count or 0) != 1:
+
+        profile_keys: list[str] = []
+        for row in rows:
+            if row["product_type"] != "CARD":
+                raise HTTPException(
+                    status_code=409,
+                    detail="No fulfilment profile is configured for this product type",
+                )
+            is_graded = bool(
+                str(row["grading_company"] or "").strip()
+                and str(row["grade"] or "").strip()
+            )
+            profile_keys.append("GRADED_CARD" if is_graded else "RAW_CARD")
+        if len(set(profile_keys)) != 1:
             raise HTTPException(
                 status_code=409,
-                detail="Postage reconciliation v1 requires exactly one visible order item",
+                detail=(
+                    "Mixed shipping profiles require an approved fulfilment "
+                    "allocation policy"
+                ),
             )
+        profile_key = profile_keys[0]
 
-        reconciliation_source = (
-            f"MANUAL_POSTAGE:{payload.reference}:{payload.amount_minor}"
+        components = await connection.fetch(
+            """
+            select
+              component_key,quantity,accounting_unit_cost_minor_gbp,
+              allocation_basis
+            from tcg.fulfilment_cost_components
+            where owner_id=$1
+              and shipping_profile_key=$2
+              and active
+            order by component_key
+            """,
+            owner["id"], profile_key,
         )
-        if row["shipping_cost_reconciled_at"] is not None:
-            if row["shipping_cost_source"] == reconciliation_source:
+        try:
+            material_allocations = _fulfilment_material_allocations(
+                rows,
+                components,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        material_total = sum(material_allocations)
+        postage_allocations = allocate_minor(
+            payload.amount_minor,
+            [int(row["net_sale_minor"]) for row in rows],
+        )
+        reconciliation_source = (
+            f"MANUAL_FULFILMENT:{payload.reference}:"
+            f"POSTAGE:{payload.amount_minor}:MATERIALS:{material_total}"
+        )
+
+        reconciled = [
+            row for row in rows
+            if row["shipping_cost_reconciled_at"] is not None
+        ]
+        if reconciled:
+            if (
+                len(reconciled) == len(rows)
+                and all(
+                    row["shipping_cost_source"] == reconciliation_source
+                    for row in reconciled
+                )
+            ):
                 return jsonable_encoder({
                     "order_id": order_id,
-                    "order_number": row["order_number"],
+                    "order_number": rows[0]["order_number"],
                     "shipping_cost_minor": payload.amount_minor,
+                    "fulfilment_material_cost_minor": material_total,
                     "replayed": True,
                 })
             raise HTTPException(
                 status_code=409,
-                detail="Postage cost is already reconciled; use an audited adjustment workflow",
+                detail=(
+                    "Fulfilment cost is already reconciled; use an audited "
+                    "adjustment workflow"
+                ),
             )
 
-        if payload.amount_minor:
+        for index, row in enumerate(rows):
+            postage = postage_allocations[index]
+            materials = material_allocations[index]
+            if postage:
+                await connection.execute(
+                    """
+                    insert into tcg.financial_ledger_entries(
+                      owner_id,order_id,order_item_id,entry_type,amount_minor,
+                      currency,funds_status,source_key,occurred_at,notes
+                    ) values($1,$2,$3,'SHIPPING_COST',$4,'GBP','PENDING',$5,$6,$7)
+                    on conflict(source_key) do nothing
+                    """,
+                    owner["id"], order_id, row["order_item_id"], -postage,
+                    f"postage:{payload.reference}:{row['order_item_id']}",
+                    occurred_at,
+                    payload.notes or "Actual Royal Mail postage cost.",
+                )
+            if materials:
+                await connection.execute(
+                    """
+                    insert into tcg.financial_ledger_entries(
+                      owner_id,order_id,order_item_id,entry_type,amount_minor,
+                      currency,funds_status,source_key,occurred_at,notes
+                    ) values(
+                      $1,$2,$3,'FULFILMENT_MATERIAL_COST',$4,
+                      'GBP','PENDING',$5,$6,$7
+                    )
+                    on conflict(source_key) do nothing
+                    """,
+                    owner["id"], order_id, row["order_item_id"], -materials,
+                    (
+                        f"fulfilment-material:{payload.reference}:"
+                        f"{row['order_item_id']}"
+                    ),
+                    occurred_at,
+                    f"Configured {profile_key} fulfilment materials.",
+                )
             await connection.execute(
                 """
-                insert into tcg.financial_ledger_entries(
-                  owner_id,order_id,order_item_id,entry_type,amount_minor,
-                  currency,funds_status,source_key,occurred_at,notes
-                ) values($1,$2,$3,'SHIPPING_COST',$4,'GBP','PENDING',$5,$6,$7)
-                on conflict(source_key) do nothing
+                insert into tcg.order_item_reconciliations(
+                  order_item_id,order_id,owner_id,
+                  shipping_cost_reconciled_at,shipping_cost_source
+                ) values($1,$2,$3,clock_timestamp(),$4)
+                on conflict(order_item_id) do update
+                set shipping_cost_reconciled_at=clock_timestamp(),
+                    shipping_cost_source=$4,
+                    updated_at=clock_timestamp(),
+                    version=tcg.order_item_reconciliations.version+1
                 """,
-                owner["id"], order_id, row["order_item_id"],
-                -payload.amount_minor,
-                f"postage:{payload.reference}:{row['order_item_id']}",
-                occurred_at,
-                payload.notes or "Actual postage/fulfilment cost.",
+                row["order_item_id"], order_id, owner["id"],
+                reconciliation_source,
             )
 
-        await connection.execute(
-            """
-            insert into tcg.order_item_reconciliations(
-              order_item_id,order_id,owner_id,
-              shipping_cost_reconciled_at,shipping_cost_source
-            ) values($1,$2,$3,clock_timestamp(),$4)
-            on conflict(order_item_id) do update
-            set shipping_cost_reconciled_at=clock_timestamp(),
-                shipping_cost_source=$4,
-                updated_at=clock_timestamp(),
-                version=tcg.order_item_reconciliations.version+1
-            """,
-            row["order_item_id"], order_id, owner["id"], reconciliation_source,
-        )
         return jsonable_encoder({
             "order_id": order_id,
-            "order_number": row["order_number"],
+            "order_number": rows[0]["order_number"],
             "shipping_cost_minor": payload.amount_minor,
+            "fulfilment_material_cost_minor": material_total,
             "replayed": False,
         })
 
