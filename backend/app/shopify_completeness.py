@@ -246,6 +246,7 @@ def verify_remote_product(
     expected_sku: str,
     expected_collection_titles: set[str],
     expected_media_file_ids: set[str],
+    expected_quantity: int,
 ) -> dict[str, Any]:
     blockers: list[str] = []
 
@@ -335,6 +336,12 @@ def verify_remote_product(
             blockers.append("remote price")
         if _text(variant.get("inventoryPolicy")) != "DENY":
             blockers.append("remote oversell protection")
+        try:
+            inventory_quantity = int(variant.get("inventoryQuantity"))
+        except (TypeError, ValueError):
+            inventory_quantity = -1
+        if inventory_quantity != expected_quantity:
+            blockers.append("remote inventory quantity")
         inventory_item = variant.get("inventoryItem")
         if not isinstance(inventory_item, Mapping):
             blockers.append("remote inventory item")
