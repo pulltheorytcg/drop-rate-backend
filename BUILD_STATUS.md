@@ -14,7 +14,7 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## Current stage
 
-**Fulfilment allocation: IMPLEMENTED IN THIS RELEASE — packaging is allocated once per shipped order, per-card protection is allocated per item, and both remain separate from actual Royal Mail postage in the ledger.**
+**Founder media intake v1: DEPLOYED — founder-owned JPG/PNG/WebP card photos can now use Shopify staged uploads, explicit rights confirmation, governed media approval and the existing fail-closed Shopify media readiness gate. The first authenticated `write_files` scope + real-image upload remains a manual production verification.**
 
 **Controlled commerce verification: ACTIVE — first real paid Shopify sale and full £5.48 refund/restock are production-verified; Finance Reconciliation v1 + Owner Settlement Report v1 are deployed and awaiting live #1002 reconciliation verification.**
 
@@ -22,7 +22,7 @@ The latest pass exposed an important process improvement: we were testing indivi
 
 The current backend is intentionally fail-closed: identity confirmation is required before pricing/listing, Shopify bulk publishing is disabled, market-data persistence is disabled, and no automatic money movement is enabled.
 
-The next Shopify checkpoint is to live-verify Finance Reconciliation v1 against #1002: import the real Shopify processing fee, record the actual postage/fulfilment cost (including a legitimate £0.00 known cost), then re-check the external refund settlement before treating profit as final. Operational inventory cleanup continues in parallel.
+The next Shopify checkpoint is to re-check the external Shopify Payments refund settlement for #1002, then verify the first founder media upload in production. The £0.36 payment fee and legitimate £0.00 postage have already been reconciled. Operational inventory cleanup continues in parallel.
 
 ## Production-verified foundation
 
@@ -449,7 +449,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 12. **Shopify settlement enrichment:** Finance Reconciliation v1 + Owner Settlement Report v1 are deployed. Live-verify #1002 fee import, postage-cost reconciliation and the resulting settlement row, then automate recurring fee reconciliation / shipping-provider cost ingestion.
 13. **Refund settlement follow-up:** Shopify accepted the £5.48 refund for #1002, but the external refund transaction was still pending at the last check; verify completion before any further order action.
 14. **Shopify shipping profile configuration:** registry and hard publication gate are live. RAW_CARD is configured at 40g for Royal Mail Tracked 48 using a 110x145x21mm package; Settings now exposes the package facts and audited £0.83 material total (£0.75 packaging + £0.08 top loader). GRADED_CARD is active at 120g for Royal Mail Tracked 48 using the founder-supplied 116x164x25mm, 33g box. Packaging is £1.20 per order; see `docs/GRADED_CARD_FULFILMENT_RESEARCH.md`. Because 25mm is the exact Large Letter ceiling, every sealed package must pass a thickness gauge.
-15. **Shopify media readiness:** completeness/media registry is fail-closed; approve permitted canonical media for normal raw cards and item-specific front/back media where the physical item requires it before scaling publication.
+15. **Shopify media readiness:** completeness/media registry remains fail-closed. Founder Media Intake v1 is merged and healthy in production (PR #111 / commit `ce516388`): Settings now verifies Shopify `write_files`, creates short-lived staged upload targets, uploads image bytes directly to Shopify, requires explicit founder rights confirmation, and reuses the audited create → approve → sync workflow. Manual next check: confirm `write_files` is granted and complete one real founder image upload.
 
 ## Milestone 1 checklist
 
@@ -484,7 +484,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 | 3 | Founder account / inventory / ownership | ✅ Technical foundation complete; operational data cleanup remains |
 | 4 | Inventory dashboard functionality | ✅ Core complete |
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
-| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; deterministic product-completeness/media/shipping gates are deployed; bulk publishing remains locked; refund settlement follow-up remains |
+| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; deterministic product-completeness/media/shipping gates and Founder Media Intake v1 are deployed; bulk publishing remains locked; first live founder-image upload + refund settlement follow-up remain |
 | 6 | Orders / allocation / settlements | 🚧 Exact Shopify Inventory ID attribution + COGS + sale/shipping revenue + item/shipping refund reversal production-verified; fee/postage reconciliation and Owner Settlement Report v1 are deployed; live #1002 reconciliation verification remains |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
@@ -512,6 +512,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 10. Re-check the Shopify Payments refund settlement, then verify duplicate reconciliation idempotency and #1002's final settlement row.
 11. ✅ **Shopify deterministic shipping-spec engine deployed:** owner-scoped RAW_CARD/GRADED_CARD registry, fail-closed completeness gate, Shopify weight write/read-back verification and Settings controls are live.
 12. ✅ **RAW_CARD shipping configured:** 40g operating weight, 110x145x21mm package, 27g empty package and Royal Mail Tracked 48. Packaging cost is £0.75 per order. GRADED_CARD is configured and active at 120g using the 116x164x25mm, 33g box with £1.20 packaging allocated once per order.
+13. ✅ **Founder Media Intake v1 deployed:** Shopify Settings now supports founder image selection, physical-vs-canonical scope, front/back side, alt text and explicit rights confirmation; the backend validates Shopify `write_files` and issues no-store staged upload targets so image bytes go directly to Shopify. GitHub CI and Railway pre-deploy both passed **436 tests** and the production readiness healthcheck returned 200. First authenticated scope + real-image upload remains manual verification.
 
 ### Next major engineering milestone — Shopify
 Build the complete controlled sale loop:
