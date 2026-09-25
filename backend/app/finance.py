@@ -159,6 +159,38 @@ def _settlement_reconciliation_state(
     return "WAITING_POSTAGE", blockers
 
 
+def _settlement_amounts(
+    *,
+    item_revenue_minor: int,
+    shipping_revenue_minor: int,
+    item_refunds_minor: int,
+    shipping_refunds_minor: int,
+    platform_fees_minor: int,
+    payment_fees_minor: int,
+    shipping_cost_minor: int,
+    effective_cogs_minor: int,
+) -> dict[str, int]:
+    gross_proceeds = (
+        item_revenue_minor
+        + shipping_revenue_minor
+        - item_refunds_minor
+        - shipping_refunds_minor
+    )
+    external_deductions = (
+        platform_fees_minor
+        + payment_fees_minor
+        + shipping_cost_minor
+    )
+    net_owner_proceeds = gross_proceeds - external_deductions
+    owner_profit = net_owner_proceeds - effective_cogs_minor
+    return {
+        "gross_proceeds_minor": gross_proceeds,
+        "external_deductions_minor": external_deductions,
+        "net_owner_proceeds_minor": net_owner_proceeds,
+        "owner_profit_minor": owner_profit,
+    }
+
+
 async def _balance_components(connection: asyncpg.Connection, owner_id: UUID) -> dict:
     ledger = await connection.fetchrow(
         """
@@ -536,19 +568,16 @@ async def finance_settlements(
             shipping_cost = int(item["shipping_cost_minor"] or 0)
             effective_cogs = int(item["effective_cogs_minor"] or 0)
 
-            gross_proceeds = (
-                item_revenue
-                + shipping_revenue
-                - item_refunds
-                - shipping_refunds
+            amounts = _settlement_amounts(
+                item_revenue_minor=item_revenue,
+                shipping_revenue_minor=shipping_revenue,
+                item_refunds_minor=item_refunds,
+                shipping_refunds_minor=shipping_refunds,
+                platform_fees_minor=platform_fees,
+                payment_fees_minor=payment_fees,
+                shipping_cost_minor=shipping_cost,
+                effective_cogs_minor=effective_cogs,
             )
-            external_deductions = (
-                platform_fees
-                + payment_fees
-                + shipping_cost
-            )
-            net_owner_proceeds = gross_proceeds - external_deductions
-            owner_profit = net_owner_proceeds - effective_cogs
 
             reconciliation_state, blockers = _settlement_reconciliation_state(
                 source=str(item["source"]),
@@ -557,10 +586,7 @@ async def finance_settlements(
                     item["shipping_cost_reconciled"]
                 ),
             )
-            item["gross_proceeds_minor"] = gross_proceeds
-            item["external_deductions_minor"] = external_deductions
-            item["net_owner_proceeds_minor"] = net_owner_proceeds
-            item["owner_profit_minor"] = owner_profit
+            item.update(amounts)
             item["reconciliation_state"] = reconciliation_state
             item["reconciliation_complete"] = not blockers
             item["blockers"] = blockers
