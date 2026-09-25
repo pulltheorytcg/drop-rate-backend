@@ -341,6 +341,8 @@ def test_media_registry_is_rls_protected_rights_gated_and_audited() -> None:
     sql = MEDIA_REGISTRY_MIGRATION.read_text().casefold()
     assert "create table tcg.media_assets" in sql
     assert "enable row level security" in sql
+    assert "force row level security" in sql
+    assert "revoke all on table tcg.media_assets from anon, authenticated" in sql
     assert "create policy readable_assets" in sql
     assert "create policy own_asset_writes" in sql
     assert "grant select,insert,update" in sql
