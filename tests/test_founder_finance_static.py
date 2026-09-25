@@ -33,6 +33,19 @@ def test_finance_sales_ui_labels_pending_costs_and_provisional_profit() -> None:
     assert "Founder finance sales table" in css
 
 
+def test_finance_reconciliation_controls_are_available_for_shopify_sales() -> None:
+    js = (STATIC / "founder-finance.js").read_text()
+    css = (STATIC / "styles.css").read_text()
+    assert "Sync fees" in js
+    assert "Set postage" in js
+    assert "reconcileShopifyFees" in js
+    assert "reconcileShopifyPostage" in js
+    assert "/reconcile-fees" in js
+    assert "/postage" in js
+    assert "financeNonnegativeMinorFromInput" in js
+    assert ".finance-reconcile-actions" in css
+
+
 def test_main_serves_finance_asset_and_router() -> None:
     main = (ROOT / "backend" / "app" / "main.py").read_text()
     assert 'from .finance import router as finance_router' in main
