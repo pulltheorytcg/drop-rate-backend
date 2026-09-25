@@ -635,6 +635,7 @@ class ShopifyAdminClient:
                     id
                     price
                     inventoryPolicy
+                    inventoryQuantity
                     inventoryItem {
                       id
                       sku
