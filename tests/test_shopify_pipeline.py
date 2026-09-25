@@ -645,3 +645,20 @@ def test_shopify_title_does_not_duplicate_existing_language_tag() -> None:
         "condition": None,
     }
     assert _title(item) == "Eiscue ex · JP · 178 · PSA 10"
+
+
+def test_founder_media_upload_target_is_fail_closed_and_scope_gated() -> None:
+    source = PIPELINE.read_text()
+    client = CLIENT.read_text()
+    assert 'class MediaUploadTargetRequest(BaseModel):' in source
+    assert '@router.get("/media-assets/upload-capability")' in source
+    assert '@router.post("/media-assets/upload-target")' in source
+    assert '"write_files" not in scopes' in source
+    assert '"Cache-Control"] = "no-store"' in source
+    assert 'le=20 * 1024 * 1024' in source
+    assert 'pattern=r"^image/(jpeg|png|webp)$"' in source
+    assert 'async def access_scopes' in client
+    assert 'currentAppInstallation' in client
+    assert 'async def create_staged_image_upload' in client
+    assert 'stagedUploadsCreate' in client
+    assert '"resource": "IMAGE"' in client
