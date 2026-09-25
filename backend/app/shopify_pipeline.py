@@ -15,8 +15,13 @@ from .brands import brand_for_game
 from .db import user_connection
 from .finance import allocate_minor
 from .ownership import current_owner as _owner
-from .language import display_title
 from .settings import get_settings
+from .shopify_completeness import (
+    build_shopify_product_plan,
+    product_completeness,
+    product_create_input,
+    product_title,
+)
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
 
 
@@ -131,16 +136,7 @@ def _product_gid_matches(gid: str, value: object) -> bool:
 
 
 def _title(item: asyncpg.Record) -> str:
-    parts = [display_title(item["name"], item["language"] or item["catalogue_language"])]
-    if item["card_number"]:
-        parts.append(item["card_number"])
-    if item["variant"]:
-        parts.append(item["variant"])
-    if item["grading_company"] and item["grade"]:
-        parts.append(f'{item["grading_company"]} {item["grade"]}')
-    elif item["condition"]:
-        parts.append(item["condition"])
-    return " · ".join(str(part).strip() for part in parts if str(part or "").strip())
+    return product_title(item)
 
 
 def _handle(inventory_code: str) -> str:
@@ -180,11 +176,97 @@ def _test_sync_missing(item: Any) -> list[str]:
     return missing
 
 
+def _launch_completeness(
+    item: Any,
+    *,
+    collection_titles: set[str],
+    publication_configured: bool,
+    location_configured: bool,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    plan = build_shopify_product_plan(item)
+    completeness = product_completeness(
+        plan,
+        store_price_minor=item["store_price_minor"],
+        inventory_code=item["inventory_code"],
+        # Media is intentionally fail-closed until the approved media asset
+        # registry/capture pipeline is built. Never infer image rights/readiness.
+        approved_media_count=0,
+        existing_collection_titles=collection_titles,
+        publication_configured=publication_configured,
+        location_configured=location_configured,
+    )
+    return plan, completeness
+
+
 async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
     owner = await _owner(connection)
     if owner["role"] != "FOUNDER":
         raise HTTPException(status_code=403, detail="Only a founder can run Shopify test sync")
     return owner
+
+
+@router.get("/product-preview/{inventory_id}")
+async def shopify_product_preview(
+    inventory_id: UUID,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    settings = get_settings()
+    client = _client()
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        item = await connection.fetchrow(
+            """
+            select
+                i.*, p.product_type, p.game, p.name, p.set_name, p.card_number,
+                p.variant, p.rarity, p.language as catalogue_language,
+                sl.id as registered_location_id,
+                sl.active as registered_location_active
+            from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id=i.catalogue_id
+            left join tcg.storage_locations sl on sl.id=i.storage_location_id
+            where i.id=$1 and i.owner_id=$2
+            """,
+            inventory_id, owner["id"],
+        )
+        if item is None:
+            raise HTTPException(status_code=404, detail="Inventory item not found")
+        try:
+            collection_titles = await client.list_collection_titles()
+        except ShopifyApiError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "message": "Could not verify Shopify collections",
+                    "retryable": exc.retryable,
+                },
+            ) from exc
+
+        plan, completeness = _launch_completeness(
+            item,
+            collection_titles=collection_titles,
+            publication_configured=bool(settings.shopify_publication_gid),
+            location_configured=bool(settings.shopify_location_gid),
+        )
+        operational_missing = _test_sync_missing(item)
+        return jsonable_encoder({
+            "inventory": {
+                "id": item["id"],
+                "inventory_code": item["inventory_code"],
+                "version": item["version"],
+                "status": item["status"],
+                "name": item["name"],
+                "store_price_minor": item["store_price_minor"],
+            },
+            "operationalReady": not operational_missing,
+            "operationalBlockers": operational_missing,
+            "launchReady": not operational_missing and completeness["complete"],
+            "productPlan": plan,
+            "productCompleteness": completeness,
+            "shopifyCollections": sorted(collection_titles),
+        })
 
 
 @router.get("/test-sync")
@@ -193,6 +275,11 @@ async def test_sync_status(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
     settings = get_settings()
+    client = _client()
+    try:
+        collection_titles = await client.list_collection_titles()
+    except ShopifyApiError:
+        collection_titles = set()
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
@@ -226,12 +313,29 @@ async def test_sync_status(
         blocked_items: list[dict[str, Any]] = []
         blocker_counts: dict[str, int] = {}
         eligible_count = 0
+        launch_ready_count = 0
+        launch_blocker_counts: dict[str, int] = {}
         for row in pool:
             missing = _test_sync_missing(row)
+            _, launch = _launch_completeness(
+                row,
+                collection_titles=collection_titles,
+                publication_configured=bool(settings.shopify_publication_gid),
+                location_configured=bool(settings.shopify_location_gid),
+            )
             if not missing:
                 eligible_count += 1
+                if launch["complete"]:
+                    launch_ready_count += 1
+                for blocker in launch["blockers"]:
+                    launch_blocker_counts[blocker] = (
+                        launch_blocker_counts.get(blocker, 0) + 1
+                    )
                 if len(candidates) < 25:
-                    candidates.append(dict(row))
+                    candidate = dict(row)
+                    candidate["launch_ready"] = launch["complete"]
+                    candidate["launch_blockers"] = launch["blockers"]
+                    candidates.append(candidate)
                 continue
             for blocker in missing:
                 blocker_counts[blocker] = blocker_counts.get(blocker, 0) + 1
@@ -270,6 +374,13 @@ async def test_sync_status(
                 "blocked": len(pool) - eligible_count,
                 "blockers": blocker_counts,
                 "next_items": blocked_items[:10],
+            },
+            "launch_readiness": {
+                "ready": launch_ready_count,
+                "blocked": len(pool) - launch_ready_count,
+                "blockers": launch_blocker_counts,
+                "verified_collections": sorted(collection_titles),
+                "media_registry_status": "NOT_BUILT_FAIL_CLOSED",
             },
             "counts": dict(counts),
         })
@@ -346,6 +457,35 @@ async def sync_one_test_item(
                     "missing": missing,
                 })
 
+            try:
+                collection_titles = await client.list_collection_titles()
+            except ShopifyApiError as exc:
+                raise HTTPException(
+                    status_code=502,
+                    detail={
+                        "message": "Could not verify Shopify collections",
+                        "retryable": exc.retryable,
+                    },
+                ) from exc
+            plan, launch = _launch_completeness(
+                item,
+                collection_titles=collection_titles,
+                publication_configured=bool(settings.shopify_publication_gid),
+                location_configured=bool(settings.shopify_location_gid),
+            )
+            if not launch["complete"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "message": (
+                            "Shopify product is not launch-complete. "
+                            "No remote product was created or published."
+                        ),
+                        "blockers": launch["blockers"],
+                        "product_plan": plan,
+                    },
+                )
+
             handle = _handle(item["inventory_code"])
             listing_key = f"test:{inventory_id}"
             remote = await client.find_product_by_handle(handle)
@@ -361,30 +501,9 @@ async def sync_one_test_item(
                     )
                 product = remote
             else:
-                product = await client.create_product({
-                    "title": _title(item),
-                    "handle": handle,
-                    "status": "DRAFT",
-                    "vendor": "Drop Rate",
-                    "productType": item["game"],
-                    "tags": [
-                        value for value in [
-                            "Drop Rate",
-                            brand_for_game(item["game"]),
-                            item["game"],
-                            item["set_name"],
-                            item["variant"],
-                            "single-item-test",
-                        ]
-                        if value
-                    ],
-                    "metafields": [{
-                        "namespace": "drop_rate",
-                        "key": "inventory_id",
-                        "type": "single_line_text_field",
-                        "value": str(inventory_id),
-                    }],
-                })
+                product = await client.create_product(
+                    product_create_input(plan, handle=handle)
+                )
 
             variants = product.get("variants")
             nodes = variants.get("nodes") if isinstance(variants, dict) else None
@@ -463,6 +582,8 @@ async def sync_one_test_item(
                     "store_price_minor": item["store_price_minor"],
                 },
                 "link": dict(link),
+                "product_plan": plan,
+                "product_completeness": launch,
             })
 
 
