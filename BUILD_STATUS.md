@@ -9,7 +9,7 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Full Drop Rate roadmap:** ~49%
 - **Milestone 1 — Founder inventory control:** ~99% technically complete; remaining work is mainly operational inventory cleanup + one pre-launch auth setting
 - **Internal commerce / founder finance foundation:** ~85%
-- **Milestone 2 — Shopify sale attribution:** first real paid sale and full refund/restock path are production-verified; Finance Reconciliation v1 and Owner Settlement Report v1 are deployed, with live #1002 fee/postage/refund-settlement verification remaining
+- **Milestone 2 — Shopify sale attribution:** first real paid sale and full refund/restock path are production-verified; Finance Reconciliation v1, founder batch fee reconciliation and Owner Settlement Report v1 are deployed. #1002 fee/postage reconciliation is live-verified; only the external Shopify refund settlement/final fee-complete state remains to re-check
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
 
 ## Current stage
@@ -18,13 +18,13 @@ This file is the persistent source of truth for project progress. A feature coun
 
 **Founder media intake v1: DEPLOYED — founder-owned JPG/PNG/WebP card photos can now use Shopify staged uploads, explicit rights confirmation, governed media approval and the existing fail-closed Shopify media readiness gate. The first authenticated `write_files` scope + real-image upload remains a manual production verification.**
 
-**Controlled commerce verification: ACTIVE — first real paid Shopify sale and full £5.48 refund/restock are production-verified; Finance Reconciliation v1 + Owner Settlement Report v1 are deployed and awaiting live #1002 reconciliation verification.**
+**Controlled commerce verification: ACTIVE — first real paid Shopify sale and full £5.48 refund/restock are production-verified; Finance Reconciliation v1 + Owner Settlement Report v1 are deployed, #1002 has exactly one £0.36 payment fee and explicit £0 postage reconciled, and a founder-only bounded batch fee-sync path is now live. External Shopify refund settlement remains the final #1002 check.**
 
 The latest pass exposed an important process improvement: we were testing individual features well, but not performing a sufficiently explicit system-level regression/review after every cluster of changes. From this point forward, every material feature is subject to a repeatable quality gate covering code tests, failure-path review, database invariants, migration reproducibility, production deployment/health and live-data verification.
 
 The current backend is intentionally fail-closed: identity confirmation is required before pricing/listing, Shopify bulk publishing is disabled, market-data persistence is disabled, and no automatic money movement is enabled.
 
-The next Shopify checkpoint is to re-check the external Shopify Payments refund settlement for #1002, then verify the first founder media upload in production. The £0.36 payment fee and legitimate £0.00 postage have already been reconciled. Operational inventory cleanup continues in parallel.
+The next Shopify checkpoint is to re-check the external Shopify Payments refund settlement for #1002, use the new batch fee-sync path to verify final fee completion/idempotency, then verify the first founder media upload in production. The £0.36 payment fee and legitimate £0.00 postage are already reconciled. Operational inventory cleanup continues in parallel.
 
 ## Production-verified foundation
 
@@ -89,6 +89,7 @@ The next Shopify checkpoint is to re-check the external Shopify Payments refund 
 - pending / available / reserved / paid-out balances
 - payout request + cancellation workflow
 - Finance Reconciliation v1: typed Shopify transaction-fee import, zero-safe postage reconciliation, RLS-protected/audited reconciliation metadata, refund-driven fee invalidation and founder Sales controls
+- founder-only bounded batch fee reconciliation: pending Shopify fee records can be checked in batches without holding a database transaction open across Shopify API I/O; per-order blocked/pending states remain fail-closed and visible
 - Owner Settlement Report v1: read-only owner-scoped settlement aggregation showing gross proceeds, explicit external deductions/adjustments, net owner proceeds, effective COGS, owner profit, reconciliation state and pending/available funds
 - no automatic money movement
 - manual/off-platform sale support before Shopify
@@ -137,6 +138,7 @@ Existing working inventory/finance components were reorganised rather than rewri
 - title matching tolerates punctuation / seller word order without weakening hard card/variant/grade identity checks
 - real production ingestion is **explicitly gated off by default**; presence of a Parse key alone cannot enable persistence
 - provider probe counts the provider-specific result collection instead of the largest array in the response
+- eBay finish matching now rejects explicit Foil listings for Normal targets plus Non-Holo/Non-Holofoil and Non-Foil contradictions, preventing those titles from contaminating pricing evidence
 
 ### Final cross-provider live validation
 Final production probe on 23 September 2026:
@@ -230,9 +232,9 @@ The controlled Shopify candidate Seel `INV-06F489A853594CDC80E418271933D044` has
 - Shopify inventory link state: **ARCHIVED**
 - Shopify stock after return handling: **0 available / 0 committed / 0 on hand**
 - refund events: **1**
-- total ledger entries for the sale/refund lifecycle: **4**
+- total ledger entries for the sale/refund lifecycle: **5** (sale + shipping revenue + item refund + shipping refund + payment fee)
 - Shopify Payments refund transaction was still **PENDING settlement** at the latest check; do **not** cancel #1002 until that external refund state is re-verified
-- payment/platform fees and actual postage cost remain intentionally unknown and must not be treated as £0 or final profit
+- exactly one Shopify Payments fee is recorded: **−£0.36 PAYMENT_FEE**; actual postage is explicitly reconciled at **£0.00** because the test order was not shipped. Fee reconciliation remains incomplete while Shopify's REFUND transaction is still externally pending
 - Shopify delivered `orders/paid` before `orders/create`; the late create initially failed, then the event-ordering/idempotency path was hardened and deployed so paid-before-create and semantic duplicate paid events fail closed/no-op correctly
 
 ## Supabase live checkpoint
@@ -246,15 +248,15 @@ Current production data after the latest hardening + language pass:
 - market observations: **0**
 - pricing snapshots: **0**
 - market ingestion/diagnostic runs: **25**
-- audit events: **3,577**
+- audit events: **3,591**
 - Shopify inventory links: **1 total / 0 active sellable** (Seel link is ARCHIVED after refund)
 - marketplace listings: **0**
 - active reservations: **0**
-- physical identity confirmation events: **2**
+- physical identity confirmation events: **3**
 - Shopify orders: **1**
 - Shopify order-item links: **1**
 - refund events: **1**
-- financial ledger entries: **4**
+- financial ledger entries: **5**
 - Shopify webhook events: **5**
 - RLS remains enabled across operational business tables; `tcg.schema_migrations` is the known exception and currently grants only `SELECT` to `tcg_api`
 - provider diagnostics have **not** polluted market observations, pricing snapshots or inventory values
@@ -315,6 +317,7 @@ The following areas were reviewed and defects found were corrected:
 - provider transaction boundary fixed in smoke tests and real ingestion
 - ingestion-run logging fixed
 - flexible-but-strict eBay identity matching added
+- explicit finish-negation guards added: Normal cannot accept Foil, Holo/Holofoil cannot accept Non-Holo/Non-Holofoil, and Foil cannot accept Non-Foil
 - provider-response diagnostics added
 - production-ingestion safety gate added
 - guarded Shopify single-item readiness now exposes exact blockers and uses the same eligibility function as the actual publish action
@@ -330,11 +333,11 @@ The following areas were reviewed and defects found were corrected:
 
 ### Deployment / reproducibility
 - Railway production service remains `drop-rate-api-live`
-- latest production deployment is **SUCCESS** on commit `b7019cc4305df5e40d353d7fb77268cec7de0099`; `/health/ready` returned **200 OK**
+- latest production deployment is **SUCCESS** on commit `72b789a9fd8a3d4c4a1d4f7f31e650cdae002c1f`; `/health/ready` returned **200 OK**
 - PR and post-merge GitHub CI are green for the latest hardening commits
 - Railway production has a **pre-deploy compile + pytest gate**; the missing `pytest-asyncio` dependency was fixed after deployment logs exposed 43 silently skipped async tests
 - Railway now installs pinned **Node 22.23.3 LTS** alongside Python through `RAILPACK_PACKAGES`, so frontend/static checks run in the production pre-deploy gate too
-- current Railway regression result: **428 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
+- current Railway regression result: **444 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
 - live database integrity checks: **0 duplicate Inventory Codes, 0 language mismatches, 0 confirmed-without-evidence, 0 active-reservation/state mismatches**
 - migration history reconciled through `20260925162748_shopify_shipping_profiles`, including Finance Reconciliation v1, the reconciliation-specific audit-trigger hotfix and deterministic Shopify shipping profiles
 - `database/migrations/**` is now the only canonical location for new migration files
@@ -355,9 +358,9 @@ A feature is not considered complete merely because its unit tests pass. For mat
 7. **Failure testing:** deliberate bad inputs, duplicate events, stale versions, unavailable records and provider failures are tested before a feature is treated as safe.
 8. **Release decision:** any unresolved critical integrity issue keeps the feature gated, even when CI is green.
 
-Current production regression baseline: **428 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero active reservation/state mismatches and one archived Shopify link for the refunded Seel test item now in INSPECTION.
+Current production regression baseline: **444 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero active reservation/state mismatches and one archived Shopify link for the refunded Seel test item now in INSPECTION.
 
-GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
+GitHub status checks can be required on protected branches, but the current integration cannot read classic branch protection for this private repository, and the GitHub rulesets endpoint reports that private-repo rulesets require GitHub Pro (or a public repository). Treat branch protection as a manual/account-plan check before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
 
 ## Shopify product completeness contract
 
@@ -448,7 +451,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 9. **One Piece catalogue naming:** verify and normalize `Carrying On His Will` vs `Carrying on His Will` carefully.
 10. **Packaged One Piece inventory:** confirm physical `seal_status` before provider matching/pricing.
 11. **Operational inventory cleanup:** live snapshot after the identity-language release: 508 unconfirmed identities, 410 card-language reviews, 507 registered-storage assignments, 508 Store Prices and 1 missing sealed-product seal status. Acquisition costs and raw-card conditions are currently complete; future unknown costs must still remain NULL. The verification screen now handles identity + language + optional location together so physical evidence is captured once.
-12. **Shopify settlement enrichment:** Finance Reconciliation v1 + Owner Settlement Report v1 are deployed. Live-verify #1002 fee import, postage-cost reconciliation and the resulting settlement row, then automate recurring fee reconciliation / shipping-provider cost ingestion.
+12. **Shopify settlement enrichment:** Finance Reconciliation v1 + Owner Settlement Report v1 are deployed and #1002 fee/postage reconciliation is live-verified. Founder batch fee reconciliation is now deployed; next re-check the externally pending refund/final fee-complete state, then later add permitted shipping-provider cost ingestion.
 13. **Refund settlement follow-up:** Shopify accepted the £5.48 refund for #1002, but the external refund transaction was still pending at the last check; verify completion before any further order action.
 14. **Shopify shipping profile configuration:** registry and hard publication gate are live. RAW_CARD is configured at 40g for Royal Mail Tracked 48 using a 110x145x21mm package; Settings now exposes the package facts and audited £0.83 material total (£0.75 packaging + £0.08 top loader). GRADED_CARD is active at 120g for Royal Mail Tracked 48 using the founder-supplied 116x164x25mm, 33g box. Packaging is £1.20 per order; see `docs/GRADED_CARD_FULFILMENT_RESEARCH.md`. Because 25mm is the exact Large Letter ceiling, every sealed package must pass a thickness gauge.
 15. **Shopify media readiness:** completeness/media registry remains fail-closed. Founder Media Intake v1 is merged and healthy in production (PR #111 / commit `ce516388`): Settings now verifies Shopify `write_files`, creates short-lived staged upload targets, uploads image bytes directly to Shopify, requires explicit founder rights confirmation, and reuses the audited create → approve → sync workflow. Manual next check: confirm `write_files` is granted and complete one real founder image upload.
@@ -487,7 +490,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 | 4 | Inventory dashboard functionality | ✅ Core complete |
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
 | 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; deterministic product-completeness/media/shipping gates and Founder Media Intake v1 are deployed; bulk publishing remains locked; first live founder-image upload + refund settlement follow-up remain |
-| 6 | Orders / allocation / settlements | 🚧 Exact Shopify Inventory ID attribution + COGS + sale/shipping revenue + item/shipping refund reversal production-verified; fee/postage reconciliation and Owner Settlement Report v1 are deployed; live #1002 reconciliation verification remains |
+| 6 | Orders / allocation / settlements | 🚧 Exact Shopify Inventory ID attribution + COGS + sale/shipping revenue + item/shipping refund reversal production-verified; fee/postage reconciliation, batch pending-fee sync and Owner Settlement Report v1 are deployed; final #1002 external refund settlement verification remains |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
 | 9 | AI card identification | ⬜ Not started |
@@ -511,11 +514,13 @@ These are **not blockers to the current backend foundation**, but remain explici
 7. ✅ **Finance Reconciliation v1 deployed:** typed Shopify transaction-fee ingestion, auditable reconciliation metadata, explicit £0 postage support, refund invalidation and Sales-tab controls are live.
 8. ✅ **Finance Reconciliation v1 live-verified on #1002:** retry returned HTTP 200 for both actions; exactly one **−£0.36 PAYMENT_FEE** was recorded, postage was explicitly reconciled at **£0.00** using `TEST-NOT-SHIPPED`, and reconciliation audit INSERT/UPDATE events were written against the correct `order_item_id`. Fee reconciliation remains intentionally incomplete while Shopify's REFUND transaction is still PENDING.
 9. ✅ **Owner Settlement Report v1 deployed:** Reports now show gross proceeds, deductions, signed adjustments, net owner proceeds, effective cost basis, owner profit, reconciliation state and pending/available funds without moving money.
-10. Re-check the Shopify Payments refund settlement, then verify duplicate reconciliation idempotency and #1002's final settlement row.
+10. Re-check the Shopify Payments refund settlement, then use the deployed batch fee-sync control to verify final fee completion, duplicate reconciliation idempotency and #1002's final settlement row.
 11. ✅ **Shopify deterministic shipping-spec engine deployed:** owner-scoped RAW_CARD/GRADED_CARD registry, fail-closed completeness gate, Shopify weight write/read-back verification and Settings controls are live.
 12. ✅ **RAW_CARD shipping configured:** 40g operating weight, 110x145x21mm package, 27g empty package and Royal Mail Tracked 48. Packaging cost is £0.75 per order. GRADED_CARD is configured and active at 120g using the 116x164x25mm, 33g box with £1.20 packaging allocated once per order.
 13. ✅ **Founder Media Intake v1 deployed:** Shopify Settings now supports founder image selection, physical-vs-canonical scope, front/back side, alt text and explicit rights confirmation; the backend validates Shopify `write_files` and issues no-store staged upload targets so image bytes go directly to Shopify. GitHub CI and Railway pre-deploy both passed **436 tests** and the production readiness healthcheck returned 200. First authenticated scope + real-image upload remains manual verification.
 14. ✅ **Physical identity + language review v1 deployed (PR #113 / `eb1381f`):** the founder verification queue exposes identity/language/location progress; confirmation can set English/Japanese and optional registered location in the same locked/versioned transaction; unknown language or a canonical-language mismatch blocks confirmation rather than guessing. Railway pre-deploy passed **439 tests** and `/health/ready` returned 200.
+15. ✅ **Founder batch Shopify fee reconciliation deployed (PR #116 / `296be5f`):** pending fee records can be checked in bounded founder-only batches; Shopify network I/O runs outside database transactions, writes are revalidated/idempotent, and blocked/unsettled orders remain visible rather than being marked complete.
+16. ✅ **eBay finish identity edge cases hardened (PR #117 / `72b789a`):** contradictory Foil/Non-Holo/Non-Foil wording now fails closed. The stale predecessor PR #56 was closed as superseded after its useful protections were verified on current `main`.
 
 ### Next major engineering milestone — Shopify
 Build the complete controlled sale loop:
