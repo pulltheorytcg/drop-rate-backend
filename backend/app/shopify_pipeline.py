@@ -248,6 +248,232 @@ async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
     return owner
 
 
+@router.get("/media-assets")
+async def list_media_assets(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        rows = await connection.fetch(
+            """
+            select *
+            from tcg.media_assets
+            where owner_id=$1 or scope='CANONICAL_CARD'
+            order by updated_at desc,id
+            limit 250
+            """,
+            owner["id"],
+        )
+        return jsonable_encoder({"items": [dict(row) for row in rows]})
+
+
+@router.post("/media-assets", status_code=201)
+async def create_media_asset(
+    payload: MediaAssetCreate,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    if (payload.catalogue_id is None) == (payload.inventory_id is None):
+        raise HTTPException(
+            status_code=422,
+            detail="Provide exactly one of catalogue_id or inventory_id",
+        )
+    public_url = (payload.public_source_url or "").strip() or None
+    if public_url and not public_url.startswith("https://"):
+        raise HTTPException(
+            status_code=422,
+            detail="Media public_source_url must use HTTPS",
+        )
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        if payload.inventory_id is not None:
+            exists = await connection.fetchval(
+                """
+                select exists(
+                  select 1 from tcg.inventory_items
+                  where id=$1 and owner_id=$2
+                )
+                """,
+                payload.inventory_id, owner["id"],
+            )
+            if not exists:
+                raise HTTPException(status_code=404, detail="Inventory item not found")
+            scope = "INVENTORY_ITEM"
+        else:
+            exists = await connection.fetchval(
+                "select exists(select 1 from tcg.catalogue_products where id=$1)",
+                payload.catalogue_id,
+            )
+            if not exists:
+                raise HTTPException(status_code=404, detail="Catalogue card not found")
+            scope = "CANONICAL_CARD"
+
+        row = await connection.fetchrow(
+            """
+            insert into tcg.media_assets(
+              owner_id,catalogue_id,inventory_id,scope,side,source_type,
+              source_reference,public_source_url,rights_basis,alt_text,
+              created_by_user_id
+            ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            returning *
+            """,
+            owner["id"], payload.catalogue_id, payload.inventory_id, scope,
+            payload.side, payload.source_type, payload.source_reference.strip(),
+            public_url,
+            (payload.rights_basis or "").strip() or None,
+            payload.alt_text.strip(),
+            user.user_id,
+        )
+        return jsonable_encoder({"asset": dict(row)})
+
+
+@router.post("/media-assets/{asset_id}/approve")
+async def approve_media_asset(
+    asset_id: UUID,
+    payload: MediaAssetApprove,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        row = await connection.fetchrow(
+            """
+            update tcg.media_assets
+            set rights_status='VERIFIED',
+                rights_basis=$4,
+                approval_status='APPROVED',
+                alt_text=$5,
+                approved_by_user_id=$6,
+                approved_at=clock_timestamp(),
+                updated_at=clock_timestamp(),
+                version=version+1
+            where id=$1 and owner_id=$2 and version=$3
+            returning *
+            """,
+            asset_id, owner["id"], payload.version,
+            payload.rights_basis.strip(), payload.alt_text.strip(),
+            user.user_id,
+        )
+        if row is None:
+            current = await connection.fetchrow(
+                "select version from tcg.media_assets where id=$1 and owner_id=$2",
+                asset_id, owner["id"],
+            )
+            if current is None:
+                raise HTTPException(status_code=404, detail="Media asset not found")
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Media asset changed",
+                    "current_version": current["version"],
+                },
+            )
+        return jsonable_encoder({"asset": dict(row)})
+
+
+@router.post("/media-assets/{asset_id}/sync")
+async def sync_media_asset(
+    asset_id: UUID,
+    payload: MediaAssetSync,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    client = _client()
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        async with connection.transaction():
+            asset = await connection.fetchrow(
+                """
+                select *
+                from tcg.media_assets
+                where id=$1 and owner_id=$2
+                for update
+                """,
+                asset_id, owner["id"],
+            )
+            if asset is None:
+                raise HTTPException(status_code=404, detail="Media asset not found")
+            if asset["version"] != payload.version:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "Media asset changed",
+                        "current_version": asset["version"],
+                    },
+                )
+            if asset["approval_status"] != "APPROVED" or asset["rights_status"] != "VERIFIED":
+                raise HTTPException(
+                    status_code=422,
+                    detail="Media must be rights-verified and approved before Shopify sync",
+                )
+            source_url = str(asset["public_source_url"] or "").strip()
+            if not source_url:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Approved media has no public HTTPS source URL",
+                )
+            current_status = str(asset["shopify_file_status"])
+            if current_status == "FAILED":
+                raise HTTPException(
+                    status_code=409,
+                    detail="Shopify file processing previously failed; review the asset source",
+                )
+
+            file_row: dict[str, Any] | None = None
+            if current_status == "NOT_UPLOADED":
+                file_row = await client.create_file_from_url(
+                    source_url=source_url,
+                    alt_text=str(asset["alt_text"]),
+                )
+            elif current_status in {"UPLOADED", "PROCESSING"}:
+                file_id = str(asset["shopify_file_gid"] or "")
+                if not file_id:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Media registry is missing the Shopify file ID",
+                    )
+                file_row = await client.get_file(file_id)
+            elif current_status == "READY":
+                return jsonable_encoder({"asset": dict(asset), "ready": True})
+
+            if not isinstance(file_row, dict):
+                raise HTTPException(status_code=502, detail="Shopify file response is invalid")
+            file_id = str(file_row.get("id") or "").strip()
+            file_status = str(file_row.get("fileStatus") or "").strip().upper()
+            if not file_id or file_status not in {"UPLOADED","PROCESSING","READY","FAILED"}:
+                raise HTTPException(
+                    status_code=502,
+                    detail="Shopify returned an unsupported file state",
+                )
+            row = await connection.fetchrow(
+                """
+                update tcg.media_assets
+                set shopify_file_gid=$3,
+                    shopify_file_status=$4,
+                    shopify_error=case when $4='FAILED'
+                      then 'Shopify file processing failed' else null end,
+                    updated_at=clock_timestamp(),
+                    version=version+1
+                where id=$1 and owner_id=$2
+                returning *
+                """,
+                asset_id, owner["id"], file_id, file_status,
+            )
+            return jsonable_encoder({
+                "asset": dict(row),
+                "ready": file_status == "READY",
+            })
+
+
 @router.get("/product-preview/{inventory_id}")
 async def shopify_product_preview(
     inventory_id: UUID,
