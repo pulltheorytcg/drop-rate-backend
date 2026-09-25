@@ -97,6 +97,21 @@ def test_shopify_sales_do_not_present_unknown_settlement_costs_as_final_profit()
     assert 'item["profit_complete"]' in source
 
 
+def test_reconciliation_audit_trigger_uses_order_item_id() -> None:
+    sql = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20260925144808_fix_order_item_reconciliation_audit_trigger.sql"
+    ).read_text()
+    assert "audit_order_item_reconciliation_change" in sql
+    assert "new.order_item_id" in sql
+    assert "old.order_item_id" in sql
+    assert "new.id" not in sql
+    assert "old.id" not in sql
+    assert "revoke all on function tcg.audit_order_item_reconciliation_change() from public" in sql.casefold()
+
+
 def test_order_item_reconciliation_metadata_is_rls_protected_and_audited() -> None:
     sql = (
         ROOT
