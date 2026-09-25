@@ -676,6 +676,46 @@ class ShopifyAdminClient:
             raise ShopifyApiError("Shopify did not return the created product")
         return product_row
 
+    async def update_product(
+        self,
+        *,
+        product_id: str,
+        product: dict[str, Any],
+    ) -> dict[str, Any]:
+        payload_input = {"id": product_id, **product}
+        data = await self.graphql(
+            query="""
+            mutation DropRateProductUpdate($product: ProductUpdateInput!) {
+              productUpdate(product: $product) {
+                product {
+                  id
+                  handle
+                  status
+                  variants(first: 1) {
+                    nodes {
+                      id
+                      inventoryItem { id sku tracked }
+                    }
+                  }
+                }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={"product": payload_input},
+        )
+        payload = data.get("productUpdate")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError(
+                "Shopify product update returned an invalid response"
+            )
+        self._raise_user_errors(payload, "Shopify rejected product update")
+        product_row = payload.get("product")
+        if not isinstance(product_row, dict):
+            raise ShopifyApiError("Shopify did not return the updated product")
+        return product_row
+
+
     async def update_variant(
         self,
         *,
