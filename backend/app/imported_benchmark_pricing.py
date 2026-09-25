@@ -144,6 +144,8 @@ async def _candidate_rows(connection, owner_id: UUID, limit: int) -> list[dict[s
             continue
         item["benchmark"] = benchmark
         candidates.append(item)
+        if len(candidates) >= limit:
+            break
     return candidates
 
 
