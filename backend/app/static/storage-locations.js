@@ -182,12 +182,21 @@ function renderStorageLocations(data) {
     view.textContent = "View stock";
     view.disabled = !location.item_count;
     view.addEventListener("click", () => filterInventoryByLocation(location.id));
+    const assignAll = document.createElement("button");
+    assignAll.className = "ghost-button";
+    assignAll.type = "button";
+    assignAll.textContent = "Assign unlocated";
+    assignAll.disabled = !location.active || !data.unlocated_count;
+    assignAll.title = data.unlocated_count
+      ? `Assign all ${data.unlocated_count} currently unlocated movable items to ${location.code}`
+      : "No unlocated inventory remains";
+    assignAll.addEventListener("click", () => assignAllUnlocated(location, data.unlocated_count));
     const edit = document.createElement("button");
     edit.className = "ghost-button";
     edit.type = "button";
     edit.textContent = "Edit";
     edit.addEventListener("click", () => openStorageLocationDialog(location));
-    actions.append(view, edit);
+    actions.append(view, assignAll, edit);
     row.append(details, actions);
     container.append(row);
   });
@@ -200,6 +209,29 @@ async function loadStorageLocations() {
     const data = await apiRequest("/api/v1/storage-locations?include_inactive=true");
     renderStorageLocations(data);
     showMessage("locations-message");
+  } catch (error) {
+    showMessage("locations-message", error.message, "error");
+  }
+}
+
+async function assignAllUnlocated(location, count) {
+  if (!count || !location?.active) return;
+  const confirmed = window.confirm(
+    `Assign all ${count} currently unlocated movable inventory item${count === 1 ? "" : "s"} to ${location.code}?\n\nSold and reserved inventory will not be moved.`
+  );
+  if (!confirmed) return;
+  showMessage("locations-message", `Assigning unlocated inventory to ${location.code}…`);
+  try {
+    const result = await apiRequest(`/api/v1/storage-locations/${location.id}/assign-unlocated`, {
+      method: "POST",
+    });
+    state.selected.clear();
+    await Promise.all([reloadDashboard(), loadStorageLocations()]);
+    showMessage(
+      "locations-message",
+      `${result.updated_count} item${result.updated_count === 1 ? "" : "s"} assigned to ${location.code}.`,
+      "success"
+    );
   } catch (error) {
     showMessage("locations-message", error.message, "error");
   }

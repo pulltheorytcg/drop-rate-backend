@@ -42,3 +42,5 @@
   .finance-settlement-table{min-width:0}
   .finance-settlement-row td>small{max-width:none}
 }
+
+.core-readiness{display:inline-flex;align-items:center;width:max-content;max-width:100%;margin-top:2px;padding:4px 7px;border-radius:999px;background:rgba(255,187,85,.09);color:#ffc46d;font-size:.63rem;font-weight:750;line-height:1.25;white-space:normal}.core-readiness.complete{background:rgba(93,219,145,.11);color:#72e6a3}
