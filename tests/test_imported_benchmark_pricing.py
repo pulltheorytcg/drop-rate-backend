@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
+from app.fx import FxQuote
 from app.imported_benchmark_pricing import (
     _money_minor,
+    _to_gbp_minor,
     extract_imported_benchmark,
 )
 
@@ -17,7 +19,7 @@ def test_money_minor_rejects_non_positive_and_malformed_values() -> None:
     assert _money_minor(Decimal("1.005")) == 101
 
 
-def test_positive_price_override_wins_over_market_price() -> None:
+def test_price_override_is_ignored_when_currency_is_not_declared() -> None:
     result = extract_imported_benchmark(
         {
             "Price Override": "40",
@@ -25,10 +27,11 @@ def test_positive_price_override_wins_over_market_price() -> None:
         }
     )
     assert result == {
-        "basis": "PRICE_OVERRIDE",
-        "price_minor": 4000,
-        "observed_at": None,
-        "source_field": "Price Override",
+        "basis": "MARKET_PRICE",
+        "source_currency": "USD",
+        "source_price_minor": 6361,
+        "observed_at": datetime(2026, 9, 20, tzinfo=timezone.utc),
+        "source_field": "Market Price (As of 2026-09-20)",
     }
 
 
@@ -41,7 +44,8 @@ def test_newest_positive_market_price_is_selected() -> None:
         }
     )
     assert result["basis"] == "MARKET_PRICE"
-    assert result["price_minor"] == 1234
+    assert result["source_currency"] == "USD"
+    assert result["source_price_minor"] == 1234
     assert result["observed_at"] == datetime(2026, 9, 20, tzinfo=timezone.utc)
     assert result["source_field"] == "Market Price (As of 2026-09-20)"
 
@@ -96,17 +100,6 @@ def test_collectr_market_price_becomes_reusable_market_observation_only_after_id
     assert "0.65" in source
 
 
-def test_price_override_is_not_misrepresented_as_market_observation() -> None:
-    source = (
-        __import__("pathlib").Path(__file__).parents[1]
-        / "backend"
-        / "app"
-        / "imported_benchmark_pricing.py"
-    ).read_text()
-    assert 'if benchmark["basis"] != "MARKET_PRICE" or not item["identity_confirmed"]:' in source
-    assert "return False" in source
-
-
 def test_batch_limit_is_applied_after_evidence_filtering() -> None:
     source = (
         __import__("pathlib").Path(__file__).parents[1]
@@ -116,3 +109,30 @@ def test_batch_limit_is_applied_after_evidence_filtering() -> None:
     ).read_text()
     assert "owner_id,\n        2000," in source
     assert "if len(candidates) >= limit:" in source
+
+
+def test_usd_collectr_price_is_normalized_to_gbp_with_auditable_quote() -> None:
+    quote = FxQuote(
+        base_currency="USD",
+        quote_currency="GBP",
+        rate=Decimal("0.75"),
+        effective_at=datetime(2026, 9, 18, 16, 0, tzinfo=timezone.utc),
+        retrieved_at=datetime(2026, 9, 25, 23, 0, tzinfo=timezone.utc),
+        source="TEST_ECB",
+    )
+    assert _to_gbp_minor(6361, quote) == 4771
+
+
+def test_collectr_observation_preserves_usd_and_fx_provenance() -> None:
+    source = (
+        __import__("pathlib").Path(__file__).parents[1]
+        / "backend"
+        / "app"
+        / "imported_benchmark_pricing.py"
+    ).read_text()
+    assert "'USD',$5,null" in source
+    assert '"fx_source": fx_quote.source' in source
+    assert '"fx_effective_at": fx_quote.effective_at.isoformat()' in source
+    assert '"normalized_gbp_minor": price_minor' in source
+    assert "EcbHistoricalFxProvider()" in source
+    assert "Phase 2: fetch auditable historical FX quotes outside any DB transaction." in source
