@@ -101,3 +101,11 @@ def test_identity_confirmation_language_is_audited_and_fail_closed_on_mismatch()
     assert '<option value="Japanese">Japanese (JP)</option>' in frontend
     assert 'language: byId("identity-language").value || null' in frontend
     assert '"Language not verified"' in frontend
+
+
+def test_identity_review_queue_reports_language_completeness() -> None:
+    source = API.read_text()
+    frontend = FRONTEND.read_text()
+    assert "count(*) filter(where i.language is not null)::int as language_copies" in source
+    assert "group.language_copies" in frontend
+    assert "language ·" in frontend
