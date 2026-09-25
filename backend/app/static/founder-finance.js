@@ -14,6 +14,14 @@ function financeMinorFromInput(value) {
   return Math.round(amount * 100);
 }
 
+function financeNonnegativeMinorFromInput(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const amount = Number(text);
+  if (!Number.isFinite(amount) || amount < 0) return null;
+  return Math.round(amount * 100);
+}
+
 function ensureFounderFinanceUI() {
   if (byId("founder-finance-panel")) return;
   const stats = document.querySelector("#dashboard-view .stats-grid");
@@ -215,6 +223,28 @@ function renderFinanceSales(items) {
         `${formatFinanceMoney(feesPostage)} recorded · awaiting ${pending.join(" + ")}`;
     }
 
+    if (sale.source === "SHOPIFY" && !costsComplete) {
+      const actions = document.createElement("div");
+      actions.className = "finance-reconcile-actions";
+      if (!sale.fees_complete) {
+        const syncFees = document.createElement("button");
+        syncFees.type = "button";
+        syncFees.className = "ghost-button";
+        syncFees.textContent = "Sync fees";
+        syncFees.addEventListener("click", () => reconcileShopifyFees(sale));
+        actions.append(syncFees);
+      }
+      if (!sale.shipping_cost_complete) {
+        const setPostage = document.createElement("button");
+        setPostage.type = "button";
+        setPostage.className = "ghost-button";
+        setPostage.textContent = "Set postage";
+        setPostage.addEventListener("click", () => reconcileShopifyPostage(sale));
+        actions.append(setPostage);
+      }
+      costsCell.append(actions);
+    }
+
     const profitCell = row.cells[5];
     if (sale.profit_complete) {
       profitCell.querySelector("strong").textContent = formatFinanceMoney(sale.profit_minor);
@@ -253,6 +283,83 @@ function renderFinancePayouts(items) {
     body.append(row);
   });
 }
+
+async function reconcileShopifyFees(sale) {
+  showMessage("finance-message", `Syncing Shopify fees for ${sale.order_number || "order"}…`);
+  try {
+    const result = await apiRequest(
+      `/api/v1/finance/shopify/orders/${sale.order_id}/reconcile-fees`,
+      { method: "POST" }
+    );
+    await loadFounderFinance();
+    if (result.fees_complete) {
+      showMessage(
+        "finance-message",
+        `Shopify fees reconciled: ${formatFinanceMoney(result.payment_fees_minor)}.`,
+        "success"
+      );
+    } else {
+      const statuses = (result.unsettled_transaction_statuses || []).join(", ");
+      showMessage(
+        "finance-message",
+        `Recorded known Shopify fees. Final fee settlement is still pending${statuses ? ` (${statuses})` : ""}.`,
+        "success"
+      );
+    }
+  } catch (error) {
+    showMessage("finance-message", error.message, "error");
+  }
+}
+
+async function reconcileShopifyPostage(sale) {
+  const value = window.prompt(
+    "Actual postage / fulfilment cost in £. Enter 0.00 if this order was not shipped.",
+    "0.00"
+  );
+  if (value === null) return;
+  const amountMinor = financeNonnegativeMinorFromInput(value);
+  if (amountMinor === null) {
+    showMessage("finance-message", "Enter a valid postage cost of £0.00 or more.", "error");
+    return;
+  }
+
+  const reference = window.prompt(
+    "Postage reference (label ID, courier reference, or e.g. TEST-NOT-SHIPPED):",
+    sale.order_number ? `${sale.order_number}-POSTAGE` : "POSTAGE"
+  );
+  if (reference === null) return;
+  const cleanReference = reference.trim();
+  if (!cleanReference) {
+    showMessage("finance-message", "A postage reference is required.", "error");
+    return;
+  }
+
+  showMessage("finance-message", `Recording postage for ${sale.order_number || "order"}…`);
+  try {
+    await apiRequest(
+      `/api/v1/finance/shopify/orders/${sale.order_id}/postage`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          amount_minor: amountMinor,
+          reference: cleanReference,
+          notes: amountMinor === 0
+            ? "Confirmed no postage/fulfilment cost."
+            : "Actual postage/fulfilment cost entered by founder.",
+        }),
+      }
+    );
+    await loadFounderFinance();
+    showMessage(
+      "finance-message",
+      `Postage reconciled at ${formatFinanceMoney(amountMinor)}.`,
+      "success"
+    );
+  } catch (error) {
+    showMessage("finance-message", error.message, "error");
+  }
+}
+
 
 async function loadFounderFinance() {
   ensureFounderFinanceUI();
