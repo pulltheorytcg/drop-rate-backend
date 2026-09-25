@@ -82,7 +82,7 @@ def test_existing_store_price_is_never_overwritten() -> None:
     assert "and store_price_minor is null" in source
 
 
-def test_collectr_market_price_becomes_reusable_market_observation() -> None:
+def test_collectr_market_price_becomes_reusable_market_observation_only_after_identity_confirmation() -> None:
     source = (
         __import__("pathlib").Path(__file__).parents[1]
         / "backend"
@@ -90,6 +90,7 @@ def test_collectr_market_price_becomes_reusable_market_observation() -> None:
         / "imported_benchmark_pricing.py"
     ).read_text()
     assert "'COLLECTR',$2,'MARKET_AGGREGATE'" in source
+    assert 'not item["identity_confirmed"]' in source
     assert "on conflict (source,source_record_key) do nothing" in source
     assert "evidence_quality" in source
     assert "0.65" in source
@@ -104,3 +105,14 @@ def test_price_override_is_not_misrepresented_as_market_observation() -> None:
     ).read_text()
     assert 'if benchmark["basis"] != "MARKET_PRICE":' in source
     assert "return False" in source
+
+
+def test_batch_limit_is_applied_after_evidence_filtering() -> None:
+    source = (
+        __import__("pathlib").Path(__file__).parents[1]
+        / "backend"
+        / "app"
+        / "imported_benchmark_pricing.py"
+    ).read_text()
+    assert "owner_id,\n        2000," in source
+    assert "if len(candidates) >= limit:" in source
