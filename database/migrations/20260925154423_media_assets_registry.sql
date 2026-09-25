@@ -92,6 +92,9 @@ create index media_assets_owner_updated_idx
     on tcg.media_assets(owner_id,updated_at desc);
 
 alter table tcg.media_assets enable row level security;
+alter table tcg.media_assets force row level security;
+
+revoke all on table tcg.media_assets from anon, authenticated;
 
 create policy admin_access on tcg.media_assets
     for all to postgres using (true) with check (true);
