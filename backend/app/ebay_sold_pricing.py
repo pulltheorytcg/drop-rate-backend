@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from statistics import median
+from statistics import median, pstdev
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -30,6 +31,7 @@ _NON_ENGLISH_TERMS = (
 )
 _REPRINT_TERMS = ("reprint", "the best", "prb01", "prb02")
 _TRAILING_DISAMBIGUATOR_RE = re.compile(r"\s*[\[(](?:\d{2,4}|\d{2,4}/\d{2,4})[\])]\s*$")
+_EXPLICIT_PRINT_MARKERS = ("parallel", "sp", "manga", "alt art", "alternate art")
 
 
 class TrawlApiError(RuntimeError):
@@ -162,6 +164,26 @@ def _canonical_search_name(name: str, card_number: str) -> str:
     return clean or name.strip()
 
 
+def _identity_name_anchor(name: str, card_number: str) -> str:
+    """Use the stable leading card name; collector number supplies strong identity."""
+    clean = _canonical_search_name(name, card_number)
+    return clean.split("//", 1)[0].strip() or clean
+
+
+def _explicit_print_markers(name: str) -> tuple[str, ...]:
+    normalised = _normalise_text(name)
+    return tuple(marker for marker in _EXPLICIT_PRINT_MARKERS if _contains_term(normalised, marker))
+
+
+def _variant_matches_target(title: str, *, game: str, variant: str) -> bool:
+    # One Piece Collectr exports mark ordinary cards as Foil even when sellers
+    # rarely state "foil". Card code + name + explicit Parallel/SP/Manga marker
+    # are more reliable discriminators for that game.
+    if game.strip().casefold() == "one piece" and _normalise_text(variant) == "foil":
+        return True
+    return _variant_matches(title, variant)
+
+
 def _language_matches(title: str, language: str) -> bool:
     normalised = _normalise_text(title)
     canonical = language.strip().casefold()
@@ -217,9 +239,12 @@ def _matches_comp(row: dict[str, Any], target: dict[str, Any]) -> bool:
     card_number = target["card_number"]
     if not _contains_term(_normalise_text(title), card_number):
         return False
-    search_name = _canonical_search_name(target["name"], card_number)
+    search_name = _identity_name_anchor(target["name"], card_number)
     if not _contains_term(_normalise_text(title), search_name):
         return False
+    for marker in _explicit_print_markers(target["name"]):
+        if not _contains_term(_normalise_text(title), marker):
+            return False
 
     if not _language_matches(title, target["language"]):
         return False
@@ -237,7 +262,11 @@ def _matches_comp(row: dict[str, Any], target: dict[str, Any]) -> bool:
         if any(_contains_term(_normalise_text(title), term) for term in _RAW_GRADED_TERMS):
             return False
 
-    if not _variant_matches(title, target["variant"]):
+    if not _variant_matches_target(
+        title,
+        game=target["game"],
+        variant=target["variant"],
+    ):
         return False
 
     condition_raw = row.get("condition_raw")
@@ -255,7 +284,7 @@ def _matches_comp(row: dict[str, Any], target: dict[str, Any]) -> bool:
 
 def _query_for_target(target: dict[str, Any]) -> str:
     parts = [
-        _canonical_search_name(target["name"], target["card_number"]),
+        _identity_name_anchor(target["name"], target["card_number"]),
         target["card_number"],
     ]
     if target["language"].strip().casefold() == "japanese":
@@ -264,7 +293,9 @@ def _query_for_target(target: dict[str, Any]) -> str:
         parts.extend((target["grading_company"], target["grade"]))
     variant = _normalise_text(target["variant"])
     if variant and variant != "normal":
-        parts.append(target["variant"])
+        if not (target["game"].strip().casefold() == "one piece" and variant == "foil"):
+            parts.append(target["variant"])
+    parts.extend(_explicit_print_markers(target["name"]))
     return " ".join(str(part).strip() for part in parts if str(part).strip())
 
 
@@ -272,6 +303,10 @@ def select_five_newest_comps(payload: dict[str, Any], *, target: dict[str, Any])
     rows = payload.get("results", [])
     if not isinstance(rows, list):
         raise ValueError("Sold-data response is missing results")
+
+    response_currency = str(payload.get("currency") or "").strip().upper()
+    if response_currency != "GBP":
+        raise ValueError("Sold-data response is not GBP / eBay UK")
 
     accepted: dict[str, SoldComparable] = {}
     for row in rows:
@@ -283,8 +318,7 @@ def select_five_newest_comps(payload: dict[str, Any], *, target: dict[str, Any])
         sold_at = _sold_at(row.get("date_sold"))
         if sold_at is None:
             continue
-        currency = row.get("currency")
-        price_minor = _money_minor(row.get("sale_price"), expected_currency="GBP", currency=currency)
+        price_minor = _money_minor(row.get("sale_price"))
         if price_minor is None or price_minor <= 0:
             continue
         shipping_minor = _money_minor(row.get("shipping_price"))
@@ -435,17 +469,144 @@ async def _persist_comp(connection, target: dict[str, Any], comp: SoldComparable
         observation.shipping_gbp_minor, observation.fx_rate_to_gbp, observation.condition,
         observation.grading_company, observation.grade, observation.language,
         observation.seal_status, observation.source_country, observation.sample_size,
-        observation.evidence_quality, __import__("json").dumps(observation.metadata),
+        observation.evidence_quality, json.dumps(observation.metadata),
     )
     return row is not None
 
 
-async def _price_one(pool, *, user_id: UUID, request_id: str, inventory_id: UUID, apply: bool) -> dict[str, Any]:
+async def _pricing_snapshot(
+    connection,
+    *,
+    owner_id: UUID,
+    inventory_id: UUID,
+    target: dict[str, Any],
+    store_price_minor: int,
+    comps: list[SoldComparable],
+    query: str,
+) -> UUID:
+    prices = [comp.price_minor for comp in comps]
+    volatility_pct = (
+        (pstdev(prices) / store_price_minor) * 100
+        if store_price_minor > 0 and len(prices) > 1
+        else 0.0
+    )
+    quick_sale_minor = int(
+        (Decimal(store_price_minor) * Decimal("0.92")).quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP
+        )
+    )
+    target_acquisition_minor = int(
+        (Decimal(store_price_minor) * Decimal("0.70")).quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP
+        )
+    )
+    evidence = {
+        "method": "FIVE_NEWEST_EXACT_COMPARABLE_EBAY_UK_SALES",
+        "provider": "TRAWL",
+        "query": query,
+        "sale_price_excludes_shipping": True,
+        "comps": [
+            {
+                "item_id": comp.item_id,
+                "title": comp.title,
+                "sold_at": comp.sold_at.isoformat(),
+                "price_minor": comp.price_minor,
+                "shipping_minor": comp.shipping_minor,
+                "url": comp.url,
+            }
+            for comp in comps
+        ],
+    }
+    snapshot = await connection.fetchrow(
+        """
+        insert into tcg.pricing_snapshots(
+            inventory_id,catalogue_id,owner_id,market_value_minor,
+            recommended_retail_minor,quick_sale_minor,target_acquisition_minor,
+            confidence,source_count,observation_count,sold_observation_count,
+            volatility_pct,newest_observation_at,algorithm_version,evidence,
+            auto_publish_eligible,block_reasons
+        ) values(
+            $1,$2,$3,$4,$4,$5,$6,
+            1.0,1,5,5,$7,$8,'ebay-five-sold-v1',$9::jsonb,
+            false,$10::jsonb
+        )
+        returning id
+        """,
+        inventory_id,
+        target["catalogue_id"],
+        owner_id,
+        store_price_minor,
+        quick_sale_minor,
+        target_acquisition_minor,
+        volatility_pct,
+        max(comp.sold_at for comp in comps),
+        json.dumps(evidence),
+        json.dumps(["single-source founder pricing rule"]),
+    )
+    return snapshot["id"]
+
+
+async def _locked_apply_rows(
+    connection,
+    *,
+    owner_id: UUID,
+    target: dict[str, Any],
+    inventory_id: UUID,
+    apply_group: bool,
+) -> list[dict[str, Any]]:
+    if not apply_group:
+        rows = await connection.fetch(
+            """
+            select id,version,status,store_price_minor
+            from tcg.inventory_items
+            where id=$1 and owner_id=$2
+            for update
+            """,
+            inventory_id, owner_id,
+        )
+        return [dict(row) for row in rows]
+
+    rows = await connection.fetch(
+        """
+        select id,version,status,store_price_minor
+        from tcg.inventory_items
+        where owner_id=$1
+          and catalogue_id=$2
+          and condition is not distinct from $3
+          and grading_company is not distinct from $4
+          and grade is not distinct from $5
+          and language is not distinct from $6
+          and status in ('DRAFT','INSPECTION','APPROVED')
+          and store_price_minor is null
+        order by id
+        for update
+        """,
+        owner_id,
+        target["catalogue_id"],
+        target["condition"],
+        target["grading_company"],
+        target["grade"],
+        target["language"],
+    )
+    return [dict(row) for row in rows]
+
+
+async def _price_one(
+    pool,
+    *,
+    user_id: UUID,
+    request_id: str,
+    inventory_id: UUID,
+    apply: bool,
+    apply_group: bool = False,
+) -> dict[str, Any]:
+    # Phase 1: short DB snapshot.
     async with user_connection(pool, user_id, request_id) as connection:
         owner = await _owner(connection)
         owner_id = owner["id"]
         target = await _target_snapshot(connection, owner_id, inventory_id)
 
+    # Phase 2: provider I/O outside all DB transactions.
     result = await _fetch_comp_result(target)
     serialised_comps = [
         {
@@ -466,6 +627,7 @@ async def _price_one(pool, *, user_id: UUID, request_id: str, inventory_id: UUID
             "applied": False,
         }
 
+    # Phase 3: re-lock, revalidate and write evidence + prices atomically.
     async with user_connection(pool, user_id, request_id) as connection:
         current_owner = await _owner(connection)
         if current_owner["id"] != owner_id:
@@ -476,31 +638,77 @@ async def _price_one(pool, *, user_id: UUID, request_id: str, inventory_id: UUID
                 "catalogue_id", "condition", "grading_company", "grade", "language",
                 "game", "name", "set_name", "card_number", "variant",
             )
-            if current["version"] != target["version"] or any(current[field] != target[field] for field in fields):
-                raise HTTPException(status_code=409, detail="Inventory identity changed during eBay sold lookup")
+            if any(current[field] != target[field] for field in fields):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Inventory identity changed during eBay sold lookup",
+                )
+
+            locked = await _locked_apply_rows(
+                connection,
+                owner_id=owner_id,
+                target=current,
+                inventory_id=inventory_id,
+                apply_group=apply_group,
+            )
+            if not locked:
+                raise HTTPException(
+                    status_code=409,
+                    detail="No unchanged inventory remains eligible for this price group",
+                )
+            representative = next(
+                (row for row in locked if row["id"] == inventory_id),
+                None,
+            )
+            if representative is None or representative["version"] != target["version"]:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Inventory changed during eBay sold lookup",
+                )
 
             inserted = 0
             for comp in result["comps"]:
                 if await _persist_comp(connection, current, comp, query=result["query"]):
                     inserted += 1
 
-            updated = await connection.fetchrow(
-                """
-                update tcg.inventory_items
-                   set store_price_minor=$1,
-                       market_value_minor=$1,
-                       recommended_retail_minor=$1,
-                       pricing_updated_at=now(),
-                       version=version+1,
-                       updated_at=now()
-                 where id=$2 and owner_id=$3 and version=$4
-                 returning id,inventory_code,store_price_minor,market_value_minor,
-                           recommended_retail_minor,pricing_updated_at,version
-                """,
-                result["store_price_minor"], inventory_id, owner_id, current["version"],
-            )
-            if updated is None:
-                raise HTTPException(status_code=409, detail="Inventory changed during Store Price update")
+            updated: list[dict[str, Any]] = []
+            for locked_item in locked:
+                snapshot_id = await _pricing_snapshot(
+                    connection,
+                    owner_id=owner_id,
+                    inventory_id=locked_item["id"],
+                    target=current,
+                    store_price_minor=result["store_price_minor"],
+                    comps=result["comps"],
+                    query=result["query"],
+                )
+                row = await connection.fetchrow(
+                    """
+                    update tcg.inventory_items
+                       set store_price_minor=$1,
+                           market_value_minor=$1,
+                           recommended_retail_minor=$1,
+                           pricing_updated_at=now(),
+                           latest_pricing_snapshot_id=$2,
+                           version=version+1,
+                           updated_at=now()
+                     where id=$3 and owner_id=$4 and version=$5
+                     returning id,inventory_code,store_price_minor,market_value_minor,
+                               recommended_retail_minor,pricing_updated_at,
+                               latest_pricing_snapshot_id,version
+                    """,
+                    result["store_price_minor"],
+                    snapshot_id,
+                    locked_item["id"],
+                    owner_id,
+                    locked_item["version"],
+                )
+                if row is None:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Inventory changed during Store Price update",
+                    )
+                updated.append(dict(row))
 
     return {
         "inventory_id": inventory_id,
@@ -511,7 +719,8 @@ async def _price_one(pool, *, user_id: UUID, request_id: str, inventory_id: UUID
         "comps": serialised_comps,
         "inserted_observations": inserted,
         "applied": True,
-        "inventory": dict(updated),
+        "updated_count": len(updated),
+        "inventory": updated,
     }
 
 
@@ -614,6 +823,7 @@ async def apply_missing_ebay_five_sold(
                 request_id=request.state.request_id,
                 inventory_id=row["id"],
                 apply=True,
+                apply_group=True,
             )
         except HTTPException as exc:
             result = {
