@@ -373,8 +373,8 @@ class ShopifyAdminClient:
         }
 
 
-    async def list_collection_titles(self) -> set[str]:
-        titles: set[str] = set()
+    async def list_collections_by_title(self) -> dict[str, dict[str, Any]]:
+        collections: dict[str, dict[str, Any]] = {}
         cursor: str | None = None
         while True:
             data = await self.graphql(
@@ -402,8 +402,13 @@ class ShopifyAdminClient:
                 if not isinstance(node, dict):
                     continue
                 title = str(node.get("title") or "").strip()
-                if title:
-                    titles.add(title)
+                collection_id = str(node.get("id") or "").strip()
+                if title and collection_id:
+                    collections[title] = {
+                        "id": collection_id,
+                        "title": title,
+                        "handle": node.get("handle"),
+                    }
             page_info = connection.get("pageInfo")
             if not isinstance(page_info, dict) or not page_info.get("hasNextPage"):
                 break
@@ -412,7 +417,137 @@ class ShopifyAdminClient:
                 raise ShopifyApiError(
                     "Shopify collection pagination is invalid"
                 )
-        return titles
+        return collections
+
+    async def list_collection_titles(self) -> set[str]:
+        return set((await self.list_collections_by_title()).keys())
+
+    async def add_product_to_collection(
+        self,
+        *,
+        collection_id: str,
+        product_id: str,
+    ) -> None:
+        data = await self.graphql(
+            query="""
+            mutation DropRateCollectionAddProducts(
+              $id: ID!,
+              $productIds: [ID!]!
+            ) {
+              collectionAddProducts(id: $id, productIds: $productIds) {
+                collection { id title }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={"id": collection_id, "productIds": [product_id]},
+        )
+        payload = data.get("collectionAddProducts")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError(
+                "Shopify collection assignment returned an invalid response"
+            )
+        errors = payload.get("userErrors")
+        if isinstance(errors, list) and errors:
+            messages = " ".join(
+                str(error.get("message") or "")
+                for error in errors
+                if isinstance(error, dict)
+            ).casefold()
+            if "already" not in messages:
+                self._raise_user_errors(
+                    payload,
+                    "Shopify rejected collection assignment",
+                )
+
+    async def create_file_from_url(
+        self,
+        *,
+        source_url: str,
+        alt_text: str,
+    ) -> dict[str, Any]:
+        data = await self.graphql(
+            query="""
+            mutation DropRateFileCreate($files: [FileCreateInput!]!) {
+              fileCreate(files: $files) {
+                files { id fileStatus alt }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={
+                "files": [{
+                    "originalSource": source_url,
+                    "alt": alt_text,
+                    "contentType": "IMAGE",
+                }]
+            },
+        )
+        payload = data.get("fileCreate")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError(
+                "Shopify file creation returned an invalid response"
+            )
+        self._raise_user_errors(payload, "Shopify rejected file creation")
+        files = payload.get("files")
+        if (
+            not isinstance(files, list)
+            or len(files) != 1
+            or not isinstance(files[0], dict)
+        ):
+            raise ShopifyApiError(
+                "Shopify did not return exactly one created file"
+            )
+        return files[0]
+
+    async def get_file(self, file_id: str) -> dict[str, Any]:
+        data = await self.graphql(
+            query="""
+            query DropRateFile($id: ID!) {
+              node(id: $id) {
+                ... on MediaImage {
+                  id
+                  fileStatus
+                  alt
+                }
+              }
+            }
+            """,
+            variables={"id": file_id},
+        )
+        node = data.get("node")
+        if not isinstance(node, dict) or not node.get("id"):
+            raise ShopifyApiError("Shopify file could not be found")
+        return node
+
+    async def attach_file_to_product(
+        self,
+        *,
+        file_id: str,
+        product_id: str,
+    ) -> None:
+        data = await self.graphql(
+            query="""
+            mutation DropRateFileAttach($files: [FileUpdateInput!]!) {
+              fileUpdate(files: $files) {
+                files { id fileStatus alt }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={
+                "files": [{
+                    "id": file_id,
+                    "referencesToAdd": [product_id],
+                }]
+            },
+        )
+        payload = data.get("fileUpdate")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError(
+                "Shopify file association returned an invalid response"
+            )
+        self._raise_user_errors(payload, "Shopify rejected file association")
 
 
     async def find_product_by_handle(self, handle: str) -> dict[str, Any] | None:
