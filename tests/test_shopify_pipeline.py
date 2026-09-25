@@ -351,7 +351,9 @@ def test_media_registry_is_rls_protected_rights_gated_and_audited() -> None:
     assert "approval_status='approved'" in sql
     assert "shopify_file_status='ready'" in sql
     assert "media_assets_audit" in sql
-    assert "execute function tcg.audit_change()" in sql
+    assert "audit_media_asset_change" in sql
+    assert "security definer" in sql
+    assert "revoke all on function tcg.audit_media_asset_change() from public" in sql
     assert "'uploaded'" in sql
 
 
