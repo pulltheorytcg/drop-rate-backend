@@ -344,6 +344,28 @@ def test_shopify_sync_uses_complete_product_plan_not_legacy_minimal_payload() ->
     assert '"single-item-test"' not in sync
 
 
+def test_shopify_dashboard_surfaces_launch_completeness_and_preview() -> None:
+    frontend = SHOPIFY_SETTINGS.read_text()
+    assert "Preview Shopify page" in frontend
+    assert "Launch completeness" in frontend
+    assert "Launch ·" in frontend
+    assert "media registry not built — publishing fails closed" in frontend
+    assert "previewSelectedShopifyProduct" in frontend
+    assert "/api/v1/shopify/product-preview/" in frontend
+    assert "productPlan" in frontend
+    assert "productCompleteness" in frontend
+
+
+def test_shopify_dashboard_disables_sync_until_launch_ready() -> None:
+    frontend = SHOPIFY_SETTINGS.read_text()
+    start = frontend.index("function refreshShopifyTestButton()")
+    end = frontend.index("async function previewSelectedShopifyProduct()", start)
+    block = frontend[start:end]
+    assert 'option?.dataset?.launchReady === "true"' in block
+    assert "|| !launchReady" in block
+    assert "previewButton.disabled = !select.value" in block
+
+
 def test_shopify_product_preview_is_read_only_and_exposes_blockers() -> None:
     source = PIPELINE.read_text()
     start = source.index('@router.get("/product-preview/{inventory_id}")')

@@ -41,14 +41,15 @@ function installShopifySettingsPanel() {
       <select id="shopify-test-candidate" aria-label="Choose approved inventory for Shopify test">
         <option value="">No eligible approved inventory</option>
       </select>
-      <button id="shopify-test-sync-button" class="primary-button compact" type="button" disabled>Sync one test item</button>
+      <button id="shopify-product-preview-button" class="ghost-button compact" type="button" disabled>Preview Shopify page</button>\n      <button id="shopify-test-sync-button" class="primary-button compact" type="button" disabled>Sync one test item</button>
     </div>
-    <div id="shopify-test-status" class="allocation-list"></div>`;
+    <div id="shopify-product-preview" class="allocation-list"></div>\n    <div id="shopify-test-status" class="allocation-list"></div>`;
   settings.append(panel);
 
   byId("shopify-register-button").addEventListener("click", registerShopifyWebhooks);
   byId("shopify-refresh-button").addEventListener("click", loadShopifyStatus);
   byId("shopify-test-candidate").addEventListener("change", refreshShopifyTestButton);
+  byId("shopify-product-preview-button").addEventListener("click", previewSelectedShopifyProduct);
   byId("shopify-test-sync-button").addEventListener("click", syncSelectedShopifyTestItem);
 }
 
@@ -162,12 +163,14 @@ function renderShopifyTestCandidates(data) {
       const option = document.createElement("option");
       option.value = item.id;
       option.dataset.version = item.version;
+      option.dataset.launchReady = item.launch_ready ? "true" : "false";
       option.textContent = [
         item.name,
         item.card_number,
         item.variant,
         item.inventory_code,
         item.store_price_minor == null ? null : `£${(item.store_price_minor / 100).toFixed(2)}`,
+        item.launch_ready ? "Launch ready" : "Launch blocked",
       ].filter(Boolean).join(" · ");
       select.append(option);
     });
@@ -205,6 +208,31 @@ function renderShopifyTestCandidates(data) {
       `${readiness.considered || 0} unlinked active inventory items checked with the same rules used by the publish action.`
     ),
   ];
+  const launchReadiness = data.launch_readiness || {};
+  rows.push(
+    shopifyStatusRow(
+      "Launch completeness",
+      `${launchReadiness.ready || 0} ready · ${launchReadiness.blocked || 0} blocked`,
+      [
+        `${(launchReadiness.verified_collections || []).length} Shopify collections verified`,
+        launchReadiness.media_registry_status === "NOT_BUILT_FAIL_CLOSED"
+          ? "media registry not built — publishing fails closed"
+          : "media registry available",
+      ].join(" · ")
+    )
+  );
+  Object.entries(launchReadiness.blockers || {})
+    .filter(([, count]) => Number(count) > 0)
+    .sort((a, b) => Number(b[1]) - Number(a[1]) || a[0].localeCompare(b[0]))
+    .forEach(([blocker, count]) => {
+      rows.push(
+        shopifyStatusRow(
+          `Launch · ${blocker}`,
+          Number(count).toLocaleString("en-GB"),
+          "This blocks Shopify publication but does not change the underlying inventory record."
+        )
+      );
+    });
   Object.entries(readiness.blockers || {})
     .filter(([, count]) => Number(count) > 0)
     .sort((a, b) => Number(b[1]) - Number(a[1]) || a[0].localeCompare(b[0]))
@@ -237,9 +265,90 @@ function renderShopifyTestCandidates(data) {
 
 function refreshShopifyTestButton() {
   const select = byId("shopify-test-candidate");
-  const button = byId("shopify-test-sync-button");
-  if (!select || !button) return;
-  button.disabled = !select.value || select.dataset.testEnabled !== "true";
+  const syncButton = byId("shopify-test-sync-button");
+  const previewButton = byId("shopify-product-preview-button");
+  if (!select || !syncButton || !previewButton) return;
+  const option = select.selectedOptions?.[0];
+  const launchReady = option?.dataset?.launchReady === "true";
+  previewButton.disabled = !select.value;
+  syncButton.disabled =
+    !select.value
+    || select.dataset.testEnabled !== "true"
+    || !launchReady;
+}
+
+async function previewSelectedShopifyProduct() {
+  const select = byId("shopify-test-candidate");
+  const option = select?.selectedOptions?.[0];
+  const panel = byId("shopify-product-preview");
+  if (!option?.value || !panel) return;
+
+  const button = byId("shopify-product-preview-button");
+  button.disabled = true;
+  showMessage("shopify-settings-message", "Building Shopify product preview…");
+  try {
+    const data = await apiRequest(`/api/v1/shopify/product-preview/${option.value}`);
+    const plan = data.productPlan || {};
+    const completeness = data.productCompleteness || {};
+    const seo = plan.seo || {};
+    const collections = plan.requiredCollections || [];
+    const blockers = [
+      ...(data.operationalBlockers || []),
+      ...(completeness.blockers || []),
+    ];
+
+    panel.replaceChildren(
+      shopifyStatusRow(
+        "Product title",
+        plan.title || "Missing",
+        "Customer-facing title generated only from confirmed Drop Rate data."
+      ),
+      shopifyStatusRow(
+        "Category",
+        plan.categoryName || "Missing",
+        plan.category || "No Shopify taxonomy category mapped."
+      ),
+      shopifyStatusRow(
+        "Organisation",
+        [plan.vendor, plan.productType].filter(Boolean).join(" · ") || "Missing",
+        `${(plan.tags || []).length} tags · template: ${plan.template || "missing"}`
+      ),
+      shopifyStatusRow(
+        "SEO",
+        seo.title || "Missing",
+        seo.description || "SEO description missing."
+      ),
+      shopifyStatusRow(
+        "Collections",
+        collections.length ? collections.join(" · ") : "Missing",
+        completeness.missingCollections?.length
+          ? `Missing in Shopify: ${completeness.missingCollections.join(", ")}`
+          : "Required Shopify collections exist."
+      ),
+      shopifyStatusRow(
+        "Media",
+        completeness.approvedMediaCount > 0 ? "READY" : "BLOCKED",
+        `${plan.mediaPolicy || "No policy"} · ${completeness.approvedMediaCount || 0} approved asset(s)`
+      ),
+      shopifyStatusRow(
+        "Launch gate",
+        data.launchReady ? "READY" : "BLOCKED",
+        blockers.length ? blockers.join(" · ") : "All required product fields are complete."
+      )
+    );
+    showMessage(
+      "shopify-settings-message",
+      data.launchReady
+        ? "Product plan is launch-complete."
+        : "Preview generated. Publication remains blocked until every listed requirement is resolved.",
+      data.launchReady ? "success" : ""
+    );
+  } catch (error) {
+    panel.replaceChildren();
+    showMessage("shopify-settings-message", error.message, "error");
+  } finally {
+    refreshShopifyTestButton();
+  }
 }
 
 async function syncSelectedShopifyTestItem() {
