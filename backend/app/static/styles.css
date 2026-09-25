@@ -13,3 +13,20 @@
 
 .identity-review-toolbar{align-items:center}.identity-toggle{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.74rem;white-space:nowrap}.identity-toggle input{width:auto}.identity-group-row>div:last-child,.identity-copy-controls,.identity-review-controls{display:flex;align-items:center;gap:9px}.identity-group-row>div:last-child{justify-content:flex-end}.identity-copy-row{cursor:pointer}.identity-copy-controls{justify-content:flex-end}.identity-copy-controls input{width:18px;height:18px}.identity-review-controls{padding:14px 0;flex-wrap:wrap}.identity-review-form{margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}.identity-empty{padding:24px}
 @media(max-width:900px){.identity-review-toolbar{align-items:stretch}.identity-group-row{grid-template-columns:1fr}.identity-group-row>div:last-child{justify-content:flex-start}.identity-copy-row{grid-template-columns:1fr}.identity-copy-controls{justify-content:flex-start}}
+
+/* Founder finance sales table */
+#founder-finance-panel .finance-item-cell{min-width:230px;max-width:320px;display:table-cell}
+#founder-finance-panel .finance-item-cell>strong{display:block;color:#f2f4f7;font-size:.9rem;line-height:1.25;margin-bottom:4px}
+#founder-finance-panel .finance-item-meta{display:block;color:var(--muted);font-size:.71rem;line-height:1.35;margin-bottom:5px;white-space:normal}
+#founder-finance-panel .finance-item-code{display:block;max-width:215px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#founder-finance-panel .finance-money-cell{white-space:nowrap}
+#founder-finance-panel .finance-money-cell>strong{display:block;color:#e9edf3;font-size:.82rem;line-height:1.25}
+#founder-finance-panel .finance-money-cell>small{display:block;color:var(--muted);font-size:.66rem;line-height:1.35;margin-top:3px;white-space:normal;max-width:170px}
+#founder-finance-panel table{min-width:1080px}
+@media(max-width:560px){
+  #founder-finance-panel table{min-width:0}
+  #founder-finance-panel .finance-item-cell{display:grid;min-width:0;max-width:none}
+  #founder-finance-panel .finance-item-code{max-width:100%}
+  #founder-finance-panel .finance-money-cell{white-space:normal}
+  #founder-finance-panel .finance-money-cell>small{max-width:none}
+}
