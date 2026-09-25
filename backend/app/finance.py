@@ -135,6 +135,30 @@ def allocate_minor(total: int, weights: list[int]) -> list[int]:
     return base
 
 
+def _settlement_reconciliation_state(
+    *,
+    source: str,
+    fees_reconciled: bool,
+    shipping_cost_reconciled: bool,
+) -> tuple[str, list[str]]:
+    if source != "SHOPIFY":
+        return "VERIFIED", []
+
+    blockers: list[str] = []
+    if not fees_reconciled:
+        blockers.append("Shopify/payment fees")
+    if not shipping_cost_reconciled:
+        blockers.append("postage/fulfilment cost")
+
+    if not blockers:
+        return "VERIFIED", []
+    if len(blockers) == 2:
+        return "WAITING_FEES_AND_POSTAGE", blockers
+    if not fees_reconciled:
+        return "WAITING_FEES", blockers
+    return "WAITING_POSTAGE", blockers
+
+
 async def _balance_components(connection: asyncpg.Connection, owner_id: UUID) -> dict:
     ledger = await connection.fetchrow(
         """
@@ -354,6 +378,202 @@ async def finance_sales(
             )
             items.append(item)
         return jsonable_encoder({"total": total, "limit": limit, "offset": offset, "items": items})
+
+
+@router.get("/finance/settlements")
+async def finance_settlements(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _owner(connection)
+        total = await connection.fetchval(
+            """
+            select count(distinct oi.order_id)::int
+            from tcg.order_items oi
+            where oi.owner_id=$1
+            """,
+            owner["id"],
+        )
+        rows = await connection.fetch(
+            """
+            with item_rollup as (
+              select
+                oi.order_id,
+                oi.owner_id,
+                count(*)::int as item_count,
+                coalesce(
+                  sum(
+                    case
+                      when exists (
+                        select 1
+                        from tcg.refund_events r
+                        where r.order_item_id=oi.id
+                          and r.return_to_stock
+                      )
+                      then 0
+                      else oi.cost_basis_minor
+                    end
+                  ),
+                  0
+                )::bigint as effective_cogs_minor,
+                bool_and(rec.fees_reconciled_at is not null) as fees_reconciled,
+                bool_and(rec.shipping_cost_reconciled_at is not null)
+                  as shipping_cost_reconciled
+              from tcg.order_items oi
+              left join tcg.order_item_reconciliations rec
+                on rec.order_item_id=oi.id
+              where oi.owner_id=$1
+              group by oi.order_id,oi.owner_id
+            ),
+            ledger_rollup as (
+              select
+                le.order_id,
+                le.owner_id,
+                coalesce(
+                  sum(le.amount_minor)
+                    filter (where le.entry_type='SALE_REVENUE'),
+                  0
+                )::bigint as item_revenue_minor,
+                coalesce(
+                  sum(le.amount_minor)
+                    filter (where le.entry_type='SHIPPING_REVENUE'),
+                  0
+                )::bigint as shipping_revenue_minor,
+                coalesce(
+                  -sum(le.amount_minor)
+                    filter (where le.entry_type='REFUND'),
+                  0
+                )::bigint as item_refunds_minor,
+                coalesce(
+                  -sum(le.amount_minor)
+                    filter (where le.entry_type='SHIPPING_REFUND'),
+                  0
+                )::bigint as shipping_refunds_minor,
+                coalesce(
+                  -sum(le.amount_minor)
+                    filter (where le.entry_type='PLATFORM_FEE'),
+                  0
+                )::bigint as platform_fees_minor,
+                coalesce(
+                  -sum(le.amount_minor)
+                    filter (where le.entry_type='PAYMENT_FEE'),
+                  0
+                )::bigint as payment_fees_minor,
+                coalesce(
+                  -sum(le.amount_minor)
+                    filter (where le.entry_type='SHIPPING_COST'),
+                  0
+                )::bigint as shipping_cost_minor,
+                coalesce(
+                  sum(le.amount_minor)
+                    filter (where le.funds_status='PENDING'),
+                  0
+                )::bigint as pending_ledger_minor,
+                coalesce(
+                  sum(le.amount_minor)
+                    filter (where le.funds_status='AVAILABLE'),
+                  0
+                )::bigint as available_ledger_minor
+              from tcg.financial_ledger_entries le
+              where le.owner_id=$1 and le.order_id is not null
+              group by le.order_id,le.owner_id
+            )
+            select
+              o.id as order_id,
+              o.source,
+              o.source_reference,
+              o.order_number,
+              o.status as order_status,
+              o.currency,
+              o.placed_at,
+              ir.item_count,
+              ir.effective_cogs_minor,
+              case
+                when o.source='SHOPIFY' then coalesce(ir.fees_reconciled,false)
+                else true
+              end as fees_reconciled,
+              case
+                when o.source='SHOPIFY'
+                  then coalesce(ir.shipping_cost_reconciled,false)
+                else true
+              end as shipping_cost_reconciled,
+              coalesce(lr.item_revenue_minor,0)::bigint as item_revenue_minor,
+              coalesce(lr.shipping_revenue_minor,0)::bigint
+                as shipping_revenue_minor,
+              coalesce(lr.item_refunds_minor,0)::bigint as item_refunds_minor,
+              coalesce(lr.shipping_refunds_minor,0)::bigint
+                as shipping_refunds_minor,
+              coalesce(lr.platform_fees_minor,0)::bigint as platform_fees_minor,
+              coalesce(lr.payment_fees_minor,0)::bigint as payment_fees_minor,
+              coalesce(lr.shipping_cost_minor,0)::bigint as shipping_cost_minor,
+              coalesce(lr.pending_ledger_minor,0)::bigint as pending_ledger_minor,
+              coalesce(lr.available_ledger_minor,0)::bigint
+                as available_ledger_minor
+            from item_rollup ir
+            join tcg.orders o on o.id=ir.order_id
+            left join ledger_rollup lr
+              on lr.order_id=ir.order_id and lr.owner_id=ir.owner_id
+            order by o.placed_at desc,o.id
+            limit $2 offset $3
+            """,
+            owner["id"], limit, offset,
+        )
+
+        settlements = []
+        for row in rows:
+            item = dict(row)
+            item_revenue = int(item["item_revenue_minor"] or 0)
+            shipping_revenue = int(item["shipping_revenue_minor"] or 0)
+            item_refunds = int(item["item_refunds_minor"] or 0)
+            shipping_refunds = int(item["shipping_refunds_minor"] or 0)
+            platform_fees = int(item["platform_fees_minor"] or 0)
+            payment_fees = int(item["payment_fees_minor"] or 0)
+            shipping_cost = int(item["shipping_cost_minor"] or 0)
+            effective_cogs = int(item["effective_cogs_minor"] or 0)
+
+            gross_proceeds = (
+                item_revenue
+                + shipping_revenue
+                - item_refunds
+                - shipping_refunds
+            )
+            external_deductions = (
+                platform_fees
+                + payment_fees
+                + shipping_cost
+            )
+            net_owner_proceeds = gross_proceeds - external_deductions
+            owner_profit = net_owner_proceeds - effective_cogs
+
+            reconciliation_state, blockers = _settlement_reconciliation_state(
+                source=str(item["source"]),
+                fees_reconciled=bool(item["fees_reconciled"]),
+                shipping_cost_reconciled=bool(
+                    item["shipping_cost_reconciled"]
+                ),
+            )
+            item["gross_proceeds_minor"] = gross_proceeds
+            item["external_deductions_minor"] = external_deductions
+            item["net_owner_proceeds_minor"] = net_owner_proceeds
+            item["owner_profit_minor"] = owner_profit
+            item["reconciliation_state"] = reconciliation_state
+            item["reconciliation_complete"] = not blockers
+            item["blockers"] = blockers
+            settlements.append(item)
+
+        return jsonable_encoder({
+            "owner": dict(owner),
+            "currency": "GBP",
+            "total": int(total or 0),
+            "limit": limit,
+            "offset": offset,
+            "items": settlements,
+        })
 
 
 @router.post("/finance/shopify/orders/{order_id}/reconcile-fees")
