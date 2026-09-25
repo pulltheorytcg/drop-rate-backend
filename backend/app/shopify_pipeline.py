@@ -14,6 +14,7 @@ from .auth import AuthenticatedUser, require_user
 from .brands import brand_for_game
 from .db import user_connection
 from .finance import allocate_minor
+from .media import resolve_media_readiness, resolve_media_readiness_batch
 from .ownership import current_owner as _owner
 from .settings import get_settings
 from .shopify_completeness import (
@@ -180,6 +181,7 @@ def _launch_completeness(
     item: Any,
     *,
     collection_titles: set[str],
+    media_readiness: dict[str, Any],
     publication_configured: bool,
     location_configured: bool,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -188,9 +190,7 @@ def _launch_completeness(
         plan,
         store_price_minor=item["store_price_minor"],
         inventory_code=item["inventory_code"],
-        # Media is intentionally fail-closed until the approved media asset
-        # registry/capture pipeline is built. Never infer image rights/readiness.
-        approved_media_count=0,
+        media_readiness=media_readiness,
         existing_collection_titles=collection_titles,
         publication_configured=publication_configured,
         location_configured=location_configured,
@@ -244,9 +244,11 @@ async def shopify_product_preview(
                 },
             ) from exc
 
+        media_readiness = await resolve_media_readiness(connection, item)
         plan, completeness = _launch_completeness(
             item,
             collection_titles=collection_titles,
+            media_readiness=media_readiness,
             publication_configured=bool(settings.shopify_publication_gid),
             location_configured=bool(settings.shopify_location_gid),
         )
@@ -287,7 +289,7 @@ async def test_sync_status(
         pool = await connection.fetch(
             """
             select
-                i.id, i.inventory_code, i.version, i.status,
+                i.id, i.inventory_code, i.catalogue_id, i.version, i.status,
                 i.identity_confirmed, i.acquisition_cost_minor,
                 i.store_price_minor, i.storage_location_id, i.language,
                 i.condition, i.seal_status, i.grading_company, i.grade,
@@ -309,6 +311,10 @@ async def test_sync_status(
             """,
             owner["id"],
         )
+        media_by_inventory = await resolve_media_readiness_batch(
+            connection,
+            list(pool),
+        )
         candidates: list[dict[str, Any]] = []
         blocked_items: list[dict[str, Any]] = []
         blocker_counts: dict[str, int] = {}
@@ -317,9 +323,11 @@ async def test_sync_status(
         launch_blocker_counts: dict[str, int] = {}
         for row in pool:
             missing = _test_sync_missing(row)
+            media_readiness = media_by_inventory[str(row["id"])]
             _, launch = _launch_completeness(
                 row,
                 collection_titles=collection_titles,
+                media_readiness=media_readiness,
                 publication_configured=bool(settings.shopify_publication_gid),
                 location_configured=bool(settings.shopify_location_gid),
             )
@@ -380,7 +388,7 @@ async def test_sync_status(
                 "blocked": len(pool) - launch_ready_count,
                 "blockers": launch_blocker_counts,
                 "verified_collections": sorted(collection_titles),
-                "media_registry_status": "NOT_BUILT_FAIL_CLOSED",
+                "media_registry_status": "ACTIVE_FAIL_CLOSED",
             },
             "counts": dict(counts),
         })
@@ -467,9 +475,11 @@ async def sync_one_test_item(
                         "retryable": exc.retryable,
                     },
                 ) from exc
+            media_readiness = await resolve_media_readiness(connection, item)
             plan, launch = _launch_completeness(
                 item,
                 collection_titles=collection_titles,
+                media_readiness=media_readiness,
                 publication_configured=bool(settings.shopify_publication_gid),
                 location_configured=bool(settings.shopify_location_gid),
             )
