@@ -61,6 +61,40 @@ function ensureFounderFinanceUI() {
       <article class="stat-card"><span>Shipping income</span><strong id="finance-shipping-revenue">£0.00</strong><small>Shipping paid by customers</small></article>
     </div>
 
+    <section id="finance-settlement-section" class="finance-settlement-section">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">Owner settlement</p>
+          <h3>Settlement report</h3>
+          <p class="muted">Auditable proceeds and profit per order. Net owner proceeds never subtract acquisition cost; profit does.</p>
+        </div>
+      </div>
+      <div id="finance-settlement-message" class="message panel-message" role="status"></div>
+      <div class="table-wrap">
+        <table class="finance-settlement-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Reconciliation</th>
+              <th>Gross proceeds</th>
+              <th>Deductions</th>
+              <th>Adjustments</th>
+              <th>Net owner proceeds</th>
+              <th>Cost basis</th>
+              <th>Owner profit</th>
+              <th>Funds</th>
+            </tr>
+          </thead>
+          <tbody id="finance-settlements-body"></tbody>
+        </table>
+      </div>
+      <div id="finance-settlements-empty" class="empty-state">
+        <div>◇</div>
+        <h3>No settlements yet</h3>
+        <p>Verified owner settlement rows will appear after a physical item is sold.</p>
+      </div>
+    </section>
+
     <div id="finance-message" class="message panel-message" role="status"></div>
 
     <div class="page-heading">
@@ -260,6 +294,60 @@ function renderFinanceSales(items) {
   });
 }
 
+function renderFinanceSettlements(items) {
+  const body = byId("finance-settlements-body");
+  if (!body) return;
+  body.replaceChildren();
+  byId("finance-settlements-empty").classList.toggle("hidden", items.length > 0);
+
+  items.forEach((settlement) => {
+    const row = document.createElement("tr");
+    row.className = "finance-settlement-row";
+    row.innerHTML = `
+      <td data-label="Order"><strong></strong><small></small></td>
+      <td data-label="Reconciliation"><strong></strong><small></small></td>
+      <td data-label="Gross proceeds"></td>
+      <td data-label="Deductions"></td>
+      <td data-label="Adjustments"></td>
+      <td data-label="Net owner proceeds"><strong></strong></td>
+      <td data-label="Cost basis"></td>
+      <td data-label="Owner profit"><strong></strong></td>
+      <td data-label="Funds"><strong></strong><small></small></td>`;
+
+    const orderCell = row.cells[0];
+    orderCell.querySelector("strong").textContent =
+      settlement.order_number || settlement.source_reference || "—";
+    orderCell.querySelector("small").textContent =
+      `${settlement.source} · ${settlement.order_status}`;
+
+    const reconciliationCell = row.cells[1];
+    reconciliationCell.querySelector("strong").textContent =
+      settlement.reconciliation_complete ? "Verified" : "Pending";
+    reconciliationCell.querySelector("small").textContent =
+      settlement.reconciliation_complete
+        ? "All settlement inputs reconciled"
+        : (settlement.blockers || []).join(" + ") || "Reconciliation required";
+
+    row.cells[2].textContent = formatFinanceMoney(settlement.gross_proceeds_minor);
+    row.cells[3].textContent = formatFinanceMoney(settlement.external_deductions_minor);
+    row.cells[4].textContent = formatFinanceMoney(settlement.adjustments_minor);
+    row.cells[5].querySelector("strong").textContent =
+      formatFinanceMoney(settlement.net_owner_proceeds_minor);
+    row.cells[6].textContent = formatFinanceMoney(settlement.effective_cogs_minor);
+    row.cells[7].querySelector("strong").textContent =
+      formatFinanceMoney(settlement.owner_profit_minor);
+
+    const fundsCell = row.cells[8];
+    fundsCell.querySelector("strong").textContent =
+      `${formatFinanceMoney(settlement.available_ledger_minor)} available`;
+    fundsCell.querySelector("small").textContent =
+      `${formatFinanceMoney(settlement.pending_ledger_minor)} pending`;
+
+    body.append(row);
+  });
+}
+
+
 function renderFinancePayouts(items) {
   const body = byId("finance-payouts-body");
   body.replaceChildren();
@@ -366,13 +454,15 @@ async function loadFounderFinance() {
   if (!state.session?.access_token) return;
   showMessage("finance-message", "Loading finance…");
   try {
-    const [summary, sales, payouts] = await Promise.all([
+    const [summary, sales, settlements, payouts] = await Promise.all([
       apiRequest("/api/v1/finance/summary"),
       apiRequest("/api/v1/finance/sales?limit=25&offset=0"),
+      apiRequest("/api/v1/finance/settlements?limit=50&offset=0"),
       apiRequest("/api/v1/finance/payouts"),
     ]);
     renderFinanceSummary(summary);
     renderFinanceSales(sales.items || []);
+    renderFinanceSettlements(settlements.items || []);
     renderFinancePayouts(payouts.items || []);
     showMessage("finance-message");
   } catch (error) {
