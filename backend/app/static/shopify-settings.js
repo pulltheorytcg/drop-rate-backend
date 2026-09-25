@@ -163,12 +163,14 @@ function renderShopifyTestCandidates(data) {
       const option = document.createElement("option");
       option.value = item.id;
       option.dataset.version = item.version;
+      option.dataset.launchReady = item.launch_ready ? "true" : "false";
       option.textContent = [
         item.name,
         item.card_number,
         item.variant,
         item.inventory_code,
         item.store_price_minor == null ? null : `£${(item.store_price_minor / 100).toFixed(2)}`,
+        item.launch_ready ? "Launch ready" : "Launch blocked",
       ].filter(Boolean).join(" · ");
       select.append(option);
     });
