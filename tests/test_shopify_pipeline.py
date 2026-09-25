@@ -7,6 +7,7 @@ from app.shopify_pipeline import (
     _handle,
     _minor,
     _money,
+    _media_readiness_summary,
     _parse_order_lines,
     _product_gid_matches,
     _refund_shipping_minor,
@@ -380,6 +381,48 @@ def test_shopify_shipping_profile_api_is_versioned_and_owner_scoped() -> None:
     assert "GRADED_CARD" in source
 
 
+def test_media_readiness_counts_canonical_coverage_and_graded_items() -> None:
+    summary = _media_readiness_summary(
+        [
+            {"physical_copies": 3, "ready": True},
+            {"physical_copies": 2, "ready": False},
+        ],
+        [
+            {"ready": True},
+            {"ready": False},
+        ],
+    )
+    assert summary == {
+        "raw_physical_cards": 5,
+        "raw_unique_identities": 2,
+        "raw_ready_identities": 1,
+        "raw_missing_identities": 1,
+        "raw_physical_covered": 3,
+        "raw_physical_missing": 2,
+        "graded_physical_cards": 2,
+        "graded_ready_items": 1,
+        "graded_missing_items": 1,
+        "total_ready_physical_cards": 4,
+        "total_missing_physical_cards": 3,
+    }
+
+
+def test_media_readiness_queue_is_rights_gated_and_prioritises_reuse() -> None:
+    source = PIPELINE.read_text()
+    start = source.index('@router.get("/media-readiness")')
+    end = source.index('@router.get("/media-assets")', start)
+    readiness = source[start:end]
+    assert "scope='CANONICAL_CARD'" in readiness
+    assert "scope='INVENTORY_ITEM'" in readiness
+    assert "approval_status='APPROVED'" in readiness
+    assert "rights_status='VERIFIED'" in readiness
+    assert "shopify_file_status='READY'" in readiness
+    assert "r.physical_copies desc" in readiness
+    assert '"CANONICAL_CARD_ALLOWED"' in readiness
+    assert '"PHYSICAL_ITEM_REQUIRED"' in readiness
+    assert '["FRONT", "BACK"]' in readiness
+
+
 def test_media_registry_is_rls_protected_rights_gated_and_audited() -> None:
     sql = MEDIA_REGISTRY_MIGRATION.read_text().casefold()
     assert "create table tcg.media_assets" in sql
@@ -439,6 +482,16 @@ def test_shopify_sync_uses_complete_product_plan_not_legacy_minimal_payload() ->
     assert "product_create_input(plan, handle=handle)" in sync
     assert '"vendor": "Drop Rate"' not in sync
     assert '"single-item-test"' not in sync
+
+
+def test_shopify_dashboard_surfaces_media_workload_without_auto_approval() -> None:
+    frontend = SHOPIFY_SETTINGS.read_text()
+    assert "Canonical reuse + physical-photo queue" in frontend
+    assert "/api/v1/shopify/media-readiness?limit=12" in frontend
+    assert "Raw-card media workload" in frontend
+    assert "Graded-card media workload" in frontend
+    assert "needs one approved canonical FRONT" in frontend
+    assert "No source is copied or approved automatically." in frontend
 
 
 def test_shopify_dashboard_surfaces_launch_completeness_and_preview() -> None:
