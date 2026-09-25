@@ -243,7 +243,7 @@ def product_completeness(
     *,
     store_price_minor: int | None,
     inventory_code: str | None,
-    approved_media_count: int,
+    media_readiness: Mapping[str, Any],
     existing_collection_titles: set[str],
     publication_configured: bool,
     location_configured: bool,
@@ -286,8 +286,11 @@ def product_completeness(
     if missing_collections:
         blockers.extend(f"collection: {name}" for name in missing_collections)
 
-    if approved_media_count <= 0:
-        blockers.append("approved media")
+    if not media_readiness.get("complete"):
+        blockers.extend(
+            str(blocker)
+            for blocker in media_readiness.get("blockers", ["approved media"])
+        )
     if not publication_configured:
         blockers.append("Shopify publication")
     if not location_configured:
@@ -299,6 +302,7 @@ def product_completeness(
         "blockers": unique_blockers,
         "requiredCollections": sorted(required_collections),
         "missingCollections": missing_collections,
-        "approvedMediaCount": approved_media_count,
+        "approvedMediaCount": int(media_readiness.get("approvedMediaCount") or 0),
         "mediaPolicy": plan.get("mediaPolicy"),
+        "mediaReadiness": dict(media_readiness),
     }
