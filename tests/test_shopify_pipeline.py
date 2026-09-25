@@ -120,7 +120,8 @@ def test_single_item_sync_requires_all_local_sellability_gates() -> None:
     assert 'missing.append("card language")' in source
     assert 'item["store_price_minor"] is None' in source
     assert 'item["storage_location_id"] is None' in source
-    assert '"single-item-test"' in source
+    assert 'if not launch["complete"]:' in source
+    assert "product_create_input(plan, handle=handle)" in source
 
 
 def test_shopify_api_failures_return_safe_gateway_response() -> None:
@@ -133,8 +134,11 @@ def test_shopify_api_failures_return_safe_gateway_response() -> None:
 
 def test_remote_retry_identity_is_inventory_id_not_title_similarity() -> None:
     source = PIPELINE.read_text()
-    assert '"namespace": "drop_rate"' in source
-    assert '"key": "inventory_id"' in source
+    completeness = (
+        ROOT / "backend" / "app" / "shopify_completeness.py"
+    ).read_text()
+    assert '"namespace": "drop_rate"' in completeness
+    assert '"inventory_id"' in completeness
     assert "remote_inventory_id != str(inventory_id)" in source
     assert "deterministic Shopify handle belongs to a different inventory item" in source
 
@@ -314,6 +318,43 @@ def test_failed_webhook_deliveries_remain_retryable() -> None:
         source.index('if event["status"] in {"PROCESSED", "IGNORED"}:'):
         source.index('if initial_status == "IGNORED":')
     ]
+
+
+def test_shopify_test_sync_fails_before_remote_create_when_launch_incomplete() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def sync_one_test_item(")
+    end = source.index("def _parse_order_lines(", start)
+    sync = source[start:end]
+    completeness_pos = sync.index('if not launch["complete"]:')
+    create_pos = sync.index("client.create_product(")
+    assert completeness_pos < create_pos
+    assert "No remote product was created or published." in sync
+    assert "approved_media_count=0" in source
+    assert "NOT_BUILT_FAIL_CLOSED" in source
+
+
+def test_shopify_sync_uses_complete_product_plan_not_legacy_minimal_payload() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def sync_one_test_item(")
+    end = source.index("def _parse_order_lines(", start)
+    sync = source[start:end]
+    assert "build_shopify_product_plan" in source
+    assert "product_create_input(plan, handle=handle)" in sync
+    assert '"vendor": "Drop Rate"' not in sync
+    assert '"single-item-test"' not in sync
+
+
+def test_shopify_product_preview_is_read_only_and_exposes_blockers() -> None:
+    source = PIPELINE.read_text()
+    start = source.index('@router.get("/product-preview/{inventory_id}")')
+    end = source.index('@router.get("/test-sync")', start)
+    preview = source[start:end]
+    assert "productPlan" in preview
+    assert "productCompleteness" in preview
+    assert "operationalBlockers" in preview
+    assert "launchReady" in preview
+    assert "create_product(" not in preview
+    assert "publish_product(" not in preview
 
 
 def test_paid_order_allocation_is_exact_and_fail_closed() -> None:

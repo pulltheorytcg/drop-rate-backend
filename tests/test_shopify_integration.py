@@ -183,6 +183,41 @@ async def test_shopify_inventory_set_uses_2026_07_quantity_shape() -> None:
 
 
 @pytest.mark.asyncio
+async def test_shopify_collection_titles_paginate_deterministically() -> None:
+    client = ShopifyAdminClient(
+        shop_domain="drop-rate.myshopify.com",
+        client_id="client-id",
+        client_secret="client-secret",
+        api_version="2026-07",
+    )
+    calls: list[dict | None] = []
+
+    async def fake_graphql(*, query: str, variables: dict | None = None) -> dict:
+        calls.append(variables)
+        after = (variables or {}).get("after")
+        if after is None:
+            return {
+                "collections": {
+                    "nodes": [{"id": "gid://shopify/Collection/1", "title": "Pokemon", "handle": "pokemon"}],
+                    "pageInfo": {"hasNextPage": True, "endCursor": "next"},
+                }
+            }
+        return {
+            "collections": {
+                "nodes": [{"id": "gid://shopify/Collection/2", "title": "Trading Cards", "handle": "trading-cards"}],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+        }
+
+    client.graphql = fake_graphql  # type: ignore[method-assign]
+    assert await client.list_collection_titles() == {"Pokemon", "Trading Cards"}
+    assert calls == [
+        {"first": 100, "after": None},
+        {"first": 100, "after": "next"},
+    ]
+
+
+@pytest.mark.asyncio
 async def test_shopify_order_transactions_return_typed_fee_data() -> None:
     client = ShopifyAdminClient(
         shop_domain="drop-rate.myshopify.com",
@@ -349,3 +384,10 @@ def test_shopify_client_lists_and_creates_webhook_subscriptions() -> None:
     assert "webhookSubscriptions(first: $first, after: $after)" in source
     assert "async def create_webhook_subscription" in source
     assert "webhookSubscriptionCreate" in source
+
+
+def test_shopify_variant_update_marks_cards_as_physical_shipping_items() -> None:
+    source = CLIENT.read_text()
+    assert '"requiresShipping": True' in source
+    assert '"tracked": True' in source
+    assert '"inventoryPolicy": "DENY"' in source
