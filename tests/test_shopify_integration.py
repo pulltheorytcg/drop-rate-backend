@@ -387,7 +387,7 @@ def test_shopify_client_lists_and_creates_webhook_subscriptions() -> None:
 
 
 def test_shopify_variant_update_marks_cards_as_physical_shipping_items() -> None:
-    source = SHOPIFY_CLIENT.read_text()
+    source = CLIENT.read_text()
     assert '"requiresShipping": True' in source
     assert '"tracked": True' in source
     assert '"inventoryPolicy": "DENY"' in source
