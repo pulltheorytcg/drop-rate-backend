@@ -29,7 +29,7 @@ create table tcg.media_assets (
     content_sha256 text,
     shopify_file_gid text,
     shopify_file_status text not null default 'NOT_UPLOADED'
-        check (shopify_file_status in ('NOT_UPLOADED','PROCESSING','READY','FAILED')),
+        check (shopify_file_status in ('NOT_UPLOADED','UPLOADED','PROCESSING','READY','FAILED')),
     shopify_error text,
     created_by_user_id uuid not null references auth.users(id),
     approved_by_user_id uuid references auth.users(id),
@@ -68,7 +68,7 @@ create table tcg.media_assets (
         (shopify_file_status='NOT_UPLOADED' and shopify_file_gid is null)
         or
         (
-            shopify_file_status in ('PROCESSING','READY','FAILED')
+            shopify_file_status in ('UPLOADED','PROCESSING','READY','FAILED')
             and nullif(btrim(shopify_file_gid),'') is not null
         )
     )
