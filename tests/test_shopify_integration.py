@@ -218,6 +218,165 @@ async def test_shopify_collection_titles_paginate_deterministically() -> None:
 
 
 @pytest.mark.asyncio
+async def test_shopify_collection_assignment_uses_exact_collection_and_product_ids() -> None:
+    client = ShopifyAdminClient(
+        shop_domain="drop-rate.myshopify.com",
+        client_id="client-id",
+        client_secret="client-secret",
+        api_version="2026-07",
+    )
+    captured: dict[str, object] = {}
+
+    async def fake_graphql(*, query: str, variables: dict | None = None) -> dict:
+        captured["query"] = query
+        captured["variables"] = variables
+        return {
+            "collectionAddProducts": {
+                "collection": {
+                    "id": "gid://shopify/Collection/1",
+                    "title": "Trading Cards",
+                },
+                "userErrors": [],
+            }
+        }
+
+    client.graphql = fake_graphql  # type: ignore[method-assign]
+    await client.add_product_to_collection(
+        collection_id="gid://shopify/Collection/1",
+        product_id="gid://shopify/Product/2",
+    )
+    assert captured["variables"] == {
+        "id": "gid://shopify/Collection/1",
+        "productIds": ["gid://shopify/Product/2"],
+    }
+    assert "collectionAddProducts" in str(captured["query"])
+
+
+@pytest.mark.asyncio
+async def test_shopify_media_uses_unified_file_create_and_reference_association() -> None:
+    client = ShopifyAdminClient(
+        shop_domain="drop-rate.myshopify.com",
+        client_id="client-id",
+        client_secret="client-secret",
+        api_version="2026-07",
+    )
+    calls: list[tuple[str, dict | None]] = []
+
+    async def fake_graphql(*, query: str, variables: dict | None = None) -> dict:
+        calls.append((query, variables))
+        if "fileCreate" in query:
+            return {
+                "fileCreate": {
+                    "files": [{
+                        "id": "gid://shopify/MediaImage/1",
+                        "fileStatus": "PROCESSING",
+                        "alt": "Seel front",
+                    }],
+                    "userErrors": [],
+                }
+            }
+        return {
+            "fileUpdate": {
+                "files": [{
+                    "id": "gid://shopify/MediaImage/1",
+                    "fileStatus": "READY",
+                    "alt": "Seel front",
+                }],
+                "userErrors": [],
+            }
+        }
+
+    client.graphql = fake_graphql  # type: ignore[method-assign]
+    created = await client.create_file_from_url(
+        source_url="https://cdn.example/seel-front.jpg",
+        alt_text="Seel front",
+    )
+    assert created["id"] == "gid://shopify/MediaImage/1"
+    assert created["fileStatus"] == "PROCESSING"
+
+    await client.attach_file_to_product(
+        file_id="gid://shopify/MediaImage/1",
+        product_id="gid://shopify/Product/2",
+    )
+    assert calls[0][1] == {
+        "files": [{
+            "originalSource": "https://cdn.example/seel-front.jpg",
+            "alt": "Seel front",
+            "contentType": "IMAGE",
+        }]
+    }
+    assert calls[1][1] == {
+        "files": [{
+            "id": "gid://shopify/MediaImage/1",
+            "referencesToAdd": ["gid://shopify/Product/2"],
+        }]
+    }
+
+
+@pytest.mark.asyncio
+async def test_shopify_product_snapshot_and_publication_are_read_back() -> None:
+    client = ShopifyAdminClient(
+        shop_domain="drop-rate.myshopify.com",
+        client_id="client-id",
+        client_secret="client-secret",
+        api_version="2026-07",
+    )
+    calls: list[str] = []
+
+    async def fake_graphql(*, query: str, variables: dict | None = None) -> dict:
+        calls.append(query)
+        if "publishedOnPublication" in query:
+            return {
+                "product": {
+                    "id": "gid://shopify/Product/2",
+                    "publishedOnPublication": True,
+                }
+            }
+        return {
+            "product": {
+                "id": "gid://shopify/Product/2",
+                "title": "Seel",
+                "descriptionHtml": "<p>Seel</p>",
+                "handle": "drop-rate-inv-1",
+                "status": "ACTIVE",
+                "vendor": "Pokémon",
+                "productType": "Trading Card",
+                "tags": ["TCG"],
+                "templateSuffix": None,
+                "seo": {"title": "Seel", "description": "Seel"},
+                "category": {"id": "gid://shopify/TaxonomyCategory/1"},
+                "metafields": {"nodes": []},
+                "collections": {"nodes": []},
+                "media": {"nodes": []},
+                "variants": {
+                    "nodes": [{
+                        "id": "gid://shopify/ProductVariant/1",
+                        "price": "4.99",
+                        "inventoryPolicy": "DENY",
+                        "inventoryQuantity": 1,
+                        "inventoryItem": {
+                            "id": "gid://shopify/InventoryItem/1",
+                            "sku": "INV-1",
+                            "tracked": True,
+                            "requiresShipping": True,
+                        },
+                    }]
+                },
+            }
+        }
+
+    client.graphql = fake_graphql  # type: ignore[method-assign]
+    snapshot = await client.get_product_snapshot("gid://shopify/Product/2")
+    assert snapshot["variants"]["nodes"][0]["inventoryQuantity"] == 1
+    assert await client.product_published_on_publication(
+        product_id="gid://shopify/Product/2",
+        publication_id="gid://shopify/Publication/3",
+    ) is True
+    assert any("inventoryQuantity" in query for query in calls)
+    assert any("publishedOnPublication" in query for query in calls)
+
+
+@pytest.mark.asyncio
 async def test_shopify_order_transactions_return_typed_fee_data() -> None:
     client = ShopifyAdminClient(
         shop_domain="drop-rate.myshopify.com",
