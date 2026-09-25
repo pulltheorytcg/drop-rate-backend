@@ -6,6 +6,7 @@ from app.shopify_completeness import (
     media_completeness,
     product_completeness,
     product_create_input,
+    shipping_profile_key,
     verify_remote_product,
 )
 
@@ -45,6 +46,7 @@ def test_card_product_plan_fills_customer_and_merchant_fields() -> None:
     assert plan["requiresShipping"] is True
     assert plan["inventoryTracked"] is True
     assert plan["inventoryPolicy"] == "DENY"
+    assert plan["shippingProfileKey"] == "RAW_CARD"
     assert plan["requiredCollections"] == ["Trading Cards", "Pokémon"]
     assert "Language:English" in plan["tags"]
     assert "Condition:Near Mint" in plan["tags"]
@@ -139,6 +141,10 @@ def test_graded_cards_require_item_specific_physical_media() -> None:
         _card(condition=None, grading_company="PSA", grade="10")
     )
     assert plan["mediaPolicy"] == "PHYSICAL_ITEM_REQUIRED"
+    assert plan["shippingProfileKey"] == "GRADED_CARD"
+    assert shipping_profile_key(
+        _card(condition=None, grading_company="PSA", grade="10")
+    ) == "GRADED_CARD"
     assert "PSA 10" in plan["title"]
 
 
@@ -152,11 +158,37 @@ def test_launch_completeness_fails_closed_for_media_and_collections() -> None:
         existing_collection_titles={"Home page"},
         publication_configured=True,
         location_configured=True,
+        shipping_profile={
+            "profile_key": "RAW_CARD",
+            "label": "Raw trading card",
+            "weight_value": 25,
+            "weight_unit": "GRAMS",
+            "shipping_package_gid": None,
+            "active": True,
+        },
     )
     assert result["complete"] is False
     assert "approved media" in result["blockers"]
     assert "collection: Trading Cards" in result["blockers"]
     assert "collection: Pokémon" in result["blockers"]
+
+
+def test_launch_completeness_fails_closed_without_shipping_profile() -> None:
+    plan = build_shopify_product_plan(_card())
+    result = product_completeness(
+        plan,
+        store_price_minor=499,
+        inventory_code="INV-PKM-TEST-001",
+        approved_media_count=1,
+        existing_collection_titles={"Trading Cards", "Pokémon"},
+        publication_configured=True,
+        location_configured=True,
+        shipping_profile=None,
+    )
+    assert result["complete"] is False
+    assert "shipping profile: RAW_CARD" in result["blockers"]
+    assert result["shippingProfileKey"] == "RAW_CARD"
+    assert result["shippingSpec"] is None
 
 
 def test_launch_completeness_passes_when_every_required_surface_is_ready() -> None:
@@ -169,6 +201,14 @@ def test_launch_completeness_passes_when_every_required_surface_is_ready() -> No
         existing_collection_titles={"Home page", "Trading Cards", "Pokémon"},
         publication_configured=True,
         location_configured=True,
+        shipping_profile={
+            "profile_key": "RAW_CARD",
+            "label": "Raw trading card",
+            "weight_value": 25,
+            "weight_unit": "GRAMS",
+            "shipping_package_gid": None,
+            "active": True,
+        },
     )
     assert result["complete"] is True
     assert result["blockers"] == []
@@ -220,6 +260,9 @@ def test_remote_product_verification_checks_every_launch_surface() -> None:
                     "sku": "INV-PKM-TEST-001",
                     "tracked": True,
                     "requiresShipping": True,
+                    "measurement": {
+                        "weight": {"value": 25.0, "unit": "GRAMS"}
+                    },
                 },
             }]
         },
@@ -233,6 +276,9 @@ def test_remote_product_verification_checks_every_launch_surface() -> None:
         expected_media_file_ids={"gid://shopify/MediaImage/1"},
         expected_quantity=1,
         expected_status="ACTIVE",
+        expected_shipping_spec={
+            "weight": {"value": 25.0, "unit": "GRAMS"},
+        },
     )
     assert result == {"complete": True, "blockers": []}
 
@@ -246,6 +292,9 @@ def test_remote_product_verification_checks_every_launch_surface() -> None:
         expected_media_file_ids={"gid://shopify/MediaImage/1"},
         expected_quantity=1,
         expected_status="ACTIVE",
+        expected_shipping_spec={
+            "weight": {"value": 25.0, "unit": "GRAMS"},
+        },
     )
     assert broken["complete"] is False
     assert "remote inventory quantity" in broken["blockers"]

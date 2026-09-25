@@ -41,6 +41,28 @@ class TestSyncRequest(BaseModel):
     version: int = Field(ge=1)
 
 
+class ShippingProfileCreate(BaseModel):
+    profile_key: str = Field(pattern="^[A-Z][A-Z0-9_]{1,63}$")
+    label: str = Field(min_length=1, max_length=120)
+    weight_value: float = Field(gt=0, le=100000)
+    weight_unit: str = Field(pattern="^(GRAMS|KILOGRAMS|OUNCES|POUNDS)$")
+    shipping_package_gid: str | None = Field(default=None, max_length=255)
+    notes: str = Field(default="", max_length=1000)
+
+
+class ShippingProfilePatch(BaseModel):
+    version: int = Field(ge=1)
+    label: str | None = Field(default=None, min_length=1, max_length=120)
+    weight_value: float | None = Field(default=None, gt=0, le=100000)
+    weight_unit: str | None = Field(
+        default=None,
+        pattern="^(GRAMS|KILOGRAMS|OUNCES|POUNDS)$",
+    )
+    shipping_package_gid: str | None = Field(default=None, max_length=255)
+    active: bool | None = None
+    notes: str | None = Field(default=None, max_length=1000)
+
+
 class MediaAssetCreate(BaseModel):
     catalogue_id: UUID | None = None
     inventory_id: UUID | None = None
@@ -224,9 +246,11 @@ def _launch_completeness(
     publication_configured: bool,
     location_configured: bool,
     media_assets: list[Mapping[str, Any]],
+    shipping_profiles: Mapping[str, Mapping[str, Any]],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     plan = build_shopify_product_plan(item)
     media = media_completeness(plan["mediaPolicy"], media_assets)
+    profile = shipping_profiles.get(str(plan["shippingProfileKey"]))
     completeness = product_completeness(
         plan,
         store_price_minor=item["store_price_minor"],
@@ -235,10 +259,30 @@ def _launch_completeness(
         existing_collection_titles=collection_titles,
         publication_configured=publication_configured,
         location_configured=location_configured,
+        shipping_profile=profile,
         media_blockers=media["blockers"],
     )
     completeness["mediaReadiness"] = media
     return plan, completeness
+
+
+async def _shipping_profiles(
+    connection: asyncpg.Connection,
+    owner_id: UUID,
+) -> dict[str, dict[str, Any]]:
+    rows = await connection.fetch(
+        """
+        select *
+        from tcg.shopify_shipping_profiles
+        where owner_id=$1 and active
+        order by profile_key
+        """,
+        owner_id,
+    )
+    return {
+        str(row["profile_key"]): dict(row)
+        for row in rows
+    }
 
 
 async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
@@ -246,6 +290,162 @@ async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
     if owner["role"] != "FOUNDER":
         raise HTTPException(status_code=403, detail="Only a founder can run Shopify test sync")
     return owner
+
+
+def _validated_shipping_package_gid(value: str | None) -> str | None:
+    clean = str(value or "").strip()
+    if not clean:
+        return None
+    prefix = "gid://shopify/Package/"
+    if not clean.startswith(prefix) or not clean[len(prefix):].isdigit():
+        raise HTTPException(
+            status_code=422,
+            detail="shipping_package_gid must be a Shopify Package GID",
+        )
+    return clean
+
+
+@router.get("/shipping-profiles")
+async def list_shipping_profiles(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    include_inactive: bool = False,
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        rows = await connection.fetch(
+            """
+            select *
+            from tcg.shopify_shipping_profiles
+            where owner_id=$1 and ($2::boolean or active)
+            order by active desc,profile_key
+            """,
+            owner["id"], include_inactive,
+        )
+        present = {str(row["profile_key"]) for row in rows if row["active"]}
+        required = {"RAW_CARD", "GRADED_CARD"}
+        return jsonable_encoder({
+            "items": [dict(row) for row in rows],
+            "required_profile_keys": sorted(required),
+            "missing_required_profile_keys": sorted(required - present),
+        })
+
+
+@router.post("/shipping-profiles", status_code=201)
+async def create_shipping_profile(
+    payload: ShippingProfileCreate,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    if payload.profile_key not in {"RAW_CARD", "GRADED_CARD"}:
+        raise HTTPException(
+            status_code=422,
+            detail="Supported shipping profile keys are RAW_CARD and GRADED_CARD",
+        )
+    package_gid = _validated_shipping_package_gid(payload.shipping_package_gid)
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        try:
+            row = await connection.fetchrow(
+                """
+                insert into tcg.shopify_shipping_profiles(
+                  owner_id,profile_key,label,weight_value,weight_unit,
+                  shipping_package_gid,notes,created_by_user_id
+                ) values($1,$2,$3,$4,$5,$6,$7,$8)
+                returning *
+                """,
+                owner["id"], payload.profile_key, payload.label.strip(),
+                payload.weight_value, payload.weight_unit, package_gid,
+                payload.notes.strip(), user.user_id,
+            )
+        except asyncpg.UniqueViolationError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="A shipping profile with this key already exists",
+            ) from exc
+        except asyncpg.CheckViolationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="Shipping profile failed database validation",
+            ) from exc
+        return jsonable_encoder({"profile": dict(row)})
+
+
+@router.patch("/shipping-profiles/{profile_id}")
+async def update_shipping_profile(
+    profile_id: UUID,
+    payload: ShippingProfilePatch,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    values = payload.model_dump(exclude_unset=True)
+    expected_version = int(values.pop("version"))
+    if "label" in values and values["label"] is not None:
+        values["label"] = str(values["label"]).strip()
+    if "notes" in values and values["notes"] is not None:
+        values["notes"] = str(values["notes"]).strip()
+    if "shipping_package_gid" in values:
+        values["shipping_package_gid"] = _validated_shipping_package_gid(
+            values["shipping_package_gid"]
+        )
+
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        current = await connection.fetchrow(
+            """
+            select *
+            from tcg.shopify_shipping_profiles
+            where id=$1 and owner_id=$2
+            for update
+            """,
+            profile_id, owner["id"],
+        )
+        if current is None:
+            raise HTTPException(status_code=404, detail="Shipping profile not found")
+        if int(current["version"]) != expected_version:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Shipping profile changed",
+                    "current_version": current["version"],
+                },
+            )
+        if not values:
+            return jsonable_encoder({"profile": dict(current)})
+
+        assignments: list[str] = []
+        params: list[object] = [profile_id, owner["id"], expected_version]
+        for column, value in values.items():
+            params.append(value)
+            assignments.append(f"{column} = ${len(params)}")
+        assignments.extend([
+            "version = version + 1",
+            "updated_at = clock_timestamp()",
+        ])
+        try:
+            updated = await connection.fetchrow(
+                f"""
+                update tcg.shopify_shipping_profiles
+                set {", ".join(assignments)}
+                where id=$1 and owner_id=$2 and version=$3
+                returning *
+                """,
+                *params,
+            )
+        except asyncpg.CheckViolationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="Shipping profile failed database validation",
+            ) from exc
+        if updated is None:
+            raise HTTPException(status_code=409, detail="Shipping profile changed")
+        return jsonable_encoder({"profile": dict(updated)})
 
 
 @router.get("/media-assets")
@@ -390,6 +590,7 @@ async def sync_media_asset(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
+        shipping_profiles = await _shipping_profiles(connection, owner["id"])
         async with connection.transaction():
             asset = await connection.fetchrow(
                 """
@@ -486,6 +687,7 @@ async def shopify_product_preview(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
+        shipping_profiles = await _shipping_profiles(connection, owner["id"])
         item = await connection.fetchrow(
             """
             select
@@ -536,6 +738,7 @@ async def shopify_product_preview(
             publication_configured=bool(settings.shopify_publication_gid),
             location_configured=bool(settings.shopify_location_gid),
             media_assets=media_assets,
+            shipping_profiles=shipping_profiles,
         )
         operational_missing = _test_sync_missing(item)
         return jsonable_encoder({
@@ -571,6 +774,7 @@ async def test_sync_status(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
+        shipping_profiles = await _shipping_profiles(connection, owner["id"])
         pool = await connection.fetch(
             """
             select
@@ -622,6 +826,7 @@ async def test_sync_status(
                 publication_configured=bool(settings.shopify_publication_gid),
                 location_configured=bool(settings.shopify_location_gid),
                 media_assets=_media_assets_for_item(row, ready_media_assets),
+                shipping_profiles=shipping_profiles,
             )
             if not missing:
                 eligible_count += 1
@@ -681,6 +886,10 @@ async def test_sync_status(
                 "blockers": launch_blocker_counts,
                 "verified_collections": sorted(collection_titles),
                 "media_registry_status": "ACTIVE_FAIL_CLOSED",
+                "shipping_profile_keys": sorted(shipping_profiles),
+                "missing_shipping_profile_keys": sorted(
+                    {"RAW_CARD", "GRADED_CARD"} - set(shipping_profiles)
+                ),
             },
             "counts": dict(counts),
         })
@@ -812,6 +1021,7 @@ async def sync_one_test_item(
                 publication_configured=bool(settings.shopify_publication_gid),
                 location_configured=bool(settings.shopify_location_gid),
                 media_assets=media_assets,
+                shipping_profiles=shipping_profiles,
             )
             if not launch["complete"]:
                 raise HTTPException(
@@ -902,6 +1112,7 @@ async def sync_one_test_item(
                 price=_money(int(item["store_price_minor"])),
                 sku=item["inventory_code"],
                 cost=_money(int(item["acquisition_cost_minor"])),
+                shipping_spec=launch["shippingSpec"],
             )
             inventory_item = updated_variant.get("inventoryItem")
             if (
@@ -936,6 +1147,7 @@ async def sync_one_test_item(
                 expected_media_file_ids=media_file_ids,
                 expected_quantity=1,
                 expected_status="DRAFT",
+                expected_shipping_spec=launch["shippingSpec"],
             )
             if not draft_verification["complete"]:
                 raise HTTPException(
@@ -988,6 +1200,7 @@ async def sync_one_test_item(
                 expected_media_file_ids=media_file_ids,
                 expected_quantity=1,
                 expected_status="ACTIVE",
+                expected_shipping_spec=launch["shippingSpec"],
             )
             published = await client.product_published_on_publication(
                 product_id=product_id,

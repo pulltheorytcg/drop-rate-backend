@@ -32,6 +32,14 @@ function installShopifySettingsPanel() {
     <div id="shopify-webhook-list" class="allocation-list"></div>
     <div class="page-heading pricing-subheading">
       <div>
+        <p class="eyebrow">Product completeness</p>
+        <h3>Shipping specifications</h3>
+        <p class="muted">Configure the verified Shopify shipping weight once for raw and graded cards. New listings inherit the matching profile automatically; missing profiles block publication.</p>
+      </div>
+    </div>
+    <div id="shopify-shipping-profile-list" class="allocation-list"></div>
+    <div class="page-heading pricing-subheading">
+      <div>
         <p class="eyebrow">Controlled milestone test</p>
         <h3>Single-item Shopify sync</h3>
         <p class="muted">Only an APPROVED, physically verified item can be synced here. Bulk publishing remains locked off.</p>
@@ -76,9 +84,10 @@ async function loadShopifyStatus() {
 
   showMessage("shopify-settings-message", "Loading Shopify integration status…");
   try {
-    const [data, testData] = await Promise.all([
+    const [data, testData, shippingData] = await Promise.all([
       apiRequest("/api/v1/shopify/status"),
       apiRequest("/api/v1/shopify/test-sync"),
+      apiRequest("/api/v1/shopify/shipping-profiles?include_inactive=true"),
     ]);
     list.replaceChildren(
       shopifyStatusRow(
@@ -134,6 +143,7 @@ async function loadShopifyStatus() {
       )
     );
     byId("shopify-register-button").disabled = !data.webhook_registration_ready;
+    renderShopifyShippingProfiles(shippingData);
     renderShopifyTestCandidates(testData);
     showMessage("shopify-settings-message");
   } catch (error) {
@@ -142,6 +152,100 @@ async function loadShopifyStatus() {
     showMessage("shopify-settings-message", error.message, "error");
   }
 }
+
+function shopifyShippingProfileLabel(key) {
+  return key === "GRADED_CARD" ? "Graded card" : "Raw card";
+}
+
+function renderShopifyShippingProfiles(data) {
+  const container = byId("shopify-shipping-profile-list");
+  if (!container) return;
+  const byKey = new Map((data.items || []).map((item) => [item.profile_key, item]));
+  const required = data.required_profile_keys || ["RAW_CARD", "GRADED_CARD"];
+  const rows = required.map((key) => {
+    const profile = byKey.get(key);
+    const row = shopifyStatusRow(
+      shopifyShippingProfileLabel(key),
+      profile?.active ? "CONFIGURED" : "REQUIRED",
+      profile?.active
+        ? `${Number(profile.weight_value)} ${String(profile.weight_unit || "").toLowerCase()} · v${profile.version}`
+        : "Set an approved Shopify shipping weight before this product form can publish."
+    );
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost-button compact";
+    button.textContent = profile ? "Edit" : "Configure";
+    button.addEventListener("click", () => configureShopifyShippingProfile(key, profile));
+    row.append(button);
+    return row;
+  });
+  container.replaceChildren(...rows);
+}
+
+async function configureShopifyShippingProfile(key, existing = null) {
+  const currentValue = existing ? String(existing.weight_value) : "";
+  const value = window.prompt(
+    `Shopify shipping weight for ${shopifyShippingProfileLabel(key)} (number only):`,
+    currentValue
+  );
+  if (value === null) return;
+  const weightValue = Number(value);
+  if (!Number.isFinite(weightValue) || weightValue <= 0) {
+    showMessage("shopify-settings-message", "Enter a shipping weight greater than 0.", "error");
+    return;
+  }
+
+  const currentUnit = existing?.weight_unit || "GRAMS";
+  const unit = window.prompt(
+    "Weight unit: GRAMS, KILOGRAMS, OUNCES or POUNDS",
+    currentUnit
+  );
+  if (unit === null) return;
+  const weightUnit = unit.trim().toUpperCase();
+  if (!["GRAMS", "KILOGRAMS", "OUNCES", "POUNDS"].includes(weightUnit)) {
+    showMessage("shopify-settings-message", "Choose a supported Shopify weight unit.", "error");
+    return;
+  }
+
+  showMessage(
+    "shopify-settings-message",
+    `Saving ${shopifyShippingProfileLabel(key)} shipping specification…`
+  );
+  try {
+    if (existing) {
+      await apiRequest(`/api/v1/shopify/shipping-profiles/${existing.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          version: existing.version,
+          label: shopifyShippingProfileLabel(key),
+          weight_value: weightValue,
+          weight_unit: weightUnit,
+          active: true,
+        }),
+      });
+    } else {
+      await apiRequest("/api/v1/shopify/shipping-profiles", {
+        method: "POST",
+        body: JSON.stringify({
+          profile_key: key,
+          label: shopifyShippingProfileLabel(key),
+          weight_value: weightValue,
+          weight_unit: weightUnit,
+          notes: "Approved deterministic Shopify shipping specification.",
+        }),
+      });
+    }
+    await loadShopifyStatus();
+    showMessage(
+      "shopify-settings-message",
+      `${shopifyShippingProfileLabel(key)} shipping specification saved.`,
+      "success"
+    );
+  } catch (error) {
+    showMessage("shopify-settings-message", error.message, "error");
+  }
+}
+
 
 function renderShopifyTestCandidates(data) {
   const select = byId("shopify-test-candidate");
@@ -215,6 +319,7 @@ function renderShopifyTestCandidates(data) {
       `${launchReadiness.ready || 0} ready · ${launchReadiness.blocked || 0} blocked`,
       [
         `${(launchReadiness.verified_collections || []).length} Shopify collections verified`,
+        `${(launchReadiness.shipping_profile_keys || []).length} shipping profiles configured`,
         launchReadiness.media_registry_status === "ACTIVE_FAIL_CLOSED"
           ? "approved media registry active — publishing remains fail-closed"
           : "media registry unavailable — publishing fails closed",
@@ -329,6 +434,13 @@ async function previewSelectedShopifyProduct() {
         "Media",
         completeness.approvedMediaCount > 0 ? "READY" : "BLOCKED",
         `${plan.mediaPolicy || "No policy"} · ${completeness.approvedMediaCount || 0} approved asset(s)`
+      ),
+      shopifyStatusRow(
+        "Shipping",
+        completeness.shippingSpec ? "READY" : "BLOCKED",
+        completeness.shippingSpec
+          ? `${completeness.shippingProfileKey} · ${completeness.shippingSpec.weight.value} ${String(completeness.shippingSpec.weight.unit || "").toLowerCase()}`
+          : `Required profile: ${completeness.shippingProfileKey || plan.shippingProfileKey || "missing"}`
       ),
       shopifyStatusRow(
         "Launch gate",

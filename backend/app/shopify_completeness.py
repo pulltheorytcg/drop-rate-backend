@@ -185,6 +185,47 @@ def required_collection_titles(item: Mapping[str, Any]) -> list[str]:
     return result
 
 
+def shipping_profile_key(item: Mapping[str, Any]) -> str:
+    product_type = _text(item.get("product_type"))
+    if product_type == "CARD":
+        if _text(item.get("grading_company")) and _text(item.get("grade")):
+            return "GRADED_CARD"
+        return "RAW_CARD"
+    return f"UNSUPPORTED_{product_type or 'PRODUCT'}"
+
+
+def normalise_shipping_profile(
+    profile: Mapping[str, Any] | None,
+    *,
+    expected_key: str,
+) -> dict[str, Any] | None:
+    if not isinstance(profile, Mapping):
+        return None
+    if not bool(profile.get("active")):
+        return None
+    key = _text(profile.get("profile_key"))
+    if key != expected_key:
+        return None
+    try:
+        weight_value = float(profile.get("weight_value"))
+    except (TypeError, ValueError):
+        return None
+    weight_unit = _text(profile.get("weight_unit"))
+    if weight_value <= 0 or weight_unit not in {
+        "GRAMS", "KILOGRAMS", "OUNCES", "POUNDS"
+    }:
+        return None
+    return {
+        "profileKey": key,
+        "label": _text(profile.get("label")),
+        "weight": {
+            "value": weight_value,
+            "unit": weight_unit,
+        },
+        "shippingPackageId": _text(profile.get("shipping_package_gid")) or None,
+    }
+
+
 def media_policy(item: Mapping[str, Any]) -> str:
     if _text(item.get("grading_company")) and _text(item.get("grade")):
         return "PHYSICAL_ITEM_REQUIRED"
@@ -248,6 +289,7 @@ def verify_remote_product(
     expected_media_file_ids: set[str],
     expected_quantity: int,
     expected_status: str,
+    expected_shipping_spec: Mapping[str, Any],
 ) -> dict[str, Any]:
     blockers: list[str] = []
 
@@ -354,6 +396,29 @@ def verify_remote_product(
             if inventory_item.get("requiresShipping") is not True:
                 blockers.append("remote shipping requirement")
 
+            measurement = inventory_item.get("measurement")
+            weight = (
+                measurement.get("weight")
+                if isinstance(measurement, Mapping)
+                else None
+            )
+            expected_weight = expected_shipping_spec.get("weight")
+            if not isinstance(weight, Mapping) or not isinstance(
+                expected_weight, Mapping
+            ):
+                blockers.append("remote shipping weight")
+            else:
+                try:
+                    actual_weight_value = float(weight.get("value"))
+                    expected_weight_value = float(expected_weight.get("value"))
+                except (TypeError, ValueError):
+                    blockers.append("remote shipping weight")
+                else:
+                    if abs(actual_weight_value - expected_weight_value) > 0.000001:
+                        blockers.append("remote shipping weight")
+                if _text(weight.get("unit")) != _text(expected_weight.get("unit")):
+                    blockers.append("remote shipping weight unit")
+
     media = snapshot.get("media")
     media_nodes = media.get("nodes") if isinstance(media, Mapping) else None
     actual_media_ids = {
@@ -391,6 +456,7 @@ def build_shopify_product_plan(item: Mapping[str, Any]) -> dict[str, Any]:
         "requiredCollections": required_collection_titles(item),
         "metafields": product_metafields(item),
         "mediaPolicy": media_policy(item),
+        "shippingProfileKey": shipping_profile_key(item),
         "requiresShipping": True,
         "inventoryTracked": True,
         "inventoryPolicy": "DENY",
@@ -427,6 +493,7 @@ def product_completeness(
     existing_collection_titles: set[str],
     publication_configured: bool,
     location_configured: bool,
+    shipping_profile: Mapping[str, Any] | None,
     media_blockers: list[str] | None = None,
 ) -> dict[str, Any]:
     blockers: list[str] = []
@@ -453,6 +520,16 @@ def product_completeness(
         blockers.append("inventory tracking")
     if not plan.get("requiresShipping"):
         blockers.append("shipping requirement")
+
+    shipping_key = _text(plan.get("shippingProfileKey"))
+    shipping_spec = normalise_shipping_profile(
+        shipping_profile,
+        expected_key=shipping_key,
+    )
+    if shipping_key.startswith("UNSUPPORTED_"):
+        blockers.append(f"supported shipping profile mapping: {shipping_key}")
+    elif shipping_spec is None:
+        blockers.append(f"shipping profile: {shipping_key}")
     if plan.get("inventoryPolicy") != "DENY":
         blockers.append("oversell protection")
     if not plan.get("metafields"):
@@ -484,4 +561,6 @@ def product_completeness(
         "missingCollections": missing_collections,
         "approvedMediaCount": approved_media_count,
         "mediaPolicy": plan.get("mediaPolicy"),
+        "shippingProfileKey": shipping_key,
+        "shippingSpec": shipping_spec,
     }
