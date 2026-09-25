@@ -326,13 +326,13 @@ The following areas were reviewed and defects found were corrected:
 
 ### Deployment / reproducibility
 - Railway production service remains `drop-rate-api-live`
-- latest production deployment is **SUCCESS** on commit `2c94c293654385833d893c637355f0d6e46800b7`; `/health/ready` returned **200 OK**
+- latest production deployment is **SUCCESS** on commit `b7019cc4305df5e40d353d7fb77268cec7de0099`; `/health/ready` returned **200 OK**
 - PR and post-merge GitHub CI are green for the latest hardening commits
 - Railway production has a **pre-deploy compile + pytest gate**; the missing `pytest-asyncio` dependency was fixed after deployment logs exposed 43 silently skipped async tests
 - Railway now installs pinned **Node 22.23.3 LTS** alongside Python through `RAILPACK_PACKAGES`, so frontend/static checks run in the production pre-deploy gate too
-- current Railway regression result: **400 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
+- current Railway regression result: **428 passed, 0 skipped**; `/health/ready` returned **200 OK** after deployment
 - live database integrity checks: **0 duplicate Inventory Codes, 0 language mismatches, 0 confirmed-without-evidence, 0 active-reservation/state mismatches**
-- migration history reconciled through `20260925144808_fix_order_item_reconciliation_audit_trigger`, including Finance Reconciliation v1 and the reconciliation-specific audit-trigger hotfix
+- migration history reconciled through `20260925162748_shopify_shipping_profiles`, including Finance Reconciliation v1, the reconciliation-specific audit-trigger hotfix and deterministic Shopify shipping profiles
 - `database/migrations/**` is now the only canonical location for new migration files
 - Railway `Wait for CI` still reads **OFF** (`checkSuites=false`) after two attempted staged updates; treat this as an external Railway/GitHub-integration permission/configuration blocker until the setting can be re-authorised and verified
 - the guarded Supabase migration workflow is merged (`workflow_dispatch`, dry-run by default, explicit apply mode). Its required GitHub secrets and first production dry-run still need to be verified before the next schema change
@@ -351,7 +351,7 @@ A feature is not considered complete merely because its unit tests pass. For mat
 7. **Failure testing:** deliberate bad inputs, duplicate events, stale versions, unavailable records and provider failures are tested before a feature is treated as safe.
 8. **Release decision:** any unresolved critical integrity issue keeps the feature gated, even when CI is green.
 
-Current production regression baseline: **400 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero active reservation/state mismatches and one archived Shopify link for the refunded Seel test item now in INSPECTION.
+Current production regression baseline: **428 passed, 0 skipped** in Railway pre-deploy; GitHub PR and main-branch CI are green. Live inventory integrity currently reports zero duplicate Inventory Codes, zero active reservation/state mismatches and one archived Shopify link for the refunded Seel test item now in INSPECTION.
 
 GitHub status checks can be required on protected branches, but the current connector does not expose this repository's branch-protection configuration. Verify that setting in GitHub before multi-contributor development. Railway's own `Wait for CI` setting is also currently off, so the pre-deploy test gate is intentionally retained as defence-in-depth.
 
@@ -367,7 +367,7 @@ A Shopify product is not considered publishable merely because a product/variant
 | Category | Deterministic Shopify taxonomy mapping by product type/game. |
 | Price | `store_price_minor` from Drop Rate only. Shopify never becomes pricing source of truth. |
 | Inventory | Exact sellable physical quantity from Drop Rate. Single-item listing = 1; no overselling. |
-| Shipping | Deterministic shipping profile/weight/dimensions from approved product-type configuration; no AI assumptions. |
+| Shipping | Deterministic owner-scoped shipping profile. RAW_CARD / GRADED_CARD weight is configured once, written to Shopify `InventoryItem.measurement.weight`, then read back and verified. Missing profile blocks publication; no AI assumptions. |
 | Variants | Unique/physical-item listings use one controlled variant unless a deliberate pooled-listing model says otherwise. Language/condition/grade must never be silently collapsed. |
 | Product metafields | Exact Drop Rate identifiers and structured card facts. Inventory ID is mandatory for single-item listings. Ownership remains backend-private and is not customer-facing. |
 | Search engine listing | Deterministic handle plus validated SEO title/meta description generated from real database facts. |
@@ -406,7 +406,8 @@ Before activation/publication, the backend must verify at minimum:
 - Store Price known
 - exact SKU / Inventory ID
 - media policy satisfied
-- shipping profile resolved
+- shipping profile resolved (`RAW_CARD` or `GRADED_CARD`) with an approved positive weight/unit
+- Shopify `requiresShipping=true` and remote weight/unit exactly match the Drop Rate shipping profile
 - required metafields present
 - title/description/SEO validators pass
 - product type/vendor/collections/tags/template resolved
@@ -415,6 +416,18 @@ Before activation/publication, the backend must verify at minimum:
 - no duplicate active Shopify link for the physical item
 
 Any failed check leaves the product DRAFT and creates an Action Required reason rather than guessing.
+
+### Shipping specification implementation
+
+- production registry: `tcg.shopify_shipping_profiles`
+- supported v1 forms: `RAW_CARD`, `GRADED_CARD`
+- owner/profile key is immutable; updates use optimistic versioning
+- profiles are RLS-protected and audit logged
+- Shopify 2026-07 inventory input writes `requiresShipping=true` plus `measurement.weight`
+- draft and final verification read the remote weight back before publication is treated as complete
+- optional Shopify package GID can be stored, but v1 only treats surfaces that can be remotely verified as hard completeness evidence
+- no default weight has been seeded; zero profiles currently exist until the founder explicitly configures them
+- migration `20260925162748_shopify_shipping_profiles` was applied early during preflight because the migration file contained its own transaction; the empty backward-compatible schema was verified and the Supabase migration ledger was then reconciled to the canonical merged file without rerunning `CREATE TABLE`
 
 ## Known remaining items
 
@@ -433,6 +446,8 @@ These are **not blockers to the current backend foundation**, but remain explici
 11. **Operational inventory cleanup:** 412 remaining language reviews, 508 unconfirmed identities, 507 remaining registered-storage assignments, the remaining 10 conditions and 508 Store Prices. Current acquisition costs are populated; future unknown costs must still remain NULL.
 12. **Shopify settlement enrichment:** Finance Reconciliation v1 + Owner Settlement Report v1 are deployed. Live-verify #1002 fee import, postage-cost reconciliation and the resulting settlement row, then automate recurring fee reconciliation / shipping-provider cost ingestion.
 13. **Refund settlement follow-up:** Shopify accepted the £5.48 refund for #1002, but the external refund transaction was still pending at the last check; verify completion before any further order action.
+14. **Shopify shipping profile configuration:** registry and hard publication gate are live, but no RAW_CARD/GRADED_CARD weights are configured yet. Founder must enter approved operating weights in Settings; Drop Rate will not guess them.
+15. **Shopify media readiness:** completeness/media registry is fail-closed; approve permitted canonical media for normal raw cards and item-specific front/back media where the physical item requires it before scaling publication.
 
 ## Milestone 1 checklist
 
@@ -467,7 +482,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 | 3 | Founder account / inventory / ownership | ✅ Technical foundation complete; operational data cleanup remains |
 | 4 | Inventory dashboard functionality | ✅ Core complete |
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
-| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; product-completeness/media contract defined; Finance Reconciliation v1 deployed; live reconciliation/refund-settlement verification remains |
+| 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; deterministic product-completeness/media/shipping gates are deployed; bulk publishing remains locked; refund settlement follow-up remains |
 | 6 | Orders / allocation / settlements | 🚧 Exact Shopify Inventory ID attribution + COGS + sale/shipping revenue + item/shipping refund reversal production-verified; fee/postage reconciliation and Owner Settlement Report v1 are deployed; live #1002 reconciliation verification remains |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
@@ -492,7 +507,9 @@ These are **not blockers to the current backend foundation**, but remain explici
 7. ✅ **Finance Reconciliation v1 deployed:** typed Shopify transaction-fee ingestion, auditable reconciliation metadata, explicit £0 postage support, refund invalidation and Sales-tab controls are live.
 8. ✅ **Finance Reconciliation v1 live-verified on #1002:** retry returned HTTP 200 for both actions; exactly one **−£0.36 PAYMENT_FEE** was recorded, postage was explicitly reconciled at **£0.00** using `TEST-NOT-SHIPPED`, and reconciliation audit INSERT/UPDATE events were written against the correct `order_item_id`. Fee reconciliation remains intentionally incomplete while Shopify's REFUND transaction is still PENDING.
 9. ✅ **Owner Settlement Report v1 deployed:** Reports now show gross proceeds, deductions, signed adjustments, net owner proceeds, effective cost basis, owner profit, reconciliation state and pending/available funds without moving money.
-10. Re-check the Shopify Payments refund settlement, then live-verify #1002 fee/postage reconciliation, duplicate reconciliation idempotency and its final settlement row.
+10. Re-check the Shopify Payments refund settlement, then verify duplicate reconciliation idempotency and #1002's final settlement row.
+11. ✅ **Shopify deterministic shipping-spec engine deployed:** owner-scoped RAW_CARD/GRADED_CARD registry, fail-closed completeness gate, Shopify weight write/read-back verification and Settings controls are live.
+12. **Founder setup required:** configure the approved RAW_CARD and GRADED_CARD shipping weights once in **Settings → Shopify → Shipping specifications**. Until configured, affected products remain launch-blocked.
 
 ### Next major engineering milestone — Shopify
 Build the complete controlled sale loop:
