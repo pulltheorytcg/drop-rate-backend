@@ -110,7 +110,7 @@ def test_language_can_be_preserved_from_trailing_set_token() -> None:
     mapping = _field_map(list(row))
     normalized, issues = _normalized_row(row, mapping, None, adapter="COLLECTR")
     assert normalized["name"] == "Monkey.D.Luffy"
-    assert normalized["set_name"] == "One Piece Promotion Cards"
+    assert normalized["set_name"] == "One Piece Promotion Cards (JP)"
     assert normalized["language"] == "Japanese"
     assert "missing_language" not in issues
 
