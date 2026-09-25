@@ -78,6 +78,18 @@ def test_finance_summary_accounts_for_shipping_refunds_separately() -> None:
     assert 'int(item["shipping_refund_minor"])' in source
 
 
+def test_shopify_sales_do_not_present_unknown_settlement_costs_as_final_profit() -> None:
+    source = (ROOT / "backend" / "app" / "finance.py").read_text()
+    assert "missing_fee_sales" in source
+    assert "missing_shipping_cost_sales" in source
+    assert '"fees_complete": missing_fee_sales == 0' in source
+    assert '"shipping_cost_complete": missing_shipping_cost_sales == 0' in source
+    assert '"net_profit_complete": unreconciled_shopify_sales == 0' in source
+    assert 'item["fees_complete"]' in source
+    assert 'item["shipping_cost_complete"]' in source
+    assert 'item["profit_complete"]' in source
+
+
 def test_finance_dashboard_exposes_required_sections() -> None:
     js = (ROOT / "backend" / "app" / "static" / "founder-finance.js").read_text()
     for text in (
