@@ -91,3 +91,15 @@ def test_storage_location_dashboard_asset_is_loaded() -> None:
     assert "Unlocated inventory" in js
     assert "assignSelectedLocation" in js
     assert "edit-storage-location" in js
+
+
+def test_assign_all_unlocated_is_owner_scoped_idempotent_and_visible() -> None:
+    api_source = (BACKEND / "storage_locations.py").read_text()
+    js_source = (STATIC / "storage-locations.js").read_text()
+    assert '"/storage-locations/{location_id}/assign-unlocated"' in api_source
+    assert "where id = $1 and owner_id = $2" in api_source
+    assert "and storage_location_id is null" in api_source
+    assert "status in ('DRAFT', 'INSPECTION', 'APPROVED', 'WITHDRAWN')" in api_source
+    assert "version = version + 1" in api_source
+    assert "assignAllUnlocated" in js_source
+    assert "Assign unlocated" in js_source
