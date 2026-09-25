@@ -26,6 +26,7 @@ MIGRATION = ROOT / "migrations" / "006_shopify_inventory_links.sql"
 PENDING_MIGRATION = ROOT / "database" / "migrations" / "20260924230955_shopify_pending_order_reservations.sql"
 FINAL_ORDER_MIGRATION = ROOT / "database" / "migrations" / "20260924232925_remove_pending_finance_order_status.sql"
 SHIPPING_REFUND_MIGRATION = ROOT / "database" / "migrations" / "20260924235450_shopify_shipping_refunds.sql"
+MEDIA_REGISTRY_MIGRATION = ROOT / "database" / "migrations" / "20260925154423_media_assets_registry.sql"
 
 
 def test_money_helpers_are_penny_exact() -> None:
@@ -139,7 +140,7 @@ def test_remote_retry_identity_is_inventory_id_not_title_similarity() -> None:
     ).read_text()
     assert '"namespace": "drop_rate"' in completeness
     assert '"inventory_id"' in completeness
-    assert "remote_inventory_id != str(inventory_id)" in source
+    assert 'remote_inventory_code != item["inventory_code"]' in source
     assert "deterministic Shopify handle belongs to a different inventory item" in source
 
 
@@ -329,8 +330,57 @@ def test_shopify_test_sync_fails_before_remote_create_when_launch_incomplete() -
     create_pos = sync.index("client.create_product(")
     assert completeness_pos < create_pos
     assert "No remote product was created or published." in sync
-    assert "approved_media_count=0" in source
-    assert "NOT_BUILT_FAIL_CLOSED" in source
+    assert "media_completeness(" in source
+    assert "ACTIVE_FAIL_CLOSED" in source
+    assert "approval_status='APPROVED'" in source
+    assert "rights_status='VERIFIED'" in source
+    assert "shopify_file_status='READY'" in source
+
+
+def test_media_registry_is_rls_protected_rights_gated_and_audited() -> None:
+    sql = MEDIA_REGISTRY_MIGRATION.read_text().casefold()
+    assert "create table tcg.media_assets" in sql
+    assert "enable row level security" in sql
+    assert "create policy readable_assets" in sql
+    assert "create policy own_asset_writes" in sql
+    assert "grant select,insert,update" in sql
+    assert "revoke delete" in sql
+    assert "rights_status='verified'" in sql
+    assert "approval_status='approved'" in sql
+    assert "shopify_file_status='ready'" in sql
+    assert "media_assets_audit" in sql
+    assert "execute function tcg.audit_change()" in sql
+    assert "'uploaded'" in sql
+
+
+def test_shopify_sync_assigns_collections_media_and_verifies_remote_state() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def sync_one_test_item(")
+    end = source.index("def _parse_order_lines(", start)
+    sync = source[start:end]
+    assert "list_collections_by_title()" in sync
+    assert "add_product_to_collection(" in sync
+    assert "attach_file_to_product(" in sync
+    assert "get_product_snapshot(" in sync
+    assert "verify_remote_product(" in sync
+    assert 'expected_status="DRAFT"' in sync
+    assert 'expected_status="ACTIVE"' in sync
+    assert "product_published_on_publication(" in sync
+    assert "Product was forced back to DRAFT." in sync
+    assert "set sync_state='PUBLISHED'" in sync
+    assert sync.index("verify_remote_product(") < sync.index("set sync_state='PUBLISHED'")
+
+
+def test_media_registry_has_explicit_human_approval_and_shopify_file_sync() -> None:
+    source = PIPELINE.read_text()
+    assert '@router.post("/media-assets/{asset_id}/approve")' in source
+    assert "rights_status='VERIFIED'" in source
+    assert "approval_status='APPROVED'" in source
+    assert "approved_by_user_id" in source
+    assert '@router.post("/media-assets/{asset_id}/sync")' in source
+    assert "create_file_from_url(" in source
+    assert "get_file(" in source
+    assert "Media must be rights-verified and approved before Shopify sync" in source
 
 
 def test_shopify_sync_uses_complete_product_plan_not_legacy_minimal_payload() -> None:
@@ -349,7 +399,7 @@ def test_shopify_dashboard_surfaces_launch_completeness_and_preview() -> None:
     assert "Preview Shopify page" in frontend
     assert "Launch completeness" in frontend
     assert "Launch ·" in frontend
-    assert "media registry not built — publishing fails closed" in frontend
+    assert "approved media registry active — publishing remains fail-closed" in frontend
     assert "previewSelectedShopifyProduct" in frontend
     assert "/api/v1/shopify/product-preview/" in frontend
     assert "productPlan" in frontend
