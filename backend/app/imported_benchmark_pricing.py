@@ -12,6 +12,7 @@ from fastapi.encoders import jsonable_encoder
 
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .fx import EcbHistoricalFxProvider, FxQuote
 from .market_adapters import stable_source_record_key
 from .ownership import current_owner as _owner
 
@@ -19,7 +20,7 @@ from .ownership import current_owner as _owner
 router = APIRouter(prefix="/api/v1/pricing/imported-benchmark", tags=["pricing"])
 
 _MARKET_KEY_RE = re.compile(r"^Market Price \(As of (\d{4}-\d{2}-\d{2})\)$")
-_ALGORITHM_VERSION = "collectr-import-provisional-v1"
+_ALGORITHM_VERSION = "collectr-import-provisional-v2-usd-gbp"
 
 
 def _money_minor(value: object) -> int | None:
@@ -38,23 +39,13 @@ def _money_minor(value: object) -> int | None:
 
 
 def extract_imported_benchmark(source_record: object) -> dict[str, Any] | None:
-    """Return the best positive benchmark present in an imported Collectr row.
+    """Return the newest positive dated Collectr market benchmark.
 
-    Explicit positive Price Override wins because it represents the source
-    portfolio's deliberate value. Otherwise use the newest positive dated
-    Market Price field. Zero/negative/malformed values are never accepted.
+    Collectr market prices are USD. Price Override is deliberately excluded
+    here because the historical export does not declare that field's currency.
     """
     if not isinstance(source_record, dict):
         return None
-
-    override_minor = _money_minor(source_record.get("Price Override"))
-    if override_minor is not None:
-        return {
-            "basis": "PRICE_OVERRIDE",
-            "price_minor": override_minor,
-            "observed_at": None,
-            "source_field": "Price Override",
-        }
 
     candidates: list[tuple[datetime, str, int]] = []
     for key, value in source_record.items():
@@ -81,10 +72,23 @@ def extract_imported_benchmark(source_record: object) -> dict[str, Any] | None:
     )
     return {
         "basis": "MARKET_PRICE",
-        "price_minor": price_minor,
+        "source_currency": "USD",
+        "source_price_minor": price_minor,
         "observed_at": observed_at,
         "source_field": source_field,
     }
+
+
+def _to_gbp_minor(usd_minor: int, quote: FxQuote) -> int:
+    quote.validate()
+    if quote.base_currency.upper() != "USD" or quote.quote_currency.upper() != "GBP":
+        raise ValueError("Imported Collectr pricing requires a USD to GBP FX quote")
+    return int(
+        (Decimal(usd_minor) * quote.rate).quantize(
+            Decimal("1"),
+            rounding=ROUND_HALF_UP,
+        )
+    )
 
 
 def _pricing_identity_key(item: dict[str, Any]) -> str:
@@ -149,9 +153,14 @@ async def _candidate_rows(connection, owner_id: UUID, limit: int) -> list[dict[s
     return candidates
 
 
-async def _insert_collectr_observation(connection, item: dict[str, Any]) -> bool:
+async def _insert_collectr_observation(
+    connection,
+    item: dict[str, Any],
+    fx_quote: FxQuote,
+    price_gbp_minor: int,
+) -> bool:
     benchmark = item["benchmark"]
-    if benchmark["basis"] != "MARKET_PRICE" or not item["identity_confirmed"]:
+    if not item["identity_confirmed"]:
         return False
 
     metadata = {
@@ -161,6 +170,10 @@ async def _insert_collectr_observation(connection, item: dict[str, Any]) -> bool
         "import_batch_id": str(item["import_batch_id"]) if item["import_batch_id"] else None,
         "source_row": item["source_row"],
         "provisional": True,
+        "source_currency": "USD",
+        "fx_source": fx_quote.source,
+        "fx_effective_at": fx_quote.effective_at.isoformat(),
+        "fx_retrieved_at": fx_quote.retrieved_at.isoformat(),
     }
     row = await connection.fetchrow(
         """
@@ -171,9 +184,9 @@ async def _insert_collectr_observation(connection, item: dict[str, Any]) -> bool
             source_country,sample_size,evidence_quality,metadata
         ) values(
             $1,'COLLECTR',$2,'MARKET_AGGREGATE',$3,
-            $4,null,'GBP',$4,null,
-            1.0,$5,$6,$7,$8,$9,
-            null,1,0.65,$10::jsonb
+            $4,null,'USD',$5,null,
+            $6,$7,$8,$9,$10,$11,
+            null,1,0.65,$12::jsonb
         )
         on conflict (source,source_record_key) do nothing
         returning id
@@ -181,7 +194,9 @@ async def _insert_collectr_observation(connection, item: dict[str, Any]) -> bool
         item["catalogue_id"],
         _pricing_identity_key(item),
         benchmark["observed_at"],
-        benchmark["price_minor"],
+        benchmark["source_price_minor"],
+        price_gbp_minor,
+        float(fx_quote.rate),
         item["condition"],
         item["grading_company"],
         item["grade"],
@@ -197,24 +212,22 @@ async def _apply_one(
     *,
     owner_id: UUID,
     item: dict[str, Any],
+    fx_quote: FxQuote,
 ) -> dict[str, Any]:
     benchmark = item["benchmark"]
-    price_minor = int(benchmark["price_minor"])
-    if price_minor <= 0:
+    source_price_minor = int(benchmark["source_price_minor"])
+    if source_price_minor <= 0:
         raise HTTPException(status_code=422, detail="Imported benchmark must be positive")
 
-    if benchmark["basis"] == "MARKET_PRICE":
-        source_count = 1
-        observation_count = 1
-        newest_observation_at = benchmark["observed_at"]
-        market_value_minor = price_minor
-        confidence = 0.35
-    else:
-        source_count = 0
-        observation_count = 0
-        newest_observation_at = None
-        market_value_minor = price_minor
-        confidence = 0.20
+    price_minor = _to_gbp_minor(source_price_minor, fx_quote)
+    if price_minor <= 0:
+        raise HTTPException(status_code=422, detail="GBP-normalized benchmark must be positive")
+
+    source_count = 1
+    observation_count = 1
+    newest_observation_at = benchmark["observed_at"]
+    market_value_minor = price_minor
+    confidence = 0.35
 
     quick_sale_minor = int(
         (Decimal(price_minor) * Decimal("0.92")).quantize(
@@ -227,7 +240,12 @@ async def _apply_one(
         )
     )
 
-    inserted_observation = await _insert_collectr_observation(connection, item)
+    inserted_observation = await _insert_collectr_observation(
+        connection,
+        item,
+        fx_quote,
+        price_minor,
+    )
 
     evidence = {
         "provisional": True,
@@ -239,7 +257,13 @@ async def _apply_one(
             if benchmark["observed_at"] is not None
             else None
         ),
-        "price_minor": price_minor,
+        "source_currency": "USD",
+        "source_price_minor": source_price_minor,
+        "fx_rate_to_gbp": str(fx_quote.rate),
+        "fx_source": fx_quote.source,
+        "fx_effective_at": fx_quote.effective_at.isoformat(),
+        "fx_retrieved_at": fx_quote.retrieved_at.isoformat(),
+        "normalized_gbp_minor": price_minor,
         "import_batch_id": str(item["import_batch_id"]) if item["import_batch_id"] else None,
         "source_row": item["source_row"],
         "identity_confirmed": bool(item["identity_confirmed"]),
@@ -323,6 +347,9 @@ async def _apply_one(
         "set_name": item["set_name"],
         "card_number": item["card_number"],
         "basis": benchmark["basis"],
+        "source_currency": "USD",
+        "source_price_minor": source_price_minor,
+        "fx_rate_to_gbp": str(fx_quote.rate),
         "store_price_minor": price_minor,
         "inserted_market_observation": inserted_observation,
         "snapshot_id": snapshot["id"],
@@ -374,23 +401,60 @@ async def apply_missing_imported_benchmarks(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
     limit: int = Query(default=100, ge=1, le=100),
 ) -> dict:
+    # Phase 1: snapshot eligible owner-scoped rows; no external I/O in transaction.
     async with user_connection(
         request.app.state.db_pool,
         user.user_id,
         request.state.request_id,
     ) as connection:
         owner = await _owner(connection)
-        candidates = await _candidate_rows(connection, owner["id"], limit)
-        results: list[dict[str, Any]] = []
-        failures: list[dict[str, Any]] = []
+        owner_id = owner["id"]
+        candidates = await _candidate_rows(connection, owner_id, limit)
+
+    # Phase 2: fetch auditable historical FX quotes outside any DB transaction.
+    fx_provider = EcbHistoricalFxProvider()
+    fx_quotes: dict[str, FxQuote] = {}
+    try:
         for item in candidates:
+            observed_at = item["benchmark"]["observed_at"]
+            key = observed_at.date().isoformat()
+            if key not in fx_quotes:
+                fx_quotes[key] = await fx_provider.quote(
+                    base_currency="USD",
+                    quote_currency="GBP",
+                    at=observed_at,
+                )
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Historical USD to GBP FX normalization is unavailable",
+        ) from exc
+
+    # Phase 3: write each item transactionally after FX has been resolved.
+    results: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        current_owner = await _owner(connection)
+        if current_owner["id"] != owner_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Owner context changed before provisional pricing could be applied",
+            )
+
+        for item in candidates:
+            key = item["benchmark"]["observed_at"].date().isoformat()
             try:
                 async with connection.transaction():
                     results.append(
                         await _apply_one(
                             connection,
-                            owner_id=owner["id"],
+                            owner_id=owner_id,
                             item=item,
+                            fx_quote=fx_quotes[key],
                         )
                     )
             except HTTPException as exc:
@@ -411,3 +475,4 @@ async def apply_missing_imported_benchmarks(
             "provisional_only": True,
         }
     )
+
