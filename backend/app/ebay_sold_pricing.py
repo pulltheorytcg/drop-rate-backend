@@ -347,6 +347,7 @@ async def _target_snapshot(connection, owner_id: UUID, inventory_id: UUID) -> di
         """
         select
             i.id, i.owner_id, i.catalogue_id, i.version, i.status,
+            i.identity_confirmed,
             i.condition, i.grading_company, i.grade, i.language,
             i.store_price_minor,
             p.product_type, p.game, p.name, p.set_name, p.card_number,
@@ -363,6 +364,11 @@ async def _target_snapshot(connection, owner_id: UUID, inventory_id: UUID) -> di
         raise HTTPException(status_code=409, detail="Only active inventory can be priced")
     if row["product_type"] != "CARD":
         raise HTTPException(status_code=422, detail="Five-sold pricing v1 supports cards only")
+    if not row["identity_confirmed"]:
+        raise HTTPException(
+            status_code=422,
+            detail="Canonical card identity must be confirmed before automated pricing",
+        )
     if not row["card_number"] or not str(row["card_number"]).strip():
         raise HTTPException(status_code=422, detail="Exact collector number is required for eBay sold pricing")
     if not row["language"] or not str(row["language"]).strip():
