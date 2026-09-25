@@ -288,6 +288,15 @@ def test_batch_shopify_fee_reconciliation_is_founder_scoped_and_bounded() -> Non
     assert "_reconcile_shopify_fees_once(" in batch
 
 
+def test_founder_finance_exposes_batch_shopify_fee_sync_control() -> None:
+    source = (ROOT / "backend" / "app" / "static" / "founder-finance.js").read_text()
+    assert 'id="finance-reconcile-pending"' in source
+    assert "reconcilePendingShopifyFees" in source
+    assert "/api/v1/finance/shopify/reconcile-pending-fees?limit=25" in source
+    assert "still settling at Shopify" in source
+    assert "require review" in source
+
+
 def test_finance_completeness_uses_reconciliation_metadata_not_nonzero_ledger_rows() -> None:
     source = (ROOT / "backend" / "app" / "finance.py").read_text()
     assert "tcg.order_item_reconciliations" in source
