@@ -120,7 +120,8 @@ def test_single_item_sync_requires_all_local_sellability_gates() -> None:
     assert 'missing.append("card language")' in source
     assert 'item["store_price_minor"] is None' in source
     assert 'item["storage_location_id"] is None' in source
-    assert '"single-item-test"' in source
+    assert 'if not launch["complete"]:' in source
+    assert "product_create_input(plan, handle=handle)" in source
 
 
 def test_shopify_api_failures_return_safe_gateway_response() -> None:
@@ -133,8 +134,11 @@ def test_shopify_api_failures_return_safe_gateway_response() -> None:
 
 def test_remote_retry_identity_is_inventory_id_not_title_similarity() -> None:
     source = PIPELINE.read_text()
-    assert '"namespace": "drop_rate"' in source
-    assert '"key": "inventory_id"' in source
+    completeness = (
+        ROOT / "backend" / "app" / "shopify_completeness.py"
+    ).read_text()
+    assert '"namespace": "drop_rate"' in completeness
+    assert '"inventory_id"' in completeness
     assert "remote_inventory_id != str(inventory_id)" in source
     assert "deterministic Shopify handle belongs to a different inventory item" in source
 
