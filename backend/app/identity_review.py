@@ -167,6 +167,7 @@ async def list_identity_review_groups(
                 count(*)::int as active_copies,
                 count(*) filter(where i.identity_confirmed)::int as confirmed_copies,
                 count(*) filter(where not i.identity_confirmed)::int as unconfirmed_copies,
+                count(*) filter(where i.language is not null)::int as language_copies,
                 count(*) filter(where i.storage_location_id is not null)::int as located_copies,
                 count(*) filter(where i.grading_company is not null and i.grade is not null)::int as graded_copies
             from tcg.inventory_items i
