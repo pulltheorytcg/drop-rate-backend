@@ -151,7 +151,7 @@ async def _candidate_rows(connection, owner_id: UUID, limit: int) -> list[dict[s
 
 async def _insert_collectr_observation(connection, item: dict[str, Any]) -> bool:
     benchmark = item["benchmark"]
-    if benchmark["basis"] != "MARKET_PRICE":
+    if benchmark["basis"] != "MARKET_PRICE" or not item["identity_confirmed"]:
         return False
 
     metadata = {
