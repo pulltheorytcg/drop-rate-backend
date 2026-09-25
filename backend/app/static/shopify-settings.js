@@ -277,6 +277,80 @@ function refreshShopifyTestButton() {
     || !launchReady;
 }
 
+async function previewSelectedShopifyProduct() {
+  const select = byId("shopify-test-candidate");
+  const option = select?.selectedOptions?.[0];
+  const panel = byId("shopify-product-preview");
+  if (!option?.value || !panel) return;
+
+  const button = byId("shopify-product-preview-button");
+  button.disabled = true;
+  showMessage("shopify-settings-message", "Building Shopify product preview…");
+  try {
+    const data = await apiRequest(`/api/v1/shopify/product-preview/${option.value}`);
+    const plan = data.productPlan || {};
+    const completeness = data.productCompleteness || {};
+    const seo = plan.seo || {};
+    const collections = plan.requiredCollections || [];
+    const blockers = [
+      ...(data.operationalBlockers || []),
+      ...(completeness.blockers || []),
+    ];
+
+    panel.replaceChildren(
+      shopifyStatusRow(
+        "Product title",
+        plan.title || "Missing",
+        "Customer-facing title generated only from confirmed Drop Rate data."
+      ),
+      shopifyStatusRow(
+        "Category",
+        plan.categoryName || "Missing",
+        plan.category || "No Shopify taxonomy category mapped."
+      ),
+      shopifyStatusRow(
+        "Organisation",
+        [plan.vendor, plan.productType].filter(Boolean).join(" · ") || "Missing",
+        `${(plan.tags || []).length} tags · template: ${plan.template || "missing"}`
+      ),
+      shopifyStatusRow(
+        "SEO",
+        seo.title || "Missing",
+        seo.description || "SEO description missing."
+      ),
+      shopifyStatusRow(
+        "Collections",
+        collections.length ? collections.join(" · ") : "Missing",
+        completeness.missingCollections?.length
+          ? `Missing in Shopify: ${completeness.missingCollections.join(", ")}`
+          : "Required Shopify collections exist."
+      ),
+      shopifyStatusRow(
+        "Media",
+        completeness.approvedMediaCount > 0 ? "READY" : "BLOCKED",
+        `${plan.mediaPolicy || "No policy"} · ${completeness.approvedMediaCount || 0} approved asset(s)`
+      ),
+      shopifyStatusRow(
+        "Launch gate",
+        data.launchReady ? "READY" : "BLOCKED",
+        blockers.length ? blockers.join(" · ") : "All required product fields are complete."
+      )
+    );
+    showMessage(
+      "shopify-settings-message",
+      data.launchReady
+        ? "Product plan is launch-complete."
+        : "Preview generated. Publication remains blocked until every listed requirement is resolved.",
+      data.launchReady ? "success" : ""
+    );
+  } catch (error) {
+    panel.replaceChildren();
+    showMessage("shopify-settings-message", error.message, "error");
+  } finally {
+    refreshShopifyTestButton();
+  }
+}
+
 async function syncSelectedShopifyTestItem() {
   const select = byId("shopify-test-candidate");
   const option = select?.selectedOptions?.[0];
