@@ -30,7 +30,7 @@ def _card(**overrides):
 
 def test_card_product_plan_fills_customer_and_merchant_fields() -> None:
     plan = build_shopify_product_plan(_card())
-    assert plan["title"] == "Seel · 021/094 · Phantasmal Flames · EN · Near Mint"
+    assert plan["title"] == "Seel · EN · 021/094 · Phantasmal Flames · Normal · Near Mint"
     assert plan["category"] == CARD_CATEGORY_GID
     assert plan["categoryName"] == "Non-Sports Trading Cards"
     assert plan["vendor"] == "Pokemon"
