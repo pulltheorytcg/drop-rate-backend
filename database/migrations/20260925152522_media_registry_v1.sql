@@ -144,9 +144,46 @@ $function$;
 
 revoke all on function tcg.audit_media_asset_change() from public;
 
+create or replace function tcg.protect_media_asset_provenance()
+returns trigger
+language plpgsql
+set search_path=pg_catalog
+as $function$
+begin
+    if new.scope is distinct from old.scope
+       or new.catalogue_id is distinct from old.catalogue_id
+       or new.inventory_id is distinct from old.inventory_id
+       or new.owner_id is distinct from old.owner_id
+       or new.media_type is distinct from old.media_type
+       or new.asset_role is distinct from old.asset_role
+       or new.asset_url is distinct from old.asset_url
+       or new.source_kind is distinct from old.source_kind
+       or new.source_provider is distinct from old.source_provider
+       or new.source_reference is distinct from old.source_reference
+       or new.rights_basis is distinct from old.rights_basis
+       or new.rights_reference is distinct from old.rights_reference
+       or new.rights_checked_at is distinct from old.rights_checked_at
+       or new.rights_expires_at is distinct from old.rights_expires_at
+       or new.checksum_sha256 is distinct from old.checksum_sha256
+       or new.created_by_user_id is distinct from old.created_by_user_id
+       or new.created_at is distinct from old.created_at then
+        raise exception 'Media provenance is immutable; create a new media asset instead'
+            using errcode='55000';
+    end if;
+    return new;
+end;
+$function$;
+
+revoke all on function tcg.protect_media_asset_provenance() from public;
+grant execute on function tcg.protect_media_asset_provenance() to tcg_api;
+
 create trigger media_assets_validate_target
     before insert or update on tcg.media_assets
     for each row execute function tcg.validate_media_asset_target();
+
+create trigger media_assets_protect_provenance
+    before update on tcg.media_assets
+    for each row execute function tcg.protect_media_asset_provenance();
 
 create trigger media_assets_audit
     after insert or update or delete on tcg.media_assets
