@@ -8,6 +8,8 @@ from app.finance import (
     ManualSaleCreate,
     PayoutRequestCreate,
     ShopifyPostageReconcile,
+    _settlement_amounts,
+    _settlement_reconciliation_state,
     allocate_minor,
 )
 
@@ -140,6 +142,81 @@ def test_finance_completeness_uses_reconciliation_metadata_not_nonzero_ledger_ro
     assert "shipping_cost_reconciled_at is not null" in source
     assert 'item["fees_complete"]' in source
     assert 'item["shipping_cost_complete"]' in source
+
+
+def test_owner_settlement_separates_proceeds_from_profit() -> None:
+    result = _settlement_amounts(
+        item_revenue_minor=1000,
+        shipping_revenue_minor=200,
+        item_refunds_minor=0,
+        shipping_refunds_minor=0,
+        platform_fees_minor=50,
+        payment_fees_minor=30,
+        shipping_cost_minor=100,
+        effective_cogs_minor=400,
+    )
+    assert result == {
+        "gross_proceeds_minor": 1200,
+        "external_deductions_minor": 180,
+        "net_owner_proceeds_minor": 1020,
+        "owner_profit_minor": 620,
+    }
+
+
+def test_returned_refunded_order_restores_cost_basis_but_keeps_processing_loss() -> None:
+    result = _settlement_amounts(
+        item_revenue_minor=49,
+        shipping_revenue_minor=499,
+        item_refunds_minor=49,
+        shipping_refunds_minor=499,
+        platform_fees_minor=0,
+        payment_fees_minor=36,
+        shipping_cost_minor=0,
+        effective_cogs_minor=0,
+    )
+    assert result["gross_proceeds_minor"] == 0
+    assert result["net_owner_proceeds_minor"] == -36
+    assert result["owner_profit_minor"] == -36
+
+
+def test_settlement_reconciliation_state_is_fail_closed_for_shopify() -> None:
+    assert _settlement_reconciliation_state(
+        source="MANUAL",
+        fees_reconciled=False,
+        shipping_cost_reconciled=False,
+    ) == ("VERIFIED", [])
+    assert _settlement_reconciliation_state(
+        source="SHOPIFY",
+        fees_reconciled=False,
+        shipping_cost_reconciled=False,
+    ) == (
+        "WAITING_FEES_AND_POSTAGE",
+        ["Shopify/payment fees", "postage/fulfilment cost"],
+    )
+    assert _settlement_reconciliation_state(
+        source="SHOPIFY",
+        fees_reconciled=True,
+        shipping_cost_reconciled=False,
+    ) == ("WAITING_POSTAGE", ["postage/fulfilment cost"])
+    assert _settlement_reconciliation_state(
+        source="SHOPIFY",
+        fees_reconciled=True,
+        shipping_cost_reconciled=True,
+    ) == ("VERIFIED", [])
+
+
+def test_settlement_endpoint_is_owner_scoped_and_uses_append_only_ledger() -> None:
+    source = (ROOT / "backend" / "app" / "finance.py").read_text()
+    start = source.index('@router.get("/finance/settlements")')
+    end = source.index('@router.post("/finance/shopify/orders/{order_id}/reconcile-fees")', start)
+    settlement = source[start:end]
+    assert "where oi.owner_id=$1" in settlement
+    assert "where le.owner_id=$1 and le.order_id is not null" in settlement
+    assert "tcg.financial_ledger_entries" in settlement
+    assert "tcg.order_item_reconciliations" in settlement
+    assert "return_to_stock" in settlement
+    assert "_settlement_amounts(" in settlement
+    assert "_settlement_reconciliation_state(" in settlement
 
 
 def test_finance_dashboard_exposes_required_sections() -> None:
