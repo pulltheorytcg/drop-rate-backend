@@ -42,9 +42,36 @@ revoke all on tcg.shopify_shipping_profiles from anon, authenticated;
 grant select, insert, update on tcg.shopify_shipping_profiles to tcg_api;
 revoke delete on tcg.shopify_shipping_profiles from tcg_api;
 
+create function tcg.audit_shopify_shipping_profile_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $
+begin
+    insert into tcg.audit_events(
+        actor, request_id, action, entity_type, entity_id, old_values, new_values
+    ) values (
+        coalesce(
+            nullif(pg_catalog.current_setting('tcg.user_id', true), ''),
+            session_user::text
+        ),
+        nullif(pg_catalog.current_setting('tcg.request_id', true), ''),
+        tg_op,
+        tg_table_name,
+        case when tg_op = 'DELETE' then old.id else new.id end,
+        case when tg_op = 'INSERT' then null else pg_catalog.to_jsonb(old) end,
+        case when tg_op = 'DELETE' then null else pg_catalog.to_jsonb(new) end
+    );
+    return null;
+end;
+$;
+
+revoke all on function tcg.audit_shopify_shipping_profile_change() from public;
+
 create trigger shopify_shipping_profiles_audit
     after insert or update or delete on tcg.shopify_shipping_profiles
-    for each row execute function tcg.audit_change();
+    for each row execute function tcg.audit_shopify_shipping_profile_change();
 
 create function tcg.guard_shopify_shipping_profile_identity()
 returns trigger
