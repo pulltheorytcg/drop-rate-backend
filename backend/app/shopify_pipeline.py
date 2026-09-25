@@ -47,6 +47,16 @@ class ShippingProfileCreate(BaseModel):
     weight_value: float = Field(gt=0, le=100000)
     weight_unit: str = Field(pattern="^(GRAMS|KILOGRAMS|OUNCES|POUNDS)$")
     shipping_package_gid: str | None = Field(default=None, max_length=255)
+    package_length_mm: float | None = Field(default=None, gt=0, le=10000)
+    package_width_mm: float | None = Field(default=None, gt=0, le=10000)
+    package_height_mm: float | None = Field(default=None, gt=0, le=10000)
+    empty_package_weight_grams: float | None = Field(
+        default=None,
+        gt=0,
+        le=100000,
+    )
+    carrier: str | None = Field(default=None, max_length=120)
+    service_name: str | None = Field(default=None, max_length=120)
     notes: str = Field(default="", max_length=1000)
 
 
@@ -59,8 +69,26 @@ class ShippingProfilePatch(BaseModel):
         pattern="^(GRAMS|KILOGRAMS|OUNCES|POUNDS)$",
     )
     shipping_package_gid: str | None = Field(default=None, max_length=255)
+    package_length_mm: float | None = Field(default=None, gt=0, le=10000)
+    package_width_mm: float | None = Field(default=None, gt=0, le=10000)
+    package_height_mm: float | None = Field(default=None, gt=0, le=10000)
+    empty_package_weight_grams: float | None = Field(
+        default=None,
+        gt=0,
+        le=100000,
+    )
+    carrier: str | None = Field(default=None, max_length=120)
+    service_name: str | None = Field(default=None, max_length=120)
     active: bool | None = None
     notes: str | None = Field(default=None, max_length=1000)
+
+
+class FulfilmentCostComponentUpsert(BaseModel):
+    version: int | None = Field(default=None, ge=1)
+    label: str = Field(min_length=1, max_length=120)
+    quantity: Decimal = Field(default=Decimal("1"), gt=0, le=10000)
+    unit_cost_gbp: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
+    notes: str = Field(default="", max_length=1000)
 
 
 class MediaAssetCreate(BaseModel):
@@ -324,10 +352,33 @@ async def list_shipping_profiles(
             """,
             owner["id"], include_inactive,
         )
+        components = await connection.fetch(
+            """
+            select *
+            from tcg.fulfilment_cost_components
+            where owner_id=$1 and ($2::boolean or active)
+            order by shipping_profile_key,component_key
+            """,
+            owner["id"], include_inactive,
+        )
+        components_by_profile: dict[str, list[dict[str, Any]]] = {}
+        for component in components:
+            components_by_profile.setdefault(
+                str(component["shipping_profile_key"]),
+                [],
+            ).append(dict(component))
+        items = []
+        for row in rows:
+            item = dict(row)
+            item["cost_components"] = components_by_profile.get(
+                str(row["profile_key"]),
+                [],
+            )
+            items.append(item)
         present = {str(row["profile_key"]) for row in rows if row["active"]}
         required = {"RAW_CARD", "GRADED_CARD"}
         return jsonable_encoder({
-            "items": [dict(row) for row in rows],
+            "items": items,
             "required_profile_keys": sorted(required),
             "missing_required_profile_keys": sorted(required - present),
         })
@@ -354,12 +405,18 @@ async def create_shipping_profile(
                 """
                 insert into tcg.shopify_shipping_profiles(
                   owner_id,profile_key,label,weight_value,weight_unit,
-                  shipping_package_gid,notes,created_by_user_id
-                ) values($1,$2,$3,$4,$5,$6,$7,$8)
+                  shipping_package_gid,package_length_mm,package_width_mm,
+                  package_height_mm,empty_package_weight_grams,carrier,
+                  service_name,notes,created_by_user_id
+                ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
                 returning *
                 """,
                 owner["id"], payload.profile_key, payload.label.strip(),
                 payload.weight_value, payload.weight_unit, package_gid,
+                payload.package_length_mm, payload.package_width_mm,
+                payload.package_height_mm, payload.empty_package_weight_grams,
+                str(payload.carrier or "").strip() or None,
+                str(payload.service_name or "").strip() or None,
                 payload.notes.strip(), user.user_id,
             )
         except asyncpg.UniqueViolationError as exc:
@@ -388,6 +445,9 @@ async def update_shipping_profile(
         values["label"] = str(values["label"]).strip()
     if "notes" in values and values["notes"] is not None:
         values["notes"] = str(values["notes"]).strip()
+    for field in ("carrier", "service_name"):
+        if field in values and values[field] is not None:
+            values[field] = str(values[field]).strip() or None
     if "shipping_package_gid" in values:
         values["shipping_package_gid"] = _validated_shipping_package_gid(
             values["shipping_package_gid"]
@@ -446,6 +506,126 @@ async def update_shipping_profile(
         if updated is None:
             raise HTTPException(status_code=409, detail="Shipping profile changed")
         return jsonable_encoder({"profile": dict(updated)})
+
+
+@router.put(
+    "/shipping-profiles/{profile_id}/cost-components/{component_key}"
+)
+async def upsert_fulfilment_cost_component(
+    profile_id: UUID,
+    component_key: str,
+    payload: FulfilmentCostComponentUpsert,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    if component_key not in {"PACKAGING", "TOPLOADER"}:
+        raise HTTPException(
+            status_code=422,
+            detail="Supported fulfilment components are PACKAGING and TOPLOADER",
+        )
+    unit_cost_minor = int(
+        (payload.unit_cost_gbp * 100).quantize(
+            Decimal("1"),
+            rounding=ROUND_HALF_UP,
+        )
+    )
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        async with connection.transaction():
+            profile = await connection.fetchrow(
+                """
+                select id,profile_key
+                from tcg.shopify_shipping_profiles
+                where id=$1 and owner_id=$2
+                for update
+                """,
+                profile_id, owner["id"],
+            )
+            if profile is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Shipping profile not found",
+                )
+            current = await connection.fetchrow(
+                """
+                select *
+                from tcg.fulfilment_cost_components
+                where owner_id=$1
+                  and shipping_profile_key=$2
+                  and component_key=$3
+                for update
+                """,
+                owner["id"], profile["profile_key"], component_key,
+            )
+            try:
+                if current is None:
+                    if payload.version is not None:
+                        raise HTTPException(
+                            status_code=409,
+                            detail="Fulfilment cost component no longer exists",
+                        )
+                    updated = await connection.fetchrow(
+                        """
+                        insert into tcg.fulfilment_cost_components(
+                          owner_id,shipping_profile_key,component_key,label,
+                          quantity,native_unit_cost_minor,native_currency,
+                          accounting_unit_cost_minor_gbp,active,notes,
+                          created_by_user_id
+                        ) values($1,$2,$3,$4,$5,$6,'GBP',$6,true,$7,$8)
+                        returning *
+                        """,
+                        owner["id"], profile["profile_key"], component_key,
+                        payload.label.strip(), payload.quantity,
+                        unit_cost_minor, payload.notes.strip(), user.user_id,
+                    )
+                else:
+                    if (
+                        payload.version is None
+                        or int(current["version"]) != payload.version
+                    ):
+                        raise HTTPException(
+                            status_code=409,
+                            detail={
+                                "message": "Fulfilment cost component changed",
+                                "current_version": current["version"],
+                            },
+                        )
+                    updated = await connection.fetchrow(
+                        """
+                        update tcg.fulfilment_cost_components
+                        set label=$4,
+                            quantity=$5,
+                            native_unit_cost_minor=$6,
+                            native_currency='GBP',
+                            accounting_unit_cost_minor_gbp=$6,
+                            active=true,
+                            notes=$7,
+                            version=version+1,
+                            updated_at=clock_timestamp()
+                        where owner_id=$1
+                          and shipping_profile_key=$2
+                          and component_key=$3
+                          and version=$8
+                        returning *
+                        """,
+                        owner["id"], profile["profile_key"], component_key,
+                        payload.label.strip(), payload.quantity,
+                        unit_cost_minor, payload.notes.strip(),
+                        payload.version,
+                    )
+                    if updated is None:
+                        raise HTTPException(
+                            status_code=409,
+                            detail="Fulfilment cost component changed",
+                        )
+            except asyncpg.CheckViolationError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Fulfilment cost component failed database validation",
+                ) from exc
+        return jsonable_encoder({"component": dict(updated)})
 
 
 @router.get("/media-assets")
