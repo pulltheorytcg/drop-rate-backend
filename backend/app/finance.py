@@ -156,29 +156,39 @@ async def finance_summary(
             """,
             owner["id"],
         )
-        unreconciled_shopify_sales = await connection.fetchval(
+        reconciliation = await connection.fetchrow(
             """
-            select count(*)::int
-            from tcg.order_items oi
-            join tcg.orders o on o.id = oi.order_id
-            where oi.owner_id = $1
-              and o.source = 'SHOPIFY'
-              and (
-                not exists (
+            select
+              count(*) filter (
+                where not exists (
                   select 1
                   from tcg.financial_ledger_entries le
                   where le.order_item_id = oi.id
                     and le.entry_type in ('PLATFORM_FEE','PAYMENT_FEE')
                 )
-                or not exists (
+              )::int as missing_fee_sales,
+              count(*) filter (
+                where not exists (
                   select 1
                   from tcg.financial_ledger_entries le
                   where le.order_item_id = oi.id
                     and le.entry_type = 'SHIPPING_COST'
                 )
-              )
+              )::int as missing_shipping_cost_sales
+            from tcg.order_items oi
+            join tcg.orders o on o.id = oi.order_id
+            where oi.owner_id = $1
+              and o.source = 'SHOPIFY'
             """,
             owner["id"],
+        )
+        missing_fee_sales = int(reconciliation["missing_fee_sales"] or 0)
+        missing_shipping_cost_sales = int(
+            reconciliation["missing_shipping_cost_sales"] or 0
+        )
+        unreconciled_shopify_sales = max(
+            missing_fee_sales,
+            missing_shipping_cost_sales,
         )
         sales_revenue = int(ledger["sales_revenue_minor"] or 0)
         shipping_revenue = int(ledger["shipping_revenue_minor"] or 0)
@@ -213,8 +223,10 @@ async def finance_summary(
             "cost_of_goods_minor": cost_of_goods,
             "gross_profit_minor": gross_profit,
             "net_profit_minor": net_profit,
-            "net_profit_complete": int(unreconciled_shopify_sales or 0) == 0,
-            "unreconciled_shopify_sales": int(unreconciled_shopify_sales or 0),
+            "fees_complete": missing_fee_sales == 0,
+            "shipping_cost_complete": missing_shipping_cost_sales == 0,
+            "net_profit_complete": unreconciled_shopify_sales == 0,
+            "unreconciled_shopify_sales": unreconciled_shopify_sales,
             "sold_items": int(ledger["sold_items"] or 0),
             **balances,
         })
