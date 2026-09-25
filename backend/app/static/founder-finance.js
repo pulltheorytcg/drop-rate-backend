@@ -78,6 +78,7 @@ function ensureFounderFinanceUI() {
               <th>Reconciliation</th>
               <th>Gross proceeds</th>
               <th>Deductions</th>
+              <th>Adjustments</th>
               <th>Net owner proceeds</th>
               <th>Cost basis</th>
               <th>Owner profit</th>
@@ -307,6 +308,7 @@ function renderFinanceSettlements(items) {
       <td data-label="Reconciliation"><strong></strong><small></small></td>
       <td data-label="Gross proceeds"></td>
       <td data-label="Deductions"></td>
+      <td data-label="Adjustments"></td>
       <td data-label="Net owner proceeds"><strong></strong></td>
       <td data-label="Cost basis"></td>
       <td data-label="Owner profit"><strong></strong></td>
@@ -328,13 +330,14 @@ function renderFinanceSettlements(items) {
 
     row.cells[2].textContent = formatFinanceMoney(settlement.gross_proceeds_minor);
     row.cells[3].textContent = formatFinanceMoney(settlement.external_deductions_minor);
-    row.cells[4].querySelector("strong").textContent =
+    row.cells[4].textContent = formatFinanceMoney(settlement.adjustments_minor);
+    row.cells[5].querySelector("strong").textContent =
       formatFinanceMoney(settlement.net_owner_proceeds_minor);
-    row.cells[5].textContent = formatFinanceMoney(settlement.effective_cogs_minor);
-    row.cells[6].querySelector("strong").textContent =
+    row.cells[6].textContent = formatFinanceMoney(settlement.effective_cogs_minor);
+    row.cells[7].querySelector("strong").textContent =
       formatFinanceMoney(settlement.owner_profit_minor);
 
-    const fundsCell = row.cells[7];
+    const fundsCell = row.cells[8];
     fundsCell.querySelector("strong").textContent =
       `${formatFinanceMoney(settlement.available_ledger_minor)} available`;
     fundsCell.querySelector("small").textContent =
