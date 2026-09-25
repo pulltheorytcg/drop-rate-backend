@@ -265,9 +265,16 @@ function renderShopifyTestCandidates(data) {
 
 function refreshShopifyTestButton() {
   const select = byId("shopify-test-candidate");
-  const button = byId("shopify-test-sync-button");
-  if (!select || !button) return;
-  button.disabled = !select.value || select.dataset.testEnabled !== "true";
+  const syncButton = byId("shopify-test-sync-button");
+  const previewButton = byId("shopify-product-preview-button");
+  if (!select || !syncButton || !previewButton) return;
+  const option = select.selectedOptions?.[0];
+  const launchReady = option?.dataset?.launchReady === "true";
+  previewButton.disabled = !select.value;
+  syncButton.disabled =
+    !select.value
+    || select.dataset.testEnabled !== "true"
+    || !launchReady;
 }
 
 async function syncSelectedShopifyTestItem() {
