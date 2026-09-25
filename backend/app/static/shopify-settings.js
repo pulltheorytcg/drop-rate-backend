@@ -208,6 +208,31 @@ function renderShopifyTestCandidates(data) {
       `${readiness.considered || 0} unlinked active inventory items checked with the same rules used by the publish action.`
     ),
   ];
+  const launchReadiness = data.launch_readiness || {};
+  rows.push(
+    shopifyStatusRow(
+      "Launch completeness",
+      `${launchReadiness.ready || 0} ready · ${launchReadiness.blocked || 0} blocked`,
+      [
+        `${(launchReadiness.verified_collections || []).length} Shopify collections verified`,
+        launchReadiness.media_registry_status === "NOT_BUILT_FAIL_CLOSED"
+          ? "media registry not built — publishing fails closed"
+          : "media registry available",
+      ].join(" · ")
+    )
+  );
+  Object.entries(launchReadiness.blockers || {})
+    .filter(([, count]) => Number(count) > 0)
+    .sort((a, b) => Number(b[1]) - Number(a[1]) || a[0].localeCompare(b[0]))
+    .forEach(([blocker, count]) => {
+      rows.push(
+        shopifyStatusRow(
+          `Launch · ${blocker}`,
+          Number(count).toLocaleString("en-GB"),
+          "This blocks Shopify publication but does not change the underlying inventory record."
+        )
+      );
+    });
   Object.entries(readiness.blockers || {})
     .filter(([, count]) => Number(count) > 0)
     .sort((a, b) => Number(b[1]) - Number(a[1]) || a[0].localeCompare(b[0]))
