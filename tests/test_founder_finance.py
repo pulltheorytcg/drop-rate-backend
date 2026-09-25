@@ -98,7 +98,7 @@ def test_finance_dashboard_exposes_required_sections() -> None:
         "Net profit",
         "Sales revenue",
         "Cost of goods",
-        "Shipping cost",
+        "Postage cost",
         "Refunds",
         "Item + shipping refunds",
         "Payout requests",
