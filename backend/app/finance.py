@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
@@ -12,6 +13,8 @@ from pydantic import BaseModel, Field, model_validator
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .settings import get_settings
+from .shopify_client import ShopifyAdminClient, ShopifyApiError
 
 
 router = APIRouter(prefix="/api/v1")
@@ -65,6 +68,51 @@ class PayoutRequestCreate(BaseModel):
 
 class PayoutCancel(BaseModel):
     version: int = Field(ge=1)
+
+
+class ShopifyPostageReconcile(BaseModel):
+    amount_minor: int = Field(ge=0)
+    reference: str = Field(min_length=1, max_length=96)
+    notes: str = Field(default="", max_length=1000)
+    occurred_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def normalise(self) -> "ShopifyPostageReconcile":
+        self.reference = self.reference.strip()
+        self.notes = self.notes.strip()
+        return self
+
+
+def _shopify_client() -> ShopifyAdminClient:
+    settings = get_settings()
+    if (
+        not settings.shopify_shop_domain
+        or not settings.shopify_client_id
+        or not settings.shopify_client_secret
+    ):
+        raise HTTPException(status_code=409, detail="Shopify is not configured")
+    return ShopifyAdminClient(
+        shop_domain=settings.shopify_shop_domain,
+        client_id=settings.shopify_client_id,
+        client_secret=settings.shopify_client_secret,
+        api_version=settings.shopify_api_version,
+    )
+
+
+def _shopify_money_minor(value: object, *, field: str) -> int:
+    try:
+        amount = Decimal(str(value))
+    except InvalidOperation as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Shopify returned invalid {field}",
+        ) from exc
+    if amount < 0:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Shopify returned a negative {field}; manual review required",
+        )
+    return int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 
@@ -162,17 +210,17 @@ async def finance_summary(
               count(*) filter (
                 where not exists (
                   select 1
-                  from tcg.financial_ledger_entries le
-                  where le.order_item_id = oi.id
-                    and le.entry_type in ('PLATFORM_FEE','PAYMENT_FEE')
+                  from tcg.order_item_reconciliations r
+                  where r.order_item_id = oi.id
+                    and r.fees_reconciled_at is not null
                 )
               )::int as missing_fee_sales,
               count(*) filter (
                 where not exists (
                   select 1
-                  from tcg.financial_ledger_entries le
-                  where le.order_item_id = oi.id
-                    and le.entry_type = 'SHIPPING_COST'
+                  from tcg.order_item_reconciliations r
+                  where r.order_item_id = oi.id
+                    and r.shipping_cost_reconciled_at is not null
                 )
               )::int as missing_shipping_cost_sales
             from tcg.order_items oi
@@ -265,15 +313,16 @@ async def finance_sales(
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_COST'), 0)::bigint as shipping_cost_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'REFUND'), 0)::bigint as refund_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_REFUND'), 0)::bigint as shipping_refund_minor,
-                count(le.id) filter (where le.entry_type in ('PLATFORM_FEE','PAYMENT_FEE'))::int as fee_entry_count,
-                count(le.id) filter (where le.entry_type = 'SHIPPING_COST')::int as shipping_cost_entry_count
+                (rec.fees_reconciled_at is not null) as fees_reconciled,
+                (rec.shipping_cost_reconciled_at is not null) as shipping_cost_reconciled
             from tcg.order_items oi
             join tcg.orders o on o.id = oi.order_id
             join tcg.inventory_items i on i.id = oi.inventory_id
             join tcg.catalogue_products p on p.id = i.catalogue_id
             left join tcg.financial_ledger_entries le on le.order_item_id = oi.id
+            left join tcg.order_item_reconciliations rec on rec.order_item_id = oi.id
             where oi.owner_id = $1
-            group by oi.id, o.id, i.id, p.id
+            group by oi.id, o.id, i.id, p.id, rec.fees_reconciled_at, rec.shipping_cost_reconciled_at
             order by oi.sold_at desc, oi.id
             limit $2 offset $3
             """,
@@ -284,11 +333,11 @@ async def finance_sales(
             item = dict(row)
             effective_cost = 0 if item["returned_to_stock"] else int(item["cost_basis_minor"])
             item["effective_cost_basis_minor"] = effective_cost
-            fee_entries_present = int(item["fee_entry_count"] or 0) > 0
-            shipping_cost_entry_present = int(item["shipping_cost_entry_count"] or 0) > 0
-            item["fees_complete"] = item["source"] != "SHOPIFY" or fee_entries_present
+            item["fees_complete"] = (
+                item["source"] != "SHOPIFY" or bool(item["fees_reconciled"])
+            )
             item["shipping_cost_complete"] = (
-                item["source"] != "SHOPIFY" or shipping_cost_entry_present
+                item["source"] != "SHOPIFY" or bool(item["shipping_cost_reconciled"])
             )
             item["profit_complete"] = (
                 item["fees_complete"] and item["shipping_cost_complete"]
@@ -305,6 +354,317 @@ async def finance_sales(
             )
             items.append(item)
         return jsonable_encoder({"total": total, "limit": limit, "offset": offset, "items": items})
+
+
+@router.post("/finance/shopify/orders/{order_id}/reconcile-fees")
+async def reconcile_shopify_fees(
+    order_id: UUID,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _owner(connection)
+        order = await connection.fetchrow(
+            """
+            select o.id,o.source,o.source_reference,o.order_number,o.status
+            from tcg.orders o
+            where o.id=$1
+              and exists (
+                select 1
+                from tcg.order_items oi
+                where oi.order_id=o.id and oi.owner_id=$2
+              )
+            """,
+            order_id, owner["id"],
+        )
+        if order is None:
+            raise HTTPException(status_code=404, detail="Order not found")
+        if order["source"] != "SHOPIFY":
+            raise HTTPException(
+                status_code=422,
+                detail="Fee reconciliation is only available for Shopify orders",
+            )
+
+        items = await connection.fetch(
+            """
+            select
+              oi.id,oi.owner_id,oi.net_sale_minor,
+              coalesce(
+                sum(le.amount_minor) filter (
+                  where le.entry_type='SHIPPING_REVENUE'
+                ),
+                0
+              )::bigint as shipping_revenue_minor
+            from tcg.order_items oi
+            left join tcg.financial_ledger_entries le on le.order_item_id=oi.id
+            where oi.order_id=$1 and oi.owner_id=$2
+            group by oi.id
+            order by oi.id
+            """,
+            order_id, owner["id"],
+        )
+        if len(items) != 1:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": (
+                        "Automatic Shopify fee allocation currently requires "
+                        "exactly one visible order item"
+                    ),
+                    "item_count": len(items),
+                },
+            )
+
+        source_reference = str(order["source_reference"] or "").strip()
+        if not source_reference.isdigit():
+            raise HTTPException(
+                status_code=409,
+                detail="Shopify order reference is not a numeric Shopify order ID",
+            )
+        shopify_order_gid = f"gid://shopify/Order/{source_reference}"
+
+        try:
+            transactions = await _shopify_client().get_order_transactions(
+                shopify_order_gid
+            )
+        except ShopifyApiError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "message": "Shopify fee reconciliation failed",
+                    "retryable": exc.retryable,
+                },
+            ) from exc
+
+        unsettled = [
+            str(tx.get("status") or "")
+            for tx in transactions
+            if str(tx.get("status") or "") in {
+                "PENDING",
+                "AWAITING_RESPONSE",
+                "UNKNOWN",
+            }
+        ]
+        supported_fee_types = {"processing_fee": "PAYMENT_FEE"}
+        fee_rows: list[tuple[str, str, int]] = []
+        unknown_fee_types: set[str] = set()
+        for transaction in transactions:
+            if str(transaction.get("status") or "") != "SUCCESS":
+                continue
+            transaction_id = str(transaction.get("id") or "").strip()
+            fees = transaction.get("fees")
+            if not isinstance(fees, list):
+                raise HTTPException(
+                    status_code=502,
+                    detail="Shopify returned invalid transaction fee data",
+                )
+            for fee in fees:
+                if not isinstance(fee, dict):
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Shopify returned invalid transaction fee data",
+                    )
+                fee_type = str(fee.get("type") or "").strip()
+                entry_type = supported_fee_types.get(fee_type)
+                if entry_type is None:
+                    unknown_fee_types.add(fee_type or "(blank)")
+                    continue
+                money = fee.get("amount")
+                if not isinstance(money, dict):
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Shopify transaction fee is missing an amount",
+                    )
+                if str(money.get("currencyCode") or "").upper() != "GBP":
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Shopify transaction fee is not denominated in GBP",
+                    )
+                amount_minor = _shopify_money_minor(
+                    money.get("amount"),
+                    field="transaction fee",
+                )
+                if amount_minor == 0:
+                    continue
+                fee_id = str(fee.get("id") or "").strip()
+                if not transaction_id or not fee_id:
+                    raise HTTPException(
+                        status_code=502,
+                        detail="Shopify transaction fee is missing an ID",
+                    )
+                fee_rows.append((entry_type, f"{transaction_id}:{fee_id}", amount_minor))
+
+        if unknown_fee_types:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Shopify returned an unmapped fee type",
+                    "fee_types": sorted(unknown_fee_types),
+                },
+            )
+
+        item = items[0]
+        recorded_minor = 0
+        for entry_type, source_fragment, amount_minor in fee_rows:
+            source_key = f"shopify-fee:{source_fragment}:{item['id']}"
+            result = await connection.execute(
+                """
+                insert into tcg.financial_ledger_entries(
+                  owner_id,order_id,order_item_id,entry_type,amount_minor,
+                  currency,funds_status,source_key,occurred_at,notes
+                ) values($1,$2,$3,$4,$5,'GBP','PENDING',$6,clock_timestamp(),$7)
+                on conflict(source_key) do nothing
+                """,
+                owner["id"], order_id, item["id"], entry_type,
+                -amount_minor, source_key,
+                "Shopify transaction fee imported from typed Admin API data.",
+            )
+            if result.endswith("1"):
+                recorded_minor += amount_minor
+
+        fees_complete = not unsettled
+        await connection.execute(
+            """
+            insert into tcg.order_item_reconciliations(
+              order_item_id,order_id,owner_id,
+              fees_reconciled_at,fees_source
+            ) values(
+              $1,$2,$3,
+              case when $4 then clock_timestamp() else null end,
+              case when $4 then 'SHOPIFY_ORDER_TRANSACTIONS' else null end
+            )
+            on conflict(order_item_id) do update
+            set fees_reconciled_at=
+                  case when $4 then clock_timestamp() else null end,
+                fees_source=
+                  case when $4 then 'SHOPIFY_ORDER_TRANSACTIONS' else null end,
+                updated_at=clock_timestamp(),
+                version=tcg.order_item_reconciliations.version+1
+            """,
+            item["id"], order_id, owner["id"], fees_complete,
+        )
+
+        total_payment_fees = await connection.fetchval(
+            """
+            select coalesce(-sum(amount_minor),0)::bigint
+            from tcg.financial_ledger_entries
+            where order_item_id=$1 and entry_type='PAYMENT_FEE'
+            """,
+            item["id"],
+        )
+        return jsonable_encoder({
+            "order_id": order_id,
+            "order_number": order["order_number"],
+            "recorded_now_minor": recorded_minor,
+            "payment_fees_minor": int(total_payment_fees or 0),
+            "fees_complete": fees_complete,
+            "unsettled_transaction_statuses": sorted(set(unsettled)),
+        })
+
+
+@router.post("/finance/shopify/orders/{order_id}/postage")
+async def reconcile_shopify_postage(
+    order_id: UUID,
+    payload: ShopifyPostageReconcile,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    occurred_at = payload.occurred_at or datetime.now(timezone.utc)
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _owner(connection)
+        row = await connection.fetchrow(
+            """
+            select
+              o.id,o.source,o.order_number,
+              oi.id as order_item_id,
+              rec.shipping_cost_reconciled_at,
+              rec.shipping_cost_source
+            from tcg.orders o
+            join tcg.order_items oi on oi.order_id=o.id
+            left join tcg.order_item_reconciliations rec
+              on rec.order_item_id=oi.id
+            where o.id=$1 and oi.owner_id=$2
+            order by oi.id
+            """,
+            order_id, owner["id"],
+        )
+        item_count = await connection.fetchval(
+            """
+            select count(*)::int
+            from tcg.order_items
+            where order_id=$1 and owner_id=$2
+            """,
+            order_id, owner["id"],
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail="Order not found")
+        if row["source"] != "SHOPIFY":
+            raise HTTPException(
+                status_code=422,
+                detail="Postage reconciliation is only available for Shopify orders",
+            )
+        if int(item_count or 0) != 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Postage reconciliation v1 requires exactly one visible order item",
+            )
+
+        reconciliation_source = (
+            f"MANUAL_POSTAGE:{payload.reference}:{payload.amount_minor}"
+        )
+        if row["shipping_cost_reconciled_at"] is not None:
+            if row["shipping_cost_source"] == reconciliation_source:
+                return jsonable_encoder({
+                    "order_id": order_id,
+                    "order_number": row["order_number"],
+                    "shipping_cost_minor": payload.amount_minor,
+                    "replayed": True,
+                })
+            raise HTTPException(
+                status_code=409,
+                detail="Postage cost is already reconciled; use an audited adjustment workflow",
+            )
+
+        if payload.amount_minor:
+            await connection.execute(
+                """
+                insert into tcg.financial_ledger_entries(
+                  owner_id,order_id,order_item_id,entry_type,amount_minor,
+                  currency,funds_status,source_key,occurred_at,notes
+                ) values($1,$2,$3,'SHIPPING_COST',$4,'GBP','PENDING',$5,$6,$7)
+                on conflict(source_key) do nothing
+                """,
+                owner["id"], order_id, row["order_item_id"],
+                -payload.amount_minor,
+                f"postage:{payload.reference}:{row['order_item_id']}",
+                occurred_at,
+                payload.notes or "Actual postage/fulfilment cost.",
+            )
+
+        await connection.execute(
+            """
+            insert into tcg.order_item_reconciliations(
+              order_item_id,order_id,owner_id,
+              shipping_cost_reconciled_at,shipping_cost_source
+            ) values($1,$2,$3,clock_timestamp(),$4)
+            on conflict(order_item_id) do update
+            set shipping_cost_reconciled_at=clock_timestamp(),
+                shipping_cost_source=$4,
+                updated_at=clock_timestamp(),
+                version=tcg.order_item_reconciliations.version+1
+            """,
+            row["order_item_id"], order_id, owner["id"], reconciliation_source,
+        )
+        return jsonable_encoder({
+            "order_id": order_id,
+            "order_number": row["order_number"],
+            "shipping_cost_minor": payload.amount_minor,
+            "replayed": False,
+        })
 
 
 @router.post("/finance/manual-sales", status_code=201)
