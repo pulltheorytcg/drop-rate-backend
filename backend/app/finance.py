@@ -156,6 +156,40 @@ async def finance_summary(
             """,
             owner["id"],
         )
+        reconciliation = await connection.fetchrow(
+            """
+            select
+              count(*) filter (
+                where not exists (
+                  select 1
+                  from tcg.financial_ledger_entries le
+                  where le.order_item_id = oi.id
+                    and le.entry_type in ('PLATFORM_FEE','PAYMENT_FEE')
+                )
+              )::int as missing_fee_sales,
+              count(*) filter (
+                where not exists (
+                  select 1
+                  from tcg.financial_ledger_entries le
+                  where le.order_item_id = oi.id
+                    and le.entry_type = 'SHIPPING_COST'
+                )
+              )::int as missing_shipping_cost_sales
+            from tcg.order_items oi
+            join tcg.orders o on o.id = oi.order_id
+            where oi.owner_id = $1
+              and o.source = 'SHOPIFY'
+            """,
+            owner["id"],
+        )
+        missing_fee_sales = int(reconciliation["missing_fee_sales"] or 0)
+        missing_shipping_cost_sales = int(
+            reconciliation["missing_shipping_cost_sales"] or 0
+        )
+        unreconciled_shopify_sales = max(
+            missing_fee_sales,
+            missing_shipping_cost_sales,
+        )
         sales_revenue = int(ledger["sales_revenue_minor"] or 0)
         shipping_revenue = int(ledger["shipping_revenue_minor"] or 0)
         platform_fees = int(ledger["platform_fees_minor"] or 0)
@@ -189,6 +223,10 @@ async def finance_summary(
             "cost_of_goods_minor": cost_of_goods,
             "gross_profit_minor": gross_profit,
             "net_profit_minor": net_profit,
+            "fees_complete": missing_fee_sales == 0,
+            "shipping_cost_complete": missing_shipping_cost_sales == 0,
+            "net_profit_complete": unreconciled_shopify_sales == 0,
+            "unreconciled_shopify_sales": unreconciled_shopify_sales,
             "sold_items": int(ledger["sold_items"] or 0),
             **balances,
         })
@@ -226,7 +264,9 @@ async def finance_sales(
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'PAYMENT_FEE'), 0)::bigint as payment_fee_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_COST'), 0)::bigint as shipping_cost_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'REFUND'), 0)::bigint as refund_minor,
-                coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_REFUND'), 0)::bigint as shipping_refund_minor
+                coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_REFUND'), 0)::bigint as shipping_refund_minor,
+                count(le.id) filter (where le.entry_type in ('PLATFORM_FEE','PAYMENT_FEE'))::int as fee_entry_count,
+                count(le.id) filter (where le.entry_type = 'SHIPPING_COST')::int as shipping_cost_entry_count
             from tcg.order_items oi
             join tcg.orders o on o.id = oi.order_id
             join tcg.inventory_items i on i.id = oi.inventory_id
@@ -244,6 +284,15 @@ async def finance_sales(
             item = dict(row)
             effective_cost = 0 if item["returned_to_stock"] else int(item["cost_basis_minor"])
             item["effective_cost_basis_minor"] = effective_cost
+            fee_entries_present = int(item["fee_entry_count"] or 0) > 0
+            shipping_cost_entry_present = int(item["shipping_cost_entry_count"] or 0) > 0
+            item["fees_complete"] = item["source"] != "SHOPIFY" or fee_entries_present
+            item["shipping_cost_complete"] = (
+                item["source"] != "SHOPIFY" or shipping_cost_entry_present
+            )
+            item["profit_complete"] = (
+                item["fees_complete"] and item["shipping_cost_complete"]
+            )
             item["profit_minor"] = (
                 int(item["net_sale_minor"])
                 + int(item["shipping_revenue_minor"])

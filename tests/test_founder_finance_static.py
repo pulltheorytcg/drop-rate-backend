@@ -20,6 +20,19 @@ def test_founder_finance_javascript_has_valid_syntax() -> None:
     subprocess.run(["node", "--check", str(STATIC / "founder-finance.js")], check=True)
 
 
+def test_finance_sales_ui_labels_pending_costs_and_provisional_profit() -> None:
+    js = (STATIC / "founder-finance.js").read_text()
+    css = (STATIC / "styles.css").read_text()
+    assert "Fees + postage" in js
+    assert '"Pending"' in js
+    assert "Provisional" in js
+    assert "shipping paid" in js
+    assert "finance-item-meta" in js
+    assert "finance-item-code" in js
+    assert "finance-money-cell" in css
+    assert "Founder finance sales table" in css
+
+
 def test_main_serves_finance_asset_and_router() -> None:
     main = (ROOT / "backend" / "app" / "main.py").read_text()
     assert 'from .finance import router as finance_router' in main
