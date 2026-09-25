@@ -46,6 +46,18 @@ def test_finance_reconciliation_controls_are_available_for_shopify_sales() -> No
     assert ".finance-reconcile-actions" in css
 
 
+def test_owner_settlement_report_is_rendered_in_reports_ui() -> None:
+    js = (STATIC / "founder-finance.js").read_text()
+    shell = (STATIC / "dashboard-shell.js").read_text()
+    assert "Settlement report" in js
+    assert "Net owner proceeds" in js
+    assert "Owner profit" in js
+    assert "/api/v1/finance/settlements?limit=50&offset=0" in js
+    assert "renderFinanceSettlements" in js
+    assert 'byId("finance-settlement-section")' in shell
+    assert "reports.append(settlementSection)" in shell
+
+
 def test_main_serves_finance_asset_and_router() -> None:
     main = (ROOT / "backend" / "app" / "main.py").read_text()
     assert 'from .finance import router as finance_router' in main
