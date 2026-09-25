@@ -157,6 +157,39 @@ function shopifyShippingProfileLabel(key) {
   return key === "GRADED_CARD" ? "Graded card" : "Raw card";
 }
 
+function shopifyFulfilmentSummary(profile) {
+  const dimensions = [
+    profile.package_length_mm,
+    profile.package_width_mm,
+    profile.package_height_mm,
+  ];
+  const packageText = dimensions.every((value) => Number(value) > 0)
+    ? `${dimensions.map(Number).join("×")}mm`
+    : "package dimensions not set";
+  const components = (profile.cost_components || []).filter(
+    (component) => component.active
+  );
+  const accountingComplete =
+    components.length > 0 &&
+    components.every(
+      (component) => component.accounting_unit_cost_minor_gbp !== null
+    );
+  const totalMinor = accountingComplete
+    ? components.reduce(
+        (total, component) =>
+          total +
+          Number(component.quantity || 0) *
+            Number(component.accounting_unit_cost_minor_gbp || 0),
+        0
+      )
+    : null;
+  const materialText =
+    totalMinor === null
+      ? "material costs incomplete"
+      : `£${(totalMinor / 100).toFixed(2)} materials`;
+  return `${packageText} · ${materialText}`;
+}
+
 function renderShopifyShippingProfiles(data) {
   const container = byId("shopify-shipping-profile-list");
   if (!container) return;
@@ -168,7 +201,12 @@ function renderShopifyShippingProfiles(data) {
       shopifyShippingProfileLabel(key),
       profile?.active ? "CONFIGURED" : "REQUIRED",
       profile?.active
-        ? `${Number(profile.weight_value)} ${String(profile.weight_unit || "").toLowerCase()} · v${profile.version}`
+        ? [
+            `${Number(profile.weight_value)} ${String(profile.weight_unit || "").toLowerCase()}`,
+            shopifyFulfilmentSummary(profile),
+            [profile.carrier, profile.service_name].filter(Boolean).join(" "),
+            `v${profile.version}`,
+          ].filter(Boolean).join(" · ")
         : "Set an approved Shopify shipping weight before this product form can publish."
     );
     const button = document.createElement("button");
@@ -177,9 +215,28 @@ function renderShopifyShippingProfiles(data) {
     button.textContent = profile ? "Edit" : "Configure";
     button.addEventListener("click", () => configureShopifyShippingProfile(key, profile));
     row.append(button);
+    if (profile) {
+      const costsButton = document.createElement("button");
+      costsButton.type = "button";
+      costsButton.className = "ghost-button compact";
+      costsButton.textContent = "Costs";
+      costsButton.addEventListener("click", () => configureFulfilmentCosts(profile));
+      row.append(costsButton);
+    }
     return row;
   });
   container.replaceChildren(...rows);
+}
+
+function parsePackageDimensions(value) {
+  const parts = String(value || "")
+    .trim()
+    .split(/[x×]/i)
+    .map(Number);
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part) || part <= 0)) {
+    return null;
+  }
+  return parts;
 }
 
 async function configureShopifyShippingProfile(key, existing = null) {
@@ -207,6 +264,57 @@ async function configureShopifyShippingProfile(key, existing = null) {
     return;
   }
 
+  const currentDimensions = existing?.package_length_mm
+    ? [
+        Number(existing.package_length_mm),
+        Number(existing.package_width_mm),
+        Number(existing.package_height_mm),
+      ].join("x")
+    : "";
+  const dimensionsValue = window.prompt(
+    "Package dimensions in millimetres (length x width x height):",
+    currentDimensions
+  );
+  if (dimensionsValue === null) return;
+  const dimensions = parsePackageDimensions(dimensionsValue);
+  if (!dimensions) {
+    showMessage("shopify-settings-message", "Enter three positive package dimensions.", "error");
+    return;
+  }
+
+  const emptyWeightValue = window.prompt(
+    "Empty package weight in grams:",
+    existing?.empty_package_weight_grams
+      ? String(existing.empty_package_weight_grams)
+      : ""
+  );
+  if (emptyWeightValue === null) return;
+  const emptyPackageWeight = Number(emptyWeightValue);
+  if (!Number.isFinite(emptyPackageWeight) || emptyPackageWeight <= 0) {
+    showMessage("shopify-settings-message", "Enter an empty package weight greater than 0.", "error");
+    return;
+  }
+
+  const carrier = window.prompt("Carrier:", existing?.carrier || "Royal Mail");
+  if (carrier === null) return;
+  const serviceName = window.prompt(
+    "Service:",
+    existing?.service_name || "Tracked 48"
+  );
+  if (serviceName === null) return;
+
+  const profileFields = {
+    label: shopifyShippingProfileLabel(key),
+    weight_value: weightValue,
+    weight_unit: weightUnit,
+    package_length_mm: dimensions[0],
+    package_width_mm: dimensions[1],
+    package_height_mm: dimensions[2],
+    empty_package_weight_grams: emptyPackageWeight,
+    carrier: carrier.trim(),
+    service_name: serviceName.trim(),
+  };
+
   showMessage(
     "shopify-settings-message",
     `Saving ${shopifyShippingProfileLabel(key)} shipping specification…`
@@ -217,9 +325,7 @@ async function configureShopifyShippingProfile(key, existing = null) {
         method: "PATCH",
         body: JSON.stringify({
           version: existing.version,
-          label: shopifyShippingProfileLabel(key),
-          weight_value: weightValue,
-          weight_unit: weightUnit,
+          ...profileFields,
           active: true,
         }),
       });
@@ -228,9 +334,7 @@ async function configureShopifyShippingProfile(key, existing = null) {
         method: "POST",
         body: JSON.stringify({
           profile_key: key,
-          label: shopifyShippingProfileLabel(key),
-          weight_value: weightValue,
-          weight_unit: weightUnit,
+          ...profileFields,
           notes: "Approved deterministic Shopify shipping specification.",
         }),
       });
@@ -239,6 +343,61 @@ async function configureShopifyShippingProfile(key, existing = null) {
     showMessage(
       "shopify-settings-message",
       `${shopifyShippingProfileLabel(key)} shipping specification saved.`,
+      "success"
+    );
+  } catch (error) {
+    showMessage("shopify-settings-message", error.message, "error");
+  }
+}
+
+async function configureFulfilmentCosts(profile) {
+  const definitions = [
+    ["PACKAGING", "Order packaging"],
+    ["TOPLOADER", "35pt top loader"],
+  ];
+  const updates = [];
+  for (const [key, label] of definitions) {
+    const existing = (profile.cost_components || []).find(
+      (component) => component.component_key === key
+    );
+    const defaultValue = existing?.accounting_unit_cost_minor_gbp === null
+      ? ""
+      : (Number(existing?.accounting_unit_cost_minor_gbp || 0) / 100).toFixed(2);
+    const value = window.prompt(`${label} cost in GBP:`, defaultValue);
+    if (value === null) return;
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) {
+      showMessage("shopify-settings-message", "Enter a valid GBP cost.", "error");
+      return;
+    }
+    updates.push({
+      key,
+      existing,
+      body: {
+        version: existing?.version || null,
+        label,
+        quantity: 1,
+        unit_cost_gbp: amount.toFixed(2),
+        notes: existing?.notes || "Approved fulfilment material cost.",
+      },
+    });
+  }
+
+  showMessage("shopify-settings-message", "Saving fulfilment material costs…");
+  try {
+    for (const update of updates) {
+      await apiRequest(
+        `/api/v1/shopify/shipping-profiles/${profile.id}/cost-components/${update.key}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(update.body),
+        }
+      );
+    }
+    await loadShopifyStatus();
+    showMessage(
+      "shopify-settings-message",
+      "Fulfilment material costs saved.",
       "success"
     );
   } catch (error) {
