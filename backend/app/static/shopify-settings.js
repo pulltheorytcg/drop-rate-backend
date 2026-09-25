@@ -215,9 +215,9 @@ function renderShopifyTestCandidates(data) {
       `${launchReadiness.ready || 0} ready · ${launchReadiness.blocked || 0} blocked`,
       [
         `${(launchReadiness.verified_collections || []).length} Shopify collections verified`,
-        launchReadiness.media_registry_status === "NOT_BUILT_FAIL_CLOSED"
-          ? "media registry not built — publishing fails closed"
-          : "media registry available",
+        launchReadiness.media_registry_status === "ACTIVE_FAIL_CLOSED"
+          ? "approved media registry active — publishing remains fail-closed"
+          : "media registry unavailable — publishing fails closed",
       ].join(" · ")
     )
   );
