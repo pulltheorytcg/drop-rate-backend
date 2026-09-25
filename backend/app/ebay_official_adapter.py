@@ -68,10 +68,9 @@ def _variant_matches(title: object, source_variant_id: str | None) -> bool:
         return False
 
     if variant == "normal":
-        return (
-            "reverse" not in normalized_title.split()
-            and "holo" not in normalized_title.split()
-            and "holofoil" not in normalized_title.split()
+        title_tokens = set(normalized_title.split())
+        return not title_tokens.intersection(
+            {"reverse", "holo", "holofoil", "foil"}
         )
     if variant in {"reverse holo", "reverse holofoil", "reverse"}:
         return _contains_term(normalized_title, "reverse") and (
@@ -79,11 +78,23 @@ def _variant_matches(title: object, source_variant_id: str | None) -> bool:
             or _contains_term(normalized_title, "holofoil")
         )
     if variant in {"holo", "holofoil"}:
+        if _contains_term(normalized_title, "reverse"):
+            return False
+        if any(
+            _contains_term(normalized_title, term)
+            for term in ("non holo", "nonholo", "non holofoil", "nonholofoil")
+        ):
+            return False
         return (
-            (_contains_term(normalized_title, "holo") or _contains_term(normalized_title, "holofoil"))
-            and not _contains_term(normalized_title, "reverse")
+            _contains_term(normalized_title, "holo")
+            or _contains_term(normalized_title, "holofoil")
         )
     if variant == "foil":
+        if any(
+            _contains_term(normalized_title, term)
+            for term in ("non foil", "nonfoil")
+        ):
+            return False
         return _contains_term(normalized_title, "foil")
     return _contains_term(normalized_title, source_variant_id)
 
