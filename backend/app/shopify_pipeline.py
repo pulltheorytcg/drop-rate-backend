@@ -1116,6 +1116,19 @@ async def _process_refund(
             "Managed Shopify refund has no matching Drop Rate order",
         )
 
+    await connection.execute(
+        """
+        update tcg.order_item_reconciliations
+        set fees_reconciled_at=null,
+            fees_source=null,
+            updated_at=clock_timestamp(),
+            version=version+1
+        where order_id=$1
+          and fees_reconciled_at is not null
+        """,
+        order["id"],
+    )
+
     occurred_at = _parse_time(payload.get("processed_at") or payload.get("created_at"))
     note = str(payload.get("note") or "").strip()
     created = []
