@@ -929,6 +929,48 @@ class ShopifyAdminClient:
             raise ShopifyApiError("Shopify did not return exactly one updated variant")
         return variants[0]
 
+    async def update_variant_price(
+        self,
+        *,
+        product_id: str,
+        variant_id: str,
+        price: str,
+    ) -> dict[str, Any]:
+        """Update only the Shopify variant price.
+
+        Price resync deliberately avoids touching cost, shipping measurements,
+        SKU, inventory policy or quantity.
+        """
+        data = await self.graphql(
+            query="""
+            mutation DropRateVariantPriceUpdate(
+              $productId: ID!,
+              $variants: [ProductVariantsBulkInput!]!
+            ) {
+              productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+                productVariants { id price }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={
+                "productId": product_id,
+                "variants": [{
+                    "id": variant_id,
+                    "price": price,
+                }],
+            },
+        )
+        payload = data.get("productVariantsBulkUpdate")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError("Shopify variant price update returned an invalid response")
+        self._raise_user_errors(payload, "Shopify rejected variant price update")
+        variants = payload.get("productVariants")
+        if not isinstance(variants, list) or len(variants) != 1 or not isinstance(variants[0], dict):
+            raise ShopifyApiError("Shopify did not return exactly one updated variant")
+        return variants[0]
+
+
     async def activate_inventory(
         self,
         *,

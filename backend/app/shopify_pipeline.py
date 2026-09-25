@@ -1334,6 +1334,205 @@ async def test_sync_status(
         })
 
 
+@router.post("/price-sync")
+async def sync_shopify_prices(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = 25,
+) -> dict:
+    """Synchronise changed Drop Rate Store Prices to existing Shopify variants.
+
+    This endpoint is deliberately price-only. It never publishes products,
+    changes quantity, alters shipping configuration or moves inventory state.
+    """
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 100")
+
+    client = _client()
+
+    # Phase 1: short owner-scoped snapshot. No external I/O while DB is held.
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _founder(connection)
+        owner_id = owner["id"]
+        rows = await connection.fetch(
+            """
+            select
+                sil.id as link_id,
+                sil.version as link_version,
+                sil.sync_state,
+                sil.shopify_product_gid,
+                sil.shopify_variant_gid,
+                sil.synced_price_minor,
+                i.id as inventory_id,
+                i.version as inventory_version,
+                i.inventory_code,
+                i.status as inventory_status,
+                i.store_price_minor
+            from tcg.shopify_inventory_links sil
+            join tcg.inventory_items i on i.id=sil.inventory_id
+            where sil.owner_id=$1
+              and sil.sync_state in ('DRAFT','PUBLISHED')
+              and i.status='APPROVED'
+              and i.store_price_minor is not null
+              and i.store_price_minor <> sil.synced_price_minor
+            order by sil.last_synced_at,sil.id
+            limit $2
+            """,
+            owner_id,
+            limit,
+        )
+        candidates = [dict(row) for row in rows]
+
+    results: list[dict[str, Any]] = []
+
+    # Phase 2: Shopify I/O with no DB transaction open.
+    for candidate in candidates:
+        target_price = int(candidate["store_price_minor"])
+        try:
+            remote = await client.update_variant_price(
+                product_id=str(candidate["shopify_product_gid"]),
+                variant_id=str(candidate["shopify_variant_gid"]),
+                price=_money(target_price),
+            )
+        except ShopifyApiError as exc:
+            results.append({
+                "inventory_id": candidate["inventory_id"],
+                "inventory_code": candidate["inventory_code"],
+                "status": "SHOPIFY_ERROR",
+                "retryable": exc.retryable,
+            })
+            continue
+
+        if str(remote.get("id") or "") != str(candidate["shopify_variant_gid"]):
+            results.append({
+                "inventory_id": candidate["inventory_id"],
+                "inventory_code": candidate["inventory_code"],
+                "status": "SHOPIFY_MISMATCH",
+                "detail": "Shopify returned a different variant",
+            })
+            continue
+        try:
+            remote_price_minor = _minor(remote.get("price"), field="variant price")
+        except ShopifyProcessingError:
+            results.append({
+                "inventory_id": candidate["inventory_id"],
+                "inventory_code": candidate["inventory_code"],
+                "status": "SHOPIFY_MISMATCH",
+                "detail": "Shopify returned an invalid variant price",
+            })
+            continue
+        if remote_price_minor != target_price:
+            results.append({
+                "inventory_id": candidate["inventory_id"],
+                "inventory_code": candidate["inventory_code"],
+                "status": "SHOPIFY_MISMATCH",
+                "detail": "Shopify price readback does not match Drop Rate",
+            })
+            continue
+
+        # Phase 3: re-lock and verify the exact snapshot is still current.
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            current_owner = await _founder(connection)
+            if current_owner["id"] != owner_id:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Owner context changed during Shopify price sync",
+                )
+            async with connection.transaction():
+                current = await connection.fetchrow(
+                    """
+                    select
+                        sil.id as link_id,
+                        sil.version as link_version,
+                        sil.sync_state,
+                        sil.synced_price_minor,
+                        i.id as inventory_id,
+                        i.version as inventory_version,
+                        i.status as inventory_status,
+                        i.store_price_minor
+                    from tcg.shopify_inventory_links sil
+                    join tcg.inventory_items i on i.id=sil.inventory_id
+                    where sil.id=$1
+                      and sil.owner_id=$2
+                    for update of sil,i
+                    """,
+                    candidate["link_id"],
+                    owner_id,
+                )
+                if (
+                    current is None
+                    or int(current["link_version"]) != int(candidate["link_version"])
+                    or int(current["inventory_version"]) != int(candidate["inventory_version"])
+                    or current["sync_state"] not in {"DRAFT", "PUBLISHED"}
+                    or current["inventory_status"] != "APPROVED"
+                    or current["store_price_minor"] is None
+                    or int(current["store_price_minor"]) != target_price
+                ):
+                    results.append({
+                        "inventory_id": candidate["inventory_id"],
+                        "inventory_code": candidate["inventory_code"],
+                        "status": "RETRY_REQUIRED",
+                        "detail": "Drop Rate state changed while Shopify was updating",
+                    })
+                    continue
+
+                updated = await connection.fetchrow(
+                    """
+                    update tcg.shopify_inventory_links
+                    set synced_price_minor=$1,
+                        last_synced_at=clock_timestamp(),
+                        version=version+1
+                    where id=$2
+                      and owner_id=$3
+                      and version=$4
+                    returning id,sync_state,synced_price_minor,last_synced_at,version
+                    """,
+                    target_price,
+                    candidate["link_id"],
+                    owner_id,
+                    candidate["link_version"],
+                )
+                if updated is None:
+                    results.append({
+                        "inventory_id": candidate["inventory_id"],
+                        "inventory_code": candidate["inventory_code"],
+                        "status": "RETRY_REQUIRED",
+                        "detail": "Shopify link changed before sync could be recorded",
+                    })
+                    continue
+
+                results.append({
+                    "inventory_id": candidate["inventory_id"],
+                    "inventory_code": candidate["inventory_code"],
+                    "status": "SYNCED",
+                    "previous_price_minor": candidate["synced_price_minor"],
+                    "synced_price_minor": target_price,
+                    "link_version": updated["version"],
+                })
+
+    return jsonable_encoder({
+        "candidate_count": len(candidates),
+        "synced_count": sum(1 for item in results if item["status"] == "SYNCED"),
+        "retry_required_count": sum(
+            1 for item in results if item["status"] == "RETRY_REQUIRED"
+        ),
+        "failed_count": sum(
+            1
+            for item in results
+            if item["status"] in {"SHOPIFY_ERROR", "SHOPIFY_MISMATCH"}
+        ),
+        "results": results,
+    })
+
+
 @router.post("/test-sync/{inventory_id}")
 async def sync_one_test_item(
     inventory_id: UUID,
