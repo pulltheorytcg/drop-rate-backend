@@ -125,6 +125,13 @@ Marketplace mutations use a dedicated immutable `tcg.marketplace_audit_events` l
 Language is now part of inventory approval readiness. Physical stock cannot become APPROVED, and therefore cannot join a pooled sellable listing, until its language is explicitly recorded. This is required to prevent visually similar but non-equivalent language variants from sharing storefront quantity.
 
 
+## Future mobile card capture
+
+The planned iOS-assisted intake flow lets an authenticated operator photograph a card, confirm the best catalogue match, recover an incorrect match through card-number search, create the exact physical Inventory ID and request guarded Shopify publication. The app remains a client of the backend; it never owns canonical identity or Shopify credentials.
+
+See [Mobile Card Capture and Direct Listing Blueprint](docs/MOBILE_CARD_CAPTURE_BLUEPRINT.md) for matching, manual correction, security, idempotency and phased delivery requirements.
+
+
 ## Card language policy
 
 Language is a first-class identity/pricing attribute. For physical cards, language must be explicit before approval or sellable listing.
