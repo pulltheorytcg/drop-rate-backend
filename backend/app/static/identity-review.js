@@ -58,6 +58,7 @@ function ensureIdentityReviewUI() {
       <div id="identity-copy-list" class="allocation-list"></div>
       <div class="form-grid identity-review-form">
         <label>Optional storage location<select id="identity-storage-location"><option value="">Keep current locations</option></select></label>
+        <label>Verified language<select id="identity-language"><option value="">Use current / canonical language</option><option value="English">English (EN)</option><option value="Japanese">Japanese (JP)</option></select></label>
         <label class="full-width">Notes / correction reason<textarea id="identity-notes" maxlength="1000" rows="2" placeholder="Optional when confirming. Required when revoking a previous confirmation."></textarea></label>
       </div>
       <div id="identity-dialog-message" class="message" role="status"></div>
@@ -156,7 +157,7 @@ function renderIdentityReviewGroups(data) {
       group.rarity,
     ].filter(Boolean).join(" · ");
     const progress = document.createElement("small");
-    progress.textContent = `${group.confirmed_copies}/${group.active_copies} confirmed · ${group.located_copies}/${group.active_copies} located`;
+    progress.textContent = `${group.confirmed_copies}/${group.active_copies} confirmed · ${group.language_copies}/${group.active_copies} language · ${group.located_copies}/${group.active_copies} located`;
     details.append(title, meta, progress);
 
     const actions = document.createElement("div");
@@ -259,6 +260,7 @@ function refreshIdentityReviewActions() {
   byId("identity-confirm").disabled = !allUnconfirmed;
   byId("identity-revoke").disabled = !allConfirmed;
   byId("identity-storage-location").disabled = !allUnconfirmed;
+  byId("identity-language").disabled = !allUnconfirmed;
 }
 
 function renderIdentityCopies(data) {
@@ -285,7 +287,10 @@ function renderIdentityCopies(data) {
     const title = document.createElement("strong");
     title.textContent = item.inventory_code;
     const physical = document.createElement("small");
-    physical.textContent = identityPhysicalState(item);
+    physical.textContent = [
+      identityPhysicalState(item),
+      item.language ? `Language: ${item.language}` : "Language not verified",
+    ].join(" · ");
     const location = document.createElement("small");
     location.textContent = item.storage_location_code
       ? `${item.storage_location_code} — ${item.storage_location_label || ""}`
@@ -309,6 +314,11 @@ function renderIdentityCopies(data) {
 
   byId("identity-notes").value = "";
   byId("identity-storage-location").value = "";
+  byId("identity-language").value = "";
+  const languageBlank = byId("identity-language").options[0];
+  languageBlank.textContent = catalogue.catalogue_language
+    ? `Use current / canonical language (${catalogue.catalogue_language})`
+    : "Keep current language";
   refreshIdentityReviewActions();
 }
 
@@ -367,6 +377,7 @@ async function confirmSelectedIdentityCopies() {
       body: JSON.stringify({
         items: selected.map((item) => ({inventory_id: item.id, version: item.version})),
         storage_location_id: byId("identity-storage-location").value || null,
+        language: byId("identity-language").value || null,
         notes: byId("identity-notes").value.trim(),
       }),
     });
