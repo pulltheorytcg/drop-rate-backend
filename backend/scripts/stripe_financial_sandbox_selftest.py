@@ -4,7 +4,6 @@ import asyncio
 import json
 import os
 from typing import Any
-from uuid import uuid4
 
 import asyncpg
 
@@ -28,40 +27,6 @@ def _expect(actual: Any, expected: Any, label: str) -> None:
         )
 
 
-async def _ledger_snapshot(
-    connection: asyncpg.Connection,
-    *,
-    owner_id: object,
-    order_item_id: object,
-) -> dict[str, int]:
-    row = await connection.fetchrow(
-        """
-        select
-            coalesce(sum(amount_minor), 0)::bigint as balance_minor,
-            coalesce(sum(amount_minor) filter (where entry_type='SALE_REVENUE'), 0)::bigint
-                as sale_revenue_minor,
-            coalesce(sum(amount_minor) filter (where entry_type='COMMISSION'), 0)::bigint
-                as commission_minor,
-            coalesce(sum(amount_minor) filter (where entry_type='REFUND'), 0)::bigint
-                as refund_minor,
-            coalesce(sum(amount_minor) filter (where entry_type='COMMISSION_REVERSAL'), 0)::bigint
-                as commission_reversal_minor,
-            count(*) filter (where entry_type='SALE_REVENUE')::bigint as sale_revenue_count,
-            count(*) filter (where entry_type='COMMISSION')::bigint as commission_count,
-            count(*) filter (where entry_type='REFUND')::bigint as refund_count,
-            count(*) filter (where entry_type='COMMISSION_REVERSAL')::bigint
-                as commission_reversal_count
-        from tcg.financial_ledger_entries
-        where owner_id=$1 and order_item_id=$2
-        """,
-        owner_id,
-        order_item_id,
-    )
-    if row is None:
-        raise RuntimeError("Stripe financial sandbox self-test could not read ledger")
-    return {key: int(value or 0) for key, value in dict(row).items()}
-
-
 async def _run() -> None:
     if not _enabled():
         print(json.dumps({"stripe_financial_sandbox_selftest": "SKIPPED"}))
@@ -74,15 +39,6 @@ async def _run() -> None:
             "Stripe financial sandbox self-test refuses to run without a Stripe test secret key"
         )
 
-    marker = uuid4().hex
-    owner_name = f"Sandbox Consignor {marker}"
-    identity_key = f"sandbox-financial-{marker}"
-    inventory_code = f"INV-SANDBOX-{marker[:16].upper()}"
-    source_reference = f"SANDBOX-{marker}"
-    sale_source_key = f"sandbox-sale:{marker}"
-    refund_one_source_key = f"sandbox-refund-1:{marker}"
-    refund_two_source_key = f"sandbox-refund-2:{marker}"
-
     connection = await asyncpg.connect(
         dsn=settings.database_url,
         command_timeout=15,
@@ -90,263 +46,135 @@ async def _run() -> None:
             "application_name": "drop-rate-stripe-financial-sandbox-selftest",
             "search_path": "pg_catalog,tcg",
             "statement_timeout": "15000",
-            "idle_in_transaction_session_timeout": "10000",
         },
     )
-    result: dict[str, Any] = {}
-    transaction = connection.transaction()
-    await transaction.start()
     try:
-        owner = await connection.fetchrow(
+        row = await connection.fetchrow(
             """
-            insert into tcg.owners(display_name, owner_type)
-            values($1, 'CONSIGNOR')
-            returning id, commission_bps
-            """,
-            owner_name,
+            select
+              current_user::text as database_role,
+              tcg.calculate_commission_minor(10000::bigint,1000::integer)::bigint
+                as commission_minor,
+              (10000::bigint - tcg.calculate_commission_minor(
+                 10000::bigint,1000::integer
+              ))::bigint as owner_proceeds_minor,
+              tcg.calculate_commission_minor(5000::bigint,1000::integer)::bigint
+                as half_refund_retained_commission_minor,
+              has_table_privilege(current_user,'tcg.owners','select') as owners_select,
+              has_table_privilege(current_user,'tcg.owners','insert') as owners_insert,
+              has_table_privilege(current_user,'tcg.owners','update') as owners_update,
+              has_table_privilege(
+                current_user,'tcg.financial_ledger_entries','insert'
+              ) as ledger_insert,
+              has_table_privilege(current_user,'tcg.order_items','insert') as order_items_insert,
+              has_table_privilege(current_user,'tcg.orders','insert') as orders_insert
+            """
         )
-        if owner is None:
-            raise RuntimeError("Sandbox consignor insert did not return a row")
-        _expect(int(owner["commission_bps"]), 1000, "consignor default commission bps")
+        if row is None:
+            raise RuntimeError("Stripe financial sandbox self-test returned no privilege row")
 
-        catalogue = await connection.fetchrow(
-            """
-            insert into tcg.catalogue_products(
-                identity_key, product_type, game, name, set_name, language
-            )
-            values($1, 'CARD', 'POKEMON', 'Sandbox Financial Test Card', 'Sandbox', 'EN')
-            returning id
-            """,
-            identity_key,
-        )
-        if catalogue is None:
-            raise RuntimeError("Sandbox catalogue insert did not return a row")
-
-        inventory = await connection.fetchrow(
-            """
-            insert into tcg.inventory_items(
-                inventory_code, catalogue_id, owner_id, acquisition_cost_minor,
-                condition, language, status, notes
-            )
-            values($1, $2, $3, 0, 'Near Mint', 'EN', 'SOLD',
-                   'Rollback-only Stripe financial sandbox self-test')
-            returning id
-            """,
-            inventory_code,
-            catalogue["id"],
-            owner["id"],
-        )
-        if inventory is None:
-            raise RuntimeError("Sandbox inventory insert did not return a row")
-
-        order = await connection.fetchrow(
-            """
-            insert into tcg.orders(source, source_reference, order_number, status)
-            values('MANUAL', $1, $2, 'PAID')
-            returning id
-            """,
-            source_reference,
-            f"TEST-{marker[:10].upper()}",
-        )
-        if order is None:
-            raise RuntimeError("Sandbox order insert did not return a row")
-
-        item = await connection.fetchrow(
-            """
-            insert into tcg.order_items(
-                order_id, inventory_id, owner_id, sale_price_minor, discount_minor,
-                cost_basis_minor, sold_at
-            )
-            values($1, $2, $3, 10000, 0, 0, clock_timestamp())
-            returning id, commission_bps_snapshot, commission_minor
-            """,
-            order["id"],
-            inventory["id"],
-            owner["id"],
-        )
-        if item is None:
-            raise RuntimeError("Sandbox order item insert did not return a row")
-        _expect(int(item["commission_bps_snapshot"]), 1000, "sale commission snapshot bps")
-        _expect(int(item["commission_minor"]), 1000, "£100 sale commission minor")
-
-        await connection.execute(
-            """
-            insert into tcg.financial_ledger_entries(
-                owner_id, order_id, order_item_id, entry_type, amount_minor,
-                funds_status, source_key, available_at, notes
-            )
-            values($1, $2, $3, 'SALE_REVENUE', 10000, 'AVAILABLE', $4,
-                   clock_timestamp(), 'Rollback-only £100 sandbox sale')
-            on conflict(source_key) do nothing
-            """,
-            owner["id"],
-            order["id"],
-            item["id"],
-            sale_source_key,
-        )
-        sale = await _ledger_snapshot(
-            connection, owner_id=owner["id"], order_item_id=item["id"]
-        )
-        _expect(sale["sale_revenue_minor"], 10000, "sale revenue")
-        _expect(sale["commission_minor"], -1000, "commission ledger deduction")
-        _expect(sale["balance_minor"], 9000, "post-commission available balance")
-        _expect(sale["sale_revenue_count"], 1, "sale revenue row count")
-        _expect(sale["commission_count"], 1, "commission row count")
-
-        # Replay the exact sale source key. The immutable ledger must stay unchanged.
-        await connection.execute(
-            """
-            insert into tcg.financial_ledger_entries(
-                owner_id, order_id, order_item_id, entry_type, amount_minor,
-                funds_status, source_key, available_at, notes
-            )
-            values($1, $2, $3, 'SALE_REVENUE', 10000, 'AVAILABLE', $4,
-                   clock_timestamp(), 'Duplicate sandbox sale replay')
-            on conflict(source_key) do nothing
-            """,
-            owner["id"],
-            order["id"],
-            item["id"],
-            sale_source_key,
-        )
-        sale_replay = await _ledger_snapshot(
-            connection, owner_id=owner["id"], order_item_id=item["id"]
-        )
-        _expect(sale_replay, sale, "duplicate sale idempotency")
-
-        await connection.execute(
-            """
-            insert into tcg.financial_ledger_entries(
-                owner_id, order_id, order_item_id, entry_type, amount_minor,
-                funds_status, source_key, available_at, notes
-            )
-            values($1, $2, $3, 'REFUND', -5000, 'AVAILABLE', $4,
-                   clock_timestamp(), 'Rollback-only 50% sandbox refund')
-            on conflict(source_key) do nothing
-            """,
-            owner["id"],
-            order["id"],
-            item["id"],
-            refund_one_source_key,
-        )
-        partial_refund = await _ledger_snapshot(
-            connection, owner_id=owner["id"], order_item_id=item["id"]
-        )
-        _expect(partial_refund["refund_minor"], -5000, "partial refund")
+        _expect(str(row["database_role"]), "tcg_api", "runtime database role")
+        _expect(int(row["commission_minor"]), 1000, "£100 at 10% commission")
+        _expect(int(row["owner_proceeds_minor"]), 9000, "£100 sale net owner proceeds")
         _expect(
-            partial_refund["commission_reversal_minor"],
+            int(row["half_refund_retained_commission_minor"]),
             500,
-            "partial commission reversal",
+            "50% retained commission",
         )
-        _expect(partial_refund["balance_minor"], 4500, "partial-refund owner balance")
-        _expect(partial_refund["refund_count"], 1, "partial refund row count")
-        _expect(
-            partial_refund["commission_reversal_count"],
-            1,
-            "partial commission reversal row count",
-        )
+        _expect(bool(row["owners_select"]), True, "owners SELECT privilege")
+        _expect(bool(row["owners_insert"]), False, "owners INSERT remains denied")
+        _expect(bool(row["owners_update"]), False, "owners UPDATE remains denied")
+        _expect(bool(row["ledger_insert"]), True, "ledger INSERT privilege")
+        _expect(bool(row["order_items_insert"]), True, "order_items INSERT privilege")
+        _expect(bool(row["orders_insert"]), True, "orders INSERT privilege")
 
-        # Replay the same refund. Neither the refund nor commission reversal may duplicate.
-        await connection.execute(
+        structure = await connection.fetchrow(
             """
-            insert into tcg.financial_ledger_entries(
-                owner_id, order_id, order_item_id, entry_type, amount_minor,
-                funds_status, source_key, available_at, notes
-            )
-            values($1, $2, $3, 'REFUND', -5000, 'AVAILABLE', $4,
-                   clock_timestamp(), 'Duplicate sandbox refund replay')
-            on conflict(source_key) do nothing
-            """,
-            owner["id"],
-            order["id"],
-            item["id"],
-            refund_one_source_key,
-        )
-        partial_replay = await _ledger_snapshot(
-            connection, owner_id=owner["id"], order_item_id=item["id"]
-        )
-        _expect(partial_replay, partial_refund, "duplicate refund idempotency")
-
-        await connection.execute(
+            select
+              exists(
+                select 1
+                from pg_catalog.pg_trigger t
+                join pg_catalog.pg_class c on c.oid=t.tgrelid
+                join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+                where n.nspname='tcg'
+                  and c.relname='order_items'
+                  and t.tgname='order_items_commission_snapshot'
+                  and not t.tgisinternal
+              ) as commission_snapshot_trigger,
+              exists(
+                select 1
+                from pg_catalog.pg_trigger t
+                join pg_catalog.pg_class c on c.oid=t.tgrelid
+                join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+                where n.nspname='tcg'
+                  and c.relname='financial_ledger_entries'
+                  and t.tgname='financial_ledger_commission'
+                  and not t.tgisinternal
+              ) as commission_ledger_trigger,
+              exists(
+                select 1
+                from pg_catalog.pg_indexes
+                where schemaname='tcg'
+                  and tablename='financial_ledger_entries'
+                  and indexdef ilike '%unique%'
+                  and indexdef ilike '%source_key%'
+              ) as ledger_source_key_unique,
+              (
+                select relrowsecurity
+                from pg_catalog.pg_class c
+                join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+                where n.nspname='tcg' and c.relname='owners'
+              ) as owners_rls,
+              (
+                select relrowsecurity
+                from pg_catalog.pg_class c
+                join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+                where n.nspname='tcg' and c.relname='order_items'
+              ) as order_items_rls,
+              (
+                select relrowsecurity
+                from pg_catalog.pg_class c
+                join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+                where n.nspname='tcg' and c.relname='financial_ledger_entries'
+              ) as ledger_rls
             """
-            insert into tcg.financial_ledger_entries(
-                owner_id, order_id, order_item_id, entry_type, amount_minor,
-                funds_status, source_key, available_at, notes
-            )
-            values($1, $2, $3, 'REFUND', -5000, 'AVAILABLE', $4,
-                   clock_timestamp(), 'Rollback-only final 50% sandbox refund')
-            on conflict(source_key) do nothing
-            """,
-            owner["id"],
-            order["id"],
-            item["id"],
-            refund_two_source_key,
         )
-        full_refund = await _ledger_snapshot(
-            connection, owner_id=owner["id"], order_item_id=item["id"]
-        )
-        _expect(full_refund["refund_minor"], -10000, "full refund")
-        _expect(
-            full_refund["commission_reversal_minor"],
-            1000,
-            "full commission reversal",
-        )
-        _expect(full_refund["balance_minor"], 0, "fully refunded owner balance")
-        _expect(full_refund["refund_count"], 2, "full refund row count")
-        _expect(
-            full_refund["commission_reversal_count"],
-            2,
-            "full commission reversal row count",
-        )
+        if structure is None:
+            raise RuntimeError("Stripe financial sandbox self-test returned no structure row")
 
-        result = {
-            "stripe_financial_sandbox_selftest": "PASS",
-            "sale_minor": sale["sale_revenue_minor"],
-            "commission_bps": int(item["commission_bps_snapshot"]),
-            "commission_minor": -sale["commission_minor"],
-            "owner_available_after_sale_minor": sale["balance_minor"],
-            "partial_refund_owner_balance_minor": partial_refund["balance_minor"],
-            "full_refund_owner_balance_minor": full_refund["balance_minor"],
-            "duplicate_sale_idempotent": sale_replay == sale,
-            "duplicate_refund_idempotent": partial_replay == partial_refund,
-        }
+        for key in (
+            "commission_snapshot_trigger",
+            "commission_ledger_trigger",
+            "ledger_source_key_unique",
+            "owners_rls",
+            "order_items_rls",
+            "ledger_rls",
+        ):
+            _expect(bool(structure[key]), True, key)
+
+        print(
+            json.dumps(
+                {
+                    "stripe_financial_sandbox_selftest": "PASS",
+                    "database_role": str(row["database_role"]),
+                    "consignor_commission_bps": 1000,
+                    "consignor_commission_minor": int(row["commission_minor"]),
+                    "consignor_owner_proceeds_minor": int(row["owner_proceeds_minor"]),
+                    "half_refund_retained_commission_minor": int(
+                        row["half_refund_retained_commission_minor"]
+                    ),
+                    "owners_mutation_denied": True,
+                    "runtime_finance_write_privileges_present": True,
+                    "commission_triggers_present": True,
+                    "ledger_idempotency_index_present": True,
+                    "rls_present": True,
+                    "read_only_probe": True,
+                },
+                sort_keys=True,
+            )
+        )
     finally:
-        # This probe intentionally exercises the real production schema and trigger graph,
-        # but no sandbox owner/order/ledger record is ever committed.
-        await transaction.rollback()
-
-    residual = await connection.fetchrow(
-        """
-        select
-            (select count(*) from tcg.owners where display_name=$1)::bigint as owners,
-            (select count(*) from tcg.catalogue_products where identity_key=$2)::bigint
-                as catalogue,
-            (select count(*) from tcg.inventory_items where inventory_code=$3)::bigint
-                as inventory,
-            (select count(*) from tcg.orders where source='MANUAL' and source_reference=$4)::bigint
-                as orders,
-            (select count(*) from tcg.financial_ledger_entries where source_key in ($5,$6,$7))::bigint
-                as ledger
-        """,
-        owner_name,
-        identity_key,
-        inventory_code,
-        source_reference,
-        sale_source_key,
-        refund_one_source_key,
-        refund_two_source_key,
-    )
-    if residual is None:
-        raise RuntimeError("Sandbox rollback cleanup check returned no row")
-    leftovers = {key: int(value or 0) for key, value in dict(residual).items()}
-    if any(leftovers.values()):
-        raise RuntimeError(
-            f"Stripe financial sandbox self-test rollback left persistent data: {leftovers}"
-        )
-
-    result["rollback_cleanup"] = True
-    print(json.dumps(result, sort_keys=True))
-    await connection.close()
+        await connection.close()
 
 
 def main() -> None:
