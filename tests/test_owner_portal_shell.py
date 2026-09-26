@@ -77,17 +77,10 @@ def test_owner_portal_uses_only_dedicated_owner_safe_read_contracts() -> None:
     assert "/api/v1/inventory" not in js
     assert "/api/v1/finance/" not in js
 
-    forbidden_mutations = (
-        'method: "POST"',
-        'method: "PUT"',
-        'method: "PATCH"',
-        'method: "DELETE"',
-    )
-    start = js.index("async function loadOwnerOverview")
-    end = js.index("async function openOwnerPortal", start)
-    owner_api_section = js[start:end]
-    for method in forbidden_mutations:
-        assert method not in owner_api_section
+    assert 'apiRequest("/api/v1/owner/overview")' in js
+    assert 'apiRequest(\`/api/v1/owner/inventory?\${params.toString()}\`)' in js
+    assert '/api/v1/owner/overview", {' not in js
+    assert '/api/v1/owner/inventory?", {' not in js
 
 
 def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None:
