@@ -70,7 +70,7 @@ def test_probe_uses_current_parse_release_and_never_persists() -> None:
 def test_probe_router_is_wired_into_app() -> None:
     main = MAIN.read_text()
     assert "from .market_provider_probe import router as market_provider_probe_router" in main
-    assert "app.include_router(market_provider_probe_router)" in main
+    assert "app.include_router(market_provider_probe_router, dependencies=[Depends(require_platform_admin_request)])" in main
 
 
 def test_probe_uses_official_ebay_and_never_infers_sold_history() -> None:
