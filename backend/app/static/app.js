@@ -18,6 +18,7 @@ function errorMessage(data) {
   const detail = data.error_description || data.msg || data.detail || data.message;
   if (typeof detail === "string") return detail;
   if (detail?.missing) return `${detail.message}: ${detail.missing.join(", ")}.`;
+  if (Array.isArray(detail?.blockers)) return detail.blockers.join(" · ");
   if (detail?.message) return detail.message;
   return "Something went wrong. Please try again.";
 }
@@ -273,6 +274,71 @@ async function openFiveSoldPreview(item) {
   }
 }
 
+async function listInventoryOnEbay(item, button) {
+  const priorLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = "Listing…";
+  showMessage("inventory-message", `Publishing ${item.inventory_code} to eBay…`);
+  try {
+    const result = await apiRequest(
+      `/api/v1/ebay/listings/${item.id}`,
+      {method: "POST", body: JSON.stringify({version: item.version})}
+    );
+    showMessage(
+      "inventory-message",
+      result.idempotent
+        ? `${item.inventory_code} is already live on eBay.`
+        : `${item.inventory_code} is live on eBay and linked to this physical Inventory ID.`,
+      "success"
+    );
+    await loadInventory();
+  } catch (error) {
+    showMessage("inventory-message", error.message, "error");
+    button.disabled = false;
+    button.textContent = priorLabel;
+  }
+}
+
+function ebayInventoryAction(item) {
+  const stateValue = String(item.ebay_state || "");
+  if (stateValue === "LIVE") {
+    const badge = document.createElement("span");
+    badge.className = "channel-status live";
+    badge.textContent = "eBay Live";
+    badge.title = [
+      item.ebay_listing_id ? `Listing ${item.ebay_listing_id}` : null,
+      item.ebay_price_minor !== null && item.ebay_price_minor !== undefined
+        ? money(item.ebay_price_minor, "GBP")
+        : null,
+    ].filter(Boolean).join(" · ");
+    return badge;
+  }
+  if (stateValue === "SOLD") {
+    const badge = document.createElement("span");
+    badge.className = "channel-status sold";
+    badge.textContent = "eBay Sold";
+    return badge;
+  }
+  if (stateValue === "WITHDRAWN") {
+    const badge = document.createElement("span");
+    badge.className = "channel-status ended";
+    badge.textContent = "eBay Ended";
+    return badge;
+  }
+
+  const button = document.createElement("button");
+  button.className = "row-button ebay-list-button";
+  button.type = "button";
+  button.textContent = stateValue === "ERROR" ? "Retry eBay" : "List on eBay";
+  if (stateValue === "ERROR") {
+    button.title = item.ebay_error_code
+      ? `Last eBay error: ${item.ebay_error_code}`
+      : "The previous eBay action needs attention.";
+  }
+  button.addEventListener("click", () => listInventoryOnEbay(item, button));
+  return button;
+}
+
 function renderInventory(data) {
   state.total = data.total;
   state.items = new Map(data.items.map((item) => [item.id, item]));
@@ -354,6 +420,7 @@ function renderInventory(data) {
       preview.addEventListener("click", () => openFiveSoldPreview(item));
       actions.append(preview);
     }
+    if (item.product_type === "CARD") actions.append(ebayInventoryAction(item));
     row.append(actions);
     body.append(row);
   });
