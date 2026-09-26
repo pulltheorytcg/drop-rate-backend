@@ -167,3 +167,12 @@ def test_scheduler_never_imports_or_calls_stripe() -> None:
     assert "stripe" not in source.lower()
     assert "TCG_DATABASE_URL" in source
     assert "queue_due_payouts" in source
+
+def test_scheduler_dockerfile_is_minimal_and_runs_worker() -> None:
+    dockerfile = (ROOT / "Dockerfile.scheduler").read_text()
+    assert "FROM python:3.12-slim" in dockerfile
+    assert "PYTHONPATH=/app/backend" in dockerfile
+    assert "requirements.txt" in dockerfile
+    assert "run_payout_scheduler.py" in dockerfile
+    assert "uvicorn" not in dockerfile.lower()
+
