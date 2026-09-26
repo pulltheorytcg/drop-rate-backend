@@ -135,3 +135,17 @@ def test_stripe_connect_controls_are_visible_in_balance_view() -> None:
     assert "Set up payouts" in finance
     assert "Continue Stripe onboarding" in finance
 
+def test_owner_can_choose_payout_frequency_in_balance_ui() -> None:
+    js = (STATIC / "founder-finance.js").read_text()
+    main = (ROOT / "backend" / "app" / "main.py").read_text()
+
+    for label in ("Manual", "Daily", "Weekly", "Every 2 weeks", "Monthly"):
+        assert label in js
+    assert 'id="payout-preference-cadence"' in js
+    assert 'id="payout-preference-weekday"' in js
+    assert 'id="payout-preference-monthly-day"' in js
+    assert "/api/v1/payout-preferences" in js
+    assert "Next scheduled payout" in js
+    assert "not guaranteed next-day bank arrival" in js
+    assert "payout_preferences_router" in main
+
