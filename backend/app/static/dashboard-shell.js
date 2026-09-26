@@ -52,12 +52,19 @@ function moveFinanceSections(sales, reports, balance) {
   const settlementSection = byId("finance-settlement-section");
   if (settlementSection) reports.append(settlementSection);
 
+  const salesDashboard = byId("finance-sales-dashboard");
+
   const financeMessage = byId("finance-message");
   if (financeMessage) balance.append(financeMessage);
 
   const salesBody = byId("finance-sales-body");
   if (salesBody) {
-    sales.append(makeSellerHeading("Sales ledger", "Sales", "Every physical item sold, with its cost basis, fees and realised profit."));
+    sales.append(makeSellerHeading(
+      "Sales performance",
+      "Sales",
+      "See what you made by day, week, month, quarter, year or any custom date range."
+    ));
+    if (salesDashboard) sales.append(salesDashboard);
     const salesTable = salesBody.closest(".table-wrap");
     const salesHeading = salesTable?.previousElementSibling;
     if (salesHeading?.classList.contains("page-heading")) salesHeading.remove();
@@ -114,11 +121,25 @@ function buildFounderHero() {
       </div>
     </div>
     <div class="founder-hero-art" aria-hidden="true">
-      <div class="hero-card hero-card-one"><span>DROP</span><strong>RATE</strong></div>
-      <div class="hero-card hero-card-two"><span>TCG</span><strong>01</strong></div>
-      <div class="hero-burst"></div>
+      <div class="hero-card hero-card-one">
+        <div class="hero-card-brand"></div>
+        <small>FOUNDER EDITION</small>
+      </div>
+      <div class="hero-card hero-card-two">
+        <div class="hero-card-brand"></div>
+        <small>DROP RATE</small>
+      </div>
+      <div class="hero-energy-lines"></div>
     </div>
   `;
+  const brandSource = document.querySelector("#dashboard-view .topbar .dr-logo-image");
+  if (brandSource) {
+    hero.querySelectorAll(".hero-card-brand").forEach((slot) => {
+      const mark = brandSource.cloneNode(true);
+      mark.classList.add("hero-card-brand-mark");
+      slot.append(mark);
+    });
+  }
   hero.querySelectorAll("[data-hero-view]").forEach((button) => {
     button.addEventListener("click", () => activateSellerView(button.dataset.heroView, true));
   });

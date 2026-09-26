@@ -11,12 +11,15 @@ STYLES = STATIC / "styles.css"
 def test_drop_rate_brand_shell_uses_real_visual_identity_not_generic_dr_tile() -> None:
     html = INDEX.read_text()
 
+    css = STYLES.read_text()
     assert "brand-lockup-logo" in html
-    assert "dr-logo" in html
-    assert "dr-wordmark" in html
-    assert "<svg" in html
+    assert "dr-logo-image" in html
+    assert "dr-founder-label" in html
     assert "FOUNDER HQ" in html
-    assert "styles.css?v=anime-founder-v2" in html
+    assert "styles.css?v=founder-v3" in html
+    assert "data:image/webp;base64,UklGR" in css
+    assert "drWave" not in html
+    assert "dr-wordmark" not in html
     assert '<span class="brand-mark">DR</span>' not in html
 
 
@@ -40,6 +43,9 @@ def test_navigation_has_gaming_icons_without_changing_route_keys() -> None:
         assert f'["{key}",' in js
     assert "seller-nav-icon" in js
     assert "data-hero-view" in js
+    assert "hero-card-brand" in js
+    assert ".dr-logo-image" in js
+    assert "hero-burst" not in js
 
 
 def test_anime_tcg_visual_system_is_brand_coloured_and_responsive() -> None:

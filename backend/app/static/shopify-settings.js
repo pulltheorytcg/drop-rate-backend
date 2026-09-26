@@ -621,16 +621,44 @@ function renderShopifyMedia(capability, data, queueData) {
 
   const rows = assets.map((asset) => {
     const scope = asset.scope === "INVENTORY_ITEM" ? "Physical item" : "Canonical card";
-    const state = [
-      asset.approval_status,
-      asset.rights_status,
-      asset.shopify_file_status,
-    ].filter(Boolean).join(" · ");
-    const row = shopifyStatusRow(
-      `${scope} · ${asset.side}`,
-      state,
-      [asset.source_reference, asset.alt_text, `v${asset.version}`].filter(Boolean).join(" · ")
-    );
+    const row = document.createElement("div");
+    row.className = "media-evidence-row";
+
+    const identity = document.createElement("div");
+    identity.className = "media-evidence-identity";
+    const title = document.createElement("strong");
+    title.textContent = `${scope} · ${asset.side || "—"}`;
+    const meta = document.createElement("small");
+    meta.textContent = [asset.source_reference, asset.alt_text, `v${asset.version}`]
+      .filter(Boolean)
+      .join(" · ") || "No reference metadata";
+    identity.append(title, meta);
+
+    const states = document.createElement("div");
+    states.className = "media-evidence-states";
+    [
+      ["Approval", asset.approval_status],
+      ["Rights", asset.rights_status],
+      ["File", asset.shopify_file_status],
+    ].forEach(([label, value]) => {
+      const chip = document.createElement("span");
+      chip.className = "media-evidence-chip";
+      chip.innerHTML = `<small>${label}</small><strong>${value || "—"}</strong>`;
+      states.append(chip);
+    });
+
+    const context = document.createElement("div");
+    context.className = "media-evidence-context";
+    const contextLabel = document.createElement("small");
+    contextLabel.textContent = "Capture";
+    const contextValue = document.createElement("strong");
+    contextValue.textContent = asset.capture_context
+      ? String(asset.capture_context).replaceAll("_", " ").toLowerCase()
+      : (asset.scope === "INVENTORY_ITEM" ? "Not recorded" : "Reference");
+    context.append(contextLabel, contextValue);
+
+    const action = document.createElement("div");
+    action.className = "media-evidence-action";
     if (
       asset.approval_status === "APPROVED"
       && asset.rights_status === "VERIFIED"
@@ -643,8 +671,15 @@ function renderShopifyMedia(capability, data, queueData) {
         ? "Check Shopify"
         : "Sync to Shopify";
       sync.addEventListener("click", () => syncFounderMedia(asset.id, Number(asset.version)));
-      row.append(sync);
+      action.append(sync);
+    } else {
+      const done = document.createElement("span");
+      done.className = "media-evidence-no-action";
+      done.textContent = "—";
+      action.append(done);
     }
+
+    row.append(identity, states, context, action);
     return row;
   });
   list.replaceChildren(...rows);

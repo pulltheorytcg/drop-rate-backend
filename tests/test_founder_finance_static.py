@@ -64,3 +64,51 @@ def test_main_serves_finance_asset_and_router() -> None:
     assert 'from .finance import router as finance_router' in main
     assert 'founder-finance.js' in main
     assert 'app.include_router(finance_router)' in main
+
+
+def test_sales_dashboard_supports_period_presets_custom_dates_and_backend_analytics() -> None:
+    js = (STATIC / "founder-finance.js").read_text()
+    css = (STATIC / "styles.css").read_text()
+    shell = (STATIC / "dashboard-shell.js").read_text()
+
+    for label in (
+        "Total sales",
+        "Net revenue",
+        "Net profit",
+        "Orders",
+        "Items sold",
+        "All time",
+        "Today",
+        "Yesterday",
+        "Last 7 days",
+        "This week",
+        "This month",
+        "This quarter",
+        "This year",
+        "Custom dates",
+    ):
+        assert label in js
+    assert "/api/v1/finance/sales-analytics" in js
+    assert "start_date" in js
+    assert "end_date" in js
+    assert "Europe/London" in js
+    assert "renderFinanceSalesChart" in js
+    assert "financeSalesRange" in js
+    assert "salesDashboard" in shell
+    assert "sales.append(salesDashboard)" in shell
+    assert ".sales-kpi-grid" in css
+    assert ".sales-chart" in css
+
+
+def test_media_page_refresh_and_evidence_registry_are_compact_and_aligned() -> None:
+    media = (STATIC / "media-condition.js").read_text()
+    shopify = (STATIC / "shopify-settings.js").read_text()
+    css = (STATIC / "styles.css").read_text()
+
+    assert 'class="media-refresh-button"' in media
+    assert 'aria-label="Refresh media and condition"' in media
+    assert "media-evidence-row" in shopify
+    assert "media-evidence-states" in shopify
+    assert "media-evidence-context" in shopify
+    assert ".media-evidence-row" in css
+    assert ".media-refresh-button" in css
