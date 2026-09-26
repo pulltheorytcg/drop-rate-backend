@@ -86,3 +86,24 @@ async def require_platform_admin_request(
         request.state.request_id,
     ) as connection:
         return await require_platform_admin(connection)
+
+
+async def require_owner_portal(connection: asyncpg.Connection) -> dict:
+    context = await current_access_context(connection)
+    if context["access_role"] != "OWNER" or context["portal"] != "OWNER_PORTAL":
+        raise HTTPException(status_code=403, detail="Owner portal access required")
+    return context
+
+
+async def require_owner_portal_request(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """FastAPI dependency for APIs exposed only to restricted owner accounts."""
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        return await require_owner_portal(connection)
