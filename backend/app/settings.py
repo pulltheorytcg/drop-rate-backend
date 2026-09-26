@@ -134,6 +134,13 @@ class Settings:
     shopify_publication_gid: str | None = None
     shopify_test_publish_enabled: bool = False
     shopify_publish_enabled: bool = False
+    stripe_secret_key: str | None = None
+    stripe_webhook_secret: str | None = None
+    stripe_connect_country: str = "GB"
+    stripe_connect_return_url: str | None = None
+    stripe_connect_refresh_url: str | None = None
+    stripe_connect_live_enabled: bool = False
+    stripe_payout_execution_enabled: bool = False
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -203,6 +210,17 @@ class Settings:
             shopify_publication_gid=_optional("TCG_SHOPIFY_PUBLICATION_GID"),
             shopify_test_publish_enabled=_boolean("TCG_SHOPIFY_TEST_PUBLISH_ENABLED", False),
             shopify_publish_enabled=_boolean("TCG_SHOPIFY_PUBLISH_ENABLED", False),
+            stripe_secret_key=_optional("TCG_STRIPE_SECRET_KEY"),
+            stripe_webhook_secret=_optional("TCG_STRIPE_WEBHOOK_SECRET"),
+            stripe_connect_country=(
+                os.getenv("TCG_STRIPE_CONNECT_COUNTRY", "GB").strip().upper() or "GB"
+            ),
+            stripe_connect_return_url=_https_endpoint("TCG_STRIPE_CONNECT_RETURN_URL"),
+            stripe_connect_refresh_url=_https_endpoint("TCG_STRIPE_CONNECT_REFRESH_URL"),
+            stripe_connect_live_enabled=_boolean("TCG_STRIPE_CONNECT_LIVE_ENABLED", False),
+            stripe_payout_execution_enabled=_boolean(
+                "TCG_STRIPE_PAYOUT_EXECUTION_ENABLED", False
+            ),
         )
 
 
