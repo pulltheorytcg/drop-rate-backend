@@ -15,6 +15,16 @@ class EbaySellApiError(EbayApiError):
     """Safe eBay seller-API error that never exposes credentials or raw payloads."""
 
 
+REQUIRED_SELLER_SCOPES = (
+    "https://api.ebay.com/oauth/api_scope",
+    "https://api.ebay.com/oauth/api_scope/sell.account",
+    "https://api.ebay.com/oauth/api_scope/sell.inventory",
+    "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
+    "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly",
+    "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription",
+)
+
+
 class EbaySellClient:
     """eBay Inventory/Fulfillment client using seller-authorised OAuth.
 
@@ -79,6 +89,7 @@ class EbaySellClient:
                     data={
                         "grant_type": "refresh_token",
                         "refresh_token": self._refresh_token,
+                        "scope": " ".join(REQUIRED_SELLER_SCOPES),
                     },
                 )
         except httpx.TimeoutException as exc:
@@ -99,7 +110,7 @@ class EbaySellClient:
 
         token = payload.get("access_token")
         expires_in = payload.get("expires_in")
-        scope_text = payload.get("scope") or ""
+        scope_text = payload.get("scope") or " ".join(REQUIRED_SELLER_SCOPES)
         if not isinstance(token, str) or not token.strip():
             raise EbaySellApiError("eBay seller OAuth response is missing an access token")
         if not isinstance(expires_in, int) or expires_in <= 0:
