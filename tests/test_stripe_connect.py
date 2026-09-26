@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STRIPE_SOURCE = ROOT / "backend" / "app" / "stripe_connect.py"
 CLIENT_SOURCE = ROOT / "backend" / "app" / "stripe_connect_client.py"
 MIGRATION_SOURCE = ROOT / "database" / "migrations" / "20260926180043_stripe_connect_payout_phase1.sql"
+HARDEN_MIGRATION = ROOT / "database" / "migrations" / "20260926181040_harden_stripe_payout_control.sql"
 FINANCE_UI = ROOT / "backend" / "app" / "static" / "founder-finance.js"
 
 
@@ -118,15 +119,20 @@ def test_webhook_events_are_hash_only_and_idempotent() -> None:
     assert "payload_sha256" in migration
     assert "stripe_event_id text not null unique" in migration
     assert "on conflict (stripe_event_id) do nothing" in source
+    assert "attempt_count=attempt_count+1" in source
+    assert "replayed with a different payload" in source
     assert "await request.body()" in source
     assert "payload_hash = hashlib.sha256(raw).hexdigest()" in source
 
 
 def test_stripe_payout_execution_identity_is_immutable() -> None:
     migration = MIGRATION_SOURCE.read_text()
+    harden = HARDEN_MIGRATION.read_text()
     assert "protect_stripe_payout_execution_identity" in migration
     assert "Stripe payout execution identity is immutable" in migration
     assert "idempotency_key text not null unique" in migration
+    assert "validate_stripe_payout_execution_consistency" in harden
+    assert "does not match payout request owner or amount" in harden
 
 
 def test_founder_hq_surfaces_connect_readiness_and_approval_queue() -> None:
@@ -137,3 +143,10 @@ def test_founder_hq_surfaces_connect_readiness_and_approval_queue() -> None:
     assert "/api/v1/stripe/connect/status" in source
     assert "/api/v1/stripe/payouts/queue" in source
     assert "Founder approval and Stripe readiness are required" in source
+
+
+def test_approved_payout_retry_is_idempotent_before_version_check() -> None:
+    source = STRIPE_SOURCE.read_text()
+    start = source.index('@router.post("/payouts/{payout_id}/approve")')
+    block = source[start:source.index('@router.post("/payouts/{payout_id}/reject")')]
+    assert block.index('payout["status"] == "APPROVED"') < block.index('payout["version"] != payload.version')
