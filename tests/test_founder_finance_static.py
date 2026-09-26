@@ -121,3 +121,17 @@ def test_media_page_refresh_and_evidence_registry_are_compact_and_aligned() -> N
     assert "media-evidence-context" in shopify
     assert ".media-evidence-row" in css
     assert ".media-refresh-button" in css
+
+def test_stripe_connect_controls_are_visible_in_balance_view() -> None:
+    shell = (STATIC / "dashboard-shell.js").read_text()
+    finance = (STATIC / "founder-finance.js").read_text()
+
+    assert 'byId("stripe-payout-account")' in shell
+    assert "balance.append(stripePayoutAccount)" in shell
+    assert 'byId("stripe-payout-queue-section")' in shell
+    assert "balance.append(stripePayoutQueue)" in shell
+    assert 'id="stripe-payout-account"' in finance
+    assert 'id="stripe-payout-queue-section"' in finance
+    assert "Set up payouts" in finance
+    assert "Continue Stripe onboarding" in finance
+
