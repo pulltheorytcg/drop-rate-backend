@@ -7,6 +7,8 @@ from pydantic import ValidationError
 
 from app.finance import (
     ManualSaleCreate,
+    _sales_period_bounds,
+    _sales_bucket,
     PayoutRequestCreate,
     ShopifyPostageReconcile,
     _fulfilment_material_allocations,
@@ -420,3 +422,58 @@ def test_finance_dashboard_exposes_required_sections() -> None:
         assert text in js
     assert "/api/v1/finance/summary" in js
     assert "/api/v1/finance/payouts" in js
+
+
+def test_sales_period_bounds_use_uk_business_dates_and_dst() -> None:
+    from datetime import date, timezone
+
+    winter_start, winter_end = _sales_period_bounds(
+        date(2026, 1, 15), date(2026, 1, 15)
+    )
+    assert winter_start.isoformat() == "2026-01-15T00:00:00+00:00"
+    assert winter_end.isoformat() == "2026-01-16T00:00:00+00:00"
+
+    summer_start, summer_end = _sales_period_bounds(
+        date(2026, 7, 15), date(2026, 7, 15)
+    )
+    assert summer_start.astimezone(timezone.utc).isoformat() == "2026-07-14T23:00:00+00:00"
+    assert summer_end.astimezone(timezone.utc).isoformat() == "2026-07-15T23:00:00+00:00"
+
+
+def test_sales_period_bucket_scales_with_range() -> None:
+    from datetime import date
+
+    assert _sales_bucket(date(2026, 9, 1), date(2026, 9, 7)) == "day"
+    assert _sales_bucket(date(2026, 1, 1), date(2026, 3, 31)) == "week"
+    assert _sales_bucket(date(2025, 1, 1), date(2026, 1, 1)) == "month"
+
+
+def test_sales_analytics_is_owner_scoped_and_ledger_driven() -> None:
+    source = (ROOT / "backend" / "app" / "finance.py").read_text()
+    start = source.index('@router.get("/finance/sales-analytics")')
+    end = source.index('@router.get("/finance/settlements")', start)
+    block = source[start:end]
+    assert "Europe/London" in block
+    assert "where oi.owner_id=$1" in block
+    assert "tcg.financial_ledger_entries" in block
+    assert "REFUND" in block
+    assert "SHIPPING_REFUND" in block
+    assert "PLATFORM_FEE" in block
+    assert "PAYMENT_FEE" in block
+    assert "FULFILMENT_MATERIAL_COST" in block
+    assert "ADJUSTMENT" in block
+    assert "return_to_stock" in block
+    assert '"net_profit_complete"' in block
+    assert '"average_order_value_minor"' in block
+
+
+def test_sales_list_accepts_date_range_without_client_side_totals() -> None:
+    source = (ROOT / "backend" / "app" / "finance.py").read_text()
+    start = source.index('@router.get("/finance/sales")')
+    end = source.index('@router.get("/finance/sales-analytics")', start)
+    block = source[start:end]
+    assert "start_date: date | None" in block
+    assert "end_date: date | None" in block
+    assert "_sales_period_bounds(start_date, end_date)" in block
+    assert "oi.sold_at >= $2" in block
+    assert "oi.sold_at < $3" in block
