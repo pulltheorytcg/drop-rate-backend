@@ -6,6 +6,8 @@ import httpx
 
 
 STRIPE_API_BASE = "https://api.stripe.com/v1"
+STRIPE_API_V2_BASE = "https://api.stripe.com/v2/core"
+STRIPE_API_V2_VERSION = "2026-07-29.dahlia"
 
 
 class StripeApiError(RuntimeError):
@@ -105,6 +107,62 @@ class StripeConnectClient:
             retryable=response.status_code == 429 or response.status_code >= 500,
         )
 
+    async def _request_v2(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_body: dict[str, Any] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        headers = {
+            "Authorization": f"Bearer {self._secret_key}",
+            "Content-Type": "application/json",
+            "Stripe-Version": STRIPE_API_V2_VERSION,
+        }
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.request(
+                    method,
+                    f"{STRIPE_API_V2_BASE}{path}",
+                    headers=headers,
+                    json=json_body,
+                )
+        except httpx.HTTPError as exc:
+            raise StripeApiError(
+                "Stripe Accounts v2 API request failed",
+                retryable=True,
+            ) from exc
+
+        payload: dict[str, Any]
+        try:
+            parsed = response.json()
+            payload = parsed if isinstance(parsed, dict) else {}
+        except ValueError:
+            payload = {}
+
+        if 200 <= response.status_code < 300:
+            return payload
+
+        error = payload.get("error")
+        detail = "Stripe Accounts v2 API rejected the request"
+        code: str | None = None
+        if isinstance(error, dict):
+            message = str(error.get("message") or "").strip()
+            if message:
+                detail = message
+            raw_code = error.get("code") or error.get("type")
+            if raw_code:
+                code = str(raw_code)
+        raise StripeApiError(
+            detail,
+            status_code=response.status_code,
+            code=code,
+            retryable=response.status_code == 429 or response.status_code >= 500,
+        )
+
     async def retrieve_platform_account(self) -> dict[str, Any]:
         return await self._request("GET", "/account")
 
@@ -113,20 +171,62 @@ class StripeConnectClient:
         *,
         country: str,
         owner_id: str,
+        display_name: str,
     ) -> dict[str, Any]:
-        return await self._request(
+        """Create a payout-only Accounts v2 recipient with Express Dashboard access."""
+
+        country_code = country.strip().lower()
+        if len(country_code) != 2:
+            raise ValueError("Stripe connected account country must be ISO-2")
+        safe_name = display_name.strip()
+        if not safe_name:
+            raise ValueError("Stripe connected account display name is required")
+
+        return await self._request_v2(
             "POST",
             "/accounts",
-            data={
-                "type": "express",
-                "country": country,
-                "capabilities[transfers][requested]": True,
-                "business_profile[product_description]": (
-                    "Trading-card marketplace seller and consignor payouts"
-                ),
-                "metadata[drop_rate_owner_id]": owner_id,
+            json_body={
+                "display_name": safe_name,
+                "dashboard": "express",
+                "identity": {
+                    "country": country_code,
+                },
+                "configuration": {
+                    "recipient": {
+                        "capabilities": {
+                            "stripe_balance": {
+                                "stripe_transfers": {
+                                    "requested": True,
+                                }
+                            }
+                        }
+                    }
+                },
+                "defaults": {
+                    "currency": "gbp",
+                    "locales": ["en-GB"],
+                    "responsibilities": {
+                        "fees_collector": "application",
+                        "losses_collector": "application",
+                    },
+                    "profile": {
+                        "product_description": (
+                            "Trading-card marketplace seller and consignor payouts"
+                        )
+                    },
+                },
+                "metadata": {
+                    "drop_rate_owner_id": owner_id,
+                },
+                "include": [
+                    "configuration.recipient",
+                    "defaults",
+                    "identity",
+                    "requirements",
+                    "future_requirements",
+                ],
             },
-            idempotency_key=f"drop-rate-connect-owner-{owner_id}",
+            idempotency_key=f"drop-rate-connect-v2-owner-{owner_id}",
         )
 
     async def retrieve_account(self, account_id: str) -> dict[str, Any]:
@@ -155,8 +255,12 @@ class StripeConnectClient:
         )
 
 
-    async def delete_account(self, account_id: str) -> dict[str, Any]:
+    async def close_recipient_account(self, account_id: str) -> dict[str, Any]:
         account_id = account_id.strip()
         if not account_id.startswith("acct_"):
             raise ValueError("Invalid Stripe connected account ID")
-        return await self._request("DELETE", f"/accounts/{account_id}")
+        return await self._request_v2(
+            "POST",
+            f"/accounts/{account_id}/close",
+            json_body={"applied_configurations": ["recipient"]},
+        )
