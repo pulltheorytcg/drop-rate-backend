@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Annotated, Literal, Mapping
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -114,6 +115,45 @@ def _shopify_money_minor(value: object, *, field: str) -> int:
         )
     return int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
+
+
+UK_BUSINESS_TZ = ZoneInfo("Europe/London")
+
+
+def _sales_period_bounds(
+    start_date: date | None,
+    end_date: date | None,
+) -> tuple[datetime | None, datetime | None]:
+    """Convert inclusive UK business dates to an exclusive UTC timestamp range."""
+    if start_date is None and end_date is None:
+        return None, None
+    if start_date is None or end_date is None:
+        raise HTTPException(
+            status_code=422,
+            detail="start_date and end_date must be supplied together",
+        )
+    if end_date < start_date:
+        raise HTTPException(status_code=422, detail="end_date cannot be before start_date")
+    if (end_date - start_date).days > 3660:
+        raise HTTPException(status_code=422, detail="Date range cannot exceed 10 years")
+    start_local = datetime.combine(start_date, time.min, tzinfo=UK_BUSINESS_TZ)
+    end_local = datetime.combine(
+        end_date + timedelta(days=1),
+        time.min,
+        tzinfo=UK_BUSINESS_TZ,
+    )
+    return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
+
+
+def _sales_bucket(start_date: date | None, end_date: date | None) -> str:
+    if start_date is None or end_date is None:
+        return "month"
+    days = (end_date - start_date).days + 1
+    if days <= 45:
+        return "day"
+    if days <= 210:
+        return "week"
+    return "month"
 
 
 def allocate_minor(total: int, weights: list[int]) -> list[int]:
@@ -388,14 +428,25 @@ async def finance_sales(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
 ) -> dict:
+    range_start, range_end = _sales_period_bounds(start_date, end_date)
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _owner(connection)
         total = await connection.fetchval(
-            "select count(*) from tcg.order_items where owner_id = $1",
+            """
+            select count(*)
+            from tcg.order_items
+            where owner_id=$1
+              and ($2::timestamptz is null or sold_at >= $2)
+              and ($3::timestamptz is null or sold_at < $3)
+            """,
             owner["id"],
+            range_start,
+            range_end,
         )
         rows = await connection.fetch(
             """
@@ -425,11 +476,13 @@ async def finance_sales(
             left join tcg.financial_ledger_entries le on le.order_item_id = oi.id
             left join tcg.order_item_reconciliations rec on rec.order_item_id = oi.id
             where oi.owner_id = $1
+              and ($2::timestamptz is null or oi.sold_at >= $2)
+              and ($3::timestamptz is null or oi.sold_at < $3)
             group by oi.id, o.id, i.id, p.id, rec.fees_reconciled_at, rec.shipping_cost_reconciled_at
             order by oi.sold_at desc, oi.id
-            limit $2 offset $3
+            limit $4 offset $5
             """,
-            owner["id"], limit, offset,
+            owner["id"], range_start, range_end, limit, offset,
         )
         items = []
         for row in rows:
@@ -457,7 +510,264 @@ async def finance_sales(
                 - effective_cost
             )
             items.append(item)
-        return jsonable_encoder({"total": total, "limit": limit, "offset": offset, "items": items})
+        return jsonable_encoder({
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "start_date": start_date,
+            "end_date": end_date,
+            "items": items,
+        })
+
+
+@router.get("/finance/sales-analytics")
+async def finance_sales_analytics(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+) -> dict:
+    range_start, range_end = _sales_period_bounds(start_date, end_date)
+    bucket = _sales_bucket(start_date, end_date)
+
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _owner(connection)
+
+        summary = await connection.fetchrow(
+            """
+            with scoped_items as (
+              select
+                oi.id,
+                oi.order_id,
+                oi.cost_basis_minor,
+                oi.sold_at,
+                o.source,
+                exists(
+                  select 1
+                  from tcg.refund_events re
+                  where re.order_item_id=oi.id and re.return_to_stock
+                ) as returned_to_stock
+              from tcg.order_items oi
+              join tcg.orders o on o.id=oi.order_id
+              where oi.owner_id=$1
+                and ($2::timestamptz is null or oi.sold_at >= $2)
+                and ($3::timestamptz is null or oi.sold_at < $3)
+            ),
+            scoped_orders as (
+              select distinct order_id from scoped_items
+            ),
+            ledger as (
+              select
+                coalesce(sum(le.amount_minor)
+                  filter (where le.entry_type='SALE_REVENUE'),0)::bigint
+                  as sales_revenue_minor,
+                coalesce(sum(le.amount_minor)
+                  filter (where le.entry_type='SHIPPING_REVENUE'),0)::bigint
+                  as shipping_revenue_minor,
+                coalesce(-sum(le.amount_minor)
+                  filter (where le.entry_type='REFUND'),0)::bigint
+                  as refunds_minor,
+                coalesce(-sum(le.amount_minor)
+                  filter (where le.entry_type='SHIPPING_REFUND'),0)::bigint
+                  as shipping_refunds_minor,
+                coalesce(-sum(le.amount_minor)
+                  filter (where le.entry_type='PLATFORM_FEE'),0)::bigint
+                  as platform_fees_minor,
+                coalesce(-sum(le.amount_minor)
+                  filter (where le.entry_type='PAYMENT_FEE'),0)::bigint
+                  as payment_fees_minor,
+                coalesce(-sum(le.amount_minor)
+                  filter (where le.entry_type='SHIPPING_COST'),0)::bigint
+                  as shipping_cost_minor,
+                coalesce(-sum(le.amount_minor)
+                  filter (where le.entry_type='FULFILMENT_MATERIAL_COST'),0)::bigint
+                  as fulfilment_material_cost_minor
+              from tcg.financial_ledger_entries le
+              where le.owner_id=$1
+                and le.order_id in (select order_id from scoped_orders)
+            ),
+            item_stats as (
+              select
+                count(*)::int as sold_items,
+                count(distinct order_id)::int as orders,
+                coalesce(sum(
+                  case when returned_to_stock then 0 else cost_basis_minor end
+                ),0)::bigint as cost_of_goods_minor
+              from scoped_items
+            ),
+            reconciliation as (
+              select
+                count(*) filter (
+                  where si.source='SHOPIFY'
+                    and rec.fees_reconciled_at is null
+                )::int as missing_fee_sales,
+                count(*) filter (
+                  where si.source='SHOPIFY'
+                    and rec.shipping_cost_reconciled_at is null
+                )::int as missing_shipping_cost_sales
+              from scoped_items si
+              left join tcg.order_item_reconciliations rec
+                on rec.order_item_id=si.id
+            )
+            select *
+            from ledger cross join item_stats cross join reconciliation
+            """,
+            owner["id"],
+            range_start,
+            range_end,
+        )
+
+        first_last = await connection.fetchrow(
+            """
+            select
+              min((sold_at at time zone 'Europe/London')::date) as first_sale_date,
+              max((sold_at at time zone 'Europe/London')::date) as last_sale_date
+            from tcg.order_items
+            where owner_id=$1
+              and ($2::timestamptz is null or sold_at >= $2)
+              and ($3::timestamptz is null or sold_at < $3)
+            """,
+            owner["id"],
+            range_start,
+            range_end,
+        )
+
+        series = await connection.fetch(
+            """
+            with scoped_items as (
+              select
+                oi.id,
+                oi.order_id,
+                oi.cost_basis_minor,
+                oi.sold_at,
+                date_trunc($4, oi.sold_at at time zone 'Europe/London')::date
+                  as bucket_date,
+                exists(
+                  select 1
+                  from tcg.refund_events re
+                  where re.order_item_id=oi.id and re.return_to_stock
+                ) as returned_to_stock
+              from tcg.order_items oi
+              where oi.owner_id=$1
+                and ($2::timestamptz is null or oi.sold_at >= $2)
+                and ($3::timestamptz is null or oi.sold_at < $3)
+            ),
+            order_buckets as (
+              select order_id, min(bucket_date) as bucket_date
+              from scoped_items
+              group by order_id
+            ),
+            ledger_by_bucket as (
+              select
+                ob.bucket_date,
+                coalesce(sum(le.amount_minor)
+                  filter (where le.entry_type='SALE_REVENUE'),0)::bigint
+                  as sales_revenue_minor,
+                coalesce(sum(le.amount_minor)
+                  filter (where le.entry_type='SHIPPING_REVENUE'),0)::bigint
+                  as shipping_revenue_minor,
+                coalesce(-sum(le.amount_minor)
+                  filter (where le.entry_type in ('REFUND','SHIPPING_REFUND')),0)::bigint
+                  as refunds_minor,
+                coalesce(-sum(le.amount_minor)
+                  filter (where le.entry_type in (
+                    'PLATFORM_FEE','PAYMENT_FEE','SHIPPING_COST',
+                    'FULFILMENT_MATERIAL_COST'
+                  )),0)::bigint as operating_costs_minor
+              from order_buckets ob
+              join tcg.financial_ledger_entries le
+                on le.order_id=ob.order_id and le.owner_id=$1
+              group by ob.bucket_date
+            ),
+            items_by_bucket as (
+              select
+                bucket_date,
+                count(*)::int as sold_items,
+                count(distinct order_id)::int as orders,
+                coalesce(sum(
+                  case when returned_to_stock then 0 else cost_basis_minor end
+                ),0)::bigint as cost_of_goods_minor
+              from scoped_items
+              group by bucket_date
+            )
+            select
+              coalesce(i.bucket_date,l.bucket_date) as bucket_date,
+              coalesce(l.sales_revenue_minor,0)::bigint as sales_revenue_minor,
+              (
+                coalesce(l.sales_revenue_minor,0)
+                + coalesce(l.shipping_revenue_minor,0)
+                - coalesce(l.refunds_minor,0)
+              )::bigint as net_revenue_minor,
+              (
+                coalesce(l.sales_revenue_minor,0)
+                + coalesce(l.shipping_revenue_minor,0)
+                - coalesce(l.refunds_minor,0)
+                - coalesce(l.operating_costs_minor,0)
+                - coalesce(i.cost_of_goods_minor,0)
+              )::bigint as profit_minor,
+              coalesce(i.orders,0)::int as orders,
+              coalesce(i.sold_items,0)::int as sold_items
+            from items_by_bucket i
+            full join ledger_by_bucket l using(bucket_date)
+            order by bucket_date
+            """,
+            owner["id"],
+            range_start,
+            range_end,
+            bucket,
+        )
+
+    sales_revenue = int(summary["sales_revenue_minor"] or 0)
+    shipping_revenue = int(summary["shipping_revenue_minor"] or 0)
+    refunds = int(summary["refunds_minor"] or 0)
+    shipping_refunds = int(summary["shipping_refunds_minor"] or 0)
+    platform_fees = int(summary["platform_fees_minor"] or 0)
+    payment_fees = int(summary["payment_fees_minor"] or 0)
+    shipping_cost = int(summary["shipping_cost_minor"] or 0)
+    material_cost = int(summary["fulfilment_material_cost_minor"] or 0)
+    cogs = int(summary["cost_of_goods_minor"] or 0)
+    orders = int(summary["orders"] or 0)
+    sold_items = int(summary["sold_items"] or 0)
+    net_revenue = sales_revenue + shipping_revenue - refunds - shipping_refunds
+    net_profit = (
+        net_revenue
+        - platform_fees
+        - payment_fees
+        - shipping_cost
+        - material_cost
+        - cogs
+    )
+    missing_fees = int(summary["missing_fee_sales"] or 0)
+    missing_postage = int(summary["missing_shipping_cost_sales"] or 0)
+
+    return jsonable_encoder({
+        "currency": "GBP",
+        "business_timezone": "Europe/London",
+        "start_date": start_date,
+        "end_date": end_date,
+        "first_sale_date": first_last["first_sale_date"],
+        "last_sale_date": first_last["last_sale_date"],
+        "bucket": bucket,
+        "sales_revenue_minor": sales_revenue,
+        "shipping_revenue_minor": shipping_revenue,
+        "refunds_minor": refunds,
+        "shipping_refunds_minor": shipping_refunds,
+        "net_revenue_minor": net_revenue,
+        "platform_fees_minor": platform_fees,
+        "payment_fees_minor": payment_fees,
+        "shipping_cost_minor": shipping_cost,
+        "fulfilment_material_cost_minor": material_cost,
+        "cost_of_goods_minor": cogs,
+        "net_profit_minor": net_profit,
+        "net_profit_complete": missing_fees == 0 and missing_postage == 0,
+        "unreconciled_shopify_sales": max(missing_fees, missing_postage),
+        "orders": orders,
+        "sold_items": sold_items,
+        "average_order_value_minor": round(net_revenue / orders) if orders else 0,
+        "series": [dict(row) for row in series],
+    })
 
 
 @router.get("/finance/settlements")
