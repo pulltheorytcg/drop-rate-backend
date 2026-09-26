@@ -402,6 +402,9 @@ async def finance_summary(
             missing_fee_sales,
             missing_shipping_cost_sales,
         )
+        # Keep the original field/variable contract for the Founder Finance UI
+        # while extending the underlying completeness check to eBay as well.
+        unreconciled_shopify_sales = unreconciled_external_sales
         sales_revenue = int(ledger["sales_revenue_minor"] or 0)
         shipping_revenue = int(ledger["shipping_revenue_minor"] or 0)
         platform_fees = int(ledger["platform_fees_minor"] or 0)
@@ -442,7 +445,7 @@ async def finance_summary(
             "net_profit_minor": net_profit,
             "fees_complete": missing_fee_sales == 0,
             "shipping_cost_complete": missing_shipping_cost_sales == 0,
-            "net_profit_complete": unreconciled_external_sales == 0,
+            "net_profit_complete": unreconciled_shopify_sales == 0,
             "unreconciled_external_sales": unreconciled_external_sales,
             "unreconciled_shopify_sales": unreconciled_external_sales,
             "sold_items": int(ledger["sold_items"] or 0),
