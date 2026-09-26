@@ -20,6 +20,7 @@ CLIENT_SOURCE = ROOT / "backend" / "app" / "stripe_connect_client.py"
 MIGRATION_SOURCE = ROOT / "database" / "migrations" / "20260926180043_stripe_connect_payout_phase1.sql"
 HARDEN_MIGRATION = ROOT / "database" / "migrations" / "20260926181040_harden_stripe_payout_control.sql"
 FINANCE_UI = ROOT / "backend" / "app" / "static" / "founder-finance.js"
+SELFTEST_SOURCE = ROOT / "backend" / "scripts" / "stripe_sandbox_selftest.py"
 
 
 def test_ready_account_requires_active_transfers_and_no_verification_blockers() -> None:
@@ -150,3 +151,23 @@ def test_approved_payout_retry_is_idempotent_before_version_check() -> None:
     start = source.index('@router.post("/payouts/{payout_id}/approve")')
     block = source[start:source.index('@router.post("/payouts/{payout_id}/reject")')]
     assert block.index('payout["status"] == "APPROVED"') < block.index('payout["version"] != payload.version')
+
+
+def test_stripe_client_supports_read_only_platform_probe_and_test_cleanup() -> None:
+    source = CLIENT_SOURCE.read_text()
+    assert 'return await self._request("GET", "/account")' in source
+    assert 'return await self._request("DELETE", f"/accounts/{account_id}")' in source
+
+
+def test_stripe_sandbox_selftest_refuses_live_key_and_cleans_up() -> None:
+    source = SELFTEST_SOURCE.read_text()
+    assert "TCG_STRIPE_SANDBOX_SELFTEST" in source
+    assert "client.key_livemode" in source
+    assert "refuses to run with a live secret key" in source
+    assert "create_express_account" in source
+    assert "create_account_link" in source
+    assert "retrieve_account" in source
+    assert "delete_account" in source
+    assert '"stripe_sandbox_selftest": "PASS"' in source
+    assert '"stripe_sandbox_cleanup": "PASS" if cleanup_ok else "SKIPPED"' in source
+    assert "asyncpg" not in source
