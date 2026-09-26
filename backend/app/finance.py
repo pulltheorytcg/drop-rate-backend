@@ -583,7 +583,10 @@ async def finance_sales_analytics(
                   as shipping_cost_minor,
                 coalesce(-sum(le.amount_minor)
                   filter (where le.entry_type='FULFILMENT_MATERIAL_COST'),0)::bigint
-                  as fulfilment_material_cost_minor
+                  as fulfilment_material_cost_minor,
+                coalesce(sum(le.amount_minor)
+                  filter (where le.entry_type='ADJUSTMENT'),0)::bigint
+                  as adjustments_minor
               from tcg.financial_ledger_entries le
               where le.owner_id=$1
                 and le.order_id in (select order_id from scoped_orders)
@@ -675,7 +678,10 @@ async def finance_sales_analytics(
                   filter (where le.entry_type in (
                     'PLATFORM_FEE','PAYMENT_FEE','SHIPPING_COST',
                     'FULFILMENT_MATERIAL_COST'
-                  )),0)::bigint as operating_costs_minor
+                  )),0)::bigint as operating_costs_minor,
+                coalesce(sum(le.amount_minor)
+                  filter (where le.entry_type='ADJUSTMENT'),0)::bigint
+                  as adjustments_minor
               from order_buckets ob
               join tcg.financial_ledger_entries le
                 on le.order_id=ob.order_id and le.owner_id=$1
@@ -706,6 +712,7 @@ async def finance_sales_analytics(
                 - coalesce(l.refunds_minor,0)
                 - coalesce(l.operating_costs_minor,0)
                 - coalesce(i.cost_of_goods_minor,0)
+                + coalesce(l.adjustments_minor,0)
               )::bigint as profit_minor,
               coalesce(i.orders,0)::int as orders,
               coalesce(i.sold_items,0)::int as sold_items
@@ -727,6 +734,7 @@ async def finance_sales_analytics(
     payment_fees = int(summary["payment_fees_minor"] or 0)
     shipping_cost = int(summary["shipping_cost_minor"] or 0)
     material_cost = int(summary["fulfilment_material_cost_minor"] or 0)
+    adjustments = int(summary["adjustments_minor"] or 0)
     cogs = int(summary["cost_of_goods_minor"] or 0)
     orders = int(summary["orders"] or 0)
     sold_items = int(summary["sold_items"] or 0)
@@ -738,6 +746,7 @@ async def finance_sales_analytics(
         - shipping_cost
         - material_cost
         - cogs
+        + adjustments
     )
     missing_fees = int(summary["missing_fee_sales"] or 0)
     missing_postage = int(summary["missing_shipping_cost_sales"] or 0)
@@ -759,6 +768,7 @@ async def finance_sales_analytics(
         "payment_fees_minor": payment_fees,
         "shipping_cost_minor": shipping_cost,
         "fulfilment_material_cost_minor": material_cost,
+        "adjustments_minor": adjustments,
         "cost_of_goods_minor": cogs,
         "net_profit_minor": net_profit,
         "net_profit_complete": missing_fees == 0 and missing_postage == 0,
