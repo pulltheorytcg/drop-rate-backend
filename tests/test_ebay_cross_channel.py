@@ -14,6 +14,7 @@ from app.ebay_sales import (
     _condition_payload,
     _inventory_payload,
     _offer_payload,
+    _notification_callback_settings,
     _order_line_rows,
     verify_ebay_notification_signature,
 )
@@ -59,6 +60,8 @@ def _settings() -> Settings:
         ebay_return_policy_id="return",
         ebay_fulfillment_policy_id="fulfilment",
         ebay_merchant_location_key="drop-rate-london",
+        ebay_notification_endpoint="https://drop-rate.example/api/v1/ebay/order-notifications",
+        ebay_notification_verification_token="drop_rate_order_notifications_1234567890",
         ebay_publish_enabled=True,
         ebay_price_markup_bps=500,
     )
@@ -73,6 +76,7 @@ def test_ebay_seller_settings_fail_closed_by_default(monkeypatch) -> None:
         "TCG_EBAY_FULFILLMENT_POLICY_ID",
         "TCG_EBAY_MERCHANT_LOCATION_KEY",
         "TCG_EBAY_NOTIFICATION_ENDPOINT",
+        "TCG_EBAY_NOTIFICATION_VERIFICATION_TOKEN",
         "TCG_EBAY_PUBLISH_ENABLED",
         "TCG_EBAY_PRICE_MARKUP_BPS",
     ):
@@ -84,6 +88,7 @@ def test_ebay_seller_settings_fail_closed_by_default(monkeypatch) -> None:
     assert settings.ebay_fulfillment_policy_id is None
     assert settings.ebay_merchant_location_key is None
     assert settings.ebay_notification_endpoint is None
+    assert settings.ebay_notification_verification_token is None
     assert settings.ebay_publish_enabled is False
     assert settings.ebay_price_markup_bps == 0
 
@@ -333,3 +338,30 @@ def test_ebay_cross_channel_schema_is_unique_rls_protected_and_append_only() -> 
     assert "ebay_order_item_links_created_by_user_idx" in index_sql
     assert "ebay_order_item_links_inventory_idx" in index_sql
     assert "ebay_order_item_links_internal_order_idx" in index_sql
+
+
+def test_ebay_notification_callback_requires_exact_configured_endpoint_and_token() -> None:
+    settings = _settings()
+    token, endpoint = _notification_callback_settings(settings)
+    assert token == "drop_rate_order_notifications_1234567890"
+    assert endpoint == "https://drop-rate.example/api/v1/ebay/order-notifications"
+
+
+def test_ebay_seller_status_requires_inventory_fulfillment_and_notification_scopes() -> None:
+    source = EBAY.read_text()
+    assert "EBAY_INVENTORY_SCOPE in scopes" in source
+    assert "EBAY_FULFILLMENT_SCOPE in scopes" in source
+    assert "EBAY_NOTIFICATION_SCOPE in scopes" in source
+    assert "TCG_EBAY_NOTIFICATION_ENDPOINT" in source
+    assert "TCG_EBAY_NOTIFICATION_VERIFICATION_TOKEN" in source
+
+
+def test_ebay_order_notification_endpoint_answers_ownership_challenge() -> None:
+    source = EBAY.read_text()
+    start = source.index('@router.get("/order-notifications")')
+    end = source.index('@router.post("/order-notifications"', start)
+    block = source[start:end]
+    assert "challenge_code" in block
+    assert "hashlib.sha256" in block
+    assert "challengeResponse" in block
+    assert "_notification_callback_settings" in block
