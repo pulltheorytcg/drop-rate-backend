@@ -50,7 +50,7 @@ function installShopifySettingsPanel() {
       <select id="shopify-media-candidate" aria-label="Choose card needing media">
         <option value="">No media work loaded</option>
       </select>
-      <input id="shopify-media-file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose card image">
+      <input id="shopify-media-file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" aria-label="Choose or take card image">
       <select id="shopify-media-scope" aria-label="Media scope">
         <option value="INVENTORY_ITEM">This physical card</option>
         <option value="CANONICAL_CARD">Canonical card image</option>
@@ -60,10 +60,15 @@ function installShopifySettingsPanel() {
         <option value="BACK">Back</option>
       </select>
     </div>
+    <div id="shopify-media-capture-summary" class="allocation-list"><p class="muted">Choose a queue item to start capture.</p></div>
     <div class="toolbar">
       <input id="shopify-media-alt" type="text" maxlength="500" placeholder="Alt text, e.g. Seel 021/094 front">
       <label class="muted"><input id="shopify-media-rights" type="checkbox"> I own or am authorised to use this image</label>
       <button id="shopify-media-upload-button" class="primary-button compact" type="button" disabled>Upload & approve image</button>
+    </div>
+    <div class="toolbar">
+      <button id="shopify-media-previous" class="ghost-button compact" type="button" disabled>← Previous</button>
+      <button id="shopify-media-next" class="ghost-button compact" type="button" disabled>Next media item →</button>
     </div>
     <div id="shopify-media-list" class="allocation-list"></div>
     <div class="page-heading pricing-subheading">
@@ -107,6 +112,8 @@ function installShopifySettingsPanel() {
   byId("shopify-media-alt").addEventListener("input", refreshShopifyMediaButton);
   byId("shopify-media-rights").addEventListener("change", refreshShopifyMediaButton);
   byId("shopify-media-upload-button").addEventListener("click", uploadFounderMedia);
+  byId("shopify-media-previous").addEventListener("click", () => moveMediaCandidate(-1));
+  byId("shopify-media-next").addEventListener("click", () => moveMediaCandidate(1));
   byId("shopify-media-batch-files").addEventListener("change", refreshBatchMediaPreview);
   byId("shopify-media-batch-rights").addEventListener("change", refreshBatchMediaPreview);
   byId("shopify-media-batch-button").addEventListener("click", uploadFounderMediaBatch);
@@ -485,6 +492,7 @@ function renderMediaIntakeQueue(data) {
   if (!select) return;
 
   const previous = select.value;
+  const previousIndex = select.selectedIndex;
   select.replaceChildren();
   const items = data?.items || [];
 
@@ -515,6 +523,11 @@ function renderMediaIntakeQueue(data) {
 
   if (previous && [...select.options].some((option) => option.value === previous)) {
     select.value = previous;
+  } else if (previous && items.length) {
+    select.selectedIndex = Math.min(
+      Math.max(previousIndex, 1),
+      select.options.length - 1
+    );
   }
   applyMediaCandidateDefaults();
 }
@@ -541,7 +554,77 @@ function applyMediaCandidateDefaults() {
   } else if (side) {
     side.disabled = false;
   }
+  renderMediaCandidateSummary();
+  refreshMediaCandidateNavigation();
   refreshShopifyMediaButton();
+}
+
+function renderMediaCandidateSummary() {
+  const container = byId("shopify-media-capture-summary");
+  const option = byId("shopify-media-candidate")?.selectedOptions?.[0];
+  if (!container) return;
+
+  container.replaceChildren();
+  if (!option?.value) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Choose a queue item to start capture.";
+    container.append(empty);
+    return;
+  }
+
+  const sides = String(option.dataset.missingSides || "")
+    .split(",")
+    .filter(Boolean)
+    .join(" + ");
+  container.append(
+    shopifyStatusRow(
+      option.dataset.cardName || "Trading card",
+      sides || "MEDIA",
+      [
+        option.dataset.cardNumber,
+        option.dataset.language,
+        option.dataset.mediaScope === "CANONICAL_CARD"
+          ? "shared canonical raw-card image"
+          : option.dataset.inventoryCode,
+      ].filter(Boolean).join(" · ")
+    )
+  );
+}
+
+function refreshMediaCandidateNavigation() {
+  const select = byId("shopify-media-candidate");
+  const previous = byId("shopify-media-previous");
+  const next = byId("shopify-media-next");
+  if (!select || !previous || !next) return;
+
+  const selectable = [...select.options]
+    .map((option, index) => ({option, index}))
+    .filter(({option}) => Boolean(option.value));
+  const currentPosition = selectable.findIndex(({index}) => index === select.selectedIndex);
+  previous.disabled = currentPosition <= 0;
+  next.disabled = currentPosition < 0 || currentPosition >= selectable.length - 1;
+}
+
+function moveMediaCandidate(offset) {
+  const select = byId("shopify-media-candidate");
+  if (!select || !Number.isInteger(offset) || offset === 0) return;
+
+  const selectable = [...select.options]
+    .map((option, index) => ({option, index}))
+    .filter(({option}) => Boolean(option.value));
+  const currentPosition = selectable.findIndex(({index}) => index === select.selectedIndex);
+  const targetPosition = currentPosition < 0
+    ? (offset > 0 ? 0 : selectable.length - 1)
+    : currentPosition + offset;
+  if (targetPosition < 0 || targetPosition >= selectable.length) return;
+
+  select.selectedIndex = selectable[targetPosition].index;
+  const file = byId("shopify-media-file");
+  const alt = byId("shopify-media-alt");
+  if (file) file.value = "";
+  if (alt) alt.value = "";
+  applyMediaCandidateDefaults();
 }
 
 function renderShopifyMedia(capability, data, queueData) {
