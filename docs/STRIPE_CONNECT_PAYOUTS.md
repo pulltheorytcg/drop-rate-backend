@@ -182,3 +182,25 @@ silently strand a negative platform balance.
 Production payout execution remains locked until the full test transfer, connected-account
 bank payout, webhook, failure and refund-after-payout policy are verified.
 
+## Owner payout preferences
+
+Owner payout cadence is controlled by Drop Rate, not by Stripe. This keeps payout
+eligibility, ownership, available balance and audit decisions in PostgreSQL/FastAPI while
+Stripe remains the execution rail.
+
+Supported preferences:
+
+- `MANUAL`
+- `DAILY`
+- `WEEKLY` with a chosen weekday
+- `FORTNIGHTLY` with a chosen weekday and deterministic 14-day anchor
+- `MONTHLY` with a chosen day of month; shorter months clamp to their final day
+
+All schedules use `Europe/London` and currently preview the next 09:00 local payout cycle.
+A schedule means "eligible to be queued" rather than a guaranteed bank-arrival time. Funds
+must still be available, Stripe Connect must be READY, transfer capability must be ACTIVE,
+and every existing payout guard remains in force.
+
+The default is `MANUAL`. Saving a schedule does not enable automatic money movement.
+Production execution remains controlled by the separate payout execution kill-switch.
+
