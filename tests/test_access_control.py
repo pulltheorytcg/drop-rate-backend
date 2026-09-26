@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
-from app.access_control import current_access_context, require_platform_admin
+from app.access_control import current_access_context, require_owner_portal, require_platform_admin
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -151,4 +151,47 @@ def test_internal_control_plane_routers_are_platform_admin_only() -> None:
         ) in main
 
     assert "from fastapi import Depends, FastAPI, Request" in main
+
+@pytest.mark.asyncio
+async def test_owner_passes_owner_portal_guard() -> None:
+    connection = FakeConnection(
+        {
+            "user_id": "user-2",
+            "owner_id": "owner-2",
+            "role": "OWNER",
+            "membership_active": True,
+            "display_name": "Consignor",
+            "owner_type": "CONSIGNOR",
+            "owner_active": True,
+            "founder_slot": None,
+        }
+    )
+
+    context = await require_owner_portal(connection)
+
+    assert context["owner_id"] == "owner-2"
+    assert context["access_role"] == "OWNER"
+    assert context["portal"] == "OWNER_PORTAL"
+
+
+@pytest.mark.asyncio
+async def test_platform_admin_cannot_use_owner_portal_api_guard() -> None:
+    connection = FakeConnection(
+        {
+            "user_id": "user-1",
+            "owner_id": "owner-1",
+            "role": "PLATFORM_ADMIN",
+            "membership_active": True,
+            "display_name": "Sunny",
+            "owner_type": "FOUNDER",
+            "owner_active": True,
+            "founder_slot": 1,
+        }
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await require_owner_portal(connection)
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Owner portal access required"
 
