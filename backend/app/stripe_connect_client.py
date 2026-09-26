@@ -260,6 +260,127 @@ class StripeConnectClient:
         )
 
 
+    async def retrieve_balance(self) -> dict[str, Any]:
+        return await self._request("GET", "/balance")
+
+    async def create_test_available_balance_charge(
+        self,
+        *,
+        amount_minor: int,
+        currency: str,
+        idempotency_key: str,
+    ) -> dict[str, Any]:
+        """Create sandbox-only platform funding for transfer verification.
+
+        Stripe's tok_bypassPending test token makes the simulated charge available
+        immediately. This method is intentionally unusable with a live secret key.
+        """
+
+        if self.key_livemode:
+            raise RuntimeError("Sandbox funding refuses to run with a live Stripe key")
+        if amount_minor <= 0:
+            raise ValueError("Sandbox funding amount must be positive")
+        currency_code = currency.strip().lower()
+        if len(currency_code) != 3:
+            raise ValueError("Sandbox funding currency must be ISO-3")
+        if len(idempotency_key.strip()) < 16:
+            raise ValueError("Stripe idempotency key is too short")
+
+        return await self._request(
+            "POST",
+            "/charges",
+            data={
+                "amount": amount_minor,
+                "currency": currency_code,
+                "source": "tok_bypassPending",
+                "description": "Drop Rate Stripe Connect sandbox transfer funding",
+                "metadata[drop_rate_purpose]": "connect_transfer_sandbox",
+            },
+            idempotency_key=idempotency_key.strip(),
+        )
+
+    async def refund_charge(
+        self,
+        *,
+        charge_id: str,
+        idempotency_key: str,
+    ) -> dict[str, Any]:
+        charge_id = charge_id.strip()
+        if not charge_id.startswith("ch_"):
+            raise ValueError("Invalid Stripe charge ID")
+        if len(idempotency_key.strip()) < 16:
+            raise ValueError("Stripe idempotency key is too short")
+        return await self._request(
+            "POST",
+            "/refunds",
+            data={"charge": charge_id},
+            idempotency_key=idempotency_key.strip(),
+        )
+
+    async def create_transfer(
+        self,
+        *,
+        account_id: str,
+        amount_minor: int,
+        currency: str,
+        transfer_group: str,
+        idempotency_key: str,
+    ) -> dict[str, Any]:
+        account_id = account_id.strip()
+        if not account_id.startswith("acct_"):
+            raise ValueError("Invalid Stripe connected account ID")
+        if amount_minor <= 0:
+            raise ValueError("Stripe transfer amount must be positive")
+        currency_code = currency.strip().lower()
+        if len(currency_code) != 3:
+            raise ValueError("Stripe transfer currency must be ISO-3")
+        group = transfer_group.strip()
+        if not group:
+            raise ValueError("Stripe transfer group is required")
+        if len(idempotency_key.strip()) < 16:
+            raise ValueError("Stripe idempotency key is too short")
+
+        return await self._request(
+            "POST",
+            "/transfers",
+            data={
+                "amount": amount_minor,
+                "currency": currency_code,
+                "destination": account_id,
+                "transfer_group": group,
+                "description": "Drop Rate owner payout",
+                "metadata[drop_rate_purpose]": "owner_payout",
+            },
+            idempotency_key=idempotency_key.strip(),
+        )
+
+    async def reverse_transfer(
+        self,
+        *,
+        transfer_id: str,
+        amount_minor: int,
+        idempotency_key: str,
+    ) -> dict[str, Any]:
+        transfer_id = transfer_id.strip()
+        if not transfer_id.startswith("tr_"):
+            raise ValueError("Invalid Stripe transfer ID")
+        if amount_minor <= 0:
+            raise ValueError("Stripe transfer reversal amount must be positive")
+        if len(idempotency_key.strip()) < 16:
+            raise ValueError("Stripe idempotency key is too short")
+
+        return await self._request(
+            "POST",
+            f"/transfers/{transfer_id}/reversals",
+            data={
+                "amount": amount_minor,
+                "description": "Drop Rate sandbox transfer reversal",
+                "metadata[drop_rate_purpose]": "owner_payout_reversal",
+            },
+            idempotency_key=idempotency_key.strip(),
+        )
+
+
     async def close_recipient_account(self, account_id: str) -> dict[str, Any]:
         account_id = account_id.strip()
         if not account_id.startswith("acct_"):
