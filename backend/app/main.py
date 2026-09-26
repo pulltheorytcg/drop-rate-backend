@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .db import create_pool
+from .access_control import router as access_control_router
 from .finance import router as finance_router
 from .founder_onboarding import router as founder_onboarding_router
 from .ebay_privacy import router as ebay_privacy_router
@@ -222,6 +223,7 @@ def create_app() -> FastAPI:
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(router)
+    app.include_router(access_control_router)
     app.include_router(finance_router)
     app.include_router(founder_onboarding_router)
     app.include_router(ebay_privacy_router)
