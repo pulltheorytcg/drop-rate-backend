@@ -227,7 +227,7 @@ def normalise_shipping_profile(
 
 
 def media_policy(item: Mapping[str, Any]) -> str:
-    if _text(item.get("grading_company")) and _text(item.get("grade")):
+    if _text(item.get("product_type")) == "CARD":
         return "PHYSICAL_ITEM_REQUIRED"
     return "CANONICAL_CARD_ALLOWED"
 
@@ -258,6 +258,13 @@ def media_completeness(
             blockers.append("approved physical-item front image")
         if "BACK" not in sides:
             blockers.append("approved physical-item back image")
+        contexts = {
+            _text(asset.get("capture_context"))
+            for asset in item_assets
+            if _text(asset.get("side")) in {"FRONT", "BACK"}
+        }
+        if "" in contexts or not contexts:
+            blockers.append("capture context for physical-item media")
         selected = item_assets
     else:
         selected = ready_assets
