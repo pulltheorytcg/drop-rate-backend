@@ -314,7 +314,11 @@ async def _validate_seller_prerequisites(
         client.get_fulfillment_policy(effective.fulfillment_policy_id or ""),
         client.get_return_policy(effective.return_policy_id or ""),
     )
-    if str(location.get("locationStatus") or "ENABLED").upper() == "DISABLED":
+    if str(
+        location.get("merchantLocationStatus")
+        or location.get("locationStatus")
+        or "ENABLED"
+    ).upper() == "DISABLED":
         raise EbaySellApiError("Configured eBay inventory location is disabled")
     if payment.get("marketplaceId") not in {None, settings.ebay_marketplace_id}:
         raise EbaySellApiError("Configured eBay payment policy belongs to another marketplace")
@@ -769,9 +773,13 @@ async def withdraw_ebay_for_inventory(
                     """,
                     link["id"], reason,
                 )
-        except EbaySellApiError as exc:
+        except (EbaySellApiError, RuntimeError, ValueError) as exc:
             await _mark_link_error(pool, link["id"], f"CROSS_CHANNEL:{reason}")
-            raise exc
+            if isinstance(exc, EbaySellApiError):
+                raise exc
+            raise EbaySellApiError(
+                "Cannot withdraw live eBay listing: seller authorisation is unavailable"
+            ) from exc
 
 
 async def restore_ebay_after_shopify_release(pool: Any, inventory_ids: list[str]) -> None:
