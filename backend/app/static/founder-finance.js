@@ -762,6 +762,10 @@ async function reconcileEbayFees(sale) {
   }
 }
 
+async function reconcileShopifyPostage(sale) {
+  return reconcileMarketplacePostage(sale);
+}
+
 async function reconcileMarketplacePostage(sale) {
   const value = window.prompt(
     "Actual postage / fulfilment cost in £. Enter 0.00 if this order was not shipped.",
