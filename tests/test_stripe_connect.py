@@ -89,11 +89,17 @@ def test_stripe_signature_verification_rejects_stale_or_invalid_signatures() -> 
         )
 
 
-def test_connect_client_requests_only_transfers_capability() -> None:
+def test_connect_client_uses_accounts_v2_recipient_for_payout_only_accounts() -> None:
     source = CLIENT_SOURCE.read_text()
-    assert '"capabilities[transfers][requested]": True' in source
+    assert 'STRIPE_API_V2_BASE = "https://api.stripe.com/v2/core"' in source
+    assert 'STRIPE_API_V2_VERSION = "2026-07-29.dahlia"' in source
+    assert '"recipient"' in source
+    assert '"stripe_transfers"' in source
+    assert '"requested": True' in source
+    assert '"dashboard": "express"' in source
+    assert '"fees_collector": "application"' in source
+    assert '"losses_collector": "application"' in source
     assert "card_payments" not in source
-    assert '"type": "express"' in source
     assert '"collection_options[fields]": "eventually_due"' in source
 
 
@@ -153,10 +159,11 @@ def test_approved_payout_retry_is_idempotent_before_version_check() -> None:
     assert block.index('payout["status"] == "APPROVED"') < block.index('payout["version"] != payload.version')
 
 
-def test_stripe_client_supports_read_only_platform_probe_and_test_cleanup() -> None:
+def test_stripe_client_supports_read_only_platform_probe_and_v2_cleanup() -> None:
     source = CLIENT_SOURCE.read_text()
     assert 'return await self._request("GET", "/account")' in source
-    assert 'return await self._request("DELETE", f"/accounts/{account_id}")' in source
+    assert 'f"/accounts/{account_id}/close"' in source
+    assert '{"applied_configurations": ["recipient"]}' in source
 
 
 def test_stripe_sandbox_selftest_refuses_live_key_and_cleans_up() -> None:
@@ -165,9 +172,22 @@ def test_stripe_sandbox_selftest_refuses_live_key_and_cleans_up() -> None:
     assert "client.key_livemode" in source
     assert "refuses to run with a live secret key" in source
     assert "create_express_account" in source
+    assert "recipient_configuration_applied" in source
     assert "create_account_link" in source
     assert "retrieve_account" in source
-    assert "delete_account" in source
+    assert "close_recipient_account" in source
     assert '"stripe_sandbox_selftest": "PASS"' in source
     assert '"stripe_sandbox_cleanup": "PASS" if cleanup_ok else "SKIPPED"' in source
     assert "asyncpg" not in source
+
+
+def test_new_connect_account_is_v2_created_then_v1_read_back_for_readiness() -> None:
+    source = STRIPE_SOURCE.read_text()
+    start = source.index("async def create_or_sync_stripe_account")
+    end = source.index('@router.post("/connect/onboarding-link")', start)
+    block = source[start:end]
+    create = block.index("created_account = await client.create_express_account(")
+    readback = block.index("account = await client.retrieve_account(account_id)")
+    snapshot = block.index("snapshot = _account_snapshot(account)")
+    assert create < readback < snapshot
+    assert 'display_name=str(owner["display_name"])' in block
