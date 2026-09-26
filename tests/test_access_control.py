@@ -1,0 +1,118 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from fastapi import HTTPException
+
+from app.access_control import current_access_context, require_platform_admin
+
+
+ROOT = Path(__file__).resolve().parents[1]
+MIGRATION = ROOT / "database" / "migrations" / "20260926213000_access_control_foundation.sql"
+
+
+class FakeConnection:
+    def __init__(self, row):
+        self.row = row
+        self.sql = ""
+
+    async def fetchrow(self, sql: str):
+        self.sql = sql
+        return self.row
+
+
+@pytest.mark.asyncio
+async def test_platform_admin_context_allows_founder_hq() -> None:
+    connection = FakeConnection(
+        {
+            "user_id": "user-1",
+            "owner_id": "owner-1",
+            "role": "PLATFORM_ADMIN",
+            "membership_active": True,
+            "display_name": "Sunny",
+            "owner_type": "FOUNDER",
+            "owner_active": True,
+            "founder_slot": 1,
+        }
+    )
+
+    context = await current_access_context(connection)
+
+    assert context["access_role"] == "PLATFORM_ADMIN"
+    assert context["founder_hq_allowed"] is True
+    assert context["portal"] == "FOUNDER_HQ"
+    assert "m.user_id=tcg.current_user_id()" in connection.sql
+
+
+@pytest.mark.asyncio
+async def test_owner_context_is_restricted_to_owner_portal() -> None:
+    connection = FakeConnection(
+        {
+            "user_id": "user-2",
+            "owner_id": "owner-2",
+            "role": "OWNER",
+            "membership_active": True,
+            "display_name": "Consignor",
+            "owner_type": "CONSIGNOR",
+            "owner_active": True,
+            "founder_slot": None,
+        }
+    )
+
+    context = await current_access_context(connection)
+
+    assert context["access_role"] == "OWNER"
+    assert context["founder_hq_allowed"] is False
+    assert context["portal"] == "OWNER_PORTAL"
+
+
+@pytest.mark.asyncio
+async def test_owner_cannot_pass_platform_admin_guard() -> None:
+    connection = FakeConnection(
+        {
+            "user_id": "user-2",
+            "owner_id": "owner-2",
+            "role": "OWNER",
+            "membership_active": True,
+            "display_name": "Consignor",
+            "owner_type": "CONSIGNOR",
+            "owner_active": True,
+            "founder_slot": None,
+        }
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await require_platform_admin(connection)
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Platform administrator access required"
+
+
+@pytest.mark.asyncio
+async def test_unlinked_account_fails_closed() -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        await current_access_context(FakeConnection(None))
+
+    assert exc_info.value.status_code == 403
+
+
+def test_rbac_migration_separates_permission_from_owner_type() -> None:
+    sql = MIGRATION.read_text()
+
+    assert "PLATFORM_ADMIN" in sql
+    assert "'OWNER'" in sql
+    assert "update tcg.owner_memberships" in sql
+    assert "where role='FOUNDER'" in sql
+    assert "tcg.is_platform_admin()" in sql
+    assert "m.user_id=tcg.current_user_id()" in sql
+    assert "m.role = 'PLATFORM_ADMIN'" in sql
+    assert "values (v_user_id, v_owner.id, 'PLATFORM_ADMIN', true)" in sql
+    assert "alter column role set default 'OWNER'" in sql
+
+
+def test_founder_hq_invite_route_requires_platform_admin() -> None:
+    source = (ROOT / "backend" / "app" / "founder_onboarding.py").read_text()
+
+    assert "require_platform_admin" in source
+    assert "await require_platform_admin(connection)" in source
