@@ -132,7 +132,7 @@ function buildFounderHero() {
       <div class="hero-energy-lines"></div>
     </div>
   `;
-  const brandSource = document.querySelector("#dashboard-view .topbar .dr-logo");
+  const brandSource = document.querySelector("#dashboard-view .topbar .dr-logo-image");
   if (brandSource) {
     hero.querySelectorAll(".hero-card-brand").forEach((slot) => {
       const mark = brandSource.cloneNode(true);
