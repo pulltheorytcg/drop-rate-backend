@@ -607,6 +607,7 @@ function renderShopifyMedia(capability, data, queueData) {
   });
   list.replaceChildren(...rows);
   refreshShopifyMediaButton();
+  refreshBatchMediaPreview();
 }
 
 function refreshShopifyMediaButton() {
@@ -774,7 +775,14 @@ function batchMediaAltText(option, side) {
   ].filter(Boolean).join(" ");
 }
 
-async function uploadFounderMediaWork({file, option, side, scope}) {
+async function uploadFounderMediaWork({
+  file,
+  option,
+  side,
+  scope,
+  altText = "",
+  rightsBasis = "",
+}) {
   const catalogueId = option.dataset.catalogueId || "";
   const inventoryId = option.dataset.inventoryId || "";
   if (scope === "CANONICAL_CARD" && !catalogueId) {
@@ -803,8 +811,9 @@ async function uploadFounderMediaWork({file, option, side, scope}) {
     throw new Error(`Shopify staged upload failed (${uploadResponse.status}).`);
   }
 
-  const rightsBasis = "Founder-owned original photograph; rights explicitly confirmed during upload";
-  const altText = batchMediaAltText(option, side);
+  const resolvedRightsBasis = rightsBasis
+    || "Founder-owned original photograph; rights explicitly confirmed during upload";
+  const resolvedAltText = altText || batchMediaAltText(option, side);
   const created = await apiRequest("/api/v1/shopify/media-assets", {
     method: "POST",
     body: JSON.stringify({
@@ -814,16 +823,16 @@ async function uploadFounderMediaWork({file, option, side, scope}) {
       source_type: "FOUNDER_UPLOAD",
       source_reference: file.name,
       public_source_url: target.resourceUrl,
-      rights_basis: rightsBasis,
-      alt_text: altText,
+      rights_basis: resolvedRightsBasis,
+      alt_text: resolvedAltText,
     }),
   });
   const approved = await apiRequest(`/api/v1/shopify/media-assets/${created.asset.id}/approve`, {
     method: "POST",
     body: JSON.stringify({
       version: Number(created.asset.version),
-      rights_basis: rightsBasis,
-      alt_text: altText,
+      rights_basis: resolvedRightsBasis,
+      alt_text: resolvedAltText,
     }),
   });
   return apiRequest(`/api/v1/shopify/media-assets/${approved.asset.id}/sync`, {
@@ -952,6 +961,8 @@ async function uploadFounderMedia() {
       option,
       side,
       scope,
+      altText: founderMediaAltText(option, side),
+      rightsBasis: "Founder-owned original photograph; rights explicitly confirmed during upload",
     });
     if (fileInput) fileInput.value = "";
     const rights = byId("shopify-media-rights");
