@@ -78,7 +78,7 @@ def test_owner_portal_uses_only_dedicated_owner_safe_read_contracts() -> None:
     assert "/api/v1/finance/" not in js
 
     assert 'apiRequest("/api/v1/owner/overview")' in js
-    assert 'apiRequest(\`/api/v1/owner/inventory?\${params.toString()}\`)' in js
+    assert 'apiRequest(`/api/v1/owner/inventory?${params.toString()}`)' in js
     assert '/api/v1/owner/overview", {' not in js
     assert '/api/v1/owner/inventory?", {' not in js
 
