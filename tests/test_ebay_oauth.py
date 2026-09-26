@@ -279,6 +279,6 @@ def test_seller_setup_defaults_remain_configurable_and_fail_closed() -> None:
     assert settings.ebay_standard_shipping_minor == 499
     assert settings.ebay_handling_days == 2
     assert settings.ebay_shipping_carrier_code == "RoyalMail"
-    assert settings.ebay_shipping_service_code == "UK_RoyalMailTracked48"
+    assert settings.ebay_shipping_service_code == "UK_RoyalMailTracked"
     assert settings.ebay_origin_postcode is None
     assert settings.ebay_alert_email is None
