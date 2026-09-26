@@ -12,31 +12,43 @@ to move money.
 
 ## Phase 1 decision
 
-Drop Rate uses Stripe Connect **Express** connected accounts and requests only the
-`transfers` capability.
+Drop Rate uses Stripe Connect **Accounts v2** for all new connected-account creation.
+Each seller/consignor is created with:
 
-Why:
+- the `recipient` configuration;
+- `configuration.recipient.capabilities.stripe_balance.stripe_transfers.requested=true`;
+- Express Dashboard access;
+- platform-owned fee and loss responsibilities required by Stripe for Express;
+- GBP / GB defaults.
 
-- sellers/consignors need Stripe-hosted identity and bank-account onboarding;
-- Drop Rate needs connected-account readiness and payout control;
-- connected accounts do not need to accept customer card payments because Shopify is
-  the customer checkout;
-- requesting only `transfers` minimises verification scope.
+This is a payout-only relationship. Shopify remains the customer checkout and the
+connected account is not the Merchant of Record, so Drop Rate deliberately does not
+request `card_payments`.
 
-Stripe documents that a connected account needs the `transfers` capability to receive
-funds transferred by a platform:
-https://docs.stripe.com/connect/account-capabilities
+Stripe now recommends Accounts v2 (`/v2/core/accounts`) for new Connect integrations.
+The v2 `recipient` configuration is specifically intended for accounts that receive
+platform transfers, and `stripe_balance.stripe_transfers` replaces the v1
+`transfers` capability:
+https://docs.stripe.com/connect/accounts-v2
+https://docs.stripe.com/api/v2/core/accounts/create
 
-Stripe-hosted onboarding is used with `eventually_due` collection so verification is
-collected up front and payout interruptions are less likely:
+Some downstream Connect surfaces still use v1 endpoints. Stripe documents that v2
+Account IDs are interoperable with most v1 APIs, which lets Drop Rate use the v1 Account
+view for readiness and the v1 Account Links API for Stripe-hosted onboarding:
+https://docs.stripe.com/connect/accounts-v2
 https://docs.stripe.com/connect/hosted-onboarding
+
+Stripe-hosted onboarding uses `eventually_due` collection so verification is collected
+up front and payout interruptions are less likely.
 
 ### Important Express implication
 
-The connected-account Dashboard type is an architectural choice. Stripe documents that
-the dashboard type chosen at account creation is immutable; changing it requires a new
-connected account. No live connected account is created by this phase while the live
-creation gate is disabled.
+Express access is an architectural and liability choice. Stripe requires both
+`fees_collector=application` and `losses_collector=application` when the v2 Account
+uses the Express Dashboard. This means Drop Rate is responsible for those connected
+account fee/loss obligations under Stripe's Connect model. Do not change this silently.
+
+No live connected account is created while the live creation gate is disabled.
 
 ## Deterministic flow
 
@@ -60,7 +72,8 @@ Shopify/eBay sale
 A payout cannot be approved while:
 
 - Stripe account is missing or restricted;
-- `transfers` is not ACTIVE;
+- the recipient transfer capability is not ACTIVE (surfaced through the compatible
+  v1 Account view as `transfers`);
 - payouts are disabled;
 - Stripe verification is currently/past due;
 - Shopify/eBay settlement costs remain unreconciled; or
@@ -68,7 +81,7 @@ A payout cannot be approved while:
 
 ## Idempotency
 
-- Stripe account creation uses one deterministic idempotency key per Drop Rate owner.
+- Accounts v2 recipient creation uses one deterministic idempotency key per Drop Rate owner.
 - Each payout request can have at most one Stripe execution record.
 - Each execution has an immutable deterministic idempotency key.
 - Stripe webhook event IDs are unique and raw payloads are not retained.

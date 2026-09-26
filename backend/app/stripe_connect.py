@@ -281,10 +281,15 @@ async def create_or_sync_stripe_account(
         return jsonable_encoder({"account": saved, "created": False})
 
     try:
-        account = await client.create_express_account(
+        created_account = await client.create_express_account(
             country=settings.stripe_connect_country,
             owner_id=str(owner["id"]),
+            display_name=str(owner["display_name"]),
         )
+        account_id = str(created_account.get("id") or "").strip()
+        if not account_id.startswith("acct_"):
+            raise StripeApiError("Stripe Accounts v2 response is missing a valid account ID")
+        account = await client.retrieve_account(account_id)
     except StripeApiError as exc:
         raise HTTPException(
             status_code=502 if exc.retryable else 409,
