@@ -142,3 +142,28 @@ Rules:
 Founder invitation redemption is also bound to the verified JWT email so a signed-in account
 cannot impersonate the invited email by changing a browser payload.
 
+## Owner finance portal contract
+
+The restricted owner portal consumes dedicated read-only finance endpoints under
+`/api/v1/owner/finance` rather than Founder HQ finance routes.
+
+Visible owner finance concepts:
+
+- own sales revenue and shipping revenue
+- platform/payment/shipping/fulfilment deductions allocated to that owner
+- Drop Rate commission and commission rate
+- refunds and adjustments
+- owner proceeds derived from the append-only ledger
+- pending, available, reserved and paid-out balances
+- order-level settlement breakdown
+- reconciliation completeness
+- payout history
+- owner-controlled payout cadence
+
+The portal intentionally excludes acquisition cost, cost basis, company-wide gross/net profit,
+customer addresses, provider credentials, payout approval controls, reconciliation mutations and
+other owners' records.
+
+Unreconciled external fees/shipping are displayed as `Reconciling` rather than presented as
+final numbers.
+
