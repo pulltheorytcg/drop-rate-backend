@@ -319,7 +319,7 @@ function ebayInventoryAction(item) {
     badge.textContent = "eBay Sold";
     return badge;
   }
-  if (stateValue === "WITHDRAWN") {
+  if (stateValue === "WITHDRAWN" && item.status !== "APPROVED") {
     const badge = document.createElement("span");
     badge.className = "channel-status ended";
     badge.textContent = "eBay Ended";
@@ -329,7 +329,9 @@ function ebayInventoryAction(item) {
   const button = document.createElement("button");
   button.className = "row-button ebay-list-button";
   button.type = "button";
-  button.textContent = stateValue === "ERROR" ? "Retry eBay" : "List on eBay";
+  button.textContent = stateValue === "ERROR"
+    ? "Retry eBay"
+    : stateValue === "WITHDRAWN" ? "Relist eBay" : "List on eBay";
   if (stateValue === "ERROR") {
     button.title = item.ebay_error_code
       ? `Last eBay error: ${item.ebay_error_code}`
