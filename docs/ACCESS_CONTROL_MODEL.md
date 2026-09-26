@@ -167,3 +167,20 @@ other owners' records.
 Unreconciled external fees/shipping are displayed as `Reconciling` rather than presented as
 final numbers.
 
+## Owner Stripe Connect self-service
+
+The restricted owner portal may use only the owner-scoped Stripe Connect lifecycle endpoints:
+
+- status
+- account creation/sync
+- Stripe-hosted onboarding link
+- account sync
+
+The portal never exposes payout approval/rejection, payout queue administration or execution
+controls. Identity verification and bank details are collected by Stripe-hosted onboarding rather
+than Drop Rate.
+
+For OWNER memberships, Stripe account-link return/refresh URLs are derived from the trusted
+configured Drop Rate HTTPS origin and forced to `/owner`. A browser-supplied redirect URL is never
+accepted, and restricted owners are never returned to Founder HQ after Stripe onboarding.
+
