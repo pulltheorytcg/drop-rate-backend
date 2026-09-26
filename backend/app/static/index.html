@@ -30,8 +30,13 @@
           <p class="eyebrow">Welcome back</p>
           <h2>Founder sign in</h2>
           <p class="muted">Use the email connected to your Drop Rate account.</p>
+          <div id="login-social-auth" class="social-auth hidden" aria-label="Social sign in">
+            <button id="login-google" class="oauth-button" type="button" data-provider="google">Continue with Google</button>
+            <button id="login-apple" class="oauth-button oauth-button-apple" type="button" data-provider="apple">Continue with Apple</button>
+            <div class="auth-divider"><span>or use email</span></div>
+          </div>
           <label>Email address<input id="login-email" type="email" autocomplete="email" required></label>
-          <label>Password<input id="login-password" type="password" autocomplete="current-password" required minlength="8"></label>
+          <label>Password<input id="login-password" type="password" autocomplete="current-password" required></label>
           <div id="login-message" class="message" role="status"></div>
           <button class="primary-button" type="submit">Sign in <span>→</span></button>
           <button id="show-reset" class="text-button" type="button">Forgot your password?</button>
@@ -50,9 +55,9 @@
         <form id="new-password-form" class="auth-card hidden">
           <p class="eyebrow">Secure your account</p>
           <h2>Choose a new password</h2>
-          <p class="muted">Use at least 10 characters and avoid a password used elsewhere.</p>
-          <label>New password<input id="new-password" type="password" autocomplete="new-password" required minlength="10"></label>
-          <label>Confirm password<input id="confirm-password" type="password" autocomplete="new-password" required minlength="10"></label>
+          <p class="muted">Use at least 12 characters with uppercase, lowercase, a number and a symbol. Avoid a password used elsewhere.</p>
+          <label>New password<input id="new-password" type="password" autocomplete="new-password" required minlength="12"></label>
+          <label>Confirm password<input id="confirm-password" type="password" autocomplete="new-password" required minlength="12"></label>
           <div id="password-message" class="message" role="status"></div>
           <button class="primary-button" type="submit">Save password <span>→</span></button>
         </form>

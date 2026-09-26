@@ -11,6 +11,7 @@ const ISSUE_LABELS = {
 const state = {
   config: null, session: null, offset: 0, total: 0, search: "", status: "",
   brand: "", issue: "", items: new Map(), selected: new Map(), editing: null, readiness: null,
+  providers: {google: false, apple: false},
 };
 const byId = (id) => document.getElementById(id);
 
@@ -47,6 +48,56 @@ async function authRequest(path, options = {}) {
     ...options,
     headers: { apikey: state.config.publishable_key, "Content-Type": "application/json", ...(options.headers || {}) },
   }));
+}
+async function loadSocialProviders() {
+  try {
+    const settings = await authRequest("/settings");
+    const external = settings.external || {};
+    state.providers.google = Boolean(external.google);
+    state.providers.apple = Boolean(external.apple);
+  } catch (_error) {
+    state.providers.google = false;
+    state.providers.apple = false;
+  }
+
+  const google = byId("login-google");
+  const apple = byId("login-apple");
+  google.classList.toggle("hidden", !state.providers.google);
+  apple.classList.toggle("hidden", !state.providers.apple);
+  byId("login-social-auth").classList.toggle(
+    "hidden",
+    !state.providers.google && !state.providers.apple
+  );
+}
+function startOAuth(provider) {
+  if (!["google", "apple"].includes(provider) || !state.providers[provider]) {
+    showMessage("login-message", "That sign-in provider is not enabled yet.", "error");
+    return;
+  }
+  const authorizeUrl = new URL(`${state.config.supabase_url}/auth/v1/authorize`);
+  authorizeUrl.searchParams.set("provider", provider);
+  authorizeUrl.searchParams.set("redirect_to", `${window.location.origin}/`);
+  window.location.assign(authorizeUrl.toString());
+}
+function parseOAuthSession() {
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  if (params.get("type") === "recovery" || !params.get("access_token")) return false;
+  saveSession({
+    access_token: params.get("access_token"),
+    refresh_token: params.get("refresh_token"),
+    token_type: params.get("token_type") || "bearer",
+    expires_in: Number(params.get("expires_in") || 3600),
+  });
+  history.replaceState({}, document.title, window.location.pathname);
+  return true;
+}
+async function hydrateSessionUser() {
+  if (!state.session?.access_token) return;
+  const user = await authRequest("/user", {
+    headers: {Authorization: `Bearer ${state.session.access_token}`},
+  });
+  state.session.user = user;
+  saveSession(state.session);
 }
 function saveSession(session) {
   state.session = session;
@@ -690,18 +741,31 @@ async function saveBulkAllocation(event) {
 
 async function openDashboard() {
   try {
+    const access = await apiRequest("/api/v1/access/me");
+    if (!access.access?.founder_hq_allowed) {
+      throw new Error("FOUNDER_HQ_ACCESS_DENIED");
+    }
     const me = await apiRequest("/api/v1/me");
     byId("owner-email").textContent = state.session.user?.email || byId("login-email").value || "Founder account";
     byId("owner-name").textContent = me.owner.display_name;
     byId("auth-view").classList.add("hidden");
     byId("dashboard-view").classList.remove("hidden");
     await reloadDashboard();
-  } catch (_error) {
+  } catch (error) {
+    const denied = error.message === "FOUNDER_HQ_ACCESS_DENIED"
+      || error.message === "No active owner membership"
+      || error.message === "Platform administrator access required";
     clearSession();
     byId("dashboard-view").classList.add("hidden");
     byId("auth-view").classList.remove("hidden");
     showForm("login-form");
-    showMessage("login-message", "Please sign in to continue.", "error");
+    showMessage(
+      "login-message",
+      denied
+        ? "This account is not authorised for Founder HQ."
+        : "Please sign in to continue.",
+      "error"
+    );
   }
 }
 function logout() {
@@ -716,13 +780,30 @@ function logout() {
 async function initialise() {
   try { state.config = await readJson(await fetch("/api/v1/public-config")); }
   catch (_error) { showMessage("login-message", "The dashboard is temporarily unavailable. Please refresh shortly.", "error"); return; }
+
+  await loadSocialProviders();
+
   if (redirectPendingFounderInviteCallback()) return;
   if (parseRecoverySession()) return;
+  if (parseOAuthSession()) {
+    try {
+      await hydrateSessionUser();
+      await openDashboard();
+    } catch (_error) {
+      clearSession();
+      showMessage("login-message", "We could not complete social sign in.", "error");
+    }
+    return;
+  }
+
   try {
     const stored = JSON.parse(sessionStorage.getItem(SESSION_KEY));
     if (stored?.access_token) { state.session = stored; await openDashboard(); }
   } catch (_error) { clearSession(); }
 }
+
+byId("login-google").addEventListener("click", () => startOAuth("google"));
+byId("login-apple").addEventListener("click", () => startOAuth("apple"));
 
 byId("login-form").addEventListener("submit", async (event) => {
   event.preventDefault(); setBusy(event.currentTarget, true); showMessage("login-message");
