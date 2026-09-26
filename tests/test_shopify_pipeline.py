@@ -815,7 +815,7 @@ def test_founder_media_ui_uses_dedicated_capture_queue_not_test_publish_candidat
 
     assert '@router.get("/media-assets/intake-queue")' in source
     assert 'id="shopify-media-candidate"' in frontend
-    assert 'apiRequest("/api/v1/shopify/media-assets/intake-queue")' in frontend
+    assert 'apiRequest("/api/v1/shopify/media-assets/intake-queue?approved_only=true")' in frontend
     assert 'byId("shopify-media-candidate")?.selectedOptions?.[0]' in frontend
     assert 'dataset.mediaScope' in frontend
     assert 'copies share this image' in frontend
@@ -891,3 +891,14 @@ def test_media_live_side_uniqueness_is_database_enforced() -> None:
     assert "create unique index" in migration.casefold()
     assert "approval_status <> 'REJECTED'" in migration
     assert "shopify_file_status <> 'FAILED'" in migration
+
+
+def test_shopify_media_queue_can_focus_on_approved_stock() -> None:
+    source = PIPELINE.read_text()
+    frontend = SHOPIFY_SETTINGS.read_text()
+
+    assert "approved_only: bool = Query(default=False)" in source
+    assert "($2::boolean is false or i.status='APPROVED')" in source
+    assert 'queue["approved_only"] = approved_only' in source
+    assert 'intake-queue?approved_only=true' in frontend
+    assert '"approved stock only"' in frontend
