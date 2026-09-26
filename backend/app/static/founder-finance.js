@@ -1,6 +1,13 @@
 "use strict";
 
 const financeMoney = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
+const financeDate = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  timeZone: "Europe/London",
+});
+let financeSalesRange = {preset: "all_time", start: null, end: null};
 
 function formatFinanceMoney(minor) {
   return financeMoney.format(Number(minor || 0) / 100);
@@ -20,6 +27,83 @@ function financeNonnegativeMinorFromInput(value) {
   const amount = Number(text);
   if (!Number.isFinite(amount) || amount < 0) return null;
   return Math.round(amount * 100);
+}
+
+
+function ukTodayIso() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function financeShiftDate(iso, days) {
+  const date = new Date(`${iso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function financeStartOfWeek(iso) {
+  const date = new Date(`${iso}T00:00:00Z`);
+  const day = date.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  return financeShiftDate(iso, mondayOffset);
+}
+
+function financePresetRange(preset) {
+  const today = ukTodayIso();
+  if (preset === "all_time") return {start: null, end: null};
+  if (preset === "today") return {start: today, end: today};
+  if (preset === "yesterday") {
+    const yesterday = financeShiftDate(today, -1);
+    return {start: yesterday, end: yesterday};
+  }
+  if (preset === "last_7") return {start: financeShiftDate(today, -6), end: today};
+  if (preset === "this_week") return {start: financeStartOfWeek(today), end: today};
+  if (preset === "this_month") return {start: `${today.slice(0, 7)}-01`, end: today};
+  if (preset === "this_quarter") {
+    const [year, month] = today.split("-").map(Number);
+    const quarterMonth = Math.floor((month - 1) / 3) * 3 + 1;
+    return {
+      start: `${year}-${String(quarterMonth).padStart(2, "0")}-01`,
+      end: today,
+    };
+  }
+  if (preset === "this_year") return {start: `${today.slice(0, 4)}-01-01`, end: today};
+  return {start: null, end: null};
+}
+
+function financeSalesQuery(range = financeSalesRange) {
+  if (!range.start || !range.end) return "";
+  const params = new URLSearchParams({
+    start_date: range.start,
+    end_date: range.end,
+  });
+  return `&${params.toString()}`;
+}
+
+function financeAnalyticsQuery(range = financeSalesRange) {
+  if (!range.start || !range.end) return "";
+  const params = new URLSearchParams({
+    start_date: range.start,
+    end_date: range.end,
+  });
+  return `?${params.toString()}`;
+}
+
+function financeRangeLabel(data) {
+  const format = (iso) => iso
+    ? financeDate.format(new Date(`${iso}T12:00:00Z`))
+    : null;
+  const start = data.start_date || data.first_sale_date;
+  const end = data.end_date || data.last_sale_date;
+  if (!start || !end) return "No recorded sales yet";
+  if (start === end) return format(start);
+  return `${format(start)} – ${format(end)}`;
 }
 
 function ensureFounderFinanceUI() {
@@ -62,6 +146,51 @@ function ensureFounderFinanceUI() {
       <article class="stat-card"><span>Reserved for payout</span><strong id="finance-reserved">£0.00</strong><small>Requested / approved payouts</small></article>
       <article class="stat-card"><span>Shipping income</span><strong id="finance-shipping-revenue">£0.00</strong><small>Shipping paid by customers</small></article>
     </div>
+
+    <section id="finance-sales-dashboard" class="finance-sales-dashboard">
+      <div class="sales-range-toolbar">
+        <div class="sales-range-title">
+          <p class="eyebrow">Sales performance</p>
+          <h3>Sales overview</h3>
+          <span id="finance-sales-range-label" class="muted">All recorded sales</span>
+        </div>
+        <div class="sales-range-controls">
+          <label>Period
+            <select id="finance-sales-preset">
+              <option value="all_time">All time</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="last_7">Last 7 days</option>
+              <option value="this_week">This week</option>
+              <option value="this_month">This month</option>
+              <option value="this_quarter">This quarter</option>
+              <option value="this_year">This year</option>
+              <option value="custom">Custom dates</option>
+            </select>
+          </label>
+          <div id="finance-sales-custom-range" class="sales-custom-range hidden">
+            <label>From<input id="finance-sales-start" type="date"></label>
+            <label>To<input id="finance-sales-end" type="date"></label>
+            <button id="finance-sales-apply" class="primary-button compact" type="button">Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sales-kpi-grid">
+        <article class="sales-kpi sales-kpi-primary"><span>Total sales</span><strong id="finance-period-sales">£0.00</strong><small>Item revenue after discounts</small></article>
+        <article class="sales-kpi"><span>Net revenue</span><strong id="finance-period-net-revenue">£0.00</strong><small>After refunds, incl. shipping income</small></article>
+        <article class="sales-kpi"><span>Net profit</span><strong id="finance-period-profit">£0.00</strong><small id="finance-period-profit-note">After COGS, fees & fulfilment</small></article>
+        <article class="sales-kpi"><span>Orders</span><strong id="finance-period-orders">0</strong><small id="finance-period-aov">£0.00 average order</small></article>
+        <article class="sales-kpi"><span>Items sold</span><strong id="finance-period-items">0</strong><small>Physical inventory items</small></article>
+      </div>
+
+      <div class="sales-chart-card">
+        <div class="sales-chart-heading">
+          <div><strong>Sales over time</strong><small id="finance-sales-chart-grain">Grouped by month</small></div>
+        </div>
+        <div id="finance-sales-chart" class="sales-chart" aria-label="Sales over time"></div>
+      </div>
+    </section>
 
     <section id="finance-settlement-section" class="finance-settlement-section">
       <div class="page-heading">
@@ -145,6 +274,8 @@ function ensureFounderFinanceUI() {
   document.body.append(dialog);
 
   byId("finance-reconcile-pending").addEventListener("click", reconcilePendingShopifyFees);
+  byId("finance-sales-preset").addEventListener("change", handleFinanceSalesPreset);
+  byId("finance-sales-apply").addEventListener("click", applyFinanceCustomRange);
   byId("finance-refresh").addEventListener("click", loadFounderFinance);
   byId("finance-payout-button").addEventListener("click", () => {
     byId("finance-payout-form").reset();
@@ -155,6 +286,122 @@ function ensureFounderFinanceUI() {
     button.addEventListener("click", () => dialog.close());
   });
   byId("finance-payout-form").addEventListener("submit", submitFounderPayout);
+}
+
+function renderFinanceSalesAnalytics(data) {
+  byId("finance-period-sales").textContent = formatFinanceMoney(data.sales_revenue_minor);
+  byId("finance-period-net-revenue").textContent = formatFinanceMoney(data.net_revenue_minor);
+  byId("finance-period-orders").textContent = Number(data.orders || 0).toLocaleString("en-GB");
+  byId("finance-period-items").textContent = Number(data.sold_items || 0).toLocaleString("en-GB");
+  byId("finance-period-aov").textContent =
+    `${formatFinanceMoney(data.average_order_value_minor)} average order`;
+  byId("finance-sales-range-label").textContent = financeRangeLabel(data);
+
+  const provisionalProfit = formatFinanceMoney(data.net_profit_minor);
+  if (data.net_profit_complete) {
+    byId("finance-period-profit").textContent = provisionalProfit;
+    byId("finance-period-profit-note").textContent = "After COGS, fees & fulfilment";
+  } else {
+    byId("finance-period-profit").textContent = "Pending";
+    byId("finance-period-profit-note").textContent =
+      `Provisional ${provisionalProfit} · ${Number(data.unreconciled_shopify_sales || 0)} sale(s) awaiting costs`;
+  }
+
+  const grainNames = {day: "day", week: "week", month: "month"};
+  byId("finance-sales-chart-grain").textContent =
+    `Grouped by ${grainNames[data.bucket] || data.bucket || "period"}`;
+  renderFinanceSalesChart(data.series || []);
+}
+
+function renderFinanceSalesChart(series) {
+  const chart = byId("finance-sales-chart");
+  if (!chart) return;
+  chart.replaceChildren();
+  if (!series.length) {
+    const empty = document.createElement("div");
+    empty.className = "sales-chart-empty";
+    empty.textContent = "No sales in this period.";
+    chart.append(empty);
+    return;
+  }
+
+  const maxSales = Math.max(...series.map((item) => Math.max(Number(item.sales_revenue_minor || 0), 0)), 1);
+  series.forEach((item) => {
+    const column = document.createElement("div");
+    column.className = "sales-chart-column";
+    const barWrap = document.createElement("div");
+    barWrap.className = "sales-chart-bar-wrap";
+    const bar = document.createElement("div");
+    bar.className = "sales-chart-bar";
+    const amount = Math.max(Number(item.sales_revenue_minor || 0), 0);
+    bar.style.height = `${Math.max((amount / maxSales) * 100, amount ? 5 : 0)}%`;
+    bar.title = [
+      financeRangeLabel({start_date: item.bucket_date, end_date: item.bucket_date}),
+      `Sales ${formatFinanceMoney(item.sales_revenue_minor)}`,
+      `Net revenue ${formatFinanceMoney(item.net_revenue_minor)}`,
+      `Profit ${formatFinanceMoney(item.profit_minor)}`,
+    ].join(" · ");
+    barWrap.append(bar);
+
+    const label = document.createElement("small");
+    const date = new Date(`${item.bucket_date}T12:00:00Z`);
+    label.textContent = date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      timeZone: "Europe/London",
+    });
+    column.append(barWrap, label);
+    chart.append(column);
+  });
+}
+
+function handleFinanceSalesPreset(event) {
+  const preset = event.target.value;
+  const custom = byId("finance-sales-custom-range");
+  custom.classList.toggle("hidden", preset !== "custom");
+  if (preset === "custom") {
+    if (!byId("finance-sales-start").value || !byId("finance-sales-end").value) {
+      const today = ukTodayIso();
+      byId("finance-sales-start").value = financeShiftDate(today, -6);
+      byId("finance-sales-end").value = today;
+    }
+    return;
+  }
+  const range = financePresetRange(preset);
+  financeSalesRange = {preset, ...range};
+  loadFinanceSalesRange();
+}
+
+function applyFinanceCustomRange() {
+  const start = byId("finance-sales-start").value;
+  const end = byId("finance-sales-end").value;
+  if (!start || !end) {
+    showMessage("finance-message", "Choose both a From and To date.", "error");
+    return;
+  }
+  if (end < start) {
+    showMessage("finance-message", "The To date cannot be before the From date.", "error");
+    return;
+  }
+  financeSalesRange = {preset: "custom", start, end};
+  loadFinanceSalesRange();
+}
+
+async function loadFinanceSalesRange() {
+  if (!state.session?.access_token) return;
+  const preset = byId("finance-sales-preset");
+  if (preset && preset.value !== financeSalesRange.preset) preset.value = financeSalesRange.preset;
+  try {
+    const [analytics, sales] = await Promise.all([
+      apiRequest(`/api/v1/finance/sales-analytics${financeAnalyticsQuery()}`),
+      apiRequest(`/api/v1/finance/sales?limit=100&offset=0${financeSalesQuery()}`),
+    ]);
+    renderFinanceSalesAnalytics(analytics);
+    renderFinanceSales(sales.items || []);
+    showMessage("finance-message");
+  } catch (error) {
+    showMessage("finance-message", error.message, "error");
+  }
 }
 
 function renderFinanceSummary(summary) {
@@ -504,13 +751,15 @@ async function loadFounderFinance() {
   if (!state.session?.access_token) return;
   showMessage("finance-message", "Loading finance…");
   try {
-    const [summary, sales, settlements, payouts] = await Promise.all([
+    const [summary, analytics, sales, settlements, payouts] = await Promise.all([
       apiRequest("/api/v1/finance/summary"),
-      apiRequest("/api/v1/finance/sales?limit=25&offset=0"),
+      apiRequest(`/api/v1/finance/sales-analytics${financeAnalyticsQuery()}`),
+      apiRequest(`/api/v1/finance/sales?limit=100&offset=0${financeSalesQuery()}`),
       apiRequest("/api/v1/finance/settlements?limit=50&offset=0"),
       apiRequest("/api/v1/finance/payouts"),
     ]);
     renderFinanceSummary(summary);
+    renderFinanceSalesAnalytics(analytics);
     renderFinanceSales(sales.items || []);
     renderFinanceSettlements(settlements.items || []);
     renderFinancePayouts(payouts.items || []);
