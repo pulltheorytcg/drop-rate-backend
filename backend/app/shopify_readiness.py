@@ -112,7 +112,7 @@ async def shopify_local_readiness(
                 i.id,i.catalogue_id,i.owner_id,i.inventory_code,i.version,i.status,
                 i.identity_confirmed,i.acquisition_cost_minor,i.store_price_minor,
                 i.storage_location_id,i.language,i.condition,i.seal_status,
-                i.grading_company,i.grade,
+                i.grading_company,i.grade,i.condition_review_status,
                 p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,
                 p.rarity,p.language as catalogue_language,
                 sl.id as registered_location_id,
@@ -133,7 +133,7 @@ async def shopify_local_readiness(
         )
         media_rows = await connection.fetch(
             """
-            select catalogue_id,inventory_id,scope,side,
+            select catalogue_id,inventory_id,scope,side,capture_context,
                    approval_status,rights_status,shopify_file_status
             from tcg.media_assets
             where owner_id=$1
