@@ -22,7 +22,8 @@ def test_financial_sandbox_script_has_rollback_and_core_money_assertions() -> No
 
     assert "await transaction.rollback()" in source
     assert "sale_price_minor, discount_minor" in source
-    assert "values($1, $2, $3, 10000, 0, 10000, 0" in source
+    assert "net_sale_minor, cost_basis_minor" not in source
+    assert "values($1, $2, $3, 10000, 0, 0" in source
     assert '_expect(int(item["commission_minor"]), 1000' in source
     assert '_expect(sale["balance_minor"], 9000' in source
     assert '_expect(partial_refund["balance_minor"], 4500' in source
