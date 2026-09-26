@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field, field_validator
 
+from .access_control import require_platform_admin
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 
@@ -76,6 +77,7 @@ async def create_founder_invite(
         user.user_id,
         request.state.request_id,
     ) as connection:
+        await require_platform_admin(connection)
         row = await connection.fetchrow(
             """
             select *
