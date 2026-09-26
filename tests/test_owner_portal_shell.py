@@ -67,11 +67,44 @@ def test_owner_portal_has_no_privileged_control_plane_calls() -> None:
         assert path not in js
 
 
-def test_owner_portal_is_access_only_until_owner_safe_contracts_are_verified() -> None:
+def test_owner_portal_uses_only_dedicated_owner_safe_read_contracts() -> None:
     html = HTML.read_text()
     js = JS.read_text()
 
-    assert "Portal foundation" in html
-    assert "owner-safe API contracts pass isolation tests" in html
+    assert "Your inventory" in html
+    assert "/api/v1/owner/overview" in js
+    assert "/api/v1/owner/inventory" in js
     assert "/api/v1/inventory" not in js
     assert "/api/v1/finance/" not in js
+
+    assert 'apiRequest("/api/v1/owner/overview")' in js
+    assert 'apiRequest(`/api/v1/owner/inventory?${params.toString()}`)' in js
+    assert '/api/v1/owner/overview", {' not in js
+    assert '/api/v1/owner/inventory?", {' not in js
+
+
+def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None:
+    html = HTML.read_text()
+
+    for label in (
+        "Acquisition cost",
+        "Storage location",
+        "Purchase lot",
+        "Internal notes",
+        "Shopify Product ID",
+        "eBay",
+        'type="button">Approve',
+        'type="button">Edit cost',
+        'type="button">Reassign owner',
+    ):
+        assert label not in html
+
+    for required in (
+        "Total inventory",
+        "Active market value",
+        "Active store value",
+        "Sold",
+        "Market value",
+        "Store price",
+    ):
+        assert required in html

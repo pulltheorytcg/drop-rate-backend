@@ -74,33 +74,83 @@
 
         <div class="stats-grid">
           <article class="stat-card stat-accent">
-            <span>Access</span>
-            <strong>OWNER</strong>
-            <small>Restricted portal</small>
+            <span>Total inventory</span>
+            <strong id="owner-total-inventory">—</strong>
+            <small>Your linked physical items</small>
           </article>
           <article class="stat-card">
-            <span>Owner type</span>
-            <strong id="owner-portal-type">—</strong>
-            <small>Your linked ownership profile</small>
+            <span>Active market value</span>
+            <strong id="owner-market-value">—</strong>
+            <small>Current owner-scoped valuation</small>
           </article>
           <article class="stat-card">
-            <span>Security scope</span>
-            <strong>YOUR DATA</strong>
-            <small>Cross-owner access denied</small>
+            <span>Active store value</span>
+            <strong id="owner-store-value">—</strong>
+            <small>Current owner-scoped store pricing</small>
+          </article>
+          <article class="stat-card">
+            <span>Sold</span>
+            <strong id="owner-sold-count">—</strong>
+            <small>Items sold through Drop Rate</small>
           </article>
         </div>
 
         <section class="inventory-panel">
           <div class="page-heading" style="padding:22px 22px 0">
             <div>
-              <p class="eyebrow">Access boundary verified</p>
-              <h2>Portal foundation</h2>
-              <p class="muted">
-                Inventory, sales, balance and payout modules will be enabled here only after their owner-safe API contracts pass isolation tests.
-              </p>
+              <p class="eyebrow">Your inventory</p>
+              <h2>Cards linked to your account</h2>
+              <p class="muted">Read-only owner view. Internal cost, storage and operational fields are intentionally excluded.</p>
             </div>
           </div>
+
+          <div class="toolbar" style="padding:0 22px 18px">
+            <label>
+              Search
+              <input id="owner-inventory-search" type="search" placeholder="Card, set, number or inventory ID">
+            </label>
+            <label>
+              Status
+              <select id="owner-inventory-status">
+                <option value="">All statuses</option>
+                <option value="DRAFT">Draft</option>
+                <option value="INSPECTION">Inspection</option>
+                <option value="APPROVED">Approved</option>
+                <option value="RESERVED">Reserved</option>
+                <option value="SOLD">Sold</option>
+                <option value="WITHDRAWN">Withdrawn</option>
+              </select>
+            </label>
+            <button id="owner-inventory-refresh" class="ghost-button" type="button">Refresh</button>
+          </div>
+
           <div id="owner-portal-message" class="message panel-message" role="status"></div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Inventory</th>
+                  <th>Card</th>
+                  <th>Game / Set</th>
+                  <th>Language</th>
+                  <th>Condition / Grade</th>
+                  <th>Status</th>
+                  <th>Market value</th>
+                  <th>Store price</th>
+                </tr>
+              </thead>
+              <tbody id="owner-inventory-body">
+                <tr><td colspan="8" class="muted">Sign in to load your inventory.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination">
+            <button id="owner-inventory-prev" class="ghost-button" type="button">Previous</button>
+            <span id="owner-inventory-page" class="muted">—</span>
+            <button id="owner-inventory-next" class="ghost-button" type="button">Next</button>
+          </div>
         </section>
       </div>
     </section>
