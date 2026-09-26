@@ -19,6 +19,7 @@ JS_ASSETS = (
     "dashboard-shell.js",
     "identity-review.js",
     "shopify-settings.js",
+    "media-condition.js",
 )
 
 
@@ -74,7 +75,7 @@ def test_manual_intake_only_requires_new_identity_fields_in_new_identity_mode() 
 
 def test_dashboard_shell_has_expected_seller_views() -> None:
     js = (STATIC / "dashboard-shell.js").read_text()
-    for view in ("dashboard", "inventory", "verification", "sales", "reports", "balance", "settings"):
+    for view in ("dashboard", "inventory", "verification", "media", "sales", "reports", "balance", "settings"):
         assert f'["{view}",' in js
     assert 'apiRequest("/api/v1/market/status")' in js
     assert 'apiRequest("/api/v1/pricing/inventory?limit=8&offset=0")' in js
