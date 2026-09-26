@@ -91,3 +91,32 @@ The first portal slice is access-only:
 Business-data modules are added only after their owner-safe API contracts and cross-owner
 isolation tests are complete.
 
+## Owner-safe read API contract
+
+The first owner business-data contract is exposed separately under `/api/v1/owner`.
+
+Current read-only endpoints:
+
+- `GET /api/v1/owner/overview`
+- `GET /api/v1/owner/inventory`
+
+These endpoints require the explicit `OWNER` / `OWNER_PORTAL` guard. PLATFORM_ADMIN does not
+silently pass the owner-portal guard; admin users remain in Founder HQ.
+
+The owner inventory response uses an explicit field allowlist. It intentionally excludes:
+
+- acquisition cost and acquisition date
+- internal notes
+- storage/bin locations
+- purchase-lot data
+- internal optimistic-lock versions
+- Shopify/eBay provider IDs and error metadata
+- identity-review internals
+- audit/admin fields
+
+Both SQL queries include the authenticated membership's owner ID even though RLS already applies,
+providing defence in depth.
+
+Multiple simultaneous active owner memberships fail closed with administrator review instead of
+silently selecting one owner context.
+
