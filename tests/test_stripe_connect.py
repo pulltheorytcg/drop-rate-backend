@@ -96,6 +96,7 @@ def test_connect_client_uses_accounts_v2_recipient_for_payout_only_accounts() ->
     assert '"recipient"' in source
     assert '"stripe_transfers"' in source
     assert '"requested": True' in source
+    assert '"contact_email": safe_email' in source
     assert '"dashboard": "express"' in source
     assert '"fees_collector": "application"' in source
     assert '"losses_collector": "application"' in source
@@ -191,3 +192,10 @@ def test_new_connect_account_is_v2_created_then_v1_read_back_for_readiness() -> 
     snapshot = block.index("snapshot = _account_snapshot(account)")
     assert create < readback < snapshot
     assert 'display_name=str(owner["display_name"])' in block
+    assert "contact_email=user.email" in block
+    assert "Authenticated account email is required for Stripe onboarding" in block
+
+
+def test_sandbox_recipient_uses_nonproduction_contact_email() -> None:
+    source = SELFTEST_SOURCE.read_text()
+    assert 'contact_email="sandbox-consignor@example.com"' in source

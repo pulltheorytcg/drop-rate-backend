@@ -172,6 +172,7 @@ class StripeConnectClient:
         country: str,
         owner_id: str,
         display_name: str,
+        contact_email: str,
     ) -> dict[str, Any]:
         """Create a payout-only Accounts v2 recipient with Express Dashboard access."""
 
@@ -181,11 +182,15 @@ class StripeConnectClient:
         safe_name = display_name.strip()
         if not safe_name:
             raise ValueError("Stripe connected account display name is required")
+        safe_email = contact_email.strip()
+        if "@" not in safe_email or len(safe_email) > 320:
+            raise ValueError("Stripe connected account contact email is invalid")
 
         return await self._request_v2(
             "POST",
             "/accounts",
             json_body={
+                "contact_email": safe_email,
                 "display_name": safe_name,
                 "dashboard": "express",
                 "identity": {

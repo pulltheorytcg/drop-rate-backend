@@ -19,6 +19,7 @@ _bearer = HTTPBearer(auto_error=False)
 class AuthenticatedUser:
     user_id: UUID
     session_id: str | None
+    email: str | None = None
 
 
 @lru_cache(maxsize=1)
@@ -62,7 +63,10 @@ def require_user(
             detail="Invalid or expired access token",
         ) from exc
 
+    email_claim = claims.get("email")
+    email = str(email_claim).strip() if email_claim else None
     return AuthenticatedUser(
         user_id=user_id,
         session_id=claims.get("session_id"),
+        email=email,
     )

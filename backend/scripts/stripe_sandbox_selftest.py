@@ -50,6 +50,7 @@ async def _run() -> None:
             country=settings.stripe_connect_country,
             owner_id=owner_marker,
             display_name="Drop Rate Sandbox Consignor",
+            contact_email="sandbox-consignor@example.com",
         )
         account_id = str(created.get("id") or "").strip()
         if not account_id.startswith("acct_"):
