@@ -105,6 +105,9 @@ class Settings:
     ebay_deletion_verification_token: str | None = None
     ebay_deletion_endpoint: str | None = None
     ebay_user_refresh_token: str | None = None
+    ebay_runame: str | None = None
+    ebay_oauth_callback_endpoint: str | None = None
+    ebay_oauth_encryption_key: str | None = None
     ebay_payment_policy_id: str | None = None
     ebay_return_policy_id: str | None = None
     ebay_fulfillment_policy_id: str | None = None
@@ -151,6 +154,9 @@ class Settings:
             ebay_deletion_verification_token=_optional("TCG_EBAY_DELETION_VERIFICATION_TOKEN"),
             ebay_deletion_endpoint=_optional("TCG_EBAY_DELETION_ENDPOINT"),
             ebay_user_refresh_token=_optional("TCG_EBAY_USER_REFRESH_TOKEN"),
+            ebay_runame=_optional("TCG_EBAY_RUNAME"),
+            ebay_oauth_callback_endpoint=_https_endpoint("TCG_EBAY_OAUTH_CALLBACK_ENDPOINT"),
+            ebay_oauth_encryption_key=_optional("TCG_EBAY_OAUTH_ENCRYPTION_KEY"),
             ebay_payment_policy_id=_optional("TCG_EBAY_PAYMENT_POLICY_ID"),
             ebay_return_policy_id=_optional("TCG_EBAY_RETURN_POLICY_ID"),
             ebay_fulfillment_policy_id=_optional("TCG_EBAY_FULFILLMENT_POLICY_ID"),
