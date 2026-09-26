@@ -33,6 +33,7 @@ from .settings import Settings, get_settings
 router = APIRouter(prefix="/api/v1/ebay/oauth", tags=["ebay-oauth"])
 AUTHORIZE_URL = "https://auth.ebay.com/oauth2/authorize"
 STATE_TTL_MINUTES = 10
+SELLING_POLICY_MANAGEMENT = "SELLING_POLICY_MANAGEMENT"
 
 
 class SellerConfigSelection(BaseModel):
@@ -85,31 +86,85 @@ def _location_key(row: dict[str, Any]) -> str:
     return str(row.get("merchantLocationKey") or "").strip()
 
 
-async def _discover_seller_options(client: EbaySellClient) -> dict[str, list[dict[str, Any]]]:
-    payments, fulfillment, returns, locations = await asyncio.gather(
-        client.get_payment_policies(),
-        client.get_fulfillment_policies(),
-        client.get_return_policies(),
-        client.get_inventory_locations(),
+def _program_type(row: dict[str, Any]) -> str:
+    return str(row.get("programType") or row.get("programTypeEnum") or "").strip()
+
+
+async def _ensure_selling_policy_management(client: EbaySellClient) -> bool:
+    """Ensure Inventory API business policies are enabled for this seller."""
+
+    programs = await client.get_opted_in_programs()
+    if any(_program_type(row) == SELLING_POLICY_MANAGEMENT for row in programs):
+        return False
+    await client.opt_in_to_program(SELLING_POLICY_MANAGEMENT)
+    programs = await client.get_opted_in_programs()
+    if not any(_program_type(row) == SELLING_POLICY_MANAGEMENT for row in programs):
+        raise EbaySellApiError(
+            "eBay did not confirm Selling Policy Management opt-in"
+        )
+    return True
+
+
+async def _capture_option_call(
+    label: str,
+    call: Any,
+) -> tuple[str, list[dict[str, Any]], str | None]:
+    try:
+        rows = await call
+    except (EbaySellApiError, RuntimeError, ValueError) as exc:
+        status = getattr(exc, "status_code", None)
+        code = f"{label.upper()}_HTTP_{status}" if status else f"{label.upper()}_ERROR"
+        return label, [], code
+    return label, rows, None
+
+
+async def _discover_seller_options(client: EbaySellClient) -> dict[str, Any]:
+    errors: dict[str, str] = {}
+    opted_in = False
+    try:
+        opted_in = await _ensure_selling_policy_management(client)
+    except (EbaySellApiError, RuntimeError, ValueError) as exc:
+        status = getattr(exc, "status_code", None)
+        errors["selling_policy_management"] = (
+            f"SELLING_POLICY_MANAGEMENT_HTTP_{status}"
+            if status else "SELLING_POLICY_MANAGEMENT_ERROR"
+        )
+
+    results = await asyncio.gather(
+        _capture_option_call("payment", client.get_payment_policies()),
+        _capture_option_call("fulfillment", client.get_fulfillment_policies()),
+        _capture_option_call("return", client.get_return_policies()),
+        _capture_option_call("locations", client.get_inventory_locations()),
     )
+    discovered: dict[str, list[dict[str, Any]]] = {
+        "payment": [],
+        "fulfillment": [],
+        "return": [],
+        "locations": [],
+    }
+    for label, rows, error_code in results:
+        discovered[label] = rows
+        if error_code:
+            errors[label] = error_code
+
     payments = [
-        row for row in payments
+        row for row in discovered["payment"]
         if row.get("marketplaceId") in {None, client.marketplace_id}
         and row.get("immediatePay") is True
         and _policy_id(row, "paymentPolicyId")
     ]
     fulfillment = [
-        row for row in fulfillment
+        row for row in discovered["fulfillment"]
         if row.get("marketplaceId") in {None, client.marketplace_id}
         and _policy_id(row, "fulfillmentPolicyId")
     ]
     returns = [
-        row for row in returns
+        row for row in discovered["return"]
         if row.get("marketplaceId") in {None, client.marketplace_id}
         and _policy_id(row, "returnPolicyId")
     ]
     locations = [
-        row for row in locations
+        row for row in discovered["locations"]
         if _location_key(row) and _normalise_location_status(row) == "ENABLED"
     ]
     return {
@@ -117,6 +172,8 @@ async def _discover_seller_options(client: EbaySellClient) -> dict[str, list[dic
         "fulfillment": fulfillment,
         "return": returns,
         "locations": locations,
+        "errors": errors,
+        "selling_policy_management_opted_in_now": opted_in,
     }
 
 
@@ -146,6 +203,65 @@ def _sanitise_location(row: dict[str, Any]) -> dict[str, Any]:
         "postal_code": address.get("postalCode") if isinstance(address, dict) else None,
         "country": address.get("country") if isinstance(address, dict) else None,
     }
+
+
+async def _persist_seller_connection(
+    pool: Any,
+    *,
+    attempt: Any,
+    settings: Settings,
+    encrypted_refresh_token: str,
+    scopes: list[str],
+    status: str,
+    payment_policy_id: str | None = None,
+    fulfillment_policy_id: str | None = None,
+    return_policy_id: str | None = None,
+    merchant_location_key: str | None = None,
+    last_error_code: str | None = None,
+) -> None:
+    async with pool.acquire() as connection:
+        await connection.execute(
+            "select set_config('tcg.user_id',$1,true)",
+            str(attempt["user_id"]),
+        )
+        await connection.execute(
+            "select set_config('tcg.request_id',$1,true)",
+            f"ebay-oauth:{attempt['id']}",
+        )
+        await connection.execute(
+            """
+            insert into tcg.ebay_seller_connections(
+                owner_id,created_by_user_id,marketplace_id,
+                refresh_token_ciphertext,granted_scopes,status,
+                payment_policy_id,fulfillment_policy_id,return_policy_id,
+                merchant_location_key,last_verified_at,last_error_code
+            ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,clock_timestamp(),$11)
+            on conflict (owner_id) do update
+            set refresh_token_ciphertext=excluded.refresh_token_ciphertext,
+                granted_scopes=excluded.granted_scopes,
+                status=excluded.status,
+                payment_policy_id=excluded.payment_policy_id,
+                fulfillment_policy_id=excluded.fulfillment_policy_id,
+                return_policy_id=excluded.return_policy_id,
+                merchant_location_key=excluded.merchant_location_key,
+                last_verified_at=clock_timestamp(),
+                last_error_code=excluded.last_error_code,
+                connected_at=clock_timestamp(),
+                version=tcg.ebay_seller_connections.version+1,
+                updated_at=clock_timestamp()
+            """,
+            attempt["owner_id"],
+            attempt["user_id"],
+            settings.ebay_marketplace_id,
+            encrypted_refresh_token,
+            scopes,
+            status,
+            payment_policy_id,
+            fulfillment_policy_id,
+            return_policy_id,
+            merchant_location_key,
+            last_error_code,
+        )
 
 
 @router.get("/status")
@@ -306,51 +422,6 @@ async def ebay_oauth_callback(
                 "The eBay seller consent did not include every required scope"
             )
         encrypted = encrypt_refresh_token(settings, refresh_token)
-        options = await _discover_seller_options(seller)
-
-        payment_id = _single_option(options["payment"], "paymentPolicyId")
-        fulfillment_id = _single_option(options["fulfillment"], "fulfillmentPolicyId")
-        return_id = _single_option(options["return"], "returnPolicyId")
-        location_key = _single_option(options["locations"], "merchantLocationKey")
-        ready_config = all((payment_id, fulfillment_id, return_id, location_key))
-        status = "CONNECTED" if ready_config else "ACTION_REQUIRED"
-        last_error = None if ready_config else "SELLER_CONFIGURATION_SELECTION_REQUIRED"
-
-        async with request.app.state.db_pool.acquire() as connection:
-            await connection.execute(
-                "select set_config('tcg.user_id',$1,true)",
-                str(attempt["user_id"]),
-            )
-            await connection.execute(
-                "select set_config('tcg.request_id',$1,true)",
-                f"ebay-oauth:{attempt['id']}",
-            )
-            await connection.execute(
-                """
-                insert into tcg.ebay_seller_connections(
-                    owner_id,created_by_user_id,marketplace_id,
-                    refresh_token_ciphertext,granted_scopes,status,
-                    payment_policy_id,fulfillment_policy_id,return_policy_id,
-                    merchant_location_key,last_verified_at,last_error_code
-                ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,clock_timestamp(),$11)
-                on conflict (owner_id) do update
-                set refresh_token_ciphertext=excluded.refresh_token_ciphertext,
-                    granted_scopes=excluded.granted_scopes,
-                    status=excluded.status,
-                    payment_policy_id=excluded.payment_policy_id,
-                    fulfillment_policy_id=excluded.fulfillment_policy_id,
-                    return_policy_id=excluded.return_policy_id,
-                    merchant_location_key=excluded.merchant_location_key,
-                    last_verified_at=clock_timestamp(),
-                    last_error_code=excluded.last_error_code,
-                    connected_at=clock_timestamp(),
-                    version=tcg.ebay_seller_connections.version+1,
-                    updated_at=clock_timestamp()
-                """,
-                attempt["owner_id"], attempt["user_id"], settings.ebay_marketplace_id,
-                encrypted, scopes, status, payment_id, fulfillment_id,
-                return_id, location_key, last_error,
-            )
     except (EbaySellApiError, RuntimeError, ValueError) as exc:
         return _safe_html(
             "eBay connection could not be verified",
@@ -358,10 +429,62 @@ async def ebay_oauth_callback(
             ok=False,
         )
 
+    # Consent succeeded. Persist the encrypted long-lived grant before any
+    # optional seller-account discovery so a downstream policy/location error
+    # never throws away a valid seller connection.
+    await _persist_seller_connection(
+        request.app.state.db_pool,
+        attempt=attempt,
+        settings=settings,
+        encrypted_refresh_token=encrypted,
+        scopes=scopes,
+        status="CONNECTED",
+    )
+
+    options = await _discover_seller_options(seller)
+    payment_id = _single_option(options["payment"], "paymentPolicyId")
+    fulfillment_id = _single_option(options["fulfillment"], "fulfillmentPolicyId")
+    return_id = _single_option(options["return"], "returnPolicyId")
+    location_key = _single_option(options["locations"], "merchantLocationKey")
+    discovery_errors = dict(options.get("errors") or {})
+    ready_config = (
+        not discovery_errors
+        and all((payment_id, fulfillment_id, return_id, location_key))
+    )
+    if ready_config:
+        status = "CONNECTED"
+        last_error = None
+    elif discovery_errors:
+        status = "ACTION_REQUIRED"
+        last_error = "SELLER_CONFIGURATION_DISCOVERY_INCOMPLETE"
+    else:
+        status = "ACTION_REQUIRED"
+        last_error = "SELLER_CONFIGURATION_SELECTION_REQUIRED"
+
+    await _persist_seller_connection(
+        request.app.state.db_pool,
+        attempt=attempt,
+        settings=settings,
+        encrypted_refresh_token=encrypted,
+        scopes=scopes,
+        status=status,
+        payment_policy_id=payment_id,
+        fulfillment_policy_id=fulfillment_id,
+        return_policy_id=return_id,
+        merchant_location_key=location_key,
+        last_error_code=last_error,
+    )
+
     if ready_config:
         message = (
             "Your seller account is connected. Drop Rate also found one compatible "
             "payment, fulfilment and return policy plus one enabled inventory location."
+        )
+    elif discovery_errors:
+        message = (
+            "Your seller account is securely connected. eBay accepted the seller grant, "
+            "but one or more seller-policy or inventory-location checks still need "
+            "attention in Founder HQ before publishing."
         )
     else:
         message = (
@@ -410,6 +533,10 @@ async def ebay_seller_options(
             _sanitise_policy(row, "returnPolicyId") for row in options["return"]
         ],
         "locations": [_sanitise_location(row) for row in options["locations"]],
+        "errors": dict(options.get("errors") or {}),
+        "selling_policy_management_opted_in_now": bool(
+            options.get("selling_policy_management_opted_in_now")
+        ),
     }
 
 
@@ -434,6 +561,16 @@ async def save_ebay_seller_configuration(
             status_code=409,
             detail=str(getattr(exc, "detail", str(exc))),
         ) from exc
+
+    discovery_errors = dict(options.get("errors") or {})
+    if discovery_errors:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "eBay seller configuration is still incomplete",
+                "errors": discovery_errors,
+            },
+        )
 
     valid_payment = {
         _policy_id(row, "paymentPolicyId") for row in options["payment"]
