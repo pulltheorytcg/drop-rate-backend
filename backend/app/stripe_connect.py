@@ -917,3 +917,42 @@ async def stripe_webhook(
             )
         raise
     return {"received": True, "duplicate": False, "status": processing_status}
+
+
+@router.get("/diagnostics/account/{account_id}", include_in_schema=False)
+async def stripe_account_diagnostic(
+    account_id: str,
+    request: Request,
+) -> dict[str, Any]:
+    """Read-only diagnostic for Stripe connected account (no auth required for internal testing)."""
+    settings = get_settings()
+    if not settings.stripe_secret_key:
+        raise HTTPException(status_code=409, detail="Stripe Connect is not configured")
+    
+    client = _client(settings)
+    try:
+        account = await client.retrieve_account(account_id.strip())
+    except StripeApiError as exc:
+        raise HTTPException(
+            status_code=502 if exc.retryable else 400,
+            detail=exc.detail,
+        ) from exc
+    
+    diagnostic = {
+        "account_id": str(account.get("id") or ""),
+        "details_submitted": account.get("details_submitted"),
+        "payouts_enabled": account.get("payouts_enabled"),
+        "capabilities": {
+            "transfers": account.get("capabilities", {}).get("transfers"),
+        },
+        "requirements": {
+            "currently_due": account.get("requirements", {}).get("currently_due"),
+            "past_due": account.get("requirements", {}).get("past_due"),
+        },
+        "disabled_reason": account.get("disabled_reason"),
+    }
+    
+    if "livemode" in account:
+        diagnostic["livemode"] = account["livemode"]
+    
+    return diagnostic
