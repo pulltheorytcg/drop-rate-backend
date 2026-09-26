@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
 
-from app.ebay_oauth import AUTHORIZE_URL, _oauth_missing
-from app.ebay_sell_client import REQUIRED_SELLER_SCOPES
+from app.ebay_oauth import (
+    AUTHORIZE_URL,
+    SELLING_POLICY_MANAGEMENT,
+    _discover_seller_options,
+    _oauth_missing,
+)
+from app.ebay_sell_client import REQUIRED_SELLER_SCOPES, EbaySellApiError
 from app.ebay_seller_connection import decrypt_refresh_token, encrypt_refresh_token
 from app.settings import Settings
 
@@ -135,3 +141,93 @@ def test_connection_auto_selects_only_unambiguous_policy_and_location() -> None:
     assert "SELLER_CONFIGURATION_SELECTION_REQUIRED" in source
     assert "row.get(\"immediatePay\") is True" in source
     assert "_normalise_location_status(row) == \"ENABLED\"" in source
+
+
+class _FakeSellerClient:
+    marketplace_id = "EBAY_GB"
+
+    def __init__(self, *, opted_in: bool = False, fail_payment: bool = False) -> None:
+        self.opted_in = opted_in
+        self.fail_payment = fail_payment
+        self.opt_in_calls: list[str] = []
+
+    async def get_opted_in_programs(self):
+        return (
+            [{"programType": SELLING_POLICY_MANAGEMENT}]
+            if self.opted_in else []
+        )
+
+    async def opt_in_to_program(self, program_type: str):
+        self.opt_in_calls.append(program_type)
+        self.opted_in = True
+
+    async def get_payment_policies(self):
+        if self.fail_payment:
+            raise EbaySellApiError(
+                "payment policies unavailable",
+                status_code=409,
+            )
+        return [{
+            "paymentPolicyId": "pay-1",
+            "marketplaceId": "EBAY_GB",
+            "immediatePay": True,
+            "name": "Immediate payment",
+        }]
+
+    async def get_fulfillment_policies(self):
+        return [{
+            "fulfillmentPolicyId": "ship-1",
+            "marketplaceId": "EBAY_GB",
+            "name": "UK tracked",
+        }]
+
+    async def get_return_policies(self):
+        return [{
+            "returnPolicyId": "return-1",
+            "marketplaceId": "EBAY_GB",
+            "name": "UK returns",
+        }]
+
+    async def get_inventory_locations(self):
+        return [{
+            "merchantLocationKey": "drop-rate-london",
+            "merchantLocationStatus": "ENABLED",
+            "name": "Drop Rate",
+        }]
+
+
+def test_seller_discovery_opts_into_business_policies_before_reading_policies() -> None:
+    client = _FakeSellerClient(opted_in=False)
+    result = asyncio.run(_discover_seller_options(client))
+    assert client.opt_in_calls == [SELLING_POLICY_MANAGEMENT]
+    assert result["selling_policy_management_opted_in_now"] is True
+    assert result["errors"] == {}
+    assert result["payment"][0]["paymentPolicyId"] == "pay-1"
+
+
+def test_seller_discovery_keeps_other_components_when_one_provider_call_fails() -> None:
+    client = _FakeSellerClient(opted_in=True, fail_payment=True)
+    result = asyncio.run(_discover_seller_options(client))
+    assert result["payment"] == []
+    assert result["fulfillment"][0]["fulfillmentPolicyId"] == "ship-1"
+    assert result["return"][0]["returnPolicyId"] == "return-1"
+    assert result["locations"][0]["merchantLocationKey"] == "drop-rate-london"
+    assert result["errors"]["payment"] == "PAYMENT_HTTP_409"
+
+
+def test_callback_persists_encrypted_grant_before_optional_discovery() -> None:
+    source = OAUTH_SOURCE.read_text()
+    callback_start = source.index("async def ebay_oauth_callback(")
+    block = source[callback_start:]
+    first_persist = block.index("await _persist_seller_connection(")
+    discovery = block.index("options = await _discover_seller_options(seller)")
+    assert first_persist < discovery
+    assert 'status="CONNECTED"' in block[first_persist:discovery]
+    assert "SELLER_CONFIGURATION_DISCOVERY_INCOMPLETE" in block
+
+
+def test_client_supports_official_selling_policy_management_program_endpoints() -> None:
+    source = CLIENT_SOURCE.read_text()
+    assert "/sell/account/v1/program/get_opted_in_programs" in source
+    assert "/sell/account/v1/program/opt_in" in source
+    assert '"programType": value' in source
