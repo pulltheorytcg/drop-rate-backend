@@ -373,11 +373,30 @@ class EbaySellClient:
             expected={201},
         )
         destination_id = str((response or {}).get("destinationId") or "").strip()
-        if not destination_id:
-            raise EbaySellApiError(
-                "eBay notification destination response is missing destinationId"
-            )
-        return destination_id
+        if destination_id:
+            return destination_id
+
+        # eBay REST create calls can return 201 with no JSON body and identify
+        # the created resource via Location. Our shared request helper
+        # deliberately does not expose raw headers, so reconcile the new
+        # destination through the official collection endpoint instead of
+        # treating a successful 201 as failure.
+        for attempt in range(4):
+            destinations = await self.get_notification_destinations()
+            for row in destinations:
+                delivery = row.get("deliveryConfig")
+                if not isinstance(delivery, dict):
+                    continue
+                if str(delivery.get("endpoint") or "").strip() != endpoint.strip():
+                    continue
+                destination_id = str(row.get("destinationId") or "").strip()
+                if destination_id:
+                    return destination_id
+            if attempt < 3:
+                await asyncio.sleep(0.25 * (attempt + 1))
+        raise EbaySellApiError(
+            "eBay created the notification destination but it could not be reconciled"
+        )
 
     async def update_notification_destination(
         self,
@@ -446,11 +465,24 @@ class EbaySellClient:
             expected={201},
         )
         subscription_id = str((response or {}).get("subscriptionId") or "").strip()
-        if not subscription_id:
-            raise EbaySellApiError(
-                "eBay notification subscription response is missing subscriptionId"
-            )
-        return subscription_id
+        if subscription_id:
+            return subscription_id
+
+        for attempt in range(4):
+            subscriptions = await self.get_notification_subscriptions()
+            for row in subscriptions:
+                if str(row.get("topicId") or "").strip() != topic_id.strip():
+                    continue
+                if str(row.get("destinationId") or "").strip() != destination_id.strip():
+                    continue
+                subscription_id = str(row.get("subscriptionId") or "").strip()
+                if subscription_id:
+                    return subscription_id
+            if attempt < 3:
+                await asyncio.sleep(0.25 * (attempt + 1))
+        raise EbaySellApiError(
+            "eBay created the notification subscription but it could not be reconciled"
+        )
 
     async def enable_notification_subscription(self, subscription_id: str) -> None:
         await self._request(
