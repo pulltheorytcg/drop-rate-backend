@@ -71,6 +71,19 @@ class PayoutCancel(BaseModel):
     version: int = Field(ge=1)
 
 
+class EbayFeeReconcile(BaseModel):
+    amount_minor: int = Field(ge=0)
+    reference: str = Field(min_length=1, max_length=96)
+    notes: str = Field(default="", max_length=1000)
+    occurred_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def normalise(self) -> "EbayFeeReconcile":
+        self.reference = self.reference.strip()
+        self.notes = self.notes.strip()
+        return self
+
+
 class ShopifyPostageReconcile(BaseModel):
     amount_minor: int = Field(ge=0)
     reference: str = Field(min_length=1, max_length=96)
@@ -1391,6 +1404,131 @@ async def reconcile_pending_shopify_fees(
     })
 
 
+@router.post("/finance/ebay/orders/{order_id}/fees")
+async def reconcile_ebay_fees(
+    order_id: UUID,
+    payload: EbayFeeReconcile,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    occurred_at = payload.occurred_at or datetime.now(timezone.utc)
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _owner(connection)
+        await connection.execute(
+            "select pg_advisory_xact_lock(hashtext($1::text))",
+            order_id,
+        )
+        rows = await connection.fetch(
+            """
+            select
+              o.source,o.order_number,
+              oi.id as order_item_id,oi.net_sale_minor,
+              rec.fees_reconciled_at,rec.fees_source
+            from tcg.orders o
+            join tcg.order_items oi on oi.order_id=o.id
+            left join tcg.order_item_reconciliations rec
+              on rec.order_item_id=oi.id
+            where o.id=$1 and oi.owner_id=$2
+            order by oi.id
+            for update of oi
+            """,
+            order_id, owner["id"],
+        )
+        if not rows:
+            raise HTTPException(status_code=404, detail="Order not found")
+        if rows[0]["source"] != "EBAY":
+            raise HTTPException(
+                status_code=422,
+                detail="Manual eBay fee reconciliation is only available for eBay orders",
+            )
+
+        reconciliation_source = (
+            f"MANUAL_EBAY_FEES:{payload.reference}:AMOUNT:{payload.amount_minor}"
+        )
+        reconciled = [row for row in rows if row["fees_reconciled_at"] is not None]
+        if reconciled:
+            if (
+                len(reconciled) == len(rows)
+                and all(row["fees_source"] == reconciliation_source for row in reconciled)
+            ):
+                total_fees = await connection.fetchval(
+                    """
+                    select coalesce(-sum(amount_minor),0)::bigint
+                    from tcg.financial_ledger_entries
+                    where order_id=$1 and owner_id=$2
+                      and entry_type='PLATFORM_FEE'
+                    """,
+                    order_id, owner["id"],
+                )
+                return jsonable_encoder({
+                    "order_id": order_id,
+                    "order_number": rows[0]["order_number"],
+                    "fees_complete": True,
+                    "platform_fees_minor": int(total_fees or 0),
+                    "idempotent": True,
+                })
+            raise HTTPException(
+                status_code=409,
+                detail="eBay fees were already reconciled with different values",
+            )
+
+        allocations = allocate_minor(
+            payload.amount_minor,
+            [int(row["net_sale_minor"]) for row in rows],
+        )
+        for index, row in enumerate(rows):
+            amount_minor = allocations[index]
+            source_key = (
+                f"ebay-manual-fee:{order_id}:{row['order_item_id']}:"
+                f"{payload.reference}:{payload.amount_minor}"
+            )
+            if amount_minor:
+                await connection.execute(
+                    """
+                    insert into tcg.financial_ledger_entries(
+                      owner_id,order_id,order_item_id,entry_type,amount_minor,
+                      currency,funds_status,source_key,occurred_at,notes
+                    ) values($1,$2,$3,'PLATFORM_FEE',$4,'GBP','PENDING',$5,$6,$7)
+                    on conflict(source_key) do nothing
+                    """,
+                    owner["id"], order_id, row["order_item_id"], -amount_minor,
+                    source_key, occurred_at,
+                    payload.notes or "Founder-verified eBay selling fees.",
+                )
+            await connection.execute(
+                """
+                insert into tcg.order_item_reconciliations(
+                  order_item_id,order_id,owner_id,fees_reconciled_at,fees_source
+                ) values($1,$2,$3,clock_timestamp(),$4)
+                on conflict(order_item_id) do update
+                set fees_reconciled_at=clock_timestamp(),
+                    fees_source=$4,
+                    updated_at=clock_timestamp(),
+                    version=tcg.order_item_reconciliations.version+1
+                """,
+                row["order_item_id"], order_id, owner["id"], reconciliation_source,
+            )
+
+        total_fees = await connection.fetchval(
+            """
+            select coalesce(-sum(amount_minor),0)::bigint
+            from tcg.financial_ledger_entries
+            where order_id=$1 and owner_id=$2 and entry_type='PLATFORM_FEE'
+            """,
+            order_id, owner["id"],
+        )
+        return jsonable_encoder({
+            "order_id": order_id,
+            "order_number": rows[0]["order_number"],
+            "fees_complete": True,
+            "platform_fees_minor": int(total_fees or 0),
+            "idempotent": False,
+        })
+
+
+@router.post("/finance/ebay/orders/{order_id}/postage")
 @router.post("/finance/shopify/orders/{order_id}/postage")
 async def reconcile_shopify_postage(
     order_id: UUID,
@@ -1428,10 +1566,13 @@ async def reconcile_shopify_postage(
         )
         if not rows:
             raise HTTPException(status_code=404, detail="Order not found")
-        if rows[0]["source"] != "SHOPIFY":
+        expected_source = (
+            "EBAY" if "/finance/ebay/" in request.url.path else "SHOPIFY"
+        )
+        if rows[0]["source"] != expected_source:
             raise HTTPException(
                 status_code=422,
-                detail="Postage reconciliation is only available for Shopify orders",
+                detail=f"Postage reconciliation path does not match {rows[0]['source']} order",
             )
 
         profile_keys: list[str] = []
