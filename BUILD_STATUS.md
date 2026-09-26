@@ -6,8 +6,8 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## Current progress
 
-- **Full Drop Rate roadmap:** ~53%
-- **Milestone 1 — Inventory / ownership foundation:** ~99% for the current internal founder build, but ~85% against the final multi-user milestone because restricted seller/consignor accounts and full role-based access control are still to be implemented
+- **Full Drop Rate roadmap:** ~55%
+- **Milestone 1 — Inventory / ownership foundation:** ~99% for the current internal founder build and ~90% against the final multi-user milestone. RBAC, admin-route hardening and the separate owner portal boundary are deployed; remaining work is owner-safe data contracts, cross-owner isolation tests, OWNER onboarding and real multi-user verification
 - **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
 - **Milestone 2 — Shopify sale attribution:** ~90% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, and payout control is now automated up to REQUESTED state. Multi-owner production sale attribution + seller-facing restricted dashboards + live Stripe payout cutover remain
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
@@ -16,7 +16,7 @@ This file is the persistent source of truth for project progress. A feature coun
 
 | Milestone | Current status | Remaining to call it complete |
 |---|---|---|
-| **1 — Three founders can log in, add physical cards, assign ownership/cost/condition/grade/location, search inventory and see exactly what they own** | **~85% overall / ~99% core inventory engine** | Multi-user founder accounts, admin-vs-owner role permissions, owner-scoped dashboards/RLS and production verification with more than one owner |
+| **1 — Three founders can log in, add physical cards, assign ownership/cost/condition/grade/location, search inventory and see exactly what they own** | **~90% overall / ~99% core inventory engine** | RBAC + owner portal boundary are now deployed. Still need owner-safe data modules, two-owner isolation tests, OWNER invitation/onboarding and production verification with more than one owner |
 | **2 — Approved card syncs to Shopify, sells, and sale is attributed to the correct owner** | **~90%** | Single-owner real sale/refund is proven; still need multi-owner/same-card production test, restricted seller view of proceeds, and live payout cutover |
 | **3 — Market data automatically updates valuation and recommended pricing** | **~80%** | Deterministic pricing + snapshots + provisional pricing exist; final provider permissions, eBay sold access/Marketplace Insights, stronger Cardmarket/eBay evidence automation and scheduled production refresh remain |
 
@@ -563,7 +563,7 @@ See `docs/STRIPE_CONNECT_PAYOUTS.md`.
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
 | 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; per-Inventory-ID front/back media, photo-backed NM/slab condition gates, deterministic product-completeness/media/shipping gates and Shopify readiness are deployed; bulk publishing remains locked; first live photo/condition batch + refund settlement follow-up remain |
 | 6 | Orders / allocation / settlements | 🚧 Exact Shopify/eBay ownership attribution + deterministic settlement reporting are deployed; Stripe Connect sandbox transfer/reversal is verified; payout preferences + hourly scheduled REQUESTED-worker are live; real execution remains locked; multi-owner production verification remains |
-| 6.5 | RBAC / seller & consignor portal | 🚧 RBAC foundation deployed: PLATFORM_ADMIN vs OWNER roles, role-aware owner RLS, access-context API and admin founder-invite guard are live. Next: privileged-route audit, then separate owner-safe portal APIs/UI and OWNER onboarding |
+| 6.5 | RBAC / seller & consignor portal | 🚧 RBAC + privileged-route hardening + separate `/owner` access shell are deployed. Next: dedicated owner-safe API contracts, cross-owner isolation tests, OWNER onboarding, then inventory/sales/balance/payout portal modules |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
 | 9 | AI card identification | ⬜ Not started |
@@ -625,7 +625,7 @@ Required controls:
 
 ## Major deferred decisions / features
 
-- multi-user owner onboarding + restricted seller/consignor dashboards are now promoted into the next core access-control phase; the current Founder HQ remains internal/admin-only until that phase is complete
+- multi-user owner onboarding remains gated until owner-safe portal APIs and two-owner isolation tests pass; Founder HQ is now explicitly PLATFORM_ADMIN-only and a separate `/owner` portal boundary is deployed
 - consignor intake/onboarding portal remains to build on top of the deployed 10% commission + Stripe Connect payout foundation
 - automated media intake/product-enrichment follows the controlled Shopify sale loop; AI identification comes after core commerce/pricing reliability
 - the future iOS-assisted scan-to-list workflow is specified in `docs/MOBILE_CARD_CAPTURE_BLUEPRINT.md`: camera identification, explicit confirmation, manual card-number recovery, physical inventory creation and guarded Shopify publication through the backend
@@ -659,6 +659,24 @@ Required controls:
 - ✅ Architecture documented in `docs/ACCESS_CONTROL_MODEL.md`: Founder HQ is internal/admin-only; future sellers/consignors use a separate restricted owner portal.
 - ✅ Production deployment `1a386c6b-74f5-4ca5-b3f4-fffcc6f3baf1` passed **646 tests** and `/health/ready` returned 200.
 - 🔒 No OWNER account should be invited until the privileged-route audit is complete and the separate owner portal has owner-safe APIs.
+
+## Security / authentication hardening — 26 Sep 2026
+
+- ✅ Legacy migration metadata is now infrastructure-only (PRs #173–#174): `tcg.schema_migrations` has forced RLS, application-role privileges revoked and an explicit deny-all `tcg_api` policy. Only the postgres migration authority retains access.
+- ✅ Supabase password requirements are configured to **12+ characters** with lowercase, uppercase, number and symbol requirements.
+- ⚠️ Supabase **Leaked Password Protection** cannot be enabled on the current plan. It is recorded as a Pro-plan pre-public-launch hardening requirement; do not upgrade solely for this toggle unless/when the wider plan benefits justify it.
+- 🔒 Before external seller/consignor launch, require MFA for `PLATFORM_ADMIN` accounts and retain email verification, rate limits and session controls.
+- ✅ Google + Apple OAuth frontend support deployed in PR #176. Buttons are shown only when Supabase reports the provider enabled; OAuth authentication never grants Founder HQ permission by itself.
+- ⏳ Google provider still requires its real OAuth client ID/secret + production origin/callback configuration in Google/Supabase.
+- ⏳ Apple provider still requires Apple Developer Services ID/key/client-secret configuration. Web OAuth secret rotation must be operationally tracked.
+- ✅ Founder HQ now checks `GET /api/v1/access/me` and opens only when `founder_hq_allowed=true`.
+- ✅ PR #175 made the internal control-plane routers PLATFORM_ADMIN-only.
+- ✅ PR #177 replaced remaining legacy `FOUNDER` permission checks with the central PLATFORM_ADMIN guard.
+- ✅ PR #178 completed the mixed-route audit: owner-safe reads/self-service remain scoped; inventory mutations, purchase lots, finance reconciliation/manual sales, refund creation, Shopify controls and eBay seller/OAuth controls are admin-only; signed external provider callbacks/webhooks remain outside user-session RBAC.
+- ✅ PR #179 deployed a separate `/owner` portal shell. PLATFORM_ADMIN redirects to Founder HQ; only `OWNER` + `OWNER_PORTAL` may enter; unlinked users fail closed. It intentionally exposes no inventory/finance business modules yet.
+- ✅ Latest production deployment `49eb4fbb-1154-4512-a01d-8dee2d16430d` passed **667 tests** and `/health/ready` returned 200.
+- ✅ Current production memberships remain **1 PLATFORM_ADMIN / 0 OWNER**, so no external seller has been exposed to unfinished portal functionality.
+- ➡️ Next security slice: dedicated owner-safe API contracts + two-owner cross-isolation tests, then OWNER invitation/onboarding, then owner portal inventory/sales/balance/payout modules.
 
 ## Completion rule
 
