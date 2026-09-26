@@ -120,3 +120,25 @@ providing defence in depth.
 Multiple simultaneous active owner memberships fail closed with administrator review instead of
 silently selecting one owner context.
 
+## Restricted OWNER invitations
+
+Seller/consignor onboarding uses a dedicated owner invitation flow and never reuses founder
+permissions.
+
+Rules:
+
+- only PLATFORM_ADMIN may create or revoke an owner invite
+- every owner invite is email-locked
+- invite redemption uses the verified Supabase JWT email, never a client-supplied email
+- redemption creates physical owner type `CONSIGNOR`
+- redemption creates application access role `OWNER`
+- commission is snapshotted onto the owner at onboarding; current default is 1000 bps (10%)
+- an account with an existing active owner membership cannot redeem another owner invite
+- invite tokens are stored only as SHA-256 hashes
+- invite create/redeem/revoke actions are audit logged
+- the public preview exposes name, commission rate and expiry only; it does not expose the invited email
+- the onboarding destination is `/owner/join`, and successful redemption lands at `/owner`
+
+Founder invitation redemption is also bound to the verified JWT email so a signed-in account
+cannot impersonate the invited email by changing a browser payload.
+
