@@ -255,6 +255,27 @@ class EbaySellClient:
             raise EbaySellApiError("eBay seller API returned an invalid response shape")
         return payload
 
+    async def get_opted_in_programs(self) -> list[dict[str, Any]]:
+        payload = await self._request(
+            "GET",
+            "/sell/account/v1/program/get_opted_in_programs",
+        )
+        rows = [] if payload is None else payload.get("programs", [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise EbaySellApiError("eBay opted-in programs response has an invalid shape")
+        return rows
+
+    async def opt_in_to_program(self, program_type: str) -> None:
+        value = program_type.strip()
+        if not value:
+            raise ValueError("eBay program type is required")
+        await self._request(
+            "POST",
+            "/sell/account/v1/program/opt_in",
+            json_body={"programType": value},
+            expected={200, 204},
+        )
+
     async def get_payment_policies(self) -> list[dict[str, Any]]:
         payload = await self._request(
             "GET",
