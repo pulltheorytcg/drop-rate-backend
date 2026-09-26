@@ -17,7 +17,7 @@ function installMediaConditionWorkspace() {
         <h1>Media & Condition</h1>
         <p class="muted">Photograph the exact physical card, verify both sides, then confirm it is sellable. Raw cards must pass Near Mint review before Shopify.</p>
       </div>
-      <button id="media-condition-refresh" class="ghost-button" type="button">↻ Refresh</button>
+      <button id="media-condition-refresh" class="media-refresh-button" type="button" aria-label="Refresh media and condition" title="Refresh">↻</button>
     </div>
 
     <section class="workflow-strip" aria-label="Media and condition workflow">
