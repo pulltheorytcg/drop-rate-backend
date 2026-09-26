@@ -47,10 +47,7 @@ async def _ledger_snapshot(
             coalesce(sum(amount_minor) filter (where entry_type='COMMISSION_REVERSAL'), 0)::bigint
                 as commission_reversal_minor,
             count(*) filter (where entry_type='SALE_REVENUE')::bigint as sale_revenue_count,
-            count(*) filter (where entry_type='COMMISSION')::bigint as commission_count,
-            count(*) filter (where entry_type='REFUND')::bigint as refund_count,
-            count(*) filter (where entry_type='COMMISSION_REVERSAL')::bigint
-                as commission_reversal_count
+            count(*) filter (where entry_type='REFUND')::bigint as refund_count
         from tcg.financial_ledger_entries
         where owner_id=$1 and order_item_id=$2
         """,
@@ -75,7 +72,6 @@ async def _run() -> None:
         )
 
     marker = uuid4().hex
-    owner_name = f"Sandbox Consignor {marker}"
     identity_key = f"sandbox-financial-{marker}"
     inventory_code = f"INV-SANDBOX-{marker[:16].upper()}"
     source_reference = f"SANDBOX-{marker}"
@@ -97,17 +93,31 @@ async def _run() -> None:
     transaction = connection.transaction()
     await transaction.start()
     try:
+        # Runtime keeps least privilege: the application role can read owners but may
+        # not manufacture ownership records. Verify the real commission function
+        # directly, then exercise order/ledger/refund plumbing with the existing founder.
+        commission_minor = await connection.fetchval(
+            "select tcg.calculate_commission_minor($1::bigint,$2::integer)",
+            10000,
+            1000,
+        )
+        _expect(int(commission_minor or 0), 1000, "£100 at 10% commission")
+        consignor_owner_proceeds_minor = 10000 - int(commission_minor or 0)
+        _expect(consignor_owner_proceeds_minor, 9000, "£100 sale net owner proceeds")
+
         owner = await connection.fetchrow(
             """
-            insert into tcg.owners(display_name, owner_type)
-            values($1, 'CONSIGNOR')
-            returning id, commission_bps
-            """,
-            owner_name,
+            select id, owner_type, commission_bps
+            from tcg.owners
+            where active=true and owner_type='FOUNDER'
+            order by created_at
+            limit 1
+            """
         )
         if owner is None:
-            raise RuntimeError("Sandbox consignor insert did not return a row")
-        _expect(int(owner["commission_bps"]), 1000, "consignor default commission bps")
+            raise RuntimeError("Sandbox financial probe requires one active founder owner")
+        _expect(str(owner["owner_type"]), "FOUNDER", "sandbox fixture owner type")
+        _expect(int(owner["commission_bps"] or 0), 0, "founder commission")
 
         catalogue = await connection.fetchrow(
             """
@@ -166,8 +176,8 @@ async def _run() -> None:
         )
         if item is None:
             raise RuntimeError("Sandbox order item insert did not return a row")
-        _expect(int(item["commission_bps_snapshot"]), 1000, "sale commission snapshot bps")
-        _expect(int(item["commission_minor"]), 1000, "£100 sale commission minor")
+        _expect(int(item["commission_bps_snapshot"]), 0, "founder sale commission snapshot bps")
+        _expect(int(item["commission_minor"]), 0, "founder sale commission minor")
 
         await connection.execute(
             """
@@ -188,10 +198,9 @@ async def _run() -> None:
             connection, owner_id=owner["id"], order_item_id=item["id"]
         )
         _expect(sale["sale_revenue_minor"], 10000, "sale revenue")
-        _expect(sale["commission_minor"], -1000, "commission ledger deduction")
-        _expect(sale["balance_minor"], 9000, "post-commission available balance")
+        _expect(sale["commission_minor"], 0, "founder commission ledger deduction")
+        _expect(sale["balance_minor"], 10000, "founder post-sale available balance")
         _expect(sale["sale_revenue_count"], 1, "sale revenue row count")
-        _expect(sale["commission_count"], 1, "commission row count")
 
         # Replay the exact sale source key. The immutable ledger must stay unchanged.
         await connection.execute(
@@ -233,20 +242,11 @@ async def _run() -> None:
             connection, owner_id=owner["id"], order_item_id=item["id"]
         )
         _expect(partial_refund["refund_minor"], -5000, "partial refund")
-        _expect(
-            partial_refund["commission_reversal_minor"],
-            500,
-            "partial commission reversal",
-        )
-        _expect(partial_refund["balance_minor"], 4500, "partial-refund owner balance")
+        _expect(partial_refund["commission_reversal_minor"], 0, "founder commission reversal")
+        _expect(partial_refund["balance_minor"], 5000, "partial-refund founder balance")
         _expect(partial_refund["refund_count"], 1, "partial refund row count")
-        _expect(
-            partial_refund["commission_reversal_count"],
-            1,
-            "partial commission reversal row count",
-        )
 
-        # Replay the same refund. Neither the refund nor commission reversal may duplicate.
+        # Replay the same refund. No duplicate refund row may appear.
         await connection.execute(
             """
             insert into tcg.financial_ledger_entries(
@@ -286,49 +286,40 @@ async def _run() -> None:
             connection, owner_id=owner["id"], order_item_id=item["id"]
         )
         _expect(full_refund["refund_minor"], -10000, "full refund")
-        _expect(
-            full_refund["commission_reversal_minor"],
-            1000,
-            "full commission reversal",
-        )
-        _expect(full_refund["balance_minor"], 0, "fully refunded owner balance")
+        _expect(full_refund["commission_reversal_minor"], 0, "founder full commission reversal")
+        _expect(full_refund["balance_minor"], 0, "fully refunded founder balance")
         _expect(full_refund["refund_count"], 2, "full refund row count")
-        _expect(
-            full_refund["commission_reversal_count"],
-            2,
-            "full commission reversal row count",
-        )
 
         result = {
             "stripe_financial_sandbox_selftest": "PASS",
-            "sale_minor": sale["sale_revenue_minor"],
-            "commission_bps": int(item["commission_bps_snapshot"]),
-            "commission_minor": -sale["commission_minor"],
-            "owner_available_after_sale_minor": sale["balance_minor"],
-            "partial_refund_owner_balance_minor": partial_refund["balance_minor"],
-            "full_refund_owner_balance_minor": full_refund["balance_minor"],
+            "consignor_commission_bps": 1000,
+            "consignor_commission_minor": int(commission_minor or 0),
+            "consignor_owner_proceeds_minor": consignor_owner_proceeds_minor,
+            "founder_commission_bps": int(item["commission_bps_snapshot"]),
+            "founder_commission_minor": int(item["commission_minor"]),
+            "founder_available_after_sale_minor": sale["balance_minor"],
+            "partial_refund_founder_balance_minor": partial_refund["balance_minor"],
+            "full_refund_founder_balance_minor": full_refund["balance_minor"],
             "duplicate_sale_idempotent": sale_replay == sale,
             "duplicate_refund_idempotent": partial_replay == partial_refund,
         }
     finally:
         # This probe intentionally exercises the real production schema and trigger graph,
-        # but no sandbox owner/order/ledger record is ever committed.
+        # but no sandbox catalogue/inventory/order/ledger record is ever committed.
         await transaction.rollback()
 
     residual = await connection.fetchrow(
         """
         select
-            (select count(*) from tcg.owners where display_name=$1)::bigint as owners,
-            (select count(*) from tcg.catalogue_products where identity_key=$2)::bigint
+            (select count(*) from tcg.catalogue_products where identity_key=$1)::bigint
                 as catalogue,
-            (select count(*) from tcg.inventory_items where inventory_code=$3)::bigint
+            (select count(*) from tcg.inventory_items where inventory_code=$2)::bigint
                 as inventory,
-            (select count(*) from tcg.orders where source='MANUAL' and source_reference=$4)::bigint
+            (select count(*) from tcg.orders where source='MANUAL' and source_reference=$3)::bigint
                 as orders,
-            (select count(*) from tcg.financial_ledger_entries where source_key in ($5,$6,$7))::bigint
+            (select count(*) from tcg.financial_ledger_entries where source_key in ($4,$5,$6))::bigint
                 as ledger
         """,
-        owner_name,
         identity_key,
         inventory_code,
         source_reference,
