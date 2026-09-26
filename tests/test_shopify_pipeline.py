@@ -23,6 +23,7 @@ SHOPIFY = ROOT / "backend" / "app" / "shopify.py"
 CLIENT = ROOT / "backend" / "app" / "shopify_client.py"
 MAIN = ROOT / "backend" / "app" / "main.py"
 SHOPIFY_SETTINGS = ROOT / "backend" / "app" / "static" / "shopify-settings.js"
+MEDIA_CONDITION = ROOT / "backend" / "app" / "static" / "media-condition.js"
 MIGRATION = ROOT / "migrations" / "006_shopify_inventory_links.sql"
 PENDING_MIGRATION = ROOT / "database" / "migrations" / "20260924230955_shopify_pending_order_reservations.sql"
 FINAL_ORDER_MIGRATION = ROOT / "database" / "migrations" / "20260924232925_remove_pending_finance_order_status.sql"
@@ -75,6 +76,7 @@ def test_test_sync_gate_reports_exact_local_blockers() -> None:
         "grading_company": None,
         "grade": None,
         "condition": "Near Mint",
+        "condition_review_status": "VERIFIED_NEAR_MINT",
         "seal_status": None,
         "language": "English",
         "catalogue_language": None,
@@ -122,6 +124,8 @@ def test_single_item_sync_requires_all_local_sellability_gates() -> None:
     assert 'not item["identity_confirmed"]' in source
     assert 'item["acquisition_cost_minor"] is None' in source
     assert 'item["product_type"] == "CARD"' in source
+    assert 'missing.append("photo-backed Near Mint verification")' in source
+    assert 'missing.append("graded slab verification")' in source
     assert 'missing.append("card language")' in source
     assert 'item["store_price_minor"] is None' in source
     assert 'item["storage_location_id"] is None' in source
@@ -666,23 +670,25 @@ def test_founder_media_upload_target_is_fail_closed_and_scope_gated() -> None:
 
 
 def test_founder_media_intake_is_visible_and_requires_explicit_rights_confirmation() -> None:
-    frontend = SHOPIFY_SETTINGS.read_text()
-    assert 'id="shopify-media-file"' in frontend
-    assert 'id="shopify-media-rights"' in frontend
-    assert 'id="shopify-media-upload-button"' in frontend
-    assert 'I own or am authorised to use this image' in frontend
-    assert 'button.dataset.scopeReady !== "true"' in frontend
-    assert 'source_type: "FOUNDER_UPLOAD"' in frontend
-    assert 'Founder-owned original photograph; rights explicitly confirmed during upload' in frontend
-    assert 'new FormData()' in frontend
-    assert 'form.append("file", file)' in frontend
-    assert '/api/v1/shopify/media-assets/upload-target' in frontend
-    assert '/approve' in frontend
-    assert '/sync' in frontend
+    ui = MEDIA_CONDITION.read_text()
+    helper = SHOPIFY_SETTINGS.read_text()
+    assert 'id="shopify-media-file"' in ui
+    assert 'id="shopify-media-rights"' in ui
+    assert 'id="shopify-media-upload-button"' in ui
+    assert 'I own or am authorised to use this photograph' in ui
+    assert 'button.dataset.scopeReady !== "true"' in helper
+    assert 'source_type: "FOUNDER_UPLOAD"' in helper
+    assert 'Founder-owned original photograph; rights explicitly confirmed during upload' in helper
+    assert 'new FormData()' in helper
+    assert 'form.append("file", file)' in helper
+    assert '/api/v1/shopify/media-assets/upload-target' in helper
+    assert '/approve' in helper
+    assert '/sync' in helper
+    assert 'capture_context: captureContext || null' in helper
 
 
 
-def test_media_intake_queue_groups_raw_copies_and_keeps_graded_item_specific() -> None:
+def test_media_intake_queue_requires_each_physical_card_front_and_back() -> None:
     raw_a = {
         "id": "00000000-0000-0000-0000-000000000001",
         "catalogue_id": "10000000-0000-0000-0000-000000000001",
@@ -716,24 +722,31 @@ def test_media_intake_queue_groups_raw_copies_and_keeps_graded_item_specific() -
 
     result = _build_media_intake_queue([raw_a, raw_b, graded], [])
 
-    assert result["queue_count"] == 2
-    assert result["missing_side_count"] == 3
-    assert result["raw_canonical_groups_pending"] == 1
+    assert result["queue_count"] == 3
+    assert result["missing_side_count"] == 6
+    assert result["physical_items_pending"] == 3
+    assert result["raw_items_pending"] == 2
+    assert result["raw_canonical_groups_pending"] == 0
     assert result["graded_items_pending"] == 1
+    assert all(item["required_scope"] == "INVENTORY_ITEM" for item in result["items"])
 
-    raw = next(item for item in result["items"] if item["required_scope"] == "CANONICAL_CARD")
-    assert raw["copy_count"] == 2
-    assert raw["missing_sides"] == ["FRONT"]
-    assert raw["catalogue_id"] == raw_a["catalogue_id"]
-    assert raw["inventory_codes"] == ["INV-RAW-1", "INV-RAW-2"]
-
-    slab = next(item for item in result["items"] if item["required_scope"] == "INVENTORY_ITEM")
-    assert slab["inventory_id"] == graded["id"]
-    assert slab["inventory_codes"] == ["INV-PSA-1"]
+    first = next(item for item in result["items"] if item["inventory_id"] == raw_a["id"])
+    second = next(item for item in result["items"] if item["inventory_id"] == raw_b["id"])
+    slab = next(item for item in result["items"] if item["inventory_id"] == graded["id"])
+    assert first["inventory_codes"] == ["INV-RAW-1"]
+    assert second["inventory_codes"] == ["INV-RAW-2"]
+    assert first["missing_sides"] == ["FRONT", "BACK"]
+    assert second["missing_sides"] == ["FRONT", "BACK"]
+    assert first["capture_context_options"] == [
+        "RAW_UNSLEEVED",
+        "PENNY_SLEEVE",
+        "TOP_LOADER",
+    ]
+    assert slab["capture_context_hint"] == "GRADED_SLAB"
     assert slab["missing_sides"] == ["FRONT", "BACK"]
 
 
-def test_media_intake_queue_does_not_recapture_approved_processing_media() -> None:
+def test_media_intake_queue_does_not_recapture_approved_processing_physical_media() -> None:
     raw = {
         "id": "00000000-0000-0000-0000-000000000001",
         "catalogue_id": "10000000-0000-0000-0000-000000000001",
@@ -749,20 +762,56 @@ def test_media_intake_queue_does_not_recapture_approved_processing_media() -> No
         "grading_company": None,
         "grade": None,
     }
-    asset = {
+    assets = [
+        {
+            "scope": "INVENTORY_ITEM",
+            "catalogue_id": raw["catalogue_id"],
+            "inventory_id": raw["id"],
+            "side": side,
+            "approval_status": "APPROVED",
+            "rights_status": "VERIFIED",
+            "shopify_file_status": "PROCESSING",
+        }
+        for side in ("FRONT", "BACK")
+    ]
+
+    result = _build_media_intake_queue([raw], assets)
+
+    assert result["queue_count"] == 0
+    assert result["missing_side_count"] == 0
+
+
+def test_canonical_media_never_satisfies_physical_card_capture() -> None:
+    raw = {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "catalogue_id": "10000000-0000-0000-0000-000000000001",
+        "inventory_code": "INV-RAW-1",
+        "product_type": "CARD",
+        "game": "Pokemon",
+        "name": "Seel",
+        "set_name": "Phantasmal Flames",
+        "card_number": "021/094",
+        "variant": "Normal",
+        "language": "English",
+        "catalogue_language": None,
+        "grading_company": None,
+        "grade": None,
+    }
+    canonical = [{
         "scope": "CANONICAL_CARD",
         "catalogue_id": raw["catalogue_id"],
         "inventory_id": None,
         "side": "FRONT",
         "approval_status": "APPROVED",
         "rights_status": "VERIFIED",
-        "shopify_file_status": "PROCESSING",
-    }
+        "shopify_file_status": "READY",
+    }]
 
-    result = _build_media_intake_queue([raw], [asset])
+    result = _build_media_intake_queue([raw], canonical)
 
-    assert result["queue_count"] == 0
-    assert result["missing_side_count"] == 0
+    assert result["queue_count"] == 1
+    assert result["items"][0]["inventory_id"] == raw["id"]
+    assert result["items"][0]["missing_sides"] == ["FRONT", "BACK"]
 
 
 def test_failed_media_reenters_capture_queue() -> None:
@@ -809,17 +858,22 @@ def test_failed_media_reenters_capture_queue() -> None:
     assert result["items"][0]["ready_sides"] == ["FRONT"]
 
 
-def test_founder_media_ui_uses_dedicated_capture_queue_not_test_publish_candidates() -> None:
-    frontend = SHOPIFY_SETTINGS.read_text()
+def test_founder_media_ui_uses_dedicated_physical_capture_queue() -> None:
+    helper = SHOPIFY_SETTINGS.read_text()
+    ui = MEDIA_CONDITION.read_text()
     source = PIPELINE.read_text()
 
     assert '@router.get("/media-assets/intake-queue")' in source
-    assert 'id="shopify-media-candidate"' in frontend
-    assert 'apiRequest("/api/v1/shopify/media-assets/intake-queue")' in frontend
-    assert 'byId("shopify-media-candidate")?.selectedOptions?.[0]' in frontend
-    assert 'dataset.mediaScope' in frontend
-    assert 'copies share this image' in frontend
-
+    assert 'id="shopify-media-candidate"' in ui
+    assert 'apiRequest("/api/v1/shopify/media-assets/intake-queue")' in ui
+    assert 'byId("shopify-media-candidate")?.selectedOptions?.[0]' in helper
+    assert 'dataset.mediaScope' in helper
+    assert 'dataset.inventoryId' in helper
+    assert 'shared canonical raw-card image' not in helper
+    assert 'id="shopify-media-context"' in ui
+    assert "PENNY_SLEEVE" in ui
+    assert "TOP_LOADER" in ui
+    assert "GRADED_SLAB" in ui
 
 def test_shopify_price_sync_is_bounded_price_only_and_fail_closed() -> None:
     source = PIPELINE.read_text()
@@ -842,33 +896,36 @@ def test_shopify_price_sync_is_bounded_price_only_and_fail_closed() -> None:
 
 
 def test_batch_founder_media_is_rights_gated_sequential_and_never_publishes() -> None:
-    frontend = SHOPIFY_SETTINGS.read_text()
-    start = frontend.index("async function uploadFounderMediaBatch()")
-    end = frontend.index("async function syncFounderMedia(", start)
-    block = frontend[start:end]
+    helper = SHOPIFY_SETTINGS.read_text()
+    ui = MEDIA_CONDITION.read_text()
+    start = helper.index("async function uploadFounderMediaBatch()")
+    end = helper.index("async function syncFounderMedia(", start)
+    block = helper[start:end]
 
-    assert 'id="shopify-media-batch-files"' in frontend
-    assert 'type="file" multiple' in frontend
-    assert 'id="shopify-media-batch-rights"' in frontend
-    assert "These are founder-owned original photographs" in frontend
-    assert "parseBatchMediaFilename" in frontend
-    assert "validateBatchMediaFiles" in frontend
-    assert "Duplicate card side in this batch" in frontend
-    assert "Inventory ID is not present in the current media capture queue" in frontend
-    assert "button.dataset.scopeReady" in frontend
+    assert 'id="shopify-media-batch-files"' in ui
+    assert 'type="file" multiple' in ui
+    assert 'id="shopify-media-batch-rights"' in ui
+    assert 'id="shopify-media-batch-context"' in ui
+    assert "These are founder-owned original photographs" in ui
+    assert "parseBatchMediaFilename" in helper
+    assert "validateBatchMediaFiles" in helper
+    assert "Duplicate card side in this batch" in helper
+    assert "Inventory ID is not present in the current media capture queue" in helper
+    assert "button.dataset.scopeReady" in helper
     assert "for (let index = 0; index < validation.work.length; index += 1)" in block
-    assert "await uploadFounderMediaWork(item)" in block
+    assert "await uploadFounderMediaWork({...item, captureContext: item.captureContext})" in block
     assert "Promise.all" not in block
     assert "publish" not in block.casefold()
     assert "test-sync" not in block
 
 
-def test_batch_media_maps_any_equivalent_raw_inventory_code_to_shared_queue_item() -> None:
-    frontend = SHOPIFY_SETTINGS.read_text()
-    assert "option.dataset.inventoryCodes" in frontend
-    assert "item.inventory_codes || [item.inventory_code || \"\"]" in frontend
-    assert ".split(\",\")" in frontend
-    assert "codes.forEach((code) => mapping.set(code, option))" in frontend
+def test_batch_media_maps_exact_inventory_id_and_never_shared_canonical_copy() -> None:
+    helper = SHOPIFY_SETTINGS.read_text()
+    assert "option.dataset.inventoryCodes" in helper
+    assert "item.inventory_codes || [item.inventory_code || \"\"]" in helper
+    assert ".split(\",\")" in helper
+    assert "codes.forEach((code) => mapping.set(code, option))" in helper
+    assert 'scope: option.dataset.mediaScope || "INVENTORY_ITEM"' in helper
 
 
 def test_media_create_fails_closed_on_duplicate_live_side() -> None:
