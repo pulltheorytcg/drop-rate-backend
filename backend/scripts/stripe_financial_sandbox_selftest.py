@@ -155,9 +155,9 @@ async def _run() -> None:
             """
             insert into tcg.order_items(
                 order_id, inventory_id, owner_id, sale_price_minor, discount_minor,
-                net_sale_minor, cost_basis_minor, sold_at
+                cost_basis_minor, sold_at
             )
-            values($1, $2, $3, 10000, 0, 10000, 0, clock_timestamp())
+            values($1, $2, $3, 10000, 0, 0, clock_timestamp())
             returning id, commission_bps_snapshot, commission_minor
             """,
             order["id"],
