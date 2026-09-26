@@ -65,10 +65,10 @@ def test_product_metafields_are_listing_facts_not_private_finance_or_owner_data(
     assert "cost" not in fields
 
 
-def test_description_does_not_claim_item_specific_media() -> None:
+def test_description_explains_governed_item_specific_media_policy() -> None:
     plan = build_shopify_product_plan(_card())
-    assert "Images may be representative" in plan["descriptionHtml"]
-    assert "exact card pictured" not in plan["descriptionHtml"].casefold()
+    assert "item-specific media policy" in plan["descriptionHtml"]
+    assert "Images may be representative" not in plan["descriptionHtml"]
 
 
 def _ready_asset(
@@ -76,10 +76,14 @@ def _ready_asset(
     scope="CANONICAL_CARD",
     side="FRONT",
     file_id="gid://shopify/MediaImage/1",
+    capture_context=None,
 ):
+    if capture_context is None and scope == "INVENTORY_ITEM":
+        capture_context = "GRADED_SLAB"
     return {
         "scope": scope,
         "side": side,
+        "capture_context": capture_context,
         "media_kind": "IMAGE",
         "approval_status": "APPROVED",
         "rights_status": "VERIFIED",
