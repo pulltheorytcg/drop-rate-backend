@@ -4,6 +4,7 @@ const SELLER_VIEWS = [
   ["dashboard", "Dashboard"],
   ["inventory", "Inventory"],
   ["verification", "Verify"],
+  ["media", "Media"],
   ["sales", "Sales"],
   ["reports", "Reports"],
   ["balance", "Balance"],
@@ -209,9 +210,9 @@ function buildShopifyReadinessPanel() {
     </div>
     <div class="stats-grid portfolio-value-grid">
       <article class="stat-card">
-        <span>Core ready</span>
+        <span>Sellability ready</span>
         <strong id="shopify-operational-ready">—</strong>
-        <small id="shopify-operational-coverage">Identity, language, approval, cost, price and location</small>
+        <small id="shopify-operational-coverage">Identity, condition, approval, cost, price and location</small>
       </article>
       <article class="stat-card">
         <span>Media ready</span>
@@ -235,8 +236,7 @@ function buildShopifyReadinessPanel() {
     .addEventListener("click", () => activateSellerView("verification", true));
   section.querySelector("#shopify-readiness-media")
     .addEventListener("click", () => {
-      activateSellerView("settings", true);
-      requestAnimationFrame(() => byId("shopify-media-candidate")?.scrollIntoView({ block: "center" }));
+      activateSellerView("media", true);
     });
   return section;
 }
@@ -454,6 +454,7 @@ function populateSellerViews() {
   const overview = sellerView("dashboard");
   const inventory = sellerView("inventory");
   const verification = sellerView("verification");
+  const media = sellerView("media");
   const sales = sellerView("sales");
   const reports = sellerView("reports");
   const balance = sellerView("balance");
@@ -490,6 +491,14 @@ function populateSellerViews() {
     "Verify stock",
     "Physically confirm canonical card identity before pricing, approval or Shopify publishing."
   ));
+
+  if (media && !media.children.length) {
+    media.append(makeSellerHeading(
+      "Physical evidence",
+      "Media & Condition",
+      "Capture the exact card front and back, then verify sellability before storefront sync."
+    ));
+  }
 
   moveFinanceSections(sales, reports, balance);
 
