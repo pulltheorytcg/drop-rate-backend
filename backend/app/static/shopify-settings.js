@@ -425,6 +425,12 @@ function mediaQueueLabel(item) {
     .join(" · ");
 }
 
+async function refreshMediaWorkspaceAfterChange() {
+  if (typeof loadMediaConditionWorkspace === "function") {
+    await loadMediaConditionWorkspace();
+  }
+}
+
 function renderMediaIntakeQueue(data) {
   const select = byId("shopify-media-candidate");
   if (!select) return;
@@ -913,7 +919,7 @@ async function uploadFounderMediaBatch() {
   const validation = validateBatchMediaFiles(input.files || []);
   renderBatchMediaValidation(validation);
   if (!validation.work.length || validation.errors.length) {
-    showMessage("shopify-settings-message", "Fix the blocked batch files before upload.", "error");
+    showMessage("shopify-media-message", "Fix the blocked batch files before upload.", "error");
     return;
   }
 
@@ -922,7 +928,7 @@ async function uploadFounderMediaBatch() {
   for (let index = 0; index < validation.work.length; index += 1) {
     const item = validation.work[index];
     showMessage(
-      "shopify-settings-message",
+      "shopify-media-message",
       `Uploading image ${index + 1} of ${validation.work.length}: ${item.file.name}`
     );
     try {
@@ -953,7 +959,7 @@ async function uploadFounderMediaBatch() {
   const processingCount = outcomes.filter((item) => item.status === "PROCESSING").length;
   const failedCount = outcomes.filter((item) => item.status === "FAILED").length;
   showMessage(
-    "shopify-settings-message",
+    "shopify-media-message",
     `Batch complete: ${readyCount} ready · ${processingCount} processing · ${failedCount} failed.`,
     failedCount ? "error" : "success"
   );
@@ -961,26 +967,26 @@ async function uploadFounderMediaBatch() {
   input.value = "";
   const rightsBox = byId("shopify-media-batch-rights");
   if (rightsBox) rightsBox.checked = false;
-  await loadShopifyStatus();
+  await refreshMediaWorkspaceAfterChange();
 }
 
 async function syncFounderMedia(assetId, version) {
-  showMessage("shopify-settings-message", "Checking the image in Shopify…");
+  showMessage("shopify-media-message", "Checking the image in Shopify…");
   try {
     const result = await apiRequest(`/api/v1/shopify/media-assets/${assetId}/sync`, {
       method: "POST",
       body: JSON.stringify({version}),
     });
     showMessage(
-      "shopify-settings-message",
+      "shopify-media-message",
       result.ready
         ? "Image is ready in Shopify and can satisfy the product media gate."
         : "Image reached Shopify and is still processing. Use Check Shopify again shortly.",
       result.ready ? "success" : ""
     );
-    await loadShopifyStatus();
+    await refreshMediaWorkspaceAfterChange();
   } catch (error) {
-    showMessage("shopify-settings-message", error.message, "error");
+    showMessage("shopify-media-message", error.message, "error");
   }
 }
 
@@ -997,28 +1003,28 @@ async function uploadFounderMedia() {
 
   const accepted = ["image/jpeg", "image/png", "image/webp"];
   if (!accepted.includes(file.type)) {
-    showMessage("shopify-settings-message", "Use a JPG, PNG or WebP image.", "error");
+    showMessage("shopify-media-message", "Use a JPG, PNG or WebP image.", "error");
     return;
   }
   if (file.size <= 0 || file.size > 20 * 1024 * 1024) {
-    showMessage("shopify-settings-message", "Image must be between 1 byte and 20 MB.", "error");
+    showMessage("shopify-media-message", "Image must be between 1 byte and 20 MB.", "error");
     return;
   }
   const catalogueId = option.dataset.catalogueId || "";
   const inventoryId = option.dataset.inventoryId || "";
   const requiredScope = option.dataset.mediaScope || scope;
   if (scope !== requiredScope) {
-    showMessage("shopify-settings-message", "Media scope changed; reselect the queue item.", "error");
+    showMessage("shopify-media-message", "Media scope changed; reselect the queue item.", "error");
     applyMediaCandidateDefaults();
     return;
   }
   if (scope === "CANONICAL_CARD" && !catalogueId) {
-    showMessage("shopify-settings-message", "This card is missing its catalogue identity.", "error");
+    showMessage("shopify-media-message", "This card is missing its catalogue identity.", "error");
     return;
   }
 
   button.disabled = true;
-  showMessage("shopify-settings-message", "Preparing secure Shopify image upload…");
+  showMessage("shopify-media-message", "Preparing secure Shopify image upload…");
   try {
     const synced = await uploadFounderMediaWork({
       file,
@@ -1033,15 +1039,15 @@ async function uploadFounderMedia() {
     const rights = byId("shopify-media-rights");
     if (rights) rights.checked = false;
     showMessage(
-      "shopify-settings-message",
+      "shopify-media-message",
       synced.ready
         ? "Founder image uploaded, rights-approved and ready in Shopify."
         : "Founder image uploaded and approved. Shopify is still processing it; use Check Shopify to finish verification.",
       synced.ready ? "success" : ""
     );
-    await loadShopifyStatus();
+    await refreshMediaWorkspaceAfterChange();
   } catch (error) {
-    showMessage("shopify-settings-message", error.message, "error");
+    showMessage("shopify-media-message", error.message, "error");
     refreshShopifyMediaButton();
   }
 }
