@@ -34,9 +34,13 @@ async def _run() -> None:
     if not settings.stripe_connect_refresh_url or not settings.stripe_connect_return_url:
         raise RuntimeError("Stripe Connect refresh/return URLs are required for sandbox self-test")
 
+    # A successful authenticated platform-account response verifies the key.
+    # Key mode is enforced from the sk_test_ prefix above; the platform account
+    # response does not consistently expose a livemode field.
     platform = await client.retrieve_platform_account()
-    if platform.get("livemode") is not False:
-        raise RuntimeError("Stripe platform account did not report livemode=false")
+    platform_id = str(platform.get("id") or "").strip()
+    if not platform_id.startswith("acct_"):
+        raise RuntimeError("Stripe platform account response is invalid")
 
     account_id: str | None = None
     cleanup_ok = False
@@ -88,7 +92,7 @@ async def _run() -> None:
                 {
                     "stripe_sandbox_selftest": "PASS",
                     "platform_auth_ok": True,
-                    "platform_livemode": bool(platform.get("livemode")),
+                    "platform_test_key": True,
                     "platform_country": str(platform.get("country") or ""),
                     "connected_account_created": True,
                     "connected_account_livemode": bool(retrieved.get("livemode")),
