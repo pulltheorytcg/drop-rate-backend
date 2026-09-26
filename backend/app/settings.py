@@ -123,7 +123,7 @@ class Settings:
     ebay_standard_shipping_minor: int = 499
     ebay_handling_days: int = 2
     ebay_shipping_carrier_code: str = "RoyalMail"
-    ebay_shipping_service_code: str = "UK_RoyalMailTracked48"
+    ebay_shipping_service_code: str = "UK_RoyalMailTracked"
     market_ingestion_enabled: bool = False
     shopify_shop_domain: str | None = None
     shopify_client_id: str | None = None
@@ -190,8 +190,8 @@ class Settings:
                 or "RoyalMail"
             ),
             ebay_shipping_service_code=(
-                os.getenv("TCG_EBAY_SHIPPING_SERVICE_CODE", "UK_RoyalMailTracked48").strip()
-                or "UK_RoyalMailTracked48"
+                os.getenv("TCG_EBAY_SHIPPING_SERVICE_CODE", "UK_RoyalMailTracked").strip()
+                or "UK_RoyalMailTracked"
             ),
             market_ingestion_enabled=_boolean("TCG_MARKET_INGESTION_ENABLED", False),
             shopify_shop_domain=_shopify_domain("TCG_SHOPIFY_SHOP_DOMAIN"),
