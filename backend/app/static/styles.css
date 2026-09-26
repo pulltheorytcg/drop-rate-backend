@@ -1347,3 +1347,14 @@ tbody tr:hover{background:#f7fbff!important}
   .sales-custom-range{grid-template-columns:1fr}
   .media-evidence-states{grid-template-columns:1fr}
 }
+
+/* Cross-channel marketplace state */
+.channel-status{
+  display:inline-flex;align-items:center;justify-content:center;min-height:27px;
+  padding:5px 9px;border:1px solid #d8e2ec;border-radius:999px;
+  background:#f7fafc;color:#647187;font-size:.62rem;font-weight:900;white-space:nowrap;
+}
+.channel-status.live{border-color:#b9e8d3;background:#eefbf5;color:#17643f}
+.channel-status.sold{border-color:#d5dde7;background:#f0f3f6;color:#46566b}
+.channel-status.ended{border-color:#eadcbf;background:#fff8e9;color:#7b5b1a}
+.ebay-list-button{white-space:nowrap}
