@@ -89,3 +89,13 @@ def test_payout_preferences_schema_is_owner_scoped_and_least_privilege() -> None
     assert "grant select,insert,update on table tcg.payout_preferences to tcg_api" in sql
     assert "owner_id in (select o.id from tcg.owners o)" in sql
     assert "grant delete" not in sql.lower()
+
+def test_payout_preference_routes_use_authenticated_user_id_field() -> None:
+    source = (
+        ROOT / "backend" / "app" / "payout_preferences.py"
+    ).read_text()
+
+    assert "user.user_id" in source
+    assert "user.id" not in source
+    assert "updated_by_user_id" in source
+

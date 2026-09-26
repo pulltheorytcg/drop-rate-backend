@@ -129,7 +129,7 @@ async def get_payout_preference(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ):
     async with user_connection(
-        request.app.state.db_pool, user.id, request.state.request_id
+        request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _owner(connection)
         row = await connection.fetchrow(
@@ -146,7 +146,7 @@ async def update_payout_preference(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ):
     async with user_connection(
-        request.app.state.db_pool, user.id, request.state.request_id
+        request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _owner(connection)
         existing = await connection.fetchrow(
@@ -196,7 +196,7 @@ async def update_payout_preference(
                 payload.weekday,
                 payload.monthly_day,
                 anchor,
-                user.id,
+                user.user_id,
             )
         else:
             row = await connection.fetchrow(
@@ -217,7 +217,7 @@ async def update_payout_preference(
                 payload.weekday,
                 payload.monthly_day,
                 anchor,
-                user.id,
+                user.user_id,
             )
 
         if row is None:
