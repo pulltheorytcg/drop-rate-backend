@@ -89,6 +89,9 @@ def _seller_publish_missing(
         "eBay fulfilment policy": effective.fulfillment_policy_id,
         "eBay return policy": effective.return_policy_id,
         "eBay inventory location": effective.merchant_location_key,
+        "eBay ORDER_CONFIRMATION destination": effective.notification_destination_id,
+        "eBay ORDER_CONFIRMATION subscription": effective.notification_subscription_id,
+        "eBay seller readiness": effective.status == "READY",
         "TCG_EBAY_NOTIFICATION_ENDPOINT": settings.ebay_notification_endpoint,
         "TCG_EBAY_NOTIFICATION_VERIFICATION_TOKEN": (
             settings.ebay_notification_verification_token
@@ -514,6 +517,8 @@ async def seller_status(
             fulfillment_policy_id=None,
             return_policy_id=None,
             merchant_location_key=None,
+            notification_destination_id=None,
+            notification_subscription_id=None,
             connection_id=None,
             owner_id=owner["id"],
             status="ERROR",

@@ -276,6 +276,207 @@ class EbaySellClient:
             expected={200, 204},
         )
 
+    async def create_payment_policy(self, payload: dict[str, Any]) -> str:
+        response = await self._request(
+            "POST",
+            "/sell/account/v1/payment_policy",
+            json_body=payload,
+            expected={201},
+        )
+        policy_id = str((response or {}).get("paymentPolicyId") or "").strip()
+        if not policy_id:
+            raise EbaySellApiError("eBay payment policy response is missing paymentPolicyId")
+        return policy_id
+
+    async def create_fulfillment_policy(self, payload: dict[str, Any]) -> str:
+        response = await self._request(
+            "POST",
+            "/sell/account/v1/fulfillment_policy",
+            json_body=payload,
+            expected={201},
+        )
+        policy_id = str((response or {}).get("fulfillmentPolicyId") or "").strip()
+        if not policy_id:
+            raise EbaySellApiError(
+                "eBay fulfillment policy response is missing fulfillmentPolicyId"
+            )
+        return policy_id
+
+    async def create_return_policy(self, payload: dict[str, Any]) -> str:
+        response = await self._request(
+            "POST",
+            "/sell/account/v1/return_policy",
+            json_body=payload,
+            expected={201},
+        )
+        policy_id = str((response or {}).get("returnPolicyId") or "").strip()
+        if not policy_id:
+            raise EbaySellApiError("eBay return policy response is missing returnPolicyId")
+        return policy_id
+
+    async def create_inventory_location(
+        self,
+        merchant_location_key: str,
+        payload: dict[str, Any],
+    ) -> None:
+        await self._request(
+            "POST",
+            f"/sell/inventory/v1/location/{quote(merchant_location_key, safe='')}",
+            json_body=payload,
+            expected={201, 204},
+        )
+
+    async def get_notification_config(self) -> dict[str, Any] | None:
+        return await self._request(
+            "GET",
+            "/commerce/notification/v1/config",
+            expected={200, 404},
+        )
+
+    async def put_notification_config(self, alert_email: str) -> None:
+        await self._request(
+            "PUT",
+            "/commerce/notification/v1/config",
+            json_body={"alertEmail": alert_email},
+            expected={204},
+        )
+
+    async def get_notification_destinations(self) -> list[dict[str, Any]]:
+        payload = await self._request(
+            "GET",
+            "/commerce/notification/v1/destination",
+            params={"limit": 100},
+        )
+        rows = [] if payload is None else payload.get("destinations", [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise EbaySellApiError("eBay destinations response has an invalid shape")
+        return rows
+
+    async def create_notification_destination(
+        self,
+        *,
+        name: str,
+        endpoint: str,
+        verification_token: str,
+    ) -> str:
+        response = await self._request(
+            "POST",
+            "/commerce/notification/v1/destination",
+            json_body={
+                "name": name,
+                "status": "ENABLED",
+                "deliveryConfig": {
+                    "endpoint": endpoint,
+                    "verificationToken": verification_token,
+                },
+            },
+            expected={201},
+        )
+        destination_id = str((response or {}).get("destinationId") or "").strip()
+        if not destination_id:
+            raise EbaySellApiError(
+                "eBay notification destination response is missing destinationId"
+            )
+        return destination_id
+
+    async def update_notification_destination(
+        self,
+        destination_id: str,
+        *,
+        name: str,
+        endpoint: str,
+        verification_token: str,
+    ) -> None:
+        await self._request(
+            "PUT",
+            f"/commerce/notification/v1/destination/{quote(destination_id, safe='')}",
+            json_body={
+                "name": name,
+                "status": "ENABLED",
+                "deliveryConfig": {
+                    "endpoint": endpoint,
+                    "verificationToken": verification_token,
+                },
+            },
+            expected={204},
+        )
+
+    async def get_notification_topics(self) -> list[dict[str, Any]]:
+        payload = await self._request(
+            "GET",
+            "/commerce/notification/v1/topic",
+            params={"limit": 100},
+        )
+        rows = [] if payload is None else payload.get("topics", [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise EbaySellApiError("eBay notification topics response has an invalid shape")
+        return rows
+
+    async def get_notification_subscriptions(self) -> list[dict[str, Any]]:
+        payload = await self._request(
+            "GET",
+            "/commerce/notification/v1/subscription",
+            params={"limit": 100},
+        )
+        rows = [] if payload is None else payload.get("subscriptions", [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise EbaySellApiError("eBay subscriptions response has an invalid shape")
+        return rows
+
+    async def create_notification_subscription(
+        self,
+        *,
+        topic_id: str,
+        destination_id: str,
+        schema_version: str,
+    ) -> str:
+        response = await self._request(
+            "POST",
+            "/commerce/notification/v1/subscription",
+            json_body={
+                "topicId": topic_id,
+                "destinationId": destination_id,
+                "status": "ENABLED",
+                "payload": {
+                    "deliveryProtocol": "HTTPS",
+                    "format": "JSON",
+                    "schemaVersion": schema_version,
+                },
+            },
+            expected={201},
+        )
+        subscription_id = str((response or {}).get("subscriptionId") or "").strip()
+        if not subscription_id:
+            raise EbaySellApiError(
+                "eBay notification subscription response is missing subscriptionId"
+            )
+        return subscription_id
+
+    async def enable_notification_subscription(self, subscription_id: str) -> None:
+        await self._request(
+            "POST",
+            f"/commerce/notification/v1/subscription/{quote(subscription_id, safe='')}/enable",
+            json_body={},
+            expected={204},
+        )
+
+    async def get_notification_subscription(self, subscription_id: str) -> dict[str, Any]:
+        payload = await self._request(
+            "GET",
+            f"/commerce/notification/v1/subscription/{quote(subscription_id, safe='')}",
+        )
+        if payload is None:
+            raise EbaySellApiError("eBay subscription response was empty")
+        return payload
+
+    async def test_notification_subscription(self, subscription_id: str) -> None:
+        await self._request(
+            "POST",
+            f"/commerce/notification/v1/subscription/{quote(subscription_id, safe='')}/test",
+            json_body={},
+            expected={204},
+        )
+
     async def get_payment_policies(self) -> list[dict[str, Any]]:
         payload = await self._request(
             "GET",

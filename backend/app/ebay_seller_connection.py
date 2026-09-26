@@ -17,6 +17,8 @@ class EbayEffectiveSellerConfig:
     fulfillment_policy_id: str | None
     return_policy_id: str | None
     merchant_location_key: str | None
+    notification_destination_id: str | None
+    notification_subscription_id: str | None
     connection_id: UUID | None
     owner_id: UUID | None
     status: str | None
@@ -64,7 +66,8 @@ async def _load_connection_row(
                 """
                 select id,owner_id,refresh_token_ciphertext,granted_scopes,status,
                        payment_policy_id,fulfillment_policy_id,return_policy_id,
-                       merchant_location_key
+                       merchant_location_key,notification_destination_id,
+                       notification_subscription_id
                 from tcg.ebay_seller_connections
                 where owner_id=$1 and status <> 'DISCONNECTED'
                 """,
@@ -76,7 +79,8 @@ async def _load_connection_row(
             """
             select id,owner_id,refresh_token_ciphertext,granted_scopes,status,
                    payment_policy_id,fulfillment_policy_id,return_policy_id,
-                   merchant_location_key
+                   merchant_location_key,notification_destination_id,
+                   notification_subscription_id
             from tcg.ebay_seller_connections
             where status <> 'DISCONNECTED'
             order by connected_at desc
@@ -131,6 +135,16 @@ async def load_effective_seller_config(
                 if row and row["merchant_location_key"]
                 else None
             )
+        ),
+        notification_destination_id=(
+            str(row["notification_destination_id"])
+            if row and row["notification_destination_id"]
+            else None
+        ),
+        notification_subscription_id=(
+            str(row["notification_subscription_id"])
+            if row and row["notification_subscription_id"]
+            else None
         ),
         connection_id=UUID(str(row["id"])) if row else None,
         owner_id=UUID(str(row["owner_id"])) if row else owner_id,

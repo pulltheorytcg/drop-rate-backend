@@ -605,7 +605,8 @@ function populateSellerViews() {
       <p class="muted">Open Settings while signed in to check the eBay seller connection.</p>
     </div>
     <div id="ebay-connection-actions" class="toolbar">
-      <button id="ebay-connect-button" class="primary-button compact" type="button">Connect eBay seller</button>
+      <button id="ebay-connect-button" class="ghost-button compact" type="button">Connect eBay seller</button>
+      <button id="ebay-complete-setup-button" class="primary-button compact hidden" type="button">Complete eBay setup</button>
     </div>
     <div id="ebay-configuration-panel" class="form-grid hidden">
       <label>Payment policy<select id="ebay-payment-policy"></select></label>
@@ -621,6 +622,8 @@ function populateSellerViews() {
     .addEventListener("click", () => loadEbaySellerConnection());
   ebayCard.querySelector("#ebay-connect-button")
     .addEventListener("click", () => startEbaySellerConnection());
+  ebayCard.querySelector("#ebay-complete-setup-button")
+    .addEventListener("click", () => completeEbaySellerSetup());
   ebayCard.querySelector("#ebay-save-configuration")
     .addEventListener("click", () => saveEbaySellerConfiguration());
 
@@ -758,7 +761,7 @@ async function loadEbaySellerConnection() {
       ),
       ebayStatusRow(
         "Seller API verification",
-        seller.live_verified ? "VERIFIED" : "NOT READY",
+        seller.live_verified ? "READY" : "NOT READY",
         seller.warning || (seller.missing || []).join(" · ") || "Waiting for seller configuration."
       ),
       ebayStatusRow(
@@ -776,6 +779,14 @@ async function loadEbaySellerConnection() {
     );
     button.disabled = !oauth.oauth_configured;
     button.textContent = oauth.connected ? "Reconnect eBay seller" : "Connect eBay seller";
+    const completeButton = byId("ebay-complete-setup-button");
+    if (completeButton) {
+      completeButton.classList.toggle(
+        "hidden",
+        !oauth.connected || seller.live_verified
+      );
+      completeButton.disabled = !oauth.connected;
+    }
     if (!oauth.oauth_configured) {
       button.title = (oauth.missing || []).join(", ");
     } else {
@@ -830,6 +841,34 @@ async function startEbaySellerConnection() {
     showMessage("ebay-connection-message", error.message, "error");
   } finally {
     if (button) button.disabled = false;
+  }
+}
+
+async function completeEbaySellerSetup() {
+  const button = byId("ebay-complete-setup-button");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Completing…";
+  }
+  showMessage(
+    "ebay-connection-message",
+    "Verifying seller policies, inventory location and ORDER_CONFIRMATION notifications…"
+  );
+  try {
+    await apiRequest("/api/v1/ebay/oauth/complete-setup", {method: "POST"});
+    await loadEbaySellerConnection();
+    showMessage(
+      "ebay-connection-message",
+      "eBay seller API verification is READY. Cross-channel order notifications are verified.",
+      "success"
+    );
+  } catch (error) {
+    showMessage("ebay-connection-message", error.message, "error");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Complete eBay setup";
+    }
   }
 }
 

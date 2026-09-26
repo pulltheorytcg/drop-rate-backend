@@ -118,6 +118,12 @@ class Settings:
     ebay_notification_verification_token: str | None = None
     ebay_publish_enabled: bool = False
     ebay_price_markup_bps: int = 0
+    ebay_origin_postcode: str | None = None
+    ebay_alert_email: str | None = None
+    ebay_standard_shipping_minor: int = 499
+    ebay_handling_days: int = 2
+    ebay_shipping_carrier_code: str = "RoyalMail"
+    ebay_shipping_service_code: str = "UK_RoyalMailTracked"
     market_ingestion_enabled: bool = False
     shopify_shop_domain: str | None = None
     shopify_client_id: str | None = None
@@ -170,6 +176,22 @@ class Settings:
             ebay_publish_enabled=_boolean("TCG_EBAY_PUBLISH_ENABLED", False),
             ebay_price_markup_bps=_bounded_int(
                 "TCG_EBAY_PRICE_MARKUP_BPS", 0, minimum=0, maximum=10000
+            ),
+            ebay_origin_postcode=_optional("TCG_EBAY_ORIGIN_POSTCODE"),
+            ebay_alert_email=_optional("TCG_EBAY_ALERT_EMAIL"),
+            ebay_standard_shipping_minor=_bounded_int(
+                "TCG_EBAY_STANDARD_SHIPPING_MINOR", 499, minimum=0, maximum=50000
+            ),
+            ebay_handling_days=_bounded_int(
+                "TCG_EBAY_HANDLING_DAYS", 2, minimum=0, maximum=30
+            ),
+            ebay_shipping_carrier_code=(
+                os.getenv("TCG_EBAY_SHIPPING_CARRIER_CODE", "RoyalMail").strip()
+                or "RoyalMail"
+            ),
+            ebay_shipping_service_code=(
+                os.getenv("TCG_EBAY_SHIPPING_SERVICE_CODE", "UK_RoyalMailTracked").strip()
+                or "UK_RoyalMailTracked"
             ),
             market_ingestion_enabled=_boolean("TCG_MARKET_INGESTION_ENABLED", False),
             shopify_shop_domain=_shopify_domain("TCG_SHOPIFY_SHOP_DOMAIN"),

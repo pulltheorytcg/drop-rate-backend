@@ -159,6 +159,8 @@ def test_ebay_offer_is_fixed_price_gtc_and_policy_driven() -> None:
         fulfillment_policy_id="fulfilment",
         return_policy_id="return",
         merchant_location_key="drop-rate-london",
+        notification_destination_id="destination-1",
+        notification_subscription_id="subscription-1",
         connection_id=None,
         owner_id=None,
         status="READY",
@@ -425,3 +427,10 @@ def test_ebay_refresh_token_requests_all_required_seller_scopes() -> None:
     assert "https://api.ebay.com/oauth/api_scope/sell.fulfillment" in REQUIRED_SELLER_SCOPES
     assert "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly" in REQUIRED_SELLER_SCOPES
     assert "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription" in REQUIRED_SELLER_SCOPES
+
+
+def test_ebay_publish_readiness_requires_verified_notifications_and_ready_state() -> None:
+    source = EBAY.read_text()
+    assert '"eBay ORDER_CONFIRMATION destination": effective.notification_destination_id' in source
+    assert '"eBay ORDER_CONFIRMATION subscription": effective.notification_subscription_id' in source
+    assert '"eBay seller readiness": effective.status == "READY"' in source

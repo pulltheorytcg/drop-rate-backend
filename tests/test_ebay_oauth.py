@@ -231,3 +231,54 @@ def test_client_supports_official_selling_policy_management_program_endpoints() 
     assert "/sell/account/v1/program/get_opted_in_programs" in source
     assert "/sell/account/v1/program/opt_in" in source
     assert '"programType": value' in source
+
+
+def test_complete_setup_builds_only_deterministic_drop_rate_defaults() -> None:
+    source = OAUTH_SOURCE.read_text()
+    assert 'DROP_RATE_PAYMENT_POLICY_NAME = "Drop Rate - Immediate Payment"' in source
+    assert 'DROP_RATE_FULFILLMENT_POLICY_NAME = "Drop Rate - Royal Mail Tracked 48"' in source
+    assert 'DROP_RATE_RETURN_POLICY_NAME = "Drop Rate - 30 Day Returns"' in source
+    assert 'DROP_RATE_LOCATION_KEY = "drop-rate-london"' in source
+    assert '"immediatePay": True' in source
+    assert '"returnsAccepted": True' in source
+    assert '"returnShippingCostPayer": "BUYER"' in source
+    assert '"country": "GB"' in source
+    assert "settings.ebay_origin_postcode" in source
+    assert "settings.ebay_standard_shipping_minor" in source
+
+
+def test_complete_setup_registers_and_verifies_order_confirmation() -> None:
+    oauth = OAUTH_SOURCE.read_text()
+    client = CLIENT_SOURCE.read_text()
+    assert 'ORDER_CONFIRMATION_TOPIC = "ORDER_CONFIRMATION"' in oauth
+    assert "_ensure_order_confirmation_notification(" in oauth
+    assert "get_notification_destinations()" in oauth
+    assert "create_notification_destination(" in oauth
+    assert "get_notification_topics()" in oauth
+    assert "create_notification_subscription(" in oauth
+    assert "get_notification_subscription(subscription_id)" in oauth
+    assert "/commerce/notification/v1/destination" in client
+    assert "/commerce/notification/v1/topic" in client
+    assert "/commerce/notification/v1/subscription" in client
+
+
+def test_complete_setup_only_marks_connection_ready_after_remote_readback() -> None:
+    source = OAUTH_SOURCE.read_text()
+    start = source.index('@router.post("/complete-setup")')
+    block = source[start:]
+    readback = block.index("client.get_payment_policy(payment_id)")
+    notification = block.index("_ensure_order_confirmation_notification(")
+    ready = block.index("status='READY'")
+    assert readback < notification < ready
+    assert "payment.get(\"immediatePay\") is not True" in block
+    assert "_normalise_location_status(location) != \"ENABLED\"" in block
+
+
+def test_seller_setup_defaults_remain_configurable_and_fail_closed() -> None:
+    settings = _settings()
+    assert settings.ebay_standard_shipping_minor == 499
+    assert settings.ebay_handling_days == 2
+    assert settings.ebay_shipping_carrier_code == "RoyalMail"
+    assert settings.ebay_shipping_service_code == "UK_RoyalMailTracked"
+    assert settings.ebay_origin_postcode is None
+    assert settings.ebay_alert_email is None
