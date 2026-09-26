@@ -612,6 +612,18 @@ Required controls:
 - value-weighted Purchase Lot allocation waits for reliable market reference values
 - no automatic money movement until settlement reporting is thoroughly verified
 
+## Stripe Connect + scheduled payout control plane — 26 Sep 2026
+
+- ✅ Stripe Connect test recipient onboarding is live in Founder HQ **Balance**; the verified test account reports READY, payouts enabled and transfers ACTIVE.
+- ✅ Consignor commission baseline is deterministic at **10% (1000 bps)**. Live database finance probes verify £100 gross → £10 commission → £90 owner proceeds.
+- ✅ Stripe sandbox money movement was exercised end-to-end: £100 test funding → £90 Connect transfer → idempotent transfer replay → £90 reversal → idempotent reversal replay → funding refund. Production payout execution remains locked.
+- ✅ Owner payout preferences are live: Manual, Daily, Weekly, Every 2 weeks and Monthly, with Europe/London schedule calculation, version protection, RLS and audit logging.
+- ✅ Scheduled payout request worker deployed (PR #168) with database-level cycle idempotency and atomic re-checks for owner activity, Stripe readiness, current preference version, available ledger funds and existing payout reservations.
+- ✅ Dedicated Railway cron service `drop-rate-payout-scheduler` deployed using `Dockerfile.scheduler` (PRs #169–#170), scheduled **hourly** with no Stripe secret. The worker only creates REQUESTED payout rows and cannot move money.
+- ✅ Latest main API deployment passed **639 tests** and `/health/ready` returned 200.
+- ℹ️ No payout preference has been saved yet, so the scheduler currently has zero eligible schedule candidates and has created zero scheduled payout requests.
+- 🔒 Automatic Stripe execution remains disabled until scheduled-request behavior is observed against real eligible balances and the approval/execution policy is intentionally promoted.
+
 ## Completion rule
 
 - **Coding only:** In Progress.
