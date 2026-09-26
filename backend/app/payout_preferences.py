@@ -3,7 +3,6 @@ from __future__ import annotations
 import calendar
 from datetime import date, datetime, time, timedelta
 from typing import Annotated, Literal
-from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import asyncpg
@@ -19,7 +18,6 @@ from .ownership import current_owner as _owner
 router = APIRouter(prefix="/api/v1/payout-preferences")
 LONDON = ZoneInfo("Europe/London")
 SCHEDULE_TIME = time(hour=9)
-
 
 Cadence = Literal["MANUAL", "DAILY", "WEEKLY", "FORTNIGHTLY", "MONTHLY"]
 
@@ -160,7 +158,10 @@ async def update_payout_preference(
             if payload.version != 0:
                 raise HTTPException(
                     status_code=409,
-                    detail={"message": "Payout preference changed; refresh and try again", "current_version": 0},
+                    detail={
+                        "message": "Payout preference changed; refresh and try again",
+                        "current_version": 0,
+                    },
                 )
         elif int(existing["version"]) != payload.version:
             raise HTTPException(
@@ -174,104 +175,11 @@ async def update_payout_preference(
         anchor: date | None = None
         if payload.cadence == "FORTNIGHTLY":
             if payload.weekday is None:
-                raise HTTPException(status_code=422, detail="Fortnightly schedule requires weekday")
-            anchor = _next_weekday(datetime.now(LONDON).date(), payload.weekday)
-
-        if existing is None:
-            row = await connection.fetchrow(
-                """
-                insert into tcg.payout_preferences(
-                    owner_id,cadence,weekday,monthly_day,fortnightly_anchor_date,
-                    timezone,updated_by_user_id
-                )
-                values($1,$2,$3,$4,$5,'Europe/London',$6)
-                returning *
-                """,
-                owner["id"],
-                payload.cadence,
-                payload.weekday,
-                payload.monthly_day,
-                anchor,
-                user.id,
-            )
-        else:
-            row = await connection.fetchrow(
-                """
-                update tcg.payout_preferences
-                set cadence=$2,
-                    weekday=$3,
-                    monthly_day=$4,
-                    fortnightly_anchor_date=$5,
-                    updated_by_user_id=$6,
-                    version=version+1,
-                    updated_at=clock_timestamp()
-                where owner_id=$1
-                returning *
-                """,
-                owner["id"],
-                payload.cadence,
-                payload.weekday,
-                payload.monthly_day,
-                anchor,
-                user.id,
-            )
-
-        if row is None:
-            raise HTTPException(status_code=409, detail="Payout preference was not saved")
-
-        return jsonable_encoder({"preference": _serialize_preference(row)})
-
-
-@router.put("")
-async def update_payout_preference(
-    payload: PayoutPreferenceUpdate,
-    request: Request,
-    user: Annotated[AuthenticatedUser, Depends(require_user)],
-):
-    async with user_connection(
-        request.app.state.db_pool, user.id, request.state.request_id
-    ) as connection:
-        owner = await _owner(connection)
-        existing = await connection.fetchrow(
-            "select * from tcg.payout_preferences where owner_id=$1 for update",
-            owner["id"],
-        )
-
-        if existing is None:
-            if payload.version != 0:
                 raise HTTPException(
-                    status_code=409,
-                    detail={"message": "Payout preference changed; refresh and try again", "current_version": 0},
+                    status_code=422,
+                    detail="Fortnightly schedule requires weekday",
                 )
-        elif int(existing["version"]) != payload.version:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "message": "Payout preference changed; refresh and try again",
-                    "current_version": int(existing["version"]),
-                },
-            )
-
-        anchor: date | None = None
-        if payload.cadence == "FORTNIGHTLY":
-            if payload.weekday is None:
-                raise HTTPException(status_code=422, detail="Fortnightly schedule requires weekday")
             anchor = _next_weekday(datetime.now(LONDON).date(), payload.weekday)
-
-        old_values = (
-            {
-                "cadence": existing["cadence"],
-                "weekday": existing["weekday"],
-                "monthly_day": existing["monthly_day"],
-                "fortnightly_anchor_date": (
-                    existing["fortnightly_anchor_date"].isoformat()
-                    if existing["fortnightly_anchor_date"]
-                    else None
-                ),
-            }
-            if existing
-            else None
-        )
 
         if existing is None:
             row = await connection.fetchrow(
@@ -314,29 +222,5 @@ async def update_payout_preference(
 
         if row is None:
             raise HTTPException(status_code=409, detail="Payout preference was not saved")
-
-        new_values = {
-            "cadence": row["cadence"],
-            "weekday": row["weekday"],
-            "monthly_day": row["monthly_day"],
-            "fortnightly_anchor_date": (
-                row["fortnightly_anchor_date"].isoformat()
-                if row["fortnightly_anchor_date"]
-                else None
-            ),
-        }
-        await connection.execute(
-            """
-            insert into tcg.audit_events(
-                actor,request_id,action,entity_type,entity_id,old_values,new_values
-            )
-            values($1,$2,'PAYOUT_PREFERENCE_CHANGED','OWNER',$3,$4::jsonb,$5::jsonb)
-            """,
-            str(user.id),
-            request.state.request_id,
-            owner["id"],
-            old_values,
-            new_values,
-        )
 
         return jsonable_encoder({"preference": _serialize_preference(row)})
