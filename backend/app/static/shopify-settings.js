@@ -40,52 +40,6 @@ function installShopifySettingsPanel() {
     <div id="shopify-shipping-profile-list" class="allocation-list"></div>
     <div class="page-heading pricing-subheading">
       <div>
-        <p class="eyebrow">Storefront media</p>
-        <h3>Founder card photos</h3>
-        <p class="muted">Upload founder-owned card images directly into the governed media registry. Rights confirmation is explicit, Shopify file access is verified first, and incomplete media never bypasses the publication gate.</p>
-      </div>
-    </div>
-    <div id="shopify-media-capability" class="allocation-list"></div>
-    <div class="toolbar">
-      <select id="shopify-media-candidate" aria-label="Choose card needing media">
-        <option value="">No media work loaded</option>
-      </select>
-      <input id="shopify-media-file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" aria-label="Choose or take card image">
-      <select id="shopify-media-scope" aria-label="Media scope">
-        <option value="INVENTORY_ITEM">This physical card</option>
-        <option value="CANONICAL_CARD">Canonical card image</option>
-      </select>
-      <select id="shopify-media-side" aria-label="Card image side">
-        <option value="FRONT">Front</option>
-        <option value="BACK">Back</option>
-      </select>
-    </div>
-    <div id="shopify-media-capture-summary" class="allocation-list"><p class="muted">Choose a queue item to start capture.</p></div>
-    <div class="toolbar">
-      <input id="shopify-media-alt" type="text" maxlength="500" placeholder="Alt text, e.g. Seel 021/094 front">
-      <label class="muted"><input id="shopify-media-rights" type="checkbox"> I own or am authorised to use this image</label>
-      <button id="shopify-media-upload-button" class="primary-button compact" type="button" disabled>Upload & approve image</button>
-    </div>
-    <div class="toolbar">
-      <button id="shopify-media-previous" class="ghost-button compact" type="button" disabled>← Previous</button>
-      <button id="shopify-media-next" class="ghost-button compact" type="button" disabled>Next media item →</button>
-    </div>
-    <div id="shopify-media-list" class="allocation-list"></div>
-    <div class="page-heading pricing-subheading">
-      <div>
-        <p class="eyebrow">Batch capture</p>
-        <h3>Upload a photo batch</h3>
-        <p class="muted">Name files with the queue Inventory ID and side, e.g. INV-ABC123...-front.jpg. Raw cards use one canonical FRONT; graded cards use exact FRONT + BACK images.</p>
-      </div>
-    </div>
-    <div class="toolbar">
-      <input id="shopify-media-batch-files" type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="Choose batch card images">
-      <label class="muted"><input id="shopify-media-batch-rights" type="checkbox"> These are founder-owned original photographs</label>
-      <button id="shopify-media-batch-button" class="primary-button compact" type="button" disabled>Upload media batch</button>
-    </div>
-    <div id="shopify-media-batch-preview" class="allocation-list"><p class="muted portfolio-empty">Select files to validate them against the live media queue before upload.</p></div>
-    <div class="page-heading pricing-subheading">
-      <div>
         <p class="eyebrow">Controlled milestone test</p>
         <h3>Single-item Shopify sync</h3>
         <p class="muted">Only an APPROVED, physically verified item can be synced here. Bulk publishing remains locked off.</p>
@@ -105,18 +59,6 @@ function installShopifySettingsPanel() {
   byId("shopify-test-candidate").addEventListener("change", refreshShopifyTestButton);
   byId("shopify-product-preview-button").addEventListener("click", previewSelectedShopifyProduct);
   byId("shopify-test-sync-button").addEventListener("click", syncSelectedShopifyTestItem);
-  byId("shopify-media-candidate").addEventListener("change", applyMediaCandidateDefaults);
-  byId("shopify-media-file").addEventListener("change", refreshShopifyMediaButton);
-  byId("shopify-media-scope").addEventListener("change", refreshShopifyMediaButton);
-  byId("shopify-media-side").addEventListener("change", refreshShopifyMediaButton);
-  byId("shopify-media-alt").addEventListener("input", refreshShopifyMediaButton);
-  byId("shopify-media-rights").addEventListener("change", refreshShopifyMediaButton);
-  byId("shopify-media-upload-button").addEventListener("click", uploadFounderMedia);
-  byId("shopify-media-previous").addEventListener("click", () => moveMediaCandidate(-1));
-  byId("shopify-media-next").addEventListener("click", () => moveMediaCandidate(1));
-  byId("shopify-media-batch-files").addEventListener("change", refreshBatchMediaPreview);
-  byId("shopify-media-batch-rights").addEventListener("change", refreshBatchMediaPreview);
-  byId("shopify-media-batch-button").addEventListener("click", uploadFounderMediaBatch);
 }
 
 function shopifyStatusRow(label, value, note = "") {
@@ -142,13 +84,10 @@ async function loadShopifyStatus() {
 
   showMessage("shopify-settings-message", "Loading Shopify integration status…");
   try {
-    const [data, testData, shippingData, mediaCapability, mediaData, mediaQueue] = await Promise.all([
+    const [data, testData, shippingData] = await Promise.all([
       apiRequest("/api/v1/shopify/status"),
       apiRequest("/api/v1/shopify/test-sync"),
       apiRequest("/api/v1/shopify/shipping-profiles?include_inactive=true"),
-      apiRequest("/api/v1/shopify/media-assets/upload-capability"),
-      apiRequest("/api/v1/shopify/media-assets"),
-      apiRequest("/api/v1/shopify/media-assets/intake-queue"),
     ]);
     list.replaceChildren(
       shopifyStatusRow(
@@ -206,7 +145,6 @@ async function loadShopifyStatus() {
     byId("shopify-register-button").disabled = !data.webhook_registration_ready;
     renderShopifyShippingProfiles(shippingData);
     renderShopifyTestCandidates(testData);
-    renderShopifyMedia(mediaCapability, mediaData, mediaQueue);
     showMessage("shopify-settings-message");
   } catch (error) {
     list.textContent = "Shopify status could not be loaded.";
@@ -513,8 +451,10 @@ function renderMediaIntakeQueue(data) {
     option.dataset.inventoryCodes = (item.inventory_codes || [item.inventory_code || ""])
       .filter(Boolean)
       .join(",");
-    option.dataset.mediaScope = item.required_scope || "";
+    option.dataset.mediaScope = item.required_scope || "INVENTORY_ITEM";
     option.dataset.missingSides = (item.missing_sides || []).join(",");
+    option.dataset.isGraded = item.is_graded ? "true" : "false";
+    option.dataset.captureContextHint = item.capture_context_hint || "";
     option.dataset.cardName = item.name || "";
     option.dataset.cardNumber = item.card_number || "";
     option.dataset.language = item.language || "";
@@ -536,6 +476,7 @@ function applyMediaCandidateDefaults() {
   const option = byId("shopify-media-candidate")?.selectedOptions?.[0];
   const scope = byId("shopify-media-scope");
   const side = byId("shopify-media-side");
+  const context = byId("shopify-media-context");
   const missingSides = String(option?.dataset?.missingSides || "")
     .split(",")
     .filter(Boolean);
@@ -546,6 +487,16 @@ function applyMediaCandidateDefaults() {
       scope.disabled = true;
     } else {
       scope.disabled = false;
+    }
+  }
+  if (context) {
+    const hint = String(option?.dataset?.captureContextHint || "");
+    if (hint) {
+      context.value = hint;
+      context.disabled = true;
+    } else {
+      context.value = "";
+      context.disabled = false;
     }
   }
   if (side && missingSides.length) {
@@ -584,9 +535,8 @@ function renderMediaCandidateSummary() {
       [
         option.dataset.cardNumber,
         option.dataset.language,
-        option.dataset.mediaScope === "CANONICAL_CARD"
-          ? "shared canonical raw-card image"
-          : option.dataset.inventoryCode,
+        option.dataset.inventoryCode,
+        option.dataset.isGraded === "true" ? "graded slab" : "raw card",
       ].filter(Boolean).join(" · ")
     )
   );
@@ -649,8 +599,8 @@ function renderShopifyMedia(capability, data, queueData) {
       "Media capture queue",
       Number(queueData?.missing_side_count || 0).toLocaleString("en-GB"),
       [
-        `${queueData?.raw_canonical_groups_pending || 0} raw canonical fronts`,
-        `${queueData?.graded_items_pending || 0} graded physical items`,
+        `${queueData?.raw_items_pending || 0} raw physical cards`,
+        `${queueData?.graded_items_pending || 0} graded slabs`,
       ].join(" · ")
     )
   );
@@ -701,11 +651,13 @@ function refreshShopifyMediaButton() {
   const candidate = byId("shopify-media-candidate")?.selectedOptions?.[0];
   const file = byId("shopify-media-file")?.files?.[0];
   const rights = byId("shopify-media-rights")?.checked === true;
+  const context = String(byId("shopify-media-context")?.value || "");
   if (!button) return;
   button.disabled =
     button.dataset.scopeReady !== "true"
     || !candidate?.value
     || !file
+    || !context
     || !rights;
 }
 
@@ -743,6 +695,7 @@ function batchMediaQueueByInventoryCode() {
 
 function validateBatchMediaFiles(files) {
   const accepted = new Set(["image/jpeg", "image/png", "image/webp"]);
+  const captureContext = String(byId("shopify-media-batch-context")?.value || "");
   const queue = batchMediaQueueByInventoryCode();
   const work = [];
   const errors = [];
@@ -776,6 +729,20 @@ function validateBatchMediaFiles(files) {
       return;
     }
 
+    const isGraded = option.dataset.isGraded === "true";
+    if (!captureContext) {
+      errors.push({filename: file.name, reason: "Choose how this batch is photographed"});
+      return;
+    }
+    if (isGraded && captureContext !== "GRADED_SLAB") {
+      errors.push({filename: file.name, reason: "Graded cards require the Graded slab context"});
+      return;
+    }
+    if (!isGraded && captureContext === "GRADED_SLAB") {
+      errors.push({filename: file.name, reason: "Raw cards cannot use the Graded slab context"});
+      return;
+    }
+
     const missingSides = String(option.dataset.missingSides || "")
       .split(",")
       .filter(Boolean);
@@ -804,6 +771,7 @@ function validateBatchMediaFiles(files) {
       scope: option.dataset.mediaScope || "INVENTORY_ITEM",
       catalogueId: option.dataset.catalogueId || "",
       inventoryId: option.dataset.inventoryId || "",
+      captureContext,
     });
   });
 
@@ -831,7 +799,8 @@ function renderBatchMediaValidation(result) {
         item.option.dataset.cardName,
         item.option.dataset.cardNumber,
         item.option.dataset.language,
-        item.scope === "CANONICAL_CARD" ? "shared canonical image" : "physical graded item",
+        item.option.dataset.inventoryCode,
+        item.captureContext,
         item.side,
       ].filter(Boolean).join(" · ")
     ));
@@ -845,6 +814,7 @@ function refreshBatchMediaPreview() {
   const input = byId("shopify-media-batch-files");
   const button = byId("shopify-media-batch-button");
   const rights = byId("shopify-media-batch-rights")?.checked === true;
+  const context = String(byId("shopify-media-batch-context")?.value || "");
   if (!button) return;
 
   const result = validateBatchMediaFiles(input?.files || []);
@@ -852,6 +822,7 @@ function refreshBatchMediaPreview() {
   button.disabled =
     button.dataset.scopeReady !== "true"
     || !rights
+    || !context
     || result.work.length === 0
     || result.errors.length > 0;
 }
@@ -872,6 +843,7 @@ async function uploadFounderMediaWork({
   scope,
   altText = "",
   rightsBasis = "",
+  captureContext = "",
 }) {
   const catalogueId = option.dataset.catalogueId || "";
   const inventoryId = option.dataset.inventoryId || "";
@@ -913,6 +885,7 @@ async function uploadFounderMediaWork({
       source_type: "FOUNDER_UPLOAD",
       source_reference: file.name,
       public_source_url: target.resourceUrl,
+      capture_context: captureContext || null,
       rights_basis: resolvedRightsBasis,
       alt_text: resolvedAltText,
     }),
@@ -953,7 +926,7 @@ async function uploadFounderMediaBatch() {
       `Uploading image ${index + 1} of ${validation.work.length}: ${item.file.name}`
     );
     try {
-      const result = await uploadFounderMediaWork(item);
+      const result = await uploadFounderMediaWork({...item, captureContext: item.captureContext});
       outcomes.push({
         filename: item.file.name,
         status: result.ready ? "READY" : "PROCESSING",
@@ -1018,8 +991,9 @@ async function uploadFounderMedia() {
   const scope = byId("shopify-media-scope")?.value || "INVENTORY_ITEM";
   const side = byId("shopify-media-side")?.value || "FRONT";
   const rightsConfirmed = byId("shopify-media-rights")?.checked === true;
+  const captureContext = String(byId("shopify-media-context")?.value || "");
   const button = byId("shopify-media-upload-button");
-  if (!option?.value || !file || !rightsConfirmed || !button) return;
+  if (!option?.value || !file || !rightsConfirmed || !captureContext || !button) return;
 
   const accepted = ["image/jpeg", "image/png", "image/webp"];
   if (!accepted.includes(file.type)) {
@@ -1053,6 +1027,7 @@ async function uploadFounderMedia() {
       scope,
       altText: founderMediaAltText(option, side),
       rightsBasis: "Founder-owned original photograph; rights explicitly confirmed during upload",
+      captureContext,
     });
     if (fileInput) fileInput.value = "";
     const rights = byId("shopify-media-rights");
