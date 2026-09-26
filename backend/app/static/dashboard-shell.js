@@ -711,12 +711,25 @@ async function loadEbaySellerOptions() {
       byId("ebay-return-policy"),
       byId("ebay-inventory-location"),
     ].every((select) => select.options.length > 0);
+    const discoveryErrors = Object.values(data.errors || {}).filter(Boolean);
     panel.classList.toggle("hidden", !complete);
-    if (!complete) {
+    if (discoveryErrors.length) {
       showMessage(
         "ebay-connection-message",
-        "The seller account is connected, but eBay is missing at least one compatible policy or enabled inventory location.",
+        `The eBay seller account is connected, but setup checks still need attention: ${discoveryErrors.join(" · ")}.`,
         "error"
+      );
+    } else if (!complete) {
+      showMessage(
+        "ebay-connection-message",
+        "The seller account is connected, but eBay is missing at least one compatible payment, fulfilment or return policy, or an enabled inventory location.",
+        "error"
+      );
+    } else if (data.selling_policy_management_opted_in_now) {
+      showMessage(
+        "ebay-connection-message",
+        "Seller account connected. Drop Rate also enabled eBay Business Policies for Inventory API listings.",
+        "success"
       );
     }
   } catch (error) {
