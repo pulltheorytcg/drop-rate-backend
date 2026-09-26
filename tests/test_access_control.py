@@ -116,3 +116,39 @@ def test_founder_hq_invite_route_requires_platform_admin() -> None:
 
     assert "require_platform_admin" in source
     assert "await require_platform_admin(connection)" in source
+
+def test_internal_control_plane_routers_are_platform_admin_only() -> None:
+    main = (ROOT / "backend" / "app" / "main.py").read_text()
+
+    guarded = (
+        "pricing_router",
+        "imported_benchmark_pricing_router",
+        "ebay_sold_pricing_router",
+        "pricing_preview_router",
+        "market_ingestion_router",
+        "market_mappings_router",
+        "marketplace_listings_router",
+        "market_discovery_router",
+        "market_provider_probe_router",
+        "market_smoke_router",
+        "imports_router",
+        "import_review_router",
+        "inventory_intake_router",
+        "inventory_intelligence_router",
+        "inventory_market_values_router",
+        "inventory_state_router",
+        "identity_review_router",
+        "condition_review_router",
+        "shopify_pipeline_router",
+        "shopify_readiness_router",
+        "purchase_lots_router",
+        "storage_locations_router",
+    )
+    for router_name in guarded:
+        assert (
+            f"app.include_router({router_name}, "
+            "dependencies=[Depends(require_platform_admin_request)])"
+        ) in main
+
+    assert "from fastapi import Depends, FastAPI, Request" in main
+
