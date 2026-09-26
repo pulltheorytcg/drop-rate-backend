@@ -204,3 +204,31 @@ and every existing payout guard remains in force.
 The default is `MANUAL`. Saving a schedule does not enable automatic money movement.
 Production execution remains controlled by the separate payout execution kill-switch.
 
+## Scheduled payout request worker
+
+A dedicated cron worker consumes non-manual payout preferences and creates payout
+**requests** only. It does not call Stripe and cannot move money.
+
+The worker runs independently from the storefront API and evaluates schedules in
+`Europe/London` so BST/GMT changes do not require Railway cron changes. Railway only
+needs to invoke the worker periodically; the Python scheduler decides whether a cycle is
+actually due.
+
+Safety rules:
+
+- Manual preferences are ignored.
+- Inactive owners are skipped.
+- Stripe Connect must still be READY, payouts enabled, and transfers ACTIVE.
+- Only AVAILABLE ledger funds may be considered.
+- Existing REQUESTED/APPROVED payouts are reserved before calculating a new amount.
+- A preference version is re-checked atomically before insertion.
+- Each owner + scheduled cycle has a unique database key.
+- Re-running the same cycle is idempotent.
+- A missed cron run catches up the latest due cycle once; it does not create a backlog.
+- Every scheduled request creation is written to the audit log.
+- The worker never imports the Stripe client and never sees the Stripe secret key.
+
+The resulting payout remains `REQUESTED` and therefore still passes through the existing
+approval and payout-execution controls. Production money movement remains protected by
+`TCG_STRIPE_PAYOUT_EXECUTION_ENABLED`.
+
