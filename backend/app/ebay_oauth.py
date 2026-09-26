@@ -33,6 +33,7 @@ from .settings import Settings, get_settings
 router = APIRouter(prefix="/api/v1/ebay/oauth", tags=["ebay-oauth"])
 AUTHORIZE_URL = "https://auth.ebay.com/oauth2/authorize"
 STATE_TTL_MINUTES = 10
+SELLING_POLICY_MANAGEMENT = "SELLING_POLICY_MANAGEMENT"
 
 
 class SellerConfigSelection(BaseModel):
@@ -85,31 +86,85 @@ def _location_key(row: dict[str, Any]) -> str:
     return str(row.get("merchantLocationKey") or "").strip()
 
 
-async def _discover_seller_options(client: EbaySellClient) -> dict[str, list[dict[str, Any]]]:
-    payments, fulfillment, returns, locations = await asyncio.gather(
-        client.get_payment_policies(),
-        client.get_fulfillment_policies(),
-        client.get_return_policies(),
-        client.get_inventory_locations(),
+def _program_type(row: dict[str, Any]) -> str:
+    return str(row.get("programType") or row.get("programTypeEnum") or "").strip()
+
+
+async def _ensure_selling_policy_management(client: EbaySellClient) -> bool:
+    """Ensure Inventory API business policies are enabled for this seller."""
+
+    programs = await client.get_opted_in_programs()
+    if any(_program_type(row) == SELLING_POLICY_MANAGEMENT for row in programs):
+        return False
+    await client.opt_in_to_program(SELLING_POLICY_MANAGEMENT)
+    programs = await client.get_opted_in_programs()
+    if not any(_program_type(row) == SELLING_POLICY_MANAGEMENT for row in programs):
+        raise EbaySellApiError(
+            "eBay did not confirm Selling Policy Management opt-in"
+        )
+    return True
+
+
+async def _capture_option_call(
+    label: str,
+    call: Any,
+) -> tuple[str, list[dict[str, Any]], str | None]:
+    try:
+        rows = await call
+    except (EbaySellApiError, RuntimeError, ValueError) as exc:
+        status = getattr(exc, "status_code", None)
+        code = f"{label.upper()}_HTTP_{status}" if status else f"{label.upper()}_ERROR"
+        return label, [], code
+    return label, rows, None
+
+
+async def _discover_seller_options(client: EbaySellClient) -> dict[str, Any]:
+    errors: dict[str, str] = {}
+    opted_in = False
+    try:
+        opted_in = await _ensure_selling_policy_management(client)
+    except (EbaySellApiError, RuntimeError, ValueError) as exc:
+        status = getattr(exc, "status_code", None)
+        errors["selling_policy_management"] = (
+            f"SELLING_POLICY_MANAGEMENT_HTTP_{status}"
+            if status else "SELLING_POLICY_MANAGEMENT_ERROR"
+        )
+
+    results = await asyncio.gather(
+        _capture_option_call("payment", client.get_payment_policies()),
+        _capture_option_call("fulfillment", client.get_fulfillment_policies()),
+        _capture_option_call("return", client.get_return_policies()),
+        _capture_option_call("locations", client.get_inventory_locations()),
     )
+    discovered: dict[str, list[dict[str, Any]]] = {
+        "payment": [],
+        "fulfillment": [],
+        "return": [],
+        "locations": [],
+    }
+    for label, rows, error_code in results:
+        discovered[label] = rows
+        if error_code:
+            errors[label] = error_code
+
     payments = [
-        row for row in payments
+        row for row in discovered["payment"]
         if row.get("marketplaceId") in {None, client.marketplace_id}
         and row.get("immediatePay") is True
         and _policy_id(row, "paymentPolicyId")
     ]
     fulfillment = [
-        row for row in fulfillment
+        row for row in discovered["fulfillment"]
         if row.get("marketplaceId") in {None, client.marketplace_id}
         and _policy_id(row, "fulfillmentPolicyId")
     ]
     returns = [
-        row for row in returns
+        row for row in discovered["return"]
         if row.get("marketplaceId") in {None, client.marketplace_id}
         and _policy_id(row, "returnPolicyId")
     ]
     locations = [
-        row for row in locations
+        row for row in discovered["locations"]
         if _location_key(row) and _normalise_location_status(row) == "ENABLED"
     ]
     return {
@@ -117,6 +172,8 @@ async def _discover_seller_options(client: EbaySellClient) -> dict[str, list[dic
         "fulfillment": fulfillment,
         "return": returns,
         "locations": locations,
+        "errors": errors,
+        "selling_policy_management_opted_in_now": opted_in,
     }
 
 
