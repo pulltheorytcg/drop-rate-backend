@@ -307,8 +307,7 @@ def test_ebay_order_webhook_is_signature_checked_hash_deduped_and_fulfillment_ve
     assert "payload_sha256" in block
     assert "payload mismatch" in block
     assert "client.get_order(order_id)" in block
-    assert "paymentMethod" in source
-    assert '"EBAY"' in source
+    assert "paymentMethod" not in source
 
 
 def test_ebay_routes_are_registered() -> None:
@@ -352,6 +351,7 @@ def test_ebay_notification_callback_requires_exact_configured_endpoint_and_token
 def test_ebay_seller_status_requires_inventory_fulfillment_and_notification_scopes() -> None:
     source = EBAY.read_text()
     assert "EBAY_INVENTORY_SCOPE in scopes" in source
+    assert "EBAY_ACCOUNT_SCOPE in scopes" in source
     assert "EBAY_FULFILLMENT_SCOPE in scopes" in source
     assert "EBAY_FULFILLMENT_READONLY_SCOPE in scopes" in source
     assert "EBAY_NOTIFICATION_SCOPE in scopes" in source
