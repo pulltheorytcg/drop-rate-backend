@@ -161,5 +161,7 @@ def test_ai_is_assistive_not_an_approval_path() -> None:
 
     assert "AI condition assistance can be added to suggest defects and confidence" in ui
     assert "Human verification remains the listing gate" in ui
-    assert "ai_" not in source.casefold()
-    assert "confidence" not in source.casefold()
+    assert '"ai_can_suggest_but_not_override": True' in source
+    assert "OpenAI" not in source
+    assert "Anthropic" not in source
+    assert "auto_approve" not in source.casefold()
