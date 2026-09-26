@@ -8,6 +8,7 @@ const state = {
   token: null,
   invite: null,
   session: null,
+  providers: {google: false, apple: false},
 };
 
 const byId = (id) => document.getElementById(id);
@@ -48,6 +49,38 @@ function authRequest(path, options = {}) {
       ...(options.headers || {}),
     },
   }).then(readJson);
+}
+async function loadSocialProviders() {
+  try {
+    const settings = await authRequest("/settings");
+    const external = settings.external || {};
+    state.providers.google = Boolean(external.google);
+    state.providers.apple = Boolean(external.apple);
+  } catch (_error) {
+    state.providers.google = false;
+    state.providers.apple = false;
+  }
+
+  for (const prefix of ["join", "existing"]) {
+    byId(`${prefix}-google`).classList.toggle("hidden", !state.providers.google);
+    byId(`${prefix}-apple`).classList.toggle("hidden", !state.providers.apple);
+    byId(`${prefix}-social-auth`).classList.toggle(
+      "hidden",
+      !state.providers.google && !state.providers.apple
+    );
+  }
+}
+function startOAuth(provider) {
+  if (!["google", "apple"].includes(provider) || !state.providers[provider]) {
+    showMessage("join-message", "That sign-in provider is not enabled yet.", "error");
+    return;
+  }
+  localStorage.setItem(PENDING_INVITE_KEY, state.token);
+  const redirectTo = `${window.location.origin}/join?invite=${encodeURIComponent(state.token)}`;
+  const authorizeUrl = new URL(`${state.config.supabase_url}/auth/v1/authorize`);
+  authorizeUrl.searchParams.set("provider", provider);
+  authorizeUrl.searchParams.set("redirect_to", redirectTo);
+  window.location.assign(authorizeUrl.toString());
 }
 
 function inviteToken() {
@@ -121,6 +154,7 @@ function showInvalid(message) {
 async function initialise() {
   try {
     state.config = await readJson(await fetch("/api/v1/public-config"));
+    await loadSocialProviders();
     state.token = inviteToken();
     if (!state.token) {
       showInvalid("This invitation link is incomplete. Ask for a new founder invite.");
@@ -144,6 +178,11 @@ async function initialise() {
     showInvalid(error.message);
   }
 }
+
+byId("join-google").addEventListener("click", () => startOAuth("google"));
+byId("join-apple").addEventListener("click", () => startOAuth("apple"));
+byId("existing-google").addEventListener("click", () => startOAuth("google"));
+byId("existing-apple").addEventListener("click", () => startOAuth("apple"));
 
 byId("join-form").addEventListener("submit", async (event) => {
   event.preventDefault();
