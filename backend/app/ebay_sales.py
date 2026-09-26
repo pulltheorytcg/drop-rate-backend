@@ -21,6 +21,11 @@ from pydantic import BaseModel, Field
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ebay_sell_client import EbaySellApiError, EbaySellClient
+from .ebay_seller_connection import (
+    EbayEffectiveSellerConfig,
+    load_effective_seller_config,
+    seller_client,
+)
 from .ownership import current_owner as _owner
 from .settings import Settings, get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
@@ -72,28 +77,24 @@ class EbayChannelConflict(RuntimeError):
         self.status = status
 
 
-def _seller_auth_missing(settings: Settings) -> list[str]:
+def _seller_publish_missing(
+    settings: Settings,
+    effective: EbayEffectiveSellerConfig,
+    *,
+    include_publish_gate: bool,
+) -> list[str]:
     required = {
-        "TCG_EBAY_CLIENT_ID": settings.ebay_client_id,
-        "TCG_EBAY_CLIENT_SECRET": settings.ebay_client_secret,
-        "TCG_EBAY_USER_REFRESH_TOKEN": settings.ebay_user_refresh_token,
-    }
-    return [name for name, value in required.items() if not value]
-
-
-def _seller_publish_missing(settings: Settings, *, include_publish_gate: bool) -> list[str]:
-    missing = _seller_auth_missing(settings)
-    required = {
-        "TCG_EBAY_PAYMENT_POLICY_ID": settings.ebay_payment_policy_id,
-        "TCG_EBAY_FULFILLMENT_POLICY_ID": settings.ebay_fulfillment_policy_id,
-        "TCG_EBAY_RETURN_POLICY_ID": settings.ebay_return_policy_id,
-        "TCG_EBAY_MERCHANT_LOCATION_KEY": settings.ebay_merchant_location_key,
+        "eBay seller OAuth": effective.refresh_token,
+        "eBay payment policy": effective.payment_policy_id,
+        "eBay fulfilment policy": effective.fulfillment_policy_id,
+        "eBay return policy": effective.return_policy_id,
+        "eBay inventory location": effective.merchant_location_key,
         "TCG_EBAY_NOTIFICATION_ENDPOINT": settings.ebay_notification_endpoint,
         "TCG_EBAY_NOTIFICATION_VERIFICATION_TOKEN": (
             settings.ebay_notification_verification_token
         ),
     }
-    missing.extend(name for name, value in required.items() if not value)
+    missing = [name for name, value in required.items() if not value]
     if include_publish_gate and not settings.ebay_publish_enabled:
         missing.append("TCG_EBAY_PUBLISH_ENABLED")
     return missing
@@ -113,18 +114,6 @@ def _notification_callback_settings(settings: Settings) -> tuple[str, str]:
             detail="eBay order notification verification token is invalid",
         )
     return token, endpoint
-
-
-def _client(settings: Settings) -> EbaySellClient:
-    missing = _seller_auth_missing(settings)
-    if missing:
-        raise RuntimeError("eBay seller authorisation is incomplete")
-    return EbaySellClient(
-        client_id=settings.ebay_client_id or "",
-        client_secret=settings.ebay_client_secret or "",
-        refresh_token=settings.ebay_user_refresh_token or "",
-        marketplace_id=settings.ebay_marketplace_id,
-    )
 
 
 def _shopify_client(settings: Settings) -> ShopifyAdminClient | None:
@@ -274,6 +263,7 @@ def _offer_payload(
     sku: str,
     price_minor: int,
     settings: Settings,
+    effective: EbayEffectiveSellerConfig,
 ) -> dict[str, Any]:
     return {
         "sku": sku,
@@ -281,11 +271,11 @@ def _offer_payload(
         "format": "FIXED_PRICE",
         "availableQuantity": 1,
         "categoryId": EBAY_GB_CCG_SINGLE_CATEGORY_ID,
-        "merchantLocationKey": settings.ebay_merchant_location_key,
+        "merchantLocationKey": effective.merchant_location_key,
         "listingPolicies": {
-            "paymentPolicyId": settings.ebay_payment_policy_id,
-            "fulfillmentPolicyId": settings.ebay_fulfillment_policy_id,
-            "returnPolicyId": settings.ebay_return_policy_id,
+            "paymentPolicyId": effective.payment_policy_id,
+            "fulfillmentPolicyId": effective.fulfillment_policy_id,
+            "returnPolicyId": effective.return_policy_id,
         },
         "pricingSummary": {
             "price": {"currency": "GBP", "value": _money_value(price_minor)}
@@ -313,12 +303,16 @@ def _offer_is_live(offer: dict[str, Any]) -> bool:
     )
 
 
-async def _validate_seller_prerequisites(client: EbaySellClient, settings: Settings) -> None:
+async def _validate_seller_prerequisites(
+    client: EbaySellClient,
+    settings: Settings,
+    effective: EbayEffectiveSellerConfig,
+) -> None:
     location, payment, fulfillment, returns = await asyncio.gather(
-        client.get_inventory_location(settings.ebay_merchant_location_key or ""),
-        client.get_payment_policy(settings.ebay_payment_policy_id or ""),
-        client.get_fulfillment_policy(settings.ebay_fulfillment_policy_id or ""),
-        client.get_return_policy(settings.ebay_return_policy_id or ""),
+        client.get_inventory_location(effective.merchant_location_key or ""),
+        client.get_payment_policy(effective.payment_policy_id or ""),
+        client.get_fulfillment_policy(effective.fulfillment_policy_id or ""),
+        client.get_return_policy(effective.return_policy_id or ""),
     )
     if str(location.get("locationStatus") or "ENABLED").upper() == "DISABLED":
         raise EbaySellApiError("Configured eBay inventory location is disabled")
