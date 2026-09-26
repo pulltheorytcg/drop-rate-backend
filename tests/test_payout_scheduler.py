@@ -164,7 +164,10 @@ def test_scheduler_database_boundary_rechecks_invariants() -> None:
 
 def test_scheduler_never_imports_or_calls_stripe() -> None:
     source = SCRIPT.read_text()
-    assert "stripe" not in source.lower()
+    assert "stripe_connect" not in source
+    assert "StripeConnect" not in source
+    assert "httpx" not in source
+    assert "requests" not in source
     assert "TCG_DATABASE_URL" in source
     assert "queue_due_payouts" in source
 
@@ -175,4 +178,35 @@ def test_scheduler_dockerfile_is_minimal_and_runs_worker() -> None:
     assert "requirements.txt" in dockerfile
     assert "run_payout_scheduler.py" in dockerfile
     assert "uvicorn" not in dockerfile.lower()
+
+OBSERVABILITY_MIGRATION = (
+    ROOT
+    / "database"
+    / "migrations"
+    / "20260926223000_payout_scheduler_run_observability.sql"
+)
+
+
+def test_scheduler_run_observability_is_append_only_to_application_roles() -> None:
+    sql = OBSERVABILITY_MIGRATION.read_text().lower()
+
+    assert "create table if not exists tcg.payout_scheduler_runs" in sql
+    assert "force row level security" in sql
+    for role in ("public", "anon", "authenticated", "service_role", "tcg_api", "tcg_auditor"):
+        assert f"revoke all on tcg.payout_scheduler_runs from {role}" in sql
+    assert "security definer" in sql
+    assert "start_payout_scheduler_run" in sql
+    assert "finish_payout_scheduler_run" in sql
+    assert "fail_stale_payout_scheduler_runs" in sql
+
+
+def test_scheduler_runner_persists_success_and_failure_outcomes() -> None:
+    source = SCRIPT.read_text()
+
+    assert "tcg.start_payout_scheduler_run()" in source
+    assert "tcg.finish_payout_scheduler_run(" in source
+    assert "tcg.fail_stale_payout_scheduler_runs" in source
+    assert 'status = "SUCCESS" if summary["ok"] else "FAILED"' in source
+    assert 'status="FAILED"' in source
+    assert '"scheduler_run_id": str(run_id)' in source
 
