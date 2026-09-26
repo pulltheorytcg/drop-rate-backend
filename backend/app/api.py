@@ -227,11 +227,15 @@ async def list_inventory(
                 pl.lot_code as purchase_lot_code,
                 p.id as catalogue_id, p.product_type, p.game, {BRAND_SQL} as brand,
                 p.name, p.set_name, p.card_number, p.variant, p.rarity,
-                p.language as catalogue_language
+                p.language as catalogue_language,
+                eil.state as ebay_state, eil.listing_id as ebay_listing_id,
+                eil.offer_id as ebay_offer_id, eil.listed_price_minor as ebay_price_minor,
+                eil.last_error_code as ebay_error_code
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id = i.catalogue_id
             left join tcg.purchase_lots pl on pl.id = i.purchase_lot_id
             left join tcg.storage_locations sl on sl.id = i.storage_location_id
+            left join tcg.ebay_inventory_links eil on eil.inventory_id = i.id
             where {where}
             order by i.updated_at desc, i.inventory_code
             limit ${len(params) - 1} offset ${len(params)}
