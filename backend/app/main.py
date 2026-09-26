@@ -43,6 +43,7 @@ from .shopify_client import ShopifyApiError
 from .shopify_pipeline import router as shopify_pipeline_router
 from .shopify_readiness import router as shopify_readiness_router
 from .storage_locations import router as storage_locations_router
+from .stripe_connect import router as stripe_connect_router
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -249,4 +250,5 @@ def create_app() -> FastAPI:
     app.include_router(shopify_readiness_router)
     app.include_router(purchase_lots_router)
     app.include_router(storage_locations_router)
+    app.include_router(stripe_connect_router)
     return app
