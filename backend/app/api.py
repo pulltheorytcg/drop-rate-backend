@@ -8,6 +8,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.encoders import jsonable_encoder
 
+from .access_control import require_platform_admin_request
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
@@ -248,7 +249,7 @@ async def list_inventory(
         )
 
 
-@router.patch("/inventory/{inventory_id}")
+@router.patch("/inventory/{inventory_id}", dependencies=[Depends(require_platform_admin_request)])
 async def update_inventory(
     inventory_id: UUID,
     payload: InventoryPatch,
@@ -344,7 +345,7 @@ async def update_inventory(
         return jsonable_encoder(dict(row))
 
 
-@router.post("/inventory/{inventory_id}/approve")
+@router.post("/inventory/{inventory_id}/approve", dependencies=[Depends(require_platform_admin_request)])
 async def approve_inventory(
     inventory_id: UUID,
     payload: InventoryApproval,
@@ -413,7 +414,7 @@ async def approve_inventory(
         return jsonable_encoder(dict(row))
 
 
-@router.post("/inventory/bulk-cost")
+@router.post("/inventory/bulk-cost", dependencies=[Depends(require_platform_admin_request)])
 async def allocate_bulk_cost(
     payload: BulkCostAllocation,
     request: Request,
@@ -464,7 +465,7 @@ async def allocate_bulk_cost(
         })
 
 
-@router.get("/purchase-lots")
+@router.get("/purchase-lots", dependencies=[Depends(require_platform_admin_request)])
 async def list_purchase_lots(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -495,7 +496,7 @@ async def list_purchase_lots(
         return jsonable_encoder({"items": [dict(row) for row in rows]})
 
 
-@router.post("/purchase-lots", status_code=201)
+@router.post("/purchase-lots", status_code=201, dependencies=[Depends(require_platform_admin_request)])
 async def create_purchase_lot(
     payload: PurchaseLotCreate,
     request: Request,
@@ -526,7 +527,7 @@ async def create_purchase_lot(
         return jsonable_encoder(dict(row))
 
 
-@router.post("/purchase-lots/{lot_id}/allocate")
+@router.post("/purchase-lots/{lot_id}/allocate", dependencies=[Depends(require_platform_admin_request)])
 async def allocate_purchase_lot(
     lot_id: UUID,
     payload: PurchaseLotAllocation,
@@ -631,7 +632,7 @@ async def allocate_purchase_lot(
         })
 
 
-@router.post("/automation/inventory-review")
+@router.post("/automation/inventory-review", dependencies=[Depends(require_platform_admin_request)])
 async def inventory_review(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
