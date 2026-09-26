@@ -61,6 +61,13 @@ class EbayListRequest(BaseModel):
     version: int = Field(ge=1)
 
 
+class EbayChannelConflict(RuntimeError):
+    def __init__(self, link_id: UUID, status: str) -> None:
+        super().__init__(f"Physical inventory is {status}; manual resolution is required")
+        self.link_id = link_id
+        self.status = status
+
+
 def _seller_config_missing(settings: Settings, *, include_publish_gate: bool) -> list[str]:
     required = {
         "TCG_EBAY_CLIENT_ID": settings.ebay_client_id,
@@ -969,18 +976,7 @@ async def _record_ebay_order(pool: Any, order: dict[str, Any]) -> dict[str, Any]
                 link = by_listing[line["listing_id"]]
                 status = str(link["inventory_status"])
                 if status != "APPROVED":
-                    await connection.execute(
-                        """
-                        update tcg.ebay_inventory_links
-                        set state='ERROR', last_error_code=$2,
-                            version=version+1, updated_at=clock_timestamp()
-                        where id=$1
-                        """,
-                        link["id"], f"CHANNEL_CONFLICT_{status}",
-                    )
-                    raise ValueError(
-                        f"Physical inventory is {status}; eBay order requires Action Required"
-                    )
+                    raise EbayChannelConflict(link["id"], status)
 
             internal_order = await connection.fetchrow(
                 """
@@ -1004,7 +1000,7 @@ async def _record_ebay_order(pool: Any, order: dict[str, Any]) -> dict[str, Any]
                     link["inventory_id"],
                 )
                 if item is None:
-                    raise ValueError("Physical inventory allocation lost a concurrent race")
+                    raise EbayChannelConflict(link["id"], "CONCURRENT_CHANGE")
                 order_item = await connection.fetchrow(
                     """
                     insert into tcg.order_items(
@@ -1183,6 +1179,30 @@ async def ebay_order_notification(
         await _zero_shopify_for_ebay_sale(
             request.app.state.db_pool, result["inventory_ids"]
         )
+    except EbayChannelConflict as exc:
+        async with request.app.state.db_pool.acquire() as connection:
+            await connection.execute(
+                """
+                update tcg.ebay_inventory_links
+                set state='ERROR', last_error_code=$2,
+                    version=version+1, updated_at=clock_timestamp()
+                where id=$1
+                """,
+                exc.link_id, f"CHANNEL_CONFLICT_{exc.status}"[:120],
+            )
+            await connection.execute(
+                """
+                update tcg.ebay_webhook_events
+                set status='FAILED', last_error_code='CHANNEL_CONFLICT',
+                    processed_at=clock_timestamp()
+                where notification_id=$1
+                """,
+                notification_id,
+            )
+        raise HTTPException(
+            status_code=409,
+            detail="eBay order conflicts with an already reserved or sold physical item; Action Required",
+        ) from exc
     except (EbaySellApiError, ShopifyApiError, ValueError) as exc:
         async with request.app.state.db_pool.acquire() as connection:
             await connection.execute(
