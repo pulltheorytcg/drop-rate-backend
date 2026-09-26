@@ -73,3 +73,21 @@ Phase 1 establishes:
 
 No OWNER accounts should be invited until privileged Founder HQ routes have completed the
 admin-guard audit and a separate restricted owner portal exists.
+
+## Owner portal entry boundary
+
+The restricted owner portal is served from `/owner` and is intentionally separate from
+Founder HQ.
+
+The first portal slice is access-only:
+
+- it supports the same Supabase identity providers as the rest of Drop Rate
+- it calls `GET /api/v1/access/me` before showing any owner workspace
+- `PLATFORM_ADMIN` accounts are redirected to Founder HQ
+- only `OWNER` + `OWNER_PORTAL` access context may enter the restricted portal
+- unlinked authenticated users fail closed
+- no inventory, finance, marketplace, pricing or admin APIs are exposed by the portal yet
+
+Business-data modules are added only after their owner-safe API contracts and cross-owner
+isolation tests are complete.
+
