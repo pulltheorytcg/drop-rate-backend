@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
+from .access_control import require_platform_admin
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ebay_sales import sync_ebay_after_shopify_result
@@ -257,12 +258,7 @@ async def register_shopify_webhooks(
         user.user_id,
         request.state.request_id,
     ) as connection:
-        owner = await _owner(connection)
-        if owner["role"] != "FOUNDER":
-            raise HTTPException(
-                status_code=403,
-                detail="Only a founder can change Shopify webhook registration",
-            )
+        await require_platform_admin(connection)
 
     client = _shopify_client()
     try:
