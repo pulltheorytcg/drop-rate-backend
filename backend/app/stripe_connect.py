@@ -6,6 +6,7 @@ import json
 import time
 from typing import Annotated, Any
 from uuid import UUID
+from urllib.parse import urlsplit, urlunsplit
 
 import asyncpg
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -33,6 +34,16 @@ def _client(settings: Settings) -> StripeConnectClient:
     if not settings.stripe_secret_key:
         raise HTTPException(status_code=409, detail="Stripe Connect is not configured")
     return StripeConnectClient(secret_key=settings.stripe_secret_key)
+
+
+def _owner_portal_url(configured_url: str) -> str:
+    parts = urlsplit(configured_url)
+    if parts.scheme != "https" or not parts.netloc:
+        raise HTTPException(
+            status_code=500,
+            detail="Stripe Connect return URL configuration is invalid",
+        )
+    return urlunsplit((parts.scheme, parts.netloc, "/owner", "", ""))
 
 
 def _string_list(value: object) -> list[str]:
@@ -372,12 +383,18 @@ async def stripe_onboarding_link(
                 detail="Create the Stripe payout account first",
             )
 
+    refresh_url = settings.stripe_connect_refresh_url
+    return_url = settings.stripe_connect_return_url
+    if owner["role"] == "OWNER":
+        refresh_url = _owner_portal_url(return_url)
+        return_url = _owner_portal_url(return_url)
+
     try:
         account = await client.retrieve_account(str(row["stripe_account_id"]))
         link = await client.create_account_link(
             account_id=str(row["stripe_account_id"]),
-            refresh_url=settings.stripe_connect_refresh_url,
-            return_url=settings.stripe_connect_return_url,
+            refresh_url=refresh_url,
+            return_url=return_url,
         )
     except StripeApiError as exc:
         raise HTTPException(
