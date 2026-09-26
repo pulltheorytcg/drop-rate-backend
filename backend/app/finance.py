@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field, model_validator
 
-from .access_control import require_platform_admin
+from .access_control import require_platform_admin, require_platform_admin_request
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
@@ -1350,7 +1350,7 @@ async def _reconcile_shopify_fees_once(
     })
 
 
-@router.post("/finance/shopify/orders/{order_id}/reconcile-fees")
+@router.post("/finance/shopify/orders/{order_id}/reconcile-fees", dependencies=[Depends(require_platform_admin_request)])
 async def reconcile_shopify_fees(
     order_id: UUID,
     request: Request,
@@ -1364,7 +1364,7 @@ async def reconcile_shopify_fees(
     )
 
 
-@router.post("/finance/shopify/reconcile-pending-fees")
+@router.post("/finance/shopify/reconcile-pending-fees", dependencies=[Depends(require_platform_admin_request)])
 async def reconcile_pending_shopify_fees(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -1434,7 +1434,7 @@ async def reconcile_pending_shopify_fees(
     })
 
 
-@router.post("/finance/ebay/orders/{order_id}/fees")
+@router.post("/finance/ebay/orders/{order_id}/fees", dependencies=[Depends(require_platform_admin_request)])
 async def reconcile_ebay_fees(
     order_id: UUID,
     payload: EbayFeeReconcile,
@@ -1558,8 +1558,8 @@ async def reconcile_ebay_fees(
         })
 
 
-@router.post("/finance/ebay/orders/{order_id}/postage")
-@router.post("/finance/shopify/orders/{order_id}/postage")
+@router.post("/finance/ebay/orders/{order_id}/postage", dependencies=[Depends(require_platform_admin_request)])
+@router.post("/finance/shopify/orders/{order_id}/postage", dependencies=[Depends(require_platform_admin_request)])
 async def reconcile_shopify_postage(
     order_id: UUID,
     payload: ShopifyPostageReconcile,
@@ -1746,7 +1746,7 @@ async def reconcile_shopify_postage(
         })
 
 
-@router.post("/finance/manual-sales", status_code=201)
+@router.post("/finance/manual-sales", status_code=201, dependencies=[Depends(require_platform_admin_request)])
 async def create_manual_sale(
     payload: ManualSaleCreate,
     request: Request,

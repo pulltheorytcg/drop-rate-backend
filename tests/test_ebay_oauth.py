@@ -264,7 +264,7 @@ def test_complete_setup_registers_and_verifies_order_confirmation() -> None:
 
 def test_complete_setup_only_marks_connection_ready_after_remote_readback() -> None:
     source = OAUTH_SOURCE.read_text()
-    start = source.index('@router.post("/complete-setup")')
+    start = source.index('@router.post("/complete-setup", dependencies=[Depends(require_platform_admin_request)])')
     block = source[start:]
     readback = block.index("client.get_payment_policy(payment_id)")
     notification = block.index("_ensure_order_confirmation_notification(")

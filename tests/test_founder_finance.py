@@ -258,7 +258,7 @@ def test_shopify_fee_reconciliation_releases_db_transaction_for_remote_call() ->
     source = (ROOT / "backend" / "app" / "finance.py").read_text()
     start = source.index("async def _reconcile_shopify_fees_once(")
     end = source.index(
-        '@router.post("/finance/shopify/orders/{order_id}/reconcile-fees")',
+        '@router.post("/finance/shopify/orders/{order_id}/reconcile-fees", dependencies=[Depends(require_platform_admin_request)])',
         start,
     )
     helper = source[start:end]
@@ -277,10 +277,10 @@ def test_shopify_fee_reconciliation_releases_db_transaction_for_remote_call() ->
 def test_batch_shopify_fee_reconciliation_is_founder_scoped_and_bounded() -> None:
     source = (ROOT / "backend" / "app" / "finance.py").read_text()
     start = source.index(
-        '@router.post("/finance/shopify/reconcile-pending-fees")'
+        '@router.post("/finance/shopify/reconcile-pending-fees", dependencies=[Depends(require_platform_admin_request)])'
     )
     end = source.index(
-        '@router.post("/finance/shopify/orders/{order_id}/postage")',
+        '@router.post("/finance/shopify/orders/{order_id}/postage", dependencies=[Depends(require_platform_admin_request)])',
         start,
     )
     batch = source[start:end]
@@ -399,7 +399,7 @@ def test_settlement_reconciliation_state_is_fail_closed_for_shopify() -> None:
 def test_settlement_endpoint_is_owner_scoped_and_uses_append_only_ledger() -> None:
     source = (ROOT / "backend" / "app" / "finance.py").read_text()
     start = source.index('@router.get("/finance/settlements")')
-    end = source.index('@router.post("/finance/shopify/orders/{order_id}/reconcile-fees")', start)
+    end = source.index('@router.post("/finance/shopify/orders/{order_id}/reconcile-fees", dependencies=[Depends(require_platform_admin_request)])', start)
     settlement = source[start:end]
     assert "where oi.owner_id=$1" in settlement
     assert "where le.owner_id=$1 and le.order_id is not null" in settlement

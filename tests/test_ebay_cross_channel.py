@@ -258,8 +258,8 @@ def test_ebay_sell_client_uses_seller_refresh_token_not_application_token_for_se
 
 def test_single_item_publish_is_fail_closed_and_never_bulk_publishes() -> None:
     source = EBAY.read_text()
-    assert '@router.post("/listings/{inventory_id}")' in source
-    assert "bulk" not in source[source.index('@router.post("/listings/{inventory_id}")'):]
+    assert '@router.post("/listings/{inventory_id}", dependencies=[Depends(require_platform_admin_request)])' in source
+    assert "bulk" not in source[source.index('@router.post("/listings/{inventory_id}", dependencies=[Depends(require_platform_admin_request)])'):]
     assert "TCG_EBAY_PUBLISH_ENABLED" in source
     assert "identity must be confirmed" in source
     assert "approved FRONT + BACK physical photos are required" in source

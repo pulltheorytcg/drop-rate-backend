@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from .access_control import require_platform_admin
+from .access_control import require_platform_admin, require_platform_admin_request
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ebay_sales import sync_ebay_after_shopify_result
@@ -154,7 +154,7 @@ def _shopify_client() -> ShopifyAdminClient:
     )
 
 
-@router.get("/status")
+@router.get("/status", dependencies=[Depends(require_platform_admin_request)])
 async def shopify_status(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -206,7 +206,7 @@ async def shopify_status(
     )
 
 
-@router.post("/probe")
+@router.post("/probe", dependencies=[Depends(require_platform_admin_request)])
 async def probe_shopify(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
@@ -240,7 +240,7 @@ async def probe_shopify(
     )
 
 
-@router.post("/webhooks/register")
+@router.post("/webhooks/register", dependencies=[Depends(require_platform_admin_request)])
 async def register_shopify_webhooks(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],

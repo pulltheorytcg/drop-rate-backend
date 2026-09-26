@@ -88,7 +88,7 @@ def test_unexpected_webhook_failures_are_logged_without_raw_payload() -> None:
 def test_shopify_status_does_not_return_credentials() -> None:
     source = SHOPIFY.read_text()
     status_start = source.index('async def shopify_status(')
-    status_end = source.index('@router.post("/probe")')
+    status_end = source.index('@router.post("/probe", dependencies=[Depends(require_platform_admin_request)])')
     status_source = source[status_start:status_end]
     assert '"shopify_client_id"' not in status_source
     assert '"shopify_client_secret"' not in status_source
@@ -596,7 +596,7 @@ def test_webhook_registration_plan_fails_closed_on_duplicate_exact_subscription(
 
 def test_webhook_registration_is_founder_scoped_and_reverifies_remote_state() -> None:
     source = SHOPIFY.read_text()
-    assert '@router.post("/webhooks/register")' in source
+    assert '@router.post("/webhooks/register", dependencies=[Depends(require_platform_admin_request)])' in source
     assert "await require_platform_admin(connection)" in source
     assert "plan_webhook_registration(existing, endpoint)" in source
     assert "verified = await client.list_webhook_subscriptions()" in source
