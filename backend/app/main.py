@@ -199,6 +199,10 @@ def create_app() -> FastAPI:
     async def founder_join() -> HTMLResponse:
         return HTMLResponse((STATIC_DIR / "join.html").read_text(encoding="utf-8"))
 
+    @app.get("/owner", include_in_schema=False)
+    async def owner_portal() -> HTMLResponse:
+        return HTMLResponse((STATIC_DIR / "owner.html").read_text(encoding="utf-8"))
+
     @app.get("/api/v1/public-config", include_in_schema=False)
     async def public_config() -> dict:
         return {
