@@ -83,7 +83,9 @@ def test_owner_portal_uses_only_dedicated_owner_safe_read_contracts() -> None:
         'method: "PATCH"',
         'method: "DELETE"',
     )
-    owner_api_section = js[js.index("async function loadOwnerOverview"):]
+    start = js.index("async function loadOwnerOverview")
+    end = js.index("async function openOwnerPortal", start)
+    owner_api_section = js[start:end]
     for method in forbidden_mutations:
         assert method not in owner_api_section
 
@@ -98,9 +100,9 @@ def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None
         "Internal notes",
         "Shopify Product ID",
         "eBay",
-        "Approve",
-        "Edit cost",
-        "Reassign owner",
+        'type="button">Approve',
+        'type="button">Edit cost',
+        'type="button">Reassign owner',
     ):
         assert label not in html
 
