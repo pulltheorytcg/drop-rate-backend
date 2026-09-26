@@ -232,12 +232,12 @@ def _settlement_reconciliation_state(
     fees_reconciled: bool,
     shipping_cost_reconciled: bool,
 ) -> tuple[str, list[str]]:
-    if source != "SHOPIFY":
+    if source not in {"SHOPIFY", "EBAY"}:
         return "VERIFIED", []
 
     blockers: list[str] = []
     if not fees_reconciled:
-        blockers.append("Shopify/payment fees")
+        blockers.append("Shopify/payment fees" if source == "SHOPIFY" else "eBay fees")
     if not shipping_cost_reconciled:
         blockers.append("postage/fulfilment cost")
 
@@ -377,7 +377,7 @@ async def finance_summary(
             from tcg.order_items oi
             join tcg.orders o on o.id = oi.order_id
             where oi.owner_id = $1
-              and o.source = 'SHOPIFY'
+              and o.source in ('SHOPIFY','EBAY')
             """,
             owner["id"],
         )
@@ -385,7 +385,7 @@ async def finance_summary(
         missing_shipping_cost_sales = int(
             reconciliation["missing_shipping_cost_sales"] or 0
         )
-        unreconciled_shopify_sales = max(
+        unreconciled_external_sales = max(
             missing_fee_sales,
             missing_shipping_cost_sales,
         )
@@ -429,8 +429,9 @@ async def finance_summary(
             "net_profit_minor": net_profit,
             "fees_complete": missing_fee_sales == 0,
             "shipping_cost_complete": missing_shipping_cost_sales == 0,
-            "net_profit_complete": unreconciled_shopify_sales == 0,
-            "unreconciled_shopify_sales": unreconciled_shopify_sales,
+            "net_profit_complete": unreconciled_external_sales == 0,
+            "unreconciled_external_sales": unreconciled_external_sales,
+            "unreconciled_shopify_sales": unreconciled_external_sales,
             "sold_items": int(ledger["sold_items"] or 0),
             **balances,
         })
@@ -504,10 +505,11 @@ async def finance_sales(
             effective_cost = 0 if item["returned_to_stock"] else int(item["cost_basis_minor"])
             item["effective_cost_basis_minor"] = effective_cost
             item["fees_complete"] = (
-                item["source"] != "SHOPIFY" or bool(item["fees_reconciled"])
+                item["source"] not in {"SHOPIFY", "EBAY"} or bool(item["fees_reconciled"])
             )
             item["shipping_cost_complete"] = (
-                item["source"] != "SHOPIFY" or bool(item["shipping_cost_reconciled"])
+                item["source"] not in {"SHOPIFY", "EBAY"}
+                or bool(item["shipping_cost_reconciled"])
             )
             item["profit_complete"] = (
                 item["fees_complete"] and item["shipping_cost_complete"]
@@ -616,11 +618,11 @@ async def finance_sales_analytics(
             reconciliation as (
               select
                 count(*) filter (
-                  where si.source='SHOPIFY'
+                  where si.source in ('SHOPIFY','EBAY')
                     and rec.fees_reconciled_at is null
                 )::int as missing_fee_sales,
                 count(*) filter (
-                  where si.source='SHOPIFY'
+                  where si.source in ('SHOPIFY','EBAY')
                     and rec.shipping_cost_reconciled_at is null
                 )::int as missing_shipping_cost_sales
               from scoped_items si
@@ -795,6 +797,7 @@ async def finance_sales_analytics(
         "cost_of_goods_minor": cogs,
         "net_profit_minor": net_profit,
         "net_profit_complete": missing_fees == 0 and missing_postage == 0,
+        "unreconciled_external_sales": max(missing_fees, missing_postage),
         "unreconciled_shopify_sales": max(missing_fees, missing_postage),
         "orders": orders,
         "sold_items": sold_items,
@@ -927,11 +930,11 @@ async def finance_settlements(
               ir.item_count,
               ir.effective_cogs_minor,
               case
-                when o.source='SHOPIFY' then coalesce(ir.fees_reconciled,false)
+                when o.source in ('SHOPIFY','EBAY') then coalesce(ir.fees_reconciled,false)
                 else true
               end as fees_reconciled,
               case
-                when o.source='SHOPIFY'
+                when o.source in ('SHOPIFY','EBAY')
                   then coalesce(ir.shipping_cost_reconciled,false)
                 else true
               end as shipping_cost_reconciled,
