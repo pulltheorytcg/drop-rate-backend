@@ -190,6 +190,119 @@ function buildPortfolioIntelligencePanel() {
   return section;
 }
 
+
+function buildShopifyReadinessPanel() {
+  const existing = byId("shopify-readiness-panel");
+  if (existing) return existing;
+
+  const section = document.createElement("section");
+  section.id = "shopify-readiness-panel";
+  section.className = "inventory-panel portfolio-intelligence-panel";
+  section.innerHTML = `
+    <div class="page-heading portfolio-intelligence-heading">
+      <div>
+        <p class="eyebrow">Storefront pipeline</p>
+        <h2>Shopify readiness</h2>
+        <p class="muted">See how much unsynced stock has cleared the deterministic inventory gates and how much has the required approved media.</p>
+      </div>
+      <button id="shopify-readiness-refresh" class="ghost-button" type="button">↻ Refresh</button>
+    </div>
+    <div class="stats-grid portfolio-value-grid">
+      <article class="stat-card">
+        <span>Core ready</span>
+        <strong id="shopify-operational-ready">—</strong>
+        <small id="shopify-operational-coverage">Identity, language, approval, cost, price and location</small>
+      </article>
+      <article class="stat-card">
+        <span>Media ready</span>
+        <strong id="shopify-media-ready">—</strong>
+        <small id="shopify-media-coverage">Approved media policy satisfied</small>
+      </article>
+    </div>
+    <div id="shopify-readiness-blockers" class="allocation-list">
+      <p class="muted portfolio-empty">Loading Shopify readiness…</p>
+    </div>
+    <div class="toolbar">
+      <button id="shopify-readiness-verify" class="ghost-button compact" type="button">Open Verify</button>
+      <button id="shopify-readiness-media" class="primary-button compact" type="button">Open Media</button>
+    </div>
+    <p class="muted">This is a local readiness funnel only. Final Shopify completeness still re-checks media, shipping, collections, SEO, remote quantity and publication configuration before activation.</p>
+  `;
+
+  section.querySelector("#shopify-readiness-refresh")
+    .addEventListener("click", () => loadShopifyReadiness());
+  section.querySelector("#shopify-readiness-verify")
+    .addEventListener("click", () => activateSellerView("verification", true));
+  section.querySelector("#shopify-readiness-media")
+    .addEventListener("click", () => {
+      activateSellerView("settings", true);
+      requestAnimationFrame(() => byId("shopify-media-candidate")?.scrollIntoView({ block: "center" }));
+    });
+  return section;
+}
+
+function appendShopifyReadinessBlockers(container, label, blockers) {
+  const entries = Object.entries(blockers || {})
+    .sort((left, right) => Number(right[1]) - Number(left[1]) || left[0].localeCompare(right[0]));
+  if (!entries.length) return;
+
+  const heading = document.createElement("div");
+  heading.className = "portfolio-mover-label";
+  heading.textContent = label;
+  container.append(heading);
+
+  entries.forEach(([blocker, count]) => {
+    const row = document.createElement("div");
+    row.className = "allocation-row";
+    const details = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = blocker;
+    const note = document.createElement("small");
+    note.textContent = label === "Core blockers"
+      ? "Resolve in Verify / Inventory before Shopify."
+      : "Resolve with approved founder or licensed media.";
+    details.append(name, note);
+    const total = document.createElement("strong");
+    total.textContent = Number(count || 0).toLocaleString("en-GB");
+    row.append(details, total);
+    container.append(row);
+  });
+}
+
+async function loadShopifyReadiness() {
+  if (!state.session?.access_token || !byId("shopify-readiness-panel")) return;
+  const container = byId("shopify-readiness-blockers");
+  try {
+    const data = await apiRequest("/api/v1/shopify/readiness");
+    const considered = Number(data.considered || 0);
+    const operationalReady = Number(data.operational_ready || 0);
+    const mediaReady = Number(data.media_ready || 0);
+
+    byId("shopify-operational-ready").textContent = operationalReady.toLocaleString("en-GB");
+    byId("shopify-media-ready").textContent = mediaReady.toLocaleString("en-GB");
+    byId("shopify-operational-coverage").textContent =
+      `${operationalReady.toLocaleString("en-GB")} of ${considered.toLocaleString("en-GB")} unsynced items pass core gates`;
+    byId("shopify-media-coverage").textContent =
+      `${mediaReady.toLocaleString("en-GB")} of ${operationalReady.toLocaleString("en-GB")} core-ready items satisfy media policy`;
+
+    container.replaceChildren();
+    appendShopifyReadinessBlockers(container, "Core blockers", data.operational_blockers);
+    appendShopifyReadinessBlockers(container, "Media blockers", data.media_blockers);
+    if (!container.children.length) {
+      const ready = document.createElement("p");
+      ready.className = "muted portfolio-empty";
+      ready.textContent = considered
+        ? "All currently unsynced stock has cleared the local core and media gates."
+        : "No unsynced inventory is waiting in the local Shopify pipeline.";
+      container.append(ready);
+    }
+  } catch (error) {
+    byId("shopify-operational-ready").textContent = "—";
+    byId("shopify-media-ready").textContent = "—";
+    container.textContent = `Shopify readiness could not be loaded: ${error.message}`;
+  }
+}
+
 function portfolioIdentityMeta(item) {
   const grade = item.grading_company && item.grade
     ? `${item.grading_company} ${item.grade}`
@@ -356,6 +469,7 @@ function populateSellerViews() {
   overview.append(makeSellerHeading("Founder overview", "Dashboard", "Your stock position and action-required snapshot."));
   if (inventoryStats) overview.append(inventoryStats);
   overview.append(buildPortfolioIntelligencePanel());
+  overview.append(buildShopifyReadinessPanel());
   if (actionPanel) overview.append(actionPanel);
 
   if (inventoryHeading) {
@@ -483,7 +597,7 @@ function ensureSellerDashboardShell() {
 const previousReloadDashboardForShell = reloadDashboard;
 reloadDashboard = async function (...args) {
   const result = await previousReloadDashboardForShell(...args);
-  await Promise.all([loadPricingAdapterStatus(), loadPortfolioIntelligence()]);
+  await Promise.all([loadPricingAdapterStatus(), loadPortfolioIntelligence(), loadShopifyReadiness()]);
   return result;
 };
 
