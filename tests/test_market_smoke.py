@@ -91,4 +91,4 @@ def test_dashboard_smoke_matrix_uses_official_active_ebay_only() -> None:
 def test_smoke_router_is_wired_into_app() -> None:
     main = MAIN.read_text()
     assert "from .market_smoke import router as market_smoke_router" in main
-    assert "app.include_router(market_smoke_router)" in main
+    assert "app.include_router(market_smoke_router, dependencies=[Depends(require_platform_admin_request)])" in main
