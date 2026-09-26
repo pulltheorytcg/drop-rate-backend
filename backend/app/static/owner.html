@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071b3f">
+  <title>Drop Rate — Owner Portal</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=owner-v1">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <main class="shell">
+    <section id="owner-auth-view" class="auth-layout">
+      <div class="brand-panel">
+        <div class="brand-lockup brand-lockup-logo">
+          <span class="dr-logo-image" role="img" aria-label="Drop Rate"></span>
+        </div>
+        <div class="brand-copy">
+          <p class="eyebrow">Owner portal</p>
+          <h1>Your stock.<br><em>Your proceeds.</em></h1>
+          <p class="lead">A private, owner-scoped view of your Drop Rate inventory, sales and payouts.</p>
+        </div>
+        <div class="trust-row"><span>Private access</span><span>Owner scoped</span><span>Audit ready</span></div>
+      </div>
+
+      <div class="auth-panel">
+        <form id="owner-login-form" class="auth-card">
+          <p class="eyebrow">Welcome back</p>
+          <h2>Owner sign in</h2>
+          <p class="muted">Use the account that was invited to your Drop Rate owner profile.</p>
+
+          <div id="owner-social-auth" class="social-auth hidden" aria-label="Social sign in">
+            <button id="owner-google" class="oauth-button" type="button" data-provider="google">Continue with Google</button>
+            <button id="owner-apple" class="oauth-button oauth-button-apple" type="button" data-provider="apple">Continue with Apple</button>
+            <div class="auth-divider"><span>or use email</span></div>
+          </div>
+
+          <label>Email address<input id="owner-email-input" type="email" autocomplete="email" required></label>
+          <label>Password<input id="owner-password-input" type="password" autocomplete="current-password" required></label>
+          <div id="owner-login-message" class="message" role="status"></div>
+          <button class="primary-button" type="submit">Sign in <span>→</span></button>
+          <p class="muted">Owner access is invite-only. Authentication never grants Founder HQ permissions.</p>
+        </form>
+      </div>
+    </section>
+
+    <section id="owner-portal-view" class="dashboard hidden">
+      <header class="topbar">
+        <div class="brand-lockup brand-lockup-logo">
+          <span class="dr-logo-image" role="img" aria-label="Drop Rate"></span>
+        </div>
+        <div class="topbar-actions">
+          <div class="user-chip">
+            <span id="owner-portal-initial">O</span>
+            <div>
+              <strong id="owner-portal-name">Owner</strong>
+              <small id="owner-portal-email"></small>
+            </div>
+          </div>
+          <button id="owner-logout-button" class="ghost-button" type="button">Sign out</button>
+        </div>
+      </header>
+
+      <div class="dashboard-content">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Restricted owner workspace</p>
+            <h1>Owner portal</h1>
+            <p class="muted">Only records linked to your owner account will be available here.</p>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card stat-accent">
+            <span>Access</span>
+            <strong>OWNER</strong>
+            <small>Restricted portal</small>
+          </article>
+          <article class="stat-card">
+            <span>Owner type</span>
+            <strong id="owner-portal-type">—</strong>
+            <small>Your linked ownership profile</small>
+          </article>
+          <article class="stat-card">
+            <span>Security scope</span>
+            <strong>YOUR DATA</strong>
+            <small>Cross-owner access denied</small>
+          </article>
+        </div>
+
+        <section class="inventory-panel">
+          <div class="page-heading" style="padding:22px 22px 0">
+            <div>
+              <p class="eyebrow">Access boundary verified</p>
+              <h2>Portal foundation</h2>
+              <p class="muted">
+                Inventory, sales, balance and payout modules will be enabled here only after their owner-safe API contracts pass isolation tests.
+              </p>
+            </div>
+          </div>
+          <div id="owner-portal-message" class="message panel-message" role="status"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script src="/assets/owner-portal.js" defer></script>
+</body>
+</html>
