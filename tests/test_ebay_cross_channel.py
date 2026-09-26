@@ -28,6 +28,8 @@ PIPELINE = ROOT / "backend" / "app" / "shopify_pipeline.py"
 API = ROOT / "backend" / "app" / "api.py"
 FRONTEND = ROOT / "backend" / "app" / "static" / "app.js"
 MAIN = ROOT / "backend" / "app" / "main.py"
+EBAY_MIGRATION = ROOT / "database" / "migrations" / "20260926144848_ebay_cross_channel_v1.sql"
+EBAY_INDEX_MIGRATION = ROOT / "database" / "migrations" / "20260926144947_index_ebay_cross_channel_fks.sql"
 
 
 def _base_env(monkeypatch) -> None:
@@ -235,7 +237,7 @@ def test_single_item_publish_is_fail_closed_and_never_bulk_publishes() -> None:
     assert "approved FRONT + BACK physical photos are required" in source
     assert "photo-backed condition verification is required" in source
     assert "shipping profile is required" in source
-    assert "inventory changed while eBay was publishing" in source
+    assert "inventory changed while ebay was publishing" in source.casefold()
 
 
 def test_founder_inventory_surfaces_ebay_status_and_one_click_action() -> None:
@@ -306,3 +308,28 @@ def test_ebay_routes_are_registered() -> None:
     source = MAIN.read_text()
     assert "from .ebay_sales import router as ebay_sales_router" in source
     assert "app.include_router(ebay_sales_router)" in source
+
+
+def test_ebay_cross_channel_schema_is_unique_rls_protected_and_append_only() -> None:
+    sql = EBAY_MIGRATION.read_text().casefold()
+    index_sql = EBAY_INDEX_MIGRATION.read_text().casefold()
+    assert "create table tcg.ebay_inventory_links" in sql
+    assert "inventory_id uuid not null unique" in sql
+    assert "sku text not null unique" in sql
+    assert "offer_id text unique" in sql
+    assert "listing_id text unique" in sql
+    assert "force row level security" in sql
+    assert "revoke all on table tcg.ebay_inventory_links from anon, authenticated" in sql
+    assert "revoke delete on table tcg.ebay_inventory_links from tcg_api" in sql
+    assert "eBay inventory link identity is immutable once created".casefold() in sql
+    assert "create table tcg.ebay_order_item_links" in sql
+    assert "order_item_id uuid not null unique" in sql
+    assert "unique(ebay_order_id,ebay_line_item_id)" in sql
+    assert "revoke update,delete on table tcg.ebay_order_item_links from tcg_api" in sql
+    assert "create table tcg.ebay_webhook_events" in sql
+    assert "payload_sha256" in sql
+    assert "source in ('manual','shopify','ebay')" in sql
+    assert "ebay_inventory_links_created_by_user_idx" in index_sql
+    assert "ebay_order_item_links_created_by_user_idx" in index_sql
+    assert "ebay_order_item_links_inventory_idx" in index_sql
+    assert "ebay_order_item_links_internal_order_idx" in index_sql
