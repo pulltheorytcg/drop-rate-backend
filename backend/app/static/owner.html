@@ -68,90 +68,178 @@
           <div>
             <p class="eyebrow">Restricted owner workspace</p>
             <h1>Owner portal</h1>
-            <p class="muted">Only records linked to your owner account will be available here.</p>
+            <p class="muted">Your inventory, sales, settlements and payouts — scoped only to your owner account.</p>
           </div>
         </div>
 
-        <div class="stats-grid">
-          <article class="stat-card stat-accent">
-            <span>Total inventory</span>
-            <strong id="owner-total-inventory">—</strong>
-            <small>Your linked physical items</small>
-          </article>
-          <article class="stat-card">
-            <span>Active market value</span>
-            <strong id="owner-market-value">—</strong>
-            <small>Current owner-scoped valuation</small>
-          </article>
-          <article class="stat-card">
-            <span>Active store value</span>
-            <strong id="owner-store-value">—</strong>
-            <small>Current owner-scoped store pricing</small>
-          </article>
-          <article class="stat-card">
-            <span>Sold</span>
-            <strong id="owner-sold-count">—</strong>
-            <small>Items sold through Drop Rate</small>
-          </article>
+        <div class="toolbar owner-portal-tabs" role="tablist" aria-label="Owner portal sections">
+          <button class="ghost-button compact owner-tab active" type="button" data-owner-view="inventory">Inventory</button>
+          <button class="ghost-button compact owner-tab" type="button" data-owner-view="sales">Sales</button>
+          <button class="ghost-button compact owner-tab" type="button" data-owner-view="balance">Balance & payouts</button>
+          <button class="ghost-button compact owner-tab" type="button" data-owner-view="settlements">Settlements</button>
         </div>
 
-        <section class="inventory-panel">
-          <div class="page-heading" style="padding:22px 22px 0">
-            <div>
-              <p class="eyebrow">Your inventory</p>
-              <h2>Cards linked to your account</h2>
-              <p class="muted">Read-only owner view. Internal cost, storage and operational fields are intentionally excluded.</p>
+        <section id="owner-view-inventory" class="owner-view" data-owner-view-panel="inventory">
+          <div class="stats-grid">
+            <article class="stat-card stat-accent">
+              <span>Total inventory</span>
+              <strong id="owner-total-inventory">—</strong>
+              <small>Your linked physical items</small>
+            </article>
+            <article class="stat-card">
+              <span>Active market value</span>
+              <strong id="owner-market-value">—</strong>
+              <small>Current owner-scoped valuation</small>
+            </article>
+            <article class="stat-card">
+              <span>Active store value</span>
+              <strong id="owner-store-value">—</strong>
+              <small>Current owner-scoped store pricing</small>
+            </article>
+            <article class="stat-card">
+              <span>Sold</span>
+              <strong id="owner-sold-count">—</strong>
+              <small>Items sold through Drop Rate</small>
+            </article>
+          </div>
+
+          <section class="inventory-panel">
+            <div class="page-heading" style="padding:22px 22px 0">
+              <div>
+                <p class="eyebrow">Your inventory</p>
+                <h2>Cards linked to your account</h2>
+                <p class="muted">Read-only owner view. Internal cost, storage and operational fields are intentionally excluded.</p>
+              </div>
             </div>
-          </div>
 
-          <div class="toolbar" style="padding:0 22px 18px">
-            <label>
-              Search
-              <input id="owner-inventory-search" type="search" placeholder="Card, set, number or inventory ID">
-            </label>
-            <label>
-              Status
-              <select id="owner-inventory-status">
-                <option value="">All statuses</option>
-                <option value="DRAFT">Draft</option>
-                <option value="INSPECTION">Inspection</option>
-                <option value="APPROVED">Approved</option>
-                <option value="RESERVED">Reserved</option>
-                <option value="SOLD">Sold</option>
-                <option value="WITHDRAWN">Withdrawn</option>
-              </select>
-            </label>
-            <button id="owner-inventory-refresh" class="ghost-button" type="button">Refresh</button>
-          </div>
+            <div class="toolbar" style="padding:0 22px 18px">
+              <label>Search<input id="owner-inventory-search" type="search" placeholder="Card, set, number or inventory ID"></label>
+              <label>Status
+                <select id="owner-inventory-status">
+                  <option value="">All statuses</option>
+                  <option value="DRAFT">Draft</option>
+                  <option value="INSPECTION">Inspection</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="RESERVED">Reserved</option>
+                  <option value="SOLD">Sold</option>
+                  <option value="WITHDRAWN">Withdrawn</option>
+                </select>
+              </label>
+              <button id="owner-inventory-refresh" class="ghost-button" type="button">Refresh</button>
+            </div>
 
-          <div id="owner-portal-message" class="message panel-message" role="status"></div>
-
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Inventory</th>
-                  <th>Card</th>
-                  <th>Game / Set</th>
-                  <th>Language</th>
-                  <th>Condition / Grade</th>
-                  <th>Status</th>
-                  <th>Market value</th>
-                  <th>Store price</th>
-                </tr>
-              </thead>
-              <tbody id="owner-inventory-body">
-                <tr><td colspan="8" class="muted">Sign in to load your inventory.</td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="pagination">
-            <button id="owner-inventory-prev" class="ghost-button" type="button">Previous</button>
-            <span id="owner-inventory-page" class="muted">—</span>
-            <button id="owner-inventory-next" class="ghost-button" type="button">Next</button>
-          </div>
+            <div id="owner-portal-message" class="message panel-message" role="status"></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Inventory</th><th>Card</th><th>Game / Set</th><th>Language</th><th>Condition / Grade</th><th>Status</th><th>Market value</th><th>Store price</th></tr></thead>
+                <tbody id="owner-inventory-body"><tr><td colspan="8" class="muted">Sign in to load your inventory.</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <button id="owner-inventory-prev" class="ghost-button" type="button">Previous</button>
+              <span id="owner-inventory-page" class="muted">—</span>
+              <button id="owner-inventory-next" class="ghost-button" type="button">Next</button>
+            </div>
+          </section>
         </section>
+
+        <section id="owner-view-sales" class="owner-view hidden" data-owner-view-panel="sales">
+          <div class="stats-grid">
+            <article class="stat-card stat-accent"><span>Sales revenue</span><strong id="owner-sales-revenue">—</strong><small>Gross item revenue before deductions</small></article>
+            <article class="stat-card"><span>Commission</span><strong id="owner-commission-total">—</strong><small id="owner-commission-rate">Drop Rate commission</small></article>
+            <article class="stat-card"><span>Owner proceeds</span><strong id="owner-lifetime-proceeds">—</strong><small>Ledger proceeds before payouts</small></article>
+            <article class="stat-card"><span>Reconciliation</span><strong id="owner-financial-completeness">—</strong><small>External fee / shipping completeness</small></article>
+          </div>
+
+          <section class="inventory-panel">
+            <div class="page-heading" style="padding:22px 22px 0">
+              <div><p class="eyebrow">Sales</p><h2>Your sold cards</h2><p class="muted">Each row shows the sale and deductions allocated to your owner account.</p></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Sold</th><th>Card</th><th>Order</th><th>Sale</th><th>Commission</th><th>Other deductions</th><th>Your proceeds</th><th>Status</th></tr></thead>
+                <tbody id="owner-sales-body"><tr><td colspan="8" class="muted">No sales loaded yet.</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <button id="owner-sales-prev" class="ghost-button" type="button">Previous</button>
+              <span id="owner-sales-page" class="muted">—</span>
+              <button id="owner-sales-next" class="ghost-button" type="button">Next</button>
+            </div>
+          </section>
+        </section>
+
+        <section id="owner-view-balance" class="owner-view hidden" data-owner-view-panel="balance">
+          <div class="stats-grid">
+            <article class="stat-card stat-accent"><span>Available to withdraw</span><strong id="owner-available-balance">—</strong><small>Available minus reserved requests</small></article>
+            <article class="stat-card"><span>Pending</span><strong id="owner-pending-balance">—</strong><small>Not yet available for payout</small></article>
+            <article class="stat-card"><span>Reserved payouts</span><strong id="owner-reserved-payouts">—</strong><small>Requested or approved</small></article>
+            <article class="stat-card"><span>Paid out</span><strong id="owner-paid-out">—</strong><small>Historical completed payout ledger</small></article>
+          </div>
+
+          <section class="inventory-panel">
+            <div class="page-heading" style="padding:22px 22px 0">
+              <div>
+                <p class="eyebrow">Payout preferences</p>
+                <h2>Choose payout frequency</h2>
+                <p class="muted">Scheduled payouts still require available cleared funds and all Drop Rate safety checks.</p>
+              </div>
+            </div>
+            <div class="form-grid" style="padding:0 22px 18px">
+              <label>Frequency
+                <select id="owner-payout-cadence">
+                  <option value="MANUAL">Manual</option>
+                  <option value="DAILY">Daily</option>
+                  <option value="WEEKLY">Weekly</option>
+                  <option value="FORTNIGHTLY">Every 2 weeks</option>
+                  <option value="MONTHLY">Monthly</option>
+                </select>
+              </label>
+              <label id="owner-payout-weekday-wrap" class="hidden">Day of week
+                <select id="owner-payout-weekday">
+                  <option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option>
+                  <option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option><option value="6">Sunday</option>
+                </select>
+              </label>
+              <label id="owner-payout-monthly-wrap" class="hidden">Day of month
+                <input id="owner-payout-monthly-day" type="number" min="1" max="31" step="1" value="1">
+              </label>
+            </div>
+            <div class="allocation-summary" style="margin:0 22px 18px"><span>Next scheduled payout</span><strong id="owner-payout-next">Manual only</strong></div>
+            <div id="owner-payout-preference-message" class="message panel-message" role="status"></div>
+            <div class="toolbar" style="padding:0 22px 22px"><button id="owner-payout-save" class="primary-button compact" type="button">Save payout schedule</button></div>
+          </section>
+
+          <section class="inventory-panel">
+            <div class="page-heading" style="padding:22px 22px 0"><div><p class="eyebrow">Payout history</p><h2>Your withdrawals</h2></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Payout</th><th>Amount</th><th>Source</th><th>Status</th><th>Scheduled</th><th>Requested</th><th>Resolved</th></tr></thead>
+                <tbody id="owner-payouts-body"><tr><td colspan="7" class="muted">No payouts loaded yet.</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section id="owner-view-settlements" class="owner-view hidden" data-owner-view-panel="settlements">
+          <section class="inventory-panel">
+            <div class="page-heading" style="padding:22px 22px 0">
+              <div><p class="eyebrow">Settlements</p><h2>Order-by-order allocation</h2><p class="muted">Revenue, fees, commission, refunds and the amount allocated to your owner balance.</p></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Order</th><th>Date</th><th>Items</th><th>Revenue</th><th>Commission</th><th>Other deductions</th><th>Your proceeds</th><th>Reconciled</th></tr></thead>
+                <tbody id="owner-settlements-body"><tr><td colspan="8" class="muted">No settlements loaded yet.</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <button id="owner-settlements-prev" class="ghost-button" type="button">Previous</button>
+              <span id="owner-settlements-page" class="muted">—</span>
+              <button id="owner-settlements-next" class="ghost-button" type="button">Next</button>
+            </div>
+          </section>
+        </section>
+      </div>
       </div>
     </section>
   </main>
