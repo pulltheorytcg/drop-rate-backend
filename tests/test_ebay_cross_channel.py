@@ -353,6 +353,7 @@ def test_ebay_seller_status_requires_inventory_fulfillment_and_notification_scop
     source = EBAY.read_text()
     assert "EBAY_INVENTORY_SCOPE in scopes" in source
     assert "EBAY_FULFILLMENT_SCOPE in scopes" in source
+    assert "EBAY_FULFILLMENT_READONLY_SCOPE in scopes" in source
     assert "EBAY_NOTIFICATION_SCOPE in scopes" in source
     assert "TCG_EBAY_NOTIFICATION_ENDPOINT" in source
     assert "TCG_EBAY_NOTIFICATION_VERIFICATION_TOKEN" in source
