@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
+from .access_control import require_platform_admin_request
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ebay_sell_client import (
@@ -581,7 +582,7 @@ async def _persist_seller_connection(
         )
 
 
-@router.get("/status")
+@router.get("/status", dependencies=[Depends(require_platform_admin_request)])
 async def ebay_oauth_status(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -614,7 +615,7 @@ async def ebay_oauth_status(
     }
 
 
-@router.post("/start")
+@router.post("/start", dependencies=[Depends(require_platform_admin_request)])
 async def start_ebay_oauth(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -812,7 +813,7 @@ async def ebay_oauth_callback(
     return _safe_html("eBay seller account connected", message, ok=True)
 
 
-@router.get("/options")
+@router.get("/options", dependencies=[Depends(require_platform_admin_request)])
 async def ebay_seller_options(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -857,7 +858,7 @@ async def ebay_seller_options(
     }
 
 
-@router.post("/complete-setup")
+@router.post("/complete-setup", dependencies=[Depends(require_platform_admin_request)])
 async def complete_ebay_seller_setup(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -980,7 +981,7 @@ async def complete_ebay_seller_setup(
     return dict(row)
 
 
-@router.post("/configuration")
+@router.post("/configuration", dependencies=[Depends(require_platform_admin_request)])
 async def save_ebay_seller_configuration(
     payload: SellerConfigSelection,
     request: Request,
