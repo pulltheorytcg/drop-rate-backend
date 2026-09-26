@@ -6,11 +6,19 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## Current progress
 
-- **Full Drop Rate roadmap:** ~49%
-- **Milestone 1 — Founder inventory control:** ~99% technically complete; remaining work is mainly operational inventory cleanup + one pre-launch auth setting
-- **Internal commerce / founder finance foundation:** ~85%
-- **Milestone 2 — Shopify sale attribution:** first real paid sale and full refund/restock path are production-verified; Finance Reconciliation v1, founder batch fee reconciliation and Owner Settlement Report v1 are deployed. #1002 fee/postage reconciliation is live-verified; only the external Shopify refund settlement/final fee-complete state remains to re-check
+- **Full Drop Rate roadmap:** ~53%
+- **Milestone 1 — Inventory / ownership foundation:** ~99% for the current internal founder build, but ~85% against the final multi-user milestone because restricted seller/consignor accounts and full role-based access control are still to be implemented
+- **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
+- **Milestone 2 — Shopify sale attribution:** ~90% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, and payout control is now automated up to REQUESTED state. Multi-owner production sale attribution + seller-facing restricted dashboards + live Stripe payout cutover remain
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
+
+## Original business milestone status
+
+| Milestone | Current status | Remaining to call it complete |
+|---|---|---|
+| **1 — Three founders can log in, add physical cards, assign ownership/cost/condition/grade/location, search inventory and see exactly what they own** | **~85% overall / ~99% core inventory engine** | Multi-user founder accounts, admin-vs-owner role permissions, owner-scoped dashboards/RLS and production verification with more than one owner |
+| **2 — Approved card syncs to Shopify, sells, and sale is attributed to the correct owner** | **~90%** | Single-owner real sale/refund is proven; still need multi-owner/same-card production test, restricted seller view of proceeds, and live payout cutover |
+| **3 — Market data automatically updates valuation and recommended pricing** | **~80%** | Deterministic pricing + snapshots + provisional pricing exist; final provider permissions, eBay sold access/Marketplace Insights, stronger Cardmarket/eBay evidence automation and scheduled production refresh remain |
 
 ## Current stage
 
@@ -134,6 +142,18 @@ Production navigation is split into:
 - **Settings**
 
 Existing working inventory/finance components were reorganised rather than rewritten. URL hashes such as `#inventory` and `#balance` are supported.
+
+## Access-control boundary — Founder HQ vs seller/consignor portal
+
+**Founder HQ is an internal administrative product.** It is intended only for the primary platform administrator and any explicitly invited trusted admin/staff accounts. External sellers and consignors must never receive Founder HQ access merely because they own inventory.
+
+Account permission and physical inventory ownership are separate concepts:
+
+- **PLATFORM_ADMIN / trusted internal admin:** full Founder HQ access across all owners, inventory, company-wide sales/analytics, market-data controls, Shopify/eBay/Stripe integrations, payout approval, owner assignment, commission settings, audit views and global configuration.
+- **SELLER / CONSIGNOR user:** owner-scoped portal only. May view their own submitted/approved/listed/sold inventory, own sale proceeds, deductions/commission, settlement status and payout history/preferences. Permitted edits must be explicit and narrow (for example profile/payout settings and future listing-price requests); no global settings or other-owner records.
+- **Server-side enforcement required:** hidden navigation is not security. Every seller-facing API/query must be owner-scoped through database/RLS + FastAPI authorization. Cross-owner reads/writes, owner reassignment, commission edits, settlement adjustments, payout approval, integrations and global analytics remain admin-only.
+- **Separate shell recommended:** build a dedicated seller/consignor dashboard rather than reusing Founder HQ with merely hidden tabs. This reduces accidental privilege leakage and keeps the UX focused on each owner's own stock and money.
+- **Action Required:** design the role/permission schema and invitation/onboarding flow before enabling any non-admin user accounts.
 
 ## Market-data infrastructure
 
@@ -542,7 +562,8 @@ See `docs/STRIPE_CONNECT_PAYOUTS.md`.
 | 4 | Inventory dashboard functionality | ✅ Core complete; portfolio valuation, Top 5 value ranking, genuine weekly movers, Shopify readiness and dedicated Media & Condition workspace deployed |
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
 | 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; per-Inventory-ID front/back media, photo-backed NM/slab condition gates, deterministic product-completeness/media/shipping gates and Shopify readiness are deployed; bulk publishing remains locked; first live photo/condition batch + refund settlement follow-up remain |
-| 6 | Orders / allocation / settlements | 🚧 Exact Shopify/eBay ownership attribution + deterministic settlement reporting are deployed; Stripe Connect payout-control Phase 1 is in review with live money movement locked; final Shopify refund settlement verification and Stripe test-mode onboarding remain |
+| 6 | Orders / allocation / settlements | 🚧 Exact Shopify/eBay ownership attribution + deterministic settlement reporting are deployed; Stripe Connect sandbox transfer/reversal is verified; payout preferences + hourly scheduled REQUESTED-worker are live; real execution remains locked; multi-owner production verification remains |
+| 6.5 | RBAC / seller & consignor portal | 🚧 Requirement locked: Founder HQ admin-only; next build is explicit role/permission schema, invite/onboarding flow, owner-scoped APIs/RLS and a separate restricted seller/consignor dashboard |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
 | 9 | AI card identification | ⬜ Not started |
@@ -604,8 +625,8 @@ Required controls:
 
 ## Major deferred decisions / features
 
-- multi-founder ownership remains deferred; current build stays single-founder
-- consignors/consignment come after the founder sale loop
+- multi-user owner onboarding + restricted seller/consignor dashboards are now promoted into the next core access-control phase; the current Founder HQ remains internal/admin-only until that phase is complete
+- consignor intake/onboarding portal remains to build on top of the deployed 10% commission + Stripe Connect payout foundation
 - automated media intake/product-enrichment follows the controlled Shopify sale loop; AI identification comes after core commerce/pricing reliability
 - the future iOS-assisted scan-to-list workflow is specified in `docs/MOBILE_CARD_CAPTURE_BLUEPRINT.md`: camera identification, explicit confirmation, manual card-number recovery, physical inventory creation and guarded Shopify publication through the backend
 - AI marketing, SEO automation and advanced n8n orchestration come after inventory, Shopify, settlement and market pricing foundations
@@ -620,9 +641,10 @@ Required controls:
 - ✅ Owner payout preferences are live: Manual, Daily, Weekly, Every 2 weeks and Monthly, with Europe/London schedule calculation, version protection, RLS and audit logging.
 - ✅ Scheduled payout request worker deployed (PR #168) with database-level cycle idempotency and atomic re-checks for owner activity, Stripe readiness, current preference version, available ledger funds and existing payout reservations.
 - ✅ Dedicated Railway cron service `drop-rate-payout-scheduler` deployed using `Dockerfile.scheduler` (PRs #169–#170), scheduled **hourly** with no Stripe secret. The worker only creates REQUESTED payout rows and cannot move money.
-- ✅ Latest main API deployment passed **639 tests** and `/health/ready` returned 200.
-- ℹ️ No payout preference has been saved yet, so the scheduler currently has zero eligible schedule candidates and has created zero scheduled payout requests.
+- ✅ Payout-preference API auth bug fixed in PR #171: route now uses the actual `AuthenticatedUser.user_id` field. Latest production deployment passed **640 tests** and `/health/ready` returned 200.
+- ✅ A real sandbox preference is now saved as **DAILY**. The scheduler sees **1 eligible schedule candidate**; no scheduled payout request exists yet because there is currently no due eligible balance.
 - 🔒 Automatic Stripe execution remains disabled until scheduled-request behavior is observed against real eligible balances and the approval/execution policy is intentionally promoted.
+- 🧪 **Stripe sandbox → live cutover TODO:** current schema permits only one connected Stripe account per owner. Before real onboarding, migrate the mapping so one TEST and one LIVE Connect account can coexist (unique by owner + livemode), preserve the sandbox account/history, add an admin-only disconnect/reset control, then create a separate live Connect account using real KYC/bank details. Do not overwrite the sandbox account or reuse test data for live payouts.
 
 ## Completion rule
 
