@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from app.ebay_sell_client import REQUIRED_SELLER_SCOPES
+from app.ebay_seller_connection import EbayEffectiveSellerConfig
 
 from app.ebay_sales import (
     EBAY_GB_CCG_SINGLE_CATEGORY_ID,
@@ -152,7 +153,23 @@ def test_ebay_inventory_payload_is_one_physical_unit_with_front_and_back() -> No
 
 
 def test_ebay_offer_is_fixed_price_gtc_and_policy_driven() -> None:
-    payload = _offer_payload(sku="INV-PKM-1", price_minor=1050, settings=_settings())
+    effective = EbayEffectiveSellerConfig(
+        refresh_token="refresh",
+        payment_policy_id="payment",
+        fulfillment_policy_id="fulfilment",
+        return_policy_id="return",
+        merchant_location_key="drop-rate-london",
+        connection_id=None,
+        owner_id=None,
+        status="READY",
+        granted_scopes=REQUIRED_SELLER_SCOPES,
+    )
+    payload = _offer_payload(
+        sku="INV-PKM-1",
+        price_minor=1050,
+        settings=_settings(),
+        effective=effective,
+    )
     assert EBAY_GB_CCG_SINGLE_CATEGORY_ID == "183454"
     assert payload["sku"] == "INV-PKM-1"
     assert payload["marketplaceId"] == "EBAY_GB"

@@ -200,7 +200,10 @@ function activateSellerView(name, updateHash = false) {
     button.tabIndex = active ? 0 : -1;
   });
   if (updateHash) history.replaceState(null, "", `#${valid}`);
-  if (valid === "settings") loadPricingAdapterStatus();
+  if (valid === "settings") {
+    loadPricingAdapterStatus();
+    loadEbaySellerConnection();
+  }
 }
 
 function buildPortfolioIntelligencePanel() {
@@ -585,6 +588,42 @@ function populateSellerViews() {
     <div id="pricing-output-list" class="allocation-list"><p class="muted">No pricing calculations loaded yet.</p></div>`;
   settings.append(pricingCard);
 
+  const ebayCard = document.createElement("section");
+  ebayCard.id = "ebay-seller-connection-panel";
+  ebayCard.className = "inventory-panel";
+  ebayCard.innerHTML = `
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">Marketplace channel</p>
+        <h2>eBay seller connection</h2>
+        <p class="muted">Connect the company seller account once. Drop Rate keeps the long-lived token encrypted and continues to control the exact physical Inventory ID.</p>
+      </div>
+      <button id="ebay-connection-refresh" class="ghost-button compact" type="button">↻ Refresh</button>
+    </div>
+    <div id="ebay-connection-message" class="message panel-message" role="status"></div>
+    <div id="ebay-connection-status" class="allocation-list">
+      <p class="muted">Open Settings while signed in to check the eBay seller connection.</p>
+    </div>
+    <div id="ebay-connection-actions" class="toolbar">
+      <button id="ebay-connect-button" class="primary-button compact" type="button">Connect eBay seller</button>
+    </div>
+    <div id="ebay-configuration-panel" class="form-grid hidden">
+      <label>Payment policy<select id="ebay-payment-policy"></select></label>
+      <label>Fulfilment policy<select id="ebay-fulfillment-policy"></select></label>
+      <label>Return policy<select id="ebay-return-policy"></select></label>
+      <label>Inventory location<select id="ebay-inventory-location"></select></label>
+      <div class="full-width modal-actions">
+        <button id="ebay-save-configuration" class="primary-button compact" type="button">Save eBay configuration</button>
+      </div>
+    </div>`;
+  settings.append(ebayCard);
+  ebayCard.querySelector("#ebay-connection-refresh")
+    .addEventListener("click", () => loadEbaySellerConnection());
+  ebayCard.querySelector("#ebay-connect-button")
+    .addEventListener("click", () => startEbaySellerConnection());
+  ebayCard.querySelector("#ebay-save-configuration")
+    .addEventListener("click", () => saveEbaySellerConfiguration());
+
   originalChildren.forEach((node) => {
     if (node.parentElement !== content || node.id === "seller-views" || node.id === "founder-finance-panel") return;
     node.remove();
@@ -603,6 +642,206 @@ function pricingStatusText(adapter, ingestionEnabled = false) {
   parts.push(`${adapter.observation_count || 0} observations`);
   if (adapter.latest_run?.status) parts.push(`last run: ${adapter.latest_run.status}`);
   return parts.join(" · ");
+}
+
+function ebayStatusRow(label, value, detail = "") {
+  const row = document.createElement("div");
+  row.className = "allocation-row";
+  const copy = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent = label;
+  const note = document.createElement("small");
+  note.textContent = detail;
+  copy.append(title, note);
+  const state = document.createElement("strong");
+  state.textContent = value;
+  row.append(copy, state);
+  return row;
+}
+
+function populateEbaySelect(select, items, selected, valueKey, labelBuilder) {
+  select.replaceChildren();
+  items.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item[valueKey];
+    option.textContent = labelBuilder(item);
+    option.selected = item[valueKey] === selected;
+    select.append(option);
+  });
+}
+
+async function loadEbaySellerOptions() {
+  const panel = byId("ebay-configuration-panel");
+  if (!panel) return;
+  try {
+    const data = await apiRequest("/api/v1/ebay/oauth/options");
+    const selected = data.selected || {};
+    populateEbaySelect(
+      byId("ebay-payment-policy"),
+      data.payment || [],
+      selected.payment_policy_id,
+      "id",
+      (item) => item.name || item.id
+    );
+    populateEbaySelect(
+      byId("ebay-fulfillment-policy"),
+      data.fulfillment || [],
+      selected.fulfillment_policy_id,
+      "id",
+      (item) => item.name || item.id
+    );
+    populateEbaySelect(
+      byId("ebay-return-policy"),
+      data.return || [],
+      selected.return_policy_id,
+      "id",
+      (item) => item.name || item.id
+    );
+    populateEbaySelect(
+      byId("ebay-inventory-location"),
+      data.locations || [],
+      selected.merchant_location_key,
+      "key",
+      (item) => [item.name || item.key, item.postal_code, item.country]
+        .filter(Boolean).join(" · ")
+    );
+    const complete = [
+      byId("ebay-payment-policy"),
+      byId("ebay-fulfillment-policy"),
+      byId("ebay-return-policy"),
+      byId("ebay-inventory-location"),
+    ].every((select) => select.options.length > 0);
+    panel.classList.toggle("hidden", !complete);
+    if (!complete) {
+      showMessage(
+        "ebay-connection-message",
+        "The seller account is connected, but eBay is missing at least one compatible policy or enabled inventory location.",
+        "error"
+      );
+    }
+  } catch (error) {
+    panel.classList.add("hidden");
+    showMessage("ebay-connection-message", error.message, "error");
+  }
+}
+
+async function loadEbaySellerConnection() {
+  const list = byId("ebay-connection-status");
+  const button = byId("ebay-connect-button");
+  const configPanel = byId("ebay-configuration-panel");
+  if (!list || !button || !state.session?.access_token) return;
+  try {
+    const [oauth, seller] = await Promise.all([
+      apiRequest("/api/v1/ebay/oauth/status"),
+      apiRequest("/api/v1/ebay/seller-status"),
+    ]);
+    list.replaceChildren(
+      ebayStatusRow(
+        "Seller OAuth",
+        oauth.connected ? "CONNECTED" : "NOT CONNECTED",
+        oauth.connected
+          ? "The long-lived seller grant is encrypted at rest."
+          : "One eBay login + consent is required."
+      ),
+      ebayStatusRow(
+        "Seller API verification",
+        seller.live_verified ? "VERIFIED" : "NOT READY",
+        seller.warning || (seller.missing || []).join(" · ") || "Waiting for seller configuration."
+      ),
+      ebayStatusRow(
+        "Live publishing",
+        seller.publish_enabled ? "ENABLED" : "LOCKED",
+        seller.publish_enabled
+          ? "Single-item publishing is enabled."
+          : "Publishing stays locked until seller setup and notification verification pass."
+      ),
+      ebayStatusRow(
+        "OAuth callback",
+        oauth.runame_configured ? "READY" : "NEEDS RUNAME",
+        oauth.callback_endpoint || "Callback endpoint is not configured."
+      )
+    );
+    button.disabled = !oauth.oauth_configured;
+    button.textContent = oauth.connected ? "Reconnect eBay seller" : "Connect eBay seller";
+    if (!oauth.oauth_configured) {
+      button.title = (oauth.missing || []).join(", ");
+    } else {
+      button.removeAttribute("title");
+    }
+    if (oauth.connected && !seller.live_verified) {
+      await loadEbaySellerOptions();
+    } else {
+      configPanel.classList.add("hidden");
+    }
+    showMessage("ebay-connection-message");
+  } catch (error) {
+    list.textContent = "eBay seller connection status could not be loaded.";
+    configPanel.classList.add("hidden");
+    showMessage("ebay-connection-message", error.message, "error");
+  }
+}
+
+async function startEbaySellerConnection() {
+  const button = byId("ebay-connect-button");
+  if (button) button.disabled = true;
+  showMessage("ebay-connection-message", "Preparing secure eBay sign-in…");
+
+  // Open synchronously from the founder click so browser popup protection
+  // cannot swallow the seller-consent window while the API generates state.
+  const popup = window.open("about:blank", "_blank");
+  if (popup) {
+    try {
+      popup.opener = null;
+      popup.document.title = "Connecting eBay…";
+      popup.document.body.textContent = "Preparing secure eBay sign-in…";
+    } catch (_error) {
+      // The popup is still safe to navigate even if the interim DOM is blocked.
+    }
+  }
+
+  try {
+    const result = await apiRequest("/api/v1/ebay/oauth/start", {method: "POST"});
+    if (popup && !popup.closed) {
+      popup.location.replace(result.authorization_url);
+    } else {
+      window.location.assign(result.authorization_url);
+      return;
+    }
+    showMessage(
+      "ebay-connection-message",
+      "eBay sign-in opened in a new tab. Sign in, press Agree, then return here and press Refresh.",
+      "success"
+    );
+  } catch (error) {
+    if (popup && !popup.closed) popup.close();
+    showMessage("ebay-connection-message", error.message, "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function saveEbaySellerConfiguration() {
+  const fields = {
+    payment_policy_id: byId("ebay-payment-policy")?.value || "",
+    fulfillment_policy_id: byId("ebay-fulfillment-policy")?.value || "",
+    return_policy_id: byId("ebay-return-policy")?.value || "",
+    merchant_location_key: byId("ebay-inventory-location")?.value || "",
+  };
+  if (Object.values(fields).some((value) => !value)) {
+    showMessage("ebay-connection-message", "Choose every eBay seller configuration value.", "error");
+    return;
+  }
+  showMessage("ebay-connection-message", "Verifying eBay seller configuration…");
+  try {
+    await apiRequest("/api/v1/ebay/oauth/configuration", {
+      method: "POST",
+      body: JSON.stringify(fields),
+    });
+    await loadEbaySellerConnection();
+    showMessage("ebay-connection-message", "eBay seller configuration saved and verified.", "success");
+  } catch (error) {
+    showMessage("ebay-connection-message", error.message, "error");
+  }
 }
 
 async function loadPricingAdapterStatus() {
@@ -675,7 +914,12 @@ function ensureSellerDashboardShell() {
 const previousReloadDashboardForShell = reloadDashboard;
 reloadDashboard = async function (...args) {
   const result = await previousReloadDashboardForShell(...args);
-  await Promise.all([loadPricingAdapterStatus(), loadPortfolioIntelligence(), loadShopifyReadiness()]);
+  await Promise.all([
+    loadPricingAdapterStatus(),
+    loadEbaySellerConnection(),
+    loadPortfolioIntelligence(),
+    loadShopifyReadiness(),
+  ]);
   return result;
 };
 

@@ -21,6 +21,11 @@ from pydantic import BaseModel, Field
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ebay_sell_client import EbaySellApiError, EbaySellClient
+from .ebay_seller_connection import (
+    EbayEffectiveSellerConfig,
+    load_effective_seller_config,
+    seller_client,
+)
 from .ownership import current_owner as _owner
 from .settings import Settings, get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
@@ -72,28 +77,24 @@ class EbayChannelConflict(RuntimeError):
         self.status = status
 
 
-def _seller_auth_missing(settings: Settings) -> list[str]:
+def _seller_publish_missing(
+    settings: Settings,
+    effective: EbayEffectiveSellerConfig,
+    *,
+    include_publish_gate: bool,
+) -> list[str]:
     required = {
-        "TCG_EBAY_CLIENT_ID": settings.ebay_client_id,
-        "TCG_EBAY_CLIENT_SECRET": settings.ebay_client_secret,
-        "TCG_EBAY_USER_REFRESH_TOKEN": settings.ebay_user_refresh_token,
-    }
-    return [name for name, value in required.items() if not value]
-
-
-def _seller_publish_missing(settings: Settings, *, include_publish_gate: bool) -> list[str]:
-    missing = _seller_auth_missing(settings)
-    required = {
-        "TCG_EBAY_PAYMENT_POLICY_ID": settings.ebay_payment_policy_id,
-        "TCG_EBAY_FULFILLMENT_POLICY_ID": settings.ebay_fulfillment_policy_id,
-        "TCG_EBAY_RETURN_POLICY_ID": settings.ebay_return_policy_id,
-        "TCG_EBAY_MERCHANT_LOCATION_KEY": settings.ebay_merchant_location_key,
+        "eBay seller OAuth": effective.refresh_token,
+        "eBay payment policy": effective.payment_policy_id,
+        "eBay fulfilment policy": effective.fulfillment_policy_id,
+        "eBay return policy": effective.return_policy_id,
+        "eBay inventory location": effective.merchant_location_key,
         "TCG_EBAY_NOTIFICATION_ENDPOINT": settings.ebay_notification_endpoint,
         "TCG_EBAY_NOTIFICATION_VERIFICATION_TOKEN": (
             settings.ebay_notification_verification_token
         ),
     }
-    missing.extend(name for name, value in required.items() if not value)
+    missing = [name for name, value in required.items() if not value]
     if include_publish_gate and not settings.ebay_publish_enabled:
         missing.append("TCG_EBAY_PUBLISH_ENABLED")
     return missing
@@ -113,18 +114,6 @@ def _notification_callback_settings(settings: Settings) -> tuple[str, str]:
             detail="eBay order notification verification token is invalid",
         )
     return token, endpoint
-
-
-def _client(settings: Settings) -> EbaySellClient:
-    missing = _seller_auth_missing(settings)
-    if missing:
-        raise RuntimeError("eBay seller authorisation is incomplete")
-    return EbaySellClient(
-        client_id=settings.ebay_client_id or "",
-        client_secret=settings.ebay_client_secret or "",
-        refresh_token=settings.ebay_user_refresh_token or "",
-        marketplace_id=settings.ebay_marketplace_id,
-    )
 
 
 def _shopify_client(settings: Settings) -> ShopifyAdminClient | None:
@@ -274,6 +263,7 @@ def _offer_payload(
     sku: str,
     price_minor: int,
     settings: Settings,
+    effective: EbayEffectiveSellerConfig,
 ) -> dict[str, Any]:
     return {
         "sku": sku,
@@ -281,11 +271,11 @@ def _offer_payload(
         "format": "FIXED_PRICE",
         "availableQuantity": 1,
         "categoryId": EBAY_GB_CCG_SINGLE_CATEGORY_ID,
-        "merchantLocationKey": settings.ebay_merchant_location_key,
+        "merchantLocationKey": effective.merchant_location_key,
         "listingPolicies": {
-            "paymentPolicyId": settings.ebay_payment_policy_id,
-            "fulfillmentPolicyId": settings.ebay_fulfillment_policy_id,
-            "returnPolicyId": settings.ebay_return_policy_id,
+            "paymentPolicyId": effective.payment_policy_id,
+            "fulfillmentPolicyId": effective.fulfillment_policy_id,
+            "returnPolicyId": effective.return_policy_id,
         },
         "pricingSummary": {
             "price": {"currency": "GBP", "value": _money_value(price_minor)}
@@ -313,14 +303,22 @@ def _offer_is_live(offer: dict[str, Any]) -> bool:
     )
 
 
-async def _validate_seller_prerequisites(client: EbaySellClient, settings: Settings) -> None:
+async def _validate_seller_prerequisites(
+    client: EbaySellClient,
+    settings: Settings,
+    effective: EbayEffectiveSellerConfig,
+) -> None:
     location, payment, fulfillment, returns = await asyncio.gather(
-        client.get_inventory_location(settings.ebay_merchant_location_key or ""),
-        client.get_payment_policy(settings.ebay_payment_policy_id or ""),
-        client.get_fulfillment_policy(settings.ebay_fulfillment_policy_id or ""),
-        client.get_return_policy(settings.ebay_return_policy_id or ""),
+        client.get_inventory_location(effective.merchant_location_key or ""),
+        client.get_payment_policy(effective.payment_policy_id or ""),
+        client.get_fulfillment_policy(effective.fulfillment_policy_id or ""),
+        client.get_return_policy(effective.return_policy_id or ""),
     )
-    if str(location.get("locationStatus") or "ENABLED").upper() == "DISABLED":
+    if str(
+        location.get("merchantLocationStatus")
+        or location.get("locationStatus")
+        or "ENABLED"
+    ).upper() == "DISABLED":
         raise EbaySellApiError("Configured eBay inventory location is disabled")
     if payment.get("marketplaceId") not in {None, settings.ebay_marketplace_id}:
         raise EbaySellApiError("Configured eBay payment policy belongs to another marketplace")
@@ -501,11 +499,33 @@ async def seller_status(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict[str, Any]:
     settings = get_settings()
-    missing = _seller_publish_missing(settings, include_publish_gate=True)
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
-        await _owner(connection)
+        owner = await _owner(connection)
+    try:
+        effective = await load_effective_seller_config(
+            request.app.state.db_pool, settings, owner_id=owner["id"]
+        )
+    except (RuntimeError, ValueError) as exc:
+        effective = EbayEffectiveSellerConfig(
+            refresh_token=None,
+            payment_policy_id=None,
+            fulfillment_policy_id=None,
+            return_policy_id=None,
+            merchant_location_key=None,
+            connection_id=None,
+            owner_id=owner["id"],
+            status="ERROR",
+            granted_scopes=(),
+        )
+        config_warning = str(exc)
+    else:
+        config_warning = None
+
+    missing = _seller_publish_missing(
+        settings, effective, include_publish_gate=True
+    )
     result: dict[str, Any] = {
         "marketplace_id": settings.ebay_marketplace_id,
         "configured": not missing,
@@ -515,24 +535,36 @@ async def seller_status(
         "category_id": EBAY_GB_CCG_SINGLE_CATEGORY_ID,
         "scope": "individual CCG cards only",
         "live_verified": False,
+        "connection_status": effective.status,
     }
-    if missing:
+    if config_warning:
+        result["warning"] = config_warning
         return result
+    if not effective.refresh_token:
+        return result
+
     try:
-        client = _client(settings)
-        await _validate_seller_prerequisites(client, settings)
+        client, effective = await seller_client(
+            request.app.state.db_pool, settings, owner_id=owner["id"]
+        )
         await client.user_access_token()
         scopes = client.granted_scopes
         result["granted_scopes"] = sorted(scopes)
-        result["live_verified"] = (
+        scope_ready = (
             EBAY_INVENTORY_SCOPE in scopes
             and EBAY_ACCOUNT_SCOPE in scopes
             and EBAY_FULFILLMENT_SCOPE in scopes
             and EBAY_FULFILLMENT_READONLY_SCOPE in scopes
             and EBAY_NOTIFICATION_SCOPE in scopes
         )
-        if not result["live_verified"]:
-            result["warning"] = "Seller token is missing required Inventory/Fulfillment scopes"
+        config_ready = not _seller_publish_missing(
+            settings, effective, include_publish_gate=False
+        )
+        if config_ready:
+            await _validate_seller_prerequisites(client, settings, effective)
+        result["live_verified"] = scope_ready and config_ready
+        if not scope_ready:
+            result["warning"] = "Seller token is missing required eBay scopes"
     except (EbaySellApiError, RuntimeError, ValueError) as exc:
         result["warning"] = getattr(exc, "detail", str(exc))
     return result
@@ -546,7 +578,16 @@ async def publish_inventory_to_ebay(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict[str, Any]:
     settings = get_settings()
-    missing = _seller_config_missing(settings, include_publish_gate=True)
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _owner(connection)
+    effective = await load_effective_seller_config(
+        request.app.state.db_pool, settings, owner_id=owner["id"]
+    )
+    missing = _seller_publish_missing(
+        settings, effective, include_publish_gate=True
+    )
     if missing:
         raise HTTPException(
             status_code=409,
@@ -562,9 +603,11 @@ async def publish_inventory_to_ebay(
 
     link_id = plan["link"]["id"]
     item = plan["item"]
-    client = _client(settings)
+    client, effective = await seller_client(
+        request.app.state.db_pool, settings, owner_id=owner["id"]
+    )
     try:
-        await _validate_seller_prerequisites(client, settings)
+        await _validate_seller_prerequisites(client, settings, effective)
         await client.put_inventory_item(
             item["inventory_code"],
             _inventory_payload(item, image_urls=plan["image_urls"]),
@@ -573,6 +616,7 @@ async def publish_inventory_to_ebay(
             sku=item["inventory_code"],
             price_minor=plan["price_minor"],
             settings=settings,
+            effective=effective,
         )
         offer_id = str(plan["link"].get("offer_id") or "").strip()
         if not offer_id:
@@ -708,13 +752,11 @@ async def withdraw_ebay_for_inventory(
     if not live:
         return
     settings = get_settings()
-    if _seller_auth_missing(settings):
-        for link in live:
-            await _mark_link_error(pool, link["id"], "CROSS_CHANNEL_EBAY_AUTH_MISSING")
-        raise EbaySellApiError("Cannot withdraw live eBay listing: seller authorisation is missing")
-    client = _client(settings)
     for link in live:
         try:
+            client, _ = await seller_client(
+                pool, settings, owner_id=UUID(str(link["owner_id"]))
+            )
             await client.withdraw_offer(str(link["offer_id"]))
             offer = await client.get_offer(str(link["offer_id"]))
             if _offer_is_live(offer):
@@ -731,9 +773,13 @@ async def withdraw_ebay_for_inventory(
                     """,
                     link["id"], reason,
                 )
-        except EbaySellApiError as exc:
+        except (EbaySellApiError, RuntimeError, ValueError) as exc:
             await _mark_link_error(pool, link["id"], f"CROSS_CHANNEL:{reason}")
-            raise exc
+            if isinstance(exc, EbaySellApiError):
+                raise exc
+            raise EbaySellApiError(
+                "Cannot withdraw live eBay listing: seller authorisation is unavailable"
+            ) from exc
 
 
 async def restore_ebay_after_shopify_release(pool: Any, inventory_ids: list[str]) -> None:
@@ -745,12 +791,16 @@ async def restore_ebay_after_shopify_release(pool: Any, inventory_ids: list[str]
     if not candidates:
         return
     settings = get_settings()
-    if _seller_auth_missing(settings):
-        for link in candidates:
-            await _mark_link_error(pool, link["id"], "RESTORE_EBAY_AUTH_MISSING")
-        raise EbaySellApiError("Cannot restore eBay listing: seller authorisation is missing")
-    client = _client(settings)
     for link in candidates:
+        try:
+            client, _ = await seller_client(
+                pool, settings, owner_id=UUID(str(link["owner_id"]))
+            )
+        except (RuntimeError, ValueError) as exc:
+            await _mark_link_error(pool, link["id"], "RESTORE_EBAY_AUTH_MISSING")
+            raise EbaySellApiError(
+                "Cannot restore eBay listing: seller authorisation is missing"
+            ) from exc
         async with pool.acquire() as connection:
             item_status = await connection.fetchval(
                 "select status from tcg.inventory_items where id=$1",
@@ -1191,9 +1241,13 @@ async def ebay_order_notification(
     notification_id, topic = _notification_identity(payload)
     order_id = _notification_order_id(payload)
 
-    if not settings.ebay_user_refresh_token:
-        raise HTTPException(status_code=503, detail="eBay seller authorisation is missing")
-    client = _client(settings)
+    try:
+        client, _ = await seller_client(request.app.state.db_pool, settings)
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="eBay seller authorisation is missing",
+        ) from exc
     try:
         kid, _ = _decode_signature_header(x_ebay_signature)
         key = await client.get_public_key(kid)
