@@ -302,6 +302,15 @@ def _offer_listing_id(offer: dict[str, Any]) -> str | None:
     return value or None
 
 
+def _offer_is_live(offer: dict[str, Any]) -> bool:
+    """Treat an offer as live only when eBay reports the offer as PUBLISHED."""
+
+    return (
+        str(offer.get("status") or "").strip().upper() == "PUBLISHED"
+        and _offer_listing_id(offer) is not None
+    )
+
+
 async def _validate_seller_prerequisites(client: EbaySellClient, settings: Settings) -> None:
     location, payment, fulfillment, returns = await asyncio.gather(
         client.get_inventory_location(settings.ebay_merchant_location_key or ""),
@@ -580,12 +589,16 @@ async def publish_inventory_to_ebay(
             await client.update_offer(offer_id, offer_payload)
 
         offer = await client.get_offer(offer_id)
-        listing_id = _offer_listing_id(offer)
+        listing_id = _offer_listing_id(offer) if _offer_is_live(offer) else None
         if not listing_id:
             listing_id = await client.publish_offer(offer_id)
         verified_offer = await client.get_offer(offer_id)
         verified_listing_id = _offer_listing_id(verified_offer)
-        if not verified_listing_id or verified_listing_id != listing_id:
+        if (
+            not _offer_is_live(verified_offer)
+            or not verified_listing_id
+            or verified_listing_id != listing_id
+        ):
             raise EbaySellApiError("eBay listing publication could not be verified")
     except (EbaySellApiError, ValueError) as exc:
         await _mark_link_error(
@@ -700,7 +713,7 @@ async def withdraw_ebay_for_inventory(
         try:
             await client.withdraw_offer(str(link["offer_id"]))
             offer = await client.get_offer(str(link["offer_id"]))
-            if _offer_listing_id(offer):
+            if _offer_is_live(offer):
                 raise EbaySellApiError("eBay offer still appears published after withdrawal")
             async with pool.acquire() as connection:
                 await connection.execute(
@@ -745,7 +758,7 @@ async def restore_ebay_after_shopify_release(pool: Any, inventory_ids: list[str]
             listing_id = await client.publish_offer(str(link["offer_id"]))
             offer = await client.get_offer(str(link["offer_id"]))
             verified = _offer_listing_id(offer)
-            if not verified or verified != listing_id:
+            if not _offer_is_live(offer) or not verified or verified != listing_id:
                 raise EbaySellApiError("Restored eBay offer could not be verified")
             async with pool.acquire() as connection:
                 await connection.execute(
