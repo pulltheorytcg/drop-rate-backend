@@ -131,7 +131,7 @@ function ensureFounderFinanceUI() {
     <div class="stats-grid">
       <article class="stat-card stat-accent"><span>Available balance</span><strong id="finance-available">£0.00</strong><small>Available to withdraw</small></article>
       <article class="stat-card"><span>Pending balance</span><strong id="finance-pending">£0.00</strong><small>Not yet available</small></article>
-      <article class="stat-card"><span>Net profit</span><strong id="finance-net-profit">£0.00</strong><small id="finance-net-profit-note">After cost, fees & postage</small></article>
+      <article class="stat-card"><span>Net profit</span><strong id="finance-net-profit">£0.00</strong><small id="finance-net-profit-note">After cost, fees, commission & postage</small></article>
       <article class="stat-card"><span>Cards / items sold</span><strong id="finance-sold-items">0</strong><small>Physical inventory sold</small></article>
     </div>
 
@@ -141,6 +141,7 @@ function ensureFounderFinanceUI() {
       <article class="stat-card"><span>Fees</span><strong id="finance-fees">£0.00</strong><small id="finance-fees-note">Platform + payment fees</small></article>
       <article class="stat-card"><span>Postage cost</span><strong id="finance-shipping-cost">£0.00</strong><small id="finance-shipping-cost-note">Royal Mail postage</small></article>
       <article class="stat-card"><span>Materials</span><strong id="finance-material-cost">£0.00</strong><small>Packaging + card protection</small></article>
+      <article class="stat-card"><span>Drop Rate commission</span><strong id="finance-commission">£0.00</strong><small id="finance-commission-note">Owner commission rate</small></article>
       <article class="stat-card"><span>Refunds</span><strong id="finance-refunds">£0.00</strong><small>Item + shipping refunds</small></article>
       <article class="stat-card"><span>Paid out</span><strong id="finance-paid-out">£0.00</strong><small>Completed withdrawals</small></article>
       <article class="stat-card"><span>Reserved for payout</span><strong id="finance-reserved">£0.00</strong><small>Requested / approved payouts</small></article>
@@ -181,7 +182,7 @@ function ensureFounderFinanceUI() {
       <div class="sales-kpi-grid">
         <article class="sales-kpi sales-kpi-primary"><span>Total sales</span><strong id="finance-period-sales">£0.00</strong><small>Item revenue after discounts</small></article>
         <article class="sales-kpi"><span>Net revenue</span><strong id="finance-period-net-revenue">£0.00</strong><small>After refunds, incl. shipping income</small></article>
-        <article class="sales-kpi"><span>Net profit</span><strong id="finance-period-profit">£0.00</strong><small id="finance-period-profit-note">After COGS, fees & fulfilment</small></article>
+        <article class="sales-kpi"><span>Net profit</span><strong id="finance-period-profit">£0.00</strong><small id="finance-period-profit-note">After COGS, fees, commission & fulfilment</small></article>
         <article class="sales-kpi"><span>Orders</span><strong id="finance-period-orders">0</strong><small id="finance-period-aov">£0.00 gross AOV</small></article>
         <article class="sales-kpi"><span>Items sold</span><strong id="finance-period-items">0</strong><small>Physical inventory items</small></article>
       </div>
@@ -199,7 +200,7 @@ function ensureFounderFinanceUI() {
         <div>
           <p class="eyebrow">Owner settlement</p>
           <h3>Settlement report</h3>
-          <p class="muted">Auditable proceeds and profit per order. Net owner proceeds never subtract acquisition cost; profit does.</p>
+          <p class="muted">Auditable proceeds per order with marketplace fees, Drop Rate commission and refunds shown separately. Acquisition cost affects profit, not payout proceeds.</p>
         </div>
       </div>
       <div id="finance-settlement-message" class="message panel-message" role="status"></div>
@@ -210,7 +211,8 @@ function ensureFounderFinanceUI() {
               <th>Order</th>
               <th>Reconciliation</th>
               <th>Gross proceeds</th>
-              <th>Deductions</th>
+              <th>External deductions</th>
+              <th>Commission</th>
               <th>Adjustments</th>
               <th>Net owner proceeds</th>
               <th>Cost basis</th>
@@ -235,7 +237,7 @@ function ensureFounderFinanceUI() {
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Item</th><th>Order</th><th>Revenue</th><th>Cost</th><th>Fees + postage</th><th>Profit</th><th>Sold</th></tr></thead>
+        <thead><tr><th>Item</th><th>Order</th><th>Revenue</th><th>Cost</th><th>Fees + commission</th><th>Profit</th><th>Sold</th></tr></thead>
         <tbody id="finance-sales-body"></tbody>
       </table>
     </div>
@@ -299,7 +301,7 @@ function ensureFounderFinanceUI() {
   dialog.innerHTML = `
     <form id="finance-payout-form" class="modal-card">
       <div class="modal-heading">
-        <div><p class="eyebrow">Founder withdrawal</p><h2>Request payout</h2><p class="muted">This creates an auditable payout request. No money is moved automatically.</p></div>
+        <div><p class="eyebrow">Owner payout</p><h2>Request payout</h2><p class="muted">This reserves verified owner proceeds for payout. No money moves until the payout controls allow it.</p></div>
         <button class="icon-button" type="button" data-close="finance-payout-dialog" aria-label="Close">×</button>
       </div>
       <div class="form-grid">
@@ -343,7 +345,7 @@ function renderFinanceSalesAnalytics(data) {
   const provisionalProfit = formatFinanceMoney(data.net_profit_minor);
   if (data.net_profit_complete) {
     byId("finance-period-profit").textContent = provisionalProfit;
-    byId("finance-period-profit-note").textContent = "After COGS, fees & fulfilment";
+    byId("finance-period-profit-note").textContent = "After COGS, fees, commission & fulfilment";
   } else {
     byId("finance-period-profit").textContent = "Pending";
     byId("finance-period-profit-note").textContent =
@@ -462,7 +464,7 @@ function renderFinanceSummary(summary) {
   const provisionalNetProfit = formatFinanceMoney(summary.net_profit_minor);
   if (summary.net_profit_complete) {
     byId("finance-net-profit").textContent = provisionalNetProfit;
-    byId("finance-net-profit-note").textContent = "After cost, fees & postage";
+    byId("finance-net-profit-note").textContent = "After cost, fees, commission & postage";
   } else {
     byId("finance-net-profit").textContent = "Pending";
     byId("finance-net-profit-note").textContent = `Provisional ${provisionalNetProfit} · awaiting settlement costs`;
@@ -488,6 +490,9 @@ function renderFinanceSummary(summary) {
   byId("finance-material-cost").textContent = formatFinanceMoney(
     summary.fulfilment_material_cost_minor
   );
+  byId("finance-commission").textContent = formatFinanceMoney(summary.commission_minor);
+  byId("finance-commission-note").textContent =
+    `${(Number(summary.commission_bps || 0) / 100).toFixed(2)}% owner rate · refunds reverse commission proportionally`;
   byId("finance-refunds").textContent = formatFinanceMoney(
     (summary.refunds_minor || 0) + (summary.shipping_refunds_minor || 0)
   );
@@ -508,7 +513,8 @@ function renderFinanceSales(items) {
       (sale.platform_fee_minor || 0)
       + (sale.payment_fee_minor || 0)
       + (sale.shipping_cost_minor || 0)
-      + (sale.fulfilment_material_cost_minor || 0);
+      + (sale.fulfilment_material_cost_minor || 0)
+      + (sale.commission_minor || 0);
     const soldAt = sale.sold_at
       ? new Date(sale.sold_at).toLocaleDateString("en-GB")
       : "—";
@@ -529,7 +535,7 @@ function renderFinanceSales(items) {
       <td data-label="Order"></td>
       <td class="finance-money-cell" data-label="Revenue"><strong></strong><small></small></td>
       <td data-label="Cost"></td>
-      <td class="finance-money-cell" data-label="Fees + fulfilment"><strong></strong><small></small></td>
+      <td class="finance-money-cell" data-label="Fees + commission"><strong></strong><small></small></td>
       <td class="finance-money-cell" data-label="Profit"><strong></strong><small></small></td>
       <td data-label="Sold"></td>`;
 
@@ -553,7 +559,8 @@ function renderFinanceSales(items) {
     const costsCell = row.cells[4];
     if (costsComplete) {
       costsCell.querySelector("strong").textContent = formatFinanceMoney(feesPostage);
-      costsCell.querySelector("small").textContent = "Recorded fees + postage + materials";
+      costsCell.querySelector("small").textContent =
+        `Fees + postage + materials + ${formatFinanceMoney(sale.commission_minor || 0)} commission`;
     } else {
       costsCell.querySelector("strong").textContent = "Pending";
       const pending = [];
@@ -622,7 +629,8 @@ function renderFinanceSettlements(items) {
       <td data-label="Order"><strong></strong><small></small></td>
       <td data-label="Reconciliation"><strong></strong><small></small></td>
       <td data-label="Gross proceeds"></td>
-      <td data-label="Deductions"></td>
+      <td data-label="External deductions"></td>
+      <td data-label="Commission"></td>
       <td data-label="Adjustments"></td>
       <td data-label="Net owner proceeds"><strong></strong></td>
       <td data-label="Cost basis"></td>
@@ -645,14 +653,15 @@ function renderFinanceSettlements(items) {
 
     row.cells[2].textContent = formatFinanceMoney(settlement.gross_proceeds_minor);
     row.cells[3].textContent = formatFinanceMoney(settlement.external_deductions_minor);
-    row.cells[4].textContent = formatFinanceMoney(settlement.adjustments_minor);
-    row.cells[5].querySelector("strong").textContent =
+    row.cells[4].textContent = formatFinanceMoney(settlement.commission_minor);
+    row.cells[5].textContent = formatFinanceMoney(settlement.adjustments_minor);
+    row.cells[6].querySelector("strong").textContent =
       formatFinanceMoney(settlement.net_owner_proceeds_minor);
-    row.cells[6].textContent = formatFinanceMoney(settlement.effective_cogs_minor);
-    row.cells[7].querySelector("strong").textContent =
+    row.cells[7].textContent = formatFinanceMoney(settlement.effective_cogs_minor);
+    row.cells[8].querySelector("strong").textContent =
       formatFinanceMoney(settlement.owner_profit_minor);
 
-    const fundsCell = row.cells[8];
+    const fundsCell = row.cells[9];
     fundsCell.querySelector("strong").textContent =
       `${formatFinanceMoney(settlement.available_ledger_minor)} available`;
     fundsCell.querySelector("small").textContent =
