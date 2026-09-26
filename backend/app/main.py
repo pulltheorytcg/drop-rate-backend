@@ -38,6 +38,7 @@ from .settings import get_settings
 from .shopify import router as shopify_router
 from .shopify_client import ShopifyApiError
 from .shopify_pipeline import router as shopify_pipeline_router
+from .shopify_readiness import router as shopify_readiness_router
 from .storage_locations import router as storage_locations_router
 
 
@@ -238,6 +239,7 @@ def create_app() -> FastAPI:
     app.include_router(identity_review_router)
     app.include_router(shopify_router)
     app.include_router(shopify_pipeline_router)
+    app.include_router(shopify_readiness_router)
     app.include_router(purchase_lots_router)
     app.include_router(storage_locations_router)
     return app
