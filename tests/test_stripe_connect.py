@@ -17,7 +17,7 @@ from app.stripe_connect import (
 ROOT = Path(__file__).resolve().parents[1]
 STRIPE_SOURCE = ROOT / "backend" / "app" / "stripe_connect.py"
 CLIENT_SOURCE = ROOT / "backend" / "app" / "stripe_connect_client.py"
-MIGRATION_SOURCE = ROOT / "migrations" / "008_stripe_connect_payout_phase1.sql"
+MIGRATION_SOURCE = ROOT / "database" / "migrations" / "20260926180043_stripe_connect_payout_phase1.sql"
 FINANCE_UI = ROOT / "backend" / "app" / "static" / "founder-finance.js"
 
 
