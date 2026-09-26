@@ -32,6 +32,7 @@ from .marketplace_listings import router as marketplace_listings_router
 from .market_provider_probe import router as market_provider_probe_router
 from .market_smoke import router as market_smoke_router
 from .pricing import router as pricing_router
+from .payout_preferences import router as payout_preferences_router
 from .imported_benchmark_pricing import router as imported_benchmark_pricing_router
 from .ebay_sold_pricing import router as ebay_sold_pricing_router
 from .pricing_preview import router as pricing_preview_router
@@ -228,6 +229,7 @@ def create_app() -> FastAPI:
     app.include_router(ebay_oauth_router)
     app.include_router(refunds_router)
     app.include_router(pricing_router)
+    app.include_router(payout_preferences_router)
     app.include_router(imported_benchmark_pricing_router)
     app.include_router(ebay_sold_pricing_router)
     app.include_router(pricing_preview_router)
