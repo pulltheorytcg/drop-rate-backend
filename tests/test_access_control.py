@@ -46,7 +46,8 @@ async def test_platform_admin_context_allows_founder_hq() -> None:
     assert context["access_role"] == "PLATFORM_ADMIN"
     assert context["founder_hq_allowed"] is True
     assert context["portal"] == "FOUNDER_HQ"
-    assert "m.user_id=tcg.current_user_id()" in connection.sql\n    assert "limit 2" in connection.sql
+    assert "m.user_id=tcg.current_user_id()" in connection.sql
+    assert "limit 2" in connection.sql
 
 
 @pytest.mark.asyncio
