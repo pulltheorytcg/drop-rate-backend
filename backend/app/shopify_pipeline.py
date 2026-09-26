@@ -357,6 +357,7 @@ def _build_media_intake_queue(
                 "required_scope": "INVENTORY_ITEM",
                 "inventory_id": inventory_id,
                 "inventory_code": item.get("inventory_code"),
+                "inventory_codes": [item.get("inventory_code")],
                 "grading_company": grading_company,
                 "grade": grade,
                 "copy_count": 1,
@@ -373,6 +374,7 @@ def _build_media_intake_queue(
                 "required_scope": "CANONICAL_CARD",
                 "inventory_id": inventory_id,
                 "inventory_code": item.get("inventory_code"),
+                "inventory_codes": [],
                 "grading_company": None,
                 "grade": None,
                 "copy_count": 0,
@@ -381,6 +383,9 @@ def _build_media_intake_queue(
             },
         )
         group["copy_count"] += 1
+        inventory_code = str(item.get("inventory_code") or "").strip()
+        if inventory_code and inventory_code not in group["inventory_codes"]:
+            group["inventory_codes"].append(inventory_code)
 
     raw_queue: list[dict[str, Any]] = []
     for catalogue_id, group in raw_groups.items():
@@ -942,6 +947,26 @@ async def create_media_asset(
             )
             if not exists:
                 raise HTTPException(status_code=404, detail="Inventory item not found")
+            duplicate = await connection.fetchval(
+                """
+                select exists(
+                  select 1
+                  from tcg.media_assets
+                  where owner_id=$1
+                    and scope='INVENTORY_ITEM'
+                    and inventory_id=$2
+                    and side=$3
+                    and approval_status <> 'REJECTED'
+                    and shopify_file_status <> 'FAILED'
+                )
+                """,
+                owner["id"], payload.inventory_id, payload.side,
+            )
+            if duplicate:
+                raise HTTPException(
+                    status_code=409,
+                    detail="An active media asset already exists for this physical item side",
+                )
             scope = "INVENTORY_ITEM"
         else:
             exists = await connection.fetchval(
@@ -950,6 +975,26 @@ async def create_media_asset(
             )
             if not exists:
                 raise HTTPException(status_code=404, detail="Catalogue card not found")
+            duplicate = await connection.fetchval(
+                """
+                select exists(
+                  select 1
+                  from tcg.media_assets
+                  where owner_id=$1
+                    and scope='CANONICAL_CARD'
+                    and catalogue_id=$2
+                    and side=$3
+                    and approval_status <> 'REJECTED'
+                    and shopify_file_status <> 'FAILED'
+                )
+                """,
+                owner["id"], payload.catalogue_id, payload.side,
+            )
+            if duplicate:
+                raise HTTPException(
+                    status_code=409,
+                    detail="An active media asset already exists for this canonical card side",
+                )
             scope = "CANONICAL_CARD"
 
         row = await connection.fetchrow(
