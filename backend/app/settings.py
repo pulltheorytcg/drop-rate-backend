@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass
 from functools import lru_cache
 
+# Deployment marker: eBay Production RuName configured.
+
 
 def _required(name: str) -> str:
     value = os.getenv(name, "").strip()
