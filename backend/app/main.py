@@ -237,6 +237,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_market_values_router)
     app.include_router(inventory_state_router)
     app.include_router(identity_review_router)
+    app.include_router(condition_review_router)
     app.include_router(shopify_router)
     app.include_router(shopify_pipeline_router)
     app.include_router(shopify_readiness_router)
