@@ -748,13 +748,11 @@ async def withdraw_ebay_for_inventory(
     if not live:
         return
     settings = get_settings()
-    if _seller_auth_missing(settings):
-        for link in live:
-            await _mark_link_error(pool, link["id"], "CROSS_CHANNEL_EBAY_AUTH_MISSING")
-        raise EbaySellApiError("Cannot withdraw live eBay listing: seller authorisation is missing")
-    client = _client(settings)
     for link in live:
         try:
+            client, _ = await seller_client(
+                pool, settings, owner_id=UUID(str(link["owner_id"]))
+            )
             await client.withdraw_offer(str(link["offer_id"]))
             offer = await client.get_offer(str(link["offer_id"]))
             if _offer_is_live(offer):
@@ -785,12 +783,16 @@ async def restore_ebay_after_shopify_release(pool: Any, inventory_ids: list[str]
     if not candidates:
         return
     settings = get_settings()
-    if _seller_auth_missing(settings):
-        for link in candidates:
-            await _mark_link_error(pool, link["id"], "RESTORE_EBAY_AUTH_MISSING")
-        raise EbaySellApiError("Cannot restore eBay listing: seller authorisation is missing")
-    client = _client(settings)
     for link in candidates:
+        try:
+            client, _ = await seller_client(
+                pool, settings, owner_id=UUID(str(link["owner_id"]))
+            )
+        except (RuntimeError, ValueError) as exc:
+            await _mark_link_error(pool, link["id"], "RESTORE_EBAY_AUTH_MISSING")
+            raise EbaySellApiError(
+                "Cannot restore eBay listing: seller authorisation is missing"
+            ) from exc
         async with pool.acquire() as connection:
             item_status = await connection.fetchval(
                 "select status from tcg.inventory_items where id=$1",
@@ -1231,9 +1233,13 @@ async def ebay_order_notification(
     notification_id, topic = _notification_identity(payload)
     order_id = _notification_order_id(payload)
 
-    if not settings.ebay_user_refresh_token:
-        raise HTTPException(status_code=503, detail="eBay seller authorisation is missing")
-    client = _client(settings)
+    try:
+        client, _ = await seller_client(request.app.state.db_pool, settings)
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="eBay seller authorisation is missing",
+        ) from exc
     try:
         kid, _ = _decode_signature_header(x_ebay_signature)
         key = await client.get_public_key(kid)
