@@ -7,6 +7,9 @@ const state = {
   session: null,
   providers: {google: false, apple: false},
   inventory: {offset: 0, limit: 50, total: 0, search: "", status: ""},
+  sales: {offset: 0, limit: 50, total: 0},
+  settlements: {offset: 0, limit: 50, total: 0},
+  payoutPreferenceVersion: 0,
 };
 
 const byId = (id) => document.getElementById(id);
@@ -108,13 +111,282 @@ async function loadOwnerInventory() {
 }
 
 async function reloadOwnerDashboard() {
-  showPortalMessage("Loading your inventory…");
+  showPortalMessage("Loading your account…");
   try {
-    await Promise.all([loadOwnerOverview(), loadOwnerInventory()]);
+    await Promise.all([
+      loadOwnerOverview(),
+      loadOwnerInventory(),
+      loadOwnerFinanceSummary(),
+      loadOwnerSales(),
+      loadOwnerSettlements(),
+      loadOwnerPayouts(),
+      loadOwnerPayoutPreference(),
+    ]);
     showPortalMessage();
   } catch (error) {
     showPortalMessage(error.message, "error");
   }
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-GB", {day: "2-digit", month: "short", year: "numeric"});
+}
+
+function formatDateTime(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("en-GB", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+    timeZone: "Europe/London",
+  });
+}
+
+function renderEmptyRow(bodyId, colspan, message) {
+  const body = byId(bodyId);
+  body.replaceChildren();
+  const row = document.createElement("tr");
+  const cell = document.createElement("td");
+  cell.colSpan = colspan;
+  cell.className = "muted";
+  cell.textContent = message;
+  row.append(cell);
+  body.append(row);
+}
+
+async function loadOwnerFinanceSummary() {
+  const data = await apiRequest("/api/v1/owner/finance/summary");
+  byId("owner-sales-revenue").textContent = formatMoney(data.sales_revenue_minor);
+  byId("owner-commission-total").textContent = formatMoney(data.commission_minor);
+  byId("owner-commission-rate").textContent =
+    `Drop Rate commission: ${(Number(data.commission_bps || 0) / 100).toFixed(2).replace(/\.00$/, "")}%`;
+  byId("owner-lifetime-proceeds").textContent = formatMoney(data.lifetime_owner_proceeds_minor);
+  byId("owner-financial-completeness").textContent =
+    data.financials_complete ? "COMPLETE" : `${Number(data.unreconciled_sales || 0)} PENDING`;
+  byId("owner-available-balance").textContent = formatMoney(data.available_to_withdraw_minor);
+  byId("owner-pending-balance").textContent = formatMoney(data.pending_minor);
+  byId("owner-reserved-payouts").textContent = formatMoney(data.reserved_payout_minor);
+  byId("owner-paid-out").textContent = formatMoney(data.paid_out_minor);
+}
+
+function otherDeductions(item) {
+  return Number(item.platform_fee_minor || item.platform_fees_minor || 0)
+    + Number(item.payment_fee_minor || item.payment_fees_minor || 0)
+    + Number(item.shipping_cost_minor || 0)
+    + Number(item.fulfilment_material_cost_minor || 0)
+    + Number(item.refund_minor || item.refunds_minor || 0)
+    + Number(item.shipping_refund_minor || item.shipping_refunds_minor || 0)
+    - Number(item.adjustment_minor || item.adjustments_minor || 0);
+}
+
+function renderSales(items) {
+  const body = byId("owner-sales-body");
+  body.replaceChildren();
+  if (!items.length) {
+    renderEmptyRow("owner-sales-body", 8, "No sales yet.");
+    return;
+  }
+
+  for (const item of items) {
+    const row = document.createElement("tr");
+    const cardNumber = item.card_number ? ` #${item.card_number}` : "";
+    const variant = item.variant ? ` · ${item.variant}` : "";
+    const values = [
+      formatDate(item.sold_at),
+      `${safeText(item.name)}${cardNumber}${variant}`,
+      `${safeText(item.source)} · ${safeText(item.order_number)}`,
+      formatMoney(item.net_sale_minor),
+      formatMoney(item.commission_minor),
+      formatMoney(otherDeductions(item)),
+      formatMoney(item.owner_proceeds_minor),
+      item.financials_complete ? "Complete" : "Reconciling",
+    ];
+    for (const value of values) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.append(cell);
+    }
+    body.append(row);
+  }
+}
+
+function renderSalesPagination() {
+  const {offset, limit, total} = state.sales;
+  const start = total ? offset + 1 : 0;
+  const end = Math.min(offset + limit, total);
+  byId("owner-sales-page").textContent = total ? `${start}–${end} of ${total}` : "0 sales";
+  byId("owner-sales-prev").disabled = offset <= 0;
+  byId("owner-sales-next").disabled = offset + limit >= total;
+}
+
+async function loadOwnerSales() {
+  const params = new URLSearchParams({
+    limit: String(state.sales.limit),
+    offset: String(state.sales.offset),
+  });
+  const data = await apiRequest(`/api/v1/owner/finance/sales?${params.toString()}`);
+  state.sales.total = Number(data.total || 0);
+  renderSales(data.items || []);
+  renderSalesPagination();
+}
+
+function renderSettlements(items) {
+  const body = byId("owner-settlements-body");
+  body.replaceChildren();
+  if (!items.length) {
+    renderEmptyRow("owner-settlements-body", 8, "No settlements yet.");
+    return;
+  }
+
+  for (const item of items) {
+    const row = document.createElement("tr");
+    const revenue = Number(item.sales_revenue_minor || 0) + Number(item.shipping_revenue_minor || 0);
+    const values = [
+      `${safeText(item.source)} · ${safeText(item.order_number)}`,
+      formatDate(item.placed_at),
+      Number(item.item_count || 0).toLocaleString("en-GB"),
+      formatMoney(revenue),
+      formatMoney(item.commission_minor),
+      formatMoney(otherDeductions(item)),
+      formatMoney(item.owner_proceeds_minor),
+      item.financials_complete ? "Complete" : "Reconciling",
+    ];
+    for (const value of values) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.append(cell);
+    }
+    body.append(row);
+  }
+}
+
+function renderSettlementPagination() {
+  const {offset, limit, total} = state.settlements;
+  const start = total ? offset + 1 : 0;
+  const end = Math.min(offset + limit, total);
+  byId("owner-settlements-page").textContent =
+    total ? `${start}–${end} of ${total}` : "0 settlements";
+  byId("owner-settlements-prev").disabled = offset <= 0;
+  byId("owner-settlements-next").disabled = offset + limit >= total;
+}
+
+async function loadOwnerSettlements() {
+  const params = new URLSearchParams({
+    limit: String(state.settlements.limit),
+    offset: String(state.settlements.offset),
+  });
+  const data = await apiRequest(`/api/v1/owner/finance/settlements?${params.toString()}`);
+  state.settlements.total = Number(data.total || 0);
+  renderSettlements(data.items || []);
+  renderSettlementPagination();
+}
+
+function renderPayouts(items) {
+  const body = byId("owner-payouts-body");
+  body.replaceChildren();
+  if (!items.length) {
+    renderEmptyRow("owner-payouts-body", 7, "No payouts yet.");
+    return;
+  }
+  for (const item of items) {
+    const row = document.createElement("tr");
+    const values = [
+      safeText(item.payout_code),
+      formatMoney(item.amount_minor),
+      item.request_origin === "SCHEDULED" ? "Scheduled" : "Manual",
+      safeText(item.status),
+      formatDateTime(item.scheduled_for),
+      formatDateTime(item.requested_at),
+      formatDateTime(item.resolved_at),
+    ];
+    for (const value of values) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.append(cell);
+    }
+    body.append(row);
+  }
+}
+
+async function loadOwnerPayouts() {
+  const data = await apiRequest("/api/v1/owner/finance/payouts");
+  renderPayouts(data.items || []);
+}
+
+function updateOwnerPayoutFields() {
+  const cadence = byId("owner-payout-cadence").value;
+  byId("owner-payout-weekday-wrap").classList.toggle(
+    "hidden",
+    !["WEEKLY", "FORTNIGHTLY"].includes(cadence)
+  );
+  byId("owner-payout-monthly-wrap").classList.toggle("hidden", cadence !== "MONTHLY");
+}
+
+function renderOwnerPayoutPreference(data) {
+  const preference = data.preference || data;
+  state.payoutPreferenceVersion = Number(preference.version || 0);
+  byId("owner-payout-cadence").value = preference.cadence || "MANUAL";
+  if (preference.weekday !== null && preference.weekday !== undefined) {
+    byId("owner-payout-weekday").value = String(preference.weekday);
+  }
+  if (preference.monthly_day !== null && preference.monthly_day !== undefined) {
+    byId("owner-payout-monthly-day").value = String(preference.monthly_day);
+  }
+  byId("owner-payout-next").textContent = preference.next_scheduled_at
+    ? formatDateTime(preference.next_scheduled_at)
+    : "Manual only";
+  updateOwnerPayoutFields();
+}
+
+async function loadOwnerPayoutPreference() {
+  const data = await apiRequest("/api/v1/payout-preferences");
+  renderOwnerPayoutPreference(data);
+}
+
+async function saveOwnerPayoutPreference() {
+  const cadence = byId("owner-payout-cadence").value;
+  const payload = {
+    cadence,
+    weekday: ["WEEKLY", "FORTNIGHTLY"].includes(cadence)
+      ? Number(byId("owner-payout-weekday").value)
+      : null,
+    monthly_day: cadence === "MONTHLY"
+      ? Number(byId("owner-payout-monthly-day").value)
+      : null,
+    version: state.payoutPreferenceVersion,
+  };
+  const button = byId("owner-payout-save");
+  button.disabled = true;
+  const message = byId("owner-payout-preference-message");
+  message.textContent = "Saving payout schedule…";
+  message.className = "message panel-message";
+  try {
+    const data = await apiRequest("/api/v1/payout-preferences", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    renderOwnerPayoutPreference(data);
+    message.textContent = "Payout schedule saved.";
+    message.className = "message panel-message success";
+  } catch (error) {
+    message.textContent = error.message;
+    message.className = "message panel-message error";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function activateOwnerView(view) {
+  document.querySelectorAll("[data-owner-view-panel]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.dataset.ownerViewPanel !== view);
+  });
+  document.querySelectorAll("[data-owner-view]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.ownerView === view);
+  });
 }
 
 function errorMessage(data) {
@@ -260,7 +532,6 @@ async function openOwnerPortal() {
   byId("owner-portal-name").textContent = name;
   byId("owner-portal-initial").textContent = name.slice(0, 1).toUpperCase();
   byId("owner-portal-email").textContent = state.session?.user?.email || "Owner account";
-  byId("owner-portal-type").textContent = access.owner_type || "OWNER";
 
   byId("owner-auth-view").classList.add("hidden");
   byId("owner-portal-view").classList.remove("hidden");
@@ -378,6 +649,32 @@ byId("owner-inventory-next").addEventListener("click", async () => {
   state.inventory.offset += state.inventory.limit;
   await loadOwnerInventory();
 });
+
+document.querySelectorAll("[data-owner-view]").forEach((button) => {
+  button.addEventListener("click", () => activateOwnerView(button.dataset.ownerView));
+});
+
+byId("owner-sales-prev").addEventListener("click", async () => {
+  state.sales.offset = Math.max(0, state.sales.offset - state.sales.limit);
+  await loadOwnerSales();
+});
+byId("owner-sales-next").addEventListener("click", async () => {
+  if (state.sales.offset + state.sales.limit >= state.sales.total) return;
+  state.sales.offset += state.sales.limit;
+  await loadOwnerSales();
+});
+byId("owner-settlements-prev").addEventListener("click", async () => {
+  state.settlements.offset = Math.max(0, state.settlements.offset - state.settlements.limit);
+  await loadOwnerSettlements();
+});
+byId("owner-settlements-next").addEventListener("click", async () => {
+  if (state.settlements.offset + state.settlements.limit >= state.settlements.total) return;
+  state.settlements.offset += state.settlements.limit;
+  await loadOwnerSettlements();
+});
+
+byId("owner-payout-cadence").addEventListener("change", updateOwnerPayoutFields);
+byId("owner-payout-save").addEventListener("click", saveOwnerPayoutPreference);
 
 byId("owner-logout-button").addEventListener("click", () => {
   clearSession();
