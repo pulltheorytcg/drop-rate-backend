@@ -1900,6 +1900,7 @@ async def list_payouts(
         rows = await connection.fetch(
             """
             select id, payout_code, amount_minor, currency, status,
+                   request_origin, schedule_cycle_key, scheduled_for,
                    requested_at, resolved_at, notes, version, created_at, updated_at
             from tcg.payout_requests
             where owner_id = $1
