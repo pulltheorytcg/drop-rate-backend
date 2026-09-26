@@ -282,3 +282,76 @@ def test_seller_setup_defaults_remain_configurable_and_fail_closed() -> None:
     assert settings.ebay_shipping_service_code == "UK_RoyalMailTracked"
     assert settings.ebay_origin_postcode is None
     assert settings.ebay_alert_email is None
+
+
+def test_notification_destination_create_reconciles_bodyless_201(monkeypatch) -> None:
+    from app.ebay_sell_client import EbaySellClient
+
+    client = EbaySellClient(
+        client_id="client",
+        client_secret="secret",
+        refresh_token="refresh",
+        marketplace_id="EBAY_GB",
+    )
+    calls = {"post": 0, "list": 0}
+
+    async def fake_request(method, path, **kwargs):
+        if method == "POST" and path == "/commerce/notification/v1/destination":
+            calls["post"] += 1
+            return None
+        raise AssertionError((method, path))
+
+    async def fake_list():
+        calls["list"] += 1
+        return [{
+            "destinationId": "dest-123",
+            "deliveryConfig": {
+                "endpoint": "https://drop-rate.example/ebay/orders"
+            },
+            "status": "ENABLED",
+        }]
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    monkeypatch.setattr(client, "get_notification_destinations", fake_list)
+
+    destination_id = asyncio.run(client.create_notification_destination(
+        name="Drop Rate Order Notifications",
+        endpoint="https://drop-rate.example/ebay/orders",
+        verification_token="drop_rate_order_notifications_1234567890",
+    ))
+    assert destination_id == "dest-123"
+    assert calls == {"post": 1, "list": 1}
+
+
+def test_notification_subscription_create_reconciles_bodyless_201(monkeypatch) -> None:
+    from app.ebay_sell_client import EbaySellClient
+
+    client = EbaySellClient(
+        client_id="client",
+        client_secret="secret",
+        refresh_token="refresh",
+        marketplace_id="EBAY_GB",
+    )
+
+    async def fake_request(method, path, **kwargs):
+        if method == "POST" and path == "/commerce/notification/v1/subscription":
+            return None
+        raise AssertionError((method, path))
+
+    async def fake_list():
+        return [{
+            "subscriptionId": "sub-123",
+            "topicId": "ORDER_CONFIRMATION",
+            "destinationId": "dest-123",
+            "status": "ENABLED",
+        }]
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    monkeypatch.setattr(client, "get_notification_subscriptions", fake_list)
+
+    subscription_id = asyncio.run(client.create_notification_subscription(
+        topic_id="ORDER_CONFIRMATION",
+        destination_id="dest-123",
+        schema_version="1.0",
+    ))
+    assert subscription_id == "sub-123"
