@@ -332,7 +332,7 @@ function ensureFounderFinanceUI() {
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Payout</th><th>Amount</th><th>Status</th><th>Requested</th><th></th></tr></thead>
+        <thead><tr><th>Payout</th><th>Amount</th><th>Source</th><th>Status</th><th>Requested</th><th></th></tr></thead>
         <tbody id="finance-payouts-body"></tbody>
       </table>
     </div>
@@ -960,18 +960,19 @@ function renderFinancePayouts(items) {
   items.forEach((payout) => {
     const row = document.createElement("tr");
     const requested = payout.requested_at ? new Date(payout.requested_at).toLocaleDateString("en-GB") : "—";
-    row.innerHTML = `<td></td><td></td><td></td><td></td><td></td>`;
+    row.innerHTML = `<td></td><td></td><td></td><td></td><td></td><td></td>`;
     row.cells[0].textContent = payout.payout_code;
     row.cells[1].textContent = formatFinanceMoney(payout.amount_minor);
-    row.cells[2].textContent = payout.status;
-    row.cells[3].textContent = requested;
+    row.cells[2].textContent = payout.request_origin === "SCHEDULED" ? "Scheduled" : "Manual";
+    row.cells[3].textContent = payout.status;
+    row.cells[4].textContent = requested;
     if (payout.status === "REQUESTED") {
       const cancel = document.createElement("button");
       cancel.type = "button";
       cancel.className = "ghost-button";
       cancel.textContent = "Cancel";
       cancel.addEventListener("click", () => cancelFounderPayout(payout));
-      row.cells[4].append(cancel);
+      row.cells[5].append(cancel);
     }
     body.append(row);
   });
