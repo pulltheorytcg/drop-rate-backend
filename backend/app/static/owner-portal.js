@@ -121,6 +121,7 @@ async function reloadOwnerDashboard() {
       loadOwnerSettlements(),
       loadOwnerPayouts(),
       loadOwnerPayoutPreference(),
+      loadOwnerStripeStatus(),
     ]);
     showPortalMessage();
   } catch (error) {
@@ -315,6 +316,89 @@ function renderPayouts(items) {
 async function loadOwnerPayouts() {
   const data = await apiRequest("/api/v1/owner/finance/payouts");
   renderPayouts(data.items || []);
+}
+
+function renderOwnerStripeStatus(data) {
+  const account = data.account || null;
+  const connected = Boolean(data.connected && account);
+  const ready = Boolean(data.ready_for_payouts);
+  const transferReady = account?.transfers_capability_status === "ACTIVE";
+  const mode = account?.livemode ? "Live" : "Test";
+
+  byId("owner-stripe-account-state").textContent = connected ? "CONNECTED" : "NOT CONNECTED";
+  byId("owner-stripe-account-note").textContent = connected
+    ? `${mode} · ${safeText(account.account_type, "Express")}`
+    : "Set up your payout account";
+
+  byId("owner-stripe-verification-state").textContent = ready ? "READY" : connected ? "PENDING" : "NOT READY";
+  byId("owner-stripe-verification-note").textContent = ready
+    ? "Identity and payout requirements satisfied"
+    : connected
+      ? "Complete Stripe verification requirements"
+      : "Identity verification required";
+
+  byId("owner-stripe-transfer-state").textContent = transferReady ? "READY" : "LOCKED";
+
+  const button = byId("owner-stripe-onboard");
+  button.textContent = ready ? "Payout account ready" : connected ? "Continue Stripe onboarding" : "Set up payouts";
+  button.disabled = ready;
+}
+
+function showOwnerStripeMessage(text = "", kind = "") {
+  const node = byId("owner-stripe-message");
+  node.textContent = text;
+  node.className = `message panel-message${kind ? ` ${kind}` : ""}`;
+}
+
+async function loadOwnerStripeStatus() {
+  try {
+    const data = await apiRequest("/api/v1/stripe/connect/status");
+    renderOwnerStripeStatus(data);
+    showOwnerStripeMessage();
+  } catch (error) {
+    showOwnerStripeMessage(error.message, "error");
+  }
+}
+
+async function syncOwnerStripeStatus() {
+  const button = byId("owner-stripe-refresh");
+  button.disabled = true;
+  showOwnerStripeMessage("Refreshing Stripe payout status…");
+  try {
+    const status = await apiRequest("/api/v1/stripe/connect/status");
+    if (status.connected) {
+      await apiRequest("/api/v1/stripe/connect/sync", {method: "POST"});
+    }
+    await loadOwnerStripeStatus();
+  } catch (error) {
+    showOwnerStripeMessage(error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function startOwnerStripeOnboarding() {
+  const button = byId("owner-stripe-onboard");
+  button.disabled = true;
+  showOwnerStripeMessage("Preparing secure Stripe onboarding…");
+  try {
+    let status = await apiRequest("/api/v1/stripe/connect/status");
+    if (!status.connected) {
+      await apiRequest("/api/v1/stripe/connect/account", {method: "POST"});
+      status = await apiRequest("/api/v1/stripe/connect/status");
+    }
+    if (status.ready_for_payouts) {
+      renderOwnerStripeStatus(status);
+      showOwnerStripeMessage("Your payout account is ready.", "success");
+      return;
+    }
+    const link = await apiRequest("/api/v1/stripe/connect/onboarding-link", {method: "POST"});
+    if (!link.url) throw new Error("Stripe onboarding link was not returned.");
+    window.location.assign(link.url);
+  } catch (error) {
+    showOwnerStripeMessage(error.message, "error");
+    button.disabled = false;
+  }
 }
 
 function updateOwnerPayoutFields() {
@@ -675,6 +759,9 @@ byId("owner-settlements-next").addEventListener("click", async () => {
 
 byId("owner-payout-cadence").addEventListener("change", updateOwnerPayoutFields);
 byId("owner-payout-save").addEventListener("click", saveOwnerPayoutPreference);
+
+byId("owner-stripe-refresh").addEventListener("click", syncOwnerStripeStatus);
+byId("owner-stripe-onboard").addEventListener("click", startOwnerStripeOnboarding);
 
 byId("owner-logout-button").addEventListener("click", () => {
   clearSession();
