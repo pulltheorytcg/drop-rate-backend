@@ -5,13 +5,13 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import asyncpg
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .db import create_pool
-from .access_control import router as access_control_router
+from .access_control import require_platform_admin_request, router as access_control_router
 from .finance import router as finance_router
 from .founder_onboarding import router as founder_onboarding_router
 from .ebay_privacy import router as ebay_privacy_router
@@ -230,29 +230,29 @@ def create_app() -> FastAPI:
     app.include_router(ebay_sales_router)
     app.include_router(ebay_oauth_router)
     app.include_router(refunds_router)
-    app.include_router(pricing_router)
+    app.include_router(pricing_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(payout_preferences_router)
-    app.include_router(imported_benchmark_pricing_router)
-    app.include_router(ebay_sold_pricing_router)
-    app.include_router(pricing_preview_router)
-    app.include_router(market_ingestion_router)
-    app.include_router(market_mappings_router)
-    app.include_router(marketplace_listings_router)
-    app.include_router(market_discovery_router)
-    app.include_router(market_provider_probe_router)
-    app.include_router(market_smoke_router)
-    app.include_router(imports_router)
-    app.include_router(import_review_router)
-    app.include_router(inventory_intake_router)
-    app.include_router(inventory_intelligence_router)
-    app.include_router(inventory_market_values_router)
-    app.include_router(inventory_state_router)
-    app.include_router(identity_review_router)
-    app.include_router(condition_review_router)
+    app.include_router(imported_benchmark_pricing_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(ebay_sold_pricing_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(pricing_preview_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(market_ingestion_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(market_mappings_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(marketplace_listings_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(market_discovery_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(market_provider_probe_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(market_smoke_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(imports_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(import_review_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(inventory_intake_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(inventory_intelligence_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(inventory_market_values_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(inventory_state_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(identity_review_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(shopify_router)
-    app.include_router(shopify_pipeline_router)
-    app.include_router(shopify_readiness_router)
-    app.include_router(purchase_lots_router)
-    app.include_router(storage_locations_router)
+    app.include_router(shopify_pipeline_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(shopify_readiness_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(purchase_lots_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(storage_locations_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(stripe_connect_router)
     return app
