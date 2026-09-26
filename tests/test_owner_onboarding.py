@@ -95,3 +95,16 @@ def test_founder_redeem_is_bound_to_verified_jwt_email_too() -> None:
     assert "if not user.email:" in source
     assert "payload.email," not in source
     assert "user.email," in source
+
+def test_founder_hq_settings_can_create_and_revoke_restricted_owner_invites() -> None:
+    source = (ROOT / "backend" / "app" / "static" / "dashboard-shell.js").read_text()
+
+    assert "Invite seller / consignor" in source
+    assert 'id="owner-invite-commission"' in source
+    assert 'value="10"' in source
+    assert 'apiRequest("/api/v1/owner-invites"' in source
+    assert 'method: "POST"' in source
+    assert 'method: "DELETE"' in source
+    assert "commission_bps: Math.round(commissionPercent * 100)" in source
+    assert "This can never grant Founder HQ access." in source
+
