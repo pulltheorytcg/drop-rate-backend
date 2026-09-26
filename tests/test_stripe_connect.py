@@ -9,6 +9,7 @@ from fastapi import HTTPException
 
 from app.stripe_connect import (
     _account_snapshot,
+    _owner_portal_url,
     _readiness_blockers,
     verify_stripe_signature,
 )
@@ -207,3 +208,67 @@ def test_new_connect_account_is_v2_created_then_v1_read_back_for_readiness() -> 
 def test_sandbox_recipient_uses_nonproduction_contact_email() -> None:
     source = SELFTEST_SOURCE.read_text()
     assert 'contact_email="sandbox-consignor@example.com"' in source
+
+OWNER_PORTAL_UI = ROOT / "backend" / "app" / "static" / "owner-portal.js"
+OWNER_PORTAL_HTML = ROOT / "backend" / "app" / "static" / "owner.html"
+
+
+def test_owner_portal_stripe_return_url_uses_trusted_configured_origin() -> None:
+    assert (
+        _owner_portal_url("https://drop-rate.example.com/founder-return?ignored=yes")
+        == "https://drop-rate.example.com/owner"
+    )
+    with pytest.raises(HTTPException):
+        _owner_portal_url("http://drop-rate.example.com/founder-return")
+
+
+def test_owner_stripe_onboarding_returns_to_restricted_portal() -> None:
+    source = STRIPE_SOURCE.read_text()
+    start = source.index('@router.post("/connect/onboarding-link")')
+    end = source.index('@router.post("/connect/sync")', start)
+    block = source[start:end]
+
+    assert 'if owner["role"] == "OWNER":' in block
+    assert "refresh_url = _owner_portal_url(return_url)" in block
+    assert "return_url = _owner_portal_url(return_url)" in block
+    assert "request.base_url" not in block
+
+
+def test_owner_portal_exposes_only_connect_self_service_not_payout_approval() -> None:
+    js = OWNER_PORTAL_UI.read_text()
+    html = OWNER_PORTAL_HTML.read_text()
+
+    for path in (
+        "/api/v1/stripe/connect/status",
+        "/api/v1/stripe/connect/account",
+        "/api/v1/stripe/connect/onboarding-link",
+        "/api/v1/stripe/connect/sync",
+    ):
+        assert path in js
+
+    for forbidden in (
+        "/api/v1/stripe/payouts/queue",
+        "/approve",
+        "/reject",
+        "Approval queue",
+        "Automatic execution",
+    ):
+        assert forbidden not in js
+        assert forbidden not in html
+
+
+def test_owner_stripe_ui_does_not_collect_bank_or_identity_data_itself() -> None:
+    html = OWNER_PORTAL_HTML.read_text()
+
+    for forbidden in (
+        "Account number",
+        "Sort code",
+        "National Insurance",
+        "Passport",
+        "Date of birth",
+        "Bank details",
+    ):
+        assert forbidden not in html
+
+    assert "Stripe handles identity verification and bank payout details." in html
+
