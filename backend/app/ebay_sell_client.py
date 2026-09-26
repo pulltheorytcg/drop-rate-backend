@@ -25,6 +25,77 @@ REQUIRED_SELLER_SCOPES = (
 )
 
 
+async def exchange_authorization_code(
+    *,
+    client_id: str,
+    client_secret: str,
+    code: str,
+    redirect_uri: str,
+    timeout_seconds: float = 20.0,
+) -> dict[str, Any]:
+    """Exchange one eBay consent code for seller access + refresh tokens."""
+
+    if not client_id.strip() or not client_secret.strip():
+        raise ValueError("eBay application credentials are required")
+    if not code.strip() or not redirect_uri.strip():
+        raise ValueError("eBay authorization code and RuName are required")
+    credentials = base64.b64encode(
+        f"{client_id.strip()}:{client_secret.strip()}".encode("utf-8")
+    ).decode("ascii")
+    try:
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            response = await client.post(
+                f"{EBAY_PRODUCTION_BASE_URL}/identity/v1/oauth2/token",
+                headers={
+                    "Authorization": f"Basic {credentials}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Accept": "application/json",
+                },
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code.strip(),
+                    "redirect_uri": redirect_uri.strip(),
+                },
+            )
+    except httpx.TimeoutException as exc:
+        raise EbaySellApiError("eBay OAuth code exchange timed out", retryable=True) from exc
+    except httpx.HTTPError as exc:
+        raise EbaySellApiError("eBay OAuth code exchange failed", retryable=True) from exc
+
+    if response.status_code != 200:
+        raise EbaySellApiError(
+            "eBay rejected the seller consent code",
+            status_code=response.status_code,
+            retryable=response.status_code == 429 or response.status_code >= 500,
+        )
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise EbaySellApiError("eBay OAuth code exchange returned invalid JSON") from exc
+    if not isinstance(payload, dict):
+        raise EbaySellApiError("eBay OAuth code exchange returned an invalid response")
+
+    access_token = payload.get("access_token")
+    refresh_token = payload.get("refresh_token")
+    expires_in = payload.get("expires_in")
+    refresh_expires_in = payload.get("refresh_token_expires_in")
+    if not isinstance(access_token, str) or not access_token.strip():
+        raise EbaySellApiError("eBay OAuth response is missing an access token")
+    if not isinstance(refresh_token, str) or not refresh_token.strip():
+        raise EbaySellApiError("eBay OAuth response is missing a refresh token")
+    if not isinstance(expires_in, int) or expires_in <= 0:
+        raise EbaySellApiError("eBay OAuth response has an invalid access-token expiry")
+    if not isinstance(refresh_expires_in, int) or refresh_expires_in <= 0:
+        raise EbaySellApiError("eBay OAuth response has an invalid refresh-token expiry")
+    return {
+        "access_token": access_token.strip(),
+        "refresh_token": refresh_token.strip(),
+        "expires_in": expires_in,
+        "refresh_token_expires_in": refresh_expires_in,
+        "token_type": str(payload.get("token_type") or "User Access Token"),
+    }
+
+
 class EbaySellClient:
     """eBay Inventory/Fulfillment client using seller-authorised OAuth.
 
@@ -183,6 +254,50 @@ class EbaySellClient:
         if not isinstance(payload, dict):
             raise EbaySellApiError("eBay seller API returned an invalid response shape")
         return payload
+
+    async def get_payment_policies(self) -> list[dict[str, Any]]:
+        payload = await self._request(
+            "GET",
+            "/sell/account/v1/payment_policy",
+            params={"marketplace_id": self._marketplace_id},
+        )
+        rows = [] if payload is None else payload.get("paymentPolicies", [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise EbaySellApiError("eBay payment policies response has an invalid shape")
+        return rows
+
+    async def get_fulfillment_policies(self) -> list[dict[str, Any]]:
+        payload = await self._request(
+            "GET",
+            "/sell/account/v1/fulfillment_policy",
+            params={"marketplace_id": self._marketplace_id},
+        )
+        rows = [] if payload is None else payload.get("fulfillmentPolicies", [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise EbaySellApiError("eBay fulfillment policies response has an invalid shape")
+        return rows
+
+    async def get_return_policies(self) -> list[dict[str, Any]]:
+        payload = await self._request(
+            "GET",
+            "/sell/account/v1/return_policy",
+            params={"marketplace_id": self._marketplace_id},
+        )
+        rows = [] if payload is None else payload.get("returnPolicies", [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise EbaySellApiError("eBay return policies response has an invalid shape")
+        return rows
+
+    async def get_inventory_locations(self) -> list[dict[str, Any]]:
+        payload = await self._request(
+            "GET",
+            "/sell/inventory/v1/location",
+            params={"limit": 200, "offset": 0},
+        )
+        rows = [] if payload is None else payload.get("locations", [])
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise EbaySellApiError("eBay inventory locations response has an invalid shape")
+        return rows
 
     async def get_payment_policy(self, policy_id: str) -> dict[str, Any]:
         payload = await self._request(
