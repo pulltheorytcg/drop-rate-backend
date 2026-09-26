@@ -2161,16 +2161,29 @@ async def _process_created_order(
         order_reference,
     )
     if existing is not None:
+        existing_items = await connection.fetch(
+            """
+            select oi.inventory_id
+            from tcg.order_items oi
+            where oi.order_id=$1
+            order by oi.created_at,oi.id
+            """,
+            existing["id"],
+        )
         return {
             "status": "PROCESSED",
             "action": "ORDER_ALREADY_FINALIZED",
             "order_id": str(existing["id"]),
+            "items": [
+                {"inventory_id": str(row["inventory_id"])}
+                for row in existing_items
+            ],
         }
 
     reservations = await connection.fetch(
         """
         select
-          sil.reserved_line_reference,
+          sil.inventory_id,sil.reserved_line_reference,
           i.status as inventory_status
         from tcg.shopify_inventory_links sil
         join tcg.inventory_items i on i.id=sil.inventory_id
@@ -2211,6 +2224,10 @@ async def _process_created_order(
             "status": "PROCESSED",
             "action": "PENDING_ORDER_ALREADY_RESERVED",
             "order_reference": order_reference,
+            "items": [
+                {"inventory_id": str(row["inventory_id"])}
+                for row in reservations
+            ],
         }
 
     selected_units = await _select_order_units(
@@ -2294,10 +2311,23 @@ async def _process_paid_order(
         order_reference,
     )
     if existing is not None:
+        existing_items = await connection.fetch(
+            """
+            select oi.inventory_id
+            from tcg.order_items oi
+            where oi.order_id=$1
+            order by oi.created_at,oi.id
+            """,
+            existing["id"],
+        )
         return {
             "status": "PROCESSED",
             "action": "ORDER_ALREADY_RECORDED",
             "order_id": str(existing["id"]),
+            "items": [
+                {"inventory_id": str(row["inventory_id"])}
+                for row in existing_items
+            ],
         }
 
     selected_units = await _select_order_units(
@@ -2506,6 +2536,10 @@ async def _process_cancelled_order(
             "status": "PROCESSED",
             "action": "PENDING_ORDER_RELEASED",
             "order_reference": order_reference,
+            "items": [
+                {"inventory_id": str(row["inventory_id"])}
+                for row in reservations
+            ],
         }
 
     sold_bootstrap = await connection.fetchrow(
