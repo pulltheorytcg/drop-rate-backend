@@ -533,6 +533,10 @@ async def ebay_seller_options(
             _sanitise_policy(row, "returnPolicyId") for row in options["return"]
         ],
         "locations": [_sanitise_location(row) for row in options["locations"]],
+        "errors": dict(options.get("errors") or {}),
+        "selling_policy_management_opted_in_now": bool(
+            options.get("selling_policy_management_opted_in_now")
+        ),
     }
 
 
@@ -557,6 +561,16 @@ async def save_ebay_seller_configuration(
             status_code=409,
             detail=str(getattr(exc, "detail", str(exc))),
         ) from exc
+
+    discovery_errors = dict(options.get("errors") or {})
+    if discovery_errors:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "eBay seller configuration is still incomplete",
+                "errors": discovery_errors,
+            },
+        )
 
     valid_payment = {
         _policy_id(row, "paymentPolicyId") for row in options["payment"]
