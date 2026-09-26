@@ -49,12 +49,19 @@ async def _run() -> None:
         created = await client.create_express_account(
             country=settings.stripe_connect_country,
             owner_id=owner_marker,
+            display_name="Drop Rate Sandbox Consignor",
         )
         account_id = str(created.get("id") or "").strip()
         if not account_id.startswith("acct_"):
             raise RuntimeError("Stripe did not return a valid connected account ID")
         if created.get("livemode") is not False:
             raise RuntimeError("Created Stripe connected account is not in test mode")
+        applied = created.get("applied_configurations")
+        if not isinstance(applied, list) or "recipient" not in applied:
+            raise RuntimeError("Stripe Accounts v2 recipient configuration was not applied")
+        recipient = created.get("configuration")
+        if not isinstance(recipient, dict) or not isinstance(recipient.get("recipient"), dict):
+            raise RuntimeError("Stripe Accounts v2 recipient details were not returned")
 
         retrieved = await client.retrieve_account(account_id)
         if str(retrieved.get("id") or "") != account_id:
@@ -96,6 +103,7 @@ async def _run() -> None:
                     "platform_country": str(platform.get("country") or ""),
                     "connected_account_created": True,
                     "connected_account_livemode": bool(retrieved.get("livemode")),
+                    "recipient_configuration_applied": True,
                     "transfers_capability": transfers_status,
                     "currently_due_count": currently_due_count,
                     "eventually_due_count": eventually_due_count,
@@ -106,10 +114,10 @@ async def _run() -> None:
         )
     finally:
         if account_id:
-            deleted = await client.delete_account(account_id)
-            cleanup_ok = bool(deleted.get("deleted"))
+            closed = await client.close_recipient_account(account_id)
+            cleanup_ok = str(closed.get("id") or "").strip() == account_id
             if not cleanup_ok:
-                raise RuntimeError("Stripe sandbox account cleanup did not confirm deletion")
+                raise RuntimeError("Stripe sandbox account cleanup did not confirm closure")
         print(
             json.dumps(
                 {
