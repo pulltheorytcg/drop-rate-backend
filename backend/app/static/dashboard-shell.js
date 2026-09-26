@@ -624,6 +624,103 @@ function populateSellerViews() {
       </div>
     </div>`;
   settings.append(ebayCard);
+
+  const ownerInviteCard = document.createElement("section");
+  ownerInviteCard.id = "owner-invite-admin-panel";
+  ownerInviteCard.className = "inventory-panel";
+  ownerInviteCard.innerHTML = `
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">Seller onboarding</p>
+        <h2>Invite seller / consignor</h2>
+        <p class="muted">Creates a restricted OWNER account. This can never grant Founder HQ access.</p>
+      </div>
+    </div>
+    <div class="form-grid">
+      <label>Name<input id="owner-invite-name" type="text" maxlength="120" placeholder="Seller or consignor name"></label>
+      <label>Email<input id="owner-invite-email" type="email" maxlength="320" placeholder="seller@example.com"></label>
+      <label>Commission %<input id="owner-invite-commission" type="number" min="0" max="100" step="0.01" value="10"></label>
+      <label>Invite expires in days<input id="owner-invite-expiry" type="number" min="1" max="30" step="1" value="7"></label>
+    </div>
+    <div id="owner-invite-message" class="message panel-message" role="status"></div>
+    <div class="toolbar">
+      <button id="owner-invite-create" class="primary-button compact" type="button">Create restricted invite</button>
+    </div>
+    <div id="owner-invite-result" class="form-grid hidden">
+      <label class="full-width">Invite link<input id="owner-invite-url" type="text" readonly></label>
+      <div class="full-width modal-actions">
+        <button id="owner-invite-copy" class="ghost-button compact" type="button">Copy invite link</button>
+        <button id="owner-invite-revoke" class="ghost-button compact" type="button">Revoke invite</button>
+      </div>
+    </div>`;
+  settings.append(ownerInviteCard);
+
+  ownerInviteCard.querySelector("#owner-invite-create").addEventListener("click", async () => {
+    const button = byId("owner-invite-create");
+    const name = byId("owner-invite-name").value.trim();
+    const email = byId("owner-invite-email").value.trim().toLowerCase();
+    const commissionPercent = Number(byId("owner-invite-commission").value);
+    const expiresInDays = Number(byId("owner-invite-expiry").value);
+
+    if (!name || !email || !email.includes("@")) {
+      showMessage("owner-invite-message", "Enter a seller name and valid email address.", "error");
+      return;
+    }
+    if (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100) {
+      showMessage("owner-invite-message", "Commission must be between 0% and 100%.", "error");
+      return;
+    }
+
+    button.disabled = true;
+    showMessage("owner-invite-message", "Creating restricted owner invite…");
+    try {
+      const data = await apiRequest("/api/v1/owner-invites", {
+        method: "POST",
+        body: JSON.stringify({
+          invited_name: name,
+          invited_email: email,
+          commission_bps: Math.round(commissionPercent * 100),
+          expires_in_days: expiresInDays,
+        }),
+      });
+      byId("owner-invite-url").value = data.invite_url;
+      byId("owner-invite-result").dataset.inviteId = data.id;
+      byId("owner-invite-result").classList.remove("hidden");
+      showMessage(
+        "owner-invite-message",
+        `Restricted OWNER invite created at ${commissionPercent}% commission.`,
+        "success"
+      );
+    } catch (error) {
+      showMessage("owner-invite-message", error.message, "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  ownerInviteCard.querySelector("#owner-invite-copy").addEventListener("click", async () => {
+    const url = byId("owner-invite-url").value;
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    showMessage("owner-invite-message", "Invite link copied.", "success");
+  });
+
+  ownerInviteCard.querySelector("#owner-invite-revoke").addEventListener("click", async () => {
+    const result = byId("owner-invite-result");
+    const inviteId = result.dataset.inviteId;
+    if (!inviteId) return;
+    try {
+      await apiRequest(`/api/v1/owner-invites/${encodeURIComponent(inviteId)}`, {
+        method: "DELETE",
+      });
+      result.classList.add("hidden");
+      result.dataset.inviteId = "";
+      showMessage("owner-invite-message", "Invite revoked.", "success");
+    } catch (error) {
+      showMessage("owner-invite-message", error.message, "error");
+    }
+  });
+
   ebayCard.querySelector("#ebay-connection-refresh")
     .addEventListener("click", () => loadEbaySellerConnection());
   ebayCard.querySelector("#ebay-connect-button")
