@@ -281,10 +281,16 @@ async def create_or_sync_stripe_account(
         return jsonable_encoder({"account": saved, "created": False})
 
     try:
+        if not user.email:
+            raise HTTPException(
+                status_code=409,
+                detail="Authenticated account email is required for Stripe onboarding",
+            )
         created_account = await client.create_express_account(
             country=settings.stripe_connect_country,
             owner_id=str(owner["id"]),
             display_name=str(owner["display_name"]),
+            contact_email=user.email,
         )
         account_id = str(created_account.get("id") or "").strip()
         if not account_id.startswith("acct_"):
