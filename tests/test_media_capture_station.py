@@ -3,24 +3,27 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 SHOPIFY_SETTINGS = ROOT / "backend" / "app" / "static" / "shopify-settings.js"
+MEDIA_CONDITION = ROOT / "backend" / "app" / "static" / "media-condition.js"
 
 
 def test_media_capture_station_uses_mobile_camera_without_changing_batch_policy() -> None:
-    js = SHOPIFY_SETTINGS.read_text()
+    helper = SHOPIFY_SETTINGS.read_text()
+    ui = MEDIA_CONDITION.read_text()
 
-    assert 'id="shopify-media-file"' in js
-    assert 'capture="environment"' in js
-    assert 'id="shopify-media-capture-summary"' in js
-    assert 'id="shopify-media-previous"' in js
-    assert 'id="shopify-media-next"' in js
-    assert "function renderMediaCandidateSummary()" in js
-    assert "function moveMediaCandidate(offset)" in js
+    assert 'id="shopify-media-file"' in ui
+    assert 'capture="environment"' in ui
+    assert 'id="shopify-media-capture-summary"' in ui
+    assert 'id="shopify-media-previous"' in ui
+    assert 'id="shopify-media-next"' in ui
+    assert 'id="shopify-media-context"' in ui
+    assert "function renderMediaCandidateSummary()" in helper
+    assert "function moveMediaCandidate(offset)" in helper
 
     # Batch safety remains filename/Inventory-ID based and sequential.
-    assert "function validateBatchMediaFiles(files)" in js
-    assert "parseBatchMediaFilename(file.name)" in js
-    assert "for (let index = 0; index < validation.work.length; index += 1)" in js
-    assert "await uploadFounderMediaWork(item)" in js
+    assert "function validateBatchMediaFiles(files)" in helper
+    assert "parseBatchMediaFilename(file.name)" in helper
+    assert "for (let index = 0; index < validation.work.length; index += 1)" in helper
+    assert "await uploadFounderMediaWork({...item, captureContext: item.captureContext})" in helper
 
 
 def test_media_navigation_changes_selection_only_and_never_uploads() -> None:

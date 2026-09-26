@@ -100,6 +100,10 @@ class MediaAssetCreate(BaseModel):
     )
     source_reference: str = Field(min_length=1, max_length=1000)
     public_source_url: str | None = Field(default=None, max_length=4000)
+    capture_context: str | None = Field(
+        default=None,
+        pattern="^(RAW_UNSLEEVED|PENNY_SLEEVE|TOP_LOADER|GRADED_SLAB)$",
+    )
     rights_basis: str | None = Field(default=None, max_length=1000)
     alt_text: str = Field(default="", max_length=500)
 
@@ -238,8 +242,15 @@ def _test_sync_missing(item: Any) -> list[str]:
             str(item["grading_company"] or "").strip()
             and str(item["grade"] or "").strip()
         )
-        if not is_graded and not str(item["condition"] or "").strip():
-            missing.append("raw card condition")
+        review_status = str(item.get("condition_review_status") or "")
+        if is_graded:
+            if review_status != "VERIFIED_GRADED":
+                missing.append("graded slab verification")
+        else:
+            if str(item["condition"] or "").strip() != "Near Mint":
+                missing.append("Near Mint condition")
+            if review_status != "VERIFIED_NEAR_MINT":
+                missing.append("photo-backed Near Mint verification")
         if not (item["language"] or item["catalogue_language"]):
             missing.append("card language")
     elif item["seal_status"] is None:
@@ -255,7 +266,6 @@ def _test_sync_missing(item: Any) -> list[str]:
     ):
         missing.append("active storage location")
     return missing
-
 
 def _media_assets_for_item(
     item: Mapping[str, Any],
@@ -277,18 +287,15 @@ def _build_media_intake_queue(
     items: list[Mapping[str, Any]],
     assets: list[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Build a capture-first media queue independent of Shopify publish readiness.
+    """Build an exact physical-card capture queue.
 
-    Raw cards share one canonical FRONT image across equivalent physical copies.
-    Graded cards remain item-specific and require physical FRONT + BACK images.
-    Approved/rights-verified assets that are already queued for Shopify processing
-    count as captured so founders are not prompted to photograph the same side twice.
-    FAILED assets do not count and re-enter the capture queue.
+    Every physical card requires its own FRONT and BACK evidence. Canonical media
+    may still exist for reference/catalogue use, but it never satisfies this
+    inventory capture queue. Approved/rights-verified media that has not failed
+    counts as captured so founders are not prompted to photograph a side twice.
     """
 
-    captured_canonical: dict[str, set[str]] = {}
     captured_inventory: dict[str, set[str]] = {}
-    ready_canonical: dict[str, set[str]] = {}
     ready_inventory: dict[str, set[str]] = {}
 
     for asset in assets:
@@ -296,31 +303,24 @@ def _build_media_intake_queue(
             continue
         if str(asset.get("rights_status") or "") != "VERIFIED":
             continue
+        if str(asset.get("scope") or "") != "INVENTORY_ITEM":
+            continue
         status = str(asset.get("shopify_file_status") or "")
         if status == "FAILED":
             continue
         side = str(asset.get("side") or "")
-        if side not in {"FRONT", "BACK", "OTHER"}:
+        if side not in {"FRONT", "BACK"}:
             continue
+        key = str(asset.get("inventory_id") or "")
+        if not key:
+            continue
+        captured_inventory.setdefault(key, set()).add(side)
+        if status == "READY":
+            ready_inventory.setdefault(key, set()).add(side)
 
-        scope = str(asset.get("scope") or "")
-        if scope == "CANONICAL_CARD":
-            key = str(asset.get("catalogue_id") or "")
-            if not key:
-                continue
-            captured_canonical.setdefault(key, set()).add(side)
-            if status == "READY":
-                ready_canonical.setdefault(key, set()).add(side)
-        elif scope == "INVENTORY_ITEM":
-            key = str(asset.get("inventory_id") or "")
-            if not key:
-                continue
-            captured_inventory.setdefault(key, set()).add(side)
-            if status == "READY":
-                ready_inventory.setdefault(key, set()).add(side)
-
-    raw_groups: dict[str, dict[str, Any]] = {}
-    graded_queue: list[dict[str, Any]] = []
+    queue: list[dict[str, Any]] = []
+    raw_pending = 0
+    graded_pending = 0
 
     for source in items:
         item = dict(source)
@@ -334,8 +334,18 @@ def _build_media_intake_queue(
         grading_company = str(item.get("grading_company") or "").strip()
         grade = str(item.get("grade") or "").strip()
         is_graded = bool(grading_company and grade)
+        captured = captured_inventory.get(inventory_id, set())
+        ready = ready_inventory.get(inventory_id, set())
+        missing = [side for side in ("FRONT", "BACK") if side not in captured]
+        if not missing:
+            continue
 
-        base = {
+        if is_graded:
+            graded_pending += 1
+        else:
+            raw_pending += 1
+
+        queue.append({
             "catalogue_id": catalogue_id,
             "game": item.get("game"),
             "name": item.get("name"),
@@ -343,60 +353,25 @@ def _build_media_intake_queue(
             "card_number": item.get("card_number"),
             "variant": item.get("variant"),
             "language": item.get("language") or item.get("catalogue_language"),
-        }
+            "queue_key": f"INVENTORY_ITEM:{inventory_id}",
+            "required_scope": "INVENTORY_ITEM",
+            "inventory_id": inventory_id,
+            "inventory_code": item.get("inventory_code"),
+            "inventory_codes": [item.get("inventory_code")],
+            "grading_company": grading_company or None,
+            "grade": grade or None,
+            "is_graded": is_graded,
+            "copy_count": 1,
+            "missing_sides": missing,
+            "ready_sides": sorted(ready),
+            "capture_context_hint": "GRADED_SLAB" if is_graded else None,
+            "capture_context_options": (
+                ["GRADED_SLAB"]
+                if is_graded
+                else ["RAW_UNSLEEVED", "PENNY_SLEEVE", "TOP_LOADER"]
+            ),
+        })
 
-        if is_graded:
-            captured = captured_inventory.get(inventory_id, set())
-            ready = ready_inventory.get(inventory_id, set())
-            missing = [side for side in ("FRONT", "BACK") if side not in captured]
-            if not missing:
-                continue
-            graded_queue.append({
-                **base,
-                "queue_key": f"INVENTORY_ITEM:{inventory_id}",
-                "required_scope": "INVENTORY_ITEM",
-                "inventory_id": inventory_id,
-                "inventory_code": item.get("inventory_code"),
-                "inventory_codes": [item.get("inventory_code")],
-                "grading_company": grading_company,
-                "grade": grade,
-                "copy_count": 1,
-                "missing_sides": missing,
-                "ready_sides": sorted(ready),
-            })
-            continue
-
-        group = raw_groups.setdefault(
-            catalogue_id,
-            {
-                **base,
-                "queue_key": f"CANONICAL_CARD:{catalogue_id}",
-                "required_scope": "CANONICAL_CARD",
-                "inventory_id": inventory_id,
-                "inventory_code": item.get("inventory_code"),
-                "inventory_codes": [],
-                "grading_company": None,
-                "grade": None,
-                "copy_count": 0,
-                "missing_sides": [],
-                "ready_sides": sorted(ready_canonical.get(catalogue_id, set())),
-            },
-        )
-        group["copy_count"] += 1
-        inventory_code = str(item.get("inventory_code") or "").strip()
-        if inventory_code and inventory_code not in group["inventory_codes"]:
-            group["inventory_codes"].append(inventory_code)
-
-    raw_queue: list[dict[str, Any]] = []
-    for catalogue_id, group in raw_groups.items():
-        captured = captured_canonical.get(catalogue_id, set())
-        missing = [side for side in ("FRONT",) if side not in captured]
-        if not missing:
-            continue
-        group["missing_sides"] = missing
-        raw_queue.append(group)
-
-    queue = raw_queue + graded_queue
     queue.sort(
         key=lambda item: (
             str(item.get("game") or ""),
@@ -410,10 +385,11 @@ def _build_media_intake_queue(
         "items": queue,
         "queue_count": len(queue),
         "missing_side_count": sum(len(item["missing_sides"]) for item in queue),
-        "raw_canonical_groups_pending": len(raw_queue),
-        "graded_items_pending": len(graded_queue),
+        "physical_items_pending": len(queue),
+        "raw_items_pending": raw_pending,
+        "graded_items_pending": graded_pending,
+        "raw_canonical_groups_pending": 0,
     }
-
 
 def _launch_completeness(
     item: Any,
@@ -936,17 +912,36 @@ async def create_media_asset(
     ) as connection:
         owner = await _founder(connection)
         if payload.inventory_id is not None:
-            exists = await connection.fetchval(
+            inventory = await connection.fetchrow(
                 """
-                select exists(
-                  select 1 from tcg.inventory_items
-                  where id=$1 and owner_id=$2
-                )
+                select grading_company,grade
+                from tcg.inventory_items
+                where id=$1 and owner_id=$2
                 """,
                 payload.inventory_id, owner["id"],
             )
-            if not exists:
+            if inventory is None:
                 raise HTTPException(status_code=404, detail="Inventory item not found")
+            capture_context = str(payload.capture_context or "").strip()
+            if not capture_context:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Physical card media requires a capture context",
+                )
+            is_graded = bool(
+                str(inventory["grading_company"] or "").strip()
+                and str(inventory["grade"] or "").strip()
+            )
+            if is_graded and capture_context != "GRADED_SLAB":
+                raise HTTPException(
+                    status_code=422,
+                    detail="Graded cards must be photographed as GRADED_SLAB",
+                )
+            if not is_graded and capture_context == "GRADED_SLAB":
+                raise HTTPException(
+                    status_code=422,
+                    detail="Raw cards cannot use the graded slab capture context",
+                )
             duplicate = await connection.fetchval(
                 """
                 select exists(
@@ -995,20 +990,27 @@ async def create_media_asset(
                     status_code=409,
                     detail="An active media asset already exists for this canonical card side",
                 )
+            if payload.capture_context is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Canonical media cannot declare a physical capture context",
+                )
+            capture_context = None
             scope = "CANONICAL_CARD"
 
         row = await connection.fetchrow(
             """
             insert into tcg.media_assets(
               owner_id,catalogue_id,inventory_id,scope,side,source_type,
-              source_reference,public_source_url,rights_basis,alt_text,
+              source_reference,public_source_url,capture_context,rights_basis,alt_text,
               created_by_user_id
-            ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
             returning *
             """,
             owner["id"], payload.catalogue_id, payload.inventory_id, scope,
             payload.side, payload.source_type, payload.source_reference.strip(),
             public_url,
+            capture_context,
             (payload.rights_basis or "").strip() or None,
             payload.alt_text.strip(),
             user.user_id,
@@ -1128,12 +1130,26 @@ async def sync_media_asset(
                     )
                 file_row = await client.get_file(file_id)
             elif current_status == "READY":
-                return jsonable_encoder({"asset": dict(asset), "ready": True})
+                if str(asset.get("shopify_cdn_url") or "").strip():
+                    return jsonable_encoder({"asset": dict(asset), "ready": True})
+                file_id = str(asset["shopify_file_gid"] or "")
+                if not file_id:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Ready media is missing its Shopify file ID",
+                    )
+                file_row = await client.get_file(file_id)
 
             if not isinstance(file_row, dict):
                 raise HTTPException(status_code=502, detail="Shopify file response is invalid")
             file_id = str(file_row.get("id") or "").strip()
             file_status = str(file_row.get("fileStatus") or "").strip().upper()
+            image = file_row.get("image")
+            cdn_url = (
+                str(image.get("url") or "").strip()
+                if isinstance(image, dict)
+                else ""
+            )
             if not file_id or file_status not in {"UPLOADED","PROCESSING","READY","FAILED"}:
                 raise HTTPException(
                     status_code=502,
@@ -1146,13 +1162,22 @@ async def sync_media_asset(
                     shopify_file_status=$4,
                     shopify_error=case when $4='FAILED'
                       then 'Shopify file processing failed' else null end,
+                    shopify_cdn_url=case
+                      when nullif($5,'') is not null then $5
+                      else shopify_cdn_url
+                    end,
                     updated_at=clock_timestamp(),
                     version=version+1
                 where id=$1 and owner_id=$2
                 returning *
                 """,
-                asset_id, owner["id"], file_id, file_status,
+                asset_id, owner["id"], file_id, file_status, cdn_url,
             )
+            if file_status == "READY" and not str(row["shopify_cdn_url"] or "").strip():
+                raise HTTPException(
+                    status_code=502,
+                    detail="Shopify ready image is missing its delivery URL",
+                )
             return jsonable_encoder({
                 "asset": dict(row),
                 "ready": file_status == "READY",
@@ -1266,7 +1291,7 @@ async def test_sync_status(
                 i.inventory_code, i.version, i.status,
                 i.identity_confirmed, i.acquisition_cost_minor,
                 i.store_price_minor, i.storage_location_id, i.language,
-                i.condition, i.seal_status, i.grading_company, i.grade,
+                i.condition, i.condition_review_status, i.seal_status, i.grading_company, i.grade,
                 p.product_type, p.game, p.name, p.set_name, p.card_number,
                 p.variant, p.rarity, p.language as catalogue_language,
                 sl.id as registered_location_id,

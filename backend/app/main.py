@@ -21,6 +21,7 @@ from .inventory_intelligence import router as inventory_intelligence_router
 from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
 from .identity_review import router as identity_review_router
+from .condition_review import router as condition_review_router
 from .market_adapter_config import configure_market_adapters
 from .market_ingestion import router as market_ingestion_router
 from .market_discovery import router as market_discovery_router
@@ -63,6 +64,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/dashboard-shell.js" defer></script>',
         '<script src="/assets/identity-review.js" defer></script>',
         '<script src="/assets/shopify-settings.js" defer></script>',
+        '<script src="/assets/media-condition.js" defer></script>',
         '<script src="/assets/market-smoke-panel.js" defer></script>',
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
         '<script src="/assets/market-value-column.js" defer></script>',
@@ -237,6 +239,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_market_values_router)
     app.include_router(inventory_state_router)
     app.include_router(identity_review_router)
+    app.include_router(condition_review_router)
     app.include_router(shopify_router)
     app.include_router(shopify_pipeline_router)
     app.include_router(shopify_readiness_router)

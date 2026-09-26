@@ -81,8 +81,8 @@ def product_description_html(item: Mapping[str, Any]) -> str:
         "from Drop Rate inventory.</p>"
         f"<ul>{rows}</ul>"
         "<p>Card identity, language, condition and price are controlled by the "
-        "Drop Rate inventory system. Images may be representative unless the listing "
-        "explicitly states that item-specific photographs are shown.</p>"
+        "Drop Rate inventory system. Storefront media is governed by Drop Rate's "
+        "item-specific media policy and must clear its publication checks.</p>"
     )
 
 
@@ -227,7 +227,7 @@ def normalise_shipping_profile(
 
 
 def media_policy(item: Mapping[str, Any]) -> str:
-    if _text(item.get("grading_company")) and _text(item.get("grade")):
+    if _text(item.get("product_type")) == "CARD":
         return "PHYSICAL_ITEM_REQUIRED"
     return "CANONICAL_CARD_ALLOWED"
 
@@ -258,6 +258,13 @@ def media_completeness(
             blockers.append("approved physical-item front image")
         if "BACK" not in sides:
             blockers.append("approved physical-item back image")
+        contexts = {
+            _text(asset.get("capture_context"))
+            for asset in item_assets
+            if _text(asset.get("side")) in {"FRONT", "BACK"}
+        }
+        if "" in contexts or not contexts:
+            blockers.append("capture context for physical-item media")
         selected = item_assets
     else:
         selected = ready_assets
