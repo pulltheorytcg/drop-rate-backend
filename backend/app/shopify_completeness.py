@@ -81,8 +81,8 @@ def product_description_html(item: Mapping[str, Any]) -> str:
         "from Drop Rate inventory.</p>"
         f"<ul>{rows}</ul>"
         "<p>Card identity, language, condition and price are controlled by the "
-        "Drop Rate inventory system. Images may be representative unless the listing "
-        "explicitly states that item-specific photographs are shown.</p>"
+        "Drop Rate inventory system. Storefront media is governed by Drop Rate's "
+        "item-specific media policy and must clear its publication checks.</p>"
     )
 
 
