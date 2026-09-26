@@ -284,7 +284,7 @@ def test_batch_shopify_fee_reconciliation_is_founder_scoped_and_bounded() -> Non
         start,
     )
     batch = source[start:end]
-    assert 'owner["role"] != "FOUNDER"' in batch
+    assert "await require_platform_admin(connection)" in batch
     assert "limit: int = Query(default=25, ge=1, le=50)" in batch
     assert "rec.fees_reconciled_at is null" in batch
     assert '"status": "BLOCKED"' in batch
