@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import base64
+import binascii
 import hashlib
 import json
 import logging
@@ -265,7 +267,7 @@ def _offer_listing_id(offer: dict[str, Any]) -> str | None:
 
 
 async def _validate_seller_prerequisites(client: EbaySellClient, settings: Settings) -> None:
-    location, payment, fulfillment, returns = await __import__("asyncio").gather(
+    location, payment, fulfillment, returns = await asyncio.gather(
         client.get_inventory_location(settings.ebay_merchant_location_key or ""),
         client.get_payment_policy(settings.ebay_payment_policy_id or ""),
         client.get_fulfillment_policy(settings.ebay_fulfillment_policy_id or ""),
@@ -740,7 +742,7 @@ async def sync_ebay_after_shopify_result(pool: Any, result: dict[str, Any]) -> N
         "PENDING_ORDER_ALREADY_RESERVED",
     }:
         await withdraw_ebay_for_inventory(pool, inventory_ids, reason="SHOPIFY_RESERVED")
-    elif action in {"PAID_ORDER_RECORDED", "ORDER_ALREADY_RECORDED"}:
+    elif action in {"PAID_ORDER_RECORDED", "ORDER_ALREADY_RECORDED", "ORDER_ALREADY_FINALIZED"}:
         await withdraw_ebay_for_inventory(pool, inventory_ids, reason="SHOPIFY_SOLD")
     elif action == "PENDING_ORDER_RELEASED":
         await restore_ebay_after_shopify_release(pool, inventory_ids)
@@ -750,7 +752,7 @@ def _decode_signature_header(value: str) -> tuple[str, bytes]:
     try:
         decoded = base64.b64decode(value.strip(), validate=True)
         payload = json.loads(decoded.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (ValueError, binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Invalid eBay signature header") from exc
     if not isinstance(payload, dict):
         raise ValueError("Invalid eBay signature header")
@@ -760,7 +762,7 @@ def _decode_signature_header(value: str) -> tuple[str, bytes]:
         raise ValueError("Incomplete eBay signature header")
     try:
         signature = base64.b64decode(signature_text, validate=True)
-    except ValueError as exc:
+    except (ValueError, binascii.Error) as exc:
         raise ValueError("Invalid eBay signature bytes") from exc
     return kid, signature
 
@@ -805,7 +807,10 @@ def verify_ebay_notification_signature(
     message = json.dumps(
         payload, ensure_ascii=False, separators=(",", ":")
     ).encode("utf-8")
-    digest = _hash_algorithm(public_key_payload.get("digest"))
+    try:
+        digest = _hash_algorithm(public_key_payload.get("digest"))
+    except ValueError:
+        return False
     algorithm = str(public_key_payload.get("algorithm") or "").upper()
     try:
         if isinstance(public_key, ec.EllipticCurvePublicKey) or "EC" in algorithm:
@@ -888,6 +893,10 @@ async def _record_ebay_order(pool: Any, order: dict[str, Any]) -> dict[str, Any]
     order_id = str(order.get("orderId") or "").strip()
     if not order_id:
         raise ValueError("eBay order response is missing orderId")
+    if str(order.get("paymentMethod") or "").upper() != "EBAY":
+        raise ValueError(
+            "eBay v1 only records orders paid through eBay managed payments"
+        )
     lines = _order_line_rows(order)
     pricing = order.get("pricingSummary")
     delivery = pricing.get("deliveryCost") if isinstance(pricing, dict) else None
