@@ -12,4 +12,9 @@ RUN pip install --no-cache-dir --requirement /app/requirements.txt
 
 COPY backend /app/backend
 
+# Fail the image build early if scheduler code cannot compile.
+RUN python -m py_compile \
+    /app/backend/app/payout_scheduler.py \
+    /app/backend/scripts/run_payout_scheduler.py
+
 CMD ["python", "/app/backend/scripts/run_payout_scheduler.py"]
