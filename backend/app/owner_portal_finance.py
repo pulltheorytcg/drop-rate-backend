@@ -117,7 +117,11 @@ async def owner_finance_summary(
             "sold_items": int(ledger["sold_items"] or 0),
             "unreconciled_sales": int(reconciliation["unreconciled_sales"] or 0),
             "financials_complete": int(reconciliation["unreconciled_sales"] or 0) == 0,
-            **balances,
+            "pending_minor": int(balances["pending_minor"]),
+            "ledger_available_minor": int(balances["ledger_available_minor"]),
+            "reserved_payout_minor": int(balances["reserved_payout_minor"]),
+            "available_to_withdraw_minor": int(balances["available_to_withdraw_minor"]),
+            "paid_out_minor": int(balances["paid_out_minor"]),
         }
     )
 
