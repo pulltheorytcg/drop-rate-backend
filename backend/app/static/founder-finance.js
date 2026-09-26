@@ -176,6 +176,8 @@ function ensureFounderFinanceUI() {
         </div>
       </div>
 
+      <div id="finance-sales-message" class="message panel-message" role="status"></div>
+
       <div class="sales-kpi-grid">
         <article class="sales-kpi sales-kpi-primary"><span>Total sales</span><strong id="finance-period-sales">£0.00</strong><small>Item revenue after discounts</small></article>
         <article class="sales-kpi"><span>Net revenue</span><strong id="finance-period-net-revenue">£0.00</strong><small>After refunds, incl. shipping income</small></article>
@@ -376,11 +378,11 @@ function applyFinanceCustomRange() {
   const start = byId("finance-sales-start").value;
   const end = byId("finance-sales-end").value;
   if (!start || !end) {
-    showMessage("finance-message", "Choose both a From and To date.", "error");
+    showMessage("finance-sales-message", "Choose both a From and To date.", "error");
     return;
   }
   if (end < start) {
-    showMessage("finance-message", "The To date cannot be before the From date.", "error");
+    showMessage("finance-sales-message", "The To date cannot be before the From date.", "error");
     return;
   }
   financeSalesRange = {preset: "custom", start, end};
@@ -398,9 +400,9 @@ async function loadFinanceSalesRange() {
     ]);
     renderFinanceSalesAnalytics(analytics);
     renderFinanceSales(sales.items || []);
-    showMessage("finance-message");
+    showMessage("finance-sales-message");
   } catch (error) {
-    showMessage("finance-message", error.message, "error");
+    showMessage("finance-sales-message", error.message, "error");
   }
 }
 
