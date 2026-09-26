@@ -850,6 +850,7 @@ async def create_media_upload_target(
 async def media_intake_queue(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
+    approved_only: bool = Query(default=False),
 ) -> dict:
     """Return capture work even when inventory is not yet price/publish ready."""
 
@@ -868,10 +869,12 @@ async def media_intake_queue(
             join tcg.catalogue_products p on p.id=i.catalogue_id
             where i.owner_id=$1
               and i.status in ('DRAFT','INSPECTION','APPROVED')
+              and ($2::boolean is false or i.status='APPROVED')
               and p.product_type='CARD'
             order by p.game,p.set_name,p.name,p.card_number,i.inventory_code
             """,
             owner["id"],
+            approved_only,
         )
         assets = await connection.fetch(
             """
@@ -884,12 +887,12 @@ async def media_intake_queue(
             """,
             owner["id"],
         )
-    return jsonable_encoder(
-        _build_media_intake_queue(
-            [dict(row) for row in items],
-            [dict(row) for row in assets],
-        )
+    queue = _build_media_intake_queue(
+        [dict(row) for row in items],
+        [dict(row) for row in assets],
     )
+    queue["approved_only"] = approved_only
+    return jsonable_encoder(queue)
 
 
 @router.get("/media-assets")
