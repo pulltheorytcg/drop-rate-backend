@@ -197,7 +197,7 @@ def test_test_reservations_can_expire_release_or_consume() -> None:
 def test_marketplace_router_is_wired() -> None:
     main = MAIN.read_text()
     assert "from .marketplace_listings import router as marketplace_listings_router" in main
-    assert "app.include_router(marketplace_listings_router)" in main
+    assert "app.include_router(marketplace_listings_router, dependencies=[Depends(require_platform_admin_request)])" in main
 
 
 def test_dashboard_exposes_reserved_and_sold_status_without_editing_them() -> None:
