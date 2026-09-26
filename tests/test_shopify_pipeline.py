@@ -725,9 +725,11 @@ def test_media_intake_queue_groups_raw_copies_and_keeps_graded_item_specific() -
     assert raw["copy_count"] == 2
     assert raw["missing_sides"] == ["FRONT"]
     assert raw["catalogue_id"] == raw_a["catalogue_id"]
+    assert raw["inventory_codes"] == ["INV-RAW-1", "INV-RAW-2"]
 
     slab = next(item for item in result["items"] if item["required_scope"] == "INVENTORY_ITEM")
     assert slab["inventory_id"] == graded["id"]
+    assert slab["inventory_codes"] == ["INV-PSA-1"]
     assert slab["missing_sides"] == ["FRONT", "BACK"]
 
 
@@ -837,3 +839,55 @@ def test_shopify_price_sync_is_bounded_price_only_and_fail_closed() -> None:
     assert "publish_product" not in block
     assert "set_inventory_quantity" not in block
     assert "activate_inventory" not in block
+
+
+def test_batch_founder_media_is_rights_gated_sequential_and_never_publishes() -> None:
+    frontend = SHOPIFY_SETTINGS.read_text()
+    start = frontend.index("async function uploadFounderMediaBatch()")
+    end = frontend.index("async function syncFounderMedia(", start)
+    block = frontend[start:end]
+
+    assert 'id="shopify-media-batch-files"' in frontend
+    assert 'type="file" multiple' in frontend
+    assert 'id="shopify-media-batch-rights"' in frontend
+    assert "These are founder-owned original photographs" in frontend
+    assert "parseBatchMediaFilename" in frontend
+    assert "validateBatchMediaFiles" in frontend
+    assert "Duplicate card side in this batch" in frontend
+    assert "Inventory ID is not present in the current media capture queue" in frontend
+    assert "button.dataset.scopeReady" in frontend
+    assert "for (let index = 0; index < validation.work.length; index += 1)" in block
+    assert "await uploadFounderMediaWork(item)" in block
+    assert "Promise.all" not in block
+    assert "publish" not in block.casefold()
+    assert "test-sync" not in block
+
+
+def test_batch_media_maps_any_equivalent_raw_inventory_code_to_shared_queue_item() -> None:
+    frontend = SHOPIFY_SETTINGS.read_text()
+    assert "option.dataset.inventoryCodes" in frontend
+    assert "item.inventory_codes || [item.inventory_code || \"\"]" in frontend
+    assert ".split(\",\")" in frontend
+    assert "codes.forEach((code) => mapping.set(code, option))" in frontend
+
+
+def test_media_create_fails_closed_on_duplicate_live_side() -> None:
+    source = PIPELINE.read_text()
+    assert "An active media asset already exists for this physical item side" in source
+    assert "An active media asset already exists for this canonical card side" in source
+    assert "approval_status <> 'REJECTED'" in source
+    assert "shopify_file_status <> 'FAILED'" in source
+
+
+def test_media_live_side_uniqueness_is_database_enforced() -> None:
+    migration = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20260926002000_media_live_side_uniqueness.sql"
+    ).read_text()
+    assert "media_assets_canonical_live_side_uidx" in migration
+    assert "media_assets_inventory_live_side_uidx" in migration
+    assert "create unique index" in migration.casefold()
+    assert "approval_status <> 'REJECTED'" in migration
+    assert "shopify_file_status <> 'FAILED'" in migration
