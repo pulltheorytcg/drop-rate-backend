@@ -32,6 +32,7 @@ router = APIRouter(prefix="/api/v1/ebay", tags=["ebay-sales"])
 EBAY_GB_CCG_SINGLE_CATEGORY_ID = "183454"
 MAX_NOTIFICATION_BYTES = 512 * 1024
 EBAY_INVENTORY_SCOPE = "https://api.ebay.com/oauth/api_scope/sell.inventory"
+EBAY_ACCOUNT_SCOPE = "https://api.ebay.com/oauth/api_scope/sell.account"
 EBAY_FULFILLMENT_SCOPE = "https://api.ebay.com/oauth/api_scope/sell.fulfillment"
 EBAY_FULFILLMENT_READONLY_SCOPE = "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly"
 EBAY_NOTIFICATION_SCOPE = "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription"
@@ -525,6 +526,7 @@ async def seller_status(
         result["granted_scopes"] = sorted(scopes)
         result["live_verified"] = (
             EBAY_INVENTORY_SCOPE in scopes
+            and EBAY_ACCOUNT_SCOPE in scopes
             and EBAY_FULFILLMENT_SCOPE in scopes
             and EBAY_FULFILLMENT_READONLY_SCOPE in scopes
             and EBAY_NOTIFICATION_SCOPE in scopes
@@ -945,10 +947,6 @@ async def _record_ebay_order(pool: Any, order: dict[str, Any]) -> dict[str, Any]
     order_id = str(order.get("orderId") or "").strip()
     if not order_id:
         raise ValueError("eBay order response is missing orderId")
-    if str(order.get("paymentMethod") or "").upper() != "EBAY":
-        raise ValueError(
-            "eBay v1 only records orders paid through eBay managed payments"
-        )
     lines = _order_line_rows(order)
     pricing = order.get("pricingSummary")
     delivery = pricing.get("deliveryCost") if isinstance(pricing, dict) else None
