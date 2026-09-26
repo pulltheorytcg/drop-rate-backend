@@ -76,8 +76,20 @@ create table tcg.condition_review_events (
     created_at timestamptz not null default now()
 );
 
+create index inventory_condition_verified_by_user_idx
+    on tcg.inventory_items(condition_verified_by_user_id)
+    where condition_verified_by_user_id is not null;
+
 create index condition_review_events_inventory_created_idx
     on tcg.condition_review_events(inventory_id,created_at desc);
+create index condition_review_events_owner_created_idx
+    on tcg.condition_review_events(owner_id,created_at desc);
+create index condition_review_events_front_media_idx
+    on tcg.condition_review_events(front_media_asset_id);
+create index condition_review_events_back_media_idx
+    on tcg.condition_review_events(back_media_asset_id);
+create index condition_review_events_created_by_user_idx
+    on tcg.condition_review_events(created_by_user_id);
 
 alter table tcg.condition_review_events enable row level security;
 alter table tcg.condition_review_events force row level security;
@@ -92,7 +104,7 @@ create policy own_condition_review_reads on tcg.condition_review_events
         owner_id in (
             select om.owner_id
             from tcg.owner_memberships om
-            where om.user_id=nullif(current_setting('tcg.user_id',true),'')::uuid
+            where om.user_id=(select nullif(current_setting('tcg.user_id',true),'')::uuid)
               and om.active
         )
     );
@@ -103,7 +115,7 @@ create policy own_condition_review_inserts on tcg.condition_review_events
         owner_id in (
             select om.owner_id
             from tcg.owner_memberships om
-            where om.user_id=nullif(current_setting('tcg.user_id',true),'')::uuid
+            where om.user_id=(select nullif(current_setting('tcg.user_id',true),'')::uuid)
               and om.active
         )
     );
