@@ -21,6 +21,7 @@ from .inventory_intelligence import router as inventory_intelligence_router
 from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
 from .identity_review import router as identity_review_router
+from .condition_review import router as condition_review_router
 from .market_adapter_config import configure_market_adapters
 from .market_ingestion import router as market_ingestion_router
 from .market_discovery import router as market_discovery_router
