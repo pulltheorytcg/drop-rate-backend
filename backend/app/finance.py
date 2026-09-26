@@ -156,6 +156,20 @@ def _sales_bucket(start_date: date | None, end_date: date | None) -> str:
     return "month"
 
 
+def _sales_bucket_for_data(
+    start_date: date | None,
+    end_date: date | None,
+    first_sale_date: date | None,
+    last_sale_date: date | None,
+) -> str:
+    """Choose chart granularity from the selected range, or actual data for all-time."""
+    if start_date is not None and end_date is not None:
+        return _sales_bucket(start_date, end_date)
+    if first_sale_date is None or last_sale_date is None:
+        return "day"
+    return _sales_bucket(first_sale_date, last_sale_date)
+
+
 def allocate_minor(total: int, weights: list[int]) -> list[int]:
     """Deterministically allocate pennies without losing or creating money."""
     if total < 0:
@@ -528,7 +542,6 @@ async def finance_sales_analytics(
     end_date: date | None = Query(default=None),
 ) -> dict:
     range_start, range_end = _sales_period_bounds(start_date, end_date)
-    bucket = _sales_bucket(start_date, end_date)
 
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
@@ -637,6 +650,15 @@ async def finance_sales_analytics(
             range_end,
         )
 
+        first_sale_date = first_last["first_sale_date"]
+        last_sale_date = first_last["last_sale_date"]
+        bucket = _sales_bucket_for_data(
+            start_date,
+            end_date,
+            first_sale_date,
+            last_sale_date,
+        )
+
         series = await connection.fetch(
             """
             with scoped_items as (
@@ -738,6 +760,7 @@ async def finance_sales_analytics(
     cogs = int(summary["cost_of_goods_minor"] or 0)
     orders = int(summary["orders"] or 0)
     sold_items = int(summary["sold_items"] or 0)
+    gross_order_sales = sales_revenue + shipping_revenue
     net_revenue = sales_revenue + shipping_revenue - refunds - shipping_refunds
     net_profit = (
         net_revenue
@@ -756,8 +779,8 @@ async def finance_sales_analytics(
         "business_timezone": "Europe/London",
         "start_date": start_date,
         "end_date": end_date,
-        "first_sale_date": first_last["first_sale_date"],
-        "last_sale_date": first_last["last_sale_date"],
+        "first_sale_date": first_sale_date,
+        "last_sale_date": last_sale_date,
         "bucket": bucket,
         "sales_revenue_minor": sales_revenue,
         "shipping_revenue_minor": shipping_revenue,
@@ -775,7 +798,7 @@ async def finance_sales_analytics(
         "unreconciled_shopify_sales": max(missing_fees, missing_postage),
         "orders": orders,
         "sold_items": sold_items,
-        "average_order_value_minor": round(net_revenue / orders) if orders else 0,
+        "average_order_value_minor": round(gross_order_sales / orders) if orders else 0,
         "series": [dict(row) for row in series],
     })
 

@@ -27,9 +27,13 @@ def test_finance_sales_ui_labels_pending_costs_and_provisional_profit() -> None:
     assert '"Pending"' in js
     assert "Provisional" in js
     assert "shipping paid" in js
+    assert "finance-pending-costs" in js
+    assert "Awaiting" in js
     assert "finance-item-meta" in js
     assert "finance-item-code" in js
     assert "finance-money-cell" in css
+    assert ".finance-sale-row .finance-pending-costs" in css
+    assert "#founder-finance-panel .finance-pending-costs" not in css
     assert "Founder finance sales table" in css
 
 
@@ -93,11 +97,16 @@ def test_sales_dashboard_supports_period_presets_custom_dates_and_backend_analyt
     assert "end_date" in js
     assert "Europe/London" in js
     assert "renderFinanceSalesChart" in js
+    assert "gross AOV" in js
+    assert "sales-chart single-point" not in js
+    assert 'classList.toggle("single-point", series.length === 1)' in js
+    assert "aria-label" in js
     assert "financeSalesRange" in js
     assert "salesDashboard" in shell
     assert "sales.append(salesDashboard)" in shell
     assert ".sales-kpi-grid" in css
     assert ".sales-chart" in css
+    assert ".sales-chart.single-point" in css
 
 
 def test_media_page_refresh_and_evidence_registry_are_compact_and_aligned() -> None:

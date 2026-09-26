@@ -182,7 +182,7 @@ function ensureFounderFinanceUI() {
         <article class="sales-kpi sales-kpi-primary"><span>Total sales</span><strong id="finance-period-sales">£0.00</strong><small>Item revenue after discounts</small></article>
         <article class="sales-kpi"><span>Net revenue</span><strong id="finance-period-net-revenue">£0.00</strong><small>After refunds, incl. shipping income</small></article>
         <article class="sales-kpi"><span>Net profit</span><strong id="finance-period-profit">£0.00</strong><small id="finance-period-profit-note">After COGS, fees & fulfilment</small></article>
-        <article class="sales-kpi"><span>Orders</span><strong id="finance-period-orders">0</strong><small id="finance-period-aov">£0.00 average order</small></article>
+        <article class="sales-kpi"><span>Orders</span><strong id="finance-period-orders">0</strong><small id="finance-period-aov">£0.00 gross AOV</small></article>
         <article class="sales-kpi"><span>Items sold</span><strong id="finance-period-items">0</strong><small>Physical inventory items</small></article>
       </div>
 
@@ -296,7 +296,7 @@ function renderFinanceSalesAnalytics(data) {
   byId("finance-period-orders").textContent = Number(data.orders || 0).toLocaleString("en-GB");
   byId("finance-period-items").textContent = Number(data.sold_items || 0).toLocaleString("en-GB");
   byId("finance-period-aov").textContent =
-    `${formatFinanceMoney(data.average_order_value_minor)} average order`;
+    `${formatFinanceMoney(data.average_order_value_minor)} gross AOV`;
   byId("finance-sales-range-label").textContent = financeRangeLabel(data);
 
   const provisionalProfit = formatFinanceMoney(data.net_profit_minor);
@@ -312,13 +312,14 @@ function renderFinanceSalesAnalytics(data) {
   const grainNames = {day: "day", week: "week", month: "month"};
   byId("finance-sales-chart-grain").textContent =
     `Grouped by ${grainNames[data.bucket] || data.bucket || "period"}`;
-  renderFinanceSalesChart(data.series || []);
+  renderFinanceSalesChart(data.series || [], data.bucket || "day");
 }
 
-function renderFinanceSalesChart(series) {
+function renderFinanceSalesChart(series, bucket = "day") {
   const chart = byId("finance-sales-chart");
   if (!chart) return;
   chart.replaceChildren();
+  chart.classList.toggle("single-point", series.length === 1);
   if (!series.length) {
     const empty = document.createElement("div");
     empty.className = "sales-chart-empty";
@@ -328,6 +329,9 @@ function renderFinanceSalesChart(series) {
   }
 
   const maxSales = Math.max(...series.map((item) => Math.max(Number(item.sales_revenue_minor || 0), 0)), 1);
+  const labelOptions = bucket === "month"
+    ? { month: "short", year: "2-digit", timeZone: "Europe/London" }
+    : { day: "2-digit", month: "short", timeZone: "Europe/London" };
   series.forEach((item) => {
     const column = document.createElement("div");
     column.className = "sales-chart-column";
@@ -337,21 +341,26 @@ function renderFinanceSalesChart(series) {
     bar.className = "sales-chart-bar";
     const amount = Math.max(Number(item.sales_revenue_minor || 0), 0);
     bar.style.height = `${Math.max((amount / maxSales) * 100, amount ? 5 : 0)}%`;
+    const bucketLabel = financeRangeLabel({start_date: item.bucket_date, end_date: item.bucket_date});
+    const orderLabel = `${Number(item.orders || 0).toLocaleString("en-GB")} order(s)`;
+    const itemLabel = `${Number(item.sold_items || 0).toLocaleString("en-GB")} item(s)`;
     bar.title = [
-      financeRangeLabel({start_date: item.bucket_date, end_date: item.bucket_date}),
+      bucketLabel,
       `Sales ${formatFinanceMoney(item.sales_revenue_minor)}`,
       `Net revenue ${formatFinanceMoney(item.net_revenue_minor)}`,
       `Profit ${formatFinanceMoney(item.profit_minor)}`,
+      orderLabel,
+      itemLabel,
     ].join(" · ");
+    bar.setAttribute(
+      "aria-label",
+      `${bucketLabel}: ${formatFinanceMoney(item.sales_revenue_minor)} sales, ${orderLabel}`
+    );
     barWrap.append(bar);
 
     const label = document.createElement("small");
     const date = new Date(`${item.bucket_date}T12:00:00Z`);
-    label.textContent = date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      timeZone: "Europe/London",
-    });
+    label.textContent = date.toLocaleDateString("en-GB", labelOptions);
     column.append(barWrap, label);
     chart.append(column);
   });
@@ -510,7 +519,11 @@ function renderFinanceSales(items) {
       if (!sale.fees_complete) pending.push("fees");
       if (!sale.shipping_cost_complete) pending.push("postage");
       costsCell.querySelector("small").textContent =
-        `${formatFinanceMoney(feesPostage)} recorded · awaiting ${pending.join(" + ")}`;
+        `${formatFinanceMoney(feesPostage)} recorded`;
+      const pendingLabel = document.createElement("span");
+      pendingLabel.className = "finance-pending-costs";
+      pendingLabel.textContent = `Awaiting ${pending.join(" + ")}`;
+      costsCell.append(pendingLabel);
     }
 
     if (sale.source === "SHOPIFY" && !costsComplete) {

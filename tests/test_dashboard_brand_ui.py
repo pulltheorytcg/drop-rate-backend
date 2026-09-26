@@ -12,12 +12,18 @@ def test_drop_rate_brand_shell_uses_real_visual_identity_not_generic_dr_tile() -
     html = INDEX.read_text()
 
     css = STYLES.read_text()
+    logo = STATIC / "brand-assets" / "drop-rate-founder-hq.png"
     assert "brand-lockup-logo" in html
     assert "dr-logo-image" in html
-    assert "dr-founder-label" in html
+    assert "dr-founder-label" not in html
+    assert 'role="img" aria-label="Drop Rate FOUNDER HQ"' in html
     assert "FOUNDER HQ" in html
-    assert "styles.css?v=founder-v3" in html
-    assert "data:image/webp;base64,UklGR" in css
+    assert "styles.css?v=founder-v5" in html
+    assert logo.is_file()
+    assert logo.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    assert logo.read_bytes()[25] == 6  # PNG RGBA retains the approved transparency.
+    assert '/assets/brand-assets/drop-rate-founder-hq.png?v=20260926' in css
+    assert "data:image/webp;base64" not in css
     assert "drWave" not in html
     assert "dr-wordmark" not in html
     assert '<span class="brand-mark">DR</span>' not in html

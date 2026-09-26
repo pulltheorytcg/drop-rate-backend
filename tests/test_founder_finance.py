@@ -9,6 +9,7 @@ from app.finance import (
     ManualSaleCreate,
     _sales_period_bounds,
     _sales_bucket,
+    _sales_bucket_for_data,
     PayoutRequestCreate,
     ShopifyPostageReconcile,
     _fulfilment_material_allocations,
@@ -448,6 +449,24 @@ def test_sales_period_bucket_scales_with_range() -> None:
     assert _sales_bucket(date(2025, 1, 1), date(2026, 1, 1)) == "month"
 
 
+def test_all_time_sales_bucket_uses_actual_sale_dates() -> None:
+    from datetime import date
+
+    assert _sales_bucket_for_data(None, None, None, None) == "day"
+    assert _sales_bucket_for_data(
+        None,
+        None,
+        date(2026, 9, 25),
+        date(2026, 9, 25),
+    ) == "day"
+    assert _sales_bucket_for_data(
+        None,
+        None,
+        date(2026, 1, 1),
+        date(2026, 8, 1),
+    ) == "month"
+
+
 def test_sales_analytics_is_owner_scoped_and_ledger_driven() -> None:
     source = (ROOT / "backend" / "app" / "finance.py").read_text()
     start = source.index('@router.get("/finance/sales-analytics")')
@@ -465,6 +484,8 @@ def test_sales_analytics_is_owner_scoped_and_ledger_driven() -> None:
     assert "return_to_stock" in block
     assert '"net_profit_complete"' in block
     assert '"average_order_value_minor"' in block
+    assert "gross_order_sales = sales_revenue + shipping_revenue" in block
+    assert "round(gross_order_sales / orders)" in block
 
 
 def test_sales_list_accepts_date_range_without_client_side_totals() -> None:
