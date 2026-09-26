@@ -563,7 +563,7 @@ See `docs/STRIPE_CONNECT_PAYOUTS.md`.
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
 | 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; per-Inventory-ID front/back media, photo-backed NM/slab condition gates, deterministic product-completeness/media/shipping gates and Shopify readiness are deployed; bulk publishing remains locked; first live photo/condition batch + refund settlement follow-up remain |
 | 6 | Orders / allocation / settlements | 🚧 Exact Shopify/eBay ownership attribution + deterministic settlement reporting are deployed; Stripe Connect sandbox transfer/reversal is verified; payout preferences + hourly scheduled REQUESTED-worker are live; real execution remains locked; multi-owner production verification remains |
-| 6.5 | RBAC / seller & consignor portal | 🚧 Requirement locked: Founder HQ admin-only; next build is explicit role/permission schema, invite/onboarding flow, owner-scoped APIs/RLS and a separate restricted seller/consignor dashboard |
+| 6.5 | RBAC / seller & consignor portal | 🚧 RBAC foundation deployed: PLATFORM_ADMIN vs OWNER roles, role-aware owner RLS, access-context API and admin founder-invite guard are live. Next: privileged-route audit, then separate owner-safe portal APIs/UI and OWNER onboarding |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
 | 9 | AI card identification | ⬜ Not started |
@@ -645,6 +645,20 @@ Required controls:
 - ✅ A real sandbox preference is now saved as **DAILY**. The scheduler sees **1 eligible schedule candidate**; no scheduled payout request exists yet because there is currently no due eligible balance.
 - 🔒 Automatic Stripe execution remains disabled until scheduled-request behavior is observed against real eligible balances and the approval/execution policy is intentionally promoted.
 - 🧪 **Stripe sandbox → live cutover TODO:** current schema permits only one connected Stripe account per owner. Before real onboarding, migrate the mapping so one TEST and one LIVE Connect account can coexist (unique by owner + livemode), preserve the sandbox account/history, add an admin-only disconnect/reset control, then create a separate live Connect account using real KYC/bank details. Do not overwrite the sandbox account or reuse test data for live payouts.
+
+## RBAC access-control foundation — 26 Sep 2026
+
+- ✅ PR #172 deployed: application permission is now separate from inventory ownership.
+- ✅ Membership roles are now `PLATFORM_ADMIN` and `OWNER`; the least-privilege default is `OWNER`.
+- ✅ Existing founder membership migrated from legacy `FOUNDER` permission to `PLATFORM_ADMIN` with an audit event.
+- ✅ Current production state has **1 active PLATFORM_ADMIN membership and 0 OWNER memberships**.
+- ✅ PLATFORM_ADMIN can resolve all active owners through the role-aware owner RLS boundary; OWNER remains limited to its explicitly linked owner.
+- ✅ Founder invite creation is PLATFORM_ADMIN-only and redeemed founder invitations receive PLATFORM_ADMIN explicitly.
+- ✅ `GET /api/v1/access/me` exposes the authenticated access context and whether Founder HQ is allowed.
+- ✅ Reusable FastAPI `require_platform_admin()` guard is deployed for privileged-route hardening.
+- ✅ Architecture documented in `docs/ACCESS_CONTROL_MODEL.md`: Founder HQ is internal/admin-only; future sellers/consignors use a separate restricted owner portal.
+- ✅ Production deployment `1a386c6b-74f5-4ca5-b3f4-fffcc6f3baf1` passed **646 tests** and `/health/ready` returned 200.
+- 🔒 No OWNER account should be invited until the privileged-route audit is complete and the separate owner portal has owner-safe APIs.
 
 ## Completion rule
 
