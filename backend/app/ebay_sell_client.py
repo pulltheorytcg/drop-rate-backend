@@ -323,7 +323,7 @@ class EbaySellClient:
             "POST",
             f"/sell/inventory/v1/location/{quote(merchant_location_key, safe='')}",
             json_body=payload,
-            expected={204},
+            expected={201, 204},
         )
 
     async def get_notification_config(self) -> dict[str, Any] | None:
@@ -379,6 +379,28 @@ class EbaySellClient:
             )
         return destination_id
 
+    async def update_notification_destination(
+        self,
+        destination_id: str,
+        *,
+        name: str,
+        endpoint: str,
+        verification_token: str,
+    ) -> None:
+        await self._request(
+            "PUT",
+            f"/commerce/notification/v1/destination/{quote(destination_id, safe='')}",
+            json_body={
+                "name": name,
+                "status": "ENABLED",
+                "deliveryConfig": {
+                    "endpoint": endpoint,
+                    "verificationToken": verification_token,
+                },
+            },
+            expected={204},
+        )
+
     async def get_notification_topics(self) -> list[dict[str, Any]]:
         payload = await self._request(
             "GET",
@@ -429,6 +451,14 @@ class EbaySellClient:
                 "eBay notification subscription response is missing subscriptionId"
             )
         return subscription_id
+
+    async def enable_notification_subscription(self, subscription_id: str) -> None:
+        await self._request(
+            "POST",
+            f"/commerce/notification/v1/subscription/{quote(subscription_id, safe='')}/enable",
+            json_body={},
+            expected={204},
+        )
 
     async def get_notification_subscription(self, subscription_id: str) -> dict[str, Any]:
         payload = await self._request(
