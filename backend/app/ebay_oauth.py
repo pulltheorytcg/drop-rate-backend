@@ -857,6 +857,129 @@ async def ebay_seller_options(
     }
 
 
+@router.post("/complete-setup")
+async def complete_ebay_seller_setup(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict[str, Any]:
+    settings = get_settings()
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _owner(connection)
+
+    try:
+        client, effective = await seller_client(
+            request.app.state.db_pool, settings, owner_id=owner["id"]
+        )
+        options = await _discover_seller_options(client)
+        discovery_errors = dict(options.get("errors") or {})
+        if discovery_errors:
+            raise EbaySellApiError(
+                "eBay seller configuration discovery is incomplete"
+            )
+
+        payment_id = await _ensure_drop_rate_payment_policy(
+            client, effective.payment_policy_id, options["payment"]
+        )
+        fulfillment_id = await _ensure_drop_rate_fulfillment_policy(
+            client, effective.fulfillment_policy_id, options["fulfillment"], settings
+        )
+        return_id = await _ensure_drop_rate_return_policy(
+            client, effective.return_policy_id, options["return"]
+        )
+        location_key = await _ensure_drop_rate_location(
+            client, effective.merchant_location_key, options["locations"], settings
+        )
+
+        payment, fulfillment, returns, location = await asyncio.gather(
+            client.get_payment_policy(payment_id),
+            client.get_fulfillment_policy(fulfillment_id),
+            client.get_return_policy(return_id),
+            client.get_inventory_location(location_key),
+        )
+        if payment.get("marketplaceId") not in {None, settings.ebay_marketplace_id}:
+            raise EbaySellApiError("eBay payment policy is not for EBAY_GB")
+        if payment.get("immediatePay") is not True:
+            raise EbaySellApiError("eBay payment policy does not require immediate payment")
+        if fulfillment.get("marketplaceId") not in {None, settings.ebay_marketplace_id}:
+            raise EbaySellApiError("eBay fulfilment policy is not for EBAY_GB")
+        if returns.get("marketplaceId") not in {None, settings.ebay_marketplace_id}:
+            raise EbaySellApiError("eBay return policy is not for EBAY_GB")
+        if _normalise_location_status(location) != "ENABLED":
+            raise EbaySellApiError("eBay inventory location is not enabled")
+
+        destination_id, subscription_id = await _ensure_order_confirmation_notification(
+            client,
+            settings,
+            current_destination_id=effective.notification_destination_id,
+            current_subscription_id=effective.notification_subscription_id,
+        )
+    except (EbaySellApiError, RuntimeError, ValueError) as exc:
+        async with user_connection(
+            request.app.state.db_pool, user.user_id, request.state.request_id
+        ) as connection:
+            await connection.execute(
+                """
+                update tcg.ebay_seller_connections
+                set status='ACTION_REQUIRED',
+                    last_error_code=$2,
+                    last_verified_at=clock_timestamp(),
+                    version=version+1,
+                    updated_at=clock_timestamp()
+                where owner_id=$1 and status <> 'DISCONNECTED'
+                """,
+                owner["id"],
+                (
+                    f"COMPLETE_SETUP_HTTP_{getattr(exc, 'status_code', None)}"
+                    if getattr(exc, "status_code", None)
+                    else "COMPLETE_SETUP_ERROR"
+                ),
+            )
+        raise HTTPException(
+            status_code=502 if getattr(exc, "retryable", False) else 409,
+            detail=str(getattr(exc, "detail", str(exc))),
+        ) from exc
+
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        row = await connection.fetchrow(
+            """
+            update tcg.ebay_seller_connections
+            set payment_policy_id=$2,
+                fulfillment_policy_id=$3,
+                return_policy_id=$4,
+                merchant_location_key=$5,
+                notification_destination_id=$6,
+                notification_subscription_id=$7,
+                status='READY',
+                last_error_code=null,
+                last_verified_at=clock_timestamp(),
+                version=version+1,
+                updated_at=clock_timestamp()
+            where owner_id=$1 and status <> 'DISCONNECTED'
+            returning id,status,payment_policy_id,fulfillment_policy_id,
+                      return_policy_id,merchant_location_key,
+                      notification_destination_id,notification_subscription_id,
+                      last_verified_at,version
+            """,
+            owner["id"],
+            payment_id,
+            fulfillment_id,
+            return_id,
+            location_key,
+            destination_id,
+            subscription_id,
+        )
+        if row is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Connect the eBay seller account first",
+            )
+    return dict(row)
+
+
 @router.post("/configuration")
 async def save_ebay_seller_configuration(
     payload: SellerConfigSelection,
