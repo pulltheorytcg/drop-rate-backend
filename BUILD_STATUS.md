@@ -6,8 +6,8 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## Current progress
 
-- **Full Drop Rate roadmap:** ~55%
-- **Milestone 1 — Inventory / ownership foundation:** ~99% for the current internal founder build and ~90% against the final multi-user milestone. RBAC, admin-route hardening and the separate owner portal boundary are deployed; remaining work is owner-safe data contracts, cross-owner isolation tests, OWNER onboarding and real multi-user verification
+- **Full Drop Rate roadmap:** ~58%
+- **Milestone 1 — Inventory / ownership foundation:** ~99% for the internal founder build and ~95% against the final multi-user milestone. RBAC, admin-route hardening, dedicated OWNER onboarding, owner-safe inventory/finance APIs and the restricted owner portal are deployed. Remaining release gate: real second-account cross-owner isolation verification
 - **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
 - **Milestone 2 — Shopify sale attribution:** ~90% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, and payout control is now automated up to REQUESTED state. Multi-owner production sale attribution + seller-facing restricted dashboards + live Stripe payout cutover remain
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
@@ -16,7 +16,7 @@ This file is the persistent source of truth for project progress. A feature coun
 
 | Milestone | Current status | Remaining to call it complete |
 |---|---|---|
-| **1 — Three founders can log in, add physical cards, assign ownership/cost/condition/grade/location, search inventory and see exactly what they own** | **~90% overall / ~99% core inventory engine** | RBAC + owner portal boundary are now deployed. Still need owner-safe data modules, two-owner isolation tests, OWNER invitation/onboarding and production verification with more than one owner |
+| **1 — Three founders can log in, add physical cards, assign ownership/cost/condition/grade/location, search inventory and see exactly what they own** | **~95% overall / ~99% core inventory engine** | Restricted OWNER onboarding + owner-safe inventory/finance portal are deployed. Final gate is a genuine second-account cross-owner isolation test and production verification with more than one owner |
 | **2 — Approved card syncs to Shopify, sells, and sale is attributed to the correct owner** | **~90%** | Single-owner real sale/refund is proven; still need multi-owner/same-card production test, restricted seller view of proceeds, and live payout cutover |
 | **3 — Market data automatically updates valuation and recommended pricing** | **~80%** | Deterministic pricing + snapshots + provisional pricing exist; final provider permissions, eBay sold access/Marketplace Insights, stronger Cardmarket/eBay evidence automation and scheduled production refresh remain |
 
@@ -563,7 +563,7 @@ See `docs/STRIPE_CONNECT_PAYOUTS.md`.
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
 | 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; per-Inventory-ID front/back media, photo-backed NM/slab condition gates, deterministic product-completeness/media/shipping gates and Shopify readiness are deployed; bulk publishing remains locked; first live photo/condition batch + refund settlement follow-up remain |
 | 6 | Orders / allocation / settlements | 🚧 Exact Shopify/eBay ownership attribution + deterministic settlement reporting are deployed; Stripe Connect sandbox transfer/reversal is verified; payout preferences + hourly scheduled REQUESTED-worker are live; real execution remains locked; multi-owner production verification remains |
-| 6.5 | RBAC / seller & consignor portal | 🚧 RBAC + privileged-route hardening + separate `/owner` access shell are deployed. Next: dedicated owner-safe API contracts, cross-owner isolation tests, OWNER onboarding, then inventory/sales/balance/payout portal modules |
+| 6.5 | RBAC / seller & consignor portal | 🚧 Dedicated OWNER onboarding and restricted `/owner` inventory/sales/balance/settlement/payout/Stripe self-service are deployed. Next: genuine two-account cross-owner isolation proof, then controlled first seller/consignor onboarding |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
 | 9 | AI card identification | ⬜ Not started |
@@ -677,6 +677,32 @@ Required controls:
 - ✅ Latest production deployment `49eb4fbb-1154-4512-a01d-8dee2d16430d` passed **667 tests** and `/health/ready` returned 200.
 - ✅ Current production memberships remain **1 PLATFORM_ADMIN / 0 OWNER**, so no external seller has been exposed to unfinished portal functionality.
 - ➡️ Next security slice: dedicated owner-safe API contracts + two-owner cross-isolation tests, then OWNER invitation/onboarding, then owner portal inventory/sales/balance/payout modules.
+
+## Seller / consignor portal + scheduler verification — 26 Sep 2026
+
+- ✅ PR #180 deployed dedicated read-only owner APIs: `/api/v1/owner/overview` and `/api/v1/owner/inventory`, with explicit safe field allowlists, owner_id defence-in-depth and fail-closed ambiguous membership handling.
+- ✅ PR #181 deployed the read-only `/owner` inventory dashboard with owner-scoped inventory counts, market/store value, card search, status filters and pagination. Acquisition cost, internal notes, storage locations, purchase-lot data and provider IDs remain excluded.
+- ✅ PR #182 deployed a separate restricted OWNER invitation flow:
+  - PLATFORM_ADMIN-only create/revoke
+  - email-locked invites
+  - verified Supabase JWT email used at redemption
+  - creates physical owner type `CONSIGNOR`
+  - creates access role `OWNER`
+  - default commission 1000 bps / 10%
+  - hashed invite tokens + audit logging
+  - email/password + Google/Apple-compatible `/owner/join` onboarding
+- ✅ Founder invite redemption is now also bound to the verified JWT email instead of trusting a browser-supplied email.
+- ✅ PR #183 deployed dedicated owner-safe finance reads for summary, sales, settlements and payout history. Seller proceeds come from the append-only ledger; acquisition cost/company profit/customer-address/provider-secret fields are excluded.
+- ✅ PR #185 deployed restricted owner Sales, Balance & payouts and Settlements dashboard views, including transparent commission/deductions, reconciliation state, payout history and owner-controlled payout cadence.
+- ✅ PR #186 deployed OWNER Stripe Connect self-service for account status/create/onboarding/sync only. Payout queue approval/rejection/execution remain admin-only. OWNER Stripe return/refresh URLs are forced to trusted `/owner` origin.
+- ✅ PR #184 added durable `tcg.payout_scheduler_runs` operational logging so every scheduler run has an auditable SUCCESS/FAILED record even when Railway omits short-lived cron stderr.
+- ✅ Scheduler networking now has outbound IPv6 enabled.
+- ✅ PR #187 added scheduler image compile validation and triggered a clean scheduler-specific Railway build.
+- ✅ A real scheduled verification run completed at **2026-09-26 23:20:31 UTC** with **SUCCESS**: checked=1, created=0, duplicate=0, no_balance=1, stripe_not_ready=0, errors=0. This is the expected outcome with £0 available balance.
+- ✅ Scheduler restored to **hourly** (`0 * * * *`) after the 5-minute verification; active deployment `57b468c0-e58f-4ed2-b138-90c3c52336f0` is SUCCESS.
+- ✅ Current GitHub main baseline: **707 tests passed**.
+- 🔒 Production still has no external OWNER membership yet; first external onboarding remains gated on the real two-account cross-owner isolation proof.
+- ➡️ Next release gate: create one controlled restricted OWNER test account, assign isolated test inventory/financial fixtures, prove Owner A cannot read/write Owner B across inventory, orders, ledger, payouts, Stripe and Founder HQ routes, then remove or retain the account as an approved sandbox owner.
 
 ## Completion rule
 
