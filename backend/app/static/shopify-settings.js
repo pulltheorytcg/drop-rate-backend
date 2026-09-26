@@ -502,6 +502,9 @@ function renderMediaIntakeQueue(data) {
     option.dataset.catalogueId = item.catalogue_id || "";
     option.dataset.inventoryId = item.inventory_id || "";
     option.dataset.inventoryCode = item.inventory_code || "";
+    option.dataset.inventoryCodes = (item.inventory_codes || [item.inventory_code || ""])
+      .filter(Boolean)
+      .join(",");
     option.dataset.mediaScope = item.required_scope || "";
     option.dataset.missingSides = (item.missing_sides || []).join(",");
     option.dataset.cardName = item.name || "";
@@ -645,8 +648,12 @@ function batchMediaQueueByInventoryCode() {
   const mapping = new Map();
   if (!select) return mapping;
   [...select.options].forEach((option) => {
-    const code = String(option.dataset.inventoryCode || "").trim().toUpperCase();
-    if (option.value && code) mapping.set(code, option);
+    const codes = String(option.dataset.inventoryCodes || option.dataset.inventoryCode || "")
+      .split(",")
+      .map((value) => value.trim().toUpperCase())
+      .filter(Boolean);
+    if (!option.value) return;
+    codes.forEach((code) => mapping.set(code, option));
   });
   return mapping;
 }
