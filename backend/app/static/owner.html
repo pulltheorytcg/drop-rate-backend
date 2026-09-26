@@ -177,6 +177,26 @@
             <article class="stat-card"><span>Paid out</span><strong id="owner-paid-out">—</strong><small>Historical completed payout ledger</small></article>
           </div>
 
+          <section class="inventory-panel" id="owner-stripe-connect-panel">
+            <div class="page-heading" style="padding:22px 22px 0">
+              <div>
+                <p class="eyebrow">Stripe Connect</p>
+                <h2>Payout account</h2>
+                <p class="muted">Stripe handles identity verification and bank payout details. Drop Rate controls the exact amount you are owed.</p>
+              </div>
+              <button id="owner-stripe-refresh" class="ghost-button compact" type="button">↻ Refresh</button>
+            </div>
+            <div class="stats-grid" style="padding:0 22px">
+              <article class="stat-card"><span>Account</span><strong id="owner-stripe-account-state">NOT CONNECTED</strong><small id="owner-stripe-account-note">Set up your payout account</small></article>
+              <article class="stat-card"><span>Verification</span><strong id="owner-stripe-verification-state">NOT READY</strong><small id="owner-stripe-verification-note">Identity verification required</small></article>
+              <article class="stat-card"><span>Transfers</span><strong id="owner-stripe-transfer-state">LOCKED</strong><small>Must be ready before payout</small></article>
+            </div>
+            <div id="owner-stripe-message" class="message panel-message" role="status"></div>
+            <div class="toolbar" style="padding:0 22px 22px">
+              <button id="owner-stripe-onboard" class="primary-button compact" type="button">Set up payouts</button>
+            </div>
+          </section>
+
           <section class="inventory-panel">
             <div class="page-heading" style="padding:22px 22px 0">
               <div>
