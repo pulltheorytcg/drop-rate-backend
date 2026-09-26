@@ -35,6 +35,7 @@ from .market_smoke import router as market_smoke_router
 from .pricing import router as pricing_router
 from .payout_preferences import router as payout_preferences_router
 from .owner_portal_api import router as owner_portal_api_router
+from .owner_portal_finance import router as owner_portal_finance_router
 from .owner_onboarding import router as owner_onboarding_router
 from .imported_benchmark_pricing import router as imported_benchmark_pricing_router
 from .ebay_sold_pricing import router as ebay_sold_pricing_router
@@ -243,6 +244,7 @@ def create_app() -> FastAPI:
     app.include_router(pricing_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(payout_preferences_router)
     app.include_router(owner_portal_api_router)
+    app.include_router(owner_portal_finance_router)
     app.include_router(owner_onboarding_router)
     app.include_router(imported_benchmark_pricing_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(ebay_sold_pricing_router, dependencies=[Depends(require_platform_admin_request)])
