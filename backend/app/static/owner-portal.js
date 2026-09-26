@@ -6,9 +6,116 @@ const state = {
   config: null,
   session: null,
   providers: {google: false, apple: false},
+  inventory: {offset: 0, limit: 50, total: 0, search: "", status: ""},
 };
 
 const byId = (id) => document.getElementById(id);
+
+function formatMoney(minor) {
+  const value = Number(minor || 0) / 100;
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function safeText(value, fallback = "—") {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+}
+
+function showPortalMessage(text = "", kind = "") {
+  const node = byId("owner-portal-message");
+  node.textContent = text;
+  node.className = `message panel-message${kind ? ` ${kind}` : ""}`;
+}
+
+function renderInventoryRows(items) {
+  const body = byId("owner-inventory-body");
+  body.replaceChildren();
+
+  if (!items.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 8;
+    cell.className = "muted";
+    cell.textContent = "No inventory matches these filters.";
+    row.append(cell);
+    body.append(row);
+    return;
+  }
+
+  for (const item of items) {
+    const row = document.createElement("tr");
+    const card = safeText(item.name);
+    const cardNumber = item.card_number ? ` #${item.card_number}` : "";
+    const variant = item.variant ? ` · ${item.variant}` : "";
+    const grade = item.grade
+      ? `${safeText(item.grading_company, "Graded")} ${item.grade}`
+      : safeText(item.condition);
+    const values = [
+      safeText(item.inventory_code),
+      `${card}${cardNumber}${variant}`,
+      `${safeText(item.game)} · ${safeText(item.set_name)}`,
+      safeText(item.language),
+      grade,
+      safeText(item.status),
+      formatMoney(item.market_value_minor),
+      formatMoney(item.store_price_minor),
+    ];
+    for (const value of values) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.append(cell);
+    }
+    body.append(row);
+  }
+}
+
+function renderInventoryPagination() {
+  const {offset, limit, total} = state.inventory;
+  const start = total ? offset + 1 : 0;
+  const end = Math.min(offset + limit, total);
+  byId("owner-inventory-page").textContent = total
+    ? `${start}–${end} of ${total}`
+    : "0 items";
+  byId("owner-inventory-prev").disabled = offset <= 0;
+  byId("owner-inventory-next").disabled = offset + limit >= total;
+}
+
+async function loadOwnerOverview() {
+  const data = await apiRequest("/api/v1/owner/overview");
+  const summary = data.summary || {};
+  byId("owner-total-inventory").textContent = Number(summary.total_inventory_count || 0).toLocaleString("en-GB");
+  byId("owner-market-value").textContent = formatMoney(summary.active_market_value_minor);
+  byId("owner-store-value").textContent = formatMoney(summary.active_store_price_minor);
+  byId("owner-sold-count").textContent = Number(summary.sold_count || 0).toLocaleString("en-GB");
+}
+
+async function loadOwnerInventory() {
+  const params = new URLSearchParams({
+    limit: String(state.inventory.limit),
+    offset: String(state.inventory.offset),
+  });
+  if (state.inventory.search) params.set("search", state.inventory.search);
+  if (state.inventory.status) params.set("status", state.inventory.status);
+
+  const data = await apiRequest(`/api/v1/owner/inventory?${params.toString()}`);
+  state.inventory.total = Number(data.total || 0);
+  renderInventoryRows(data.items || []);
+  renderInventoryPagination();
+}
+
+async function reloadOwnerDashboard() {
+  showPortalMessage("Loading your inventory…");
+  try {
+    await Promise.all([loadOwnerOverview(), loadOwnerInventory()]);
+    showPortalMessage();
+  } catch (error) {
+    showPortalMessage(error.message, "error");
+  }
+}
 
 function errorMessage(data) {
   const detail = data?.error_description || data?.msg || data?.detail || data?.message;
@@ -157,6 +264,7 @@ async function openOwnerPortal() {
 
   byId("owner-auth-view").classList.add("hidden");
   byId("owner-portal-view").classList.remove("hidden");
+  await reloadOwnerDashboard();
 }
 
 async function finishSignIn(session) {
@@ -236,6 +344,40 @@ byId("owner-login-form").addEventListener("submit", async (event) => {
 
 byId("owner-google").addEventListener("click", () => startOAuth("google"));
 byId("owner-apple").addEventListener("click", () => startOAuth("apple"));
+
+byId("owner-inventory-refresh").addEventListener("click", async () => {
+  state.inventory.search = byId("owner-inventory-search").value.trim();
+  state.inventory.status = byId("owner-inventory-status").value;
+  state.inventory.offset = 0;
+  await reloadOwnerDashboard();
+});
+
+byId("owner-inventory-search").addEventListener("keydown", async (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  state.inventory.search = event.currentTarget.value.trim();
+  state.inventory.status = byId("owner-inventory-status").value;
+  state.inventory.offset = 0;
+  await reloadOwnerDashboard();
+});
+
+byId("owner-inventory-status").addEventListener("change", async (event) => {
+  state.inventory.status = event.currentTarget.value;
+  state.inventory.search = byId("owner-inventory-search").value.trim();
+  state.inventory.offset = 0;
+  await loadOwnerInventory();
+});
+
+byId("owner-inventory-prev").addEventListener("click", async () => {
+  state.inventory.offset = Math.max(0, state.inventory.offset - state.inventory.limit);
+  await loadOwnerInventory();
+});
+
+byId("owner-inventory-next").addEventListener("click", async () => {
+  if (state.inventory.offset + state.inventory.limit >= state.inventory.total) return;
+  state.inventory.offset += state.inventory.limit;
+  await loadOwnerInventory();
+});
 
 byId("owner-logout-button").addEventListener("click", () => {
   clearSession();
