@@ -54,8 +54,14 @@ function moveFinanceSections(sales, reports, balance) {
 
   const salesDashboard = byId("finance-sales-dashboard");
 
+  const stripePayoutAccount = byId("stripe-payout-account");
+  if (stripePayoutAccount) balance.append(stripePayoutAccount);
+
   const financeMessage = byId("finance-message");
   if (financeMessage) balance.append(financeMessage);
+
+  const stripePayoutQueue = byId("stripe-payout-queue-section");
+  if (stripePayoutQueue) balance.append(stripePayoutQueue);
 
   const salesBody = byId("finance-sales-body");
   if (salesBody) {
