@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field, model_validator
 
+from .access_control import require_platform_admin_request
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
@@ -63,7 +64,7 @@ async def list_refunds(
         return jsonable_encoder({"items": [dict(row) for row in rows]})
 
 
-@router.post("/finance/order-items/{order_item_id}/refunds", status_code=201)
+@router.post("/finance/order-items/{order_item_id}/refunds", status_code=201, dependencies=[Depends(require_platform_admin_request)])
 async def create_refund(
     order_item_id: UUID,
     payload: RefundCreate,
