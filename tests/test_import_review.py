@@ -45,4 +45,4 @@ def test_import_review_api_checks_selected_product_type() -> None:
 def test_import_review_router_is_wired_into_app() -> None:
     source = MAIN.read_text()
     assert "from .import_review import router as import_review_router" in source
-    assert "app.include_router(import_review_router)" in source
+    assert "app.include_router(import_review_router, dependencies=[Depends(require_platform_admin_request)])" in source
