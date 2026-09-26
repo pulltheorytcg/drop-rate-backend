@@ -34,6 +34,13 @@ router = APIRouter(prefix="/api/v1/ebay/oauth", tags=["ebay-oauth"])
 AUTHORIZE_URL = "https://auth.ebay.com/oauth2/authorize"
 STATE_TTL_MINUTES = 10
 SELLING_POLICY_MANAGEMENT = "SELLING_POLICY_MANAGEMENT"
+DROP_RATE_PAYMENT_POLICY_NAME = "Drop Rate - Immediate Payment"
+DROP_RATE_FULFILLMENT_POLICY_NAME = "Drop Rate - Royal Mail Tracked 48"
+DROP_RATE_RETURN_POLICY_NAME = "Drop Rate - 30 Day Returns"
+DROP_RATE_LOCATION_KEY = "drop-rate-london"
+DROP_RATE_LOCATION_NAME = "Drop Rate London"
+DROP_RATE_NOTIFICATION_DESTINATION_NAME = "Drop Rate Order Notifications"
+ORDER_CONFIRMATION_TOPIC = "ORDER_CONFIRMATION"
 
 
 class SellerConfigSelection(BaseModel):
@@ -175,6 +182,316 @@ async def _discover_seller_options(client: EbaySellClient) -> dict[str, Any]:
         "errors": errors,
         "selling_policy_management_opted_in_now": opted_in,
     }
+
+
+def _named_option(
+    values: list[dict[str, Any]],
+    *,
+    id_key: str,
+    name: str,
+) -> str | None:
+    target = name.casefold()
+    for row in values:
+        if str(row.get("name") or "").strip().casefold() == target:
+            value = str(row.get(id_key) or "").strip()
+            if value:
+                return value
+    return None
+
+
+def _supported_notification_payload(topic: dict[str, Any]) -> str:
+    payloads = topic.get("supportedPayloads")
+    if not isinstance(payloads, list):
+        return "1.0"
+    for payload in payloads:
+        if not isinstance(payload, dict) or payload.get("deprecated") is True:
+            continue
+        formats = payload.get("format")
+        protocol = str(payload.get("deliveryProtocol") or "").upper()
+        if isinstance(formats, list):
+            supports_json = "JSON" in {str(value).upper() for value in formats}
+        else:
+            supports_json = str(formats or "").upper() == "JSON"
+        if supports_json and protocol == "HTTPS":
+            version = str(payload.get("schemaVersion") or "").strip()
+            if version:
+                return version
+    raise EbaySellApiError("ORDER_CONFIRMATION has no supported JSON/HTTPS payload")
+
+
+def _notification_endpoint(row: dict[str, Any]) -> str:
+    delivery = row.get("deliveryConfig")
+    if not isinstance(delivery, dict):
+        return ""
+    return str(delivery.get("endpoint") or "").strip()
+
+
+async def _ensure_drop_rate_payment_policy(
+    client: EbaySellClient,
+    current_id: str | None,
+    options: list[dict[str, Any]],
+) -> str:
+    valid_ids = {
+        _policy_id(row, "paymentPolicyId")
+        for row in options
+        if _policy_id(row, "paymentPolicyId")
+    }
+    if current_id and current_id in valid_ids:
+        return current_id
+    named = _named_option(
+        options,
+        id_key="paymentPolicyId",
+        name=DROP_RATE_PAYMENT_POLICY_NAME,
+    )
+    if named:
+        return named
+    if len(options) == 1:
+        return _policy_id(options[0], "paymentPolicyId")
+    return await client.create_payment_policy({
+        "name": DROP_RATE_PAYMENT_POLICY_NAME,
+        "marketplaceId": client.marketplace_id,
+        "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+        "immediatePay": True,
+    })
+
+
+async def _ensure_drop_rate_return_policy(
+    client: EbaySellClient,
+    current_id: str | None,
+    options: list[dict[str, Any]],
+) -> str:
+    valid_ids = {
+        _policy_id(row, "returnPolicyId")
+        for row in options
+        if _policy_id(row, "returnPolicyId")
+    }
+    if current_id and current_id in valid_ids:
+        return current_id
+    named = _named_option(
+        options,
+        id_key="returnPolicyId",
+        name=DROP_RATE_RETURN_POLICY_NAME,
+    )
+    if named:
+        return named
+    if len(options) == 1:
+        return _policy_id(options[0], "returnPolicyId")
+    return await client.create_return_policy({
+        "name": DROP_RATE_RETURN_POLICY_NAME,
+        "marketplaceId": client.marketplace_id,
+        "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+        "returnsAccepted": True,
+        "returnPeriod": {"value": 30, "unit": "DAY"},
+        "returnShippingCostPayer": "BUYER",
+    })
+
+
+async def _ensure_drop_rate_fulfillment_policy(
+    client: EbaySellClient,
+    current_id: str | None,
+    options: list[dict[str, Any]],
+    settings: Settings,
+) -> str:
+    valid_ids = {
+        _policy_id(row, "fulfillmentPolicyId")
+        for row in options
+        if _policy_id(row, "fulfillmentPolicyId")
+    }
+    if current_id and current_id in valid_ids:
+        return current_id
+    named = _named_option(
+        options,
+        id_key="fulfillmentPolicyId",
+        name=DROP_RATE_FULFILLMENT_POLICY_NAME,
+    )
+    if named:
+        return named
+    if len(options) == 1:
+        return _policy_id(options[0], "fulfillmentPolicyId")
+    shipping_minor = settings.ebay_standard_shipping_minor
+    return await client.create_fulfillment_policy({
+        "name": DROP_RATE_FULFILLMENT_POLICY_NAME,
+        "marketplaceId": client.marketplace_id,
+        "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+        "handlingTime": {"value": settings.ebay_handling_days, "unit": "DAY"},
+        "shippingOptions": [{
+            "optionType": "DOMESTIC",
+            "costType": "FLAT_RATE",
+            "shippingServices": [{
+                "shippingCarrierCode": settings.ebay_shipping_carrier_code,
+                "shippingServiceCode": settings.ebay_shipping_service_code,
+                "shippingCost": {
+                    "value": f"{shipping_minor / 100:.2f}",
+                    "currency": "GBP",
+                },
+                "freeShipping": False,
+                "sortOrder": 1,
+            }],
+        }],
+    })
+
+
+async def _ensure_drop_rate_location(
+    client: EbaySellClient,
+    current_key: str | None,
+    options: list[dict[str, Any]],
+    settings: Settings,
+) -> str:
+    valid_keys = {_location_key(row) for row in options if _location_key(row)}
+    if current_key and current_key in valid_keys:
+        return current_key
+    if DROP_RATE_LOCATION_KEY in valid_keys:
+        return DROP_RATE_LOCATION_KEY
+    if len(options) == 1:
+        return _location_key(options[0])
+    postcode = (settings.ebay_origin_postcode or "").strip().upper()
+    if not postcode:
+        raise EbaySellApiError(
+            "TCG_EBAY_ORIGIN_POSTCODE is required to create the eBay inventory location"
+        )
+    await client.create_inventory_location(
+        DROP_RATE_LOCATION_KEY,
+        {
+            "location": {
+                "address": {
+                    "postalCode": postcode,
+                    "country": "GB",
+                }
+            },
+            "name": DROP_RATE_LOCATION_NAME,
+            "merchantLocationStatus": "ENABLED",
+            "locationTypes": ["WAREHOUSE"],
+        },
+    )
+    return DROP_RATE_LOCATION_KEY
+
+
+async def _ensure_order_confirmation_notification(
+    client: EbaySellClient,
+    settings: Settings,
+    *,
+    current_destination_id: str | None,
+    current_subscription_id: str | None,
+) -> tuple[str, str]:
+    endpoint = (settings.ebay_notification_endpoint or "").strip()
+    verification_token = (
+        settings.ebay_notification_verification_token or ""
+    ).strip()
+    alert_email = (settings.ebay_alert_email or "").strip()
+    if not endpoint or not verification_token or not alert_email:
+        raise EbaySellApiError(
+            "eBay notification endpoint, verification token and alert email are required"
+        )
+
+    await client.put_notification_config(alert_email)
+
+    destinations = await client.get_notification_destinations()
+    destination: dict[str, Any] | None = None
+    if current_destination_id:
+        destination = next(
+            (
+                row for row in destinations
+                if str(row.get("destinationId") or "") == current_destination_id
+            ),
+            None,
+        )
+    if destination is None:
+        destination = next(
+            (row for row in destinations if _notification_endpoint(row) == endpoint),
+            None,
+        )
+
+    if destination is None:
+        destination_id = await client.create_notification_destination(
+            name=DROP_RATE_NOTIFICATION_DESTINATION_NAME,
+            endpoint=endpoint,
+            verification_token=verification_token,
+        )
+        destinations = await client.get_notification_destinations()
+        destination = next(
+            (
+                row for row in destinations
+                if str(row.get("destinationId") or "") == destination_id
+                or _notification_endpoint(row) == endpoint
+            ),
+            None,
+        )
+        if destination is None:
+            raise EbaySellApiError("eBay notification destination could not be verified")
+    else:
+        destination_id = str(destination.get("destinationId") or "").strip()
+
+    if str(destination.get("status") or "").upper() != "ENABLED":
+        await client.update_notification_destination(
+            destination_id,
+            name=str(destination.get("name") or DROP_RATE_NOTIFICATION_DESTINATION_NAME),
+            endpoint=endpoint,
+            verification_token=verification_token,
+        )
+        destinations = await client.get_notification_destinations()
+        destination = next(
+            (
+                row for row in destinations
+                if str(row.get("destinationId") or "") == destination_id
+            ),
+            None,
+        )
+    if not destination or str(destination.get("status") or "").upper() != "ENABLED":
+        raise EbaySellApiError("eBay notification destination is not enabled")
+
+    topics = await client.get_notification_topics()
+    topic = next(
+        (
+            row for row in topics
+            if str(row.get("topicId") or "").strip() == ORDER_CONFIRMATION_TOPIC
+        ),
+        None,
+    )
+    if topic is None:
+        raise EbaySellApiError("ORDER_CONFIRMATION is not available to this eBay application")
+    if str(topic.get("status") or "ENABLED").upper() != "ENABLED":
+        raise EbaySellApiError("ORDER_CONFIRMATION is not enabled by eBay")
+    schema_version = _supported_notification_payload(topic)
+
+    subscriptions = await client.get_notification_subscriptions()
+    subscription: dict[str, Any] | None = None
+    if current_subscription_id:
+        subscription = next(
+            (
+                row for row in subscriptions
+                if str(row.get("subscriptionId") or "") == current_subscription_id
+            ),
+            None,
+        )
+    if subscription is None:
+        subscription = next(
+            (
+                row for row in subscriptions
+                if str(row.get("topicId") or "") == ORDER_CONFIRMATION_TOPIC
+                and str(row.get("destinationId") or "") == destination_id
+            ),
+            None,
+        )
+
+    if subscription is None:
+        subscription_id = await client.create_notification_subscription(
+            topic_id=ORDER_CONFIRMATION_TOPIC,
+            destination_id=destination_id,
+            schema_version=schema_version,
+        )
+    else:
+        subscription_id = str(subscription.get("subscriptionId") or "").strip()
+        if str(subscription.get("status") or "").upper() != "ENABLED":
+            await client.enable_notification_subscription(subscription_id)
+
+    verified_subscription = await client.get_notification_subscription(subscription_id)
+    if (
+        str(verified_subscription.get("status") or "").upper() != "ENABLED"
+        or str(verified_subscription.get("topicId") or "") != ORDER_CONFIRMATION_TOPIC
+        or str(verified_subscription.get("destinationId") or "") != destination_id
+    ):
+        raise EbaySellApiError("ORDER_CONFIRMATION subscription could not be verified")
+    return destination_id, subscription_id
 
 
 def _single_option(values: list[dict[str, Any]], key: str) -> str | None:
