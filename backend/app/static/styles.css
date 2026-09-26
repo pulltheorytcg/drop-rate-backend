@@ -1154,7 +1154,7 @@ tbody tr:hover{background:#f7fbff!important}
   display:block;
   width:92px;
   aspect-ratio:3/2;
-  background-image:url("/assets/brand-assets/drop-rate-logo.png?v=20260921");
+  background-image:url("/assets/brand-assets/drop-rate-founder-hq.png?v=20260926");
   background-repeat:no-repeat;
   background-position:center;
   background-size:contain;
@@ -1169,18 +1169,8 @@ tbody tr:hover{background:#f7fbff!important}
   gap:1px!important;
   letter-spacing:0!important;
 }
-.dr-founder-label{
-  margin-top:-4px;
-  color:#91a7c6;
-  font-size:.47rem;
-  line-height:1;
-  font-weight:950;
-  letter-spacing:.22em;
-  white-space:nowrap;
-}
 .topbar .brand-lockup-logo{align-self:stretch}
-.topbar .dr-logo-image{width:72px;flex-shrink:0}
-.topbar .dr-founder-label{margin-top:3px;flex-shrink:0}
+.topbar .dr-logo-image{width:94px;flex-shrink:0}
 .brand-panel .dr-logo-image{width:150px}
 .mobile-brand .dr-logo-image{width:112px}
 
@@ -1349,7 +1339,7 @@ tbody tr:hover{background:#f7fbff!important}
   .media-evidence-row{grid-template-columns:1fr;gap:10px}
   .media-evidence-states{grid-template-columns:repeat(3,1fr)}
   .media-evidence-action{justify-content:flex-start}
-  .topbar .dr-logo-image{width:72px}
+  .topbar .dr-logo-image{width:94px}
   .brand-panel .dr-logo-image{width:126px}
 }
 @media(max-width:480px){
