@@ -597,7 +597,7 @@ def test_webhook_registration_plan_fails_closed_on_duplicate_exact_subscription(
 def test_webhook_registration_is_founder_scoped_and_reverifies_remote_state() -> None:
     source = SHOPIFY.read_text()
     assert '@router.post("/webhooks/register")' in source
-    assert 'owner["role"] != "FOUNDER"' in source
+    assert "await require_platform_admin(connection)" in source
     assert "plan_webhook_registration(existing, endpoint)" in source
     assert "verified = await client.list_webhook_subscriptions()" in source
     assert "Shopify webhook registration could not be verified" in source
