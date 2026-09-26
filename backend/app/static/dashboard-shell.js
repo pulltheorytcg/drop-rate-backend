@@ -785,10 +785,25 @@ async function startEbaySellerConnection() {
   const button = byId("ebay-connect-button");
   if (button) button.disabled = true;
   showMessage("ebay-connection-message", "Preparing secure eBay sign-in…");
+
+  // Open synchronously from the founder click so browser popup protection
+  // cannot swallow the seller-consent window while the API generates state.
+  const popup = window.open("about:blank", "_blank");
+  if (popup) {
+    try {
+      popup.opener = null;
+      popup.document.title = "Connecting eBay…";
+      popup.document.body.textContent = "Preparing secure eBay sign-in…";
+    } catch (_error) {
+      // The popup is still safe to navigate even if the interim DOM is blocked.
+    }
+  }
+
   try {
     const result = await apiRequest("/api/v1/ebay/oauth/start", {method: "POST"});
-    const popup = window.open(result.authorization_url, "_blank", "noopener,noreferrer");
-    if (!popup) {
+    if (popup && !popup.closed) {
+      popup.location.replace(result.authorization_url);
+    } else {
       window.location.assign(result.authorization_url);
       return;
     }
@@ -798,6 +813,7 @@ async function startEbaySellerConnection() {
       "success"
     );
   } catch (error) {
+    if (popup && !popup.closed) popup.close();
     showMessage("ebay-connection-message", error.message, "error");
   } finally {
     if (button) button.disabled = false;
