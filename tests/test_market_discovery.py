@@ -65,7 +65,7 @@ def test_discovery_is_non_persistent_and_releases_db_before_provider_io() -> Non
 def test_discovery_router_is_wired_into_app() -> None:
     main = MAIN.read_text()
     assert "from .market_discovery import router as market_discovery_router" in main
-    assert "app.include_router(market_discovery_router)" in main
+    assert "app.include_router(market_discovery_router, dependencies=[Depends(require_platform_admin_request)])" in main
 
 
 def test_cardmarket_search_label_yields_name_and_short_collector_number() -> None:
