@@ -205,6 +205,65 @@ def _sanitise_location(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _persist_seller_connection(
+    pool: Any,
+    *,
+    attempt: Any,
+    settings: Settings,
+    encrypted_refresh_token: str,
+    scopes: list[str],
+    status: str,
+    payment_policy_id: str | None = None,
+    fulfillment_policy_id: str | None = None,
+    return_policy_id: str | None = None,
+    merchant_location_key: str | None = None,
+    last_error_code: str | None = None,
+) -> None:
+    async with pool.acquire() as connection:
+        await connection.execute(
+            "select set_config('tcg.user_id',$1,true)",
+            str(attempt["user_id"]),
+        )
+        await connection.execute(
+            "select set_config('tcg.request_id',$1,true)",
+            f"ebay-oauth:{attempt['id']}",
+        )
+        await connection.execute(
+            """
+            insert into tcg.ebay_seller_connections(
+                owner_id,created_by_user_id,marketplace_id,
+                refresh_token_ciphertext,granted_scopes,status,
+                payment_policy_id,fulfillment_policy_id,return_policy_id,
+                merchant_location_key,last_verified_at,last_error_code
+            ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,clock_timestamp(),$11)
+            on conflict (owner_id) do update
+            set refresh_token_ciphertext=excluded.refresh_token_ciphertext,
+                granted_scopes=excluded.granted_scopes,
+                status=excluded.status,
+                payment_policy_id=excluded.payment_policy_id,
+                fulfillment_policy_id=excluded.fulfillment_policy_id,
+                return_policy_id=excluded.return_policy_id,
+                merchant_location_key=excluded.merchant_location_key,
+                last_verified_at=clock_timestamp(),
+                last_error_code=excluded.last_error_code,
+                connected_at=clock_timestamp(),
+                version=tcg.ebay_seller_connections.version+1,
+                updated_at=clock_timestamp()
+            """,
+            attempt["owner_id"],
+            attempt["user_id"],
+            settings.ebay_marketplace_id,
+            encrypted_refresh_token,
+            scopes,
+            status,
+            payment_policy_id,
+            fulfillment_policy_id,
+            return_policy_id,
+            merchant_location_key,
+            last_error_code,
+        )
+
+
 @router.get("/status")
 async def ebay_oauth_status(
     request: Request,
