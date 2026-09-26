@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, R
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
+from .access_control import require_platform_admin_request
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ebay_sell_client import EbaySellApiError, EbaySellClient
@@ -496,7 +497,7 @@ async def _mark_link_error(pool: Any, link_id: UUID, code: str) -> None:
         )
 
 
-@router.get("/seller-status")
+@router.get("/seller-status", dependencies=[Depends(require_platform_admin_request)])
 async def seller_status(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -575,7 +576,7 @@ async def seller_status(
     return result
 
 
-@router.post("/listings/{inventory_id}")
+@router.post("/listings/{inventory_id}", dependencies=[Depends(require_platform_admin_request)])
 async def publish_inventory_to_ebay(
     inventory_id: UUID,
     payload: EbayListRequest,
