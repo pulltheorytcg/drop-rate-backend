@@ -63,6 +63,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/dashboard-shell.js" defer></script>',
         '<script src="/assets/identity-review.js" defer></script>',
         '<script src="/assets/shopify-settings.js" defer></script>',
+        '<script src="/assets/media-condition.js" defer></script>',
         '<script src="/assets/market-smoke-panel.js" defer></script>',
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
         '<script src="/assets/market-value-column.js" defer></script>',
