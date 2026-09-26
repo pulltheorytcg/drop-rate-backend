@@ -17,9 +17,13 @@ class FakeConnection:
         self.row = row
         self.sql = ""
 
-    async def fetchrow(self, sql: str):
+    async def fetch(self, sql: str):
         self.sql = sql
-        return self.row
+        if self.row is None:
+            return []
+        if isinstance(self.row, list):
+            return self.row
+        return [self.row]
 
 
 @pytest.mark.asyncio
@@ -42,7 +46,7 @@ async def test_platform_admin_context_allows_founder_hq() -> None:
     assert context["access_role"] == "PLATFORM_ADMIN"
     assert context["founder_hq_allowed"] is True
     assert context["portal"] == "FOUNDER_HQ"
-    assert "m.user_id=tcg.current_user_id()" in connection.sql
+    assert "m.user_id=tcg.current_user_id()" in connection.sql\n    assert "limit 2" in connection.sql
 
 
 @pytest.mark.asyncio
@@ -194,4 +198,37 @@ async def test_platform_admin_cannot_use_owner_portal_api_guard() -> None:
 
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == "Owner portal access required"
+
+@pytest.mark.asyncio
+async def test_multiple_active_memberships_fail_closed() -> None:
+    connection = FakeConnection(
+        [
+            {
+                "user_id": "user-3",
+                "owner_id": "owner-a",
+                "role": "OWNER",
+                "membership_active": True,
+                "display_name": "Owner A",
+                "owner_type": "CONSIGNOR",
+                "owner_active": True,
+                "founder_slot": None,
+            },
+            {
+                "user_id": "user-3",
+                "owner_id": "owner-b",
+                "role": "OWNER",
+                "membership_active": True,
+                "display_name": "Owner B",
+                "owner_type": "CONSIGNOR",
+                "owner_active": True,
+                "founder_slot": None,
+            },
+        ]
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await current_access_context(connection)
+
+    assert exc_info.value.status_code == 409
+    assert "Multiple active owner memberships" in exc_info.value.detail
 
