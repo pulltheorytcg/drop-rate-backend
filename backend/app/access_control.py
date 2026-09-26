@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/v1/access", tags=["access-control"])
 
 
 async def current_access_context(connection: asyncpg.Connection) -> dict:
-    row = await connection.fetchrow(
+    rows = await connection.fetch(
         """
         select
             m.user_id,
@@ -31,12 +31,18 @@ async def current_access_context(connection: asyncpg.Connection) -> dict:
           and m.active
           and o.active
         order by m.created_at,m.id
-        limit 1
+        limit 2
         """
     )
-    if row is None:
+    if not rows:
         raise HTTPException(status_code=403, detail="No active owner membership")
+    if len(rows) > 1:
+        raise HTTPException(
+            status_code=409,
+            detail="Multiple active owner memberships require administrator review",
+        )
 
+    row = rows[0]
     role = str(row["role"])
     if role not in {"PLATFORM_ADMIN", "OWNER"}:
         raise HTTPException(status_code=403, detail="Unsupported access role")
