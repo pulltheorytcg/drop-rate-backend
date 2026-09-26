@@ -36,10 +36,15 @@
           <p class="eyebrow">Private founder invitation</p>
           <h2>Join Drop Rate</h2>
           <p id="invite-summary" class="muted"></p>
+          <div id="join-social-auth" class="social-auth hidden" aria-label="Social account creation">
+            <button id="join-google" class="oauth-button" type="button" data-provider="google">Continue with Google</button>
+            <button id="join-apple" class="oauth-button oauth-button-apple" type="button" data-provider="apple">Continue with Apple</button>
+            <div class="auth-divider"><span>or create with email</span></div>
+          </div>
           <label>Your name<input id="join-name" type="text" autocomplete="name" required maxlength="120"></label>
           <label>Email address<input id="join-email" type="email" autocomplete="email" required maxlength="320"></label>
-          <label>Password<input id="join-password" type="password" autocomplete="new-password" required minlength="10"></label>
-          <label>Confirm password<input id="join-confirm-password" type="password" autocomplete="new-password" required minlength="10"></label>
+          <label>Password<input id="join-password" type="password" autocomplete="new-password" required minlength="12"></label>
+          <label>Confirm password<input id="join-confirm-password" type="password" autocomplete="new-password" required minlength="12"></label>
           <div id="join-message" class="message" role="status"></div>
           <button class="primary-button" type="submit">Create founder account <span>→</span></button>
           <button id="show-existing-login" class="text-button" type="button">Already have a Drop Rate login?</button>
@@ -49,6 +54,11 @@
           <button id="back-to-join" class="back-button" type="button">← Back</button>
           <p class="eyebrow">Existing account</p>
           <h2>Sign in to accept invitation</h2>
+          <div id="existing-social-auth" class="social-auth hidden" aria-label="Social sign in">
+            <button id="existing-google" class="oauth-button" type="button" data-provider="google">Continue with Google</button>
+            <button id="existing-apple" class="oauth-button oauth-button-apple" type="button" data-provider="apple">Continue with Apple</button>
+            <div class="auth-divider"><span>or use email</span></div>
+          </div>
           <label>Email address<input id="existing-email" type="email" autocomplete="email" required></label>
           <label>Password<input id="existing-password" type="password" autocomplete="current-password" required></label>
           <div id="existing-message" class="message" role="status"></div>
