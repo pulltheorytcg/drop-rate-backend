@@ -497,6 +497,17 @@ These are **not blockers to the current backend foundation**, but remain explici
 
 See `docs/STRIPE_CONNECT_PAYOUTS.md`.
 
+## Consignor commission — 26 Sep 2026
+
+- **10% default deployed (PR #153 / `1ccdb06`):** every future `CONSIGNOR` owner defaults to **1000 bps = 10.00%** commission; `FOUNDER` owners are enforced at **0%**.
+- **Commission basis:** item net sale after item-level discounts; shipping revenue is excluded.
+- **Historical integrity:** `commission_bps_snapshot` and `commission_minor` are frozen on each immutable order item, so later rate changes cannot rewrite old sales.
+- **Ledger:** commission is an explicit append-only `COMMISSION` deduction, separate from marketplace/payment/postage/material costs. Partial/full item refunds append proportional `COMMISSION_REVERSAL` entries.
+- **Payout effect:** owner available balance is computed from the complete ledger, so Stripe payout requests automatically use the post-commission amount.
+- **Live transactional test passed:** £90.00 net sale → £9.00 commission → £81.00 owner ledger; 50% refund restored £4.50 commission → £40.50 ledger; full refund restored remaining £4.50 → £0.00. Transaction rolled back and left 0 test rows.
+- **Regression/deploy:** GitHub and Railway both passed **604 tests**; Railway deployment `35215d97-67f5-4008-a76b-ebb5d128a403` succeeded and `/health/ready` returned 200.
+- **Production state remains clean:** 0 real consignor commission ledger rows exist because there are currently 0 consignor owners. Existing founder commission remains 0%.
+
 ## Milestone 1 checklist
 
 | Requirement | Status |
@@ -535,7 +546,7 @@ See `docs/STRIPE_CONNECT_PAYOUTS.md`.
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
 | 9 | AI card identification | ⬜ Not started |
-| 10 | Consignment | ⬜ Not started |
+| 10 | Consignment | 🚧 Payout/commission foundation deployed: 10% consignor commission, Stripe Connect readiness and payout approval control exist; consignor onboarding/intake portal remains to build |
 | 11 | AI product listings | ⬜ Not started |
 | 12 | AI customer service | ⬜ Not started |
 | 13 | SEO | ⬜ Not started |
