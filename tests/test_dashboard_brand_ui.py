@@ -17,7 +17,7 @@ def test_drop_rate_brand_shell_uses_real_visual_identity_not_generic_dr_tile() -
     assert "dr-logo-image" in html
     assert "dr-founder-label" in html
     assert "FOUNDER HQ" in html
-    assert "styles.css?v=founder-v3" in html
+    assert "styles.css?v=founder-v4" in html
     assert logo.is_file()
     assert logo.stat().st_size > 1_000_000
     assert '/assets/brand-assets/drop-rate-logo.png?v=20260921' in css

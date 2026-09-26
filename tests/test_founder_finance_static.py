@@ -32,7 +32,8 @@ def test_finance_sales_ui_labels_pending_costs_and_provisional_profit() -> None:
     assert "finance-item-meta" in js
     assert "finance-item-code" in js
     assert "finance-money-cell" in css
-    assert ".finance-pending-costs" in css
+    assert ".finance-sale-row .finance-pending-costs" in css
+    assert "#founder-finance-panel .finance-pending-costs" not in css
     assert "Founder finance sales table" in css
 
 

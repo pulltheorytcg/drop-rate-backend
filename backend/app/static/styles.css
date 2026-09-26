@@ -15,28 +15,28 @@
 @media(max-width:900px){.identity-review-toolbar{align-items:stretch}.identity-group-row{grid-template-columns:1fr}.identity-group-row>div:last-child{justify-content:flex-start}.identity-copy-row{grid-template-columns:1fr}.identity-copy-controls{justify-content:flex-start}}
 
 /* Founder finance sales table */
-#founder-finance-panel .finance-item-cell{min-width:230px;max-width:320px;display:table-cell}
-#founder-finance-panel .finance-item-cell>strong{display:block;color:#f2f4f7;font-size:.9rem;line-height:1.25;margin-bottom:4px}
-#founder-finance-panel .finance-item-meta{display:block;color:var(--muted);font-size:.71rem;line-height:1.35;margin-bottom:5px;white-space:normal}
-#founder-finance-panel .finance-item-code{display:block;max-width:215px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#founder-finance-panel .finance-money-cell{white-space:nowrap}
-#founder-finance-panel .finance-money-cell>strong{display:block;color:#e9edf3;font-size:.82rem;line-height:1.25}
-#founder-finance-panel .finance-money-cell>small{display:block;color:var(--muted);font-size:.66rem;line-height:1.35;margin-top:3px;white-space:normal;max-width:170px}
-#founder-finance-panel table{min-width:1080px}
+.finance-sale-row .finance-item-cell{min-width:230px;max-width:320px;display:table-cell}
+.finance-sale-row .finance-item-cell>strong{display:block;color:var(--dr-ink);font-size:.9rem;line-height:1.25;margin-bottom:4px}
+.finance-sale-row .finance-item-meta{display:block;color:var(--muted);font-size:.71rem;line-height:1.35;margin-bottom:5px;white-space:normal}
+.finance-sale-row .finance-item-code{display:block;max-width:215px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.finance-sale-row .finance-money-cell{white-space:nowrap}
+.finance-sale-row .finance-money-cell>strong{display:block;color:var(--dr-ink);font-size:.82rem;line-height:1.25}
+.finance-sale-row .finance-money-cell>small{display:block;color:var(--muted);font-size:.66rem;line-height:1.35;margin-top:3px;white-space:normal;max-width:170px}
+:is(#founder-finance-panel,[data-seller-view="sales"]) table{min-width:1080px}
 @media(max-width:560px){
-  #founder-finance-panel table{min-width:0}
-  #founder-finance-panel .finance-item-cell{display:grid;min-width:0;max-width:none}
-  #founder-finance-panel .finance-item-code{max-width:100%}
-  #founder-finance-panel .finance-money-cell{white-space:normal}
-  #founder-finance-panel .finance-money-cell>small{max-width:none}
+  :is(#founder-finance-panel,[data-seller-view="sales"]) table{min-width:0}
+  .finance-sale-row .finance-item-cell{display:grid;min-width:0;max-width:none}
+  .finance-sale-row .finance-item-code{max-width:100%}
+  .finance-sale-row .finance-money-cell{white-space:normal}
+  .finance-sale-row .finance-money-cell>small{max-width:none}
 }
 
-#founder-finance-panel .finance-reconcile-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
-#founder-finance-panel .finance-reconcile-actions .ghost-button{padding:5px 8px;font-size:.68rem;line-height:1.1}
-#founder-finance-panel .finance-pending-costs{
+.finance-sale-row .finance-reconcile-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.finance-sale-row .finance-reconcile-actions .ghost-button{padding:5px 8px;font-size:.68rem;line-height:1.1}
+.finance-sale-row .finance-pending-costs{
   display:inline-flex;align-items:center;width:max-content;max-width:100%;margin-top:6px;
-  padding:4px 7px;border:1px solid rgba(255,196,109,.25);border-radius:999px;
-  background:rgba(255,196,109,.09);color:#ffd18a;font-size:.6rem;font-weight:850;
+  padding:4px 7px;border:1px solid #ead5ad;border-radius:999px;
+  background:#fff6e5;color:#805414;font-size:.6rem;font-weight:850;
   line-height:1.15;white-space:normal;
 }
 
@@ -562,6 +562,7 @@ body{
   font-weight:950;
 }
 .topbar .user-chip small{color:#b8c7df}
+.topbar .user-chip strong{color:#fff!important}
 .topbar .ghost-button{
   color:#fff;
   border-color:rgba(255,255,255,.14);
@@ -1178,7 +1179,8 @@ tbody tr:hover{background:#f7fbff!important}
   white-space:nowrap;
 }
 .topbar .brand-lockup-logo{align-self:stretch}
-.topbar .dr-logo-image{width:88px}
+.topbar .dr-logo-image{width:72px;flex-shrink:0}
+.topbar .dr-founder-label{margin-top:3px;flex-shrink:0}
 .brand-panel .dr-logo-image{width:150px}
 .mobile-brand .dr-logo-image{width:112px}
 
@@ -1328,7 +1330,7 @@ tbody tr:hover{background:#f7fbff!important}
   border:1px dashed #dbe4ec;border-radius:12px;background:#fafcfe;
 }
 [data-seller-view="sales"]>.table-wrap{
-  border:1px solid var(--dr-line)!important;border-radius:18px!important;overflow:hidden;
+  border:1px solid var(--dr-line)!important;border-radius:18px!important;overflow-x:auto;
   background:#fff!important;box-shadow:var(--shadow-soft)!important;
 }
 
@@ -1347,7 +1349,7 @@ tbody tr:hover{background:#f7fbff!important}
   .media-evidence-row{grid-template-columns:1fr;gap:10px}
   .media-evidence-states{grid-template-columns:repeat(3,1fr)}
   .media-evidence-action{justify-content:flex-start}
-  .topbar .dr-logo-image{width:78px}
+  .topbar .dr-logo-image{width:72px}
   .brand-panel .dr-logo-image{width:126px}
 }
 @media(max-width:480px){
