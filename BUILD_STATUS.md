@@ -484,6 +484,19 @@ These are **not blockers to the current backend foundation**, but remain explici
 14. **Shopify shipping profile configuration:** registry and hard publication gate are live. RAW_CARD is configured at 40g for Royal Mail Tracked 48 using a 110x145x21mm package; Settings now exposes the package facts and audited £0.83 material total (£0.75 packaging + £0.08 top loader). GRADED_CARD is active at 120g for Royal Mail Tracked 48 using the founder-supplied 116x164x25mm, 33g box. Packaging is £1.20 per order; see `docs/GRADED_CARD_FULFILMENT_RESEARCH.md`. Because 25mm is the exact Large Letter ceiling, every sealed package must pass a thickness gauge.
 15. **Shopify media readiness:** completeness/media registry remains fail-closed. Founder Media Intake v1 plus batch capture are healthy in production. Settings verifies Shopify `write_files`, creates short-lived staged upload targets, uploads image bytes directly to Shopify, requires explicit founder rights confirmation, and reuses the audited create → approve → sync workflow. Batch capture is sequential and duplicate live sides are database-enforced. Live registry currently has 0 media assets. The immediate operational opportunity is the 96 approved/core-ready cards (93 raw, 3 graded) that can move forward once their required media is captured and approved. Manual next check: confirm `write_files` is granted and complete one real founder image upload/batch.
 
+## Stripe Connect payout foundation — 26 Sep 2026
+
+- **Phase 1 implemented:** Stripe Connect Express account mapping, Stripe-hosted onboarding, transfers-capability readiness, signed/idempotent webhook intake, founder payout approval queue and immutable PREPARED payout execution records.
+- **Deterministic authority remains Drop Rate:** Shopify/eBay order allocation, refunds, fees, postage and owner balances are computed in PostgreSQL/FastAPI before Stripe can be involved.
+- **Fail-closed approval:** incomplete KYC, payouts disabled, transfers inactive, unreconciled marketplace costs or owner balance shortfalls block approval.
+- **No automatic money movement:** `TCG_STRIPE_PAYOUT_EXECUTION_ENABLED=false`. The backend contains no Stripe Transfer/Payout execution endpoint in Phase 1.
+- **Live connected-account creation remains locked:** `TCG_STRIPE_CONNECT_LIVE_ENABLED=false`.
+- **Production DB migrations applied:** `20260926180043_stripe_connect_payout_phase1`, `20260926180715_index_stripe_payout_connected_account`, `20260926181040_harden_stripe_payout_control`.
+- **Provider credential blocker:** ChatGPT's Stripe plugin OAuth callback is currently broken/uninstalled, so no Stripe secret or webhook signing secret has been retrieved through the plugin. Do not paste Stripe secrets into chat.
+- **Phase 2 gate:** confirm a permitted platform-balance funding path because Shopify customer receipts do not automatically fund the Stripe platform balance; then test Transfer → connected balance → bank payout → webhook → refund/reversal handling before enabling real money.
+
+See `docs/STRIPE_CONNECT_PAYOUTS.md`.
+
 ## Milestone 1 checklist
 
 | Requirement | Status |
@@ -518,7 +531,7 @@ These are **not blockers to the current backend foundation**, but remain explici
 | 4 | Inventory dashboard functionality | ✅ Core complete; portfolio valuation, Top 5 value ranking, genuine weekly movers, Shopify readiness and dedicated Media & Condition workspace deployed |
 | 4.5 | Founder dashboard UX/navigation | ✅ Structural seller portal live; visual polish can continue incrementally |
 | 5 | Shopify integration | 🚧 Guarded product sync + verified webhooks + exact-item paid-sale + full refund/restock path production-verified; per-Inventory-ID front/back media, photo-backed NM/slab condition gates, deterministic product-completeness/media/shipping gates and Shopify readiness are deployed; bulk publishing remains locked; first live photo/condition batch + refund settlement follow-up remain |
-| 6 | Orders / allocation / settlements | 🚧 Exact Shopify Inventory ID attribution + COGS + sale/shipping revenue + item/shipping refund reversal production-verified; fee/postage reconciliation, batch pending-fee sync and Owner Settlement Report v1 are deployed; final #1002 external refund settlement verification remains |
+| 6 | Orders / allocation / settlements | 🚧 Exact Shopify/eBay ownership attribution + deterministic settlement reporting are deployed; Stripe Connect payout-control Phase 1 is in review with live money movement locked; final Shopify refund settlement verification and Stripe test-mode onboarding remain |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
 | 9 | AI card identification | ⬜ Not started |
