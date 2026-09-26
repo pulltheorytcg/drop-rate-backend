@@ -173,6 +173,33 @@ class EbaySellClient:
             raise EbaySellApiError("eBay seller API returned an invalid response shape")
         return payload
 
+    async def get_payment_policy(self, policy_id: str) -> dict[str, Any]:
+        payload = await self._request(
+            "GET",
+            f"/sell/account/v1/payment_policy/{quote(policy_id, safe='')}",
+        )
+        if payload is None:
+            raise EbaySellApiError("eBay payment policy response was empty")
+        return payload
+
+    async def get_fulfillment_policy(self, policy_id: str) -> dict[str, Any]:
+        payload = await self._request(
+            "GET",
+            f"/sell/account/v1/fulfillment_policy/{quote(policy_id, safe='')}",
+        )
+        if payload is None:
+            raise EbaySellApiError("eBay fulfillment policy response was empty")
+        return payload
+
+    async def get_return_policy(self, policy_id: str) -> dict[str, Any]:
+        payload = await self._request(
+            "GET",
+            f"/sell/account/v1/return_policy/{quote(policy_id, safe='')}",
+        )
+        if payload is None:
+            raise EbaySellApiError("eBay return policy response was empty")
+        return payload
+
     async def get_inventory_location(self, merchant_location_key: str) -> dict[str, Any]:
         payload = await self._request(
             "GET",
@@ -225,6 +252,15 @@ class EbaySellClient:
         if not offer_id:
             raise EbaySellApiError("eBay create offer response is missing offerId")
         return offer_id
+
+    async def update_offer(self, offer_id: str, payload: dict[str, Any]) -> None:
+        await self._request(
+            "PUT",
+            f"/sell/inventory/v1/offer/{quote(offer_id, safe='')}",
+            json_body=payload,
+            expected={204},
+            content_language=True,
+        )
 
     async def get_offer(self, offer_id: str) -> dict[str, Any]:
         payload = await self._request(
