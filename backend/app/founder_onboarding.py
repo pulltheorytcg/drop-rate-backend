@@ -130,6 +130,12 @@ async def redeem_founder_invite(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
+    if not user.email:
+        raise HTTPException(
+            status_code=403,
+            detail="A verified account email is required to redeem this invitation",
+        )
+
     async with user_connection(
         request.app.state.db_pool,
         user.user_id,
@@ -139,7 +145,7 @@ async def redeem_founder_invite(
             "select * from tcg.redeem_founder_invite($1,$2,$3)",
             _token_hash(payload.token),
             payload.display_name,
-            payload.email,
+            user.email,
         )
 
     if row is None:
