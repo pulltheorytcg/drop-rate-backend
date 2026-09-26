@@ -588,11 +588,20 @@ async def approve_stripe_payout(
                     detail=f"Payout is {payout['status']} and cannot be approved",
                 )
 
+            payee = await connection.fetchrow(
+                "select active from tcg.owners where id=$1 for update",
+                payout["owner_id"],
+            )
+            if payee is None:
+                raise HTTPException(status_code=409, detail="Payout owner no longer exists")
+
             account = await connection.fetchrow(
                 "select * from tcg.stripe_connected_accounts where owner_id=$1 for update",
                 payout["owner_id"],
             )
             blockers = _readiness_blockers(account)
+            if not bool(payee["active"]):
+                blockers.append("OWNER_INACTIVE")
             unreconciled = await _unreconciled_sales_count(
                 connection, payout["owner_id"]
             )

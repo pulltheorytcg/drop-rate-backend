@@ -121,6 +121,14 @@ def test_payout_approval_blocks_unreconciled_external_sales() -> None:
     assert "TRANSFERS_NOT_ACTIVE" in source
 
 
+def test_payout_approval_rechecks_owner_active_state_under_lock() -> None:
+    source = STRIPE_SOURCE.read_text()
+    start = source.index('@router.post("/payouts/{payout_id}/approve")')
+    block = source[start:source.index('@router.post("/payouts/{payout_id}/reject")')]
+    assert "select active from tcg.owners where id=$1 for update" in block
+    assert 'blockers.append("OWNER_INACTIVE")' in block
+
+
 def test_webhook_events_are_hash_only_and_idempotent() -> None:
     migration = MIGRATION_SOURCE.read_text()
     source = STRIPE_SOURCE.read_text()
