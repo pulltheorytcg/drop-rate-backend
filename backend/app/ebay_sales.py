@@ -495,11 +495,33 @@ async def seller_status(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict[str, Any]:
     settings = get_settings()
-    missing = _seller_publish_missing(settings, include_publish_gate=True)
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
-        await _owner(connection)
+        owner = await _owner(connection)
+    try:
+        effective = await load_effective_seller_config(
+            request.app.state.db_pool, settings, owner_id=owner["id"]
+        )
+    except (RuntimeError, ValueError) as exc:
+        effective = EbayEffectiveSellerConfig(
+            refresh_token=None,
+            payment_policy_id=None,
+            fulfillment_policy_id=None,
+            return_policy_id=None,
+            merchant_location_key=None,
+            connection_id=None,
+            owner_id=owner["id"],
+            status="ERROR",
+            granted_scopes=(),
+        )
+        config_warning = str(exc)
+    else:
+        config_warning = None
+
+    missing = _seller_publish_missing(
+        settings, effective, include_publish_gate=True
+    )
     result: dict[str, Any] = {
         "marketplace_id": settings.ebay_marketplace_id,
         "configured": not missing,
@@ -509,24 +531,36 @@ async def seller_status(
         "category_id": EBAY_GB_CCG_SINGLE_CATEGORY_ID,
         "scope": "individual CCG cards only",
         "live_verified": False,
+        "connection_status": effective.status,
     }
-    if missing:
+    if config_warning:
+        result["warning"] = config_warning
         return result
+    if not effective.refresh_token:
+        return result
+
     try:
-        client = _client(settings)
-        await _validate_seller_prerequisites(client, settings)
+        client, effective = await seller_client(
+            request.app.state.db_pool, settings, owner_id=owner["id"]
+        )
         await client.user_access_token()
         scopes = client.granted_scopes
         result["granted_scopes"] = sorted(scopes)
-        result["live_verified"] = (
+        scope_ready = (
             EBAY_INVENTORY_SCOPE in scopes
             and EBAY_ACCOUNT_SCOPE in scopes
             and EBAY_FULFILLMENT_SCOPE in scopes
             and EBAY_FULFILLMENT_READONLY_SCOPE in scopes
             and EBAY_NOTIFICATION_SCOPE in scopes
         )
-        if not result["live_verified"]:
-            result["warning"] = "Seller token is missing required Inventory/Fulfillment scopes"
+        config_ready = not _seller_publish_missing(
+            settings, effective, include_publish_gate=False
+        )
+        if config_ready:
+            await _validate_seller_prerequisites(client, settings, effective)
+        result["live_verified"] = scope_ready and config_ready
+        if not scope_ready:
+            result["warning"] = "Seller token is missing required eBay scopes"
     except (EbaySellApiError, RuntimeError, ValueError) as exc:
         result["warning"] = getattr(exc, "detail", str(exc))
     return result
@@ -540,7 +574,16 @@ async def publish_inventory_to_ebay(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict[str, Any]:
     settings = get_settings()
-    missing = _seller_config_missing(settings, include_publish_gate=True)
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _owner(connection)
+    effective = await load_effective_seller_config(
+        request.app.state.db_pool, settings, owner_id=owner["id"]
+    )
+    missing = _seller_publish_missing(
+        settings, effective, include_publish_gate=True
+    )
     if missing:
         raise HTTPException(
             status_code=409,
@@ -556,9 +599,11 @@ async def publish_inventory_to_ebay(
 
     link_id = plan["link"]["id"]
     item = plan["item"]
-    client = _client(settings)
+    client, effective = await seller_client(
+        request.app.state.db_pool, settings, owner_id=owner["id"]
+    )
     try:
-        await _validate_seller_prerequisites(client, settings)
+        await _validate_seller_prerequisites(client, settings, effective)
         await client.put_inventory_item(
             item["inventory_code"],
             _inventory_payload(item, image_urls=plan["image_urls"]),
@@ -567,6 +612,7 @@ async def publish_inventory_to_ebay(
             sku=item["inventory_code"],
             price_minor=plan["price_minor"],
             settings=settings,
+            effective=effective,
         )
         offer_id = str(plan["link"].get("offer_id") or "").strip()
         if not offer_id:
