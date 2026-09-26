@@ -6,6 +6,7 @@ import binascii
 import hashlib
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Annotated, Any
@@ -13,7 +14,7 @@ from uuid import UUID
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
@@ -33,6 +34,7 @@ MAX_NOTIFICATION_BYTES = 512 * 1024
 EBAY_INVENTORY_SCOPE = "https://api.ebay.com/oauth/api_scope/sell.inventory"
 EBAY_FULFILLMENT_SCOPE = "https://api.ebay.com/oauth/api_scope/sell.fulfillment"
 EBAY_NOTIFICATION_SCOPE = "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription"
+_NOTIFICATION_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{32,80}$")
 
 _GRADER_IDS = {
     "PSA": "275010",
@@ -68,26 +70,53 @@ class EbayChannelConflict(RuntimeError):
         self.status = status
 
 
-def _seller_config_missing(settings: Settings, *, include_publish_gate: bool) -> list[str]:
+def _seller_auth_missing(settings: Settings) -> list[str]:
     required = {
         "TCG_EBAY_CLIENT_ID": settings.ebay_client_id,
         "TCG_EBAY_CLIENT_SECRET": settings.ebay_client_secret,
         "TCG_EBAY_USER_REFRESH_TOKEN": settings.ebay_user_refresh_token,
+    }
+    return [name for name, value in required.items() if not value]
+
+
+def _seller_publish_missing(settings: Settings, *, include_publish_gate: bool) -> list[str]:
+    missing = _seller_auth_missing(settings)
+    required = {
         "TCG_EBAY_PAYMENT_POLICY_ID": settings.ebay_payment_policy_id,
         "TCG_EBAY_FULFILLMENT_POLICY_ID": settings.ebay_fulfillment_policy_id,
         "TCG_EBAY_RETURN_POLICY_ID": settings.ebay_return_policy_id,
         "TCG_EBAY_MERCHANT_LOCATION_KEY": settings.ebay_merchant_location_key,
+        "TCG_EBAY_NOTIFICATION_ENDPOINT": settings.ebay_notification_endpoint,
+        "TCG_EBAY_NOTIFICATION_VERIFICATION_TOKEN": (
+            settings.ebay_notification_verification_token
+        ),
     }
-    missing = [name for name, value in required.items() if not value]
+    missing.extend(name for name, value in required.items() if not value)
     if include_publish_gate and not settings.ebay_publish_enabled:
         missing.append("TCG_EBAY_PUBLISH_ENABLED")
     return missing
 
 
+def _notification_callback_settings(settings: Settings) -> tuple[str, str]:
+    token = settings.ebay_notification_verification_token
+    endpoint = settings.ebay_notification_endpoint
+    if not token or not endpoint:
+        raise HTTPException(
+            status_code=503,
+            detail="eBay order notification callback is not configured",
+        )
+    if not _NOTIFICATION_TOKEN_RE.fullmatch(token):
+        raise HTTPException(
+            status_code=503,
+            detail="eBay order notification verification token is invalid",
+        )
+    return token, endpoint
+
+
 def _client(settings: Settings) -> EbaySellClient:
-    missing = _seller_config_missing(settings, include_publish_gate=False)
+    missing = _seller_auth_missing(settings)
     if missing:
-        raise RuntimeError("eBay seller connection is incomplete")
+        raise RuntimeError("eBay seller authorisation is incomplete")
     return EbaySellClient(
         client_id=settings.ebay_client_id or "",
         client_secret=settings.ebay_client_secret or "",
@@ -461,7 +490,7 @@ async def seller_status(
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict[str, Any]:
     settings = get_settings()
-    missing = _seller_config_missing(settings, include_publish_gate=True)
+    missing = _seller_publish_missing(settings, include_publish_gate=True)
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
@@ -487,6 +516,7 @@ async def seller_status(
         result["live_verified"] = (
             EBAY_INVENTORY_SCOPE in scopes
             and EBAY_FULFILLMENT_SCOPE in scopes
+            and EBAY_NOTIFICATION_SCOPE in scopes
         )
         if not result["live_verified"]:
             result["warning"] = "Seller token is missing required Inventory/Fulfillment scopes"
@@ -661,7 +691,7 @@ async def withdraw_ebay_for_inventory(
     if not live:
         return
     settings = get_settings()
-    if _seller_config_missing(settings, include_publish_gate=False):
+    if _seller_auth_missing(settings):
         for link in live:
             await _mark_link_error(pool, link["id"], "CROSS_CHANNEL_EBAY_AUTH_MISSING")
         raise EbaySellApiError("Cannot withdraw live eBay listing: seller authorisation is missing")
@@ -698,7 +728,7 @@ async def restore_ebay_after_shopify_release(pool: Any, inventory_ids: list[str]
     if not candidates:
         return
     settings = get_settings()
-    if _seller_config_missing(settings, include_publish_gate=False):
+    if _seller_auth_missing(settings):
         for link in candidates:
             await _mark_link_error(pool, link["id"], "RESTORE_EBAY_AUTH_MISSING")
         raise EbaySellApiError("Cannot restore eBay listing: seller authorisation is missing")
@@ -1113,12 +1143,27 @@ async def _zero_shopify_for_ebay_sale(pool: Any, inventory_ids: list[str]) -> No
             raise ShopifyApiError("Shopify cross-channel stock removal could not be verified")
 
 
+@router.get("/order-notifications")
+async def verify_ebay_order_notification_endpoint(
+    challenge_code: str = Query(min_length=1, max_length=512),
+) -> dict[str, str]:
+    """Answer eBay's destination ownership challenge for order notifications."""
+
+    settings = get_settings()
+    token, endpoint = _notification_callback_settings(settings)
+    digest = hashlib.sha256(
+        f"{challenge_code}{token}{endpoint}".encode("utf-8")
+    ).hexdigest()
+    return {"challengeResponse": digest}
+
+
 @router.post("/order-notifications", status_code=204)
 async def ebay_order_notification(
     request: Request,
     x_ebay_signature: str | None = Header(default=None, alias="X-EBAY-SIGNATURE"),
 ) -> Response:
     settings = get_settings()
+    _notification_callback_settings(settings)
     if not settings.ebay_client_id or not settings.ebay_client_secret:
         raise HTTPException(status_code=503, detail="eBay application credentials are missing")
     body = await request.body()
