@@ -273,6 +273,7 @@ def _settlement_amounts(
     payment_fees_minor: int,
     shipping_cost_minor: int,
     fulfilment_material_cost_minor: int,
+    commission_minor: int,
     adjustments_minor: int,
     effective_cogs_minor: int,
 ) -> dict[str, int]:
@@ -288,11 +289,17 @@ def _settlement_amounts(
         + shipping_cost_minor
         + fulfilment_material_cost_minor
     )
-    net_owner_proceeds = gross_proceeds - external_deductions + adjustments_minor
+    net_owner_proceeds = (
+        gross_proceeds
+        - external_deductions
+        - commission_minor
+        + adjustments_minor
+    )
     owner_profit = net_owner_proceeds - effective_cogs_minor
     return {
         "gross_proceeds_minor": gross_proceeds,
         "external_deductions_minor": external_deductions,
+        "commission_minor": commission_minor,
         "net_owner_proceeds_minor": net_owner_proceeds,
         "owner_profit_minor": owner_profit,
     }
@@ -347,6 +354,7 @@ async def finance_summary(
                 coalesce(-sum(amount_minor) filter (where entry_type = 'PAYMENT_FEE'), 0)::bigint as payment_fees_minor,
                 coalesce(-sum(amount_minor) filter (where entry_type = 'SHIPPING_COST'), 0)::bigint as shipping_cost_minor,
                 coalesce(-sum(amount_minor) filter (where entry_type = 'FULFILMENT_MATERIAL_COST'), 0)::bigint as fulfilment_material_cost_minor,
+                coalesce(-sum(amount_minor) filter (where entry_type in ('COMMISSION','COMMISSION_REVERSAL')), 0)::bigint as commission_minor,
                 coalesce(-sum(amount_minor) filter (where entry_type = 'REFUND'), 0)::bigint as refunds_minor,
                 coalesce(-sum(amount_minor) filter (where entry_type = 'SHIPPING_REFUND'), 0)::bigint as shipping_refunds_minor,
                 count(distinct order_item_id) filter (where entry_type = 'SALE_REVENUE')::int as sold_items
@@ -413,6 +421,7 @@ async def finance_summary(
         fulfilment_material_cost = int(
             ledger["fulfilment_material_cost_minor"] or 0
         )
+        commission = int(ledger["commission_minor"] or 0)
         refunds = int(ledger["refunds_minor"] or 0)
         shipping_refunds = int(ledger["shipping_refunds_minor"] or 0)
         cost_of_goods = int(cogs or 0)
@@ -426,6 +435,7 @@ async def finance_summary(
             - payment_fees
             - shipping_cost
             - fulfilment_material_cost
+            - commission
             - cost_of_goods
         )
         balances = await _balance_components(connection, owner["id"])
@@ -438,6 +448,8 @@ async def finance_summary(
             "payment_fees_minor": payment_fees,
             "shipping_cost_minor": shipping_cost,
             "fulfilment_material_cost_minor": fulfilment_material_cost,
+            "commission_minor": commission,
+            "commission_bps": int(owner["commission_bps"] or 0),
             "refunds_minor": refunds,
             "shipping_refunds_minor": shipping_refunds,
             "cost_of_goods_minor": cost_of_goods,
@@ -486,6 +498,7 @@ async def finance_sales(
                 p.game, p.name, p.set_name, p.card_number, p.variant,
                 o.source, o.source_reference, o.order_number, o.status as order_status,
                 oi.sale_price_minor, oi.discount_minor, oi.net_sale_minor,
+                oi.commission_bps_snapshot, oi.commission_minor as commission_snapshot_minor,
                 oi.cost_basis_minor, oi.sold_at,
                 exists(
                     select 1 from tcg.refund_events r
@@ -496,6 +509,7 @@ async def finance_sales(
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'PAYMENT_FEE'), 0)::bigint as payment_fee_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_COST'), 0)::bigint as shipping_cost_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'FULFILMENT_MATERIAL_COST'), 0)::bigint as fulfilment_material_cost_minor,
+                coalesce(-sum(le.amount_minor) filter (where le.entry_type in ('COMMISSION','COMMISSION_REVERSAL')), 0)::bigint as commission_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'REFUND'), 0)::bigint as refund_minor,
                 coalesce(-sum(le.amount_minor) filter (where le.entry_type = 'SHIPPING_REFUND'), 0)::bigint as shipping_refund_minor,
                 (rec.fees_reconciled_at is not null) as fees_reconciled,
@@ -537,6 +551,7 @@ async def finance_sales(
                 - int(item["payment_fee_minor"])
                 - int(item["shipping_cost_minor"])
                 - int(item["fulfilment_material_cost_minor"])
+                - int(item["commission_minor"])
                 - int(item["refund_minor"])
                 - int(item["shipping_refund_minor"])
                 - effective_cost
@@ -615,6 +630,9 @@ async def finance_sales_analytics(
                 coalesce(-sum(le.amount_minor)
                   filter (where le.entry_type='FULFILMENT_MATERIAL_COST'),0)::bigint
                   as fulfilment_material_cost_minor,
+                coalesce(-sum(le.amount_minor)
+                  filter (where le.entry_type in ('COMMISSION','COMMISSION_REVERSAL')),0)::bigint
+                  as commission_minor,
                 coalesce(sum(le.amount_minor)
                   filter (where le.entry_type='ADJUSTMENT'),0)::bigint
                   as adjustments_minor
@@ -717,7 +735,7 @@ async def finance_sales_analytics(
                 coalesce(-sum(le.amount_minor)
                   filter (where le.entry_type in (
                     'PLATFORM_FEE','PAYMENT_FEE','SHIPPING_COST',
-                    'FULFILMENT_MATERIAL_COST'
+                    'FULFILMENT_MATERIAL_COST','COMMISSION','COMMISSION_REVERSAL'
                   )),0)::bigint as operating_costs_minor,
                 coalesce(sum(le.amount_minor)
                   filter (where le.entry_type='ADJUSTMENT'),0)::bigint
@@ -774,6 +792,7 @@ async def finance_sales_analytics(
     payment_fees = int(summary["payment_fees_minor"] or 0)
     shipping_cost = int(summary["shipping_cost_minor"] or 0)
     material_cost = int(summary["fulfilment_material_cost_minor"] or 0)
+    commission = int(summary["commission_minor"] or 0)
     adjustments = int(summary["adjustments_minor"] or 0)
     cogs = int(summary["cost_of_goods_minor"] or 0)
     orders = int(summary["orders"] or 0)
@@ -786,6 +805,7 @@ async def finance_sales_analytics(
         - payment_fees
         - shipping_cost
         - material_cost
+        - commission
         - cogs
         + adjustments
     )
@@ -809,6 +829,8 @@ async def finance_sales_analytics(
         "payment_fees_minor": payment_fees,
         "shipping_cost_minor": shipping_cost,
         "fulfilment_material_cost_minor": material_cost,
+        "commission_minor": commission,
+        "commission_bps": int(owner["commission_bps"] or 0),
         "adjustments_minor": adjustments,
         "cost_of_goods_minor": cogs,
         "net_profit_minor": net_profit,
@@ -917,6 +939,11 @@ async def finance_settlements(
                   0
                 )::bigint as fulfilment_material_cost_minor,
                 coalesce(
+                  -sum(le.amount_minor)
+                    filter (where le.entry_type in ('COMMISSION','COMMISSION_REVERSAL')),
+                  0
+                )::bigint as commission_minor,
+                coalesce(
                   sum(le.amount_minor)
                     filter (where le.entry_type='ADJUSTMENT'),
                   0
@@ -965,6 +992,7 @@ async def finance_settlements(
               coalesce(lr.shipping_cost_minor,0)::bigint as shipping_cost_minor,
               coalesce(lr.fulfilment_material_cost_minor,0)::bigint
                 as fulfilment_material_cost_minor,
+              coalesce(lr.commission_minor,0)::bigint as commission_minor,
               coalesce(lr.adjustments_minor,0)::bigint as adjustments_minor,
               coalesce(lr.pending_ledger_minor,0)::bigint as pending_ledger_minor,
               coalesce(lr.available_ledger_minor,0)::bigint
@@ -992,6 +1020,7 @@ async def finance_settlements(
             fulfilment_material_cost = int(
                 item["fulfilment_material_cost_minor"] or 0
             )
+            commission = int(item["commission_minor"] or 0)
             adjustments = int(item["adjustments_minor"] or 0)
             effective_cogs = int(item["effective_cogs_minor"] or 0)
 
@@ -1004,6 +1033,7 @@ async def finance_settlements(
                 payment_fees_minor=payment_fees,
                 shipping_cost_minor=shipping_cost,
                 fulfilment_material_cost_minor=fulfilment_material_cost,
+                commission_minor=commission,
                 adjustments_minor=adjustments,
                 effective_cogs_minor=effective_cogs,
             )

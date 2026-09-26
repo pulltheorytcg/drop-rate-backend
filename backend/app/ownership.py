@@ -19,6 +19,7 @@ async def current_owner(connection: asyncpg.Connection) -> asyncpg.Record:
             o.display_name,
             o.owner_type,
             o.founder_slot,
+            o.commission_bps,
             m.role
         from tcg.owner_memberships m
         join tcg.owners o on o.id = m.owner_id
