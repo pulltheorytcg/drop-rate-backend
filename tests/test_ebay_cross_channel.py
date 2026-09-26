@@ -8,6 +8,8 @@ import pytest
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
+from app.ebay_sell_client import REQUIRED_SELLER_SCOPES
+
 from app.ebay_sales import (
     EBAY_GB_CCG_SINGLE_CATEGORY_ID,
     _channel_price,
@@ -396,3 +398,13 @@ def test_withdrawn_approved_inventory_can_be_relisted_but_uninspected_return_can
     ui = FRONTEND.read_text()
     assert 'stateValue === "WITHDRAWN" && item.status !== "APPROVED"' in ui
     assert '"Relist eBay"' in ui
+
+
+def test_ebay_refresh_token_requests_all_required_seller_scopes() -> None:
+    source = EBAY_CLIENT.read_text()
+    assert '"scope": " ".join(REQUIRED_SELLER_SCOPES)' in source
+    assert "https://api.ebay.com/oauth/api_scope/sell.account" in REQUIRED_SELLER_SCOPES
+    assert "https://api.ebay.com/oauth/api_scope/sell.inventory" in REQUIRED_SELLER_SCOPES
+    assert "https://api.ebay.com/oauth/api_scope/sell.fulfillment" in REQUIRED_SELLER_SCOPES
+    assert "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly" in REQUIRED_SELLER_SCOPES
+    assert "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription" in REQUIRED_SELLER_SCOPES
