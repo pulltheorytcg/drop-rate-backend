@@ -262,6 +262,51 @@ function ensureFounderFinanceUI() {
         <article class="stat-card"><span>Transfers</span><strong id="stripe-transfers-state">LOCKED</strong><small>Must be active before approval</small></article>
         <article class="stat-card"><span>Automatic execution</span><strong id="stripe-execution-state">LOCKED</strong><small>Production kill-switch</small></article>
       </div>
+
+      <div class="payout-preference-panel">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">Payout preferences</p>
+            <h3>Choose payout frequency</h3>
+            <p class="muted">Drop Rate controls when eligible owner proceeds are queued. Stripe and your bank still control final settlement timing.</p>
+          </div>
+        </div>
+        <div class="form-grid payout-preference-grid">
+          <label>
+            Frequency
+            <select id="payout-preference-cadence">
+              <option value="MANUAL">Manual</option>
+              <option value="DAILY">Daily</option>
+              <option value="WEEKLY">Weekly</option>
+              <option value="FORTNIGHTLY">Every 2 weeks</option>
+              <option value="MONTHLY">Monthly</option>
+            </select>
+          </label>
+          <label id="payout-preference-weekday-wrap" class="hidden">
+            Day of week
+            <select id="payout-preference-weekday">
+              <option value="0">Monday</option>
+              <option value="1">Tuesday</option>
+              <option value="2">Wednesday</option>
+              <option value="3">Thursday</option>
+              <option value="4">Friday</option>
+              <option value="5">Saturday</option>
+              <option value="6">Sunday</option>
+            </select>
+          </label>
+          <label id="payout-preference-monthly-wrap" class="hidden">
+            Day of month
+            <input id="payout-preference-monthly-day" type="number" min="1" max="31" step="1" value="1">
+          </label>
+        </div>
+        <div class="allocation-summary payout-preference-summary">
+          <span>Next scheduled payout</span>
+          <strong id="payout-preference-next">Manual only</strong>
+        </div>
+        <p class="muted">Daily means the next eligible payout cycle, not guaranteed next-day bank arrival. Scheduled payouts still require available cleared funds and all payout safety checks.</p>
+        <div id="payout-preference-message" class="message panel-message" role="status"></div>
+        <button id="payout-preference-save" class="primary-button compact" type="button">Save payout schedule</button>
+      </div>
     </section>
 
     <section id="stripe-payout-queue-section" class="finance-settlement-section">
@@ -322,6 +367,8 @@ function ensureFounderFinanceUI() {
   byId("finance-refresh").addEventListener("click", loadFounderFinance);
   byId("stripe-payout-sync").addEventListener("click", syncStripePayoutAccount);
   byId("stripe-payout-onboard").addEventListener("click", startStripePayoutOnboarding);
+  byId("payout-preference-cadence").addEventListener("change", updatePayoutPreferenceFields);
+  byId("payout-preference-save").addEventListener("click", savePayoutPreference);
   byId("finance-payout-button").addEventListener("click", () => {
     byId("finance-payout-form").reset();
     showMessage("finance-payout-message");
@@ -672,6 +719,92 @@ function renderFinanceSettlements(items) {
 }
 
 
+let payoutPreferenceVersion = 0;
+
+function updatePayoutPreferenceFields() {
+  const cadence = byId("payout-preference-cadence").value;
+  byId("payout-preference-weekday-wrap").classList.toggle(
+    "hidden",
+    !["WEEKLY", "FORTNIGHTLY"].includes(cadence)
+  );
+  byId("payout-preference-monthly-wrap").classList.toggle(
+    "hidden",
+    cadence !== "MONTHLY"
+  );
+}
+
+function formatPayoutScheduleDate(value) {
+  if (!value) return "Manual only";
+  const date = new Date(value);
+  return date.toLocaleString("en-GB", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/London",
+  });
+}
+
+function renderPayoutPreference(data) {
+  const preference = data.preference || data;
+  payoutPreferenceVersion = Number(preference.version || 0);
+  byId("payout-preference-cadence").value = preference.cadence || "MANUAL";
+  if (preference.weekday !== null && preference.weekday !== undefined) {
+    byId("payout-preference-weekday").value = String(preference.weekday);
+  }
+  if (preference.monthly_day !== null && preference.monthly_day !== undefined) {
+    byId("payout-preference-monthly-day").value = String(preference.monthly_day);
+  }
+  byId("payout-preference-next").textContent =
+    formatPayoutScheduleDate(preference.next_scheduled_at);
+  updatePayoutPreferenceFields();
+}
+
+async function loadPayoutPreference() {
+  try {
+    const result = await apiRequest("/api/v1/payout-preferences");
+    renderPayoutPreference(result);
+    showMessage("payout-preference-message");
+  } catch (error) {
+    showMessage("payout-preference-message", error.message, "error");
+  }
+}
+
+async function savePayoutPreference() {
+  const button = byId("payout-preference-save");
+  const cadence = byId("payout-preference-cadence").value;
+  const payload = {
+    cadence,
+    weekday: ["WEEKLY", "FORTNIGHTLY"].includes(cadence)
+      ? Number(byId("payout-preference-weekday").value)
+      : null,
+    monthly_day: cadence === "MONTHLY"
+      ? Number(byId("payout-preference-monthly-day").value)
+      : null,
+    version: payoutPreferenceVersion,
+  };
+  button.disabled = true;
+  showMessage("payout-preference-message", "Saving payout schedule…");
+  try {
+    const result = await apiRequest("/api/v1/payout-preferences", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    renderPayoutPreference(result);
+    showMessage(
+      "payout-preference-message",
+      "Payout schedule saved. Automatic money movement remains locked until payout execution is enabled.",
+      "success"
+    );
+  } catch (error) {
+    showMessage("payout-preference-message", error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function renderStripePayoutStatus(data) {
   const account = data.account || null;
   const blockers = data.blockers || [];
@@ -741,6 +874,8 @@ async function loadStripePayoutControl() {
   } catch (error) {
     showMessage("stripe-payout-message", error.message, "error");
   }
+
+  await loadPayoutPreference();
 
   try {
     const queue = await apiRequest("/api/v1/stripe/payouts/queue");
