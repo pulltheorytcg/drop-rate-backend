@@ -177,6 +177,87 @@ async def update_payout_preference(
                 raise HTTPException(status_code=422, detail="Fortnightly schedule requires weekday")
             anchor = _next_weekday(datetime.now(LONDON).date(), payload.weekday)
 
+        if existing is None:
+            row = await connection.fetchrow(
+                """
+                insert into tcg.payout_preferences(
+                    owner_id,cadence,weekday,monthly_day,fortnightly_anchor_date,
+                    timezone,updated_by_user_id
+                )
+                values($1,$2,$3,$4,$5,'Europe/London',$6)
+                returning *
+                """,
+                owner["id"],
+                payload.cadence,
+                payload.weekday,
+                payload.monthly_day,
+                anchor,
+                user.id,
+            )
+        else:
+            row = await connection.fetchrow(
+                """
+                update tcg.payout_preferences
+                set cadence=$2,
+                    weekday=$3,
+                    monthly_day=$4,
+                    fortnightly_anchor_date=$5,
+                    updated_by_user_id=$6,
+                    version=version+1,
+                    updated_at=clock_timestamp()
+                where owner_id=$1
+                returning *
+                """,
+                owner["id"],
+                payload.cadence,
+                payload.weekday,
+                payload.monthly_day,
+                anchor,
+                user.id,
+            )
+
+        if row is None:
+            raise HTTPException(status_code=409, detail="Payout preference was not saved")
+
+        return jsonable_encoder({"preference": _serialize_preference(row)})
+
+
+@router.put("")
+async def update_payout_preference(
+    payload: PayoutPreferenceUpdate,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+):
+    async with user_connection(
+        request.app.state.db_pool, user.id, request.state.request_id
+    ) as connection:
+        owner = await _owner(connection)
+        existing = await connection.fetchrow(
+            "select * from tcg.payout_preferences where owner_id=$1 for update",
+            owner["id"],
+        )
+
+        if existing is None:
+            if payload.version != 0:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"message": "Payout preference changed; refresh and try again", "current_version": 0},
+                )
+        elif int(existing["version"]) != payload.version:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Payout preference changed; refresh and try again",
+                    "current_version": int(existing["version"]),
+                },
+            )
+
+        anchor: date | None = None
+        if payload.cadence == "FORTNIGHTLY":
+            if payload.weekday is None:
+                raise HTTPException(status_code=422, detail="Fortnightly schedule requires weekday")
+            anchor = _next_weekday(datetime.now(LONDON).date(), payload.weekday)
+
         old_values = (
             {
                 "cadence": existing["cadence"],
