@@ -15,6 +15,7 @@ from app.ebay_sales import (
     _inventory_payload,
     _offer_payload,
     _notification_callback_settings,
+    _offer_is_live,
     _order_line_rows,
     verify_ebay_notification_signature,
 )
@@ -29,6 +30,7 @@ PIPELINE = ROOT / "backend" / "app" / "shopify_pipeline.py"
 API = ROOT / "backend" / "app" / "api.py"
 FRONTEND = ROOT / "backend" / "app" / "static" / "app.js"
 MAIN = ROOT / "backend" / "app" / "main.py"
+REFUNDS = ROOT / "backend" / "app" / "refunds.py"
 EBAY_MIGRATION = ROOT / "database" / "migrations" / "20260926144848_ebay_cross_channel_v1.sql"
 EBAY_INDEX_MIGRATION = ROOT / "database" / "migrations" / "20260926144947_index_ebay_cross_channel_fks.sql"
 
@@ -365,3 +367,31 @@ def test_ebay_order_notification_endpoint_answers_ownership_challenge() -> None:
     assert "hashlib.sha256" in block
     assert "challengeResponse" in block
     assert "_notification_callback_settings" in block
+
+
+def test_ebay_offer_live_state_requires_published_status() -> None:
+    assert _offer_is_live({
+        "status": "PUBLISHED",
+        "listing": {"listingId": "123", "listingStatus": "ACTIVE"},
+    }) is True
+    assert _offer_is_live({
+        "status": "UNPUBLISHED",
+        "listing": {"listingId": "123", "listingStatus": "ENDED"},
+    }) is False
+    assert _offer_is_live({"status": "PUBLISHED"}) is False
+
+
+def test_return_to_stock_moves_physical_item_to_inspection_and_channels_off_sale() -> None:
+    source = REFUNDS.read_text()
+    assert "set status = 'INSPECTION'" in source
+    assert "set sync_state='ARCHIVED'" in source
+    assert "update tcg.ebay_inventory_links" in source
+    assert "state='WITHDRAWN'" in source
+    assert "withdrawal_reason='RETURN_TO_INSPECTION'" in source
+    assert "RETURN_TO_INSPECTION" in source
+
+
+def test_withdrawn_approved_inventory_can_be_relisted_but_uninspected_return_cannot() -> None:
+    ui = FRONTEND.read_text()
+    assert 'stateValue === "WITHDRAWN" && item.status !== "APPROVED"' in ui
+    assert '"Relist eBay"' in ui
