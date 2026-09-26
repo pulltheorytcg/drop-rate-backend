@@ -422,51 +422,6 @@ async def ebay_oauth_callback(
                 "The eBay seller consent did not include every required scope"
             )
         encrypted = encrypt_refresh_token(settings, refresh_token)
-        options = await _discover_seller_options(seller)
-
-        payment_id = _single_option(options["payment"], "paymentPolicyId")
-        fulfillment_id = _single_option(options["fulfillment"], "fulfillmentPolicyId")
-        return_id = _single_option(options["return"], "returnPolicyId")
-        location_key = _single_option(options["locations"], "merchantLocationKey")
-        ready_config = all((payment_id, fulfillment_id, return_id, location_key))
-        status = "CONNECTED" if ready_config else "ACTION_REQUIRED"
-        last_error = None if ready_config else "SELLER_CONFIGURATION_SELECTION_REQUIRED"
-
-        async with request.app.state.db_pool.acquire() as connection:
-            await connection.execute(
-                "select set_config('tcg.user_id',$1,true)",
-                str(attempt["user_id"]),
-            )
-            await connection.execute(
-                "select set_config('tcg.request_id',$1,true)",
-                f"ebay-oauth:{attempt['id']}",
-            )
-            await connection.execute(
-                """
-                insert into tcg.ebay_seller_connections(
-                    owner_id,created_by_user_id,marketplace_id,
-                    refresh_token_ciphertext,granted_scopes,status,
-                    payment_policy_id,fulfillment_policy_id,return_policy_id,
-                    merchant_location_key,last_verified_at,last_error_code
-                ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,clock_timestamp(),$11)
-                on conflict (owner_id) do update
-                set refresh_token_ciphertext=excluded.refresh_token_ciphertext,
-                    granted_scopes=excluded.granted_scopes,
-                    status=excluded.status,
-                    payment_policy_id=excluded.payment_policy_id,
-                    fulfillment_policy_id=excluded.fulfillment_policy_id,
-                    return_policy_id=excluded.return_policy_id,
-                    merchant_location_key=excluded.merchant_location_key,
-                    last_verified_at=clock_timestamp(),
-                    last_error_code=excluded.last_error_code,
-                    connected_at=clock_timestamp(),
-                    version=tcg.ebay_seller_connections.version+1,
-                    updated_at=clock_timestamp()
-                """,
-                attempt["owner_id"], attempt["user_id"], settings.ebay_marketplace_id,
-                encrypted, scopes, status, payment_id, fulfillment_id,
-                return_id, location_key, last_error,
-            )
     except (EbaySellApiError, RuntimeError, ValueError) as exc:
         return _safe_html(
             "eBay connection could not be verified",
@@ -474,10 +429,62 @@ async def ebay_oauth_callback(
             ok=False,
         )
 
+    # Consent succeeded. Persist the encrypted long-lived grant before any
+    # optional seller-account discovery so a downstream policy/location error
+    # never throws away a valid seller connection.
+    await _persist_seller_connection(
+        request.app.state.db_pool,
+        attempt=attempt,
+        settings=settings,
+        encrypted_refresh_token=encrypted,
+        scopes=scopes,
+        status="CONNECTED",
+    )
+
+    options = await _discover_seller_options(seller)
+    payment_id = _single_option(options["payment"], "paymentPolicyId")
+    fulfillment_id = _single_option(options["fulfillment"], "fulfillmentPolicyId")
+    return_id = _single_option(options["return"], "returnPolicyId")
+    location_key = _single_option(options["locations"], "merchantLocationKey")
+    discovery_errors = dict(options.get("errors") or {})
+    ready_config = (
+        not discovery_errors
+        and all((payment_id, fulfillment_id, return_id, location_key))
+    )
+    if ready_config:
+        status = "CONNECTED"
+        last_error = None
+    elif discovery_errors:
+        status = "ACTION_REQUIRED"
+        last_error = "SELLER_CONFIGURATION_DISCOVERY_INCOMPLETE"
+    else:
+        status = "ACTION_REQUIRED"
+        last_error = "SELLER_CONFIGURATION_SELECTION_REQUIRED"
+
+    await _persist_seller_connection(
+        request.app.state.db_pool,
+        attempt=attempt,
+        settings=settings,
+        encrypted_refresh_token=encrypted,
+        scopes=scopes,
+        status=status,
+        payment_policy_id=payment_id,
+        fulfillment_policy_id=fulfillment_id,
+        return_policy_id=return_id,
+        merchant_location_key=location_key,
+        last_error_code=last_error,
+    )
+
     if ready_config:
         message = (
             "Your seller account is connected. Drop Rate also found one compatible "
             "payment, fulfilment and return policy plus one enabled inventory location."
+        )
+    elif discovery_errors:
+        message = (
+            "Your seller account is securely connected. eBay accepted the seller grant, "
+            "but one or more seller-policy or inventory-location checks still need "
+            "attention in Founder HQ before publishing."
         )
     else:
         message = (
