@@ -29,6 +29,17 @@ def _positive_int(name: str, default: int) -> int:
     return value
 
 
+def _bounded_int(name: str, default: int, *, minimum: int, maximum: int) -> int:
+    raw = os.getenv(name, str(default))
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer") from exc
+    if value < minimum or value > maximum:
+        raise RuntimeError(f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
 _SHOPIFY_DOMAIN_RE = re.compile(r"^[a-z0-9][a-z0-9-]*\.myshopify\.com$", re.IGNORECASE)
 _SHOPIFY_API_VERSION_RE = re.compile(r"^\d{4}-(?:01|04|07|10)$")
 
@@ -93,6 +104,14 @@ class Settings:
     trawl_api_key: str | None = None
     ebay_deletion_verification_token: str | None = None
     ebay_deletion_endpoint: str | None = None
+    ebay_user_refresh_token: str | None = None
+    ebay_payment_policy_id: str | None = None
+    ebay_return_policy_id: str | None = None
+    ebay_fulfillment_policy_id: str | None = None
+    ebay_merchant_location_key: str | None = None
+    ebay_notification_endpoint: str | None = None
+    ebay_publish_enabled: bool = False
+    ebay_price_markup_bps: int = 0
     market_ingestion_enabled: bool = False
     shopify_shop_domain: str | None = None
     shopify_client_id: str | None = None
@@ -130,6 +149,16 @@ class Settings:
             trawl_api_key=_optional("TCG_TRAWL_API_KEY"),
             ebay_deletion_verification_token=_optional("TCG_EBAY_DELETION_VERIFICATION_TOKEN"),
             ebay_deletion_endpoint=_optional("TCG_EBAY_DELETION_ENDPOINT"),
+            ebay_user_refresh_token=_optional("TCG_EBAY_USER_REFRESH_TOKEN"),
+            ebay_payment_policy_id=_optional("TCG_EBAY_PAYMENT_POLICY_ID"),
+            ebay_return_policy_id=_optional("TCG_EBAY_RETURN_POLICY_ID"),
+            ebay_fulfillment_policy_id=_optional("TCG_EBAY_FULFILLMENT_POLICY_ID"),
+            ebay_merchant_location_key=_optional("TCG_EBAY_MERCHANT_LOCATION_KEY"),
+            ebay_notification_endpoint=_https_endpoint("TCG_EBAY_NOTIFICATION_ENDPOINT"),
+            ebay_publish_enabled=_boolean("TCG_EBAY_PUBLISH_ENABLED", False),
+            ebay_price_markup_bps=_bounded_int(
+                "TCG_EBAY_PRICE_MARKUP_BPS", 0, minimum=0, maximum=10000
+            ),
             market_ingestion_enabled=_boolean("TCG_MARKET_INGESTION_ENABLED", False),
             shopify_shop_domain=_shopify_domain("TCG_SHOPIFY_SHOP_DOMAIN"),
             shopify_client_id=_optional("TCG_SHOPIFY_CLIENT_ID"),
