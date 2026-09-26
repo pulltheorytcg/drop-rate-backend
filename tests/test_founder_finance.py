@@ -319,14 +319,16 @@ def test_owner_settlement_separates_proceeds_from_profit() -> None:
         payment_fees_minor=30,
         shipping_cost_minor=100,
         fulfilment_material_cost_minor=91,
+        commission_minor=100,
         adjustments_minor=0,
         effective_cogs_minor=400,
     )
     assert result == {
         "gross_proceeds_minor": 1200,
         "external_deductions_minor": 271,
-        "net_owner_proceeds_minor": 929,
-        "owner_profit_minor": 529,
+        "commission_minor": 100,
+        "net_owner_proceeds_minor": 829,
+        "owner_profit_minor": 429,
     }
 
 
@@ -340,12 +342,13 @@ def test_settlement_adjustments_change_proceeds_and_profit_explicitly() -> None:
         payment_fees_minor=0,
         shipping_cost_minor=0,
         fulfilment_material_cost_minor=0,
+        commission_minor=100,
         adjustments_minor=-125,
         effective_cogs_minor=400,
     )
     assert result["gross_proceeds_minor"] == 1000
-    assert result["net_owner_proceeds_minor"] == 875
-    assert result["owner_profit_minor"] == 475
+    assert result["net_owner_proceeds_minor"] == 775
+    assert result["owner_profit_minor"] == 375
 
 
 def test_returned_refunded_order_restores_cost_basis_but_keeps_processing_loss() -> None:
@@ -358,6 +361,7 @@ def test_returned_refunded_order_restores_cost_basis_but_keeps_processing_loss()
         payment_fees_minor=36,
         shipping_cost_minor=0,
         fulfilment_material_cost_minor=83,
+        commission_minor=0,
         adjustments_minor=0,
         effective_cogs_minor=0,
     )
@@ -415,6 +419,7 @@ def test_finance_dashboard_exposes_required_sections() -> None:
         "Sales revenue",
         "Cost of goods",
         "Postage cost",
+        "Drop Rate commission",
         "Refunds",
         "Item + shipping refunds",
         "Payout requests",
@@ -498,3 +503,32 @@ def test_sales_list_accepts_date_range_without_client_side_totals() -> None:
     assert "_sales_period_bounds(start_date, end_date)" in block
     assert "oi.sold_at >= $2" in block
     assert "oi.sold_at < $3" in block
+
+
+def test_commission_is_separate_from_external_fees_and_payout_proceeds() -> None:
+    result = _settlement_amounts(
+        item_revenue_minor=10000,
+        shipping_revenue_minor=0,
+        item_refunds_minor=0,
+        shipping_refunds_minor=0,
+        platform_fees_minor=250,
+        payment_fees_minor=150,
+        shipping_cost_minor=0,
+        fulfilment_material_cost_minor=0,
+        commission_minor=1000,
+        adjustments_minor=0,
+        effective_cogs_minor=0,
+    )
+    assert result["gross_proceeds_minor"] == 10000
+    assert result["external_deductions_minor"] == 400
+    assert result["commission_minor"] == 1000
+    assert result["net_owner_proceeds_minor"] == 8600
+
+
+def test_finance_reporting_includes_net_commission_and_reversals() -> None:
+    source = (ROOT / "backend" / "app" / "finance.py").read_text()
+    assert "COMMISSION" in source
+    assert "COMMISSION_REVERSAL" in source
+    assert '"commission_minor": commission' in source
+    assert "- commission" in source
+    assert "commission_bps_snapshot" in source
