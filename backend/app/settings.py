@@ -110,6 +110,7 @@ class Settings:
     ebay_fulfillment_policy_id: str | None = None
     ebay_merchant_location_key: str | None = None
     ebay_notification_endpoint: str | None = None
+    ebay_notification_verification_token: str | None = None
     ebay_publish_enabled: bool = False
     ebay_price_markup_bps: int = 0
     market_ingestion_enabled: bool = False
@@ -155,6 +156,9 @@ class Settings:
             ebay_fulfillment_policy_id=_optional("TCG_EBAY_FULFILLMENT_POLICY_ID"),
             ebay_merchant_location_key=_optional("TCG_EBAY_MERCHANT_LOCATION_KEY"),
             ebay_notification_endpoint=_https_endpoint("TCG_EBAY_NOTIFICATION_ENDPOINT"),
+            ebay_notification_verification_token=_optional(
+                "TCG_EBAY_NOTIFICATION_VERIFICATION_TOKEN"
+            ),
             ebay_publish_enabled=_boolean("TCG_EBAY_PUBLISH_ENABLED", False),
             ebay_price_markup_bps=_bounded_int(
                 "TCG_EBAY_PRICE_MARKUP_BPS", 0, minimum=0, maximum=10000
