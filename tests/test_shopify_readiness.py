@@ -40,7 +40,7 @@ def test_local_readiness_summary_separates_core_and_media_blockers(monkeypatch) 
         readiness,
         "media_completeness",
         lambda policy, assets: {
-            "blockers": [] if assets[0]["ready"] else ["canonical FRONT media"]
+            "blockers": [] if assets[0]["ready"] else ["physical FRONT + BACK media"]
         },
     )
 
@@ -62,7 +62,7 @@ def test_local_readiness_summary_separates_core_and_media_blockers(monkeypatch) 
     }
     assert result["media_ready"] == 1
     assert result["media_blocked"] == 1
-    assert result["media_blockers"] == {"canonical FRONT media": 1}
+    assert result["media_blockers"] == {"physical FRONT + BACK media": 1}
     assert result["next_operational_items"][0]["inventory_code"] == "VERIFY"
     assert result["next_media_items"][0]["inventory_code"] == "MEDIA"
 
@@ -88,10 +88,11 @@ def test_dashboard_exposes_shopify_readiness_without_publish_controls() -> None:
 
     assert "/api/v1/shopify/readiness" in js
     assert "Shopify readiness" in js
-    assert "Core ready" in js
+    assert "Sellability ready" in js
     assert "Media ready" in js
     assert "Open Verify" in js
     assert "Open Media" in js
+    assert 'activateSellerView("media", true)' in js
 
     start = js.index("async function loadShopifyReadiness()")
     end = js.index("function portfolioIdentityMeta", start)
