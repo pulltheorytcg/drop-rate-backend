@@ -147,3 +147,38 @@ Do not enable real money movement until all are true:
 6. Transfer + bank payout + failure + reversal flows are tested end to end.
 7. Refund-after-payout policy and reserve/negative-balance handling are documented.
 8. Founder approval/exception handling is production verified.
+
+## Phase 2 sandbox transfer verification
+
+The first Phase 2 slice is intentionally test-mode only. It adds Stripe client primitives
+for platform balance inspection, Connect transfers, transfer reversals and funding-charge
+refunds, plus a separate sandbox harness.
+
+The harness is gated by both:
+
+- `TCG_STRIPE_SANDBOX_TRANSFER_SELFTEST=true`
+- `TCG_STRIPE_SANDBOX_RECIPIENT_ACCOUNT_ID=acct_...`
+
+It refuses to run unless the platform uses an `sk_test_` key, live Connect remains
+disabled, production payout execution remains disabled, and the recipient reports both an
+ACTIVE transfers capability and payouts enabled.
+
+The verification path is:
+
+`£100 sandbox platform funding → £90 Connect transfer → duplicate transfer replay →
+£90 transfer reversal → duplicate reversal replay → funding refund`
+
+The £100 funding transaction is only a Stripe sandbox mechanism for creating available
+platform balance. It does **not** model Drop Rate customer checkout; Shopify remains the
+customer payment rail. The business entitlement remains the deterministic PostgreSQL
+ledger calculation already verified separately as `£100 sale - £10 commission = £90
+owner proceeds`.
+
+The transfer self-test is not part of the production payout API. It remains off until a
+test recipient has completed Stripe-hosted onboarding. Cleanup always attempts to reverse
+a successful transfer before refunding the sandbox platform funding so the test cannot
+silently strand a negative platform balance.
+
+Production payout execution remains locked until the full test transfer, connected-account
+bank payout, webhook, failure and refund-after-payout policy are verified.
+
