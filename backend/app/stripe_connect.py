@@ -556,12 +556,6 @@ async def approve_stripe_payout(
             )
             if payout is None:
                 raise HTTPException(status_code=404, detail="Payout request not found")
-            if payout["version"] != payload.version:
-                raise HTTPException(
-                    status_code=409,
-                    detail={"message": "Payout request changed; refresh and try again",
-                            "current_version": payout["version"]},
-                )
             if payout["status"] == "APPROVED":
                 execution = await connection.fetchrow(
                     "select * from tcg.stripe_payout_executions where payout_request_id=$1",
@@ -570,6 +564,12 @@ async def approve_stripe_payout(
                 return jsonable_encoder(
                     {"payout": dict(payout), "execution": dict(execution) if execution else None,
                      "idempotent": True}
+                )
+            if payout["version"] != payload.version:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"message": "Payout request changed; refresh and try again",
+                            "current_version": payout["version"]},
                 )
             if payout["status"] != "REQUESTED":
                 raise HTTPException(
@@ -742,22 +742,62 @@ async def stripe_webhook(
     payload_hash = hashlib.sha256(raw).hexdigest()
 
     async with request.app.state.db_pool.acquire() as connection:
-        inserted = await connection.fetchrow(
-            """
-            insert into tcg.stripe_webhook_events(
-                stripe_event_id,event_type,connected_account_id,livemode,payload_sha256
-            ) values ($1,$2,$3,$4,$5)
-            on conflict (stripe_event_id) do nothing
-            returning id
-            """,
-            event_id,
-            event_type,
-            connected_account_id,
-            livemode,
-            payload_hash,
-        )
-        if inserted is None:
-            return {"received": True, "duplicate": True}
+        async with connection.transaction():
+            inserted = await connection.fetchrow(
+                """
+                insert into tcg.stripe_webhook_events(
+                    stripe_event_id,event_type,connected_account_id,livemode,payload_sha256,
+                    attempt_count,last_attempt_at
+                ) values ($1,$2,$3,$4,$5,1,clock_timestamp())
+                on conflict (stripe_event_id) do nothing
+                returning id
+                """,
+                event_id,
+                event_type,
+                connected_account_id,
+                livemode,
+                payload_hash,
+            )
+            if inserted is None:
+                existing = await connection.fetchrow(
+                    """
+                    select processing_status,payload_sha256,last_attempt_at
+                    from tcg.stripe_webhook_events
+                    where stripe_event_id=$1
+                    for update
+                    """,
+                    event_id,
+                )
+                if existing is None:
+                    raise HTTPException(status_code=409, detail="Stripe event state changed")
+                if existing["payload_sha256"] != payload_hash:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Stripe event ID was replayed with a different payload",
+                    )
+                if existing["processing_status"] in ("PROCESSED", "IGNORED"):
+                    return {"received": True, "duplicate": True}
+                recent_attempt = await connection.fetchval(
+                    """
+                    select $1::timestamptz is not null
+                       and $1::timestamptz > clock_timestamp() - interval '10 minutes'
+                    """,
+                    existing["last_attempt_at"],
+                )
+                if existing["processing_status"] == "RECEIVED" and recent_attempt:
+                    return {"received": True, "duplicate": True}
+                await connection.execute(
+                    """
+                    update tcg.stripe_webhook_events
+                    set processing_status='RECEIVED',
+                        attempt_count=attempt_count+1,
+                        last_attempt_at=clock_timestamp(),
+                        last_error_code=null,
+                        version=version+1
+                    where stripe_event_id=$1
+                    """,
+                    event_id,
+                )
 
     data = event.get("data")
     obj = data.get("object") if isinstance(data, dict) else None
