@@ -220,6 +220,38 @@ async def create_refund(
             if inventory is None:
                 raise HTTPException(status_code=409, detail="Inventory changed while recording the return")
 
+            # A returned physical item must remain unavailable on every channel
+            # until it passes inspection again. Historical order/listing links
+            # remain intact; only the current channel state is made non-sellable.
+            await connection.execute(
+                """
+                update tcg.shopify_inventory_links
+                set sync_state='ARCHIVED',
+                    reserved_order_reference=null,
+                    reserved_line_reference=null,
+                    reserved_at=null,
+                    version=version+1,
+                    last_synced_at=clock_timestamp()
+                where inventory_id=$1 and owner_id=$2
+                  and sync_state in ('DRAFT','PUBLISHED','SOLD','ERROR')
+                """,
+                item["inventory_id"], owner["id"],
+            )
+            await connection.execute(
+                """
+                update tcg.ebay_inventory_links
+                set state='WITHDRAWN',
+                    withdrawal_reason='RETURN_TO_INSPECTION',
+                    withdrawn_at=coalesce(withdrawn_at,clock_timestamp()),
+                    last_error_code=null,
+                    version=version+1,
+                    updated_at=clock_timestamp()
+                where inventory_id=$1 and owner_id=$2
+                  and state in ('LIVE','SOLD','WITHDRAWN','ERROR')
+                """,
+                item["inventory_id"], owner["id"],
+            )
+
         order_refundable = await connection.fetchval(
             """
             select

@@ -14,6 +14,8 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## Current stage
 
+**Shopify ↔ eBay cross-channel inventory v1: CODE-COMPLETE / PRODUCTION-DORMANT — controlled single-item eBay publishing, exact Inventory ID/SKU linkage, signed ORDER_CONFIRMATION intake, Shopify→eBay withdrawal, eBay→Shopify zeroing, deterministic eBay channel pricing, audited eBay fee/postage reconciliation, return-to-INSPECTION isolation and safe re-listing have been implemented on PR #143. Production Supabase migrations `20260926144848_ebay_cross_channel_v1` and `20260926144947_index_ebay_cross_channel_fks` are applied. eBay publication remains explicitly disabled in Railway. The remaining external blocker is seller-authorised eBay OAuth plus the seller's payment/fulfilment/return policy IDs and merchant inventory location; no live eBay listing has been fabricated or published.**
+
 **Physical identity + language review v1: DEPLOYED — the verification queue now combines physical identity, EN/JP language evidence and optional registered location in one audited, version-protected review step. Identity confirmation fails closed while language is unknown or conflicts with the canonical card.**
 
 **Founder media intake v1: DEPLOYED — founder-owned JPG/PNG/WebP card photos can now use Shopify staged uploads, explicit rights confirmation, governed media approval and the existing fail-closed Shopify media readiness gate. The first authenticated `write_files` scope + real-image upload remains a manual production verification.**

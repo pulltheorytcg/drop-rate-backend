@@ -14,6 +14,8 @@ from fastapi.responses import JSONResponse
 
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .ebay_sales import sync_ebay_after_shopify_result
+from .ebay_sell_client import EbaySellApiError
 from .ownership import current_owner as _owner
 from .settings import get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
@@ -474,14 +476,6 @@ async def shopify_webhook(
                     webhook_id=webhook_id,
                 )
                 next_status = result.get("status", "PROCESSED")
-                await connection.execute(
-                    """
-                    update tcg.shopify_webhook_events
-                    set status=$2,processed_at=clock_timestamp(),error_code=null
-                    where id=$1
-                    """,
-                    event["id"], next_status,
-                )
         except ShopifyProcessingError as exc:
             await connection.execute(
                 """
@@ -530,6 +524,50 @@ async def shopify_webhook(
                 status_code=500,
                 content={"received": True, "processed": False, "error_code": "UNEXPECTED_PROCESSING_ERROR"},
             )
+
+    # Cross-channel provider I/O deliberately runs after the database
+    # transaction commits. A failed eBay withdrawal leaves this webhook FAILED,
+    # so Shopify retries can complete the exact same idempotent cleanup path.
+    try:
+        await sync_ebay_after_shopify_result(request.app.state.db_pool, result)
+    except EbaySellApiError as exc:
+        logger.warning(
+            "Shopify state committed but eBay cross-channel sync failed",
+            extra={
+                "shopify_webhook_id": webhook_id,
+                "shopify_topic": topic,
+                "retryable": exc.retryable,
+                "provider_status": exc.status_code,
+            },
+        )
+        async with request.app.state.db_pool.acquire() as connection:
+            await connection.execute(
+                """
+                update tcg.shopify_webhook_events
+                set status='FAILED',processed_at=clock_timestamp(),
+                    error_code='CROSS_CHANNEL_EBAY_ERROR'
+                where id=$1
+                """,
+                event["id"],
+            )
+        return JSONResponse(
+            status_code=502,
+            content={
+                "received": True,
+                "processed": False,
+                "error_code": "CROSS_CHANNEL_EBAY_ERROR",
+            },
+        )
+
+    async with request.app.state.db_pool.acquire() as connection:
+        await connection.execute(
+            """
+            update tcg.shopify_webhook_events
+            set status=$2,processed_at=clock_timestamp(),error_code=null
+            where id=$1
+            """,
+            event["id"], next_status,
+        )
 
     return JSONResponse(
         status_code=200,
