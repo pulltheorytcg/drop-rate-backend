@@ -454,7 +454,6 @@ function populateSellerViews() {
   const overview = sellerView("dashboard");
   const inventory = sellerView("inventory");
   const verification = sellerView("verification");
-  const media = sellerView("media");
   const sales = sellerView("sales");
   const reports = sellerView("reports");
   const balance = sellerView("balance");
@@ -491,14 +490,6 @@ function populateSellerViews() {
     "Verify stock",
     "Physically confirm canonical card identity before pricing, approval or Shopify publishing."
   ));
-
-  if (media && !media.children.length) {
-    media.append(makeSellerHeading(
-      "Physical evidence",
-      "Media & Condition",
-      "Capture the exact card front and back, then verify sellability before storefront sync."
-    ));
-  }
 
   moveFinanceSections(sales, reports, balance);
 
