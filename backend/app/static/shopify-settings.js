@@ -141,7 +141,7 @@ async function loadShopifyStatus() {
       apiRequest("/api/v1/shopify/shipping-profiles?include_inactive=true"),
       apiRequest("/api/v1/shopify/media-assets/upload-capability"),
       apiRequest("/api/v1/shopify/media-assets"),
-      apiRequest("/api/v1/shopify/media-assets/intake-queue"),
+      apiRequest("/api/v1/shopify/media-assets/intake-queue?approved_only=true"),
     ]);
     list.replaceChildren(
       shopifyStatusRow(
@@ -566,6 +566,7 @@ function renderShopifyMedia(capability, data, queueData) {
       "Media capture queue",
       Number(queueData?.missing_side_count || 0).toLocaleString("en-GB"),
       [
+        queueData?.approved_only ? "approved stock only" : "all active stock",
         `${queueData?.raw_canonical_groups_pending || 0} raw canonical fronts`,
         `${queueData?.graded_items_pending || 0} graded physical items`,
       ].join(" · ")
