@@ -105,6 +105,9 @@ class StripeConnectClient:
             retryable=response.status_code == 429 or response.status_code >= 500,
         )
 
+    async def retrieve_platform_account(self) -> dict[str, Any]:
+        return await self._request("GET", "/account")
+
     async def create_express_account(
         self,
         *,
@@ -150,3 +153,10 @@ class StripeConnectClient:
                 "collection_options[fields]": "eventually_due",
             },
         )
+
+
+    async def delete_account(self, account_id: str) -> dict[str, Any]:
+        account_id = account_id.strip()
+        if not account_id.startswith("acct_"):
+            raise ValueError("Invalid Stripe connected account ID")
+        return await self._request("DELETE", f"/accounts/{account_id}")
