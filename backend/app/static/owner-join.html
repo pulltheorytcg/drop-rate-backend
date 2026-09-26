@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071b3f">
+  <title>Drop Rate — Owner Invitation</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=owner-join-v1">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <main class="shell">
+    <section class="auth-layout">
+      <div class="brand-panel">
+        <div class="brand-lockup brand-lockup-logo">
+          <span class="dr-logo-image" role="img" aria-label="Drop Rate"></span>
+        </div>
+        <div class="brand-copy">
+          <p class="eyebrow">Owner invitation</p>
+          <h1>Your cards.<br><em>Your account.</em></h1>
+          <p class="lead">Create your restricted Drop Rate owner account to see only your own inventory, sales and payouts.</p>
+        </div>
+        <div class="trust-row"><span>Invite only</span><span>Owner scoped</span><span>10% default commission</span></div>
+      </div>
+
+      <div class="auth-panel">
+        <div id="owner-invite-loading" class="auth-card">
+          <p class="eyebrow">Checking invitation</p>
+          <h2>Please wait…</h2>
+        </div>
+
+        <div id="owner-invite-invalid" class="auth-card hidden">
+          <p class="eyebrow">Invitation unavailable</p>
+          <h2>This invite cannot be used</h2>
+          <p id="owner-invite-invalid-message" class="muted"></p>
+        </div>
+
+        <form id="owner-join-form" class="auth-card hidden">
+          <p class="eyebrow">Create owner account</p>
+          <h2>Join Drop Rate</h2>
+          <p id="owner-invite-summary" class="muted"></p>
+
+          <div id="owner-join-social-auth" class="social-auth hidden" aria-label="Social account creation">
+            <button id="owner-join-google" class="oauth-button" type="button">Continue with Google</button>
+            <button id="owner-join-apple" class="oauth-button oauth-button-apple" type="button">Continue with Apple</button>
+            <div class="auth-divider"><span>or create with email</span></div>
+          </div>
+
+          <label>Your name<input id="owner-join-name" type="text" autocomplete="name" required maxlength="120"></label>
+          <label>Email address<input id="owner-join-email" type="email" autocomplete="email" required maxlength="320"></label>
+          <label>Password<input id="owner-join-password" type="password" autocomplete="new-password" required minlength="12"></label>
+          <label>Confirm password<input id="owner-join-confirm-password" type="password" autocomplete="new-password" required minlength="12"></label>
+          <div id="owner-join-message" class="message" role="status"></div>
+          <button class="primary-button" type="submit">Create owner account <span>→</span></button>
+          <button id="owner-show-existing-login" class="text-button" type="button">I already have an account</button>
+        </form>
+
+        <form id="owner-existing-login-form" class="auth-card hidden">
+          <p class="eyebrow">Existing account</p>
+          <h2>Sign in to accept invitation</h2>
+
+          <div id="owner-existing-social-auth" class="social-auth hidden" aria-label="Social sign in">
+            <button id="owner-existing-google" class="oauth-button" type="button">Continue with Google</button>
+            <button id="owner-existing-apple" class="oauth-button oauth-button-apple" type="button">Continue with Apple</button>
+            <div class="auth-divider"><span>or use email</span></div>
+          </div>
+
+          <label>Email address<input id="owner-existing-email" type="email" autocomplete="email" required></label>
+          <label>Password<input id="owner-existing-password" type="password" autocomplete="current-password" required></label>
+          <div id="owner-existing-message" class="message" role="status"></div>
+          <button class="primary-button" type="submit">Sign in and accept <span>→</span></button>
+          <button id="owner-back-to-join" class="text-button" type="button">Back</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script src="/assets/owner-join.js" defer></script>
+</body>
+</html>
