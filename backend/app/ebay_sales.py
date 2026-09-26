@@ -33,6 +33,7 @@ EBAY_GB_CCG_SINGLE_CATEGORY_ID = "183454"
 MAX_NOTIFICATION_BYTES = 512 * 1024
 EBAY_INVENTORY_SCOPE = "https://api.ebay.com/oauth/api_scope/sell.inventory"
 EBAY_FULFILLMENT_SCOPE = "https://api.ebay.com/oauth/api_scope/sell.fulfillment"
+EBAY_FULFILLMENT_READONLY_SCOPE = "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly"
 EBAY_NOTIFICATION_SCOPE = "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription"
 _NOTIFICATION_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{32,80}$")
 
@@ -525,6 +526,7 @@ async def seller_status(
         result["live_verified"] = (
             EBAY_INVENTORY_SCOPE in scopes
             and EBAY_FULFILLMENT_SCOPE in scopes
+            and EBAY_FULFILLMENT_READONLY_SCOPE in scopes
             and EBAY_NOTIFICATION_SCOPE in scopes
         )
         if not result["live_verified"]:
