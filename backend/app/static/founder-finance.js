@@ -241,6 +241,45 @@ function ensureFounderFinanceUI() {
     </div>
     <div id="finance-sales-empty" class="empty-state"><div>◇</div><h3>No sales yet</h3><p>Sales will appear here when physical inventory is recorded as sold.</p></div>
 
+    <section id="stripe-payout-account" class="finance-settlement-section">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">Stripe Connect</p>
+          <h3>Payout account</h3>
+          <p class="muted">Stripe handles identity verification and bank payout details. Drop Rate decides the exact settlement amount.</p>
+        </div>
+        <div class="topbar-actions">
+          <button id="stripe-payout-sync" class="ghost-button compact" type="button">↻ Refresh Stripe</button>
+          <button id="stripe-payout-onboard" class="primary-button compact" type="button">Set up payouts</button>
+        </div>
+      </div>
+      <div id="stripe-payout-message" class="message panel-message" role="status"></div>
+      <div class="stats-grid">
+        <article class="stat-card"><span>Connect account</span><strong id="stripe-connect-state">NOT CONNECTED</strong><small id="stripe-connect-note">No Stripe payout account yet</small></article>
+        <article class="stat-card"><span>Verification</span><strong id="stripe-verification-state">NOT READY</strong><small id="stripe-verification-note">Onboarding required</small></article>
+        <article class="stat-card"><span>Transfers</span><strong id="stripe-transfers-state">LOCKED</strong><small>Must be active before approval</small></article>
+        <article class="stat-card"><span>Automatic execution</span><strong id="stripe-execution-state">LOCKED</strong><small>Production kill-switch</small></article>
+      </div>
+    </section>
+
+    <section id="stripe-payout-queue-section" class="finance-settlement-section">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">Payout control</p>
+          <h3>Approval queue</h3>
+          <p class="muted">Founder review is required before a payout can ever reach Stripe execution.</p>
+        </div>
+      </div>
+      <div id="stripe-payout-queue-message" class="message panel-message" role="status"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Owner</th><th>Payout</th><th>Amount</th><th>Stripe</th><th>Checks</th><th>Status</th><th></th></tr></thead>
+          <tbody id="stripe-payout-queue-body"></tbody>
+        </table>
+      </div>
+      <div id="stripe-payout-queue-empty" class="empty-state"><div>◇</div><h3>No payouts awaiting review</h3><p>Requested or approved payouts will appear here.</p></div>
+    </section>
+
     <div class="page-heading">
       <div><p class="eyebrow">Withdrawals</p><h3>Payout requests</h3><p class="muted">Requests reserve available balance but do not move money automatically.</p></div>
     </div>
@@ -279,6 +318,8 @@ function ensureFounderFinanceUI() {
   byId("finance-sales-preset").addEventListener("change", handleFinanceSalesPreset);
   byId("finance-sales-apply").addEventListener("click", applyFinanceCustomRange);
   byId("finance-refresh").addEventListener("click", loadFounderFinance);
+  byId("stripe-payout-sync").addEventListener("click", syncStripePayoutAccount);
+  byId("stripe-payout-onboard").addEventListener("click", startStripePayoutOnboarding);
   byId("finance-payout-button").addEventListener("click", () => {
     byId("finance-payout-form").reset();
     showMessage("finance-payout-message");
@@ -622,6 +663,152 @@ function renderFinanceSettlements(items) {
 }
 
 
+function renderStripePayoutStatus(data) {
+  const account = data.account || null;
+  const blockers = data.blockers || [];
+  byId("stripe-connect-state").textContent = data.connected ? "CONNECTED" : "NOT CONNECTED";
+  byId("stripe-connect-note").textContent = account
+    ? `${account.livemode ? "Live" : "Test"} · ${account.account_type || "EXPRESS"}`
+    : (data.configured ? "Ready to create a Stripe payout account" : "Stripe API key not configured");
+
+  byId("stripe-verification-state").textContent = data.ready_for_payouts ? "READY" : "ACTION REQUIRED";
+  byId("stripe-verification-note").textContent = data.ready_for_payouts
+    ? "Identity and payout requirements satisfied"
+    : (blockers.length ? blockers.join(" · ") : "Stripe onboarding required");
+
+  byId("stripe-transfers-state").textContent =
+    account?.transfers_capability_status === "ACTIVE" && account?.payouts_enabled
+      ? "READY" : "LOCKED";
+  byId("stripe-execution-state").textContent =
+    data.payout_execution_enabled ? "ENABLED" : "LOCKED";
+
+  const onboard = byId("stripe-payout-onboard");
+  onboard.disabled = !data.configured;
+  onboard.classList.toggle("hidden", data.ready_for_payouts);
+  onboard.textContent = data.connected ? "Continue Stripe onboarding" : "Set up payouts";
+}
+
+function renderStripePayoutQueue(items) {
+  const body = byId("stripe-payout-queue-body");
+  body.replaceChildren();
+  byId("stripe-payout-queue-empty").classList.toggle("hidden", items.length > 0);
+  items.forEach((item) => {
+    const row = document.createElement("tr");
+    row.innerHTML = "<td></td><td></td><td></td><td></td><td></td><td></td><td></td>";
+    row.cells[0].textContent = item.display_name || "Owner";
+    row.cells[1].textContent = item.payout_code;
+    row.cells[2].textContent = formatFinanceMoney(item.amount_minor);
+    row.cells[3].textContent = item.stripe_status || "NOT CONNECTED";
+    row.cells[4].textContent = item.blockers?.length ? item.blockers.join(", ") : "Passed";
+    row.cells[5].textContent = item.execution_state || item.status;
+
+    if (item.status === "REQUESTED") {
+      const actions = document.createElement("div");
+      actions.className = "topbar-actions";
+      const approve = document.createElement("button");
+      approve.type = "button";
+      approve.className = "primary-button compact";
+      approve.textContent = "Approve";
+      approve.disabled = !item.eligible_for_approval;
+      approve.addEventListener("click", () => approveStripePayout(item));
+      const reject = document.createElement("button");
+      reject.type = "button";
+      reject.className = "ghost-button compact";
+      reject.textContent = "Reject";
+      reject.addEventListener("click", () => rejectStripePayout(item));
+      actions.append(approve, reject);
+      row.cells[6].append(actions);
+    }
+    body.append(row);
+  });
+}
+
+async function loadStripePayoutControl() {
+  if (!state.session?.access_token) return;
+  try {
+    const status = await apiRequest("/api/v1/stripe/connect/status");
+    renderStripePayoutStatus(status);
+    showMessage("stripe-payout-message");
+  } catch (error) {
+    showMessage("stripe-payout-message", error.message, "error");
+  }
+
+  try {
+    const queue = await apiRequest("/api/v1/stripe/payouts/queue");
+    renderStripePayoutQueue(queue.items || []);
+    showMessage("stripe-payout-queue-message");
+  } catch (error) {
+    byId("stripe-payout-queue-section").classList.add("hidden");
+  }
+}
+
+async function startStripePayoutOnboarding() {
+  const button = byId("stripe-payout-onboard");
+  button.disabled = true;
+  showMessage("stripe-payout-message", "Preparing secure Stripe onboarding…");
+  try {
+    await apiRequest("/api/v1/stripe/connect/account", {method: "POST"});
+    const result = await apiRequest("/api/v1/stripe/connect/onboarding-link", {method: "POST"});
+    window.location.assign(result.url);
+  } catch (error) {
+    showMessage("stripe-payout-message", error.message, "error");
+    button.disabled = false;
+  }
+}
+
+async function syncStripePayoutAccount() {
+  const button = byId("stripe-payout-sync");
+  button.disabled = true;
+  try {
+    const current = await apiRequest("/api/v1/stripe/connect/status");
+    if (current.connected) {
+      await apiRequest("/api/v1/stripe/connect/sync", {method: "POST"});
+    }
+    await loadStripePayoutControl();
+  } catch (error) {
+    showMessage("stripe-payout-message", error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function approveStripePayout(item) {
+  showMessage("stripe-payout-queue-message", `Approving ${item.payout_code}…`);
+  try {
+    await apiRequest(`/api/v1/stripe/payouts/${item.id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({version: item.version, reason: ""}),
+    });
+    await loadFounderFinance();
+    showMessage(
+      "stripe-payout-queue-message",
+      `${item.payout_code} approved and prepared. No money has moved.`,
+      "success"
+    );
+  } catch (error) {
+    showMessage("stripe-payout-queue-message", error.message, "error");
+  }
+}
+
+async function rejectStripePayout(item) {
+  const reason = window.prompt("Why is this payout being rejected?");
+  if (reason === null) return;
+  if (!reason.trim()) {
+    showMessage("stripe-payout-queue-message", "A rejection reason is required.", "error");
+    return;
+  }
+  try {
+    await apiRequest(`/api/v1/stripe/payouts/${item.id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({version: item.version, reason: reason.trim()}),
+    });
+    await loadFounderFinance();
+    showMessage("stripe-payout-queue-message", `${item.payout_code} rejected.`, "success");
+  } catch (error) {
+    showMessage("stripe-payout-queue-message", error.message, "error");
+  }
+}
+
 function renderFinancePayouts(items) {
   const body = byId("finance-payouts-body");
   body.replaceChildren();
@@ -833,6 +1020,7 @@ async function loadFounderFinance() {
     renderFinanceSales(sales.items || []);
     renderFinanceSettlements(settlements.items || []);
     renderFinancePayouts(payouts.items || []);
+    await loadStripePayoutControl();
     showMessage("finance-message");
   } catch (error) {
     showMessage("finance-message", error.message, "error");
@@ -858,7 +1046,7 @@ async function submitFounderPayout(event) {
     });
     byId("finance-payout-dialog").close();
     await loadFounderFinance();
-    showMessage("finance-message", "Payout request created. The amount is now reserved from your available balance.", "success");
+    showMessage("finance-message", "Payout request created and reserved. Founder approval and Stripe readiness are required before any money can move.", "success");
   } catch (error) {
     showMessage("finance-payout-message", error.message, "error");
   } finally {
