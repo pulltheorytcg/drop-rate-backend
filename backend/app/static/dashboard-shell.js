@@ -1,14 +1,14 @@
 "use strict";
 
 const SELLER_VIEWS = [
-  ["dashboard", "Dashboard"],
-  ["inventory", "Inventory"],
-  ["verification", "Verify"],
-  ["media", "Media"],
-  ["sales", "Sales"],
-  ["reports", "Reports"],
-  ["balance", "Balance"],
-  ["settings", "Settings"],
+  ["dashboard", "Dashboard", "◈"],
+  ["inventory", "Inventory", "▣"],
+  ["verification", "Verify", "✓"],
+  ["media", "Media", "◉"],
+  ["sales", "Sales", "↗"],
+  ["reports", "Reports", "≋"],
+  ["balance", "Balance", "£"],
+  ["settings", "Settings", "⚙"],
 ];
 
 function sellerView(name) {
@@ -99,6 +99,46 @@ function buildSellerViews(content) {
   return views;
 }
 
+function buildFounderHero() {
+  const hero = document.createElement("section");
+  hero.className = "founder-hero";
+  hero.innerHTML = `
+    <div class="founder-hero-copy">
+      <p class="eyebrow">Drop Rate command centre</p>
+      <h1>Run the collection.<br><em>Chase the next hit.</em></h1>
+      <p class="founder-hero-sub">Your stock, pricing and storefront pipeline without the spreadsheet chaos.</p>
+      <div class="founder-hero-actions">
+        <button class="primary-button compact" type="button" data-hero-view="inventory">Open inventory</button>
+        <button class="ghost-button compact" type="button" data-hero-view="media">Photograph cards</button>
+        <button class="ghost-button compact" type="button" data-hero-view="verification">Verify stock</button>
+      </div>
+    </div>
+    <div class="founder-hero-art" aria-hidden="true">
+      <div class="hero-card hero-card-one"><span>DROP</span><strong>RATE</strong></div>
+      <div class="hero-card hero-card-two"><span>TCG</span><strong>01</strong></div>
+      <div class="hero-burst"></div>
+    </div>
+  `;
+  hero.querySelectorAll("[data-hero-view]").forEach((button) => {
+    button.addEventListener("click", () => activateSellerView(button.dataset.heroView, true));
+  });
+  return hero;
+}
+
+function utilityDrawer(title, eyebrow, child, open = false) {
+  if (!child) return null;
+  const details = document.createElement("details");
+  details.className = "utility-drawer";
+  details.open = open;
+  const summary = document.createElement("summary");
+  summary.innerHTML = `
+    <div><p class="eyebrow">${eyebrow}</p><strong>${title}</strong></div>
+    <span class="utility-chevron" aria-hidden="true">⌄</span>
+  `;
+  details.append(summary, child);
+  return details;
+}
+
 function buildSellerNav() {
   if (byId("seller-nav")) return;
   const dashboard = byId("dashboard-view");
@@ -110,13 +150,13 @@ function buildSellerNav() {
   nav.className = "seller-nav";
   nav.setAttribute("aria-label", "Founder dashboard sections");
   nav.setAttribute("role", "tablist");
-  SELLER_VIEWS.forEach(([key, label]) => {
+  SELLER_VIEWS.forEach(([key, label, icon]) => {
     const button = document.createElement("button");
     button.id = `seller-tab-${key}`;
     button.type = "button";
     button.className = "seller-nav-tab";
     button.dataset.targetView = key;
-    button.textContent = label;
+    button.innerHTML = `<span class="seller-nav-icon" aria-hidden="true">${icon}</span><span>${label}</span>`;
     button.setAttribute("aria-controls", `seller-view-${key}`);
     button.setAttribute("role", "tab");
     button.addEventListener("click", () => activateSellerView(key, true));
@@ -466,11 +506,23 @@ function populateSellerViews() {
   const lots = byId("purchase-lots-list")?.closest('[aria-labelledby="lots-heading"]');
   const inventoryPanel = Array.from(content.querySelectorAll(":scope > .inventory-panel")).find((node) => !node.id && node !== lots);
 
-  overview.append(makeSellerHeading("Founder overview", "Dashboard", "Your stock position and action-required snapshot."));
-  if (inventoryStats) overview.append(inventoryStats);
-  overview.append(buildPortfolioIntelligencePanel());
-  overview.append(buildShopifyReadinessPanel());
-  if (actionPanel) overview.append(actionPanel);
+  overview.append(buildFounderHero());
+  if (inventoryStats) {
+    inventoryStats.classList.add("dashboard-kpi-grid");
+    overview.append(inventoryStats);
+  }
+  const overviewGrid = document.createElement("div");
+  overviewGrid.className = "dashboard-overview-grid";
+  const intelligence = buildPortfolioIntelligencePanel();
+  intelligence.classList.add("dashboard-feature-panel");
+  const readiness = buildShopifyReadinessPanel();
+  readiness.classList.add("dashboard-feature-panel");
+  overviewGrid.append(intelligence, readiness);
+  overview.append(overviewGrid);
+  if (actionPanel) {
+    actionPanel.classList.add("dashboard-action-panel");
+    overview.append(actionPanel);
+  }
 
   if (inventoryHeading) {
     const eyebrow = inventoryHeading.querySelector(".eyebrow");
@@ -481,9 +533,14 @@ function populateSellerViews() {
     if (muted) muted.textContent = "Add, import, locate, cost and approve every physical item.";
     inventory.append(inventoryHeading);
   }
-  if (locations) inventory.append(locations);
-  if (lots) inventory.append(lots);
   if (inventoryPanel) inventory.append(inventoryPanel);
+  const inventoryUtilities = document.createElement("div");
+  inventoryUtilities.className = "inventory-utilities";
+  const locationsDrawer = utilityDrawer("Storage locations", "Organisation", locations);
+  const lotsDrawer = utilityDrawer("Purchase lots", "Acquisition accounting", lots);
+  if (locationsDrawer) inventoryUtilities.append(locationsDrawer);
+  if (lotsDrawer) inventoryUtilities.append(lotsDrawer);
+  if (inventoryUtilities.children.length) inventory.append(inventoryUtilities);
 
   verification.append(makeSellerHeading(
     "Identity control",
