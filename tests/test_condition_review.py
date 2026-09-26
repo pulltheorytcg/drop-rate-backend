@@ -125,7 +125,7 @@ def test_condition_review_router_is_wired_and_never_publishes() -> None:
     main = MAIN.read_text()
 
     assert "from .condition_review import router as condition_review_router" in main
-    assert "app.include_router(condition_review_router)" in main
+    assert "app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])" in main
     assert '@router.get("/queue")' in source
     assert '@router.post("/{inventory_id}")' in source
     assert "publish_product" not in source

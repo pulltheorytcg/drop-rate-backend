@@ -72,3 +72,17 @@ async def get_access_context(
     ) as connection:
         context = await current_access_context(connection)
     return jsonable_encoder({"access": context})
+
+
+async def require_platform_admin_request(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """FastAPI dependency for routes that belong exclusively to Founder HQ admins."""
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        return await require_platform_admin(connection)

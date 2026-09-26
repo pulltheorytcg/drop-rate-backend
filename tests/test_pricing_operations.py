@@ -9,7 +9,7 @@ MAIN = ROOT / "backend" / "app" / "main.py"
 def test_pricing_router_is_wired_into_app() -> None:
     main = MAIN.read_text()
     assert "from .pricing import router as pricing_router" in main
-    assert "app.include_router(pricing_router)" in main
+    assert "app.include_router(pricing_router, dependencies=[Depends(require_platform_admin_request)])" in main
 
 
 def test_pricing_recalculation_updates_recommendation_not_store_price() -> None:

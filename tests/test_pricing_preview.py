@@ -62,7 +62,7 @@ def test_preview_module_contains_no_market_or_inventory_write_sql() -> None:
 def test_pricing_preview_router_is_wired_into_app() -> None:
     main = MAIN.read_text()
     assert "from .pricing_preview import router as pricing_preview_router" in main
-    assert "app.include_router(pricing_preview_router)" in main
+    assert "app.include_router(pricing_preview_router, dependencies=[Depends(require_platform_admin_request)])" in main
 
 
 def test_workbench_calls_preview_and_discloses_non_persistence() -> None:

@@ -78,7 +78,7 @@ def test_identity_confirmation_is_owner_scoped_versioned_and_locked() -> None:
 def test_identity_review_router_is_wired() -> None:
     source = MAIN.read_text()
     assert "from .identity_review import router as identity_review_router" in source
-    assert "app.include_router(identity_review_router)" in source
+    assert "app.include_router(identity_review_router, dependencies=[Depends(require_platform_admin_request)])" in source
     assert 'identity-review.js' in source
 
 

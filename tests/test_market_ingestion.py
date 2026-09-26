@@ -161,4 +161,4 @@ def test_ingestion_only_uses_verified_mappings_and_deduplicates_records() -> Non
 def test_market_ingestion_router_is_wired_into_app() -> None:
     main = MAIN.read_text()
     assert "from .market_ingestion import router as market_ingestion_router" in main
-    assert "app.include_router(market_ingestion_router)" in main
+    assert "app.include_router(market_ingestion_router, dependencies=[Depends(require_platform_admin_request)])" in main

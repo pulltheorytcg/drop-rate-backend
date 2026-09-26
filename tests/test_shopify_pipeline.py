@@ -606,7 +606,7 @@ def test_shopify_link_tables_have_uniqueness_and_forced_rls() -> None:
 def test_shopify_pipeline_router_is_wired_separately_from_webhook_boundary() -> None:
     source = MAIN.read_text()
     assert "from .shopify_pipeline import router as shopify_pipeline_router" in source
-    assert "app.include_router(shopify_pipeline_router)" in source
+    assert "app.include_router(shopify_pipeline_router, dependencies=[Depends(require_platform_admin_request)])" in source
 
 
 def test_shopify_client_has_only_explicit_mutation_primitives() -> None:
