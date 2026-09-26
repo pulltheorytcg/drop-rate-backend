@@ -306,7 +306,7 @@ function renderFinanceSalesAnalytics(data) {
   } else {
     byId("finance-period-profit").textContent = "Pending";
     byId("finance-period-profit-note").textContent =
-      `Provisional ${provisionalProfit} · ${Number(data.unreconciled_shopify_sales || 0)} sale(s) awaiting costs`;
+      `Provisional ${provisionalProfit} · ${Number(data.unreconciled_external_sales ?? data.unreconciled_shopify_sales ?? 0)} sale(s) awaiting marketplace costs`;
   }
 
   const grainNames = {day: "day", week: "week", month: "month"};
@@ -436,7 +436,7 @@ function renderFinanceSummary(summary) {
     : "Pending";
   byId("finance-fees-note").textContent = summary.fees_complete
     ? "Platform + payment fees"
-    : `${formatFinanceMoney(recordedFees)} recorded · awaiting Shopify fees`;
+    : `${formatFinanceMoney(recordedFees)} recorded · awaiting marketplace fees`;
 
   byId("finance-shipping-cost").textContent = summary.shipping_cost_complete
     ? formatFinanceMoney(summary.shipping_cost_minor)
@@ -526,23 +526,28 @@ function renderFinanceSales(items) {
       costsCell.append(pendingLabel);
     }
 
-    if (sale.source === "SHOPIFY" && !costsComplete) {
+    if (["SHOPIFY", "EBAY"].includes(sale.source) && !costsComplete) {
       const actions = document.createElement("div");
       actions.className = "finance-reconcile-actions";
       if (!sale.fees_complete) {
-        const syncFees = document.createElement("button");
-        syncFees.type = "button";
-        syncFees.className = "ghost-button";
-        syncFees.textContent = "Sync fees";
-        syncFees.addEventListener("click", () => reconcileShopifyFees(sale));
-        actions.append(syncFees);
+        const feesButton = document.createElement("button");
+        feesButton.type = "button";
+        feesButton.className = "ghost-button";
+        if (sale.source === "SHOPIFY") {
+          feesButton.textContent = "Sync fees";
+          feesButton.addEventListener("click", () => reconcileShopifyFees(sale));
+        } else {
+          feesButton.textContent = "Set eBay fees";
+          feesButton.addEventListener("click", () => reconcileEbayFees(sale));
+        }
+        actions.append(feesButton);
       }
       if (!sale.shipping_cost_complete) {
         const setPostage = document.createElement("button");
         setPostage.type = "button";
         setPostage.className = "ghost-button";
         setPostage.textContent = "Set postage";
-        setPostage.addEventListener("click", () => reconcileShopifyPostage(sale));
+        setPostage.addEventListener("click", () => reconcileMarketplacePostage(sale));
         actions.append(setPostage);
       }
       costsCell.append(actions);
@@ -711,7 +716,53 @@ async function reconcileShopifyFees(sale) {
   }
 }
 
-async function reconcileShopifyPostage(sale) {
+async function reconcileEbayFees(sale) {
+  const value = window.prompt(
+    "Total verified eBay selling fees for this order in £.",
+    "0.00"
+  );
+  if (value === null) return;
+  const amountMinor = financeNonnegativeMinorFromInput(value);
+  if (amountMinor === null) {
+    showMessage("finance-message", "Enter a valid eBay fee total of £0.00 or more.", "error");
+    return;
+  }
+  const reference = window.prompt(
+    "Fee reference (eBay transaction/payout reference or statement reference):",
+    sale.order_number ? `${sale.order_number}-EBAY-FEES` : "EBAY-FEES"
+  );
+  if (reference === null) return;
+  const cleanReference = reference.trim();
+  if (!cleanReference) {
+    showMessage("finance-message", "An eBay fee reference is required.", "error");
+    return;
+  }
+
+  showMessage("finance-message", `Recording eBay fees for ${sale.order_number || "order"}…`);
+  try {
+    const result = await apiRequest(
+      `/api/v1/finance/ebay/orders/${sale.order_id}/fees`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          amount_minor: amountMinor,
+          reference: cleanReference,
+          notes: "Founder-verified eBay selling fees pending automated Finances API reconciliation.",
+        }),
+      }
+    );
+    await loadFounderFinance();
+    showMessage(
+      "finance-message",
+      `eBay fees reconciled: ${formatFinanceMoney(result.platform_fees_minor)}.`,
+      "success"
+    );
+  } catch (error) {
+    showMessage("finance-message", error.message, "error");
+  }
+}
+
+async function reconcileMarketplacePostage(sale) {
   const value = window.prompt(
     "Actual postage / fulfilment cost in £. Enter 0.00 if this order was not shipped.",
     "0.00"
@@ -737,7 +788,7 @@ async function reconcileShopifyPostage(sale) {
   showMessage("finance-message", `Recording postage for ${sale.order_number || "order"}…`);
   try {
     const result = await apiRequest(
-      `/api/v1/finance/shopify/orders/${sale.order_id}/postage`,
+      `/api/v1/finance/${String(sale.source || "").toLowerCase()}/orders/${sale.order_id}/postage`,
       {
         method: "POST",
         body: JSON.stringify({
