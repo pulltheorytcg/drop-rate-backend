@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field, model_validator
 
+from .access_control import require_platform_admin
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
@@ -1372,12 +1373,8 @@ async def reconcile_pending_shopify_fees(
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
+        await require_platform_admin(connection)
         owner = await _owner(connection)
-        if owner["role"] != "FOUNDER":
-            raise HTTPException(
-                status_code=403,
-                detail="Only a founder can run batch Shopify fee reconciliation",
-            )
         rows = await connection.fetch(
             """
             select distinct o.id,o.order_number,o.placed_at

@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
+from .access_control import require_platform_admin
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ownership import current_owner as _owner
@@ -161,10 +162,8 @@ async def _require_founder_operator(
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
-        owner = await _owner(connection)
-    if owner["owner_type"] != "FOUNDER" or owner["role"] != "FOUNDER":
-        raise HTTPException(status_code=403, detail="Founder approval is required")
-    return owner
+        await require_platform_admin(connection)
+        return await _owner(connection)
 
 
 def verify_stripe_signature(
