@@ -23,18 +23,18 @@ The following routers are currently restricted at FastAPI include-router level:
 These routes contain global business controls, publication actions, operational review
 queues or cross-owner administration and are not part of the future owner portal.
 
-## Mixed routers requiring endpoint-level policy
+## Mixed routers and endpoint-level policy
 
-These routers intentionally remain mixed and must not be blanket-guarded:
+The mixed-router pass now enforces these boundaries:
 
-- `api.py`: authenticated identity + Founder HQ inventory administration
-- `finance.py`: future owner-safe balance/history plus admin reconciliation/manual-sale actions
-- `refunds.py`: owner-safe visibility may be allowed later; refund creation is admin-only
-- `stripe_connect.py`: owner self-service onboarding/status plus admin payout approval/rejection and external webhooks
-- `shopify.py`: admin configuration/probe/register plus external signed webhooks
-- `ebay_sales.py`: admin seller/listing actions plus external order notifications
-- `ebay_oauth.py`: admin OAuth start/configuration with provider callback handling
-- `founder_onboarding.py`: admin invite creation plus invited-user preview/redeem flow
+- `api.py`: owner-scoped inventory reads remain authenticated; inventory mutations, approvals, cost allocation, purchase lots and inventory-review automation are PLATFORM_ADMIN-only.
+- `finance.py`: owner-scoped summary/sales/settlements/payout history and payout request/cancel remain available to the linked owner; fee/postage reconciliation and manual sales are PLATFORM_ADMIN-only.
+- `refunds.py`: owner-scoped refund visibility remains authenticated; refund creation is PLATFORM_ADMIN-only.
+- `stripe_connect.py`: owner self-service onboarding/status/sync remains owner-scoped; payout queue approval/rejection uses the central PLATFORM_ADMIN guard; Stripe webhook remains externally signed.
+- `shopify.py`: status/probe/webhook-registration are PLATFORM_ADMIN-only; the signed Shopify webhook remains external.
+- `ebay_sales.py`: seller-status and listing publication are PLATFORM_ADMIN-only; eBay notification verification/delivery remain external.
+- `ebay_oauth.py`: status/start/options/setup/configuration are PLATFORM_ADMIN-only; the state-verified provider callback remains external.
+- `founder_onboarding.py`: founder invite creation is PLATFORM_ADMIN-only; invitation preview/redeem remain deliberately available to the invited flow.
 
 ## OWNER-safe target surface
 
@@ -50,13 +50,14 @@ The future restricted owner portal may expose only owner-scoped data/actions suc
 Every OWNER-safe API must still be enforced server-side by RLS + FastAPI authorization.
 UI visibility is never treated as a security control.
 
-## Next hardening pass
+## Remaining before OWNER onboarding
 
-Apply endpoint-level PLATFORM_ADMIN guards to the mixed routers while preserving:
+- build a separate owner portal shell instead of exposing Founder HQ navigation
+- audit the exact fields returned by each owner-safe inventory/finance endpoint
+- add cross-owner integration tests using two independent memberships
+- add OWNER invitation/onboarding rather than reusing founder invitations
+- require admin MFA before external seller launch
 
-- authenticated owner self-service
-- provider callbacks
-- verified Shopify/eBay/Stripe webhooks
-- public founder-invite preview/redeem where required
+Provider callbacks and verified Shopify/eBay/Stripe webhooks remain intentionally outside user-session RBAC and retain their cryptographic/state verification boundaries.
 
-No OWNER accounts should be created until this endpoint-level pass is complete.
+No OWNER accounts should be created until the separate owner portal and cross-owner isolation tests are complete.
