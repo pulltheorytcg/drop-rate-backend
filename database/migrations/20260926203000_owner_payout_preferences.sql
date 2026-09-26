@@ -44,3 +44,41 @@ create policy payout_preferences_owner_scope
   with check (
     owner_id in (select o.id from tcg.owners o)
   );
+
+
+create or replace function tcg.audit_payout_preference_change()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'pg_catalog'
+as $function$
+begin
+  insert into tcg.audit_events(
+    actor,request_id,action,entity_type,entity_id,old_values,new_values
+  ) values(
+    coalesce(nullif(current_setting('tcg.user_id',true),''),session_user::text),
+    nullif(current_setting('tcg.request_id',true),''),
+    'PAYOUT_PREFERENCE_CHANGED',
+    'OWNER',
+    new.owner_id,
+    case when tg_op='UPDATE' then jsonb_build_object(
+      'cadence',old.cadence,
+      'weekday',old.weekday,
+      'monthly_day',old.monthly_day,
+      'fortnightly_anchor_date',old.fortnightly_anchor_date
+    ) else null end,
+    jsonb_build_object(
+      'cadence',new.cadence,
+      'weekday',new.weekday,
+      'monthly_day',new.monthly_day,
+      'fortnightly_anchor_date',new.fortnightly_anchor_date
+    )
+  );
+  return null;
+end;
+$function$;
+
+drop trigger if exists payout_preferences_audit on tcg.payout_preferences;
+create trigger payout_preferences_audit
+after insert or update on tcg.payout_preferences
+for each row execute function tcg.audit_payout_preference_change();
