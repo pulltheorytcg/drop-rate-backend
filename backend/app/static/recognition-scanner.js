@@ -6,6 +6,9 @@ state.recognition = {
   fileName: "",
   busy: false,
   currentResult: null,
+  cameraStream: null,
+  cameraFacingMode: "environment",
+  torchOn: false,
 };
 
 function recognitionView() {
@@ -30,11 +33,37 @@ function ensureRecognitionScannerUI() {
     </div>
     <div class="recognition-scan-grid">
       <div class="recognition-upload-card">
+        <div class="recognition-camera-launch">
+          <button id="recognition-open-camera" class="primary-button recognition-camera-primary" type="button">
+            <span aria-hidden="true">◉</span>
+            <span><strong>Open live camera</strong><small>Recommended on mobile</small></span>
+          </button>
+          <p>Use your rear camera, line the card up and scan it immediately.</p>
+        </div>
+        <div id="recognition-camera-stage" class="recognition-camera-stage hidden">
+          <div class="recognition-camera-viewport">
+            <video id="recognition-camera-video" autoplay muted playsinline></video>
+            <div class="recognition-card-guide" aria-hidden="true">
+              <span class="recognition-guide-corner top-left"></span>
+              <span class="recognition-guide-corner top-right"></span>
+              <span class="recognition-guide-corner bottom-left"></span>
+              <span class="recognition-guide-corner bottom-right"></span>
+            </div>
+            <div class="recognition-camera-tip">Fill the frame · keep the card flat · avoid glare</div>
+          </div>
+          <div class="recognition-camera-controls">
+            <button id="recognition-switch-camera" class="ghost-button compact" type="button">Switch camera</button>
+            <button id="recognition-torch" class="ghost-button compact hidden" type="button">Torch</button>
+            <button id="recognition-capture-scan" class="primary-button compact" type="button">Capture & recognise</button>
+            <button id="recognition-close-camera" class="ghost-button compact" type="button">Close</button>
+          </div>
+        </div>
+        <div class="recognition-upload-divider"><span>or upload a photo</span></div>
         <label class="recognition-dropzone" for="recognition-file">
           <input id="recognition-file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
           <span class="recognition-drop-icon">◎</span>
-          <strong>Take or upload a card photo</strong>
-          <small>Front of card · JPEG, PNG or WebP · keep the card flat and readable</small>
+          <strong>Choose a card photo</strong>
+          <small>JPEG, PNG or WebP · the phone camera picker still works as a fallback</small>
         </label>
         <div id="recognition-preview-wrap" class="recognition-preview-wrap hidden">
           <img id="recognition-preview" alt="Card photo selected for recognition">
@@ -70,6 +99,11 @@ function ensureRecognitionScannerUI() {
   else view.append(panel);
 
   byId("recognition-file").addEventListener("change", handleRecognitionFile);
+  byId("recognition-open-camera").addEventListener("click", openRecognitionCamera);
+  byId("recognition-switch-camera").addEventListener("click", switchRecognitionCamera);
+  byId("recognition-torch").addEventListener("click", toggleRecognitionTorch);
+  byId("recognition-capture-scan").addEventListener("click", captureAndRecogniseCard);
+  byId("recognition-close-camera").addEventListener("click", () => stopRecognitionCamera());
   byId("recognition-scan").addEventListener("click", runRecognitionScan);
   byId("recognition-clear").addEventListener("click", clearRecognitionScan);
 }
@@ -106,6 +140,14 @@ async function loadRecognitionStatus() {
     badge.className = data.configured ? "pill approved" : "pill inspection";
     badge.textContent = data.configured ? `${data.vision_model} · READY` : "VISION KEY REQUIRED";
     byId("recognition-scan").disabled = !data.configured || !state.recognition.imageDataUrl;
+    const cameraSupported = Boolean(
+      navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function"
+    );
+    const cameraButton = byId("recognition-open-camera");
+    cameraButton.disabled = !cameraSupported;
+    cameraButton.title = cameraSupported
+      ? "Open the rear camera"
+      : "Live camera is not supported in this browser. Use photo upload instead.";
     if (!data.configured) {
       showMessage(
         "recognition-message",
@@ -117,6 +159,249 @@ async function loadRecognitionStatus() {
     badge.className = "pill inspection";
     badge.textContent = "UNAVAILABLE";
     showMessage("recognition-message", error.message, "error");
+  }
+}
+
+function recognitionCameraErrorMessage(error) {
+  if (!error) return "The camera could not be opened.";
+  if (error.name === "NotAllowedError" || error.name === "SecurityError") {
+    return "Camera permission was blocked. Allow camera access for Drop Rate in your browser settings, then try again.";
+  }
+  if (error.name === "NotFoundError" || error.name === "OverconstrainedError") {
+    return "No compatible camera was found. You can upload a photo instead.";
+  }
+  if (error.name === "NotReadableError" || error.name === "AbortError") {
+    return "The camera is busy in another app or tab. Close it there and try again.";
+  }
+  return "The camera could not be opened. You can upload a photo instead.";
+}
+
+function stopRecognitionCamera({ hide = true } = {}) {
+  const stream = state.recognition.cameraStream;
+  if (stream) {
+    stream.getTracks().forEach((track) => {
+      try {
+        track.stop();
+      } catch (_error) {
+        // Best-effort hardware shutdown.
+      }
+    });
+  }
+  state.recognition.cameraStream = null;
+  state.recognition.torchOn = false;
+
+  const video = byId("recognition-camera-video");
+  if (video) video.srcObject = null;
+
+  const torch = byId("recognition-torch");
+  if (torch) {
+    torch.classList.add("hidden");
+    torch.textContent = "Torch";
+  }
+  if (hide) {
+    byId("recognition-camera-stage")?.classList.add("hidden");
+    byId("recognition-open-camera")?.classList.remove("hidden");
+  }
+}
+
+async function startRecognitionCamera(facingMode = "environment") {
+  if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
+    throw new Error("Live camera is not supported in this browser.");
+  }
+
+  stopRecognitionCamera({ hide: false });
+  const constraints = {
+    audio: false,
+    video: {
+      facingMode: { ideal: facingMode },
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+    },
+  };
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  state.recognition.cameraStream = stream;
+  state.recognition.cameraFacingMode = facingMode;
+
+  const video = byId("recognition-camera-video");
+  video.srcObject = stream;
+  await video.play();
+
+  byId("recognition-camera-stage").classList.remove("hidden");
+  byId("recognition-open-camera").classList.add("hidden");
+
+  const track = stream.getVideoTracks()[0];
+  let capabilities = {};
+  try {
+    capabilities = typeof track?.getCapabilities === "function"
+      ? track.getCapabilities()
+      : {};
+  } catch (_error) {
+    capabilities = {};
+  }
+  const torchButton = byId("recognition-torch");
+  torchButton.classList.toggle("hidden", !capabilities.torch);
+
+  showMessage(
+    "recognition-message",
+    facingMode === "environment"
+      ? "Rear camera ready. Line the full card up inside the guide."
+      : "Front camera ready. Switch back to the rear camera for the best card scan."
+  );
+}
+
+async function openRecognitionCamera() {
+  const button = byId("recognition-open-camera");
+  button.disabled = true;
+  showMessage("recognition-message", "Opening camera…");
+  try {
+    await startRecognitionCamera("environment");
+  } catch (error) {
+    stopRecognitionCamera();
+    showMessage("recognition-message", recognitionCameraErrorMessage(error), "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function switchRecognitionCamera() {
+  const next = state.recognition.cameraFacingMode === "environment"
+    ? "user"
+    : "environment";
+  const button = byId("recognition-switch-camera");
+  button.disabled = true;
+  try {
+    await startRecognitionCamera(next);
+  } catch (error) {
+    showMessage("recognition-message", recognitionCameraErrorMessage(error), "error");
+    try {
+      await startRecognitionCamera(
+        next === "environment" ? "user" : "environment"
+      );
+    } catch (_restoreError) {
+      stopRecognitionCamera();
+    }
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function toggleRecognitionTorch() {
+  const track = state.recognition.cameraStream?.getVideoTracks?.()[0];
+  if (!track || typeof track.applyConstraints !== "function") return;
+  const button = byId("recognition-torch");
+  const next = !state.recognition.torchOn;
+  try {
+    await track.applyConstraints({ advanced: [{ torch: next }] });
+    state.recognition.torchOn = next;
+    button.textContent = next ? "Torch on" : "Torch";
+  } catch (_error) {
+    button.classList.add("hidden");
+    showMessage(
+      "recognition-message",
+      "Torch control is not available on this camera. The scan can still continue.",
+      "warning"
+    );
+  }
+}
+
+function recognitionCardCrop(videoWidth, videoHeight) {
+  const cardRatio = 5 / 7;
+  let height = videoHeight * 0.88;
+  let width = height * cardRatio;
+  const maxWidth = videoWidth * 0.88;
+  if (width > maxWidth) {
+    width = maxWidth;
+    height = width / cardRatio;
+  }
+  return {
+    sx: Math.max(0, (videoWidth - width) / 2),
+    sy: Math.max(0, (videoHeight - height) / 2),
+    sw: Math.max(1, width),
+    sh: Math.max(1, height),
+  };
+}
+
+function setRecognitionCapturedImage(dataUrl, sourceLabel, metaText) {
+  state.recognition.imageDataUrl = dataUrl;
+  state.recognition.fileName = sourceLabel;
+  state.recognition.currentResult = null;
+  byId("recognition-preview").src = dataUrl;
+  byId("recognition-file-name").textContent = sourceLabel;
+  byId("recognition-file-meta").textContent = metaText;
+  byId("recognition-preview-wrap").classList.remove("hidden");
+  byId("recognition-clear").disabled = false;
+  byId("recognition-scan").disabled =
+    !state.recognition.status?.configured || state.recognition.busy;
+}
+
+async function captureAndRecogniseCard() {
+  if (state.recognition.busy) return;
+  const video = byId("recognition-camera-video");
+  if (
+    !state.recognition.cameraStream
+    || !video.videoWidth
+    || !video.videoHeight
+  ) {
+    showMessage("recognition-message", "Camera is not ready yet. Hold for a moment and try again.", "warning");
+    return;
+  }
+
+  const captureButton = byId("recognition-capture-scan");
+  captureButton.disabled = true;
+  try {
+    const crop = recognitionCardCrop(video.videoWidth, video.videoHeight);
+    const maxOutput = 1800;
+    const scale = Math.min(1, maxOutput / Math.max(crop.sw, crop.sh));
+    const outputWidth = Math.max(400, Math.round(crop.sw * scale));
+    const outputHeight = Math.max(560, Math.round(crop.sh * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = outputWidth;
+    canvas.height = outputHeight;
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("Camera capture is unavailable in this browser.");
+    context.drawImage(
+      video,
+      crop.sx,
+      crop.sy,
+      crop.sw,
+      crop.sh,
+      0,
+      0,
+      outputWidth,
+      outputHeight
+    );
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    const approxBytes = Math.max(
+      0,
+      Math.floor((dataUrl.length - dataUrl.indexOf(",") - 1) * 0.75)
+    );
+    setRecognitionCapturedImage(
+      dataUrl,
+      "Live camera capture",
+      `JPEG · ${outputWidth}×${outputHeight} · ~${(approxBytes / 1_000_000).toFixed(2)} MB`
+    );
+    stopRecognitionCamera();
+
+    if (!state.recognition.status?.configured) {
+      showMessage(
+        "recognition-message",
+        "Photo captured. Recognition is not configured yet, so it was not sent.",
+        "warning"
+      );
+      return;
+    }
+
+    showMessage(
+      "recognition-message",
+      "Photo captured. Starting exact-printing recognition…"
+    );
+    await runRecognitionScan();
+  } catch (error) {
+    showMessage("recognition-message", error.message || "Card capture failed.", "error");
+  } finally {
+    captureButton.disabled = false;
   }
 }
 
@@ -165,6 +450,7 @@ function handleRecognitionFile(event) {
 }
 
 function clearRecognitionScan() {
+  stopRecognitionCamera();
   state.recognition.imageDataUrl = null;
   state.recognition.fileName = "";
   state.recognition.currentResult = null;
@@ -499,6 +785,9 @@ ensureRecognitionScannerUI();
 
 const baseActivateSellerViewRecognition = activateSellerView;
 activateSellerView = function activateSellerViewWithRecognition(name, updateHash = false) {
+  if (name !== "verification") {
+    stopRecognitionCamera();
+  }
   const result = baseActivateSellerViewRecognition(name, updateHash);
   if (name === "verification") {
     loadRecognitionStatus();
@@ -506,6 +795,11 @@ activateSellerView = function activateSellerViewWithRecognition(name, updateHash
   }
   return result;
 };
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopRecognitionCamera();
+});
+window.addEventListener("pagehide", () => stopRecognitionCamera());
 
 if (recognitionView() && !recognitionView().classList.contains("hidden")) {
   loadRecognitionStatus();
