@@ -666,3 +666,9 @@ def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> 
     ):
         assert f'"{field}"' in source
     assert "identity fingerprints when glare or" in source
+
+
+def test_recognition_logic_change_bumps_idempotency_version() -> None:
+    api = API.read_text()
+    assert 'ENGINE_VERSION = "v1.1.0"' in api
+    assert 'f"recognition:{ENGINE_VERSION}:{settings.recognition_model}:"' in api
