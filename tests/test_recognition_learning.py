@@ -118,6 +118,8 @@ def test_api_materializes_learning_only_after_explicit_feedback() -> None:
     assert 'ENGINE_VERSION = "v1.3.0"' in source
     assert "materialize_learning_example(" in source
     assert "feedback_id=feedback[\"id\"]" in source
+    assert "discover_learning_candidate_hints(" in source
+    assert "learning_catalogue_ids=" in source
     assert "attach_learning_visual_evidence(" in source
     assert "encode_fingerprints(image.hashes)" in source
     assert '"verified_learning_enabled": True' in source
@@ -131,6 +133,8 @@ def test_online_learning_uses_train_split_only_and_active_labels() -> None:
     source = LEARNING.read_text()
 
     assert "e.dataset_split='TRAIN'" in source
+    assert "discover_learning_candidate_hints" in source
+    assert "min_similarity: float = 0.94" in source
     assert "newer.supersedes_example_id=e.id" in source
     assert "CONFIRMED_TOP" in source
     assert "CORRECTED_TO_CANDIDATE" in source
