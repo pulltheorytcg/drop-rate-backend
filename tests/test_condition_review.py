@@ -36,11 +36,20 @@ def ready_raw() -> dict:
     }
 
 
-def test_raw_card_requires_near_mint_and_photo_backed_verification() -> None:
+def test_raw_card_only_requires_photo_backed_review_when_policy_requires_it() -> None:
     assert _test_sync_missing(ready_raw()) == []
 
-    unreviewed = {**ready_raw(), "condition_review_status": "NOT_REVIEWED"}
-    assert _test_sync_missing(unreviewed) == ["photo-backed Near Mint verification"]
+    low_value_unreviewed = {**ready_raw(), "condition_review_status": "NOT_REVIEWED"}
+    assert _test_sync_missing(low_value_unreviewed) == []
+
+    high_value_unreviewed = {
+        **ready_raw(),
+        "store_price_minor": 5000,
+        "condition_review_status": "NOT_REVIEWED",
+    }
+    assert _test_sync_missing(high_value_unreviewed) == [
+        "photo-backed Near Mint verification"
+    ]
 
     played = {
         **ready_raw(),
@@ -138,7 +147,7 @@ def test_media_condition_ui_exposes_physical_capture_and_human_review() -> None:
     helper = HELPER.read_text()
 
     assert "Media & Condition" in ui
-    assert "Every Inventory ID needs its own front and back" in ui
+    assert "This queue contains only Inventory IDs that require physical proof" in ui
     assert 'id="shopify-media-context"' in ui
     assert "RAW_UNSLEEVED" in ui
     assert "PENNY_SLEEVE" in ui
@@ -162,6 +171,7 @@ def test_ai_is_assistive_not_an_approval_path() -> None:
     assert "AI condition assistance can be added to suggest defects and confidence" in ui
     assert "Human verification remains the listing gate" in ui
     assert '"ai_can_suggest_but_not_override": True' in source
+    assert "physical_photo_policy" in source
     assert "OpenAI" not in source
     assert "Anthropic" not in source
     assert "auto_approve" not in source.casefold()
