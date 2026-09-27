@@ -678,6 +678,7 @@ def test_founder_media_intake_is_visible_and_requires_explicit_rights_confirmati
     assert 'I own or am authorised to use this photograph' in ui
     assert 'button.dataset.scopeReady !== "true"' in helper
     assert 'source_type: "FOUNDER_UPLOAD"' in helper
+    assert 'rights_tier: "FIRST_PARTY_CAPTURE"' in helper
     assert 'Founder-owned original photograph; rights explicitly confirmed during upload' in helper
     assert 'new FormData()' in helper
     assert 'form.append("file", file)' in helper
@@ -688,8 +689,8 @@ def test_founder_media_intake_is_visible_and_requires_explicit_rights_confirmati
 
 
 
-def test_media_intake_queue_requires_each_physical_card_front_and_back() -> None:
-    raw_a = {
+def _media_queue_card(**overrides):
+    row = {
         "id": "00000000-0000-0000-0000-000000000001",
         "catalogue_id": "10000000-0000-0000-0000-000000000001",
         "inventory_code": "INV-RAW-1",
@@ -703,65 +704,60 @@ def test_media_intake_queue_requires_each_physical_card_front_and_back() -> None
         "catalogue_language": None,
         "grading_company": None,
         "grade": None,
+        "identity_confirmed": True,
+        "condition": "Near Mint",
+        "condition_review_status": "NOT_REVIEWED",
+        "store_price_minor": 499,
+        "market_value_minor": 450,
+        "recommended_retail_minor": 499,
     }
-    raw_b = {
-        **raw_a,
-        "id": "00000000-0000-0000-0000-000000000002",
-        "inventory_code": "INV-RAW-2",
-    }
-    graded = {
-        **raw_a,
-        "id": "00000000-0000-0000-0000-000000000003",
-        "catalogue_id": "10000000-0000-0000-0000-000000000002",
-        "inventory_code": "INV-PSA-1",
-        "name": "Charizard",
-        "card_number": "4/102",
-        "grading_company": "PSA",
-        "grade": "10",
-    }
+    row.update(overrides)
+    return row
 
-    result = _build_media_intake_queue([raw_a, raw_b, graded], [])
 
-    assert result["queue_count"] == 3
-    assert result["missing_side_count"] == 6
-    assert result["physical_items_pending"] == 3
-    assert result["raw_items_pending"] == 2
-    assert result["raw_canonical_groups_pending"] == 0
+def test_media_intake_queue_only_contains_policy_required_physical_cards() -> None:
+    low_value = _media_queue_card()
+    high_value = _media_queue_card(
+        id="00000000-0000-0000-0000-000000000002",
+        inventory_code="INV-HIGH-1",
+        store_price_minor=5000,
+    )
+    graded = _media_queue_card(
+        id="00000000-0000-0000-0000-000000000003",
+        catalogue_id="10000000-0000-0000-0000-000000000002",
+        inventory_code="INV-PSA-1",
+        name="Charizard",
+        card_number="4/102",
+        grading_company="PSA",
+        grade="10",
+        condition=None,
+    )
+
+    result = _build_media_intake_queue(
+        [low_value, high_value, graded],
+        [],
+        physical_photo_threshold_minor=5000,
+    )
+
+    assert result["queue_count"] == 2
+    assert result["missing_side_count"] == 4
+    assert result["physical_items_pending"] == 2
+    assert result["raw_items_pending"] == 1
     assert result["graded_items_pending"] == 1
     assert all(item["required_scope"] == "INVENTORY_ITEM" for item in result["items"])
+    assert all(item["physical_photos_required"] is True for item in result["items"])
+    assert all(item["inventory_id"] != low_value["id"] for item in result["items"])
 
-    first = next(item for item in result["items"] if item["inventory_id"] == raw_a["id"])
-    second = next(item for item in result["items"] if item["inventory_id"] == raw_b["id"])
+    high = next(item for item in result["items"] if item["inventory_id"] == high_value["id"])
     slab = next(item for item in result["items"] if item["inventory_id"] == graded["id"])
-    assert first["inventory_codes"] == ["INV-RAW-1"]
-    assert second["inventory_codes"] == ["INV-RAW-2"]
-    assert first["missing_sides"] == ["FRONT", "BACK"]
-    assert second["missing_sides"] == ["FRONT", "BACK"]
-    assert first["capture_context_options"] == [
-        "RAW_UNSLEEVED",
-        "PENNY_SLEEVE",
-        "TOP_LOADER",
-    ]
+    assert high["missing_sides"] == ["FRONT", "BACK"]
+    assert any("value at or above" in reason for reason in high["policy_reasons"])
     assert slab["capture_context_hint"] == "GRADED_SLAB"
-    assert slab["missing_sides"] == ["FRONT", "BACK"]
+    assert "graded card" in slab["policy_reasons"]
 
 
 def test_media_intake_queue_does_not_recapture_approved_processing_physical_media() -> None:
-    raw = {
-        "id": "00000000-0000-0000-0000-000000000001",
-        "catalogue_id": "10000000-0000-0000-0000-000000000001",
-        "inventory_code": "INV-RAW-1",
-        "product_type": "CARD",
-        "game": "Pokemon",
-        "name": "Seel",
-        "set_name": "Phantasmal Flames",
-        "card_number": "021/094",
-        "variant": "Normal",
-        "language": "English",
-        "catalogue_language": None,
-        "grading_company": None,
-        "grade": None,
-    }
+    raw = _media_queue_card(store_price_minor=5000)
     assets = [
         {
             "scope": "INVENTORY_ITEM",
@@ -770,33 +766,25 @@ def test_media_intake_queue_does_not_recapture_approved_processing_physical_medi
             "side": side,
             "approval_status": "APPROVED",
             "rights_status": "VERIFIED",
+            "rights_tier": "FIRST_PARTY_CAPTURE",
+            "source_status": "ACTIVE",
             "shopify_file_status": "PROCESSING",
         }
         for side in ("FRONT", "BACK")
     ]
 
-    result = _build_media_intake_queue([raw], assets)
+    result = _build_media_intake_queue(
+        [raw],
+        assets,
+        physical_photo_threshold_minor=5000,
+    )
 
     assert result["queue_count"] == 0
     assert result["missing_side_count"] == 0
 
 
-def test_canonical_media_never_satisfies_physical_card_capture() -> None:
-    raw = {
-        "id": "00000000-0000-0000-0000-000000000001",
-        "catalogue_id": "10000000-0000-0000-0000-000000000001",
-        "inventory_code": "INV-RAW-1",
-        "product_type": "CARD",
-        "game": "Pokemon",
-        "name": "Seel",
-        "set_name": "Phantasmal Flames",
-        "card_number": "021/094",
-        "variant": "Normal",
-        "language": "English",
-        "catalogue_language": None,
-        "grading_company": None,
-        "grade": None,
-    }
+def test_canonical_media_never_satisfies_policy_required_physical_capture() -> None:
+    raw = _media_queue_card(store_price_minor=5000)
     canonical = [{
         "scope": "CANONICAL_CARD",
         "catalogue_id": raw["catalogue_id"],
@@ -804,32 +792,33 @@ def test_canonical_media_never_satisfies_physical_card_capture() -> None:
         "side": "FRONT",
         "approval_status": "APPROVED",
         "rights_status": "VERIFIED",
+        "rights_tier": "STOREFRONT_ALLOWED",
+        "source_status": "ACTIVE",
         "shopify_file_status": "READY",
     }]
 
-    result = _build_media_intake_queue([raw], canonical)
+    result = _build_media_intake_queue(
+        [raw],
+        canonical,
+        physical_photo_threshold_minor=5000,
+    )
 
     assert result["queue_count"] == 1
     assert result["items"][0]["inventory_id"] == raw["id"]
     assert result["items"][0]["missing_sides"] == ["FRONT", "BACK"]
 
 
-def test_failed_media_reenters_capture_queue() -> None:
-    graded = {
-        "id": "00000000-0000-0000-0000-000000000003",
-        "catalogue_id": "10000000-0000-0000-0000-000000000002",
-        "inventory_code": "INV-PSA-1",
-        "product_type": "CARD",
-        "game": "Pokemon",
-        "name": "Charizard",
-        "set_name": "Base Set",
-        "card_number": "4/102",
-        "variant": "Holofoil",
-        "language": "English",
-        "catalogue_language": None,
-        "grading_company": "PSA",
-        "grade": "10",
-    }
+def test_failed_first_party_media_reenters_capture_queue() -> None:
+    graded = _media_queue_card(
+        id="00000000-0000-0000-0000-000000000003",
+        catalogue_id="10000000-0000-0000-0000-000000000002",
+        inventory_code="INV-PSA-1",
+        name="Charizard",
+        card_number="4/102",
+        grading_company="PSA",
+        grade="10",
+        condition=None,
+    )
     assets = [
         {
             "scope": "INVENTORY_ITEM",
@@ -838,6 +827,8 @@ def test_failed_media_reenters_capture_queue() -> None:
             "side": "FRONT",
             "approval_status": "APPROVED",
             "rights_status": "VERIFIED",
+            "rights_tier": "FIRST_PARTY_CAPTURE",
+            "source_status": "ACTIVE",
             "shopify_file_status": "READY",
         },
         {
@@ -847,6 +838,8 @@ def test_failed_media_reenters_capture_queue() -> None:
             "side": "BACK",
             "approval_status": "APPROVED",
             "rights_status": "VERIFIED",
+            "rights_tier": "FIRST_PARTY_CAPTURE",
+            "source_status": "ACTIVE",
             "shopify_file_status": "FAILED",
         },
     ]
@@ -856,7 +849,6 @@ def test_failed_media_reenters_capture_queue() -> None:
     assert result["queue_count"] == 1
     assert result["items"][0]["missing_sides"] == ["BACK"]
     assert result["items"][0]["ready_sides"] == ["FRONT"]
-
 
 def test_founder_media_ui_uses_dedicated_physical_capture_queue() -> None:
     helper = SHOPIFY_SETTINGS.read_text()
@@ -931,7 +923,7 @@ def test_batch_media_maps_exact_inventory_id_and_never_shared_canonical_copy() -
 def test_media_create_fails_closed_on_duplicate_live_side() -> None:
     source = PIPELINE.read_text()
     assert "An active media asset already exists for this physical item side" in source
-    assert "An active media asset already exists for this canonical card side" in source
+    assert "An active media asset already exists for this exact canonical card side" in source
     assert "approval_status <> 'REJECTED'" in source
     assert "shopify_file_status <> 'FAILED'" in source
 
