@@ -1212,6 +1212,32 @@ async def attach_provider_visual_evidence(
         item["visual_similarity"] = None
 
 
+
+def visual_work_short_circuit_reason(
+    observation: RecognitionObservation,
+    inventory_context: Mapping[str, Any] | None = None,
+) -> str | None:
+    """Return only gates that make EXACT_CANDIDATE impossible regardless of image comparison.
+
+    This is intentionally conservative: it never clears or replaces an identity gate.
+    It only avoids remote reference-image work after an irreversible human-review gate
+    is already present. Candidate/provider text evidence and verified-learning evidence
+    still run so reviewers receive a useful shortlist.
+    """
+    if observation.game_confidence < 0.90:
+        return "LOW_GAME_CONFIDENCE"
+    if observation.language == "Unknown" or observation.language_confidence < 0.85:
+        return "LANGUAGE_UNCERTAIN"
+    if observation.image_quality == "POOR":
+        return "POOR_IMAGE_QUALITY"
+    if observation.counterfeit_concerns:
+        return "POTENTIAL_COUNTERFEIT_REVIEW"
+    if inventory_context and (
+        inventory_context.get("grading_company") or inventory_context.get("grade")
+    ):
+        return "GRADED_ITEM_REVIEW"
+    return None
+
 def _provider_only_candidates(
     observation: RecognitionObservation,
     provider_evidence: list[Mapping[str, Any]],
