@@ -157,3 +157,44 @@ def test_csp_allows_only_trusted_canonical_card_image_hosts() -> None:
     assert "img-src *" not in main
     assert "https://*.onepiece-cardgame.com" not in main
     assert "https://*" not in main
+
+
+def test_inventory_defaults_to_visual_collectr_style_cards() -> None:
+    html = (STATIC / "index.html").read_text()
+    js = (STATIC / "app.js").read_text()
+    css = (STATIC / "styles.css").read_text()
+    api = (ROOT / "backend" / "app" / "api.py").read_text()
+
+    assert 'id="inventory-visual-grid"' in html
+    assert 'id="inventory-view-visual"' in html
+    assert 'id="inventory-view-table"' in html
+    assert 'id="inventory-table-wrap" class="table-wrap hidden"' in html
+
+    assert 'inventoryView: "visual"' in js
+    assert "function inventoryVisualCard(item)" in js
+    assert "function inventoryImageFigure(item)" in js
+    assert "item.card_image_url" in js
+    assert "item.market_value_minor" in js
+    assert "item.store_price_minor" in js
+    assert "item.acquisition_cost_minor" in js
+    assert "item.inventory_code" in js
+    assert "item.rarity" in js
+    assert "item.variant" in js
+    assert "item.language || item.catalogue_language" in js
+
+    assert ".inventory-visual-grid" in css
+    assert ".inventory-visual-card" in css
+    assert ".inventory-card-art img" in css
+
+    assert "card_image_url" in api
+    assert "card_image_approval_status" in api
+    assert "ma.approval_status in ('PENDING','APPROVED')" in api
+    assert "case when ma.scope='INVENTORY_ITEM' then 0 else 1 end" in api
+
+
+def test_pending_images_are_visible_internally_but_rejected_images_are_not() -> None:
+    api = (ROOT / "backend" / "app" / "api.py").read_text()
+    assert "ma.approval_status in ('PENDING','APPROVED')" in api
+    assert "ma.approval_status in ('PENDING','APPROVED','REJECTED')" not in api
+    assert "ma.source_status='ACTIVE'" in api
+    assert "ma.rights_status='VERIFIED'" in api

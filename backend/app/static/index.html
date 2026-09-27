@@ -115,9 +115,14 @@
               <option value="">All statuses</option><option value="DRAFT">Draft</option><option value="INSPECTION">Inspection</option><option value="APPROVED">Approved</option><option value="RESERVED">Reserved</option><option value="SOLD">Sold</option><option value="WITHDRAWN">Withdrawn</option>
             </select>
             <button id="bulk-cost-button" class="ghost-button" type="button" disabled>Allocate cost <span id="selected-count">0</span></button>
+            <div class="inventory-view-toggle" role="group" aria-label="Inventory view">
+              <button id="inventory-view-visual" class="ghost-button compact active" type="button" aria-pressed="true">Visual</button>
+              <button id="inventory-view-table" class="ghost-button compact" type="button" aria-pressed="false">Table</button>
+            </div>
           </div>
           <div id="inventory-message" class="message panel-message" role="status"></div>
-          <div class="table-wrap">
+          <div id="inventory-visual-grid" class="inventory-visual-grid" aria-live="polite"></div>
+          <div id="inventory-table-wrap" class="table-wrap hidden">
             <table>
               <thead><tr><th><input id="select-page" type="checkbox" aria-label="Select page"></th><th>Item</th><th>Set</th><th>Condition</th><th>Grading</th><th>Seal</th><th>Cost</th><th>Store price</th><th>Status</th><th></th></tr></thead>
               <tbody id="inventory-body"></tbody>
