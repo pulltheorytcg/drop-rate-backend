@@ -397,7 +397,7 @@ create or replace function tcg.validate_recognition_feedback()
 returns trigger
 language plpgsql
 set search_path=pg_catalog
-as $
+as $$
 declare
     v_run_owner uuid;
     v_top_catalogue uuid;
@@ -451,7 +451,7 @@ begin
 
     return new;
 end;
-$;
+$$;
 revoke all on function tcg.validate_recognition_feedback() from public;
 grant execute on function tcg.validate_recognition_feedback() to tcg_api;
 
