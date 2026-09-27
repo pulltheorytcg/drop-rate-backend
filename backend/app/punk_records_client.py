@@ -271,9 +271,11 @@ class PunkRecordsClient:
                     score += 6.0
 
             if base_id:
-                available += 2.0
+                # Tiny printed IDs are OCR-prone. Keep number useful for retrieval,
+                # but do not let one uncertain read overpower strong visible stats.
+                available += 1.0
                 if _base_card_id(provider_id) == base_id:
-                    score += 2.0
+                    score += 1.0
 
             if power is not None and record.get("power") is not None:
                 available += 4.0
@@ -286,10 +288,12 @@ class PunkRecordsClient:
                 if _norm(value)
             }
             if wanted_colors and provider_colors:
-                available += 3.0
+                # Colour is useful but can be mis-read through sleeves/glare and
+                # must not dominate exact power/name evidence during retrieval.
+                available += 2.0
                 overlap = len(wanted_colors & provider_colors)
                 union = len(wanted_colors | provider_colors)
-                score += 3.0 * (overlap / union if union else 0.0)
+                score += 2.0 * (overlap / union if union else 0.0)
 
             if wanted_type and record.get("category"):
                 available += 2.0
