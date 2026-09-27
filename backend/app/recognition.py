@@ -29,7 +29,7 @@ from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.1.0"
+ENGINE_VERSION = "v1.2.0"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
@@ -451,8 +451,9 @@ async def recognize_card(
             run_id,
             owner_id,
         )
-        candidates = await load_catalogue_candidates(connection, observation)
 
+    # Provider/gameplay recovery runs before the final local catalogue lookup so a
+    # bad OCR card number cannot hide the correct catalogue product.
     provider_result = await discover_provider_evidence(observation)
     provider_items = [
         dict(item)
@@ -460,6 +461,18 @@ async def recognize_card(
         if isinstance(item, dict)
     ]
     await attach_provider_visual_evidence(image.hashes, provider_items)
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        candidates = await load_catalogue_candidates(
+            connection,
+            observation,
+            provider_evidence=provider_items,
+        )
+
     await attach_visual_evidence(image.hashes, candidates)
 
     resolved = resolve_candidates(
