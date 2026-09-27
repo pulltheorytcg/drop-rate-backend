@@ -19,6 +19,7 @@ from app.recognition_vision import RecognitionObservation
 
 ROOT = Path(__file__).parents[1]
 MIGRATION = ROOT / "database" / "migrations" / "20260927184033_recognition_engine_v1.sql"
+INDEX_MIGRATION = ROOT / "database" / "migrations" / "20260927184141_index_recognition_system_fks.sql"
 API = ROOT / "backend" / "app" / "recognition.py"
 ENGINE = ROOT / "backend" / "app" / "recognition_engine.py"
 VISION = ROOT / "backend" / "app" / "recognition_vision.py"
@@ -342,3 +343,9 @@ def test_human_feedback_is_append_only_training_truth_not_inventory_mutation() -
     assert "insert into tcg.recognition_feedback" in api
     assert "update tcg.inventory_items" not in api.casefold()
     assert "Human label saved to the recognition audit dataset" in ui
+
+
+def test_recognition_system_foreign_keys_are_indexed() -> None:
+    sql = INDEX_MIGRATION.read_text()
+    assert "recognition_runs_system_idx" in sql
+    assert "recognition_candidates_system_idx" in sql
