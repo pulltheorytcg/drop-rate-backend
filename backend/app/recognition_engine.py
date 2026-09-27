@@ -650,22 +650,27 @@ async def load_catalogue_candidates(
         return []
 
     number = _compact(observation.card_number)
+    normalized_name = _compact(_name_core(observation.name_guess))
     params: list[Any] = [system_code]
     filters = ["pr.system_code=$1", "p.product_type='CARD'"]
+    identity_filters: list[str] = []
+
     if number:
         params.append(number)
-        filters.append(
+        identity_filters.append(
             "upper(regexp_replace(coalesce(p.card_number,''), '[^A-Za-z0-9]', '', 'g'))"
             f"=${len(params)}"
         )
-    elif observation.name_guess.strip():
-        params.append(_compact(_name_core(observation.name_guess)))
-        filters.append(
+    if normalized_name:
+        params.append(normalized_name)
+        identity_filters.append(
             "upper(regexp_replace(coalesce(p.name,''), '[^A-Za-z0-9]', '', 'g')) "
             f"like '%' || ${len(params)} || '%'"
         )
-    else:
+    if not identity_filters:
         return []
+
+    filters.append("(" + " or ".join(identity_filters) + ")")
     params.append(limit)
 
     rows = await connection.fetch(
