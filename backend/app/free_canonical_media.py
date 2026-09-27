@@ -350,6 +350,12 @@ async def resolve_free_canonical_media(
             "card_number": row["card_number"],
             "variant": row["variant"],
             "language": row["language"] or row["catalogue_language"],
+            "condition": row.get("condition"),
+            "grading_company": row.get("grading_company"),
+            "grade": row.get("grade"),
+            "store_price_minor": row.get("store_price_minor"),
+            "market_value_minor": row.get("market_value_minor"),
+            "recommended_retail_minor": row.get("recommended_retail_minor"),
             "provider": result.get("provider"),
             "result": result,
         }
