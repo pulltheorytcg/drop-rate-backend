@@ -8,7 +8,7 @@ MIGRATION = (
     ROOT
     / "database"
     / "migrations"
-    / "20260927193000_collectible_identity_foundation.sql"
+    / "20260927180056_collectible_identity_foundation.sql"
 )
 API = ROOT / "backend" / "app" / "collectible_identity.py"
 MAIN = ROOT / "backend" / "app" / "main.py"
