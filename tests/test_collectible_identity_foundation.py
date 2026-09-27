@@ -13,6 +13,12 @@ MIGRATION = (
 API = ROOT / "backend" / "app" / "collectible_identity.py"
 MAIN = ROOT / "backend" / "app" / "main.py"
 SCHEMAS = ROOT / "backend" / "app" / "schemas.py"
+INDEX_MIGRATION = (
+    ROOT
+    / "database"
+    / "migrations"
+    / "20260927180302_index_collectible_identity_foreign_keys.sql"
+)
 DOCS = ROOT / "docs" / "COLLECTIBLE_IDENTITY.md"
 
 
@@ -275,3 +281,11 @@ def test_collectible_identity_migration_has_valid_plpgsql_dollar_quoting_shape()
     assert "\nas $\n" not in sql
     assert "\n$;\n" not in sql
     assert sql.count("as $$") == sql.count("$$;")
+
+
+def test_collectible_identity_foreign_keys_are_indexed() -> None:
+    sql = INDEX_MIGRATION.read_text()
+    assert "catalogue_taxonomy_assignment_taxonomy_fk_idx" in sql
+    assert "catalogue_taxonomy_assignment_verified_by_user_idx" in sql
+    assert "provider_catalogue_mapping_system_idx" in sql
+    assert "provider_catalogue_mapping_verified_by_user_idx" in sql
