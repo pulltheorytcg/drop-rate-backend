@@ -421,7 +421,13 @@ def _provider_support(
             continue
         identity_score = float(item.get("identity_score") or 0.0)
         identity_weight = float(item.get("identity_evidence_weight") or 0.0)
-        if identity_score < 0.88 or identity_weight < 0.42:
+        non_number_score = float(item.get("non_number_identity_score") or 0.0)
+        non_number_weight = float(item.get("non_number_evidence_weight") or 0.0)
+        identity_strength = max(identity_score, non_number_score)
+        if not (
+            (identity_score >= 0.88 and identity_weight >= 0.42)
+            or (non_number_score >= 0.90 and non_number_weight >= 0.45)
+        ):
             continue
 
         provider_art = str(item.get("art_treatment") or "")
@@ -433,11 +439,11 @@ def _provider_support(
         if visual is not None:
             support = (
                 0.58 * float(visual)
-                + 0.27 * identity_score
+                + 0.27 * identity_strength
                 + 0.15 * art
             )
         else:
-            support = 0.78 * identity_score + 0.22 * art
+            support = 0.78 * identity_strength + 0.22 * art
 
         if support > best:
             best = support
@@ -447,7 +453,13 @@ def _provider_support(
         return round(best, 5), best_item
 
     if identity_item is not None:
-        return round(float(identity_item.get("identity_score") or 0.0) * 0.80, 5), identity_item
+        return round(
+            max(
+                float(identity_item.get("identity_score") or 0.0),
+                float(identity_item.get("non_number_identity_score") or 0.0),
+            ) * 0.80,
+            5,
+        ), identity_item
 
     return 0.0, None
 
@@ -847,8 +859,11 @@ async def discover_provider_evidence(
                 enriched.append(item)
             enriched.sort(
                 key=lambda item: (
-                    -float(item.get("identity_score") or 0.0),
-                    -float(item.get("identity_evidence_weight") or 0.0),
+                    -max(
+                        float(item.get("identity_score") or 0.0),
+                        float(item.get("non_number_identity_score") or 0.0),
+                    ),
+                    -float(item.get("non_number_evidence_weight") or 0.0),
                     str(item.get("provider_id") or ""),
                 )
             )
