@@ -23,6 +23,7 @@ from .recognition_engine import (
 from .recognition_images import RecognitionImageError, decode_image_data_url
 from .recognition_learning import (
     attach_learning_visual_evidence,
+    discover_learning_candidate_hints,
     encode_fingerprints,
     learning_status,
     materialize_learning_example,
@@ -514,10 +515,18 @@ async def recognize_card(
         user.user_id,
         request.state.request_id,
     ) as connection:
+        learning_hints = await discover_learning_candidate_hints(
+            connection,
+            image.hashes,
+            system_code=system_code,
+        )
         candidates = await load_catalogue_candidates(
             connection,
             observation,
             provider_evidence=provider_items,
+            learning_catalogue_ids=[
+                item["catalogue_id"] for item in learning_hints
+            ],
         )
 
     await attach_visual_evidence(image.hashes, candidates)
