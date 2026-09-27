@@ -148,6 +148,109 @@ class PunkRecordsClient:
             "provider_name": card.get("name"),
         }
 
+    async def find_japanese_candidates(
+        self,
+        *,
+        card_number: str,
+        name: str | None = None,
+        limit: int = 12,
+    ) -> list[dict[str, Any]]:
+        """Return Japanese provider printings sharing one printed card ID."""
+
+        base_id = str(card_number or "").strip().upper()
+        if not base_id or limit < 1:
+            return []
+
+        index = await self._cards_index()
+        candidate_ids = [
+            str(key)
+            for key in index
+            if str(key).upper() == base_id
+            or str(key).upper().startswith(f"{base_id}_")
+        ]
+
+        def priority(provider_id: str) -> tuple[int, str]:
+            lowered = provider_id.casefold()
+            if lowered == base_id.casefold():
+                return (0, lowered)
+            if "_p" in lowered:
+                return (1, lowered)
+            if "_r" in lowered:
+                return (2, lowered)
+            return (3, lowered)
+
+        candidate_ids.sort(key=priority)
+        results: list[dict[str, Any]] = []
+        for provider_id in candidate_ids[:limit]:
+            record = index.get(provider_id)
+            if not isinstance(record, Mapping):
+                continue
+            pack_id = str(record.get("pack_id") or "").strip()
+            if not pack_id:
+                continue
+            try:
+                card = await self._get_json(
+                    f"/japanese/cards/{pack_id}/{provider_id}.json"
+                )
+            except PunkRecordsError as exc:
+                if exc.status_code == 404:
+                    continue
+                raise
+            if not isinstance(card, Mapping):
+                continue
+
+            image_url = str(card.get("img_full_url") or "").strip()
+            parsed = urlparse(image_url)
+            if (
+                parsed.scheme != "https"
+                or not parsed.hostname
+                or not (
+                    parsed.hostname == "onepiece-cardgame.com"
+                    or parsed.hostname.endswith(".onepiece-cardgame.com")
+                )
+            ):
+                image_url = ""
+
+            lower_id = provider_id.casefold()
+            if lower_id == base_id.casefold():
+                art_treatment = "Base"
+            elif "_p" in lower_id:
+                art_treatment = "Parallel"
+            elif "_r" in lower_id:
+                art_treatment = "Reprint"
+            else:
+                art_treatment = "Unknown"
+
+            results.append(
+                {
+                    "provider": "Punk Records",
+                    "provider_id": provider_id,
+                    "base_card_id": base_id,
+                    "pack_id": pack_id,
+                    "name": card.get("name") or record.get("name"),
+                    "rarity": card.get("rarity") or record.get("rarity"),
+                    "card_type": card.get("category"),
+                    "colors": card.get("colors") or record.get("colors") or [],
+                    "attributes": card.get("attributes") or [],
+                    "art_treatment": art_treatment,
+                    "image_url": image_url or None,
+                    "source_reference": (
+                        f"{PUNK_RECORDS_REPO_URL}/blob/main/"
+                        f"japanese/cards/{pack_id}/{provider_id}.json"
+                    ),
+                }
+            )
+
+        if name:
+            wanted = _norm(name)
+            results.sort(
+                key=lambda item: (
+                    _norm(item.get("name")) != wanted,
+                    priority(str(item.get("provider_id") or "")),
+                )
+            )
+        return results
+
     async def _cards_index(self) -> dict[str, Any]:
         now = time.monotonic()
         if self._index is not None and now < self._index_expires_at:
