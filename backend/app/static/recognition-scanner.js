@@ -5,6 +5,7 @@ state.recognition = {
   imageDataUrl: null,
   fileName: "",
   busy: false,
+  currentResult: null,
 };
 
 function recognitionView() {
@@ -166,6 +167,7 @@ function handleRecognitionFile(event) {
 function clearRecognitionScan() {
   state.recognition.imageDataUrl = null;
   state.recognition.fileName = "";
+  state.recognition.currentResult = null;
   byId("recognition-file").value = "";
   byId("recognition-preview").removeAttribute("src");
   byId("recognition-preview-wrap").classList.add("hidden");
@@ -251,6 +253,7 @@ function renderRecognitionSignals(candidate) {
 }
 
 function renderRecognitionResult(data) {
+  state.recognition.currentResult = data;
   const result = byId("recognition-result");
   result.replaceChildren();
   const run = data.run || {};
@@ -328,10 +331,93 @@ function renderRecognitionResult(data) {
     result.append(reasonsBox);
   }
 
+  if (
+    run.id
+    && ["EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"].includes(run.decision || run.status)
+  ) {
+    const feedback = document.createElement("div");
+    feedback.className = "recognition-feedback";
+    const heading = document.createElement("strong");
+    heading.textContent = "Teach the recognition system";
+    const note = document.createElement("small");
+    note.textContent = "This records a human label only. It does not edit inventory or publish anything.";
+    feedback.append(heading, note);
+
+    const actions = document.createElement("div");
+    actions.className = "toolbar";
+    if (top?.catalogue_id) {
+      const confirm = document.createElement("button");
+      confirm.type = "button";
+      confirm.className = "primary-button compact";
+      confirm.textContent = "Confirm top candidate";
+      confirm.addEventListener("click", () => submitRecognitionFeedback(
+        run.id,
+        "CONFIRMED_TOP",
+        top.catalogue_id
+      ));
+      actions.append(confirm);
+    }
+    if (runner?.catalogue_id) {
+      const correct = document.createElement("button");
+      correct.type = "button";
+      correct.className = "ghost-button compact";
+      correct.textContent = "Runner-up is correct";
+      correct.addEventListener("click", () => submitRecognitionFeedback(
+        run.id,
+        "CORRECTED_TO_CANDIDATE",
+        runner.catalogue_id
+      ));
+      actions.append(correct);
+    }
+    const reject = document.createElement("button");
+    reject.type = "button";
+    reject.className = "ghost-button compact danger-button";
+    reject.textContent = "Reject all candidates";
+    reject.addEventListener("click", () => submitRecognitionFeedback(
+      run.id,
+      "REJECTED_ALL",
+      null
+    ));
+    actions.append(reject);
+    feedback.append(actions);
+
+    const previous = (data.feedback || [])[0];
+    if (previous) {
+      const latest = document.createElement("small");
+      latest.className = "recognition-feedback-latest";
+      latest.textContent = `Latest human label: ${previous.outcome.replaceAll("_", " ")}`;
+      feedback.append(latest);
+    }
+    result.append(feedback);
+  }
+
   const safety = document.createElement("p");
   safety.className = "muted recognition-safety";
   safety.textContent = "Recognition Engine v1 never auto-edits inventory identity, pricing or Shopify products.";
   result.append(safety);
+}
+
+async function submitRecognitionFeedback(runId, outcome, catalogueId) {
+  showMessage("recognition-message", "Saving human recognition label…");
+  try {
+    const data = await apiRequest(`/api/v1/recognition/runs/${runId}/feedback`, {
+      method: "POST",
+      body: JSON.stringify({
+        outcome,
+        selected_catalogue_id: catalogueId,
+        notes: "",
+      }),
+    });
+    renderRecognitionResult(data);
+    showMessage(
+      "recognition-message",
+      "Human label saved to the recognition audit dataset. Inventory was not changed.",
+      "success"
+    );
+    await loadRecognitionHistory();
+  } catch (error) {
+    showMessage("recognition-message", error.message, "error");
+  }
 }
 
 async function runRecognitionScan() {
