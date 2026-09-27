@@ -13,26 +13,25 @@ UI = ROOT / "backend" / "app" / "static" / "media-condition.js"
 
 
 @pytest.mark.asyncio
-async def test_tcgdex_resolves_english_set_name_to_japanese_card_image(monkeypatch) -> None:
+async def test_tcgdex_resolves_english_alias_to_japanese_card_image(monkeypatch) -> None:
     client = TcgDexClient()
 
+    async def fake_aliases():
+        return {"ruler of the black flame": "SV3"}
+
     async def fake_get(path, *, params=None):
-        if path == "/en/sets":
-            assert params == {"name": "Ruler of the Black Flame"}
-            return [
-                {
-                    "id": "sv3",
-                    "name": "Ruler of the Black Flame",
-                    "cardCount": {"official": 108, "total": 108},
-                }
-            ]
-        assert path in {"/ja/sets/sv3/020", "/ja/sets/sv3/20"}
+        assert params is None
+        assert path in {"/ja/sets/SV3/020", "/ja/sets/SV3/20"}
         return {
             "id": "sv3-20",
             "localId": "20",
             "name": "コオリッポex",
             "image": "https://assets.tcgdex.net/ja/sv/sv3/20",
-            "set": {"id": "sv3", "name": "黒炎の支配者"},
+            "set": {
+                "id": "SV3",
+                "name": "黒炎の支配者",
+                "cardCount": {"official": 108, "total": 108},
+            },
             "variants": {
                 "normal": False,
                 "holo": True,
@@ -41,6 +40,7 @@ async def test_tcgdex_resolves_english_set_name_to_japanese_card_image(monkeypat
             },
         }
 
+    monkeypatch.setattr(client, "_japanese_set_aliases", fake_aliases)
     monkeypatch.setattr(client, "_get_json", fake_get)
     result = await client.resolve_japanese_card(
         set_name="Ruler of the Black Flame",
@@ -51,51 +51,57 @@ async def test_tcgdex_resolves_english_set_name_to_japanese_card_image(monkeypat
     assert result["resolved"] is True
     assert result["provider"] == "TCGdex"
     assert result["provider_id"] == "sv3-20"
+    assert result["provider_set_id"] == "SV3"
     assert result["finish_key"] == "holo"
     assert result["image_url"] == "https://assets.tcgdex.net/ja/sv/sv3/20/high.webp"
 
 
 @pytest.mark.asyncio
-async def test_tcgdex_rejects_wrong_official_set_count(monkeypatch) -> None:
+async def test_tcgdex_rejects_wrong_japanese_set_card_count(monkeypatch) -> None:
     client = TcgDexClient()
 
-    async def fake_get(path, *, params=None):
-        assert path == "/en/sets"
-        return [
-            {
-                "id": "wrong",
-                "name": "Ruler of the Black Flame",
-                "cardCount": {"official": 109, "total": 109},
-            }
-        ]
+    async def fake_aliases():
+        return {"ruler of the black flame": "SV3"}
 
+    async def fake_get(path, *, params=None):
+        return {
+            "id": "sv3-20",
+            "localId": "20",
+            "image": "https://assets.tcgdex.net/ja/sv/sv3/20",
+            "set": {
+                "id": "SV3",
+                "cardCount": {"official": 109, "total": 109},
+            },
+            "variants": {"normal": False, "holo": True, "reverse": False},
+        }
+
+    monkeypatch.setattr(client, "_japanese_set_aliases", fake_aliases)
     monkeypatch.setattr(client, "_get_json", fake_get)
     result = await client.resolve_japanese_card(
         set_name="Ruler of the Black Flame",
         card_number="020/108",
         variant="Holofoil",
     )
-    assert result == {"resolved": False, "reason": "no exact TCGdex set match"}
+    assert result["resolved"] is False
+    assert result["reason"] == "TCGdex Japanese set card-count mismatch"
 
 
 @pytest.mark.asyncio
 async def test_tcgdex_rejects_finish_mismatch(monkeypatch) -> None:
     client = TcgDexClient()
 
+    async def fake_aliases():
+        return {"ruler of the black flame": "SV3"}
+
     async def fake_get(path, *, params=None):
-        if path == "/en/sets":
-            return [
-                {
-                    "id": "sv3",
-                    "name": "Ruler of the Black Flame",
-                    "cardCount": {"official": 108, "total": 108},
-                }
-            ]
         return {
             "id": "sv3-20",
             "localId": "20",
             "image": "https://assets.tcgdex.net/ja/sv/sv3/20",
-            "set": {"id": "sv3"},
+            "set": {
+                "id": "SV3",
+                "cardCount": {"official": 108, "total": 108},
+            },
             "variants": {
                 "normal": True,
                 "holo": False,
@@ -103,6 +109,7 @@ async def test_tcgdex_rejects_finish_mismatch(monkeypatch) -> None:
             },
         }
 
+    monkeypatch.setattr(client, "_japanese_set_aliases", fake_aliases)
     monkeypatch.setattr(client, "_get_json", fake_get)
     result = await client.resolve_japanese_card(
         set_name="Ruler of the Black Flame",
@@ -111,6 +118,27 @@ async def test_tcgdex_rejects_finish_mismatch(monkeypatch) -> None:
     )
     assert result["resolved"] is False
     assert result["reason"] == "TCGdex card does not support holo finish"
+
+
+@pytest.mark.asyncio
+async def test_tcgdex_parses_maintained_japanese_set_translation_map(monkeypatch) -> None:
+    client = TcgDexClient()
+
+    async def fake_text(url):
+        return """export const jpSetTranslationsMap = new Map<string, string>([
+  ['SV3', 'Ruler of the Black Flame'],
+  ['SV4a', 'Shiny Treasure ex'],
+  ['SV4M', 'Future Flash'],
+  ['SV8a', 'Terastal Festival ex'],
+]);"""
+
+    monkeypatch.setattr(client, "_get_text_url", fake_text)
+    aliases = await client._japanese_set_aliases()
+
+    assert aliases["ruler of the black flame"] == "SV3"
+    assert aliases["shiny treasure ex"] == "SV4a"
+    assert aliases["future flash"] == "SV4M"
+    assert aliases["terastal festival ex"] == "SV8a"
 
 
 @pytest.mark.asyncio
