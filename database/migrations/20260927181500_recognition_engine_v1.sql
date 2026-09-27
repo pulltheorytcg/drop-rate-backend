@@ -125,6 +125,42 @@ create index recognition_candidates_provider_idx
     on tcg.recognition_candidates(provider, provider_id)
     where provider_id is not null;
 
+create table tcg.recognition_feedback (
+    id uuid primary key default gen_random_uuid(),
+    run_id uuid not null references tcg.recognition_runs(id),
+    owner_id uuid not null references tcg.owners(id),
+    outcome text not null
+        check (outcome in (
+            'CONFIRMED_TOP',
+            'CORRECTED_TO_CANDIDATE',
+            'REJECTED_ALL'
+        )),
+    selected_catalogue_id uuid references tcg.catalogue_products(id),
+    supersedes_feedback_id uuid references tcg.recognition_feedback(id),
+    actor_user_id uuid not null references auth.users(id),
+    notes text not null default '' check (length(notes) <= 2000),
+    created_at timestamptz not null default clock_timestamp(),
+    check (
+        (outcome in ('CONFIRMED_TOP','CORRECTED_TO_CANDIDATE')
+         and selected_catalogue_id is not null)
+        or
+        (outcome='REJECTED_ALL' and selected_catalogue_id is null)
+    )
+);
+
+create index recognition_feedback_run_created_idx
+    on tcg.recognition_feedback(run_id, created_at desc);
+create index recognition_feedback_owner_created_idx
+    on tcg.recognition_feedback(owner_id, created_at desc);
+create index recognition_feedback_selected_catalogue_idx
+    on tcg.recognition_feedback(selected_catalogue_id)
+    where selected_catalogue_id is not null;
+create index recognition_feedback_actor_idx
+    on tcg.recognition_feedback(actor_user_id);
+create index recognition_feedback_supersedes_idx
+    on tcg.recognition_feedback(supersedes_feedback_id)
+    where supersedes_feedback_id is not null;
+
 -- Fast exact collector-number retrieval at scale.
 create index catalogue_products_card_number_normalized_idx
     on tcg.catalogue_products (
@@ -136,6 +172,8 @@ alter table tcg.recognition_runs enable row level security;
 alter table tcg.recognition_runs force row level security;
 alter table tcg.recognition_candidates enable row level security;
 alter table tcg.recognition_candidates force row level security;
+alter table tcg.recognition_feedback enable row level security;
+alter table tcg.recognition_feedback force row level security;
 
 create policy admin_access on tcg.recognition_runs
     for all to postgres using (true) with check (true);
@@ -206,11 +244,35 @@ create policy api_insert on tcg.recognition_candidates
         )
     );
 
-revoke all on tcg.recognition_runs,tcg.recognition_candidates
+create policy admin_access on tcg.recognition_feedback
+    for all to postgres using (true) with check (true);
+create policy api_read on tcg.recognition_feedback
+    for select to tcg_api
+    using (owner_id in (
+        select m.owner_id
+        from tcg.owner_memberships m
+        where m.user_id=tcg.current_user_id()
+          and m.active
+    ));
+create policy api_insert on tcg.recognition_feedback
+    for insert to tcg_api
+    with check (
+        tcg.is_platform_admin()
+        and actor_user_id=tcg.current_user_id()
+        and owner_id in (
+            select m.owner_id
+            from tcg.owner_memberships m
+            where m.user_id=tcg.current_user_id()
+              and m.active
+        )
+    );
+
+revoke all on tcg.recognition_runs,tcg.recognition_candidates,tcg.recognition_feedback
     from public,anon,authenticated;
 grant select,insert,update on tcg.recognition_runs to tcg_api;
-grant select,insert on tcg.recognition_candidates to tcg_api;
-revoke delete on tcg.recognition_runs,tcg.recognition_candidates from tcg_api;
+grant select,insert on tcg.recognition_candidates,tcg.recognition_feedback to tcg_api;
+revoke delete on tcg.recognition_runs,tcg.recognition_candidates,tcg.recognition_feedback from tcg_api;
+revoke update on tcg.recognition_feedback from tcg_api;
 revoke update on tcg.recognition_candidates from tcg_api;
 
 create or replace function tcg.validate_recognition_run()
@@ -331,6 +393,76 @@ create trigger recognition_candidates_immutable
     before update or delete on tcg.recognition_candidates
     for each row execute function tcg.prevent_recognition_candidate_mutation();
 
+create or replace function tcg.validate_recognition_feedback()
+returns trigger
+language plpgsql
+set search_path=pg_catalog
+as $
+declare
+    v_run_owner uuid;
+    v_top_catalogue uuid;
+    v_run_status text;
+begin
+    select r.owner_id,r.top_catalogue_id,r.status
+      into v_run_owner,v_top_catalogue,v_run_status
+    from tcg.recognition_runs r
+    where r.id=new.run_id;
+
+    if v_run_owner is null then
+        raise exception 'Recognition run not found'
+            using errcode='23503';
+    end if;
+    if v_run_owner <> new.owner_id then
+        raise exception 'Recognition feedback owner mismatch'
+            using errcode='23514';
+    end if;
+    if v_run_status not in ('EXACT_CANDIDATE','NEEDS_REVIEW','NO_MATCH') then
+        raise exception 'Only completed recognition runs can be labelled'
+            using errcode='23514';
+    end if;
+
+    if new.selected_catalogue_id is not null and not exists (
+        select 1
+        from tcg.recognition_candidates c
+        where c.run_id=new.run_id
+          and c.catalogue_id=new.selected_catalogue_id
+          and not c.hard_rejected
+    ) then
+        raise exception 'Human label must select a viable recognition candidate'
+            using errcode='23514';
+    end if;
+
+    if new.outcome='CONFIRMED_TOP'
+       and new.selected_catalogue_id is distinct from v_top_catalogue then
+        raise exception 'Confirmed-top label must select the run top candidate'
+            using errcode='23514';
+    end if;
+
+    if new.supersedes_feedback_id is not null and not exists (
+        select 1
+        from tcg.recognition_feedback f
+        where f.id=new.supersedes_feedback_id
+          and f.run_id=new.run_id
+          and f.owner_id=new.owner_id
+    ) then
+        raise exception 'Superseded feedback must belong to the same recognition run'
+            using errcode='23514';
+    end if;
+
+    return new;
+end;
+$;
+revoke all on function tcg.validate_recognition_feedback() from public;
+grant execute on function tcg.validate_recognition_feedback() to tcg_api;
+
+create trigger recognition_feedback_validate
+    before insert on tcg.recognition_feedback
+    for each row execute function tcg.validate_recognition_feedback();
+
+create trigger recognition_feedback_immutable
+    before update or delete on tcg.recognition_feedback
+    for each row execute function tcg.prevent_recognition_candidate_mutation();
+
 create or replace function tcg.audit_recognition_change()
 returns trigger
 language plpgsql
@@ -365,6 +497,9 @@ create trigger recognition_runs_audit
     for each row execute function tcg.audit_recognition_change();
 create trigger recognition_candidates_audit
     after insert or update or delete on tcg.recognition_candidates
+    for each row execute function tcg.audit_recognition_change();
+create trigger recognition_feedback_audit
+    after insert or update or delete on tcg.recognition_feedback
     for each row execute function tcg.audit_recognition_change();
 
 commit;
