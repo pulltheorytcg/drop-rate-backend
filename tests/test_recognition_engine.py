@@ -24,6 +24,7 @@ API = ROOT / "backend" / "app" / "recognition.py"
 ENGINE = ROOT / "backend" / "app" / "recognition_engine.py"
 VISION = ROOT / "backend" / "app" / "recognition_vision.py"
 SCANNER = ROOT / "backend" / "app" / "static" / "recognition-scanner.js"
+STYLES = ROOT / "backend" / "app" / "static" / "styles.css"
 MAIN = ROOT / "backend" / "app" / "main.py"
 
 
@@ -349,3 +350,57 @@ def test_recognition_system_foreign_keys_are_indexed() -> None:
     sql = INDEX_MIGRATION.read_text()
     assert "recognition_runs_system_idx" in sql
     assert "recognition_candidates_system_idx" in sql
+
+
+def test_mobile_live_camera_scanner_uses_rear_camera_and_one_tap_recognition() -> None:
+    ui = SCANNER.read_text()
+
+    assert "Open live camera" in ui
+    assert "Capture & recognise" in ui
+    assert "navigator.mediaDevices.getUserMedia" in ui
+    assert 'cameraFacingMode: "environment"' in ui
+    assert 'facingMode: { ideal: facingMode }' in ui
+    assert "recognitionCardCrop" in ui
+    assert 'canvas.toDataURL("image/jpeg", 0.92)' in ui
+    assert "await runRecognitionScan()" in ui
+
+
+def test_mobile_camera_stream_is_not_uploaded_continuously_and_is_shutdown() -> None:
+    ui = SCANNER.read_text()
+
+    assert "MediaRecorder" not in ui
+    assert "RTCPeerConnection" not in ui
+    assert "track.stop()" in ui
+    assert 'window.addEventListener("pagehide"' in ui
+    assert 'document.addEventListener("visibilitychange"' in ui
+    assert "stopRecognitionCamera();" in ui
+
+
+def test_mobile_camera_has_permission_fallback_switch_camera_and_optional_torch() -> None:
+    ui = SCANNER.read_text()
+
+    assert "Camera permission was blocked" in ui
+    assert "You can upload a photo instead." in ui
+    assert "Switch camera" in ui
+    assert "getCapabilities" in ui
+    assert "capabilities.torch" in ui
+    assert "applyConstraints({ advanced: [{ torch: next }] })" in ui
+
+
+def test_camera_permission_policy_is_first_party_only() -> None:
+    main = MAIN.read_text()
+
+    assert 'camera=(self), microphone=(), geolocation=()' in main
+    assert 'camera=()' not in main
+    assert 'camera=(*)' not in main
+
+
+def test_mobile_camera_ui_has_card_alignment_guide_and_responsive_styles() -> None:
+    ui = SCANNER.read_text()
+    styles = STYLES.read_text()
+
+    assert "recognition-card-guide" in ui
+    assert "Fill the frame · keep the card flat · avoid glare" in ui
+    assert ".recognition-camera-viewport" in styles
+    assert ".recognition-card-guide" in styles
+    assert "aspect-ratio:5/7" in styles
