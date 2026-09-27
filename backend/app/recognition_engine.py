@@ -1188,13 +1188,48 @@ async def attach_visual_evidence(
         candidate["visual_similarity"] = None
 
 
+def _provider_visual_shortlist(
+    provider_evidence: list[dict[str, Any]],
+    *,
+    max_candidates: int = 8,
+) -> list[dict[str, Any]]:
+    """Keep remote image work focused on provider rows that can still affect identity.
+
+    Strong provider fingerprints are enough to recover a card number. Medium rows are
+    useful as nearby visual alternatives. Low-relevance same-character rows remain in
+    textual evidence but do not spend network time on artwork downloads.
+    """
+    strong: list[dict[str, Any]] = []
+    medium: list[dict[str, Any]] = []
+    for item in provider_evidence:
+        identity = float(item.get("identity_score") or 0.0)
+        non_number = float(item.get("non_number_identity_score") or 0.0)
+        if identity >= 0.80 or non_number >= 0.88:
+            strong.append(item)
+        elif identity >= 0.65 or non_number >= 0.78:
+            medium.append(item)
+
+    selected = [*strong, *medium][:max_candidates]
+    if selected:
+        return selected
+
+    # If provider text evidence is weak across the board, retain a small visual
+    # fallback rather than removing image evidence entirely.
+    return provider_evidence[: min(max_candidates, 4)]
+
+
 async def attach_provider_visual_evidence(
     source_hashes: tuple[int, ...],
     provider_evidence: list[dict[str, Any]],
     *,
-    max_candidates: int = 12,
+    max_candidates: int = 8,
 ) -> None:
     semaphore = asyncio.Semaphore(4)
+    selected = _provider_visual_shortlist(
+        provider_evidence,
+        max_candidates=max_candidates,
+    )
+    selected_ids = {id(item) for item in selected}
 
     async def one(item: dict[str, Any]) -> None:
         url = str(item.get("image_url") or "").strip()
@@ -1207,9 +1242,10 @@ async def attach_provider_visual_evidence(
             hash_similarity(source_hashes, reference) if reference else None
         )
 
-    await asyncio.gather(*[one(item) for item in provider_evidence[:max_candidates]])
-    for item in provider_evidence[max_candidates:]:
-        item["visual_similarity"] = None
+    await asyncio.gather(*[one(item) for item in selected])
+    for item in provider_evidence:
+        if id(item) not in selected_ids:
+            item["visual_similarity"] = None
 
 
 
