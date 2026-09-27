@@ -197,6 +197,15 @@ the card is safe to publish, price, buy, sell, grade, or certify as authentic.
 Do not invent unreadable text. When a field cannot be established from the image,
 return an empty string or Unknown and lower the corresponding confidence.
 
+CRITICAL: extract every field independently from pixels. A guessed card number must
+never be used to fill or "correct" the set, colour, rarity, traits, effect, power,
+cost, card type, art treatment or any other field from prior knowledge. Likewise,
+do not choose a card number because other visible fields remind you of a known card.
+If the tiny printed ID is blurred, return the best literal OCR guess with appropriately
+low confidence while preserving independently visible collaboration/event marks such
+as ROUND1, tournament stamps, promo logos or anniversary marks. Do not infer metadata
+from that OCR guess.
+
 Supported recognition targets in this version are Pokemon and One Piece cards.
 For Pokemon, distinguish English vs Japanese, collector number, set clues, rarity
 wording/symbols, card category, holo/reverse-holo/normal clues and visible special
