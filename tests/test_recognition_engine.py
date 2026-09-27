@@ -257,6 +257,7 @@ def test_recognition_migration_is_fail_closed_audited_and_immutable() -> None:
     sql = MIGRATION.read_text()
     assert "create table tcg.recognition_runs" in sql
     assert "create table tcg.recognition_candidates" in sql
+    assert "create table tcg.recognition_feedback" in sql
     assert "unique (owner_id, idempotency_key)" in sql
     assert "Recognition candidate evidence is immutable" in sql
     assert "alter table tcg.recognition_runs force row level security" in sql
@@ -265,6 +266,9 @@ def test_recognition_migration_is_fail_closed_audited_and_immutable() -> None:
     assert "tcg.is_platform_admin()" in sql
     assert "create trigger recognition_runs_audit" in sql
     assert "create trigger recognition_candidates_audit" in sql
+    assert "create trigger recognition_feedback_audit" in sql
+    assert "Recognition feedback owner mismatch" in sql
+    assert "Human label must select a viable recognition candidate" in sql
     assert "update tcg.inventory_items" not in sql.casefold()
     assert "insert into tcg.identity_verification_events" not in sql.casefold()
 
@@ -274,6 +278,7 @@ def test_recognition_api_never_auto_applies_identity() -> None:
     assert '@router.post("/resolve")' in source
     assert '@router.get("/status")' in source
     assert '@router.get("/runs")' in source
+    assert '@router.post("/runs/{run_id}/feedback")' in source
     assert "auto_applied" in source
     assert '"auto_applies_inventory_identity": False' in source
     assert "update tcg.inventory_items" not in source.casefold()
@@ -301,6 +306,9 @@ def test_founder_hq_exposes_recognition_scanner_and_safety_copy() -> None:
     assert "Runner-up" in ui
     assert "Art treatment" in ui
     assert "Recognition Engine v1 never auto-edits inventory identity" in ui
+    assert "Confirm top candidate" in ui
+    assert "Runner-up is correct" in ui
+    assert "Reject all candidates" in ui
     assert "/api/v1/recognition/resolve" in ui
     assert "/api/v1/recognition/runs" in ui
     assert "recognition-scanner.js" in main
@@ -314,3 +322,23 @@ def test_engine_requires_unique_discriminator_for_same_number_printings() -> Non
     assert "visual_unique" in source
     assert "provider_unique" in source
     assert "AMBIGUOUS_PRINTING" in source
+
+
+def test_recognition_migration_has_balanced_plpgsql_dollar_quotes() -> None:
+    sql = MIGRATION.read_text()
+    assert "\nas $\n" not in sql
+    assert "\n$;\n" not in sql
+    assert sql.count("as $$") == sql.count("$$;")
+
+
+def test_human_feedback_is_append_only_training_truth_not_inventory_mutation() -> None:
+    sql = MIGRATION.read_text()
+    api = API.read_text()
+    ui = SCANNER.read_text()
+
+    assert "recognition_feedback_immutable" in sql
+    assert "CORRECTED_TO_CANDIDATE" in sql
+    assert "supersedes_feedback_id" in sql
+    assert "insert into tcg.recognition_feedback" in api
+    assert "update tcg.inventory_items" not in api.casefold()
+    assert "Human label saved to the recognition audit dataset" in ui
