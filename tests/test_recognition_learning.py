@@ -115,7 +115,7 @@ def test_verified_learning_migration_is_append_only_audited_and_private() -> Non
 def test_api_materializes_learning_only_after_explicit_feedback() -> None:
     source = API.read_text()
 
-    assert 'ENGINE_VERSION = "v1.3.0"' in source
+    assert 'ENGINE_VERSION = "v1.4.0"' in source
     assert "materialize_learning_example(" in source
     assert "feedback_id=feedback[\"id\"]" in source
     assert "discover_learning_candidate_hints(" in source
