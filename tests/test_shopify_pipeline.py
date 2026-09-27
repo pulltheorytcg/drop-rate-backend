@@ -109,7 +109,7 @@ def test_shopify_test_status_exposes_same_gate_blockers_to_dashboard() -> None:
     frontend = SHOPIFY_SETTINGS.read_text()
     assert "missing = _test_sync_missing(" in source
     assert "physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor" in source
-    assert "missing = _test_sync_missing(item)" in source
+    assert source.count("missing = _test_sync_missing(") >= 2
     assert '"readiness": {' in source
     assert '"blockers": blocker_counts' in source
     assert "Eligible inventory" in frontend
