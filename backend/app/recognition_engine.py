@@ -1723,6 +1723,8 @@ def resolve_candidates(
                     # Provider identity images are evidence only and must never be
                     # promoted into a catalogue candidate snapshot by fallback.
                     "reference_image_url": candidate.get("reference_image_url"),
+                    "reference_media_asset_id": candidate.get("reference_media_asset_id"),
+                    "reference_image_approval_status": candidate.get("reference_image_approval_status"),
                     "max_known_value_minor": candidate.get("max_known_value_minor"),
                 },
             }
@@ -1826,7 +1828,12 @@ def resolve_candidates(
             reasons.append(
                 "A promotion/collaboration mark is visible, but the top catalogue printing is not tagged as that promotion."
             )
-        elif not top["candidate_snapshot"].get("reference_image_url"):
+        elif (
+            str(top["candidate_snapshot"].get("reference_image_approval_status") or "")
+            != "APPROVED"
+            and str(top["signals"].get("visual_retrieval", {}).get("trust") or "")
+            != "VERIFIED"
+        ):
             exact = False
             risks.append("PROMOTION_MEDIA_UNVERIFIED")
             reasons.append(
