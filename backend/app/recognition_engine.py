@@ -1497,22 +1497,6 @@ def visual_work_short_circuit_reason(
     """
     if observation.game_confidence < 0.90:
         return "LOW_GAME_CONFIDENCE"
-    observed_promotion = _observed_promotion_marker(observation)
-    if observed_promotion:
-        promotion_signal = top["signals"].get("promotion", {})
-        if float(promotion_signal.get("match") or 0.0) < 1.0:
-            exact = False
-            risks.append("PROMOTION_PRINTING_MISMATCH")
-            reasons.append(
-                "A promotion/collaboration mark is visible, but the top catalogue printing is not tagged as that promotion."
-            )
-        elif not top["candidate_snapshot"].get("reference_image_url"):
-            exact = False
-            risks.append("PROMOTION_MEDIA_UNVERIFIED")
-            reasons.append(
-                "The promotion family is identified, but exact canonical artwork has not yet been verified for this printing."
-            )
-
     if observation.language == "Unknown" or observation.language_confidence < 0.85:
         return "LANGUAGE_UNCERTAIN"
     if observation.image_quality == "POOR":
@@ -1755,6 +1739,22 @@ def resolve_candidates(
         reasons.append(
             f"OCR read {number_signal.get('observed') or 'an uncertain number'}, but stronger independent evidence resolves this identity as {number_signal.get('recovered') or number_signal.get('candidate')}. Human review is required before exact-printing approval."
         )
+
+    observed_promotion = _observed_promotion_marker(observation)
+    if observed_promotion:
+        promotion_signal = top["signals"].get("promotion", {})
+        if float(promotion_signal.get("match") or 0.0) < 1.0:
+            exact = False
+            risks.append("PROMOTION_PRINTING_MISMATCH")
+            reasons.append(
+                "A promotion/collaboration mark is visible, but the top catalogue printing is not tagged as that promotion."
+            )
+        elif not top["candidate_snapshot"].get("reference_image_url"):
+            exact = False
+            risks.append("PROMOTION_MEDIA_UNVERIFIED")
+            reasons.append(
+                "The promotion family is identified, but exact canonical artwork has not yet been verified for this printing."
+            )
 
     if observation.language == "Unknown" or observation.language_confidence < 0.85:
         exact = False
