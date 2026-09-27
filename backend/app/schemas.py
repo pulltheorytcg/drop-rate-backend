@@ -12,7 +12,7 @@ EditableInventoryStatus = Literal["DRAFT", "INSPECTION", "WITHDRAWN"]
 AllocationMethod = Literal["MANUAL", "EQUAL", "VALUE_WEIGHTED"]
 SealStatus = Literal["SEALED", "UNSEALED"]
 StorageLocationType = Literal["BINDER", "BOX", "SHELF", "DRAWER", "VAULT", "DISPLAY", "OTHER"]
-CatalogueProductType = Literal["CARD", "SEALED", "COLLECTION"]
+CatalogueProductType = Literal["CARD", "SEALED", "COLLECTION", "COMIC", "ACCESSORY"]
 ReadinessIssue = Literal[
     "missing_cost",
     "missing_condition",
