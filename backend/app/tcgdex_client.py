@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import re
+import time
 from typing import Any, Mapping
 
 import httpx
@@ -9,6 +11,10 @@ import httpx
 TCGDEX_BASE_URL = "https://api.tcgdex.net/v2"
 TCGDEX_SOURCE_URL = "https://tcgdex.dev"
 TCGDEX_DATABASE_URL = "https://github.com/tcgdex/cards-database"
+TCGDEX_JP_SET_TRANSLATIONS_URL = (
+    "https://raw.githubusercontent.com/tcgdex/cards-database/master/"
+    "scripts/utils-data/jp_set_translations.ts"
+)
 
 
 class TcgDexApiError(RuntimeError):
@@ -80,6 +86,9 @@ class TcgDexClient:
             raise ValueError("timeout_seconds must be positive")
         self._base_url = base_url.rstrip("/")
         self._timeout = httpx.Timeout(timeout_seconds)
+        self._jp_aliases: dict[str, str] | None = None
+        self._jp_aliases_expires_at = 0.0
+        self._jp_aliases_lock = asyncio.Lock()
 
     async def resolve_japanese_card(
         self,
@@ -101,42 +110,12 @@ class TcgDexClient:
                 "reason": "Pokémon variant is not mapped to a TCGdex finish",
             }
 
-        sets = await self._get_json(
-            "/en/sets",
-            params={"name": set_name.strip()},
+        set_id = await self._japanese_set_id(
+            set_name=set_name,
+            official_count=official_count,
         )
-        if not isinstance(sets, list):
-            raise TcgDexApiError("TCGdex set search returned an invalid response")
-
-        exact_sets: list[Mapping[str, Any]] = []
-        for item in sets:
-            if not isinstance(item, Mapping):
-                continue
-            if _norm(item.get("name")) != _norm(set_name):
-                continue
-            if official_count is not None:
-                card_count = item.get("cardCount")
-                if isinstance(card_count, Mapping):
-                    provider_official = card_count.get("official")
-                    if (
-                        isinstance(provider_official, int)
-                        and provider_official != official_count
-                    ):
-                        continue
-            exact_sets.append(item)
-
-        if not exact_sets:
-            return {"resolved": False, "reason": "no exact TCGdex set match"}
-        if len(exact_sets) > 1:
-            return {
-                "resolved": False,
-                "reason": "multiple exact TCGdex set matches",
-                "candidate_count": len(exact_sets),
-            }
-
-        set_id = str(exact_sets[0].get("id") or "").strip()
-        if not set_id:
-            return {"resolved": False, "reason": "TCGdex set is missing a stable ID"}
+        if set_id is None:
+            return {"resolved": False, "reason": "no exact TCGdex Japanese set match"}
 
         card: Mapping[str, Any] | None = None
         attempts = [local_id]
@@ -163,6 +142,17 @@ class TcgDexClient:
         provider_set = card.get("set")
         if not isinstance(provider_set, Mapping) or str(provider_set.get("id") or "") != set_id:
             return {"resolved": False, "reason": "TCGdex card set identity mismatch"}
+        if official_count is not None:
+            provider_count = provider_set.get("cardCount")
+            if (
+                isinstance(provider_count, Mapping)
+                and isinstance(provider_count.get("official"), int)
+                and provider_count.get("official") != official_count
+            ):
+                return {
+                    "resolved": False,
+                    "reason": "TCGdex Japanese set card-count mismatch",
+                }
         if not _number_equivalent(card.get("localId"), local_id):
             return {"resolved": False, "reason": "TCGdex card number mismatch"}
 
@@ -191,6 +181,110 @@ class TcgDexClient:
             "provider_local_id": card.get("localId"),
             "finish_key": variant_key,
         }
+
+    async def _japanese_set_id(
+        self,
+        *,
+        set_name: str,
+        official_count: int | None,
+    ) -> str | None:
+        aliases = await self._japanese_set_aliases()
+        mapped = aliases.get(_norm(set_name))
+        if mapped:
+            return mapped
+
+        # Fallback for sets that are genuinely shared with the international
+        # catalogue. This is not the primary Japanese-set path.
+        sets = await self._get_json(
+            "/en/sets",
+            params={"name": set_name.strip()},
+        )
+        if not isinstance(sets, list):
+            raise TcgDexApiError("TCGdex set search returned an invalid response")
+
+        exact: list[Mapping[str, Any]] = []
+        for item in sets:
+            if not isinstance(item, Mapping):
+                continue
+            if _norm(item.get("name")) != _norm(set_name):
+                continue
+            if official_count is not None:
+                card_count = item.get("cardCount")
+                if (
+                    isinstance(card_count, Mapping)
+                    and isinstance(card_count.get("official"), int)
+                    and card_count.get("official") != official_count
+                ):
+                    continue
+            exact.append(item)
+
+        if len(exact) != 1:
+            return None
+        set_id = str(exact[0].get("id") or "").strip()
+        return set_id or None
+
+    async def _japanese_set_aliases(self) -> dict[str, str]:
+        now = time.monotonic()
+        if self._jp_aliases is not None and now < self._jp_aliases_expires_at:
+            return self._jp_aliases
+
+        async with self._jp_aliases_lock:
+            now = time.monotonic()
+            if self._jp_aliases is not None and now < self._jp_aliases_expires_at:
+                return self._jp_aliases
+
+            text = await self._get_text_url(TCGDEX_JP_SET_TRANSLATIONS_URL)
+            aliases: dict[str, str] = {}
+            pattern = re.compile(
+                r"\['((?:\\'|[^'])+)',\s*'((?:\\'|[^'])+)'\]"
+            )
+            for set_id, english_name in pattern.findall(text):
+                clean_id = set_id.replace("\\'", "'").strip()
+                clean_name = english_name.replace("\\'", "'").strip()
+                if clean_id and clean_name:
+                    aliases[_norm(clean_name)] = clean_id
+
+            if not aliases:
+                raise TcgDexApiError(
+                    "TCGdex Japanese set translation map could not be parsed"
+                )
+            self._jp_aliases = aliases
+            self._jp_aliases_expires_at = time.monotonic() + 3600
+            return aliases
+
+    async def _get_text_url(self, url: str) -> str:
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.get(url, headers={"Accept": "text/plain"})
+        except httpx.TimeoutException as exc:
+            raise TcgDexApiError(
+                "TCGdex set translation request timed out",
+                retryable=True,
+            ) from exc
+        except httpx.RequestError as exc:
+            raise TcgDexApiError(
+                "TCGdex set translation request failed",
+                retryable=True,
+            ) from exc
+
+        if response.status_code == 429:
+            raise TcgDexApiError(
+                "TCGdex set translation source rate limit reached",
+                status_code=429,
+                retryable=True,
+            )
+        if response.status_code >= 500:
+            raise TcgDexApiError(
+                "TCGdex set translation source is unavailable",
+                status_code=response.status_code,
+                retryable=True,
+            )
+        if response.status_code != 200:
+            raise TcgDexApiError(
+                "TCGdex set translation source was rejected",
+                status_code=response.status_code,
+            )
+        return response.text
 
     async def _get_json(
         self,
