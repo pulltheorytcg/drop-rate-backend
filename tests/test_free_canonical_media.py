@@ -32,12 +32,9 @@ async def test_tcgdex_resolves_english_alias_to_japanese_card_image(monkeypatch)
                 "name": "黒炎の支配者",
                 "cardCount": {"official": 108, "total": 108},
             },
-            "variants": {
-                "normal": False,
-                "holo": True,
-                "reverse": False,
-                "firstEdition": False,
-            },
+            "variants": [
+                {"type": "holo"},
+            ],
         }
 
     monkeypatch.setattr(client, "_japanese_set_aliases", fake_aliases)
@@ -54,6 +51,36 @@ async def test_tcgdex_resolves_english_alias_to_japanese_card_image(monkeypatch)
     assert result["provider_set_id"] == "SV3"
     assert result["finish_key"] == "holo"
     assert result["image_url"] == "https://assets.tcgdex.net/ja/sv/sv3/20/high.webp"
+
+
+@pytest.mark.asyncio
+async def test_tcgdex_also_accepts_boolean_variant_shape(monkeypatch) -> None:
+    client = TcgDexClient()
+
+    async def fake_aliases():
+        return {"ruler of the black flame": "SV3"}
+
+    async def fake_get(path, *, params=None):
+        return {
+            "id": "sv3-20",
+            "localId": "20",
+            "image": "https://assets.tcgdex.net/ja/sv/sv3/20",
+            "set": {
+                "id": "sv3",
+                "cardCount": {"official": 108, "total": 108},
+            },
+            "variants": {"normal": False, "holo": True, "reverse": False},
+        }
+
+    monkeypatch.setattr(client, "_japanese_set_aliases", fake_aliases)
+    monkeypatch.setattr(client, "_get_json", fake_get)
+
+    result = await client.resolve_japanese_card(
+        set_name="Ruler of the Black Flame",
+        card_number="020/108",
+        variant="Holofoil",
+    )
+    assert result["resolved"] is True
 
 
 @pytest.mark.asyncio
