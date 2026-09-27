@@ -10,7 +10,9 @@ from pydantic import BaseModel, Field
 
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .media_resolver import physical_photo_policy
 from .ownership import current_owner as _owner
+from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/condition-review", tags=["condition-review"])
@@ -82,6 +84,7 @@ async def condition_review_queue(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
+    settings = get_settings()
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
@@ -91,7 +94,8 @@ async def condition_review_queue(
             select
                 i.id,i.inventory_code,i.version,i.status,i.condition,
                 i.condition_review_status,i.grading_company,i.grade,
-                i.identity_confirmed,i.language,
+                i.identity_confirmed,i.language,i.store_price_minor,
+                i.market_value_minor,i.recommended_retail_minor,
                 p.game,p.name,p.set_name,p.card_number,p.variant,
                 front.id as front_asset_id,
                 front.capture_context as front_capture_context,
@@ -147,7 +151,14 @@ async def condition_review_queue(
     items = []
     for source in rows:
         item = dict(source)
+        policy = physical_photo_policy(
+            item,
+            threshold_minor=settings.media_physical_photo_threshold_minor,
+        )
+        if not policy["physicalPhotosRequired"]:
+            continue
         graded = _is_graded(item)
+        item["physical_requirement_reasons"] = policy["reasons"]
         photo_ready = bool(item["front_asset_id"] and item["back_asset_id"])
         item["is_graded"] = graded
         item["photo_ready"] = photo_ready
@@ -177,6 +188,8 @@ async def condition_review_queue(
             "raw_sellable_condition": "Near Mint",
             "graded_uses_slab_verification": True,
             "ai_can_suggest_but_not_override": True,
+            "existing_image_first": True,
+            "physical_photo_threshold_minor": settings.media_physical_photo_threshold_minor,
         },
     })
 
