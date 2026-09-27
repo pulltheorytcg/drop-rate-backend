@@ -12,14 +12,17 @@ from PIL import Image
 
 from app.recognition_engine import (
     _provider_identity_fingerprint,
+    _provider_visual_shortlist,
     resolve_candidates,
     score_candidate,
     visual_work_short_circuit_reason,
 )
 from app.recognition_images import (
     RecognitionImageError,
+    ReferenceImagePayload,
     decode_image_data_url,
     hash_similarity,
+    reference_image_bytes,
     reference_image_hashes,
 )
 from app.punk_records_client import PunkRecordsClient
@@ -678,7 +681,7 @@ def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> 
 
 def test_recognition_logic_change_bumps_idempotency_version() -> None:
     api = API.read_text()
-    assert 'ENGINE_VERSION = "v1.4.0"' in api
+    assert 'ENGINE_VERSION = "v1.4.1"' in api
     assert 'f"recognition:{ENGINE_VERSION}:{settings.recognition_model}:"' in api
 
 
@@ -988,6 +991,45 @@ def test_reference_image_fingerprint_cache_does_not_negative_cache_transient_fai
     assert calls == 2
 
 
+def test_reference_image_byte_cache_reuses_success(monkeypatch) -> None:
+    recognition_images._clear_reference_image_hash_cache()
+    calls = 0
+
+    async def fake_fetch(url: str, *, max_bytes: int, timeout_seconds: float):
+        nonlocal calls
+        calls += 1
+        return ReferenceImagePayload(content_type="image/png", data=b"cached-image")
+
+    monkeypatch.setattr(
+        recognition_images,
+        "_fetch_reference_image_uncached",
+        fake_fetch,
+    )
+
+    async def run():
+        first = await reference_image_bytes("https://assets.tcgdex.net/card.png")
+        second = await reference_image_bytes("https://assets.tcgdex.net/card.png")
+        return first, second
+
+    first, second = asyncio.run(run())
+    assert first == second
+    assert first is not None
+    assert first.content_type == "image/png"
+    assert calls == 1
+
+
+def test_provider_visual_shortlist_excludes_low_relevance_same_character_rows() -> None:
+    strong = {"provider_id": "OP09-048", "identity_score": 0.82, "non_number_identity_score": 0.99}
+    medium = {"provider_id": "OP09-048_r1", "identity_score": 0.70, "non_number_identity_score": 0.80}
+    weak = {"provider_id": "P-052", "identity_score": 0.57, "non_number_identity_score": 0.69}
+
+    selected = _provider_visual_shortlist([strong, medium, weak])
+
+    assert strong in selected
+    assert medium in selected
+    assert weak not in selected
+
+
 def test_visual_short_circuit_only_uses_irreversible_human_review_gates() -> None:
     assert visual_work_short_circuit_reason(observation()) is None
     assert (
@@ -1044,13 +1086,19 @@ def test_v14_parallel_evidence_work_and_stage_timing_are_wired_without_gate_chan
     assert "POTENTIAL_COUNTERFEIT_REVIEW" in engine
 
 
-def test_scanner_candidate_image_is_inline_and_csp_allows_only_trusted_one_piece_subdomains() -> None:
+def test_scanner_candidate_image_uses_authenticated_proxy_and_shows_market_value() -> None:
     ui = SCANNER.read_text()
+    api = API.read_text()
     main = MAIN.read_text()
 
     assert "const imageUrl = snapshot.reference_image_url;" in ui
     assert "const image = document.createElement(\"img\");" in ui
-    assert "image.src = imageUrl;" in ui
-    assert "card.append(link);" in ui
-    assert "https://*.onepiece-cardgame.com" in main
+    assert "loadRecognitionCandidateImage(image, runId, candidate.id);" in ui
+    assert "/candidates/${candidateId}/image" in ui
+    assert "Market value" in ui
+    assert "candidate.market_value_minor" in ui
+    assert '@router.get("/runs/{run_id}/candidates/{candidate_id}/image")' in api
+    assert "reference_image_bytes" in api
+    assert "price.market_value_minor" in api
+    assert "blob:" in main
     assert "img-src *" not in main
