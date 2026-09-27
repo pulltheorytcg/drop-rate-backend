@@ -1016,15 +1016,46 @@ def resolve_candidates(
     if observation.game_confidence < 0.90:
         exact = False
         reasons.append("Game confidence is below the exact-match gate.")
-    if not observation.card_number or observation.card_number_confidence < 0.90:
+
+    number_signal = top["signals"]["card_number"]
+    provider_signal = top["signals"]["provider"]
+    number_source = number_signal.get("source")
+    number_confidence = float(number_signal.get("confidence") or 0.0)
+    provider_identity_weight = float(
+        provider_signal.get("identity_evidence_weight") or 0.0
+    )
+    number_resolved = (
+        float(number_signal.get("match") or 0.0) >= 1.0
+        and (
+            (number_source == "vision" and number_confidence >= 0.90)
+            or (
+                number_source == "provider_fingerprint"
+                and number_confidence >= 0.90
+                and provider_identity_weight >= 0.55
+            )
+        )
+    )
+    if not number_resolved:
         exact = False
-        reasons.append("Collector/card number is not confidently readable.")
+        reasons.append(
+            "Collector/card number is neither confidently readable nor independently recovered from a strong provider fingerprint."
+        )
+    elif number_source == "provider_fingerprint":
+        reasons.append(
+            f"Collector/card number {number_signal.get('recovered')} was recovered from independent gameplay/provider evidence."
+        )
+
     if observation.language == "Unknown" or observation.language_confidence < 0.85:
         exact = False
         reasons.append("Language is not confidently established.")
     if top["signals"]["language"]["match"] < 1:
         exact = False
         reasons.append("Top catalogue candidate does not have an exact language match.")
+
+    if float(top.get("evidence_weight") or 0.0) < 0.65:
+        exact = False
+        risks.append("INSUFFICIENT_INDEPENDENT_EVIDENCE")
+        reasons.append("Too little independent evidence is available for an exact-printing decision.")
     if float(top["score"]) < exact_threshold:
         exact = False
         reasons.append("Composite evidence score is below the exact-match threshold.")
@@ -1104,6 +1135,49 @@ def resolve_candidates(
             risks.append("AMBIGUOUS_PRINTING")
             reasons.append(
                 "Multiple printings share the same card number without a unique art/provider/visual discriminator."
+            )
+
+    top_card_number = _compact(top["candidate_snapshot"].get("card_number"))
+    same_provider_printings = [
+        item
+        for item in evidence
+        if _compact(item.get("base_card_id")) == top_card_number
+        and float(item.get("identity_score") or 0.0) >= 0.88
+        and float(item.get("identity_evidence_weight") or 0.0) >= 0.42
+    ]
+    if len(same_provider_printings) > 1:
+        visual_ranked = sorted(
+            [
+                item for item in same_provider_printings
+                if item.get("visual_similarity") is not None
+            ],
+            key=lambda item: -float(item.get("visual_similarity") or 0.0),
+        )
+        unique_visual_print = False
+        if visual_ranked:
+            best_visual = float(visual_ranked[0].get("visual_similarity") or 0.0)
+            second_visual = (
+                float(visual_ranked[1].get("visual_similarity") or 0.0)
+                if len(visual_ranked) > 1
+                else 0.0
+            )
+            best_art = str(visual_ranked[0].get("art_treatment") or "")
+            candidate_art = _candidate_art(top["candidate_snapshot"])
+            art_compatible = (
+                not best_art
+                or _best_alias_match(best_art, candidate_art) >= 0.90
+            )
+            unique_visual_print = (
+                best_visual >= 0.90
+                and best_visual - second_visual >= 0.05
+                and art_compatible
+            )
+
+        if not unique_visual_print:
+            exact = False
+            risks.append("PROVIDER_PRINTING_AMBIGUITY")
+            reasons.append(
+                "The card identity is recovered, but multiple provider printings share it and the artwork evidence is not strong enough to certify the exact printing."
             )
 
     provider_matched = [
