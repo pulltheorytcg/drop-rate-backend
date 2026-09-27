@@ -642,16 +642,28 @@ def score_candidate(
         if not language_match:
             hard_rejections.append("language mismatch")
 
-    name_match = _ratio(
+    provider_name = str(identity_item.get("name") or "") if identity_item else ""
+    local_name_match = _ratio(
         _name_core(observation.name_guess),
         _name_core(candidate.get("name")),
     )
+    provider_name_match = _ratio(
+        _name_core(observation.name_guess),
+        _name_core(provider_name),
+    )
+    name_match = max(local_name_match, provider_name_match)
     signals["name"] = {
         "match": round(name_match, 5),
         "confidence": observation.name_confidence,
-        "source": "vision",
+        "source": (
+            "provider"
+            if provider_name_match > local_name_match
+            else "catalogue"
+        ),
+        "candidate": candidate.get("name"),
+        "provider_value": provider_name or None,
     }
-    if observation.name_guess and candidate.get("name"):
+    if observation.name_guess and (candidate.get("name") or provider_name):
         add_identity("name", name_match, observation.name_confidence)
 
     set_match = _ratio(observation.set_name_guess, candidate.get("set_name"))
