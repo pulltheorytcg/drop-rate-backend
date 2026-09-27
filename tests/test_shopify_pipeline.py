@@ -107,7 +107,8 @@ def test_test_sync_gate_reports_exact_local_blockers() -> None:
 def test_shopify_test_status_exposes_same_gate_blockers_to_dashboard() -> None:
     source = PIPELINE.read_text()
     frontend = SHOPIFY_SETTINGS.read_text()
-    assert "missing = _test_sync_missing(row)" in source
+    assert "missing = _test_sync_missing(" in source
+    assert "physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor" in source
     assert "missing = _test_sync_missing(item)" in source
     assert '"readiness": {' in source
     assert '"blockers": blocker_counts' in source
@@ -338,7 +339,7 @@ def test_shopify_test_sync_fails_before_remote_create_when_launch_incomplete() -
     create_pos = sync.index("client.create_product(")
     assert completeness_pos < create_pos
     assert "No remote product was created or published." in sync
-    assert "media_completeness(" in source
+    assert "resolve_storefront_media(" in source
     assert "ACTIVE_FAIL_CLOSED" in source
     assert "approval_status='APPROVED'" in source
     assert "rights_status='VERIFIED'" in source
