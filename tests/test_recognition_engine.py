@@ -750,6 +750,91 @@ async def test_punk_records_english_name_lookup_filters_by_visible_stats() -> No
     assert all(item["language"] == "English" for item in found)
 
 
+
+
+@pytest.mark.asyncio
+async def test_punk_records_japanese_bilingual_name_recovers_round1_nami() -> None:
+    client = PunkRecordsClient(index_ttl_seconds=60)
+    cards = {
+        "OP02-036": {
+            "name": "ナミ",
+            "card_id": "OP02-036",
+            "pack_id": "550102",
+            "colors": ["Green"],
+            "cost": 3,
+            "category": "Character",
+            "power": 5000,
+        },
+        "ST29-008": {
+            "name": "ナミ",
+            "card_id": "ST29-008",
+            "pack_id": "550029",
+            "colors": ["Yellow"],
+            "cost": 3,
+            "category": "Character",
+            "power": 1000,
+        },
+        "ST29-008_p1": {
+            "name": "ナミ",
+            "card_id": "ST29-008_p1",
+            "pack_id": "550029",
+            "colors": ["Yellow"],
+            "cost": 3,
+            "category": "Character",
+            "power": 1000,
+        },
+    }
+    names = {"ナミ": list(cards)}
+    full = {
+        key: {
+            "id": key,
+            **value,
+            "rarity": "Common" if key.startswith("ST29") else "SuperRare",
+            "attributes": ["Special"],
+            "types": ["エッグヘッド", "麦わらの一味"] if key.startswith("ST29") else ["FILM"],
+            "effect": "",
+            "img_full_url": f"https://www.onepiece-cardgame.com/images/cardlist/card/{key}.png",
+        }
+        for key, value in cards.items()
+    }
+
+    async def fake_cards_index(folder: str = "japanese") -> dict:
+        assert folder == "japanese"
+        return cards
+
+    async def fake_name_index(folder: str) -> dict:
+        assert folder == "japanese"
+        return names
+
+    async def fake_card(folder: str, pack_id: str, provider_id: str) -> dict:
+        assert folder == "japanese"
+        return full[provider_id]
+
+    client._cards_index = fake_cards_index  # type: ignore[method-assign]
+    client._by_name_index = fake_name_index  # type: ignore[method-assign]
+    client._card = fake_card  # type: ignore[method-assign]
+
+    found = await client.find_candidates(
+        language="Japanese",
+        card_number="OP02-036",
+        name="ナミ (Nami)",
+        cost=3,
+        power=1000,
+        card_type="Character",
+        colors=["Green"],
+        limit=20,
+    )
+
+    ids = [item["provider_id"] for item in found]
+    assert "ST29-008" in ids
+    assert "ST29-008_p1" in ids
+    assert next(
+        item["retrieval_score"] for item in found if item["provider_id"] == "ST29-008"
+    ) > next(
+        item["retrieval_score"] for item in found if item["provider_id"] == "OP02-036"
+    )
+
+
 def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> None:
     source = VISION.read_text()
 
