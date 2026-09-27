@@ -853,6 +853,7 @@ async def load_catalogue_candidates(
     connection,
     observation: RecognitionObservation,
     *,
+    provider_evidence: list[Mapping[str, Any]] | None = None,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
     system_code = SYSTEM_BY_GAME.get(observation.game)
@@ -861,6 +862,18 @@ async def load_catalogue_candidates(
 
     number = _compact(observation.card_number)
     normalized_name = _compact(_name_core(observation.name_guess))
+    provider_numbers = sorted(
+        {
+            _compact(item.get("base_card_id"))
+            for item in (provider_evidence or [])
+            if _compact(item.get("base_card_id"))
+            and (
+                float(item.get("identity_score") or 0.0) >= 0.82
+                or float(item.get("non_number_identity_score") or 0.0) >= 0.88
+            )
+        }
+    )
+
     params: list[Any] = [system_code]
     filters = ["pr.system_code=$1", "p.product_type='CARD'"]
     identity_filters: list[str] = []
@@ -876,6 +889,12 @@ async def load_catalogue_candidates(
         identity_filters.append(
             "upper(regexp_replace(coalesce(p.name,''), '[^A-Za-z0-9]', '', 'g')) "
             f"like '%' || ${len(params)} || '%'"
+        )
+    if provider_numbers:
+        params.append(provider_numbers)
+        identity_filters.append(
+            "upper(regexp_replace(coalesce(p.card_number,''), '[^A-Za-z0-9]', '', 'g')) "
+            f"= any(${len(params)}::text[])"
         )
     if not identity_filters:
         return []
@@ -1291,7 +1310,7 @@ def resolve_candidates(
         and (
             (number_source == "vision" and number_confidence >= 0.90)
             or (
-                number_source == "provider_fingerprint"
+                number_source in {"provider_fingerprint", "provider_override"}
                 and number_confidence >= 0.90
                 and provider_identity_weight >= 0.55
             )
@@ -1302,9 +1321,16 @@ def resolve_candidates(
         reasons.append(
             "Collector/card number is neither confidently readable nor independently recovered from a strong provider fingerprint."
         )
-    elif number_source == "provider_fingerprint":
+    elif number_source in {"provider_fingerprint", "provider_override"}:
         reasons.append(
             f"Collector/card number {number_signal.get('recovered')} was recovered from independent gameplay/provider evidence."
+        )
+
+    if bool(top.get("ocr_card_number_conflict")):
+        exact = False
+        risks.append("OCR_CARD_NUMBER_CONFLICT")
+        reasons.append(
+            f"OCR read {number_signal.get('observed') or 'an uncertain number'}, but stronger independent evidence resolves this identity as {number_signal.get('recovered') or number_signal.get('candidate')}. Human review is required before exact-printing approval."
         )
 
     if observation.language == "Unknown" or observation.language_confidence < 0.85:
@@ -1320,7 +1346,7 @@ def resolve_candidates(
         reasons.append("Too little independent evidence is available for an exact-printing decision.")
     if float(top["score"]) < exact_threshold:
         exact = False
-        reasons.append("Composite evidence score is below the exact-match threshold.")
+        reasons.append("Identity confidence is below the exact-match threshold.")
     if runner is not None and margin < min_margin:
         exact = False
         reasons.append("Top candidate does not lead the runner-up by enough margin.")
@@ -1404,8 +1430,16 @@ def resolve_candidates(
         item
         for item in evidence
         if _compact(item.get("base_card_id")) == top_card_number
-        and float(item.get("identity_score") or 0.0) >= 0.88
-        and float(item.get("identity_evidence_weight") or 0.0) >= 0.42
+        and (
+            (
+                float(item.get("identity_score") or 0.0) >= 0.88
+                and float(item.get("identity_evidence_weight") or 0.0) >= 0.42
+            )
+            or (
+                float(item.get("non_number_identity_score") or 0.0) >= 0.90
+                and float(item.get("non_number_evidence_weight") or 0.0) >= 0.45
+            )
+        )
     ]
     if len(same_provider_printings) > 1:
         visual_ranked = sorted(
