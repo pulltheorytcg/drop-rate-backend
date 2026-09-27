@@ -1735,3 +1735,22 @@ tbody tr:hover{background:#f7fbff!important}
   .recognition-signal-grid>div,.recognition-meta-grid>div{border-bottom:1px solid #edf0f4!important}
   .recognition-signal-grid>div:last-child,.recognition-meta-grid>div:last-child{border-bottom:0!important}
 }
+
+.recognition-feedback{
+  display:grid;
+  gap:7px;
+  margin-top:14px;
+  padding:12px;
+  border:1px solid #dfe7ef;
+  border-radius:11px;
+  background:#f8fbff;
+}
+.recognition-feedback>strong{font-size:.72rem;color:#344a63}
+.recognition-feedback>small{font-size:.62rem;color:#7b8797;line-height:1.45}
+.recognition-feedback .toolbar{margin:2px 0 0;padding:0}
+.recognition-feedback-latest{
+  padding-top:7px;
+  border-top:1px solid #e6ebf1;
+  font-weight:800;
+  color:#4f657d!important;
+}
