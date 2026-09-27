@@ -17,7 +17,7 @@ MIGRATION = (
     ROOT
     / "database"
     / "migrations"
-    / "20260927211500_recognition_verified_learning.sql"
+    / "20260927205101_recognition_verified_learning.sql"
 )
 API = ROOT / "backend" / "app" / "recognition.py"
 ENGINE = ROOT / "backend" / "app" / "recognition_engine.py"
