@@ -52,7 +52,8 @@ Unmapped finishes stay Action Required.
 The resolver downloads the Japanese `cards_by_id.json` index once per process
 window and caches it for 15 minutes.
 
-For a normal/base card such as `EB04-021`:
+For a normal/base card such as `EB04-021`, or a standard foil whose local
+identity is not explicitly marked as alternate art:
 
 1. find exact unsuffixed ID `EB04-021`;
 2. read its `pack_id`;
@@ -62,9 +63,11 @@ For a normal/base card such as `EB04-021`:
 
 Records such as `EB04-021_p1` are not substitutes for the base card.
 
-Non-base One Piece variants currently fail closed until Drop Rate has an
-explicit local variant -> provider suffix mapping. We do not guess parallel,
-manga, anniversary or alternate-art treatments.
+Local `Foil` / `Holo` / `Holofoil` can still use the unsuffixed base art
+because foil is often the standard One Piece printing. However, names explicitly
+marked Parallel, Alternate Art / Alt Art or Manga fail closed until Drop Rate
+has an explicit local variant -> provider suffix mapping. We do not guess those
+treatments.
 
 ## Rights / audit metadata
 
