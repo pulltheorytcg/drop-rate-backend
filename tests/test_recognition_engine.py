@@ -361,7 +361,7 @@ def test_human_feedback_is_append_only_training_truth_not_inventory_mutation() -
     assert "supersedes_feedback_id" in sql
     assert "insert into tcg.recognition_feedback" in api
     assert "update tcg.inventory_items" not in api.casefold()
-    assert "Human label saved to the recognition audit dataset" in ui
+    assert "Human label saved to the verified learning dataset" in ui
 
 
 def test_recognition_system_foreign_keys_are_indexed() -> None:
@@ -674,7 +674,7 @@ def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> 
 
 def test_recognition_logic_change_bumps_idempotency_version() -> None:
     api = API.read_text()
-    assert 'ENGINE_VERSION = "v1.2.0"' in api
+    assert 'ENGINE_VERSION = "v1.3.0"' in api
     assert 'f"recognition:{ENGINE_VERSION}:{settings.recognition_model}:"' in api
 
 
