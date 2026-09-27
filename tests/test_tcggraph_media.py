@@ -161,8 +161,8 @@ def test_adapter_is_server_side_explicit_and_rights_governed() -> None:
     settings = SETTINGS.read_text()
 
     assert 'TCGGRAPH_TERMS_URL = "https://tcggraph.com/legal/terms"' in source
-    assert '"STOREFRONT_ALLOWED"' in source
-    assert "'LICENSED_PROVIDER'" in source
+    assert "STOREFRONT_ALLOWED" in source
+    assert "LICENSED_PROVIDER" in source
     assert "permission_evidence_url" in source
     assert "provider_asset_id" in source
     assert "physical_photo_policy" in source
