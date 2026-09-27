@@ -1,0 +1,296 @@
+from __future__ import annotations
+
+import json
+from typing import Any, Literal, Mapping
+
+import httpx
+from pydantic import BaseModel, Field, model_validator
+
+
+class RecognitionVisionError(RuntimeError):
+    def __init__(
+        self,
+        detail: str,
+        *,
+        status_code: int | None = None,
+        retryable: bool = False,
+    ) -> None:
+        super().__init__(detail)
+        self.detail = detail
+        self.status_code = status_code
+        self.retryable = retryable
+
+
+class RecognitionObservation(BaseModel):
+    game: Literal["Pokemon", "One Piece", "Unknown"]
+    game_confidence: float = Field(ge=0, le=1)
+    language: Literal["English", "Japanese", "Unknown"]
+    language_confidence: float = Field(ge=0, le=1)
+    name_guess: str = Field(max_length=300)
+    name_confidence: float = Field(ge=0, le=1)
+    set_name_guess: str = Field(max_length=300)
+    set_name_confidence: float = Field(ge=0, le=1)
+    card_number: str = Field(max_length=100)
+    card_number_confidence: float = Field(ge=0, le=1)
+    rarity_text: str = Field(max_length=120)
+    rarity_confidence: float = Field(ge=0, le=1)
+    card_type_text: str = Field(max_length=120)
+    card_type_confidence: float = Field(ge=0, le=1)
+    art_treatment_text: str = Field(max_length=160)
+    art_treatment_confidence: float = Field(ge=0, le=1)
+    finish_text: str = Field(max_length=160)
+    finish_confidence: float = Field(ge=0, le=1)
+    visible_markers: list[str] = Field(max_length=30)
+    ocr_lines: list[str] = Field(max_length=40)
+    image_quality: Literal["GOOD", "FAIR", "POOR"]
+    counterfeit_concerns: list[str] = Field(max_length=20)
+    notes: list[str] = Field(max_length=20)
+
+    @model_validator(mode="after")
+    def normalize(self) -> "RecognitionObservation":
+        for field_name in (
+            "name_guess",
+            "set_name_guess",
+            "card_number",
+            "rarity_text",
+            "card_type_text",
+            "art_treatment_text",
+            "finish_text",
+        ):
+            setattr(self, field_name, " ".join(getattr(self, field_name).strip().split()))
+        self.visible_markers = [
+            " ".join(str(value).strip().split())[:200]
+            for value in self.visible_markers
+            if str(value).strip()
+        ]
+        self.ocr_lines = [
+            " ".join(str(value).strip().split())[:300]
+            for value in self.ocr_lines
+            if str(value).strip()
+        ]
+        self.counterfeit_concerns = [
+            " ".join(str(value).strip().split())[:300]
+            for value in self.counterfeit_concerns
+            if str(value).strip()
+        ]
+        self.notes = [
+            " ".join(str(value).strip().split())[:300]
+            for value in self.notes
+            if str(value).strip()
+        ]
+        return self
+
+
+OBSERVATION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "game": {"type": "string", "enum": ["Pokemon", "One Piece", "Unknown"]},
+        "game_confidence": {"type": "number"},
+        "language": {"type": "string", "enum": ["English", "Japanese", "Unknown"]},
+        "language_confidence": {"type": "number"},
+        "name_guess": {"type": "string"},
+        "name_confidence": {"type": "number"},
+        "set_name_guess": {"type": "string"},
+        "set_name_confidence": {"type": "number"},
+        "card_number": {"type": "string"},
+        "card_number_confidence": {"type": "number"},
+        "rarity_text": {"type": "string"},
+        "rarity_confidence": {"type": "number"},
+        "card_type_text": {"type": "string"},
+        "card_type_confidence": {"type": "number"},
+        "art_treatment_text": {"type": "string"},
+        "art_treatment_confidence": {"type": "number"},
+        "finish_text": {"type": "string"},
+        "finish_confidence": {"type": "number"},
+        "visible_markers": {"type": "array", "items": {"type": "string"}},
+        "ocr_lines": {"type": "array", "items": {"type": "string"}},
+        "image_quality": {"type": "string", "enum": ["GOOD", "FAIR", "POOR"]},
+        "counterfeit_concerns": {"type": "array", "items": {"type": "string"}},
+        "notes": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": [
+        "game",
+        "game_confidence",
+        "language",
+        "language_confidence",
+        "name_guess",
+        "name_confidence",
+        "set_name_guess",
+        "set_name_confidence",
+        "card_number",
+        "card_number_confidence",
+        "rarity_text",
+        "rarity_confidence",
+        "card_type_text",
+        "card_type_confidence",
+        "art_treatment_text",
+        "art_treatment_confidence",
+        "finish_text",
+        "finish_confidence",
+        "visible_markers",
+        "ocr_lines",
+        "image_quality",
+        "counterfeit_concerns",
+        "notes",
+    ],
+}
+
+
+VISION_INSTRUCTIONS = """
+You are the evidence-extraction stage of Drop Rate's trading-card recognition system.
+
+Analyse only what is visible in the supplied card photograph. Do not decide whether
+the card is safe to publish, price, buy, sell, grade, or certify as authentic.
+Do not invent unreadable text. When a field cannot be established from the image,
+return an empty string or Unknown and lower the corresponding confidence.
+
+Supported recognition targets in this version are Pokemon and One Piece cards.
+For Pokemon, distinguish English vs Japanese, collector number, set clues, rarity
+wording/symbols, card category, holo/reverse-holo/normal clues and visible special
+art treatment when possible.
+For One Piece, distinguish English vs Japanese, printed card ID, Leader/Character/
+Event/Stage/DON!! category, printed rarity, and visible signs of base, parallel,
+alternate-art, manga/super-parallel, SP/promo/reprint treatment when visible.
+
+A character/name match is not an exact-printing match. Two cards with the same
+name and number can be different printings. Preserve uncertainty rather than
+guessing. Confidence is probability-like evidence quality from 0 to 1, not a
+permission to auto-approve.
+
+Counterfeit concerns are observations only (for example visibly inconsistent print
+layout or suspicious typography). Never state that a card is counterfeit from a
+photo alone.
+
+Return only the requested structured object.
+""".strip()
+
+
+def _output_text(payload: Mapping[str, Any]) -> str:
+    direct = payload.get("output_text")
+    if isinstance(direct, str) and direct.strip():
+        return direct
+    output = payload.get("output")
+    if not isinstance(output, list):
+        return ""
+    for item in output:
+        if not isinstance(item, Mapping) or item.get("type") != "message":
+            continue
+        content = item.get("content")
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            if (
+                isinstance(part, Mapping)
+                and part.get("type") == "output_text"
+                and isinstance(part.get("text"), str)
+                and part["text"].strip()
+            ):
+                return part["text"]
+    return ""
+
+
+class OpenAIRecognitionVisionClient:
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        timeout_seconds: float = 45.0,
+        base_url: str = "https://api.openai.com/v1",
+    ) -> None:
+        if not api_key.strip():
+            raise ValueError("OpenAI API key is required")
+        if not model.strip():
+            raise ValueError("Recognition model is required")
+        self._api_key = api_key.strip()
+        self._model = model.strip()
+        self._base_url = base_url.rstrip("/")
+        self._timeout = httpx.Timeout(timeout_seconds)
+
+    @property
+    def model(self) -> str:
+        return self._model
+
+    async def observe(self, image_data_url: str) -> RecognitionObservation:
+        body = {
+            "model": self._model,
+            "store": False,
+            "input": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": VISION_INSTRUCTIONS},
+                        {
+                            "type": "input_image",
+                            "image_url": image_data_url,
+                            "detail": "high",
+                        },
+                    ],
+                }
+            ],
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "tcg_recognition_observation",
+                    "strict": True,
+                    "schema": OBSERVATION_SCHEMA,
+                }
+            },
+            "max_output_tokens": 1800,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.post(
+                    f"{self._base_url}/responses",
+                    json=body,
+                    headers={
+                        "Authorization": f"Bearer {self._api_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+        except httpx.TimeoutException as exc:
+            raise RecognitionVisionError(
+                "Recognition vision request timed out",
+                retryable=True,
+            ) from exc
+        except httpx.RequestError as exc:
+            raise RecognitionVisionError(
+                "Recognition vision request failed",
+                retryable=True,
+            ) from exc
+
+        if response.status_code == 429:
+            raise RecognitionVisionError(
+                "Recognition vision rate limit reached",
+                status_code=429,
+                retryable=True,
+            )
+        if 400 <= response.status_code < 500:
+            raise RecognitionVisionError(
+                "Recognition vision request was rejected",
+                status_code=response.status_code,
+            )
+        if response.status_code >= 500:
+            raise RecognitionVisionError(
+                "Recognition vision provider is unavailable",
+                status_code=response.status_code,
+                retryable=True,
+            )
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise RecognitionVisionError("Recognition vision returned invalid JSON") from exc
+
+        text = _output_text(payload)
+        if not text:
+            raise RecognitionVisionError("Recognition vision returned no structured observation")
+
+        try:
+            parsed = json.loads(text)
+            return RecognitionObservation.model_validate(parsed)
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise RecognitionVisionError(
+                "Recognition vision response failed schema validation"
+            ) from exc
