@@ -18,7 +18,7 @@ from app.recognition_vision import RecognitionObservation
 
 
 ROOT = Path(__file__).parents[1]
-MIGRATION = ROOT / "database" / "migrations" / "20260927181500_recognition_engine_v1.sql"
+MIGRATION = ROOT / "database" / "migrations" / "20260927184033_recognition_engine_v1.sql"
 API = ROOT / "backend" / "app" / "recognition.py"
 ENGINE = ROOT / "backend" / "app" / "recognition_engine.py"
 VISION = ROOT / "backend" / "app" / "recognition_vision.py"
