@@ -135,6 +135,12 @@ class MediaAssetRevoke(BaseModel):
     reason: str = Field(min_length=1, max_length=1000)
 
 
+class MediaAssetSourceStatus(BaseModel):
+    version: int = Field(ge=1)
+    status: str = Field(pattern="^(ACTIVE|DEAD)$")
+    note: str = Field(min_length=1, max_length=1000)
+
+
 class MediaAssetSync(BaseModel):
     version: int = Field(ge=1)
 
@@ -1238,6 +1244,8 @@ async def approve_media_asset(
                 approved_by_user_id=$6,
                 approved_at=clock_timestamp(),
                 rights_verified_at=clock_timestamp(),
+                source_checked_at=clock_timestamp(),
+                source_status_note='Source and rights reviewed during approval',
                 updated_at=clock_timestamp(),
                 version=version+1
             where id=$1 and owner_id=$2 and version=$3
@@ -1295,6 +1303,64 @@ async def revoke_media_asset(
                 },
             )
         return jsonable_encoder({"asset": dict(row), "revoked": True})
+
+
+@router.post("/media-assets/{asset_id}/source-status")
+async def set_media_source_status(
+    asset_id: UUID,
+    payload: MediaAssetSourceStatus,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        row = await connection.fetchrow(
+            """
+            update tcg.media_assets
+            set source_status=$4,
+                source_status_note=$5,
+                source_checked_at=clock_timestamp(),
+                updated_at=clock_timestamp(),
+                version=version+1
+            where id=$1
+              and owner_id=$2
+              and version=$3
+              and source_status <> 'REVOKED'
+            returning *
+            """,
+            asset_id,
+            owner["id"],
+            payload.version,
+            payload.status,
+            payload.note.strip(),
+        )
+        if row is None:
+            current = await connection.fetchrow(
+                """
+                select version,source_status
+                from tcg.media_assets
+                where id=$1 and owner_id=$2
+                """,
+                asset_id,
+                owner["id"],
+            )
+            if current is None:
+                raise HTTPException(status_code=404, detail="Media asset not found")
+            if current["source_status"] == "REVOKED":
+                raise HTTPException(
+                    status_code=409,
+                    detail="Revoked media cannot be reactivated",
+                )
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Media asset changed",
+                    "current_version": current["version"],
+                },
+            )
+        return jsonable_encoder({"asset": dict(row)})
 
 
 @router.post("/media-assets/{asset_id}/sync")
