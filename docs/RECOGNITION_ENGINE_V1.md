@@ -229,3 +229,26 @@ If live camera access is unavailable or denied, the existing JPEG/PNG/WebP uploa
 Where the device/browser exposes torch control, Founder HQ can toggle it. The feature also provides front/rear camera switching, but the rear camera is preferred for card recognition quality.
 
 Leaving Verify, hiding the page, closing/navigating away from the page, or pressing Close stops all active video tracks.
+
+
+## Gameplay fingerprint recovery
+
+A readable collector number remains the strongest identity anchor, but Recognition Engine v1 does not give up when glare, a sleeve or a rigid holder obscures the tiny printed ID.
+
+For One Piece, the vision stage also extracts:
+
+- cost
+- power
+- colour
+- card type
+- attribute
+- traits
+- effect text
+
+Drop Rate compares those observations against language-specific Punk Records provider data. English and Japanese One Piece provider indices are supported.
+
+A provider-derived card ID is accepted as an identity anchor only when multiple independent gameplay fields strongly agree. The recovered ID is recorded separately from direct OCR and is never represented as though the model read the printed number.
+
+Exact printing remains a separate decision. If a recovered identity has multiple provider printings such as base, parallel or reprint variants, Drop Rate requires sufficiently discriminating artwork evidence before it may return EXACT_CANDIDATE. Otherwise it returns the correct durable card identity with NEEDS_REVIEW for the printing.
+
+Catalogue fallback name matching is punctuation-insensitive so imported names such as `Monkey.D.Luffy (118)` can match vision text such as `Monkey D. Luffy`.
