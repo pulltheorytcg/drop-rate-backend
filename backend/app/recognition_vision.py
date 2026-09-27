@@ -32,6 +32,18 @@ class RecognitionObservation(BaseModel):
     set_name_confidence: float = Field(ge=0, le=1)
     card_number: str = Field(max_length=100)
     card_number_confidence: float = Field(ge=0, le=1)
+    cost: int | None = Field(default=None, ge=0, le=99)
+    cost_confidence: float = Field(ge=0, le=1)
+    power: int | None = Field(default=None, ge=0, le=999999)
+    power_confidence: float = Field(ge=0, le=1)
+    colors: list[str] = Field(max_length=8)
+    colors_confidence: float = Field(ge=0, le=1)
+    attributes: list[str] = Field(max_length=12)
+    attributes_confidence: float = Field(ge=0, le=1)
+    traits: list[str] = Field(max_length=20)
+    traits_confidence: float = Field(ge=0, le=1)
+    effect_text: str = Field(max_length=1600)
+    effect_confidence: float = Field(ge=0, le=1)
     rarity_text: str = Field(max_length=120)
     rarity_confidence: float = Field(ge=0, le=1)
     card_type_text: str = Field(max_length=120)
@@ -52,12 +64,28 @@ class RecognitionObservation(BaseModel):
             "name_guess",
             "set_name_guess",
             "card_number",
+            "effect_text",
             "rarity_text",
             "card_type_text",
             "art_treatment_text",
             "finish_text",
         ):
             setattr(self, field_name, " ".join(getattr(self, field_name).strip().split()))
+        self.colors = [
+            " ".join(str(value).strip().split())[:80]
+            for value in self.colors
+            if str(value).strip()
+        ]
+        self.attributes = [
+            " ".join(str(value).strip().split())[:80]
+            for value in self.attributes
+            if str(value).strip()
+        ]
+        self.traits = [
+            " ".join(str(value).strip().split())[:120]
+            for value in self.traits
+            if str(value).strip()
+        ]
         self.visible_markers = [
             " ".join(str(value).strip().split())[:200]
             for value in self.visible_markers
@@ -95,6 +123,18 @@ OBSERVATION_SCHEMA: dict[str, Any] = {
         "set_name_confidence": {"type": "number"},
         "card_number": {"type": "string"},
         "card_number_confidence": {"type": "number"},
+        "cost": {"type": ["integer", "null"]},
+        "cost_confidence": {"type": "number"},
+        "power": {"type": ["integer", "null"]},
+        "power_confidence": {"type": "number"},
+        "colors": {"type": "array", "items": {"type": "string"}},
+        "colors_confidence": {"type": "number"},
+        "attributes": {"type": "array", "items": {"type": "string"}},
+        "attributes_confidence": {"type": "number"},
+        "traits": {"type": "array", "items": {"type": "string"}},
+        "traits_confidence": {"type": "number"},
+        "effect_text": {"type": "string"},
+        "effect_confidence": {"type": "number"},
         "rarity_text": {"type": "string"},
         "rarity_confidence": {"type": "number"},
         "card_type_text": {"type": "string"},
@@ -120,6 +160,18 @@ OBSERVATION_SCHEMA: dict[str, Any] = {
         "set_name_confidence",
         "card_number",
         "card_number_confidence",
+        "cost",
+        "cost_confidence",
+        "power",
+        "power_confidence",
+        "colors",
+        "colors_confidence",
+        "attributes",
+        "attributes_confidence",
+        "traits",
+        "traits_confidence",
+        "effect_text",
+        "effect_confidence",
         "rarity_text",
         "rarity_confidence",
         "card_type_text",
@@ -152,6 +204,9 @@ art treatment when possible.
 For One Piece, distinguish English vs Japanese, printed card ID, Leader/Character/
 Event/Stage/DON!! category, printed rarity, and visible signs of base, parallel,
 alternate-art, manga/super-parallel, SP/promo/reprint treatment when visible.
+Also extract visible cost, power, card colour(s), attribute(s), trait/type line and
+rules/effect text. These fields are important identity fingerprints when glare or
+a sleeve makes the tiny printed card ID unreadable. Transcribe only what is visible.
 
 A character/name match is not an exact-printing match. Two cards with the same
 name and number can be different printings. Preserve uncertainty rather than
