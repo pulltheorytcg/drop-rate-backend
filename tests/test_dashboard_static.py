@@ -146,3 +146,14 @@ def test_shopify_dashboard_exposes_only_guarded_single_item_test_sync() -> None:
     assert "Bulk publishing remains locked off" in js
     assert "shopify-test-candidate" in js
     assert "bulk-sync" not in js
+
+
+def test_csp_allows_only_trusted_canonical_card_image_hosts() -> None:
+    main = (ROOT / "backend" / "app" / "main.py").read_text()
+
+    assert "https://assets.tcgdex.net" in main
+    assert "https://www.onepiece-cardgame.com" in main
+    assert "img-src 'self' data:" in main
+    assert "img-src *" not in main
+    assert "https://*.onepiece-cardgame.com" not in main
+    assert "https://*" not in main
