@@ -1,0 +1,239 @@
+from __future__ import annotations
+
+import re
+from typing import Any, Mapping
+
+import httpx
+
+
+TCGDEX_BASE_URL = "https://api.tcgdex.net/v2"
+TCGDEX_SOURCE_URL = "https://tcgdex.dev"
+TCGDEX_DATABASE_URL = "https://github.com/tcgdex/cards-database"
+
+
+class TcgDexApiError(RuntimeError):
+    def __init__(
+        self,
+        detail: str,
+        *,
+        status_code: int | None = None,
+        retryable: bool = False,
+    ) -> None:
+        super().__init__(detail)
+        self.detail = detail
+        self.status_code = status_code
+        self.retryable = retryable
+
+
+def _norm(value: object) -> str:
+    return " ".join(str(value or "").strip().casefold().split())
+
+
+def _number_equivalent(left: object, right: object) -> bool:
+    def canonical(value: object) -> str:
+        text = str(value or "").strip().upper()
+        chunks = re.split(r"([/-])", text)
+        out: list[str] = []
+        for chunk in chunks:
+            if chunk.isdigit():
+                out.append(str(int(chunk)))
+            else:
+                out.append(chunk)
+        return "".join(out)
+
+    return canonical(left) == canonical(right)
+
+
+def _card_number_parts(value: object) -> tuple[str, int | None]:
+    text = str(value or "").strip()
+    if "/" not in text:
+        return text, None
+    local, total = text.split("/", 1)
+    try:
+        official = int(total)
+    except ValueError:
+        official = None
+    return local.strip(), official
+
+
+def _variant_key(value: object) -> str | None:
+    variant = _norm(value)
+    if variant in {"", "normal", "base", "regular"}:
+        return "normal"
+    if variant in {"holofoil", "holo", "foil"}:
+        return "holo"
+    if variant in {"reverse holofoil", "reverse holo", "reverse foil"}:
+        return "reverse"
+    return None
+
+
+class TcgDexClient:
+    """No-key TCGdex client used only for deterministic Pokémon media lookup."""
+
+    def __init__(
+        self,
+        *,
+        timeout_seconds: float = 20.0,
+        base_url: str = TCGDEX_BASE_URL,
+    ) -> None:
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
+        self._base_url = base_url.rstrip("/")
+        self._timeout = httpx.Timeout(timeout_seconds)
+
+    async def resolve_japanese_card(
+        self,
+        *,
+        set_name: str,
+        card_number: str,
+        variant: str,
+    ) -> dict[str, Any]:
+        local_id, official_count = _card_number_parts(card_number)
+        if not local_id:
+            return {"resolved": False, "reason": "Pokémon card number is missing"}
+        if not set_name.strip():
+            return {"resolved": False, "reason": "Pokémon set name is missing"}
+
+        variant_key = _variant_key(variant)
+        if variant_key is None:
+            return {
+                "resolved": False,
+                "reason": "Pokémon variant is not mapped to a TCGdex finish",
+            }
+
+        sets = await self._get_json(
+            "/en/sets",
+            params={"name": set_name.strip()},
+        )
+        if not isinstance(sets, list):
+            raise TcgDexApiError("TCGdex set search returned an invalid response")
+
+        exact_sets: list[Mapping[str, Any]] = []
+        for item in sets:
+            if not isinstance(item, Mapping):
+                continue
+            if _norm(item.get("name")) != _norm(set_name):
+                continue
+            if official_count is not None:
+                card_count = item.get("cardCount")
+                if isinstance(card_count, Mapping):
+                    provider_official = card_count.get("official")
+                    if (
+                        isinstance(provider_official, int)
+                        and provider_official != official_count
+                    ):
+                        continue
+            exact_sets.append(item)
+
+        if not exact_sets:
+            return {"resolved": False, "reason": "no exact TCGdex set match"}
+        if len(exact_sets) > 1:
+            return {
+                "resolved": False,
+                "reason": "multiple exact TCGdex set matches",
+                "candidate_count": len(exact_sets),
+            }
+
+        set_id = str(exact_sets[0].get("id") or "").strip()
+        if not set_id:
+            return {"resolved": False, "reason": "TCGdex set is missing a stable ID"}
+
+        card: Mapping[str, Any] | None = None
+        attempts = [local_id]
+        stripped = local_id.lstrip("0") or "0"
+        if stripped != local_id:
+            attempts.append(stripped)
+
+        for candidate_local_id in attempts:
+            try:
+                payload = await self._get_json(
+                    f"/ja/sets/{set_id}/{candidate_local_id}",
+                )
+            except TcgDexApiError as exc:
+                if exc.status_code == 404:
+                    continue
+                raise
+            if isinstance(payload, Mapping):
+                card = payload
+                break
+
+        if card is None:
+            return {"resolved": False, "reason": "Japanese TCGdex card not found"}
+
+        provider_set = card.get("set")
+        if not isinstance(provider_set, Mapping) or str(provider_set.get("id") or "") != set_id:
+            return {"resolved": False, "reason": "TCGdex card set identity mismatch"}
+        if not _number_equivalent(card.get("localId"), local_id):
+            return {"resolved": False, "reason": "TCGdex card number mismatch"}
+
+        variants = card.get("variants")
+        if not isinstance(variants, Mapping) or variants.get(variant_key) is not True:
+            return {
+                "resolved": False,
+                "reason": f"TCGdex card does not support {variant_key} finish",
+            }
+
+        image_base = str(card.get("image") or "").strip()
+        if not image_base.startswith("https://assets.tcgdex.net/"):
+            return {"resolved": False, "reason": "TCGdex card has no trusted image asset"}
+
+        provider_id = str(card.get("id") or "").strip()
+        if not provider_id:
+            return {"resolved": False, "reason": "TCGdex card is missing a stable ID"}
+
+        return {
+            "resolved": True,
+            "provider": "TCGdex",
+            "provider_id": provider_id,
+            "image_url": f"{image_base.rstrip('/')}/high.webp",
+            "source_reference": f"https://api.tcgdex.net/v2/ja/cards/{provider_id}",
+            "provider_set_id": set_id,
+            "provider_local_id": card.get("localId"),
+            "finish_key": variant_key,
+        }
+
+    async def _get_json(
+        self,
+        path: str,
+        *,
+        params: dict[str, str] | None = None,
+    ) -> Any:
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.get(
+                    f"{self._base_url}{path}",
+                    params=params,
+                    headers={"Accept": "application/json"},
+                )
+        except httpx.TimeoutException as exc:
+            raise TcgDexApiError("TCGdex request timed out", retryable=True) from exc
+        except httpx.RequestError as exc:
+            raise TcgDexApiError("TCGdex request failed", retryable=True) from exc
+
+        if response.status_code == 404:
+            raise TcgDexApiError(
+                "TCGdex record was not found",
+                status_code=404,
+            )
+        if response.status_code == 429:
+            raise TcgDexApiError(
+                "TCGdex rate limit reached",
+                status_code=429,
+                retryable=True,
+            )
+        if 400 <= response.status_code < 500:
+            raise TcgDexApiError(
+                "TCGdex request was rejected",
+                status_code=response.status_code,
+            )
+        if response.status_code >= 500:
+            raise TcgDexApiError(
+                "TCGdex service is unavailable",
+                status_code=response.status_code,
+                retryable=True,
+            )
+
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise TcgDexApiError("TCGdex returned invalid JSON") from exc
