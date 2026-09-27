@@ -141,7 +141,7 @@ class PunkRecordsClient:
                 "reason": "One Piece variant requires explicit provider suffix mapping",
             }
 
-        index = await self._cards_index("japanese")
+        index = await self._cards_index()
         record = index.get(base_id)
         if not isinstance(record, Mapping):
             return {"resolved": False, "reason": "One Piece base card not found in Punk Records"}
