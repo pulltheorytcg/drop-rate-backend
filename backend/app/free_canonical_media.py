@@ -112,6 +112,7 @@ async def _resolve_one(
                 result = await punk.resolve_japanese_card(
                     card_number=str(row.get("card_number") or ""),
                     variant=str(row.get("variant") or ""),
+                    name=str(row.get("name") or ""),
                 )
         except (TcgDexApiError, PunkRecordsError) as exc:
             result = {
