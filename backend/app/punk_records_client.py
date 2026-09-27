@@ -212,20 +212,22 @@ class PunkRecordsClient:
         base_id = str(card_number or "").strip().upper()
 
         if base_id:
-            candidate_ids = [
+            candidate_ids.extend(
                 str(key)
                 for key in index
                 if str(key).upper() == base_id
                 or str(key).upper().startswith(f"{base_id}_")
-            ]
-        elif name:
+            )
+
+        if name:
             name_index = await self._by_name_index(folder)
             wanted = _name_key(name)
             for indexed_name, ids in name_index.items():
                 if _name_key(indexed_name) != wanted or not isinstance(ids, list):
                     continue
                 candidate_ids.extend(str(value) for value in ids)
-        else:
+
+        if not candidate_ids:
             return []
 
         wanted_type = _norm(card_type)
@@ -242,10 +244,22 @@ class PunkRecordsClient:
                 return (2, lowered)
             return (3, lowered)
 
-        def retrieval_score(record: Mapping[str, Any]) -> float:
+        wanted_name = _name_key(name) if name else ""
+
+        def retrieval_score(provider_id: str, record: Mapping[str, Any]) -> float:
             """Soft shortlist score. A single OCR error must never delete a card."""
             score = 0.0
             available = 0.0
+
+            if wanted_name and record.get("name"):
+                available += 6.0
+                if _name_key(record.get("name")) == wanted_name:
+                    score += 6.0
+
+            if base_id:
+                available += 2.0
+                if _base_card_id(provider_id) == base_id:
+                    score += 2.0
 
             if power is not None and record.get("power") is not None:
                 available += 4.0
@@ -282,7 +296,7 @@ class PunkRecordsClient:
                 continue
             ranked_ids.append(
                 (
-                    retrieval_score(record),
+                    retrieval_score(provider_id, record),
                     priority(provider_id),
                     provider_id,
                 )
