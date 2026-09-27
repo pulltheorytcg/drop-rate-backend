@@ -50,6 +50,11 @@ class FreeMediaShopifySyncRequest(BaseModel):
     limit: int = Field(default=100, ge=1, le=100)
 
 
+class FreeMediaReviewRequest(BaseModel):
+    version: int = Field(ge=1)
+    decision: str = Field(pattern="^(APPROVE|REJECT)$")
+
+
 def _norm(value: object) -> str:
     return " ".join(str(value or "").strip().casefold().split())
 
@@ -307,14 +312,13 @@ async def resolve_free_canonical_media(
                       source_provider,provider_asset_id,source_reference,
                       public_source_url,permission_evidence_url,media_language,
                       media_variant,rights_status,rights_basis,approval_status,
-                      alt_text,created_by_user_id,approved_by_user_id,approved_at,
-                      rights_verified_at,source_status,source_status_note,
-                      source_checked_at
+                      alt_text,created_by_user_id,rights_verified_at,
+                      source_status,source_status_note,source_checked_at
                     ) values(
                       $1,$2,'CANONICAL_CARD','FRONT','LICENSED_PROVIDER',
                       'STOREFRONT_ALLOWED',$3,$4,$5,$6,$7,$8,$9,
-                      'VERIFIED',$10,'APPROVED',$11,$12,$12,clock_timestamp(),
-                      clock_timestamp(),'ACTIVE',$13,clock_timestamp()
+                      'VERIFIED',$10,'PENDING',$11,$12,clock_timestamp(),
+                      'ACTIVE',$13,clock_timestamp()
                     )
                     on conflict do nothing
                     returning *
@@ -346,6 +350,12 @@ async def resolve_free_canonical_media(
             "card_number": row["card_number"],
             "variant": row["variant"],
             "language": row["language"] or row["catalogue_language"],
+            "condition": row.get("condition"),
+            "grading_company": row.get("grading_company"),
+            "grade": row.get("grade"),
+            "store_price_minor": row.get("store_price_minor"),
+            "market_value_minor": row.get("market_value_minor"),
+            "recommended_retail_minor": row.get("recommended_retail_minor"),
             "provider": result.get("provider"),
             "result": result,
         }
@@ -374,6 +384,211 @@ async def resolve_free_canonical_media(
             "product_publications": 0,
         }
     )
+
+
+@router.get("/review-queue")
+async def free_media_review_queue(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Return free-provider canonical images enriched with inventory facts."""
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        rows = await connection.fetch(
+            """
+            select
+                m.id,m.version,m.catalogue_id,m.public_source_url,
+                m.shopify_cdn_url,m.source_provider,m.provider_asset_id,
+                m.source_reference,m.media_language,m.media_variant,
+                m.approval_status,m.rights_status,m.source_status,
+                m.shopify_file_status,m.created_at,m.approved_at,
+                p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,
+                coalesce(m.media_language,p.language) as language,
+                o.display_name as owner_name,o.owner_type,
+                coalesce(s.copy_count,0) as copy_count,
+                coalesce(s.inventory_codes,'{}'::text[]) as inventory_codes,
+                coalesce(s.conditions,'{}'::text[]) as conditions,
+                coalesce(s.grades,'{}'::text[]) as grades,
+                coalesce(s.locations,'{}'::text[]) as locations,
+                coalesce(s.inventory_statuses,'{}'::text[]) as inventory_statuses,
+                s.min_store_price_minor,s.max_store_price_minor,
+                s.min_market_value_minor,s.max_market_value_minor,
+                s.min_acquisition_cost_minor,s.max_acquisition_cost_minor
+            from tcg.media_assets m
+            join tcg.catalogue_products p on p.id=m.catalogue_id
+            join tcg.owners o on o.id=m.owner_id
+            left join lateral (
+                select
+                    count(*)::integer as copy_count,
+                    array_agg(i.inventory_code order by i.inventory_code) as inventory_codes,
+                    array_agg(distinct i.condition)
+                      filter (where i.condition is not null) as conditions,
+                    array_agg(
+                      distinct concat_ws(' ',i.grading_company,i.grade)
+                    ) filter (
+                      where nullif(btrim(coalesce(i.grading_company,'')),'') is not null
+                         or nullif(btrim(coalesce(i.grade,'')),'') is not null
+                    ) as grades,
+                    array_agg(distinct i.location)
+                      filter (where nullif(btrim(coalesce(i.location,'')),'') is not null) as locations,
+                    array_agg(distinct i.status) as inventory_statuses,
+                    min(i.store_price_minor) as min_store_price_minor,
+                    max(i.store_price_minor) as max_store_price_minor,
+                    min(i.market_value_minor) as min_market_value_minor,
+                    max(i.market_value_minor) as max_market_value_minor,
+                    min(i.acquisition_cost_minor) as min_acquisition_cost_minor,
+                    max(i.acquisition_cost_minor) as max_acquisition_cost_minor
+                from tcg.inventory_items i
+                where i.owner_id=m.owner_id
+                  and i.catalogue_id=m.catalogue_id
+            ) s on true
+            where m.owner_id=$1
+              and m.scope='CANONICAL_CARD'
+              and m.side='FRONT'
+              and m.source_provider in ('TCGdex','Punk Records')
+              and m.source_status='ACTIVE'
+              and m.rights_status='VERIFIED'
+            order by
+              case m.approval_status
+                when 'PENDING' then 0
+                when 'APPROVED' then 1
+                else 2
+              end,
+              p.game,p.set_name,p.card_number,p.name,m.created_at
+            """,
+            owner["id"],
+        )
+
+    items = [dict(row) for row in rows]
+    return jsonable_encoder(
+        {
+            "items": items,
+            "counts": {
+                "total": len(items),
+                "pending": sum(
+                    1 for item in items
+                    if item["approval_status"] == "PENDING"
+                ),
+                "approved": sum(
+                    1 for item in items
+                    if item["approval_status"] == "APPROVED"
+                ),
+                "rejected": sum(
+                    1 for item in items
+                    if item["approval_status"] == "REJECTED"
+                ),
+            },
+            "shopify_sync_requires_human_approval": True,
+        }
+    )
+
+
+@router.post("/review/{asset_id}")
+async def review_free_canonical_media(
+    asset_id: UUID,
+    payload: FreeMediaReviewRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Human founder review of a deterministic free-provider image match."""
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        current = await connection.fetchrow(
+            """
+            select *
+            from tcg.media_assets
+            where id=$1
+              and owner_id=$2
+              and source_provider in ('TCGdex','Punk Records')
+              and scope='CANONICAL_CARD'
+              and side='FRONT'
+            for update
+            """,
+            asset_id,
+            owner["id"],
+        )
+        if current is None:
+            raise HTTPException(status_code=404, detail="Canonical media asset not found")
+        if int(current["version"]) != payload.version:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Media asset changed",
+                    "current_version": current["version"],
+                },
+            )
+        if str(current["source_status"] or "") != "ACTIVE":
+            raise HTTPException(
+                status_code=422,
+                detail="Inactive or revoked media cannot be reviewed",
+            )
+        if str(current["rights_status"] or "") != "VERIFIED":
+            raise HTTPException(
+                status_code=422,
+                detail="Media rights must be verified before human review",
+            )
+        if (
+            str(current["shopify_file_status"] or "") != "NOT_UPLOADED"
+            and payload.decision == "REJECT"
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Reject the image before it is synced to Shopify Files",
+            )
+
+        if payload.decision == "APPROVE":
+            row = await connection.fetchrow(
+                """
+                update tcg.media_assets
+                set approval_status='APPROVED',
+                    approved_by_user_id=$4,
+                    approved_at=clock_timestamp(),
+                    source_status_note='Exact provider match visually verified by founder',
+                    updated_at=clock_timestamp(),
+                    version=version+1
+                where id=$1 and owner_id=$2 and version=$3
+                returning *
+                """,
+                asset_id, owner["id"], payload.version, user.user_id,
+            )
+        else:
+            row = await connection.fetchrow(
+                """
+                update tcg.media_assets
+                set approval_status='REJECTED',
+                    approved_by_user_id=null,
+                    approved_at=null,
+                    source_status_note='Provider image rejected during founder visual review',
+                    updated_at=clock_timestamp(),
+                    version=version+1
+                where id=$1 and owner_id=$2 and version=$3
+                returning *
+                """,
+                asset_id, owner["id"], payload.version,
+            )
+
+        if row is None:
+            raise HTTPException(status_code=409, detail="Media asset changed during review")
+        return jsonable_encoder(
+            {
+                "asset": dict(row),
+                "decision": payload.decision,
+                "shopify_ready": (
+                    payload.decision == "APPROVE"
+                    and row["shopify_file_status"] == "READY"
+                ),
+            }
+        )
 
 
 @router.post("/sync-shopify")

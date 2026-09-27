@@ -329,3 +329,70 @@ def test_media_workspace_uses_free_providers_as_primary_workflow() -> None:
     assert "Sync images to Shopify" in ui
     assert "No products were published" in ui
     assert "TCGGraph images" not in ui
+
+
+def test_free_media_import_requires_human_review_before_shopify_sync() -> None:
+    source = FREE_MEDIA.read_text()
+    assert "'PENDING'" in source
+    assert '@router.get("/review-queue")' in source
+    assert '@router.post("/review/{asset_id}")' in source
+    assert 'decision: str = Field(pattern="^(APPROVE|REJECT)$")' in source
+    assert "Exact provider match visually verified by founder" in source
+    assert "Provider image rejected during founder visual review" in source
+    sync_start = source.index('@router.post("/sync-shopify")')
+    sync_block = source[sync_start:]
+    assert "and approval_status='APPROVED'" in sync_block
+
+
+def test_review_queue_exposes_image_and_inventory_context() -> None:
+    source = FREE_MEDIA.read_text()
+    start = source.index('@router.get("/review-queue")')
+    end = source.index('@router.post("/review/{asset_id}")', start)
+    block = source[start:end]
+    for token in (
+        "public_source_url",
+        "source_provider",
+        "provider_asset_id",
+        "game",
+        "name",
+        "set_name",
+        "card_number",
+        "variant",
+        "rarity",
+        "owner_name",
+        "owner_type",
+        "copy_count",
+        "inventory_codes",
+        "conditions",
+        "grades",
+        "locations",
+        "min_store_price_minor",
+        "max_store_price_minor",
+        "min_market_value_minor",
+        "max_market_value_minor",
+        "min_acquisition_cost_minor",
+        "max_acquisition_cost_minor",
+    ):
+        assert token in block
+
+
+def test_media_workspace_renders_full_visual_review_gallery() -> None:
+    ui = UI.read_text()
+    styles = (ROOT / "backend" / "app" / "static" / "styles.css").read_text()
+
+    assert "/api/v1/media/free/review-queue" in ui
+    assert "/api/v1/media/free/review/" in ui
+    assert "canonical-card-image" in ui
+    assert "Open full-size source image" in ui
+    assert "Approve image" in ui
+    assert "Reject image" in ui
+    assert "HUMAN VERIFIED" in ui
+    assert "MACHINE MATCHED" in ui
+    assert "Inventory copies" in ui
+    assert "Inventory IDs" in ui
+    assert "Acquisition cost" in ui
+    assert "Market value" in ui
+    assert "Store price" in ui
+    assert "Provider ID" in ui
+    assert ".canonical-review-grid" in styles
+    assert ".canonical-card-image" in styles
