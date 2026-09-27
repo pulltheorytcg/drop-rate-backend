@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -19,6 +21,7 @@ from .recognition_engine import (
     discover_provider_evidence,
     load_catalogue_candidates,
     resolve_candidates,
+    visual_work_short_circuit_reason,
 )
 from .recognition_images import RecognitionImageError, decode_image_data_url
 from .recognition_learning import (
@@ -37,7 +40,7 @@ from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.3.0"
+ENGINE_VERSION = "v1.4.0"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
@@ -324,6 +327,16 @@ async def recognize_card(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
+    pipeline_started = time.perf_counter()
+    timings_ms: dict[str, float] = {}
+
+    async def _timed(name: str, awaitable):
+        started = time.perf_counter()
+        try:
+            return await awaitable
+        finally:
+            timings_ms[name] = round((time.perf_counter() - started) * 1000, 2)
+
     settings = get_settings()
     if not settings.openai_api_key:
         raise HTTPException(
@@ -331,6 +344,7 @@ async def recognize_card(
             detail="Recognition vision is not configured yet",
         )
 
+    decode_started = time.perf_counter()
     try:
         image = decode_image_data_url(
             payload.image_data_url,
@@ -338,6 +352,7 @@ async def recognize_card(
         )
     except RecognitionImageError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    timings_ms["decode_image"] = round((time.perf_counter() - decode_started) * 1000, 2)
 
     inventory_context: dict[str, Any] | None = None
     async with user_connection(
@@ -430,7 +445,7 @@ async def recognize_card(
         model=settings.recognition_model,
     )
     try:
-        observation = await vision.observe(payload.image_data_url)
+        observation = await _timed("vision", vision.observe(payload.image_data_url))
     except RecognitionVisionError as exc:
         async with user_connection(
             request.app.state.db_pool,
@@ -500,50 +515,89 @@ async def recognize_card(
             owner_id,
         )
 
-    # Provider/gameplay recovery runs before the final local catalogue lookup so a
-    # bad OCR card number cannot hide the correct catalogue product.
-    provider_result = await discover_provider_evidence(observation)
+    # v1.4 latency path: provider discovery and verified-learning hint lookup are
+    # independent after vision, so run them concurrently.
+    async def _load_learning_hints():
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            return await discover_learning_candidate_hints(
+                connection,
+                image.hashes,
+                system_code=system_code,
+            )
+
+    provider_result, learning_hints = await asyncio.gather(
+        _timed("provider_discovery", discover_provider_evidence(observation)),
+        _timed("learning_hints", _load_learning_hints()),
+    )
     provider_items = [
         dict(item)
         for item in provider_result.get("items", [])
         if isinstance(item, dict)
     ]
-    await attach_provider_visual_evidence(image.hashes, provider_items)
 
-    async with user_connection(
-        request.app.state.db_pool,
-        user.user_id,
-        request.state.request_id,
-    ) as connection:
-        learning_hints = await discover_learning_candidate_hints(
-            connection,
-            image.hashes,
-            system_code=system_code,
+    visual_short_circuit = visual_work_short_circuit_reason(
+        observation,
+        inventory_context,
+    )
+
+    async def _load_candidates():
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            return await load_catalogue_candidates(
+                connection,
+                observation,
+                provider_evidence=provider_items,
+                learning_catalogue_ids=[
+                    item["catalogue_id"] for item in learning_hints
+                ],
+            )
+
+    # Provider-image hashing does not affect which catalogue rows are selected;
+    # it only enriches printing evidence. Run it beside catalogue I/O when exact
+    # resolution is still possible.
+    if visual_short_circuit:
+        timings_ms["provider_visual"] = 0.0
+        candidates = await _timed("catalogue_lookup", _load_candidates())
+    else:
+        candidates, _ = await asyncio.gather(
+            _timed("catalogue_lookup", _load_candidates()),
+            _timed(
+                "provider_visual",
+                attach_provider_visual_evidence(image.hashes, provider_items),
+            ),
         )
-        candidates = await load_catalogue_candidates(
-            connection,
-            observation,
-            provider_evidence=provider_items,
-            learning_catalogue_ids=[
-                item["catalogue_id"] for item in learning_hints
-            ],
+
+    # Prior human-verified TRAIN evidence remains active even when remote visual
+    # work is safely short-circuited. It is bounded and cannot clear hard gates.
+    async def _attach_learning_visual():
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            await attach_learning_visual_evidence(
+                connection,
+                image.hashes,
+                candidates,
+            )
+
+    if visual_short_circuit:
+        timings_ms["catalogue_visual"] = 0.0
+        await _timed("learning_visual", _attach_learning_visual())
+    else:
+        await asyncio.gather(
+            _timed("catalogue_visual", attach_visual_evidence(image.hashes, candidates)),
+            _timed("learning_visual", _attach_learning_visual()),
         )
 
-    await attach_visual_evidence(image.hashes, candidates)
-
-    # Prior human-verified TRAIN examples are a bounded ranking/visual signal.
-    # Validation/holdout examples are intentionally excluded to prevent leakage.
-    async with user_connection(
-        request.app.state.db_pool,
-        user.user_id,
-        request.state.request_id,
-    ) as connection:
-        await attach_learning_visual_evidence(
-            connection,
-            image.hashes,
-            candidates,
-        )
-
+    resolve_started = time.perf_counter()
     resolved = resolve_candidates(
         observation,
         candidates,
@@ -552,6 +606,11 @@ async def recognize_card(
         min_margin=settings.recognition_min_margin_bps / 10_000,
         high_value_review_minor=settings.recognition_high_value_review_minor,
         inventory_context=inventory_context,
+    )
+    timings_ms["resolve"] = round((time.perf_counter() - resolve_started) * 1000, 2)
+    timings_ms["pipeline_before_persist"] = round(
+        (time.perf_counter() - pipeline_started) * 1000,
+        2,
     )
 
     combined = list(resolved["candidates"])
@@ -620,6 +679,9 @@ async def recognize_card(
                     {
                         "items": provider_items,
                         "errors": provider_result.get("errors", []),
+                        "timings_ms": timings_ms,
+                        "visual_short_circuit_reason": visual_short_circuit,
+                        "reference_fingerprint_cache": "TTL_LRU_POSITIVE_ONLY",
                     },
                     default=str,
                 ),

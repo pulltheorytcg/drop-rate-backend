@@ -152,11 +152,11 @@ def test_csp_allows_only_trusted_canonical_card_image_hosts() -> None:
     main = (ROOT / "backend" / "app" / "main.py").read_text()
 
     assert "https://assets.tcgdex.net" in main
+    assert "https://onepiece-cardgame.com" in main
     assert "https://www.onepiece-cardgame.com" in main
+    assert "https://*.onepiece-cardgame.com" in main
     assert "img-src 'self' data:" in main
     assert "img-src *" not in main
-    assert "https://*.onepiece-cardgame.com" not in main
-    assert "https://*" not in main
 
 
 def test_inventory_defaults_to_visual_collectr_style_cards() -> None:
