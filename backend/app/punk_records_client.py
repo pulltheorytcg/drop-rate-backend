@@ -31,7 +31,26 @@ def _norm(value: object) -> str:
 
 
 def _base_variant(value: object) -> bool:
-    return _norm(value) in {"", "normal", "base", "regular"}
+    return _norm(value) in {
+        "",
+        "normal",
+        "base",
+        "regular",
+        "foil",
+        "holo",
+        "holofoil",
+    }
+
+
+def _explicit_alt_art(name: object) -> bool:
+    normalized = _norm(name)
+    markers = (
+        "parallel",
+        "alternate art",
+        "alt art",
+        "manga",
+    )
+    return any(marker in normalized for marker in markers)
 
 
 class PunkRecordsClient:
@@ -64,15 +83,21 @@ class PunkRecordsClient:
         *,
         card_number: str,
         variant: str,
+        name: str | None = None,
     ) -> dict[str, Any]:
         base_id = str(card_number or "").strip().upper()
         if not base_id:
             return {"resolved": False, "reason": "One Piece card number is missing"}
 
+        if _explicit_alt_art(name):
+            return {
+                "resolved": False,
+                "reason": "One Piece alternate-art card requires explicit provider suffix mapping",
+            }
         if not _base_variant(variant):
             return {
                 "resolved": False,
-                "reason": "One Piece alternate-art variant requires explicit mapping",
+                "reason": "One Piece variant requires explicit provider suffix mapping",
             }
 
         index = await self._cards_index()
