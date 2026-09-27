@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 from typing import Any, Mapping
+from urllib.parse import urlparse
 
 import httpx
 
@@ -95,8 +96,19 @@ class PunkRecordsClient:
             return {"resolved": False, "reason": "Punk Records card JSON identity mismatch"}
 
         image_url = str(card.get("img_full_url") or "").strip()
-        if not image_url.startswith("https://"):
-            return {"resolved": False, "reason": "Punk Records card has no HTTPS image"}
+        parsed = urlparse(image_url)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or not (
+                parsed.hostname == "onepiece-cardgame.com"
+                or parsed.hostname.endswith(".onepiece-cardgame.com")
+            )
+        ):
+            return {
+                "resolved": False,
+                "reason": "Punk Records card image is not on the trusted One Piece host",
+            }
 
         return {
             "resolved": True,
