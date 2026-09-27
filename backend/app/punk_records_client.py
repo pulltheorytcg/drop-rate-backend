@@ -37,7 +37,11 @@ def _norm(value: object) -> str:
 
 
 def _name_key(value: object) -> str:
-    return re.sub(r"[^a-z0-9]", "", str(value or "").casefold())
+    return "".join(
+        character
+        for character in str(value or "").casefold()
+        if character.isalnum()
+    )
 
 
 def _base_card_id(provider_id: object) -> str:
