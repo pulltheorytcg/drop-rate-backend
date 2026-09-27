@@ -781,6 +781,19 @@ create policy api_insert on tcg.provider_catalogue_mappings
 create policy api_update on tcg.provider_catalogue_mappings
     for update to tcg_api using (tcg.is_platform_admin()) with check (tcg.is_platform_admin());
 
+revoke all on
+    tcg.collectible_systems,
+    tcg.taxonomy_schemas,
+    tcg.taxonomy_values,
+    tcg.catalogue_product_profiles,
+    tcg.catalogue_taxonomy_assignments,
+    tcg.card_gameplay_identities,
+    tcg.card_printings,
+    tcg.sealed_product_details,
+    tcg.comic_printing_details,
+    tcg.provider_catalogue_mappings
+from public, anon, authenticated;
+
 grant select on tcg.collectible_systems,tcg.taxonomy_schemas,tcg.taxonomy_values to tcg_api;
 grant select,insert,update on
     tcg.catalogue_product_profiles,
@@ -1033,14 +1046,14 @@ insert into tcg.catalogue_taxonomy_assignments(
 select p.id,pr.system_code,'CARD','SPECIAL_CLASSIFICATION',
        case
          when lower(btrim(p.rarity)) in ('pr','promo') then 'PROMO'
-         when p.name ~* '\\(SP\\)' then 'SP'
+         when p.name ~* '[(]SP[)]' then 'SP'
        end,
        false,'MIGRATED_UNVERIFIED','LEGACY_IMPORT',
        jsonb_build_object('legacy_rarity',p.rarity,'legacy_name',p.name)
 from tcg.catalogue_products p
 join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
 where pr.system_code='ONE_PIECE_CARD_GAME'
-  and (lower(btrim(p.rarity)) in ('pr','promo') or p.name ~* '\\(SP\\)');
+  and (lower(btrim(p.rarity)) in ('pr','promo') or p.name ~* '[(]SP[)]');
 
 -- Explicit artwork words are useful evidence but remain unverified until provider
 -- and visual confirmation agree.
@@ -1050,7 +1063,7 @@ insert into tcg.catalogue_taxonomy_assignments(
 )
 select p.id,pr.system_code,'CARD','ART_TREATMENT',
        case
-         when p.name ~* '\\(Parallel\\)' then 'PARALLEL'
+         when p.name ~* '[(]Parallel[)]' then 'PARALLEL'
          when p.name ~* 'Alternate Art|Alt Art' then 'ALTERNATE_ART'
        end,
        true,'MIGRATED_UNVERIFIED','LEGACY_IMPORT',
@@ -1058,7 +1071,7 @@ select p.id,pr.system_code,'CARD','ART_TREATMENT',
 from tcg.catalogue_products p
 join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
 where pr.system_code='ONE_PIECE_CARD_GAME'
-  and (p.name ~* '\\(Parallel\\)' or p.name ~* 'Alternate Art|Alt Art');
+  and (p.name ~* '[(]Parallel[)]' or p.name ~* 'Alternate Art|Alt Art');
 
 -- The existing DON!! row is known to be a card category, not a rarity.
 insert into tcg.catalogue_taxonomy_assignments(
