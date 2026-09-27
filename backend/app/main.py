@@ -49,6 +49,7 @@ from .shopify_pipeline import router as shopify_pipeline_router
 from .shopify_readiness import router as shopify_readiness_router
 from .storage_locations import router as storage_locations_router
 from .stripe_connect import router as stripe_connect_router
+from .tcggraph_media import router as tcggraph_media_router
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -269,4 +270,5 @@ def create_app() -> FastAPI:
     app.include_router(purchase_lots_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(storage_locations_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(stripe_connect_router)
+    app.include_router(tcggraph_media_router, dependencies=[Depends(require_platform_admin_request)])
     return app
