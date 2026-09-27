@@ -123,7 +123,7 @@ def test_graded_card_media_requires_item_specific_front_and_back() -> None:
         ],
     )
     assert missing_back["complete"] is False
-    assert missing_back["blockers"] == ["approved physical-item back image"]
+    assert missing_back["blockers"] == ["approved first-party physical back image"]
 
     complete = media_completeness(
         "PHYSICAL_ITEM_REQUIRED",
