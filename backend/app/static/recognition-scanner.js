@@ -506,10 +506,39 @@ function recognitionCandidateCard(candidate, label) {
   ].filter(Boolean).join(" · ");
   const score = document.createElement("div");
   score.className = "recognition-score";
-  score.innerHTML = `<span>Evidence score</span><strong>${recognitionPercent(candidate.score)}</strong>`;
-  body.append(eyebrow, title, meta, score);
+  const identityLabel = document.createElement("span");
+  const identityValue = document.createElement("strong");
+  identityLabel.textContent = "Identity confidence";
+  identityValue.textContent = recognitionPercent(candidate.score);
+  score.append(identityLabel, identityValue);
+
+  const printing = document.createElement("div");
+  printing.className = "recognition-score recognition-printing-score";
+  const printingLabel = document.createElement("span");
+  const printingValue = document.createElement("strong");
+  printingLabel.textContent = "Printing confidence";
+  printingValue.textContent = recognitionPercent(
+    candidate?.signals?.printing_confidence?.match
+  );
+  printing.append(printingLabel, printingValue);
+  body.append(eyebrow, title, meta, score, printing);
   card.append(body);
   return card;
+}
+
+function recognitionSignalSource(signal) {
+  const source = String(signal?.source || "").replaceAll("_", " ");
+  if (!source) return "";
+  const labels = {
+    catalogue: "catalogue",
+    provider: "provider",
+    vision: "vision",
+    "catalogue after identity": "resolved",
+    "provider after identity": "provider",
+    "reference image": "image",
+    "provider mapping": "provider",
+  };
+  return labels[source] || source;
 }
 
 function renderRecognitionSignals(candidate) {
@@ -517,6 +546,8 @@ function renderRecognitionSignals(candidate) {
   const rows = document.createElement("div");
   rows.className = "recognition-signal-grid";
   [
+    ["Identity", signals.identity_confidence],
+    ["Printing", signals.printing_confidence],
     ["Game", signals.game],
     ["Card number", signals.card_number],
     ["Language", signals.language],
@@ -531,8 +562,17 @@ function renderRecognitionSignals(candidate) {
   ].forEach(([label, signal]) => {
     if (!signal) return;
     const row = document.createElement("div");
-    const value = signal.match;
-    row.innerHTML = `<span>${label}</span><strong>${recognitionPercent(value)}</strong>`;
+    const labelNode = document.createElement("span");
+    const valueNode = document.createElement("strong");
+    const sourceNode = document.createElement("small");
+    labelNode.textContent = label;
+    valueNode.textContent = recognitionPercent(signal.match);
+    const source = recognitionSignalSource(signal);
+    if (source) {
+      sourceNode.textContent = source;
+      valueNode.append(document.createTextNode(" · "), sourceNode);
+    }
+    row.append(labelNode, valueNode);
     rows.append(row);
   });
   return rows;
@@ -581,7 +621,7 @@ function renderRecognitionResult(data) {
 
     const margin = document.createElement("div");
     margin.className = "recognition-margin";
-    margin.innerHTML = `<span>Top-vs-runner margin</span><strong>${recognitionPercent(run.score_margin)}</strong>`;
+    margin.innerHTML = `<span>Identity margin vs runner-up</span><strong>${recognitionPercent(run.score_margin)}</strong>`;
     result.append(margin);
     result.append(renderRecognitionSignals(top));
   }
@@ -613,10 +653,12 @@ function renderRecognitionResult(data) {
   addMeta("Name", observations.name_guess);
   addMeta(
     "Card number",
-    observations.card_number
-      || (recoveredNumber
-        ? `${recoveredNumber} · recovered via provider fingerprint`
-        : "—")
+    numberSource === "provider_override" && recoveredNumber
+      ? `${recoveredNumber} · provider override (OCR read ${observations.card_number || "uncertain"})`
+      : observations.card_number
+        || (recoveredNumber
+          ? `${recoveredNumber} · recovered via provider fingerprint`
+          : "—")
   );
   addMeta("Cost", observations.cost);
   addMeta("Power", observations.power);
@@ -627,7 +669,7 @@ function renderRecognitionResult(data) {
   addMeta("Card type", observations.card_type_text);
   addMeta("Art treatment", observations.art_treatment_text);
   addMeta("Finish", observations.finish_text);
-  if (numberSource === "provider_fingerprint") {
+  if (numberSource === "provider_fingerprint" || numberSource === "provider_override") {
     addMeta(
       "ID recovery confidence",
       recognitionPercent(top?.signals?.card_number?.confidence)

@@ -648,8 +648,12 @@ async def test_punk_records_english_name_lookup_filters_by_visible_stats() -> No
         colors=["Blue"],
     )
 
-    assert [item["provider_id"] for item in found] == ["OP11-118", "OP11-118_p1"]
-    assert all(item["base_card_id"] == "OP11-118" for item in found)
+    ids = [item["provider_id"] for item in found]
+    assert ids[:2] == ["OP11-118", "OP11-118_p1"]
+    assert "OP05-119" in ids
+    assert found[0]["retrieval_score"] > next(
+        item["retrieval_score"] for item in found if item["provider_id"] == "OP05-119"
+    )
     assert all(item["language"] == "English" for item in found)
 
 
@@ -670,5 +674,252 @@ def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> 
 
 def test_recognition_logic_change_bumps_idempotency_version() -> None:
     api = API.read_text()
-    assert 'ENGINE_VERSION = "v1.1.0"' in api
+    assert 'ENGINE_VERSION = "v1.2.0"' in api
     assert 'f"recognition:{ENGINE_VERSION}:{settings.recognition_model}:"' in api
+
+
+def test_luffy_wrong_cost_does_not_eliminate_correct_identity() -> None:
+    obs = op11_luffy_observation(
+        cost=6,
+        cost_confidence=0.98,
+        card_number="",
+        card_number_confidence=0.05,
+    )
+    correct = candidate(
+        name="Monkey.D.Luffy (118)",
+        card_number="OP11-118",
+        language=None,
+        art="Base",
+        max_value=175,
+    )
+    correct["set_name"] = "A Fist of Divine Speed"
+
+    wrong = candidate(
+        name="Monkey.D.Luffy",
+        card_number="OP05-119",
+        language=None,
+        art="Base",
+        max_value=175,
+    )
+    wrong["set_name"] = "Awakening of the New Era"
+    wrong["rarity"] = "SEC"
+
+    evidence = [
+        op11_provider("OP11-118", art="Base", visual=0.95),
+        op11_provider("OP11-118_p1", art="Parallel", visual=0.72),
+        op11_provider("OP11-118_p2", art="Parallel", visual=0.68),
+        {
+            **op11_provider("OP05-119", art="Base", visual=0.55),
+            "base_card_id": "OP05-119",
+            "cost": 10,
+            "power": 12000,
+            "colors": ["Purple"],
+            "effect": "Different effect text.",
+        },
+    ]
+    for item in evidence:
+        item.update(_provider_identity_fingerprint(obs, item))
+
+    result = resolve(obs, [correct, wrong], provider_evidence=evidence)
+
+    assert result["top"]["catalogue_id"] == correct["catalogue_id"]
+    assert result["top"]["score"] >= 0.94
+    assert result["runner_up"]["catalogue_id"] == wrong["catalogue_id"]
+    assert result["runner_up"]["score"] <= 0.60
+    assert result["margin"] >= 0.30
+    assert result["top"]["signals"]["language"]["match"] == 1.0
+    assert result["top"]["signals"]["set"]["match"] == 1.0
+    assert result["top"]["signals"]["card_type"]["match"] == 1.0
+
+
+def op14_doflamingo_observation() -> RecognitionObservation:
+    return RecognitionObservation(
+        game="One Piece",
+        game_confidence=0.99,
+        language="Japanese",
+        language_confidence=0.99,
+        name_guess="ドンキホーテ・ドフラミンゴ",
+        name_confidence=0.99,
+        set_name_guess="",
+        set_name_confidence=0.10,
+        card_number="OP14-080",
+        card_number_confidence=0.78,
+        cost=10,
+        cost_confidence=0.99,
+        power=10000,
+        power_confidence=0.99,
+        colors=["Purple"],
+        colors_confidence=0.97,
+        attributes=["Special"],
+        attributes_confidence=0.76,
+        traits=["王下七武海", "ドンキホーテ海賊団"],
+        traits_confidence=0.90,
+        effect_text=(
+            "【登場時】ドン!!-3：以下から1つを選ぶ。"
+            "自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、"
+            "相手のコスト8以下のキャラ1枚までをKOする。"
+            "相手のコスト7以下のキャラ1枚までは、"
+            "次の相手のエンドフェイズ終了時まで、レストにできない。"
+        ),
+        effect_confidence=0.77,
+        rarity_text="",
+        rarity_confidence=0.25,
+        card_type_text="Character",
+        card_type_confidence=0.99,
+        art_treatment_text="Full-art parallel/alternate-art-style illustration",
+        art_treatment_confidence=0.82,
+        finish_text="Foil/holographic",
+        finish_confidence=0.96,
+        visible_markers=["10", "10000", "Purple", "Special"],
+        ocr_lines=["OP14-080"],
+        image_quality="FAIR",
+        counterfeit_concerns=[],
+        notes=[],
+    )
+
+
+def op14_provider(
+    provider_id: str,
+    *,
+    base_id: str,
+    name: str,
+    cost: int,
+    power: int,
+    colors: list[str],
+    card_type: str,
+    rarity: str,
+    traits: list[str],
+    effect: str,
+    art: str,
+    visual: float | None,
+) -> dict:
+    item = {
+        "provider": "Punk Records",
+        "provider_id": provider_id,
+        "base_card_id": base_id,
+        "pack_id": "550114",
+        "language": "Japanese",
+        "name": name,
+        "rarity": rarity,
+        "card_type": card_type,
+        "colors": colors,
+        "cost": cost,
+        "power": power,
+        "attributes": ["Special"],
+        "types": traits,
+        "effect": effect,
+        "art_treatment": art,
+        "image_url": "https://www.onepiece-cardgame.com/images/cardlist/card/example.png",
+        "visual_similarity": visual,
+        "source_reference": "https://github.com/Kuroro1990/OPTCG",
+    }
+    item.update(_provider_identity_fingerprint(op14_doflamingo_observation(), item))
+    return item
+
+
+def test_op14_069_overrides_wrong_ocr_number_using_stronger_japanese_fingerprint() -> None:
+    obs = op14_doflamingo_observation()
+    effect = (
+        "【登場時】ドン‼-3：以下から1つを選ぶ。"
+        "自分のリーダーが特徴《ドンキホーテ海賊団》を持つ場合、"
+        "相手のコスト8以下のキャラ1枚までを、KOする。"
+        "相手のコスト7以下のキャラ3枚までは、"
+        "次の相手のエンドフェイズ終了時まで、レストにできない。"
+    )
+    correct_provider = op14_provider(
+        "OP14-069",
+        base_id="OP14-069",
+        name="ドンキホーテ・ドフラミンゴ",
+        cost=10,
+        power=10000,
+        colors=["Purple"],
+        card_type="Character",
+        rarity="SuperRare",
+        traits=["王下七武海", "ドンキホーテ海賊団"],
+        effect=effect,
+        art="Base",
+        visual=0.91,
+    )
+    parallel_provider = {
+        **correct_provider,
+        "provider_id": "OP14-069_p1",
+        "art_treatment": "Parallel",
+        "visual_similarity": 0.88,
+    }
+    wrong_provider = op14_provider(
+        "OP14-080",
+        base_id="OP14-080",
+        name="ゲッコー・モリア",
+        cost=4,
+        power=5000,
+        colors=["Black", "Yellow"],
+        card_type="Leader",
+        rarity="Leader",
+        traits=["王下七武海", "スリラーバーク海賊団"],
+        effect="Different leader effect.",
+        art="Base",
+        visual=0.42,
+    )
+
+    correct = candidate(
+        name="Donquixote Doflamingo",
+        card_number="OP14-069",
+        language="Japanese",
+        art="Base",
+        max_value=1000,
+    )
+    correct["set_name"] = "The Azure Sea's Seven"
+    correct["rarity"] = "SR"
+
+    wrong = candidate(
+        name="Gecko Moria",
+        card_number="OP14-080",
+        language="Japanese",
+        art="Base",
+        max_value=1000,
+    )
+    wrong["set_name"] = "The Azure Sea's Seven"
+    wrong["rarity"] = "L"
+    wrong["taxonomy"] = [
+        {"dimension_code": "CARD_TYPE", "value_code": "LEADER", "display_name": "Leader"},
+        {"dimension_code": "RARITY", "value_code": "L", "display_name": "Leader"},
+        {"dimension_code": "ART_TREATMENT", "value_code": "BASE", "display_name": "Base"},
+    ]
+
+    result = resolve(
+        obs,
+        [correct, wrong],
+        provider_evidence=[correct_provider, parallel_provider, wrong_provider],
+    )
+
+    assert result["top"]["catalogue_id"] == correct["catalogue_id"]
+    assert result["top"]["candidate_snapshot"]["card_number"] == "OP14-069"
+    assert result["top"]["score"] >= 0.94
+    assert result["runner_up"]["catalogue_id"] == wrong["catalogue_id"]
+    assert result["runner_up"]["score"] <= 0.65
+    assert result["margin"] >= 0.25
+    assert result["top"]["signals"]["card_number"]["source"] == "provider_override"
+    assert result["top"]["signals"]["card_number"]["ocr_conflict"] is True
+    assert result["top"]["signals"]["card_number"]["recovered"] == "OP14-069"
+    assert result["top"]["signals"]["language"]["match"] == 1.0
+    assert result["top"]["signals"]["set"]["match"] == 1.0
+    assert result["top"]["signals"]["rarity"]["match"] == 1.0
+    assert result["top"]["signals"]["card_type"]["match"] == 1.0
+    assert result["decision"] == "NEEDS_REVIEW"
+    assert "OCR_CARD_NUMBER_CONFLICT" in result["risk_flags"]
+
+
+def test_catalogue_lookup_can_use_recovered_provider_card_numbers() -> None:
+    source = ENGINE.read_text()
+    assert "provider_numbers = sorted(" in source
+    assert "non_number_identity_score" in source
+    assert "= any(" in source
+    assert 'provider_evidence=provider_items' in API.read_text()
+
+
+def test_identity_and_printing_confidence_are_separate_in_ui() -> None:
+    ui = SCANNER.read_text()
+    assert "Identity confidence" in ui
+    assert "Printing confidence" in ui
+    assert "Identity margin vs runner-up" in ui
+    assert "provider override (OCR read" in ui

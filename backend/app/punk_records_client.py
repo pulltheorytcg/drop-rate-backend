@@ -212,44 +212,26 @@ class PunkRecordsClient:
         base_id = str(card_number or "").strip().upper()
 
         if base_id:
-            candidate_ids = [
+            candidate_ids.extend(
                 str(key)
                 for key in index
                 if str(key).upper() == base_id
                 or str(key).upper().startswith(f"{base_id}_")
-            ]
-        elif name:
+            )
+
+        if name:
             name_index = await self._by_name_index(folder)
             wanted = _name_key(name)
             for indexed_name, ids in name_index.items():
                 if _name_key(indexed_name) != wanted or not isinstance(ids, list):
                     continue
                 candidate_ids.extend(str(value) for value in ids)
-        else:
+
+        if not candidate_ids:
             return []
 
         wanted_type = _norm(card_type)
         wanted_colors = {_norm(value) for value in (colors or []) if _norm(value)}
-
-        filtered: list[str] = []
-        for provider_id in candidate_ids:
-            record = index.get(provider_id)
-            if not isinstance(record, Mapping):
-                continue
-            if cost is not None and record.get("cost") is not None and int(record["cost"]) != cost:
-                continue
-            if power is not None and record.get("power") is not None and int(record["power"]) != power:
-                continue
-            if wanted_type and _norm(record.get("category")) != wanted_type:
-                continue
-            provider_colors = {
-                _norm(value)
-                for value in (record.get("colors") or [])
-                if _norm(value)
-            }
-            if wanted_colors and provider_colors and not wanted_colors.issubset(provider_colors):
-                continue
-            filtered.append(provider_id)
 
         def priority(provider_id: str) -> tuple[int, str]:
             lowered = provider_id.casefold()
@@ -262,52 +244,120 @@ class PunkRecordsClient:
                 return (2, lowered)
             return (3, lowered)
 
-        filtered = list(dict.fromkeys(filtered))
-        filtered.sort(key=priority)
+        wanted_name = _name_key(name) if name else ""
 
-        results: list[dict[str, Any]] = []
-        for provider_id in filtered[:limit]:
+        def retrieval_score(provider_id: str, record: Mapping[str, Any]) -> float:
+            """Soft shortlist score. A single OCR error must never delete a card."""
+            score = 0.0
+            available = 0.0
+
+            if wanted_name and record.get("name"):
+                available += 6.0
+                if _name_key(record.get("name")) == wanted_name:
+                    score += 6.0
+
+            if base_id:
+                available += 2.0
+                if _base_card_id(provider_id) == base_id:
+                    score += 2.0
+
+            if power is not None and record.get("power") is not None:
+                available += 4.0
+                if int(record["power"]) == int(power):
+                    score += 4.0
+
+            provider_colors = {
+                _norm(value)
+                for value in (record.get("colors") or [])
+                if _norm(value)
+            }
+            if wanted_colors and provider_colors:
+                available += 3.0
+                overlap = len(wanted_colors & provider_colors)
+                union = len(wanted_colors | provider_colors)
+                score += 3.0 * (overlap / union if union else 0.0)
+
+            if wanted_type and record.get("category"):
+                available += 2.0
+                if _norm(record.get("category")) == wanted_type:
+                    score += 2.0
+
+            if cost is not None and record.get("cost") is not None:
+                available += 1.0
+                if int(record["cost"]) == int(cost):
+                    score += 1.0
+
+            return score / available if available else 0.0
+
+        ranked_ids: list[tuple[float, tuple[int, str], str]] = []
+        for provider_id in list(dict.fromkeys(candidate_ids)):
             record = index.get(provider_id)
             if not isinstance(record, Mapping):
                 continue
+            ranked_ids.append(
+                (
+                    retrieval_score(provider_id, record),
+                    priority(provider_id),
+                    provider_id,
+                )
+            )
+
+        ranked_ids.sort(key=lambda item: (-item[0], item[1], item[2]))
+        selected = ranked_ids[:limit]
+        semaphore = asyncio.Semaphore(6)
+
+        async def fetch_candidate(
+            retrieval: float,
+            provider_id: str,
+        ) -> dict[str, Any] | None:
+            record = index.get(provider_id)
+            if not isinstance(record, Mapping):
+                return None
             pack_id = str(record.get("pack_id") or "").strip()
             if not pack_id:
-                continue
+                return None
             try:
-                card = await self._card(folder, pack_id, provider_id)
+                async with semaphore:
+                    card = await self._card(folder, pack_id, provider_id)
             except PunkRecordsError as exc:
                 if exc.status_code == 404:
-                    continue
+                    return None
                 raise
 
             root_id = _base_card_id(provider_id)
-            results.append(
-                {
-                    "provider": "Punk Records",
-                    "provider_id": provider_id,
-                    "base_card_id": root_id,
-                    "pack_id": pack_id,
-                    "language": language,
-                    "name": card.get("name") or record.get("name"),
-                    "rarity": card.get("rarity") or record.get("rarity"),
-                    "card_type": card.get("category") or record.get("category"),
-                    "colors": card.get("colors") or record.get("colors") or [],
-                    "cost": card.get("cost", record.get("cost")),
-                    "power": card.get("power", record.get("power")),
-                    "counter": card.get("counter", record.get("counter")),
-                    "attributes": card.get("attributes") or [],
-                    "types": card.get("types") or [],
-                    "effect": card.get("effect") or "",
-                    "trigger": card.get("trigger"),
-                    "art_treatment": _art_treatment(provider_id, base_id=root_id),
-                    "image_url": _trusted_image_url(card.get("img_full_url")),
-                    "source_reference": (
-                        f"{PUNK_RECORDS_REPO_URL}/blob/main/"
-                        f"{folder}/cards/{pack_id}/{provider_id}.json"
-                    ),
-                }
-            )
-        return results
+            return {
+                "provider": "Punk Records",
+                "provider_id": provider_id,
+                "base_card_id": root_id,
+                "pack_id": pack_id,
+                "language": language,
+                "name": card.get("name") or record.get("name"),
+                "rarity": card.get("rarity") or record.get("rarity"),
+                "card_type": card.get("category") or record.get("category"),
+                "colors": card.get("colors") or record.get("colors") or [],
+                "cost": card.get("cost", record.get("cost")),
+                "power": card.get("power", record.get("power")),
+                "counter": card.get("counter", record.get("counter")),
+                "attributes": card.get("attributes") or [],
+                "types": card.get("types") or [],
+                "effect": card.get("effect") or "",
+                "trigger": card.get("trigger"),
+                "art_treatment": _art_treatment(provider_id, base_id=root_id),
+                "image_url": _trusted_image_url(card.get("img_full_url")),
+                "retrieval_score": round(retrieval, 5),
+                "source_reference": (
+                    f"{PUNK_RECORDS_REPO_URL}/blob/main/"
+                    f"{folder}/cards/{pack_id}/{provider_id}.json"
+                ),
+            }
+
+        fetched = await asyncio.gather(
+            *[
+                fetch_candidate(retrieval, provider_id)
+                for retrieval, _priority, provider_id in selected
+            ]
+        )
+        return [item for item in fetched if item is not None]
 
     async def _card(self, folder: str, pack_id: str, provider_id: str) -> Mapping[str, Any]:
         card = await self._get_json(

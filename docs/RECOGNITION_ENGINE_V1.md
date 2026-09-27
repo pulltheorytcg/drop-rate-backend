@@ -252,3 +252,36 @@ A provider-derived card ID is accepted as an identity anchor only when multiple 
 Exact printing remains a separate decision. If a recovered identity has multiple provider printings such as base, parallel or reprint variants, Drop Rate requires sufficiently discriminating artwork evidence before it may return EXACT_CANDIDATE. Otherwise it returns the correct durable card identity with NEEDS_REVIEW for the printing.
 
 Catalogue fallback name matching is punctuation-insensitive so imported names such as `Monkey.D.Luffy (118)` can match vision text such as `Monkey D. Luffy`.
+
+
+## Identity confidence vs printing confidence
+
+Recognition Engine v1.2 separates two different questions:
+
+- **Identity confidence**: which durable card identity is this?
+- **Printing confidence**: which exact artwork / parallel / reprint / finish is this?
+
+Identity confidence is based on independent evidence such as game, language, name,
+collector number or recovered provider ID, card type and provider/gameplay
+fingerprints. One Piece fingerprints can include cost, power, colour, attribute,
+traits and effect text.
+
+Printing confidence is based on evidence such as art-treatment interpretation,
+finish, canonical reference-image similarity and exact provider-print mapping.
+
+A card may therefore have very high identity confidence while still remaining
+NEEDS_REVIEW for exact printing. That is intentional.
+
+### OCR conflict handling
+
+A printed collector number from vision is not treated as infallible.
+
+If OCR produces a number that strongly conflicts with independent facts such as
+name, cost, power, colour, type, traits, effect text and provider data, the engine
+can recover the durable identity from the stronger multi-signal fingerprint.
+
+The conflict is preserved as `OCR_CARD_NUMBER_CONFLICT` and prevents silent
+exact-printing approval. The UI shows both the OCR value and the recovered card ID.
+
+Provider and catalogue candidate retrieval is deliberately soft. A single wrong OCR
+field cannot remove the correct card from the candidate set.
