@@ -464,6 +464,8 @@ function renderMediaIntakeQueue(data) {
     option.dataset.cardName = item.name || "";
     option.dataset.cardNumber = item.card_number || "";
     option.dataset.language = item.language || "";
+    option.dataset.variant = item.variant || "";
+    option.dataset.policyReasons = (item.policy_reasons || []).join(",");
     select.append(option);
   });
 
