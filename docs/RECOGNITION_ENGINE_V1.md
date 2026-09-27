@@ -198,3 +198,34 @@ Recognition Engine v1 should be deployed fail-closed:
 6. measure exact-printing precision and review rate
 7. calibrate thresholds only from reviewed evidence
 8. do not auto-change inventory identity until benchmark evidence justifies a separate guarded approval phase
+
+
+## Live mobile camera
+
+Founder HQ Verify includes a browser-native live camera mode.
+
+On a supported HTTPS mobile browser:
+
+1. the user taps **Open live camera**
+2. the browser requests camera permission
+3. Drop Rate requests the rear-facing camera by default
+4. the live stream remains local to the browser
+5. the user aligns the physical card inside a 5:7 card guide
+6. **Capture & recognise** takes one centre-cropped JPEG still
+7. the camera stream is stopped immediately
+8. only the captured still image is sent to the Recognition Engine
+9. the Recognition Engine returns exact-printing evidence and review gates
+
+The application does not continuously upload or record the camera stream.
+
+Camera permissions are restricted to the first-party Drop Rate origin with:
+
+`Permissions-Policy: camera=(self), microphone=(), geolocation=()`
+
+Microphone and geolocation remain disabled.
+
+If live camera access is unavailable or denied, the existing JPEG/PNG/WebP upload flow remains available.
+
+Where the device/browser exposes torch control, Founder HQ can toggle it. The feature also provides front/rear camera switching, but the rear camera is preferred for card recognition quality.
+
+Leaving Verify, hiding the page, closing/navigating away from the page, or pressing Close stops all active video tracks.
