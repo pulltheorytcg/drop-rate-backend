@@ -915,6 +915,7 @@ async def load_catalogue_candidates(
     observation: RecognitionObservation,
     *,
     provider_evidence: list[Mapping[str, Any]] | None = None,
+    learning_catalogue_ids: list[Any] | None = None,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
     system_code = SYSTEM_BY_GAME.get(observation.game)
@@ -956,6 +957,11 @@ async def load_catalogue_candidates(
         identity_filters.append(
             "upper(regexp_replace(coalesce(p.card_number,''), '[^A-Za-z0-9]', '', 'g')) "
             f"= any(${len(params)}::text[])"
+        )
+    if learning_catalogue_ids:
+        params.append(list(dict.fromkeys(learning_catalogue_ids)))
+        identity_filters.append(
+            f"p.id = any(${len(params)}::uuid[])"
         )
     if not identity_filters:
         return []
