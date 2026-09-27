@@ -559,7 +559,9 @@ function renderRecognitionResult(data) {
   detail.textContent = run.decision === "EXACT_CANDIDATE"
     ? "The evidence supports one exact printing. This is still a candidate — inventory was not changed."
     : run.decision === "NEEDS_REVIEW"
-      ? "The engine refused to choose silently. Review the evidence and competing printing(s)."
+      ? (top
+        ? "Card identity found, but the exact printing still needs review. Check the recovered ID and artwork evidence below."
+        : "The engine refused to choose silently. Review the evidence and competing printing(s).")
       : run.decision === "NO_MATCH"
         ? "No local exact printing passed the hard identity gates."
         : "Recognition could not complete.";
@@ -587,18 +589,62 @@ function renderRecognitionResult(data) {
   const observations = run.ai_observation || {};
   const extracted = document.createElement("div");
   extracted.className = "recognition-observation";
-  extracted.innerHTML = `
-    <strong>Vision observations</strong>
-    <div class="recognition-meta-grid">
-      <div><span>Game</span><strong>${observations.game || "Unknown"}</strong></div>
-      <div><span>Language</span><strong>${observations.language || "Unknown"}</strong></div>
-      <div><span>Name</span><strong>${observations.name_guess || "—"}</strong></div>
-      <div><span>Card number</span><strong>${observations.card_number || "—"}</strong></div>
-      <div><span>Rarity</span><strong>${observations.rarity_text || "—"}</strong></div>
-      <div><span>Card type</span><strong>${observations.card_type_text || "—"}</strong></div>
-      <div><span>Art treatment</span><strong>${observations.art_treatment_text || "—"}</strong></div>
-      <div><span>Finish</span><strong>${observations.finish_text || "—"}</strong></div>
-    </div>`;
+  const extractedHeading = document.createElement("strong");
+  extractedHeading.textContent = "Vision + recovered identity evidence";
+  const metaGrid = document.createElement("div");
+  metaGrid.className = "recognition-meta-grid";
+
+  const addMeta = (labelText, valueText) => {
+    const row = document.createElement("div");
+    const labelNode = document.createElement("span");
+    const valueNode = document.createElement("strong");
+    labelNode.textContent = labelText;
+    valueNode.textContent = valueText === null || valueText === undefined || valueText === ""
+      ? "—"
+      : String(valueText);
+    row.append(labelNode, valueNode);
+    metaGrid.append(row);
+  };
+
+  const recoveredNumber = top?.signals?.card_number?.recovered;
+  const numberSource = top?.signals?.card_number?.source;
+  addMeta("Game", observations.game || "Unknown");
+  addMeta("Language", observations.language || "Unknown");
+  addMeta("Name", observations.name_guess);
+  addMeta(
+    "Card number",
+    observations.card_number
+      || (recoveredNumber
+        ? `${recoveredNumber} · recovered via provider fingerprint`
+        : "—")
+  );
+  addMeta("Cost", observations.cost);
+  addMeta("Power", observations.power);
+  addMeta("Colours", (observations.colors || []).join(", "));
+  addMeta("Attributes", (observations.attributes || []).join(", "));
+  addMeta("Traits", (observations.traits || []).join(", "));
+  addMeta("Rarity", observations.rarity_text);
+  addMeta("Card type", observations.card_type_text);
+  addMeta("Art treatment", observations.art_treatment_text);
+  addMeta("Finish", observations.finish_text);
+  if (numberSource === "provider_fingerprint") {
+    addMeta(
+      "ID recovery confidence",
+      recognitionPercent(top?.signals?.card_number?.confidence)
+    );
+  }
+  extracted.append(extractedHeading, metaGrid);
+
+  if (observations.effect_text) {
+    const effect = document.createElement("div");
+    effect.className = "recognition-effect-text";
+    const effectLabel = document.createElement("span");
+    const effectValue = document.createElement("p");
+    effectLabel.textContent = "Visible effect text";
+    effectValue.textContent = observations.effect_text;
+    effect.append(effectLabel, effectValue);
+    extracted.append(effect);
+  }
   result.append(extracted);
 
   const reasons = [...(run.decision_reasons || []), ...(run.risk_flags || [])];
