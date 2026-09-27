@@ -839,6 +839,7 @@ async def recognize_card(
                     {
                         "items": provider_items,
                         "errors": provider_result.get("errors", []),
+                        "reference_index_hints": reference_hints,
                         "timings_ms": timings_ms,
                         "visual_short_circuit_reason": visual_short_circuit,
                         "reference_fingerprint_cache": "TTL_LRU_POSITIVE_ONLY",
