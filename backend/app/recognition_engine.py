@@ -1270,6 +1270,7 @@ def resolve_candidates(
         key=lambda item: (
             item["hard_rejected"],
             -float(item["score"]),
+            -float(item.get("printing_score") or 0.0),
             str(item.get("candidate_key") or ""),
         )
     )
