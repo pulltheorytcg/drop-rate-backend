@@ -37,6 +37,12 @@ from .recognition_learning import (
     materialize_learning_example,
     register_runtime_model,
 )
+from .recognition_reference_index import (
+    attach_reference_candidate_hints,
+    discover_reference_candidate_hints,
+    rebuild_reference_index,
+    reference_index_status,
+)
 from .recognition_vision import (
     OpenAIRecognitionVisionClient,
     RecognitionVisionError,
@@ -45,7 +51,7 @@ from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.4.3"
+ENGINE_VERSION = "v1.5.0"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
@@ -59,6 +65,11 @@ class RecognitionFeedbackRequest(BaseModel):
     outcome: Literal["CONFIRMED_TOP", "CORRECTED_TO_CANDIDATE", "REJECTED_ALL"]
     selected_catalogue_id: UUID | None = None
     notes: str = Field(default="", max_length=2000)
+
+
+class RecognitionReferenceIndexRebuildRequest(BaseModel):
+    limit: int = Field(default=200, ge=1, le=500)
+    catalogue_ids: list[UUID] | None = Field(default=None, max_length=500)
 
 
 def _decimal(value: object | None) -> Decimal | None:
@@ -170,11 +181,49 @@ async def recognition_status(
         "max_image_bytes": settings.recognition_max_image_bytes,
         "stores_source_image": False,
         "verified_learning_enabled": True,
+        "persistent_reference_index_enabled": True,
+        "reference_index_provisional_is_retrieval_only": True,
         "learning_labels": "HUMAN_VERIFIED_ONLY",
         "learning_raw_pixels_stored": False,
         "auto_applies_inventory_identity": False,
         "ai_can_self_verify": False,
     }
+
+
+@router.get("/reference-index/status")
+async def recognition_reference_index_status(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        await _owner(connection)
+        return jsonable_encoder(await reference_index_status(connection))
+
+
+@router.post("/reference-index/rebuild")
+async def recognition_reference_index_rebuild(
+    payload: RecognitionReferenceIndexRebuildRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        await _owner(connection)
+        result = await rebuild_reference_index(
+            connection,
+            actor_user_id=user.user_id,
+            limit=payload.limit,
+            catalogue_ids=payload.catalogue_ids,
+        )
+        result["status"] = await reference_index_status(connection)
+        return jsonable_encoder(result)
 
 
 @router.get("/learning/status")
@@ -526,12 +575,26 @@ async def recognize_card(
         )
         run_id = run["id"]
 
+    async def _load_reference_hints():
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            return await discover_reference_candidate_hints(
+                connection,
+                image.hashes,
+            )
+
     vision = OpenAIRecognitionVisionClient(
         api_key=settings.openai_api_key,
         model=settings.recognition_model,
     )
     try:
-        observation = await _timed("vision", vision.observe(payload.image_data_url))
+        observation, reference_hints = await asyncio.gather(
+            _timed("vision", vision.observe(payload.image_data_url)),
+            _timed("reference_retrieval", _load_reference_hints()),
+        )
     except RecognitionVisionError as exc:
         async with user_connection(
             request.app.state.db_pool,
@@ -581,6 +644,12 @@ async def recognize_card(
                 owner_id,
             )
             return jsonable_encoder(await _run_payload(connection, run_id))
+
+    reference_hints = [
+        item
+        for item in reference_hints
+        if str(item.get("system_code") or "") == system_code
+    ]
 
     async with user_connection(
         request.app.state.db_pool,
@@ -643,6 +712,9 @@ async def recognize_card(
                 learning_catalogue_ids=[
                     item["catalogue_id"] for item in learning_hints
                 ],
+                reference_catalogue_ids=[
+                    item["catalogue_id"] for item in reference_hints
+                ],
             )
 
     # Provider-image hashing does not affect which catalogue rows are selected;
@@ -659,6 +731,8 @@ async def recognize_card(
                 attach_provider_visual_evidence(image.hashes, provider_items),
             ),
         )
+
+    attach_reference_candidate_hints(candidates, reference_hints)
 
     # Prior human-verified TRAIN evidence remains active even when remote visual
     # work is safely short-circuited. It is bounded and cannot clear hard gates.
@@ -765,6 +839,7 @@ async def recognize_card(
                     {
                         "items": provider_items,
                         "errors": provider_result.get("errors", []),
+                        "reference_index_hints": reference_hints,
                         "timings_ms": timings_ms,
                         "visual_short_circuit_reason": visual_short_circuit,
                         "reference_fingerprint_cache": "TTL_LRU_POSITIVE_ONLY",
