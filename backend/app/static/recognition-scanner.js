@@ -354,6 +354,34 @@ function setRecognitionCapturedImage(dataUrl, sourceLabel, metaText) {
     !state.recognition.status?.configured || state.recognition.busy;
 }
 
+function recognitionPromiseTimeout(promise, timeoutMs, message) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    }),
+  ]).finally(() => window.clearTimeout(timer));
+}
+
+function recognitionCanvasJpegDataUrl(canvas, quality = 0.9) {
+  if (typeof canvas.toBlob !== "function") {
+    return Promise.resolve(canvas.toDataURL("image/jpeg", quality));
+  }
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("The camera photo could not be encoded."));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("The camera photo could not be read."));
+      reader.readAsDataURL(blob);
+    }, "image/jpeg", quality);
+  });
+}
+
 async function captureAndRecogniseCard() {
   if (state.recognition.busy) return;
   const video = byId("recognition-camera-video");
@@ -392,7 +420,15 @@ async function captureAndRecogniseCard() {
       outputHeight
     );
 
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    showMessage(
+      "recognition-message",
+      "Preparing camera photo…"
+    );
+    const dataUrl = await recognitionPromiseTimeout(
+      recognitionCanvasJpegDataUrl(canvas, 0.9),
+      12000,
+      "Camera photo preparation took too long. Please try again or use photo upload."
+    );
     const approxBytes = Math.max(
       0,
       Math.floor((dataUrl.length - dataUrl.indexOf(",") - 1) * 0.75)
@@ -493,7 +529,7 @@ function recognitionCandidateCard(candidate, label, runId) {
   const card = document.createElement("article");
   card.className = "recognition-candidate-card";
 
-  const imageUrl = snapshot.reference_image_url;
+  const imageUrl = snapshot.reference_image_url || snapshot.image_url;
   if (imageUrl) {
     const link = document.createElement("a");
     link.href = imageUrl;
@@ -519,7 +555,7 @@ function recognitionCandidateCard(candidate, label, runId) {
   meta.textContent = [
     snapshot.game,
     snapshot.set_name,
-    snapshot.card_number,
+    snapshot.card_number || snapshot.base_card_id || candidate.provider_id,
     snapshot.variant,
     snapshot.rarity,
     snapshot.language,
@@ -854,12 +890,20 @@ async function runRecognitionScan() {
     "Reading card text, comparing exact printings and checking visual/provider evidence…"
   );
   try {
-    const data = await apiRequest("/api/v1/recognition/resolve", {
-      method: "POST",
-      body: JSON.stringify({
-        image_data_url: state.recognition.imageDataUrl,
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 70000);
+    let data;
+    try {
+      data = await apiRequest("/api/v1/recognition/resolve", {
+        method: "POST",
+        signal: controller.signal,
+        body: JSON.stringify({
+          image_data_url: state.recognition.imageDataUrl,
+        }),
+      });
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
     renderRecognitionResult(data);
     showMessage(
       "recognition-message",
@@ -870,7 +914,10 @@ async function runRecognitionScan() {
     );
     await loadRecognitionHistory();
   } catch (error) {
-    showMessage("recognition-message", error.message, "error");
+    const message = error?.name === "AbortError"
+      ? "Recognition exceeded 70 seconds and was stopped. The scan was not left hanging."
+      : error.message;
+    showMessage("recognition-message", message, "error");
   } finally {
     state.recognition.busy = false;
     byId("recognition-clear").disabled = !state.recognition.imageDataUrl;

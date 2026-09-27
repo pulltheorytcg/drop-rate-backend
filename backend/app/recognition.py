@@ -45,7 +45,7 @@ from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.4.1"
+ENGINE_VERSION = "v1.4.2"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
@@ -266,7 +266,10 @@ async def recognition_candidate_image(
         owner = await _owner(connection)
         image_url = await connection.fetchval(
             """
-            select rc.candidate_snapshot->>'reference_image_url'
+            select coalesce(
+                nullif(rc.candidate_snapshot->>'reference_image_url',''),
+                nullif(rc.candidate_snapshot->>'image_url','')
+            )
             from tcg.recognition_candidates rc
             join tcg.recognition_runs rr on rr.id=rc.run_id
             where rr.id=$1

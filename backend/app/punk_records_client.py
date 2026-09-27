@@ -44,6 +44,21 @@ def _name_key(value: object) -> str:
     )
 
 
+def _name_alias_keys(value: object) -> set[str]:
+    """Return compact full/base/parenthetical aliases for bilingual card names."""
+    text = " ".join(str(value or "").strip().split())
+    if not text:
+        return set()
+
+    aliases = {text}
+    parenthetical = re.findall(r"\(([^()]*)\)", text)
+    base = re.sub(r"\([^()]*\)", " ", text)
+    if base.strip():
+        aliases.add(base.strip())
+    aliases.update(item.strip() for item in parenthetical if item.strip())
+    return {key for alias in aliases if (key := _name_key(alias))}
+
+
 def _base_card_id(provider_id: object) -> str:
     return re.sub(r"_(?:p|r)\d+$", "", str(provider_id or "").strip(), flags=re.I).upper()
 
@@ -219,11 +234,12 @@ class PunkRecordsClient:
                 or str(key).upper().startswith(f"{base_id}_")
             )
 
-        if name:
+        wanted_name_keys = _name_alias_keys(name) if name else set()
+        if wanted_name_keys:
             name_index = await self._by_name_index(folder)
-            wanted = _name_key(name)
             for indexed_name, ids in name_index.items():
-                if _name_key(indexed_name) != wanted or not isinstance(ids, list):
+                indexed_keys = _name_alias_keys(indexed_name)
+                if not (indexed_keys & wanted_name_keys) or not isinstance(ids, list):
                     continue
                 candidate_ids.extend(str(value) for value in ids)
 
@@ -244,22 +260,22 @@ class PunkRecordsClient:
                 return (2, lowered)
             return (3, lowered)
 
-        wanted_name = _name_key(name) if name else ""
-
         def retrieval_score(provider_id: str, record: Mapping[str, Any]) -> float:
             """Soft shortlist score. A single OCR error must never delete a card."""
             score = 0.0
             available = 0.0
 
-            if wanted_name and record.get("name"):
+            if wanted_name_keys and record.get("name"):
                 available += 6.0
-                if _name_key(record.get("name")) == wanted_name:
+                if _name_alias_keys(record.get("name")) & wanted_name_keys:
                     score += 6.0
 
             if base_id:
-                available += 2.0
+                # Tiny printed IDs are OCR-prone. Keep number useful for retrieval,
+                # but do not let one uncertain read overpower strong visible stats.
+                available += 1.0
                 if _base_card_id(provider_id) == base_id:
-                    score += 2.0
+                    score += 1.0
 
             if power is not None and record.get("power") is not None:
                 available += 4.0
@@ -272,10 +288,12 @@ class PunkRecordsClient:
                 if _norm(value)
             }
             if wanted_colors and provider_colors:
-                available += 3.0
+                # Colour is useful but can be mis-read through sleeves/glare and
+                # must not dominate exact power/name evidence during retrieval.
+                available += 2.0
                 overlap = len(wanted_colors & provider_colors)
                 union = len(wanted_colors | provider_colors)
-                score += 3.0 * (overlap / union if union else 0.0)
+                score += 2.0 * (overlap / union if union else 0.0)
 
             if wanted_type and record.get("category"):
                 available += 2.0
