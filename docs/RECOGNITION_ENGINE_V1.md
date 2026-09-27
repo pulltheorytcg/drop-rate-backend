@@ -184,7 +184,7 @@ Optional variables:
 - `TCG_RECOGNITION_HIGH_VALUE_REVIEW_MINOR`
 - `TCG_RECOGNITION_MAX_IMAGE_BYTES`
 
-The model is replaceable. Deterministic resolution, audit history and human feedback remain independent of the AI provider.
+The current default is `gpt-5.6-sol`; it is configurable rather than hard-wired. The model is replaceable, and deterministic resolution, audit history and human feedback remain independent of the AI provider.
 
 ## Production rollout
 
