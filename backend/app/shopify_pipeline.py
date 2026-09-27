@@ -14,6 +14,14 @@ from .auth import AuthenticatedUser, require_user
 from .brands import brand_for_game
 from .db import user_connection
 from .finance import allocate_minor
+from .language import clean_language
+from .media_resolver import (
+    DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
+    FIRST_PARTY_CAPTURE,
+    STOREFRONT_ALLOWED,
+    physical_photo_policy,
+    resolve_storefront_media,
+)
 from .ownership import current_owner as _owner
 from .settings import get_settings
 from .shopify_completeness import (
@@ -98,8 +106,16 @@ class MediaAssetCreate(BaseModel):
     source_type: str = Field(
         pattern="^(FOUNDER_UPLOAD|CONSIGNOR_UPLOAD|LICENSED_PROVIDER|OFFICIAL_PROVIDER)$"
     )
+    rights_tier: str = Field(
+        pattern="^(STOREFRONT_ALLOWED|MARKETPLACE_NATIVE_ONLY|INTERNAL_REFERENCE_ONLY|FIRST_PARTY_CAPTURE)$"
+    )
+    source_provider: str | None = Field(default=None, max_length=200)
+    provider_asset_id: str | None = Field(default=None, max_length=500)
     source_reference: str = Field(min_length=1, max_length=1000)
     public_source_url: str | None = Field(default=None, max_length=4000)
+    permission_evidence_url: str | None = Field(default=None, max_length=4000)
+    media_language: str | None = Field(default=None, max_length=80)
+    media_variant: str | None = Field(default=None, max_length=200)
     capture_context: str | None = Field(
         default=None,
         pattern="^(RAW_UNSLEEVED|PENNY_SLEEVE|TOP_LOADER|GRADED_SLAB)$",
@@ -112,6 +128,11 @@ class MediaAssetApprove(BaseModel):
     version: int = Field(ge=1)
     rights_basis: str = Field(min_length=1, max_length=1000)
     alt_text: str = Field(min_length=1, max_length=500)
+
+
+class MediaAssetRevoke(BaseModel):
+    version: int = Field(ge=1)
+    reason: str = Field(min_length=1, max_length=1000)
 
 
 class MediaAssetSync(BaseModel):
@@ -228,7 +249,11 @@ def _handle(inventory_code: str) -> str:
     return f"drop-rate-{inventory_code.casefold().replace('_', '-').replace(' ', '-')}"
 
 
-def _test_sync_missing(item: Any) -> list[str]:
+def _test_sync_missing(
+    item: Any,
+    *,
+    physical_photo_threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
+) -> list[str]:
     missing: list[str] = []
     if item["status"] != "APPROVED":
         missing.append("APPROVED status")
@@ -243,13 +268,20 @@ def _test_sync_missing(item: Any) -> list[str]:
             and str(item["grade"] or "").strip()
         )
         review_status = str(item.get("condition_review_status") or "")
+        policy = physical_photo_policy(
+            item,
+            threshold_minor=physical_photo_threshold_minor,
+        )
         if is_graded:
             if review_status != "VERIFIED_GRADED":
                 missing.append("graded slab verification")
         else:
             if str(item["condition"] or "").strip() != "Near Mint":
                 missing.append("Near Mint condition")
-            if review_status != "VERIFIED_NEAR_MINT":
+            if (
+                policy["physicalPhotosRequired"]
+                and review_status != "VERIFIED_NEAR_MINT"
+            ):
                 missing.append("photo-backed Near Mint verification")
         if not (item["language"] or item["catalogue_language"]):
             missing.append("card language")
@@ -286,14 +318,10 @@ def _media_assets_for_item(
 def _build_media_intake_queue(
     items: list[Mapping[str, Any]],
     assets: list[Mapping[str, Any]],
+    *,
+    physical_photo_threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
 ) -> dict[str, Any]:
-    """Build an exact physical-card capture queue.
-
-    Every physical card requires its own FRONT and BACK evidence. Canonical media
-    may still exist for reference/catalogue use, but it never satisfies this
-    inventory capture queue. Approved/rights-verified media that has not failed
-    counts as captured so founders are not prompted to photograph a side twice.
-    """
+    """Build a capture queue only for cards whose policy requires physical proof."""
 
     captured_inventory: dict[str, set[str]] = {}
     ready_inventory: dict[str, set[str]] = {}
@@ -302,6 +330,10 @@ def _build_media_intake_queue(
         if str(asset.get("approval_status") or "") != "APPROVED":
             continue
         if str(asset.get("rights_status") or "") != "VERIFIED":
+            continue
+        if str(asset.get("source_status") or "ACTIVE") != "ACTIVE":
+            continue
+        if str(asset.get("rights_tier") or "") != FIRST_PARTY_CAPTURE:
             continue
         if str(asset.get("scope") or "") != "INVENTORY_ITEM":
             continue
@@ -326,6 +358,13 @@ def _build_media_intake_queue(
         item = dict(source)
         if str(item.get("product_type") or "") != "CARD":
             continue
+        policy = physical_photo_policy(
+            item,
+            threshold_minor=physical_photo_threshold_minor,
+        )
+        if not policy["physicalPhotosRequired"]:
+            continue
+
         inventory_id = str(item.get("id") or "")
         catalogue_id = str(item.get("catalogue_id") or "")
         if not inventory_id or not catalogue_id:
@@ -370,6 +409,11 @@ def _build_media_intake_queue(
                 if is_graded
                 else ["RAW_UNSLEEVED", "PENNY_SLEEVE", "TOP_LOADER"]
             ),
+            "physical_photos_required": True,
+            "policy_reasons": policy["reasons"],
+            "action_required_reason": (
+                f"Physical photos required: {', '.join(policy['reasons'])}"
+            ),
         })
 
     queue.sort(
@@ -388,7 +432,11 @@ def _build_media_intake_queue(
         "physical_items_pending": len(queue),
         "raw_items_pending": raw_pending,
         "graded_items_pending": graded_pending,
-        "raw_canonical_groups_pending": 0,
+        "policy": {
+            "existing_image_first": True,
+            "physical_photo_threshold_minor": physical_photo_threshold_minor,
+            "low_risk_raw_cards_use_canonical_storefront_media": True,
+        },
     }
 
 def _launch_completeness(
@@ -399,9 +447,17 @@ def _launch_completeness(
     location_configured: bool,
     media_assets: list[Mapping[str, Any]],
     shipping_profiles: Mapping[str, Mapping[str, Any]],
+    physical_photo_threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    plan = build_shopify_product_plan(item)
-    media = media_completeness(plan["mediaPolicy"], media_assets)
+    plan = build_shopify_product_plan(
+        item,
+        physical_photo_threshold_minor=physical_photo_threshold_minor,
+    )
+    media = resolve_storefront_media(
+        item,
+        media_assets,
+        threshold_minor=physical_photo_threshold_minor,
+    )
     profile = shipping_profiles.get(str(plan["shippingProfileKey"]))
     completeness = product_completeness(
         plan,
