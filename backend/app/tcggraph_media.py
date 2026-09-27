@@ -15,6 +15,7 @@ from .language import clean_language
 from .media_resolver import physical_photo_policy
 from .ownership import current_owner as _owner
 from .settings import get_settings
+from .shopify_client import ShopifyAdminClient, ShopifyApiError
 from .tcggraph_client import TcgGraphApiError, TcgGraphClient
 
 
@@ -54,6 +55,10 @@ class TcgGraphResolveRequest(BaseModel):
     apply: bool = False
     limit: int = Field(default=100, ge=1, le=100)
     catalogue_ids: list[UUID] | None = Field(default=None, max_length=100)
+
+
+class TcgGraphShopifySyncRequest(BaseModel):
+    limit: int = Field(default=50, ge=1, le=100)
 
 
 def _norm(value: object) -> str:
@@ -297,6 +302,22 @@ async def _lookup_one(
     }
 
 
+def _shopify_client() -> ShopifyAdminClient:
+    settings = get_settings()
+    if (
+        not settings.shopify_shop_domain
+        or not settings.shopify_client_id
+        or not settings.shopify_client_secret
+    ):
+        raise HTTPException(status_code=409, detail="Shopify is not configured")
+    return ShopifyAdminClient(
+        shop_domain=settings.shopify_shop_domain,
+        client_id=settings.shopify_client_id,
+        client_secret=settings.shopify_client_secret,
+        api_version=settings.shopify_api_version,
+    )
+
+
 @router.get("/status")
 async def tcggraph_media_status(
     _user: Annotated[AuthenticatedUser, Depends(require_user)],
@@ -498,5 +519,194 @@ async def resolve_tcggraph_media(
             "resolved_items": [public_row(row) for row in resolved],
             "unresolved_items": [public_row(row) for row in unresolved],
             "skipped_items": skipped_policy,
+        }
+    )
+
+
+@router.post("/sync-shopify")
+async def sync_tcggraph_media_to_shopify(
+    payload: TcgGraphShopifySyncRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Bulk-stage approved TCGGraph images into Shopify Files.
+
+    This never creates or publishes a Shopify product. It only advances the
+    media registry toward READY so the existing product gate can use it.
+    """
+
+    client = _shopify_client()
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        rows = await connection.fetch(
+            """
+            select *
+            from tcg.media_assets
+            where owner_id=$1
+              and source_provider='TCGGraph'
+              and scope='CANONICAL_CARD'
+              and side='FRONT'
+              and rights_tier='STOREFRONT_ALLOWED'
+              and source_status='ACTIVE'
+              and approval_status='APPROVED'
+              and rights_status='VERIFIED'
+              and shopify_file_status in ('NOT_UPLOADED','UPLOADED','PROCESSING','READY')
+              and (
+                shopify_file_status <> 'READY'
+                or nullif(btrim(coalesce(shopify_cdn_url,'')),'') is null
+              )
+            order by created_at,id
+            limit $2
+            """,
+            owner["id"],
+            payload.limit,
+        )
+
+    results: list[dict[str, Any]] = []
+    for asset_row in rows:
+        asset = dict(asset_row)
+        status = str(asset.get("shopify_file_status") or "")
+        source_url = str(asset.get("public_source_url") or "").strip()
+        if not source_url.startswith("https://"):
+            results.append(
+                {
+                    "asset_id": str(asset["id"]),
+                    "status": "BLOCKED",
+                    "reason": "missing HTTPS source image",
+                }
+            )
+            continue
+
+        try:
+            if status == "NOT_UPLOADED":
+                file_row = await client.create_file_from_url(
+                    source_url=source_url,
+                    alt_text=str(asset.get("alt_text") or ""),
+                )
+            else:
+                file_id = str(asset.get("shopify_file_gid") or "").strip()
+                if not file_id:
+                    results.append(
+                        {
+                            "asset_id": str(asset["id"]),
+                            "status": "BLOCKED",
+                            "reason": "Shopify file ID missing",
+                        }
+                    )
+                    continue
+                file_row = await client.get_file(file_id)
+        except ShopifyApiError as exc:
+            results.append(
+                {
+                    "asset_id": str(asset["id"]),
+                    "status": "FAILED",
+                    "reason": "Shopify media request failed",
+                    "retryable": exc.retryable,
+                }
+            )
+            continue
+
+        if not isinstance(file_row, dict):
+            results.append(
+                {
+                    "asset_id": str(asset["id"]),
+                    "status": "FAILED",
+                    "reason": "invalid Shopify media response",
+                }
+            )
+            continue
+
+        file_id = str(file_row.get("id") or "").strip()
+        file_status = str(file_row.get("fileStatus") or "").strip().upper()
+        image = file_row.get("image")
+        cdn_url = (
+            str(image.get("url") or "").strip()
+            if isinstance(image, dict)
+            else ""
+        )
+        if not file_id or file_status not in {
+            "UPLOADED",
+            "PROCESSING",
+            "READY",
+            "FAILED",
+        }:
+            results.append(
+                {
+                    "asset_id": str(asset["id"]),
+                    "status": "FAILED",
+                    "reason": "unsupported Shopify file state",
+                }
+            )
+            continue
+
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            owner = await _owner(connection)
+            updated = await connection.fetchrow(
+                """
+                update tcg.media_assets
+                set shopify_file_gid=$3,
+                    shopify_file_status=$4,
+                    shopify_error=case
+                      when $4='FAILED' then 'Shopify file processing failed'
+                      else null
+                    end,
+                    shopify_cdn_url=case
+                      when nullif($5,'') is not null then $5
+                      else shopify_cdn_url
+                    end,
+                    source_checked_at=clock_timestamp(),
+                    source_status_note='TCGGraph image checked during Shopify file sync',
+                    updated_at=clock_timestamp(),
+                    version=version+1
+                where id=$1
+                  and owner_id=$2
+                  and source_provider='TCGGraph'
+                returning *
+                """,
+                asset["id"],
+                owner["id"],
+                file_id,
+                file_status,
+                cdn_url,
+            )
+        results.append(
+            {
+                "asset_id": str(asset["id"]),
+                "status": file_status,
+                "shopify_file_id": file_id,
+                "shopify_cdn_url": (
+                    str(updated["shopify_cdn_url"] or "")
+                    if updated is not None
+                    else cdn_url
+                ),
+            }
+        )
+
+    return jsonable_encoder(
+        {
+            "provider": "TCGGraph",
+            "considered": len(rows),
+            "ready": sum(1 for row in results if row["status"] == "READY"),
+            "processing": sum(
+                1
+                for row in results
+                if row["status"] in {"UPLOADED", "PROCESSING"}
+            ),
+            "failed": sum(
+                1
+                for row in results
+                if row["status"] in {"FAILED", "BLOCKED"}
+            ),
+            "items": results,
+            "product_publications": 0,
         }
     )
