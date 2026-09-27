@@ -24,12 +24,12 @@ def test_local_readiness_summary_separates_core_and_media_blockers(monkeypatch) 
     monkeypatch.setattr(
         readiness,
         "_test_sync_missing",
-        lambda row: list(row["missing"]),
+        lambda row, **kwargs: list(row["missing"]),
     )
     monkeypatch.setattr(
         readiness,
         "build_shopify_product_plan",
-        lambda row: {"mediaPolicy": "RAW_CARD"},
+        lambda row, **kwargs: {"mediaPolicy": "CANONICAL_STOREFRONT_ALLOWED"},
     )
     monkeypatch.setattr(
         readiness,
@@ -38,9 +38,30 @@ def test_local_readiness_summary_separates_core_and_media_blockers(monkeypatch) 
     )
     monkeypatch.setattr(
         readiness,
-        "media_completeness",
-        lambda policy, assets: {
-            "blockers": [] if assets[0]["ready"] else ["physical FRONT + BACK media"]
+        "resolve_storefront_media",
+        lambda row, assets, **kwargs: {
+            "blockers": (
+                []
+                if assets[0]["ready"]
+                else ["exact storefront-allowed canonical front image"]
+            ),
+            "resolutionSource": (
+                "CANONICAL_STOREFRONT" if assets[0]["ready"] else "NONE"
+            ),
+            "rightsTier": (
+                "STOREFRONT_ALLOWED" if assets[0]["ready"] else None
+            ),
+            "selectionReason": (
+                "exact canonical media selected" if assets[0]["ready"] else ""
+            ),
+            "physicalPhotosRequired": False,
+            "reasons": [],
+            "actionRequiredReason": (
+                None
+                if assets[0]["ready"]
+                else "exact storefront-allowed canonical front image"
+            ),
+            "selectedMedia": [],
         },
     )
 
@@ -62,9 +83,16 @@ def test_local_readiness_summary_separates_core_and_media_blockers(monkeypatch) 
     }
     assert result["media_ready"] == 1
     assert result["media_blocked"] == 1
-    assert result["media_blockers"] == {"physical FRONT + BACK media": 1}
+    assert result["canonical_resolved"] == 1
+    assert result["canonical_media_required"] == 1
+    assert result["media_blockers"] == {
+        "exact storefront-allowed canonical front image": 1
+    }
     assert result["next_operational_items"][0]["inventory_code"] == "VERIFY"
     assert result["next_media_items"][0]["inventory_code"] == "MEDIA"
+    assert result["next_media_items"][0]["action_required_reason"] == (
+        "exact storefront-allowed canonical front image"
+    )
 
 
 def test_local_readiness_endpoint_is_owner_scoped_and_has_no_publish_path() -> None:
@@ -75,7 +103,7 @@ def test_local_readiness_endpoint_is_owner_scoped_and_has_no_publish_path() -> N
     assert "sil.id is null" in source
     assert "lim.id is null" in source
     assert "_test_sync_missing" in source
-    assert "media_completeness" in source
+    assert "resolve_storefront_media" in source
     assert '"network_calls"] = 0' in source
     assert '"publication_actions"] = 0' in source
     assert "ShopifyAdminClient" not in source
