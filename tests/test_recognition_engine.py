@@ -25,7 +25,7 @@ from app.recognition_images import (
     reference_image_bytes,
     reference_image_hashes,
 )
-from app.punk_records_client import PunkRecordsClient
+from app.punk_records_client import PunkRecordsClient, _name_alias_keys
 from app.recognition_vision import RecognitionObservation
 
 
@@ -169,6 +169,92 @@ def test_wrong_collector_number_is_hard_rejected() -> None:
     scored = score_candidate(observation(), candidate(card_number="OP05-120"))
     assert scored["hard_rejected"] is True
     assert "collector number mismatch" in scored["rejection_reasons"]
+
+
+def test_round1_marker_can_recover_nami_identity_but_keeps_ocr_conflict_review() -> None:
+    obs = observation(
+        name_guess="ナミ (Nami)",
+        set_name_guess="頂上決戦 / Paramount War (OP-02)",
+        set_name_confidence=0.88,
+        card_number="OP02-036",
+        card_number_confidence=0.78,
+        cost=3,
+        cost_confidence=0.99,
+        power=1000,
+        power_confidence=0.99,
+        colors=["Green"],
+        colors_confidence=0.98,
+        attributes=["Wisdom"],
+        attributes_confidence=0.82,
+        traits=["FILM", "麦わらの一味"],
+        traits_confidence=0.72,
+        effect_text="",
+        effect_confidence=0.18,
+        rarity_text="R",
+        rarity_confidence=0.66,
+        card_type_text="Character",
+        card_type_confidence=0.96,
+        art_treatment_text="Full-art illustration with visible ROUND1 ONE PIECE collaboration stamp",
+        art_treatment_confidence=0.88,
+        finish_text="Possible foil",
+        finish_confidence=0.38,
+        visible_markers=["ROUND1 ONE PIECE logo across artwork"],
+        ocr_lines=["ROUND1", "ONE PIECE", "ナミ", "OP02-036"],
+        image_quality="FAIR",
+    )
+    local = candidate(
+        name="Nami (Round 1 Promo)",
+        card_number="ST29-008",
+        language=None,
+        art="Base",
+        max_value=3206,
+    )
+    local["set_name"] = "One Piece Promotion Cards"
+    local["rarity"] = "C"
+    local["taxonomy"] = [
+        {"dimension_code": "RARITY", "value_code": "C", "display_name": "Common"},
+        {"dimension_code": "CARD_TYPE", "value_code": "CHARACTER", "display_name": "Character"},
+        {"dimension_code": "FINISH", "value_code": "FOIL", "display_name": "Foil"},
+    ]
+    local["inventory_languages"] = []
+
+    provider_item = {
+        "provider": "Punk Records",
+        "provider_id": "ST29-008",
+        "base_card_id": "ST29-008",
+        "pack_id": "550029",
+        "language": "Japanese",
+        "name": "ナミ",
+        "rarity": "Common",
+        "card_type": "Character",
+        "colors": ["Yellow"],
+        "cost": 3,
+        "power": 1000,
+        "attributes": ["Special"],
+        "types": ["エッグヘッド", "麦わらの一味"],
+        "effect": "",
+        "art_treatment": "Base",
+        "image_url": "https://www.onepiece-cardgame.com/images/cardlist/card/ST29-008.png",
+        "retrieval_score": 0.8125,
+        "visual_similarity": None,
+    }
+    provider_item.update(_provider_identity_fingerprint(obs, provider_item))
+
+    result = resolve(obs, [local], provider_evidence=[provider_item])
+
+    assert result["top"]["catalogue_id"] == local["catalogue_id"]
+    assert result["top"]["signals"]["promo_marker"]["match"] == 1.0
+    assert result["top"]["signals"]["card_number"]["source"] == "promo_marker_recovery"
+    assert result["top"]["signals"]["card_number"]["recovered"] == "ST29-008"
+    assert result["top"]["signals"]["language"]["match"] == 1.0
+    assert result["decision"] == "NEEDS_REVIEW"
+    assert "OCR_CARD_NUMBER_CONFLICT" in result["risk_flags"]
+
+
+def test_bilingual_japanese_name_aliases_keep_native_and_english_forms() -> None:
+    aliases = _name_alias_keys("ナミ (Nami)")
+    assert "ナミ" in aliases
+    assert "nami" in aliases
 
 
 def test_same_number_base_vs_parallel_without_unique_discriminator_needs_review() -> None:
@@ -677,11 +763,13 @@ def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> 
     ):
         assert f'"{field}"' in source
     assert "identity fingerprints when glare or" in source
+    assert "extract every field independently from pixels" in source
+    assert "guessed card number must" in source
 
 
 def test_recognition_logic_change_bumps_idempotency_version() -> None:
     api = API.read_text()
-    assert 'ENGINE_VERSION = "v1.4.1"' in api
+    assert 'ENGINE_VERSION = "v1.4.2"' in api
     assert 'f"recognition:{ENGINE_VERSION}:{settings.recognition_model}:"' in api
 
 
@@ -1091,7 +1179,7 @@ def test_scanner_candidate_image_uses_authenticated_proxy_and_shows_market_value
     api = API.read_text()
     main = MAIN.read_text()
 
-    assert "const imageUrl = snapshot.reference_image_url;" in ui
+    assert "snapshot.reference_image_url || snapshot.image_url" in ui
     assert "const image = document.createElement(\"img\");" in ui
     assert "loadRecognitionCandidateImage(image, runId, candidate.id);" in ui
     assert "/candidates/${candidateId}/image" in ui
@@ -1102,3 +1190,8 @@ def test_scanner_candidate_image_uses_authenticated_proxy_and_shows_market_value
     assert "price.market_value_minor" in api
     assert "blob:" in main
     assert "img-src *" not in main
+    assert "canvas.toBlob" in ui
+    assert "recognitionPromiseTimeout" in ui
+    assert "AbortController" in ui
+    assert "70000" in ui
+    assert "candidate.provider_id" in ui
