@@ -1,0 +1,432 @@
+from __future__ import annotations
+
+import json
+from decimal import Decimal
+from typing import Annotated, Any
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel, Field
+
+from .auth import AuthenticatedUser, require_user
+from .db import user_connection
+from .ownership import current_owner as _owner
+from .recognition_engine import (
+    SYSTEM_BY_GAME,
+    attach_provider_visual_evidence,
+    attach_visual_evidence,
+    discover_provider_evidence,
+    load_catalogue_candidates,
+    resolve_candidates,
+)
+from .recognition_images import RecognitionImageError, decode_image_data_url
+from .recognition_vision import (
+    OpenAIRecognitionVisionClient,
+    RecognitionVisionError,
+)
+from .settings import get_settings
+
+
+router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
+ENGINE_VERSION = "v1.0.0"
+TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
+
+
+class RecognitionRequest(BaseModel):
+    image_data_url: str = Field(min_length=100, max_length=12_000_000)
+    inventory_id: UUID | None = None
+    force_refresh: bool = False
+
+
+def _decimal(value: object | None) -> Decimal | None:
+    if value is None:
+        return None
+    return Decimal(str(value))
+
+
+async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
+    run = await connection.fetchrow(
+        """
+        select
+            id,owner_id,inventory_id,idempotency_key,source_image_sha256,
+            source_mime_type,source_size_bytes,status,system_code,ai_provider,
+            ai_model,ai_observation,provider_evidence,top_catalogue_id,
+            top_score,runner_up_score,score_margin,decision,decision_reasons,
+            risk_flags,error_code,error_detail,started_at,completed_at,
+            created_at,updated_at,version
+        from tcg.recognition_runs
+        where id=$1
+        """,
+        run_id,
+    )
+    if run is None:
+        raise HTTPException(status_code=404, detail="Recognition run not found")
+    candidates = await connection.fetch(
+        """
+        select
+            id,candidate_key,source_kind,system_code,catalogue_id,
+            provider,provider_id,provider_language,rank,score,hard_rejected,
+            rejection_reasons,signals,candidate_snapshot,created_at
+        from tcg.recognition_candidates
+        where run_id=$1
+        order by rank
+        """,
+        run_id,
+    )
+    return {
+        "run": dict(run),
+        "candidates": [dict(row) for row in candidates],
+        "engine_version": ENGINE_VERSION,
+        "auto_applied": False,
+    }
+
+
+@router.get("/status")
+async def recognition_status(
+    _user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    settings = get_settings()
+    return {
+        "configured": bool(settings.openai_api_key),
+        "engine_version": ENGINE_VERSION,
+        "vision_provider": "OpenAI",
+        "vision_model": settings.recognition_model,
+        "supported_games": ["Pokemon", "One Piece"],
+        "exact_threshold": settings.recognition_exact_threshold_bps / 10_000,
+        "minimum_runner_up_margin": settings.recognition_min_margin_bps / 10_000,
+        "high_value_review_minor": settings.recognition_high_value_review_minor,
+        "max_image_bytes": settings.recognition_max_image_bytes,
+        "stores_source_image": False,
+        "auto_applies_inventory_identity": False,
+        "ai_can_self_verify": False,
+    }
+
+
+@router.get("/runs")
+async def recognition_runs(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = Query(default=25, ge=1, le=100),
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        rows = await connection.fetch(
+            """
+            select
+                r.id,r.inventory_id,i.inventory_code,r.status,r.system_code,
+                r.ai_model,r.top_catalogue_id,r.top_score,r.runner_up_score,
+                r.score_margin,r.decision,r.decision_reasons,r.risk_flags,
+                r.created_at,r.completed_at,
+                p.game as top_game,p.name as top_name,p.set_name as top_set_name,
+                p.card_number as top_card_number,p.variant as top_variant,
+                p.rarity as top_rarity,p.language as top_language
+            from tcg.recognition_runs r
+            left join tcg.inventory_items i on i.id=r.inventory_id
+            left join tcg.catalogue_products p on p.id=r.top_catalogue_id
+            where r.owner_id=$1
+            order by r.created_at desc
+            limit $2
+            """,
+            owner["id"],
+            limit,
+        )
+    return jsonable_encoder({"items": [dict(row) for row in rows]})
+
+
+@router.get("/runs/{run_id}")
+async def recognition_run(
+    run_id: UUID,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        allowed = await connection.fetchval(
+            "select exists(select 1 from tcg.recognition_runs where id=$1 and owner_id=$2)",
+            run_id,
+            owner["id"],
+        )
+        if not allowed:
+            raise HTTPException(status_code=404, detail="Recognition run not found")
+        return jsonable_encoder(await _run_payload(connection, run_id))
+
+
+@router.post("/resolve")
+async def recognize_card(
+    payload: RecognitionRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    settings = get_settings()
+    if not settings.openai_api_key:
+        raise HTTPException(
+            status_code=409,
+            detail="Recognition vision is not configured yet",
+        )
+
+    try:
+        image = decode_image_data_url(
+            payload.image_data_url,
+            max_bytes=settings.recognition_max_image_bytes,
+        )
+    except RecognitionImageError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    inventory_context: dict[str, Any] | None = None
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        owner_id = owner["id"]
+
+        if payload.inventory_id is not None:
+            row = await connection.fetchrow(
+                """
+                select
+                    i.id,i.inventory_code,i.catalogue_id,i.language,
+                    i.condition,i.grading_company,i.grade,i.certificate_number,
+                    i.identity_confirmed,i.status,i.market_value_minor,
+                    i.recommended_retail_minor,i.store_price_minor,i.version
+                from tcg.inventory_items i
+                where i.id=$1 and i.owner_id=$2
+                """,
+                payload.inventory_id,
+                owner_id,
+            )
+            if row is None:
+                raise HTTPException(status_code=404, detail="Inventory item not found")
+            inventory_context = dict(row)
+
+        idempotency_key = (
+            f"recognition:{ENGINE_VERSION}:{settings.recognition_model}:"
+            f"{payload.inventory_id or 'unassigned'}:{image.sha256}"
+        )
+        if payload.force_refresh:
+            idempotency_key = f"{idempotency_key}:{request.state.request_id}"
+
+        existing = await connection.fetchrow(
+            """
+            select id,status
+            from tcg.recognition_runs
+            where owner_id=$1 and idempotency_key=$2
+            """,
+            owner_id,
+            idempotency_key,
+        )
+        if existing is not None:
+            if existing["status"] in TERMINAL_STATUSES:
+                return jsonable_encoder(
+                    await _run_payload(connection, existing["id"])
+                )
+            raise HTTPException(
+                status_code=409,
+                detail="An identical recognition run is already in progress",
+            )
+
+        run = await connection.fetchrow(
+            """
+            insert into tcg.recognition_runs(
+                owner_id,inventory_id,idempotency_key,source_image_sha256,
+                source_mime_type,source_size_bytes,status,ai_provider,ai_model,
+                created_by_user_id
+            ) values($1,$2,$3,$4,$5,$6,'OBSERVING','OpenAI',$7,$8)
+            returning id
+            """,
+            owner_id,
+            payload.inventory_id,
+            idempotency_key,
+            image.sha256,
+            image.mime_type,
+            image.size_bytes,
+            settings.recognition_model,
+            user.user_id,
+        )
+        run_id = run["id"]
+
+    vision = OpenAIRecognitionVisionClient(
+        api_key=settings.openai_api_key,
+        model=settings.recognition_model,
+    )
+    try:
+        observation = await vision.observe(payload.image_data_url)
+    except RecognitionVisionError as exc:
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            await connection.execute(
+                """
+                update tcg.recognition_runs
+                set status='FAILED',decision='FAILED',
+                    error_code='VISION_PROVIDER_ERROR',
+                    error_detail=$1,decision_reasons=$2::jsonb,
+                    completed_at=clock_timestamp(),updated_at=clock_timestamp(),
+                    version=version+1
+                where id=$3 and owner_id=$4
+                """,
+                exc.detail[:1000],
+                json.dumps([exc.detail]),
+                run_id,
+                owner_id,
+            )
+            result = await _run_payload(connection, run_id)
+        return jsonable_encoder(result)
+
+    system_code = SYSTEM_BY_GAME.get(observation.game)
+    if system_code is None:
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            await connection.execute(
+                """
+                update tcg.recognition_runs
+                set status='NEEDS_REVIEW',decision='NEEDS_REVIEW',
+                    ai_observation=$1::jsonb,
+                    decision_reasons=$2::jsonb,
+                    risk_flags=$3::jsonb,
+                    completed_at=clock_timestamp(),updated_at=clock_timestamp(),
+                    version=version+1
+                where id=$4 and owner_id=$5
+                """,
+                json.dumps(observation.model_dump(mode="json")),
+                json.dumps(["Vision could not establish a supported game."]),
+                json.dumps(["UNSUPPORTED_OR_UNKNOWN_GAME"]),
+                run_id,
+                owner_id,
+            )
+            return jsonable_encoder(await _run_payload(connection, run_id))
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        await connection.execute(
+            """
+            update tcg.recognition_runs
+            set status='CANDIDATES_READY',system_code=$1,
+                ai_observation=$2::jsonb,updated_at=clock_timestamp(),
+                version=version+1
+            where id=$3 and owner_id=$4
+            """,
+            system_code,
+            json.dumps(observation.model_dump(mode="json")),
+            run_id,
+            owner_id,
+        )
+        candidates = await load_catalogue_candidates(connection, observation)
+
+    provider_result = await discover_provider_evidence(observation)
+    provider_items = [
+        dict(item)
+        for item in provider_result.get("items", [])
+        if isinstance(item, dict)
+    ]
+    await attach_provider_visual_evidence(image.hashes, provider_items)
+    await attach_visual_evidence(image.hashes, candidates)
+
+    resolved = resolve_candidates(
+        observation,
+        candidates,
+        provider_evidence=provider_items,
+        exact_threshold=settings.recognition_exact_threshold_bps / 10_000,
+        min_margin=settings.recognition_min_margin_bps / 10_000,
+        high_value_review_minor=settings.recognition_high_value_review_minor,
+        inventory_context=inventory_context,
+    )
+
+    combined = list(resolved["candidates"])
+    combined.sort(
+        key=lambda item: (
+            bool(item.get("hard_rejected")),
+            -float(item.get("score") or 0),
+            str(item.get("candidate_key") or ""),
+        )
+    )
+    top = resolved.get("top")
+    runner = resolved.get("runner_up")
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        current_owner = await _owner(connection)
+        if current_owner["id"] != owner_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Owner context changed during recognition",
+            )
+        async with connection.transaction():
+            for index, candidate in enumerate(combined[:25], start=1):
+                await connection.execute(
+                    """
+                    insert into tcg.recognition_candidates(
+                        run_id,candidate_key,source_kind,system_code,catalogue_id,
+                        provider,provider_id,provider_language,rank,score,
+                        hard_rejected,rejection_reasons,signals,candidate_snapshot
+                    ) values(
+                        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+                        $12::jsonb,$13::jsonb,$14::jsonb
+                    )
+                    """,
+                    run_id,
+                    str(candidate["candidate_key"]),
+                    str(candidate["source_kind"]),
+                    str(candidate["system_code"]),
+                    candidate.get("catalogue_id"),
+                    candidate.get("provider"),
+                    candidate.get("provider_id"),
+                    candidate.get("provider_language"),
+                    index,
+                    _decimal(candidate.get("score")),
+                    bool(candidate.get("hard_rejected")),
+                    json.dumps(candidate.get("rejection_reasons") or []),
+                    json.dumps(candidate.get("signals") or {}),
+                    json.dumps(candidate.get("candidate_snapshot") or {}, default=str),
+                )
+
+            await connection.execute(
+                """
+                update tcg.recognition_runs
+                set status=$1,decision=$1,provider_evidence=$2::jsonb,
+                    top_catalogue_id=$3,top_score=$4,runner_up_score=$5,
+                    score_margin=$6,decision_reasons=$7::jsonb,
+                    risk_flags=$8::jsonb,completed_at=clock_timestamp(),
+                    updated_at=clock_timestamp(),version=version+1
+                where id=$9 and owner_id=$10
+                """,
+                resolved["decision"],
+                json.dumps(
+                    {
+                        "items": provider_items,
+                        "errors": provider_result.get("errors", []),
+                    },
+                    default=str,
+                ),
+                top.get("catalogue_id") if top else None,
+                _decimal(top.get("score")) if top else None,
+                _decimal(runner.get("score")) if runner else None,
+                _decimal(resolved.get("margin")),
+                json.dumps(resolved.get("reasons") or []),
+                json.dumps(resolved.get("risk_flags") or []),
+                run_id,
+                owner_id,
+            )
+        result = await _run_payload(connection, run_id)
+
+    return jsonable_encoder(result)
