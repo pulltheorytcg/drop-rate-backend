@@ -73,6 +73,123 @@ def _name_core(value: object) -> str:
     return " ".join(text.split())
 
 
+def _name_aliases(value: object) -> list[str]:
+    """Return base/full/parenthetical aliases so bilingual names compare safely."""
+    raw = " ".join(str(value or "").strip().split())
+    if not raw:
+        return []
+    aliases = [raw]
+    base = re.sub(r"\([^()]*\)", " ", raw).strip()
+    if base:
+        aliases.append(base)
+    aliases.extend(
+        item.strip()
+        for item in re.findall(r"\(([^()]*)\)", raw)
+        if item.strip()
+    )
+    normalized = [_name_core(item) for item in aliases if _name_core(item)]
+    return list(dict.fromkeys(normalized))
+
+
+def _name_similarity(left: object, right: object) -> float:
+    left_aliases = _name_aliases(left)
+    right_aliases = _name_aliases(right)
+    if not left_aliases or not right_aliases:
+        return 0.0
+    return max(
+        _ratio(a, b)
+        for a in left_aliases
+        for b in right_aliases
+    )
+
+
+def _round1_marker_present(observation: RecognitionObservation) -> bool:
+    evidence = " ".join(
+        [
+            observation.art_treatment_text,
+            *observation.visible_markers,
+            *observation.ocr_lines,
+        ]
+    )
+    compact = re.sub(r"[^a-z0-9]", "", evidence.casefold())
+    return "round1" in compact or "roundone" in compact
+
+
+def _round1_candidate(candidate: Mapping[str, Any]) -> bool:
+    context = " ".join(
+        str(candidate.get(key) or "")
+        for key in ("name", "set_name", "variant")
+    )
+    compact = re.sub(r"[^a-z0-9]", "", context.casefold())
+    return "round1" in compact or "roundone" in compact
+
+
+def _promo_marker_recovery_item(
+    observation: RecognitionObservation,
+    candidate: Mapping[str, Any],
+    provider_evidence: list[Mapping[str, Any]],
+) -> Mapping[str, Any] | None:
+    """Recover gameplay identity from a visible ROUND1 marker plus independent stats.
+
+    This never grants exact-printing approval: a conflicting OCR number remains an
+    explicit review gate. It only prevents a moderate-confidence tiny-number OCR
+    mistake from deleting an otherwise strongly identified collaboration promo.
+    """
+    if (
+        observation.card_number_confidence > 0.85
+        or not _round1_marker_present(observation)
+        or not _round1_candidate(candidate)
+    ):
+        return None
+
+    candidate_number = _compact(candidate.get("card_number"))
+    if not candidate_number:
+        return None
+
+    eligible: list[Mapping[str, Any]] = []
+    for item in provider_evidence:
+        if _compact(item.get("base_card_id")) != candidate_number:
+            continue
+        if _name_similarity(observation.name_guess, item.get("name")) < 0.95:
+            continue
+        if (
+            observation.cost is None
+            or item.get("cost") is None
+            or observation.cost_confidence < 0.95
+            or int(observation.cost) != int(item.get("cost"))
+        ):
+            continue
+        if (
+            observation.power is None
+            or item.get("power") is None
+            or observation.power_confidence < 0.95
+            or int(observation.power) != int(item.get("power"))
+        ):
+            continue
+        if (
+            not observation.card_type_text
+            or not item.get("card_type")
+            or observation.card_type_confidence < 0.90
+            or _best_alias_match(
+                observation.card_type_text,
+                [str(item.get("card_type") or "")],
+            ) < 0.95
+        ):
+            continue
+        eligible.append(item)
+
+    if not eligible:
+        return None
+
+    eligible.sort(
+        key=lambda item: (
+            -float(item.get("retrieval_score") or 0.0),
+            str(item.get("provider_id") or ""),
+        )
+    )
+    return eligible[0]
+
+
 def _alias(value: object) -> str:
     text = _norm(value)
     aliases = {
@@ -281,7 +398,7 @@ def _provider_identity_fingerprint(
     if observation.name_guess:
         add(
             "name",
-            _ratio(_name_core(observation.name_guess), _name_core(item.get("name"))),
+            _name_similarity(observation.name_guess, item.get("name")),
             observation.name_confidence,
             0.16,
         )
@@ -528,9 +645,15 @@ def score_candidate(
             hard_rejections.append("game mismatch")
 
     identity_item = _provider_identity_for_candidate(candidate, provider_evidence)
+    promo_recovery_item = _promo_marker_recovery_item(
+        observation,
+        candidate,
+        provider_evidence,
+    )
+    metadata_item = identity_item or promo_recovery_item
     recovered_number = (
-        str(identity_item.get("base_card_id") or "")
-        if identity_item
+        str(metadata_item.get("base_card_id") or "")
+        if metadata_item
         else ""
     )
     overall_provider_identity = (
@@ -553,6 +676,12 @@ def score_candidate(
         and recovered_number
         and non_number_provider_identity >= 0.90
         and non_number_provider_weight >= 0.45
+    )
+    promo_marker_override = bool(
+        promo_recovery_item
+        and recovered_number
+        and _round1_marker_present(observation)
+        and _round1_candidate(candidate)
     )
 
     observed_number = _compact(observation.card_number)
@@ -580,6 +709,12 @@ def score_candidate(
                 non_number_provider_identity,
                 max(0.90, non_number_provider_identity),
             )
+        elif promo_marker_override and _compact(recovered_number) == candidate_number:
+            number_match = True
+            number_source = "promo_marker_recovery"
+            number_confidence = 0.92
+            ocr_conflict = True
+            add_identity("card_number", 0.92, 0.92)
         else:
             add_identity("card_number", 0.0, observation.card_number_confidence)
             hard_rejections.append("collector number mismatch")
@@ -616,10 +751,22 @@ def score_candidate(
         "ocr_conflict": ocr_conflict,
     }
 
+    signals["promo_marker"] = {
+        "match": 1.0 if promo_marker_override else 0.0,
+        "available": _round1_marker_present(observation),
+        "candidate": _round1_candidate(candidate),
+        "source": "visible_marker",
+        "provider_id": (
+            promo_recovery_item.get("provider_id")
+            if promo_recovery_item
+            else None
+        ),
+    }
+
     observed_language = clean_language(observation.language)
     candidate_language = _candidate_language(candidate)
-    if candidate_language is None and identity_item is not None:
-        candidate_language = clean_language(identity_item.get("language"))
+    if candidate_language is None and metadata_item is not None:
+        candidate_language = clean_language(metadata_item.get("language"))
     language_match = bool(
         observed_language
         and candidate_language
@@ -645,14 +792,14 @@ def score_candidate(
         if not language_match:
             hard_rejections.append("language mismatch")
 
-    provider_name = str(identity_item.get("name") or "") if identity_item else ""
-    local_name_match = _ratio(
-        _name_core(observation.name_guess),
-        _name_core(candidate.get("name")),
+    provider_name = str(metadata_item.get("name") or "") if metadata_item else ""
+    local_name_match = _name_similarity(
+        observation.name_guess,
+        candidate.get("name"),
     )
-    provider_name_match = _ratio(
-        _name_core(observation.name_guess),
-        _name_core(provider_name),
+    provider_name_match = _name_similarity(
+        observation.name_guess,
+        provider_name,
     )
     name_match = max(local_name_match, provider_name_match)
     signals["name"] = {
@@ -688,7 +835,7 @@ def score_candidate(
         add_identity("set", set_match, observation.set_name_confidence)
 
     rarity_values = _candidate_rarity(candidate)
-    provider_rarity = str(identity_item.get("rarity") or "") if identity_item else ""
+    provider_rarity = str(metadata_item.get("rarity") or "") if metadata_item else ""
     rarity_match = _best_alias_match(observation.rarity_text, rarity_values)
     rarity_source = "vision"
     if not observation.rarity_text and provider_rarity and rarity_values:
@@ -709,7 +856,7 @@ def score_candidate(
         add_identity("rarity", rarity_match, observation.rarity_confidence)
 
     type_values = _candidate_type(candidate)
-    provider_type = str(identity_item.get("card_type") or "") if identity_item else ""
+    provider_type = str(metadata_item.get("card_type") or "") if metadata_item else ""
     if not type_values and provider_type:
         type_values = [provider_type]
     type_match = _best_alias_match(observation.card_type_text, type_values)
@@ -1444,6 +1591,11 @@ def resolve_candidates(
                 and number_confidence >= 0.90
                 and provider_identity_weight >= 0.55
             )
+            or (
+                number_source == "promo_marker_recovery"
+                and number_confidence >= 0.90
+                and float(top["signals"].get("promo_marker", {}).get("match") or 0.0) >= 1.0
+            )
         )
     )
     if not number_resolved:
@@ -1454,6 +1606,10 @@ def resolve_candidates(
     elif number_source in {"provider_fingerprint", "provider_override"}:
         reasons.append(
             f"Collector/card number {number_signal.get('recovered')} was recovered from independent gameplay/provider evidence."
+        )
+    elif number_source == "promo_marker_recovery":
+        reasons.append(
+            f"Collector/card number {number_signal.get('recovered')} was recovered from the visible collaboration marker plus matching independent card stats."
         )
 
     if bool(top.get("ocr_card_number_conflict")):
