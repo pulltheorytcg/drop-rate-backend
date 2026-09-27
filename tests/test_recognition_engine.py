@@ -1,22 +1,26 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+import app.recognition_images as recognition_images
 from PIL import Image
 
 from app.recognition_engine import (
     _provider_identity_fingerprint,
     resolve_candidates,
     score_candidate,
+    visual_work_short_circuit_reason,
 )
 from app.recognition_images import (
     RecognitionImageError,
     decode_image_data_url,
     hash_similarity,
+    reference_image_hashes,
 )
 from app.punk_records_client import PunkRecordsClient
 from app.recognition_vision import RecognitionObservation
@@ -674,7 +678,7 @@ def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> 
 
 def test_recognition_logic_change_bumps_idempotency_version() -> None:
     api = API.read_text()
-    assert 'ENGINE_VERSION = "v1.3.0"' in api
+    assert 'ENGINE_VERSION = "v1.4.0"' in api
     assert 'f"recognition:{ENGINE_VERSION}:{settings.recognition_model}:"' in api
 
 
@@ -923,3 +927,130 @@ def test_identity_and_printing_confidence_are_separate_in_ui() -> None:
     assert "Printing confidence" in ui
     assert "Identity margin vs runner-up" in ui
     assert "provider override (OCR read" in ui
+
+
+def test_reference_image_fingerprint_cache_deduplicates_inflight_and_reuses_success(
+    monkeypatch,
+) -> None:
+    recognition_images._clear_reference_image_hash_cache()
+    calls = 0
+
+    async def fake_fetch(url: str, *, max_bytes: int, timeout_seconds: float):
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0)
+        return (11, 22, 33)
+
+    monkeypatch.setattr(
+        recognition_images,
+        "_reference_image_hashes_uncached",
+        fake_fetch,
+    )
+
+    async def run():
+        first, second = await asyncio.gather(
+            reference_image_hashes("https://assets.tcgdex.net/card.png"),
+            reference_image_hashes("https://assets.tcgdex.net/card.png"),
+        )
+        third = await reference_image_hashes("https://assets.tcgdex.net/card.png")
+        return first, second, third
+
+    first, second, third = asyncio.run(run())
+    assert first == second == third == (11, 22, 33)
+    assert calls == 1
+
+
+def test_reference_image_fingerprint_cache_does_not_negative_cache_transient_failure(
+    monkeypatch,
+) -> None:
+    recognition_images._clear_reference_image_hash_cache()
+    calls = 0
+
+    async def fake_fetch(url: str, *, max_bytes: int, timeout_seconds: float):
+        nonlocal calls
+        calls += 1
+        return None if calls == 1 else (44, 55)
+
+    monkeypatch.setattr(
+        recognition_images,
+        "_reference_image_hashes_uncached",
+        fake_fetch,
+    )
+
+    async def run():
+        first = await reference_image_hashes("https://assets.tcgdex.net/retry.png")
+        second = await reference_image_hashes("https://assets.tcgdex.net/retry.png")
+        return first, second
+
+    first, second = asyncio.run(run())
+    assert first is None
+    assert second == (44, 55)
+    assert calls == 2
+
+
+def test_visual_short_circuit_only_uses_irreversible_human_review_gates() -> None:
+    assert visual_work_short_circuit_reason(observation()) is None
+    assert (
+        visual_work_short_circuit_reason(observation(game_confidence=0.89))
+        == "LOW_GAME_CONFIDENCE"
+    )
+    assert (
+        visual_work_short_circuit_reason(
+            observation(language="Unknown", language_confidence=0.20)
+        )
+        == "LANGUAGE_UNCERTAIN"
+    )
+    assert (
+        visual_work_short_circuit_reason(observation(image_quality="POOR"))
+        == "POOR_IMAGE_QUALITY"
+    )
+    assert (
+        visual_work_short_circuit_reason(
+            observation(counterfeit_concerns=["Suspicious print layout"])
+        )
+        == "POTENTIAL_COUNTERFEIT_REVIEW"
+    )
+    assert (
+        visual_work_short_circuit_reason(
+            observation(),
+            {"grading_company": "PSA", "grade": "10"},
+        )
+        == "GRADED_ITEM_REVIEW"
+    )
+
+
+def test_v14_parallel_evidence_work_and_stage_timing_are_wired_without_gate_changes() -> None:
+    api = API.read_text()
+    engine = ENGINE.read_text()
+
+    assert "provider_result, learning_hints = await asyncio.gather(" in api
+    assert "candidates, _ = await asyncio.gather(" in api
+    assert '"provider_discovery"' in api
+    assert '"learning_hints"' in api
+    assert '"catalogue_lookup"' in api
+    assert '"provider_visual"' in api
+    assert '"catalogue_visual"' in api
+    assert '"learning_visual"' in api
+    assert '"resolve"' in api
+    assert '"pipeline_before_persist"' in api
+    assert '"visual_short_circuit_reason": visual_short_circuit' in api
+    assert "visual_work_short_circuit_reason" in engine
+
+    # Safety thresholds and explicit human-review gates remain in the resolver.
+    assert "observation.game_confidence < 0.90" in engine
+    assert "observation.language_confidence < 0.85" in engine
+    assert "HIGH_VALUE_REVIEW" in engine
+    assert "GRADED_ITEM_REVIEW" in engine
+    assert "POTENTIAL_COUNTERFEIT_REVIEW" in engine
+
+
+def test_scanner_candidate_image_is_inline_and_csp_allows_only_trusted_one_piece_subdomains() -> None:
+    ui = SCANNER.read_text()
+    main = MAIN.read_text()
+
+    assert "const imageUrl = snapshot.reference_image_url;" in ui
+    assert "const image = document.createElement(\"img\");" in ui
+    assert "image.src = imageUrl;" in ui
+    assert "card.append(link);" in ui
+    assert "https://*.onepiece-cardgame.com" in main
+    assert "img-src *" not in main
