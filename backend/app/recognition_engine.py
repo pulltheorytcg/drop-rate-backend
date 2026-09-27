@@ -200,6 +200,41 @@ def _candidate_provider_keys(candidate: Mapping[str, Any]) -> set[tuple[str, str
     return keys
 
 
+def _provider_support(
+    candidate: Mapping[str, Any],
+    provider_evidence: list[Mapping[str, Any]],
+) -> tuple[float, Mapping[str, Any] | None]:
+    exact = _provider_keys(provider_evidence) & _candidate_provider_keys(candidate)
+    if exact:
+        for item in provider_evidence:
+            key = (
+                str(item.get("provider") or "").casefold(),
+                str(item.get("provider_id") or "").casefold(),
+            )
+            if key in exact:
+                return 1.0, item
+        return 1.0, None
+
+    candidate_art = _candidate_art(candidate)
+    best = 0.0
+    best_item: Mapping[str, Any] | None = None
+    for item in provider_evidence:
+        visual = item.get("visual_similarity")
+        if visual is None or float(visual) < 0.82:
+            continue
+        provider_art = str(item.get("art_treatment") or "")
+        art = _best_alias_match(provider_art, candidate_art)
+        if provider_art and art < 0.90:
+            continue
+        provider_name = item.get("provider_name") or item.get("name")
+        name = _ratio(_name_core(candidate.get("name")), _name_core(provider_name))
+        support = (0.70 * float(visual)) + (0.20 * art) + (0.10 * name)
+        if support > best:
+            best = support
+            best_item = item
+    return round(best, 5), best_item
+
+
 def score_candidate(
     observation: RecognitionObservation,
     candidate: Mapping[str, Any],
@@ -308,21 +343,30 @@ def score_candidate(
     }
     contribution += WEIGHTS["finish"] * finish_match * observation.finish_confidence
 
-    provider_match = bool(
-        _provider_keys(provider_evidence) & _candidate_provider_keys(candidate)
-    )
+    provider_support, provider_item = _provider_support(candidate, provider_evidence)
     signals["provider"] = {
-        "match": 1.0 if provider_match else 0.0,
+        "match": provider_support,
+        "provider": provider_item.get("provider") if provider_item else None,
+        "provider_id": provider_item.get("provider_id") if provider_item else None,
     }
-    if provider_match:
-        contribution += WEIGHTS["provider"]
+    contribution += WEIGHTS["provider"] * provider_support
 
-    visual = max(0.0, min(1.0, visual_similarity or 0.0))
+    provider_visual = (
+        float(provider_item.get("visual_similarity"))
+        if provider_item and provider_item.get("visual_similarity") is not None
+        else None
+    )
+    effective_visual = max(
+        value
+        for value in (visual_similarity, provider_visual, 0.0)
+        if value is not None
+    )
+    visual = max(0.0, min(1.0, effective_visual))
     signals["visual"] = {
         "match": round(visual, 5),
-        "available": visual_similarity is not None,
+        "available": visual_similarity is not None or provider_visual is not None,
     }
-    if visual_similarity is not None:
+    if visual_similarity is not None or provider_visual is not None:
         contribution += WEIGHTS["visual"] * visual
 
     return {
@@ -551,6 +595,30 @@ async def attach_visual_evidence(
         candidate["visual_similarity"] = None
 
 
+async def attach_provider_visual_evidence(
+    source_hashes: tuple[int, ...],
+    provider_evidence: list[dict[str, Any]],
+    *,
+    max_candidates: int = 12,
+) -> None:
+    semaphore = asyncio.Semaphore(4)
+
+    async def one(item: dict[str, Any]) -> None:
+        url = str(item.get("image_url") or "").strip()
+        if not url:
+            item["visual_similarity"] = None
+            return
+        async with semaphore:
+            reference = await reference_image_hashes(url)
+        item["visual_similarity"] = (
+            hash_similarity(source_hashes, reference) if reference else None
+        )
+
+    await asyncio.gather(*[one(item) for item in provider_evidence[:max_candidates]])
+    for item in provider_evidence[max_candidates:]:
+        item["visual_similarity"] = None
+
+
 def _provider_only_candidates(
     observation: RecognitionObservation,
     provider_evidence: list[Mapping[str, Any]],
@@ -773,11 +841,11 @@ def resolve_candidates(
             and top_visual - runner_visual >= 0.05
         )
         provider_unique = (
-            float(top["signals"]["provider"]["match"]) == 1.0
+            float(top["signals"]["provider"]["match"]) >= 0.90
             and sum(
                 1
                 for item in viable
-                if float(item["signals"]["provider"]["match"]) == 1.0
+                if float(item["signals"]["provider"]["match"]) >= 0.90
             ) == 1
         )
         if not (art_unique or visual_unique or provider_unique):
@@ -788,7 +856,7 @@ def resolve_candidates(
             )
 
     provider_matched = [
-        item for item in viable if float(item["signals"]["provider"]["match"]) == 1.0
+        item for item in viable if float(item["signals"]["provider"]["match"]) >= 0.90
     ]
     if provider_matched and top not in provider_matched:
         exact = False
