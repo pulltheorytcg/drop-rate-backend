@@ -32,9 +32,10 @@ WEIGHTS = {
 }
 
 PRINTING_WEIGHTS = {
-    "art": 0.25,
+    "promotion": 0.20,
+    "art": 0.15,
     "finish": 0.10,
-    "visual": 0.55,
+    "visual": 0.45,
     "provider_print": 0.10,
 }
 
@@ -115,10 +116,68 @@ def _round1_marker_present(observation: RecognitionObservation) -> bool:
     return "round1" in compact or "roundone" in compact
 
 
+def _candidate_promotion(candidate: Mapping[str, Any]) -> tuple[str | None, list[str]]:
+    attributes = candidate.get("printing_attributes")
+    if not isinstance(attributes, Mapping):
+        return None, []
+    key = str(attributes.get("promotion_key") or "").strip() or None
+    aliases = [
+        str(value).strip()
+        for value in (attributes.get("promotion_aliases") or [])
+        if str(value).strip()
+    ]
+    name = str(attributes.get("promotion_name") or "").strip()
+    if name:
+        aliases.append(name)
+    if key:
+        aliases.append(key)
+    return key, list(dict.fromkeys(aliases))
+
+
+def _observed_promotion_marker(observation: RecognitionObservation) -> str | None:
+    evidence = " ".join(
+        [
+            observation.art_treatment_text,
+            *observation.visible_markers,
+            *observation.ocr_lines,
+        ]
+    )
+    compact = re.sub(r"[^a-z0-9]", "", evidence.casefold())
+    if "round1" in compact or "roundone" in compact:
+        return "ROUND1_2026"
+    return None
+
+
+def _promotion_match(
+    observation: RecognitionObservation,
+    candidate: Mapping[str, Any],
+) -> tuple[float, bool, str | None]:
+    observed = _observed_promotion_marker(observation)
+    key, aliases = _candidate_promotion(candidate)
+    if not observed:
+        return 0.0, False, key
+    if key == observed:
+        return 1.0, True, key
+    observed_compact = re.sub(r"[^a-z0-9]", "", observed.casefold())
+    for alias in aliases:
+        compact = re.sub(r"[^a-z0-9]", "", alias.casefold())
+        if compact and (
+            compact == observed_compact
+            or ("round1" in compact and observed == "ROUND1_2026")
+        ):
+            return 1.0, True, key
+    return 0.0, True, key
+
+
 def _round1_candidate(candidate: Mapping[str, Any]) -> bool:
+    promotion_key, aliases = _candidate_promotion(candidate)
+    if promotion_key == "ROUND1_2026":
+        return True
     context = " ".join(
-        str(candidate.get(key) or "")
-        for key in ("name", "set_name", "variant")
+        [
+            *(str(candidate.get(key) or "") for key in ("name", "set_name", "variant")),
+            *aliases,
+        ]
     )
     compact = re.sub(r"[^a-z0-9]", "", context.casefold())
     return "round1" in compact or "roundone" in compact
@@ -933,6 +992,24 @@ def score_candidate(
         learning_confidence = min(1.0, 0.75 + 0.05 * min(learning_count, 5))
         add_identity("learning", learning_similarity, learning_confidence)
 
+    promotion_match, promotion_observed, promotion_key = _promotion_match(
+        observation,
+        candidate,
+    )
+    signals["promotion"] = {
+        "match": round(promotion_match, 5),
+        "available": promotion_observed,
+        "observed": _observed_promotion_marker(observation),
+        "candidate": promotion_key,
+        "source": "visible_marker",
+    }
+    if promotion_observed:
+        add_printing(
+            "promotion",
+            promotion_match,
+            max(observation.art_treatment_confidence, 0.90),
+        )
+
     art_values = _candidate_art(candidate)
     provider_art = str(provider_item.get("art_treatment") or "") if provider_item else ""
     art_match = _best_alias_match(observation.art_treatment_text, art_values)
@@ -1122,6 +1199,7 @@ async def load_catalogue_candidates(
             p.id as catalogue_id,p.game,p.name,p.set_name,p.card_number,
             p.variant,p.rarity,p.language,pr.system_code,pr.identity_status,
             cp.printing_key,cp.identity_status as printing_identity_status,
+            coalesce(cp.attributes,'{}'::jsonb) as printing_attributes,
             coalesce(t.taxonomy,'[]'::jsonb) as taxonomy,
             coalesce(pm.provider_mappings,'[]'::jsonb) as provider_mappings,
             m.public_source_url as reference_image_url,
@@ -1409,6 +1487,22 @@ def visual_work_short_circuit_reason(
     """
     if observation.game_confidence < 0.90:
         return "LOW_GAME_CONFIDENCE"
+    observed_promotion = _observed_promotion_marker(observation)
+    if observed_promotion:
+        promotion_signal = top["signals"].get("promotion", {})
+        if float(promotion_signal.get("match") or 0.0) < 1.0:
+            exact = False
+            risks.append("PROMOTION_PRINTING_MISMATCH")
+            reasons.append(
+                "A promotion/collaboration mark is visible, but the top catalogue printing is not tagged as that promotion."
+            )
+        elif not top["candidate_snapshot"].get("reference_image_url"):
+            exact = False
+            risks.append("PROMOTION_MEDIA_UNVERIFIED")
+            reasons.append(
+                "The promotion family is identified, but exact canonical artwork has not yet been verified for this printing."
+            )
+
     if observation.language == "Unknown" or observation.language_confidence < 0.85:
         return "LANGUAGE_UNCERTAIN"
     if observation.image_quality == "POOR":
@@ -1552,6 +1646,7 @@ def resolve_candidates(
                     "printing_key": candidate.get("printing_key"),
                     "identity_status": candidate.get("identity_status"),
                     "printing_identity_status": candidate.get("printing_identity_status"),
+                    "printing_attributes": candidate.get("printing_attributes") or {},
                     "taxonomy": candidate.get("taxonomy") or [],
                     # Catalogue artwork must represent this exact printing.
                     # Provider identity images are evidence only and must never be
@@ -1736,7 +1831,15 @@ def resolve_candidates(
                 if float(item["signals"]["provider"]["match"]) >= 0.90
             ) == 1
         )
-        if not (art_unique or visual_unique or provider_unique):
+        promotion_unique = (
+            float(top["signals"].get("promotion", {}).get("match") or 0.0) >= 1.0
+            and sum(
+                1
+                for item in viable
+                if float(item["signals"].get("promotion", {}).get("match") or 0.0) >= 1.0
+            ) == 1
+        )
+        if not (art_unique or visual_unique or provider_unique or promotion_unique):
             exact = False
             risks.append("AMBIGUOUS_PRINTING")
             reasons.append(
