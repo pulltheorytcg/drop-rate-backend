@@ -73,6 +73,17 @@ def _variant_key(value: object) -> str | None:
     return None
 
 
+def _variant_available(variants: object, key: str) -> bool:
+    if isinstance(variants, Mapping):
+        return variants.get(key) is True
+    if isinstance(variants, list):
+        return any(
+            isinstance(item, Mapping) and _norm(item.get("type")) == key
+            for item in variants
+        )
+    return False
+
+
 class TcgDexClient:
     """No-key TCGdex client used only for deterministic Pokémon media lookup."""
 
@@ -140,7 +151,10 @@ class TcgDexClient:
             return {"resolved": False, "reason": "Japanese TCGdex card not found"}
 
         provider_set = card.get("set")
-        if not isinstance(provider_set, Mapping) or str(provider_set.get("id") or "") != set_id:
+        if (
+            not isinstance(provider_set, Mapping)
+            or str(provider_set.get("id") or "").casefold() != set_id.casefold()
+        ):
             return {"resolved": False, "reason": "TCGdex card set identity mismatch"}
         if official_count is not None:
             provider_count = provider_set.get("cardCount")
@@ -157,7 +171,7 @@ class TcgDexClient:
             return {"resolved": False, "reason": "TCGdex card number mismatch"}
 
         variants = card.get("variants")
-        if not isinstance(variants, Mapping) or variants.get(variant_key) is not True:
+        if not _variant_available(variants, variant_key):
             return {
                 "resolved": False,
                 "reason": f"TCGdex card does not support {variant_key} finish",
