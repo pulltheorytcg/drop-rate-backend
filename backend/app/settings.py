@@ -145,7 +145,7 @@ class Settings:
     stripe_connect_live_enabled: bool = False
     stripe_payout_execution_enabled: bool = False
     openai_api_key: str | None = None
-    recognition_model: str = "gpt-6-astra"
+    recognition_model: str = "gpt-5.6-sol"
     recognition_exact_threshold_bps: int = 8200
     recognition_min_margin_bps: int = 1000
     recognition_high_value_review_minor: int = 50_000
@@ -245,8 +245,8 @@ class Settings:
             ),
             openai_api_key=_optional("TCG_OPENAI_API_KEY"),
             recognition_model=(
-                os.getenv("TCG_RECOGNITION_MODEL", "gpt-6-astra").strip()
-                or "gpt-6-astra"
+                os.getenv("TCG_RECOGNITION_MODEL", "gpt-5.6-sol").strip()
+                or "gpt-5.6-sol"
             ),
             recognition_exact_threshold_bps=_bounded_int(
                 "TCG_RECOGNITION_EXACT_THRESHOLD_BPS",
