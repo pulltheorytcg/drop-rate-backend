@@ -9,6 +9,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from .auth import AuthenticatedUser, require_user
@@ -23,7 +24,11 @@ from .recognition_engine import (
     resolve_candidates,
     visual_work_short_circuit_reason,
 )
-from .recognition_images import RecognitionImageError, decode_image_data_url
+from .recognition_images import (
+    RecognitionImageError,
+    decode_image_data_url,
+    reference_image_bytes,
+)
 from .recognition_learning import (
     attach_learning_visual_evidence,
     discover_learning_candidate_hints,
@@ -40,7 +45,7 @@ from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.4.0"
+ENGINE_VERSION = "v1.4.1"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
@@ -83,14 +88,50 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
     candidates = await connection.fetch(
         """
         select
-            id,candidate_key,source_kind,system_code,catalogue_id,
-            provider,provider_id,provider_language,rank,score,hard_rejected,
-            rejection_reasons,signals,candidate_snapshot,created_at
-        from tcg.recognition_candidates
-        where run_id=$1
-        order by rank
+            rc.id,rc.candidate_key,rc.source_kind,rc.system_code,rc.catalogue_id,
+            rc.provider,rc.provider_id,rc.provider_language,rc.rank,rc.score,
+            rc.hard_rejected,rc.rejection_reasons,rc.signals,
+            rc.candidate_snapshot,rc.created_at,
+            price.market_value_minor,
+            price.recommended_retail_minor,
+            price.pricing_updated_at,
+            price.pricing_confidence,
+            price.pricing_source_count,
+            price.pricing_observation_count,
+            price.pricing_newest_observation_at,
+            price.pricing_algorithm_version
+        from tcg.recognition_candidates rc
+        left join lateral (
+            select
+                i.market_value_minor,
+                i.recommended_retail_minor,
+                i.pricing_updated_at,
+                s.confidence as pricing_confidence,
+                s.source_count as pricing_source_count,
+                s.observation_count as pricing_observation_count,
+                s.newest_observation_at as pricing_newest_observation_at,
+                s.algorithm_version as pricing_algorithm_version
+            from tcg.inventory_items i
+            left join tcg.pricing_snapshots s on s.id=i.latest_pricing_snapshot_id
+            where i.owner_id=$2
+              and i.catalogue_id=rc.catalogue_id
+              and i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+              and i.grading_company is null
+              and i.grade is null
+              and i.market_value_minor is not null
+              and (
+                nullif(rc.candidate_snapshot->>'language','') is null
+                or lower(coalesce(i.language,'')) =
+                   lower(rc.candidate_snapshot->>'language')
+              )
+            order by i.pricing_updated_at desc nulls last,i.id
+            limit 1
+        ) price on true
+        where rc.run_id=$1
+        order by rc.rank
         """,
         run_id,
+        run["owner_id"],
     )
     feedback = await connection.fetch(
         """
@@ -207,6 +248,48 @@ async def recognition_run(
         if not allowed:
             raise HTTPException(status_code=404, detail="Recognition run not found")
         return jsonable_encoder(await _run_payload(connection, run_id))
+
+
+@router.get("/runs/{run_id}/candidates/{candidate_id}/image")
+async def recognition_candidate_image(
+    run_id: UUID,
+    candidate_id: UUID,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> Response:
+    """Proxy a trusted candidate image so browser hotlink rules cannot break the UI."""
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        image_url = await connection.fetchval(
+            """
+            select rc.candidate_snapshot->>'reference_image_url'
+            from tcg.recognition_candidates rc
+            join tcg.recognition_runs rr on rr.id=rc.run_id
+            where rr.id=$1
+              and rr.owner_id=$2
+              and rc.id=$3
+            """,
+            run_id,
+            owner["id"],
+            candidate_id,
+        )
+
+    if not image_url:
+        raise HTTPException(status_code=404, detail="Candidate reference image not found")
+
+    payload = await reference_image_bytes(str(image_url))
+    if payload is None:
+        raise HTTPException(status_code=502, detail="Candidate reference image is unavailable")
+
+    return Response(
+        content=payload.data,
+        media_type=payload.content_type,
+        headers={"Content-Disposition": "inline"},
+    )
 
 
 @router.post("/runs/{run_id}/feedback")

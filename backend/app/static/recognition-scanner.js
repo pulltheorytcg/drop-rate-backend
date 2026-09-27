@@ -121,6 +121,26 @@ function recognitionPercent(value) {
   return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
+async function loadRecognitionCandidateImage(image, runId, candidateId) {
+  if (!image || !runId || !candidateId || !state.session?.access_token) return;
+  try {
+    const response = await fetch(
+      `/api/v1/recognition/runs/${runId}/candidates/${candidateId}/image`,
+      {
+        headers: { Authorization: `Bearer ${state.session.access_token}` },
+        cache: "no-store",
+      }
+    );
+    if (!response.ok) throw new Error("Candidate artwork could not be loaded");
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    image.addEventListener("load", () => URL.revokeObjectURL(objectUrl), { once: true });
+    image.src = objectUrl;
+  } catch (_error) {
+    image.alt = "Card artwork unavailable inline — open the source image";
+  }
+}
+
 function recognitionDecisionLabel(decision) {
   return {
     EXACT_CANDIDATE: "EXACT CANDIDATE",
@@ -467,7 +487,7 @@ function clearRecognitionScan() {
   showMessage("recognition-message");
 }
 
-function recognitionCandidateCard(candidate, label) {
+function recognitionCandidateCard(candidate, label, runId) {
   if (!candidate) return null;
   const snapshot = candidate.candidate_snapshot || {};
   const card = document.createElement("article");
@@ -481,11 +501,11 @@ function recognitionCandidateCard(candidate, label) {
     link.rel = "noopener noreferrer";
     link.className = "recognition-candidate-image";
     const image = document.createElement("img");
-    image.src = imageUrl;
     image.alt = [snapshot.name, snapshot.card_number, snapshot.language].filter(Boolean).join(" · ");
     image.loading = "lazy";
     link.append(image);
     card.append(link);
+    loadRecognitionCandidateImage(image, runId, candidate.id);
   }
 
   const body = document.createElement("div");
@@ -521,7 +541,34 @@ function recognitionCandidateCard(candidate, label) {
     candidate?.signals?.printing_confidence?.match
   );
   printing.append(printingLabel, printingValue);
+
+  const marketValue = document.createElement("div");
+  marketValue.className = "recognition-score recognition-market-value";
+  const marketLabel = document.createElement("span");
+  const marketAmount = document.createElement("strong");
+  marketLabel.textContent = "Market value";
+  marketAmount.textContent = recognitionMoney(candidate.market_value_minor);
+  marketValue.append(marketLabel, marketAmount);
+
   body.append(eyebrow, title, meta, score, printing);
+  if (candidate.market_value_minor !== null && candidate.market_value_minor !== undefined) {
+    body.append(marketValue);
+    const pricingMeta = document.createElement("small");
+    pricingMeta.className = "recognition-market-meta";
+    const sourceCount = Number(candidate.pricing_source_count || 0);
+    const confidence = candidate.pricing_confidence !== null
+      && candidate.pricing_confidence !== undefined
+      ? recognitionPercent(candidate.pricing_confidence)
+      : null;
+    const algorithm = String(candidate.pricing_algorithm_version || "").toLowerCase();
+    const provisional = algorithm.includes("provisional") ? "Provisional" : "Stored pricing";
+    pricingMeta.textContent = [
+      provisional,
+      confidence ? `${confidence} pricing confidence` : null,
+      sourceCount ? `${sourceCount} source${sourceCount === 1 ? "" : "s"}` : null,
+    ].filter(Boolean).join(" · ");
+    body.append(pricingMeta);
+  }
   card.append(body);
   return card;
 }
@@ -614,10 +661,10 @@ function renderRecognitionResult(data) {
   if (top) {
     const candidatesWrap = document.createElement("div");
     candidatesWrap.className = "recognition-top-grid";
-    const topCard = recognitionCandidateCard(top, "Top candidate");
+    const topCard = recognitionCandidateCard(top, "Top candidate", run.id);
     if (topCard) candidatesWrap.append(topCard);
     if (runner) {
-      const runnerCard = recognitionCandidateCard(runner, "Runner-up");
+      const runnerCard = recognitionCandidateCard(runner, "Runner-up", run.id);
       if (runnerCard) candidatesWrap.append(runnerCard);
     }
     result.append(candidatesWrap);
