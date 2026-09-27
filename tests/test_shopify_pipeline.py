@@ -941,3 +941,50 @@ def test_media_live_side_uniqueness_is_database_enforced() -> None:
     assert "create unique index" in migration.casefold()
     assert "approval_status <> 'REJECTED'" in migration
     assert "shopify_file_status <> 'FAILED'" in migration
+
+
+def test_media_sync_hard_blocks_non_storefront_rights_tiers() -> None:
+    source = PIPELINE.read_text()
+    start = source.index('@router.post("/media-assets/{asset_id}/sync")')
+    end = source.index('@router.get("/product-preview/{inventory_id}")', start)
+    block = source[start:end]
+
+    assert "STOREFRONT_ALLOWED" in block
+    assert "FIRST_PARTY_CAPTURE" in block
+    assert "This media rights tier may never be sent to Shopify" in block
+    assert "Inactive, dead or revoked media cannot be sent to Shopify" in block
+    assert "MARKETPLACE_NATIVE_ONLY" not in block
+    assert "INTERNAL_REFERENCE_ONLY" not in block
+
+
+def test_media_source_status_and_revocation_are_optimistic_and_auditable() -> None:
+    source = PIPELINE.read_text()
+    assert '@router.post("/media-assets/{asset_id}/source-status")' in source
+    assert '@router.post("/media-assets/{asset_id}/revoke")' in source
+    assert "and version=$3" in source
+    assert "source_status <> 'REVOKED'" in source
+    assert "Revoked media cannot be reactivated" in source
+    assert "revoked_by_user_id" in source
+    assert "revocation_reason" in source
+
+
+def test_media_rights_migration_tracks_exact_identity_and_source_health() -> None:
+    migration = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20260927154500_media_rights_resolver.sql"
+    ).read_text()
+    lowered = migration.casefold()
+    assert "rights_tier" in migration
+    assert "storefront_allowed" in lowered
+    assert "marketplace_native_only" in lowered
+    assert "internal_reference_only" in lowered
+    assert "first_party_capture" in lowered
+    assert "media_language" in lowered
+    assert "media_variant" in lowered
+    assert "permission_evidence_url" in lowered
+    assert "source_status" in lowered
+    assert "source_checked_at" in lowered
+    assert "revoked_at" in lowered
+    assert "media_assets_storefront_resolver_idx" in lowered
