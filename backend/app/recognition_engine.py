@@ -398,6 +398,30 @@ def _candidate_provider_keys(candidate: Mapping[str, Any]) -> set[tuple[str, str
     return keys
 
 
+def _candidate_verified_provider_keys(candidate: Mapping[str, Any]) -> set[tuple[str, str]]:
+    """Provider IDs trusted specifically for exact-printing evidence."""
+    keys: set[tuple[str, str]] = set()
+
+    if str(candidate.get("reference_image_approval_status") or "") == "APPROVED":
+        provider = str(candidate.get("source_provider") or "").strip()
+        provider_id = str(candidate.get("provider_asset_id") or "").strip()
+        if provider and provider_id:
+            keys.add((provider.casefold(), provider_id.casefold()))
+
+    mappings = candidate.get("provider_mappings")
+    if isinstance(mappings, list):
+        for item in mappings:
+            if not isinstance(item, Mapping):
+                continue
+            if str(item.get("match_status") or "") != "VERIFIED":
+                continue
+            p = str(item.get("source_provider") or "").strip()
+            pid = str(item.get("provider_id") or "").strip()
+            if p and pid:
+                keys.add((p.casefold(), pid.casefold()))
+    return keys
+
+
 def _text_similarity(left: object, right: object) -> float:
     def normalize(value: object) -> str:
         text = str(value or "").casefold()
@@ -1057,7 +1081,7 @@ def score_candidate(
             str(provider_item.get("provider") or "").casefold(),
             str(provider_item.get("provider_id") or "").casefold(),
         )
-        exact_provider_print = provider_key in _candidate_provider_keys(candidate)
+        exact_provider_print = provider_key in _candidate_verified_provider_keys(candidate)
         if exact_provider_print:
             add_printing("provider_print", 1.0)
 
