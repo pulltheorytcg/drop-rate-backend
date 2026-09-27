@@ -21,14 +21,19 @@ TRUSTED_REFERENCE_HOSTS = {
 
 REFERENCE_HASH_CACHE_TTL_SECONDS = 6 * 60 * 60
 REFERENCE_HASH_CACHE_MAX_ENTRIES = 2048
+REFERENCE_IMAGE_BYTES_CACHE_TTL_SECONDS = 60 * 60
+REFERENCE_IMAGE_BYTES_CACHE_MAX_ENTRIES = 48
+REFERENCE_IMAGE_BYTES_CACHE_MAX_ITEM_BYTES = 2_000_000
 _REFERENCE_HASH_CACHE: OrderedDict[str, tuple[float, tuple[int, ...]]] = OrderedDict()
 _REFERENCE_HASH_INFLIGHT: dict[str, asyncio.Task[tuple[int, ...] | None]] = {}
+_REFERENCE_IMAGE_BYTES_CACHE: OrderedDict[str, tuple[float, "ReferenceImagePayload"]] = OrderedDict()
 
 
 def _clear_reference_image_hash_cache() -> None:
     """Test/maintenance hook; production callers should rely on TTL eviction."""
     _REFERENCE_HASH_CACHE.clear()
     _REFERENCE_HASH_INFLIGHT.clear()
+    _REFERENCE_IMAGE_BYTES_CACHE.clear()
 
 
 class RecognitionImageError(ValueError):
@@ -44,6 +49,12 @@ class DecodedRecognitionImage:
     width: int
     height: int
     hashes: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ReferenceImagePayload:
+    content_type: str
+    data: bytes
 
 
 def _dhash(image: Image.Image, *, size: int = 16) -> int:
@@ -161,12 +172,24 @@ def _trusted_reference_url(url: str) -> bool:
     )
 
 
-async def _reference_image_hashes_uncached(
+def _cache_reference_image_bytes(url: str, payload: ReferenceImagePayload) -> None:
+    if len(payload.data) > REFERENCE_IMAGE_BYTES_CACHE_MAX_ITEM_BYTES:
+        return
+    _REFERENCE_IMAGE_BYTES_CACHE[url] = (
+        time.monotonic() + REFERENCE_IMAGE_BYTES_CACHE_TTL_SECONDS,
+        payload,
+    )
+    _REFERENCE_IMAGE_BYTES_CACHE.move_to_end(url)
+    while len(_REFERENCE_IMAGE_BYTES_CACHE) > REFERENCE_IMAGE_BYTES_CACHE_MAX_ENTRIES:
+        _REFERENCE_IMAGE_BYTES_CACHE.popitem(last=False)
+
+
+async def _fetch_reference_image_uncached(
     url: str,
     *,
     max_bytes: int,
     timeout_seconds: float,
-) -> tuple[int, ...] | None:
+) -> ReferenceImagePayload | None:
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout_seconds),
@@ -182,7 +205,7 @@ async def _reference_image_hashes_uncached(
                 if not _trusted_reference_url(final_url):
                     return None
                 content_type = response.headers.get("content-type", "").split(";", 1)[0].casefold()
-                if content_type and content_type not in {
+                if content_type not in {
                     "image/jpeg",
                     "image/png",
                     "image/webp",
@@ -196,12 +219,63 @@ async def _reference_image_hashes_uncached(
                     if size > max_bytes:
                         return None
                     chunks.append(chunk)
-    except (httpx.HTTPError, RecognitionImageError):
+    except httpx.HTTPError:
         return None
 
     data = b"".join(chunks)
     try:
-        image, _, _ = _open_image(data)
+        _open_image(data)
+    except RecognitionImageError:
+        return None
+    return ReferenceImagePayload(content_type=content_type, data=data)
+
+
+async def reference_image_bytes(
+    url: str,
+    *,
+    max_bytes: int = REFERENCE_IMAGE_BYTES_CACHE_MAX_ITEM_BYTES,
+    timeout_seconds: float = 12.0,
+) -> ReferenceImagePayload | None:
+    """Fetch a trusted card image for authenticated same-origin rendering."""
+    if not _trusted_reference_url(url):
+        return None
+
+    now = time.monotonic()
+    cached = _REFERENCE_IMAGE_BYTES_CACHE.get(url)
+    if cached is not None:
+        expires_at, payload = cached
+        if expires_at > now:
+            _REFERENCE_IMAGE_BYTES_CACHE.move_to_end(url)
+            return payload
+        _REFERENCE_IMAGE_BYTES_CACHE.pop(url, None)
+
+    payload = await _fetch_reference_image_uncached(
+        url,
+        max_bytes=max_bytes,
+        timeout_seconds=timeout_seconds,
+    )
+    if payload is not None:
+        _cache_reference_image_bytes(url, payload)
+    return payload
+
+
+async def _reference_image_hashes_uncached(
+    url: str,
+    *,
+    max_bytes: int,
+    timeout_seconds: float,
+) -> tuple[int, ...] | None:
+    payload = await _fetch_reference_image_uncached(
+        url,
+        max_bytes=max_bytes,
+        timeout_seconds=timeout_seconds,
+    )
+    if payload is None:
+        return None
+
+    _cache_reference_image_bytes(url, payload)
+    try:
+        image, _, _ = _open_image(payload.data)
     except RecognitionImageError:
         return None
     return _fingerprints(image)
