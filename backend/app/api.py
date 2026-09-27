@@ -222,13 +222,16 @@ async def list_inventory(
                 i.currency, i.condition, i.seal_status, i.grading_company, i.grade,
                 i.certificate_number, i.language, i.location, i.storage_location_id,
                 sl.code as storage_location_code, sl.label as storage_location_label,
-                i.store_price_minor, i.imported_valuation_minor, i.imported_valuation_date,
+                i.store_price_minor, i.market_value_minor, i.recommended_retail_minor,
+                i.imported_valuation_minor, i.imported_valuation_date,
                 i.imported_price_override_minor, i.identity_confirmed, i.status,
                 i.notes, i.version, i.created_at, i.updated_at, i.purchase_lot_id,
                 pl.lot_code as purchase_lot_code,
                 p.id as catalogue_id, p.product_type, p.game, {BRAND_SQL} as brand,
                 p.name, p.set_name, p.card_number, p.variant, p.rarity,
                 p.language as catalogue_language,
+                media.card_image_url, media.card_image_approval_status,
+                media.card_image_source_provider, media.card_image_scope,
                 eil.state as ebay_state, eil.listing_id as ebay_listing_id,
                 eil.offer_id as ebay_offer_id, eil.listed_price_minor as ebay_price_minor,
                 eil.last_error_code as ebay_error_code
@@ -236,6 +239,29 @@ async def list_inventory(
             join tcg.catalogue_products p on p.id = i.catalogue_id
             left join tcg.purchase_lots pl on pl.id = i.purchase_lot_id
             left join tcg.storage_locations sl on sl.id = i.storage_location_id
+            left join lateral (
+                select
+                    coalesce(ma.shopify_cdn_url, ma.public_source_url) as card_image_url,
+                    ma.approval_status as card_image_approval_status,
+                    ma.source_provider as card_image_source_provider,
+                    ma.scope as card_image_scope
+                from tcg.media_assets ma
+                where ma.side='FRONT'
+                  and ma.source_status='ACTIVE'
+                  and ma.rights_status='VERIFIED'
+                  and ma.approval_status in ('PENDING','APPROVED')
+                  and coalesce(ma.shopify_cdn_url,ma.public_source_url) is not null
+                  and (
+                    (ma.scope='INVENTORY_ITEM' and ma.inventory_id=i.id)
+                    or
+                    (ma.scope='CANONICAL_CARD' and ma.catalogue_id=p.id)
+                  )
+                order by
+                    case when ma.scope='INVENTORY_ITEM' then 0 else 1 end,
+                    case ma.approval_status when 'APPROVED' then 0 else 1 end,
+                    ma.created_at desc
+                limit 1
+            ) media on true
             left join tcg.ebay_inventory_links eil on eil.inventory_id = i.id
             where {where}
             order by i.updated_at desc, i.inventory_code
