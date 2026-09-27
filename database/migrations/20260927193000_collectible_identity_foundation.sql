@@ -595,10 +595,11 @@ create or replace function tcg.validate_catalogue_product_profile()
 returns trigger
 language plpgsql
 set search_path = pg_catalog
-as $$
+as $
 declare
     v_product_type text;
     v_expected_type text;
+    v_system_kind text;
 begin
     select p.product_type into v_product_type
     from tcg.catalogue_products p
@@ -606,6 +607,14 @@ begin
 
     if v_product_type is null then
         raise exception 'Catalogue product not found' using errcode='23503';
+    end if;
+
+    select s.system_kind into v_system_kind
+    from tcg.collectible_systems s
+    where s.code=new.system_code;
+
+    if v_system_kind is null then
+        raise exception 'Collectible system not found' using errcode='23503';
     end if;
 
     v_expected_type := case
@@ -619,15 +628,128 @@ begin
         raise exception 'Structured collectible type does not match catalogue product type'
             using errcode='23514';
     end if;
+
+    if new.collectible_type in ('CARD','SEALED') and v_system_kind <> 'TCG' then
+        raise exception 'Card/sealed products require a TCG collectible system'
+            using errcode='23514';
+    end if;
+
+    if new.collectible_type='COMIC' and v_system_kind <> 'COMICS' then
+        raise exception 'Comic products require a comics collectible system'
+            using errcode='23514';
+    end if;
+
     return new;
 end;
-$$;
+$;
 revoke all on function tcg.validate_catalogue_product_profile() from public;
 grant execute on function tcg.validate_catalogue_product_profile() to tcg_api;
 
 create trigger catalogue_product_profiles_validate
     before insert or update on tcg.catalogue_product_profiles
     for each row execute function tcg.validate_catalogue_product_profile();
+
+create or replace function tcg.validate_collectible_subtype()
+returns trigger
+language plpgsql
+set search_path = pg_catalog
+as $
+declare
+    v_profile tcg.catalogue_product_profiles%rowtype;
+    v_expected_type text;
+    v_gameplay_system text;
+begin
+    select * into v_profile
+    from tcg.catalogue_product_profiles
+    where catalogue_id=new.catalogue_id;
+
+    if v_profile.catalogue_id is null then
+        raise exception 'Catalogue product profile is required before subtype identity'
+            using errcode='23503';
+    end if;
+
+    v_expected_type := case tg_table_name
+        when 'card_printings' then 'CARD'
+        when 'sealed_product_details' then 'SEALED'
+        when 'comic_printing_details' then 'COMIC'
+    end;
+
+    if v_profile.collectible_type <> v_expected_type
+       or v_profile.system_code <> new.system_code then
+        raise exception 'Subtype identity does not match catalogue product profile'
+            using errcode='23514';
+    end if;
+
+    if tg_table_name='card_printings' then
+        select g.system_code into v_gameplay_system
+        from tcg.card_gameplay_identities g
+        where g.id=new.gameplay_identity_id;
+
+        if v_gameplay_system is null then
+            raise exception 'Gameplay identity not found' using errcode='23503';
+        end if;
+        if v_gameplay_system <> new.system_code then
+            raise exception 'Card printing and gameplay identity systems do not match'
+                using errcode='23514';
+        end if;
+    end if;
+
+    return new;
+end;
+$;
+revoke all on function tcg.validate_collectible_subtype() from public;
+grant execute on function tcg.validate_collectible_subtype() to tcg_api;
+
+create trigger card_printings_validate
+    before insert or update on tcg.card_printings
+    for each row execute function tcg.validate_collectible_subtype();
+create trigger sealed_product_details_validate
+    before insert or update on tcg.sealed_product_details
+    for each row execute function tcg.validate_collectible_subtype();
+create trigger comic_printing_details_validate
+    before insert or update on tcg.comic_printing_details
+    for each row execute function tcg.validate_collectible_subtype();
+
+create or replace function tcg.validate_provider_catalogue_mapping()
+returns trigger
+language plpgsql
+set search_path = pg_catalog
+as $
+declare
+    v_profile tcg.catalogue_product_profiles%rowtype;
+    v_expected_entity text;
+begin
+    select * into v_profile
+    from tcg.catalogue_product_profiles
+    where catalogue_id=new.catalogue_id;
+
+    if v_profile.catalogue_id is null then
+        raise exception 'Catalogue product profile is required before provider mapping'
+            using errcode='23503';
+    end if;
+
+    v_expected_entity := case v_profile.collectible_type
+        when 'CARD' then 'CARD_PRINTING'
+        when 'SEALED' then 'SEALED_PRODUCT'
+        when 'COMIC' then 'COMIC_PRINTING'
+        when 'ACCESSORY' then 'ACCESSORY'
+    end;
+
+    if v_profile.system_code <> new.system_code
+       or new.provider_entity_type <> v_expected_entity then
+        raise exception 'Provider mapping does not match catalogue product identity'
+            using errcode='23514';
+    end if;
+
+    return new;
+end;
+$;
+revoke all on function tcg.validate_provider_catalogue_mapping() from public;
+grant execute on function tcg.validate_provider_catalogue_mapping() to tcg_api;
+
+create trigger provider_catalogue_mappings_validate
+    before insert or update on tcg.provider_catalogue_mappings
+    for each row execute function tcg.validate_provider_catalogue_mapping();
 
 create or replace function tcg.validate_taxonomy_assignment()
 returns trigger
@@ -1037,23 +1159,31 @@ cross join lateral (
 where pr.collectible_type='CARD'
   and mapped.value_code is not null;
 
--- Promo and explicit One Piece collector labels are classifications, not silently
--- folded into rarity.
+-- Promo and explicit One Piece collector labels are multi-valued classifications,
+-- not silently folded into rarity.
 insert into tcg.catalogue_taxonomy_assignments(
     catalogue_id,system_code,scope_kind,dimension_code,value_code,is_primary,
     verification_status,source_kind,metadata
 )
-select p.id,pr.system_code,'CARD','SPECIAL_CLASSIFICATION',
-       case
-         when lower(btrim(p.rarity)) in ('pr','promo') then 'PROMO'
-         when p.name ~* '[(]SP[)]' then 'SP'
-       end,
+select p.id,pr.system_code,'CARD','SPECIAL_CLASSIFICATION','PROMO',
        false,'MIGRATED_UNVERIFIED','LEGACY_IMPORT',
        jsonb_build_object('legacy_rarity',p.rarity,'legacy_name',p.name)
 from tcg.catalogue_products p
 join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
 where pr.system_code='ONE_PIECE_CARD_GAME'
-  and (lower(btrim(p.rarity)) in ('pr','promo') or p.name ~* '[(]SP[)]');
+  and lower(btrim(p.rarity)) in ('pr','promo');
+
+insert into tcg.catalogue_taxonomy_assignments(
+    catalogue_id,system_code,scope_kind,dimension_code,value_code,is_primary,
+    verification_status,source_kind,metadata
+)
+select p.id,pr.system_code,'CARD','SPECIAL_CLASSIFICATION','SP',
+       false,'MIGRATED_UNVERIFIED','LEGACY_IMPORT',
+       jsonb_build_object('legacy_rarity',p.rarity,'legacy_name',p.name)
+from tcg.catalogue_products p
+join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
+where pr.system_code='ONE_PIECE_CARD_GAME'
+  and p.name ~* '[(]SP[)]';
 
 -- Explicit artwork words are useful evidence but remain unverified until provider
 -- and visual confirmation agree.
