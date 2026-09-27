@@ -8,12 +8,17 @@ from uuid import UUID, uuid4
 import pytest
 from PIL import Image
 
-from app.recognition_engine import resolve_candidates, score_candidate
+from app.recognition_engine import (
+    _provider_identity_fingerprint,
+    resolve_candidates,
+    score_candidate,
+)
 from app.recognition_images import (
     RecognitionImageError,
     decode_image_data_url,
     hash_similarity,
 )
+from app.punk_records_client import PunkRecordsClient
 from app.recognition_vision import RecognitionObservation
 
 
@@ -40,6 +45,18 @@ def observation(**overrides) -> RecognitionObservation:
         "set_name_confidence": 0.95,
         "card_number": "OP05-119",
         "card_number_confidence": 0.99,
+        "cost": 10,
+        "cost_confidence": 0.90,
+        "power": 12000,
+        "power_confidence": 0.90,
+        "colors": ["Purple"],
+        "colors_confidence": 0.90,
+        "attributes": ["Strike"],
+        "attributes_confidence": 0.90,
+        "traits": ["Straw Hat Crew"],
+        "traits_confidence": 0.90,
+        "effect_text": "Example visible effect text.",
+        "effect_confidence": 0.80,
         "rarity_text": "SEC",
         "rarity_confidence": 0.95,
         "card_type_text": "Character",
@@ -63,7 +80,7 @@ def candidate(
     catalogue_id: UUID | None = None,
     name: str = "Monkey D. Luffy",
     card_number: str = "OP05-119",
-    language: str = "Japanese",
+    language: str | None = "Japanese",
     art: str = "Base",
     max_value: int = 10_000,
     visual: float | None = None,
@@ -405,3 +422,247 @@ def test_mobile_camera_ui_has_card_alignment_guide_and_responsive_styles() -> No
     assert ".recognition-camera-viewport" in styles
     assert ".recognition-card-guide" in styles
     assert "aspect-ratio:5/7" in styles
+
+
+def op11_luffy_observation(**overrides) -> RecognitionObservation:
+    values = {
+        "game": "One Piece",
+        "game_confidence": 0.99,
+        "language": "English",
+        "language_confidence": 0.99,
+        "name_guess": "Monkey D. Luffy",
+        "name_confidence": 0.99,
+        "set_name_guess": "",
+        "set_name_confidence": 0.05,
+        "card_number": "",
+        "card_number_confidence": 0.08,
+        "cost": 8,
+        "cost_confidence": 0.99,
+        "power": 8000,
+        "power_confidence": 0.99,
+        "colors": ["Blue"],
+        "colors_confidence": 0.95,
+        "attributes": ["Strike"],
+        "attributes_confidence": 0.95,
+        "traits": ["Straw Hat Crew"],
+        "traits_confidence": 0.95,
+        "effect_text": (
+            "[Rush] [When Attacking] You may trash 1 card from your hand: "
+            "Return up to 1 Character with a cost of 4 or less to the owner's hand. "
+            "Then, give up to 1 rested DON!! card to your Leader or 1 of your Characters."
+        ),
+        "effect_confidence": 0.92,
+        "rarity_text": "",
+        "rarity_confidence": 0.08,
+        "card_type_text": "Character",
+        "card_type_confidence": 0.99,
+        "art_treatment_text": "Base",
+        "art_treatment_confidence": 0.88,
+        "finish_text": "Foil",
+        "finish_confidence": 0.78,
+        "visible_markers": [
+            "8 cost",
+            "8000 power",
+            "Blue",
+            "Strike",
+            "Rush",
+            "Straw Hat Crew",
+        ],
+        "ocr_lines": [
+            "8",
+            "8000",
+            "STRIKE",
+            "Rush",
+            "Monkey D. Luffy",
+            "Straw Hat Crew",
+        ],
+        "image_quality": "FAIR",
+        "counterfeit_concerns": [],
+        "notes": [],
+    }
+    values.update(overrides)
+    return RecognitionObservation(**values)
+
+
+def op11_provider(
+    provider_id: str,
+    *,
+    art: str,
+    visual: float | None,
+) -> dict:
+    item = {
+        "provider": "Punk Records",
+        "provider_id": provider_id,
+        "base_card_id": "OP11-118",
+        "pack_id": "569111",
+        "language": "English",
+        "name": "Monkey.D.Luffy",
+        "rarity": "SecretRare",
+        "card_type": "Character",
+        "colors": ["Blue"],
+        "cost": 8,
+        "power": 8000,
+        "attributes": ["Strike"],
+        "types": ["Straw Hat Crew"],
+        "effect": (
+            "[Rush]<br>[When Attacking] You may trash 1 card from your hand: "
+            "Return up to 1 Character with a cost of 4 or less to the owner's hand. "
+            "Then, give up to 1 rested DON!! card to your Leader or 1 of your Characters."
+        ),
+        "art_treatment": art,
+        "image_url": "https://en.onepiece-cardgame.com/images/cardlist/card/example.png",
+        "visual_similarity": visual,
+        "source_reference": "https://github.com/Kuroro1990/OPTCG",
+    }
+    item.update(_provider_identity_fingerprint(op11_luffy_observation(), item))
+    return item
+
+
+def test_op11_118_recovers_from_gameplay_fingerprint_when_tiny_id_is_unreadable() -> None:
+    obs = op11_luffy_observation()
+    local = candidate(
+        name="Monkey.D.Luffy (118)",
+        card_number="OP11-118",
+        language=None,
+        art="Base",
+        max_value=175,
+    )
+    local["set_name"] = "A Fist of Divine Speed"
+
+    evidence = [
+        op11_provider("OP11-118", art="Base", visual=0.96),
+        op11_provider("OP11-118_p1", art="Parallel", visual=0.71),
+        op11_provider("OP11-118_p2", art="Parallel", visual=0.67),
+    ]
+    result = resolve(obs, [local], provider_evidence=evidence)
+
+    assert result["top"]["catalogue_id"] == local["catalogue_id"]
+    assert result["top"]["candidate_snapshot"]["card_number"] == "OP11-118"
+    assert result["top"]["candidate_snapshot"]["set_name"] == "A Fist of Divine Speed"
+    assert result["top"]["candidate_snapshot"]["language"] == "English"
+    assert result["top"]["signals"]["card_number"]["source"] == "provider_fingerprint"
+    assert result["top"]["signals"]["card_number"]["recovered"] == "OP11-118"
+    assert result["top"]["signals"]["provider"]["identity_score"] >= 0.90
+    assert result["decision"] == "EXACT_CANDIDATE"
+
+
+def test_op11_118_identity_is_returned_but_printing_stays_review_when_art_is_ambiguous() -> None:
+    obs = op11_luffy_observation(art_treatment_text="", art_treatment_confidence=0.0)
+    local = candidate(
+        name="Monkey.D.Luffy (118)",
+        card_number="OP11-118",
+        language=None,
+        art="Base",
+        max_value=175,
+    )
+    local["set_name"] = "A Fist of Divine Speed"
+
+    evidence = [
+        op11_provider("OP11-118", art="Base", visual=0.83),
+        op11_provider("OP11-118_p1", art="Parallel", visual=0.82),
+        op11_provider("OP11-118_p2", art="Parallel", visual=0.81),
+    ]
+    result = resolve(obs, [local], provider_evidence=evidence)
+
+    assert result["top"]["candidate_snapshot"]["card_number"] == "OP11-118"
+    assert result["decision"] == "NEEDS_REVIEW"
+    assert "PROVIDER_PRINTING_AMBIGUITY" in result["risk_flags"]
+    assert all("No local catalogue printing" not in reason for reason in result["reasons"])
+
+
+def test_punctuation_in_collectr_style_names_does_not_block_catalogue_retrieval() -> None:
+    source = ENGINE.read_text()
+
+    assert "regexp_replace(coalesce(p.name,''), '[^A-Za-z0-9]', '', 'g')" in source
+    assert "_compact(_name_core(observation.name_guess))" in source
+
+
+@pytest.mark.asyncio
+async def test_punk_records_english_name_lookup_filters_by_visible_stats() -> None:
+    client = PunkRecordsClient(index_ttl_seconds=60)
+    cards = {
+        "OP11-118": {
+            "name": "Monkey.D.Luffy",
+            "card_id": "OP11-118",
+            "pack_id": "569111",
+            "colors": ["Blue"],
+            "cost": 8,
+            "category": "Character",
+            "power": 8000,
+        },
+        "OP11-118_p1": {
+            "name": "Monkey.D.Luffy",
+            "card_id": "OP11-118_p1",
+            "pack_id": "569111",
+            "colors": ["Blue"],
+            "cost": 8,
+            "category": "Character",
+            "power": 8000,
+        },
+        "OP05-119": {
+            "name": "Monkey.D.Luffy",
+            "card_id": "OP05-119",
+            "pack_id": "569105",
+            "colors": ["Purple"],
+            "cost": 10,
+            "category": "Character",
+            "power": 12000,
+        },
+    }
+    names = {"monkey.d.luffy": list(cards)}
+    full = {
+        key: {
+            "id": key,
+            **value,
+            "rarity": "SecretRare",
+            "attributes": ["Strike"],
+            "types": ["Straw Hat Crew"],
+            "effect": "[Rush]",
+            "img_full_url": f"https://en.onepiece-cardgame.com/images/{key}.png",
+        }
+        for key, value in cards.items()
+    }
+
+    async def fake_cards_index(folder: str = "japanese") -> dict:
+        assert folder == "english"
+        return cards
+
+    async def fake_name_index(folder: str) -> dict:
+        assert folder == "english"
+        return names
+
+    async def fake_card(folder: str, pack_id: str, provider_id: str) -> dict:
+        assert folder == "english"
+        return full[provider_id]
+
+    client._cards_index = fake_cards_index  # type: ignore[method-assign]
+    client._by_name_index = fake_name_index  # type: ignore[method-assign]
+    client._card = fake_card  # type: ignore[method-assign]
+
+    found = await client.find_candidates(
+        language="English",
+        name="Monkey D. Luffy",
+        cost=8,
+        power=8000,
+        card_type="Character",
+        colors=["Blue"],
+    )
+
+    assert [item["provider_id"] for item in found] == ["OP11-118", "OP11-118_p1"]
+    assert all(item["base_card_id"] == "OP11-118" for item in found)
+    assert all(item["language"] == "English" for item in found)
+
+
+def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> None:
+    source = VISION.read_text()
+
+    for field in (
+        "cost",
+        "power",
+        "colors",
+        "attributes",
+        "traits",
+        "effect_text",
+    ):
+        assert f'"{field}"' in source
+    assert "identity fingerprints when glare or" in source

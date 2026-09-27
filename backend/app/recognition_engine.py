@@ -59,7 +59,8 @@ def _name_core(value: object) -> str:
         flags=re.IGNORECASE,
     )
     text = re.sub(r"\b(?:parallel|alternate art|alt art|manga|reprint)\b", " ", text)
-    text = re.sub(r"\s+", " ", text).strip(" -")
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
     return text
 
 
@@ -200,6 +201,166 @@ def _candidate_provider_keys(candidate: Mapping[str, Any]) -> set[tuple[str, str
     return keys
 
 
+def _text_similarity(left: object, right: object) -> float:
+    def normalize(value: object) -> str:
+        text = str(value or "").casefold()
+        text = re.sub(r"<br\s*/?>", " ", text)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"[^a-z0-9]+", " ", text)
+        return " ".join(text.split())
+
+    a = normalize(left)
+    b = normalize(right)
+    if not a or not b:
+        return 0.0
+    if a == b:
+        return 1.0
+    a_tokens = set(a.split())
+    b_tokens = set(b.split())
+    union = a_tokens | b_tokens
+    jaccard = (len(a_tokens & b_tokens) / len(union)) if union else 0.0
+    sequence = SequenceMatcher(None, a, b).ratio()
+    return round(max(sequence, (0.65 * jaccard) + (0.35 * sequence)), 5)
+
+
+def _set_match(observed: list[str], provider: list[str]) -> float:
+    left = {_name_core(value) for value in observed if _name_core(value)}
+    right = {_name_core(value) for value in provider if _name_core(value)}
+    if not left or not right:
+        return 0.0
+    if left <= right or right <= left:
+        return 1.0
+    return len(left & right) / len(left | right)
+
+
+def _provider_identity_fingerprint(
+    observation: RecognitionObservation,
+    item: Mapping[str, Any],
+) -> dict[str, Any]:
+    weighted = 0.0
+    available = 0.0
+    matches: dict[str, float] = {}
+
+    def add(name: str, score: float, confidence: float, weight: float) -> None:
+        nonlocal weighted, available
+        confidence = max(0.0, min(1.0, confidence))
+        if confidence <= 0:
+            return
+        available += weight * confidence
+        weighted += weight * confidence * max(0.0, min(1.0, score))
+        matches[name] = round(max(0.0, min(1.0, score)), 5)
+
+    if observation.name_guess:
+        add(
+            "name",
+            _ratio(_name_core(observation.name_guess), _name_core(item.get("name"))),
+            observation.name_confidence,
+            0.16,
+        )
+    if observation.card_number:
+        add(
+            "card_number",
+            1.0
+            if _compact(observation.card_number) == _compact(item.get("base_card_id"))
+            else 0.0,
+            observation.card_number_confidence,
+            0.28,
+        )
+    if observation.cost is not None and item.get("cost") is not None:
+        add(
+            "cost",
+            1.0 if int(observation.cost) == int(item["cost"]) else 0.0,
+            observation.cost_confidence,
+            0.10,
+        )
+    if observation.power is not None and item.get("power") is not None:
+        add(
+            "power",
+            1.0 if int(observation.power) == int(item["power"]) else 0.0,
+            observation.power_confidence,
+            0.10,
+        )
+    if observation.card_type_text and item.get("card_type"):
+        add(
+            "card_type",
+            _best_alias_match(observation.card_type_text, [str(item.get("card_type") or "")]),
+            observation.card_type_confidence,
+            0.08,
+        )
+    if observation.colors and item.get("colors"):
+        add(
+            "colors",
+            _set_match(observation.colors, list(item.get("colors") or [])),
+            observation.colors_confidence,
+            0.07,
+        )
+    if observation.attributes and item.get("attributes"):
+        add(
+            "attributes",
+            _set_match(observation.attributes, list(item.get("attributes") or [])),
+            observation.attributes_confidence,
+            0.06,
+        )
+    if observation.traits and item.get("types"):
+        add(
+            "traits",
+            _set_match(observation.traits, list(item.get("types") or [])),
+            observation.traits_confidence,
+            0.06,
+        )
+    if observation.effect_text and item.get("effect"):
+        add(
+            "effect",
+            _text_similarity(observation.effect_text, item.get("effect")),
+            observation.effect_confidence,
+            0.18,
+        )
+    if observation.rarity_text and item.get("rarity"):
+        add(
+            "rarity",
+            _best_alias_match(observation.rarity_text, [str(item.get("rarity") or "")]),
+            observation.rarity_confidence,
+            0.05,
+        )
+
+    score = weighted / available if available > 0 else 0.0
+    return {
+        "identity_score": round(score, 5),
+        "identity_evidence_weight": round(available, 5),
+        "identity_matches": matches,
+    }
+
+
+def _provider_identity_for_candidate(
+    candidate: Mapping[str, Any],
+    provider_evidence: list[Mapping[str, Any]],
+) -> Mapping[str, Any] | None:
+    candidate_number = _compact(candidate.get("card_number"))
+    if not candidate_number:
+        return None
+
+    eligible = []
+    for item in provider_evidence:
+        if _compact(item.get("base_card_id")) != candidate_number:
+            continue
+        score = float(item.get("identity_score") or 0.0)
+        weight = float(item.get("identity_evidence_weight") or 0.0)
+        if score < 0.88 or weight < 0.42:
+            continue
+        eligible.append(item)
+    if not eligible:
+        return None
+
+    eligible.sort(
+        key=lambda item: (
+            -float(item.get("identity_score") or 0.0),
+            -float(item.get("visual_similarity") or 0.0),
+            str(item.get("provider_id") or ""),
+        )
+    )
+    return eligible[0]
+
+
 def _provider_support(
     candidate: Mapping[str, Any],
     provider_evidence: list[Mapping[str, Any]],
@@ -215,24 +376,45 @@ def _provider_support(
                 return 1.0, item
         return 1.0, None
 
+    identity_item = _provider_identity_for_candidate(candidate, provider_evidence)
     candidate_art = _candidate_art(candidate)
     best = 0.0
     best_item: Mapping[str, Any] | None = None
+
     for item in provider_evidence:
-        visual = item.get("visual_similarity")
-        if visual is None or float(visual) < 0.82:
+        if _compact(item.get("base_card_id")) != _compact(candidate.get("card_number")):
             continue
+        identity_score = float(item.get("identity_score") or 0.0)
+        identity_weight = float(item.get("identity_evidence_weight") or 0.0)
+        if identity_score < 0.88 or identity_weight < 0.42:
+            continue
+
         provider_art = str(item.get("art_treatment") or "")
         art = _best_alias_match(provider_art, candidate_art)
+        visual = item.get("visual_similarity")
         if provider_art and art < 0.90:
             continue
-        provider_name = item.get("provider_name") or item.get("name")
-        name = _ratio(_name_core(candidate.get("name")), _name_core(provider_name))
-        support = (0.70 * float(visual)) + (0.20 * art) + (0.10 * name)
+
+        if visual is not None:
+            support = (
+                0.58 * float(visual)
+                + 0.27 * identity_score
+                + 0.15 * art
+            )
+        else:
+            support = 0.78 * identity_score + 0.22 * art
+
         if support > best:
             best = support
             best_item = item
-    return round(best, 5), best_item
+
+    if best_item is not None:
+        return round(best, 5), best_item
+
+    if identity_item is not None:
+        return round(float(identity_item.get("identity_score") or 0.0) * 0.80, 5), identity_item
+
+    return 0.0, None
 
 
 def score_candidate(
@@ -246,6 +428,16 @@ def score_candidate(
     signals: dict[str, Any] = {}
     hard_rejections: list[str] = []
     contribution = 0.0
+    available_weight = 0.0
+
+    def add(weight_key: str, match: float, confidence: float = 1.0) -> None:
+        nonlocal contribution, available_weight
+        confidence = max(0.0, min(1.0, confidence))
+        if confidence <= 0:
+            return
+        weight = WEIGHTS[weight_key]
+        available_weight += weight * confidence
+        contribution += weight * confidence * max(0.0, min(1.0, match))
 
     expected_system = SYSTEM_BY_GAME.get(observation.game)
     game_match = expected_system is not None and candidate.get("system_code") == expected_system
@@ -253,27 +445,45 @@ def score_candidate(
         "match": 1.0 if game_match else 0.0,
         "confidence": observation.game_confidence,
     }
-    if game_match:
-        contribution += WEIGHTS["game"] * observation.game_confidence
-    elif observation.game != "Unknown":
-        hard_rejections.append("game mismatch")
+    if observation.game != "Unknown":
+        add("game", 1.0 if game_match else 0.0, observation.game_confidence)
+        if not game_match:
+            hard_rejections.append("game mismatch")
+
+    identity_item = _provider_identity_for_candidate(candidate, provider_evidence)
+    recovered_number = str(identity_item.get("base_card_id") or "") if identity_item else ""
+    recovered_number_confidence = float(identity_item.get("identity_score") or 0.0) if identity_item else 0.0
 
     observed_number = _compact(observation.card_number)
     candidate_number = _compact(candidate.get("card_number"))
     number_match = bool(observed_number and candidate_number and observed_number == candidate_number)
+    number_source = "vision"
+    number_confidence = observation.card_number_confidence
+
+    if number_match:
+        add("card_number", 1.0, observation.card_number_confidence)
+    elif observed_number:
+        add("card_number", 0.0, observation.card_number_confidence)
+        hard_rejections.append("collector number mismatch")
+    elif recovered_number and _compact(recovered_number) == candidate_number:
+        number_source = "provider_fingerprint"
+        number_confidence = recovered_number_confidence
+        number_match = True
+        add("card_number", recovered_number_confidence, recovered_number_confidence)
+
     signals["card_number"] = {
         "match": 1.0 if number_match else 0.0,
-        "confidence": observation.card_number_confidence,
+        "confidence": round(number_confidence, 5),
         "observed": observation.card_number,
         "candidate": candidate.get("card_number"),
+        "recovered": recovered_number or None,
+        "source": number_source if number_match else None,
     }
-    if number_match:
-        contribution += WEIGHTS["card_number"] * observation.card_number_confidence
-    elif observed_number:
-        hard_rejections.append("collector number mismatch")
 
     observed_language = clean_language(observation.language)
     candidate_language = _candidate_language(candidate)
+    if candidate_language is None and identity_item is not None:
+        candidate_language = clean_language(identity_item.get("language"))
     language_match = bool(
         observed_language
         and candidate_language
@@ -284,45 +494,50 @@ def score_candidate(
         "confidence": observation.language_confidence,
         "observed": observed_language,
         "candidate": candidate_language,
+        "source": "provider_fingerprint"
+        if _candidate_language(candidate) is None and candidate_language
+        else "catalogue",
     }
-    if language_match:
-        contribution += WEIGHTS["language"] * observation.language_confidence
-    elif observed_language and candidate_language:
-        hard_rejections.append("language mismatch")
+    if observed_language and candidate_language:
+        add("language", 1.0 if language_match else 0.0, observation.language_confidence)
+        if not language_match:
+            hard_rejections.append("language mismatch")
 
     name_match = _ratio(_name_core(observation.name_guess), _name_core(candidate.get("name")))
     signals["name"] = {
         "match": round(name_match, 5),
         "confidence": observation.name_confidence,
     }
-    contribution += WEIGHTS["name"] * name_match * observation.name_confidence
+    if observation.name_guess and candidate.get("name"):
+        add("name", name_match, observation.name_confidence)
 
     set_match = _ratio(observation.set_name_guess, candidate.get("set_name"))
     signals["set"] = {
         "match": round(set_match, 5),
         "confidence": observation.set_name_confidence,
     }
-    contribution += WEIGHTS["set"] * set_match * observation.set_name_confidence
+    if observation.set_name_guess and candidate.get("set_name"):
+        add("set", set_match, observation.set_name_confidence)
 
-    rarity_match = _best_alias_match(
-        observation.rarity_text,
-        _candidate_rarity(candidate),
-    )
+    rarity_values = _candidate_rarity(candidate)
+    rarity_match = _best_alias_match(observation.rarity_text, rarity_values)
     signals["rarity"] = {
         "match": round(rarity_match, 5),
         "confidence": observation.rarity_confidence,
     }
-    contribution += WEIGHTS["rarity"] * rarity_match * observation.rarity_confidence
+    if observation.rarity_text and rarity_values:
+        add("rarity", rarity_match, observation.rarity_confidence)
 
-    type_match = _best_alias_match(
-        observation.card_type_text,
-        _candidate_type(candidate),
-    )
+    type_values = _candidate_type(candidate)
+    if not type_values and identity_item and identity_item.get("card_type"):
+        type_values = [str(identity_item.get("card_type"))]
+    type_match = _best_alias_match(observation.card_type_text, type_values)
     signals["card_type"] = {
         "match": round(type_match, 5),
         "confidence": observation.card_type_confidence,
     }
-    contribution += WEIGHTS["card_type"] * type_match * observation.card_type_confidence
+    if observation.card_type_text and type_values:
+        add("card_type", type_match, observation.card_type_confidence)
 
     art_values = _candidate_art(candidate)
     art_match = _best_alias_match(observation.art_treatment_text, art_values)
@@ -331,25 +546,35 @@ def score_candidate(
         "confidence": observation.art_treatment_confidence,
         "candidate_values": art_values,
     }
-    contribution += WEIGHTS["art"] * art_match * observation.art_treatment_confidence
+    if observation.art_treatment_text and art_values:
+        add("art", art_match, observation.art_treatment_confidence)
 
-    finish_match = _best_alias_match(
-        observation.finish_text,
-        _candidate_finish(candidate),
-    )
+    finish_values = _candidate_finish(candidate)
+    finish_match = _best_alias_match(observation.finish_text, finish_values)
     signals["finish"] = {
         "match": round(finish_match, 5),
         "confidence": observation.finish_confidence,
     }
-    contribution += WEIGHTS["finish"] * finish_match * observation.finish_confidence
+    if observation.finish_text and finish_values:
+        add("finish", finish_match, observation.finish_confidence)
 
     provider_support, provider_item = _provider_support(candidate, provider_evidence)
     signals["provider"] = {
         "match": provider_support,
         "provider": provider_item.get("provider") if provider_item else None,
         "provider_id": provider_item.get("provider_id") if provider_item else None,
+        "base_card_id": provider_item.get("base_card_id") if provider_item else None,
+        "art_treatment": provider_item.get("art_treatment") if provider_item else None,
+        "image_url": provider_item.get("image_url") if provider_item else None,
+        "identity_score": (
+            provider_item.get("identity_score") if provider_item else None
+        ),
+        "identity_evidence_weight": (
+            provider_item.get("identity_evidence_weight") if provider_item else None
+        ),
     }
-    contribution += WEIGHTS["provider"] * provider_support
+    if provider_evidence:
+        add("provider", provider_support)
 
     provider_visual = (
         float(provider_item.get("visual_similarity"))
@@ -367,10 +592,12 @@ def score_candidate(
         "available": visual_similarity is not None or provider_visual is not None,
     }
     if visual_similarity is not None or provider_visual is not None:
-        contribution += WEIGHTS["visual"] * visual
+        add("visual", visual)
 
+    normalized_score = contribution / available_weight if available_weight > 0 else 0.0
     return {
-        "score": round(max(0.0, min(1.0, contribution)), 5),
+        "score": round(max(0.0, min(1.0, normalized_score)), 5),
+        "evidence_weight": round(available_weight, 5),
         "hard_rejected": bool(hard_rejections),
         "rejection_reasons": hard_rejections,
         "signals": signals,
@@ -397,8 +624,11 @@ async def load_catalogue_candidates(
             f"=${len(params)}"
         )
     elif observation.name_guess.strip():
-        params.append(f"%{observation.name_guess.strip()}%")
-        filters.append(f"p.name ilike ${len(params)}")
+        params.append(_compact(_name_core(observation.name_guess)))
+        filters.append(
+            "upper(regexp_replace(coalesce(p.name,''), '[^A-Za-z0-9]', '', 'g')) "
+            f"like '%' || ${len(params)} || '%'"
+        )
     else:
         return []
     params.append(limit)
@@ -513,13 +743,15 @@ async def discover_provider_evidence(
     tcgdex: TcgDexClient | None = None,
     punk: PunkRecordsClient | None = None,
 ) -> dict[str, Any]:
-    if observation.language != "Japanese" or not observation.card_number:
-        return {"items": [], "errors": []}
-
     items: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
 
-    if observation.game == "Pokemon" and observation.set_name_guess:
+    if (
+        observation.game == "Pokemon"
+        and observation.language == "Japanese"
+        and observation.card_number
+        and observation.set_name_guess
+    ):
         client = tcgdex or TcgDexClient()
         seen: set[tuple[str, str]] = set()
         for variant in _pokemon_variant_from_observation(observation):
@@ -549,16 +781,38 @@ async def discover_provider_evidence(
             seen.add(key)
             items.append(dict(result))
 
-    elif observation.game == "One Piece":
+    elif (
+        observation.game == "One Piece"
+        and observation.language in {"English", "Japanese"}
+        and (observation.card_number or observation.name_guess)
+    ):
         client = punk or PunkRecordsClient()
         try:
             items.extend(
-                await client.find_japanese_candidates(
-                    card_number=observation.card_number,
+                await client.find_candidates(
+                    language=observation.language,
+                    card_number=observation.card_number or None,
                     name=observation.name_guess or None,
-                    limit=12,
+                    cost=observation.cost,
+                    power=observation.power,
+                    card_type=observation.card_type_text or None,
+                    colors=observation.colors,
+                    limit=24,
                 )
             )
+            enriched: list[dict[str, Any]] = []
+            for item in items:
+                identity = _provider_identity_fingerprint(observation, item)
+                item.update(identity)
+                enriched.append(item)
+            enriched.sort(
+                key=lambda item: (
+                    -float(item.get("identity_score") or 0.0),
+                    -float(item.get("identity_evidence_weight") or 0.0),
+                    str(item.get("provider_id") or ""),
+                )
+            )
+            items = enriched[:16]
         except PunkRecordsError as exc:
             errors.append(
                 {
@@ -711,12 +965,18 @@ def resolve_candidates(
                     "card_number": candidate.get("card_number"),
                     "variant": candidate.get("variant"),
                     "rarity": candidate.get("rarity"),
-                    "language": _candidate_language(candidate),
+                    "language": (
+                        scored["signals"]["language"].get("candidate")
+                        or _candidate_language(candidate)
+                    ),
                     "printing_key": candidate.get("printing_key"),
                     "identity_status": candidate.get("identity_status"),
                     "printing_identity_status": candidate.get("printing_identity_status"),
                     "taxonomy": candidate.get("taxonomy") or [],
-                    "reference_image_url": candidate.get("reference_image_url"),
+                    "reference_image_url": (
+                        candidate.get("reference_image_url")
+                        or scored["signals"]["provider"].get("image_url")
+                    ),
                     "max_known_value_minor": candidate.get("max_known_value_minor"),
                 },
             }
@@ -765,15 +1025,46 @@ def resolve_candidates(
     if observation.game_confidence < 0.90:
         exact = False
         reasons.append("Game confidence is below the exact-match gate.")
-    if not observation.card_number or observation.card_number_confidence < 0.90:
+
+    number_signal = top["signals"]["card_number"]
+    provider_signal = top["signals"]["provider"]
+    number_source = number_signal.get("source")
+    number_confidence = float(number_signal.get("confidence") or 0.0)
+    provider_identity_weight = float(
+        provider_signal.get("identity_evidence_weight") or 0.0
+    )
+    number_resolved = (
+        float(number_signal.get("match") or 0.0) >= 1.0
+        and (
+            (number_source == "vision" and number_confidence >= 0.90)
+            or (
+                number_source == "provider_fingerprint"
+                and number_confidence >= 0.90
+                and provider_identity_weight >= 0.55
+            )
+        )
+    )
+    if not number_resolved:
         exact = False
-        reasons.append("Collector/card number is not confidently readable.")
+        reasons.append(
+            "Collector/card number is neither confidently readable nor independently recovered from a strong provider fingerprint."
+        )
+    elif number_source == "provider_fingerprint":
+        reasons.append(
+            f"Collector/card number {number_signal.get('recovered')} was recovered from independent gameplay/provider evidence."
+        )
+
     if observation.language == "Unknown" or observation.language_confidence < 0.85:
         exact = False
         reasons.append("Language is not confidently established.")
     if top["signals"]["language"]["match"] < 1:
         exact = False
         reasons.append("Top catalogue candidate does not have an exact language match.")
+
+    if float(top.get("evidence_weight") or 0.0) < 0.65:
+        exact = False
+        risks.append("INSUFFICIENT_INDEPENDENT_EVIDENCE")
+        reasons.append("Too little independent evidence is available for an exact-printing decision.")
     if float(top["score"]) < exact_threshold:
         exact = False
         reasons.append("Composite evidence score is below the exact-match threshold.")
@@ -853,6 +1144,49 @@ def resolve_candidates(
             risks.append("AMBIGUOUS_PRINTING")
             reasons.append(
                 "Multiple printings share the same card number without a unique art/provider/visual discriminator."
+            )
+
+    top_card_number = _compact(top["candidate_snapshot"].get("card_number"))
+    same_provider_printings = [
+        item
+        for item in evidence
+        if _compact(item.get("base_card_id")) == top_card_number
+        and float(item.get("identity_score") or 0.0) >= 0.88
+        and float(item.get("identity_evidence_weight") or 0.0) >= 0.42
+    ]
+    if len(same_provider_printings) > 1:
+        visual_ranked = sorted(
+            [
+                item for item in same_provider_printings
+                if item.get("visual_similarity") is not None
+            ],
+            key=lambda item: -float(item.get("visual_similarity") or 0.0),
+        )
+        unique_visual_print = False
+        if visual_ranked:
+            best_visual = float(visual_ranked[0].get("visual_similarity") or 0.0)
+            second_visual = (
+                float(visual_ranked[1].get("visual_similarity") or 0.0)
+                if len(visual_ranked) > 1
+                else 0.0
+            )
+            best_art = str(visual_ranked[0].get("art_treatment") or "")
+            candidate_art = _candidate_art(top["candidate_snapshot"])
+            art_compatible = (
+                not best_art
+                or _best_alias_match(best_art, candidate_art) >= 0.90
+            )
+            unique_visual_print = (
+                best_visual >= 0.90
+                and best_visual - second_visual >= 0.05
+                and art_compatible
+            )
+
+        if not unique_visual_print:
+            exact = False
+            risks.append("PROVIDER_PRINTING_AMBIGUITY")
+            reasons.append(
+                "The card identity is recovered, but multiple provider printings share it and the artwork evidence is not strong enough to certify the exact printing."
             )
 
     provider_matched = [

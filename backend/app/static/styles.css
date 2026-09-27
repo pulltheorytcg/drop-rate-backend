@@ -2207,3 +2207,25 @@ tbody tr:hover{background:#f7fbff!important}
     min-height:46px;
   }
 }
+
+
+.recognition-effect-text{
+  display:grid;
+  gap:6px;
+  margin-top:10px;
+  padding:10px 11px;
+  border:1px solid #e8ecf1;
+  border-radius:10px;
+  background:#fbfcfe;
+}
+.recognition-effect-text span{
+  color:#8490a0;
+  font-size:.61rem;
+  font-weight:800;
+}
+.recognition-effect-text p{
+  margin:0;
+  color:#44566d;
+  font-size:.64rem;
+  line-height:1.55;
+}
