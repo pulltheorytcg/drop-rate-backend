@@ -42,7 +42,7 @@ def test_collectible_taxonomy_supports_multiple_values_and_fail_closed_unknown()
         in sql
     )
     assert "'UNKNOWN','Unknown / unresolved'" in sql
-    assert "'{"fail_closed":true}'::jsonb" in sql
+    assert """'{"fail_closed":true}'::jsonb""" in sql
     assert "Taxonomy dimension permits only one value" in sql
 
 
