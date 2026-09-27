@@ -21,6 +21,13 @@ from .recognition_engine import (
     resolve_candidates,
 )
 from .recognition_images import RecognitionImageError, decode_image_data_url
+from .recognition_learning import (
+    attach_learning_visual_evidence,
+    encode_fingerprints,
+    learning_status,
+    materialize_learning_example,
+    register_runtime_model,
+)
 from .recognition_vision import (
     OpenAIRecognitionVisionClient,
     RecognitionVisionError,
@@ -29,7 +36,7 @@ from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.2.0"
+ENGINE_VERSION = "v1.3.0"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
@@ -56,7 +63,8 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
         """
         select
             id,owner_id,inventory_id,idempotency_key,source_image_sha256,
-            source_mime_type,source_size_bytes,status,system_code,ai_provider,
+            source_mime_type,source_size_bytes,source_width,source_height,
+            source_fingerprints,status,system_code,ai_provider,
             ai_model,ai_observation,provider_evidence,top_catalogue_id,
             top_score,runner_up_score,score_margin,decision,decision_reasons,
             risk_flags,error_code,error_detail,started_at,completed_at,
@@ -116,9 +124,28 @@ async def recognition_status(
         "high_value_review_minor": settings.recognition_high_value_review_minor,
         "max_image_bytes": settings.recognition_max_image_bytes,
         "stores_source_image": False,
+        "verified_learning_enabled": True,
+        "learning_labels": "HUMAN_VERIFIED_ONLY",
+        "learning_raw_pixels_stored": False,
         "auto_applies_inventory_identity": False,
         "ai_can_self_verify": False,
     }
+
+
+@router.get("/learning/status")
+async def recognition_learning_status(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        return jsonable_encoder(
+            await learning_status(connection, owner_id=owner["id"])
+        )
 
 
 @router.get("/runs")
@@ -277,9 +304,16 @@ async def record_recognition_feedback(
                 user.user_id,
                 payload.notes.strip(),
             )
+            learning_example = await materialize_learning_example(
+                connection,
+                run_id=run_id,
+                feedback_id=feedback["id"],
+                engine_version=ENGINE_VERSION,
+            )
 
         result = await _run_payload(connection, run_id)
         result["recorded_feedback"] = dict(feedback)
+        result["recorded_learning_example"] = learning_example
         return jsonable_encoder(result)
 
 
@@ -357,13 +391,23 @@ async def recognize_card(
                 detail="An identical recognition run is already in progress",
             )
 
+        await register_runtime_model(
+            connection,
+            engine_version=ENGINE_VERSION,
+            vision_model=settings.recognition_model,
+            actor_user_id=user.user_id,
+        )
         run = await connection.fetchrow(
             """
             insert into tcg.recognition_runs(
                 owner_id,inventory_id,idempotency_key,source_image_sha256,
-                source_mime_type,source_size_bytes,status,ai_provider,ai_model,
+                source_mime_type,source_size_bytes,source_width,source_height,
+                source_fingerprints,status,ai_provider,ai_model,
                 created_by_user_id
-            ) values($1,$2,$3,$4,$5,$6,'OBSERVING','OpenAI',$7,$8)
+            ) values(
+                $1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,
+                'OBSERVING','OpenAI',$10,$11
+            )
             returning id
             """,
             owner_id,
@@ -372,6 +416,9 @@ async def recognize_card(
             image.sha256,
             image.mime_type,
             image.size_bytes,
+            image.width,
+            image.height,
+            json.dumps(encode_fingerprints(image.hashes)),
             settings.recognition_model,
             user.user_id,
         )
@@ -474,6 +521,19 @@ async def recognize_card(
         )
 
     await attach_visual_evidence(image.hashes, candidates)
+
+    # Prior human-verified TRAIN examples are a bounded ranking/visual signal.
+    # Validation/holdout examples are intentionally excluded to prevent leakage.
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        await attach_learning_visual_evidence(
+            connection,
+            image.hashes,
+            candidates,
+        )
 
     resolved = resolve_candidates(
         observation,
