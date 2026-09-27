@@ -43,6 +43,7 @@ def summarize_local_readiness(
     media_blockers: dict[str, int] = {}
     next_operational: list[dict[str, Any]] = []
     next_media: list[dict[str, Any]] = []
+    resolved_media_items: list[dict[str, Any]] = []
 
     for item in rows:
         missing = _test_sync_missing(
@@ -81,6 +82,20 @@ def summarize_local_readiness(
                 canonical_resolved += 1
             elif media["resolutionSource"] == "FIRST_PARTY_CAPTURE":
                 first_party_resolved += 1
+            if len(resolved_media_items) < 10:
+                resolved_media_items.append(
+                    {
+                        "id": item["id"],
+                        "inventory_code": item["inventory_code"],
+                        "name": item["name"],
+                        "card_number": item["card_number"],
+                        "resolution_source": media["resolutionSource"],
+                        "rights_tier": media["rightsTier"],
+                        "selection_reason": media["selectionReason"],
+                        "physical_photos_required": media["physicalPhotosRequired"],
+                        "selected_media": media["selectedMedia"],
+                    }
+                )
             continue
 
         if media["physicalPhotosRequired"]:
@@ -121,6 +136,7 @@ def summarize_local_readiness(
         "canonical_media_required": canonical_media_required,
         "next_operational_items": next_operational,
         "next_media_items": next_media,
+        "resolved_media_items": resolved_media_items,
         "policy": {
             "existing_image_first": True,
             "physical_photo_threshold_minor": physical_photo_threshold_minor,
