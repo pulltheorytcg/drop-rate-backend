@@ -302,7 +302,8 @@ def test_vision_adapter_is_observation_only_and_uses_structured_schema() -> None
 def test_founder_hq_exposes_recognition_scanner_and_safety_copy() -> None:
     ui = SCANNER.read_text()
     main = MAIN.read_text()
-    assert "Take or upload a card photo" in ui
+    assert "Open live camera" in ui
+    assert "Choose a card photo" in ui
     assert "Recognise exact printing" in ui
     assert "Top candidate" in ui
     assert "Runner-up" in ui
