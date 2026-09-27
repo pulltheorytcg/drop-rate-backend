@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -37,6 +37,12 @@ class RecognitionRequest(BaseModel):
     image_data_url: str = Field(min_length=100, max_length=12_000_000)
     inventory_id: UUID | None = None
     force_refresh: bool = False
+
+
+class RecognitionFeedbackRequest(BaseModel):
+    outcome: Literal["CONFIRMED_TOP", "CORRECTED_TO_CANDIDATE", "REJECTED_ALL"]
+    selected_catalogue_id: UUID | None = None
+    notes: str = Field(default="", max_length=2000)
 
 
 def _decimal(value: object | None) -> Decimal | None:
@@ -74,9 +80,21 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
         """,
         run_id,
     )
+    feedback = await connection.fetch(
+        """
+        select
+            id,outcome,selected_catalogue_id,supersedes_feedback_id,
+            actor_user_id,notes,created_at
+        from tcg.recognition_feedback
+        where run_id=$1
+        order by created_at desc,id desc
+        """,
+        run_id,
+    )
     return {
         "run": dict(run),
         "candidates": [dict(row) for row in candidates],
+        "feedback": [dict(row) for row in feedback],
         "engine_version": ENGINE_VERSION,
         "auto_applied": False,
     }
@@ -158,6 +176,111 @@ async def recognition_run(
         if not allowed:
             raise HTTPException(status_code=404, detail="Recognition run not found")
         return jsonable_encoder(await _run_payload(connection, run_id))
+
+
+@router.post("/runs/{run_id}/feedback")
+async def record_recognition_feedback(
+    run_id: UUID,
+    payload: RecognitionFeedbackRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    if payload.outcome in {"CONFIRMED_TOP", "CORRECTED_TO_CANDIDATE"}:
+        if payload.selected_catalogue_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Selected catalogue product is required for this feedback outcome",
+            )
+    elif payload.selected_catalogue_id is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="Rejected-all feedback must not select a catalogue product",
+        )
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        async with connection.transaction():
+            run = await connection.fetchrow(
+                """
+                select id,owner_id,status,top_catalogue_id
+                from tcg.recognition_runs
+                where id=$1 and owner_id=$2
+                for update
+                """,
+                run_id,
+                owner["id"],
+            )
+            if run is None:
+                raise HTTPException(status_code=404, detail="Recognition run not found")
+            if run["status"] not in {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"}:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Recognition run is not ready for human feedback",
+                )
+
+            if payload.outcome == "CONFIRMED_TOP":
+                if payload.selected_catalogue_id != run["top_catalogue_id"]:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Confirmed-top feedback must select the top candidate",
+                    )
+
+            if payload.selected_catalogue_id is not None:
+                candidate_exists = await connection.fetchval(
+                    """
+                    select exists(
+                        select 1
+                        from tcg.recognition_candidates
+                        where run_id=$1
+                          and catalogue_id=$2
+                          and not hard_rejected
+                    )
+                    """,
+                    run_id,
+                    payload.selected_catalogue_id,
+                )
+                if not candidate_exists:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Selected catalogue product is not a viable candidate from this run",
+                    )
+
+            previous_feedback_id = await connection.fetchval(
+                """
+                select id
+                from tcg.recognition_feedback
+                where run_id=$1 and owner_id=$2
+                order by created_at desc,id desc
+                limit 1
+                """,
+                run_id,
+                owner["id"],
+            )
+
+            feedback = await connection.fetchrow(
+                """
+                insert into tcg.recognition_feedback(
+                    run_id,owner_id,outcome,selected_catalogue_id,
+                    supersedes_feedback_id,actor_user_id,notes
+                ) values($1,$2,$3,$4,$5,$6,$7)
+                returning *
+                """,
+                run_id,
+                owner["id"],
+                payload.outcome,
+                payload.selected_catalogue_id,
+                previous_feedback_id,
+                user.user_id,
+                payload.notes.strip(),
+            )
+
+        result = await _run_payload(connection, run_id)
+        result["recorded_feedback"] = dict(feedback)
+        return jsonable_encoder(result)
 
 
 @router.post("/resolve")
