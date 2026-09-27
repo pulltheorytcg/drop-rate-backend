@@ -15,7 +15,7 @@ function installMediaConditionWorkspace() {
       <div>
         <p class="eyebrow">Physical card evidence</p>
         <h1>Media & Condition</h1>
-        <p class="muted">Photograph the exact physical card, verify both sides, then confirm it is sellable. Raw cards must pass Near Mint review before Shopify.</p>
+        <p class="muted">Use verified reusable card imagery first. Physical front + back photos are required only for graded, higher-value or exception cards, and remain mandatory whenever policy says physical evidence is needed.</p>
       </div>
       <button id="media-condition-refresh" class="media-refresh-button" type="button" aria-label="Refresh media and condition" title="Refresh">↻</button>
     </div>
@@ -35,7 +35,7 @@ function installMediaConditionWorkspace() {
           <div>
             <p class="eyebrow">Capture queue</p>
             <h2>Photograph a card</h2>
-            <p class="muted">Every Inventory ID needs its own front and back. Choose how the card is protected so later recognition and condition checks can account for plastic and glare.</p>
+            <p class="muted">This queue contains only Inventory IDs that require physical proof. Low-risk raw cards can clear media with an exact rights-approved canonical image instead.</p>
           </div>
         </div>
 

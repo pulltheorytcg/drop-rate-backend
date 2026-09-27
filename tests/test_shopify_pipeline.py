@@ -107,8 +107,9 @@ def test_test_sync_gate_reports_exact_local_blockers() -> None:
 def test_shopify_test_status_exposes_same_gate_blockers_to_dashboard() -> None:
     source = PIPELINE.read_text()
     frontend = SHOPIFY_SETTINGS.read_text()
-    assert "missing = _test_sync_missing(row)" in source
-    assert "missing = _test_sync_missing(item)" in source
+    assert "missing = _test_sync_missing(" in source
+    assert "physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor" in source
+    assert source.count("missing = _test_sync_missing(") >= 2
     assert '"readiness": {' in source
     assert '"blockers": blocker_counts' in source
     assert "Eligible inventory" in frontend
@@ -338,7 +339,7 @@ def test_shopify_test_sync_fails_before_remote_create_when_launch_incomplete() -
     create_pos = sync.index("client.create_product(")
     assert completeness_pos < create_pos
     assert "No remote product was created or published." in sync
-    assert "media_completeness(" in source
+    assert "resolve_storefront_media(" in source
     assert "ACTIVE_FAIL_CLOSED" in source
     assert "approval_status='APPROVED'" in source
     assert "rights_status='VERIFIED'" in source
@@ -678,6 +679,7 @@ def test_founder_media_intake_is_visible_and_requires_explicit_rights_confirmati
     assert 'I own or am authorised to use this photograph' in ui
     assert 'button.dataset.scopeReady !== "true"' in helper
     assert 'source_type: "FOUNDER_UPLOAD"' in helper
+    assert 'rights_tier: "FIRST_PARTY_CAPTURE"' in helper
     assert 'Founder-owned original photograph; rights explicitly confirmed during upload' in helper
     assert 'new FormData()' in helper
     assert 'form.append("file", file)' in helper
@@ -688,8 +690,8 @@ def test_founder_media_intake_is_visible_and_requires_explicit_rights_confirmati
 
 
 
-def test_media_intake_queue_requires_each_physical_card_front_and_back() -> None:
-    raw_a = {
+def _media_queue_card(**overrides):
+    row = {
         "id": "00000000-0000-0000-0000-000000000001",
         "catalogue_id": "10000000-0000-0000-0000-000000000001",
         "inventory_code": "INV-RAW-1",
@@ -703,65 +705,60 @@ def test_media_intake_queue_requires_each_physical_card_front_and_back() -> None
         "catalogue_language": None,
         "grading_company": None,
         "grade": None,
+        "identity_confirmed": True,
+        "condition": "Near Mint",
+        "condition_review_status": "NOT_REVIEWED",
+        "store_price_minor": 499,
+        "market_value_minor": 450,
+        "recommended_retail_minor": 499,
     }
-    raw_b = {
-        **raw_a,
-        "id": "00000000-0000-0000-0000-000000000002",
-        "inventory_code": "INV-RAW-2",
-    }
-    graded = {
-        **raw_a,
-        "id": "00000000-0000-0000-0000-000000000003",
-        "catalogue_id": "10000000-0000-0000-0000-000000000002",
-        "inventory_code": "INV-PSA-1",
-        "name": "Charizard",
-        "card_number": "4/102",
-        "grading_company": "PSA",
-        "grade": "10",
-    }
+    row.update(overrides)
+    return row
 
-    result = _build_media_intake_queue([raw_a, raw_b, graded], [])
 
-    assert result["queue_count"] == 3
-    assert result["missing_side_count"] == 6
-    assert result["physical_items_pending"] == 3
-    assert result["raw_items_pending"] == 2
-    assert result["raw_canonical_groups_pending"] == 0
+def test_media_intake_queue_only_contains_policy_required_physical_cards() -> None:
+    low_value = _media_queue_card()
+    high_value = _media_queue_card(
+        id="00000000-0000-0000-0000-000000000002",
+        inventory_code="INV-HIGH-1",
+        store_price_minor=5000,
+    )
+    graded = _media_queue_card(
+        id="00000000-0000-0000-0000-000000000003",
+        catalogue_id="10000000-0000-0000-0000-000000000002",
+        inventory_code="INV-PSA-1",
+        name="Charizard",
+        card_number="4/102",
+        grading_company="PSA",
+        grade="10",
+        condition=None,
+    )
+
+    result = _build_media_intake_queue(
+        [low_value, high_value, graded],
+        [],
+        physical_photo_threshold_minor=5000,
+    )
+
+    assert result["queue_count"] == 2
+    assert result["missing_side_count"] == 4
+    assert result["physical_items_pending"] == 2
+    assert result["raw_items_pending"] == 1
     assert result["graded_items_pending"] == 1
     assert all(item["required_scope"] == "INVENTORY_ITEM" for item in result["items"])
+    assert all(item["physical_photos_required"] is True for item in result["items"])
+    assert all(item["inventory_id"] != low_value["id"] for item in result["items"])
 
-    first = next(item for item in result["items"] if item["inventory_id"] == raw_a["id"])
-    second = next(item for item in result["items"] if item["inventory_id"] == raw_b["id"])
+    high = next(item for item in result["items"] if item["inventory_id"] == high_value["id"])
     slab = next(item for item in result["items"] if item["inventory_id"] == graded["id"])
-    assert first["inventory_codes"] == ["INV-RAW-1"]
-    assert second["inventory_codes"] == ["INV-RAW-2"]
-    assert first["missing_sides"] == ["FRONT", "BACK"]
-    assert second["missing_sides"] == ["FRONT", "BACK"]
-    assert first["capture_context_options"] == [
-        "RAW_UNSLEEVED",
-        "PENNY_SLEEVE",
-        "TOP_LOADER",
-    ]
+    assert high["missing_sides"] == ["FRONT", "BACK"]
+    assert any("value at or above" in reason for reason in high["policy_reasons"])
     assert slab["capture_context_hint"] == "GRADED_SLAB"
-    assert slab["missing_sides"] == ["FRONT", "BACK"]
+    assert "graded card" in slab["policy_reasons"]
 
 
 def test_media_intake_queue_does_not_recapture_approved_processing_physical_media() -> None:
-    raw = {
-        "id": "00000000-0000-0000-0000-000000000001",
-        "catalogue_id": "10000000-0000-0000-0000-000000000001",
-        "inventory_code": "INV-RAW-1",
-        "product_type": "CARD",
-        "game": "Pokemon",
-        "name": "Seel",
-        "set_name": "Phantasmal Flames",
-        "card_number": "021/094",
-        "variant": "Normal",
-        "language": "English",
-        "catalogue_language": None,
-        "grading_company": None,
-        "grade": None,
-    }
+    raw = _media_queue_card(store_price_minor=5000)
     assets = [
         {
             "scope": "INVENTORY_ITEM",
@@ -770,33 +767,25 @@ def test_media_intake_queue_does_not_recapture_approved_processing_physical_medi
             "side": side,
             "approval_status": "APPROVED",
             "rights_status": "VERIFIED",
+            "rights_tier": "FIRST_PARTY_CAPTURE",
+            "source_status": "ACTIVE",
             "shopify_file_status": "PROCESSING",
         }
         for side in ("FRONT", "BACK")
     ]
 
-    result = _build_media_intake_queue([raw], assets)
+    result = _build_media_intake_queue(
+        [raw],
+        assets,
+        physical_photo_threshold_minor=5000,
+    )
 
     assert result["queue_count"] == 0
     assert result["missing_side_count"] == 0
 
 
-def test_canonical_media_never_satisfies_physical_card_capture() -> None:
-    raw = {
-        "id": "00000000-0000-0000-0000-000000000001",
-        "catalogue_id": "10000000-0000-0000-0000-000000000001",
-        "inventory_code": "INV-RAW-1",
-        "product_type": "CARD",
-        "game": "Pokemon",
-        "name": "Seel",
-        "set_name": "Phantasmal Flames",
-        "card_number": "021/094",
-        "variant": "Normal",
-        "language": "English",
-        "catalogue_language": None,
-        "grading_company": None,
-        "grade": None,
-    }
+def test_canonical_media_never_satisfies_policy_required_physical_capture() -> None:
+    raw = _media_queue_card(store_price_minor=5000)
     canonical = [{
         "scope": "CANONICAL_CARD",
         "catalogue_id": raw["catalogue_id"],
@@ -804,32 +793,33 @@ def test_canonical_media_never_satisfies_physical_card_capture() -> None:
         "side": "FRONT",
         "approval_status": "APPROVED",
         "rights_status": "VERIFIED",
+        "rights_tier": "STOREFRONT_ALLOWED",
+        "source_status": "ACTIVE",
         "shopify_file_status": "READY",
     }]
 
-    result = _build_media_intake_queue([raw], canonical)
+    result = _build_media_intake_queue(
+        [raw],
+        canonical,
+        physical_photo_threshold_minor=5000,
+    )
 
     assert result["queue_count"] == 1
     assert result["items"][0]["inventory_id"] == raw["id"]
     assert result["items"][0]["missing_sides"] == ["FRONT", "BACK"]
 
 
-def test_failed_media_reenters_capture_queue() -> None:
-    graded = {
-        "id": "00000000-0000-0000-0000-000000000003",
-        "catalogue_id": "10000000-0000-0000-0000-000000000002",
-        "inventory_code": "INV-PSA-1",
-        "product_type": "CARD",
-        "game": "Pokemon",
-        "name": "Charizard",
-        "set_name": "Base Set",
-        "card_number": "4/102",
-        "variant": "Holofoil",
-        "language": "English",
-        "catalogue_language": None,
-        "grading_company": "PSA",
-        "grade": "10",
-    }
+def test_failed_first_party_media_reenters_capture_queue() -> None:
+    graded = _media_queue_card(
+        id="00000000-0000-0000-0000-000000000003",
+        catalogue_id="10000000-0000-0000-0000-000000000002",
+        inventory_code="INV-PSA-1",
+        name="Charizard",
+        card_number="4/102",
+        grading_company="PSA",
+        grade="10",
+        condition=None,
+    )
     assets = [
         {
             "scope": "INVENTORY_ITEM",
@@ -838,6 +828,8 @@ def test_failed_media_reenters_capture_queue() -> None:
             "side": "FRONT",
             "approval_status": "APPROVED",
             "rights_status": "VERIFIED",
+            "rights_tier": "FIRST_PARTY_CAPTURE",
+            "source_status": "ACTIVE",
             "shopify_file_status": "READY",
         },
         {
@@ -847,6 +839,8 @@ def test_failed_media_reenters_capture_queue() -> None:
             "side": "BACK",
             "approval_status": "APPROVED",
             "rights_status": "VERIFIED",
+            "rights_tier": "FIRST_PARTY_CAPTURE",
+            "source_status": "ACTIVE",
             "shopify_file_status": "FAILED",
         },
     ]
@@ -856,7 +850,6 @@ def test_failed_media_reenters_capture_queue() -> None:
     assert result["queue_count"] == 1
     assert result["items"][0]["missing_sides"] == ["BACK"]
     assert result["items"][0]["ready_sides"] == ["FRONT"]
-
 
 def test_founder_media_ui_uses_dedicated_physical_capture_queue() -> None:
     helper = SHOPIFY_SETTINGS.read_text()
@@ -931,7 +924,7 @@ def test_batch_media_maps_exact_inventory_id_and_never_shared_canonical_copy() -
 def test_media_create_fails_closed_on_duplicate_live_side() -> None:
     source = PIPELINE.read_text()
     assert "An active media asset already exists for this physical item side" in source
-    assert "An active media asset already exists for this canonical card side" in source
+    assert "An active media asset already exists for this exact canonical card side" in source
     assert "approval_status <> 'REJECTED'" in source
     assert "shopify_file_status <> 'FAILED'" in source
 
@@ -948,3 +941,50 @@ def test_media_live_side_uniqueness_is_database_enforced() -> None:
     assert "create unique index" in migration.casefold()
     assert "approval_status <> 'REJECTED'" in migration
     assert "shopify_file_status <> 'FAILED'" in migration
+
+
+def test_media_sync_hard_blocks_non_storefront_rights_tiers() -> None:
+    source = PIPELINE.read_text()
+    start = source.index('@router.post("/media-assets/{asset_id}/sync")')
+    end = source.index('@router.get("/product-preview/{inventory_id}")', start)
+    block = source[start:end]
+
+    assert "STOREFRONT_ALLOWED" in block
+    assert "FIRST_PARTY_CAPTURE" in block
+    assert "This media rights tier may never be sent to Shopify" in block
+    assert "Inactive, dead or revoked media cannot be sent to Shopify" in block
+    assert "MARKETPLACE_NATIVE_ONLY" not in block
+    assert "INTERNAL_REFERENCE_ONLY" not in block
+
+
+def test_media_source_status_and_revocation_are_optimistic_and_auditable() -> None:
+    source = PIPELINE.read_text()
+    assert '@router.post("/media-assets/{asset_id}/source-status")' in source
+    assert '@router.post("/media-assets/{asset_id}/revoke")' in source
+    assert "and version=$3" in source
+    assert "source_status <> 'REVOKED'" in source
+    assert "Revoked media cannot be reactivated" in source
+    assert "revoked_by_user_id" in source
+    assert "revocation_reason" in source
+
+
+def test_media_rights_migration_tracks_exact_identity_and_source_health() -> None:
+    migration = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20260927160758_media_rights_resolver.sql"
+    ).read_text()
+    lowered = migration.casefold()
+    assert "rights_tier" in migration
+    assert "storefront_allowed" in lowered
+    assert "marketplace_native_only" in lowered
+    assert "internal_reference_only" in lowered
+    assert "first_party_capture" in lowered
+    assert "media_language" in lowered
+    assert "media_variant" in lowered
+    assert "permission_evidence_url" in lowered
+    assert "source_status" in lowered
+    assert "source_checked_at" in lowered
+    assert "revoked_at" in lowered
+    assert "media_assets_storefront_resolver_idx" in lowered

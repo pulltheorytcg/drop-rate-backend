@@ -134,6 +134,7 @@ class Settings:
     shopify_publication_gid: str | None = None
     shopify_test_publish_enabled: bool = False
     shopify_publish_enabled: bool = False
+    media_physical_photo_threshold_minor: int = 5_000
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
     stripe_connect_country: str = "GB"
@@ -210,6 +211,12 @@ class Settings:
             shopify_publication_gid=_optional("TCG_SHOPIFY_PUBLICATION_GID"),
             shopify_test_publish_enabled=_boolean("TCG_SHOPIFY_TEST_PUBLISH_ENABLED", False),
             shopify_publish_enabled=_boolean("TCG_SHOPIFY_PUBLISH_ENABLED", False),
+            media_physical_photo_threshold_minor=_bounded_int(
+                "TCG_MEDIA_PHYSICAL_PHOTO_THRESHOLD_MINOR",
+                5_000,
+                minimum=100,
+                maximum=10_000_000,
+            ),
             stripe_secret_key=_optional("TCG_STRIPE_SECRET_KEY"),
             stripe_webhook_secret=_optional("TCG_STRIPE_WEBHOOK_SECRET"),
             stripe_connect_country=(

@@ -87,6 +87,13 @@ def _ready_asset(
         "media_kind": "IMAGE",
         "approval_status": "APPROVED",
         "rights_status": "VERIFIED",
+        "rights_tier": (
+            "FIRST_PARTY_CAPTURE"
+            if scope == "INVENTORY_ITEM"
+            else "STOREFRONT_ALLOWED"
+        ),
+        "source_status": "ACTIVE",
+        "revoked_at": None,
         "shopify_file_status": "READY",
         "shopify_file_gid": file_id,
     }
@@ -94,7 +101,7 @@ def _ready_asset(
 
 def test_raw_card_media_can_use_approved_canonical_front() -> None:
     result = media_completeness(
-        "CANONICAL_CARD_ALLOWED",
+        "CANONICAL_STOREFRONT_ALLOWED",
         [_ready_asset()],
     )
     assert result["complete"] is True
@@ -116,7 +123,7 @@ def test_graded_card_media_requires_item_specific_front_and_back() -> None:
         ],
     )
     assert missing_back["complete"] is False
-    assert missing_back["blockers"] == ["approved physical-item back image"]
+    assert missing_back["blockers"] == ["approved first-party physical back image"]
 
     complete = media_completeness(
         "PHYSICAL_ITEM_REQUIRED",

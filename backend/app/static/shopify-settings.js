@@ -464,6 +464,8 @@ function renderMediaIntakeQueue(data) {
     option.dataset.cardName = item.name || "";
     option.dataset.cardNumber = item.card_number || "";
     option.dataset.language = item.language || "";
+    option.dataset.variant = item.variant || "";
+    option.dataset.policyReasons = (item.policy_reasons || []).join(",");
     select.append(option);
   });
 
@@ -639,6 +641,8 @@ function renderShopifyMedia(capability, data, queueData) {
     [
       ["Approval", asset.approval_status],
       ["Rights", asset.rights_status],
+      ["Use", asset.rights_tier],
+      ["Source", asset.source_status],
       ["File", asset.shopify_file_status],
     ].forEach(([label, value]) => {
       const chip = document.createElement("span");
@@ -662,6 +666,8 @@ function renderShopifyMedia(capability, data, queueData) {
     if (
       asset.approval_status === "APPROVED"
       && asset.rights_status === "VERIFIED"
+      && ["STOREFRONT_ALLOWED", "FIRST_PARTY_CAPTURE"].includes(asset.rights_tier)
+      && asset.source_status === "ACTIVE"
       && ["NOT_UPLOADED", "UPLOADED", "PROCESSING"].includes(asset.shopify_file_status)
     ) {
       const sync = document.createElement("button");
@@ -924,8 +930,12 @@ async function uploadFounderMediaWork({
       inventory_id: scope === "INVENTORY_ITEM" ? inventoryId : null,
       side,
       source_type: "FOUNDER_UPLOAD",
+      rights_tier: "FIRST_PARTY_CAPTURE",
+      source_provider: "Drop Rate",
       source_reference: file.name,
       public_source_url: target.resourceUrl,
+      media_language: option.dataset.language || null,
+      media_variant: option.dataset.variant || null,
       capture_context: captureContext || null,
       rights_basis: resolvedRightsBasis,
       alt_text: resolvedAltText,
@@ -1275,8 +1285,15 @@ async function previewSelectedShopifyProduct() {
       ),
       shopifyStatusRow(
         "Media",
-        completeness.approvedMediaCount > 0 ? "READY" : "BLOCKED",
-        `${plan.mediaPolicy || "No policy"} · ${completeness.approvedMediaCount || 0} approved asset(s)`
+        completeness.mediaReadiness?.complete ? "READY" : "BLOCKED",
+        [
+          plan.mediaPolicy || "No policy",
+          completeness.mediaReadiness?.resolutionSource || "unresolved",
+          completeness.mediaReadiness?.rightsTier || "no storefront rights",
+          completeness.mediaReadiness?.selectionReason
+            || completeness.mediaReadiness?.actionRequiredReason
+            || "No eligible media selected",
+        ].filter(Boolean).join(" · ")
       ),
       shopifyStatusRow(
         "Shipping",

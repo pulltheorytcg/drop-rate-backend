@@ -14,6 +14,14 @@ from .auth import AuthenticatedUser, require_user
 from .brands import brand_for_game
 from .db import user_connection
 from .finance import allocate_minor
+from .language import clean_language
+from .media_resolver import (
+    DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
+    FIRST_PARTY_CAPTURE,
+    STOREFRONT_ALLOWED,
+    physical_photo_policy,
+    resolve_storefront_media,
+)
 from .ownership import current_owner as _owner
 from .settings import get_settings
 from .shopify_completeness import (
@@ -98,8 +106,16 @@ class MediaAssetCreate(BaseModel):
     source_type: str = Field(
         pattern="^(FOUNDER_UPLOAD|CONSIGNOR_UPLOAD|LICENSED_PROVIDER|OFFICIAL_PROVIDER)$"
     )
+    rights_tier: str = Field(
+        pattern="^(STOREFRONT_ALLOWED|MARKETPLACE_NATIVE_ONLY|INTERNAL_REFERENCE_ONLY|FIRST_PARTY_CAPTURE)$"
+    )
+    source_provider: str | None = Field(default=None, max_length=200)
+    provider_asset_id: str | None = Field(default=None, max_length=500)
     source_reference: str = Field(min_length=1, max_length=1000)
     public_source_url: str | None = Field(default=None, max_length=4000)
+    permission_evidence_url: str | None = Field(default=None, max_length=4000)
+    media_language: str | None = Field(default=None, max_length=80)
+    media_variant: str | None = Field(default=None, max_length=200)
     capture_context: str | None = Field(
         default=None,
         pattern="^(RAW_UNSLEEVED|PENNY_SLEEVE|TOP_LOADER|GRADED_SLAB)$",
@@ -112,6 +128,17 @@ class MediaAssetApprove(BaseModel):
     version: int = Field(ge=1)
     rights_basis: str = Field(min_length=1, max_length=1000)
     alt_text: str = Field(min_length=1, max_length=500)
+
+
+class MediaAssetRevoke(BaseModel):
+    version: int = Field(ge=1)
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+class MediaAssetSourceStatus(BaseModel):
+    version: int = Field(ge=1)
+    status: str = Field(pattern="^(ACTIVE|DEAD)$")
+    note: str = Field(min_length=1, max_length=1000)
 
 
 class MediaAssetSync(BaseModel):
@@ -228,7 +255,11 @@ def _handle(inventory_code: str) -> str:
     return f"drop-rate-{inventory_code.casefold().replace('_', '-').replace(' ', '-')}"
 
 
-def _test_sync_missing(item: Any) -> list[str]:
+def _test_sync_missing(
+    item: Any,
+    *,
+    physical_photo_threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
+) -> list[str]:
     missing: list[str] = []
     if item["status"] != "APPROVED":
         missing.append("APPROVED status")
@@ -243,13 +274,20 @@ def _test_sync_missing(item: Any) -> list[str]:
             and str(item["grade"] or "").strip()
         )
         review_status = str(item.get("condition_review_status") or "")
+        policy = physical_photo_policy(
+            item,
+            threshold_minor=physical_photo_threshold_minor,
+        )
         if is_graded:
             if review_status != "VERIFIED_GRADED":
                 missing.append("graded slab verification")
         else:
             if str(item["condition"] or "").strip() != "Near Mint":
                 missing.append("Near Mint condition")
-            if review_status != "VERIFIED_NEAR_MINT":
+            if (
+                policy["physicalPhotosRequired"]
+                and review_status != "VERIFIED_NEAR_MINT"
+            ):
                 missing.append("photo-backed Near Mint verification")
         if not (item["language"] or item["catalogue_language"]):
             missing.append("card language")
@@ -286,14 +324,10 @@ def _media_assets_for_item(
 def _build_media_intake_queue(
     items: list[Mapping[str, Any]],
     assets: list[Mapping[str, Any]],
+    *,
+    physical_photo_threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
 ) -> dict[str, Any]:
-    """Build an exact physical-card capture queue.
-
-    Every physical card requires its own FRONT and BACK evidence. Canonical media
-    may still exist for reference/catalogue use, but it never satisfies this
-    inventory capture queue. Approved/rights-verified media that has not failed
-    counts as captured so founders are not prompted to photograph a side twice.
-    """
+    """Build a capture queue only for cards whose policy requires physical proof."""
 
     captured_inventory: dict[str, set[str]] = {}
     ready_inventory: dict[str, set[str]] = {}
@@ -302,6 +336,10 @@ def _build_media_intake_queue(
         if str(asset.get("approval_status") or "") != "APPROVED":
             continue
         if str(asset.get("rights_status") or "") != "VERIFIED":
+            continue
+        if str(asset.get("source_status") or "ACTIVE") != "ACTIVE":
+            continue
+        if str(asset.get("rights_tier") or "") != FIRST_PARTY_CAPTURE:
             continue
         if str(asset.get("scope") or "") != "INVENTORY_ITEM":
             continue
@@ -326,6 +364,13 @@ def _build_media_intake_queue(
         item = dict(source)
         if str(item.get("product_type") or "") != "CARD":
             continue
+        policy = physical_photo_policy(
+            item,
+            threshold_minor=physical_photo_threshold_minor,
+        )
+        if not policy["physicalPhotosRequired"]:
+            continue
+
         inventory_id = str(item.get("id") or "")
         catalogue_id = str(item.get("catalogue_id") or "")
         if not inventory_id or not catalogue_id:
@@ -370,6 +415,11 @@ def _build_media_intake_queue(
                 if is_graded
                 else ["RAW_UNSLEEVED", "PENNY_SLEEVE", "TOP_LOADER"]
             ),
+            "physical_photos_required": True,
+            "policy_reasons": policy["reasons"],
+            "action_required_reason": (
+                f"Physical photos required: {', '.join(policy['reasons'])}"
+            ),
         })
 
     queue.sort(
@@ -388,7 +438,11 @@ def _build_media_intake_queue(
         "physical_items_pending": len(queue),
         "raw_items_pending": raw_pending,
         "graded_items_pending": graded_pending,
-        "raw_canonical_groups_pending": 0,
+        "policy": {
+            "existing_image_first": True,
+            "physical_photo_threshold_minor": physical_photo_threshold_minor,
+            "low_risk_raw_cards_use_canonical_storefront_media": True,
+        },
     }
 
 def _launch_completeness(
@@ -399,9 +453,17 @@ def _launch_completeness(
     location_configured: bool,
     media_assets: list[Mapping[str, Any]],
     shipping_profiles: Mapping[str, Mapping[str, Any]],
+    physical_photo_threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    plan = build_shopify_product_plan(item)
-    media = media_completeness(plan["mediaPolicy"], media_assets)
+    plan = build_shopify_product_plan(
+        item,
+        physical_photo_threshold_minor=physical_photo_threshold_minor,
+    )
+    media = resolve_storefront_media(
+        item,
+        media_assets,
+        threshold_minor=physical_photo_threshold_minor,
+    )
     profile = shipping_profiles.get(str(plan["shippingProfileKey"]))
     completeness = product_completeness(
         plan,
@@ -827,8 +889,9 @@ async def media_intake_queue(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    """Return capture work even when inventory is not yet price/publish ready."""
+    """Return only physical capture work required by deterministic policy."""
 
+    settings = get_settings()
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
@@ -837,7 +900,9 @@ async def media_intake_queue(
             """
             select
                 i.id,i.catalogue_id,i.inventory_code,i.status,i.language,
-                i.grading_company,i.grade,
+                i.grading_company,i.grade,i.identity_confirmed,i.condition,
+                i.condition_review_status,i.store_price_minor,i.market_value_minor,
+                i.recommended_retail_minor,
                 p.product_type,p.game,p.name,p.set_name,p.card_number,
                 p.variant,p.language as catalogue_language
             from tcg.inventory_items i
@@ -852,7 +917,7 @@ async def media_intake_queue(
         assets = await connection.fetch(
             """
             select
-                catalogue_id,inventory_id,scope,side,
+                catalogue_id,inventory_id,scope,side,rights_tier,source_status,
                 approval_status,rights_status,shopify_file_status
             from tcg.media_assets
             where owner_id=$1
@@ -864,6 +929,7 @@ async def media_intake_queue(
         _build_media_intake_queue(
             [dict(row) for row in items],
             [dict(row) for row in assets],
+            physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor,
         )
     )
 
@@ -901,22 +967,50 @@ async def create_media_asset(
             status_code=422,
             detail="Provide exactly one of catalogue_id or inventory_id",
         )
+
     public_url = (payload.public_source_url or "").strip() or None
-    if public_url and not public_url.startswith("https://"):
+    evidence_url = (payload.permission_evidence_url or "").strip() or None
+    for label, value in (
+        ("public_source_url", public_url),
+        ("permission_evidence_url", evidence_url),
+    ):
+        if value and not value.startswith("https://"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Media {label} must use HTTPS",
+            )
+
+    provider = (payload.source_provider or "").strip() or None
+    provider_asset_id = (payload.provider_asset_id or "").strip() or None
+    if payload.source_type in {"LICENSED_PROVIDER", "OFFICIAL_PROVIDER"} and not provider:
         raise HTTPException(
             status_code=422,
-            detail="Media public_source_url must use HTTPS",
+            detail="Licensed/official media requires source_provider",
         )
+
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
         if payload.inventory_id is not None:
+            if payload.rights_tier != FIRST_PARTY_CAPTURE:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Physical inventory media must use FIRST_PARTY_CAPTURE rights tier",
+                )
+            if payload.source_type not in {"FOUNDER_UPLOAD", "CONSIGNOR_UPLOAD"}:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Physical inventory media must be an owner/consignor capture",
+                )
             inventory = await connection.fetchrow(
                 """
-                select grading_company,grade
-                from tcg.inventory_items
-                where id=$1 and owner_id=$2
+                select
+                    i.grading_company,i.grade,i.language,
+                    p.language as catalogue_language,p.variant
+                from tcg.inventory_items i
+                join tcg.catalogue_products p on p.id=i.catalogue_id
+                where i.id=$1 and i.owner_id=$2
                 """,
                 payload.inventory_id, owner["id"],
             )
@@ -942,6 +1036,16 @@ async def create_media_asset(
                     status_code=422,
                     detail="Raw cards cannot use the graded slab capture context",
                 )
+            media_language = clean_language(
+                payload.media_language
+                or inventory["language"]
+                or inventory["catalogue_language"]
+            )
+            media_variant = " ".join(
+                str(payload.media_variant if payload.media_variant is not None else inventory["variant"] or "")
+                .strip()
+                .split()
+            )
             duplicate = await connection.fetchval(
                 """
                 select exists(
@@ -953,6 +1057,7 @@ async def create_media_asset(
                     and side=$3
                     and approval_status <> 'REJECTED'
                     and shopify_file_status <> 'FAILED'
+                    and source_status <> 'REVOKED'
                 )
                 """,
                 owner["id"], payload.inventory_id, payload.side,
@@ -963,13 +1068,54 @@ async def create_media_asset(
                     detail="An active media asset already exists for this physical item side",
                 )
             scope = "INVENTORY_ITEM"
+            provider = provider or "Drop Rate"
         else:
-            exists = await connection.fetchval(
-                "select exists(select 1 from tcg.catalogue_products where id=$1)",
+            if payload.rights_tier == FIRST_PARTY_CAPTURE:
+                raise HTTPException(
+                    status_code=422,
+                    detail="FIRST_PARTY_CAPTURE must be tied to an exact Inventory ID",
+                )
+            catalogue = await connection.fetchrow(
+                """
+                select language,variant
+                from tcg.catalogue_products
+                where id=$1
+                """,
                 payload.catalogue_id,
             )
-            if not exists:
+            if catalogue is None:
                 raise HTTPException(status_code=404, detail="Catalogue card not found")
+            if payload.capture_context is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Canonical media cannot declare a physical capture context",
+                )
+            capture_context = None
+            media_language = clean_language(
+                payload.media_language or catalogue["language"]
+            )
+            if not media_language:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Canonical media requires an explicit language",
+                )
+            catalogue_language = clean_language(catalogue["language"])
+            if catalogue_language and media_language != catalogue_language:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Canonical media language does not match the catalogue card",
+                )
+            media_variant = " ".join(
+                str(payload.media_variant if payload.media_variant is not None else catalogue["variant"] or "")
+                .strip()
+                .split()
+            )
+            catalogue_variant = " ".join(str(catalogue["variant"] or "").strip().split())
+            if media_variant.casefold() != catalogue_variant.casefold():
+                raise HTTPException(
+                    status_code=422,
+                    detail="Canonical media variant/art does not match the catalogue card",
+                )
             duplicate = await connection.fetchval(
                 """
                 select exists(
@@ -978,42 +1124,41 @@ async def create_media_asset(
                   where owner_id=$1
                     and scope='CANONICAL_CARD'
                     and catalogue_id=$2
-                    and side=$3
+                    and lower(coalesce(media_language,''))=lower($3)
+                    and lower(coalesce(media_variant,''))=lower($4)
+                    and side=$5
                     and approval_status <> 'REJECTED'
                     and shopify_file_status <> 'FAILED'
+                    and source_status <> 'REVOKED'
                 )
                 """,
-                owner["id"], payload.catalogue_id, payload.side,
+                owner["id"], payload.catalogue_id, media_language, media_variant, payload.side,
             )
             if duplicate:
                 raise HTTPException(
                     status_code=409,
-                    detail="An active media asset already exists for this canonical card side",
+                    detail="An active media asset already exists for this exact canonical card side",
                 )
-            if payload.capture_context is not None:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Canonical media cannot declare a physical capture context",
-                )
-            capture_context = None
             scope = "CANONICAL_CARD"
 
         row = await connection.fetchrow(
             """
             insert into tcg.media_assets(
-              owner_id,catalogue_id,inventory_id,scope,side,source_type,
-              source_reference,public_source_url,capture_context,rights_basis,alt_text,
-              created_by_user_id
-            ) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+              owner_id,catalogue_id,inventory_id,scope,side,source_type,rights_tier,
+              source_provider,provider_asset_id,source_reference,public_source_url,
+              permission_evidence_url,media_language,media_variant,capture_context,
+              rights_basis,alt_text,created_by_user_id
+            ) values(
+              $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+            )
             returning *
             """,
             owner["id"], payload.catalogue_id, payload.inventory_id, scope,
-            payload.side, payload.source_type, payload.source_reference.strip(),
-            public_url,
-            capture_context,
-            (payload.rights_basis or "").strip() or None,
-            payload.alt_text.strip(),
-            user.user_id,
+            payload.side, payload.source_type, payload.rights_tier,
+            provider, provider_asset_id, payload.source_reference.strip(),
+            public_url, evidence_url, media_language, media_variant,
+            capture_context, (payload.rights_basis or "").strip() or None,
+            payload.alt_text.strip(), user.user_id,
         )
         return jsonable_encoder({"asset": dict(row)})
 
@@ -1029,6 +1174,66 @@ async def approve_media_asset(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
+        asset = await connection.fetchrow(
+            """
+            select m.*,p.language as catalogue_language,p.variant as catalogue_variant
+            from tcg.media_assets m
+            left join tcg.catalogue_products p on p.id=m.catalogue_id
+            where m.id=$1 and m.owner_id=$2
+            """,
+            asset_id, owner["id"],
+        )
+        if asset is None:
+            raise HTTPException(status_code=404, detail="Media asset not found")
+        if asset["version"] != payload.version:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Media asset changed",
+                    "current_version": asset["version"],
+                },
+            )
+        if str(asset["source_status"] or "") != "ACTIVE":
+            raise HTTPException(
+                status_code=422,
+                detail="Inactive, dead or revoked media cannot be approved",
+            )
+
+        tier = str(asset["rights_tier"] or "")
+        if tier == FIRST_PARTY_CAPTURE and asset["scope"] != "INVENTORY_ITEM":
+            raise HTTPException(
+                status_code=422,
+                detail="First-party capture must belong to an exact inventory item",
+            )
+        if tier == STOREFRONT_ALLOWED and asset["scope"] == "CANONICAL_CARD":
+            media_language = clean_language(asset["media_language"])
+            catalogue_language = clean_language(asset["catalogue_language"])
+            if not media_language:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Storefront canonical media requires explicit language evidence",
+                )
+            if catalogue_language and media_language != catalogue_language:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Storefront canonical media language does not match catalogue identity",
+                )
+            media_variant = " ".join(str(asset["media_variant"] or "").strip().split())
+            catalogue_variant = " ".join(str(asset["catalogue_variant"] or "").strip().split())
+            if media_variant.casefold() != catalogue_variant.casefold():
+                raise HTTPException(
+                    status_code=422,
+                    detail="Storefront canonical media variant/art does not match catalogue identity",
+                )
+            if not (
+                payload.rights_basis.strip()
+                or str(asset["permission_evidence_url"] or "").strip()
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Storefront canonical media requires permission evidence",
+                )
+
         row = await connection.fetchrow(
             """
             update tcg.media_assets
@@ -1038,6 +1243,9 @@ async def approve_media_asset(
                 alt_text=$5,
                 approved_by_user_id=$6,
                 approved_at=clock_timestamp(),
+                rights_verified_at=clock_timestamp(),
+                source_checked_at=clock_timestamp(),
+                source_status_note='Source and rights reviewed during approval',
                 updated_at=clock_timestamp(),
                 version=version+1
             where id=$1 and owner_id=$2 and version=$3
@@ -1048,12 +1256,103 @@ async def approve_media_asset(
             user.user_id,
         )
         if row is None:
+            raise HTTPException(status_code=409, detail="Media asset changed during approval")
+        return jsonable_encoder({"asset": dict(row)})
+
+
+@router.post("/media-assets/{asset_id}/revoke")
+async def revoke_media_asset(
+    asset_id: UUID,
+    payload: MediaAssetRevoke,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        row = await connection.fetchrow(
+            """
+            update tcg.media_assets
+            set source_status='REVOKED',
+                rights_status='REJECTED',
+                approval_status='REJECTED',
+                revoked_at=clock_timestamp(),
+                revoked_by_user_id=$4,
+                revocation_reason=$5,
+                updated_at=clock_timestamp(),
+                version=version+1
+            where id=$1 and owner_id=$2 and version=$3
+            returning *
+            """,
+            asset_id, owner["id"], payload.version,
+            user.user_id, payload.reason.strip(),
+        )
+        if row is None:
             current = await connection.fetchrow(
                 "select version from tcg.media_assets where id=$1 and owner_id=$2",
                 asset_id, owner["id"],
             )
             if current is None:
                 raise HTTPException(status_code=404, detail="Media asset not found")
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Media asset changed",
+                    "current_version": current["version"],
+                },
+            )
+        return jsonable_encoder({"asset": dict(row), "revoked": True})
+
+
+@router.post("/media-assets/{asset_id}/source-status")
+async def set_media_source_status(
+    asset_id: UUID,
+    payload: MediaAssetSourceStatus,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _founder(connection)
+        row = await connection.fetchrow(
+            """
+            update tcg.media_assets
+            set source_status=$4,
+                source_status_note=$5,
+                source_checked_at=clock_timestamp(),
+                updated_at=clock_timestamp(),
+                version=version+1
+            where id=$1
+              and owner_id=$2
+              and version=$3
+              and source_status <> 'REVOKED'
+            returning *
+            """,
+            asset_id,
+            owner["id"],
+            payload.version,
+            payload.status,
+            payload.note.strip(),
+        )
+        if row is None:
+            current = await connection.fetchrow(
+                """
+                select version,source_status
+                from tcg.media_assets
+                where id=$1 and owner_id=$2
+                """,
+                asset_id,
+                owner["id"],
+            )
+            if current is None:
+                raise HTTPException(status_code=404, detail="Media asset not found")
+            if current["source_status"] == "REVOKED":
+                raise HTTPException(
+                    status_code=409,
+                    detail="Revoked media cannot be reactivated",
+                )
             raise HTTPException(
                 status_code=409,
                 detail={
@@ -1101,6 +1400,35 @@ async def sync_media_asset(
                 raise HTTPException(
                     status_code=422,
                     detail="Media must be rights-verified and approved before Shopify sync",
+                )
+            if str(asset["source_status"] or "") != "ACTIVE" or asset["revoked_at"] is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Inactive, dead or revoked media cannot be sent to Shopify",
+                )
+            if str(asset["rights_tier"] or "") not in {
+                STOREFRONT_ALLOWED,
+                FIRST_PARTY_CAPTURE,
+            }:
+                raise HTTPException(
+                    status_code=422,
+                    detail="This media rights tier may never be sent to Shopify",
+                )
+            if (
+                str(asset["rights_tier"] or "") == STOREFRONT_ALLOWED
+                and asset["scope"] != "CANONICAL_CARD"
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail="STOREFRONT_ALLOWED reusable media must be canonical-card media",
+                )
+            if (
+                str(asset["rights_tier"] or "") == FIRST_PARTY_CAPTURE
+                and asset["scope"] != "INVENTORY_ITEM"
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail="FIRST_PARTY_CAPTURE media must belong to an exact inventory item",
                 )
             source_url = str(asset["public_source_url"] or "").strip()
             if not source_url:
@@ -1217,10 +1545,7 @@ async def shopify_product_preview(
             """
             select *
             from tcg.media_assets
-            where approval_status='APPROVED'
-              and rights_status='VERIFIED'
-              and shopify_file_status='READY'
-              and (
+            where (
                 (scope='INVENTORY_ITEM' and inventory_id=$1)
                 or
                 (scope='CANONICAL_CARD' and catalogue_id=$2)
@@ -1248,8 +1573,12 @@ async def shopify_product_preview(
             location_configured=bool(settings.shopify_location_gid),
             media_assets=media_assets,
             shipping_profiles=shipping_profiles,
+            physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor,
         )
-        operational_missing = _test_sync_missing(item)
+        operational_missing = _test_sync_missing(
+            item,
+            physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor,
+        )
         return jsonable_encoder({
             "inventory": {
                 "id": item["id"],
@@ -1290,7 +1619,8 @@ async def test_sync_status(
                 i.id, i.catalogue_id, i.owner_id,
                 i.inventory_code, i.version, i.status,
                 i.identity_confirmed, i.acquisition_cost_minor,
-                i.store_price_minor, i.storage_location_id, i.language,
+                i.store_price_minor, i.market_value_minor, i.recommended_retail_minor,
+                i.storage_location_id, i.language,
                 i.condition, i.condition_review_status, i.seal_status, i.grading_company, i.grade,
                 p.product_type, p.game, p.name, p.set_name, p.card_number,
                 p.variant, p.rarity, p.language as catalogue_language,
@@ -1310,17 +1640,14 @@ async def test_sync_status(
             """,
             owner["id"],
         )
-        ready_media_rows = await connection.fetch(
+        media_rows = await connection.fetch(
             """
             select *
             from tcg.media_assets
-            where approval_status='APPROVED'
-              and rights_status='VERIFIED'
-              and shopify_file_status='READY'
             order by scope,side,created_at,id
             """
         )
-        ready_media_assets = [dict(row) for row in ready_media_rows]
+        media_assets = [dict(row) for row in media_rows]
         candidates: list[dict[str, Any]] = []
         blocked_items: list[dict[str, Any]] = []
         blocker_counts: dict[str, int] = {}
@@ -1328,14 +1655,18 @@ async def test_sync_status(
         launch_ready_count = 0
         launch_blocker_counts: dict[str, int] = {}
         for row in pool:
-            missing = _test_sync_missing(row)
+            missing = _test_sync_missing(
+                row,
+                physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor,
+            )
             _, launch = _launch_completeness(
                 row,
                 collection_titles=collection_titles,
                 publication_configured=bool(settings.shopify_publication_gid),
                 location_configured=bool(settings.shopify_location_gid),
-                media_assets=_media_assets_for_item(row, ready_media_assets),
+                media_assets=_media_assets_for_item(row, media_assets),
                 shipping_profiles=shipping_profiles,
+                physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor,
             )
             if not missing:
                 eligible_count += 1
@@ -1683,7 +2014,10 @@ async def sync_one_test_item(
                     detail="Inventory belongs to the marketplace listing/reservation system and cannot use the legacy single-item Shopify test path",
                 )
 
-            missing = _test_sync_missing(item)
+            missing = _test_sync_missing(
+                item,
+                physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor,
+            )
             if missing:
                 raise HTTPException(
                     status_code=422,
@@ -1730,6 +2064,7 @@ async def sync_one_test_item(
                 location_configured=bool(settings.shopify_location_gid),
                 media_assets=media_assets,
                 shipping_profiles=shipping_profiles,
+                physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor,
             )
             if not launch["complete"]:
                 raise HTTPException(

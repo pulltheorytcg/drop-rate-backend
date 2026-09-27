@@ -5,6 +5,12 @@ from typing import Any, Mapping
 
 from .brands import brand_for_game
 from .language import clean_language, display_title, language_code
+from .media_resolver import (
+    DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
+    FIRST_PARTY_CAPTURE,
+    STOREFRONT_ALLOWED,
+    physical_photo_policy,
+)
 
 
 CARD_CATEGORY_GID = "gid://shopify/TaxonomyCategory/ae-2-2-3-3"
@@ -226,51 +232,79 @@ def normalise_shipping_profile(
     }
 
 
-def media_policy(item: Mapping[str, Any]) -> str:
-    if _text(item.get("product_type")) == "CARD":
-        return "PHYSICAL_ITEM_REQUIRED"
-    return "CANONICAL_CARD_ALLOWED"
+def media_policy(
+    item: Mapping[str, Any],
+    *,
+    threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
+) -> str:
+    return str(
+        physical_photo_policy(item, threshold_minor=threshold_minor)["mediaPolicy"]
+    )
 
 
 def media_completeness(
     media_policy_name: str,
     assets: list[Mapping[str, Any]],
 ) -> dict[str, Any]:
+    """Compatibility completeness helper with fail-closed rights-tier rules.
+
+    Production Shopify resolution uses media_resolver.resolve_storefront_media
+    because exact language/variant validation requires the inventory item.
+    """
+
     ready_assets = [
         asset
         for asset in assets
         if _text(asset.get("approval_status")) == "APPROVED"
         and _text(asset.get("rights_status")) == "VERIFIED"
+        and _text(asset.get("source_status") or "ACTIVE") == "ACTIVE"
+        and not asset.get("revoked_at")
         and _text(asset.get("shopify_file_status")) == "READY"
-        and _text(asset.get("media_kind")) == "IMAGE"
+        and _text(asset.get("media_kind") or "IMAGE") == "IMAGE"
         and _text(asset.get("shopify_file_gid"))
     ]
 
     blockers: list[str] = []
     if media_policy_name == "PHYSICAL_ITEM_REQUIRED":
-        item_assets = [
+        selected = [
             asset
             for asset in ready_assets
             if _text(asset.get("scope")) == "INVENTORY_ITEM"
+            and _text(asset.get("rights_tier")) == FIRST_PARTY_CAPTURE
         ]
-        sides = {_text(asset.get("side")) for asset in item_assets}
+        sides = {_text(asset.get("side")) for asset in selected}
         if "FRONT" not in sides:
-            blockers.append("approved physical-item front image")
+            blockers.append("approved first-party physical front image")
         if "BACK" not in sides:
-            blockers.append("approved physical-item back image")
+            blockers.append("approved first-party physical back image")
         contexts = {
             _text(asset.get("capture_context"))
-            for asset in item_assets
+            for asset in selected
             if _text(asset.get("side")) in {"FRONT", "BACK"}
         }
         if "" in contexts or not contexts:
             blockers.append("capture context for physical-item media")
-        selected = item_assets
     else:
-        selected = ready_assets
-        sides = {_text(asset.get("side")) for asset in selected}
-        if "FRONT" not in sides:
-            blockers.append("approved front image")
+        first_party = [
+            asset
+            for asset in ready_assets
+            if _text(asset.get("scope")) == "INVENTORY_ITEM"
+            and _text(asset.get("rights_tier")) == FIRST_PARTY_CAPTURE
+        ]
+        canonical = [
+            asset
+            for asset in ready_assets
+            if _text(asset.get("scope")) == "CANONICAL_CARD"
+            and _text(asset.get("rights_tier")) == STOREFRONT_ALLOWED
+        ]
+        first_party_sides = {_text(asset.get("side")) for asset in first_party}
+        if "FRONT" in first_party_sides:
+            selected = first_party
+        else:
+            selected = canonical
+            canonical_sides = {_text(asset.get("side")) for asset in canonical}
+            if "FRONT" not in canonical_sides:
+                blockers.append("exact storefront-allowed canonical front image")
 
     file_ids = [
         _text(asset.get("shopify_file_gid"))
@@ -279,7 +313,7 @@ def media_completeness(
     ]
     return {
         "complete": not blockers,
-        "blockers": blockers,
+        "blockers": list(dict.fromkeys(blockers)),
         "approvedMediaCount": len(selected),
         "shopifyFileIds": list(dict.fromkeys(file_ids)),
         "mediaPolicy": media_policy_name,
@@ -443,7 +477,11 @@ def verify_remote_product(
     return {"complete": not unique, "blockers": unique}
 
 
-def build_shopify_product_plan(item: Mapping[str, Any]) -> dict[str, Any]:
+def build_shopify_product_plan(
+    item: Mapping[str, Any],
+    *,
+    physical_photo_threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
+) -> dict[str, Any]:
     product_type = _text(item.get("product_type"))
     category_id = CARD_CATEGORY_GID if product_type == "CARD" else None
     vendor = _storefront_brand(item.get("game"))
@@ -462,7 +500,10 @@ def build_shopify_product_plan(item: Mapping[str, Any]) -> dict[str, Any]:
         "template": DEFAULT_THEME_TEMPLATE,
         "requiredCollections": required_collection_titles(item),
         "metafields": product_metafields(item),
-        "mediaPolicy": media_policy(item),
+        "mediaPolicy": media_policy(
+            item,
+            threshold_minor=physical_photo_threshold_minor,
+        ),
         "shippingProfileKey": shipping_profile_key(item),
         "requiresShipping": True,
         "inventoryTracked": True,

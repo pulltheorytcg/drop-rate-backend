@@ -311,6 +311,83 @@ function buildShopifyReadinessPanel() {
   return section;
 }
 
+function appendMediaResolverSummary(container, data) {
+  const row = document.createElement("div");
+  row.className = "allocation-row";
+  const details = document.createElement("div");
+  const name = document.createElement("strong");
+  name.textContent = "Media resolver";
+  const note = document.createElement("small");
+  note.textContent = [
+    `${Number(data.canonical_resolved || 0).toLocaleString("en-GB")} reusable canonical`,
+    `${Number(data.first_party_resolved || 0).toLocaleString("en-GB")} first-party`,
+    `${Number(data.canonical_media_required || 0).toLocaleString("en-GB")} need reusable image`,
+    `${Number(data.physical_capture_required || 0).toLocaleString("en-GB")} need physical photos`,
+  ].join(" · ");
+  details.append(name, note);
+  const status = document.createElement("strong");
+  status.textContent = data.policy?.existing_image_first ? "Existing-image first" : "Policy";
+  row.append(details, status);
+  container.append(row);
+}
+
+function appendMediaActionItems(container, items) {
+  const visible = (items || []).slice(0, 5);
+  if (!visible.length) return;
+  const heading = document.createElement("div");
+  heading.className = "portfolio-mover-label";
+  heading.textContent = "Action required";
+  container.append(heading);
+
+  visible.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "allocation-row";
+    const details = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = [item.name, item.card_number, item.inventory_code].filter(Boolean).join(" · ");
+    const note = document.createElement("small");
+    note.textContent = [
+      item.action_required_reason,
+      item.physical_photos_required ? "Physical capture required" : "Reusable canonical image required",
+      ...(item.physical_requirement_reasons || []),
+    ].filter(Boolean).join(" · ");
+    details.append(name, note);
+    const status = document.createElement("strong");
+    status.textContent = item.physical_photos_required ? "PHOTO" : "MEDIA";
+    row.append(details, status);
+    container.append(row);
+  });
+}
+
+function appendResolvedMediaItems(container, items) {
+  const visible = (items || []).slice(0, 5);
+  if (!visible.length) return;
+  const heading = document.createElement("div");
+  heading.className = "portfolio-mover-label";
+  heading.textContent = "Resolved media";
+  container.append(heading);
+
+  visible.forEach((item) => {
+    const asset = (item.selected_media || [])[0] || {};
+    const row = document.createElement("div");
+    row.className = "allocation-row";
+    const details = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = [item.name, item.card_number, item.inventory_code].filter(Boolean).join(" · ");
+    const note = document.createElement("small");
+    note.textContent = [
+      item.selection_reason,
+      asset.sourceProvider || asset.sourceReference,
+      item.rights_tier,
+    ].filter(Boolean).join(" · ");
+    details.append(name, note);
+    const status = document.createElement("strong");
+    status.textContent = item.resolution_source === "CANONICAL_STOREFRONT" ? "REUSED" : "CAPTURED";
+    row.append(details, status);
+    container.append(row);
+  });
+}
+
 function appendShopifyReadinessBlockers(container, label, blockers) {
   const entries = Object.entries(blockers || {})
     .sort((left, right) => Number(right[1]) - Number(left[1]) || left[0].localeCompare(right[0]));
@@ -353,11 +430,14 @@ async function loadShopifyReadiness() {
     byId("shopify-operational-coverage").textContent =
       `${operationalReady.toLocaleString("en-GB")} of ${considered.toLocaleString("en-GB")} unsynced items pass core gates`;
     byId("shopify-media-coverage").textContent =
-      `${mediaReady.toLocaleString("en-GB")} of ${operationalReady.toLocaleString("en-GB")} core-ready items satisfy media policy`;
+      `${mediaReady.toLocaleString("en-GB")} of ${operationalReady.toLocaleString("en-GB")} core-ready · ${Number(data.canonical_resolved || 0).toLocaleString("en-GB")} reusable · ${Number(data.first_party_resolved || 0).toLocaleString("en-GB")} first-party`;
 
     container.replaceChildren();
+    appendMediaResolverSummary(container, data);
     appendShopifyReadinessBlockers(container, "Core blockers", data.operational_blockers);
     appendShopifyReadinessBlockers(container, "Media blockers", data.media_blockers);
+    appendMediaActionItems(container, data.next_media_items);
+    appendResolvedMediaItems(container, data.resolved_media_items);
     if (!container.children.length) {
       const ready = document.createElement("p");
       ready.className = "muted portfolio-empty";
