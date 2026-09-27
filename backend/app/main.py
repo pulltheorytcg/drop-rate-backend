@@ -14,6 +14,7 @@ from .db import create_pool
 from .access_control import require_platform_admin_request, router as access_control_router
 from .finance import router as finance_router
 from .founder_onboarding import router as founder_onboarding_router
+from .free_canonical_media import router as free_canonical_media_router
 from .ebay_privacy import router as ebay_privacy_router
 from .ebay_sales import router as ebay_sales_router
 from .ebay_oauth import router as ebay_oauth_router
@@ -238,6 +239,7 @@ def create_app() -> FastAPI:
     app.include_router(access_control_router)
     app.include_router(finance_router)
     app.include_router(founder_onboarding_router)
+    app.include_router(free_canonical_media_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(ebay_privacy_router)
     app.include_router(ebay_sales_router)
     app.include_router(ebay_oauth_router)
