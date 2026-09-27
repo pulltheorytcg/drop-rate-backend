@@ -285,3 +285,52 @@ exact-printing approval. The UI shows both the OCR value and the recovered card 
 
 Provider and catalogue candidate retrieval is deliberately soft. A single wrong OCR
 field cannot remove the correct card from the candidate set.
+
+
+## Verified learning loop (v1.3)
+
+Recognition improves from explicit human feedback without silently retraining on its
+own guesses.
+
+After a completed scan, a founder/admin may confirm the top candidate, correct the
+result to another viable catalogue candidate, or reject all candidates. Each feedback
+event remains immutable. v1.3 materializes that label into a separate, append-only
+learning example with the run observations, candidate evidence, image SHA-256,
+capture dimensions and derived perceptual fingerprints. Raw source image pixels are
+not retained by this learning layer.
+
+The same source image is deterministically assigned to one dataset partition:
+
+- 80% **TRAIN**: may contribute bounded online similarity evidence.
+- 10% **VALIDATION**: reserved for tuning/evaluation.
+- 10% **HOLDOUT**: reserved for final regression checks.
+
+This prevents the same scan from both teaching and evaluating a future model.
+
+When a human confirms/corrects a result, other viable candidates from that run are
+stored as hard negatives. A reject-all label stores every viable candidate as a
+negative. Later corrections supersede earlier learning examples without deleting
+history.
+
+### Safe online use
+
+A prior human-verified TRAIN example can add a small identity-ranking signal only
+when perceptual similarity is at least 0.90. The learning weight is intentionally
+small and cannot remove hard rejections such as a confidently conflicting game,
+collector number or language.
+
+For exact-printing/artwork evidence the gate is stricter: at least two active
+human-verified examples for that catalogue printing and similarity of at least 0.94
+are required before learned visual evidence can participate in printing confidence.
+All existing high-value, graded-item, counterfeit, OCR-conflict and ambiguous-printing
+review gates remain in force.
+
+Validation and holdout examples are never used by the online scorer.
+
+### Model/version governance
+
+The running engine/vision-model pair is registered in
+`tcg.recognition_model_versions`. Future reranker or model changes must be evaluated
+offline against validation/holdout examples and existing regression fixtures before
+deliberate promotion. A model cannot promote itself, mutate canonical catalogue
+identity, edit inventory, change pricing or publish to Shopify.
