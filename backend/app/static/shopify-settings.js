@@ -1285,8 +1285,15 @@ async function previewSelectedShopifyProduct() {
       ),
       shopifyStatusRow(
         "Media",
-        completeness.approvedMediaCount > 0 ? "READY" : "BLOCKED",
-        `${plan.mediaPolicy || "No policy"} · ${completeness.approvedMediaCount || 0} approved asset(s)`
+        completeness.mediaReadiness?.complete ? "READY" : "BLOCKED",
+        [
+          plan.mediaPolicy || "No policy",
+          completeness.mediaReadiness?.resolutionSource || "unresolved",
+          completeness.mediaReadiness?.rightsTier || "no storefront rights",
+          completeness.mediaReadiness?.selectionReason
+            || completeness.mediaReadiness?.actionRequiredReason
+            || "No eligible media selected",
+        ].filter(Boolean).join(" · ")
       ),
       shopifyStatusRow(
         "Shipping",
