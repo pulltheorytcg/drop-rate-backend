@@ -29,6 +29,27 @@ function installMediaConditionWorkspace() {
 
     <div id="shopify-media-message" class="message panel-message" role="status"></div>
 
+    <section class="inventory-panel recent-media-card" id="tcggraph-media-panel">
+      <div class="section-pad media-card-heading">
+        <div>
+          <p class="eyebrow">Canonical image source</p>
+          <h2>TCGGraph images</h2>
+          <p class="muted">Resolve exact card artwork from TCGGraph using game, card number, language and variant. Ambiguous matches stay blocked. This does not publish products.</p>
+        </div>
+        <strong id="tcggraph-media-status">Checking…</strong>
+      </div>
+      <div class="section-pad">
+        <div class="toolbar">
+          <button id="tcggraph-media-preview" class="ghost-button compact" type="button">Preview matches</button>
+          <button id="tcggraph-media-import" class="primary-button compact" type="button">Import exact matches</button>
+          <button id="tcggraph-media-shopify" class="ghost-button compact" type="button">Sync images to Shopify</button>
+        </div>
+        <div id="tcggraph-media-results" class="allocation-list">
+          <p class="muted portfolio-empty">TCGGraph status will appear here.</p>
+        </div>
+      </div>
+    </section>
+
     <section class="media-workspace-grid">
       <article class="inventory-panel media-capture-card">
         <div class="section-pad media-card-heading">
@@ -171,6 +192,9 @@ function installMediaConditionWorkspace() {
   media.append(workspace);
 
   byId("media-condition-refresh").addEventListener("click", loadMediaConditionWorkspace);
+  byId("tcggraph-media-preview").addEventListener("click", () => runTcgGraphResolve(false));
+  byId("tcggraph-media-import").addEventListener("click", () => runTcgGraphResolve(true));
+  byId("tcggraph-media-shopify").addEventListener("click", syncTcgGraphImagesToShopify);
   byId("shopify-media-candidate").addEventListener("change", applyMediaCandidateDefaults);
   byId("shopify-media-file").addEventListener("change", refreshShopifyMediaButton);
   byId("shopify-media-context").addEventListener("change", refreshShopifyMediaButton);
@@ -480,20 +504,134 @@ function renderSelectedConditionReview() {
   container.append(aiNote);
 }
 
+function renderTcgGraphStatus(status) {
+  const label = byId("tcggraph-media-status");
+  const preview = byId("tcggraph-media-preview");
+  const apply = byId("tcggraph-media-import");
+  const sync = byId("tcggraph-media-shopify");
+  const results = byId("tcggraph-media-results");
+  if (!label || !preview || !apply || !sync || !results) return;
+
+  const configured = Boolean(status?.configured);
+  label.textContent = configured ? "CONNECTED" : "KEY REQUIRED";
+  preview.disabled = !configured;
+  apply.disabled = !configured;
+  sync.disabled = !configured;
+
+  if (!configured) {
+    results.innerHTML = '<p class="muted portfolio-empty">Add <strong>TCG_TCGGRAPH_API_KEY</strong> in Railway to enable exact image resolution.</p>';
+  } else {
+    results.innerHTML = '<p class="muted portfolio-empty">Connected. Preview exact matches before importing them.</p>';
+  }
+}
+
+function renderTcgGraphResolveResult(data) {
+  const results = byId("tcggraph-media-results");
+  if (!results) return;
+  results.replaceChildren();
+
+  const summary = document.createElement("div");
+  summary.className = "allocation-row";
+  const details = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent = data.apply ? "Import complete" : "Match preview";
+  const note = document.createElement("small");
+  note.textContent = [
+    `${Number(data.resolved || 0)} exact`,
+    `${Number(data.unresolved || 0)} unresolved`,
+    `${Number(data.skipped_physical_policy || 0)} require physical proof`,
+    data.apply ? `${Number(data.inserted || 0)} registered` : null,
+  ].filter(Boolean).join(" · ");
+  details.append(title, note);
+  const status = document.createElement("strong");
+  status.textContent = Number(data.unresolved || 0) ? "REVIEW" : "READY";
+  summary.append(details, status);
+  results.append(summary);
+
+  (data.unresolved_items || []).slice(0, 12).forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "allocation-row";
+    const info = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = [item.name, item.card_number, item.language].filter(Boolean).join(" · ");
+    const reason = document.createElement("small");
+    reason.textContent = item.result?.reason || "Unresolved";
+    info.append(name, reason);
+    const badge = document.createElement("strong");
+    badge.textContent = "ACTION";
+    row.append(info, badge);
+    results.append(row);
+  });
+}
+
+async function runTcgGraphResolve(apply) {
+  const preview = byId("tcggraph-media-preview");
+  const importButton = byId("tcggraph-media-import");
+  preview.disabled = true;
+  importButton.disabled = true;
+  showMessage("shopify-media-message", apply ? "Importing exact TCGGraph images…" : "Checking TCGGraph matches…");
+  try {
+    const data = await apiRequest("/api/v1/media/tcggraph/resolve", {
+      method: "POST",
+      body: JSON.stringify({ apply, limit: 100 }),
+    });
+    renderTcgGraphResolveResult(data);
+    showMessage(
+      "shopify-media-message",
+      apply
+        ? `${data.inserted || 0} exact TCGGraph image(s) registered. No products were published.`
+        : `${data.resolved || 0} exact match(es) found; ${data.unresolved || 0} need review.`,
+      data.unresolved ? "warning" : ""
+    );
+    if (apply && data.inserted) {
+      await loadMediaConditionWorkspace();
+    }
+  } catch (error) {
+    showMessage("shopify-media-message", error.message, "error");
+  } finally {
+    preview.disabled = false;
+    importButton.disabled = false;
+  }
+}
+
+async function syncTcgGraphImagesToShopify() {
+  const button = byId("tcggraph-media-shopify");
+  button.disabled = true;
+  showMessage("shopify-media-message", "Syncing approved TCGGraph images into Shopify Files…");
+  try {
+    const data = await apiRequest("/api/v1/media/tcggraph/sync-shopify", {
+      method: "POST",
+      body: JSON.stringify({ limit: 100 }),
+    });
+    showMessage(
+      "shopify-media-message",
+      `${data.ready || 0} image(s) ready · ${data.processing || 0} processing · ${data.failed || 0} failed. No products were published.`,
+      data.failed ? "warning" : ""
+    );
+    await loadMediaConditionWorkspace();
+  } catch (error) {
+    showMessage("shopify-media-message", error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function loadMediaConditionWorkspace() {
   installMediaConditionWorkspace();
   if (!state.session?.access_token || !byId("media-condition-workspace")) return;
 
   showMessage("shopify-media-message", "Loading physical media and condition queue…");
   try {
-    const [capability, mediaData, mediaQueue, conditionData] = await Promise.all([
+    const [capability, mediaData, mediaQueue, conditionData, tcgGraphStatus] = await Promise.all([
       apiRequest("/api/v1/shopify/media-assets/upload-capability"),
       apiRequest("/api/v1/shopify/media-assets"),
       apiRequest("/api/v1/shopify/media-assets/intake-queue"),
       apiRequest("/api/v1/condition-review/queue"),
+      apiRequest("/api/v1/media/tcggraph/status"),
     ]);
     renderShopifyMedia(capability, mediaData, mediaQueue);
     renderConditionQueue(conditionData);
+    renderTcgGraphStatus(tcgGraphStatus);
     showMessage("shopify-media-message");
   } catch (error) {
     showMessage("shopify-media-message", error.message, "error");

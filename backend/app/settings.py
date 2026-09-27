@@ -135,6 +135,8 @@ class Settings:
     shopify_test_publish_enabled: bool = False
     shopify_publish_enabled: bool = False
     media_physical_photo_threshold_minor: int = 5_000
+    tcggraph_api_key: str | None = None
+    tcggraph_max_concurrency: int = 8
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
     stripe_connect_country: str = "GB"
@@ -216,6 +218,13 @@ class Settings:
                 5_000,
                 minimum=100,
                 maximum=10_000_000,
+            ),
+            tcggraph_api_key=_optional("TCG_TCGGRAPH_API_KEY"),
+            tcggraph_max_concurrency=_bounded_int(
+                "TCG_TCGGRAPH_MAX_CONCURRENCY",
+                8,
+                minimum=1,
+                maximum=20,
             ),
             stripe_secret_key=_optional("TCG_STRIPE_SECRET_KEY"),
             stripe_webhook_secret=_optional("TCG_STRIPE_WEBHOOK_SECRET"),
