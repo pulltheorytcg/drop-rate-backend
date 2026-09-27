@@ -6,7 +6,11 @@ from uuid import uuid4
 import pytest
 
 import app.recognition_engine as recognition_engine
-from app.recognition_engine import attach_visual_evidence, score_candidate
+from app.recognition_engine import (
+    _provider_identity_fingerprint,
+    attach_visual_evidence,
+    score_candidate,
+)
 from app.recognition_learning import encode_fingerprints
 from app.recognition_reference_index import (
     FINGERPRINT_VERSION,
@@ -14,11 +18,7 @@ from app.recognition_reference_index import (
     discover_reference_candidate_hints,
 )
 
-from test_recognition_engine import (
-    _provider_identity_fingerprint,
-    candidate,
-    observation,
-)
+from test_recognition_engine import candidate, observation
 
 
 ROOT = Path(__file__).parents[1]
@@ -172,6 +172,82 @@ def test_unmapped_provider_image_is_not_exact_printing_visual_proof() -> None:
     assert scored["signals"]["visual"]["provisional_match"] == 0.99
 
 
+def test_review_state_provider_mapping_cannot_prove_exact_printing_visual() -> None:
+    obs = observation()
+    item = candidate()
+    item["provider_mappings"] = [
+        {
+            "source_provider": "Punk Records",
+            "provider_id": "OP05-119",
+            "match_status": "REVIEW",
+        }
+    ]
+    provider_item = {
+        "provider": "Punk Records",
+        "provider_id": "OP05-119",
+        "base_card_id": "OP05-119",
+        "language": "Japanese",
+        "name": "Monkey D. Luffy",
+        "rarity": "SEC",
+        "card_type": "Character",
+        "cost": 10,
+        "power": 12000,
+        "colors": ["Purple"],
+        "attributes": ["Strike"],
+        "types": ["Straw Hat Crew"],
+        "effect": "Example visible effect text.",
+        "art_treatment": "Base",
+        "visual_similarity": 0.99,
+        "retrieval_score": 1.0,
+    }
+    provider_item.update(_provider_identity_fingerprint(obs, provider_item))
+
+    scored = score_candidate(obs, item, provider_evidence=[provider_item])
+
+    assert scored["signals"]["provider"]["match"] == 1.0
+    assert scored["signals"]["provider_print"]["match"] == 0.0
+    assert scored["signals"]["visual"]["available"] is False
+    assert scored["signals"]["visual"]["provisional_match"] == 0.99
+
+
+def test_verified_provider_mapping_can_contribute_exact_printing_visual() -> None:
+    obs = observation()
+    item = candidate()
+    item["provider_mappings"] = [
+        {
+            "source_provider": "Punk Records",
+            "provider_id": "OP05-119",
+            "match_status": "VERIFIED",
+        }
+    ]
+    provider_item = {
+        "provider": "Punk Records",
+        "provider_id": "OP05-119",
+        "base_card_id": "OP05-119",
+        "language": "Japanese",
+        "name": "Monkey D. Luffy",
+        "rarity": "SEC",
+        "card_type": "Character",
+        "cost": 10,
+        "power": 12000,
+        "colors": ["Purple"],
+        "attributes": ["Strike"],
+        "types": ["Straw Hat Crew"],
+        "effect": "Example visible effect text.",
+        "art_treatment": "Base",
+        "visual_similarity": 0.99,
+        "retrieval_score": 1.0,
+    }
+    provider_item.update(_provider_identity_fingerprint(obs, provider_item))
+
+    scored = score_candidate(obs, item, provider_evidence=[provider_item])
+
+    assert scored["signals"]["provider_print"]["match"] == 1.0
+    assert scored["signals"]["visual"]["available"] is True
+    assert scored["signals"]["visual"]["source"] == "exact_provider_image"
+    assert scored["signals"]["visual"]["match"] == 0.99
+
+
 @pytest.mark.asyncio
 async def test_catalogue_visual_reuses_persistent_reference_without_network(monkeypatch) -> None:
     media_id = uuid4()
@@ -206,6 +282,13 @@ def test_reference_index_schema_is_private_audited_and_trust_split() -> None:
     assert "from public,anon,authenticated" in sql
     assert "recognition_reference_fingerprints_audit" in sql
     assert "revoke delete on tcg.recognition_reference_fingerprints from tcg_api" in sql
+    creator_index = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20260927232335_index_reference_fingerprint_creator.sql"
+    ).read_text()
+    assert "recognition_reference_fingerprints_created_by_idx" in creator_index
     assert "using (tcg.is_platform_admin())" in policy_sql
     assert "created_by_user_id=tcg.current_user_id()" not in policy_sql
 
