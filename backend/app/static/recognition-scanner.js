@@ -537,6 +537,8 @@ function recognitionSignalSource(signal) {
     "provider after identity": "provider",
     "reference image": "image",
     "provider mapping": "provider",
+    "human verified scans": "human verified",
+    "provider image": "provider image",
   };
   return labels[source] || source;
 }
@@ -558,6 +560,7 @@ function renderRecognitionSignals(candidate) {
     ["Art treatment", signals.art],
     ["Finish", signals.finish],
     ["Provider", signals.provider],
+    ["Verified scans", signals.learning],
     ["Visual", signals.visual],
   ].forEach(([label, signal]) => {
     if (!signal) return;
@@ -714,7 +717,7 @@ function renderRecognitionResult(data) {
     const heading = document.createElement("strong");
     heading.textContent = "Teach the recognition system";
     const note = document.createElement("small");
-    note.textContent = "This records a human label only. It does not edit inventory or publish anything.";
+    note.textContent = "Confirmed/corrected labels become verified learning data. They never edit inventory or publish anything.";
     feedback.append(heading, note);
 
     const actions = document.createElement("div");
@@ -785,7 +788,7 @@ async function submitRecognitionFeedback(runId, outcome, catalogueId) {
     renderRecognitionResult(data);
     showMessage(
       "recognition-message",
-      "Human label saved to the recognition audit dataset. Inventory was not changed.",
+      "Human label saved to the verified learning dataset. Inventory was not changed.",
       "success"
     );
     await loadRecognitionHistory();
