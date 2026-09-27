@@ -155,7 +155,7 @@ def test_csp_allows_only_trusted_canonical_card_image_hosts() -> None:
     assert "https://onepiece-cardgame.com" in main
     assert "https://www.onepiece-cardgame.com" in main
     assert "https://*.onepiece-cardgame.com" in main
-    assert "img-src 'self' data:" in main
+    assert "img-src 'self' data: blob:" in main
     assert "img-src *" not in main
 
 
