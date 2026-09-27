@@ -18,17 +18,21 @@ SYSTEM_BY_GAME = {
 }
 
 WEIGHTS = {
-    "game": 0.08,
-    "card_number": 0.32,
-    "language": 0.14,
-    "name": 0.12,
-    "set": 0.08,
-    "rarity": 0.05,
-    "card_type": 0.03,
-    "art": 0.06,
-    "finish": 0.02,
-    "provider": 0.04,
-    "visual": 0.06,
+    "game": 0.05,
+    "card_number": 0.30,
+    "language": 0.10,
+    "name": 0.13,
+    "set": 0.05,
+    "rarity": 0.04,
+    "card_type": 0.08,
+    "provider": 0.25,
+}
+
+PRINTING_WEIGHTS = {
+    "art": 0.25,
+    "finish": 0.10,
+    "visual": 0.55,
+    "provider_print": 0.10,
 }
 
 
@@ -239,16 +243,30 @@ def _provider_identity_fingerprint(
 ) -> dict[str, Any]:
     weighted = 0.0
     available = 0.0
+    non_number_weighted = 0.0
+    non_number_available = 0.0
     matches: dict[str, float] = {}
 
-    def add(name: str, score: float, confidence: float, weight: float) -> None:
-        nonlocal weighted, available
+    def add(
+        name: str,
+        score: float,
+        confidence: float,
+        weight: float,
+        *,
+        non_number: bool = True,
+    ) -> None:
+        nonlocal weighted, available, non_number_weighted, non_number_available
         confidence = max(0.0, min(1.0, confidence))
         if confidence <= 0:
             return
-        available += weight * confidence
-        weighted += weight * confidence * max(0.0, min(1.0, score))
-        matches[name] = round(max(0.0, min(1.0, score)), 5)
+        bounded = max(0.0, min(1.0, score))
+        effective = weight * confidence
+        available += effective
+        weighted += effective * bounded
+        if non_number:
+            non_number_available += effective
+            non_number_weighted += effective * bounded
+        matches[name] = round(bounded, 5)
 
     if observation.name_guess:
         add(
@@ -265,55 +283,56 @@ def _provider_identity_fingerprint(
             else 0.0,
             observation.card_number_confidence,
             0.28,
+            non_number=False,
         )
     if observation.cost is not None and item.get("cost") is not None:
         add(
             "cost",
             1.0 if int(observation.cost) == int(item["cost"]) else 0.0,
             observation.cost_confidence,
-            0.10,
+            0.08,
         )
     if observation.power is not None and item.get("power") is not None:
         add(
             "power",
             1.0 if int(observation.power) == int(item["power"]) else 0.0,
             observation.power_confidence,
-            0.10,
+            0.13,
         )
     if observation.card_type_text and item.get("card_type"):
         add(
             "card_type",
             _best_alias_match(observation.card_type_text, [str(item.get("card_type") or "")]),
             observation.card_type_confidence,
-            0.08,
+            0.09,
         )
     if observation.colors and item.get("colors"):
         add(
             "colors",
             _set_match(observation.colors, list(item.get("colors") or [])),
             observation.colors_confidence,
-            0.07,
+            0.10,
         )
     if observation.attributes and item.get("attributes"):
         add(
             "attributes",
             _set_match(observation.attributes, list(item.get("attributes") or [])),
             observation.attributes_confidence,
-            0.06,
+            0.07,
         )
     if observation.traits and item.get("types"):
         add(
             "traits",
             _set_match(observation.traits, list(item.get("types") or [])),
             observation.traits_confidence,
-            0.06,
+            0.09,
         )
     if observation.effect_text and item.get("effect"):
         add(
             "effect",
             _text_similarity(observation.effect_text, item.get("effect")),
             observation.effect_confidence,
-            0.18,
+            0.23,
         )
     if observation.rarity_text and item.get("rarity"):
         add(
@@ -324,9 +343,16 @@ def _provider_identity_fingerprint(
         )
 
     score = weighted / available if available > 0 else 0.0
+    non_number_score = (
+        non_number_weighted / non_number_available
+        if non_number_available > 0
+        else 0.0
+    )
     return {
         "identity_score": round(score, 5),
         "identity_evidence_weight": round(available, 5),
+        "non_number_identity_score": round(non_number_score, 5),
+        "non_number_evidence_weight": round(non_number_available, 5),
         "identity_matches": matches,
     }
 
@@ -345,7 +371,12 @@ def _provider_identity_for_candidate(
             continue
         score = float(item.get("identity_score") or 0.0)
         weight = float(item.get("identity_evidence_weight") or 0.0)
-        if score < 0.88 or weight < 0.42:
+        non_number_score = float(item.get("non_number_identity_score") or 0.0)
+        non_number_weight = float(item.get("non_number_evidence_weight") or 0.0)
+        if not (
+            (score >= 0.88 and weight >= 0.42)
+            or (non_number_score >= 0.90 and non_number_weight >= 0.45)
+        ):
             continue
         eligible.append(item)
     if not eligible:
@@ -353,7 +384,11 @@ def _provider_identity_for_candidate(
 
     eligible.sort(
         key=lambda item: (
-            -float(item.get("identity_score") or 0.0),
+            -max(
+                float(item.get("identity_score") or 0.0),
+                float(item.get("non_number_identity_score") or 0.0),
+            ),
+            -float(item.get("non_number_evidence_weight") or 0.0),
             -float(item.get("visual_similarity") or 0.0),
             str(item.get("provider_id") or ""),
         )
