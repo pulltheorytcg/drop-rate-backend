@@ -734,6 +734,18 @@ def resolve_candidates(
             exact = False
             risks.append("GRADED_ITEM_REVIEW")
             reasons.append("Graded inventory requires physical slab verification.")
+        current_catalogue_id = str(inventory_context.get("catalogue_id") or "")
+        top_catalogue_id = str(top.get("catalogue_id") or "")
+        if (
+            current_catalogue_id
+            and top_catalogue_id
+            and current_catalogue_id != top_catalogue_id
+        ):
+            exact = False
+            risks.append("CURRENT_IDENTITY_CONFLICT")
+            reasons.append(
+                "Recognition disagrees with the inventory item's current catalogue identity."
+            )
 
     same_number_count = sum(
         1
