@@ -595,7 +595,7 @@ create or replace function tcg.validate_catalogue_product_profile()
 returns trigger
 language plpgsql
 set search_path = pg_catalog
-as $
+as $$
 declare
     v_product_type text;
     v_expected_type text;
@@ -641,7 +641,7 @@ begin
 
     return new;
 end;
-$;
+$$;
 revoke all on function tcg.validate_catalogue_product_profile() from public;
 grant execute on function tcg.validate_catalogue_product_profile() to tcg_api;
 
@@ -653,7 +653,7 @@ create or replace function tcg.validate_collectible_subtype()
 returns trigger
 language plpgsql
 set search_path = pg_catalog
-as $
+as $$
 declare
     v_profile tcg.catalogue_product_profiles%rowtype;
     v_expected_type text;
@@ -696,7 +696,7 @@ begin
 
     return new;
 end;
-$;
+$$;
 revoke all on function tcg.validate_collectible_subtype() from public;
 grant execute on function tcg.validate_collectible_subtype() to tcg_api;
 
@@ -714,7 +714,7 @@ create or replace function tcg.validate_provider_catalogue_mapping()
 returns trigger
 language plpgsql
 set search_path = pg_catalog
-as $
+as $$
 declare
     v_profile tcg.catalogue_product_profiles%rowtype;
     v_expected_entity text;
@@ -743,7 +743,7 @@ begin
 
     return new;
 end;
-$;
+$$;
 revoke all on function tcg.validate_provider_catalogue_mapping() from public;
 grant execute on function tcg.validate_provider_catalogue_mapping() to tcg_api;
 
