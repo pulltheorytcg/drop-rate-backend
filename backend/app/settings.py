@@ -144,6 +144,12 @@ class Settings:
     stripe_connect_refresh_url: str | None = None
     stripe_connect_live_enabled: bool = False
     stripe_payout_execution_enabled: bool = False
+    openai_api_key: str | None = None
+    recognition_model: str = "gpt-6-astra"
+    recognition_exact_threshold_bps: int = 8200
+    recognition_min_margin_bps: int = 1000
+    recognition_high_value_review_minor: int = 50_000
+    recognition_max_image_bytes: int = 8_000_000
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -236,6 +242,35 @@ class Settings:
             stripe_connect_live_enabled=_boolean("TCG_STRIPE_CONNECT_LIVE_ENABLED", False),
             stripe_payout_execution_enabled=_boolean(
                 "TCG_STRIPE_PAYOUT_EXECUTION_ENABLED", False
+            ),
+            openai_api_key=_optional("TCG_OPENAI_API_KEY"),
+            recognition_model=(
+                os.getenv("TCG_RECOGNITION_MODEL", "gpt-6-astra").strip()
+                or "gpt-6-astra"
+            ),
+            recognition_exact_threshold_bps=_bounded_int(
+                "TCG_RECOGNITION_EXACT_THRESHOLD_BPS",
+                8200,
+                minimum=5000,
+                maximum=10000,
+            ),
+            recognition_min_margin_bps=_bounded_int(
+                "TCG_RECOGNITION_MIN_MARGIN_BPS",
+                1000,
+                minimum=0,
+                maximum=5000,
+            ),
+            recognition_high_value_review_minor=_bounded_int(
+                "TCG_RECOGNITION_HIGH_VALUE_REVIEW_MINOR",
+                50_000,
+                minimum=100,
+                maximum=100_000_000,
+            ),
+            recognition_max_image_bytes=_bounded_int(
+                "TCG_RECOGNITION_MAX_IMAGE_BYTES",
+                8_000_000,
+                minimum=100_000,
+                maximum=20_000_000,
             ),
         )
 
