@@ -1051,51 +1051,6 @@ def score_candidate(
     if observation.finish_text and finish_values:
         add_printing("finish", finish_match, observation.finish_confidence)
 
-    provider_visual = (
-        float(provider_item.get("visual_similarity"))
-        if provider_item and provider_item.get("visual_similarity") is not None
-        else None
-    )
-    # One prior verified scan can help identity ranking. Exact-printing visual
-    # evidence is stricter: require repeated examples and very high similarity.
-    learning_printing_visual = (
-        learning_similarity
-        if learning_count >= 2 and learning_similarity >= 0.94
-        else None
-    )
-    effective_visual = max(
-        value
-        for value in (
-            visual_similarity,
-            provider_visual,
-            learning_printing_visual,
-            0.0,
-        )
-        if value is not None
-    )
-    visual = max(0.0, min(1.0, effective_visual))
-    visual_available = (
-        visual_similarity is not None
-        or provider_visual is not None
-        or learning_printing_visual is not None
-    )
-    visual_source = "reference_image"
-    if (
-        learning_printing_visual is not None
-        and learning_printing_visual >= float(visual_similarity or 0.0)
-        and learning_printing_visual >= float(provider_visual or 0.0)
-    ):
-        visual_source = "human_verified_scans"
-    elif provider_visual is not None and provider_visual >= float(visual_similarity or 0.0):
-        visual_source = "provider_image"
-    signals["visual"] = {
-        "match": round(visual, 5),
-        "available": visual_available,
-        "source": visual_source,
-    }
-    if visual_available:
-        add_printing("visual", visual)
-
     exact_provider_print = False
     if provider_item is not None:
         provider_key = (
@@ -1111,6 +1066,100 @@ def score_candidate(
         "available": provider_item is not None,
         "source": "provider_mapping",
     }
+
+    provider_visual_raw = (
+        float(provider_item.get("visual_similarity"))
+        if provider_item and provider_item.get("visual_similarity") is not None
+        else None
+    )
+    # Provider imagery may prove an exact printing only when the provider row maps
+    # to this exact catalogue printing. A same-card/base-art image is not enough.
+    provider_visual = provider_visual_raw if exact_provider_print else None
+
+    reference_index_raw = candidate.get("reference_index_similarity")
+    reference_index_similarity = (
+        max(0.0, min(1.0, float(reference_index_raw)))
+        if reference_index_raw is not None
+        else None
+    )
+    reference_index_trust = str(candidate.get("reference_index_trust") or "")
+    signals["visual_retrieval"] = {
+        "match": round(float(reference_index_similarity or 0.0), 5),
+        "available": reference_index_similarity is not None,
+        "trust": reference_index_trust or None,
+        "media_asset_id": (
+            str(candidate.get("reference_index_media_asset_id"))
+            if candidate.get("reference_index_media_asset_id") is not None
+            else None
+        ),
+        "fingerprint_version": candidate.get("reference_index_fingerprint_version"),
+        "source": "persistent_reference_index",
+    }
+
+    reference_image_approved = (
+        str(candidate.get("reference_image_approval_status") or "") == "APPROVED"
+    )
+    catalogue_visual = (
+        float(visual_similarity)
+        if visual_similarity is not None and reference_image_approved
+        else None
+    )
+    persistent_verified_visual = (
+        reference_index_similarity
+        if reference_index_trust == "VERIFIED"
+        else None
+    )
+
+    # One prior verified scan can help identity ranking. Exact-printing visual
+    # evidence is stricter: require repeated examples and very high similarity.
+    learning_printing_visual = (
+        learning_similarity
+        if learning_count >= 2 and learning_similarity >= 0.94
+        else None
+    )
+    eligible_visuals = [
+        ("approved_reference_image", catalogue_visual),
+        ("verified_reference_index", persistent_verified_visual),
+        ("exact_provider_image", provider_visual),
+        ("human_verified_scans", learning_printing_visual),
+    ]
+    usable_visuals = [
+        (source, value)
+        for source, value in eligible_visuals
+        if value is not None
+    ]
+    if usable_visuals:
+        visual_source, effective_visual = max(
+            usable_visuals,
+            key=lambda item: float(item[1]),
+        )
+        visual = max(0.0, min(1.0, float(effective_visual)))
+        visual_available = True
+    else:
+        visual_source = "unverified_or_unavailable"
+        visual = 0.0
+        visual_available = False
+
+    provisional_visual = max(
+        [
+            float(value)
+            for value in (
+                visual_similarity,
+                provider_visual_raw,
+                reference_index_similarity,
+            )
+            if value is not None
+        ],
+        default=0.0,
+    )
+    signals["visual"] = {
+        "match": round(visual, 5),
+        "available": visual_available,
+        "source": visual_source,
+        "provisional_match": round(provisional_visual, 5),
+    }
+    if visual_available:
+        add_printing("visual", visual)
 
     identity_score = (
         identity_contribution / identity_available
@@ -1150,6 +1199,7 @@ async def load_catalogue_candidates(
     *,
     provider_evidence: list[Mapping[str, Any]] | None = None,
     learning_catalogue_ids: list[Any] | None = None,
+    reference_catalogue_ids: list[Any] | None = None,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
     system_code = SYSTEM_BY_GAME.get(observation.game)
@@ -1197,6 +1247,11 @@ async def load_catalogue_candidates(
         identity_filters.append(
             f"p.id = any(${len(params)}::uuid[])"
         )
+    if reference_catalogue_ids:
+        params.append(list(dict.fromkeys(reference_catalogue_ids)))
+        identity_filters.append(
+            f"p.id = any(${len(params)}::uuid[])"
+        )
     if not identity_filters:
         return []
 
@@ -1213,6 +1268,8 @@ async def load_catalogue_candidates(
             coalesce(t.taxonomy,'[]'::jsonb) as taxonomy,
             coalesce(pm.provider_mappings,'[]'::jsonb) as provider_mappings,
             m.public_source_url as reference_image_url,
+            m.media_asset_id as reference_media_asset_id,
+            m.approval_status as reference_image_approval_status,
             m.source_provider,m.provider_asset_id,m.media_language,
             coalesce(inv.languages,'[]'::jsonb) as inventory_languages,
             inv.max_known_value_minor,inv.has_graded_copy
@@ -1259,7 +1316,8 @@ async def load_catalogue_candidates(
         ) pm on true
         left join lateral (
             select
-                ma.public_source_url,ma.source_provider,ma.provider_asset_id,
+                ma.id as media_asset_id,ma.public_source_url,
+                ma.approval_status,ma.source_provider,ma.provider_asset_id,
                 ma.media_language
             from tcg.media_assets ma
             where ma.catalogue_id=p.id
@@ -1406,21 +1464,40 @@ async def attach_visual_evidence(
     max_candidates: int = 8,
 ) -> None:
     semaphore = asyncio.Semaphore(4)
+    remote_candidates: list[dict[str, Any]] = []
+
+    for candidate in candidates:
+        indexed_similarity = candidate.get("reference_index_similarity")
+        indexed_asset = candidate.get("reference_index_media_asset_id")
+        selected_asset = candidate.get("reference_media_asset_id")
+        if (
+            indexed_similarity is not None
+            and indexed_asset is not None
+            and selected_asset is not None
+            and str(indexed_asset) == str(selected_asset)
+        ):
+            candidate["visual_similarity"] = float(indexed_similarity)
+            candidate["visual_similarity_source"] = "persistent_reference_index"
+            continue
+        remote_candidates.append(candidate)
 
     async def one(candidate: dict[str, Any]) -> None:
         url = str(candidate.get("reference_image_url") or "").strip()
         if not url:
             candidate["visual_similarity"] = None
+            candidate["visual_similarity_source"] = None
             return
         async with semaphore:
             reference = await reference_image_hashes(url)
         candidate["visual_similarity"] = (
             hash_similarity(source_hashes, reference) if reference else None
         )
+        candidate["visual_similarity_source"] = "remote_reference_image"
 
-    await asyncio.gather(*[one(candidate) for candidate in candidates[:max_candidates]])
-    for candidate in candidates[max_candidates:]:
+    await asyncio.gather(*[one(candidate) for candidate in remote_candidates[:max_candidates]])
+    for candidate in remote_candidates[max_candidates:]:
         candidate["visual_similarity"] = None
+        candidate["visual_similarity_source"] = None
 
 
 def _provider_visual_shortlist(
