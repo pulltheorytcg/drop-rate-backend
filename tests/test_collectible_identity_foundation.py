@@ -256,3 +256,15 @@ def test_collectible_identity_architecture_is_documented() -> None:
     assert "Elite Trainer Boxes (ETBs)" in docs
     assert "Marvel Comics" in docs
     assert "DC Comics" in docs
+
+
+def test_cross_system_identity_mismatches_are_database_rejected() -> None:
+    sql = MIGRATION.read_text()
+
+    assert "Card/sealed products require a TCG collectible system" in sql
+    assert "Comic products require a comics collectible system" in sql
+    assert "Subtype identity does not match catalogue product profile" in sql
+    assert "Card printing and gameplay identity systems do not match" in sql
+    assert "Provider mapping does not match catalogue product identity" in sql
+    assert "create trigger card_printings_validate" in sql
+    assert "create trigger provider_catalogue_mappings_validate" in sql
