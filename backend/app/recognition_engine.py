@@ -26,6 +26,9 @@ WEIGHTS = {
     "rarity": 0.04,
     "card_type": 0.08,
     "provider": 0.25,
+    # Prior human-verified scans are deliberately a small extra signal.
+    # They may improve ranking but can never clear hard identity gates.
+    "learning": 0.04,
 }
 
 PRINTING_WEIGHTS = {
@@ -763,6 +766,26 @@ def score_candidate(
             1.0,
         )
 
+    learning_similarity_raw = candidate.get("learning_visual_similarity")
+    learning_count = int(candidate.get("learning_example_count") or 0)
+    learning_similarity = (
+        max(0.0, min(1.0, float(learning_similarity_raw)))
+        if learning_similarity_raw is not None
+        else 0.0
+    )
+    learning_identity_eligible = learning_count >= 1 and learning_similarity >= 0.90
+    signals["learning"] = {
+        "match": round(learning_similarity, 5),
+        "available": learning_count > 0,
+        "example_count": learning_count,
+        "eligible_for_identity": learning_identity_eligible,
+        "source": "human_verified_scans",
+    }
+    if learning_identity_eligible:
+        # Confidence rises slowly with repeated verified examples and stays bounded.
+        learning_confidence = min(1.0, 0.75 + 0.05 * min(learning_count, 5))
+        add_identity("learning", learning_similarity, learning_confidence)
+
     art_values = _candidate_art(candidate)
     provider_art = str(provider_item.get("art_treatment") or "") if provider_item else ""
     art_match = _best_alias_match(observation.art_treatment_text, art_values)
@@ -799,18 +822,44 @@ def score_candidate(
         if provider_item and provider_item.get("visual_similarity") is not None
         else None
     )
+    # One prior verified scan can help identity ranking. Exact-printing visual
+    # evidence is stricter: require repeated examples and very high similarity.
+    learning_printing_visual = (
+        learning_similarity
+        if learning_count >= 2 and learning_similarity >= 0.94
+        else None
+    )
     effective_visual = max(
         value
-        for value in (visual_similarity, provider_visual, 0.0)
+        for value in (
+            visual_similarity,
+            provider_visual,
+            learning_printing_visual,
+            0.0,
+        )
         if value is not None
     )
     visual = max(0.0, min(1.0, effective_visual))
+    visual_available = (
+        visual_similarity is not None
+        or provider_visual is not None
+        or learning_printing_visual is not None
+    )
+    visual_source = "reference_image"
+    if (
+        learning_printing_visual is not None
+        and learning_printing_visual >= float(visual_similarity or 0.0)
+        and learning_printing_visual >= float(provider_visual or 0.0)
+    ):
+        visual_source = "human_verified_scans"
+    elif provider_visual is not None and provider_visual >= float(visual_similarity or 0.0):
+        visual_source = "provider_image"
     signals["visual"] = {
         "match": round(visual, 5),
-        "available": visual_similarity is not None or provider_visual is not None,
-        "source": "reference_image",
+        "available": visual_available,
+        "source": visual_source,
     }
-    if visual_similarity is not None or provider_visual is not None:
+    if visual_available:
         add_printing("visual", visual)
 
     exact_provider_print = False
