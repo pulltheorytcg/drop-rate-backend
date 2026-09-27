@@ -1425,29 +1425,40 @@ def _provider_only_candidates(
     observation: RecognitionObservation,
     provider_evidence: list[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
+    """Rank provider-only alternatives by their own evidence, never by global OCR confidence."""
     output: list[dict[str, Any]] = []
+    observed_number = _compact(observation.card_number)
+    observed_language = clean_language(observation.language)
+
     for item in provider_evidence:
         provider = str(item.get("provider") or "").strip()
         provider_id = str(item.get("provider_id") or "").strip()
         if not provider or not provider_id:
             continue
-        name = item.get("provider_name") or item.get("name") or observation.name_guess
-        rarity = item.get("provider_rarity") or item.get("rarity")
-        card_type = item.get("provider_category") or item.get("card_type")
-        art = item.get("art_treatment") or ""
-        score = (
-            0.32 * observation.card_number_confidence
-            + 0.14 * observation.language_confidence
-            + 0.12 * _ratio(_name_core(observation.name_guess), _name_core(name))
-              * observation.name_confidence
-            + 0.05 * _best_alias_match(observation.rarity_text, [str(rarity or "")])
-              * observation.rarity_confidence
-            + 0.03 * _best_alias_match(observation.card_type_text, [str(card_type or "")])
-              * observation.card_type_confidence
-            + 0.06 * _best_alias_match(observation.art_treatment_text, [str(art)])
-              * observation.art_treatment_confidence
-            + 0.04
+
+        identity_score = max(0.0, min(1.0, float(item.get("identity_score") or 0.0)))
+        retrieval_score = max(0.0, min(1.0, float(item.get("retrieval_score") or 0.0)))
+        visual_raw = item.get("visual_similarity")
+        visual_score = (
+            max(0.0, min(1.0, float(visual_raw)))
+            if visual_raw is not None
+            else 0.0
         )
+        score = (
+            0.85 * identity_score
+            + 0.10 * retrieval_score
+            + 0.05 * visual_score
+        )
+
+        base_card_id = _compact(item.get("base_card_id"))
+        item_language = clean_language(item.get("language"))
+        number_match = bool(
+            observed_number and base_card_id and observed_number == base_card_id
+        )
+        language_match = bool(
+            observed_language and item_language and observed_language == item_language
+        )
+
         output.append(
             {
                 "candidate_key": f"provider:{provider}:{provider_id}",
@@ -1456,24 +1467,45 @@ def _provider_only_candidates(
                 "catalogue_id": None,
                 "provider": provider,
                 "provider_id": provider_id,
-                "provider_language": observation.language,
-                "score": round(min(1.0, score), 5),
+                "provider_language": item_language,
+                "score": round(score, 5),
                 "hard_rejected": False,
                 "rejection_reasons": [],
                 "signals": {
-                    "provider": {"match": 1.0},
+                    "provider": {
+                        "match": round(identity_score, 5),
+                        "source": "provider",
+                    },
                     "card_number": {
-                        "match": 1.0,
+                        "match": 1.0 if number_match else 0.0,
                         "confidence": observation.card_number_confidence,
+                        "observed": observation.card_number,
+                        "candidate": item.get("base_card_id"),
+                        "source": "provider",
                     },
                     "language": {
-                        "match": 1.0,
+                        "match": 1.0 if language_match else 0.0,
                         "confidence": observation.language_confidence,
+                        "observed": observed_language,
+                        "candidate": item_language,
+                        "source": "provider",
+                    },
+                    "visual": {
+                        "match": round(visual_score, 5),
+                        "available": visual_raw is not None,
+                        "source": "provider_image",
                     },
                 },
                 "candidate_snapshot": dict(item),
             }
         )
+
+    output.sort(
+        key=lambda item: (
+            -float(item["score"]),
+            str(item.get("provider_id") or ""),
+        )
+    )
     return output
 
 
@@ -1521,10 +1553,10 @@ def resolve_candidates(
                     "identity_status": candidate.get("identity_status"),
                     "printing_identity_status": candidate.get("printing_identity_status"),
                     "taxonomy": candidate.get("taxonomy") or [],
-                    "reference_image_url": (
-                        candidate.get("reference_image_url")
-                        or scored["signals"]["provider"].get("image_url")
-                    ),
+                    # Catalogue artwork must represent this exact printing.
+                    # Provider identity images are evidence only and must never be
+                    # promoted into a catalogue candidate snapshot by fallback.
+                    "reference_image_url": candidate.get("reference_image_url"),
                     "max_known_value_minor": candidate.get("max_known_value_minor"),
                 },
             }
