@@ -268,3 +268,10 @@ def test_cross_system_identity_mismatches_are_database_rejected() -> None:
     assert "Provider mapping does not match catalogue product identity" in sql
     assert "create trigger card_printings_validate" in sql
     assert "create trigger provider_catalogue_mappings_validate" in sql
+
+
+def test_collectible_identity_migration_has_valid_plpgsql_dollar_quoting_shape() -> None:
+    sql = MIGRATION.read_text()
+    assert "\nas $\n" not in sql
+    assert "\n$;\n" not in sql
+    assert sql.count("as $$") == sql.count("$$;")
