@@ -193,6 +193,10 @@ class TcgDexClient:
             "source_reference": f"https://api.tcgdex.net/v2/ja/cards/{provider_id}",
             "provider_set_id": set_id,
             "provider_local_id": card.get("localId"),
+            "provider_name": card.get("name"),
+            "provider_rarity": card.get("rarity"),
+            "provider_category": card.get("category"),
+            "provider_types": card.get("types") or [],
             "finish_key": variant_key,
         }
 
