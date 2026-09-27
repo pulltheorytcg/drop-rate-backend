@@ -121,14 +121,6 @@ function recognitionPercent(value) {
   return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
-function recognitionMoney(valueMinor) {
-  if (valueMinor === null || valueMinor === undefined) return "—";
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(Number(valueMinor) / 100);
-}
-
 async function loadRecognitionCandidateImage(image, runId, candidateId) {
   if (!image || !runId || !candidateId || !state.session?.access_token) return;
   try {
