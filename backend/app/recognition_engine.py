@@ -563,6 +563,9 @@ def score_candidate(
         "match": provider_support,
         "provider": provider_item.get("provider") if provider_item else None,
         "provider_id": provider_item.get("provider_id") if provider_item else None,
+        "base_card_id": provider_item.get("base_card_id") if provider_item else None,
+        "art_treatment": provider_item.get("art_treatment") if provider_item else None,
+        "image_url": provider_item.get("image_url") if provider_item else None,
         "identity_score": (
             provider_item.get("identity_score") if provider_item else None
         ),
@@ -962,12 +965,18 @@ def resolve_candidates(
                     "card_number": candidate.get("card_number"),
                     "variant": candidate.get("variant"),
                     "rarity": candidate.get("rarity"),
-                    "language": _candidate_language(candidate),
+                    "language": (
+                        scored["signals"]["language"].get("candidate")
+                        or _candidate_language(candidate)
+                    ),
                     "printing_key": candidate.get("printing_key"),
                     "identity_status": candidate.get("identity_status"),
                     "printing_identity_status": candidate.get("printing_identity_status"),
                     "taxonomy": candidate.get("taxonomy") or [],
-                    "reference_image_url": candidate.get("reference_image_url"),
+                    "reference_image_url": (
+                        candidate.get("reference_image_url")
+                        or scored["signals"]["provider"].get("image_url")
+                    ),
                     "max_known_value_minor": candidate.get("max_known_value_minor"),
                 },
             }
