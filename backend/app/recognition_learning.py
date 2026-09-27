@@ -105,8 +105,16 @@ async def materialize_learning_example(
     )
     if row is None:
         raise ValueError("Recognition feedback/run pair was not found")
-    if not row["source_image_sha256"] or not row["system_code"] or not row["ai_model"]:
+    if not row["source_image_sha256"] or not row["ai_model"]:
         raise ValueError("Recognition run is missing learning provenance")
+    if not row["system_code"]:
+        # Feedback on an unsupported/unknown game remains valid audit truth, but it
+        # cannot enter a system-specific learning set until the game is resolved.
+        return {
+            "skipped": True,
+            "reason": "UNRESOLVED_SYSTEM",
+            "feedback_id": str(row["feedback_id"]),
+        }
 
     supersedes_example_id = None
     if row["supersedes_feedback_id"] is not None:
@@ -204,6 +212,66 @@ async def materialize_learning_example(
         )
 
     return dict(example)
+
+
+async def discover_learning_candidate_hints(
+    connection,
+    source_hashes: tuple[int, ...],
+    *,
+    system_code: str,
+    max_examples: int = 300,
+    min_similarity: float = 0.94,
+    max_candidates: int = 12,
+) -> list[dict[str, Any]]:
+    """Recover likely catalogue IDs from prior verified TRAIN scans when OCR is weak."""
+    if not source_hashes:
+        return []
+
+    rows = await connection.fetch(
+        """
+        select e.selected_catalogue_id,e.source_fingerprints
+        from tcg.recognition_learning_examples e
+        where e.system_code=$1
+          and e.dataset_split='TRAIN'
+          and e.selected_catalogue_id is not null
+          and e.label_outcome in ('CONFIRMED_TOP','CORRECTED_TO_CANDIDATE')
+          and not exists (
+              select 1
+              from tcg.recognition_learning_examples newer
+              where newer.supersedes_example_id=e.id
+          )
+        order by e.created_at desc,e.id desc
+        limit $2
+        """,
+        system_code,
+        max_examples,
+    )
+
+    best: dict[UUID, float] = {}
+    counts: dict[UUID, int] = {}
+    for row in rows:
+        fingerprints = decode_fingerprints(row["source_fingerprints"])
+        if not fingerprints:
+            continue
+        similarity = hash_similarity(source_hashes, fingerprints)
+        if similarity is None or float(similarity) < min_similarity:
+            continue
+        catalogue_id = row["selected_catalogue_id"]
+        best[catalogue_id] = max(best.get(catalogue_id, 0.0), float(similarity))
+        counts[catalogue_id] = counts.get(catalogue_id, 0) + 1
+
+    ranked = sorted(
+        best.items(),
+        key=lambda item: (-item[1], -counts.get(item[0], 0), str(item[0])),
+    )
+    return [
+        {
+            "catalogue_id": catalogue_id,
+            "similarity": round(similarity, 5),
+            "example_count": counts.get(catalogue_id, 0),
+        }
+        for catalogue_id, similarity in ranked[:max_candidates]
+    ]
 
 
 async def attach_learning_visual_evidence(
