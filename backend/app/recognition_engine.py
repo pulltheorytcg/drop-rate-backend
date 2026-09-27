@@ -1209,7 +1209,7 @@ async def load_catalogue_candidates(
             p.id as catalogue_id,p.game,p.name,p.set_name,p.card_number,
             p.variant,p.rarity,p.language,pr.system_code,pr.identity_status,
             cp.printing_key,cp.identity_status as printing_identity_status,
-            coalesce(cp.attributes,'{}'::jsonb) as printing_attributes,
+            coalesce(cp.attributes,'{{}}'::jsonb) as printing_attributes,
             coalesce(t.taxonomy,'[]'::jsonb) as taxonomy,
             coalesce(pm.provider_mappings,'[]'::jsonb) as provider_mappings,
             m.public_source_url as reference_image_url,
