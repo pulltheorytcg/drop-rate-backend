@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import io
+import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -15,6 +18,17 @@ TRUSTED_REFERENCE_HOSTS = {
     "onepiece-cardgame.com",
     "www.onepiece-cardgame.com",
 }
+
+REFERENCE_HASH_CACHE_TTL_SECONDS = 6 * 60 * 60
+REFERENCE_HASH_CACHE_MAX_ENTRIES = 2048
+_REFERENCE_HASH_CACHE: OrderedDict[str, tuple[float, tuple[int, ...]]] = OrderedDict()
+_REFERENCE_HASH_INFLIGHT: dict[str, asyncio.Task[tuple[int, ...] | None]] = {}
+
+
+def _clear_reference_image_hash_cache() -> None:
+    """Test/maintenance hook; production callers should rely on TTL eviction."""
+    _REFERENCE_HASH_CACHE.clear()
+    _REFERENCE_HASH_INFLIGHT.clear()
 
 
 class RecognitionImageError(ValueError):
@@ -147,14 +161,12 @@ def _trusted_reference_url(url: str) -> bool:
     )
 
 
-async def reference_image_hashes(
+async def _reference_image_hashes_uncached(
     url: str,
     *,
-    max_bytes: int = 10_000_000,
-    timeout_seconds: float = 12.0,
+    max_bytes: int,
+    timeout_seconds: float,
 ) -> tuple[int, ...] | None:
-    if not _trusted_reference_url(url):
-        return None
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout_seconds),
@@ -193,3 +205,53 @@ async def reference_image_hashes(
     except RecognitionImageError:
         return None
     return _fingerprints(image)
+
+
+async def reference_image_hashes(
+    url: str,
+    *,
+    max_bytes: int = 10_000_000,
+    timeout_seconds: float = 12.0,
+) -> tuple[int, ...] | None:
+    """Return trusted reference fingerprints with TTL/LRU and in-flight de-duplication."""
+    if not _trusted_reference_url(url):
+        return None
+
+    now = time.monotonic()
+    cached = _REFERENCE_HASH_CACHE.get(url)
+    if cached is not None:
+        expires_at, hashes = cached
+        if expires_at > now:
+            _REFERENCE_HASH_CACHE.move_to_end(url)
+            return hashes
+        _REFERENCE_HASH_CACHE.pop(url, None)
+
+    task = _REFERENCE_HASH_INFLIGHT.get(url)
+    if task is None:
+        task = asyncio.create_task(
+            _reference_image_hashes_uncached(
+                url,
+                max_bytes=max_bytes,
+                timeout_seconds=timeout_seconds,
+            )
+        )
+        _REFERENCE_HASH_INFLIGHT[url] = task
+
+    try:
+        hashes = await task
+    finally:
+        if _REFERENCE_HASH_INFLIGHT.get(url) is task:
+            _REFERENCE_HASH_INFLIGHT.pop(url, None)
+
+    # Cache only successful fingerprints. Transient provider/network failures must
+    # recover immediately on the next scan rather than becoming negative-cache hits.
+    if hashes:
+        _REFERENCE_HASH_CACHE[url] = (
+            time.monotonic() + REFERENCE_HASH_CACHE_TTL_SECONDS,
+            hashes,
+        )
+        _REFERENCE_HASH_CACHE.move_to_end(url)
+        while len(_REFERENCE_HASH_CACHE) > REFERENCE_HASH_CACHE_MAX_ENTRIES:
+            _REFERENCE_HASH_CACHE.popitem(last=False)
+    return hashes
+
