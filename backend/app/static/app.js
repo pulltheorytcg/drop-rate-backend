@@ -11,6 +11,7 @@ const ISSUE_LABELS = {
 const state = {
   config: null, session: null, offset: 0, total: 0, search: "", status: "",
   brand: "", issue: "", items: new Map(), selected: new Map(), editing: null, readiness: null,
+  inventoryView: "visual",
   providers: {google: false, apple: false},
 };
 const byId = (id) => document.getElementById(id);
@@ -392,6 +393,171 @@ function ebayInventoryAction(item) {
   return button;
 }
 
+function setInventoryView(view) {
+  state.inventoryView = view === "table" ? "table" : "visual";
+  const visual = byId("inventory-visual-grid");
+  const table = byId("inventory-table-wrap");
+  const visualButton = byId("inventory-view-visual");
+  const tableButton = byId("inventory-view-table");
+  if (!visual || !table || !visualButton || !tableButton) return;
+  const visualActive = state.inventoryView === "visual";
+  visual.classList.toggle("hidden", !visualActive);
+  table.classList.toggle("hidden", visualActive);
+  visualButton.classList.toggle("active", visualActive);
+  tableButton.classList.toggle("active", !visualActive);
+  visualButton.setAttribute("aria-pressed", visualActive ? "true" : "false");
+  tableButton.setAttribute("aria-pressed", visualActive ? "false" : "true");
+}
+
+function inventoryImageFigure(item) {
+  const figure = document.createElement("button");
+  figure.type = "button";
+  figure.className = "inventory-card-art";
+  figure.setAttribute("aria-label", `Review ${item.name}`);
+  figure.addEventListener("click", () => openEditor(item));
+
+  if (!item.card_image_url) {
+    const empty = document.createElement("div");
+    empty.className = "inventory-card-art-empty";
+    empty.innerHTML = "<span>◇</span><strong>No image yet</strong><small>Resolve in Media</small>";
+    figure.append(empty);
+    return figure;
+  }
+
+  const image = document.createElement("img");
+  image.src = item.card_image_url;
+  image.alt = [item.name, item.set_name, item.card_number, item.language || item.catalogue_language]
+    .filter(Boolean).join(" · ");
+  image.loading = "lazy";
+  image.decoding = "async";
+  image.addEventListener("error", () => {
+    image.remove();
+    const empty = document.createElement("div");
+    empty.className = "inventory-card-art-empty error";
+    empty.innerHTML = "<span>!</span><strong>Image unavailable</strong><small>Open Media to review source</small>";
+    figure.append(empty);
+  });
+  figure.append(image);
+
+  const badge = document.createElement("span");
+  badge.className = `inventory-image-badge ${String(item.card_image_approval_status || "").toLowerCase()}`;
+  badge.textContent = item.card_image_approval_status === "APPROVED"
+    ? "Verified image"
+    : "Review image";
+  figure.append(badge);
+  return figure;
+}
+
+function inventoryVisualCard(item) {
+  const card = document.createElement("article");
+  card.className = "inventory-visual-card";
+  card.dataset.inventoryId = item.id;
+
+  const selectWrap = document.createElement("label");
+  selectWrap.className = "inventory-card-select";
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = state.selected.has(item.id);
+  checkbox.setAttribute("aria-label", `Select ${item.name}`);
+  checkbox.addEventListener("change", () => {
+    if (checkbox.checked) state.selected.set(item.id, item);
+    else state.selected.delete(item.id);
+    refreshSelectionControls();
+  });
+  selectWrap.append(checkbox);
+  card.append(selectWrap, inventoryImageFigure(item));
+
+  const body = document.createElement("div");
+  body.className = "inventory-visual-card-body";
+
+  const heading = document.createElement("div");
+  heading.className = "inventory-card-heading";
+  const titleWrap = document.createElement("div");
+  const title = document.createElement("button");
+  title.type = "button";
+  title.className = "inventory-card-title";
+  title.textContent = item.name;
+  title.addEventListener("click", () => openEditor(item));
+  const subtitle = document.createElement("p");
+  subtitle.textContent = [
+    item.set_name,
+    item.card_number,
+    item.rarity,
+    item.variant,
+    item.language || item.catalogue_language,
+  ].filter(Boolean).join(" · ") || "Uncatalogued";
+  titleWrap.append(title, subtitle);
+
+  const status = document.createElement("span");
+  status.className = `pill ${String(item.status || "").toLowerCase()}`;
+  status.textContent = item.status
+    ? item.status.charAt(0) + item.status.slice(1).toLowerCase()
+    : "Unknown";
+  heading.append(titleWrap, status);
+  body.append(heading);
+
+  const valueRow = document.createElement("div");
+  valueRow.className = "inventory-card-values";
+  const values = [
+    ["Market", money(item.market_value_minor, item.currency)],
+    ["Store", money(item.store_price_minor, item.currency)],
+    ["Cost", money(item.acquisition_cost_minor, item.currency)],
+  ];
+  values.forEach(([label, value]) => {
+    const box = document.createElement("div");
+    const key = document.createElement("span");
+    key.textContent = label;
+    const amount = document.createElement("strong");
+    amount.textContent = value;
+    box.append(key, amount);
+    valueRow.append(box);
+  });
+  body.append(valueRow);
+
+  const facts = document.createElement("div");
+  facts.className = "inventory-card-facts";
+  const factValues = [
+    ["Inventory", item.inventory_code],
+    ["Condition", item.grade
+      ? [item.grading_company || "Graded", item.grade].filter(Boolean).join(" ")
+      : (item.condition || "—")],
+    ["Location", item.storage_location_label || item.location || "—"],
+    ["Identity", item.identity_confirmed ? "Confirmed" : "Needs verification"],
+  ];
+  factValues.forEach(([label, value]) => {
+    const row = document.createElement("div");
+    const key = document.createElement("span");
+    key.textContent = label;
+    const val = document.createElement("strong");
+    val.textContent = value || "—";
+    row.append(key, val);
+    facts.append(row);
+  });
+  body.append(facts);
+
+  const readiness = itemCoreReadiness(item);
+  const readinessLine = document.createElement("span");
+  readinessLine.className = `core-readiness${readiness.complete === readiness.total ? " complete" : ""}`;
+  readinessLine.textContent = readiness.complete === readiness.total
+    ? `Core ${readiness.complete}/${readiness.total} ✓`
+    : `Core ${readiness.complete}/${readiness.total} · Needs ${readiness.missing.join(", ")}`;
+  body.append(readinessLine);
+
+  const actions = document.createElement("div");
+  actions.className = "inventory-card-actions";
+  const review = document.createElement("button");
+  review.className = "primary-button compact";
+  review.type = "button";
+  review.textContent = "Review";
+  review.addEventListener("click", () => openEditor(item));
+  actions.append(review);
+  if (item.product_type === "CARD") actions.append(ebayInventoryAction(item));
+  body.append(actions);
+
+  card.append(body);
+  return card;
+}
+
 function renderInventory(data) {
   state.total = data.total;
   state.items = new Map(data.items.map((item) => [item.id, item]));
@@ -399,8 +565,11 @@ function renderInventory(data) {
   byId("owner-name").textContent = data.owner.display_name;
   byId("owner-initial").textContent = data.owner.display_name.slice(0, 1).toUpperCase();
   const body = byId("inventory-body");
+  const visualGrid = byId("inventory-visual-grid");
   body.replaceChildren();
+  visualGrid.replaceChildren();
   data.items.forEach((item) => {
+    visualGrid.append(inventoryVisualCard(item));
     const row = document.createElement("tr");
     const selectCell = document.createElement("td");
     selectCell.dataset.label = "Select";
@@ -478,6 +647,7 @@ function renderInventory(data) {
     body.append(row);
   });
   byId("empty-state").classList.toggle("hidden", data.items.length !== 0);
+  setInventoryView(state.inventoryView);
   byId("previous-page").disabled = state.offset === 0;
   byId("next-page").disabled = state.offset + PAGE_SIZE >= data.total;
   byId("page-label").textContent = `Page ${Math.floor(state.offset / PAGE_SIZE) + 1} of ${Math.max(1, Math.ceil(data.total / PAGE_SIZE))}`;
@@ -839,6 +1009,8 @@ let searchTimer;
 byId("search-input").addEventListener("input", (event) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.search = event.target.value.trim(); state.offset = 0; loadInventory(); }, 350); });
 byId("brand-filter").addEventListener("change", (event) => { state.brand = event.target.value; state.offset = 0; loadInventory(); });
 byId("status-filter").addEventListener("change", (event) => { state.status = event.target.value; state.offset = 0; loadInventory(); });
+byId("inventory-view-visual").addEventListener("click", () => setInventoryView("visual"));
+byId("inventory-view-table").addEventListener("click", () => setInventoryView("table"));
 byId("previous-page").addEventListener("click", () => { state.offset = Math.max(0, state.offset - PAGE_SIZE); loadInventory(); });
 byId("next-page").addEventListener("click", () => { if (state.offset + PAGE_SIZE < state.total) { state.offset += PAGE_SIZE; loadInventory(); } });
 byId("refresh-button").addEventListener("click", () => reloadDashboard());
