@@ -63,9 +63,11 @@ def _name_core(value: object) -> str:
         flags=re.IGNORECASE,
     )
     text = re.sub(r"\b(?:parallel|alternate art|alt art|manga|reprint)\b", " ", text)
-    text = re.sub(r"[^a-z0-9]+", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    text = "".join(
+        character if character.isalnum() else " "
+        for character in text
+    )
+    return " ".join(text.split())
 
 
 def _alias(value: object) -> str:
@@ -81,7 +83,9 @@ def _alias(value: object) -> str:
         "alt-art": "alternate art",
         "super parallel": "manga",
         "secret rare": "sec",
+        "secretrare": "sec",
         "super rare": "sr",
+        "superrare": "sr",
         "uncommon": "uc",
         "common": "c",
         "rare": "r",
@@ -210,7 +214,10 @@ def _text_similarity(left: object, right: object) -> float:
         text = str(value or "").casefold()
         text = re.sub(r"<br\s*/?>", " ", text)
         text = re.sub(r"<[^>]+>", " ", text)
-        text = re.sub(r"[^a-z0-9]+", " ", text)
+        text = "".join(
+            character if character.isalnum() else " "
+            for character in text
+        )
         return " ".join(text.split())
 
     a = normalize(left)
