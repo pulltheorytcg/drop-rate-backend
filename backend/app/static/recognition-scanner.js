@@ -468,6 +468,15 @@ function handleRecognitionFile(event) {
     return;
   }
 
+  state.recognition.currentResult = null;
+  state.recognition.imageDataUrl = null;
+  byId("recognition-scan").disabled = true;
+  byId("recognition-result").innerHTML = `
+    <div class="recognition-empty">
+      <strong>New card selected</strong>
+      <span>Preparing this image. The previous scan result has been cleared.</span>
+    </div>`;
+
   const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
   const maxBytes = Number(state.recognition.status?.max_image_bytes || 8_000_000);
   if (!allowed.has(file.type)) {
@@ -542,6 +551,11 @@ function recognitionCandidateCard(candidate, label, runId) {
     link.append(image);
     card.append(link);
     loadRecognitionCandidateImage(image, runId, candidate.id);
+  } else if (candidate.source_kind === "CATALOGUE") {
+    const missingImage = document.createElement("div");
+    missingImage.className = "recognition-candidate-image recognition-candidate-image-missing";
+    missingImage.textContent = "Exact printing image not verified yet";
+    card.append(missingImage);
   }
 
   const body = document.createElement("div");
@@ -633,6 +647,7 @@ function renderRecognitionSignals(candidate) {
   [
     ["Identity", signals.identity_confidence],
     ["Printing", signals.printing_confidence],
+    ["Promotion", signals.promotion],
     ["Game", signals.game],
     ["Card number", signals.card_number],
     ["Language", signals.language],
@@ -669,13 +684,29 @@ function renderRecognitionResult(data) {
   const result = byId("recognition-result");
   result.replaceChildren();
   const run = data.run || {};
-  const candidates = data.candidates || [];
+  const candidates = [...(data.candidates || [])]
+    .sort((a, b) => Number(a.rank || 9999) - Number(b.rank || 9999));
   const top = candidates.find((item) => item.catalogue_id === run.top_catalogue_id)
-    || candidates.find((item) => item.rank === 1 && item.source_kind === "CATALOGUE")
+    || candidates.find((item) => item.source_kind === "CATALOGUE" && !item.hard_rejected)
+    || candidates.find((item) => !item.hard_rejected)
+    || candidates[0]
     || null;
-  const runner = candidates
-    .filter((item) => item.source_kind === "CATALOGUE" && item.id !== top?.id)
-    .sort((a, b) => Number(a.rank) - Number(b.rank))[0] || null;
+  const topBaseNumber = String(
+    top?.candidate_snapshot?.card_number
+    || top?.candidate_snapshot?.base_card_id
+    || ""
+  ).toUpperCase();
+  const runnerPool = candidates.filter(
+    (item) => item.id !== top?.id && !item.hard_rejected
+  );
+  const runner = runnerPool.find((item) => {
+    const number = String(
+      item?.candidate_snapshot?.card_number
+      || item?.candidate_snapshot?.base_card_id
+      || ""
+    ).toUpperCase();
+    return topBaseNumber && number === topBaseNumber;
+  }) || runnerPool[0] || null;
 
   const summary = document.createElement("div");
   summary.className = `recognition-decision ${String(run.decision || run.status || "").toLowerCase()}`;
@@ -705,9 +736,12 @@ function renderRecognitionResult(data) {
     }
     result.append(candidatesWrap);
 
+    const marginValue = run.score_margin !== null && run.score_margin !== undefined
+      ? Number(run.score_margin)
+      : (runner ? Math.max(0, Number(top.score || 0) - Number(runner.score || 0)) : null);
     const margin = document.createElement("div");
     margin.className = "recognition-margin";
-    margin.innerHTML = `<span>Identity margin vs runner-up</span><strong>${recognitionPercent(run.score_margin)}</strong>`;
+    margin.innerHTML = `<span>Identity margin vs runner-up</span><strong>${recognitionPercent(marginValue)}</strong>`;
     result.append(margin);
     result.append(renderRecognitionSignals(top));
   }
@@ -883,8 +917,14 @@ async function submitRecognitionFeedback(runId, outcome, catalogueId) {
 async function runRecognitionScan() {
   if (!state.recognition.imageDataUrl || state.recognition.busy) return;
   state.recognition.busy = true;
+  state.recognition.currentResult = null;
   byId("recognition-scan").disabled = true;
   byId("recognition-clear").disabled = true;
+  byId("recognition-result").innerHTML = `
+    <div class="recognition-empty">
+      <strong>Scanning this card…</strong>
+      <span>Reading identity, promotion and exact-printing evidence. Previous results are not shown during this scan.</span>
+    </div>`;
   showMessage(
     "recognition-message",
     "Reading card text, comparing exact printings and checking visual/provider evidence…"

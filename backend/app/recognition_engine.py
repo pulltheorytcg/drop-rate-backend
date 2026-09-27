@@ -32,9 +32,10 @@ WEIGHTS = {
 }
 
 PRINTING_WEIGHTS = {
-    "art": 0.25,
+    "promotion": 0.20,
+    "art": 0.15,
     "finish": 0.10,
-    "visual": 0.55,
+    "visual": 0.45,
     "provider_print": 0.10,
 }
 
@@ -115,10 +116,78 @@ def _round1_marker_present(observation: RecognitionObservation) -> bool:
     return "round1" in compact or "roundone" in compact
 
 
+def _candidate_promotion(candidate: Mapping[str, Any]) -> tuple[str | None, list[str]]:
+    attributes = candidate.get("printing_attributes")
+    if not isinstance(attributes, Mapping):
+        attributes = {}
+    key = str(attributes.get("promotion_key") or "").strip() or None
+    aliases = [
+        str(value).strip()
+        for value in (attributes.get("promotion_aliases") or [])
+        if str(value).strip()
+    ]
+    name = str(attributes.get("promotion_name") or "").strip()
+    if name:
+        aliases.append(name)
+    if key:
+        aliases.append(key)
+
+    legacy_context = " ".join(
+        str(candidate.get(field) or "")
+        for field in ("name", "set_name", "variant")
+    )
+    legacy_compact = re.sub(r"[^a-z0-9]", "", legacy_context.casefold())
+    if not key and ("round1" in legacy_compact or "roundone" in legacy_compact):
+        key = "ROUND1_2026"
+        aliases.extend(["ROUND1", "ROUND1 Promotion Pack"])
+
+    return key, list(dict.fromkeys(aliases))
+
+
+def _observed_promotion_marker(observation: RecognitionObservation) -> str | None:
+    evidence = " ".join(
+        [
+            observation.art_treatment_text,
+            *observation.visible_markers,
+            *observation.ocr_lines,
+        ]
+    )
+    compact = re.sub(r"[^a-z0-9]", "", evidence.casefold())
+    if "round1" in compact or "roundone" in compact:
+        return "ROUND1_2026"
+    return None
+
+
+def _promotion_match(
+    observation: RecognitionObservation,
+    candidate: Mapping[str, Any],
+) -> tuple[float, bool, str | None]:
+    observed = _observed_promotion_marker(observation)
+    key, aliases = _candidate_promotion(candidate)
+    if not observed:
+        return 0.0, False, key
+    if key == observed:
+        return 1.0, True, key
+    observed_compact = re.sub(r"[^a-z0-9]", "", observed.casefold())
+    for alias in aliases:
+        compact = re.sub(r"[^a-z0-9]", "", alias.casefold())
+        if compact and (
+            compact == observed_compact
+            or ("round1" in compact and observed == "ROUND1_2026")
+        ):
+            return 1.0, True, key
+    return 0.0, True, key
+
+
 def _round1_candidate(candidate: Mapping[str, Any]) -> bool:
+    promotion_key, aliases = _candidate_promotion(candidate)
+    if promotion_key == "ROUND1_2026":
+        return True
     context = " ".join(
-        str(candidate.get(key) or "")
-        for key in ("name", "set_name", "variant")
+        [
+            *(str(candidate.get(key) or "") for key in ("name", "set_name", "variant")),
+            *aliases,
+        ]
     )
     compact = re.sub(r"[^a-z0-9]", "", context.casefold())
     return "round1" in compact or "roundone" in compact
@@ -933,6 +1002,24 @@ def score_candidate(
         learning_confidence = min(1.0, 0.75 + 0.05 * min(learning_count, 5))
         add_identity("learning", learning_similarity, learning_confidence)
 
+    promotion_match, promotion_observed, promotion_key = _promotion_match(
+        observation,
+        candidate,
+    )
+    signals["promotion"] = {
+        "match": round(promotion_match, 5),
+        "available": promotion_observed,
+        "observed": _observed_promotion_marker(observation),
+        "candidate": promotion_key,
+        "source": "visible_marker",
+    }
+    if promotion_observed:
+        add_printing(
+            "promotion",
+            promotion_match,
+            max(observation.art_treatment_confidence, 0.90),
+        )
+
     art_values = _candidate_art(candidate)
     provider_art = str(provider_item.get("art_treatment") or "") if provider_item else ""
     art_match = _best_alias_match(observation.art_treatment_text, art_values)
@@ -1122,6 +1209,7 @@ async def load_catalogue_candidates(
             p.id as catalogue_id,p.game,p.name,p.set_name,p.card_number,
             p.variant,p.rarity,p.language,pr.system_code,pr.identity_status,
             cp.printing_key,cp.identity_status as printing_identity_status,
+            coalesce(cp.attributes,'{{}}'::jsonb) as printing_attributes,
             coalesce(t.taxonomy,'[]'::jsonb) as taxonomy,
             coalesce(pm.provider_mappings,'[]'::jsonb) as provider_mappings,
             m.public_source_url as reference_image_url,
@@ -1425,29 +1513,40 @@ def _provider_only_candidates(
     observation: RecognitionObservation,
     provider_evidence: list[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
+    """Rank provider-only alternatives by their own evidence, never by global OCR confidence."""
     output: list[dict[str, Any]] = []
+    observed_number = _compact(observation.card_number)
+    observed_language = clean_language(observation.language)
+
     for item in provider_evidence:
         provider = str(item.get("provider") or "").strip()
         provider_id = str(item.get("provider_id") or "").strip()
         if not provider or not provider_id:
             continue
-        name = item.get("provider_name") or item.get("name") or observation.name_guess
-        rarity = item.get("provider_rarity") or item.get("rarity")
-        card_type = item.get("provider_category") or item.get("card_type")
-        art = item.get("art_treatment") or ""
-        score = (
-            0.32 * observation.card_number_confidence
-            + 0.14 * observation.language_confidence
-            + 0.12 * _ratio(_name_core(observation.name_guess), _name_core(name))
-              * observation.name_confidence
-            + 0.05 * _best_alias_match(observation.rarity_text, [str(rarity or "")])
-              * observation.rarity_confidence
-            + 0.03 * _best_alias_match(observation.card_type_text, [str(card_type or "")])
-              * observation.card_type_confidence
-            + 0.06 * _best_alias_match(observation.art_treatment_text, [str(art)])
-              * observation.art_treatment_confidence
-            + 0.04
+
+        identity_score = max(0.0, min(1.0, float(item.get("identity_score") or 0.0)))
+        retrieval_score = max(0.0, min(1.0, float(item.get("retrieval_score") or 0.0)))
+        visual_raw = item.get("visual_similarity")
+        visual_score = (
+            max(0.0, min(1.0, float(visual_raw)))
+            if visual_raw is not None
+            else 0.0
         )
+        score = (
+            0.85 * identity_score
+            + 0.10 * retrieval_score
+            + 0.05 * visual_score
+        )
+
+        base_card_id = _compact(item.get("base_card_id"))
+        item_language = clean_language(item.get("language"))
+        number_match = bool(
+            observed_number and base_card_id and observed_number == base_card_id
+        )
+        language_match = bool(
+            observed_language and item_language and observed_language == item_language
+        )
+
         output.append(
             {
                 "candidate_key": f"provider:{provider}:{provider_id}",
@@ -1456,24 +1555,45 @@ def _provider_only_candidates(
                 "catalogue_id": None,
                 "provider": provider,
                 "provider_id": provider_id,
-                "provider_language": observation.language,
-                "score": round(min(1.0, score), 5),
+                "provider_language": item_language,
+                "score": round(score, 5),
                 "hard_rejected": False,
                 "rejection_reasons": [],
                 "signals": {
-                    "provider": {"match": 1.0},
+                    "provider": {
+                        "match": round(identity_score, 5),
+                        "source": "provider",
+                    },
                     "card_number": {
-                        "match": 1.0,
+                        "match": 1.0 if number_match else 0.0,
                         "confidence": observation.card_number_confidence,
+                        "observed": observation.card_number,
+                        "candidate": item.get("base_card_id"),
+                        "source": "provider",
                     },
                     "language": {
-                        "match": 1.0,
+                        "match": 1.0 if language_match else 0.0,
                         "confidence": observation.language_confidence,
+                        "observed": observed_language,
+                        "candidate": item_language,
+                        "source": "provider",
+                    },
+                    "visual": {
+                        "match": round(visual_score, 5),
+                        "available": visual_raw is not None,
+                        "source": "provider_image",
                     },
                 },
                 "candidate_snapshot": dict(item),
             }
         )
+
+    output.sort(
+        key=lambda item: (
+            -float(item["score"]),
+            str(item.get("provider_id") or ""),
+        )
+    )
     return output
 
 
@@ -1520,11 +1640,12 @@ def resolve_candidates(
                     "printing_key": candidate.get("printing_key"),
                     "identity_status": candidate.get("identity_status"),
                     "printing_identity_status": candidate.get("printing_identity_status"),
+                    "printing_attributes": candidate.get("printing_attributes") or {},
                     "taxonomy": candidate.get("taxonomy") or [],
-                    "reference_image_url": (
-                        candidate.get("reference_image_url")
-                        or scored["signals"]["provider"].get("image_url")
-                    ),
+                    # Catalogue artwork must represent this exact printing.
+                    # Provider identity images are evidence only and must never be
+                    # promoted into a catalogue candidate snapshot by fallback.
+                    "reference_image_url": candidate.get("reference_image_url"),
                     "max_known_value_minor": candidate.get("max_known_value_minor"),
                 },
             }
@@ -1619,6 +1740,22 @@ def resolve_candidates(
             f"OCR read {number_signal.get('observed') or 'an uncertain number'}, but stronger independent evidence resolves this identity as {number_signal.get('recovered') or number_signal.get('candidate')}. Human review is required before exact-printing approval."
         )
 
+    observed_promotion = _observed_promotion_marker(observation)
+    if observed_promotion:
+        promotion_signal = top["signals"].get("promotion", {})
+        if float(promotion_signal.get("match") or 0.0) < 1.0:
+            exact = False
+            risks.append("PROMOTION_PRINTING_MISMATCH")
+            reasons.append(
+                "A promotion/collaboration mark is visible, but the top catalogue printing is not tagged as that promotion."
+            )
+        elif not top["candidate_snapshot"].get("reference_image_url"):
+            exact = False
+            risks.append("PROMOTION_MEDIA_UNVERIFIED")
+            reasons.append(
+                "The promotion family is identified, but exact canonical artwork has not yet been verified for this printing."
+            )
+
     if observation.language == "Unknown" or observation.language_confidence < 0.85:
         exact = False
         reasons.append("Language is not confidently established.")
@@ -1704,7 +1841,15 @@ def resolve_candidates(
                 if float(item["signals"]["provider"]["match"]) >= 0.90
             ) == 1
         )
-        if not (art_unique or visual_unique or provider_unique):
+        promotion_unique = (
+            float(top["signals"].get("promotion", {}).get("match") or 0.0) >= 1.0
+            and sum(
+                1
+                for item in viable
+                if float(item["signals"].get("promotion", {}).get("match") or 0.0) >= 1.0
+            ) == 1
+        )
+        if not (art_unique or visual_unique or provider_unique or promotion_unique):
             exact = False
             risks.append("AMBIGUOUS_PRINTING")
             reasons.append(

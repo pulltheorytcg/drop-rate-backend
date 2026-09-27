@@ -257,6 +257,84 @@ def test_bilingual_japanese_name_aliases_keep_native_and_english_forms() -> None
     assert "nami" in aliases
 
 
+def test_round1_promotion_beats_non_promotion_printing_with_same_card_number() -> None:
+    obs = observation(
+        name_guess="ナミ",
+        card_number="ST29-008",
+        card_number_confidence=0.99,
+        art_treatment_text="ROUND1 ONE PIECE collaboration promotional artwork",
+        art_treatment_confidence=0.99,
+        visible_markers=["ROUND1 ONE PIECE", "NOT FOR SALE"],
+        ocr_lines=["ナミ", "ST29-008", "ROUND1"],
+        finish_text="Foil",
+        finish_confidence=0.80,
+    )
+    normal = candidate(
+        name="Nami",
+        card_number="ST29-008",
+        language="Japanese",
+        art="Base",
+        max_value=500,
+    )
+    promo = candidate(
+        name="Nami (Round 1 Promo)",
+        card_number="ST29-008",
+        language="Japanese",
+        art="Base",
+        max_value=500,
+    )
+    promo["printing_attributes"] = {
+        "promotion_key": "ROUND1_2026",
+        "promotion_name": "ROUND1 Promotion Pack",
+        "promotion_aliases": ["ROUND1", "Round One"],
+        "exclusive_artwork": True,
+    }
+    normal["printing_attributes"] = {}
+
+    result = resolve(obs, [normal, promo])
+
+    assert result["top"]["catalogue_id"] == promo["catalogue_id"]
+    assert result["top"]["signals"]["promotion"]["match"] == 1.0
+    assert result["runner_up"]["catalogue_id"] == normal["catalogue_id"]
+    assert result["runner_up"]["signals"]["promotion"]["match"] == 0.0
+    assert result["decision"] == "NEEDS_REVIEW"
+    assert "PROMOTION_MEDIA_UNVERIFIED" in result["risk_flags"]
+
+
+def test_provider_only_candidates_rank_by_their_own_identity_not_global_ocr_confidence() -> None:
+    obs = observation(
+        name_guess="ナミ",
+        card_number="P-0?3",
+        card_number_confidence=0.20,
+        language="Japanese",
+        language_confidence=0.99,
+    )
+    weak = {
+        "provider": "Punk Records",
+        "provider_id": "ST01-007",
+        "base_card_id": "ST01-007",
+        "language": "Japanese",
+        "identity_score": 0.61,
+        "retrieval_score": 0.75,
+        "visual_similarity": None,
+    }
+    strong = {
+        "provider": "Punk Records",
+        "provider_id": "ST29-008",
+        "base_card_id": "ST29-008",
+        "language": "Japanese",
+        "identity_score": 0.90,
+        "retrieval_score": 1.0,
+        "visual_similarity": 0.56,
+    }
+
+    result = resolve(obs, [], provider_evidence=[weak, strong])
+
+    assert result["candidates"][0]["provider_id"] == "ST29-008"
+    assert result["candidates"][0]["score"] > result["candidates"][1]["score"]
+    assert result["candidates"][0]["signals"]["card_number"]["match"] == 0.0
+
+
 def test_same_number_base_vs_parallel_without_unique_discriminator_needs_review() -> None:
     base = candidate(art="Base")
     parallel = candidate(art="Parallel", name="Monkey D. Luffy (Parallel)")
@@ -856,7 +934,7 @@ def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> 
 
 def test_recognition_logic_change_bumps_idempotency_version() -> None:
     api = API.read_text()
-    assert 'ENGINE_VERSION = "v1.4.2"' in api
+    assert 'ENGINE_VERSION = "v1.4.3"' in api
     assert 'f"recognition:{ENGINE_VERSION}:{settings.recognition_model}:"' in api
 
 
@@ -1103,6 +1181,7 @@ def test_identity_and_printing_confidence_are_separate_in_ui() -> None:
     ui = SCANNER.read_text()
     assert "Identity confidence" in ui
     assert "Printing confidence" in ui
+    assert '["Promotion", signals.promotion]' in ui
     assert "Identity margin vs runner-up" in ui
     assert "provider override (OCR read" in ui
 
@@ -1282,3 +1361,7 @@ def test_scanner_candidate_image_uses_authenticated_proxy_and_shows_market_value
     assert "AbortController" in ui
     assert "70000" in ui
     assert "candidate.provider_id" in ui
+    assert "Exact printing image not verified yet" in ui
+    assert "Previous results are not shown during this scan." in ui
+    assert "The previous scan result has been cleared." in ui
+    assert "candidates.find((item) => !item.hard_rejected)" in ui
