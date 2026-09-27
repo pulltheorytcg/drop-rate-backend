@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Mapping, Sequence
 from typing import Any
 from uuid import UUID
@@ -172,7 +173,7 @@ async def rebuild_reference_index(
             row["media_asset_id"],
             row["system_code"],
             FINGERPRINT_VERSION,
-            __import__("json").dumps(encode_fingerprints(hashes)),
+            json.dumps(encode_fingerprints(hashes)),
             trust_level,
             row["media_asset_version"],
             row["public_source_url"],
@@ -277,6 +278,30 @@ async def discover_reference_candidate_hints(
         ),
     )
     return ranked[:max_candidates]
+
+
+def attach_reference_candidate_hints(
+    candidates: list[dict[str, Any]],
+    hints: Sequence[Mapping[str, Any]],
+) -> None:
+    """Attach persistent retrieval provenance to local catalogue candidates."""
+    by_catalogue = {
+        str(item.get("catalogue_id")): item
+        for item in hints
+        if item.get("catalogue_id") is not None
+    }
+    for candidate in candidates:
+        hint = by_catalogue.get(str(candidate.get("catalogue_id")))
+        if hint is None:
+            candidate["reference_index_similarity"] = None
+            candidate["reference_index_trust"] = None
+            candidate["reference_index_media_asset_id"] = None
+            candidate["reference_index_fingerprint_version"] = None
+            continue
+        candidate["reference_index_similarity"] = float(hint.get("similarity") or 0.0)
+        candidate["reference_index_trust"] = str(hint.get("trust_level") or "")
+        candidate["reference_index_media_asset_id"] = hint.get("media_asset_id")
+        candidate["reference_index_fingerprint_version"] = hint.get("fingerprint_version")
 
 
 async def reference_index_status(connection) -> dict[str, Any]:
