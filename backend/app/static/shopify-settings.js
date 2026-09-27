@@ -666,6 +666,8 @@ function renderShopifyMedia(capability, data, queueData) {
     if (
       asset.approval_status === "APPROVED"
       && asset.rights_status === "VERIFIED"
+      && ["STOREFRONT_ALLOWED", "FIRST_PARTY_CAPTURE"].includes(asset.rights_tier)
+      && asset.source_status === "ACTIVE"
       && ["NOT_UPLOADED", "UPLOADED", "PROCESSING"].includes(asset.shopify_file_status)
     ) {
       const sync = document.createElement("button");
