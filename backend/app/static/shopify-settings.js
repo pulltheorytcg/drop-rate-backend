@@ -641,6 +641,8 @@ function renderShopifyMedia(capability, data, queueData) {
     [
       ["Approval", asset.approval_status],
       ["Rights", asset.rights_status],
+      ["Use", asset.rights_tier],
+      ["Source", asset.source_status],
       ["File", asset.shopify_file_status],
     ].forEach(([label, value]) => {
       const chip = document.createElement("span");
