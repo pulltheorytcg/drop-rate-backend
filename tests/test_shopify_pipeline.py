@@ -973,7 +973,7 @@ def test_media_rights_migration_tracks_exact_identity_and_source_health() -> Non
         ROOT
         / "database"
         / "migrations"
-        / "20260927154500_media_rights_resolver.sql"
+        / "20260927160758_media_rights_resolver.sql"
     ).read_text()
     lowered = migration.casefold()
     assert "rights_tier" in migration
