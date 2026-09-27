@@ -184,13 +184,13 @@ def test_tcggraph_shopify_sync_is_bulk_and_never_publishes_products() -> None:
     assert "publish_product(" not in sync_block
 
 
-def test_media_workspace_exposes_tcggraph_preview_import_and_shopify_sync() -> None:
+def test_tcggraph_remains_optional_backend_fallback_not_primary_ui() -> None:
     ui = (ROOT / "backend" / "app" / "static" / "media-condition.js").read_text()
-    assert "TCGGraph images" in ui
-    assert "/api/v1/media/tcggraph/status" in ui
-    assert "/api/v1/media/tcggraph/resolve" in ui
-    assert "/api/v1/media/tcggraph/sync-shopify" in ui
-    assert "Preview matches" in ui
-    assert "Import exact matches" in ui
-    assert "Sync images to Shopify" in ui
-    assert "No products were published" in ui
+    source = MEDIA.read_text()
+
+    assert '@router.get("/status")' in source
+    assert '@router.post("/resolve")' in source
+    assert '@router.post("/sync-shopify")' in source
+    assert "TCGGraph images" not in ui
+    assert "/api/v1/media/tcggraph/status" not in ui
+    assert "/api/v1/media/free/status" in ui
