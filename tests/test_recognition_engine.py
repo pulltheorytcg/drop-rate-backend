@@ -472,7 +472,9 @@ def test_mobile_live_camera_scanner_uses_rear_camera_and_one_tap_recognition() -
     assert 'cameraFacingMode: "environment"' in ui
     assert 'facingMode: { ideal: facingMode }' in ui
     assert "recognitionCardCrop" in ui
-    assert 'canvas.toDataURL("image/jpeg", 0.92)' in ui
+    assert "canvas.toBlob" in ui
+    assert "recognitionCanvasJpegDataUrl" in ui
+    assert "recognitionPromiseTimeout" in ui
     assert "await runRecognitionScan()" in ui
 
 
