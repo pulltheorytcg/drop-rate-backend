@@ -542,6 +542,11 @@ function recognitionCandidateCard(candidate, label, runId) {
     link.append(image);
     card.append(link);
     loadRecognitionCandidateImage(image, runId, candidate.id);
+  } else if (candidate.source_kind === "CATALOGUE") {
+    const missingImage = document.createElement("div");
+    missingImage.className = "recognition-candidate-image recognition-candidate-image-missing";
+    missingImage.textContent = "Exact printing image not verified yet";
+    card.append(missingImage);
   }
 
   const body = document.createElement("div");
