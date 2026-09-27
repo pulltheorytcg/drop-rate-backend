@@ -13,6 +13,8 @@ alter table tcg.media_assets
     add column media_variant text not null default '',
     add column permission_evidence_url text,
     add column source_status text not null default 'ACTIVE',
+    add column source_status_note text,
+    add column source_checked_at timestamptz,
     add column rights_verified_at timestamptz,
     add column revoked_at timestamptz,
     add column revoked_by_user_id uuid references auth.users(id),
