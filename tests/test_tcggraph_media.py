@@ -170,3 +170,27 @@ def test_adapter_is_server_side_explicit_and_rights_governed() -> None:
     assert 'TCG_TCGGRAPH_API_KEY' in settings
     assert "tcggraph_media_router" in main
     assert "require_platform_admin_request" in main
+
+
+def test_tcggraph_shopify_sync_is_bulk_and_never_publishes_products() -> None:
+    source = MEDIA.read_text()
+    assert '@router.post("/sync-shopify")' in source
+    assert "create_file_from_url" in source
+    assert "get_file" in source
+    assert '"product_publications": 0' in source
+    sync_start = source.index('@router.post("/sync-shopify")')
+    sync_block = source[sync_start:]
+    assert "create_product(" not in sync_block
+    assert "publish_product(" not in sync_block
+
+
+def test_media_workspace_exposes_tcggraph_preview_import_and_shopify_sync() -> None:
+    ui = (ROOT / "backend" / "app" / "static" / "media-condition.js").read_text()
+    assert "TCGGraph images" in ui
+    assert "/api/v1/media/tcggraph/status" in ui
+    assert "/api/v1/media/tcggraph/resolve" in ui
+    assert "/api/v1/media/tcggraph/sync-shopify" in ui
+    assert "Preview matches" in ui
+    assert "Import exact matches" in ui
+    assert "Sync images to Shopify" in ui
+    assert "No products were published" in ui
