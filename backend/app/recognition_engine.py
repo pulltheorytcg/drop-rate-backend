@@ -119,7 +119,7 @@ def _round1_marker_present(observation: RecognitionObservation) -> bool:
 def _candidate_promotion(candidate: Mapping[str, Any]) -> tuple[str | None, list[str]]:
     attributes = candidate.get("printing_attributes")
     if not isinstance(attributes, Mapping):
-        return None, []
+        attributes = {}
     key = str(attributes.get("promotion_key") or "").strip() or None
     aliases = [
         str(value).strip()
@@ -131,6 +131,16 @@ def _candidate_promotion(candidate: Mapping[str, Any]) -> tuple[str | None, list
         aliases.append(name)
     if key:
         aliases.append(key)
+
+    legacy_context = " ".join(
+        str(candidate.get(field) or "")
+        for field in ("name", "set_name", "variant")
+    )
+    legacy_compact = re.sub(r"[^a-z0-9]", "", legacy_context.casefold())
+    if not key and ("round1" in legacy_compact or "roundone" in legacy_compact):
+        key = "ROUND1_2026"
+        aliases.extend(["ROUND1", "ROUND1 Promotion Pack"])
+
     return key, list(dict.fromkeys(aliases))
 
 
