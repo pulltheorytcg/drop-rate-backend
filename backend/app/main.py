@@ -42,6 +42,7 @@ from .owner_onboarding import router as owner_onboarding_router
 from .imported_benchmark_pricing import router as imported_benchmark_pricing_router
 from .ebay_sold_pricing import router as ebay_sold_pricing_router
 from .pricing_preview import router as pricing_preview_router
+from .recognition import router as recognition_router
 from .purchase_lots import router as purchase_lots_router
 from .refunds import router as refunds_router
 from .settings import get_settings
@@ -74,6 +75,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/founder-finance.js" defer></script>',
         '<script src="/assets/dashboard-shell.js" defer></script>',
         '<script src="/assets/identity-review.js" defer></script>',
+        '<script src="/assets/recognition-scanner.js" defer></script>',
         '<script src="/assets/shopify-settings.js" defer></script>',
         '<script src="/assets/media-condition.js" defer></script>',
         '<script src="/assets/market-smoke-panel.js" defer></script>',
@@ -268,6 +270,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_market_values_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(inventory_state_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(identity_review_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(recognition_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(shopify_router)
     app.include_router(shopify_pipeline_router, dependencies=[Depends(require_platform_admin_request)])
