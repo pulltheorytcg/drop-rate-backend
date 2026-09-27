@@ -201,6 +201,7 @@ async def test_punk_records_resolves_only_unsuffixed_normal_one_piece_card(monke
     result = await client.resolve_japanese_card(
         card_number="EB04-021",
         variant="Normal",
+        name="Igaram",
     )
     assert result["resolved"] is True
     assert result["provider"] == "Punk Records"
@@ -212,15 +213,46 @@ async def test_punk_records_resolves_only_unsuffixed_normal_one_piece_card(monke
 
 
 @pytest.mark.asyncio
-async def test_punk_records_fails_closed_for_unmapped_parallel_variant() -> None:
+async def test_punk_records_allows_standard_foil_base_art(monkeypatch) -> None:
+    client = PunkRecordsClient()
+
+    async def fake_index():
+        return {
+            "EB04-015": {
+                "card_id": "EB04-015",
+                "pack_id": "550204",
+            }
+        }
+
+    async def fake_get(path):
+        return {
+            "id": "EB04-015",
+            "img_full_url": "https://www.onepiece-cardgame.com/images/cardlist/card/EB04-015.png",
+        }
+
+    monkeypatch.setattr(client, "_cards_index", fake_index)
+    monkeypatch.setattr(client, "_get_json", fake_get)
+
+    result = await client.resolve_japanese_card(
+        card_number="EB04-015",
+        variant="Foil",
+        name="Jinbe",
+    )
+    assert result["resolved"] is True
+    assert result["provider_id"] == "EB04-015"
+
+
+@pytest.mark.asyncio
+async def test_punk_records_fails_closed_for_explicit_parallel_name() -> None:
     client = PunkRecordsClient()
     result = await client.resolve_japanese_card(
-        card_number="EB04-021",
-        variant="Parallel",
+        card_number="EB04-002",
+        variant="Foil",
+        name="Jewelry Bonney (Parallel)",
     )
     assert result == {
         "resolved": False,
-        "reason": "One Piece alternate-art variant requires explicit mapping",
+        "reason": "One Piece alternate-art card requires explicit provider suffix mapping",
     }
 
 
