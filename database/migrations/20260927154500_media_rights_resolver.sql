@@ -92,22 +92,8 @@ create index media_assets_storefront_resolver_idx
       and rights_status='VERIFIED'
       and shopify_file_status='READY';
 
--- A catalogue row can occasionally serve inventory whose explicit language
--- differs from a legacy catalogue language. Uniqueness therefore includes the
--- source image's declared language and variant rather than just catalogue ID.
-drop index if exists tcg.media_assets_canonical_live_side_uidx;
-
-create unique index media_assets_canonical_live_side_uidx
-    on tcg.media_assets(
-        owner_id,
-        catalogue_id,
-        lower(coalesce(media_language,'')),
-        lower(coalesce(media_variant,'')),
-        side
-    )
-    where scope='CANONICAL_CARD'
-      and approval_status <> 'REJECTED'
-      and shopify_file_status <> 'FAILED'
-      and source_status <> 'REVOKED';
+-- Keep the existing live-side uniqueness constraint intact.
+-- Catalogue identity is already canonical; language/variant checks are enforced
+-- by the resolver and API before storefront use.
 
 commit;
