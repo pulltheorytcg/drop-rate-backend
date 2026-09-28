@@ -406,13 +406,105 @@ def test_counterfeit_concern_never_auto_passes() -> None:
 
 
 def test_provider_only_match_is_review_not_exact() -> None:
+    external = provider("OP05-119_p1", art="Parallel")
+    external.update(
+        {
+            "identity_score": 0.94,
+            "identity_evidence_weight": 0.72,
+            "non_number_identity_score": 0.95,
+            "non_number_evidence_weight": 0.68,
+            "retrieval_score": 0.96,
+            "language": "Japanese",
+        }
+    )
     result = resolve(
         observation(),
         [],
-        provider_evidence=[provider("OP05-119_p1", art="Parallel")],
+        provider_evidence=[external],
     )
     assert result["decision"] == "NEEDS_REVIEW"
-    assert result["top"] is None
+    assert result["top"]["source_kind"] == "PROVIDER"
+    assert result["top"]["catalogue_id"] is None
+    assert "UNMAPPED_PROVIDER_CANDIDATE" in result["risk_flags"]
+
+
+def test_strong_unmapped_provider_printing_challenges_local_catalogue_candidate() -> None:
+    local = candidate()
+    external = provider("EB03-054_round1", art="ROUND1 Promo", visual=0.98)
+    external.update(
+        {
+            "base_card_id": "EB03-054",
+            "name": "Nico Robin",
+            "language": "Japanese",
+            "identity_score": 0.72,
+            "identity_evidence_weight": 0.60,
+            "non_number_identity_score": 0.96,
+            "non_number_evidence_weight": 0.72,
+            "retrieval_score": 0.98,
+        }
+    )
+
+    result = resolve(
+        observation(
+            name_guess="Nico Robin",
+            card_number="ST29-009",
+            card_number_confidence=0.78,
+            art_treatment_text="ROUND1 ONE PIECE promotional artwork",
+            art_treatment_confidence=0.98,
+            visible_markers=["ROUND1 ONE PIECE"],
+            ocr_lines=["Nico Robin", "ST29-009", "ROUND1"],
+        ),
+        [local],
+        provider_evidence=[external],
+    )
+
+    assert result["decision"] == "NEEDS_REVIEW"
+    assert "UNMAPPED_PROVIDER_CHALLENGER" in result["risk_flags"]
+    assert any(
+        item["source_kind"] == "PROVIDER"
+        and item["provider_id"] == "EB03-054_round1"
+        for item in result["candidates"]
+    )
+    shown = [result["top"], result["runner_up"]]
+    assert any(
+        item is not None
+        and item["source_kind"] == "PROVIDER"
+        and item["provider_id"] == "EB03-054_round1"
+        for item in shown
+    )
+
+
+def test_explicitly_mapped_provider_row_is_not_duplicated_as_external_candidate() -> None:
+    local = candidate(provider_id="OP05-119")
+    local["provider_mappings"] = [
+        {
+            "source_provider": "Punk Records",
+            "provider_id": "OP05-119",
+            "match_status": "VERIFIED",
+        }
+    ]
+    external = provider("OP05-119", art="Base", visual=0.99)
+    external.update(
+        {
+            "identity_score": 0.98,
+            "identity_evidence_weight": 0.80,
+            "non_number_identity_score": 0.98,
+            "non_number_evidence_weight": 0.75,
+            "retrieval_score": 1.0,
+            "language": "Japanese",
+        }
+    )
+
+    result = resolve(
+        observation(),
+        [local],
+        provider_evidence=[external],
+    )
+
+    assert not any(
+        item["source_kind"] == "PROVIDER"
+        for item in result["candidates"]
+    )
 
 
 def test_image_decoder_hashes_valid_front_image_without_persisting_pixels() -> None:
@@ -495,6 +587,8 @@ def test_founder_hq_exposes_recognition_scanner_and_safety_copy() -> None:
     assert "Recognise exact printing" in ui
     assert "Top candidate" in ui
     assert "Runner-up" in ui
+    assert "Unmapped provider challenger" in ui
+    assert "Top evidence candidate · catalogue mapping required" in ui
     assert "Art treatment" in ui
     assert "Recognition Engine v1 never auto-edits inventory identity" in ui
     assert "Confirm top candidate" in ui
