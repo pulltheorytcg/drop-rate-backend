@@ -60,6 +60,15 @@ def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
     for field in allowed:
         assert field in query
 
+    assert "as image_url" in query
+    assert "m.scope='INVENTORY_ITEM'" in query
+    assert "m.scope='CANONICAL_CARD'" in query
+    assert "m.approval_status='APPROVED'" in query
+    assert "m.rights_status='VERIFIED'" in query
+    assert "m.rights_tier='STOREFRONT_ALLOWED'" in query
+    assert "m.source_status='ACTIVE'" in query
+    assert "m.revoked_at is null" in query
+
     forbidden = (
         "acquisition_cost_minor",
         "acquisition_date",
