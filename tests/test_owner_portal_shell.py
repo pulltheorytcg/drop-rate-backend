@@ -15,8 +15,8 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=owner-v5" defer></script>' in html
-    assert '<script src="/assets/owner-recognition.js?v=owner-v5" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=owner-v6" defer></script>' in html
+    assert '<script src="/assets/owner-recognition.js?v=owner-v6" defer></script>' in html
 
     for founder_script in (
         "dashboard-shell.js",
@@ -133,7 +133,7 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     css = CSS.read_text()
     js = JS.read_text()
 
-    assert 'href="/assets/owner-portal.css?v=owner-v5"' in html
+    assert 'href="/assets/owner-portal.css?v=owner-v6"' in html
     assert 'class="owner-portal-page"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
@@ -263,3 +263,67 @@ def test_mobile_batch_scanner_has_manual_capture_fallback() -> None:
     assert 'ownerBatchSetCameraState("Auto-scan on · tap Capture now any time")' in js
     assert ".owner-portal-page .owner-batch-capture-now{display:none}" in css
     assert "display:grid;grid-template-columns:auto auto 1fr" in css
+
+
+def test_mobile_scanner_v2_keeps_latest_match_in_camera_flow() -> None:
+    html = HTML.read_text()
+    js = RECOGNITION_JS.read_text()
+    css = CSS.read_text()
+
+    for element_id in (
+        "owner-batch-latest",
+        "owner-batch-latest-thumb",
+        "owner-batch-latest-status",
+        "owner-batch-latest-name",
+        "owner-batch-latest-meta",
+        "owner-batch-latest-value",
+        "owner-batch-latest-fix",
+        "owner-batch-latest-remove",
+    ):
+        assert f'id="{element_id}"' in html
+
+    assert "function ownerBatchRenderLatest()" in js
+    assert "ownerBatchSelectedName(item)" in js
+    assert "ownerBatchSelectedMeta(item)" in js
+    assert "ownerBatchFormatValue(ownerBatchMarketValue(item))" in js
+    assert "ownerBatchRenderLatest();" in js
+    assert ".owner-portal-page .owner-batch-latest" in css
+    assert ".owner-batch-latest-status.unresolved" in css
+
+
+def test_mobile_scanner_v2_suppresses_only_immediate_auto_duplicates() -> None:
+    js = RECOGNITION_JS.read_text()
+
+    assert "function ownerBatchShouldSuppressAutoCapture(fingerprint)" in js
+    assert "Date.now() - batch.lastAutoCaptureAt > 1800" in js
+    assert "ownerBatchFingerprintDelta(fingerprint, batch.lastAutoCaptureFingerprint) < 0.012" in js
+    assert "ownerBatchShouldSuppressAutoCapture(fingerprint)" in js
+    assert 'ownerBatchSetCameraState("Same card just scanned · move to the next card")' in js
+    assert "batch.lastAutoCaptureAt = Date.now();" in js
+
+
+def test_mobile_scanner_v2_pauses_auto_scan_during_match_correction() -> None:
+    js = RECOGNITION_JS.read_text()
+
+    open_start = js.index("function ownerBatchOpenCorrection")
+    search_start = js.index("function ownerBatchSearchResultCard", open_start)
+    open_block = js[open_start:search_start]
+    close_start = js.index("function ownerBatchCloseCorrection")
+    open_start = js.index("function ownerBatchOpenCorrection", close_start)
+    close_block = js[close_start:open_start]
+
+    assert "batch.paused = true" in open_block
+    assert "batch.stableFrames = 0" in open_block
+    assert "batch.paused = false" in close_block
+    assert "batch.previousFingerprint = null" in close_block
+
+
+def test_mobile_scanner_v2_can_fix_or_remove_latest_match_without_leaving_camera() -> None:
+    js = RECOGNITION_JS.read_text()
+
+    assert 'byId("owner-batch-latest-fix").addEventListener("click"' in js
+    assert 'byId("owner-batch-latest-remove").addEventListener("click"' in js
+    assert "ownerBatchOpenCorrection(item.id)" in js
+    assert "ownerBatchRemoveItem(item.id)" in js
+    assert "function ownerBatchRemoveItem(itemId)" in js
+    assert "batch.latestResultId = batch.items[batch.items.length - 1]?.id || null" in js

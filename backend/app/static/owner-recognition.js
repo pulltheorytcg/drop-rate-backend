@@ -21,6 +21,11 @@ state.ownerRecognition = {
     armed: true,
     currentCorrectionId: null,
     searchTimer: null,
+    latestResultId: null,
+    statusTimer: null,
+    flashTimer: null,
+    lastAutoCaptureFingerprint: null,
+    lastAutoCaptureAt: 0,
   },
 };
 
@@ -81,8 +86,12 @@ async function ownerScanLoadCandidateImage(image, runId, candidateId) {
 
 function ownerScanStopCamera({hide = true} = {}) {
   ownerBatchStopLoop();
+  const batch = state.ownerRecognition.batch;
+  window.clearTimeout(batch.statusTimer);
+  window.clearTimeout(batch.flashTimer);
+  document.querySelector(".owner-scan-card-guide")?.classList.remove("scan-ok", "scan-review");
   document.body.classList.remove("owner-batch-camera-open");
-  state.ownerRecognition.batch.enabled = false;
+  batch.enabled = false;
   if (state.ownerRecognition.cameraStream) {
     state.ownerRecognition.cameraStream.getTracks().forEach((track) => {
       try { track.stop(); } catch (_error) {}
@@ -689,6 +698,39 @@ function ownerBatchSetCameraState(text) {
   if (node) node.textContent = text;
 }
 
+function ownerBatchFlashResult(status) {
+  const guide = document.querySelector(".owner-scan-card-guide");
+  if (!guide) return;
+  window.clearTimeout(state.ownerRecognition.batch.flashTimer);
+  guide.classList.remove("scan-ok", "scan-review");
+  guide.classList.add(status === "recognised" || status === "corrected" ? "scan-ok" : "scan-review");
+  state.ownerRecognition.batch.flashTimer = window.setTimeout(() => {
+    guide.classList.remove("scan-ok", "scan-review");
+  }, 720);
+}
+
+function ownerBatchScheduleReady(itemId) {
+  const batch = state.ownerRecognition.batch;
+  window.clearTimeout(batch.statusTimer);
+  batch.statusTimer = window.setTimeout(() => {
+    if (
+      batch.enabled
+      && !batch.paused
+      && !batch.processing
+      && batch.latestResultId === itemId
+    ) {
+      ownerBatchSetCameraState("Move to the next card · auto-scan ready");
+    }
+  }, 1450);
+}
+
+function ownerBatchShouldSuppressAutoCapture(fingerprint) {
+  const batch = state.ownerRecognition.batch;
+  if (!fingerprint || !batch.lastAutoCaptureFingerprint) return false;
+  if (Date.now() - batch.lastAutoCaptureAt > 1800) return false;
+  return ownerBatchFingerprintDelta(fingerprint, batch.lastAutoCaptureFingerprint) < 0.012;
+}
+
 async function ownerBatchCaptureNow() {
   const batch = state.ownerRecognition.batch;
   const video = byId("owner-scan-video");
@@ -709,6 +751,8 @@ async function ownerBatchCaptureNow() {
     if (fingerprint) {
       batch.previousFingerprint = fingerprint;
       batch.lastAcceptedFingerprint = fingerprint;
+      batch.lastAutoCaptureFingerprint = fingerprint;
+      batch.lastAutoCaptureAt = Date.now();
       batch.armed = false;
       batch.stableFrames = 0;
     }
@@ -760,6 +804,12 @@ async function ownerBatchTick() {
     batch.stableFrames = 0;
     batch.armed = false;
     batch.lastAcceptedFingerprint = fingerprint;
+    if (ownerBatchShouldSuppressAutoCapture(fingerprint)) {
+      ownerBatchSetCameraState("Same card just scanned · move to the next card");
+      return;
+    }
+    batch.lastAutoCaptureFingerprint = fingerprint;
+    batch.lastAutoCaptureAt = Date.now();
     const dataUrl = ownerBatchCaptureDataUrl(video);
     await ownerBatchRecognise(dataUrl);
   }
@@ -860,6 +910,76 @@ function ownerBatchRenderStrip() {
     card.append(copy, fix);
     strip.append(card);
   }
+  strip.scrollLeft = 0;
+}
+
+function ownerBatchLatestItem() {
+  const batch = state.ownerRecognition.batch;
+  return batch.items.find((item) => item.id === batch.latestResultId)
+    || batch.items[batch.items.length - 1]
+    || null;
+}
+
+function ownerBatchRemoveItem(itemId) {
+  const batch = state.ownerRecognition.batch;
+  const item = ownerBatchFindItem(itemId);
+  if (!item || item.status === "added") return;
+  batch.items = batch.items.filter((candidate) => candidate.id !== itemId);
+  batch.latestResultId = batch.items[batch.items.length - 1]?.id || null;
+  ownerBatchRender();
+  if (!byId("owner-batch-review").classList.contains("hidden")) {
+    ownerBatchRenderReview();
+  }
+  ownerBatchSetCameraState(
+    batch.items.length ? "Card removed · keep scanning" : "Point at a card"
+  );
+}
+
+function ownerBatchRenderLatest() {
+  const card = byId("owner-batch-latest");
+  const item = ownerBatchLatestItem();
+  if (!card || !item) {
+    if (card) card.classList.add("hidden");
+    return;
+  }
+
+  state.ownerRecognition.batch.latestResultId = item.id;
+  card.dataset.itemId = item.id;
+  card.className = `owner-batch-latest ${item.status}`;
+  card.classList.remove("hidden");
+
+  const thumb = byId("owner-batch-latest-thumb");
+  thumb.replaceChildren();
+  const image = document.createElement("img");
+  image.src = item.captureDataUrl;
+  image.alt = ownerBatchSelectedName(item);
+  thumb.append(image);
+
+  byId("owner-batch-latest-name").textContent = ownerBatchSelectedName(item);
+  byId("owner-batch-latest-meta").textContent =
+    ownerBatchSelectedMeta(item) || item.guess || "Check this match";
+  byId("owner-batch-latest-value").textContent =
+    item.status === "unresolved" || item.status === "error"
+      ? "Value pending until match is confirmed"
+      : `Market ${ownerBatchFormatValue(ownerBatchMarketValue(item))}`;
+
+  const status = byId("owner-batch-latest-status");
+  const labels = {
+    recognised: "Match found",
+    corrected: "Corrected",
+    unresolved: "Needs review",
+    error: "Needs attention",
+    added: "Added",
+  };
+  status.textContent = labels[item.status] || "Scanned";
+  status.className = `owner-batch-latest-status ${item.status}`;
+
+  const fix = byId("owner-batch-latest-fix");
+  fix.textContent = item.status === "unresolved" || item.status === "error"
+    ? "Fix match"
+    : "Change";
+  fix.disabled = item.status === "added";
+  byId("owner-batch-latest-remove").disabled = item.status === "added";
 }
 
 function ownerBatchRender() {
@@ -870,6 +990,7 @@ function ownerBatchRender() {
   byId("owner-batch-unresolved").textContent = String(unresolved);
   byId("owner-batch-unresolved-wrap").classList.toggle("hidden", unresolved === 0);
   byId("owner-batch-review-button").disabled = items.length === 0;
+  ownerBatchRenderLatest();
   ownerBatchRenderStrip();
 }
 
@@ -921,15 +1042,18 @@ async function ownerBatchRecognise(dataUrl) {
       error: null,
     };
     batch.items.push(item);
+    batch.latestResultId = item.id;
     ownerBatchRender();
+    ownerBatchFlashResult(item.status);
 
     if (autoRecognised) {
       ownerBatchSetCameraState(
         `${ownerBatchSelectedName(item)} · ${ownerBatchFormatValue(ownerBatchMarketValue(item))}`
       );
     } else {
-      ownerBatchSetCameraState("Added to review queue · show the next card");
+      ownerBatchSetCameraState("Needs review · keep scanning or tap Fix match");
     }
+    ownerBatchScheduleReady(item.id);
   } catch (error) {
     const item = {
       id: crypto.randomUUID(),
@@ -948,8 +1072,11 @@ async function ownerBatchRecognise(dataUrl) {
       error: error?.name === "AbortError" ? "Recognition timed out" : error.message,
     };
     batch.items.push(item);
+    batch.latestResultId = item.id;
     ownerBatchRender();
-    ownerBatchSetCameraState("Couldn’t identify that card · it’s in the review queue");
+    ownerBatchFlashResult("unresolved");
+    ownerBatchSetCameraState("Couldn’t identify that card · tap Fix match or keep scanning");
+    ownerBatchScheduleReady(item.id);
   } finally {
     batch.processing = false;
     byId("owner-batch-scan-pulse").classList.add("hidden");
@@ -961,16 +1088,26 @@ function ownerBatchFindItem(id) {
 }
 
 function ownerBatchCloseCorrection() {
-  state.ownerRecognition.batch.currentCorrectionId = null;
+  const batch = state.ownerRecognition.batch;
+  batch.currentCorrectionId = null;
   byId("owner-batch-correction").classList.add("hidden");
   byId("owner-batch-search-results").replaceChildren();
   byId("owner-batch-search-message").textContent = "";
+  if (batch.enabled && state.ownerRecognition.cameraStream) {
+    batch.paused = false;
+    batch.stableFrames = 0;
+    batch.previousFingerprint = null;
+    ownerBatchSetCameraState("Correction saved · show the next card");
+  }
 }
 
 function ownerBatchOpenCorrection(itemId) {
   const item = ownerBatchFindItem(itemId);
   if (!item) return;
-  state.ownerRecognition.batch.currentCorrectionId = itemId;
+  const batch = state.ownerRecognition.batch;
+  batch.currentCorrectionId = itemId;
+  batch.paused = true;
+  batch.stableFrames = 0;
   byId("owner-batch-correction").classList.remove("hidden");
   const input = byId("owner-batch-search-input");
   input.value = item.searchSeed || "";
@@ -1073,8 +1210,10 @@ async function ownerBatchChooseSearchResult(row) {
     item.feedbackOutcome = "CORRECTED_BY_SEARCH";
     item.error = null;
     item.searchSeed = row.card_number || row.name || "";
+    state.ownerRecognition.batch.latestResultId = item.id;
     ownerBatchCloseCorrection();
     ownerBatchRender();
+    ownerBatchFlashResult("corrected");
     ownerBatchRenderReview();
   } catch (error) {
     byId("owner-batch-search-message").textContent = error.message;
@@ -1122,13 +1261,7 @@ function ownerBatchRenderReview() {
     remove.type = "button";
     remove.textContent = item.status === "added" ? "Added" : "Remove";
     remove.disabled = item.status === "added";
-    remove.addEventListener("click", () => {
-      state.ownerRecognition.batch.items = state.ownerRecognition.batch.items.filter(
-        (candidate) => candidate.id !== item.id
-      );
-      ownerBatchRender();
-      ownerBatchRenderReview();
-    });
+    remove.addEventListener("click", () => ownerBatchRemoveItem(item.id));
     actions.append(remove);
 
     row.append(copy, actions);
@@ -1303,6 +1436,14 @@ byId("owner-batch-switch-camera").addEventListener("click", async () => {
   }
 });
 byId("owner-batch-capture-now").addEventListener("click", ownerBatchCaptureNow);
+byId("owner-batch-latest-fix").addEventListener("click", () => {
+  const item = ownerBatchLatestItem();
+  if (item && item.status !== "added") ownerBatchOpenCorrection(item.id);
+});
+byId("owner-batch-latest-remove").addEventListener("click", () => {
+  const item = ownerBatchLatestItem();
+  if (item) ownerBatchRemoveItem(item.id);
+});
 byId("owner-batch-review-button").addEventListener("click", ownerBatchOpenReview);
 byId("owner-batch-resume").addEventListener("click", ownerBatchResume);
 byId("owner-batch-correction-close").addEventListener("click", ownerBatchCloseCorrection);
