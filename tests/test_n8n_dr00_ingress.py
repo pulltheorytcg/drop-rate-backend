@@ -26,14 +26,20 @@ def test_dr00_uses_private_signed_event_contract() -> None:
     assert webhook["parameters"]["httpMethod"] == "POST"
     assert webhook["parameters"]["path"] == "drop-rate/events"
     assert webhook["parameters"]["responseMode"] == "responseNode"
+    assert webhook["parameters"]["options"]["rawBody"] is True
 
     verifier = nodes["Verify Signature + Envelope"]["parameters"]["jsCode"]
     assert "DROP_RATE_AUTOMATION_WEBHOOK_SECRET" in verifier
     assert "x-drop-rate-timestamp" in verifier
     assert "x-drop-rate-signature" in verifier
     assert "createHmac('sha256'" in verifier
+    assert "item.binary?.data?.data" in verifier
+    assert "Buffer.from(encoded, 'base64')" in verifier
+    assert "timestamp + '.' + rawBody" in verifier
+    assert "JSON.stringify(body)" not in verifier
     assert "timingSafeEqual" in verifier
     assert "Math.abs(now-ts) > 300" in verifier
+    assert "/^sha256=[0-9a-f]{64}$/" in verifier
     assert "event_id" in verifier
     assert "idempotency_key" in verifier
     assert "schema_version" in verifier
