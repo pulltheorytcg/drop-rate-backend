@@ -32,6 +32,7 @@ MEDIA_REGISTRY_MIGRATION = ROOT / "database" / "migrations" / "20260925154423_me
 SHIPPING_PROFILE_MIGRATION = ROOT / "database" / "migrations" / "20260925162748_shopify_shipping_profiles.sql"
 FULFILMENT_COST_MIGRATION = ROOT / "database" / "migrations" / "20260925172500_fulfilment_cost_components.sql"
 FULFILMENT_ALLOCATION_MIGRATION = ROOT / "database" / "migrations" / "20260925182500_fulfilment_material_allocation.sql"
+SHOPIFY_AUTOMATION_MIGRATION = ROOT / "database" / "migrations" / "20260928175500_shopify_automation_publication.sql"
 
 
 def test_money_helpers_are_penny_exact() -> None:
@@ -342,9 +343,10 @@ def test_shopify_test_sync_fails_before_remote_create_when_launch_incomplete() -
     assert "No remote product was created or published." in sync
     assert "resolve_storefront_media(" in source
     assert "ACTIVE_FAIL_CLOSED" in source
-    assert "approval_status='APPROVED'" in source
-    assert "rights_status='VERIFIED'" in source
-    assert "shopify_file_status='READY'" in source
+    publication_sql = SHOPIFY_AUTOMATION_MIGRATION.read_text()
+    assert "approval_status='APPROVED'" in publication_sql
+    assert "rights_status='VERIFIED'" in publication_sql
+    assert "shopify_file_status='READY'" in publication_sql
 
 
 def test_shopify_shipping_profile_registry_is_rls_protected_and_audited() -> None:
