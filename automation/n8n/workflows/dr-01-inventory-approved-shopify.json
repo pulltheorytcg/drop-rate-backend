@@ -1,0 +1,397 @@
+{
+  "id": "DR01InventoryApprovedV1",
+  "name": "DR-01 Inventory Approved to Shopify",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "dr01-webhook",
+      "name": "Drop Rate Event Webhook V2",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -900,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "drop-rate/events-v2",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      }
+    },
+    {
+      "id": "dr01-verify",
+      "name": "Verify Signature + Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst item = $input.first();\nconst json = item.json || {};\nconst headers = Object.fromEntries(Object.entries(json.headers || {}).map(([k,v]) => [String(k).toLowerCase(), String(v)]));\nconst timestamp = headers['x-drop-rate-timestamp'] || '';\nconst supplied = headers['x-drop-rate-signature'] || '';\nconst secret = String($env.DROP_RATE_AUTOMATION_WEBHOOK_SECRET || '').trim();\nconst now = Math.floor(Date.now()/1000);\nconst ts = Number(timestamp);\nlet error = null;\nif (secret.length < 32) error = 'secret_not_configured';\nelse if (!Number.isInteger(ts) || Math.abs(now-ts) > 300) error = 'stale_or_invalid_timestamp';\nelse if (!/^sha256=[0-9a-f]{64}$/.test(supplied)) error = 'invalid_signature_format';\n\nlet rawBody = '';\nlet body = null;\nif (!error) {\n  const encoded = item.binary?.data?.data;\n  if (!encoded) error = 'raw_body_missing';\n  else {\n    try {\n      rawBody = Buffer.from(encoded, 'base64').toString('utf8');\n      body = JSON.parse(rawBody);\n    } catch {\n      error = 'invalid_json';\n    }\n  }\n}\nif (!error && (!body || typeof body !== 'object' || Array.isArray(body))) error = 'invalid_body';\nconst required = ['event_id','event_type','schema_version','aggregate','idempotency_key','owner_id','occurred_at','payload'];\nif (!error && required.some((key) => body[key] === undefined || body[key] === null || body[key] === '')) error = 'invalid_envelope';\nif (!error && (!body.aggregate || !body.aggregate.type || !body.aggregate.id)) error = 'invalid_aggregate';\nif (!error && (!Number.isInteger(body.schema_version) || body.schema_version < 1)) error = 'invalid_schema_version';\nif (!error) {\n  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + rawBody, 'utf8').digest('hex');\n  const a = Buffer.from(expected, 'ascii');\n  const b = Buffer.from(supplied, 'ascii');\n  if (a.length !== b.length || !crypto.timingSafeEqual(a,b)) error = 'signature_mismatch';\n}\nreturn [{json:{accepted:!error,error,event:body}}];"
+      }
+    },
+    {
+      "id": "dr01-signature-if",
+      "name": "Signature Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -450,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "accepted",
+              "leftValue": "={{ $json.accepted }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "dr01-event-if",
+      "name": "Inventory Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -220,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "inventory-approved",
+              "leftValue": "={{ $json.event.event_type }}",
+              "rightValue": "inventory.approved",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "dr01-sign-command",
+      "name": "Sign FastAPI Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20,
+        -180
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst event = $json.event;\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst url = String($env.DROP_RATE_API_AUTOMATION_URL || '').trim();\nif (secret.length < 32) throw new Error('automation_command_secret_not_configured');\nif (!url) throw new Error('automation_command_url_not_configured');\nconst body = JSON.stringify(event);\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body, 'utf8').digest('hex');\nreturn [{json:{\n  command_url:url,\n  command_body:body,\n  command_timestamp:timestamp,\n  command_signature:signature,\n  event_id:event.event_id\n}}];"
+      }
+    },
+    {
+      "id": "dr01-http",
+      "name": "Publish Inventory via FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        -180
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.command_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.command_timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.command_signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.command_body }}",
+        "options": {
+          "timeout": 90000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr01-backend-result",
+      "name": "Normalize FastAPI Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        -180
+      ],
+      "parameters": {
+        "jsCode": "const response = $input.first().json || {};\nconst statusCode = Number(response.statusCode || 502);\nreturn [{json:{\n  backend_ok: statusCode >= 200 && statusCode < 300,\n  status_code: statusCode,\n  body: response.body ?? null\n}}];"
+      }
+    },
+    {
+      "id": "dr01-backend-if",
+      "name": "FastAPI Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        -180
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "backend-ok",
+              "leftValue": "={{ $json.backend_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "dr01-success",
+      "name": "Publication Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        960,
+        -260
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: true, result: $json.body } }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "dr01-backend-failed",
+      "name": "Publication Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        960,
+        -100
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: false, error: 'backend_publication_failed', detail: $json.body } }}",
+        "options": {
+          "responseCode": "={{ Math.max(400, Math.min(599, $json.status_code || 502)) }}"
+        }
+      }
+    },
+    {
+      "id": "dr01-unsupported",
+      "name": "Unsupported Event",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        20,
+        20
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: false, error: 'unsupported_event_type' } }}",
+        "options": {
+          "responseCode": 422
+        }
+      }
+    },
+    {
+      "id": "dr01-rejected",
+      "name": "Rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -220,
+        160
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: false, error: $json.error } }}",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Drop Rate Event Webhook V2": {
+      "main": [
+        [
+          {
+            "node": "Verify Signature + Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Signature + Envelope": {
+      "main": [
+        [
+          {
+            "node": "Signature Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature Valid?": {
+      "main": [
+        [
+          {
+            "node": "Inventory Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inventory Approved?": {
+      "main": [
+        [
+          {
+            "node": "Sign FastAPI Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unsupported Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign FastAPI Command": {
+      "main": [
+        [
+          {
+            "node": "Publish Inventory via FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish Inventory via FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Normalize FastAPI Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize FastAPI Result": {
+      "main": [
+        [
+          {
+            "node": "FastAPI Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FastAPI Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Publication Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Publication Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-01",
+      "version": 1,
+      "requiresBuiltinModule": "crypto",
+      "activationGate": "Activate only after FastAPI command secret/URL, database migration, Shopify publish flag, and end-to-end retry semantics are verified."
+    }
+  }
+}
