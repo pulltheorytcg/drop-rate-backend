@@ -20,10 +20,12 @@ case ",${NODE_FUNCTION_ALLOW_BUILTIN:-}," in
     ;;
 esac
 
-if [ "${#DROP_RATE_AUTOMATION_WEBHOOK_SECRET}" -lt 32 ] 2>/dev/null; then
+webhook_secret="${DROP_RATE_AUTOMATION_WEBHOOK_SECRET:-}"
+if [ "${#webhook_secret}" -lt 32 ]; then
   echo "Drop Rate n8n: DROP_RATE_AUTOMATION_WEBHOOK_SECRET must be at least 32 characters." >&2
   exit 1
 fi
+unset webhook_secret
 
 
 # The persistent volume is mounted before the application start command runs.
