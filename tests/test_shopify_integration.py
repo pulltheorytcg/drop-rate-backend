@@ -714,3 +714,35 @@ async def test_shopify_price_only_update_does_not_touch_inventory_fields() -> No
     }
     assert "inventoryItem" not in variant
     assert "inventoryPolicy" not in variant
+
+
+def test_webhook_retry_after_cross_channel_failure_is_database_idempotent() -> None:
+    source = SHOPIFY.read_text()
+    assert "Shopify state committed but eBay cross-channel sync failed" in source
+    assert "status='FAILED'" in source
+    pipeline = (ROOT / "backend" / "app" / "shopify_pipeline.py").read_text()
+    paid = pipeline[pipeline.index("async def _process_paid_order("):pipeline.index("async def _process_cancelled_order(")]
+    assert "ORDER_ALREADY_PROCESSED" in paid
+    assert "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1" in paid
+
+
+def test_duplicate_webhook_id_with_different_payload_is_rejected() -> None:
+    source = SHOPIFY.read_text()
+    assert "on conflict(webhook_id) do nothing" in source
+    assert 'event["payload_sha256"] != payload_sha256' in source
+    assert "Webhook ID was reused with a different payload" in source
+
+
+def test_processed_duplicate_returns_before_business_logic_replay() -> None:
+    source = SHOPIFY.read_text()
+    duplicate_check = source.index('if event["status"] in {"PROCESSED", "IGNORED"}:')
+    processing = source.index("result = await process_shopify_webhook(")
+    assert duplicate_check < processing
+
+
+def test_webhook_business_logic_is_wrapped_in_database_transaction() -> None:
+    source = SHOPIFY.read_text()
+    transaction = source.index("async with connection.transaction():")
+    processing = source.index("result = await process_shopify_webhook(")
+    assert transaction < processing
+    assert "except ShopifyProcessingError" in source[processing:]
