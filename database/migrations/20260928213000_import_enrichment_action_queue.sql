@@ -1,5 +1,20 @@
 begin;
 
+alter table tcg.identity_verification_events
+    drop constraint if exists identity_verification_events_verification_method_check;
+alter table tcg.identity_verification_events
+    add constraint identity_verification_events_verification_method_check
+    check (
+        verification_method in (
+            'PHYSICAL_REVIEW',
+            'IMPORT_EXACT',
+            'IMPORT_DEFAULT_LANGUAGE',
+            'PROVIDER_EXACT',
+            'CORRECTION',
+            'SYSTEM_INVALIDATION'
+        )
+    );
+
 create table tcg.import_enrichment_items (
     id uuid primary key default gen_random_uuid(),
     batch_id uuid not null references tcg.import_batches(id),
