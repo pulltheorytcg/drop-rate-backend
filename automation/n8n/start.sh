@@ -13,7 +13,7 @@ if [ "${N8N_BLOCK_ENV_ACCESS_IN_NODE:-true}" != "false" ]; then
 fi
 
 case ",${NODE_FUNCTION_ALLOW_BUILTIN:-}," in
-  *,crypto,*) ;;
+  ",*,"|*,crypto,*) ;;
   *)
     echo "Drop Rate n8n: NODE_FUNCTION_ALLOW_BUILTIN must include crypto." >&2
     exit 1
