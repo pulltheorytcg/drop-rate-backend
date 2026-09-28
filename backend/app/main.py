@@ -327,7 +327,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_state_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(inventory_sale_intent_router)
     app.include_router(identity_review_router, dependencies=[Depends(require_platform_admin_request)])
-    app.include_router(recognition_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(recognition_router)
     app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(shopify_router)
     app.include_router(shopify_pipeline_router, dependencies=[Depends(require_platform_admin_request)])
