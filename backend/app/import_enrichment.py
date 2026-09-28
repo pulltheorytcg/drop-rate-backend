@@ -20,7 +20,6 @@ from .free_canonical_media import (
     _supported_provider as supported_free_provider,
 )
 from .identity_review import (
-    _catalogue_snapshot,
     _identity_text,
     _physical_snapshot,
     _source_record_dict,
@@ -70,6 +69,20 @@ def _json_dict(value: object) -> dict[str, Any]:
             return {}
         return parsed if isinstance(parsed, dict) else {}
     return {}
+
+
+def _enrichment_catalogue_snapshot(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "catalogue_id": str(row["catalogue_id"]),
+        "product_type": row["product_type"],
+        "game": row["game"],
+        "name": row["name"],
+        "set_name": row["set_name"],
+        "card_number": row["card_number"],
+        "variant": row["variant"],
+        "rarity": row["rarity"],
+        "language": row.get("catalogue_language"),
+    }
 
 
 def _inventory_action_key(inventory_id: UUID, code: str) -> str:
@@ -193,7 +206,7 @@ async def _confirm_identity(
         user_id,
         evidence["verification_method"],
         updated["version"],
-        json.dumps(_catalogue_snapshot(row)),
+        json.dumps(_enrichment_catalogue_snapshot(row)),
         json.dumps(physical_snapshot),
         (
             "Import enrichment exact identity confirmation using "
