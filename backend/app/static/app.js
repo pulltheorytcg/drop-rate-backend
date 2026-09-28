@@ -704,6 +704,7 @@ function renderReadiness(data) {
   const container = byId("issue-buttons");
   container.replaceChildren();
   Object.entries(ISSUE_LABELS).forEach(([key, label]) => {
+    if (!data[key] && state.issue !== key) return;
     const button = document.createElement("button");
     button.type = "button";
     button.className = `issue-button${state.issue === key ? " active" : ""}`;
@@ -715,10 +716,17 @@ function renderReadiness(data) {
       state.issue = state.issue === key ? "" : key;
       state.offset = 0;
       renderReadiness(state.readiness);
+      activateSellerView("inventory", true);
       loadInventory();
     });
     container.append(button);
   });
+  if (!container.children.length) {
+    const note = document.createElement("p");
+    note.className = "muted";
+    note.textContent = data.total ? "No outstanding stock checks." : "Add your first cards to get started.";
+    container.append(note);
+  }
 }
 async function loadReadiness() {
   renderReadiness(await apiRequest("/api/v1/inventory/readiness"));

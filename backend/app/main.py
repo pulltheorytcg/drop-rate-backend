@@ -81,6 +81,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/market-smoke-panel.js" defer></script>',
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
         '<script src="/assets/market-value-column.js" defer></script>',
+        '<script src="/assets/founder-workspace.js" defer></script>',
     )
     for script in scripts:
         if script not in html:

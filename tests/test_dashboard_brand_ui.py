@@ -33,8 +33,8 @@ def test_founder_dashboard_has_new_command_centre_and_simplified_inventory_flow(
     js = SHELL.read_text()
 
     assert "function buildFounderHero()" in js
-    assert "Drop Rate command centre" in js
-    assert "Chase the next hit." in js
+    assert "Your daily workspace" in js
+    assert "Ready for your next drop?" in js
     assert "dashboard-overview-grid" in js
     assert "function utilityDrawer(" in js
     assert 'utilityDrawer("Storage locations"' in js
