@@ -1440,11 +1440,23 @@ async def discover_provider_evidence(
         and (observation.card_number or observation.name_guess)
     ):
         client = punk or PunkRecordsClient()
+        provider_number = observation.card_number or None
+        if (
+            observation.card_number_confidence < 0.55
+            or (
+                observation.card_number_confidence < 0.85
+                and _round1_marker_present(observation)
+            )
+        ):
+            # Keep the uncertain OCR value in the evidence model, but do not let
+            # it bias the provider shortlist away from stronger name/gameplay
+            # fingerprints. Exact-number conflict remains a review gate later.
+            provider_number = None
         try:
             items.extend(
                 await client.find_candidates(
                     language=observation.language,
-                    card_number=observation.card_number or None,
+                    card_number=provider_number,
                     name=observation.name_guess or None,
                     cost=observation.cost,
                     power=observation.power,
