@@ -2343,32 +2343,32 @@ def _parse_order_lines(
     return order_reference, line_specs, variant_gids
 
 
-async def _resolve_order_owner_scope(
+async def _resolve_order_scopes(
     connection: asyncpg.Connection,
     *,
     variant_gids: list[str],
-) -> tuple[Any, Any]:
-    bootstrap = await connection.fetch(
+) -> list[dict[str, Any]]:
+    rows = await connection.fetch(
         """
         select distinct owner_id, created_by_user_id
         from tcg.shopify_inventory_links
         where shopify_variant_gid=any($1::text[])
           and sync_state in ('PUBLISHED','SOLD')
+        order by owner_id, created_by_user_id
         """,
         variant_gids,
     )
-    if len(bootstrap) != 1:
+    if not rows:
         raise ShopifyProcessingError(
             "OWNER_SCOPE_UNRESOLVED",
-            "Shopify order does not resolve to exactly one Drop Rate owner scope",
+            "Shopify order does not resolve to managed Drop Rate inventory",
         )
-    return bootstrap[0]["owner_id"], bootstrap[0]["created_by_user_id"]
+    return [dict(row) for row in rows]
 
 
 async def _select_order_units(
     connection: asyncpg.Connection,
     *,
-    owner_id: Any,
     order_reference: str,
     line_specs: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -2382,13 +2382,12 @@ async def _select_order_units(
                 i.acquisition_cost_minor, i.store_price_minor, i.version as inventory_version
             from tcg.shopify_inventory_links sil
             join tcg.inventory_items i on i.id=sil.inventory_id
-            where sil.owner_id=$1
-              and sil.shopify_variant_gid=$2
+            where sil.shopify_variant_gid=$1
               and sil.sync_state='PUBLISHED'
             order by sil.allocation_priority, sil.linked_at, sil.inventory_id
             for update of sil, i
             """,
-            owner_id, spec["variant_gid"],
+            spec["variant_gid"],
         )
         eligible = [
             link
@@ -2426,6 +2425,8 @@ async def _select_order_units(
                 raise ShopifyProcessingError("PRODUCT_MISMATCH", "Shopify product ID does not match Drop Rate")
             selected_units.append({
                 "link": link,
+                "owner_id": link["owner_id"],
+                "created_by_user_id": link["created_by_user_id"],
                 "line": line,
                 "line_reference": spec["line_reference"],
                 "allocation_index": allocation_index,
