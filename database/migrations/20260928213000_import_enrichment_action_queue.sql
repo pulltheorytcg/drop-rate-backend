@@ -205,4 +205,58 @@ create trigger action_required_items_audit
     after insert or update or delete on tcg.action_required_items
     for each row execute function tcg.audit_import_enrichment_change();
 
+
+create or replace function tcg.emit_import_committed_event()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $function$
+declare
+    v_key text;
+begin
+    if new.status <> 'COMMITTED' then
+        return new;
+    end if;
+    if tg_op='UPDATE' and old.status='COMMITTED' then
+        return new;
+    end if;
+
+    v_key := 'import.committed:' || new.id::text || ':v' || new.version::text;
+
+    perform *
+    from tcg.enqueue_automation_event(
+        new.owner_id,
+        'import.committed',
+        1,
+        'IMPORT_BATCH',
+        new.id::text,
+        v_key,
+        jsonb_build_object(
+            'batch_id',new.id,
+            'adapter',new.adapter,
+            'source_rows',new.source_rows,
+            'physical_units',new.physical_units,
+            'status',new.status,
+            'version',new.version
+        ),
+        clock_timestamp()
+    );
+
+    return new;
+end;
+$function$;
+
+revoke all on function tcg.emit_import_committed_event() from public;
+
+create trigger import_batches_emit_committed_event_insert
+after insert on tcg.import_batches
+for each row
+execute function tcg.emit_import_committed_event();
+
+create trigger import_batches_emit_committed_event_update
+after update of status on tcg.import_batches
+for each row
+execute function tcg.emit_import_committed_event();
+
 commit;
