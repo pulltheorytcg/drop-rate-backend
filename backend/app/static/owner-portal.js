@@ -126,7 +126,8 @@ function renderInventoryRows(items) {
     const marketCell = document.createElement("td");
     marketCell.textContent = formatMoney(item.market_value_minor);
     const storeCell = document.createElement("td");
-    storeCell.textContent = formatMoney(item.store_price_minor);
+    const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
+    storeCell.textContent = storeValue == null ? "—" : formatMoney(storeValue);
 
     row.append(cardCell, gameCell, conditionCell, statusCell, marketCell, storeCell);
     body.append(row);
@@ -201,9 +202,13 @@ function renderInventoryCards(items) {
 
     const prices = document.createElement("div");
     prices.className = "owner-card-prices";
+    const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
+    const storeLabel = item.store_price_minor == null && item.recommended_retail_minor != null
+      ? "Recommended retail"
+      : "Store price";
     for (const [labelText, valueText] of [
-      ["Market value", formatMoney(item.market_value_minor)],
-      ["Store price", formatMoney(item.store_price_minor)],
+      ["Market value", item.market_value_minor == null ? "—" : formatMoney(item.market_value_minor)],
+      [storeLabel, storeValue == null ? "—" : formatMoney(storeValue)],
     ]) {
       const box = document.createElement("div");
       const label = document.createElement("span");
@@ -273,7 +278,9 @@ async function loadOwnerOverview() {
   const total = Number(summary.total_inventory_count || 0);
   byId("owner-total-inventory").textContent = total.toLocaleString("en-GB");
   byId("owner-market-value").textContent = formatMoney(summary.active_market_value_minor);
-  byId("owner-store-value").textContent = formatMoney(summary.active_store_price_minor);
+  byId("owner-store-value").textContent = formatMoney(
+    summary.active_store_value_minor ?? summary.active_store_price_minor
+  );
   byId("owner-sold-count").textContent = Number(summary.sold_count || 0).toLocaleString("en-GB");
 
   const stages = {
@@ -673,6 +680,7 @@ function activateOwnerView(view) {
   const views = {
     overview: ["Overview", "Everything you need to track your cards, sales and payouts."],
     inventory: ["Inventory", "Browse and search every physical card linked to your seller account."],
+    scan: ["Scan cards", "Use Drop Rate recognition to identify a card, confirm it and add it safely to your inventory."],
     sales: ["Sales", "Understand every sale, deduction and penny allocated to you."],
     balance: ["Payouts", "Manage your payout account, balance and preferred payout schedule."],
     settlements: ["Settlements", "Follow order-by-order allocation and reconciliation."],
@@ -690,6 +698,9 @@ function activateOwnerView(view) {
   byId("owner-page-subtitle").textContent = views[target][1];
   history.replaceState({}, document.title, target === "overview" ? "/owner" : `/owner#${target}`);
   window.scrollTo({top: 0, behavior: "smooth"});
+  if (target === "scan" && typeof window.ownerRecognitionEnter === "function") {
+    window.ownerRecognitionEnter();
+  }
 }
 
 function errorMessage(data) {
@@ -863,7 +874,7 @@ async function openOwnerPortal() {
   byId("owner-auth-view").classList.add("hidden");
   byId("owner-portal-view").classList.remove("hidden");
   const hashView = window.location.hash.replace("#", "");
-  activateOwnerView(["inventory", "sales", "balance", "settlements"].includes(hashView) ? hashView : "overview");
+  activateOwnerView(["inventory", "scan", "sales", "balance", "settlements"].includes(hashView) ? hashView : "overview");
   await reloadOwnerDashboard();
   showOwnerOnboardingWelcome();
 }
