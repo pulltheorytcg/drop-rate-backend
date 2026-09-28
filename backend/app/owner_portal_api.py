@@ -142,8 +142,12 @@ async def owner_inventory(
                     select coalesce(m.shopify_cdn_url,m.public_source_url)
                     from tcg.media_assets m
                     where (
-                        m.inventory_id=i.id
-                        or (m.inventory_id is null and m.catalogue_id=i.catalogue_id)
+                        (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
+                        or (
+                            m.scope='CANONICAL_CARD'
+                            and m.inventory_id is null
+                            and m.catalogue_id=i.catalogue_id
+                        )
                     )
                       and m.approval_status='APPROVED'
                       and m.rights_status='VERIFIED'
