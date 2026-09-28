@@ -185,4 +185,86 @@ revoke all on function tcg.recognition_catalogue_reference_value(uuid,text)
 from public,anon,authenticated,service_role;
 grant execute on function tcg.recognition_catalogue_reference_value(uuid,text) to tcg_api;
 
+create or replace function tcg.recognition_learning_hint_rows(
+    p_system_code text,
+    p_max_examples integer default 300
+)
+returns table(
+    selected_catalogue_id uuid,
+    source_fingerprints jsonb
+)
+language sql
+stable
+security definer
+set search_path=pg_catalog
+as $function$
+    select e.selected_catalogue_id,e.source_fingerprints
+    from tcg.recognition_learning_examples e
+    where e.system_code=p_system_code
+      and e.dataset_split='TRAIN'
+      and e.selected_catalogue_id is not null
+      and e.label_outcome in (
+        'CONFIRMED_TOP',
+        'CORRECTED_TO_CANDIDATE',
+        'CORRECTED_BY_SEARCH'
+      )
+      and not exists (
+          select 1
+          from tcg.recognition_learning_examples newer
+          where newer.supersedes_example_id=e.id
+      )
+    order by e.created_at desc,e.id desc
+    limit least(greatest(coalesce(p_max_examples,300),1),1000)
+$function$;
+
+revoke all on function tcg.recognition_learning_hint_rows(text,integer)
+from public,anon,authenticated,service_role;
+grant execute on function tcg.recognition_learning_hint_rows(text,integer) to tcg_api;
+
+create or replace function tcg.recognition_learning_visual_rows(
+    p_catalogue_ids uuid[],
+    p_max_examples_per_candidate integer default 8
+)
+returns table(
+    selected_catalogue_id uuid,
+    source_fingerprints jsonb
+)
+language sql
+stable
+security definer
+set search_path=pg_catalog
+as $function$
+    with active as (
+        select
+            e.id,
+            e.selected_catalogue_id,
+            e.source_fingerprints,
+            e.created_at,
+            row_number() over (
+                partition by e.selected_catalogue_id
+                order by e.created_at desc,e.id desc
+            ) as recency_rank
+        from tcg.recognition_learning_examples e
+        where e.selected_catalogue_id=any(coalesce(p_catalogue_ids,array[]::uuid[]))
+          and e.dataset_split='TRAIN'
+          and e.label_outcome in (
+            'CONFIRMED_TOP',
+            'CORRECTED_TO_CANDIDATE',
+            'CORRECTED_BY_SEARCH'
+          )
+          and not exists (
+              select 1
+              from tcg.recognition_learning_examples newer
+              where newer.supersedes_example_id=e.id
+          )
+    )
+    select active.selected_catalogue_id,active.source_fingerprints
+    from active
+    where active.recency_rank <= least(greatest(coalesce(p_max_examples_per_candidate,8),1),32)
+$function$;
+
+revoke all on function tcg.recognition_learning_visual_rows(uuid[],integer)
+from public,anon,authenticated,service_role;
+grant execute on function tcg.recognition_learning_visual_rows(uuid[],integer) to tcg_api;
+
 commit;
