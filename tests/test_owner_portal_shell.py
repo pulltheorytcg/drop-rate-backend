@@ -117,6 +117,6 @@ def test_new_owner_onboarding_redirect_has_a_guided_welcome_checklist() -> None:
     assert 'id = "owner-onboarding-welcome"' in js
     assert "Onboarding complete" in js
     assert "Set up payouts" in js
-    assert "activateOwnerView("balance")" in js
+    assert 'activateOwnerView("balance")' in js
     assert 'byId("owner-stripe-connect-panel")' in js
     assert 'history.replaceState({}, document.title, "/owner")' in js
