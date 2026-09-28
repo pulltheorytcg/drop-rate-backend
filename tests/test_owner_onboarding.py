@@ -142,7 +142,7 @@ def test_owner_invite_create_fix_qualifies_output_column_collision() -> None:
 
 
 EMAIL_MIGRATION = ROOT / "database" / "migrations" / "20260928174052_owner_invite_email_delivery.sql"
-PREVIEW_CONTRACT_MIGRATION = ROOT / "database" / "migrations" / "20260928184500_owner_invite_preview_contract.sql"
+PREVIEW_CONTRACT_MIGRATION = ROOT / "database" / "migrations" / "20260928184345_owner_invite_preview_contract.sql"
 SELLER_INVITES_JS = ROOT / "backend" / "app" / "static" / "seller-invites.js"
 SETTINGS = ROOT / "backend" / "app" / "settings.py"
 
