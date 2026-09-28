@@ -686,11 +686,31 @@ function renderRecognitionResult(data) {
   const run = data.run || {};
   const candidates = [...(data.candidates || [])]
     .sort((a, b) => Number(a.rank || 9999) - Number(b.rank || 9999));
-  const top = candidates.find((item) => item.catalogue_id === run.top_catalogue_id)
-    || candidates.find((item) => item.source_kind === "CATALOGUE" && !item.hard_rejected)
-    || candidates.find((item) => !item.hard_rejected)
-    || candidates[0]
-    || null;
+  const riskFlags = new Set(run.risk_flags || []);
+  const hasUnmappedProviderChallenge =
+    riskFlags.has("UNMAPPED_PROVIDER_CHALLENGER")
+    || riskFlags.has("UNMAPPED_PROVIDER_CANDIDATE");
+  const viableCandidates = candidates.filter((item) => !item.hard_rejected);
+  const strongestProvider = viableCandidates.find(
+    (item) => item.source_kind === "PROVIDER"
+  ) || null;
+  const strongestCatalogue = viableCandidates.find(
+    (item) => item.source_kind === "CATALOGUE"
+  ) || null;
+
+  let top = null;
+  if (hasUnmappedProviderChallenge && !run.top_catalogue_id && strongestProvider) {
+    top = strongestProvider;
+  } else {
+    top = candidates.find(
+      (item) => run.top_catalogue_id && item.catalogue_id === run.top_catalogue_id
+    )
+      || strongestCatalogue
+      || viableCandidates[0]
+      || candidates[0]
+      || null;
+  }
+
   const topBaseNumber = String(
     top?.candidate_snapshot?.card_number
     || top?.candidate_snapshot?.base_card_id
@@ -699,14 +719,22 @@ function renderRecognitionResult(data) {
   const runnerPool = candidates.filter(
     (item) => item.id !== top?.id && !item.hard_rejected
   );
-  const runner = runnerPool.find((item) => {
-    const number = String(
-      item?.candidate_snapshot?.card_number
-      || item?.candidate_snapshot?.base_card_id
-      || ""
-    ).toUpperCase();
-    return topBaseNumber && number === topBaseNumber;
-  }) || runnerPool[0] || null;
+
+  let runner = null;
+  if (hasUnmappedProviderChallenge) {
+    runner = top?.source_kind === "PROVIDER"
+      ? (runnerPool.find((item) => item.source_kind === "CATALOGUE") || runnerPool[0] || null)
+      : (runnerPool.find((item) => item.source_kind === "PROVIDER") || runnerPool[0] || null);
+  } else {
+    runner = runnerPool.find((item) => {
+      const number = String(
+        item?.candidate_snapshot?.card_number
+        || item?.candidate_snapshot?.base_card_id
+        || ""
+      ).toUpperCase();
+      return topBaseNumber && number === topBaseNumber;
+    }) || runnerPool[0] || null;
+  }
 
   const summary = document.createElement("div");
   summary.className = `recognition-decision ${String(run.decision || run.status || "").toLowerCase()}`;
@@ -716,9 +744,11 @@ function renderRecognitionResult(data) {
   detail.textContent = run.decision === "EXACT_CANDIDATE"
     ? "The evidence supports one exact printing. This is still a candidate — inventory was not changed."
     : run.decision === "NEEDS_REVIEW"
-      ? (top
-        ? "Card identity found, but the exact printing still needs review. Check the recovered ID and artwork evidence below."
-        : "The engine refused to choose silently. Review the evidence and competing printing(s).")
+      ? (hasUnmappedProviderChallenge
+        ? "A strong external printing candidate is not yet mapped into the Drop Rate catalogue. Compare it with the local candidate; it cannot be confirmed until catalogue mapping is complete."
+        : top
+          ? "Card identity found, but the exact printing still needs review. Check the recovered ID and artwork evidence below."
+          : "The engine refused to choose silently. Review the evidence and competing printing(s).")
       : run.decision === "NO_MATCH"
         ? "No local exact printing passed the hard identity gates."
         : "Recognition could not complete.";
@@ -728,10 +758,16 @@ function renderRecognitionResult(data) {
   if (top) {
     const candidatesWrap = document.createElement("div");
     candidatesWrap.className = "recognition-top-grid";
-    const topCard = recognitionCandidateCard(top, "Top candidate", run.id);
+    const topLabel = top.source_kind === "PROVIDER"
+      ? "Top evidence candidate · catalogue mapping required"
+      : "Top candidate";
+    const topCard = recognitionCandidateCard(top, topLabel, run.id);
     if (topCard) candidatesWrap.append(topCard);
     if (runner) {
-      const runnerCard = recognitionCandidateCard(runner, "Runner-up", run.id);
+      const runnerLabel = runner.source_kind === "PROVIDER"
+        ? "Unmapped provider challenger"
+        : "Runner-up";
+      const runnerCard = recognitionCandidateCard(runner, runnerLabel, run.id);
       if (runnerCard) candidatesWrap.append(runnerCard);
     }
     result.append(candidatesWrap);

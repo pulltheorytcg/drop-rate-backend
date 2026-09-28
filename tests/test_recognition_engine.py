@@ -13,6 +13,7 @@ from PIL import Image
 from app.recognition_engine import (
     _provider_identity_fingerprint,
     _provider_visual_shortlist,
+    discover_provider_evidence,
     resolve_candidates,
     score_candidate,
     visual_work_short_circuit_reason,
@@ -406,13 +407,110 @@ def test_counterfeit_concern_never_auto_passes() -> None:
 
 
 def test_provider_only_match_is_review_not_exact() -> None:
+    external = provider("OP05-119_p1", art="Parallel")
+    external.update(
+        {
+            "identity_score": 0.94,
+            "identity_evidence_weight": 0.72,
+            "non_number_identity_score": 0.95,
+            "non_number_evidence_weight": 0.68,
+            "retrieval_score": 0.96,
+            "language": "Japanese",
+        }
+    )
     result = resolve(
         observation(),
         [],
-        provider_evidence=[provider("OP05-119_p1", art="Parallel")],
+        provider_evidence=[external],
     )
     assert result["decision"] == "NEEDS_REVIEW"
-    assert result["top"] is None
+    assert result["top"]["source_kind"] == "PROVIDER"
+    assert result["top"]["catalogue_id"] is None
+    assert "UNMAPPED_PROVIDER_CANDIDATE" in result["risk_flags"]
+
+
+def test_strong_unmapped_provider_printing_challenges_local_catalogue_candidate() -> None:
+    local = candidate(
+        name="Nico Robin",
+        card_number="ST29-009",
+        language="Japanese",
+        art="Base",
+    )
+    external = provider("EB03-054_round1", art="ROUND1 Promo", visual=0.98)
+    external.update(
+        {
+            "base_card_id": "EB03-054",
+            "name": "Nico Robin",
+            "language": "Japanese",
+            "identity_score": 0.72,
+            "identity_evidence_weight": 0.60,
+            "non_number_identity_score": 0.96,
+            "non_number_evidence_weight": 0.72,
+            "retrieval_score": 0.98,
+        }
+    )
+
+    result = resolve(
+        observation(
+            name_guess="Nico Robin",
+            card_number="ST29-009",
+            card_number_confidence=0.78,
+            art_treatment_text="ROUND1 ONE PIECE promotional artwork",
+            art_treatment_confidence=0.98,
+            visible_markers=["ROUND1 ONE PIECE"],
+            ocr_lines=["Nico Robin", "ST29-009", "ROUND1"],
+        ),
+        [local],
+        provider_evidence=[external],
+    )
+
+    assert result["decision"] == "NEEDS_REVIEW"
+    assert "UNMAPPED_PROVIDER_CHALLENGER" in result["risk_flags"]
+    assert any(
+        item["source_kind"] == "PROVIDER"
+        and item["provider_id"] == "EB03-054_round1"
+        for item in result["candidates"]
+    )
+    shown = [result["top"], result["runner_up"]]
+    assert any(
+        item is not None
+        and item["source_kind"] == "PROVIDER"
+        and item["provider_id"] == "EB03-054_round1"
+        for item in shown
+    )
+
+
+def test_explicitly_mapped_provider_row_is_not_duplicated_as_external_candidate() -> None:
+    local = candidate(provider_id="OP05-119")
+    local["provider_mappings"] = [
+        {
+            "source_provider": "Punk Records",
+            "provider_id": "OP05-119",
+            "match_status": "VERIFIED",
+        }
+    ]
+    external = provider("OP05-119", art="Base", visual=0.99)
+    external.update(
+        {
+            "identity_score": 0.98,
+            "identity_evidence_weight": 0.80,
+            "non_number_identity_score": 0.98,
+            "non_number_evidence_weight": 0.75,
+            "retrieval_score": 1.0,
+            "language": "Japanese",
+        }
+    )
+
+    result = resolve(
+        observation(),
+        [local],
+        provider_evidence=[external],
+    )
+
+    assert not any(
+        item["source_kind"] == "PROVIDER"
+        for item in result["candidates"]
+    )
 
 
 def test_image_decoder_hashes_valid_front_image_without_persisting_pixels() -> None:
@@ -495,6 +593,8 @@ def test_founder_hq_exposes_recognition_scanner_and_safety_copy() -> None:
     assert "Recognise exact printing" in ui
     assert "Top candidate" in ui
     assert "Runner-up" in ui
+    assert "Unmapped provider challenger" in ui
+    assert "Top evidence candidate · catalogue mapping required" in ui
     assert "Art treatment" in ui
     assert "Recognition Engine v1 never auto-edits inventory identity" in ui
     assert "Confirm top candidate" in ui
@@ -833,6 +933,54 @@ async def test_punk_records_english_name_lookup_filters_by_visible_stats() -> No
 
 
 @pytest.mark.asyncio
+async def test_round1_low_confidence_number_is_not_used_to_bias_provider_retrieval() -> None:
+    calls: list[dict] = []
+
+    class RecordingPunk:
+        async def find_candidates(self, **kwargs):
+            calls.append(kwargs)
+            return []
+
+    obs = observation(
+        name_guess="ナミ (Nami)",
+        card_number="OP02-036",
+        card_number_confidence=0.78,
+        art_treatment_text="Full-art with visible ROUND1 ONE PIECE mark",
+        art_treatment_confidence=0.98,
+        visible_markers=["ROUND1 ONE PIECE"],
+        ocr_lines=["ナミ", "OP02-036", "ROUND1"],
+    )
+
+    await discover_provider_evidence(obs, punk=RecordingPunk())
+
+    assert len(calls) == 1
+    assert calls[0]["card_number"] is None
+    assert calls[0]["name"] == "ナミ (Nami)"
+    assert calls[0]["power"] == obs.power
+    assert calls[0]["cost"] == obs.cost
+
+
+@pytest.mark.asyncio
+async def test_high_confidence_number_remains_a_provider_retrieval_hint() -> None:
+    calls: list[dict] = []
+
+    class RecordingPunk:
+        async def find_candidates(self, **kwargs):
+            calls.append(kwargs)
+            return []
+
+    obs = observation(
+        card_number="OP05-119",
+        card_number_confidence=0.99,
+    )
+
+    await discover_provider_evidence(obs, punk=RecordingPunk())
+
+    assert len(calls) == 1
+    assert calls[0]["card_number"] == "OP05-119"
+
+
+@pytest.mark.asyncio
 async def test_punk_records_japanese_bilingual_name_recovers_round1_nami() -> None:
     client = PunkRecordsClient(index_ttl_seconds=60)
     cards = {
@@ -934,7 +1082,7 @@ def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> 
 
 def test_recognition_logic_change_bumps_idempotency_version() -> None:
     api = API.read_text()
-    assert 'ENGINE_VERSION = "v1.5.0"' in api
+    assert 'ENGINE_VERSION = "v1.5.1"' in api
     assert 'f"recognition:{ENGINE_VERSION}:{settings.recognition_model}:"' in api
 
 
@@ -1364,4 +1512,4 @@ def test_scanner_candidate_image_uses_authenticated_proxy_and_shows_market_value
     assert "Exact printing image not verified yet" in ui
     assert "Previous results are not shown during this scan." in ui
     assert "The previous scan result has been cleared." in ui
-    assert "candidates.find((item) => !item.hard_rejected)" in ui
+    assert "const viableCandidates = candidates.filter((item) => !item.hard_rejected);" in ui
