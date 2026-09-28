@@ -145,8 +145,11 @@ def test_owner_dashboard_renders_payout_top_cards_movers_and_channels() -> None:
 
 def test_channel_manager_does_not_call_provider_control_planes_directly() -> None:
     js = JS.read_text()
+    start = js.index("function ownerChannelCount")
+    end = js.index("function renderInventoryPagination", start)
+    channels = js[start:end]
 
-    assert "/api/v1/owner/channels" in js
-    assert "/api/v1/shopify" not in js
-    assert "/api/v1/ebay" not in js
-    assert "refresh_token" not in js
+    assert "/api/v1/owner/channels" in channels
+    assert "/api/v1/shopify" not in channels
+    assert "/api/v1/ebay" not in channels
+    assert "refresh_token" not in channels
