@@ -67,6 +67,10 @@ def _money(minor: int | None) -> str:
     return f"{int(minor or 0) / 100:.2f}"
 
 
+def _synced_price_minor(minor: int | None) -> int:
+    return int(minor) if minor is not None else 0
+
+
 def _handle(inventory_code: str) -> str:
     return f"drop-rate-{inventory_code.casefold().replace('_', '-').replace(' ', '-')}"
 
@@ -318,7 +322,7 @@ async def _record_product(
                 location_id,
                 publication_id,
                 current["inventory_code"],
-                current["store_price_minor"],
+                _synced_price_minor(current["store_price_minor"]),
             )
 
             if isinstance(media, Mapping):
