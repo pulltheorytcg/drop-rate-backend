@@ -910,44 +910,53 @@ async def process_import_enrichment(
     fx_cache: dict[str, FxQuote] = {}
     processed: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
-    for item in rows:
-        try:
-            result = await _process_one(
-                request,
-                owner_id=owner_id,
-                user_id=user.user_id,
-                enrichment_id=item["id"],
-                inventory_id=item["inventory_id"],
-                default_language=payload.default_language,
-                fx_cache=fx_cache,
-            )
-            processed.append(result)
-        except Exception as exc:
-            detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
-            failures.append(
-                {
+    semaphore = asyncio.Semaphore(min(6, max(1, len(rows))))
+
+    async def run_item(item) -> tuple[str, dict[str, Any]]:
+        async with semaphore:
+            try:
+                result = await _process_one(
+                    request,
+                    owner_id=owner_id,
+                    user_id=user.user_id,
+                    enrichment_id=item["id"],
+                    inventory_id=item["inventory_id"],
+                    default_language=payload.default_language,
+                    fx_cache=fx_cache,
+                )
+                return "processed", result
+            except Exception as exc:
+                detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
+                failure = {
                     "enrichment_id": str(item["id"]),
                     "inventory_id": str(item["inventory_id"]),
                     "detail": detail,
                 }
-            )
-            async with user_connection(
-                request.app.state.db_pool,
-                user.user_id,
-                request.state.request_id,
-            ) as connection:
-                await connection.execute(
-                    """
-                    update tcg.import_enrichment_items
-                    set attempts=attempts+1,
-                        last_error=$2,
-                        updated_at=clock_timestamp(),
-                        version=version+1
-                    where id=$1
-                    """,
-                    item["id"],
-                    str(detail)[:2000],
-                )
+                async with user_connection(
+                    request.app.state.db_pool,
+                    user.user_id,
+                    request.state.request_id,
+                ) as connection:
+                    await connection.execute(
+                        """
+                        update tcg.import_enrichment_items
+                        set attempts=attempts+1,
+                            last_error=$2,
+                            updated_at=clock_timestamp(),
+                            version=version+1
+                        where id=$1
+                        """,
+                        item["id"],
+                        str(detail)[:2000],
+                    )
+                return "failed", failure
+
+    outcomes = await asyncio.gather(*(run_item(item) for item in rows))
+    for state_name, result in outcomes:
+        if state_name == "processed":
+            processed.append(result)
+        else:
+            failures.append(result)
 
     async with user_connection(
         request.app.state.db_pool,
