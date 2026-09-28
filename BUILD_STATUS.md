@@ -11,6 +11,7 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
 - **Milestone 2 — Shopify sale attribution:** ~92% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, seller-facing restricted finance views are deployed, and payout control is automated up to REQUESTED state. Multi-owner/same-card production attribution and live Stripe payout cutover remain.
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
+- **Customer storefront / Shopify UX:** ~10–15% of the desired Drop Rate experience. Backend Shopify commerce plumbing is far ahead of the customer-facing theme. A dedicated storefront + Founder HQ UX blueprint is now version-controlled in `docs/STOREFRONT_AND_UX_BLUEPRINT.md`.
 
 ## Original business milestone status
 
@@ -33,6 +34,8 @@ This file is the persistent source of truth for project progress. A feature coun
 **Graded-media rule: DEPLOYED — graded inventory now distinguishes canonical reference artwork from the actual slab photo. INVENTORY_ITEM slab media takes precedence; canonical art is only fallback/reference. Founder HQ visibly marks graded items with canonical art but no slab photo as `Reference art · slab photo required`. Current graded inventory: 8 items, 0 slab-front photos, 7 canonical references, 1 canonical exact-image gap. Certificate numbers are still absent from the imported graded rows and should be captured when slab media is added.**
 
 **Nico Robin correction: VERIFIED — ACE 10 Nico Robin OP01-017 Premium Card Collection - ONE PIECE FILM RED Edition was previously mapped to `OP01-017_p2`, which is the English 1st Anniversary Set artwork. Independent product-level verification confirmed the correct FILM RED printing is `OP01-017_p1`; the live media row has been corrected.**
+
+**Storefront + Founder UX benchmark: BLUEPRINTED — `docs/STOREFRONT_AND_UX_BLUEPRINT.md` now defines the Shopify customer experience, autonomous merchandising/management model, TCG-native search/filtering, grouped-copy UX, graded PDP requirements, AI listing boundaries and Founder HQ workflow improvements. RandCards is the customer-storefront inspiration benchmark for collection-led shopping, live stock/condition clarity, set discovery and graded-card presentation; TCG Automate is the operations benchmark for scan/batch speed, quick corrections, card search, repricing, cross-listing and device workflows. Drop Rate must learn from those patterns without copying their design or brand, and exceed both through exact-print recognition, multi-owner/consignor accounting, auditable settlements and consumer recognition features.**
 
 
 **Shopify ↔ eBay cross-channel inventory v1: DEPLOYED / PRODUCTION-DORMANT — PR #143 merged as `52dd8937`; controlled single-item eBay publishing, exact Inventory ID/SKU linkage, signed `ORDER_CONFIRMATION` intake, Shopify→eBay withdrawal, eBay→Shopify zeroing with remote verification, deterministic eBay channel pricing, audited eBay fee/postage reconciliation, return-to-INSPECTION isolation and safe re-listing are now deployed. GitHub CI and Railway pre-deploy both passed **563 tests**; Railway deployment `e3f6bade-f6e5-4c0a-a192-5b06340431a5` succeeded and `/health/ready` returned **200**. Production Supabase migrations `20260926144848_ebay_cross_channel_v1` and `20260926144947_index_ebay_cross_channel_fks` are applied. Live eBay tables remain empty and eBay publication is explicitly disabled. The remaining external blocker is seller-authorised eBay OAuth plus the seller's payment/fulfilment/return policy IDs, merchant inventory location and enabled order-confirmation notification subscription; no live eBay listing has been fabricated or published.**
@@ -497,6 +500,23 @@ Any failed check leaves the product DRAFT and creates an Action Required reason 
 - no default weight has been seeded; zero profiles currently exist until the founder explicitly configures them
 - migration `20260925162748_shopify_shipping_profiles` was applied early during preflight because the migration file contained its own transaction; the empty backward-compatible schema was verified and the Supabase migration ledger was then reconciled to the canonical merged file without rerunning `CREATE TABLE`
 
+## Storefront / UX issues now explicitly tracked
+
+These are now first-class roadmap items rather than informal design ideas:
+
+1. **No custom Drop Rate Shopify theme yet:** the Shopify integration/backend is mature, but the customer storefront remains largely generic/unbuilt.
+2. **Duplicate physical-copy clutter risk:** multiple Inventory IDs for the same canonical card must not flood collection pages; solve this at the storefront presentation layer without weakening ownership accounting.
+3. **TCG-native search gap:** customers need card-number, set-code, rarity, language, printing, condition and grade search—not generic ecommerce search alone.
+4. **Graded product presentation:** actual slab front/back + grader + grade + certificate should be primary customer evidence.
+5. **Autonomous merchandising:** New Drops, Grails, Graded, Fresh Japanese Stock, movers, low-stock and set collections should be database-driven rather than manually curated.
+6. **Autonomous Shopify operations:** creation, price/stock/media sync, collections, SEO, archive/restore, drift detection and safe retries should be automated through backend rules.
+7. **Founder HQ throughput:** evolve toward TCG Automate-level batch speed while retaining Drop Rate's stricter exact-print evidence, owner attribution and auditability.
+8. **Mobile-first store + operations:** storefront collection/search/PDP and Founder HQ scan/intake need purpose-built mobile layouts.
+9. **Performance at scale:** design now for 5,000–50,000+ cards with dense grids, pagination/virtualisation, image delivery and indexed search.
+10. **AI authority boundary:** AI may generate content and suggestions but cannot silently change identity, owner, price rule, settlement or publication gates.
+
+Detailed implementation blueprint: `docs/STOREFRONT_AND_UX_BLUEPRINT.md`.
+
 ## Known remaining items
 
 These are **not blockers to the current backend foundation**, but remain explicit work:
@@ -645,6 +665,8 @@ Required controls:
 - only then enable persisted observations and automatic pricing runs source by source
 
 ## Major deferred decisions / features
+
+- customer-facing Shopify theme/storefront is now a defined major build phase: custom Shopify Online Store 2.0 theme in GitHub, TCG-native search/filtering, collection/product-card system, raw/graded PDPs, grouped physical-copy presentation, database-driven merchandising, AI listing copy and later Scan to Find / Scan to Sell; see `docs/STOREFRONT_AND_UX_BLUEPRINT.md`
 
 - multi-user owner onboarding remains gated until owner-safe portal APIs and two-owner isolation tests pass; Founder HQ is now explicitly PLATFORM_ADMIN-only and a separate `/owner` portal boundary is deployed
 - consignor intake/onboarding portal remains to build on top of the deployed 10% commission + Stripe Connect payout foundation
