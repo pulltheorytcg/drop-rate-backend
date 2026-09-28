@@ -4,32 +4,36 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#071b3f">
-  <title>Drop Rate — Owner Portal</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=owner-v1">
+  <title>Drop Rate — Seller Portal</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=owner-v2-base">
+  <link rel="stylesheet" href="/assets/owner-portal.css?v=owner-v2">
 </head>
-<body>
+<body class="owner-portal-page">
   <div class="ambient ambient-one"></div>
   <div class="ambient ambient-two"></div>
 
   <main class="shell">
-    <section id="owner-auth-view" class="auth-layout">
-      <div class="brand-panel">
+    <section id="owner-auth-view" class="auth-layout owner-auth-layout">
+      <div class="brand-panel owner-auth-brand">
         <div class="brand-lockup brand-lockup-logo">
-          <span class="dr-logo-image" role="img" aria-label="Drop Rate"></span>
+          <span class="dr-logo-image owner-auth-logo" role="img" aria-label="Drop Rate"></span>
         </div>
         <div class="brand-copy">
-          <p class="eyebrow">Owner portal</p>
-          <h1>Your stock.<br><em>Your proceeds.</em></h1>
-          <p class="lead">A private, owner-scoped view of your Drop Rate inventory, sales and payouts.</p>
+          <p class="eyebrow">Drop Rate Seller Portal</p>
+          <h1>Your cards.<br><em>Your business.</em></h1>
+          <p class="lead">Track inventory, monitor sales and manage payouts from one private workspace built for Drop Rate sellers.</p>
         </div>
-        <div class="trust-row"><span>Private access</span><span>Owner scoped</span><span>Audit ready</span></div>
+        <div class="trust-row"><span>Private account</span><span>Owner scoped</span><span>Auditable payouts</span></div>
       </div>
 
-      <div class="auth-panel">
-        <form id="owner-login-form" class="auth-card">
+      <div class="auth-panel owner-auth-panel">
+        <form id="owner-login-form" class="auth-card owner-auth-card">
+          <div class="owner-auth-mobile-logo">
+            <span class="dr-logo-image" role="img" aria-label="Drop Rate"></span>
+          </div>
           <p class="eyebrow">Welcome back</p>
-          <h2>Owner sign in</h2>
-          <p class="muted">Use the account that was invited to your Drop Rate owner profile.</p>
+          <h2>Sign in to your seller account</h2>
+          <p class="muted">Use the email address your Drop Rate invitation was sent to.</p>
 
           <div id="owner-social-auth" class="social-auth hidden" aria-label="Social sign in">
             <button id="owner-google" class="oauth-button" type="button" data-provider="google">Continue with Google</button>
@@ -40,18 +44,20 @@
           <label>Email address<input id="owner-email-input" type="email" autocomplete="email" required></label>
           <label>Password<input id="owner-password-input" type="password" autocomplete="current-password" required></label>
           <div id="owner-login-message" class="message" role="status"></div>
-          <button class="primary-button" type="submit">Sign in <span>→</span></button>
-          <p class="muted">Owner access is invite-only. Authentication never grants Founder HQ permissions.</p>
+          <button class="primary-button owner-auth-submit" type="submit">Sign in <span>→</span></button>
+          <p class="owner-auth-footnote">Invite-only access. Seller accounts cannot access Founder HQ or another owner's data.</p>
         </form>
       </div>
     </section>
 
-    <section id="owner-portal-view" class="dashboard hidden">
-      <header class="topbar">
-        <div class="brand-lockup brand-lockup-logo">
+    <section id="owner-portal-view" class="dashboard owner-app hidden">
+      <header class="topbar owner-topbar">
+        <div class="brand-lockup brand-lockup-logo owner-topbar-brand">
           <span class="dr-logo-image" role="img" aria-label="Drop Rate"></span>
+          <span class="owner-topbar-product">Seller Portal</span>
         </div>
         <div class="topbar-actions">
+          <div class="owner-secure-chip" aria-label="Private owner account"><span></span>Private workspace</div>
           <div class="user-chip">
             <span id="owner-portal-initial">O</span>
             <div>
@@ -59,63 +65,169 @@
               <small id="owner-portal-email"></small>
             </div>
           </div>
-          <button id="owner-logout-button" class="ghost-button" type="button">Sign out</button>
+          <button id="owner-logout-button" class="ghost-button owner-signout" type="button">Sign out</button>
         </div>
       </header>
 
-      <div class="dashboard-content">
-        <div class="page-heading">
-          <div>
-            <p class="eyebrow">Restricted owner workspace</p>
-            <h1>Owner portal</h1>
-            <p class="muted">Your inventory, sales, settlements and payouts — scoped only to your owner account.</p>
+      <div class="owner-app-shell">
+        <aside class="owner-sidebar" aria-label="Seller portal navigation">
+          <nav class="owner-nav">
+            <button class="owner-nav-item active" type="button" data-owner-view="overview" aria-label="Overview">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4Zm9 0h7v4h-7V4ZM4 13h7v7H4v-7Zm9-3h7v10h-7V10Z"/></svg>
+              <span>Overview</span>
+            </button>
+            <button class="owner-nav-item" type="button" data-owner-view="inventory" aria-label="Inventory">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5.5 3.5 13 0a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Zm1.5 4h10M7 12h10M7 16.5h6"/></svg>
+              <span>Inventory</span>
+            </button>
+            <button class="owner-nav-item" type="button" data-owner-view="sales" aria-label="Sales">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m5 10V5m6 14v-7m5 7V3"/></svg>
+              <span>Sales</span>
+            </button>
+            <button class="owner-nav-item" type="button" data-owner-view="balance" aria-label="Balance and payouts">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5h17v11h-17v-11Zm3-3h11m-9 8h3m5 0h1"/></svg>
+              <span>Payouts</span>
+            </button>
+            <button class="owner-nav-item" type="button" data-owner-view="settlements" aria-label="Settlements">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2v-17Zm3 5h6m-6 4h6"/></svg>
+              <span>Settlements</span>
+            </button>
+          </nav>
+
+          <div class="owner-sidebar-footer">
+            <div class="owner-sidebar-status"><span></span><div><strong>Secure seller account</strong><small>Scoped only to your inventory</small></div></div>
           </div>
-        </div>
+        </aside>
 
-        <div class="toolbar owner-portal-tabs" role="tablist" aria-label="Owner portal sections">
-          <button class="ghost-button compact owner-tab active" type="button" data-owner-view="inventory">Inventory</button>
-          <button class="ghost-button compact owner-tab" type="button" data-owner-view="sales">Sales</button>
-          <button class="ghost-button compact owner-tab" type="button" data-owner-view="balance">Balance & payouts</button>
-          <button class="ghost-button compact owner-tab" type="button" data-owner-view="settlements">Settlements</button>
-        </div>
+        <div class="dashboard-content owner-dashboard-content">
+          <div id="owner-portal-message" class="message owner-global-message" role="status"></div>
 
-        <section id="owner-view-inventory" class="owner-view" data-owner-view-panel="inventory">
-          <div class="stats-grid">
-            <article class="stat-card stat-accent">
-              <span>Total inventory</span>
-              <strong id="owner-total-inventory">—</strong>
-              <small>Your linked physical items</small>
-            </article>
-            <article class="stat-card">
-              <span>Active market value</span>
-              <strong id="owner-market-value">—</strong>
-              <small>Current owner-scoped valuation</small>
-            </article>
-            <article class="stat-card">
-              <span>Active store value</span>
-              <strong id="owner-store-value">—</strong>
-              <small>Current owner-scoped store pricing</small>
-            </article>
-            <article class="stat-card">
-              <span>Sold</span>
-              <strong id="owner-sold-count">—</strong>
-              <small>Items sold through Drop Rate</small>
-            </article>
-          </div>
+          <header class="owner-page-header">
+            <div>
+              <p class="eyebrow">Seller workspace</p>
+              <h1 id="owner-page-title">Overview</h1>
+              <p id="owner-page-subtitle" class="muted">Everything you need to track your cards, sales and payouts.</p>
+            </div>
+            <div class="owner-header-actions">
+              <button class="owner-header-action" type="button" data-owner-jump="inventory">View inventory</button>
+              <button class="owner-header-action primary" type="button" data-owner-jump="balance">Manage payouts</button>
+            </div>
+          </header>
 
-          <section class="inventory-panel">
-            <div class="page-heading" style="padding:22px 22px 0">
-              <div>
-                <p class="eyebrow">Your inventory</p>
-                <h2>Cards linked to your account</h2>
-                <p class="muted">Read-only owner view. Internal cost, storage and operational fields are intentionally excluded.</p>
+          <section id="owner-view-overview" class="owner-view" data-owner-view-panel="overview">
+            <section id="owner-onboarding-welcome" class="owner-onboarding-banner hidden" aria-label="Onboarding complete">
+              <div class="owner-onboarding-check">✓</div>
+              <div class="owner-onboarding-copy">
+                <strong>You're all set.</strong>
+                <span>Your seller account is active. Next, track your cards and connect payouts when you're ready.</span>
               </div>
+              <div class="owner-onboarding-actions">
+                <button id="owner-welcome-inventory" type="button">View inventory</button>
+                <button id="owner-welcome-payouts" type="button">Set up payouts</button>
+                <button id="owner-welcome-dismiss" class="icon-only" type="button" aria-label="Dismiss onboarding message">×</button>
+              </div>
+            </section>
+
+            <section class="owner-hero">
+              <div class="owner-hero-copy">
+                <span class="owner-hero-kicker">Welcome back</span>
+                <h2><span id="owner-overview-name">Seller</span>, here's your Drop Rate account.</h2>
+                <p>See what you own, what is live, what has sold and what is ready to be paid out — without the operational clutter.</p>
+                <div class="owner-hero-actions">
+                  <button type="button" class="owner-hero-primary" data-owner-jump="inventory">Browse my cards</button>
+                  <button type="button" class="owner-hero-secondary" data-owner-jump="sales">View sales</button>
+                </div>
+              </div>
+              <div class="owner-hero-money">
+                <span>Available to withdraw</span>
+                <strong id="owner-overview-balance">—</strong>
+                <small>Cleared owner proceeds</small>
+                <button type="button" data-owner-jump="balance">Payout settings <span>→</span></button>
+              </div>
+            </section>
+
+            <div class="owner-kpi-grid">
+              <article class="owner-kpi-card">
+                <div class="owner-kpi-icon inventory">▣</div>
+                <span>Total inventory</span>
+                <strong id="owner-total-inventory">—</strong>
+                <small>Physical cards linked to you</small>
+              </article>
+              <article class="owner-kpi-card">
+                <div class="owner-kpi-icon value">£</div>
+                <span>Market value</span>
+                <strong id="owner-market-value">—</strong>
+                <small>Current owner-scoped valuation</small>
+              </article>
+              <article class="owner-kpi-card">
+                <div class="owner-kpi-icon store">↗</div>
+                <span>Store value</span>
+                <strong id="owner-store-value">—</strong>
+                <small>Current active store pricing</small>
+              </article>
+              <article class="owner-kpi-card">
+                <div class="owner-kpi-icon sold">✓</div>
+                <span>Cards sold</span>
+                <strong id="owner-sold-count">—</strong>
+                <small>Completed through Drop Rate</small>
+              </article>
             </div>
 
-            <div class="toolbar" style="padding:0 22px 18px">
-              <label>Search<input id="owner-inventory-search" type="search" placeholder="Card, set, number or inventory ID"></label>
-              <label>Status
-                <select id="owner-inventory-status">
+            <div class="owner-overview-grid">
+              <section class="owner-panel owner-pipeline-panel">
+                <div class="owner-panel-heading">
+                  <div><span class="owner-section-kicker">Inventory pipeline</span><h3>Where your cards are</h3></div>
+                  <button type="button" class="owner-link-button" data-owner-jump="inventory">Open inventory →</button>
+                </div>
+                <div class="owner-pipeline-list">
+                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot draft"></span><strong>Draft</strong></div><span id="owner-pipeline-draft">0</span><div class="owner-stage-bar"><i id="owner-pipeline-draft-bar"></i></div></div>
+                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot inspection"></span><strong>Inspection</strong></div><span id="owner-pipeline-inspection">0</span><div class="owner-stage-bar"><i id="owner-pipeline-inspection-bar"></i></div></div>
+                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot approved"></span><strong>Approved / live</strong></div><span id="owner-pipeline-approved">0</span><div class="owner-stage-bar"><i id="owner-pipeline-approved-bar"></i></div></div>
+                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot reserved"></span><strong>Reserved</strong></div><span id="owner-pipeline-reserved">0</span><div class="owner-stage-bar"><i id="owner-pipeline-reserved-bar"></i></div></div>
+                </div>
+              </section>
+
+              <section class="owner-panel owner-finance-snapshot">
+                <div class="owner-panel-heading">
+                  <div><span class="owner-section-kicker">Account snapshot</span><h3>Your proceeds</h3></div>
+                  <button type="button" class="owner-link-button" data-owner-jump="balance">Payouts →</button>
+                </div>
+                <div class="owner-finance-stack">
+                  <div><span>Lifetime proceeds</span><strong id="owner-overview-proceeds">—</strong></div>
+                  <div><span>Pending proceeds</span><strong id="owner-overview-pending">—</strong></div>
+                  <div><span>Paid out</span><strong id="owner-overview-paid">—</strong></div>
+                </div>
+              </section>
+            </div>
+
+            <section class="owner-panel owner-latest-panel">
+              <div class="owner-panel-heading">
+                <div><span class="owner-section-kicker">Latest inventory</span><h3>Recently updated cards</h3></div>
+                <button type="button" class="owner-link-button" data-owner-jump="inventory">View all →</button>
+              </div>
+              <div id="owner-overview-latest" class="owner-latest-grid">
+                <div class="owner-empty-inline"><strong>No cards yet</strong><span>Your latest cards will appear here as soon as inventory is linked to your account.</span></div>
+              </div>
+            </section>
+          </section>
+
+          <section id="owner-view-inventory" class="owner-view hidden" data-owner-view-panel="inventory">
+            <section class="owner-panel owner-inventory-panel">
+              <div class="owner-section-header">
+                <div>
+                  <span class="owner-section-kicker">Your collection</span>
+                  <h2>Inventory</h2>
+                  <p>Track every card linked to your seller account. Internal cost and operational fields stay private to Drop Rate.</p>
+                </div>
+                <div class="owner-inventory-total"><strong id="owner-inventory-total-label">—</strong><span>cards</span></div>
+              </div>
+
+              <div class="owner-inventory-toolbar">
+                <div class="owner-search-field">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 20-4.2-4.2m1.2-5.3a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z"/></svg>
+                  <input id="owner-inventory-search" type="search" placeholder="Search card, set, number or inventory ID" aria-label="Search inventory">
+                </div>
+                <select id="owner-inventory-status" aria-label="Filter inventory by status">
                   <option value="">All statuses</option>
                   <option value="DRAFT">Draft</option>
                   <option value="INSPECTION">Inspection</option>
@@ -124,145 +236,118 @@
                   <option value="SOLD">Sold</option>
                   <option value="WITHDRAWN">Withdrawn</option>
                 </select>
-              </label>
-              <button id="owner-inventory-refresh" class="ghost-button" type="button">Refresh</button>
-            </div>
-
-            <div id="owner-portal-message" class="message panel-message" role="status"></div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Inventory</th><th>Card</th><th>Game / Set</th><th>Language</th><th>Condition / Grade</th><th>Status</th><th>Market value</th><th>Store price</th></tr></thead>
-                <tbody id="owner-inventory-body"><tr><td colspan="8" class="muted">Sign in to load your inventory.</td></tr></tbody>
-              </table>
-            </div>
-            <div class="pagination">
-              <button id="owner-inventory-prev" class="ghost-button" type="button">Previous</button>
-              <span id="owner-inventory-page" class="muted">—</span>
-              <button id="owner-inventory-next" class="ghost-button" type="button">Next</button>
-            </div>
-          </section>
-        </section>
-
-        <section id="owner-view-sales" class="owner-view hidden" data-owner-view-panel="sales">
-          <div class="stats-grid">
-            <article class="stat-card stat-accent"><span>Sales revenue</span><strong id="owner-sales-revenue">—</strong><small>Gross item revenue before deductions</small></article>
-            <article class="stat-card"><span>Commission</span><strong id="owner-commission-total">—</strong><small id="owner-commission-rate">Drop Rate commission</small></article>
-            <article class="stat-card"><span>Owner proceeds</span><strong id="owner-lifetime-proceeds">—</strong><small>Ledger proceeds before payouts</small></article>
-            <article class="stat-card"><span>Reconciliation</span><strong id="owner-financial-completeness">—</strong><small>External fee / shipping completeness</small></article>
-          </div>
-
-          <section class="inventory-panel">
-            <div class="page-heading" style="padding:22px 22px 0">
-              <div><p class="eyebrow">Sales</p><h2>Your sold cards</h2><p class="muted">Each row shows the sale and deductions allocated to your owner account.</p></div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Sold</th><th>Card</th><th>Order</th><th>Sale</th><th>Commission</th><th>Other deductions</th><th>Your proceeds</th><th>Status</th></tr></thead>
-                <tbody id="owner-sales-body"><tr><td colspan="8" class="muted">No sales loaded yet.</td></tr></tbody>
-              </table>
-            </div>
-            <div class="pagination">
-              <button id="owner-sales-prev" class="ghost-button" type="button">Previous</button>
-              <span id="owner-sales-page" class="muted">—</span>
-              <button id="owner-sales-next" class="ghost-button" type="button">Next</button>
-            </div>
-          </section>
-        </section>
-
-        <section id="owner-view-balance" class="owner-view hidden" data-owner-view-panel="balance">
-          <div class="stats-grid">
-            <article class="stat-card stat-accent"><span>Available to withdraw</span><strong id="owner-available-balance">—</strong><small>Available minus reserved requests</small></article>
-            <article class="stat-card"><span>Pending</span><strong id="owner-pending-balance">—</strong><small>Not yet available for payout</small></article>
-            <article class="stat-card"><span>Reserved payouts</span><strong id="owner-reserved-payouts">—</strong><small>Requested or approved</small></article>
-            <article class="stat-card"><span>Paid out</span><strong id="owner-paid-out">—</strong><small>Historical completed payout ledger</small></article>
-          </div>
-
-          <section class="inventory-panel" id="owner-stripe-connect-panel">
-            <div class="page-heading" style="padding:22px 22px 0">
-              <div>
-                <p class="eyebrow">Stripe Connect</p>
-                <h2>Payout account</h2>
-                <p class="muted">Stripe handles identity verification and bank payout details. Drop Rate controls the exact amount you are owed.</p>
+                <div class="owner-layout-toggle" aria-label="Inventory layout">
+                  <button class="active" id="owner-inventory-grid-toggle" type="button" data-owner-inventory-layout="grid" aria-label="Grid view">▦</button>
+                  <button id="owner-inventory-list-toggle" type="button" data-owner-inventory-layout="list" aria-label="List view">☰</button>
+                </div>
+                <button id="owner-inventory-refresh" class="owner-refresh-button" type="button" aria-label="Refresh inventory">↻ <span>Refresh</span></button>
               </div>
-              <button id="owner-stripe-refresh" class="ghost-button compact" type="button">↻ Refresh</button>
-            </div>
-            <div class="stats-grid" style="padding:0 22px">
-              <article class="stat-card"><span>Account</span><strong id="owner-stripe-account-state">NOT CONNECTED</strong><small id="owner-stripe-account-note">Set up your payout account</small></article>
-              <article class="stat-card"><span>Verification</span><strong id="owner-stripe-verification-state">NOT READY</strong><small id="owner-stripe-verification-note">Identity verification required</small></article>
-              <article class="stat-card"><span>Transfers</span><strong id="owner-stripe-transfer-state">LOCKED</strong><small>Must be ready before payout</small></article>
-            </div>
-            <div id="owner-stripe-message" class="message panel-message" role="status"></div>
-            <div class="toolbar" style="padding:0 22px 22px">
-              <button id="owner-stripe-onboard" class="primary-button compact" type="button">Set up payouts</button>
-            </div>
-          </section>
 
-          <section class="inventory-panel">
-            <div class="page-heading" style="padding:22px 22px 0">
-              <div>
-                <p class="eyebrow">Payout preferences</p>
-                <h2>Choose payout frequency</h2>
-                <p class="muted">Scheduled payouts still require available cleared funds and all Drop Rate safety checks.</p>
+              <div id="owner-portal-message-inline" class="owner-inline-message" aria-live="polite"></div>
+
+              <div id="owner-inventory-grid" class="owner-card-grid"></div>
+
+              <div id="owner-inventory-table-wrap" class="owner-table-wrap hidden">
+                <table class="owner-table">
+                  <thead><tr><th>Card</th><th>Game / set</th><th>Condition</th><th>Status</th><th>Market value</th><th>Store price</th></tr></thead>
+                  <tbody id="owner-inventory-body"><tr><td colspan="6" class="muted">Sign in to load your inventory.</td></tr></tbody>
+                </table>
               </div>
-            </div>
-            <div class="form-grid" style="padding:0 22px 18px">
-              <label>Frequency
-                <select id="owner-payout-cadence">
-                  <option value="MANUAL">Manual</option>
-                  <option value="DAILY">Daily</option>
-                  <option value="WEEKLY">Weekly</option>
-                  <option value="FORTNIGHTLY">Every 2 weeks</option>
-                  <option value="MONTHLY">Monthly</option>
-                </select>
-              </label>
-              <label id="owner-payout-weekday-wrap" class="hidden">Day of week
-                <select id="owner-payout-weekday">
-                  <option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option>
-                  <option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option><option value="6">Sunday</option>
-                </select>
-              </label>
-              <label id="owner-payout-monthly-wrap" class="hidden">Day of month
-                <input id="owner-payout-monthly-day" type="number" min="1" max="31" step="1" value="1">
-              </label>
-            </div>
-            <div class="allocation-summary" style="margin:0 22px 18px"><span>Next scheduled payout</span><strong id="owner-payout-next">Manual only</strong></div>
-            <div id="owner-payout-preference-message" class="message panel-message" role="status"></div>
-            <div class="toolbar" style="padding:0 22px 22px"><button id="owner-payout-save" class="primary-button compact" type="button">Save payout schedule</button></div>
+              <div class="owner-pagination">
+                <button id="owner-inventory-prev" type="button">← Previous</button>
+                <span id="owner-inventory-page">—</span>
+                <button id="owner-inventory-next" type="button">Next →</button>
+              </div>
+            </section>
           </section>
 
-          <section class="inventory-panel">
-            <div class="page-heading" style="padding:22px 22px 0"><div><p class="eyebrow">Payout history</p><h2>Your withdrawals</h2></div></div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Payout</th><th>Amount</th><th>Source</th><th>Status</th><th>Scheduled</th><th>Requested</th><th>Resolved</th></tr></thead>
-                <tbody id="owner-payouts-body"><tr><td colspan="7" class="muted">No payouts loaded yet.</td></tr></tbody>
-              </table>
+          <section id="owner-view-sales" class="owner-view hidden" data-owner-view-panel="sales">
+            <div class="owner-kpi-grid owner-finance-kpis">
+              <article class="owner-kpi-card featured"><span>Sales revenue</span><strong id="owner-sales-revenue">—</strong><small>Gross item revenue before deductions</small></article>
+              <article class="owner-kpi-card"><span>Commission</span><strong id="owner-commission-total">—</strong><small id="owner-commission-rate">Drop Rate commission</small></article>
+              <article class="owner-kpi-card"><span>Your proceeds</span><strong id="owner-lifetime-proceeds">—</strong><small>Ledger proceeds before payouts</small></article>
+              <article class="owner-kpi-card"><span>Reconciliation</span><strong id="owner-financial-completeness">—</strong><small>Fee and shipping completeness</small></article>
             </div>
+            <section class="owner-panel">
+              <div class="owner-section-header compact">
+                <div><span class="owner-section-kicker">Sales history</span><h2>Your sold cards</h2><p>Transparent item-by-item revenue, commission, deductions and proceeds.</p></div>
+              </div>
+              <div class="owner-table-wrap">
+                <table class="owner-table">
+                  <thead><tr><th>Sold</th><th>Card</th><th>Order</th><th>Sale</th><th>Commission</th><th>Other deductions</th><th>Your proceeds</th><th>Status</th></tr></thead>
+                  <tbody id="owner-sales-body"><tr><td colspan="8" class="muted">No sales yet.</td></tr></tbody>
+                </table>
+              </div>
+              <div class="owner-pagination"><button id="owner-sales-prev" type="button">← Previous</button><span id="owner-sales-page">—</span><button id="owner-sales-next" type="button">Next →</button></div>
+            </section>
           </section>
-        </section>
 
-        <section id="owner-view-settlements" class="owner-view hidden" data-owner-view-panel="settlements">
-          <section class="inventory-panel">
-            <div class="page-heading" style="padding:22px 22px 0">
-              <div><p class="eyebrow">Settlements</p><h2>Order-by-order allocation</h2><p class="muted">Revenue, fees, commission, refunds and the amount allocated to your owner balance.</p></div>
+          <section id="owner-view-balance" class="owner-view hidden" data-owner-view-panel="balance">
+            <div class="owner-kpi-grid owner-finance-kpis">
+              <article class="owner-kpi-card featured"><span>Available to withdraw</span><strong id="owner-available-balance">—</strong><small>Available minus reserved requests</small></article>
+              <article class="owner-kpi-card"><span>Pending</span><strong id="owner-pending-balance">—</strong><small>Not yet available for payout</small></article>
+              <article class="owner-kpi-card"><span>Reserved payouts</span><strong id="owner-reserved-payouts">—</strong><small>Requested or approved</small></article>
+              <article class="owner-kpi-card"><span>Paid out</span><strong id="owner-paid-out">—</strong><small>Completed payout history</small></article>
             </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Order</th><th>Date</th><th>Items</th><th>Revenue</th><th>Commission</th><th>Other deductions</th><th>Your proceeds</th><th>Reconciled</th></tr></thead>
-                <tbody id="owner-settlements-body"><tr><td colspan="8" class="muted">No settlements loaded yet.</td></tr></tbody>
-              </table>
+
+            <div class="owner-payout-grid">
+              <section class="owner-panel" id="owner-stripe-connect-panel">
+                <div class="owner-panel-heading">
+                  <div><span class="owner-section-kicker">Payout account</span><h3>Stripe Connect</h3><p>Stripe securely handles identity verification and bank details.</p></div>
+                  <button id="owner-stripe-refresh" type="button" class="owner-link-button">Refresh ↻</button>
+                </div>
+                <div class="owner-status-list">
+                  <div><span>Account</span><strong id="owner-stripe-account-state">NOT CONNECTED</strong><small id="owner-stripe-account-note">Set up your payout account</small></div>
+                  <div><span>Verification</span><strong id="owner-stripe-verification-state">NOT READY</strong><small id="owner-stripe-verification-note">Identity verification required</small></div>
+                  <div><span>Transfers</span><strong id="owner-stripe-transfer-state">LOCKED</strong><small>Ready only after verification</small></div>
+                </div>
+                <div id="owner-stripe-message" class="message owner-card-message" role="status"></div>
+                <button id="owner-stripe-onboard" class="owner-primary-action" type="button">Set up payouts <span>→</span></button>
+              </section>
+
+              <section class="owner-panel">
+                <div class="owner-panel-heading"><div><span class="owner-section-kicker">Schedule</span><h3>Payout frequency</h3><p>Choose when cleared funds should be scheduled for payout.</p></div></div>
+                <div class="owner-form-stack">
+                  <label>Frequency<select id="owner-payout-cadence"><option value="MANUAL">Manual</option><option value="DAILY">Daily</option><option value="WEEKLY">Weekly</option><option value="FORTNIGHTLY">Every 2 weeks</option><option value="MONTHLY">Monthly</option></select></label>
+                  <label id="owner-payout-weekday-wrap" class="hidden">Day of week<select id="owner-payout-weekday"><option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option><option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option><option value="6">Sunday</option></select></label>
+                  <label id="owner-payout-monthly-wrap" class="hidden">Day of month<input id="owner-payout-monthly-day" type="number" min="1" max="31" step="1" value="1"></label>
+                  <div class="owner-next-payout"><span>Next scheduled payout</span><strong id="owner-payout-next">Manual only</strong></div>
+                </div>
+                <div id="owner-payout-preference-message" class="message owner-card-message" role="status"></div>
+                <button id="owner-payout-save" class="owner-secondary-action" type="button">Save payout schedule</button>
+              </section>
             </div>
-            <div class="pagination">
-              <button id="owner-settlements-prev" class="ghost-button" type="button">Previous</button>
-              <span id="owner-settlements-page" class="muted">—</span>
-              <button id="owner-settlements-next" class="ghost-button" type="button">Next</button>
-            </div>
+
+            <section class="owner-panel">
+              <div class="owner-section-header compact"><div><span class="owner-section-kicker">Payout history</span><h2>Your withdrawals</h2><p>Every completed, pending or failed payout remains visible here.</p></div></div>
+              <div class="owner-table-wrap">
+                <table class="owner-table">
+                  <thead><tr><th>Payout</th><th>Amount</th><th>Source</th><th>Status</th><th>Scheduled</th><th>Requested</th><th>Resolved</th></tr></thead>
+                  <tbody id="owner-payouts-body"><tr><td colspan="7" class="muted">No payouts yet.</td></tr></tbody>
+                </table>
+              </div>
+            </section>
           </section>
-        </section>
+
+          <section id="owner-view-settlements" class="owner-view hidden" data-owner-view-panel="settlements">
+            <section class="owner-panel">
+              <div class="owner-section-header compact">
+                <div><span class="owner-section-kicker">Order allocation</span><h2>Settlements</h2><p>See exactly how each order is allocated to you: revenue, commission, deductions, refunds and net proceeds.</p></div>
+              </div>
+              <div class="owner-table-wrap">
+                <table class="owner-table">
+                  <thead><tr><th>Order</th><th>Date</th><th>Items</th><th>Revenue</th><th>Commission</th><th>Other deductions</th><th>Your proceeds</th><th>Reconciled</th></tr></thead>
+                  <tbody id="owner-settlements-body"><tr><td colspan="8" class="muted">No settlements yet.</td></tr></tbody>
+                </table>
+              </div>
+              <div class="owner-pagination"><button id="owner-settlements-prev" type="button">← Previous</button><span id="owner-settlements-page">—</span><button id="owner-settlements-next" type="button">Next →</button></div>
+            </section>
+          </section>
+        </div>
       </div>
     </section>
   </main>
 
-  <script src="/assets/owner-portal.js" defer></script>
+  <script src="/assets/owner-portal.js?v=owner-v2" defer></script>
 </body>
 </html>
