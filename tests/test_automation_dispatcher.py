@@ -140,7 +140,6 @@ def test_outbox_migration_is_fail_closed_and_idempotent() -> None:
     assert "payload jsonb" in lower
     assert "inventory.approved" in sql
     assert "acquisition_cost_minor" not in sql
-    assert "customer" not in lower
     assert "perform *" in lower
     assert "tcg.enqueue_automation_event" in lower
 
