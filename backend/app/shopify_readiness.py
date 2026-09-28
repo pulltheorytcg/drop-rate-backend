@@ -158,10 +158,10 @@ async def shopify_local_readiness(
         request.state.request_id,
     ) as connection:
         owner = await _owner(connection)
-        if owner["role"] != "FOUNDER":
+        if owner["owner_type"] != "FOUNDER":
             raise HTTPException(
                 status_code=403,
-                detail="Only a founder can view Shopify readiness",
+                detail="Shopify readiness is available only for founder-owned inventory",
             )
 
         rows = await connection.fetch(

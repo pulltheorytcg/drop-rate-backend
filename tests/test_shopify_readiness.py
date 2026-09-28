@@ -6,6 +6,8 @@ import app.shopify_readiness as readiness
 ROOT = Path(__file__).parents[1]
 SOURCE = ROOT / "backend" / "app" / "shopify_readiness.py"
 DASHBOARD = ROOT / "backend" / "app" / "static" / "dashboard-shell.js"
+PIPELINE = ROOT / "backend" / "app" / "shopify_pipeline.py"
+MAIN = ROOT / "backend" / "app" / "main.py"
 
 
 def item(code: str, *, missing: list[str] | None = None, media_ready: bool = False) -> dict:
@@ -128,3 +130,24 @@ def test_dashboard_exposes_shopify_readiness_without_publish_controls() -> None:
     assert "test-sync" not in block
     assert "publish" not in block.casefold()
     assert "POST" not in block
+
+
+def test_shopify_founder_scope_uses_business_owner_type_not_access_role() -> None:
+    readiness_source = SOURCE.read_text()
+    pipeline_source = PIPELINE.read_text()
+    main_source = MAIN.read_text()
+
+    assert 'owner["owner_type"] != "FOUNDER"' in readiness_source
+    assert 'owner["owner_type"] != "FOUNDER"' in pipeline_source
+    assert 'owner["role"] != "FOUNDER"' not in readiness_source
+    assert 'owner["role"] != "FOUNDER"' not in pipeline_source
+    assert (
+        "app.include_router(shopify_pipeline_router, "
+        "dependencies=[Depends(require_platform_admin_request)])"
+        in main_source
+    )
+    assert (
+        "app.include_router(shopify_readiness_router, "
+        "dependencies=[Depends(require_platform_admin_request)])"
+        in main_source
+    )
