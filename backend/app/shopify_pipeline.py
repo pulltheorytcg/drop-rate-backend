@@ -2343,6 +2343,21 @@ def _parse_order_lines(
     return order_reference, line_specs, variant_gids
 
 
+async def _set_shopify_actor(
+    connection: asyncpg.Connection,
+    user_id: Any,
+) -> None:
+    await connection.execute(
+        "select set_config('tcg.user_id',$1,true)",
+        str(user_id),
+    )
+    if not await connection.fetchval("select tcg.is_platform_admin()"):
+        raise ShopifyProcessingError(
+            "SHOPIFY_ACTOR_NOT_ADMIN",
+            "Managed Shopify processing requires a platform-admin actor",
+        )
+
+
 async def _resolve_order_scopes(
     connection: asyncpg.Connection,
     *,
@@ -2488,10 +2503,7 @@ async def _process_created_order(
 
     scopes = await _resolve_order_scopes(connection, variant_gids=variant_gids)
     actor_user_id = scopes[0]["created_by_user_id"]
-    await connection.execute(
-        "select set_config('tcg.user_id',$1,true)",
-        str(actor_user_id),
-    )
+    await _set_shopify_actor(connection, actor_user_id)
 
     existing = await connection.fetchrow(
         "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1",
@@ -2637,10 +2649,7 @@ async def _process_paid_order(
 
     scopes = await _resolve_order_scopes(connection, variant_gids=variant_gids)
     actor_user_id = scopes[0]["created_by_user_id"]
-    await connection.execute(
-        "select set_config('tcg.user_id',$1,true)",
-        str(actor_user_id),
-    )
+    await _set_shopify_actor(connection, actor_user_id)
 
     existing = await connection.fetchrow(
         "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1",
@@ -2826,9 +2835,9 @@ async def _process_cancelled_order(
         order_reference,
     )
     if reservation_actor is not None:
-        await connection.execute(
-            "select set_config('tcg.user_id',$1,true)",
-            str(reservation_actor["created_by_user_id"]),
+        await _set_shopify_actor(
+            connection,
+            reservation_actor["created_by_user_id"],
         )
 
     reservations = await connection.fetch(
@@ -2896,9 +2905,9 @@ async def _process_cancelled_order(
         order_reference,
     )
     if sold_bootstrap is not None:
-        await connection.execute(
-            "select set_config('tcg.user_id',$1,true)",
-            str(sold_bootstrap["created_by_user_id"]),
+        await _set_shopify_actor(
+            connection,
+            sold_bootstrap["created_by_user_id"],
         )
         row = await connection.fetchrow(
             """
@@ -2975,10 +2984,7 @@ async def _process_refund(
     if bootstrap is None:
         return {"status": "PROCESSED", "action": "UNMANAGED_ORDER_REFUND"}
     actor_user_id = bootstrap["created_by_user_id"]
-    await connection.execute(
-        "select set_config('tcg.user_id',$1,true)",
-        str(actor_user_id),
-    )
+    await _set_shopify_actor(connection, actor_user_id)
 
     order = await connection.fetchrow(
         """
