@@ -469,9 +469,21 @@ function inventoryImageFigure(item) {
 
   const badge = document.createElement("span");
   badge.className = `inventory-image-badge ${String(item.card_image_approval_status || "").toLowerCase()}`;
-  badge.textContent = item.card_image_approval_status === "APPROVED"
-    ? "Verified image"
-    : "Reference image";
+  const graded = Boolean(item.grade || item.grading_company || item.certificate_number);
+  const physicalSlabImage = item.card_image_scope === "INVENTORY_ITEM";
+  if (graded && !physicalSlabImage) {
+    badge.textContent = "Reference art · slab photo required";
+    badge.classList.add("needs-slab");
+    figure.dataset.imageState = "graded-reference-only";
+  } else if (physicalSlabImage) {
+    badge.textContent = graded ? "Physical slab image" : "Physical item image";
+    figure.dataset.imageState = "physical-item";
+  } else {
+    badge.textContent = item.card_image_approval_status === "APPROVED"
+      ? "Verified image"
+      : "Reference image";
+    figure.dataset.imageState = "canonical-reference";
+  }
   figure.append(badge);
   return figure;
 }
