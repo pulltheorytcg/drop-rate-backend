@@ -10,7 +10,7 @@ const ISSUE_LABELS = {
 };
 const state = {
   config: null, session: null, offset: 0, total: 0, search: "", status: "",
-  brand: "", issue: "", items: new Map(), selected: new Map(), editing: null, readiness: null,
+  brand: "", saleIntent: "", issue: "", items: new Map(), selected: new Map(), editing: null, readiness: null,
   inventoryView: "visual",
   providers: {google: false, apple: false},
 };
@@ -367,7 +367,98 @@ async function listInventoryOnEbay(item, button) {
   }
 }
 
+async function changeInventorySaleIntent(item, saleIntent, button) {
+  if (["RESERVED", "SOLD"].includes(item.status)) {
+    showMessage(
+      "inventory-message",
+      "Reserved or sold inventory cannot change sale intent.",
+      "error"
+    );
+    return;
+  }
+
+  if (
+    saleIntent === "PERSONAL_COLLECTION"
+    && !window.confirm(
+      "Move this card to Personal Collection? Any live eBay or Shopify listing will be withdrawn."
+    )
+  ) {
+    return;
+  }
+
+  const priorLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = saleIntent === "PERSONAL_COLLECTION"
+    ? "Moving…"
+    : "Unlocking…";
+  showMessage(
+    "inventory-message",
+    saleIntent === "PERSONAL_COLLECTION"
+      ? `Protecting ${item.inventory_code} as Personal Collection and withdrawing marketplace listings…`
+      : `Moving ${item.inventory_code} back to sellable inventory…`
+  );
+
+  try {
+    await apiRequest(
+      `/api/v1/inventory/${item.id}/sale-intent`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          version: item.version,
+          sale_intent: saleIntent,
+        }),
+      }
+    );
+    await reloadDashboard(
+      saleIntent === "PERSONAL_COLLECTION"
+        ? `${item.inventory_code} is now in Personal Collection and is not for sale.`
+        : `${item.inventory_code} can be listed for sale again. Nothing was relisted automatically.`
+    );
+  } catch (error) {
+    showMessage("inventory-message", error.message, "error");
+    // PERSONAL_COLLECTION is committed locally before remote channel withdrawal.
+    // Reload so the dashboard reflects the fail-closed source-of-truth state.
+    await loadInventory().catch(() => {});
+    button.disabled = false;
+    button.textContent = priorLabel;
+  }
+}
+
+function saleIntentAction(item) {
+  const button = document.createElement("button");
+  button.className = "row-button sale-intent-button";
+  button.type = "button";
+
+  if (["RESERVED", "SOLD"].includes(item.status)) {
+    button.textContent = item.status === "SOLD" ? "Sold" : "Reserved";
+    button.disabled = true;
+    return button;
+  }
+
+  const personal = item.sale_intent === "PERSONAL_COLLECTION";
+  button.textContent = personal ? "Move to sell" : "Move to collection";
+  button.title = personal
+    ? "Return this physical card to sellable inventory. It will not be relisted automatically."
+    : "Keep this physical card in your Personal Collection and withdraw live marketplace listings.";
+  button.addEventListener("click", () => (
+    changeInventorySaleIntent(
+      item,
+      personal ? "FOR_SALE" : "PERSONAL_COLLECTION",
+      button
+    )
+  ));
+  return button;
+}
+
 function ebayInventoryAction(item) {
+  if (item.sale_intent === "PERSONAL_COLLECTION") {
+    const badge = document.createElement("span");
+    badge.className = "channel-status ended";
+    badge.textContent = "Not for sale";
+    badge.title = "Personal Collection inventory cannot be listed on eBay.";
+    return badge;
+  }
+
   const stateValue = String(item.ebay_state || "");
   if (stateValue === "LIVE") {
     const badge = document.createElement("span");
@@ -558,6 +649,7 @@ function inventoryVisualCard(item) {
   facts.className = "inventory-card-facts";
   const factValues = [
     ["Inventory", item.inventory_code],
+    ["Intent", item.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "For sale"],
     ["Condition", item.grade
       ? [item.grading_company || "Graded", item.grade].filter(Boolean).join(" ")
       : (item.condition || "—")],
@@ -578,9 +670,11 @@ function inventoryVisualCard(item) {
   const readiness = itemCoreReadiness(item);
   const readinessLine = document.createElement("span");
   readinessLine.className = `core-readiness${readiness.complete === readiness.total ? " complete" : ""}`;
-  readinessLine.textContent = readiness.complete === readiness.total
-    ? `Core ${readiness.complete}/${readiness.total} ✓`
-    : `Core ${readiness.complete}/${readiness.total} · Needs ${readiness.missing.join(", ")}`;
+  readinessLine.textContent = item.sale_intent === "PERSONAL_COLLECTION"
+    ? "Personal collection · not for sale"
+    : readiness.complete === readiness.total
+      ? `Core ${readiness.complete}/${readiness.total} ✓`
+      : `Core ${readiness.complete}/${readiness.total} · Needs ${readiness.missing.join(", ")}`;
   body.append(readinessLine);
 
   const actions = document.createElement("div");
@@ -590,7 +684,7 @@ function inventoryVisualCard(item) {
   review.type = "button";
   review.textContent = "Review";
   review.addEventListener("click", () => openEditor(item));
-  actions.append(review);
+  actions.append(review, saleIntentAction(item));
   if (item.product_type === "CARD") actions.append(ebayInventoryAction(item));
   body.append(actions);
 
@@ -646,9 +740,11 @@ function renderInventory(data) {
     const readiness = itemCoreReadiness(item);
     const readinessLine = document.createElement("span");
     readinessLine.className = `core-readiness${readiness.complete === readiness.total ? " complete" : ""}`;
-    readinessLine.textContent = readiness.complete === readiness.total
-      ? `Core ${readiness.complete}/${readiness.total} ✓`
-      : `Core ${readiness.complete}/${readiness.total} · Needs ${readiness.missing.join(", ")}`;
+    readinessLine.textContent = item.sale_intent === "PERSONAL_COLLECTION"
+      ? "Personal collection · not for sale"
+      : readiness.complete === readiness.total
+        ? `Core ${readiness.complete}/${readiness.total} ✓`
+        : `Core ${readiness.complete}/${readiness.total} · Needs ${readiness.missing.join(", ")}`;
     wrap.append(strong, meta, code, readinessLine);
     name.append(wrap);
     row.append(name);
@@ -664,6 +760,13 @@ function renderInventory(data) {
     pill.className = `pill ${item.status.toLowerCase()}`;
     pill.textContent = item.status.charAt(0) + item.status.slice(1).toLowerCase();
     status.append(pill);
+    if (item.sale_intent === "PERSONAL_COLLECTION") {
+      const intent = document.createElement("span");
+      intent.className = "channel-status ended";
+      intent.textContent = "Personal";
+      intent.title = "Personal Collection · not for sale";
+      status.append(intent);
+    }
     row.append(status);
     const actions = document.createElement("td");
     actions.dataset.label = "Actions";
@@ -672,7 +775,7 @@ function renderInventory(data) {
     edit.type = "button";
     edit.textContent = "Review";
     edit.addEventListener("click", () => openEditor(item));
-    actions.append(edit);
+    actions.append(edit, saleIntentAction(item));
     if (item.product_type === "CARD" && item.identity_confirmed) {
       const preview = document.createElement("button");
       preview.className = "row-button";
@@ -696,7 +799,8 @@ function renderInventory(data) {
 
 function renderReadiness(data) {
   state.readiness = data;
-  const actionCount = data.total - data.approved - data.approval_ready;
+  const workTotal = data.for_sale ?? data.total;
+  const actionCount = workTotal - data.approved - data.approval_ready;
   byId("total-count").textContent = data.total.toLocaleString("en-GB");
   byId("action-count").textContent = Math.max(0, actionCount).toLocaleString("en-GB");
   byId("ready-count").textContent = data.approval_ready.toLocaleString("en-GB");
@@ -764,6 +868,7 @@ async function loadInventory() {
   if (state.search) params.set("search", state.search);
   if (state.status) params.set("status", state.status);
   if (state.brand) params.set("brand", state.brand);
+  if (state.saleIntent) params.set("sale_intent", state.saleIntent);
   if (state.issue) params.set("issue", state.issue);
   try {
     renderInventory(await apiRequest(`/api/v1/inventory?${params}`));
@@ -1049,6 +1154,7 @@ let searchTimer;
 byId("search-input").addEventListener("input", (event) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.search = event.target.value.trim(); state.offset = 0; loadInventory(); }, 350); });
 byId("brand-filter").addEventListener("change", (event) => { state.brand = event.target.value; state.offset = 0; loadInventory(); });
 byId("status-filter").addEventListener("change", (event) => { state.status = event.target.value; state.offset = 0; loadInventory(); });
+byId("sale-intent-filter").addEventListener("change", (event) => { state.saleIntent = event.target.value; state.offset = 0; loadInventory(); });
 byId("inventory-view-visual").addEventListener("click", () => setInventoryView("visual"));
 byId("inventory-view-table").addEventListener("click", () => setInventoryView("table"));
 byId("previous-page").addEventListener("click", () => { state.offset = Math.max(0, state.offset - PAGE_SIZE); loadInventory(); });
