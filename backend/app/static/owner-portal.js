@@ -427,7 +427,7 @@ function renderOwnerChannelsRows(items) {
   body.replaceChildren();
 
   if (!items.length) {
-    renderEmptyRow(body, 6, "No channel-linked inventory matches these filters.");
+    renderEmptyRow("owner-channels-body", 6, "No channel-linked inventory matches these filters.");
     return;
   }
 
