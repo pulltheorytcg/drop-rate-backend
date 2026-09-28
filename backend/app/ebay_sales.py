@@ -758,37 +758,65 @@ async def withdraw_ebay_for_inventory(
     reason: str,
 ) -> None:
     links = await _links_for_inventory(pool, inventory_ids)
-    live = [link for link in links if link["state"] == "LIVE"]
-    if not live:
+    candidates = [
+        link for link in links if link["state"] in {"LIVE", "ERROR"}
+    ]
+    if not candidates:
         return
     settings = get_settings()
-    for link in live:
+    for link in candidates:
         try:
             client, _ = await seller_client(
                 pool, settings, owner_id=UUID(str(link["owner_id"]))
             )
-            await client.withdraw_offer(str(link["offer_id"]))
-            offer = await client.get_offer(str(link["offer_id"]))
-            if _offer_is_live(offer):
-                raise EbaySellApiError("eBay offer still appears published after withdrawal")
+            offer_id = str(link.get("offer_id") or "").strip()
+            if not offer_id:
+                offers = await client.get_offers(sku=str(link["sku"]))
+                matching = [
+                    offer for offer in offers
+                    if str(offer.get("marketplaceId") or "")
+                    == settings.ebay_marketplace_id
+                ]
+                if len(matching) > 1:
+                    raise EbaySellApiError(
+                        "Multiple eBay offers exist for inventory being withdrawn"
+                    )
+                if matching:
+                    offer_id = str(matching[0].get("offerId") or "").strip()
+
+            if offer_id:
+                offer = await client.get_offer(offer_id)
+                if _offer_is_live(offer):
+                    await client.withdraw_offer(offer_id)
+                    offer = await client.get_offer(offer_id)
+                if _offer_is_live(offer):
+                    raise EbaySellApiError(
+                        "eBay offer still appears published after withdrawal"
+                    )
+            elif link["state"] == "LIVE":
+                raise EbaySellApiError(
+                    "Live eBay link has no recoverable remote offer"
+                )
+
             async with pool.acquire() as connection:
                 await connection.execute(
                     """
                     update tcg.ebay_inventory_links
                     set state='WITHDRAWN', withdrawal_reason=$2,
+                        offer_id=coalesce($3,offer_id),
                         withdrawn_at=clock_timestamp(), last_verified_at=clock_timestamp(),
                         last_error_code=null, version=version+1,
                         updated_at=clock_timestamp()
                     where id=$1
                     """,
-                    link["id"], reason,
+                    link["id"], reason, offer_id or None,
                 )
         except (EbaySellApiError, RuntimeError, ValueError) as exc:
             await _mark_link_error(pool, link["id"], f"CROSS_CHANNEL:{reason}")
             if isinstance(exc, EbaySellApiError):
                 raise exc
             raise EbaySellApiError(
-                "Cannot withdraw live eBay listing: seller authorisation is unavailable"
+                "Cannot withdraw eBay inventory: seller authorisation is unavailable"
             ) from exc
 
 
