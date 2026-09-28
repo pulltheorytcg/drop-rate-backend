@@ -99,15 +99,15 @@ class Settings:
     environment: str
     db_pool_min: int
     db_pool_max: int
-    public_app_url: str | None
-    resend_api_key: str | None
-    seller_invite_from_email: str | None
-    seller_invite_reply_to: str | None
-    resend_webhook_secret: str | None
     parse_api_key: str | None
     ebay_client_id: str | None
     ebay_client_secret: str | None
     ebay_marketplace_id: str
+    public_app_url: str | None = None
+    resend_api_key: str | None = None
+    seller_invite_from_email: str | None = None
+    seller_invite_reply_to: str | None = None
+    resend_webhook_secret: str | None = None
     trawl_api_key: str | None = None
     ebay_deletion_verification_token: str | None = None
     ebay_deletion_endpoint: str | None = None
