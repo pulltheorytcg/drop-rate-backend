@@ -6,7 +6,7 @@ const state = {
   config: null,
   session: null,
   providers: {google: false, apple: false},
-  inventory: {offset: 0, limit: 50, total: 0, search: "", status: ""},
+  inventory: {offset: 0, limit: 50, total: 0, search: "", status: "", layout: "grid"},
   sales: {offset: 0, limit: 50, total: 0},
   settlements: {offset: 0, limit: 50, total: 0},
   payoutPreferenceVersion: 0,
@@ -31,7 +31,52 @@ function safeText(value, fallback = "—") {
 function showPortalMessage(text = "", kind = "") {
   const node = byId("owner-portal-message");
   node.textContent = text;
-  node.className = `message panel-message${kind ? ` ${kind}` : ""}`;
+  node.className = `message owner-global-message${kind ? ` ${kind}` : ""}`;
+}
+
+function statusClass(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function inventoryCardSubtitle(item) {
+  return [
+    safeText(item.set_name, ""),
+    item.card_number ? `#${item.card_number}` : "",
+    safeText(item.variant, ""),
+  ].filter(Boolean).join(" · ") || safeText(item.game);
+}
+
+function conditionLabel(item) {
+  return item.grade
+    ? `${safeText(item.grading_company, "Graded")} ${item.grade}`
+    : safeText(item.condition);
+}
+
+function createCardImage(item, className) {
+  const wrap = document.createElement("div");
+  wrap.className = className;
+  const url = String(item.image_url || "").trim();
+  if (url) {
+    const image = document.createElement("img");
+    image.src = url;
+    image.alt = `${safeText(item.name, "Trading card")} reference image`;
+    image.loading = "lazy";
+    image.decoding = "async";
+    image.addEventListener("error", () => {
+      wrap.replaceChildren();
+      const fallback = document.createElement("span");
+      fallback.className = "owner-image-placeholder";
+      fallback.textContent = safeText(item.game, "DR").slice(0, 3).toUpperCase();
+      wrap.append(fallback);
+    }, {once: true});
+    wrap.append(image);
+    return wrap;
+  }
+  const fallback = document.createElement("span");
+  fallback.className = "owner-image-placeholder";
+  fallback.textContent = safeText(item.game, "DR").slice(0, 3).toUpperCase();
+  wrap.append(fallback);
+  return wrap;
 }
 
 function renderInventoryRows(items) {
@@ -41,7 +86,7 @@ function renderInventoryRows(items) {
   if (!items.length) {
     const row = document.createElement("tr");
     const cell = document.createElement("td");
-    cell.colSpan = 8;
+    cell.colSpan = 6;
     cell.className = "muted";
     cell.textContent = "No inventory matches these filters.";
     row.append(cell);
@@ -51,28 +96,163 @@ function renderInventoryRows(items) {
 
   for (const item of items) {
     const row = document.createElement("tr");
-    const card = safeText(item.name);
-    const cardNumber = item.card_number ? ` #${item.card_number}` : "";
-    const variant = item.variant ? ` · ${item.variant}` : "";
-    const grade = item.grade
-      ? `${safeText(item.grading_company, "Graded")} ${item.grade}`
-      : safeText(item.condition);
-    const values = [
-      safeText(item.inventory_code),
-      `${card}${cardNumber}${variant}`,
-      `${safeText(item.game)} · ${safeText(item.set_name)}`,
-      safeText(item.language),
-      grade,
-      safeText(item.status),
-      formatMoney(item.market_value_minor),
-      formatMoney(item.store_price_minor),
-    ];
-    for (const value of values) {
-      const cell = document.createElement("td");
-      cell.textContent = value;
-      row.append(cell);
-    }
+
+    const cardCell = document.createElement("td");
+    const cardWrap = document.createElement("div");
+    cardWrap.className = "owner-table-card";
+    cardWrap.append(createCardImage(item, "owner-table-mini-image"));
+    const cardCopy = document.createElement("div");
+    cardCopy.className = "owner-table-card-copy";
+    const cardName = document.createElement("strong");
+    cardName.textContent = safeText(item.name);
+    const cardCode = document.createElement("small");
+    cardCode.textContent = `${safeText(item.inventory_code)} · ${inventoryCardSubtitle(item)}`;
+    cardCopy.append(cardName, cardCode);
+    cardWrap.append(cardCopy);
+    cardCell.append(cardWrap);
+
+    const gameCell = document.createElement("td");
+    gameCell.textContent = [safeText(item.game, ""), safeText(item.set_name, "")].filter(Boolean).join(" · ") || "—";
+
+    const conditionCell = document.createElement("td");
+    conditionCell.textContent = `${conditionLabel(item)} · ${safeText(item.language)}`;
+
+    const statusCell = document.createElement("td");
+    const status = document.createElement("span");
+    status.className = `owner-status-pill ${statusClass(item.status)}`;
+    status.textContent = safeText(item.status);
+    statusCell.append(status);
+
+    const marketCell = document.createElement("td");
+    marketCell.textContent = formatMoney(item.market_value_minor);
+    const storeCell = document.createElement("td");
+    storeCell.textContent = formatMoney(item.store_price_minor);
+
+    row.append(cardCell, gameCell, conditionCell, statusCell, marketCell, storeCell);
     body.append(row);
+  }
+}
+
+function renderInventoryCards(items) {
+  const grid = byId("owner-inventory-grid");
+  grid.replaceChildren();
+
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "owner-inventory-empty";
+    const icon = document.createElement("div");
+    icon.className = "owner-inventory-empty-icon";
+    icon.textContent = "▣";
+    const title = document.createElement("strong");
+    title.textContent = state.inventory.search || state.inventory.status
+      ? "No cards match these filters"
+      : "No cards linked yet";
+    const copy = document.createElement("span");
+    copy.textContent = state.inventory.search || state.inventory.status
+      ? "Try clearing your search or choosing another status."
+      : "Once Drop Rate links inventory to your seller account, every card will appear here automatically.";
+    empty.append(icon, title, copy);
+    grid.append(empty);
+    return;
+  }
+
+  for (const item of items) {
+    const card = document.createElement("article");
+    card.className = "owner-inventory-card";
+
+    const imageWrap = document.createElement("div");
+    imageWrap.className = "owner-card-image-wrap";
+    imageWrap.append(createCardImage(item, "owner-card-thumb"));
+
+    const body = document.createElement("div");
+    body.className = "owner-card-body";
+
+    const heading = document.createElement("div");
+    heading.className = "owner-card-title-row";
+    const title = document.createElement("div");
+    title.className = "owner-card-title";
+    const name = document.createElement("strong");
+    name.textContent = safeText(item.name);
+    const subtitle = document.createElement("span");
+    subtitle.textContent = inventoryCardSubtitle(item);
+    title.append(name, subtitle);
+    const status = document.createElement("span");
+    status.className = `owner-status-pill ${statusClass(item.status)}`;
+    status.textContent = safeText(item.status);
+    heading.append(title, status);
+
+    const meta = document.createElement("div");
+    meta.className = "owner-card-meta";
+    const metaValues = [
+      ["Condition", conditionLabel(item)],
+      ["Language", safeText(item.language)],
+      ["Game", safeText(item.game)],
+      ["Inventory", safeText(item.inventory_code)],
+    ];
+    for (const [labelText, valueText] of metaValues) {
+      const box = document.createElement("div");
+      const label = document.createElement("span");
+      label.textContent = labelText;
+      const value = document.createElement("strong");
+      value.textContent = valueText;
+      box.append(label, value);
+      meta.append(box);
+    }
+
+    const prices = document.createElement("div");
+    prices.className = "owner-card-prices";
+    for (const [labelText, valueText] of [
+      ["Market value", formatMoney(item.market_value_minor)],
+      ["Store price", formatMoney(item.store_price_minor)],
+    ]) {
+      const box = document.createElement("div");
+      const label = document.createElement("span");
+      label.textContent = labelText;
+      const value = document.createElement("strong");
+      value.textContent = valueText;
+      box.append(label, value);
+      prices.append(box);
+    }
+
+    body.append(heading, meta, prices);
+    card.append(imageWrap, body);
+    grid.append(card);
+  }
+}
+
+function renderOverviewLatestInventory(items) {
+  const container = byId("owner-overview-latest");
+  if (!container) return;
+  container.replaceChildren();
+
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "owner-empty-inline";
+    const title = document.createElement("strong");
+    title.textContent = "No cards yet";
+    const copy = document.createElement("span");
+    copy.textContent = "Your latest cards will appear here as soon as inventory is linked to your account.";
+    empty.append(title, copy);
+    container.append(empty);
+    return;
+  }
+
+  for (const item of items.slice(0, 4)) {
+    const card = document.createElement("article");
+    card.className = "owner-latest-card";
+    card.append(createCardImage(item, "owner-latest-image"));
+
+    const copy = document.createElement("div");
+    copy.className = "owner-latest-copy";
+    const name = document.createElement("strong");
+    name.textContent = safeText(item.name);
+    const detail = document.createElement("span");
+    detail.textContent = inventoryCardSubtitle(item);
+    const status = document.createElement("small");
+    status.textContent = safeText(item.status);
+    copy.append(name, detail, status);
+    card.append(copy);
+    container.append(card);
   }
 }
 
@@ -90,10 +270,24 @@ function renderInventoryPagination() {
 async function loadOwnerOverview() {
   const data = await apiRequest("/api/v1/owner/overview");
   const summary = data.summary || {};
-  byId("owner-total-inventory").textContent = Number(summary.total_inventory_count || 0).toLocaleString("en-GB");
+  const total = Number(summary.total_inventory_count || 0);
+  byId("owner-total-inventory").textContent = total.toLocaleString("en-GB");
   byId("owner-market-value").textContent = formatMoney(summary.active_market_value_minor);
   byId("owner-store-value").textContent = formatMoney(summary.active_store_price_minor);
   byId("owner-sold-count").textContent = Number(summary.sold_count || 0).toLocaleString("en-GB");
+
+  const stages = {
+    draft: Number(summary.draft_count || 0),
+    inspection: Number(summary.inspection_count || 0),
+    approved: Number(summary.approved_count || 0),
+    reserved: Number(summary.reserved_count || 0),
+  };
+  for (const [stage, count] of Object.entries(stages)) {
+    const value = byId(`owner-pipeline-${stage}`);
+    const bar = byId(`owner-pipeline-${stage}-bar`);
+    if (value) value.textContent = count.toLocaleString("en-GB");
+    if (bar) bar.style.width = `${total ? Math.min(100, Math.max(4, (count / total) * 100)) : 0}%`;
+  }
 }
 
 async function loadOwnerInventory() {
@@ -106,8 +300,15 @@ async function loadOwnerInventory() {
 
   const data = await apiRequest(`/api/v1/owner/inventory?${params.toString()}`);
   state.inventory.total = Number(data.total || 0);
-  renderInventoryRows(data.items || []);
+  const items = data.items || [];
+  renderInventoryRows(items);
+  renderInventoryCards(items);
   renderInventoryPagination();
+  const totalLabel = byId("owner-inventory-total-label");
+  if (totalLabel) totalLabel.textContent = state.inventory.total.toLocaleString("en-GB");
+  if (state.inventory.offset === 0 && !state.inventory.search && !state.inventory.status) {
+    renderOverviewLatestInventory(items);
+  }
 }
 
 async function reloadOwnerDashboard() {
@@ -172,6 +373,10 @@ async function loadOwnerFinanceSummary() {
   byId("owner-pending-balance").textContent = formatMoney(data.pending_minor);
   byId("owner-reserved-payouts").textContent = formatMoney(data.reserved_payout_minor);
   byId("owner-paid-out").textContent = formatMoney(data.paid_out_minor);
+  byId("owner-overview-balance").textContent = formatMoney(data.available_to_withdraw_minor);
+  byId("owner-overview-proceeds").textContent = formatMoney(data.lifetime_owner_proceeds_minor);
+  byId("owner-overview-pending").textContent = formatMoney(data.pending_minor);
+  byId("owner-overview-paid").textContent = formatMoney(data.paid_out_minor);
 }
 
 function otherDeductions(item) {
@@ -347,7 +552,7 @@ function renderOwnerStripeStatus(data) {
 function showOwnerStripeMessage(text = "", kind = "") {
   const node = byId("owner-stripe-message");
   node.textContent = text;
-  node.className = `message panel-message${kind ? ` ${kind}` : ""}`;
+  node.className = `message owner-card-message${kind ? ` ${kind}` : ""}`;
 }
 
 async function loadOwnerStripeStatus() {
@@ -447,7 +652,7 @@ async function saveOwnerPayoutPreference() {
   button.disabled = true;
   const message = byId("owner-payout-preference-message");
   message.textContent = "Saving payout schedule…";
-  message.className = "message panel-message";
+  message.className = "message owner-card-message";
   try {
     const data = await apiRequest("/api/v1/payout-preferences", {
       method: "PUT",
@@ -455,22 +660,36 @@ async function saveOwnerPayoutPreference() {
     });
     renderOwnerPayoutPreference(data);
     message.textContent = "Payout schedule saved.";
-    message.className = "message panel-message success";
+    message.className = "message owner-card-message success";
   } catch (error) {
     message.textContent = error.message;
-    message.className = "message panel-message error";
+    message.className = "message owner-card-message error";
   } finally {
     button.disabled = false;
   }
 }
 
 function activateOwnerView(view) {
+  const views = {
+    overview: ["Overview", "Everything you need to track your cards, sales and payouts."],
+    inventory: ["Inventory", "Browse and search every physical card linked to your seller account."],
+    sales: ["Sales", "Understand every sale, deduction and penny allocated to you."],
+    balance: ["Payouts", "Manage your payout account, balance and preferred payout schedule."],
+    settlements: ["Settlements", "Follow order-by-order allocation and reconciliation."],
+  };
+  const target = Object.hasOwn(views, view) ? view : "overview";
+
   document.querySelectorAll("[data-owner-view-panel]").forEach((panel) => {
-    panel.classList.toggle("hidden", panel.dataset.ownerViewPanel !== view);
+    panel.classList.toggle("hidden", panel.dataset.ownerViewPanel !== target);
   });
-  document.querySelectorAll("[data-owner-view]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.ownerView === view);
+  document.querySelectorAll(".owner-nav-item[data-owner-view]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.ownerView === target);
   });
+
+  byId("owner-page-title").textContent = views[target][0];
+  byId("owner-page-subtitle").textContent = views[target][1];
+  history.replaceState({}, document.title, target === "overview" ? "/owner" : `/owner#${target}`);
+  window.scrollTo({top: 0, behavior: "smooth"});
 }
 
 function errorMessage(data) {
@@ -602,55 +821,22 @@ async function hydrateSessionUser() {
 
 function showOwnerOnboardingWelcome() {
   const params = new URLSearchParams(window.location.search);
-  if (params.get("welcome") !== "1" || byId("owner-onboarding-welcome")) return;
+  if (params.get("welcome") !== "1") return;
 
-  const content = document.querySelector("#owner-portal-view .dashboard-content");
-  const heading = content?.querySelector(":scope > .page-heading");
-  if (!content || !heading) return;
-
-  const panel = document.createElement("section");
-  panel.id = "owner-onboarding-welcome";
-  panel.className = "inventory-panel owner-onboarding-welcome";
-  panel.innerHTML = `
-    <div class="page-heading" style="padding:22px 22px 0">
-      <div>
-        <p class="eyebrow">Onboarding complete</p>
-        <h2>Welcome to your Drop Rate owner portal</h2>
-        <p class="muted">Your account is active and restricted to your own inventory, sales and payouts.</p>
-      </div>
-    </div>
-    <div class="owner-onboarding-callout" style="margin:0 22px 18px">
-      <strong>Your next steps</strong>
-      <ul>
-        <li>Drop Rate receives, identifies and inspects your cards before listing.</li>
-        <li>You can follow your own inventory, prices and sales from this portal.</li>
-        <li>Set up Stripe when you want payouts sent to your verified account.</li>
-        <li>Choose your preferred payout schedule after Stripe onboarding is complete.</li>
-      </ul>
-    </div>
-    <div class="toolbar" style="padding:0 22px 22px">
-      <button id="owner-welcome-inventory" class="ghost-button compact" type="button">View my inventory</button>
-      <button id="owner-welcome-payouts" class="primary-button compact" type="button">Set up payouts</button>
-      <button id="owner-welcome-dismiss" class="text-button" type="button">Dismiss</button>
-    </div>
-  `;
-
-  heading.insertAdjacentElement("afterend", panel);
+  const panel = byId("owner-onboarding-welcome");
+  if (!panel) return;
+  panel.classList.remove("hidden");
 
   byId("owner-welcome-inventory").addEventListener("click", () => {
     activateOwnerView("inventory");
-    panel.scrollIntoView({behavior: "smooth", block: "start"});
-  });
+  }, {once: true});
   byId("owner-welcome-payouts").addEventListener("click", () => {
     activateOwnerView("balance");
-    byId("owner-stripe-connect-panel")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  });
+    byId("owner-stripe-connect-panel")?.scrollIntoView({behavior: "smooth", block: "start"});
+  }, {once: true});
   byId("owner-welcome-dismiss").addEventListener("click", () => {
-    panel.remove();
-  });
+    panel.classList.add("hidden");
+  }, {once: true});
 
   history.replaceState({}, document.title, "/owner");
 }
@@ -672,9 +858,12 @@ async function openOwnerPortal() {
   byId("owner-portal-name").textContent = name;
   byId("owner-portal-initial").textContent = name.slice(0, 1).toUpperCase();
   byId("owner-portal-email").textContent = state.session?.user?.email || "Owner account";
+  byId("owner-overview-name").textContent = name;
 
   byId("owner-auth-view").classList.add("hidden");
   byId("owner-portal-view").classList.remove("hidden");
+  const hashView = window.location.hash.replace("#", "");
+  activateOwnerView(["inventory", "sales", "balance", "settlements"].includes(hashView) ? hashView : "overview");
   await reloadOwnerDashboard();
   showOwnerOnboardingWelcome();
 }
@@ -773,6 +962,17 @@ byId("owner-inventory-search").addEventListener("keydown", async (event) => {
   await reloadOwnerDashboard();
 });
 
+let ownerInventorySearchTimer = null;
+byId("owner-inventory-search").addEventListener("input", (event) => {
+  window.clearTimeout(ownerInventorySearchTimer);
+  ownerInventorySearchTimer = window.setTimeout(async () => {
+    state.inventory.search = event.currentTarget.value.trim();
+    state.inventory.status = byId("owner-inventory-status").value;
+    state.inventory.offset = 0;
+    await loadOwnerInventory();
+  }, 320);
+});
+
 byId("owner-inventory-status").addEventListener("change", async (event) => {
   state.inventory.status = event.currentTarget.value;
   state.inventory.search = byId("owner-inventory-search").value.trim();
@@ -791,8 +991,24 @@ byId("owner-inventory-next").addEventListener("click", async () => {
   await loadOwnerInventory();
 });
 
-document.querySelectorAll("[data-owner-view]").forEach((button) => {
+document.querySelectorAll(".owner-nav-item[data-owner-view]").forEach((button) => {
   button.addEventListener("click", () => activateOwnerView(button.dataset.ownerView));
+});
+
+document.querySelectorAll("[data-owner-jump]").forEach((button) => {
+  button.addEventListener("click", () => activateOwnerView(button.dataset.ownerJump));
+});
+
+document.querySelectorAll("[data-owner-inventory-layout]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const layout = button.dataset.ownerInventoryLayout === "list" ? "list" : "grid";
+    state.inventory.layout = layout;
+    byId("owner-inventory-grid").classList.toggle("hidden", layout !== "grid");
+    byId("owner-inventory-table-wrap").classList.toggle("hidden", layout !== "list");
+    document.querySelectorAll("[data-owner-inventory-layout]").forEach((toggle) => {
+      toggle.classList.toggle("active", toggle.dataset.ownerInventoryLayout === layout);
+    });
+  });
 });
 
 byId("owner-sales-prev").addEventListener("click", async () => {
