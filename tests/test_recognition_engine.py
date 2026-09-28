@@ -1512,4 +1512,4 @@ def test_scanner_candidate_image_uses_authenticated_proxy_and_shows_market_value
     assert "Exact printing image not verified yet" in ui
     assert "Previous results are not shown during this scan." in ui
     assert "The previous scan result has been cleared." in ui
-    assert "candidates.find((item) => !item.hard_rejected)" in ui
+    assert "const viableCandidates = candidates.filter((item) => !item.hard_rejected);" in ui
