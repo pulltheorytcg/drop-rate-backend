@@ -126,6 +126,22 @@ async function apiRequest(path, options = {}, retry = true) {
   }
   return readJson(response);
 }
+async function apiImageBlob(path, retry = true) {
+  const requestOptions = {
+    headers: { Authorization: `Bearer ${state.session.access_token}` },
+  };
+  let response = await fetch(path, requestOptions);
+  if (response.status === 401 && retry) {
+    requestOptions.headers.Authorization = `Bearer ${await refreshSession()}`;
+    response = await fetch(path, requestOptions);
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(errorMessage(data));
+  }
+  return response.blob();
+}
+
 function redirectPendingFounderInviteCallback() {
   const pendingInvite = localStorage.getItem("drop_rate_pending_founder_invite");
   if (!pendingInvite || !window.location.hash) return false;
@@ -419,31 +435,43 @@ function inventoryImageFigure(item) {
   if (!item.card_image_url) {
     const empty = document.createElement("div");
     empty.className = "inventory-card-art-empty";
-    empty.innerHTML = "<span>◇</span><strong>No image yet</strong><small>Resolve in Media</small>";
+    empty.innerHTML = "<span>◇</span><strong>No image yet</strong><small>Exact image not assigned yet</small>";
     figure.append(empty);
     return figure;
   }
 
   const image = document.createElement("img");
-  image.src = item.card_image_url;
   image.alt = [item.name, item.set_name, item.card_number, item.language || item.catalogue_language]
     .filter(Boolean).join(" · ");
-  image.loading = "lazy";
   image.decoding = "async";
-  image.addEventListener("error", () => {
-    image.remove();
+
+  const showFailure = () => {
+    if (image.isConnected) image.remove();
+    if (figure.querySelector(".inventory-card-art-empty")) return;
     const empty = document.createElement("div");
     empty.className = "inventory-card-art-empty error";
-    empty.innerHTML = "<span>!</span><strong>Image unavailable</strong><small>Open Media to review source</small>";
+    empty.innerHTML = "<span>!</span><strong>Image source needs review</strong><small>Drop Rate could not load the assigned image</small>";
     figure.append(empty);
-  });
+  };
+
+  apiImageBlob(`/api/v1/inventory/${encodeURIComponent(item.id)}/image`)
+    .then((blob) => {
+      const objectUrl = URL.createObjectURL(blob);
+      image.addEventListener("load", () => URL.revokeObjectURL(objectUrl), { once: true });
+      image.addEventListener("error", () => {
+        URL.revokeObjectURL(objectUrl);
+        showFailure();
+      }, { once: true });
+      image.src = objectUrl;
+    })
+    .catch(showFailure);
   figure.append(image);
 
   const badge = document.createElement("span");
   badge.className = `inventory-image-badge ${String(item.card_image_approval_status || "").toLowerCase()}`;
   badge.textContent = item.card_image_approval_status === "APPROVED"
     ? "Verified image"
-    : "Review image";
+    : "Reference image";
   figure.append(badge);
   return figure;
 }
