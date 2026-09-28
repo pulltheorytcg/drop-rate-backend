@@ -134,3 +134,20 @@ def test_sale_intent_router_is_wired_without_platform_admin_dependency() -> None
         "dependencies=[Depends(require_platform_admin_request)])"
         not in main
     )
+
+
+def test_shopify_relisting_is_explicit_and_reuses_existing_link() -> None:
+    source = SHOPIFY.read_text()
+    start = source.index("async def sync_one_test_item(")
+    end = source.index("def _parse_order_lines(", start)
+    sync = source[start:end]
+    assert 'existing["sync_state"] == "SOLD"' in sync
+    assert 'existing["sync_state"] == "PUBLISHED"' in sync
+    assert '"ARCHIVED"' in sync
+    assert '"ERROR"' in sync
+    assert "Existing Shopify link has no matching remote product" in sync
+    assert "Existing Shopify link points to a different remote product" in sync
+    assert "Existing Shopify link points to a different variant" in sync
+    assert "Existing Shopify link points to a different inventory item" in sync
+    assert "set sync_state='DRAFT'" in sync
+    assert "set sync_state='PUBLISHED'" in sync
