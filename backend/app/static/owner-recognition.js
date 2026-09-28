@@ -86,8 +86,12 @@ async function ownerScanLoadCandidateImage(image, runId, candidateId) {
 
 function ownerScanStopCamera({hide = true} = {}) {
   ownerBatchStopLoop();
+  const batch = state.ownerRecognition.batch;
+  window.clearTimeout(batch.statusTimer);
+  window.clearTimeout(batch.flashTimer);
+  document.querySelector(".owner-scan-card-guide")?.classList.remove("scan-ok", "scan-review");
   document.body.classList.remove("owner-batch-camera-open");
-  state.ownerRecognition.batch.enabled = false;
+  batch.enabled = false;
   if (state.ownerRecognition.cameraStream) {
     state.ownerRecognition.cameraStream.getTracks().forEach((track) => {
       try { track.stop(); } catch (_error) {}
@@ -906,6 +910,7 @@ function ownerBatchRenderStrip() {
     card.append(copy, fix);
     strip.append(card);
   }
+  strip.scrollLeft = 0;
 }
 
 function ownerBatchLatestItem() {
