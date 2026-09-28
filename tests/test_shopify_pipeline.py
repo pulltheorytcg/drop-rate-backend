@@ -304,7 +304,7 @@ def test_out_of_order_shopify_webhooks_resolve_owner_before_order_lookup() -> No
     assert created.index("_resolve_order_scopes(") < created.index(
         "select id,status from tcg.orders"
     )
-    assert created.index("set_config('tcg.user_id'") < created.index(
+    assert created.index("_set_shopify_actor(") < created.index(
         "select id,status from tcg.orders"
     )
     assert "ORDER_ALREADY_FINALIZED" in created
@@ -315,7 +315,7 @@ def test_out_of_order_shopify_webhooks_resolve_owner_before_order_lookup() -> No
     assert paid.index("_resolve_order_scopes(") < paid.index(
         "select id,status from tcg.orders"
     )
-    assert paid.index("set_config('tcg.user_id'") < paid.index(
+    assert paid.index("_set_shopify_actor(") < paid.index(
         "select id,status from tcg.orders"
     )
     assert "ORDER_ALREADY_RECORDED" in paid
@@ -1028,3 +1028,20 @@ def test_multi_owner_refund_reverses_original_order_item_owner() -> None:
     assert 'allocation["inventory_id"], allocation["owner_id"]' in refund
     assert "group by oi.id,oi.owner_id" in refund
     assert 'row["owner_id"], order["id"], row["order_item_id"]' in refund
+
+
+def test_shopify_multi_owner_processing_requires_admin_system_actor() -> None:
+    source = PIPELINE.read_text()
+    helper = source[source.index("async def _set_shopify_actor("):source.index("async def _resolve_order_scopes(")]
+    assert "set_config('tcg.user_id',$1,true)" in helper
+    assert "select tcg.is_platform_admin()" in helper
+    assert "SHOPIFY_ACTOR_NOT_ADMIN" in helper
+
+
+def test_repeated_refunds_walk_remaining_physical_allocations_without_owner_drift() -> None:
+    source = PIPELINE.read_text()
+    refund = source[source.index("async def _process_refund("):]
+    assert "as refunded_minor" in refund
+    assert 'int(allocation["refunded_minor"] or 0) < int(allocation["net_sale_minor"])' in refund
+    assert "REFUND_EXCEEDS_ITEM_REVENUE" in refund
+    assert "remaining_refundable_minor" in refund
