@@ -387,7 +387,7 @@ async function changeInventorySaleIntent(item, saleIntent, button) {
   if (
     saleIntent === "PERSONAL_COLLECTION"
     && !window.confirm(
-      "Move this card to Personal Collection? Any live eBay or Shopify listing will be withdrawn."
+      "Move this item to Personal Collection? Any live eBay or Shopify listing will be withdrawn."
     )
   ) {
     return;
@@ -445,8 +445,8 @@ function saleIntentAction(item) {
   const personal = item.sale_intent === "PERSONAL_COLLECTION";
   button.textContent = personal ? "Move to sell" : "Move to collection";
   button.title = personal
-    ? "Return this physical card to sellable inventory. It will not be relisted automatically."
-    : "Keep this physical card in your Personal Collection and withdraw live marketplace listings.";
+    ? "Return this physical item to sellable inventory. It will not be relisted automatically."
+    : "Keep this physical item in your Personal Collection and withdraw live marketplace listings.";
   button.addEventListener("click", () => (
     changeInventorySaleIntent(
       item,
@@ -812,6 +812,13 @@ function renderReadiness(data) {
   byId("action-count").textContent = Math.max(0, actionCount).toLocaleString("en-GB");
   byId("ready-count").textContent = data.approval_ready.toLocaleString("en-GB");
   byId("approved-count").textContent = data.approved.toLocaleString("en-GB");
+  const personalOption = byId("sale-intent-filter")?.querySelector(
+    'option[value="PERSONAL_COLLECTION"]'
+  );
+  if (personalOption) {
+    personalOption.textContent =
+      `Personal collection (${Number(data.personal_collection || 0).toLocaleString("en-GB")})`;
+  }
   const container = byId("issue-buttons");
   container.replaceChildren();
   Object.entries(ISSUE_LABELS).forEach(([key, label]) => {
