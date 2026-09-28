@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from typing import Annotated
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -82,18 +82,96 @@ INVENTORY_IMAGE_ALLOWED_SUFFIXES = (
 )
 
 
+INVENTORY_IMAGE_MAX_BYTES = 12 * 1024 * 1024
+INVENTORY_IMAGE_MAX_REDIRECTS = 3
+INVENTORY_IMAGE_CONTENT_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+}
+
+
 def _inventory_image_source_allowed(url: str) -> bool:
     try:
         parsed = urlparse(url)
     except ValueError:
         return False
-    host = (parsed.hostname or "").lower()
-    if parsed.scheme != "https" or not host:
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if (
+        parsed.scheme != "https"
+        or not host
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+    ):
         return False
     return (
         host in INVENTORY_IMAGE_EXACT_HOSTS
         or any(host.endswith(suffix) for suffix in INVENTORY_IMAGE_ALLOWED_SUFFIXES)
     )
+
+
+def _inventory_image_redirect_target(current_url: str, location: str) -> str | None:
+    clean = str(location or "").strip()
+    if not clean:
+        return None
+    try:
+        target = urljoin(current_url, clean)
+    except ValueError:
+        return None
+    return target if _inventory_image_source_allowed(target) else None
+
+
+async def _fetch_inventory_image(
+    client: httpx.AsyncClient,
+    url: str,
+) -> tuple[bytes, str] | None:
+    current = url
+    for redirect_count in range(INVENTORY_IMAGE_MAX_REDIRECTS + 1):
+        if not _inventory_image_source_allowed(current):
+            return None
+        try:
+            async with client.stream("GET", current) as remote:
+                if remote.status_code in {301, 302, 303, 307, 308}:
+                    if redirect_count >= INVENTORY_IMAGE_MAX_REDIRECTS:
+                        return None
+                    target = _inventory_image_redirect_target(
+                        current,
+                        remote.headers.get("location", ""),
+                    )
+                    if target is None:
+                        return None
+                    current = target
+                    continue
+                if remote.status_code < 200 or remote.status_code >= 300:
+                    return None
+
+                content_type = (
+                    remote.headers.get("content-type") or ""
+                ).split(";", 1)[0].strip().lower()
+                if content_type not in INVENTORY_IMAGE_CONTENT_TYPES:
+                    return None
+
+                content_length = remote.headers.get("content-length")
+                if content_length:
+                    try:
+                        if int(content_length) > INVENTORY_IMAGE_MAX_BYTES:
+                            return None
+                    except ValueError:
+                        return None
+
+                chunks: list[bytes] = []
+                size = 0
+                async for chunk in remote.aiter_bytes():
+                    size += len(chunk)
+                    if size > INVENTORY_IMAGE_MAX_BYTES:
+                        return None
+                    chunks.append(chunk)
+                content = b"".join(chunks)
+                return (content, content_type) if content else None
+        except httpx.HTTPError:
+            return None
+    return None
 
 
 ISSUE_FILTERS = {
@@ -371,7 +449,7 @@ async def inventory_card_image(
     failures: list[str] = []
     async with httpx.AsyncClient(
         timeout=timeout,
-        follow_redirects=True,
+        follow_redirects=False,
         headers=headers,
     ) as client:
         for asset in assets:
@@ -385,26 +463,11 @@ async def inventory_card_image(
                 if not _inventory_image_source_allowed(image_url):
                     failures.append(f"{asset['id']}: blocked image host")
                     continue
-                try:
-                    remote = await client.get(image_url)
-                except httpx.HTTPError as exc:
-                    failures.append(f"{asset['id']}: {type(exc).__name__}")
+                fetched = await _fetch_inventory_image(client, image_url)
+                if fetched is None:
+                    failures.append(f"{asset['id']}: image fetch rejected or failed")
                     continue
-                if remote.status_code < 200 or remote.status_code >= 300:
-                    failures.append(f"{asset['id']}: HTTP {remote.status_code}")
-                    continue
-                content_type = (
-                    remote.headers.get("content-type") or ""
-                ).split(";", 1)[0].strip().lower()
-                if not content_type.startswith("image/"):
-                    failures.append(
-                        f"{asset['id']}: non-image content type {content_type or 'unknown'}"
-                    )
-                    continue
-                content = remote.content
-                if not content or len(content) > 12 * 1024 * 1024:
-                    failures.append(f"{asset['id']}: invalid image payload size")
-                    continue
+                content, content_type = fetched
                 return Response(
                     content=content,
                     media_type=content_type,
