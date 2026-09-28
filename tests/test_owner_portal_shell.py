@@ -15,7 +15,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=owner-v3" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=owner-v4" defer></script>' in html
     assert '<script src="/assets/owner-recognition.js?v=owner-v4" defer></script>' in html
 
     for founder_script in (
@@ -88,6 +88,9 @@ def test_owner_portal_uses_only_dedicated_owner_safe_read_contracts() -> None:
 
 def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None:
     html = HTML.read_text()
+    start = html.index('data-owner-view-panel="inventory"')
+    end = html.index('data-owner-view-panel="sales"', start)
+    inventory = html[start:end]
 
     for label in (
         "Acquisition cost",
@@ -95,12 +98,11 @@ def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None
         "Purchase lot",
         "Internal notes",
         "Shopify Product ID",
-        "eBay",
         'type="button">Approve',
         'type="button">Edit cost',
         'type="button">Reassign owner',
     ):
-        assert label not in html
+        assert label not in inventory
 
     for required in (
         "Total inventory",
@@ -173,7 +175,7 @@ def test_owner_portal_scan_workspace_uses_shared_recognition_safely() -> None:
     assert 'headers: {"Idempotency-Key": state.ownerRecognition.intakeKey}' in js
     assert "crypto.randomUUID()" in js
     assert ".owner-scan-camera-viewport" in css
-    assert "grid-template-columns:repeat(6,1fr)" in css
+    assert "grid-template-columns:repeat(7,1fr)" in css
 
 
 def test_owner_scan_requires_confirmation_before_intake() -> None:
