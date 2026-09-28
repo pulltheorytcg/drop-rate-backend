@@ -1,6 +1,7 @@
 from app.shopify_catalogue_bootstrap import (
     _handle,
     _media_filename,
+    _synced_price_minor,
     build_catalogue_product_input,
 )
 
@@ -83,3 +84,9 @@ def test_bootstrap_reuses_ready_shopify_file():
 def test_bootstrap_helpers_are_deterministic():
     assert _handle("INV-ABC_123") == "drop-rate-inv-abc-123"
     assert _media_filename(_item()) == "INV-ABC123.webp"
+
+
+def test_synced_price_minor_uses_zero_only_for_missing_price():
+    assert _synced_price_minor(499) == 499
+    assert _synced_price_minor(0) == 0
+    assert _synced_price_minor(None) == 0
