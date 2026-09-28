@@ -15,8 +15,8 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=owner-v4" defer></script>' in html
-    assert '<script src="/assets/owner-recognition.js?v=owner-v4" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=owner-v5" defer></script>' in html
+    assert '<script src="/assets/owner-recognition.js?v=owner-v5" defer></script>' in html
 
     for founder_script in (
         "dashboard-shell.js",
@@ -133,7 +133,7 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     css = CSS.read_text()
     js = JS.read_text()
 
-    assert 'href="/assets/owner-portal.css?v=owner-v2"' in html
+    assert 'href="/assets/owner-portal.css?v=owner-v5"' in html
     assert 'class="owner-portal-page"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
@@ -246,3 +246,20 @@ def test_mobile_batch_scan_only_commits_confirmed_items_as_draft_inventory() -> 
     assert feedback_index < intake_index
     assert 'selected_catalogue_id: item.selected.catalogue_id' in js
     assert "ownerBatchUnresolvedCount()" in js
+
+
+def test_mobile_batch_scanner_has_manual_capture_fallback() -> None:
+    html = HTML.read_text()
+    js = RECOGNITION_JS.read_text()
+    css = CSS.read_text()
+
+    assert 'id="owner-batch-capture-now"' in html
+    assert "Capture now" in html
+    assert "Use this if auto-scan has not fired" in html
+    assert "async function ownerBatchCaptureNow()" in js
+    assert 'byId("owner-batch-capture-now").addEventListener("click", ownerBatchCaptureNow)' in js
+    assert "ownerBatchCaptureDataUrl(video)" in js
+    assert "await ownerBatchRecognise(dataUrl)" in js
+    assert 'ownerBatchSetCameraState("Auto-scan on · tap Capture now any time")' in js
+    assert ".owner-portal-page .owner-batch-capture-now{display:none}" in css
+    assert "display:grid;grid-template-columns:auto auto 1fr" in css

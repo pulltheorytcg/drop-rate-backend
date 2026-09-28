@@ -124,3 +124,19 @@ def test_invalid_owner_inventory_status_fails_closed() -> None:
 
     assert "if status_value not in VISIBLE_STATUSES" in source
     assert 'filters.append("false")' in source
+
+
+def test_owner_inventory_and_channels_bind_pagination_parameters() -> None:
+    source = SOURCE.read_text()
+
+    inventory_start = source.index('@router.get("/inventory")')
+    inventory_end = source.index('@router.post("/recognition-intake"', inventory_start)
+    channels_start = source.index('@router.get("/channels")')
+    channels_end = source.index('@router.get("/catalogue-search")', channels_start)
+    inventory = source[inventory_start:inventory_end]
+    channels = source[channels_start:channels_end]
+
+    for block in (inventory, channels):
+        assert "page_params = [*params, limit, offset]" in block
+        assert 'limit ${len(page_params)-1} offset ${len(page_params)}' in block
+        assert 'limit {len(page_params)-1} offset {len(page_params)}' not in block

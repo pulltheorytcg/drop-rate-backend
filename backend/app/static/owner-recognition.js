@@ -123,6 +123,7 @@ async function ownerScanStartCamera(facingMode = "environment") {
     document.body.classList.add("owner-batch-camera-open");
     ownerBatchStartLoop();
     ownerBatchRender();
+    ownerBatchSetCameraState("Auto-scan on · tap Capture now any time");
   }
   ownerScanMessage(
     facingMode === "environment"
@@ -686,6 +687,38 @@ function ownerBatchStartLoop() {
 function ownerBatchSetCameraState(text) {
   const node = byId("owner-batch-camera-state");
   if (node) node.textContent = text;
+}
+
+async function ownerBatchCaptureNow() {
+  const batch = state.ownerRecognition.batch;
+  const video = byId("owner-scan-video");
+  const button = byId("owner-batch-capture-now");
+
+  if (batch.processing) {
+    ownerBatchSetCameraState("Already recognising this card…");
+    return;
+  }
+  if (!state.ownerRecognition.cameraStream || !video?.videoWidth || !video?.videoHeight) {
+    ownerBatchSetCameraState("Camera is still starting · try again in a moment");
+    return;
+  }
+
+  if (button) button.disabled = true;
+  try {
+    const fingerprint = ownerBatchFrameFingerprint(video);
+    if (fingerprint) {
+      batch.previousFingerprint = fingerprint;
+      batch.lastAcceptedFingerprint = fingerprint;
+      batch.armed = false;
+      batch.stableFrames = 0;
+    }
+    const dataUrl = ownerBatchCaptureDataUrl(video);
+    await ownerBatchRecognise(dataUrl);
+  } catch (error) {
+    ownerBatchSetCameraState(error.message || "Capture failed · try again");
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 async function ownerBatchTick() {
@@ -1269,6 +1302,7 @@ byId("owner-batch-switch-camera").addEventListener("click", async () => {
     ownerScanMessage(error.message, "error");
   }
 });
+byId("owner-batch-capture-now").addEventListener("click", ownerBatchCaptureNow);
 byId("owner-batch-review-button").addEventListener("click", ownerBatchOpenReview);
 byId("owner-batch-resume").addEventListener("click", ownerBatchResume);
 byId("owner-batch-correction-close").addEventListener("click", ownerBatchCloseCorrection);
