@@ -216,9 +216,9 @@ async def _run() -> None:
     )
     batch_size = _int_env(
         "TCG_AUTOMATION_BATCH_SIZE",
-        20,
+        5,
         minimum=1,
-        maximum=100,
+        maximum=20,
     )
     lease_seconds = _int_env(
         "TCG_AUTOMATION_LEASE_SECONDS",
@@ -232,9 +232,11 @@ async def _run() -> None:
         minimum=5,
         maximum=120,
     )
-    if lease_seconds <= timeout_seconds + 10:
+    worst_case_window = timeout_seconds * batch_size
+    if lease_seconds <= worst_case_window + 10:
         raise RuntimeError(
-            "TCG_AUTOMATION_LEASE_SECONDS must exceed HTTP timeout by more than 10 seconds"
+            "TCG_AUTOMATION_LEASE_SECONDS must exceed the sequential batch "
+            "HTTP window by more than 10 seconds"
         )
 
     connection = await asyncpg.connect(
