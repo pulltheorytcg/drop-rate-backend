@@ -415,12 +415,14 @@ function mediaQueueLabel(item) {
   ].filter(Boolean).join(" · ");
   if (item.required_scope === "INVENTORY_ITEM") {
     const grade = [item.grading_company, item.grade].filter(Boolean).join(" ");
-    return [identity, grade, item.inventory_code, `needs ${(item.missing_sides || []).join(" + ")}`]
+    const kind = item.is_sealed ? "sealed product" : grade || "raw card";
+    return [identity, kind, item.inventory_code, `needs ${(item.missing_sides || []).join(" + ")}`]
       .filter(Boolean)
       .join(" · ");
   }
   const copies = Number(item.copy_count || 0);
-  return [identity, copies > 1 ? `${copies} copies share this image` : "canonical raw-card image"]
+  const canonicalKind = item.is_sealed ? "canonical sealed-product image" : "canonical raw-card image";
+  return [identity, copies > 1 ? `${copies} copies share this image` : canonicalKind]
     .filter(Boolean)
     .join(" · ");
 }
@@ -460,12 +462,15 @@ function renderMediaIntakeQueue(data) {
     option.dataset.mediaScope = item.required_scope || "INVENTORY_ITEM";
     option.dataset.missingSides = (item.missing_sides || []).join(",");
     option.dataset.isGraded = item.is_graded ? "true" : "false";
+    option.dataset.isSealed = item.is_sealed ? "true" : "false";
+    option.dataset.productType = item.product_type || "";
     option.dataset.captureContextHint = item.capture_context_hint || "";
     option.dataset.cardName = item.name || "";
     option.dataset.cardNumber = item.card_number || "";
     option.dataset.language = item.language || "";
     option.dataset.variant = item.variant || "";
     option.dataset.policyReasons = (item.policy_reasons || []).join(",");
+    option.dataset.requiredSides = (item.required_sides || item.missing_sides || []).join(",");
     select.append(option);
   });
 
@@ -544,7 +549,11 @@ function renderMediaCandidateSummary() {
         option.dataset.cardNumber,
         option.dataset.language,
         option.dataset.inventoryCode,
-        option.dataset.isGraded === "true" ? "graded slab" : "raw card",
+        option.dataset.isSealed === "true"
+          ? "sealed product"
+          : option.dataset.isGraded === "true"
+            ? "graded slab"
+            : "raw card",
       ].filter(Boolean).join(" · ")
     )
   );
@@ -609,6 +618,7 @@ function renderShopifyMedia(capability, data, queueData) {
       [
         `${queueData?.raw_items_pending || 0} raw physical cards`,
         `${queueData?.graded_items_pending || 0} graded slabs`,
+        `${queueData?.sealed_items_pending || 0} sealed products`,
       ].join(" · ")
     )
   );
@@ -622,7 +632,12 @@ function renderShopifyMedia(capability, data, queueData) {
   }
 
   const rows = assets.map((asset) => {
-    const scope = asset.scope === "INVENTORY_ITEM" ? "Physical item" : "Canonical card";
+    const scope =
+      asset.scope === "INVENTORY_ITEM"
+        ? "Physical item"
+        : asset.scope === "CANONICAL_PRODUCT"
+          ? "Canonical product"
+          : "Canonical card";
     const row = document.createElement("div");
     row.className = "media-evidence-row";
 
@@ -777,15 +792,24 @@ function validateBatchMediaFiles(files) {
     }
 
     const isGraded = option.dataset.isGraded === "true";
+    const isSealed = option.dataset.isSealed === "true";
     if (!captureContext) {
       errors.push({filename: file.name, reason: "Choose how this batch is photographed"});
       return;
     }
-    if (isGraded && captureContext !== "GRADED_SLAB") {
+    if (isSealed && captureContext !== "SEALED_PRODUCT") {
+      errors.push({filename: file.name, reason: "Sealed products require the Sealed product context"});
+      return;
+    }
+    if (!isSealed && captureContext === "SEALED_PRODUCT") {
+      errors.push({filename: file.name, reason: "Sealed product context cannot be used for cards"});
+      return;
+    }
+    if (!isSealed && isGraded && captureContext !== "GRADED_SLAB") {
       errors.push({filename: file.name, reason: "Graded cards require the Graded slab context"});
       return;
     }
-    if (!isGraded && captureContext === "GRADED_SLAB") {
+    if (!isSealed && !isGraded && captureContext === "GRADED_SLAB") {
       errors.push({filename: file.name, reason: "Raw cards cannot use the Graded slab context"});
       return;
     }
@@ -796,7 +820,7 @@ function validateBatchMediaFiles(files) {
     if (!missingSides.includes(parsed.side)) {
       errors.push({
         filename: file.name,
-        reason: `${parsed.side} is not currently required for this card`,
+        reason: `${parsed.side} is not currently required for this inventory item`,
       });
       return;
     }
@@ -876,7 +900,8 @@ function refreshBatchMediaPreview() {
 
 function batchMediaAltText(option, side) {
   return [
-    option.dataset.cardName || "Trading card",
+    option.dataset.cardName
+      || (option.dataset.isSealed === "true" ? "Sealed trading card product" : "Trading card"),
     option.dataset.cardNumber || "",
     option.dataset.language || "",
     String(side || "FRONT").toLowerCase(),
