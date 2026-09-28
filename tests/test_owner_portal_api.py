@@ -154,3 +154,17 @@ def test_owner_inventory_can_render_governed_sealed_product_media() -> None:
     assert "m.approval_status='APPROVED'" in query
     assert "m.rights_status='VERIFIED'" in query
     assert "m.rights_tier='STOREFRONT_ALLOWED'" in query
+
+
+def test_owner_inventory_prefers_governed_first_party_inventory_media() -> None:
+    source = SOURCE.read_text()
+    route_start = source.index('@router.get("/inventory")')
+    route = source[route_start:]
+    start = route.index("rows = await connection.fetch(")
+    end = route.index("return jsonable_encoder(", start)
+    query = route[start:end]
+
+    assert "(m.scope='INVENTORY_ITEM' and m.rights_tier='FIRST_PARTY_CAPTURE')" in query
+    assert "m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')" in query
+    assert "and m.rights_tier='STOREFRONT_ALLOWED'" in query
+    assert "(m.inventory_id=i.id) desc" in query
