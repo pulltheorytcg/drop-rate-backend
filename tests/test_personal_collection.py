@@ -151,3 +151,30 @@ def test_shopify_relisting_is_explicit_and_reuses_existing_link() -> None:
     assert "Existing Shopify link points to a different inventory item" in sync
     assert "set sync_state='DRAFT'" in sync
     assert "set sync_state='PUBLISHED'" in sync
+
+
+def test_personal_collection_dashboard_has_filter_and_explicit_actions() -> None:
+    frontend = (ROOT / "backend" / "app" / "static" / "app.js").read_text()
+    html = (ROOT / "backend" / "app" / "static" / "index.html").read_text()
+    assert 'id="sale-intent-filter"' in html
+    assert 'value="FOR_SALE"' in html
+    assert 'value="PERSONAL_COLLECTION"' in html
+    assert 'params.set("sale_intent", state.saleIntent)' in frontend
+    assert "Move to collection" in frontend
+    assert "Move to sell" in frontend
+    assert "Nothing was relisted automatically." in frontend
+    assert "Personal collection · not for sale" in frontend
+    assert 'badge.textContent = "Not for sale"' in frontend
+    assert "const workTotal = data.for_sale ?? data.total" in frontend
+
+
+def test_listing_membership_cannot_reactivate_collection_stock() -> None:
+    source = MARKETPLACE.read_text()
+    start = source.index("async def update_my_listing_membership(")
+    end = source.index('@router.post("/listings/{listing_id}/test-reservations"', start)
+    block = source[start:end]
+    assert 'values.get("state") == "ACTIVE"' in block
+    assert "select status,sale_intent" in block
+    assert 'inventory["status"] != "APPROVED"' in block
+    assert 'inventory["sale_intent"] != "FOR_SALE"' in block
+    assert "marketplace listing can be reactivated" in block
