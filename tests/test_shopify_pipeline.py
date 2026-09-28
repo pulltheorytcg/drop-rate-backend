@@ -150,7 +150,8 @@ def test_remote_retry_identity_is_inventory_id_not_title_similarity() -> None:
     assert '"namespace": "drop_rate"' in completeness
     assert '"inventory_id"' in completeness
     assert 'remote_inventory_code != item["inventory_code"]' in source
-    assert "deterministic Shopify handle belongs to a different inventory item" in source
+    assert "deterministic Shopify handle belongs to a different " in source
+    assert '"inventory item"' in source
 
 
 def test_order_line_parser_requires_exact_ids_prices_and_gbp() -> None:
@@ -332,11 +333,11 @@ def test_failed_webhook_deliveries_remain_retryable() -> None:
 
 def test_shopify_test_sync_fails_before_remote_create_when_launch_incomplete() -> None:
     source = PIPELINE.read_text()
-    start = source.index("async def sync_one_test_item(")
-    end = source.index("def _parse_order_lines(", start)
+    start = source.index("async def publish_inventory_to_shopify(")
+    end = source.index('@router.post("/test-sync/{inventory_id}")', start)
     sync = source[start:end]
     completeness_pos = sync.index('if not launch["complete"]:')
-    create_pos = sync.index("client.create_product(")
+    create_pos = sync.index("shopify.create_product(")
     assert completeness_pos < create_pos
     assert "No remote product was created or published." in sync
     assert "resolve_storefront_media(" in source
@@ -399,14 +400,15 @@ def test_fulfilment_cost_api_is_versioned_owner_scoped_and_gbp_only() -> None:
 
 def test_shopify_sync_requires_shipping_profile_before_remote_create() -> None:
     source = PIPELINE.read_text()
-    start = source.index("async def sync_one_test_item(")
-    end = source.index("def _parse_order_lines(", start)
+    start = source.index("async def publish_inventory_to_shopify(")
+    end = source.index('@router.post("/test-sync/{inventory_id}")', start)
     sync = source[start:end]
-    assert 'shipping_profiles = await _shipping_profiles(connection, owner["id"])' in sync
+    assert 'shipping_rows = context.get("shipping_profiles")' in sync
+    assert 'shipping_profiles = {' in sync
     assert "shipping_profiles=shipping_profiles" in sync
     assert 'shipping_spec=launch["shippingSpec"]' in sync
     assert 'expected_shipping_spec=launch["shippingSpec"]' in sync
-    assert sync.index('if not launch["complete"]:') < sync.index("client.create_product(")
+    assert sync.index('if not launch["complete"]:') < sync.index("shopify.create_product(")
 
 
 def test_shopify_shipping_profile_api_is_versioned_and_owner_scoped() -> None:
@@ -442,20 +444,20 @@ def test_media_registry_is_rls_protected_rights_gated_and_audited() -> None:
 
 def test_shopify_sync_assigns_collections_media_and_verifies_remote_state() -> None:
     source = PIPELINE.read_text()
-    start = source.index("async def sync_one_test_item(")
-    end = source.index("def _parse_order_lines(", start)
+    start = source.index("async def publish_inventory_to_shopify(")
+    end = source.index('@router.post("/test-sync/{inventory_id}")', start)
     sync = source[start:end]
-    assert "list_collections_by_title()" in sync
-    assert "add_product_to_collection(" in sync
-    assert "attach_file_to_product(" in sync
-    assert "get_product_snapshot(" in sync
+    assert "shopify.list_collections_by_title()" in sync
+    assert "shopify.add_product_to_collection(" in sync
+    assert "shopify.attach_file_to_product(" in sync
+    assert "shopify.get_product_snapshot(" in sync
     assert "verify_remote_product(" in sync
     assert 'expected_status="DRAFT"' in sync
     assert 'expected_status="ACTIVE"' in sync
-    assert "product_published_on_publication(" in sync
+    assert "shopify.product_published_on_publication(" in sync
     assert "Product was forced back to DRAFT." in sync
-    assert "set sync_state='PUBLISHED'" in sync
-    assert sync.index("verify_remote_product(") < sync.index("set sync_state='PUBLISHED'")
+    assert "mark_shopify_inventory_published" in sync
+    assert sync.index("verify_remote_product(") < sync.index("mark_shopify_inventory_published")
 
 
 def test_media_registry_has_explicit_human_approval_and_shopify_file_sync() -> None:
@@ -472,8 +474,8 @@ def test_media_registry_has_explicit_human_approval_and_shopify_file_sync() -> N
 
 def test_shopify_sync_uses_complete_product_plan_not_legacy_minimal_payload() -> None:
     source = PIPELINE.read_text()
-    start = source.index("async def sync_one_test_item(")
-    end = source.index("def _parse_order_lines(", start)
+    start = source.index("async def publish_inventory_to_shopify(")
+    end = source.index('@router.post("/test-sync/{inventory_id}")', start)
     sync = source[start:end]
     assert "build_shopify_product_plan" in source
     assert "product_create_input(plan, handle=handle)" in sync
@@ -871,7 +873,7 @@ def test_founder_media_ui_uses_dedicated_physical_capture_queue() -> None:
 def test_shopify_price_sync_is_bounded_price_only_and_fail_closed() -> None:
     source = PIPELINE.read_text()
     start = source.index('@router.post("/price-sync")')
-    end = source.index('@router.post("/test-sync/{inventory_id}")')
+    end = source.index("async def publish_inventory_to_shopify(", start)
     block = source[start:end]
 
     assert "limit < 1 or limit > 100" in block
