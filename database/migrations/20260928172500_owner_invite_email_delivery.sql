@@ -13,6 +13,7 @@ alter table tcg.owner_invites
     add column if not exists email_last_attempt_at timestamptz,
     add column if not exists email_sent_at timestamptz,
     add column if not exists email_delivered_at timestamptz,
+    add column if not exists email_last_event_at timestamptz,
     add column if not exists email_last_error_code text,
     add column if not exists onboarding_ack_version integer,
     add column if not exists onboarding_acknowledged_at timestamptz;
@@ -58,6 +59,7 @@ returns table(
     email_last_attempt_at timestamptz,
     email_sent_at timestamptz,
     email_delivered_at timestamptz,
+    email_last_event_at timestamptz,
     email_last_error_code text,
     onboarding_ack_version integer,
     onboarding_acknowledged_at timestamptz,
@@ -102,6 +104,7 @@ begin
       i.email_last_attempt_at,
       i.email_sent_at,
       i.email_delivered_at,
+      i.email_last_event_at,
       i.email_last_error_code,
       i.onboarding_ack_version,
       i.onboarding_acknowledged_at,
@@ -427,6 +430,11 @@ from public,anon,authenticated,service_role;
 revoke all on function tcg.redeem_owner_invite(text,text,text,integer)
 from public,anon,authenticated,service_role;
 
+-- The previous three-argument redeem function did not require onboarding
+-- acknowledgement. Remove application-role execution so the new acknowledgement
+-- contract cannot be bypassed by old backend code.
+revoke all on function tcg.redeem_owner_invite(text,text,text) from tcg_api;
+
 grant execute on function tcg.list_owner_invites(integer) to tcg_api;
 grant execute on function tcg.prepare_owner_invite_resend(uuid,text) to tcg_api;
 grant execute on function tcg.record_owner_invite_email_result(uuid,text,text,text,text) to tcg_api;
@@ -551,16 +559,13 @@ begin
 
     if v_status is not null then
         update tcg.owner_invites i
-        set email_status=case
-              when i.email_status='DELIVERED'
-                   and v_status='SENT' then i.email_status
-              else v_status
-            end,
+        set email_status=v_status,
             email_delivered_at=case
               when v_status='DELIVERED'
                 then coalesce(i.email_delivered_at,p_occurred_at)
               else i.email_delivered_at
             end,
+            email_last_event_at=p_occurred_at,
             email_last_error_code=case
               when v_status in ('FAILED','BOUNCED')
                 then upper(replace(v_event_type,'.','_'))
@@ -569,7 +574,19 @@ begin
               else i.email_last_error_code
             end
         where i.id=v_invite.id
+          and (
+            i.email_last_event_at is null
+            or p_occurred_at >= i.email_last_event_at
+          )
         returning * into v_invite;
+
+        if v_invite.id is null then
+            select i.* into v_invite
+            from tcg.owner_invites i
+            where i.email_provider=v_provider
+              and i.email_provider_message_id=v_message_id
+            limit 1;
+        end if;
     end if;
 
     insert into tcg.audit_events(
