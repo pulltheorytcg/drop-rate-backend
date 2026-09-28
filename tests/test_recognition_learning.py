@@ -26,7 +26,7 @@ OWNER_ACCESS_MIGRATION = (
     ROOT
     / "database"
     / "migrations"
-    / "20260928195000_owner_recognition_access.sql"
+    / "20260928195408_owner_recognition_access.sql"
 )
 SCANNER = ROOT / "backend" / "app" / "static" / "recognition-scanner.js"
 
