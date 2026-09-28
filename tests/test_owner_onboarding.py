@@ -35,6 +35,7 @@ def test_owner_invite_redeem_payload_has_no_client_supplied_email() -> None:
     payload = OwnerInviteRedeem(
         token="x" * 32,
         display_name="Seller One",
+        acknowledged=True,
     )
     assert payload.display_name == "Seller One"
     assert not hasattr(payload, "email")
@@ -97,7 +98,8 @@ def test_owner_invite_ui_discloses_commission_before_signup() -> None:
 
     assert "commission_bps" in source
     assert "Drop Rate commission:" in source
-    assert "restricted consignor account" in source
+    assert "Invited email:" in source
+    assert "Drop Rate commission:" in source
 
 
 def test_founder_redeem_is_bound_to_verified_jwt_email_too() -> None:
