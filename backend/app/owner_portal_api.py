@@ -201,7 +201,13 @@ async def owner_insights(
                       and m.media_kind='IMAGE'
                       and m.approval_status='APPROVED'
                       and m.rights_status='VERIFIED'
-                      and m.rights_tier='STOREFRONT_ALLOWED'
+                      and (
+                        (m.scope='INVENTORY_ITEM' and m.rights_tier='FIRST_PARTY_CAPTURE')
+                        or (
+                          m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
+                          and m.rights_tier='STOREFRONT_ALLOWED'
+                        )
+                      )
                       and m.source_status='ACTIVE'
                       and m.revoked_at is null
                       and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
@@ -292,7 +298,13 @@ async def owner_insights(
                       and m.media_kind='IMAGE'
                       and m.approval_status='APPROVED'
                       and m.rights_status='VERIFIED'
-                      and m.rights_tier='STOREFRONT_ALLOWED'
+                      and (
+                        (m.scope='INVENTORY_ITEM' and m.rights_tier='FIRST_PARTY_CAPTURE')
+                        or (
+                          m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
+                          and m.rights_tier='STOREFRONT_ALLOWED'
+                        )
+                      )
                       and m.source_status='ACTIVE'
                       and m.revoked_at is null
                       and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
@@ -460,7 +472,13 @@ async def owner_channels(
                       and m.media_kind='IMAGE'
                       and m.approval_status='APPROVED'
                       and m.rights_status='VERIFIED'
-                      and m.rights_tier='STOREFRONT_ALLOWED'
+                      and (
+                        (m.scope='INVENTORY_ITEM' and m.rights_tier='FIRST_PARTY_CAPTURE')
+                        or (
+                          m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
+                          and m.rights_tier='STOREFRONT_ALLOWED'
+                        )
+                      )
                       and m.source_status='ACTIVE'
                       and m.revoked_at is null
                       and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
@@ -600,7 +618,13 @@ async def owner_catalogue_search(
                       and m.media_kind='IMAGE'
                       and m.approval_status='APPROVED'
                       and m.rights_status='VERIFIED'
-                      and m.rights_tier='STOREFRONT_ALLOWED'
+                      and (
+                        (m.scope='INVENTORY_ITEM' and m.rights_tier='FIRST_PARTY_CAPTURE')
+                        or (
+                          m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
+                          and m.rights_tier='STOREFRONT_ALLOWED'
+                        )
+                      )
                       and m.source_status='ACTIVE'
                       and m.revoked_at is null
                       and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
@@ -730,7 +754,13 @@ async def owner_inventory(
                     )
                       and m.approval_status='APPROVED'
                       and m.rights_status='VERIFIED'
-                      and m.rights_tier='STOREFRONT_ALLOWED'
+                      and (
+                        (m.scope='INVENTORY_ITEM' and m.rights_tier='FIRST_PARTY_CAPTURE')
+                        or (
+                          m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
+                          and m.rights_tier='STOREFRONT_ALLOWED'
+                        )
+                      )
                       and m.source_status='ACTIVE'
                       and m.revoked_at is null
                       and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
