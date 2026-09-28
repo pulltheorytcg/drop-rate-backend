@@ -51,6 +51,7 @@ def test_n8n_startup_fails_closed_without_dr00_runtime_capabilities() -> None:
     assert '!= "false"' in script
     assert "NODE_FUNCTION_ALLOW_BUILTIN" in script
     assert "*,crypto,*" in script
+    assert '",*,"' in script
     assert "DROP_RATE_AUTOMATION_WEBHOOK_SECRET" in script
     assert '"${#webhook_secret}" -lt 32' in script
 
