@@ -22,6 +22,17 @@ This file is the persistent source of truth for project progress. A feature coun
 | **2 — Approved card syncs to Shopify, sells, and sale is attributed to the correct owner** | **~92%** | Single-owner real sale/refund is proven and restricted seller proceeds/settlement views are deployed; still need multi-owner/same-card production test and live payout cutover |
 | **3 — Market data automatically updates valuation and recommended pricing** | **~80%** | Deterministic pricing + snapshots + provisional pricing exist; final provider permissions, eBay sold access/Marketplace Insights, stronger Cardmarket/eBay evidence automation and scheduled production refresh remain |
 
+
+## 28 September 2026 — repository re-baseline after n8n foundation
+
+**Build-order correction: ACTIVE — n8n work is now treated as prepared infrastructure, not the current product phase.** The automation outbox/dispatcher, Railway-private webhook validation and version-controlled n8n image/provisioning foundation are merged, but advanced workflows remain gated. Product work returns to the original milestone sequence: close Milestone 1 multi-owner verification first, then finish the controlled Shopify/multi-owner sale loop, then production market-data/pricing automation. Consignment, AI listings, customer service, SEO, marketing and advanced n8n orchestration remain later phases.
+
+**GitHub/main health: GREEN —** latest main CI after PR #220 passes both backend tests and the pinned n8n Docker image build/version check. PR #218 fixes the restricted OWNER invite creation 500; PR #217 permits dispatcher delivery to exact Railway-private HTTP hosts while continuing to reject unsafe public HTTP/lookalike URLs; PRs #219–#220 add reproducible n8n provisioning and CI validation without switching the live n8n service source.
+
+**Open-PR hygiene:** PRs #215 (CRO/SEO experiment foundation) and #216 (Content Machine foundation) are intentionally not part of the current milestone and must not be merged until their known correctness/schema issues are fixed and the build reaches those phases. PRs #136 and #166 are older/superseded candidates and should be reviewed/closed rather than allowed to distort current build status.
+
+**Immediate engineering priority:** prove Milestone 1 with a genuine second restricted OWNER account and cross-owner isolation across inventory, orders/finance, payouts/Stripe and Founder-HQ denial. Then run the controlled multi-owner/same-card sale attribution test for Milestone 2. Recognition/media correctness work continues only where it blocks those controlled inventory/Shopify tests; broad recognition expansion, storefront CRO/content and n8n workflow families do not take precedence over these gates.
+
 ## Current stage
 
 ## 28 September 2026 — AI experimentation / CRO / SEO blueprint
