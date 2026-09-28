@@ -99,10 +99,10 @@ class Settings:
     environment: str
     db_pool_min: int
     db_pool_max: int
-    public_app_url: str | None = None
-    resend_api_key: str | None = None
-    seller_invite_from_email: str | None = None
-    seller_invite_reply_to: str | None = None
+    public_app_url: str | None
+    resend_api_key: str | None
+    seller_invite_from_email: str | None
+    seller_invite_reply_to: str | None
     parse_api_key: str | None
     ebay_client_id: str | None
     ebay_client_secret: str | None
