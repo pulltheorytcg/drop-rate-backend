@@ -3023,6 +3023,11 @@ async def _process_refund(
         allocations = await connection.fetch(
             """
             select soil.*,oi.inventory_id,oi.net_sale_minor,oi.order_id,
+                   coalesce((
+                     select sum(re.amount_minor)
+                     from tcg.refund_events re
+                     where re.order_item_id=oi.id
+                   ),0)::bigint as refunded_minor,
                    i.status as inventory_status,
                    sil.id as inventory_link_id,sil.shopify_inventory_item_gid,
                    sil.shopify_location_gid
@@ -3036,13 +3041,18 @@ async def _process_refund(
             """,
             order_reference, line_item_id,
         )
-        if len(allocations) < quantity:
+        refundable_allocations = [
+            allocation
+            for allocation in allocations
+            if int(allocation["refunded_minor"] or 0) < int(allocation["net_sale_minor"])
+        ]
+        if len(refundable_allocations) < quantity:
             raise ShopifyProcessingError(
                 "REFUND_ALLOCATION_MISMATCH",
-                "Refund quantity exceeds Drop Rate allocation",
+                "Refund quantity exceeds remaining Drop Rate allocation",
             )
         amounts = allocate_minor(subtotal_minor, [1] * quantity)
-        for idx, allocation in enumerate(allocations[:quantity]):
+        for idx, allocation in enumerate(refundable_allocations[:quantity]):
             source_reference = (
                 f"shopify:{refund_id}:{line_item_id}:{allocation['allocation_index']}"
             )
@@ -3066,7 +3076,16 @@ async def _process_refund(
                 "legacy_restock",
             }
             amount_minor = amounts[idx]
-            if return_to_stock and amount_minor < int(allocation["net_sale_minor"]):
+            remaining_refundable_minor = (
+                int(allocation["net_sale_minor"])
+                - int(allocation["refunded_minor"] or 0)
+            )
+            if amount_minor > remaining_refundable_minor:
+                raise ShopifyProcessingError(
+                    "REFUND_EXCEEDS_ITEM_REVENUE",
+                    "Refund allocation exceeds remaining item sale revenue",
+                )
+            if return_to_stock and amount_minor < remaining_refundable_minor:
                 raise ShopifyProcessingError(
                     "PARTIAL_RESTOCK_REFUND",
                     "Restocking requires the full item sale value to be refunded",
