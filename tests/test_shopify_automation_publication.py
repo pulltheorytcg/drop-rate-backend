@@ -6,7 +6,7 @@ MIGRATION = (
     ROOT
     / "database"
     / "migrations"
-    / "20260928175500_shopify_automation_publication.sql"
+    / "20260928183039_shopify_automation_publication.sql"
 )
 BASE_LINK_MIGRATION = ROOT / "migrations" / "006_shopify_inventory_links.sql"
 
