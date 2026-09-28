@@ -9,7 +9,10 @@ const state = {
   inventory: {offset: 0, limit: 50, total: 0, search: "", status: "", layout: "grid"},
   sales: {offset: 0, limit: 50, total: 0},
   settlements: {offset: 0, limit: 50, total: 0},
+  channels: {offset: 0, limit: 60, total: 0, search: "", channel: "ALL"},
   payoutPreferenceVersion: 0,
+  financeSummary: null,
+  payoutPreference: null,
 };
 
 const byId = (id) => document.getElementById(id);
