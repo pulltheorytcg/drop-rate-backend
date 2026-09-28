@@ -180,7 +180,6 @@ def main() -> None:
                 {
                     "ok": False,
                     "fatal_error": type(exc).__name__,
-                    "detail": str(exc)[:300],
                 },
                 sort_keys=True,
             ),
