@@ -4,7 +4,7 @@ from app.schemas import InventorySaleIntentChange
 
 
 ROOT = Path(__file__).parents[1]
-MIGRATION = ROOT / "database" / "migrations" / "20260928164500_personal_collection_sale_intent.sql"
+MIGRATION = ROOT / "database" / "migrations" / "20260928161252_personal_collection_sale_intent.sql"
 WORKFLOW = ROOT / "backend" / "app" / "inventory_sale_intent.py"
 API = ROOT / "backend" / "app" / "api.py"
 STATE = ROOT / "backend" / "app" / "inventory_state.py"
