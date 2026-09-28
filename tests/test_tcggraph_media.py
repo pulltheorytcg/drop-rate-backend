@@ -274,7 +274,9 @@ def test_adapter_is_server_side_explicit_and_rights_governed() -> None:
     assert "LICENSED_PROVIDER" in source
     assert "permission_evidence_url" in source
     assert "provider_asset_id" in source
-    assert "physical_photo_policy" in source\n    assert "TCGGRAPH_IMAGE_HOSTS" in source\n    assert "cards.tcggraph.io" in source
+    assert "physical_photo_policy" in source
+    assert "TCGGRAPH_IMAGE_HOSTS" in source
+    assert "cards.tcggraph.io" in source
     assert '"dragon ball super fusion world": "dragon-ball-super"' in source
     assert '"dragon ball super fusion world": "fusion-world"' in source
     assert "line=game_line" in source
