@@ -375,6 +375,7 @@ loadInventory = async function loadInventoryWithStorageLocation() {
   if (state.search) params.set("search", state.search);
   if (state.status) params.set("status", state.status);
   if (state.brand) params.set("brand", state.brand);
+  if (state.saleIntent) params.set("sale_intent", state.saleIntent);
   if (state.issue) params.set("issue", state.issue);
   if (state.storageLocationFilter === "__UNLOCATED__") params.set("unlocated", "true");
   else if (state.storageLocationFilter) params.set("storage_location_id", state.storageLocationFilter);
