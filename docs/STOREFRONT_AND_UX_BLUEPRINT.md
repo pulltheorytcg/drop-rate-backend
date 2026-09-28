@@ -374,6 +374,94 @@ AI must not invent or change:
 
 Generated copy must pass deterministic validation before Shopify write.
 
+## CRO + adaptive storefront experimentation
+
+The Drop Rate storefront should be designed from the beginning so important UI surfaces can be experimented on safely without manually forking the theme.
+
+Experimentable surfaces should include:
+
+- homepage hero/message hierarchy
+- game-navigation presentation
+- collection-card density
+- product-card information hierarchy
+- CTA text and placement
+- raw vs graded reassurance content
+- related-card recommendations
+- search-result presentation
+- filter defaults
+- merchandising module order
+- Sell/Consign calls to action
+- mobile navigation
+- trust and delivery messaging
+
+Theme components should expose stable variant slots/IDs so experiments can switch between prevalidated treatments instead of injecting arbitrary AI-generated DOM.
+
+### Conversion analytics
+
+Use Shopify Web Pixels/customer events plus Drop Rate custom events to measure the funnel.
+
+At minimum track:
+
+- page viewed
+- collection viewed
+- search performed
+- search result clicked
+- zero-result search
+- product viewed
+- recommendation viewed/clicked
+- add to cart
+- cart viewed
+- checkout started
+- checkout progression
+- purchase
+- Sell/Consign CTA
+- Scan to Find usage
+- filter/sort usage
+
+Final order/revenue truth still comes from Shopify orders + Drop Rate order ingestion, not client-side pixels alone.
+
+### AI-controlled variants
+
+AI may generate variants for approved low-risk fields and components, but the storefront should render only validated variant schemas.
+
+Examples:
+
+- headline + subheadline
+- CTA label
+- reassurance copy
+- section order
+- recommendation strategy
+- collection sort policy
+- product-card metadata order
+- selected image order
+- internal-link module
+
+Do not give AI unrestricted theme-code write access for autonomous experiments.
+
+### Performance guardrail
+
+A treatment that improves conversion while materially damaging page speed, accessibility, mobile usability or error rate is not a valid winner.
+
+Performance metrics are part of the experiment guardrail set.
+
+### SEO experimentation
+
+SEO and CRO must share learning but use different assignment rules.
+
+SEO changes stay crawlable and consistent to users/crawlers. Do not use user-agent cloaking.
+
+Prefer template/cohort experiments across comparable:
+
+- game collection pages
+- set collection pages
+- graded category pages
+- evergreen buying/selling guides
+- other genuinely useful inventory-backed landing pages
+
+The AI may autonomously promote proven low-risk SEO treatments only after deterministic validation and a configured evidence threshold.
+
+Detailed orchestration and authority model: `docs/N8N_AUTOMATION_FOUNDATION.md`.
+
 ## Recognition-powered customer features
 
 Planned differentiators:
