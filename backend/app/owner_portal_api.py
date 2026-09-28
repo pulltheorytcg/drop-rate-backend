@@ -137,7 +137,27 @@ async def owner_inventory(
                 i.store_price_minor,
                 i.pricing_updated_at,
                 i.created_at,
-                i.updated_at
+                i.updated_at,
+                (
+                    select coalesce(m.shopify_cdn_url,m.public_source_url)
+                    from tcg.media_assets m
+                    where (
+                        m.inventory_id=i.id
+                        or (m.inventory_id is null and m.catalogue_id=i.catalogue_id)
+                    )
+                      and m.approval_status='APPROVED'
+                      and m.rights_status='VERIFIED'
+                      and m.rights_tier='STOREFRONT_ALLOWED'
+                      and m.source_status='ACTIVE'
+                      and m.revoked_at is null
+                      and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
+                    order by
+                      (m.inventory_id=i.id) desc,
+                      (m.side='FRONT') desc,
+                      m.approved_at desc nulls last,
+                      m.created_at desc
+                    limit 1
+                ) as image_url
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id=i.catalogue_id
             where {where}
