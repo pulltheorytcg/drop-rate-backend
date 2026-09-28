@@ -139,6 +139,7 @@ class Settings:
     shopify_publication_gid: str | None = None
     shopify_test_publish_enabled: bool = False
     shopify_publish_enabled: bool = False
+    automation_command_secret: str | None = None
     media_physical_photo_threshold_minor: int = 5_000
     tcggraph_api_key: str | None = None
     tcggraph_max_concurrency: int = 8
@@ -229,6 +230,7 @@ class Settings:
             shopify_publication_gid=_optional("TCG_SHOPIFY_PUBLICATION_GID"),
             shopify_test_publish_enabled=_boolean("TCG_SHOPIFY_TEST_PUBLISH_ENABLED", False),
             shopify_publish_enabled=_boolean("TCG_SHOPIFY_PUBLISH_ENABLED", False),
+            automation_command_secret=_optional("TCG_AUTOMATION_COMMAND_SECRET"),
             media_physical_photo_threshold_minor=_bounded_int(
                 "TCG_MEDIA_PHYSICAL_PHOTO_THRESHOLD_MINOR",
                 5_000,
