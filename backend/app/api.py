@@ -30,7 +30,7 @@ from .schemas import (
 router = APIRouter(prefix="/api/v1")
 
 ACTIVE_INVENTORY_SQL = "i.status in ('DRAFT', 'INSPECTION', 'APPROVED')"
-WORK_INVENTORY_SQL = f"({WORK_INVENTORY_SQL}) and i.sale_intent='FOR_SALE'"
+WORK_INVENTORY_SQL = f"({ACTIVE_INVENTORY_SQL}) and i.sale_intent='FOR_SALE'"
 BRAND_SQL = brand_sql("p")
 RAW_CARD_READY_SQL = """
     p.product_type = 'CARD'
@@ -233,7 +233,7 @@ async def inventory_readiness(
                 count(*) filter (where {ISSUE_FILTERS['missing_language']})::int as missing_language,
                 count(*) filter (where {ISSUE_FILTERS['missing_price']})::int as missing_price,
                 count(*) filter (where {ISSUE_FILTERS['identity_unconfirmed']})::int as identity_unconfirmed,
-                count(*) filter (where i.status = 'APPROVED')::int as approved,
+                count(*) filter (where i.status = 'APPROVED' and i.sale_intent='FOR_SALE')::int as approved,
                 count(*) filter (where {ISSUE_FILTERS['approval_ready']})::int as approval_ready
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id = i.catalogue_id
