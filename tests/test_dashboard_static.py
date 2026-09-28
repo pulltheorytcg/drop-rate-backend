@@ -20,6 +20,7 @@ JS_ASSETS = (
     "identity-review.js",
     "shopify-settings.js",
     "media-condition.js",
+    "founder-workspace.js",
 )
 
 

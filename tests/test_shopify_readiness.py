@@ -118,8 +118,8 @@ def test_dashboard_exposes_shopify_readiness_without_publish_controls() -> None:
     assert "Shopify readiness" in js
     assert "Sellability ready" in js
     assert "Media ready" in js
-    assert "Open Verify" in js
-    assert "Open Media" in js
+    assert "Review cards" in js
+    assert "Photos & condition" in js
     assert 'activateSellerView("media", true)' in js
 
     start = js.index("async function loadShopifyReadiness()")

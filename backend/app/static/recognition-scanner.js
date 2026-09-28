@@ -12,7 +12,7 @@ state.recognition = {
 };
 
 function recognitionView() {
-  return sellerView("verification");
+  return sellerView("intake");
 }
 
 function ensureRecognitionScannerUI() {
@@ -25,9 +25,9 @@ function ensureRecognitionScannerUI() {
   panel.innerHTML = `
     <div class="page-heading">
       <div>
-        <p class="eyebrow">Recognition Engine v1</p>
+        <p class="eyebrow">Start with a photo</p>
         <h2>Scan a card</h2>
-        <p class="muted">AI extracts evidence; Drop Rate independently resolves the exact printing. Nothing is auto-approved or written to inventory.</p>
+        <p class="muted">Scan your card, check the match, then choose what to save. Scanning alone does not add or approve stock.</p>
       </div>
       <span id="recognition-status-badge" class="pill inspection">Checking…</span>
     </div>
@@ -63,7 +63,7 @@ function ensureRecognitionScannerUI() {
           <input id="recognition-file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
           <span class="recognition-drop-icon">◎</span>
           <strong>Choose a card photo</strong>
-          <small>JPEG, PNG or WebP · the phone camera picker still works as a fallback</small>
+          <small>JPEG, PNG or WebP</small>
         </label>
         <div id="recognition-preview-wrap" class="recognition-preview-wrap hidden">
           <img id="recognition-preview" alt="Card photo selected for recognition">
@@ -81,7 +81,7 @@ function ensureRecognitionScannerUI() {
       <div id="recognition-result" class="recognition-result">
         <div class="recognition-empty">
           <strong>No scan yet</strong>
-          <span>The result will show the top printing, runner-up, confidence evidence and any safety blockers.</span>
+          <span>Your match and any details to check will appear here.</span>
         </div>
       </div>
     </div>
@@ -90,13 +90,11 @@ function ensureRecognitionScannerUI() {
         <div><p class="eyebrow">Audit trail</p><strong>Recent recognition runs</strong></div>
         <span class="utility-chevron" aria-hidden="true">⌄</span>
       </summary>
-      <div id="recognition-history" class="allocation-list"><p class="muted">Open Verify to load recent scans.</p></div>
+      <div id="recognition-history" class="allocation-list"><p class="muted">Open Add cards to load recent scans.</p></div>
     </details>
   `;
 
-  const identityPanel = byId("identity-review-panel");
-  if (identityPanel) view.insertBefore(panel, identityPanel);
-  else view.append(panel);
+  view.append(panel);
 
   byId("recognition-file").addEventListener("change", handleRecognitionFile);
   byId("recognition-open-camera").addEventListener("click", openRecognitionCamera);
@@ -1046,11 +1044,11 @@ ensureRecognitionScannerUI();
 
 const baseActivateSellerViewRecognition = activateSellerView;
 activateSellerView = function activateSellerViewWithRecognition(name, updateHash = false) {
-  if (name !== "verification") {
+  if (name !== "intake") {
     stopRecognitionCamera();
   }
   const result = baseActivateSellerViewRecognition(name, updateHash);
-  if (name === "verification") {
+  if (name === "intake") {
     loadRecognitionStatus();
     loadRecognitionHistory();
   }

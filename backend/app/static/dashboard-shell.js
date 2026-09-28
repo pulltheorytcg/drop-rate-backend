@@ -1,13 +1,14 @@
 "use strict";
 
 const SELLER_VIEWS = [
-  ["dashboard", "Dashboard", "◈"],
+  ["dashboard", "Today", "◈"],
+  ["intake", "Add cards", "+"],
   ["inventory", "Inventory", "▣"],
-  ["verification", "Verify", "✓"],
-  ["media", "Media", "◉"],
+  ["verification", "Review", "✓"],
+  ["media", "Photos & condition", "◉"],
   ["sales", "Sales", "↗"],
   ["reports", "Reports", "≋"],
-  ["balance", "Balance", "£"],
+  ["balance", "Payouts", "£"],
   ["settings", "Settings", "⚙"],
 ];
 
@@ -105,6 +106,8 @@ function buildSellerViews(content) {
     section.id = `seller-view-${key}`;
     section.className = "seller-view hidden";
     section.dataset.sellerView = key;
+    section.setAttribute("role", "tabpanel");
+    section.tabIndex = 0;
     section.setAttribute("aria-labelledby", `seller-tab-${key}`);
     views.append(section);
   });
@@ -117,13 +120,12 @@ function buildFounderHero() {
   hero.className = "founder-hero";
   hero.innerHTML = `
     <div class="founder-hero-copy">
-      <p class="eyebrow">Drop Rate command centre</p>
-      <h1>Run the collection.<br><em>Chase the next hit.</em></h1>
-      <p class="founder-hero-sub">Your stock, pricing and storefront pipeline without the spreadsheet chaos.</p>
+      <p class="eyebrow">Your daily workspace</p>
+      <h1>Ready for your next drop?</h1>
+      <p class="founder-hero-sub">Add cards. Clear your reviews. Keep your stock moving.</p>
       <div class="founder-hero-actions">
-        <button class="primary-button compact" type="button" data-hero-view="inventory">Open inventory</button>
-        <button class="ghost-button compact" type="button" data-hero-view="media">Photograph cards</button>
-        <button class="ghost-button compact" type="button" data-hero-view="verification">Verify stock</button>
+        <button class="primary-button compact" type="button" data-hero-view="intake">+ Add cards</button>
+        <button class="ghost-button compact" type="button" data-hero-view="inventory">View inventory →</button>
       </div>
     </div>
     <div class="founder-hero-art" aria-hidden="true">
@@ -177,6 +179,9 @@ function buildSellerNav() {
   nav.className = "seller-nav";
   nav.setAttribute("aria-label", "Founder dashboard sections");
   nav.setAttribute("role", "tablist");
+  const setOrientation = () => nav.setAttribute("aria-orientation", window.innerWidth > 1000 ? "vertical" : "horizontal");
+  setOrientation();
+  window.addEventListener("resize", setOrientation);
   SELLER_VIEWS.forEach(([key, label, icon]) => {
     const button = document.createElement("button");
     button.id = `seller-tab-${key}`;
@@ -188,6 +193,20 @@ function buildSellerNav() {
     button.setAttribute("role", "tab");
     button.addEventListener("click", () => activateSellerView(key, true));
     nav.append(button);
+  });
+  nav.addEventListener("keydown", (event) => {
+    const tabs = Array.from(nav.querySelectorAll('[role="tab"]'));
+    const index = tabs.indexOf(event.target);
+    if (index < 0) return;
+    let next;
+    if (["ArrowDown", "ArrowRight"].includes(event.key)) next = (index + 1) % tabs.length;
+    if (["ArrowUp", "ArrowLeft"].includes(event.key)) next = (index - 1 + tabs.length) % tabs.length;
+    if (event.key === "Home") next = 0;
+    if (event.key === "End") next = tabs.length - 1;
+    if (next === undefined) return;
+    event.preventDefault();
+    tabs[next].focus();
+    tabs[next].click();
   });
   topbar.insertAdjacentElement("afterend", nav);
 }
@@ -206,6 +225,7 @@ function activateSellerView(name, updateHash = false) {
     button.tabIndex = active ? 0 : -1;
   });
   if (updateHash) history.replaceState(null, "", `#${valid}`);
+  document.dispatchEvent(new CustomEvent("seller-view-changed", {detail: {view: valid}}));
   if (valid === "settings") {
     loadPricingAdapterStatus();
     loadEbaySellerConnection();
@@ -274,7 +294,7 @@ function buildShopifyReadinessPanel() {
       <div>
         <p class="eyebrow">Storefront pipeline</p>
         <h2>Shopify readiness</h2>
-        <p class="muted">See how much unsynced stock has cleared the deterministic inventory gates and how much has the required approved media.</p>
+        <p class="muted">Check which cards have the details and approved photos needed for your store.</p>
       </div>
       <button id="shopify-readiness-refresh" class="ghost-button" type="button">↻ Refresh</button>
     </div>
@@ -294,8 +314,8 @@ function buildShopifyReadinessPanel() {
       <p class="muted portfolio-empty">Loading Shopify readiness…</p>
     </div>
     <div class="toolbar">
-      <button id="shopify-readiness-verify" class="ghost-button compact" type="button">Open Verify</button>
-      <button id="shopify-readiness-media" class="primary-button compact" type="button">Open Media</button>
+      <button id="shopify-readiness-verify" class="ghost-button compact" type="button">Review cards</button>
+      <button id="shopify-readiness-media" class="primary-button compact" type="button">Photos & condition</button>
     </div>
     <p class="muted">This is a local readiness funnel only. Final Shopify completeness still re-checks media, shipping, collections, SEO, remote quantity and publication configuration before activation.</p>
   `;
@@ -603,6 +623,7 @@ function populateSellerViews() {
   buildSellerViews(content);
   const overview = sellerView("dashboard");
   const inventory = sellerView("inventory");
+  const intake = sellerView("intake");
   const verification = sellerView("verification");
   const sales = sellerView("sales");
   const reports = sellerView("reports");
@@ -627,11 +648,14 @@ function populateSellerViews() {
   intelligence.classList.add("dashboard-feature-panel");
   const readiness = buildShopifyReadinessPanel();
   readiness.classList.add("dashboard-feature-panel");
-  overviewGrid.append(intelligence, readiness);
+  overviewGrid.append(
+    utilityDrawer("Portfolio & market value", "Insights", intelligence),
+    utilityDrawer("Shopify listing readiness", "Storefront", readiness)
+  );
   overview.append(overviewGrid);
   if (actionPanel) {
     actionPanel.classList.add("dashboard-action-panel");
-    overview.append(actionPanel);
+    overviewGrid.before(actionPanel);
   }
 
   if (inventoryHeading) {
@@ -640,10 +664,32 @@ function populateSellerViews() {
     const muted = inventoryHeading.querySelector(".muted");
     if (eyebrow) eyebrow.textContent = "Stock operations";
     if (title) title.textContent = "Inventory";
-    if (muted) muted.textContent = "Add, import, locate, cost and approve every physical item.";
+    if (muted) muted.textContent = "Find a card, update its details or manage your stock.";
     inventory.append(inventoryHeading);
   }
   if (inventoryPanel) inventory.append(inventoryPanel);
+  intake.append(makeSellerHeading("Build your next drop", "Add cards", "Scan a photo, import a spreadsheet or add an item by hand."));
+  const intakeMethods = document.createElement("div");
+  intakeMethods.className = "intake-methods";
+  [["import-inventory-button", "Import a spreadsheet", "Add many cards from a CSV. Check matches before saving."],
+    ["new-inventory-button", "Add an item manually", "Search your catalogue or enter a card or sealed product."]].forEach(([id, title, description]) => {
+    const button = byId(id);
+    if (!button) return;
+    const card = document.createElement("article");
+    const heading = document.createElement("h2");
+    heading.textContent = title;
+    const note = document.createElement("p");
+    note.textContent = description;
+    card.append(heading, note, button);
+    intakeMethods.append(card);
+  });
+  intake.append(intakeMethods);
+  const addShortcut = document.createElement("button");
+  addShortcut.type = "button";
+  addShortcut.className = "primary-button compact";
+  addShortcut.textContent = "+ Add cards";
+  addShortcut.addEventListener("click", () => activateSellerView("intake", true));
+  inventoryHeading?.querySelector(".topbar-actions")?.prepend(addShortcut);
   const inventoryUtilities = document.createElement("div");
   inventoryUtilities.className = "inventory-utilities";
   const locationsDrawer = utilityDrawer("Storage locations", "Organisation", locations);
@@ -653,9 +699,9 @@ function populateSellerViews() {
   if (inventoryUtilities.children.length) inventory.append(inventoryUtilities);
 
   verification.append(makeSellerHeading(
-    "Identity control",
-    "Verify stock",
-    "Physically confirm canonical card identity before pricing, approval or Shopify publishing."
+    "Get cards ready",
+    "Review cards",
+    "Confirm each card's identity. Select matching copies to review them together."
   ));
 
   moveFinanceSections(sales, reports, balance);
