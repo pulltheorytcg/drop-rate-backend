@@ -11,7 +11,7 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
 - **Milestone 2 — Shopify sale attribution:** ~92% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, seller-facing restricted finance views are deployed, and payout control is automated up to REQUESTED state. Multi-owner/same-card production attribution and live Stripe payout cutover remain.
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
-- **Customer storefront / Shopify UX:** ~10–15% of the desired Drop Rate experience. Backend Shopify commerce plumbing is far ahead of the customer-facing theme. A dedicated storefront + Founder HQ UX blueprint is now version-controlled in `docs/STOREFRONT_AND_UX_BLUEPRINT.md`.
+- **Customer storefront / Shopify UX:** ~10–15% of the desired Drop Rate experience. Backend Shopify commerce plumbing is far ahead of the customer-facing theme. A dedicated storefront + Founder HQ UX blueprint is now version-controlled in `docs/STOREFRONT_AND_UX_BLUEPRINT.md`. The storefront blueprint now also includes adaptive CRO/SEO experimentation, Shopify event measurement and controlled AI action/rollback.
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 
 ## Original business milestone status
@@ -23,6 +23,11 @@ This file is the persistent source of truth for project progress. A feature coun
 | **3 — Market data automatically updates valuation and recommended pricing** | **~80%** | Deterministic pricing + snapshots + provisional pricing exist; final provider permissions, eBay sold access/Marketplace Insights, stronger Cardmarket/eBay evidence automation and scheduled production refresh remain |
 
 ## Current stage
+
+## 28 September 2026 — AI experimentation / CRO / SEO blueprint
+
+**AI experimentation engine: BLUEPRINTED — Drop Rate will treat CRO/SEO as a governed closed-loop optimization system rather than one-off AI copy generation. Postgres will own experiment truth; FastAPI will own experiment eligibility/statistical decisions; Shopify theme/app-extension surfaces will render validated variants; Shopify Web Pixels/customer events will provide behavior measurement; n8n will orchestrate hypothesis generation, launch, monitoring, rollback and rollout. AI may eventually autonomously launch and act on approved low-risk experiment classes, but arbitrary pricing, scarcity claims, ownership/finance, legal/privacy, checkout/payment behavior and unsupported factual claims remain outside autonomous authority. SEO experiments use page/template cohorts or sequential tests with stable public URLs and no crawler-specific cloaking. Detailed design lives in `docs/N8N_AUTOMATION_FOUNDATION.md` and `docs/STOREFRONT_AND_UX_BLUEPRINT.md`.**
+
 
 ## 28 September 2026 — Recognition v1.5.1 provider-challenger recovery
 
