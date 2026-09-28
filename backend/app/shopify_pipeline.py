@@ -171,6 +171,141 @@ def _money(minor: int) -> str:
     return f"{Decimal(minor) / Decimal(100):.2f}"
 
 
+async def withdraw_shopify_for_inventory(
+    pool: Any,
+    inventory_ids: list[str],
+    *,
+    owner_id: UUID,
+    reason: str,
+) -> list[dict[str, Any]]:
+    """Fail closed and verify Shopify is no longer selling exact inventory."""
+
+    if not inventory_ids:
+        return []
+
+    async with pool.acquire() as connection:
+        rows = await connection.fetch(
+            """
+            select
+                id,inventory_id,owner_id,sync_state,version,
+                shopify_product_gid,shopify_inventory_item_gid,shopify_location_gid
+            from tcg.shopify_inventory_links
+            where owner_id=$1
+              and inventory_id=any($2::uuid[])
+              and sync_state in ('DRAFT','PUBLISHED','ERROR')
+            order by linked_at,id
+            """,
+            owner_id,
+            inventory_ids,
+        )
+    if not rows:
+        return []
+
+    try:
+        client = _client()
+    except HTTPException as exc:
+        detail = str(exc.detail)
+        results: list[dict[str, Any]] = []
+        async with pool.acquire() as connection:
+            for row in rows:
+                await connection.execute(
+                    """
+                    update tcg.shopify_inventory_links
+                    set sync_state='ERROR',version=version+1,
+                        last_synced_at=clock_timestamp()
+                    where id=$1 and owner_id=$2
+                      and sync_state in ('DRAFT','PUBLISHED','ERROR')
+                    """,
+                    row["id"],
+                    owner_id,
+                )
+                results.append({
+                    "inventory_id": str(row["inventory_id"]),
+                    "status": "ERROR",
+                    "detail": detail,
+                    "retryable": False,
+                })
+        return results
+
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        try:
+            await client.set_inventory_quantity(
+                inventory_item_id=str(row["shopify_inventory_item_gid"]),
+                location_id=str(row["shopify_location_gid"]),
+                quantity=0,
+                idempotency_key=(
+                    f"withdraw-{reason.casefold()}-{row['inventory_id']}"
+                ),
+            )
+            await client.set_product_status(
+                product_id=str(row["shopify_product_gid"]),
+                status="DRAFT",
+            )
+            snapshot = await client.get_product_snapshot(
+                str(row["shopify_product_gid"])
+            )
+            variants = snapshot.get("variants", {}).get("nodes", [])
+            quantity = (
+                variants[0].get("inventoryQuantity")
+                if len(variants) == 1 and isinstance(variants[0], dict)
+                else None
+            )
+            if snapshot.get("status") != "DRAFT" or quantity != 0:
+                raise ShopifyApiError(
+                    "Shopify inventory withdrawal could not be verified"
+                )
+        except ShopifyApiError as exc:
+            async with pool.acquire() as connection:
+                await connection.execute(
+                    """
+                    update tcg.shopify_inventory_links
+                    set sync_state='ERROR',version=version+1,
+                        last_synced_at=clock_timestamp()
+                    where id=$1 and owner_id=$2
+                      and sync_state in ('DRAFT','PUBLISHED','ERROR')
+                    """,
+                    row["id"],
+                    owner_id,
+                )
+            results.append({
+                "inventory_id": str(row["inventory_id"]),
+                "status": "ERROR",
+                "detail": str(exc),
+                "retryable": bool(exc.retryable),
+            })
+            continue
+
+        async with pool.acquire() as connection:
+            updated = await connection.fetchrow(
+                """
+                update tcg.shopify_inventory_links
+                set sync_state='ARCHIVED',version=version+1,
+                    last_synced_at=clock_timestamp()
+                where id=$1 and owner_id=$2
+                  and sync_state in ('DRAFT','PUBLISHED','ERROR')
+                returning id,inventory_id,sync_state,version
+                """,
+                row["id"],
+                owner_id,
+            )
+        if updated is None:
+            results.append({
+                "inventory_id": str(row["inventory_id"]),
+                "status": "STALE",
+                "detail": "Shopify link changed while inventory was being withdrawn",
+                "retryable": True,
+            })
+            continue
+        results.append({
+            "inventory_id": str(updated["inventory_id"]),
+            "status": "ARCHIVED",
+            "reason": reason,
+            "retryable": False,
+        })
+    return results
+
+
 def _minor(value: object, *, field: str) -> int:
     try:
         amount = Decimal(str(value or "0"))
