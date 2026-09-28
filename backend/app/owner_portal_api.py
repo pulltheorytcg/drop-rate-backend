@@ -326,6 +326,241 @@ async def owner_insights(
     )
 
 
+@router.get("/channels")
+async def owner_channels(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+    search: str | None = Query(default=None, max_length=160),
+    channel: str | None = Query(default=None, max_length=20),
+    limit: int = Query(default=60, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> dict:
+    """Owner-scoped sales-channel state. Postgres remains the inventory source of truth."""
+
+    owner_id = access["owner_id"]
+    query = (search or "").strip()
+    selected_channel = (channel or "ALL").strip().upper()
+    if selected_channel not in {"ALL", "SHOPIFY", "EBAY"}:
+        raise HTTPException(status_code=422, detail="Unsupported channel filter")
+
+    params: list[object] = [owner_id]
+    filters = ["i.owner_id=$1"]
+    if query:
+        params.append(f"%{query}%")
+        idx = len(params)
+        filters.append(
+            f"""(
+                i.inventory_code ilike ${idx}
+                or p.name ilike ${idx}
+                or p.set_name ilike ${idx}
+                or coalesce(p.card_number,'') ilike ${idx}
+                or p.game ilike ${idx}
+            )"""
+        )
+    if selected_channel == "SHOPIFY":
+        filters.append("shopify.sync_state is not null")
+    elif selected_channel == "EBAY":
+        filters.append("ebay.state is not null")
+    where = " and ".join(filters)
+
+    settings = get_settings()
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        shopify_counts = await connection.fetch(
+            """
+            select sync_state as state,count(*)::int as count
+            from tcg.shopify_inventory_links
+            where owner_id=$1
+            group by sync_state
+            order by sync_state
+            """,
+            owner_id,
+        )
+        ebay_counts = await connection.fetch(
+            """
+            select state,count(*)::int as count
+            from tcg.ebay_inventory_links
+            where owner_id=$1
+            group by state
+            order by state
+            """,
+            owner_id,
+        )
+        ebay_connection = await connection.fetchrow(
+            """
+            select status,marketplace_id,connected_at,last_verified_at,last_error_code
+            from tcg.ebay_seller_connections
+            where owner_id=$1
+            order by connected_at desc,id desc
+            limit 1
+            """,
+            owner_id,
+        )
+        total = await connection.fetchval(
+            f"""
+            select count(*)::int
+            from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id=i.catalogue_id
+            left join lateral (
+                select l.sync_state
+                from tcg.shopify_inventory_links l
+                where l.owner_id=$1 and l.inventory_id=i.id
+                order by l.linked_at desc,l.id desc
+                limit 1
+            ) shopify on true
+            left join lateral (
+                select l.state
+                from tcg.ebay_inventory_links l
+                where l.owner_id=$1 and l.inventory_id=i.id
+                order by l.created_at desc,l.id desc
+                limit 1
+            ) ebay on true
+            where ${where}
+              and (shopify.sync_state is not null or ebay.state is not null)
+            """,
+            *params,
+        )
+        page_params = [*params, limit, offset]
+        rows = await connection.fetch(
+            f"""
+            select
+                i.id as inventory_id,
+                i.inventory_code,
+                i.status as inventory_status,
+                i.market_value_minor,
+                coalesce(i.store_price_minor,i.recommended_retail_minor)
+                    as store_value_minor,
+                p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,
+                coalesce(i.language,p.language) as language,
+                shopify.sync_state as shopify_state,
+                shopify.synced_price_minor as shopify_price_minor,
+                shopify.last_synced_at as shopify_last_synced_at,
+                shopify.test_mode as shopify_test_mode,
+                ebay.state as ebay_state,
+                ebay.listed_price_minor as ebay_price_minor,
+                ebay.last_verified_at as ebay_last_verified_at,
+                ebay.last_error_code as ebay_last_error_code,
+                ebay.listing_id as ebay_listing_id,
+                (
+                    select coalesce(m.shopify_cdn_url,m.public_source_url)
+                    from tcg.media_assets m
+                    where (
+                        (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
+                        or (
+                            m.scope='CANONICAL_CARD'
+                            and m.inventory_id is null
+                            and m.catalogue_id=i.catalogue_id
+                        )
+                    )
+                      and m.side='FRONT'
+                      and m.media_kind='IMAGE'
+                      and m.approval_status='APPROVED'
+                      and m.rights_status='VERIFIED'
+                      and m.rights_tier='STOREFRONT_ALLOWED'
+                      and m.source_status='ACTIVE'
+                      and m.revoked_at is null
+                      and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
+                    order by
+                      (m.inventory_id=i.id) desc,
+                      m.approved_at desc nulls last,
+                      m.created_at desc,
+                      m.id
+                    limit 1
+                ) as image_url
+            from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id=i.catalogue_id
+            left join lateral (
+                select
+                    l.sync_state,l.synced_price_minor,l.last_synced_at,l.test_mode
+                from tcg.shopify_inventory_links l
+                where l.owner_id=$1 and l.inventory_id=i.id
+                order by l.linked_at desc,l.id desc
+                limit 1
+            ) shopify on true
+            left join lateral (
+                select
+                    l.state,l.listed_price_minor,l.last_verified_at,
+                    l.last_error_code,l.listing_id
+                from tcg.ebay_inventory_links l
+                where l.owner_id=$1 and l.inventory_id=i.id
+                order by l.created_at desc,l.id desc
+                limit 1
+            ) ebay on true
+            where ${where}
+              and (shopify.sync_state is not null or ebay.state is not null)
+            order by greatest(
+                coalesce(shopify.last_synced_at,'epoch'::timestamptz),
+                coalesce(ebay.last_verified_at,'epoch'::timestamptz)
+            ) desc,
+            i.inventory_code
+            limit ${len(page_params)-1} offset ${len(page_params)}
+            """,
+            *page_params,
+        )
+
+    shopify_configured = bool(
+        settings.shopify_shop_domain
+        and settings.shopify_client_id
+        and settings.shopify_client_secret
+    )
+    ebay_data = dict(ebay_connection) if ebay_connection is not None else None
+    return jsonable_encoder(
+        {
+            "channels": [
+                {
+                    "code": "SHOPIFY",
+                    "label": "Shopify",
+                    "available": True,
+                    "connected": shopify_configured,
+                    "connection_status": (
+                        "PLATFORM_MANAGED" if shopify_configured else "NOT_CONFIGURED"
+                    ),
+                    "states": [dict(row) for row in shopify_counts],
+                },
+                {
+                    "code": "EBAY",
+                    "label": "eBay",
+                    "available": True,
+                    "connected": bool(
+                        ebay_data
+                        and ebay_data.get("status") in {"CONNECTED", "READY"}
+                    ),
+                    "connection_status": (
+                        ebay_data.get("status") if ebay_data else "NOT_CONNECTED"
+                    ),
+                    "marketplace_id": (
+                        ebay_data.get("marketplace_id") if ebay_data else None
+                    ),
+                    "last_verified_at": (
+                        ebay_data.get("last_verified_at") if ebay_data else None
+                    ),
+                    "last_error_code": (
+                        ebay_data.get("last_error_code") if ebay_data else None
+                    ),
+                    "states": [dict(row) for row in ebay_counts],
+                },
+                {
+                    "code": "WHATNOT",
+                    "label": "Whatnot",
+                    "available": False,
+                    "connected": False,
+                    "connection_status": "PLANNED",
+                    "states": [],
+                },
+            ],
+            "total": int(total or 0),
+            "limit": limit,
+            "offset": offset,
+            "items": [dict(row) for row in rows],
+            "source_of_truth": "DROP_RATE",
+        }
+    )
+
+
 @router.get("/catalogue-search")
 async def owner_catalogue_search(
     request: Request,
