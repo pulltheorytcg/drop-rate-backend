@@ -15,8 +15,8 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=owner-v6" defer></script>' in html
-    assert '<script src="/assets/owner-recognition.js?v=owner-v6" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=owner-v7" defer></script>' in html
+    assert '<script src="/assets/owner-recognition.js?v=owner-v7" defer></script>' in html
 
     for founder_script in (
         "dashboard-shell.js",
@@ -121,7 +121,7 @@ def test_new_owner_onboarding_redirect_has_a_guided_welcome_checklist() -> None:
 
     assert 'params.get("welcome") !== "1"' in js
     assert 'id="owner-onboarding-welcome"' in html
-    assert "You're all set." in html
+    assert "Your Seller Hub is ready." in html
     assert "Set up payouts" in html
     assert 'activateOwnerView("balance")' in js
     assert 'byId("owner-stripe-connect-panel")' in js
@@ -133,7 +133,7 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     css = CSS.read_text()
     js = JS.read_text()
 
-    assert 'href="/assets/owner-portal.css?v=owner-v6"' in html
+    assert 'href="/assets/owner-portal.css?v=owner-v7"' in html
     assert 'class="owner-portal-page"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
@@ -327,3 +327,17 @@ def test_mobile_scanner_v2_can_fix_or_remove_latest_match_without_leaving_camera
     assert "ownerBatchRemoveItem(item.id)" in js
     assert "function ownerBatchRemoveItem(itemId)" in js
     assert "batch.latestResultId = batch.items[batch.items.length - 1]?.id || null" in js
+
+
+def test_seller_hub_branding_is_neutral_and_not_founder_hq() -> None:
+    html = HTML.read_text()
+    css = CSS.read_text()
+
+    assert "<title>Drop Rate — Seller Hub</title>" in html
+    assert "<strong>Seller Hub</strong>" in html
+    assert "Drop Rate Seller Hub" in html
+    assert "Private workspace" not in html
+    assert "Seller account" in html
+    assert 'drop-rate-logo.png?v=seller-hub-1' in css
+    assert 'drop-rate-founder-hq.png' not in css
+    assert 'content:"SELLER HUB"' in css
