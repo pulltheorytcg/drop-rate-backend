@@ -1005,6 +1005,31 @@ async def update_my_listing_membership(
                     "current_version": membership["version"],
                 },
             )
+        if values.get("state") == "ACTIVE":
+            inventory = await connection.fetchrow(
+                """
+                select status,sale_intent
+                from tcg.inventory_items
+                where id=$1 and owner_id=$2
+                for update
+                """,
+                inventory_id,
+                owner["id"],
+            )
+            if inventory is None:
+                raise HTTPException(status_code=404, detail="Inventory item not found")
+            if (
+                inventory["status"] != "APPROVED"
+                or inventory["sale_intent"] != "FOR_SALE"
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Inventory must be APPROVED and FOR_SALE before its "
+                        "marketplace listing can be reactivated"
+                    ),
+                )
+
         if values.get("state") == "REMOVED":
             has_active = await connection.fetchval(
                 """
