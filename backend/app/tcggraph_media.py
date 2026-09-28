@@ -24,8 +24,10 @@ router = APIRouter(prefix="/api/v1/media/tcggraph", tags=["media"])
 
 TCGGRAPH_TERMS_URL = "https://tcggraph.com/legal/terms"
 RIGHTS_BASIS = (
-    "TCGGraph API licence permits displaying and caching card images in Drop Rate; "
-    "Drop Rate use is restricted to genuine-card product listings."
+    "TCGGraph API terms permit API data/image display and caching inside Drop Rate, "
+    "but do not grant the underlying publisher artwork rights. Imported matches stay "
+    "INTERNAL_REFERENCE_ONLY and require separate human/publisher-rights approval "
+    "before any storefront use."
 )
 
 GAME_SLUGS = {
@@ -36,6 +38,16 @@ GAME_SLUGS = {
     "dragon ball": "dragon-ball-super",
     "dragon ball z": "dragon-ball-super",
     "dragon ball super": "dragon-ball-super",
+    "dragon ball super masters": "dragon-ball-super",
+    "dragon ball super fusion world": "dragon-ball-super",
+}
+
+GAME_LINES = {
+    "dragon ball": "masters",
+    "dragon ball z": "masters",
+    "dragon ball super": "masters",
+    "dragon ball super masters": "masters",
+    "dragon ball super fusion world": "fusion-world",
 }
 
 LANGUAGE_CODES = {
@@ -78,6 +90,10 @@ def _language_code(value: object) -> str | None:
 
 def _game_slug(value: object) -> str | None:
     return GAME_SLUGS.get(_norm(value))
+
+
+def _game_line(value: object) -> str | None:
+    return GAME_LINES.get(_norm(value))
 
 
 def _collector_parts(value: object) -> tuple[str, str]:
@@ -179,6 +195,7 @@ def resolve_exact_card(
     local_number = str(local.get("card_number") or "").strip()
     local_name = _compact(local.get("name"))
     local_variant = _norm(local.get("variant"))
+    expected_line = _game_line(local.get("game"))
 
     candidates: list[dict[str, Any]] = []
     for row in provider_rows:
@@ -188,6 +205,15 @@ def resolve_exact_card(
             continue
         if local_name and _compact(row.get("name")) != local_name:
             continue
+        if expected_line:
+            game_data = row.get("gameData")
+            provider_line = (
+                _norm(game_data.get("line"))
+                if isinstance(game_data, Mapping)
+                else ""
+            )
+            if provider_line != expected_line:
+                continue
 
         provider_number = str(row.get("collectorNumber") or "")
         provider_base, provider_suffix = _collector_parts(provider_number)
@@ -266,6 +292,7 @@ async def _lookup_one(
 ) -> dict[str, Any]:
     game_slug = _game_slug(row.get("game"))
     language_code = _language_code(row.get("language") or row.get("catalogue_language"))
+    game_line = _game_line(row.get("game"))
     if not game_slug:
         return {**dict(row), "result": {"resolved": False, "reason": "unsupported game"}}
     if not language_code:
@@ -283,6 +310,7 @@ async def _lookup_one(
                 language=language_code,
                 set_name=set_name,
                 name=str(row.get("name") or ""),
+                line=game_line,
                 limit=100,
             )
         except TcgGraphApiError as exc:
@@ -326,8 +354,9 @@ async def tcggraph_media_status(
     return {
         "configured": bool(settings.tcggraph_api_key),
         "provider": "TCGGraph",
-        "usage": "canonical product-listing images and deterministic identification",
+        "usage": "internal exact-print reference candidates; storefront use requires separate approval",
         "supported_games": sorted(set(GAME_SLUGS.values())),
+        "dragon_ball_lines": ["masters", "fusion-world"],
         "permission_evidence_url": TCGGRAPH_TERMS_URL,
     }
 
@@ -484,7 +513,8 @@ async def resolve_tcggraph_media(
                     alt_text,
                     user.user_id,
                     (
-                        "Exact deterministic TCGGraph match: "
+                        "Deterministic TCGGraph reference candidate; human exact-print "
+                        "approval and separate storefront-rights review required: "
                         f"{result.get('provider_name')} · "
                         f"{result.get('collector_number')} · "
                         f"{result.get('provider_language')}"
