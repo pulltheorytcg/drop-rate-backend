@@ -31,6 +31,7 @@ def provider(
     game="one-piece",
     language="ja",
     printings=None,
+    line=None,
 ):
     return {
         "id": card_id,
@@ -43,6 +44,7 @@ def provider(
             "large": f"https://cards.tcggraph.io/op/{card_id}/large.webp",
         },
         "printings": printings or [],
+        "gameData": ({"line": line} if line else {}),
     }
 
 
@@ -155,17 +157,87 @@ def test_multiple_exact_candidates_fail_closed() -> None:
     assert result["candidate_count"] == 2
 
 
+def test_dragon_ball_masters_and_fusion_world_are_line_isolated() -> None:
+    masters = local(
+        game="Dragon Ball Super",
+        name="Vegeta",
+        set_name="Example",
+        card_number="FB05-039",
+        variant="Normal",
+        language="English",
+        catalogue_language="English",
+    )
+    fusion = dict(masters)
+    fusion["game"] = "Dragon Ball Super Fusion World"
+
+    rows = [
+        provider(
+            card_id="db_masters",
+            number="FB05-039",
+            name="Vegeta",
+            game="dragon-ball-super",
+            language="en",
+            line="masters",
+        ),
+        provider(
+            card_id="db_fusion",
+            number="FB05-039",
+            name="Vegeta",
+            game="dragon-ball-super",
+            language="en",
+            line="fusion-world",
+        ),
+    ]
+
+    masters_result = resolve_exact_card(masters, rows)
+    fusion_result = resolve_exact_card(fusion, rows)
+
+    assert masters_result["resolved"] is True
+    assert masters_result["provider_id"] == "db_masters"
+    assert fusion_result["resolved"] is True
+    assert fusion_result["provider_id"] == "db_fusion"
+
+
+def test_dragon_ball_missing_provider_line_fails_closed() -> None:
+    row = local(
+        game="Dragon Ball Super Fusion World",
+        name="Vegeta",
+        card_number="FB05-039",
+        variant="Normal",
+        language="English",
+        catalogue_language="English",
+    )
+    result = resolve_exact_card(
+        row,
+        [
+            provider(
+                card_id="db_unknown_line",
+                number="FB05-039",
+                name="Vegeta",
+                game="dragon-ball-super",
+                language="en",
+            )
+        ],
+    )
+    assert result["resolved"] is False
+    assert result["reason"] == "no exact TCGGraph identity match"
+
+
 def test_adapter_is_server_side_explicit_and_rights_governed() -> None:
     source = MEDIA.read_text()
     main = MAIN.read_text()
     settings = SETTINGS.read_text()
 
     assert 'TCGGRAPH_TERMS_URL = "https://tcggraph.com/legal/terms"' in source
-    assert "STOREFRONT_ALLOWED" in source
+    assert "INTERNAL_REFERENCE_ONLY" in source
+    assert "'PENDING'" in source
     assert "LICENSED_PROVIDER" in source
     assert "permission_evidence_url" in source
     assert "provider_asset_id" in source
     assert "physical_photo_policy" in source
+    assert '"dragon ball super fusion world": "dragon-ball-super"' in source
+    assert '"dragon ball super fusion world": "fusion-world"' in source
+    assert "line=game_line" in source
     assert "on conflict do nothing" in source.casefold()
     assert 'TCG_TCGGRAPH_API_KEY' in settings
     assert "tcggraph_media_router" in main

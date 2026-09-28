@@ -53,6 +53,7 @@ class TcgGraphClient:
         language: str,
         set_name: str | None = None,
         name: str | None = None,
+        line: str | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         if not game.strip():
@@ -74,6 +75,8 @@ class TcgGraphClient:
             params["set"] = set_name.strip()
         if name and name.strip():
             params["name"] = name.strip()
+        if line and line.strip():
+            params["line"] = line.strip()
 
         payload = await self._request("/cards", params=params)
         data = payload.get("data")
