@@ -156,6 +156,84 @@ async def owner_overview(
     )
 
 
+@router.get("/catalogue-search")
+async def owner_catalogue_search(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+    q: str = Query(min_length=2, max_length=80),
+    limit: int = Query(default=12, ge=1, le=30),
+) -> dict:
+    """Search safe canonical card identity for seller recognition corrections."""
+
+    query = q.strip()
+    if len(query) < 2:
+        raise HTTPException(status_code=422, detail="Search needs at least 2 characters")
+    normalised = "".join(character for character in query.upper() if character.isalnum())
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        rows = await connection.fetch(
+            """
+            select
+                p.id,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language,
+                pr.system_code,
+                value.market_value_minor,
+                value.recommended_retail_minor,
+                value.pricing_updated_at,
+                value.basis_condition,
+                value.basis_language,
+                (
+                    select coalesce(m.shopify_cdn_url,m.public_source_url)
+                    from tcg.media_assets m
+                    where m.catalogue_id=p.id
+                      and m.scope='CANONICAL_CARD'
+                      and m.side='FRONT'
+                      and m.media_kind='IMAGE'
+                      and m.approval_status='APPROVED'
+                      and m.rights_status='VERIFIED'
+                      and m.rights_tier='STOREFRONT_ALLOWED'
+                      and m.source_status='ACTIVE'
+                      and m.revoked_at is null
+                      and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
+                    order by m.approved_at desc nulls last,m.created_at desc,m.id
+                    limit 1
+                ) as image_url
+            from tcg.catalogue_products p
+            join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
+            left join lateral tcg.recognition_catalogue_reference_value(
+                p.id,
+                nullif(p.language,'')
+            ) value on true
+            where p.product_type='CARD'
+              and (
+                p.card_number ilike '%'||$1||'%'
+                or p.name ilike '%'||$1||'%'
+                or p.set_name ilike '%'||$1||'%'
+                or upper(regexp_replace(coalesce(p.card_number,''),'[^A-Za-z0-9]','','g'))
+                   = $2
+              )
+            order by
+              case
+                when $2 <> '' and upper(regexp_replace(coalesce(p.card_number,''),'[^A-Za-z0-9]','','g'))=$2 then 0
+                when lower(coalesce(p.card_number,''))=lower($1) then 1
+                when lower(coalesce(p.name,''))=lower($1) then 2
+                when p.card_number ilike $1||'%' then 3
+                else 4
+              end,
+              p.game,p.set_name,p.card_number,p.name,p.id
+            limit $3
+            """,
+            query,
+            normalised,
+            limit,
+        )
+    return jsonable_encoder({"items": [dict(row) for row in rows], "query": query})
+
+
 @router.get("/inventory")
 async def owner_inventory(
     request: Request,
@@ -345,11 +423,11 @@ async def owner_recognition_intake(
                 r.id,r.status,r.decision,r.top_catalogue_id,
                 c.id as candidate_id,c.catalogue_id,c.hard_rejected
             from tcg.recognition_runs r
-            join tcg.recognition_candidates c
+            left join tcg.recognition_candidates c
               on c.run_id=r.id and c.catalogue_id=$3
             where r.id=$1
               and r.owner_id=$2
-            order by c.rank
+            order by c.rank nulls last
             limit 1
             """,
             payload.recognition_run_id,
@@ -359,11 +437,11 @@ async def owner_recognition_intake(
         if run is None:
             raise HTTPException(
                 status_code=404,
-                detail="Recognition run or selected candidate was not found for this seller",
+                detail="Recognition run was not found for this seller",
             )
         if run["status"] not in {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"}:
             raise HTTPException(status_code=409, detail="Recognition run is not ready for confirmation")
-        if run["hard_rejected"]:
+        if run["candidate_id"] is not None and run["hard_rejected"]:
             raise HTTPException(status_code=422, detail="A rejected recognition candidate cannot be added")
 
         feedback = await connection.fetchrow(
@@ -379,12 +457,21 @@ async def owner_recognition_intake(
         )
         if (
             feedback is None
-            or feedback["outcome"] not in {"CONFIRMED_TOP", "CORRECTED_TO_CANDIDATE"}
+            or feedback["outcome"] not in {
+                "CONFIRMED_TOP",
+                "CORRECTED_TO_CANDIDATE",
+                "CORRECTED_BY_SEARCH",
+            }
             or feedback["selected_catalogue_id"] != payload.selected_catalogue_id
         ):
             raise HTTPException(
                 status_code=409,
-                detail="Confirm the selected recognition candidate before adding it to inventory",
+                detail="Confirm or correct the recognition result before adding it to inventory",
+            )
+        if feedback["outcome"] != "CORRECTED_BY_SEARCH" and run["candidate_id"] is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Confirmed recognition candidate is no longer available",
             )
 
         catalogue = await connection.fetchrow(
@@ -417,6 +504,7 @@ async def owner_recognition_intake(
             "selected_catalogue_id": str(payload.selected_catalogue_id),
             "payload_hash": payload_hash,
             "seller_confirmed": True,
+            "confirmation_source": feedback["outcome"],
         }
 
         inventory = await connection.fetchrow(
