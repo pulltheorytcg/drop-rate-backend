@@ -159,8 +159,9 @@ def test_single_item_shopify_path_and_pooled_listing_path_cannot_overlap() -> No
     marketplace = MODULE.read_text()
     shopify = SHOPIFY.read_text()
     assert "active single-item Shopify link" in marketplace
-    assert "listing_inventory_members lim" in shopify
-    assert "marketplace listing/reservation system" in shopify
+    assert "listing_inventory_members" in shopify
+    assert "pooled_membership" in shopify
+    assert "cannot use single-item Shopify publication" in shopify
 
 
 def test_removed_listing_membership_is_history_not_hard_delete() -> None:
