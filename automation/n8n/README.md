@@ -31,3 +31,18 @@ Before switching the existing n8n service from the stock image:
 9. Only then point the automation dispatcher at DR-00.
 
 No public n8n domain is required for this provisioning model.
+
+
+## DR-00 signed ingress
+
+`DR00IngressV1` is the first version-controlled ingress workflow. It is intentionally imported **inactive**.
+
+Runtime requirements before activation:
+
+- `DROP_RATE_AUTOMATION_WEBHOOK_SECRET` must match the dispatcher secret and be at least 32 characters.
+- The n8n Code node must be allowed to load Node's built-in `crypto` module (for example via the deployment's n8n Code-node built-in-module allowlist).
+- Requests older/newer than five minutes are rejected.
+- The HMAC is verified with a timing-safe comparison before the event can be acknowledged.
+- Invalid signatures/envelopes receive HTTP 401; valid envelopes receive HTTP 202.
+
+**Important:** do not activate DR-00 merely because it imports successfully. A 202 causes the dispatcher to ACK the outbox event. Activation therefore waits until the event router/handler is connected and an end-to-end test proves that accepted events are durably handled rather than swallowed.
