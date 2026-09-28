@@ -50,3 +50,30 @@ Runtime requirements before activation:
 - Invalid signatures/envelopes receive HTTP 401; valid envelopes receive HTTP 202.
 
 **Important:** do not activate DR-00 merely because it imports successfully. A 202 causes the dispatcher to ACK the outbox event. Activation therefore waits until the event router/handler is connected and an end-to-end test proves that accepted events are durably handled rather than swallowed.
+
+
+## DR-01 inventory approval to Shopify
+
+`DR01InventoryApprovedV1` uses the new `drop-rate/events-v2` webhook path so the
+existing DR-00 persistent workflow is never overwritten in place.
+
+Before activation:
+
+- `DROP_RATE_AUTOMATION_COMMAND_SECRET` must match the FastAPI
+  `TCG_AUTOMATION_COMMAND_SECRET` value and be at least 32 characters.
+- `DROP_RATE_API_AUTOMATION_URL` must point to
+  `/api/v1/automation/inventory-approved/shopify` over HTTPS or Railway private DNS.
+- FastAPI must have the DR-01 database migration applied and
+  `TCG_SHOPIFY_PUBLISH_ENABLED=true`.
+- The automation dispatcher must target
+  `/webhook/drop-rate/events-v2` and have an HTTP timeout long enough for one
+  synchronous Shopify publication attempt.
+
+The workflow does **not** acknowledge `inventory.approved` when signature
+verification alone succeeds. It signs the validated event with the separate
+command secret, calls FastAPI, waits for the deterministic Shopify publication
+path to finish, and only returns 2xx after FastAPI succeeds. FastAPI 4xx/5xx
+responses are relayed to the dispatcher so the outbox retry/dead-letter rules
+remain authoritative.
+
+Unknown event types receive 422 and are never silently accepted.
