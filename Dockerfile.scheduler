@@ -1,4 +1,6 @@
 # Drop Rate payout scheduler cron image
+# Railway Dockerfile services must use this CMD or a direct executable start
+# command; do not prefix the Railway Start Command with inline env assignments.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
