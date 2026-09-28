@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -49,6 +50,7 @@ from .refunds import router as refunds_router
 from .settings import get_settings
 from .shopify import router as shopify_router
 from .shopify_client import ShopifyApiError
+from .shopify_catalogue_bootstrap import run_shopify_catalogue_bootstrap
 from .shopify_pipeline import router as shopify_pipeline_router
 from .shopify_readiness import router as shopify_readiness_router
 from .storage_locations import router as storage_locations_router
@@ -139,9 +141,26 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.db_pool = await create_pool(settings)
+        bootstrap_task: asyncio.Task | None = None
+        if settings.shopify_catalogue_bootstrap_enabled:
+            bootstrap_task = asyncio.create_task(
+                run_shopify_catalogue_bootstrap(app.state.db_pool, settings)
+            )
+            app.state.shopify_catalogue_bootstrap_task = bootstrap_task
         try:
             yield
         finally:
+            if bootstrap_task is not None and not bootstrap_task.done():
+                bootstrap_task.cancel()
+                try:
+                    await bootstrap_task
+                except asyncio.CancelledError:
+                    pass
+            elif bootstrap_task is not None:
+                try:
+                    bootstrap_task.result()
+                except Exception:
+                    pass
             await app.state.db_pool.close()
 
     app = FastAPI(
