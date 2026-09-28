@@ -224,7 +224,8 @@ async def inventory_readiness(
         row = await connection.fetchrow(
             f"""
             select
-                count(*) filter (where {WORK_INVENTORY_SQL})::int as total,
+                count(*) filter (where {ACTIVE_INVENTORY_SQL})::int as total,
+                count(*) filter (where {WORK_INVENTORY_SQL})::int as for_sale,
                 count(*) filter (where i.sale_intent='PERSONAL_COLLECTION')::int as personal_collection,
                 count(*) filter (where {ISSUE_FILTERS['missing_cost']})::int as missing_cost,
                 count(*) filter (where {ISSUE_FILTERS['missing_condition']})::int as missing_condition,
