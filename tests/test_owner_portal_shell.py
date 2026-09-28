@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MAIN = ROOT / "backend" / "app" / "main.py"
 HTML = ROOT / "backend" / "app" / "static" / "owner.html"
 JS = ROOT / "backend" / "app" / "static" / "owner-portal.js"
+CSS = ROOT / "backend" / "app" / "static" / "owner-portal.css"
 
 
 def test_owner_portal_is_served_separately_from_founder_hq() -> None:
@@ -71,7 +72,7 @@ def test_owner_portal_uses_only_dedicated_owner_safe_read_contracts() -> None:
     html = HTML.read_text()
     js = JS.read_text()
 
-    assert "Your inventory" in html
+    assert "Inventory" in html
     assert "/api/v1/owner/overview" in js
     assert "/api/v1/owner/inventory" in js
     assert "/api/v1/inventory" not in js
@@ -111,12 +112,33 @@ def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None
 
 
 def test_new_owner_onboarding_redirect_has_a_guided_welcome_checklist() -> None:
+    html = HTML.read_text()
     js = JS.read_text()
 
     assert 'params.get("welcome") !== "1"' in js
-    assert 'id = "owner-onboarding-welcome"' in js
-    assert "Onboarding complete" in js
-    assert "Set up payouts" in js
+    assert 'id="owner-onboarding-welcome"' in html
+    assert "You're all set." in html
+    assert "Set up payouts" in html
     assert 'activateOwnerView("balance")' in js
     assert 'byId("owner-stripe-connect-panel")' in js
     assert 'history.replaceState({}, document.title, "/owner")' in js
+
+
+def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> None:
+    html = HTML.read_text()
+    css = CSS.read_text()
+    js = JS.read_text()
+
+    assert 'href="/assets/owner-portal.css?v=owner-v2"' in html
+    assert 'class="owner-portal-page"' in html
+    assert 'data-owner-view="overview"' in html
+    assert 'class="owner-sidebar"' in html
+    assert 'id="owner-inventory-grid"' in html
+    assert 'data-owner-inventory-layout="grid"' in html
+    assert 'data-owner-inventory-layout="list"' in html
+    assert ".owner-portal-page .owner-sidebar" in css
+    assert "@media(max-width:900px)" in css
+    assert "bottom:0" in css
+    assert "renderInventoryCards(items)" in js
+    assert "renderOverviewLatestInventory(items)" in js
+    assert 'addEventListener("input"' in js
