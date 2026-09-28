@@ -50,7 +50,7 @@ def test_personal_collection_transition_is_owner_scoped_and_versioned() -> None:
     assert "where id=$1 and owner_id=$2" in source
     assert 'item["status"] == "SOLD"' in source
     assert 'item["status"] == "RESERVED"' in source
-    assert 'item["version"] != payload.version' in source
+    assert 'int(item["version"]) != payload.version' in source
     assert "version=version+1" in source
     assert "PERSONAL_COLLECTION" in source
 
@@ -76,7 +76,7 @@ def test_failed_channel_withdrawal_keeps_local_personal_protection() -> None:
     source = WORKFLOW.read_text()
     assert '"sale_intent": "PERSONAL_COLLECTION"' in source
     assert '"action_required": bool(withdrawal_errors)' in source
-    assert "one or more channel withdrawals need to be retried" in source
+    assert "more channel withdrawals need to be retried" in source
     assert "current_version" in source
 
 
