@@ -1088,16 +1088,26 @@ function ownerBatchFindItem(id) {
 }
 
 function ownerBatchCloseCorrection() {
-  state.ownerRecognition.batch.currentCorrectionId = null;
+  const batch = state.ownerRecognition.batch;
+  batch.currentCorrectionId = null;
   byId("owner-batch-correction").classList.add("hidden");
   byId("owner-batch-search-results").replaceChildren();
   byId("owner-batch-search-message").textContent = "";
+  if (batch.enabled && state.ownerRecognition.cameraStream) {
+    batch.paused = false;
+    batch.stableFrames = 0;
+    batch.previousFingerprint = null;
+    ownerBatchSetCameraState("Correction saved · show the next card");
+  }
 }
 
 function ownerBatchOpenCorrection(itemId) {
   const item = ownerBatchFindItem(itemId);
   if (!item) return;
-  state.ownerRecognition.batch.currentCorrectionId = itemId;
+  const batch = state.ownerRecognition.batch;
+  batch.currentCorrectionId = itemId;
+  batch.paused = true;
+  batch.stableFrames = 0;
   byId("owner-batch-correction").classList.remove("hidden");
   const input = byId("owner-batch-search-input");
   input.value = item.searchSeed || "";
