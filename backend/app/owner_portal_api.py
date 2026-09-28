@@ -15,6 +15,7 @@ from .brands import brand_sql
 from .db import user_connection
 from .physical_state import validate_physical_state
 from .pricing import _recalculate_one
+from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/owner", tags=["owner-portal"])
@@ -152,6 +153,175 @@ async def owner_overview(
                 "owner_type": access["owner_type"],
             },
             "summary": dict(summary),
+        }
+    )
+
+
+@router.get("/insights")
+async def owner_insights(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+) -> dict:
+    """Owner-scoped portfolio insights using persisted pricing snapshots only."""
+
+    owner_id = access["owner_id"]
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        top_valued = await connection.fetch(
+            """
+            select
+                i.id as inventory_id,
+                i.inventory_code,
+                i.status,
+                i.condition,
+                i.grading_company,
+                i.grade,
+                coalesce(i.language,p.language) as language,
+                i.market_value_minor,
+                coalesce(i.store_price_minor,i.recommended_retail_minor)
+                    as store_value_minor,
+                i.pricing_updated_at,
+                p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,
+                (
+                    select coalesce(m.shopify_cdn_url,m.public_source_url)
+                    from tcg.media_assets m
+                    where (
+                        (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
+                        or (
+                            m.scope='CANONICAL_CARD'
+                            and m.inventory_id is null
+                            and m.catalogue_id=i.catalogue_id
+                        )
+                    )
+                      and m.side='FRONT'
+                      and m.media_kind='IMAGE'
+                      and m.approval_status='APPROVED'
+                      and m.rights_status='VERIFIED'
+                      and m.rights_tier='STOREFRONT_ALLOWED'
+                      and m.source_status='ACTIVE'
+                      and m.revoked_at is null
+                      and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
+                    order by
+                      (m.inventory_id=i.id) desc,
+                      m.approved_at desc nulls last,
+                      m.created_at desc,
+                      m.id
+                    limit 1
+                ) as image_url
+            from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id=i.catalogue_id
+            where i.owner_id=$1
+              and i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+              and i.market_value_minor is not null
+            order by i.market_value_minor desc,i.pricing_updated_at desc nulls last,i.id
+            limit 6
+            """,
+            owner_id,
+        )
+
+        movers = await connection.fetch(
+            """
+            with latest as (
+                select distinct on (ps.inventory_id)
+                    ps.inventory_id,
+                    ps.market_value_minor as current_value_minor,
+                    ps.calculated_at as current_at
+                from tcg.pricing_snapshots ps
+                join tcg.inventory_items i on i.id=ps.inventory_id
+                where ps.owner_id=$1
+                  and i.owner_id=$1
+                  and i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+                order by ps.inventory_id,ps.calculated_at desc,ps.id desc
+            ),
+            compared as (
+                select
+                    latest.inventory_id,
+                    latest.current_value_minor,
+                    latest.current_at,
+                    baseline.market_value_minor as baseline_value_minor,
+                    baseline.calculated_at as baseline_at
+                from latest
+                join lateral (
+                    select ps.market_value_minor,ps.calculated_at
+                    from tcg.pricing_snapshots ps
+                    where ps.owner_id=$1
+                      and ps.inventory_id=latest.inventory_id
+                      and ps.calculated_at <= latest.current_at - interval '6 days'
+                      and ps.calculated_at >= latest.current_at - interval '14 days'
+                    order by ps.calculated_at desc,ps.id desc
+                    limit 1
+                ) baseline on true
+                where baseline.market_value_minor > 0
+            )
+            select
+                i.id as inventory_id,
+                i.inventory_code,
+                i.status,
+                i.condition,
+                i.grading_company,
+                i.grade,
+                coalesce(i.language,p.language) as language,
+                p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,
+                compared.current_value_minor,
+                compared.baseline_value_minor,
+                compared.current_value_minor-compared.baseline_value_minor
+                    as change_minor,
+                round(
+                    ((compared.current_value_minor-compared.baseline_value_minor)::numeric
+                    * 100) / compared.baseline_value_minor,
+                    2
+                ) as change_pct,
+                compared.current_at,
+                compared.baseline_at,
+                (
+                    select coalesce(m.shopify_cdn_url,m.public_source_url)
+                    from tcg.media_assets m
+                    where (
+                        (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
+                        or (
+                            m.scope='CANONICAL_CARD'
+                            and m.inventory_id is null
+                            and m.catalogue_id=i.catalogue_id
+                        )
+                    )
+                      and m.side='FRONT'
+                      and m.media_kind='IMAGE'
+                      and m.approval_status='APPROVED'
+                      and m.rights_status='VERIFIED'
+                      and m.rights_tier='STOREFRONT_ALLOWED'
+                      and m.source_status='ACTIVE'
+                      and m.revoked_at is null
+                      and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
+                    order by
+                      (m.inventory_id=i.id) desc,
+                      m.approved_at desc nulls last,
+                      m.created_at desc,
+                      m.id
+                    limit 1
+                ) as image_url
+            from compared
+            join tcg.inventory_items i on i.id=compared.inventory_id and i.owner_id=$1
+            join tcg.catalogue_products p on p.id=i.catalogue_id
+            order by abs(
+                ((compared.current_value_minor-compared.baseline_value_minor)::numeric
+                * 100) / compared.baseline_value_minor
+            ) desc,
+            compared.current_value_minor desc,
+            i.id
+            limit 6
+            """,
+            owner_id,
+        )
+
+    return jsonable_encoder(
+        {
+            "top_valued": [dict(row) for row in top_valued],
+            "weekly_movers": [dict(row) for row in movers],
+            "weekly_window_days": 7,
         }
     )
 
