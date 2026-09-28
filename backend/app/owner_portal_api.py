@@ -61,6 +61,12 @@ def _owner_scan_inventory_payload(row: object, catalogue: object, *, replayed: b
     catalogue_row = dict(catalogue)
     recommended = inventory.get("recommended_retail_minor")
     store_price = inventory.get("store_price_minor")
+    has_valuation = (
+        valuation is not None
+        or inventory.get("market_value_minor") is not None
+        or recommended is not None
+        or store_price is not None
+    )
     return {
         "inventory": {
             "id": inventory.get("id"),
@@ -94,7 +100,7 @@ def _owner_scan_inventory_payload(row: object, catalogue: object, *, replayed: b
         },
         "identity_status": "SELLER_CONFIRMED_PENDING_DROP_RATE_VERIFICATION",
         "valuation": {
-            "status": "CALCULATED" if valuation is not None else "UNAVAILABLE",
+            "status": "CALCULATED" if has_valuation else "UNAVAILABLE",
             "snapshot": valuation.get("snapshot") if valuation is not None else None,
             "detail": valuation_error,
         },
