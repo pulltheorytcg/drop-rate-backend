@@ -2815,6 +2815,22 @@ async def _process_cancelled_order(
     if not order_reference:
         raise ShopifyProcessingError("MISSING_ORDER_ID", "Shopify cancellation has no order ID")
 
+    reservation_actor = await connection.fetchrow(
+        """
+        select created_by_user_id
+        from tcg.shopify_inventory_links
+        where reserved_order_reference=$1
+        order by linked_at,id
+        limit 1
+        """,
+        order_reference,
+    )
+    if reservation_actor is not None:
+        await connection.execute(
+            "select set_config('tcg.user_id',$1,true)",
+            str(reservation_actor["created_by_user_id"]),
+        )
+
     reservations = await connection.fetch(
         """
         select sil.*,i.status as inventory_status,i.inventory_code
@@ -2827,18 +2843,8 @@ async def _process_cancelled_order(
         order_reference,
     )
     if reservations:
-        scopes = {
-            (row["owner_id"], row["created_by_user_id"])
-            for row in reservations
-        }
-        if len(scopes) != 1:
-            raise ShopifyProcessingError(
-                "RESERVATION_OWNER_MISMATCH",
-                "Reserved Shopify order spans multiple owner contexts",
-            )
-        owner_id, user_id = next(iter(scopes))
-        await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
         for reservation in reservations:
+            owner_id = reservation["owner_id"]
             if reservation["inventory_status"] != "RESERVED":
                 raise ShopifyProcessingError(
                     "RESERVATION_STATE_MISMATCH",
@@ -2968,9 +2974,11 @@ async def _process_refund(
     )
     if bootstrap is None:
         return {"status": "PROCESSED", "action": "UNMANAGED_ORDER_REFUND"}
-    owner_id = bootstrap["owner_id"]
-    user_id = bootstrap["created_by_user_id"]
-    await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
+    actor_user_id = bootstrap["created_by_user_id"]
+    await connection.execute(
+        "select set_config('tcg.user_id',$1,true)",
+        str(actor_user_id),
+    )
 
     order = await connection.fetchrow(
         """
@@ -3070,7 +3078,7 @@ async def _process_refund(
                   amount_minor,currency,return_to_stock,reason,occurred_at
                 ) values($1,$2,$3,$4,$5,$6,'GBP',$7,$8,$9)
                 """,
-                owner_id, allocation["order_id"], allocation["order_item_id"],
+                allocation["owner_id"], allocation["order_id"], allocation["order_item_id"],
                 allocation["inventory_id"], source_reference, amount_minor,
                 return_to_stock, note, occurred_at,
             )
@@ -3082,7 +3090,7 @@ async def _process_refund(
                       currency,funds_status,source_key,occurred_at,notes
                     ) values($1,$2,$3,'REFUND',$4,'GBP','PENDING',$5,$6,$7)
                     """,
-                    owner_id, allocation["order_id"], allocation["order_item_id"],
+                    allocation["owner_id"], allocation["order_id"], allocation["order_item_id"],
                     -amount_minor,
                     f"refund:{allocation['order_item_id']}:{source_reference}",
                     occurred_at, note,
@@ -3108,7 +3116,7 @@ async def _process_refund(
                     where id=$1 and owner_id=$2 and status='SOLD'
                     returning id
                     """,
-                    allocation["inventory_id"], owner_id,
+                    allocation["inventory_id"], allocation["owner_id"],
                 )
                 if returned is None:
                     raise ShopifyProcessingError(
