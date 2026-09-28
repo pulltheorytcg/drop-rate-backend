@@ -293,7 +293,7 @@ def test_cancel_releases_reservation_without_writing_unpaid_finance_order() -> N
 
 def test_out_of_order_shopify_webhooks_resolve_owner_before_order_lookup() -> None:
     source = PIPELINE.read_text()
-    scope_start = source.index("async def _resolve_order_owner_scope(")
+    scope_start = source.index("async def _resolve_order_scopes(")
     scope_end = source.index("async def _select_order_units(", scope_start)
     scope = source[scope_start:scope_end]
     assert "sync_state in ('PUBLISHED','SOLD')" in scope
@@ -301,10 +301,10 @@ def test_out_of_order_shopify_webhooks_resolve_owner_before_order_lookup() -> No
     create_start = source.index("async def _process_created_order(")
     create_end = source.index("async def _process_paid_order(", create_start)
     created = source[create_start:create_end]
-    assert created.index("_resolve_order_owner_scope(") < created.index(
+    assert created.index("_resolve_order_scopes(") < created.index(
         "select id,status from tcg.orders"
     )
-    assert created.index("set_config('tcg.user_id'") < created.index(
+    assert created.index("_set_shopify_actor(") < created.index(
         "select id,status from tcg.orders"
     )
     assert "ORDER_ALREADY_FINALIZED" in created
@@ -312,10 +312,10 @@ def test_out_of_order_shopify_webhooks_resolve_owner_before_order_lookup() -> No
     paid_start = source.index("async def _process_paid_order(")
     paid_end = source.index("async def _process_cancelled_order(", paid_start)
     paid = source[paid_start:paid_end]
-    assert paid.index("_resolve_order_owner_scope(") < paid.index(
+    assert paid.index("_resolve_order_scopes(") < paid.index(
         "select id,status from tcg.orders"
     )
-    assert paid.index("set_config('tcg.user_id'") < paid.index(
+    assert paid.index("_set_shopify_actor(") < paid.index(
         "select id,status from tcg.orders"
     )
     assert "ORDER_ALREADY_RECORDED" in paid
@@ -526,8 +526,8 @@ def test_shopify_product_preview_is_read_only_and_exposes_blockers() -> None:
 
 def test_paid_order_allocation_is_exact_and_fail_closed() -> None:
     source = PIPELINE.read_text()
-    assert "where sil.owner_id=$1" in source
-    assert "and sil.shopify_variant_gid=$2" in source
+    selector = source[source.index("async def _select_order_units("):source.index("async def process_shopify_webhook(")]
+    assert "where sil.shopify_variant_gid=$1" in selector
     assert "and sil.sync_state='PUBLISHED'" in source
     assert "order by sil.allocation_priority, sil.linked_at, sil.inventory_id" in source
     assert "for update of sil, i" in source
@@ -988,3 +988,60 @@ def test_media_rights_migration_tracks_exact_identity_and_source_health() -> Non
     assert "source_checked_at" in lowered
     assert "revoked_at" in lowered
     assert "media_assets_storefront_resolver_idx" in lowered
+
+
+def test_shopify_order_can_span_multiple_inventory_owners() -> None:
+    source = PIPELINE.read_text()
+    assert "async def _resolve_order_scopes(" in source
+    assert "len(bootstrap) != 1" not in source
+    assert "Shopify order does not resolve to exactly one Drop Rate owner scope" not in source
+    selector = source[source.index("async def _select_order_units("):source.index("async def process_shopify_webhook(")]
+    assert "where sil.shopify_variant_gid=$1" in selector
+    assert '"owner_id": link["owner_id"]' in selector
+    assert '"created_by_user_id": link["created_by_user_id"]' in selector
+
+
+def test_multi_owner_sale_snapshots_owner_per_physical_allocation() -> None:
+    source = PIPELINE.read_text()
+    paid = source[source.index("async def _process_paid_order("):source.index("async def _process_cancelled_order(")]
+    assert 'owner_id = unit["owner_id"]' in paid
+    assert 'user_id = unit["created_by_user_id"]' in paid
+    assert "order_item_id, order_id, link[\"inventory_id\"], owner_id" in paid
+    assert "link[\"inventory_id\"], owner_id, expected_status" in paid
+    assert "order_item_id, owner_id, user_id, order_reference" in paid
+
+
+def test_multi_owner_pending_order_reserves_and_releases_exact_owner_inventory() -> None:
+    source = PIPELINE.read_text()
+    created = source[source.index("async def _process_created_order("):source.index("async def _process_paid_order(")]
+    cancelled = source[source.index("async def _process_cancelled_order("):source.index("async def _process_refund(")]
+    assert 'link["inventory_id"], unit["owner_id"]' in created
+    assert "RESERVATION_OWNER_MISMATCH" not in cancelled
+    assert 'owner_id = reservation["owner_id"]' in cancelled
+    assert 'reservation["inventory_id"], owner_id' in cancelled
+
+
+def test_multi_owner_refund_reverses_original_order_item_owner() -> None:
+    source = PIPELINE.read_text()
+    refund = source[source.index("async def _process_refund("):]
+    assert 'allocation["owner_id"], allocation["order_id"], allocation["order_item_id"]' in refund
+    assert 'allocation["inventory_id"], allocation["owner_id"]' in refund
+    assert "group by oi.id,oi.owner_id" in refund
+    assert 'row["owner_id"], order["id"], row["order_item_id"]' in refund
+
+
+def test_shopify_multi_owner_processing_requires_admin_system_actor() -> None:
+    source = PIPELINE.read_text()
+    helper = source[source.index("async def _set_shopify_actor("):source.index("async def _resolve_order_scopes(")]
+    assert "set_config('tcg.user_id',$1,true)" in helper
+    assert "select tcg.is_platform_admin()" in helper
+    assert "SHOPIFY_ACTOR_NOT_ADMIN" in helper
+
+
+def test_repeated_refunds_walk_remaining_physical_allocations_without_owner_drift() -> None:
+    source = PIPELINE.read_text()
+    refund = source[source.index("async def _process_refund("):]
+    assert "as refunded_minor" in refund
+    assert 'int(allocation["refunded_minor"] or 0) < int(allocation["net_sale_minor"])' in refund
+    assert "REFUND_EXCEEDS_ITEM_REVENUE" in refund
+    assert "remaining_refundable_minor" in refund

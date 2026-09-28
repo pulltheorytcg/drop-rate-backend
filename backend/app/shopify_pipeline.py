@@ -2343,32 +2343,47 @@ def _parse_order_lines(
     return order_reference, line_specs, variant_gids
 
 
-async def _resolve_order_owner_scope(
+async def _set_shopify_actor(
+    connection: asyncpg.Connection,
+    user_id: Any,
+) -> None:
+    await connection.execute(
+        "select set_config('tcg.user_id',$1,true)",
+        str(user_id),
+    )
+    if not await connection.fetchval("select tcg.is_platform_admin()"):
+        raise ShopifyProcessingError(
+            "SHOPIFY_ACTOR_NOT_ADMIN",
+            "Managed Shopify processing requires a platform-admin actor",
+        )
+
+
+async def _resolve_order_scopes(
     connection: asyncpg.Connection,
     *,
     variant_gids: list[str],
-) -> tuple[Any, Any]:
-    bootstrap = await connection.fetch(
+) -> list[dict[str, Any]]:
+    rows = await connection.fetch(
         """
         select distinct owner_id, created_by_user_id
         from tcg.shopify_inventory_links
         where shopify_variant_gid=any($1::text[])
           and sync_state in ('PUBLISHED','SOLD')
+        order by owner_id, created_by_user_id
         """,
         variant_gids,
     )
-    if len(bootstrap) != 1:
+    if not rows:
         raise ShopifyProcessingError(
             "OWNER_SCOPE_UNRESOLVED",
-            "Shopify order does not resolve to exactly one Drop Rate owner scope",
+            "Shopify order does not resolve to managed Drop Rate inventory",
         )
-    return bootstrap[0]["owner_id"], bootstrap[0]["created_by_user_id"]
+    return [dict(row) for row in rows]
 
 
 async def _select_order_units(
     connection: asyncpg.Connection,
     *,
-    owner_id: Any,
     order_reference: str,
     line_specs: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -2382,13 +2397,12 @@ async def _select_order_units(
                 i.acquisition_cost_minor, i.store_price_minor, i.version as inventory_version
             from tcg.shopify_inventory_links sil
             join tcg.inventory_items i on i.id=sil.inventory_id
-            where sil.owner_id=$1
-              and sil.shopify_variant_gid=$2
+            where sil.shopify_variant_gid=$1
               and sil.sync_state='PUBLISHED'
             order by sil.allocation_priority, sil.linked_at, sil.inventory_id
             for update of sil, i
             """,
-            owner_id, spec["variant_gid"],
+            spec["variant_gid"],
         )
         eligible = [
             link
@@ -2426,6 +2440,8 @@ async def _select_order_units(
                 raise ShopifyProcessingError("PRODUCT_MISMATCH", "Shopify product ID does not match Drop Rate")
             selected_units.append({
                 "link": link,
+                "owner_id": link["owner_id"],
+                "created_by_user_id": link["created_by_user_id"],
                 "line": line,
                 "line_reference": spec["line_reference"],
                 "allocation_index": allocation_index,
@@ -2485,11 +2501,9 @@ async def _process_created_order(
             "order_reference": order_reference,
         }
 
-    owner_id, user_id = await _resolve_order_owner_scope(
-        connection,
-        variant_gids=variant_gids,
-    )
-    await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
+    scopes = await _resolve_order_scopes(connection, variant_gids=variant_gids)
+    actor_user_id = scopes[0]["created_by_user_id"]
+    await _set_shopify_actor(connection, actor_user_id)
 
     existing = await connection.fetchrow(
         "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1",
@@ -2522,12 +2536,11 @@ async def _process_created_order(
           i.status as inventory_status
         from tcg.shopify_inventory_links sil
         join tcg.inventory_items i on i.id=sil.inventory_id
-        where sil.owner_id=$1
-          and sil.reserved_order_reference=$2
+        where sil.reserved_order_reference=$1
         order by sil.allocation_priority,sil.inventory_id
         for update of sil,i
         """,
-        owner_id, order_reference,
+        order_reference,
     )
     if reservations:
         expected_count = sum(spec["quantity"] for spec in line_specs)
@@ -2567,7 +2580,6 @@ async def _process_created_order(
 
     selected_units = await _select_order_units(
         connection,
-        owner_id=owner_id,
         order_reference=order_reference,
         line_specs=line_specs,
     )
@@ -2587,7 +2599,7 @@ async def _process_created_order(
             where id=$1 and owner_id=$2 and status='APPROVED'
             returning id,inventory_code
             """,
-            link["inventory_id"], owner_id,
+            link["inventory_id"], unit["owner_id"],
         )
         if inventory is None:
             raise ShopifyProcessingError(
@@ -2635,11 +2647,9 @@ async def _process_paid_order(
         event_label="paid order",
     )
 
-    owner_id, user_id = await _resolve_order_owner_scope(
-        connection,
-        variant_gids=variant_gids,
-    )
-    await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
+    scopes = await _resolve_order_scopes(connection, variant_gids=variant_gids)
+    actor_user_id = scopes[0]["created_by_user_id"]
+    await _set_shopify_actor(connection, actor_user_id)
 
     existing = await connection.fetchrow(
         "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1",
@@ -2667,7 +2677,6 @@ async def _process_paid_order(
 
     selected_units = await _select_order_units(
         connection,
-        owner_id=owner_id,
         order_reference=order_reference,
         line_specs=line_specs,
     )
@@ -2712,6 +2721,8 @@ async def _process_paid_order(
     created = []
     for index, unit in enumerate(selected_units):
         link = unit["link"]
+        owner_id = unit["owner_id"]
+        user_id = unit["created_by_user_id"]
         order_item_id = uuid4()
         await connection.execute(
             """
@@ -2813,6 +2824,22 @@ async def _process_cancelled_order(
     if not order_reference:
         raise ShopifyProcessingError("MISSING_ORDER_ID", "Shopify cancellation has no order ID")
 
+    reservation_actor = await connection.fetchrow(
+        """
+        select created_by_user_id
+        from tcg.shopify_inventory_links
+        where reserved_order_reference=$1
+        order by linked_at,id
+        limit 1
+        """,
+        order_reference,
+    )
+    if reservation_actor is not None:
+        await _set_shopify_actor(
+            connection,
+            reservation_actor["created_by_user_id"],
+        )
+
     reservations = await connection.fetch(
         """
         select sil.*,i.status as inventory_status,i.inventory_code
@@ -2825,18 +2852,8 @@ async def _process_cancelled_order(
         order_reference,
     )
     if reservations:
-        scopes = {
-            (row["owner_id"], row["created_by_user_id"])
-            for row in reservations
-        }
-        if len(scopes) != 1:
-            raise ShopifyProcessingError(
-                "RESERVATION_OWNER_MISMATCH",
-                "Reserved Shopify order spans multiple owner contexts",
-            )
-        owner_id, user_id = next(iter(scopes))
-        await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
         for reservation in reservations:
+            owner_id = reservation["owner_id"]
             if reservation["inventory_status"] != "RESERVED":
                 raise ShopifyProcessingError(
                     "RESERVATION_STATE_MISMATCH",
@@ -2888,9 +2905,9 @@ async def _process_cancelled_order(
         order_reference,
     )
     if sold_bootstrap is not None:
-        await connection.execute(
-            "select set_config('tcg.user_id',$1,true)",
-            str(sold_bootstrap["created_by_user_id"]),
+        await _set_shopify_actor(
+            connection,
+            sold_bootstrap["created_by_user_id"],
         )
         row = await connection.fetchrow(
             """
@@ -2966,9 +2983,8 @@ async def _process_refund(
     )
     if bootstrap is None:
         return {"status": "PROCESSED", "action": "UNMANAGED_ORDER_REFUND"}
-    owner_id = bootstrap["owner_id"]
-    user_id = bootstrap["created_by_user_id"]
-    await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
+    actor_user_id = bootstrap["created_by_user_id"]
+    await _set_shopify_actor(connection, actor_user_id)
 
     order = await connection.fetchrow(
         """
@@ -3013,6 +3029,11 @@ async def _process_refund(
         allocations = await connection.fetch(
             """
             select soil.*,oi.inventory_id,oi.net_sale_minor,oi.order_id,
+                   coalesce((
+                     select sum(re.amount_minor)
+                     from tcg.refund_events re
+                     where re.order_item_id=oi.id
+                   ),0)::bigint as refunded_minor,
                    i.status as inventory_status,
                    sil.id as inventory_link_id,sil.shopify_inventory_item_gid,
                    sil.shopify_location_gid
@@ -3026,13 +3047,18 @@ async def _process_refund(
             """,
             order_reference, line_item_id,
         )
-        if len(allocations) < quantity:
+        refundable_allocations = [
+            allocation
+            for allocation in allocations
+            if int(allocation["refunded_minor"] or 0) < int(allocation["net_sale_minor"])
+        ]
+        if len(refundable_allocations) < quantity:
             raise ShopifyProcessingError(
                 "REFUND_ALLOCATION_MISMATCH",
-                "Refund quantity exceeds Drop Rate allocation",
+                "Refund quantity exceeds remaining Drop Rate allocation",
             )
         amounts = allocate_minor(subtotal_minor, [1] * quantity)
-        for idx, allocation in enumerate(allocations[:quantity]):
+        for idx, allocation in enumerate(refundable_allocations[:quantity]):
             source_reference = (
                 f"shopify:{refund_id}:{line_item_id}:{allocation['allocation_index']}"
             )
@@ -3056,7 +3082,16 @@ async def _process_refund(
                 "legacy_restock",
             }
             amount_minor = amounts[idx]
-            if return_to_stock and amount_minor < int(allocation["net_sale_minor"]):
+            remaining_refundable_minor = (
+                int(allocation["net_sale_minor"])
+                - int(allocation["refunded_minor"] or 0)
+            )
+            if amount_minor > remaining_refundable_minor:
+                raise ShopifyProcessingError(
+                    "REFUND_EXCEEDS_ITEM_REVENUE",
+                    "Refund allocation exceeds remaining item sale revenue",
+                )
+            if return_to_stock and amount_minor < remaining_refundable_minor:
                 raise ShopifyProcessingError(
                     "PARTIAL_RESTOCK_REFUND",
                     "Restocking requires the full item sale value to be refunded",
@@ -3068,7 +3103,7 @@ async def _process_refund(
                   amount_minor,currency,return_to_stock,reason,occurred_at
                 ) values($1,$2,$3,$4,$5,$6,'GBP',$7,$8,$9)
                 """,
-                owner_id, allocation["order_id"], allocation["order_item_id"],
+                allocation["owner_id"], allocation["order_id"], allocation["order_item_id"],
                 allocation["inventory_id"], source_reference, amount_minor,
                 return_to_stock, note, occurred_at,
             )
@@ -3080,7 +3115,7 @@ async def _process_refund(
                       currency,funds_status,source_key,occurred_at,notes
                     ) values($1,$2,$3,'REFUND',$4,'GBP','PENDING',$5,$6,$7)
                     """,
-                    owner_id, allocation["order_id"], allocation["order_item_id"],
+                    allocation["owner_id"], allocation["order_id"], allocation["order_item_id"],
                     -amount_minor,
                     f"refund:{allocation['order_item_id']}:{source_reference}",
                     occurred_at, note,
@@ -3106,7 +3141,7 @@ async def _process_refund(
                     where id=$1 and owner_id=$2 and status='SOLD'
                     returning id
                     """,
-                    allocation["inventory_id"], owner_id,
+                    allocation["inventory_id"], allocation["owner_id"],
                 )
                 if returned is None:
                     raise ShopifyProcessingError(
