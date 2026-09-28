@@ -9,7 +9,7 @@ JS = ROOT / "backend" / "app" / "static" / "owner-portal.js"
 def test_owner_portal_has_separate_inventory_sales_balance_and_settlement_views() -> None:
     html = HTML.read_text()
 
-    for view in ("inventory", "sales", "balance", "settlements"):
+    for view in ("inventory", "sales", "balance", "channels", "settlements"):
         assert f'data-owner-view="{view}"' in html
         assert f'data-owner-view-panel="{view}"' in html
 
