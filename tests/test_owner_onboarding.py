@@ -209,6 +209,8 @@ def test_seller_invite_email_delivery_is_audited_and_retryable() -> None:
     assert "owner_invite_resend_prepared" in lower
     assert "onboarding_ack_version" in lower
     assert "onboarding_acknowledged_at" in lower
+    assert "email_last_event_at" in lower
+    assert "revoke all on function tcg.redeem_owner_invite(text,text,text) from tcg_api" in lower
     assert "security definer" in lower
     assert "grant execute on function tcg.list_owner_invites" in lower
     assert "grant execute on function tcg.prepare_owner_invite_resend" in lower
