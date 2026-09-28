@@ -192,7 +192,7 @@ async def owner_insights(
                     where (
                         (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
                         or (
-                            m.scope='CANONICAL_CARD'
+                            m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
                             and m.inventory_id is null
                             and m.catalogue_id=i.catalogue_id
                         )
@@ -283,7 +283,7 @@ async def owner_insights(
                     where (
                         (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
                         or (
-                            m.scope='CANONICAL_CARD'
+                            m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
                             and m.inventory_id is null
                             and m.catalogue_id=i.catalogue_id
                         )
@@ -451,7 +451,7 @@ async def owner_channels(
                     where (
                         (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
                         or (
-                            m.scope='CANONICAL_CARD'
+                            m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
                             and m.inventory_id is null
                             and m.catalogue_id=i.catalogue_id
                         )
@@ -723,7 +723,7 @@ async def owner_inventory(
                     where (
                         (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
                         or (
-                            m.scope='CANONICAL_CARD'
+                            m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
                             and m.inventory_id is null
                             and m.catalogue_id=i.catalogue_id
                         )
