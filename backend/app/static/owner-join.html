@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#071b3f">
-  <title>Drop Rate — Owner Invitation</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=owner-join-v1">
+  <title>Drop Rate — Seller Invitation</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=owner-join-v2">
 </head>
-<body>
+<body class="owner-join-page">
   <div class="ambient ambient-one"></div>
   <div class="ambient ambient-two"></div>
 
@@ -18,11 +18,11 @@
           <span class="dr-logo-image" role="img" aria-label="Drop Rate"></span>
         </div>
         <div class="brand-copy">
-          <p class="eyebrow">Owner invitation</p>
-          <h1>Your cards.<br><em>Your account.</em></h1>
-          <p class="lead">Accept your private invitation, create your owner account and get set up to track inventory, sales and payouts.</p>
+          <p class="eyebrow">Sell with Drop Rate</p>
+          <h1>Your cards.<br><em>Your business.</em></h1>
+          <p class="lead">Accept your invitation, create your seller account and start managing inventory, sales and payouts with Drop Rate.</p>
         </div>
-        <div class="trust-row"><span>Invite only</span><span>Owner scoped</span><span>Auditable payouts</span></div>
+        <div class="trust-row"><span>Invite only</span><span>Your inventory only</span><span>Transparent payouts</span></div>
       </div>
 
       <div class="auth-panel">
@@ -41,15 +41,15 @@
           <div class="owner-onboarding-steps" aria-label="Seller onboarding progress">
             <span class="active">1 · Invitation</span>
             <span class="active">2 · Account</span>
-            <span>3 · Owner portal</span>
+            <span>3 · Seller Hub</span>
           </div>
           <p class="eyebrow">Seller onboarding</p>
           <h2>Join Drop Rate</h2>
           <p id="owner-invite-summary" class="muted"></p>
           <div class="owner-onboarding-callout">
-            <strong>What your owner account includes</strong>
+            <strong>What your seller account includes</strong>
             <ul>
-              <li>A private view of only your inventory.</li>
+              <li>Your own inventory, values and listing status in one place.</li>
               <li>Transparent sales, commission and settlement reporting.</li>
               <li>Stripe payout onboarding and payout preferences.</li>
             </ul>
@@ -65,7 +65,7 @@
           <label>Email address<input id="owner-join-email" type="email" autocomplete="email" required maxlength="320" placeholder="Use the email this invitation was sent to"></label>
           <label>Password<input id="owner-join-password" type="password" autocomplete="new-password" required minlength="12"></label>
           <label>Confirm password<input id="owner-join-confirm-password" type="password" autocomplete="new-password" required minlength="12"></label>
-          <label class="owner-onboarding-ack"><input id="owner-join-ack" type="checkbox" required> <span>I understand this is a restricted owner account and the commission shown above applies to sales attributed to my inventory.</span></label>
+          <label class="owner-onboarding-ack"><input id="owner-join-ack" type="checkbox" required> <span>I understand this seller account only gives me access to my own inventory and the commission shown above applies to sales attributed to it.</span></label>
           <div id="owner-join-message" class="message" role="status"></div>
           <button class="primary-button" type="submit">Create account & continue <span>→</span></button>
           <button id="owner-show-existing-login" class="text-button" type="button">I already have an account</button>
@@ -75,7 +75,7 @@
           <div class="owner-onboarding-steps" aria-label="Seller onboarding progress">
             <span class="active">1 · Invitation</span>
             <span class="active">2 · Account</span>
-            <span>3 · Owner portal</span>
+            <span>3 · Seller Hub</span>
           </div>
           <p class="eyebrow">Existing account</p>
           <h2>Sign in to accept invitation</h2>
@@ -89,7 +89,7 @@
 
           <label>Email address<input id="owner-existing-email" type="email" autocomplete="email" required></label>
           <label>Password<input id="owner-existing-password" type="password" autocomplete="current-password" required></label>
-          <label class="owner-onboarding-ack"><input id="owner-existing-ack" type="checkbox" required> <span>I understand this is a restricted owner account and the commission shown above applies to sales attributed to my inventory.</span></label>
+          <label class="owner-onboarding-ack"><input id="owner-existing-ack" type="checkbox" required> <span>I understand this seller account only gives me access to my own inventory and the commission shown above applies to sales attributed to it.</span></label>
           <div id="owner-existing-message" class="message" role="status"></div>
           <button class="primary-button" type="submit">Sign in and accept <span>→</span></button>
           <button id="owner-back-to-join" class="text-button" type="button">Back</button>

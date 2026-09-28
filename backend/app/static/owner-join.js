@@ -173,7 +173,7 @@ async function finishAuthenticatedOnboarding(session, displayName = null) {
     || user.user_metadata?.full_name
     || state.invite?.invited_name;
   if (!user.email || !resolvedName) {
-    throw new Error("We could not resolve your verified owner profile.");
+    throw new Error("We could not resolve your verified seller profile.");
   }
   await redeem(session, resolvedName);
   window.location.replace("/owner?welcome=1");
@@ -227,7 +227,7 @@ async function initialise() {
 
     if (!state.token) {
       showInvalid(
-        "This invitation link is incomplete. Ask Drop Rate for a new owner invite."
+        "This invitation link is incomplete. Ask Drop Rate for a new seller invite."
       );
       return;
     }

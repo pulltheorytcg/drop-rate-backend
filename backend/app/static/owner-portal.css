@@ -25,6 +25,11 @@
   font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   letter-spacing:-.012em;
 }
+.owner-portal-page .dr-logo-image{
+  background-image:url("/assets/brand-assets/drop-rate-logo.png?v=seller-hub-1")!important;
+  filter:drop-shadow(0 6px 14px rgba(2,18,45,.24))!important;
+}
+
 .owner-portal-page *{box-sizing:border-box}
 .owner-portal-page button,
 .owner-portal-page input,
@@ -76,7 +81,7 @@
 .owner-portal-page .owner-auth-brand .lead{color:#c8d6ec;font-size:1.08rem}
 .owner-portal-page .owner-auth-brand .trust-row{color:#91a9ca}
 .owner-portal-page .owner-auth-brand .trust-row span:before{background:#47dff0}
-.owner-portal-page .owner-auth-logo{width:84px;height:84px;display:block}
+.owner-portal-page .owner-auth-logo{width:132px;height:94px;display:block}
 .owner-portal-page .owner-auth-panel{
   display:grid;
   place-items:center;
@@ -135,26 +140,40 @@
   position:sticky!important;
   top:0;
   z-index:30;
-  height:70px!important;
-  padding:0 24px!important;
+  height:78px!important;
+  padding:0 28px!important;
   border:0!important;
   border-bottom:1px solid rgba(255,255,255,.08)!important;
   background:linear-gradient(90deg,#061a3c,#08234d)!important;
   box-shadow:0 3px 18px rgba(7,27,63,.13)!important;
 }
-.owner-portal-page .owner-topbar-brand{display:flex;align-items:center;gap:12px}
+.owner-portal-page .owner-topbar-brand{display:flex;align-items:center;gap:14px;min-width:0}
 .owner-portal-page .owner-topbar-brand .dr-logo-image{
-  width:58px!important;
-  height:58px!important;
+  width:82px!important;
+  height:62px!important;
   background-size:contain!important;
+  flex:0 0 auto;
 }
 .owner-portal-page .owner-topbar-product{
-  padding-left:12px;
+  min-width:0;
+  display:grid;
+  gap:2px;
+  padding-left:14px;
   border-left:1px solid rgba(255,255,255,.18);
-  color:#b9cbe5;
-  font-size:.72rem;
-  font-weight:800;
-  letter-spacing:.04em;
+  color:#fff;
+  letter-spacing:0;
+}
+.owner-portal-page .owner-topbar-product strong{
+  color:#fff!important;
+  font-size:.78rem;
+  font-weight:900;
+  letter-spacing:.015em;
+}
+.owner-portal-page .owner-topbar-product small{
+  color:#8fa9ca;
+  font-size:.52rem;
+  font-weight:750;
+  letter-spacing:.045em;
 }
 .owner-portal-page .owner-topbar .topbar-actions{gap:10px}
 .owner-portal-page .owner-topbar .user-chip{
@@ -193,10 +212,10 @@
 }
 .owner-portal-page .owner-signout:hover{background:rgba(255,255,255,.1)!important}
 
-.owner-portal-page .owner-app-shell{min-height:calc(100vh - 70px)}
+.owner-portal-page .owner-app-shell{min-height:calc(100vh - 78px)}
 .owner-portal-page .owner-sidebar{
   position:fixed;
-  top:70px;
+  top:78px;
   bottom:0;
   left:0;
   z-index:20;
@@ -210,7 +229,7 @@
 }
 .owner-portal-page .owner-nav{display:grid;gap:5px}
 .owner-portal-page .owner-nav:before{
-  content:"SELLER WORKSPACE";
+  content:"SELLER HUB";
   padding:0 12px 10px;
   color:#9aa5b5;
   font-size:.56rem;
@@ -833,6 +852,14 @@
   .owner-portal-page .owner-overview-grid{grid-template-columns:1fr}
 }
 @media(max-width:900px){
+
+  .owner-portal-page .owner-topbar{height:64px!important;padding:0 12px!important}
+  .owner-portal-page .owner-topbar-brand{gap:8px}
+  .owner-portal-page .owner-topbar-brand .dr-logo-image{width:64px!important;height:50px!important}
+  .owner-portal-page .owner-topbar-product{padding-left:8px}
+  .owner-portal-page .owner-topbar-product strong{font-size:.67rem}
+  .owner-portal-page .owner-topbar-product small{display:none}
+
   .owner-portal-page .owner-auth-layout{grid-template-columns:1fr}
   .owner-portal-page .owner-auth-brand{display:none}
   .owner-portal-page .owner-auth-panel{min-height:100vh;padding:22px}
