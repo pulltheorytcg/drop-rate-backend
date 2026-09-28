@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 
 InventoryStatus = Literal["DRAFT", "INSPECTION", "APPROVED", "WITHDRAWN"]
 EditableInventoryStatus = Literal["DRAFT", "INSPECTION", "WITHDRAWN"]
+SaleIntent = Literal["FOR_SALE", "PERSONAL_COLLECTION"]
 AllocationMethod = Literal["MANUAL", "EQUAL", "VALUE_WEIGHTED"]
 SealStatus = Literal["SEALED", "UNSEALED"]
 StorageLocationType = Literal["BINDER", "BOX", "SHELF", "DRAWER", "VAULT", "DISPLAY", "OTHER"]
@@ -58,6 +59,11 @@ class InventoryPatch(BaseModel):
 
 class InventoryApproval(BaseModel):
     version: int = Field(ge=1)
+
+
+class InventorySaleIntentChange(BaseModel):
+    version: int = Field(ge=1)
+    sale_intent: SaleIntent
 
 
 class BulkCostItem(BaseModel):

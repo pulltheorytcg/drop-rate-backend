@@ -46,6 +46,7 @@ async def inventory_state(
                 i.id,
                 i.condition,
                 i.seal_status,
+                i.sale_intent,
                 i.version,
                 p.product_type
             from tcg.inventory_items i

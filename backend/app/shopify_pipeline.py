@@ -171,6 +171,141 @@ def _money(minor: int) -> str:
     return f"{Decimal(minor) / Decimal(100):.2f}"
 
 
+async def withdraw_shopify_for_inventory(
+    pool: Any,
+    inventory_ids: list[str],
+    *,
+    owner_id: UUID,
+    reason: str,
+) -> list[dict[str, Any]]:
+    """Fail closed and verify Shopify is no longer selling exact inventory."""
+
+    if not inventory_ids:
+        return []
+
+    async with pool.acquire() as connection:
+        rows = await connection.fetch(
+            """
+            select
+                id,inventory_id,owner_id,sync_state,version,
+                shopify_product_gid,shopify_inventory_item_gid,shopify_location_gid
+            from tcg.shopify_inventory_links
+            where owner_id=$1
+              and inventory_id=any($2::uuid[])
+              and sync_state in ('DRAFT','PUBLISHED','ERROR')
+            order by linked_at,id
+            """,
+            owner_id,
+            inventory_ids,
+        )
+    if not rows:
+        return []
+
+    try:
+        client = _client()
+    except HTTPException as exc:
+        detail = str(exc.detail)
+        results: list[dict[str, Any]] = []
+        async with pool.acquire() as connection:
+            for row in rows:
+                await connection.execute(
+                    """
+                    update tcg.shopify_inventory_links
+                    set sync_state='ERROR',version=version+1,
+                        last_synced_at=clock_timestamp()
+                    where id=$1 and owner_id=$2
+                      and sync_state in ('DRAFT','PUBLISHED','ERROR')
+                    """,
+                    row["id"],
+                    owner_id,
+                )
+                results.append({
+                    "inventory_id": str(row["inventory_id"]),
+                    "status": "ERROR",
+                    "detail": detail,
+                    "retryable": False,
+                })
+        return results
+
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        try:
+            await client.set_inventory_quantity(
+                inventory_item_id=str(row["shopify_inventory_item_gid"]),
+                location_id=str(row["shopify_location_gid"]),
+                quantity=0,
+                idempotency_key=(
+                    f"withdraw-{reason.casefold()}-{row['inventory_id']}"
+                ),
+            )
+            await client.set_product_status(
+                product_id=str(row["shopify_product_gid"]),
+                status="DRAFT",
+            )
+            snapshot = await client.get_product_snapshot(
+                str(row["shopify_product_gid"])
+            )
+            variants = snapshot.get("variants", {}).get("nodes", [])
+            quantity = (
+                variants[0].get("inventoryQuantity")
+                if len(variants) == 1 and isinstance(variants[0], dict)
+                else None
+            )
+            if snapshot.get("status") != "DRAFT" or quantity != 0:
+                raise ShopifyApiError(
+                    "Shopify inventory withdrawal could not be verified"
+                )
+        except ShopifyApiError as exc:
+            async with pool.acquire() as connection:
+                await connection.execute(
+                    """
+                    update tcg.shopify_inventory_links
+                    set sync_state='ERROR',version=version+1,
+                        last_synced_at=clock_timestamp()
+                    where id=$1 and owner_id=$2
+                      and sync_state in ('DRAFT','PUBLISHED','ERROR')
+                    """,
+                    row["id"],
+                    owner_id,
+                )
+            results.append({
+                "inventory_id": str(row["inventory_id"]),
+                "status": "ERROR",
+                "detail": str(exc),
+                "retryable": bool(exc.retryable),
+            })
+            continue
+
+        async with pool.acquire() as connection:
+            updated = await connection.fetchrow(
+                """
+                update tcg.shopify_inventory_links
+                set sync_state='ARCHIVED',version=version+1,
+                    last_synced_at=clock_timestamp()
+                where id=$1 and owner_id=$2
+                  and sync_state in ('DRAFT','PUBLISHED','ERROR')
+                returning id,inventory_id,sync_state,version
+                """,
+                row["id"],
+                owner_id,
+            )
+        if updated is None:
+            results.append({
+                "inventory_id": str(row["inventory_id"]),
+                "status": "STALE",
+                "detail": "Shopify link changed while inventory was being withdrawn",
+                "retryable": True,
+            })
+            continue
+        results.append({
+            "inventory_id": str(updated["inventory_id"]),
+            "status": "ARCHIVED",
+            "reason": reason,
+            "retryable": False,
+        })
+    return results
+
+
 def _minor(value: object, *, field: str) -> int:
     try:
         amount = Decimal(str(value or "0"))
@@ -261,6 +396,8 @@ def _test_sync_missing(
     physical_photo_threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
 ) -> list[str]:
     missing: list[str] = []
+    if str(item.get("sale_intent") or "FOR_SALE") != "FOR_SALE":
+        missing.append("FOR_SALE intent")
     if item["status"] != "APPROVED":
         missing.append("APPROVED status")
     if not item["identity_confirmed"]:
@@ -909,6 +1046,7 @@ async def media_intake_queue(
             join tcg.catalogue_products p on p.id=i.catalogue_id
             where i.owner_id=$1
               and i.status in ('DRAFT','INSPECTION','APPROVED')
+              and i.sale_intent='FOR_SALE'
               and p.product_type='CARD'
             order by p.game,p.set_name,p.name,p.card_number,i.inventory_code
             """,
@@ -1634,6 +1772,7 @@ async def test_sync_status(
               on lim.inventory_id=i.id and lim.state <> 'REMOVED'
             where i.owner_id=$1
               and i.status in ('DRAFT','INSPECTION','APPROVED')
+              and i.sale_intent='FOR_SALE'
               and sil.id is null
               and lim.id is null
             order by i.updated_at, i.inventory_code
@@ -1778,6 +1917,7 @@ async def sync_shopify_prices(
             where sil.owner_id=$1
               and sil.sync_state in ('DRAFT','PUBLISHED')
               and i.status='APPROVED'
+              and i.sale_intent='FOR_SALE'
               and i.store_price_minor is not null
               and i.store_price_minor <> sil.synced_price_minor
             order by sil.last_synced_at,sil.id
@@ -1858,6 +1998,7 @@ async def sync_shopify_prices(
                         i.id as inventory_id,
                         i.version as inventory_version,
                         i.status as inventory_status,
+                        i.sale_intent,
                         i.store_price_minor
                     from tcg.shopify_inventory_links sil
                     join tcg.inventory_items i on i.id=sil.inventory_id
@@ -1874,6 +2015,7 @@ async def sync_shopify_prices(
                     or int(current["inventory_version"]) != int(candidate["inventory_version"])
                     or current["sync_state"] not in {"DRAFT", "PUBLISHED"}
                     or current["inventory_status"] != "APPROVED"
+                    or current["sale_intent"] != "FOR_SALE"
                     or current["store_price_minor"] is None
                     or int(current["store_price_minor"]) != target_price
                 ):
@@ -1994,11 +2136,30 @@ async def sync_one_test_item(
                 "select * from tcg.shopify_inventory_links where inventory_id=$1",
                 inventory_id,
             )
-            if existing is not None:
+            if existing is not None and existing["sync_state"] == "SOLD":
+                raise HTTPException(
+                    status_code=409,
+                    detail="Sold Shopify inventory cannot be relisted",
+                )
+            if existing is not None and existing["sync_state"] == "PUBLISHED":
+                if item["sale_intent"] != "FOR_SALE":
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Personal Collection inventory cannot remain published",
+                    )
                 return jsonable_encoder({
                     "status": "ALREADY_LINKED",
                     "link": dict(existing),
                 })
+            if existing is not None and existing["sync_state"] not in {
+                "DRAFT",
+                "ARCHIVED",
+                "ERROR",
+            }:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Shopify inventory link is not in a relistable state",
+                )
 
             pooled_membership = await connection.fetchrow(
                 """
@@ -2083,7 +2244,23 @@ async def sync_one_test_item(
             listing_key = f"test:{inventory_id}"
             product_payload = product_create_input(plan, handle=handle)
             remote = await client.find_product_by_handle(handle)
+            if existing is not None and remote is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Existing Shopify link has no matching remote product; "
+                        "repair is required before relisting"
+                    ),
+                )
             if remote is not None:
+                if (
+                    existing is not None
+                    and str(existing["shopify_product_gid"]) != str(remote.get("id") or "")
+                ):
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Existing Shopify link points to a different remote product",
+                    )
                 metafield = remote.get("metafield")
                 remote_inventory_code = (
                     metafield.get("value")
@@ -2127,6 +2304,14 @@ async def sync_one_test_item(
                     status_code=502,
                     detail="Shopify variant ID is missing",
                 )
+            if (
+                existing is not None
+                and str(existing["shopify_variant_gid"]) != variant_id
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Existing Shopify link points to a different variant",
+                )
 
             for collection_title in plan["requiredCollections"]:
                 collection = collections_by_title.get(collection_title)
@@ -2167,6 +2352,14 @@ async def sync_one_test_item(
                     detail="Shopify inventory item ID is missing",
                 )
             inventory_item_id = str(inventory_item["id"])
+            if (
+                existing is not None
+                and str(existing["shopify_inventory_item_gid"]) != inventory_item_id
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Existing Shopify link points to a different inventory item",
+                )
 
             await client.activate_inventory(
                 inventory_item_id=inventory_item_id,
@@ -2204,25 +2397,47 @@ async def sync_one_test_item(
                     },
                 )
 
-            link = await connection.fetchrow(
-                """
-                insert into tcg.shopify_inventory_links(
-                    inventory_id, owner_id, created_by_user_id, listing_key,
-                    allocation_priority, shop_domain, shopify_product_gid,
-                    shopify_variant_gid, shopify_inventory_item_gid,
-                    shopify_location_gid, shopify_publication_gid, sku,
-                    sync_state, test_mode, synced_price_minor
-                ) values(
-                    $1,$2,$3,$4,1,$5,$6,$7,$8,$9,$10,$11,'DRAFT',true,$12
+            if existing is None:
+                link = await connection.fetchrow(
+                    """
+                    insert into tcg.shopify_inventory_links(
+                        inventory_id, owner_id, created_by_user_id, listing_key,
+                        allocation_priority, shop_domain, shopify_product_gid,
+                        shopify_variant_gid, shopify_inventory_item_gid,
+                        shopify_location_gid, shopify_publication_gid, sku,
+                        sync_state, test_mode, synced_price_minor
+                    ) values(
+                        $1,$2,$3,$4,1,$5,$6,$7,$8,$9,$10,$11,'DRAFT',true,$12
+                    )
+                    returning *
+                    """,
+                    inventory_id, owner["id"], user.user_id, listing_key,
+                    settings.shopify_shop_domain, product_id, variant_id,
+                    inventory_item_id, settings.shopify_location_gid,
+                    settings.shopify_publication_gid, item["inventory_code"],
+                    int(item["store_price_minor"]),
                 )
-                returning *
-                """,
-                inventory_id, owner["id"], user.user_id, listing_key,
-                settings.shopify_shop_domain, product_id, variant_id,
-                inventory_item_id, settings.shopify_location_gid,
-                settings.shopify_publication_gid, item["inventory_code"],
-                int(item["store_price_minor"]),
-            )
+            else:
+                link = await connection.fetchrow(
+                    """
+                    update tcg.shopify_inventory_links
+                    set sync_state='DRAFT',
+                        synced_price_minor=$2,
+                        last_synced_at=clock_timestamp(),
+                        version=version+1
+                    where id=$1 and owner_id=$3
+                      and sync_state in ('DRAFT','ARCHIVED','ERROR')
+                    returning *
+                    """,
+                    existing["id"],
+                    int(item["store_price_minor"]),
+                    owner["id"],
+                )
+                if link is None:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Shopify inventory link changed before relisting",
+                    )
 
             await client.set_product_status(
                 product_id=product_id,
@@ -2368,7 +2583,7 @@ async def _resolve_order_scopes(
         select distinct owner_id, created_by_user_id
         from tcg.shopify_inventory_links
         where shopify_variant_gid=any($1::text[])
-          and sync_state in ('PUBLISHED','SOLD')
+          and sync_state in ('PUBLISHED','SOLD','ARCHIVED','ERROR')
         order by owner_id, created_by_user_id
         """,
         variant_gids,
@@ -2394,6 +2609,7 @@ async def _select_order_units(
             """
             select
                 sil.*, i.inventory_code, i.status as inventory_status,
+                i.sale_intent,
                 i.acquisition_cost_minor, i.store_price_minor, i.version as inventory_version
             from tcg.shopify_inventory_links sil
             join tcg.inventory_items i on i.id=sil.inventory_id
@@ -2407,9 +2623,13 @@ async def _select_order_units(
         eligible = [
             link
             for link in links
-            if link["inventory_status"] == "APPROVED"
+            if (
+                link["inventory_status"] == "APPROVED"
+                and link["sale_intent"] == "FOR_SALE"
+            )
             or (
                 link["inventory_status"] == "RESERVED"
+                and link["sale_intent"] == "FOR_SALE"
                 and link["reserved_order_reference"] == order_reference
                 and link["reserved_line_reference"] == spec["line_reference"]
             )
@@ -2597,6 +2817,7 @@ async def _process_created_order(
             update tcg.inventory_items
             set status='RESERVED',version=version+1,updated_at=now()
             where id=$1 and owner_id=$2 and status='APPROVED'
+              and sale_intent='FOR_SALE'
             returning id,inventory_code
             """,
             link["inventory_id"], unit["owner_id"],
@@ -2941,7 +3162,7 @@ async def _process_cancelled_order(
               select 1
               from tcg.shopify_inventory_links
               where shopify_variant_gid=any($1::text[])
-                and sync_state in ('PUBLISHED','SOLD')
+                and sync_state in ('PUBLISHED','SOLD','ARCHIVED','ERROR')
             )
             """,
             variant_gids,

@@ -352,7 +352,8 @@ async def _load_listing_plan(
             select i.id, i.inventory_code, i.owner_id, i.acquisition_cost_minor,
                    i.currency, i.condition, i.grading_company, i.grade,
                    i.certificate_number, i.language, i.storage_location_id,
-                   i.store_price_minor, i.identity_confirmed, i.status, i.version,
+                   i.store_price_minor, i.identity_confirmed, i.status, i.sale_intent,
+                   i.version,
                    i.condition_review_status,
                    p.product_type, p.game, p.name, p.set_name, p.card_number,
                    p.variant, p.rarity
@@ -374,6 +375,8 @@ async def _load_listing_plan(
             blockers.append("eBay v1 supports individual cards only")
         if row["status"] != "APPROVED":
             blockers.append("inventory must be APPROVED")
+        if row["sale_intent"] != "FOR_SALE":
+            blockers.append("inventory is in PERSONAL_COLLECTION")
         if not row["identity_confirmed"]:
             blockers.append("identity must be confirmed")
         if not row["language"]:
@@ -671,7 +674,7 @@ async def publish_inventory_to_ebay(
     ) as connection:
         owner = await _owner(connection)
         current = await connection.fetchrow(
-            "select status, version from tcg.inventory_items where id=$1 and owner_id=$2 for update",
+            "select status, sale_intent, version from tcg.inventory_items where id=$1 and owner_id=$2 for update",
             inventory_id, owner["id"],
         )
         link = await connection.fetchrow(
@@ -682,6 +685,7 @@ async def publish_inventory_to_ebay(
             stale = True
         elif (
             current["status"] != "APPROVED"
+            or current["sale_intent"] != "FOR_SALE"
             or current["version"] != plan["link"]["inventory_version_snapshot"]
         ):
             stale = True
@@ -754,37 +758,65 @@ async def withdraw_ebay_for_inventory(
     reason: str,
 ) -> None:
     links = await _links_for_inventory(pool, inventory_ids)
-    live = [link for link in links if link["state"] == "LIVE"]
-    if not live:
+    candidates = [
+        link for link in links if link["state"] in {"LIVE", "ERROR"}
+    ]
+    if not candidates:
         return
     settings = get_settings()
-    for link in live:
+    for link in candidates:
         try:
             client, _ = await seller_client(
                 pool, settings, owner_id=UUID(str(link["owner_id"]))
             )
-            await client.withdraw_offer(str(link["offer_id"]))
-            offer = await client.get_offer(str(link["offer_id"]))
-            if _offer_is_live(offer):
-                raise EbaySellApiError("eBay offer still appears published after withdrawal")
+            offer_id = str(link.get("offer_id") or "").strip()
+            if not offer_id:
+                offers = await client.get_offers(sku=str(link["sku"]))
+                matching = [
+                    offer for offer in offers
+                    if str(offer.get("marketplaceId") or "")
+                    == settings.ebay_marketplace_id
+                ]
+                if len(matching) > 1:
+                    raise EbaySellApiError(
+                        "Multiple eBay offers exist for inventory being withdrawn"
+                    )
+                if matching:
+                    offer_id = str(matching[0].get("offerId") or "").strip()
+
+            if offer_id:
+                offer = await client.get_offer(offer_id)
+                if _offer_is_live(offer):
+                    await client.withdraw_offer(offer_id)
+                    offer = await client.get_offer(offer_id)
+                if _offer_is_live(offer):
+                    raise EbaySellApiError(
+                        "eBay offer still appears published after withdrawal"
+                    )
+            elif link["state"] == "LIVE":
+                raise EbaySellApiError(
+                    "Live eBay link has no recoverable remote offer"
+                )
+
             async with pool.acquire() as connection:
                 await connection.execute(
                     """
                     update tcg.ebay_inventory_links
                     set state='WITHDRAWN', withdrawal_reason=$2,
+                        offer_id=coalesce($3,offer_id),
                         withdrawn_at=clock_timestamp(), last_verified_at=clock_timestamp(),
                         last_error_code=null, version=version+1,
                         updated_at=clock_timestamp()
                     where id=$1
                     """,
-                    link["id"], reason,
+                    link["id"], reason, offer_id or None,
                 )
         except (EbaySellApiError, RuntimeError, ValueError) as exc:
             await _mark_link_error(pool, link["id"], f"CROSS_CHANNEL:{reason}")
             if isinstance(exc, EbaySellApiError):
                 raise exc
             raise EbaySellApiError(
-                "Cannot withdraw live eBay listing: seller authorisation is unavailable"
+                "Cannot withdraw eBay inventory: seller authorisation is unavailable"
             ) from exc
 
 
@@ -808,11 +840,15 @@ async def restore_ebay_after_shopify_release(pool: Any, inventory_ids: list[str]
                 "Cannot restore eBay listing: seller authorisation is missing"
             ) from exc
         async with pool.acquire() as connection:
-            item_status = await connection.fetchval(
-                "select status from tcg.inventory_items where id=$1",
+            item = await connection.fetchrow(
+                "select status, sale_intent from tcg.inventory_items where id=$1",
                 link["inventory_id"],
             )
-        if item_status != "APPROVED":
+        if (
+            item is None
+            or item["status"] != "APPROVED"
+            or item["sale_intent"] != "FOR_SALE"
+        ):
             continue
         try:
             listing_id = await client.publish_offer(str(link["offer_id"]))
@@ -1044,8 +1080,8 @@ async def _record_ebay_order(pool: Any, order: dict[str, Any]) -> dict[str, Any]
             listing_ids = [line["listing_id"] for line in lines]
             links = await connection.fetch(
                 """
-                select eil.*, i.status as inventory_status, i.acquisition_cost_minor,
-                       i.version as inventory_version
+                select eil.*, i.status as inventory_status, i.sale_intent,
+                       i.acquisition_cost_minor, i.version as inventory_version
                 from tcg.ebay_inventory_links eil
                 join tcg.inventory_items i on i.id=eil.inventory_id
                 where eil.listing_id = any($1::text[])
@@ -1076,6 +1112,8 @@ async def _record_ebay_order(pool: Any, order: dict[str, Any]) -> dict[str, Any]
                 status = str(link["inventory_status"])
                 if status != "APPROVED":
                     raise EbayChannelConflict(link["id"], status)
+                if link["sale_intent"] != "FOR_SALE":
+                    raise EbayChannelConflict(link["id"], "PERSONAL_COLLECTION")
 
             internal_order = await connection.fetchrow(
                 """
@@ -1093,7 +1131,7 @@ async def _record_ebay_order(pool: Any, order: dict[str, Any]) -> dict[str, Any]
                     """
                     update tcg.inventory_items
                     set status='SOLD', version=version+1, updated_at=clock_timestamp()
-                    where id=$1 and status='APPROVED'
+                    where id=$1 and status='APPROVED' and sale_intent='FOR_SALE'
                     returning id, acquisition_cost_minor
                     """,
                     link["inventory_id"],

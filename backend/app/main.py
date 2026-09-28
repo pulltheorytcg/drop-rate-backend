@@ -24,6 +24,7 @@ from .inventory_intake import router as inventory_intake_router
 from .inventory_intelligence import router as inventory_intelligence_router
 from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
+from .inventory_sale_intent import router as inventory_sale_intent_router
 from .identity_review import router as identity_review_router
 from .condition_review import router as condition_review_router
 from .collectible_identity import router as collectible_identity_router
@@ -270,6 +271,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_intelligence_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(inventory_market_values_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(inventory_state_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(inventory_sale_intent_router)
     app.include_router(identity_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(recognition_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])

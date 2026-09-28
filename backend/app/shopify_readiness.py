@@ -184,6 +184,7 @@ async def shopify_local_readiness(
               on lim.inventory_id=i.id and lim.state <> 'REMOVED'
             where i.owner_id=$1
               and i.status in ('DRAFT','INSPECTION','APPROVED')
+              and i.sale_intent='FOR_SALE'
               and sil.id is null
               and lim.id is null
             order by i.updated_at,i.inventory_code

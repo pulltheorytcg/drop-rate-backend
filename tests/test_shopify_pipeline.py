@@ -296,7 +296,7 @@ def test_out_of_order_shopify_webhooks_resolve_owner_before_order_lookup() -> No
     scope_start = source.index("async def _resolve_order_scopes(")
     scope_end = source.index("async def _select_order_units(", scope_start)
     scope = source[scope_start:scope_end]
-    assert "sync_state in ('PUBLISHED','SOLD')" in scope
+    assert "sync_state in ('PUBLISHED','SOLD','ARCHIVED','ERROR')" in scope
 
     create_start = source.index("async def _process_created_order(")
     create_end = source.index("async def _process_paid_order(", create_start)

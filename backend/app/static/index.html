@@ -115,6 +115,11 @@
             <select id="status-filter" aria-label="Filter inventory status">
               <option value="">All statuses</option><option value="DRAFT">Draft</option><option value="INSPECTION">Inspection</option><option value="APPROVED">Approved</option><option value="RESERVED">Reserved</option><option value="SOLD">Sold</option><option value="WITHDRAWN">Withdrawn</option>
             </select>
+            <select id="sale-intent-filter" aria-label="Filter sale intent">
+              <option value="">All inventory</option>
+              <option value="FOR_SALE">For sale</option>
+              <option value="PERSONAL_COLLECTION">Personal collection</option>
+            </select>
             <button id="bulk-cost-button" class="ghost-button" type="button" disabled>Allocate cost <span id="selected-count">0</span></button>
             <div class="inventory-view-toggle" role="group" aria-label="Inventory view">
               <button id="inventory-view-visual" class="ghost-button compact active" type="button" aria-pressed="true">Visual</button>
