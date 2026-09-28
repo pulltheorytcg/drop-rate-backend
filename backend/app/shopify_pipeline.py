@@ -1319,7 +1319,11 @@ async def create_media_asset(
             if duplicate:
                 raise HTTPException(
                     status_code=409,
-                    detail="An active media asset already exists for this exact canonical product side",
+                    detail=(
+                        "An active media asset already exists for this exact canonical card side"
+                        if scope == "CANONICAL_CARD"
+                        else "An active media asset already exists for this exact canonical product side"
+                    ),
                 )
 
         row = await connection.fetchrow(
