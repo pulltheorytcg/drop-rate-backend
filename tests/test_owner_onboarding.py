@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import base64
+import hashlib
+import hmac
 from datetime import datetime, timezone
 
 import pytest
@@ -11,7 +14,11 @@ from app.owner_onboarding import (
     _mask_email,
     _token_hash,
 )
-from app.resend_email import build_seller_invite_email
+from app.resend_email import (
+    ResendWebhookVerificationError,
+    build_seller_invite_email,
+    verify_resend_webhook,
+)
 
 
 ROOT = Path(__file__).parents[1]
@@ -266,3 +273,97 @@ def test_seller_invite_email_settings_are_explicit_and_secret() -> None:
         public_config.index('@app.get("/api/v1/public-config"'):
         public_config.index('@app.get("/health/live"')
     ]
+
+
+def _svix_signature(secret_bytes: bytes, event_id: str, timestamp: int, body: bytes) -> str:
+    signed = (
+        event_id.encode("utf-8")
+        + b"."
+        + str(timestamp).encode("ascii")
+        + b"."
+        + body
+    )
+    digest = base64.b64encode(
+        hmac.new(secret_bytes, signed, hashlib.sha256).digest()
+    ).decode("ascii")
+    return f"v1,{digest}"
+
+
+def test_resend_webhook_verification_uses_raw_body_and_tolerance() -> None:
+    secret_bytes = b"drop-rate-test-webhook-secret"
+    encoded = base64.b64encode(secret_bytes).decode("ascii")
+    secret = f"whsec_{encoded}"
+    body = b'{"type":"email.delivered","data":{"email_id":"email_123"}}'
+    timestamp = 1_800_000_000
+    event_id = "msg_test_123"
+    signature = _svix_signature(secret_bytes, event_id, timestamp, body)
+
+    verify_resend_webhook(
+        raw_body=body,
+        webhook_secret=secret,
+        svix_id=event_id,
+        svix_timestamp=str(timestamp),
+        svix_signature=signature,
+        now=timestamp + 10,
+    )
+
+    with pytest.raises(ResendWebhookVerificationError):
+        verify_resend_webhook(
+            raw_body=body + b" ",
+            webhook_secret=secret,
+            svix_id=event_id,
+            svix_timestamp=str(timestamp),
+            svix_signature=signature,
+            now=timestamp + 10,
+        )
+
+    with pytest.raises(ResendWebhookVerificationError):
+        verify_resend_webhook(
+            raw_body=body,
+            webhook_secret=secret,
+            svix_id=event_id,
+            svix_timestamp=str(timestamp),
+            svix_signature=signature,
+            now=timestamp + 301,
+        )
+
+
+def test_resend_webhook_delivery_ledger_is_idempotent_and_pii_minimised() -> None:
+    sql = EMAIL_MIGRATION.read_text().lower()
+
+    assert "create table if not exists tcg.owner_invite_email_events" in sql
+    assert "unique(provider,webhook_event_id)" in sql
+    assert "payload_sha256" in sql
+    assert "record_owner_invite_email_webhook" in sql
+    assert "'email.delivered'" in sql
+    assert "'email.bounced'" in sql
+    assert "'email.failed'" in sql
+    assert "owner_invite_email_event" in sql
+    assert "payload jsonb" not in sql
+
+
+def test_resend_webhook_route_verifies_before_parsing_and_updates_status() -> None:
+    source = (ROOT / "backend" / "app" / "owner_onboarding.py").read_text()
+    start = source.index('@router.post("/api/v1/webhooks/resend")')
+    end = source.index('@router.delete("/api/v1/owner-invites/{invite_id}")', start)
+    block = source[start:end]
+
+    assert "raw_body = await request.body()" in block
+    assert "verify_resend_webhook(" in block
+    assert block.index("verify_resend_webhook(") < block.index("json.loads(raw_body)")
+    assert 'request.headers.get("svix-id"' in block
+    assert 'request.headers.get("svix-timestamp"' in block
+    assert 'request.headers.get("svix-signature"' in block
+    assert "record_owner_invite_email_webhook" in block
+    assert "hashlib.sha256(raw_body).hexdigest()" in block
+
+
+def test_resend_webhook_secret_is_not_exposed_publicly() -> None:
+    settings = SETTINGS.read_text()
+    assert "TCG_RESEND_WEBHOOK_SECRET" in settings
+    main = MAIN.read_text()
+    public = main[
+        main.index('@app.get("/api/v1/public-config"'):
+        main.index('@app.get("/health/live"')
+    ]
+    assert "resend_webhook_secret" not in public
