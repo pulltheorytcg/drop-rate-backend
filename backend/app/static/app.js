@@ -21,6 +21,13 @@ function errorMessage(data) {
   if (typeof detail === "string") return detail;
   if (detail?.missing) return `${detail.message}: ${detail.missing.join(", ")}.`;
   if (Array.isArray(detail?.blockers)) return detail.blockers.join(" · ");
+  if (Array.isArray(detail?.withdrawal_errors)) {
+    const channels = detail.withdrawal_errors
+      .map((item) => item?.channel)
+      .filter(Boolean)
+      .join(", ");
+    return channels ? `${detail.message} Channels: ${channels}.` : detail.message;
+  }
   if (detail?.message) return detail.message;
   return "Something went wrong. Please try again.";
 }
@@ -415,10 +422,10 @@ async function changeInventorySaleIntent(item, saleIntent, button) {
         : `${item.inventory_code} can be listed for sale again. Nothing was relisted automatically.`
     );
   } catch (error) {
-    showMessage("inventory-message", error.message, "error");
     // PERSONAL_COLLECTION is committed locally before remote channel withdrawal.
     // Reload so the dashboard reflects the fail-closed source-of-truth state.
-    await loadInventory().catch(() => {});
+    await Promise.all([loadReadiness(), loadInventory()]).catch(() => {});
+    showMessage("inventory-message", error.message, "error");
     button.disabled = false;
     button.textContent = priorLabel;
   }
