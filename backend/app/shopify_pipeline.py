@@ -466,8 +466,8 @@ def _build_media_intake_queue(
 ) -> dict[str, Any]:
     """Build a capture queue only for inventory whose policy requires physical proof."""
 
-    captured_inventory: dict[str, set[str]] = {}
-    ready_inventory: dict[str, set[str]] = {}
+    captured_inventory: dict[str, set[tuple[str, str]]] = {}
+    ready_inventory: dict[str, set[tuple[str, str]]] = {}
 
     for asset in assets:
         if str(asset.get("approval_status") or "") != "APPROVED":
@@ -489,9 +489,10 @@ def _build_media_intake_queue(
         key = str(asset.get("inventory_id") or "")
         if not key:
             continue
-        captured_inventory.setdefault(key, set()).add(side)
+        context = str(asset.get("capture_context") or "").strip()
+        captured_inventory.setdefault(key, set()).add((side, context))
         if status == "READY":
-            ready_inventory.setdefault(key, set()).add(side)
+            ready_inventory.setdefault(key, set()).add((side, context))
 
     queue: list[dict[str, Any]] = []
     raw_pending = 0
@@ -517,9 +518,22 @@ def _build_media_intake_queue(
         grading_company = str(item.get("grading_company") or "").strip()
         grade = str(item.get("grade") or "").strip()
         is_graded = bool(grading_company and grade) and not is_sealed
-        captured = captured_inventory.get(inventory_id, set())
-        ready = ready_inventory.get(inventory_id, set())
+        captured_records = captured_inventory.get(inventory_id, set())
+        ready_records = ready_inventory.get(inventory_id, set())
         required_sides = list(policy.get("requiredSides") or ["FRONT", "BACK"])
+        valid_contexts = (
+            {"SEALED_PRODUCT"}
+            if is_sealed
+            else {"GRADED_SLAB"}
+            if is_graded
+            else {"RAW_UNSLEEVED", "PENNY_SLEEVE", "TOP_LOADER"}
+        )
+        captured = {
+            side for side, context in captured_records if context in valid_contexts
+        }
+        ready = {
+            side for side, context in ready_records if context in valid_contexts
+        }
         missing = [side for side in required_sides if side not in captured]
         if not missing:
             continue
@@ -1076,7 +1090,6 @@ async def media_intake_queue(
             where i.owner_id=$1
               and i.status in ('DRAFT','INSPECTION','APPROVED')
               and i.sale_intent='FOR_SALE'
-              and p.product_type='CARD'
             order by p.game,p.set_name,p.name,p.card_number,i.inventory_code
             """,
             owner["id"],
@@ -1085,7 +1098,7 @@ async def media_intake_queue(
             """
             select
                 catalogue_id,inventory_id,scope,side,rights_tier,source_status,
-                approval_status,rights_status,shopify_file_status
+                approval_status,rights_status,shopify_file_status,capture_context
             from tcg.media_assets
             where owner_id=$1
             order by created_at,id
