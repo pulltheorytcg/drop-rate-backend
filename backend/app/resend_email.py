@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import hmac
 import html
@@ -52,7 +53,7 @@ def verify_resend_webhook(
     encoded_secret += "=" * (-len(encoded_secret) % 4)
     try:
         secret_bytes = base64.b64decode(encoded_secret, validate=True)
-    except (ValueError, base64.binascii.Error) as exc:
+    except (ValueError, binascii.Error) as exc:
         raise ResendWebhookVerificationError("Invalid Resend webhook secret encoding") from exc
 
     signed = (
