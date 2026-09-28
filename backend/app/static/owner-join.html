@@ -20,9 +20,9 @@
         <div class="brand-copy">
           <p class="eyebrow">Owner invitation</p>
           <h1>Your cards.<br><em>Your account.</em></h1>
-          <p class="lead">Create your restricted Drop Rate owner account to see only your own inventory, sales and payouts.</p>
+          <p class="lead">Accept your private invitation, create your owner account and get set up to track inventory, sales and payouts.</p>
         </div>
-        <div class="trust-row"><span>Invite only</span><span>Owner scoped</span><span>10% default commission</span></div>
+        <div class="trust-row"><span>Invite only</span><span>Owner scoped</span><span>Auditable payouts</span></div>
       </div>
 
       <div class="auth-panel">
@@ -38,9 +38,22 @@
         </div>
 
         <form id="owner-join-form" class="auth-card hidden">
-          <p class="eyebrow">Create owner account</p>
+          <div class="owner-onboarding-steps" aria-label="Seller onboarding progress">
+            <span class="active">1 · Invitation</span>
+            <span class="active">2 · Account</span>
+            <span>3 · Owner portal</span>
+          </div>
+          <p class="eyebrow">Seller onboarding</p>
           <h2>Join Drop Rate</h2>
           <p id="owner-invite-summary" class="muted"></p>
+          <div class="owner-onboarding-callout">
+            <strong>What your owner account includes</strong>
+            <ul>
+              <li>A private view of only your inventory.</li>
+              <li>Transparent sales, commission and settlement reporting.</li>
+              <li>Stripe payout onboarding and payout preferences.</li>
+            </ul>
+          </div>
 
           <div id="owner-join-social-auth" class="social-auth hidden" aria-label="Social account creation">
             <button id="owner-join-google" class="oauth-button" type="button">Continue with Google</button>
@@ -49,17 +62,24 @@
           </div>
 
           <label>Your name<input id="owner-join-name" type="text" autocomplete="name" required maxlength="120"></label>
-          <label>Email address<input id="owner-join-email" type="email" autocomplete="email" required maxlength="320"></label>
+          <label>Email address<input id="owner-join-email" type="email" autocomplete="email" required maxlength="320" placeholder="Use the email this invitation was sent to"></label>
           <label>Password<input id="owner-join-password" type="password" autocomplete="new-password" required minlength="12"></label>
           <label>Confirm password<input id="owner-join-confirm-password" type="password" autocomplete="new-password" required minlength="12"></label>
+          <label class="owner-onboarding-ack"><input id="owner-join-ack" type="checkbox" required> <span>I understand this is a restricted owner account and the commission shown above applies to sales attributed to my inventory.</span></label>
           <div id="owner-join-message" class="message" role="status"></div>
-          <button class="primary-button" type="submit">Create owner account <span>→</span></button>
+          <button class="primary-button" type="submit">Create account & continue <span>→</span></button>
           <button id="owner-show-existing-login" class="text-button" type="button">I already have an account</button>
         </form>
 
         <form id="owner-existing-login-form" class="auth-card hidden">
+          <div class="owner-onboarding-steps" aria-label="Seller onboarding progress">
+            <span class="active">1 · Invitation</span>
+            <span class="active">2 · Account</span>
+            <span>3 · Owner portal</span>
+          </div>
           <p class="eyebrow">Existing account</p>
           <h2>Sign in to accept invitation</h2>
+          <p id="owner-existing-summary" class="muted"></p>
 
           <div id="owner-existing-social-auth" class="social-auth hidden" aria-label="Social sign in">
             <button id="owner-existing-google" class="oauth-button" type="button">Continue with Google</button>
@@ -69,6 +89,7 @@
 
           <label>Email address<input id="owner-existing-email" type="email" autocomplete="email" required></label>
           <label>Password<input id="owner-existing-password" type="password" autocomplete="current-password" required></label>
+          <label class="owner-onboarding-ack"><input id="owner-existing-ack" type="checkbox" required> <span>I understand this is a restricted owner account and the commission shown above applies to sales attributed to my inventory.</span></label>
           <div id="owner-existing-message" class="message" role="status"></div>
           <button class="primary-button" type="submit">Sign in and accept <span>→</span></button>
           <button id="owner-back-to-join" class="text-button" type="button">Back</button>
