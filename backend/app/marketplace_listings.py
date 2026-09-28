@@ -242,7 +242,7 @@ async def pool_state(
             ids = [row["inventory_id"] for row in group]
             rows = await connection.fetch(
                 """
-                select id,inventory_code,status,identity_confirmed,
+                select id,inventory_code,status,sale_intent,identity_confirmed,
                        acquisition_cost_minor,storage_location_id,store_price_minor,version
                 from tcg.inventory_items
                 where owner_id=$1 and id=any($2::uuid[])
@@ -256,6 +256,7 @@ async def pool_state(
                 if (
                     item is None
                     or item["status"] != "APPROVED"
+                    or item["sale_intent"] != "FOR_SALE"
                     or not item["identity_confirmed"]
                     or item["acquisition_cost_minor"] is None
                     or item["storage_location_id"] is None
@@ -379,7 +380,7 @@ async def reserve_listing_units(
             item = await connection.fetchrow(
                 """
                 select
-                  id,inventory_code,owner_id,status,identity_confirmed,
+                  id,inventory_code,owner_id,status,sale_intent,identity_confirmed,
                   acquisition_cost_minor,storage_location_id,store_price_minor,version
                 from tcg.inventory_items
                 where id=$1 and owner_id=$2
@@ -391,6 +392,7 @@ async def reserve_listing_units(
             if (
                 item is None
                 or item["status"] != "APPROVED"
+                or item["sale_intent"] != "FOR_SALE"
                 or not item["identity_confirmed"]
                 or item["acquisition_cost_minor"] is None
                 or item["storage_location_id"] is None
@@ -418,7 +420,8 @@ async def reserve_listing_units(
                 """
                 update tcg.inventory_items
                 set status='RESERVED',version=version+1,updated_at=now()
-                where id=$1 and owner_id=$2 and status='APPROVED' and version=$3
+                where id=$1 and owner_id=$2 and status='APPROVED'
+                  and sale_intent='FOR_SALE' and version=$3
                 returning id,inventory_code,status,version
                 """,
                 item["id"],
@@ -712,6 +715,8 @@ async def create_or_join_listing(
         missing = []
         if item["status"] != "APPROVED":
             missing.append("APPROVED status")
+        if item["sale_intent"] != "FOR_SALE":
+            missing.append("FOR_SALE intent")
         if not item["identity_confirmed"]:
             missing.append("identity confirmation")
         if item["acquisition_cost_minor"] is None:
