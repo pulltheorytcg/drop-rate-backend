@@ -242,16 +242,35 @@
                   </button>
 
                   <div id="owner-scan-camera-stage" class="owner-scan-camera-stage hidden">
+                    <div class="owner-batch-camera-topbar">
+                      <button id="owner-batch-close" type="button" aria-label="Close batch scanner">×</button>
+                      <div><strong>Batch scan</strong><small id="owner-batch-camera-state">Point at a card</small></div>
+                      <button id="owner-batch-switch-camera" type="button" aria-label="Switch camera">↻</button>
+                    </div>
                     <div class="owner-scan-camera-viewport">
                       <video id="owner-scan-video" autoplay muted playsinline></video>
                       <div class="owner-scan-card-guide" aria-hidden="true"></div>
-                      <span>Fill the frame · keep card flat · avoid glare</span>
+                      <span id="owner-scan-camera-hint">Fill the frame · keep card flat · avoid glare</span>
+                      <div id="owner-batch-scan-pulse" class="owner-batch-scan-pulse hidden">Recognising…</div>
                     </div>
                     <div class="owner-scan-camera-actions">
                       <button id="owner-scan-switch-camera" type="button">Switch</button>
                       <button id="owner-scan-capture" class="primary" type="button">Capture & recognise</button>
                       <button id="owner-scan-close-camera" type="button">Close</button>
                     </div>
+                    <section id="owner-batch-sheet" class="owner-batch-sheet">
+                      <div class="owner-batch-summary">
+                        <div><span>Scanned</span><strong id="owner-batch-count">0 cards</strong></div>
+                        <div><span>Market value</span><strong id="owner-batch-total">£0.00</strong></div>
+                        <div id="owner-batch-unresolved-wrap" class="hidden"><span>Needs review</span><strong id="owner-batch-unresolved">0</strong></div>
+                      </div>
+                      <div id="owner-batch-strip" class="owner-batch-strip">
+                        <div class="owner-batch-strip-empty">Recognised cards will appear here automatically.</div>
+                      </div>
+                      <button id="owner-batch-review-button" class="owner-batch-review-button" type="button" disabled>
+                        Review batch <span>→</span>
+                      </button>
+                    </section>
                   </div>
 
                   <div class="owner-scan-divider"><span>or upload a photo</span></div>
@@ -286,6 +305,47 @@
                 </div>
               </section>
             </div>
+
+            <section id="owner-batch-review" class="owner-panel owner-batch-review hidden">
+              <div class="owner-panel-heading">
+                <div><span class="owner-section-kicker">Batch review</span><h3>Review scanned cards</h3><p>Correct anything uncertain, choose the physical condition, then add the confirmed batch to your inventory.</p></div>
+                <button id="owner-batch-resume" class="owner-link-button" type="button">Resume scanning</button>
+              </div>
+              <div class="owner-batch-review-summary">
+                <div><span>Cards</span><strong id="owner-batch-review-count">0</strong></div>
+                <div><span>Reference market value</span><strong id="owner-batch-review-total">£0.00</strong></div>
+                <label>Default condition
+                  <select id="owner-batch-condition">
+                    <option value="">Choose condition</option>
+                    <option value="Near Mint">Near Mint</option>
+                    <option value="Lightly Played">Lightly Played</option>
+                    <option value="Moderately Played">Moderately Played</option>
+                    <option value="Heavily Played">Heavily Played</option>
+                    <option value="Damaged">Damaged</option>
+                  </select>
+                </label>
+              </div>
+              <div id="owner-batch-review-list" class="owner-batch-review-list"></div>
+              <div id="owner-batch-review-message" class="owner-card-message" role="status"></div>
+              <div class="owner-batch-review-actions">
+                <button id="owner-batch-add-all" class="owner-primary-action" type="button" disabled>Add confirmed batch to inventory <span>→</span></button>
+              </div>
+            </section>
+
+            <section id="owner-batch-correction" class="owner-batch-correction hidden" aria-modal="true" role="dialog" aria-labelledby="owner-batch-correction-title">
+              <div class="owner-batch-correction-card">
+                <div class="owner-batch-correction-heading">
+                  <div><span class="owner-section-kicker">Fix match</span><h3 id="owner-batch-correction-title">Find the correct card</h3><p>Search the card number first for the most precise result.</p></div>
+                  <button id="owner-batch-correction-close" type="button" aria-label="Close correction search">×</button>
+                </div>
+                <div class="owner-search-field owner-batch-search-field">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 20-4.2-4.2m1.2-5.3a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z"/></svg>
+                  <input id="owner-batch-search-input" type="search" placeholder="e.g. OP11-118, ST29-009, Charizard">
+                </div>
+                <div id="owner-batch-search-message" class="owner-card-message" role="status"></div>
+                <div id="owner-batch-search-results" class="owner-batch-search-results"></div>
+              </div>
+            </section>
 
             <section id="owner-scan-intake-panel" class="owner-panel owner-scan-intake-panel hidden">
               <div class="owner-panel-heading">
@@ -476,6 +536,6 @@
   </main>
 
   <script src="/assets/owner-portal.js?v=owner-v3" defer></script>
-  <script src="/assets/owner-recognition.js?v=owner-v3" defer></script>
+  <script src="/assets/owner-recognition.js?v=owner-v4" defer></script>
 </body>
 </html>
