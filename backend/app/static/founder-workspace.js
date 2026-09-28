@@ -17,10 +17,11 @@ function installFounderWorkspace() {
     event.preventDefault();
     clearTimeout(searchTimer);
     state.search = byId("workspace-search").value.trim();
-    state.brand = state.status = state.issue = "";
+    state.brand = state.status = state.saleIntent = state.issue = "";
     state.offset = 0;
     byId("search-input").value = state.search;
     byId("brand-filter").value = byId("status-filter").value = "";
+    byId("sale-intent-filter").value = "";
     if (state.readiness) renderReadiness(state.readiness);
     activateSellerView("inventory", true);
     loadInventory();
@@ -54,9 +55,9 @@ function installFounderWorkspace() {
   byId("search-input").closest(".toolbar").after(filterBar);
   byId("workspace-clear-filters").addEventListener("click", () => {
     clearTimeout(searchTimer);
-    state.search = state.brand = state.status = state.issue = "";
+    state.search = state.brand = state.status = state.saleIntent = state.issue = "";
     state.offset = 0;
-    ["search-input", "workspace-search", "brand-filter", "status-filter"].forEach((id) => { byId(id).value = ""; });
+    ["search-input", "workspace-search", "brand-filter", "status-filter", "sale-intent-filter"].forEach((id) => { byId(id).value = ""; });
     if (state.readiness) renderReadiness(state.readiness);
     loadInventory();
   });
@@ -91,6 +92,7 @@ function updateWorkspaceFilters() {
   if (!summary) return;
   const active = [state.search && `“${state.search}”`, state.brand,
     state.status && byId("status-filter").selectedOptions[0]?.textContent,
+    state.saleIntent && byId("sale-intent-filter").selectedOptions[0]?.textContent,
     state.issue && (ISSUE_LABELS[state.issue] || state.issue)].filter(Boolean);
   summary.textContent = active.length ? `Showing: ${active.join(" · ")}` : "All inventory";
   byId("workspace-clear-filters").hidden = active.length === 0;
