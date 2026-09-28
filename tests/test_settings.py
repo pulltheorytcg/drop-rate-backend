@@ -68,6 +68,7 @@ def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
         "TCG_SHOPIFY_PUBLICATION_GID",
         "TCG_SHOPIFY_TEST_PUBLISH_ENABLED",
         "TCG_SHOPIFY_PUBLISH_ENABLED",
+        "TCG_AUTOMATION_COMMAND_SECRET",
     ):
         monkeypatch.delenv(name, raising=False)
     settings = Settings.from_env()
@@ -80,6 +81,13 @@ def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
     assert settings.shopify_publication_gid is None
     assert settings.shopify_test_publish_enabled is False
     assert settings.shopify_publish_enabled is False
+    assert settings.automation_command_secret is None
+
+
+def test_automation_command_secret_is_server_side_optional(monkeypatch):
+    _base_env(monkeypatch)
+    monkeypatch.setenv("TCG_AUTOMATION_COMMAND_SECRET", "command-secret-value")
+    assert Settings.from_env().automation_command_secret == "command-secret-value"
 
 
 def test_shopify_domain_requires_canonical_myshopify_domain(monkeypatch):
