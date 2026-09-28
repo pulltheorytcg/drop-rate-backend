@@ -9,6 +9,19 @@ state.ownerRecognition = {
   result: null,
   selectedCandidate: null,
   intakeKey: null,
+  batch: {
+    items: [],
+    enabled: false,
+    processing: false,
+    paused: false,
+    timer: null,
+    previousFingerprint: null,
+    lastAcceptedFingerprint: null,
+    stableFrames: 0,
+    armed: true,
+    currentCorrectionId: null,
+    searchTimer: null,
+  },
 };
 
 function ownerScanMessage(text = "", kind = "") {
@@ -67,6 +80,9 @@ async function ownerScanLoadCandidateImage(image, runId, candidateId) {
 }
 
 function ownerScanStopCamera({hide = true} = {}) {
+  ownerBatchStopLoop();
+  document.body.classList.remove("owner-batch-camera-open");
+  state.ownerRecognition.batch.enabled = false;
   if (state.ownerRecognition.cameraStream) {
     state.ownerRecognition.cameraStream.getTracks().forEach((track) => {
       try { track.stop(); } catch (_error) {}
@@ -101,6 +117,13 @@ async function ownerScanStartCamera(facingMode = "environment") {
   await video.play();
   byId("owner-scan-camera-stage").classList.remove("hidden");
   byId("owner-scan-open-camera").classList.add("hidden");
+  if (ownerBatchIsMobile()) {
+    state.ownerRecognition.batch.enabled = true;
+    state.ownerRecognition.batch.paused = false;
+    document.body.classList.add("owner-batch-camera-open");
+    ownerBatchStartLoop();
+    ownerBatchRender();
+  }
   ownerScanMessage(
     facingMode === "environment"
       ? "Rear camera ready. Fill the guide with the whole card."
@@ -573,6 +596,626 @@ async function ownerScanSubmitIntake(event) {
   }
 }
 
+
+function ownerBatchIsMobile() {
+  return window.matchMedia("(max-width: 900px)").matches;
+}
+
+function ownerBatchFormatValue(value) {
+  return value == null ? "—" : formatMoney(value);
+}
+
+function ownerBatchFingerprintDelta(left, right) {
+  if (!left || !right || left.length !== right.length || !left.length) return 1;
+  let total = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    total += Math.abs(left[index] - right[index]);
+  }
+  return total / left.length / 255;
+}
+
+function ownerBatchFrameFingerprint(video) {
+  if (!video?.videoWidth || !video?.videoHeight) return null;
+  const crop = ownerScanCrop(video.videoWidth, video.videoHeight);
+  const canvas = document.createElement("canvas");
+  canvas.width = 20;
+  canvas.height = 28;
+  const context = canvas.getContext("2d", {willReadFrequently: true});
+  if (!context) return null;
+  context.drawImage(
+    video,
+    crop.sx,
+    crop.sy,
+    crop.sw,
+    crop.sh,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const fingerprint = new Uint8Array(canvas.width * canvas.height);
+  for (let pixel = 0, output = 0; pixel < pixels.length; pixel += 4, output += 1) {
+    fingerprint[output] = Math.round(
+      pixels[pixel] * 0.299 + pixels[pixel + 1] * 0.587 + pixels[pixel + 2] * 0.114
+    );
+  }
+  return fingerprint;
+}
+
+function ownerBatchCaptureDataUrl(video) {
+  const crop = ownerScanCrop(video.videoWidth, video.videoHeight);
+  const maxOutput = 1500;
+  const scale = Math.min(1, maxOutput / Math.max(crop.sw, crop.sh));
+  const width = Math.max(420, Math.round(crop.sw * scale));
+  const height = Math.max(588, Math.round(crop.sh * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", {alpha: false});
+  if (!context) throw new Error("Camera capture is unavailable in this browser.");
+  context.drawImage(
+    video,
+    crop.sx,
+    crop.sy,
+    crop.sw,
+    crop.sh,
+    0,
+    0,
+    width,
+    height
+  );
+  return canvas.toDataURL("image/jpeg", 0.88);
+}
+
+function ownerBatchStopLoop() {
+  if (state.ownerRecognition.batch.timer) {
+    window.clearInterval(state.ownerRecognition.batch.timer);
+  }
+  state.ownerRecognition.batch.timer = null;
+  state.ownerRecognition.batch.previousFingerprint = null;
+  state.ownerRecognition.batch.stableFrames = 0;
+}
+
+function ownerBatchStartLoop() {
+  ownerBatchStopLoop();
+  if (!state.ownerRecognition.batch.enabled) return;
+  state.ownerRecognition.batch.timer = window.setInterval(ownerBatchTick, 420);
+}
+
+function ownerBatchSetCameraState(text) {
+  const node = byId("owner-batch-camera-state");
+  if (node) node.textContent = text;
+}
+
+async function ownerBatchTick() {
+  const batch = state.ownerRecognition.batch;
+  const video = byId("owner-scan-video");
+  if (
+    !batch.enabled
+    || batch.paused
+    || batch.processing
+    || !state.ownerRecognition.cameraStream
+    || !video?.videoWidth
+  ) {
+    return;
+  }
+
+  const fingerprint = ownerBatchFrameFingerprint(video);
+  if (!fingerprint) return;
+
+  if (batch.lastAcceptedFingerprint) {
+    const changed = ownerBatchFingerprintDelta(fingerprint, batch.lastAcceptedFingerprint);
+    if (!batch.armed && changed >= 0.11) {
+      batch.armed = true;
+      batch.stableFrames = 0;
+      ownerBatchSetCameraState("New card detected · hold steady");
+    }
+  }
+
+  const movement = ownerBatchFingerprintDelta(fingerprint, batch.previousFingerprint);
+  batch.previousFingerprint = fingerprint;
+
+  if (movement <= 0.028) {
+    batch.stableFrames += 1;
+  } else {
+    batch.stableFrames = 0;
+    ownerBatchSetCameraState(batch.armed ? "Hold card steady" : "Move to the next card");
+  }
+
+  if (batch.armed && batch.stableFrames >= 3) {
+    batch.stableFrames = 0;
+    batch.armed = false;
+    batch.lastAcceptedFingerprint = fingerprint;
+    const dataUrl = ownerBatchCaptureDataUrl(video);
+    await ownerBatchRecognise(dataUrl);
+  }
+}
+
+function ownerBatchCandidateSnapshot(candidate) {
+  return candidate?.candidate_snapshot || {};
+}
+
+function ownerBatchSelectedName(item) {
+  const selected = item.selected;
+  const snapshot = ownerBatchCandidateSnapshot(selected);
+  return snapshot.name || selected?.name || item.guess || "Card needs review";
+}
+
+function ownerBatchSelectedMeta(item) {
+  const selected = item.selected;
+  const snapshot = ownerBatchCandidateSnapshot(selected);
+  if (selected?.manual_search) {
+    return [
+      selected.game,
+      selected.set_name,
+      selected.card_number,
+      selected.variant,
+      selected.language,
+    ].filter(Boolean).join(" · ");
+  }
+  return [
+    snapshot.game,
+    snapshot.set_name,
+    snapshot.card_number || snapshot.base_card_id,
+    snapshot.variant,
+    snapshot.language,
+  ].filter(Boolean).join(" · ");
+}
+
+function ownerBatchMarketValue(item) {
+  return item.selected?.market_value_minor ?? null;
+}
+
+function ownerBatchReferenceTotal() {
+  return state.ownerRecognition.batch.items.reduce((total, item) => {
+    if (!["recognised", "corrected", "added"].includes(item.status)) return total;
+    return total + Number(ownerBatchMarketValue(item) || 0);
+  }, 0);
+}
+
+function ownerBatchUnresolvedCount() {
+  return state.ownerRecognition.batch.items.filter(
+    (item) => !["recognised", "corrected", "added"].includes(item.status)
+  ).length;
+}
+
+function ownerBatchCreateThumb(item, className = "owner-batch-thumb") {
+  const wrap = document.createElement("div");
+  wrap.className = className;
+  const image = document.createElement("img");
+  image.src = item.captureDataUrl;
+  image.alt = ownerBatchSelectedName(item);
+  wrap.append(image);
+  return wrap;
+}
+
+function ownerBatchRenderStrip() {
+  const strip = byId("owner-batch-strip");
+  if (!strip) return;
+  strip.replaceChildren();
+  const items = state.ownerRecognition.batch.items;
+
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "owner-batch-strip-empty";
+    empty.textContent = "Recognised cards will appear here automatically.";
+    strip.append(empty);
+    return;
+  }
+
+  for (const item of items.slice().reverse()) {
+    const card = document.createElement("article");
+    card.className = `owner-batch-strip-card ${item.status}`;
+    card.append(ownerBatchCreateThumb(item));
+
+    const copy = document.createElement("div");
+    copy.className = "owner-batch-strip-copy";
+    const name = document.createElement("strong");
+    name.textContent = ownerBatchSelectedName(item);
+    const value = document.createElement("span");
+    value.textContent = item.status === "unresolved"
+      ? "Needs review"
+      : ownerBatchFormatValue(ownerBatchMarketValue(item));
+    copy.append(name, value);
+
+    const fix = document.createElement("button");
+    fix.type = "button";
+    fix.textContent = item.status === "unresolved" ? "Fix" : "Change";
+    fix.addEventListener("click", () => ownerBatchOpenCorrection(item.id));
+
+    card.append(copy, fix);
+    strip.append(card);
+  }
+}
+
+function ownerBatchRender() {
+  const items = state.ownerRecognition.batch.items;
+  const unresolved = ownerBatchUnresolvedCount();
+  byId("owner-batch-count").textContent = `${items.length} ${items.length === 1 ? "card" : "cards"}`;
+  byId("owner-batch-total").textContent = formatMoney(ownerBatchReferenceTotal());
+  byId("owner-batch-unresolved").textContent = String(unresolved);
+  byId("owner-batch-unresolved-wrap").classList.toggle("hidden", unresolved === 0);
+  byId("owner-batch-review-button").disabled = items.length === 0;
+  ownerBatchRenderStrip();
+}
+
+async function ownerBatchRecognise(dataUrl) {
+  const batch = state.ownerRecognition.batch;
+  if (batch.processing) return;
+  batch.processing = true;
+  byId("owner-batch-scan-pulse").classList.remove("hidden");
+  ownerBatchSetCameraState("Captured · recognising…");
+
+  try {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 70000);
+    let data;
+    try {
+      data = await apiRequest("/api/v1/recognition/resolve", {
+        method: "POST",
+        signal: controller.signal,
+        body: JSON.stringify({image_data_url: dataUrl, force_refresh: true}),
+      });
+    } finally {
+      window.clearTimeout(timeout);
+    }
+
+    const candidates = (data.candidates || [])
+      .filter((candidate) => candidate.catalogue_id && !candidate.hard_rejected)
+      .sort((left, right) => Number(left.rank || 9999) - Number(right.rank || 9999));
+    const top = candidates[0] || null;
+    const autoRecognised =
+      data.run?.decision === "EXACT_CANDIDATE"
+      && top
+      && top.catalogue_id === data.run?.top_catalogue_id;
+
+    const observation = data.run?.ai_observation || {};
+    const item = {
+      id: crypto.randomUUID(),
+      runId: data.run?.id,
+      run: data.run,
+      result: data,
+      captureDataUrl: dataUrl,
+      selected: autoRecognised ? top : null,
+      suggested: top,
+      status: autoRecognised ? "recognised" : "unresolved",
+      guess: observation.name_guess || top?.candidate_snapshot?.name || "Unresolved card",
+      searchSeed: observation.card_number || top?.candidate_snapshot?.card_number || "",
+      feedbackOutcome: null,
+      intakeKey: crypto.randomUUID(),
+      inventoryCode: null,
+      error: null,
+    };
+    batch.items.push(item);
+    ownerBatchRender();
+
+    if (autoRecognised) {
+      ownerBatchSetCameraState(
+        `${ownerBatchSelectedName(item)} · ${ownerBatchFormatValue(ownerBatchMarketValue(item))}`
+      );
+    } else {
+      ownerBatchSetCameraState("Added to review queue · show the next card");
+    }
+  } catch (error) {
+    const item = {
+      id: crypto.randomUUID(),
+      runId: null,
+      run: null,
+      result: null,
+      captureDataUrl: dataUrl,
+      selected: null,
+      suggested: null,
+      status: "unresolved",
+      guess: "Recognition failed",
+      searchSeed: "",
+      feedbackOutcome: null,
+      intakeKey: crypto.randomUUID(),
+      inventoryCode: null,
+      error: error?.name === "AbortError" ? "Recognition timed out" : error.message,
+    };
+    batch.items.push(item);
+    ownerBatchRender();
+    ownerBatchSetCameraState("Couldn’t identify that card · it’s in the review queue");
+  } finally {
+    batch.processing = false;
+    byId("owner-batch-scan-pulse").classList.add("hidden");
+  }
+}
+
+function ownerBatchFindItem(id) {
+  return state.ownerRecognition.batch.items.find((item) => item.id === id) || null;
+}
+
+function ownerBatchCloseCorrection() {
+  state.ownerRecognition.batch.currentCorrectionId = null;
+  byId("owner-batch-correction").classList.add("hidden");
+  byId("owner-batch-search-results").replaceChildren();
+  byId("owner-batch-search-message").textContent = "";
+}
+
+function ownerBatchOpenCorrection(itemId) {
+  const item = ownerBatchFindItem(itemId);
+  if (!item) return;
+  state.ownerRecognition.batch.currentCorrectionId = itemId;
+  byId("owner-batch-correction").classList.remove("hidden");
+  const input = byId("owner-batch-search-input");
+  input.value = item.searchSeed || "";
+  byId("owner-batch-search-results").replaceChildren();
+  byId("owner-batch-search-message").textContent = "";
+  input.focus();
+  if (input.value.trim().length >= 2) ownerBatchSearchCards(input.value.trim());
+}
+
+function ownerBatchSearchResultCard(row) {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "owner-batch-search-result";
+
+  const imageWrap = document.createElement("div");
+  imageWrap.className = "owner-batch-search-image";
+  if (row.image_url) {
+    const image = document.createElement("img");
+    image.src = row.image_url;
+    image.alt = safeText(row.name, "Trading card");
+    image.loading = "lazy";
+    imageWrap.append(image);
+  } else {
+    imageWrap.textContent = safeText(row.game, "DR").slice(0, 3).toUpperCase();
+  }
+
+  const copy = document.createElement("div");
+  const name = document.createElement("strong");
+  name.textContent = safeText(row.name);
+  const meta = document.createElement("span");
+  meta.textContent = [
+    row.game,row.set_name,row.card_number,row.variant,row.rarity,row.language,
+  ].filter(Boolean).join(" · ");
+  const value = document.createElement("small");
+  value.textContent = row.market_value_minor == null
+    ? "Reference value unavailable"
+    : `Market ${formatMoney(row.market_value_minor)}`;
+  copy.append(name, meta, value);
+
+  const choose = document.createElement("em");
+  choose.textContent = "Choose";
+  card.append(imageWrap, copy, choose);
+  card.addEventListener("click", () => ownerBatchChooseSearchResult(row));
+  return card;
+}
+
+async function ownerBatchSearchCards(query) {
+  const message = byId("owner-batch-search-message");
+  const results = byId("owner-batch-search-results");
+  message.textContent = "Searching Drop Rate catalogue…";
+  results.replaceChildren();
+  try {
+    const params = new URLSearchParams({q: query, limit: "20"});
+    const data = await apiRequest(`/api/v1/owner/catalogue-search?${params.toString()}`);
+    const items = data.items || [];
+    message.textContent = items.length ? "" : "No matching cards found. Try the exact card number.";
+    items.forEach((row) => results.append(ownerBatchSearchResultCard(row)));
+  } catch (error) {
+    message.textContent = error.message;
+    message.className = "owner-card-message error";
+  }
+}
+
+async function ownerBatchChooseSearchResult(row) {
+  const item = ownerBatchFindItem(state.ownerRecognition.batch.currentCorrectionId);
+  if (!item) return;
+
+  if (!item.runId) {
+    item.error = "Rescan this card first so the correction can be attached to recognition evidence.";
+    ownerBatchCloseCorrection();
+    ownerBatchRenderReview();
+    return;
+  }
+
+  byId("owner-batch-search-message").textContent = "Saving correction…";
+  try {
+    await apiRequest(`/api/v1/recognition/runs/${item.runId}/feedback`, {
+      method: "POST",
+      body: JSON.stringify({
+        outcome: "CORRECTED_BY_SEARCH",
+        selected_catalogue_id: row.id,
+        notes: "Seller corrected batch scan using catalogue search",
+      }),
+    });
+    item.selected = {
+      manual_search: true,
+      catalogue_id: row.id,
+      game: row.game,
+      name: row.name,
+      set_name: row.set_name,
+      card_number: row.card_number,
+      variant: row.variant,
+      rarity: row.rarity,
+      language: row.language,
+      market_value_minor: row.market_value_minor,
+      recommended_retail_minor: row.recommended_retail_minor,
+      image_url: row.image_url,
+    };
+    item.status = "corrected";
+    item.feedbackOutcome = "CORRECTED_BY_SEARCH";
+    item.error = null;
+    item.searchSeed = row.card_number || row.name || "";
+    ownerBatchCloseCorrection();
+    ownerBatchRender();
+    ownerBatchRenderReview();
+  } catch (error) {
+    byId("owner-batch-search-message").textContent = error.message;
+    byId("owner-batch-search-message").className = "owner-card-message error";
+  }
+}
+
+function ownerBatchRenderReview() {
+  const list = byId("owner-batch-review-list");
+  if (!list) return;
+  list.replaceChildren();
+  const items = state.ownerRecognition.batch.items;
+  const unresolved = ownerBatchUnresolvedCount();
+
+  byId("owner-batch-review-count").textContent = String(items.length);
+  byId("owner-batch-review-total").textContent = formatMoney(ownerBatchReferenceTotal());
+
+  for (const item of items) {
+    const row = document.createElement("article");
+    row.className = `owner-batch-review-item ${item.status}`;
+    row.append(ownerBatchCreateThumb(item, "owner-batch-review-thumb"));
+
+    const copy = document.createElement("div");
+    copy.className = "owner-batch-review-copy";
+    const name = document.createElement("strong");
+    name.textContent = ownerBatchSelectedName(item);
+    const meta = document.createElement("span");
+    meta.textContent = ownerBatchSelectedMeta(item) || item.error || "Needs a corrected match";
+    const value = document.createElement("small");
+    value.textContent = item.status === "unresolved"
+      ? "Needs review before inventory"
+      : `Reference market value ${ownerBatchFormatValue(ownerBatchMarketValue(item))}`;
+    copy.append(name, meta, value);
+
+    const actions = document.createElement("div");
+    actions.className = "owner-batch-review-item-actions";
+    if (item.status !== "added") {
+      const fix = document.createElement("button");
+      fix.type = "button";
+      fix.textContent = item.status === "unresolved" ? "Fix match" : "Change";
+      fix.addEventListener("click", () => ownerBatchOpenCorrection(item.id));
+      actions.append(fix);
+    }
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = item.status === "added" ? "Added" : "Remove";
+    remove.disabled = item.status === "added";
+    remove.addEventListener("click", () => {
+      state.ownerRecognition.batch.items = state.ownerRecognition.batch.items.filter(
+        (candidate) => candidate.id !== item.id
+      );
+      ownerBatchRender();
+      ownerBatchRenderReview();
+    });
+    actions.append(remove);
+
+    row.append(copy, actions);
+    list.append(row);
+  }
+
+  const condition = byId("owner-batch-condition").value;
+  byId("owner-batch-add-all").disabled =
+    !items.length
+    || unresolved > 0
+    || !condition
+    || items.every((item) => item.status === "added");
+}
+
+function ownerBatchOpenReview() {
+  state.ownerRecognition.batch.paused = true;
+  ownerScanStopCamera();
+  byId("owner-batch-review").classList.remove("hidden");
+  ownerBatchRenderReview();
+  byId("owner-batch-review").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+async function ownerBatchResume() {
+  byId("owner-batch-review").classList.add("hidden");
+  try {
+    await ownerScanStartCamera(state.ownerRecognition.cameraFacingMode || "environment");
+  } catch (error) {
+    ownerScanMessage(error.message, "error");
+  }
+}
+
+async function ownerBatchEnsureFeedback(item) {
+  if (item.feedbackOutcome) return;
+  if (!item.runId || !item.selected?.catalogue_id) {
+    throw new Error("This card still needs a confirmed identity.");
+  }
+  const topCatalogueId = item.run?.top_catalogue_id;
+  const outcome = item.selected.catalogue_id === topCatalogueId
+    ? "CONFIRMED_TOP"
+    : "CORRECTED_TO_CANDIDATE";
+  await apiRequest(`/api/v1/recognition/runs/${item.runId}/feedback`, {
+    method: "POST",
+    body: JSON.stringify({
+      outcome,
+      selected_catalogue_id: item.selected.catalogue_id,
+      notes: "Seller confirmed during batch scan review",
+    }),
+  });
+  item.feedbackOutcome = outcome;
+}
+
+async function ownerBatchAddAll() {
+  const condition = byId("owner-batch-condition").value;
+  const items = state.ownerRecognition.batch.items;
+  const unresolved = ownerBatchUnresolvedCount();
+  const message = byId("owner-batch-review-message");
+  if (!condition) {
+    message.textContent = "Choose the default condition for this batch.";
+    message.className = "owner-card-message error";
+    return;
+  }
+  if (unresolved) {
+    message.textContent = `Fix ${unresolved} unresolved ${unresolved === 1 ? "card" : "cards"} before adding the batch.`;
+    message.className = "owner-card-message error";
+    return;
+  }
+
+  const button = byId("owner-batch-add-all");
+  button.disabled = true;
+  let added = 0;
+  let failed = 0;
+
+  for (const item of items) {
+    if (item.status === "added") continue;
+    try {
+      message.textContent = `Adding ${ownerBatchSelectedName(item)}…`;
+      message.className = "owner-card-message";
+      await ownerBatchEnsureFeedback(item);
+      const language = item.selected?.manual_search
+        ? item.selected.language
+        : ownerBatchCandidateSnapshot(item.selected).language;
+      const data = await apiRequest("/api/v1/owner/recognition-intake", {
+        method: "POST",
+        headers: {"Idempotency-Key": item.intakeKey},
+        body: JSON.stringify({
+          recognition_run_id: item.runId,
+          selected_catalogue_id: item.selected.catalogue_id,
+          condition,
+          grading_company: null,
+          grade: null,
+          certificate_number: null,
+          language: language || null,
+        }),
+      });
+      item.status = "added";
+      item.inventoryCode = data.inventory?.inventory_code || null;
+      if (data.inventory?.market_value_minor != null) {
+        item.selected.market_value_minor = data.inventory.market_value_minor;
+      }
+      added += 1;
+    } catch (error) {
+      item.error = error.message;
+      item.status = "error";
+      failed += 1;
+    }
+    ownerBatchRenderReview();
+  }
+
+  await Promise.all([loadOwnerOverview(), loadOwnerInventory()]);
+  ownerBatchRender();
+  ownerBatchRenderReview();
+  if (failed) {
+    message.textContent = `${added} added, ${failed} need attention. Nothing was duplicated on retry.`;
+    message.className = "owner-card-message error";
+  } else {
+    message.textContent = `${added} ${added === 1 ? "card" : "cards"} added to your inventory as DRAFT, pending Drop Rate verification.`;
+    message.className = "owner-card-message success";
+  }
+}
+
 async function ownerRecognitionEnter() {
   if (!state.session?.access_token || state.ownerRecognition.status) return;
   const badge = byId("owner-scan-engine-status");
@@ -616,6 +1259,32 @@ byId("owner-scan-switch-camera").addEventListener("click", async () => {
   }
 });
 byId("owner-scan-close-camera").addEventListener("click", () => ownerScanStopCamera());
+byId("owner-batch-close").addEventListener("click", () => ownerScanStopCamera());
+byId("owner-batch-switch-camera").addEventListener("click", async () => {
+  try {
+    await ownerScanStartCamera(
+      state.ownerRecognition.cameraFacingMode === "environment" ? "user" : "environment"
+    );
+  } catch (error) {
+    ownerScanMessage(error.message, "error");
+  }
+});
+byId("owner-batch-review-button").addEventListener("click", ownerBatchOpenReview);
+byId("owner-batch-resume").addEventListener("click", ownerBatchResume);
+byId("owner-batch-correction-close").addEventListener("click", ownerBatchCloseCorrection);
+byId("owner-batch-search-input").addEventListener("input", (event) => {
+  window.clearTimeout(state.ownerRecognition.batch.searchTimer);
+  const query = event.currentTarget.value.trim();
+  state.ownerRecognition.batch.searchTimer = window.setTimeout(() => {
+    if (query.length >= 2) ownerBatchSearchCards(query);
+    else {
+      byId("owner-batch-search-results").replaceChildren();
+      byId("owner-batch-search-message").textContent = "";
+    }
+  }, 260);
+});
+byId("owner-batch-condition").addEventListener("change", ownerBatchRenderReview);
+byId("owner-batch-add-all").addEventListener("click", ownerBatchAddAll);
 byId("owner-scan-capture").addEventListener("click", ownerScanCapture);
 byId("owner-scan-file").addEventListener("change", ownerScanHandleFile);
 byId("owner-scan-run").addEventListener("click", ownerScanRun);
@@ -637,4 +1306,9 @@ byId("owner-scan-another").addEventListener("click", () => {
 });
 document.querySelectorAll('[data-owner-view="scan"],[data-owner-jump="scan"]').forEach((button) => {
   button.addEventListener("click", () => ownerRecognitionEnter());
+});
+
+window.addEventListener("pagehide", () => ownerScanStopCamera());
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") ownerScanStopCamera();
 });
