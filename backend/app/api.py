@@ -72,6 +72,8 @@ INVENTORY_IMAGE_EXACT_HOSTS = {
     "en.onepiece-cardgame.com",
     "www.onepiece-cardgame.com",
     "onepiece-cardgame.com",
+    "www.optcgapi.com",
+    "optcgapi.com",
     "cdn.shopify.com",
 }
 INVENTORY_IMAGE_ALLOWED_SUFFIXES = (
