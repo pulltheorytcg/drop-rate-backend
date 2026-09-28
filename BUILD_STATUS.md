@@ -6,7 +6,7 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## Current progress
 
-- **Full Drop Rate roadmap:** ~64% overall. The core marketplace/MVP path is further ahead at ~82%; the lower full-roadmap number includes still-deferred AI listings, customer service, SEO, marketing and advanced n8n automation.
+- **Full Drop Rate roadmap:** ~65% overall. The core marketplace/MVP path is further ahead at ~82%; the lower full-roadmap number still includes customer storefront work, AI listings, customer service, SEO, marketing, native mobile and the majority of production n8n workflows. The n8n delivery foundation is now implemented in code but intentionally dormant.
 - **Milestone 1 — Inventory / ownership foundation:** ~99% for the internal founder build and ~96% against the final multi-user milestone. RBAC, admin-route hardening, dedicated OWNER onboarding, owner-safe inventory/finance APIs, the restricted owner portal, media/condition workflows and inventory-image delivery are deployed. Remaining release gate: genuine second-account cross-owner isolation verification and controlled multi-owner production use.
 - **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
 - **Milestone 2 — Shopify sale attribution:** ~92% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, seller-facing restricted finance views are deployed, and payout control is automated up to REQUESTED state. Multi-owner/same-card production attribution and live Stripe payout cutover remain.
@@ -23,6 +23,15 @@ This file is the persistent source of truth for project progress. A feature coun
 | **3 — Market data automatically updates valuation and recommended pricing** | **~80%** | Deterministic pricing + snapshots + provisional pricing exist; final provider permissions, eBay sold access/Marketplace Insights, stronger Cardmarket/eBay evidence automation and scheduled production refresh remain |
 
 ## Current stage
+
+## 28 September 2026 — n8n foundation + Dragon Ball adapter hardening
+
+**n8n automation foundation: MERGED / PRODUCTION-DORMANT — PR #211 / `727f6819` adds a transactional `tcg.automation_events` outbox, lease/retry/dead-letter semantics, HMAC-SHA256 signed event envelopes, a Railway-ready dispatcher worker and the first domain event contract `inventory.approved`. GitHub Backend checks passed and the main API deployment succeeded. The database migration is intentionally NOT applied yet, no automation-dispatcher Railway service exists, no n8n webhook/secret is configured, and no Shopify/social action is enabled. Activation gate: create a signed n8n Event Gateway, verify signature/replay protection, apply the migration deliberately, deliver a development event, prove duplicate delivery is safe, then create the dispatcher service. Architecture/workflow plan: `docs/N8N_AUTOMATION_FOUNDATION.md`.**
+
+**Dragon Ball TCGGraph hardening: DEPLOYED — PR #210 / `37591e59` fixes the adapter so Drop Rate's `Dragon Ball Super` maps to TCGGraph `line=masters` while `Dragon Ball Super Fusion World` maps to `line=fusion-world`; returned provider records must match the expected line. TCGGraph-derived images no longer auto-enter APPROVED/STOREFRONT_ALLOWED state: new matches remain PENDING + INTERNAL_REFERENCE_ONLY until exact-print and separate storefront-rights review. This is a correctness/rights hardening step only: production still has 0/33 Dragon Ball reference images because no production provider key is configured and current Dragon Ball physical languages remain unconfirmed.**
+
+**Payout scheduler cron incident: DIAGNOSED / AWAITING NEXT SCHEDULED RUN — Railway confirmed the hourly cron attempted execution at 2026-09-28 03:00 UTC and exited failed before producing application logs or a new Supabase scheduler-run row. Schedule configuration remains `0 * * * *`; the failed execution is fully exited and is not a still-running blocker. PR #212 / `d1f8dc6e` adds secret-safe startup/import/DB-connect/run stage diagnostics plus a 15-second DB connection timeout without changing payout eligibility, cadence, amounts or Stripe/money movement. GitHub Backend checks passed and both API + scheduler builds deployed successfully. Do not mark the cron fixed until a subsequent scheduled execution is observed successfully.**
+
 
 ## 28 September 2026 — recognition + image corpus checkpoint
 
@@ -94,7 +103,7 @@ The next Shopify checkpoint is to re-check the external Shopify Payments refund 
 - browser security headers
 - single-founder scope for current phase
 - provider adapters separated from deterministic pricing logic
-- n8n intentionally not used as database or core business-logic layer
+- n8n intentionally not used as database or core business-logic layer; durable outbox + signed dispatcher foundation is merged, with production activation deliberately gated until a verified n8n Event Gateway exists
 - `database/migrations/**` is the canonical version-controlled migration directory
 - legacy `migrations/**` is frozen historical material; new migrations must not be added there
 - Supabase-native migration history is the authoritative applied-migration ledger
@@ -615,6 +624,7 @@ See `docs/STRIPE_CONNECT_PAYOUTS.md`.
 ## Immediate work order
 
 ### Next session — recognition/media closeout + multi-owner release gate
+0. Resolve the **ROUND1 candidate-universe mismatch** exposed by the scanner audit: independently verified references distinguish ROUND1 Nico Robin (EB03-054) from ST29-009 Nico Robin (Promotion Pack EX Vol.4). Confirm the exact physical scan and ensure the correct ROUND1 printing can exist as a viable candidate even when OCR reads a conflicting number.
 1. Resolve the **9 remaining One Piece image gaps** only with exact product/printing evidence; do not substitute base art for ROUND1, release-event, regional, anniversary or stamped versions.
 2. Complete **Dragon Ball image coverage (33 unique cards across Masters + Fusion World)** through a permitted exact-print provider. TCGGraph adapter exists but production access is not configured yet.
 3. Capture real **FRONT + BACK slab photos for all 8 graded items** and record certificate numbers where available. Physical slab media becomes the customer-facing primary image; canonical art remains recognition/reference evidence.
