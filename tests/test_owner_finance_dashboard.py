@@ -13,7 +13,7 @@ def test_owner_portal_has_separate_inventory_sales_balance_and_settlement_views(
         assert f'data-owner-view="{view}"' in html
         assert f'data-owner-view-panel="{view}"' in html
 
-    assert "Balance & payouts" in html
+    assert ">Payouts</span>" in html
     assert "Order-by-order allocation" in html
 
 
