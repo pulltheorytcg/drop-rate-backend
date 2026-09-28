@@ -32,6 +32,7 @@ def provider(
     language="ja",
     printings=None,
     line=None,
+    set_name="Egghead Crisis",
 ):
     return {
         "id": card_id,
@@ -39,7 +40,7 @@ def provider(
         "name": name,
         "language": language,
         "collectorNumber": number,
-        "set": {"name": "Egghead Crisis"},
+        "set": {"name": set_name},
         "images": {
             "large": f"https://cards.tcggraph.io/op/{card_id}/large.webp",
         },
@@ -84,6 +85,7 @@ def test_pokemon_holofoil_selects_foil_printing_image() -> None:
         number="020/108",
         name="Eiscue ex",
         game="pokemon",
+        set_name="Ruler of the Black Flame",
         printings=[
             {
                 "key": "normal",
@@ -120,6 +122,7 @@ def test_reverse_holo_never_falls_back_to_normal_or_foil() -> None:
         number="025/165",
         name="Pikachu",
         game="pokemon",
+        set_name="151",
         printings=[
             {
                 "key": "normal",
@@ -163,8 +166,8 @@ def test_pokemon_exact_match_rechecks_provider_set_name() -> None:
         name="Pikachu",
         game="pokemon",
         language="en",
+        set_name="Another Set",
     )
-    wrong_set["set"] = {"name": "Another Set"}
     result = resolve_exact_card(row, [wrong_set])
     assert result["resolved"] is False
     assert result["reason"] == "no exact TCGGraph identity match"
