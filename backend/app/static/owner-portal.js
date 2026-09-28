@@ -264,6 +264,292 @@ function renderOverviewLatestInventory(items) {
   }
 }
 
+
+function renderOwnerPayoutTracker(data) {
+  state.financeSummary = data;
+  const payout = data.next_payout || {};
+  const status = String(payout.status || "MANUAL").toUpperCase();
+  const scheduled = payout.scheduled_for || null;
+  const amount = Number(payout.amount_minor || 0);
+
+  byId("owner-next-payout-date").textContent = scheduled
+    ? formatDateTime(scheduled)
+    : "Manual payout";
+  byId("owner-next-payout-amount").textContent =
+    (payout.amount_basis === "CURRENT_AVAILABLE_BALANCE" && scheduled ? "~" : "")
+    + formatMoney(amount);
+
+  const statusNode = byId("owner-next-payout-status");
+  statusNode.textContent =
+    status === "ESTIMATED" ? "Estimated" :
+    status === "APPROVED" ? "Approved" :
+    status === "REQUESTED" ? "Scheduled" :
+    "Available now";
+  statusNode.className =
+    "owner-payout-tracker-status "
+    + (status === "APPROVED" ? "approved" : status === "REQUESTED" ? "scheduled" : "");
+
+  byId("owner-next-payout-basis").textContent =
+    payout.amount_basis === "SCHEDULED_REQUEST"
+      ? "This amount is already reserved in a payout request."
+      : scheduled
+        ? "Estimate based on your currently cleared, unreserved balance."
+        : "Your payout schedule is manual. This is your currently available balance.";
+}
+
+function renderOwnerInsightList(containerId, items, mover = false) {
+  const container = byId(containerId);
+  if (!container) return;
+  container.replaceChildren();
+
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "owner-empty-inline";
+    const title = document.createElement("strong");
+    title.textContent = mover ? "Building price history" : "No valuation data yet";
+    const copy = document.createElement("span");
+    copy.textContent = mover
+      ? "Weekly movers appear once a card has enough historical pricing for a real comparison."
+      : "Cards appear here after the pricing engine produces a market value.";
+    empty.append(title, copy);
+    container.append(empty);
+    return;
+  }
+
+  items.forEach((item, index) => {
+    const row = document.createElement("article");
+    row.className = "owner-insight-row";
+    row.append(createCardImage(item, "owner-insight-thumb"));
+
+    const rank = document.createElement("span");
+    rank.className = "owner-insight-rank";
+    rank.textContent = String(index + 1);
+
+    const copy = document.createElement("div");
+    copy.className = "owner-insight-copy";
+    const name = document.createElement("strong");
+    name.textContent = safeText(item.name);
+    const meta = document.createElement("span");
+    meta.textContent = inventoryCardSubtitle(item);
+    const sub = document.createElement("small");
+    sub.textContent = item.grade
+      ? safeText(item.grading_company, "Graded") + " " + item.grade
+      : safeText(item.condition);
+    copy.append(name, meta, sub);
+
+    const value = document.createElement("div");
+    value.className = "owner-insight-value";
+    const current = document.createElement("strong");
+    current.textContent = formatMoney(
+      mover ? item.current_value_minor : item.market_value_minor
+    );
+    value.append(current);
+
+    if (mover) {
+      const pct = Number(item.change_pct || 0);
+      const movement = document.createElement("span");
+      movement.className =
+        "owner-movement " + (pct > 0 ? "up" : pct < 0 ? "down" : "flat");
+      movement.textContent =
+        (pct > 0 ? "↑ " : pct < 0 ? "↓ " : "→ ")
+        + Math.abs(pct).toFixed(2).replace(/\.00$/, "")
+        + "%";
+      const delta = document.createElement("small");
+      delta.textContent =
+        (Number(item.change_minor || 0) >= 0 ? "+" : "")
+        + formatMoney(item.change_minor || 0);
+      value.append(movement, delta);
+    } else {
+      const store = document.createElement("small");
+      store.textContent = item.store_value_minor == null
+        ? "Store value pending"
+        : "Store / recommended " + formatMoney(item.store_value_minor);
+      value.append(store);
+    }
+
+    row.append(rank, copy, value);
+    container.append(row);
+  });
+}
+
+async function loadOwnerInsights() {
+  const data = await apiRequest("/api/v1/owner/insights");
+  renderOwnerInsightList("owner-top-valued-cards", data.top_valued || [], false);
+  renderOwnerInsightList("owner-weekly-movers", data.weekly_movers || [], true);
+}
+
+function ownerChannelCount(channel, stateName) {
+  const row = (channel?.states || []).find(
+    (entry) => String(entry.state || "").toUpperCase() === stateName
+  );
+  return Number(row?.count || 0);
+}
+
+function ownerChannelStatusClass(value) {
+  const stateValue = String(value || "").toUpperCase();
+  if (["PUBLISHED", "LIVE", "READY", "CONNECTED", "PLATFORM_MANAGED"].includes(stateValue)) {
+    return "approved";
+  }
+  if (["ERROR", "ACTION_REQUIRED"].includes(stateValue)) return "withdrawn";
+  if (["DRAFT", "PUBLISHING"].includes(stateValue)) return "inspection";
+  return "";
+}
+
+function renderOwnerChannelSummary(data) {
+  const channels = data.channels || [];
+  const shopify = channels.find((channel) => channel.code === "SHOPIFY") || {};
+  const ebay = channels.find((channel) => channel.code === "EBAY") || {};
+
+  const shopifyStatus = byId("owner-channel-shopify-status");
+  shopifyStatus.textContent = shopify.connected ? "Connected" : "Not configured";
+  shopifyStatus.className =
+    "owner-status-pill " + ownerChannelStatusClass(shopify.connection_status);
+  byId("owner-channel-shopify-live").textContent =
+    ownerChannelCount(shopify, "PUBLISHED").toLocaleString("en-GB");
+  byId("owner-channel-shopify-errors").textContent =
+    ownerChannelCount(shopify, "ERROR").toLocaleString("en-GB");
+
+  const ebayStatus = byId("owner-channel-ebay-status");
+  ebayStatus.textContent = safeText(
+    ebay.connection_status,
+    ebay.connected ? "Connected" : "Not connected"
+  ).replaceAll("_", " ");
+  ebayStatus.className =
+    "owner-status-pill " + ownerChannelStatusClass(ebay.connection_status);
+  byId("owner-channel-ebay-live").textContent =
+    ownerChannelCount(ebay, "LIVE").toLocaleString("en-GB");
+  byId("owner-channel-ebay-errors").textContent =
+    ownerChannelCount(ebay, "ERROR").toLocaleString("en-GB");
+}
+
+function renderOwnerChannelsRows(items) {
+  const body = byId("owner-channels-body");
+  body.replaceChildren();
+
+  if (!items.length) {
+    renderEmptyRow(body, 6, "No channel-linked inventory matches these filters.");
+    return;
+  }
+
+  for (const item of items) {
+    const row = document.createElement("tr");
+
+    const cardCell = document.createElement("td");
+    const cardWrap = document.createElement("div");
+    cardWrap.className = "owner-table-card";
+    cardWrap.append(createCardImage(item, "owner-table-mini-image"));
+    const copy = document.createElement("div");
+    copy.className = "owner-table-card-copy";
+    const name = document.createElement("strong");
+    name.textContent = safeText(item.name);
+    const meta = document.createElement("small");
+    meta.textContent =
+      safeText(item.inventory_code) + " · " + inventoryCardSubtitle(item);
+    copy.append(name, meta);
+    cardWrap.append(copy);
+    cardCell.append(cardWrap);
+
+    const shopifyCell = document.createElement("td");
+    const shopify = document.createElement("span");
+    shopify.className =
+      "owner-status-pill " + ownerChannelStatusClass(item.shopify_state);
+    shopify.textContent = safeText(item.shopify_state, "Not linked").replaceAll("_", " ");
+    shopifyCell.append(shopify);
+    if (item.shopify_price_minor != null) {
+      const price = document.createElement("small");
+      price.className = "owner-channel-price";
+      price.textContent = formatMoney(item.shopify_price_minor);
+      shopifyCell.append(price);
+    }
+
+    const ebayCell = document.createElement("td");
+    const ebay = document.createElement("span");
+    ebay.className = "owner-status-pill " + ownerChannelStatusClass(item.ebay_state);
+    ebay.textContent = safeText(item.ebay_state, "Not linked").replaceAll("_", " ");
+    ebayCell.append(ebay);
+    if (item.ebay_price_minor != null) {
+      const price = document.createElement("small");
+      price.className = "owner-channel-price";
+      price.textContent = formatMoney(item.ebay_price_minor);
+      ebayCell.append(price);
+    }
+    if (item.ebay_listing_id && String(item.ebay_state || "").toUpperCase() === "LIVE") {
+      const link = document.createElement("a");
+      link.className = "owner-channel-link";
+      link.href = "https://www.ebay.co.uk/itm/" + encodeURIComponent(item.ebay_listing_id);
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "View listing ↗";
+      ebayCell.append(link);
+    }
+    if (item.ebay_last_error_code) {
+      const error = document.createElement("small");
+      error.className = "owner-channel-error";
+      error.textContent = String(item.ebay_last_error_code).replaceAll("_", " ");
+      ebayCell.append(error);
+    }
+
+    const marketCell = document.createElement("td");
+    marketCell.textContent =
+      item.market_value_minor == null ? "—" : formatMoney(item.market_value_minor);
+
+    const storeCell = document.createElement("td");
+    storeCell.textContent =
+      item.store_value_minor == null ? "—" : formatMoney(item.store_value_minor);
+
+    const checkedCell = document.createElement("td");
+    const times = [item.shopify_last_synced_at, item.ebay_last_verified_at]
+      .filter(Boolean)
+      .map((value) => new Date(value))
+      .filter((value) => !Number.isNaN(value.getTime()))
+      .sort((left, right) => right.getTime() - left.getTime());
+    checkedCell.textContent = times.length ? formatDateTime(times[0].toISOString()) : "—";
+
+    row.append(cardCell, shopifyCell, ebayCell, marketCell, storeCell, checkedCell);
+    body.append(row);
+  }
+}
+
+function renderOwnerChannelsPagination() {
+  const {offset, limit, total} = state.channels;
+  const start = total ? offset + 1 : 0;
+  const end = Math.min(offset + limit, total);
+  byId("owner-channels-page").textContent = total
+    ? String(start) + "–" + String(end) + " of " + String(total)
+    : "0 linked cards";
+  byId("owner-channels-prev").disabled = offset <= 0;
+  byId("owner-channels-next").disabled = offset + limit >= total;
+}
+
+function showOwnerChannelsMessage(text = "", kind = "") {
+  const node = byId("owner-channels-message");
+  node.textContent = text;
+  node.className = "owner-inline-message" + (kind ? " " + kind : "");
+}
+
+async function loadOwnerChannels() {
+  const params = new URLSearchParams({
+    limit: String(state.channels.limit),
+    offset: String(state.channels.offset),
+    channel: state.channels.channel,
+  });
+  if (state.channels.search) params.set("search", state.channels.search);
+
+  try {
+    const data = await apiRequest("/api/v1/owner/channels?" + params.toString());
+    state.channels.total = Number(data.total || 0);
+    byId("owner-channels-total").textContent =
+      state.channels.total.toLocaleString("en-GB");
+    renderOwnerChannelSummary(data);
+    renderOwnerChannelsRows(data.items || []);
+    renderOwnerChannelsPagination();
+    showOwnerChannelsMessage();
+  } catch (error) {
+    showOwnerChannelsMessage(error.message, "error");
+    throw error;
+  }
+}
+
 function renderInventoryPagination() {
   const {offset, limit, total} = state.inventory;
   const start = total ? offset + 1 : 0;
