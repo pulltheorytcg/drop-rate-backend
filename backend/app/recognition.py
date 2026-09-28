@@ -12,6 +12,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from .access_control import require_platform_admin_request
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ownership import current_owner as _owner
@@ -194,6 +195,7 @@ async def recognition_status(
 async def recognition_reference_index_status(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
+    _access: Annotated[dict, Depends(require_platform_admin_request)],
 ) -> dict:
     async with user_connection(
         request.app.state.db_pool,
@@ -209,6 +211,7 @@ async def recognition_reference_index_rebuild(
     payload: RecognitionReferenceIndexRebuildRequest,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
+    _access: Annotated[dict, Depends(require_platform_admin_request)],
 ) -> dict:
     async with user_connection(
         request.app.state.db_pool,
@@ -230,6 +233,7 @@ async def recognition_reference_index_rebuild(
 async def recognition_learning_status(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
+    _access: Annotated[dict, Depends(require_platform_admin_request)],
 ) -> dict:
     async with user_connection(
         request.app.state.db_pool,
@@ -443,12 +447,19 @@ async def record_recognition_feedback(
                 user.user_id,
                 payload.notes.strip(),
             )
-            learning_example = await materialize_learning_example(
-                connection,
-                run_id=run_id,
-                feedback_id=feedback["id"],
-                engine_version=ENGINE_VERSION,
-            )
+            if owner["role"] == "PLATFORM_ADMIN":
+                learning_example = await materialize_learning_example(
+                    connection,
+                    run_id=run_id,
+                    feedback_id=feedback["id"],
+                    engine_version=ENGINE_VERSION,
+                )
+            else:
+                learning_example = {
+                    "skipped": True,
+                    "reason": "PENDING_DROP_RATE_VERIFICATION",
+                    "feedback_id": str(feedback["id"]),
+                }
 
         result = await _run_payload(connection, run_id)
         result["recorded_feedback"] = dict(feedback)
@@ -542,12 +553,13 @@ async def recognize_card(
                 detail="An identical recognition run is already in progress",
             )
 
-        await register_runtime_model(
-            connection,
-            engine_version=ENGINE_VERSION,
-            vision_model=settings.recognition_model,
-            actor_user_id=user.user_id,
-        )
+        if owner["role"] == "PLATFORM_ADMIN":
+            await register_runtime_model(
+                connection,
+                engine_version=ENGINE_VERSION,
+                vision_model=settings.recognition_model,
+                actor_user_id=user.user_id,
+            )
         run = await connection.fetchrow(
             """
             insert into tcg.recognition_runs(
