@@ -53,6 +53,7 @@ def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
         "i.status",
         "i.market_value_minor",
         "i.store_price_minor",
+        "i.recommended_retail_minor",
         "i.pricing_updated_at",
         "i.created_at",
         "i.updated_at",
@@ -100,6 +101,7 @@ def test_owner_overview_contains_no_company_wide_finance_or_admin_data() -> None
     assert "total_inventory_count" in overview
     assert "active_market_value_minor" in overview
     assert "active_store_price_minor" in overview
+    assert "active_store_value_minor" in overview
 
     for forbidden in (
         "financial_ledger_entries",
