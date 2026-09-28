@@ -75,6 +75,7 @@ INVENTORY_IMAGE_EXACT_HOSTS = {
     "www.optcgapi.com",
     "optcgapi.com",
     "cdn.shopify.com",
+    "cards.tcggraph.io",
 }
 INVENTORY_IMAGE_ALLOWED_SUFFIXES = (
     ".shopifycdn.com",
