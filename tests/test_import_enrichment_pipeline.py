@@ -11,7 +11,7 @@ MIGRATION = (
     ROOT
     / "database"
     / "migrations"
-    / "20260928213000_import_enrichment_action_queue.sql"
+    / "20260928211713_import_enrichment_action_queue.sql"
 )
 
 
