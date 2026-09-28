@@ -210,27 +210,9 @@ async def discover_reference_candidate_hints(
 
     rows = await connection.fetch(
         """
-        select
-            rf.catalogue_id,
-            rf.media_asset_id,
-            rf.system_code,
-            rf.source_fingerprints,
-            rf.trust_level
-        from tcg.recognition_reference_fingerprints rf
-        join tcg.media_assets ma on ma.id=rf.media_asset_id
-        where rf.fingerprint_version=$1
-          and ($2::text is null or rf.system_code=$2)
-          and ma.source_status='ACTIVE'
-          and ma.rights_status='VERIFIED'
-          and ma.version=rf.media_asset_version
-          and ma.public_source_url=rf.source_url
-        order by
-            case rf.trust_level when 'VERIFIED' then 0 else 1 end,
-            rf.updated_at desc,
-            rf.id
-        limit $3
+        select catalogue_id,media_asset_id,system_code,source_fingerprints,trust_level
+        from tcg.recognition_reference_hint_rows($1,$2)
         """,
-        FINGERPRINT_VERSION,
         system_code,
         max_rows,
     )

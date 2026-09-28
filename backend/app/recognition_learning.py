@@ -229,19 +229,8 @@ async def discover_learning_candidate_hints(
 
     rows = await connection.fetch(
         """
-        select e.selected_catalogue_id,e.source_fingerprints
-        from tcg.recognition_learning_examples e
-        where e.system_code=$1
-          and e.dataset_split='TRAIN'
-          and e.selected_catalogue_id is not null
-          and e.label_outcome in ('CONFIRMED_TOP','CORRECTED_TO_CANDIDATE')
-          and not exists (
-              select 1
-              from tcg.recognition_learning_examples newer
-              where newer.supersedes_example_id=e.id
-          )
-        order by e.created_at desc,e.id desc
-        limit $2
+        select selected_catalogue_id,source_fingerprints
+        from tcg.recognition_learning_hint_rows($1,$2)
         """,
         system_code,
         max_examples,
@@ -296,26 +285,8 @@ async def attach_learning_visual_evidence(
 
     rows = await connection.fetch(
         """
-        with active as (
-            select
-                e.id,e.selected_catalogue_id,e.source_fingerprints,e.created_at,
-                row_number() over (
-                    partition by e.selected_catalogue_id
-                    order by e.created_at desc,e.id desc
-                ) as recency_rank
-            from tcg.recognition_learning_examples e
-            where e.selected_catalogue_id = any($1::uuid[])
-              and e.dataset_split='TRAIN'
-              and e.label_outcome in ('CONFIRMED_TOP','CORRECTED_TO_CANDIDATE')
-              and not exists (
-                  select 1
-                  from tcg.recognition_learning_examples newer
-                  where newer.supersedes_example_id=e.id
-              )
-        )
         select selected_catalogue_id,source_fingerprints
-        from active
-        where recency_rank <= $2
+        from tcg.recognition_learning_visual_rows($1::uuid[],$2)
         """,
         catalogue_ids,
         max_examples_per_candidate,

@@ -22,6 +22,12 @@ MIGRATION = (
 API = ROOT / "backend" / "app" / "recognition.py"
 ENGINE = ROOT / "backend" / "app" / "recognition_engine.py"
 LEARNING = ROOT / "backend" / "app" / "recognition_learning.py"
+OWNER_ACCESS_MIGRATION = (
+    ROOT
+    / "database"
+    / "migrations"
+    / "20260928195408_owner_recognition_access.sql"
+)
 SCANNER = ROOT / "backend" / "app" / "static" / "recognition-scanner.js"
 
 
@@ -131,13 +137,16 @@ def test_api_materializes_learning_only_after_explicit_feedback() -> None:
 
 def test_online_learning_uses_train_split_only_and_active_labels() -> None:
     source = LEARNING.read_text()
+    access_sql = OWNER_ACCESS_MIGRATION.read_text()
 
-    assert "e.dataset_split='TRAIN'" in source
     assert "discover_learning_candidate_hints" in source
     assert "min_similarity: float = 0.94" in source
-    assert "newer.supersedes_example_id=e.id" in source
-    assert "CONFIRMED_TOP" in source
-    assert "CORRECTED_TO_CANDIDATE" in source
+    assert "tcg.recognition_learning_hint_rows($1,$2)" in source
+    assert "tcg.recognition_learning_visual_rows($1::uuid[],$2)" in source
+    assert "e.dataset_split='TRAIN'" in access_sql
+    assert "newer.supersedes_example_id=e.id" in access_sql
+    assert "CONFIRMED_TOP" in access_sql
+    assert "CORRECTED_TO_CANDIDATE" in access_sql
     assert "REJECTED_ALL" in source
     assert "recognition_hard_negatives" in source
 
