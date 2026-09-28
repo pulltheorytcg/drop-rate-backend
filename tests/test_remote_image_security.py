@@ -53,6 +53,7 @@ class _FakeClient:
 def test_inventory_image_allowlist_rejects_unsafe_url_components() -> None:
     assert _inventory_image_source_allowed("https://assets.tcgdex.net/card.png")
     assert _inventory_image_source_allowed("https://x.shopifycdn.com/card.webp")
+    assert _inventory_image_source_allowed("https://cards.tcggraph.io/op/card.webp")
     assert not _inventory_image_source_allowed("http://assets.tcgdex.net/card.png")
     assert not _inventory_image_source_allowed("https://127.0.0.1/card.png")
     assert not _inventory_image_source_allowed("https://user:pass@assets.tcgdex.net/card.png")
@@ -102,6 +103,7 @@ async def test_inventory_image_fetch_streams_valid_bounded_payload() -> None:
 def test_recognition_reference_redirect_must_stay_on_trusted_host() -> None:
     current = "https://assets.tcgdex.net/card.png"
     assert _trusted_reference_url(current)
+    assert _trusted_reference_url("https://cards.tcggraph.io/op/card.webp")
     assert _trusted_reference_redirect(current, "/next.png") == "https://assets.tcgdex.net/next.png"
     assert _trusted_reference_redirect(current, "http://127.0.0.1/private") is None
     assert _trusted_reference_redirect(current, "https://evil.example/card.png") is None
