@@ -396,6 +396,8 @@ def _test_sync_missing(
     physical_photo_threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
 ) -> list[str]:
     missing: list[str] = []
+    if str(item.get("sale_intent") or "FOR_SALE") != "FOR_SALE":
+        missing.append("FOR_SALE intent")
     if item["status"] != "APPROVED":
         missing.append("APPROVED status")
     if not item["identity_confirmed"]:
@@ -1044,6 +1046,7 @@ async def media_intake_queue(
             join tcg.catalogue_products p on p.id=i.catalogue_id
             where i.owner_id=$1
               and i.status in ('DRAFT','INSPECTION','APPROVED')
+              and i.sale_intent='FOR_SALE'
               and p.product_type='CARD'
             order by p.game,p.set_name,p.name,p.card_number,i.inventory_code
             """,
@@ -1913,6 +1916,7 @@ async def sync_shopify_prices(
             where sil.owner_id=$1
               and sil.sync_state in ('DRAFT','PUBLISHED')
               and i.status='APPROVED'
+              and i.sale_intent='FOR_SALE'
               and i.store_price_minor is not null
               and i.store_price_minor <> sil.synced_price_minor
             order by sil.last_synced_at,sil.id
@@ -1993,6 +1997,7 @@ async def sync_shopify_prices(
                         i.id as inventory_id,
                         i.version as inventory_version,
                         i.status as inventory_status,
+                        i.sale_intent,
                         i.store_price_minor
                     from tcg.shopify_inventory_links sil
                     join tcg.inventory_items i on i.id=sil.inventory_id
@@ -2009,6 +2014,7 @@ async def sync_shopify_prices(
                     or int(current["inventory_version"]) != int(candidate["inventory_version"])
                     or current["sync_state"] not in {"DRAFT", "PUBLISHED"}
                     or current["inventory_status"] != "APPROVED"
+                    or current["sale_intent"] != "FOR_SALE"
                     or current["store_price_minor"] is None
                     or int(current["store_price_minor"]) != target_price
                 ):
@@ -2503,7 +2509,7 @@ async def _resolve_order_scopes(
         select distinct owner_id, created_by_user_id
         from tcg.shopify_inventory_links
         where shopify_variant_gid=any($1::text[])
-          and sync_state in ('PUBLISHED','SOLD')
+          and sync_state in ('PUBLISHED','SOLD','ARCHIVED','ERROR')
         order by owner_id, created_by_user_id
         """,
         variant_gids,
@@ -2529,6 +2535,7 @@ async def _select_order_units(
             """
             select
                 sil.*, i.inventory_code, i.status as inventory_status,
+                i.sale_intent,
                 i.acquisition_cost_minor, i.store_price_minor, i.version as inventory_version
             from tcg.shopify_inventory_links sil
             join tcg.inventory_items i on i.id=sil.inventory_id
@@ -2542,9 +2549,13 @@ async def _select_order_units(
         eligible = [
             link
             for link in links
-            if link["inventory_status"] == "APPROVED"
+            if (
+                link["inventory_status"] == "APPROVED"
+                and link["sale_intent"] == "FOR_SALE"
+            )
             or (
                 link["inventory_status"] == "RESERVED"
+                and link["sale_intent"] == "FOR_SALE"
                 and link["reserved_order_reference"] == order_reference
                 and link["reserved_line_reference"] == spec["line_reference"]
             )
@@ -2732,6 +2743,7 @@ async def _process_created_order(
             update tcg.inventory_items
             set status='RESERVED',version=version+1,updated_at=now()
             where id=$1 and owner_id=$2 and status='APPROVED'
+              and sale_intent='FOR_SALE'
             returning id,inventory_code
             """,
             link["inventory_id"], unit["owner_id"],
