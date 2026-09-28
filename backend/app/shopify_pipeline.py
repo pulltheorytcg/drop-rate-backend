@@ -1772,6 +1772,7 @@ async def test_sync_status(
               on lim.inventory_id=i.id and lim.state <> 'REMOVED'
             where i.owner_id=$1
               and i.status in ('DRAFT','INSPECTION','APPROVED')
+              and i.sale_intent='FOR_SALE'
               and sil.id is null
               and lim.id is null
             order by i.updated_at, i.inventory_code
@@ -3088,7 +3089,7 @@ async def _process_cancelled_order(
               select 1
               from tcg.shopify_inventory_links
               where shopify_variant_gid=any($1::text[])
-                and sync_state in ('PUBLISHED','SOLD')
+                and sync_state in ('PUBLISHED','SOLD','ARCHIVED','ERROR')
             )
             """,
             variant_gids,
