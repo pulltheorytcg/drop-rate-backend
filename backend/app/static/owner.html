@@ -80,6 +80,10 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5.5 3.5 13 0a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Zm1.5 4h10M7 12h10M7 16.5h6"/></svg>
               <span>Inventory</span>
             </button>
+            <button class="owner-nav-item" type="button" data-owner-view="scan" aria-label="Scan and add cards">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3m8 0h3a1 1 0 0 1 1 1v3M4 16v3a1 1 0 0 0 1 1h3m8 0h3a1 1 0 0 0 1-1v-3M8 12h8"/></svg>
+              <span>Scan cards</span>
+            </button>
             <button class="owner-nav-item" type="button" data-owner-view="sales" aria-label="Sales">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m5 10V5m6 14v-7m5 7V3"/></svg>
               <span>Sales</span>
@@ -110,7 +114,7 @@
             </div>
             <div class="owner-header-actions">
               <button class="owner-header-action" type="button" data-owner-jump="inventory">View inventory</button>
-              <button class="owner-header-action primary" type="button" data-owner-jump="balance">Manage payouts</button>
+              <button class="owner-header-action primary" type="button" data-owner-jump="scan">Scan a card</button>
             </div>
           </header>
 
@@ -134,8 +138,8 @@
                 <h2><span id="owner-overview-name">Seller</span>, here's your Drop Rate account.</h2>
                 <p>See what you own, what is live, what has sold and what is ready to be paid out — without the operational clutter.</p>
                 <div class="owner-hero-actions">
-                  <button type="button" class="owner-hero-primary" data-owner-jump="inventory">Browse my cards</button>
-                  <button type="button" class="owner-hero-secondary" data-owner-jump="sales">View sales</button>
+                  <button type="button" class="owner-hero-primary" data-owner-jump="scan">Scan & add a card</button>
+                  <button type="button" class="owner-hero-secondary" data-owner-jump="inventory">Browse my cards</button>
                 </div>
               </div>
               <div class="owner-hero-money">
@@ -207,6 +211,129 @@
               </div>
               <div id="owner-overview-latest" class="owner-latest-grid">
                 <div class="owner-empty-inline"><strong>No cards yet</strong><span>Your latest cards will appear here as soon as inventory is linked to your account.</span></div>
+              </div>
+            </section>
+          </section>
+
+          <section id="owner-view-scan" class="owner-view hidden" data-owner-view-panel="scan">
+            <section class="owner-scan-hero">
+              <div>
+                <span class="owner-section-kicker">AI card recognition</span>
+                <h2>Scan it. Confirm it. Add it.</h2>
+                <p>Use your camera or upload a clear card photo. Drop Rate will identify the exact printing, show the evidence, and only add it after you confirm.</p>
+              </div>
+              <div class="owner-scan-guardrail">
+                <strong>Seller-safe workflow</strong>
+                <span>Cards enter as DRAFT and remain pending Drop Rate verification before they can be listed.</span>
+              </div>
+            </section>
+
+            <div class="owner-scan-layout">
+              <section class="owner-panel owner-scan-capture">
+                <div class="owner-panel-heading">
+                  <div><span class="owner-section-kicker">Step 1</span><h3>Capture your card</h3><p>Rear camera is best. Fill the guide, keep the card flat and avoid glare.</p></div>
+                  <span id="owner-scan-engine-status" class="owner-status-pill inspection">Checking…</span>
+                </div>
+
+                <div class="owner-scan-body">
+                  <button id="owner-scan-open-camera" class="owner-scan-camera-button" type="button">
+                    <span class="owner-scan-camera-icon">◎</span>
+                    <span><strong>Open live camera</strong><small>Recommended on mobile</small></span>
+                  </button>
+
+                  <div id="owner-scan-camera-stage" class="owner-scan-camera-stage hidden">
+                    <div class="owner-scan-camera-viewport">
+                      <video id="owner-scan-video" autoplay muted playsinline></video>
+                      <div class="owner-scan-card-guide" aria-hidden="true"></div>
+                      <span>Fill the frame · keep card flat · avoid glare</span>
+                    </div>
+                    <div class="owner-scan-camera-actions">
+                      <button id="owner-scan-switch-camera" type="button">Switch</button>
+                      <button id="owner-scan-capture" class="primary" type="button">Capture & recognise</button>
+                      <button id="owner-scan-close-camera" type="button">Close</button>
+                    </div>
+                  </div>
+
+                  <div class="owner-scan-divider"><span>or upload a photo</span></div>
+                  <label class="owner-scan-dropzone" for="owner-scan-file">
+                    <input id="owner-scan-file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+                    <span>＋</span>
+                    <strong>Choose card photo</strong>
+                    <small>JPEG, PNG or WebP</small>
+                  </label>
+
+                  <div id="owner-scan-preview-wrap" class="owner-scan-preview hidden">
+                    <img id="owner-scan-preview" alt="Card selected for recognition">
+                    <div><strong id="owner-scan-file-name"></strong><small id="owner-scan-file-meta"></small></div>
+                  </div>
+
+                  <div class="owner-scan-actions">
+                    <button id="owner-scan-run" class="owner-primary-action" type="button" disabled>Recognise card <span>→</span></button>
+                    <button id="owner-scan-clear" class="owner-secondary-action" type="button" disabled>Clear</button>
+                  </div>
+                  <div id="owner-scan-message" class="owner-card-message" role="status"></div>
+                </div>
+              </section>
+
+              <section class="owner-panel owner-scan-result-panel">
+                <div class="owner-panel-heading">
+                  <div><span class="owner-section-kicker">Step 2</span><h3>Confirm the exact card</h3><p>Compare the top match and alternatives before adding anything.</p></div>
+                </div>
+                <div id="owner-scan-result" class="owner-scan-result">
+                  <div class="owner-scan-empty">
+                    <span>◎</span><strong>No scan yet</strong><small>Your recognition result and evidence will appear here.</small>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <section id="owner-scan-intake-panel" class="owner-panel owner-scan-intake-panel hidden">
+              <div class="owner-panel-heading">
+                <div><span class="owner-section-kicker">Step 3</span><h3>Add to your inventory</h3><p>Tell us the physical state of this copy. Drop Rate will calculate valuation from stored market evidence.</p></div>
+                <button id="owner-scan-change-match" class="owner-link-button" type="button">Change match</button>
+              </div>
+              <div class="owner-scan-intake-grid">
+                <div id="owner-scan-selected-card" class="owner-scan-selected-card"></div>
+                <form id="owner-scan-intake-form" class="owner-scan-form">
+                  <div class="owner-scan-state-toggle">
+                    <label><input type="radio" name="owner-scan-state" value="raw" checked><span>Raw card</span></label>
+                    <label><input type="radio" name="owner-scan-state" value="graded"><span>Graded card</span></label>
+                  </div>
+                  <label id="owner-scan-condition-wrap">Condition
+                    <select id="owner-scan-condition" required>
+                      <option value="">Select condition</option>
+                      <option value="Near Mint">Near Mint</option>
+                      <option value="Lightly Played">Lightly Played</option>
+                      <option value="Moderately Played">Moderately Played</option>
+                      <option value="Heavily Played">Heavily Played</option>
+                      <option value="Damaged">Damaged</option>
+                    </select>
+                  </label>
+                  <div id="owner-scan-grade-fields" class="owner-scan-grade-fields hidden">
+                    <label>Grading company<input id="owner-scan-grading-company" maxlength="40" placeholder="e.g. PSA"></label>
+                    <label>Grade<input id="owner-scan-grade" maxlength="40" placeholder="e.g. 10"></label>
+                    <label>Certificate number<input id="owner-scan-certificate" maxlength="120" placeholder="Optional"></label>
+                  </div>
+                  <label>Language<input id="owner-scan-language" maxlength="80" placeholder="e.g. English"></label>
+                  <button id="owner-scan-add" class="owner-primary-action owner-scan-add-button" type="submit">Add to my inventory <span>→</span></button>
+                  <p class="owner-scan-form-note">This creates a seller-owned DRAFT item. It does not approve or publish the card.</p>
+                </form>
+              </div>
+              <div id="owner-scan-intake-message" class="owner-card-message" role="status"></div>
+            </section>
+
+            <section id="owner-scan-success" class="owner-panel owner-scan-success hidden">
+              <div class="owner-scan-success-heading"><span>✓</span><div><strong>Card added to your inventory</strong><small>Seller-confirmed identity · pending Drop Rate verification</small></div></div>
+              <div class="owner-scan-value-grid">
+                <div><span>Market value</span><strong id="owner-scan-market-value">—</strong></div>
+                <div><span>Recommended retail</span><strong id="owner-scan-store-value">—</strong></div>
+                <div><span>Inventory ID</span><strong id="owner-scan-inventory-code">—</strong></div>
+                <div><span>Status</span><strong>DRAFT</strong></div>
+              </div>
+              <div id="owner-scan-valuation-note" class="owner-scan-valuation-note"></div>
+              <div class="owner-scan-success-actions">
+                <button type="button" class="owner-header-action primary" data-owner-jump="inventory">View in inventory</button>
+                <button id="owner-scan-another" type="button" class="owner-header-action">Scan another card</button>
               </div>
             </section>
           </section>
@@ -348,6 +475,7 @@
     </section>
   </main>
 
-  <script src="/assets/owner-portal.js?v=owner-v2" defer></script>
+  <script src="/assets/owner-portal.js?v=owner-v3" defer></script>
+  <script src="/assets/owner-recognition.js?v=owner-v3" defer></script>
 </body>
 </html>
