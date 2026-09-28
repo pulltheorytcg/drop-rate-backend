@@ -156,8 +156,17 @@ begin
             where ae.id=p_automation_event_id
               and ae.owner_id=p_owner_id
               and ae.event_type='inventory.approved'
+              and ae.schema_version=1
+              and ae.status='DISPATCHING'
               and ae.aggregate_type='INVENTORY_ITEM'
               and ae.aggregate_id=p_inventory_id::text
+              and ae.idempotency_key=(
+                  'inventory.approved:' || p_inventory_id::text
+                  || ':v' || p_expected_version::text
+              )
+              and ae.payload->>'inventory_id'=p_inventory_id::text
+              and ae.payload->>'status'='APPROVED'
+              and ae.payload->>'version'=p_expected_version::text
         ) then
             raise exception 'Automation event does not authorize this inventory publication'
                 using errcode='23514';
@@ -312,8 +321,17 @@ begin
             where ae.id=p_automation_event_id
               and ae.owner_id=p_owner_id
               and ae.event_type='inventory.approved'
+              and ae.schema_version=1
+              and ae.status='DISPATCHING'
               and ae.aggregate_type='INVENTORY_ITEM'
               and ae.aggregate_id=p_inventory_id::text
+              and ae.idempotency_key=(
+                  'inventory.approved:' || p_inventory_id::text
+                  || ':v' || p_expected_version::text
+              )
+              and ae.payload->>'inventory_id'=p_inventory_id::text
+              and ae.payload->>'status'='APPROVED'
+              and ae.payload->>'version'=p_expected_version::text
         ) then
             raise exception 'Automation event does not authorize this inventory publication'
                 using errcode='23514';
