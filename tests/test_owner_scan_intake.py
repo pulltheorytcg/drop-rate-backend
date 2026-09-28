@@ -19,16 +19,19 @@ def test_owner_scan_intake_is_restricted_to_owner_portal() -> None:
     assert "payload.owner_id" not in source
 
 
-def test_owner_scan_intake_requires_human_confirmed_viable_candidate() -> None:
+def test_owner_scan_intake_requires_human_confirmed_or_searched_identity() -> None:
     source = _scan_intake_source()
 
     assert "tcg.recognition_runs" in source
     assert "tcg.recognition_candidates" in source
     assert "r.owner_id=$2" in source
-    assert 'if run["hard_rejected"]' in source
+    assert 'run["candidate_id"] is not None and run["hard_rejected"]' in source
     assert "tcg.recognition_feedback" in source
-    assert '"CONFIRMED_TOP", "CORRECTED_TO_CANDIDATE"' in source
-    assert "Confirm the selected recognition candidate before adding it to inventory" in source
+    assert '"CONFIRMED_TOP"' in source
+    assert '"CORRECTED_TO_CANDIDATE"' in source
+    assert '"CORRECTED_BY_SEARCH"' in source
+    assert "Confirm or correct the recognition result before adding it to inventory" in source
+    assert 'feedback["selected_catalogue_id"] != payload.selected_catalogue_id' in source
 
 
 def test_owner_scan_intake_cannot_self_approve_identity_or_inventory() -> None:
