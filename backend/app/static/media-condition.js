@@ -55,16 +55,16 @@ function installMediaConditionWorkspace() {
         <div class="section-pad media-card-heading">
           <div>
             <p class="eyebrow">Capture queue</p>
-            <h2>Photograph a card</h2>
-            <p class="muted">This queue contains only Inventory IDs that require physical proof. Low-risk raw cards can clear media with an exact rights-approved canonical image instead.</p>
+            <h2>Photograph inventory</h2>
+            <p class="muted">Cards only enter this queue when physical proof is required. Sealed products always use a clear photo of the exact packaging unless a separately verified reusable product image is available.</p>
           </div>
         </div>
 
         <div id="shopify-media-capability" class="allocation-list compact-list"></div>
 
         <div class="section-pad media-form">
-          <label class="field-label">Physical card
-            <select id="shopify-media-candidate" aria-label="Choose physical card needing media">
+          <label class="field-label">Physical item
+            <select id="shopify-media-candidate" aria-label="Choose physical inventory needing media">
               <option value="">Loading capture queue…</option>
             </select>
           </label>
@@ -74,7 +74,7 @@ function installMediaConditionWorkspace() {
           </div>
 
           <div class="media-two-col">
-            <label class="field-label">Card side
+            <label class="field-label">Photo side
               <select id="shopify-media-side">
                 <option value="FRONT">Front</option>
                 <option value="BACK">Back</option>
@@ -87,6 +87,7 @@ function installMediaConditionWorkspace() {
                 <option value="PENNY_SLEEVE">Penny sleeve</option>
                 <option value="TOP_LOADER">Top loader</option>
                 <option value="GRADED_SLAB">Graded slab</option>
+                <option value="SEALED_PRODUCT">Sealed product</option>
               </select>
             </label>
           </div>
@@ -96,7 +97,7 @@ function installMediaConditionWorkspace() {
           <label class="photo-drop" for="shopify-media-file">
             <span class="photo-drop-icon">＋</span>
             <strong>Take or choose photo</strong>
-            <small>Use a clear, square-on image with all four edges visible.</small>
+            <small>Use a clear, square-on image with the full card or sealed packaging visible.</small>
             <input id="shopify-media-file" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
           </label>
 
@@ -113,7 +114,7 @@ function installMediaConditionWorkspace() {
 
           <div class="media-nav-actions">
             <button id="shopify-media-previous" class="ghost-button compact" type="button" disabled>← Previous</button>
-            <button id="shopify-media-next" class="ghost-button compact" type="button" disabled>Next card →</button>
+            <button id="shopify-media-next" class="ghost-button compact" type="button" disabled>Next item →</button>
           </div>
         </div>
       </article>
@@ -151,7 +152,7 @@ function installMediaConditionWorkspace() {
         <div>
           <p class="eyebrow">Fast intake</p>
           <h2>Batch photo upload</h2>
-          <p class="muted">For larger runs, name each image <strong>INVENTORY-ID-front.jpg</strong> or <strong>INVENTORY-ID-back.jpg</strong>. Keep each batch to one protection type.</p>
+          <p class="muted">For larger runs, name each image <strong>INVENTORY-ID-front.jpg</strong> or <strong>INVENTORY-ID-back.jpg</strong>. Keep each batch to one capture type.</p>
         </div>
       </div>
       <div class="section-pad media-batch-controls">
@@ -162,6 +163,7 @@ function installMediaConditionWorkspace() {
             <option value="PENNY_SLEEVE">Penny sleeve</option>
             <option value="TOP_LOADER">Top loader</option>
             <option value="GRADED_SLAB">Graded slab</option>
+            <option value="SEALED_PRODUCT">Sealed product</option>
           </select>
         </label>
         <label class="photo-drop compact-drop" for="shopify-media-batch-files">
@@ -182,8 +184,8 @@ function installMediaConditionWorkspace() {
       <div class="section-pad media-card-heading">
         <div>
           <p class="eyebrow">Evidence registry</p>
-          <h2>Recent card photos</h2>
-          <p class="muted">Rights, approval and Shopify file state remain auditable. This area never publishes a product.</p>
+          <h2>Recent inventory photos</h2>
+          <p class="muted">Card and sealed-product media remain rights-governed and auditable. This area never publishes a product by itself.</p>
         </div>
       </div>
       <div id="shopify-media-list" class="allocation-list"><p class="muted">No media loaded.</p></div>
