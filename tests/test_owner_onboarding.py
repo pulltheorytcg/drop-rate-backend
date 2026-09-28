@@ -141,7 +141,7 @@ def test_owner_invite_create_fix_qualifies_output_column_collision() -> None:
     assert "grant execute on function tcg.create_owner_invite" in lower
 
 
-EMAIL_MIGRATION = ROOT / "database" / "migrations" / "20260928172500_owner_invite_email_delivery.sql"
+EMAIL_MIGRATION = ROOT / "database" / "migrations" / "20260928174052_owner_invite_email_delivery.sql"
 SELLER_INVITES_JS = ROOT / "backend" / "app" / "static" / "seller-invites.js"
 SETTINGS = ROOT / "backend" / "app" / "settings.py"
 
