@@ -430,7 +430,12 @@ def test_provider_only_match_is_review_not_exact() -> None:
 
 
 def test_strong_unmapped_provider_printing_challenges_local_catalogue_candidate() -> None:
-    local = candidate()
+    local = candidate(
+        name="Nico Robin",
+        card_number="ST29-009",
+        language="Japanese",
+        art="Base",
+    )
     external = provider("EB03-054_round1", art="ROUND1 Promo", visual=0.98)
     external.update(
         {
