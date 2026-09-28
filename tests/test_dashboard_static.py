@@ -199,3 +199,17 @@ def test_pending_images_are_visible_internally_but_rejected_images_are_not() -> 
     assert "ma.approval_status in ('PENDING','APPROVED','REJECTED')" not in api
     assert "ma.source_status='ACTIVE'" in api
     assert "ma.rights_status='VERIFIED'" in api
+
+
+def test_workspace_search_and_clear_filters_include_personal_collection() -> None:
+    workspace = (STATIC / "founder-workspace.js").read_text()
+    assert "state.saleIntent" in workspace
+    assert '"sale-intent-filter"' in workspace
+    assert (
+        'state.saleIntent && byId("sale-intent-filter").selectedOptions[0]?.textContent'
+        in workspace
+    )
+    assert (
+        "state.search = state.brand = state.status = state.saleIntent = state.issue ="
+        in workspace
+    )
