@@ -1,6 +1,6 @@
 # Drop Rate — Live Build Status
 
-_Last updated: 28 September 2026_
+_Last updated: 29 September 2026_
 
 This file is the persistent source of truth for project progress. A feature counts as **Completed** only after merge, production deployment and production verification where applicable.
 
@@ -13,6 +13,79 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
 - **Customer storefront / Shopify UX:** ~10–15% of the desired Drop Rate experience. Backend Shopify commerce plumbing is far ahead of the customer-facing theme. A dedicated storefront + Founder HQ UX blueprint is now version-controlled in `docs/STOREFRONT_AND_UX_BLUEPRINT.md`. The storefront blueprint now also includes adaptive CRO/SEO experimentation, Shopify event measurement and controlled AI action/rollback.
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
+- **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
+
+## 29 September 2026 — verified 24-hour build delta
+
+**Production head is healthy —** current `main` is commit `b3d29745d6` ("Fix seller portal runtime error and polish Seller Hub branding"). Railway deployment `324e7d2d-e8d0-487e-b29d-c3188aef2836` completed **SUCCESS**, production pre-deploy passed **1,847 tests**, and `/health/ready` returned **200 OK**. This section summarises the merged work in the preceding 24-hour window; prepared-but-dormant infrastructure is called out separately rather than counted as live automation.
+
+### Recognition, media and mobile scanning
+- **Recognition v1.5 / v1.5.1 shipped:** persistent exact-print visual retrieval, provider challengers, stronger One Piece ROUND1 recovery and fail-closed handling for unmapped printings. External/provider identities may challenge a local candidate but still cannot silently create canonical identity.
+- **Inventory-image delivery hardened:** founder/seller card art loads through authenticated backend media paths rather than direct browser hotlinks; verified OPTCG images were added to the allowed resolution path and graded cards without real slab media are visibly flagged.
+- **Dragon Ball exact-media adapter hardened:** TCGGraph Masters vs Fusion World line mapping is explicit, exact-print checks are stricter and TCGGraph media remains **PENDING / INTERNAL_REFERENCE_ONLY** until separate storefront-rights approval. Production still has no TCGGraph API key, so this remains a prepared fallback rather than live automatic Dragon Ball imagery.
+- **Seller scan → inventory flow deployed:** restricted owners can use the same recognition engine, confirm/correct a match and add a physical card to their own inventory. Seller-created items remain **DRAFT** with `identity_confirmed=false` until Drop Rate verification.
+- **Restricted-owner recognition access fixed:** the seller scanner now reaches the recognition APIs without inheriting Founder-only permissions.
+- **Mobile batch scanner deployed:** full-screen camera, running card count/value, unresolved-card retention, manual "Capture now" fallback, catalogue/card-number correction search and idempotent batch intake.
+- **Continuous scanner v2 deployed:** camera remains open between cards, latest-match card is shown inline with market value, one-tap Fix/Remove is available, duplicate auto-capture suppression is short-lived, success/review feedback is visible, and auto-scan pauses while a correction is open. Seller assets were cache-busted to avoid stale Safari behaviour.
+- **Mobile production bugs fixed:** malformed Inventory/Channels pagination bind placeholders were causing seller-facing 500s; both were corrected. The mobile scanner also previously hid its manual shutter, which is now always available as a fallback.
+
+### Seller Hub, onboarding and owner-safe operations
+- **Owner Portal v2 / Seller Hub deployed:** seller-first navigation, mobile bottom navigation, owner-safe overview/inventory/sales/payouts/settlements, visual inventory cards and safe image handling. Founder-only acquisition-cost, storage, purchase-lot, internal-note and provider-control fields stay hidden.
+- **Seller onboarding completed:** branded seller invite flow, restricted OWNER membership creation, commission display/acknowledgement, secure invite preview/redemption and invite-contract fixes are merged. Invite email delivery infrastructure exists; sender-domain/production email configuration remains a separate operational setup item.
+- **Seller Hub branding corrected:** Founder HQ artwork and warning-style "restricted owner" language were removed from seller-facing surfaces, and the top bar was rebuilt into one deliberate Drop Rate Seller Hub lockup.
+- **Seller portal runtime crash fixed:** the production `replaceChildren` null crash in the Channels empty-state path was fixed and the shared empty renderer was hardened.
+- **Portfolio intelligence added:** seller dashboard now shows **Top Valued Cards**, **Weekly Top Movers** using real historical pricing snapshots, and a prominent **Next Payout** tracker that distinguishes scheduled requests from estimates based on currently cleared/unreserved balance.
+- **Channels workspace added:** seller-safe Shopify/eBay link state, channel price, last sync/verification, errors and live eBay listing links are visible. A Whatnot adapter slot is shown as **PLANNED**; no fake publish/pause controls were added. Postgres remains the inventory source of truth.
+
+### Collectr import and enrichment
+- **Collectr import path production-verified against real portfolio data:** snapshot/delta reconciliation prevents unchanged rows from being duplicated, physical quantity expansion remains deterministic and imports still create one physical Inventory ID per unit.
+- **Post-import enrichment pipeline deployed:** committed imports can be enriched in restart-safe bounded chunks through identity validation, exact media resolution, provisional benchmark pricing and Action Required exception creation.
+- **Explicit unmarked-language control added:** imported rows with explicit `(JP)`/language evidence continue to win; a founder can optionally choose a default language for otherwise unmarked rows instead of Drop Rate silently inferring one.
+- **English Pokémon exact-media support added through TCGdex:** exact set/card-number/finish matching is required. Japanese Pokémon and Japanese One Piece retain their existing exact-provider paths.
+- **TCGGraph fallback integrated safely:** supported exact matches can be stored as internal reference media, but they do not become storefront-approved merely because a provider returned an image.
+- **General Action Required queue deployed:** unresolved identity, media, physical-photo and pricing exceptions are durable, owner-scoped and deduplicated rather than disappearing into logs.
+- **Recent import/resume UX added:** Founder HQ can see recent import batches, enrichment counts and resume interrupted enrichment instead of relying on browser memory.
+- **`import.committed` automation event added:** successful import commit now emits a durable automation-outbox event, ready for n8n routing when the dispatcher/workflow is deliberately activated.
+
+### Sealed products
+- **Sealed-product media architecture deployed for the two current One Piece sealed products:** `CANONICAL_PRODUCT` reusable media scope and `SEALED_PRODUCT` first-party capture context are now part of the media model.
+- **Exact physical packaging photo policy added:** current `COLLECTION` / `SEALED` inventory requires the exact physical front packaging photo rather than borrowing ordinary card-art logic. Region/language remains unknown where the Collectr row does not prove it.
+- **Seller/Founder/Shopify media paths updated:** sealed products now enter Media Intake, first-party sealed photos can render in Seller Hub, and Shopify readiness/bootstrap understands canonical sealed media without conflating it with `CANONICAL_CARD`.
+- **Rights boundary preserved:** official Bandai imagery may be used as identity evidence, but is not silently copied into storefront media where reuse rights are not established.
+
+### Shopify, multi-owner commerce and finance hardening
+- **Multi-owner Shopify order/refund support merged:** the previous order-level single-owner assumption was removed. Each physical allocation now carries its own owner context through reservation, paid-order snapshots, ledger entries, cancellation release and refunds. Shipping remains allocated deterministically per order item/owner.
+- **Commerce torture/retry suite added:** high-volume deterministic tests now cover penny conservation, weighted allocation, rounding boundaries, malformed Shopify payloads, replay/deduplication, cross-channel retries and transaction boundaries.
+- **Personal Collection sale intent deployed and production-verified:** `FOR_SALE ↔ PERSONAL_COLLECTION` is now a separate owner-intent dimension; moving an item to personal collection withdraws availability without rewriting ownership or lifecycle history.
+- **Shopify catalogue bootstrap hardened:** image-backed approved/draft inventory can create Shopify drafts, missing Store Price no longer blocks safe draft linking, startup failures are surfaced, and catalogue bootstrap now runs through audited RLS context.
+- **Founder workspace/Shopify access fixes deployed:** Founder HQ filtering/access regressions and Shopify test-sync shipping-profile initialization were corrected.
+- **Payout scheduler incident resolved:** Railway start-command handling was corrected and a controlled run completed successfully with normal hourly scheduling restored.
+
+### Milestone 1 / ownership and security
+- **Second-account production isolation gate passed:** a genuine second founder account was tested under restricted OWNER semantics in rollback-only production probes. Cross-owner inventory/finance visibility was zero and cross-owner mutation was blocked. The reciprocal owner check behaved correctly; live memberships were restored after the probe.
+- **Ownership reassignment defense verified:** application inventory patch schemas do not accept `owner_id`, owner mutations bind to the authenticated owner, and `tcg_api` cannot directly update `inventory_items.owner_id`.
+- **Milestone 1 is still not being called 100% complete:** the remaining gate is onboarding/verifying the genuine third founder account in production.
+
+### n8n and automation foundation
+- **Durable automation foundation merged:** transactional `automation_events` outbox, lease/retry/dead-letter semantics, HMAC-signed event envelopes and Railway-ready dispatcher code are version-controlled.
+- **DR-00 signed event ingress added:** Railway-private webhook delivery validation, signature/replay protection contract and pinned n8n image CI are in place.
+- **n8n provisioning/runtime hardened:** reproducible provisioning files and CI version checks are merged; unsafe external-image/runtime boundaries were tightened.
+- **Important status:** this automation foundation is still intentionally **production-dormant** where noted. It is prepared infrastructure, not evidence that all n8n workflows are active.
+
+### Product/UX blueprints added
+- **Storefront + Founder HQ UX blueprint added:** collection-led Shopify structure, TCG-native filtering, graded-card presentation, customer search/discovery, Founder workflow improvements and governed AI merchandising/CRO boundaries are documented.
+- **Native iOS + Android Founder app blueprint added:** same FastAPI/Supabase backend, camera-first workflow, not a webview wrapper. Planned phases include scanning, media/condition, Action Required, sales, consignments, notifications and later Device Bridge printing/scanner support.
+- **Governed AI CRO/SEO experimentation blueprint added:** Postgres owns experiment truth, FastAPI owns eligibility/statistical decisions, Shopify renders validated variants and n8n will eventually orchestrate low-risk experiment loops with rollback. Pricing/ownership/finance/legal/payment behaviour remain outside autonomous AI authority.
+- **Claude production safety contract added:** external AI assistance is explicitly constrained so deterministic business rules, ownership, pricing and finance cannot be silently overridden.
+
+### Immediate next build priorities after this 24-hour push
+1. Run real-world iPhone batch scans against a mixed stack and tune trigger sensitivity/latency from actual production behaviour.
+2. Finish physical media capture for the two sealed One Piece products and verify their Shopify-ready images end-to-end.
+3. Onboard the genuine third founder and repeat the production owner-isolation test.
+4. Run the controlled multi-owner / same-card Shopify sale + refund attribution test.
+5. Add real seller-controlled channel actions only after the existing Shopify/eBay publisher paths are safely owner-scoped; keep Whatnot as an adapter-ready future channel.
+6. Continue permitted provider onboarding so Dragon Ball/other games gain exact reference coverage without scraping or weakening rights controls.
+
 
 ## Original business milestone status
 
