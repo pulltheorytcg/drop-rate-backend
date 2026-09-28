@@ -118,7 +118,7 @@ class MediaAssetCreate(BaseModel):
     media_variant: str | None = Field(default=None, max_length=200)
     capture_context: str | None = Field(
         default=None,
-        pattern="^(RAW_UNSLEEVED|PENNY_SLEEVE|TOP_LOADER|GRADED_SLAB)$",
+        pattern="^(RAW_UNSLEEVED|PENNY_SLEEVE|TOP_LOADER|GRADED_SLAB|SEALED_PRODUCT)$",
     )
     rights_basis: str | None = Field(default=None, max_length=1000)
     alt_text: str = Field(default="", max_length=500)
@@ -453,7 +453,7 @@ def _media_assets_for_item(
         scope = str(asset.get("scope") or "")
         if scope == "INVENTORY_ITEM" and str(asset.get("inventory_id") or "") == inventory_id:
             selected.append(asset)
-        elif scope == "CANONICAL_CARD" and str(asset.get("catalogue_id") or "") == catalogue_id:
+        elif scope in {"CANONICAL_CARD", "CANONICAL_PRODUCT"} and str(asset.get("catalogue_id") or "") == catalogue_id:
             selected.append(asset)
     return selected
 
@@ -1093,7 +1093,7 @@ async def list_media_assets(
             """
             select *
             from tcg.media_assets
-            where owner_id=$1 or scope='CANONICAL_CARD'
+            where owner_id=$1 or scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
             order by updated_at desc,id
             limit 250
             """,
@@ -1153,7 +1153,7 @@ async def create_media_asset(
                 """
                 select
                     i.grading_company,i.grade,i.language,
-                    p.language as catalogue_language,p.variant
+                    p.product_type,p.language as catalogue_language,p.variant
                 from tcg.inventory_items i
                 join tcg.catalogue_products p on p.id=i.catalogue_id
                 where i.id=$1 and i.owner_id=$2
@@ -1166,18 +1166,30 @@ async def create_media_asset(
             if not capture_context:
                 raise HTTPException(
                     status_code=422,
-                    detail="Physical card media requires a capture context",
+                    detail="Physical inventory media requires a capture context",
                 )
+            product_type = str(inventory["product_type"] or "").strip().upper()
+            is_sealed = product_type in {"SEALED", "COLLECTION"}
             is_graded = bool(
                 str(inventory["grading_company"] or "").strip()
                 and str(inventory["grade"] or "").strip()
             )
+            if is_sealed and capture_context != "SEALED_PRODUCT":
+                raise HTTPException(
+                    status_code=422,
+                    detail="Sealed products must be photographed as SEALED_PRODUCT",
+                )
+            if not is_sealed and capture_context == "SEALED_PRODUCT":
+                raise HTTPException(
+                    status_code=422,
+                    detail="SEALED_PRODUCT capture context is only for sealed/collection inventory",
+                )
             if is_graded and capture_context != "GRADED_SLAB":
                 raise HTTPException(
                     status_code=422,
                     detail="Graded cards must be photographed as GRADED_SLAB",
                 )
-            if not is_graded and capture_context == "GRADED_SLAB":
+            if not is_sealed and not is_graded and capture_context == "GRADED_SLAB":
                 raise HTTPException(
                     status_code=422,
                     detail="Raw cards cannot use the graded slab capture context",
@@ -1223,14 +1235,14 @@ async def create_media_asset(
                 )
             catalogue = await connection.fetchrow(
                 """
-                select language,variant
+                select product_type,language,variant
                 from tcg.catalogue_products
                 where id=$1
                 """,
                 payload.catalogue_id,
             )
             if catalogue is None:
-                raise HTTPException(status_code=404, detail="Catalogue card not found")
+                raise HTTPException(status_code=404, detail="Catalogue product not found")
             if payload.capture_context is not None:
                 raise HTTPException(
                     status_code=422,
@@ -1243,13 +1255,13 @@ async def create_media_asset(
             if not media_language:
                 raise HTTPException(
                     status_code=422,
-                    detail="Canonical media requires an explicit language",
+                    detail="Canonical media requires an explicit language/region",
                 )
             catalogue_language = clean_language(catalogue["language"])
             if catalogue_language and media_language != catalogue_language:
                 raise HTTPException(
                     status_code=422,
-                    detail="Canonical media language does not match the catalogue card",
+                    detail="Canonical media language does not match the catalogue product",
                 )
             media_variant = " ".join(
                 str(payload.media_variant if payload.media_variant is not None else catalogue["variant"] or "")
@@ -1260,32 +1272,34 @@ async def create_media_asset(
             if media_variant.casefold() != catalogue_variant.casefold():
                 raise HTTPException(
                     status_code=422,
-                    detail="Canonical media variant/art does not match the catalogue card",
+                    detail="Canonical media variant/art does not match the catalogue product",
                 )
+            product_type = str(catalogue["product_type"] or "").strip().upper()
+            scope = "CANONICAL_CARD" if product_type == "CARD" else "CANONICAL_PRODUCT"
             duplicate = await connection.fetchval(
                 """
                 select exists(
                   select 1
                   from tcg.media_assets
                   where owner_id=$1
-                    and scope='CANONICAL_CARD'
-                    and catalogue_id=$2
-                    and lower(coalesce(media_language,''))=lower($3)
-                    and lower(coalesce(media_variant,''))=lower($4)
-                    and side=$5
+                    and scope=$2
+                    and catalogue_id=$3
+                    and lower(coalesce(media_language,''))=lower($4)
+                    and lower(coalesce(media_variant,''))=lower($5)
+                    and side=$6
                     and approval_status <> 'REJECTED'
                     and shopify_file_status <> 'FAILED'
                     and source_status <> 'REVOKED'
                 )
                 """,
-                owner["id"], payload.catalogue_id, media_language, media_variant, payload.side,
+                owner["id"], scope, payload.catalogue_id, media_language,
+                media_variant, payload.side,
             )
             if duplicate:
                 raise HTTPException(
                     status_code=409,
-                    detail="An active media asset already exists for this exact canonical card side",
+                    detail="An active media asset already exists for this exact canonical product side",
                 )
-            scope = "CANONICAL_CARD"
 
         row = await connection.fetchrow(
             """
