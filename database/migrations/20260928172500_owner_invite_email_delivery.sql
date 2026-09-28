@@ -432,4 +432,171 @@ grant execute on function tcg.prepare_owner_invite_resend(uuid,text) to tcg_api;
 grant execute on function tcg.record_owner_invite_email_result(uuid,text,text,text,text) to tcg_api;
 grant execute on function tcg.redeem_owner_invite(text,text,text,integer) to tcg_api;
 
+
+create table if not exists tcg.owner_invite_email_events (
+    id uuid primary key default gen_random_uuid(),
+    provider text not null check (provider in ('RESEND')),
+    webhook_event_id text not null,
+    provider_message_id text not null,
+    event_type text not null,
+    payload_sha256 text not null check (payload_sha256 ~ '^[0-9a-f]{64}$'),
+    occurred_at timestamptz not null,
+    created_at timestamptz not null default clock_timestamp(),
+    constraint owner_invite_email_events_provider_event_uidx
+      unique(provider,webhook_event_id)
+);
+
+create index if not exists owner_invite_email_events_message_idx
+    on tcg.owner_invite_email_events(provider,provider_message_id,occurred_at desc);
+
+alter table tcg.owner_invite_email_events enable row level security;
+alter table tcg.owner_invite_email_events force row level security;
+
+revoke all on tcg.owner_invite_email_events
+from public,anon,authenticated,service_role,tcg_api;
+
+create or replace function tcg.record_owner_invite_email_webhook(
+    p_provider text,
+    p_webhook_event_id text,
+    p_provider_message_id text,
+    p_event_type text,
+    p_payload_sha256 text,
+    p_occurred_at timestamptz
+)
+returns table(
+    processed boolean,
+    matched boolean,
+    invite_id uuid,
+    email_status text
+)
+language plpgsql
+security definer
+set search_path = pg_catalog, tcg
+as $$
+declare
+    v_provider text := upper(btrim(coalesce(p_provider,'')));
+    v_event_id text := btrim(coalesce(p_webhook_event_id,''));
+    v_message_id text := btrim(coalesce(p_provider_message_id,''));
+    v_event_type text := lower(btrim(coalesce(p_event_type,'')));
+    v_inserted uuid;
+    v_invite tcg.owner_invites%rowtype;
+    v_status text;
+begin
+    if v_provider <> 'RESEND' then
+        raise exception 'Unsupported email webhook provider' using errcode='22023';
+    end if;
+    if char_length(v_event_id) < 3 or char_length(v_event_id) > 255 then
+        raise exception 'Invalid webhook event ID' using errcode='22023';
+    end if;
+    if char_length(v_message_id) < 3 or char_length(v_message_id) > 255 then
+        raise exception 'Invalid provider message ID' using errcode='22023';
+    end if;
+    if v_event_type not in (
+      'email.sent','email.delivered','email.delivery_delayed',
+      'email.bounced','email.failed','email.suppressed','email.complained'
+    ) then
+        raise exception 'Unsupported email webhook event type' using errcode='22023';
+    end if;
+    if p_payload_sha256 is null
+       or p_payload_sha256 !~ '^[0-9a-f]{64}$' then
+        raise exception 'Invalid webhook payload fingerprint' using errcode='22023';
+    end if;
+    if p_occurred_at is null then
+        raise exception 'Webhook occurred_at is required' using errcode='22023';
+    end if;
+
+    insert into tcg.owner_invite_email_events(
+      provider,webhook_event_id,provider_message_id,event_type,
+      payload_sha256,occurred_at
+    ) values(
+      v_provider,v_event_id,v_message_id,v_event_type,
+      p_payload_sha256,p_occurred_at
+    )
+    on conflict(provider,webhook_event_id) do nothing
+    returning id into v_inserted;
+
+    if v_inserted is null then
+        select i.* into v_invite
+        from tcg.owner_invites i
+        where i.email_provider=v_provider
+          and i.email_provider_message_id=v_message_id
+        limit 1;
+        return query select
+          false,
+          v_invite.id is not null,
+          v_invite.id,
+          v_invite.email_status;
+        return;
+    end if;
+
+    v_status := case
+      when v_event_type='email.delivered' then 'DELIVERED'
+      when v_event_type='email.bounced' then 'BOUNCED'
+      when v_event_type in ('email.failed','email.suppressed','email.complained')
+        then 'FAILED'
+      when v_event_type='email.sent' then 'SENT'
+      else null
+    end;
+
+    select i.* into v_invite
+    from tcg.owner_invites i
+    where i.email_provider=v_provider
+      and i.email_provider_message_id=v_message_id
+    for update;
+
+    if v_invite.id is null then
+        return query select true,false,null::uuid,null::text;
+        return;
+    end if;
+
+    if v_status is not null then
+        update tcg.owner_invites i
+        set email_status=case
+              when i.email_status='DELIVERED'
+                   and v_status='SENT' then i.email_status
+              else v_status
+            end,
+            email_delivered_at=case
+              when v_status='DELIVERED'
+                then coalesce(i.email_delivered_at,p_occurred_at)
+              else i.email_delivered_at
+            end,
+            email_last_error_code=case
+              when v_status in ('FAILED','BOUNCED')
+                then upper(replace(v_event_type,'.','_'))
+              when v_status in ('SENT','DELIVERED')
+                then null
+              else i.email_last_error_code
+            end
+        where i.id=v_invite.id
+        returning * into v_invite;
+    end if;
+
+    insert into tcg.audit_events(
+      actor,request_id,action,entity_type,entity_id,new_values
+    ) values(
+      'resend-webhook',
+      v_event_id,
+      'OWNER_INVITE_EMAIL_EVENT',
+      'OWNER_INVITE',
+      v_invite.id,
+      jsonb_build_object(
+        'provider',v_provider,
+        'event_type',v_event_type,
+        'email_status',v_invite.email_status,
+        'occurred_at',p_occurred_at
+      )
+    );
+
+    return query select true,true,v_invite.id,v_invite.email_status;
+end;
+$$;
+
+revoke all on function tcg.record_owner_invite_email_webhook(
+  text,text,text,text,text,timestamptz
+) from public,anon,authenticated,service_role;
+grant execute on function tcg.record_owner_invite_email_webhook(
+  text,text,text,text,text,timestamptz
+) to tcg_api;
+
 commit;
