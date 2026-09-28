@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.schemas import InventoryPatch
+from app.schemas import InventoryPatch, InventorySaleIntentChange
 
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / 'backend' / 'app' / 'api.py'
@@ -80,3 +80,26 @@ def test_founder_hq_mutations_require_platform_admin_dependency() -> None:
         '@router.post("/inventory/bulk-cost", dependencies=[Depends(require_platform_admin_request)])',
     ):
         assert route in source
+
+
+def test_personal_collection_change_cannot_select_or_reassign_owner() -> None:
+    assert "owner_id" not in InventorySaleIntentChange.model_fields
+
+    source = (ROOT / "backend" / "app" / "inventory_sale_intent.py").read_text()
+    start = source.index('@router.post("/inventory/{inventory_id}/sale-intent")')
+    section = source[start:]
+    assert "owner = await _owner(connection)" in section
+    assert "where id=$1 and owner_id=$2" in section
+    assert "payload.sale_intent" in section
+    assert "owner_id" not in InventorySaleIntentChange.model_fields
+
+
+def test_personal_collection_never_auto_relists_when_returned_for_sale() -> None:
+    source = (ROOT / "backend" / "app" / "inventory_sale_intent.py").read_text()
+    start = source.index('if payload.sale_intent == "FOR_SALE":')
+    end = source.index("withdrawal_errors:", start)
+    block = source[start:end]
+    assert '"requires_listing": True' in block
+    assert "No marketplace listing was reactivated automatically." in block
+    assert "withdraw_ebay_for_inventory" not in block
+    assert "withdraw_shopify_for_inventory" not in block
