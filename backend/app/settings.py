@@ -99,6 +99,10 @@ class Settings:
     environment: str
     db_pool_min: int
     db_pool_max: int
+    public_app_url: str | None = None
+    resend_api_key: str | None = None
+    seller_invite_from_email: str | None = None
+    seller_invite_reply_to: str | None = None
     parse_api_key: str | None
     ebay_client_id: str | None
     ebay_client_secret: str | None
@@ -170,6 +174,10 @@ class Settings:
             environment=os.getenv("TCG_ENVIRONMENT", "development").strip(),
             db_pool_min=pool_min,
             db_pool_max=pool_max,
+            public_app_url=_https_endpoint("TCG_PUBLIC_APP_URL"),
+            resend_api_key=_optional("TCG_RESEND_API_KEY"),
+            seller_invite_from_email=_optional("TCG_SELLER_INVITE_FROM_EMAIL"),
+            seller_invite_reply_to=_optional("TCG_SELLER_INVITE_REPLY_TO"),
             parse_api_key=_optional("TCG_PARSE_API_KEY"),
             ebay_client_id=_optional("TCG_EBAY_CLIENT_ID"),
             ebay_client_secret=_optional("TCG_EBAY_CLIENT_SECRET"),
