@@ -379,7 +379,7 @@ async function runImportEnrichment(batchId, defaultLanguage, {retryActionRequire
     const result = await apiRequest(`/api/v1/imports/${batchId}/enrichment/process`, {
       method: "POST",
       body: JSON.stringify({
-        limit: 100,
+        limit: 18,
         default_language: defaultLanguage || null,
         retry_action_required: retryActionRequired && rounds === 1,
       }),
