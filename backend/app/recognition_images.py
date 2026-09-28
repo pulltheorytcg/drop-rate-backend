@@ -7,7 +7,7 @@ import io
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -162,14 +162,37 @@ def hash_similarity(left: tuple[int, ...], right: tuple[int, ...]) -> float | No
     return round(max(0.0, min(1.0, best)), 5)
 
 
+REFERENCE_IMAGE_MAX_REDIRECTS = 3
+
+
 def _trusted_reference_url(url: str) -> bool:
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or not parsed.hostname:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
         return False
-    host = parsed.hostname.casefold()
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+    ):
+        return False
+    host = parsed.hostname.casefold().rstrip(".")
     return host in TRUSTED_REFERENCE_HOSTS or any(
         host.endswith(f".{trusted}") for trusted in TRUSTED_REFERENCE_HOSTS
     )
+
+
+def _trusted_reference_redirect(current_url: str, location: str) -> str | None:
+    clean = str(location or "").strip()
+    if not clean:
+        return None
+    try:
+        target = urljoin(current_url, clean)
+    except ValueError:
+        return None
+    return target if _trusted_reference_url(target) else None
 
 
 def _cache_reference_image_bytes(url: str, payload: ReferenceImagePayload) -> None:
@@ -190,39 +213,64 @@ async def _fetch_reference_image_uncached(
     max_bytes: int,
     timeout_seconds: float,
 ) -> ReferenceImagePayload | None:
+    current = url
+    data = b""
+    content_type = ""
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout_seconds),
-            follow_redirects=True,
+            follow_redirects=False,
         ) as client:
-            async with client.stream(
-                "GET",
-                url,
-                headers={"Accept": "image/avif,image/webp,image/png,image/jpeg,*/*;q=0.5"},
-            ) as response:
-                response.raise_for_status()
-                final_url = str(response.url)
-                if not _trusted_reference_url(final_url):
+            for redirect_count in range(REFERENCE_IMAGE_MAX_REDIRECTS + 1):
+                if not _trusted_reference_url(current):
                     return None
-                content_type = response.headers.get("content-type", "").split(";", 1)[0].casefold()
-                if content_type not in {
-                    "image/jpeg",
-                    "image/png",
-                    "image/webp",
-                    "image/avif",
-                }:
-                    return None
-                chunks: list[bytes] = []
-                size = 0
-                async for chunk in response.aiter_bytes():
-                    size += len(chunk)
-                    if size > max_bytes:
+                async with client.stream(
+                    "GET",
+                    current,
+                    headers={"Accept": "image/avif,image/webp,image/png,image/jpeg,*/*;q=0.5"},
+                ) as response:
+                    if response.status_code in {301, 302, 303, 307, 308}:
+                        if redirect_count >= REFERENCE_IMAGE_MAX_REDIRECTS:
+                            return None
+                        target = _trusted_reference_redirect(
+                            current,
+                            response.headers.get("location", ""),
+                        )
+                        if target is None:
+                            return None
+                        current = target
+                        continue
+
+                    response.raise_for_status()
+                    content_type = response.headers.get("content-type", "").split(";", 1)[0].casefold()
+                    if content_type not in {
+                        "image/jpeg",
+                        "image/png",
+                        "image/webp",
+                        "image/avif",
+                    }:
                         return None
-                    chunks.append(chunk)
+                    content_length = response.headers.get("content-length")
+                    if content_length:
+                        try:
+                            if int(content_length) > max_bytes:
+                                return None
+                        except ValueError:
+                            return None
+                    chunks: list[bytes] = []
+                    size = 0
+                    async for chunk in response.aiter_bytes():
+                        size += len(chunk)
+                        if size > max_bytes:
+                            return None
+                        chunks.append(chunk)
+                    data = b"".join(chunks)
+                    break
+            else:
+                return None
     except httpx.HTTPError:
         return None
 
-    data = b"".join(chunks)
     try:
         _open_image(data)
     except RecognitionImageError:
