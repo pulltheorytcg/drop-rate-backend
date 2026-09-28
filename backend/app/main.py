@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import router
 from .db import create_pool
 from .access_control import require_platform_admin_request, router as access_control_router
+from .action_required import router as action_required_router
 from .finance import router as finance_router
 from .founder_onboarding import router as founder_onboarding_router
 from .free_canonical_media import router as free_canonical_media_router
@@ -21,6 +22,7 @@ from .ebay_privacy import router as ebay_privacy_router
 from .ebay_sales import router as ebay_sales_router
 from .ebay_oauth import router as ebay_oauth_router
 from .imports import router as imports_router
+from .import_enrichment import router as import_enrichment_router
 from .import_review import router as import_review_router
 from .inventory_intake import router as inventory_intake_router
 from .inventory_intelligence import router as inventory_intelligence_router
@@ -297,6 +299,7 @@ def create_app() -> FastAPI:
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(router)
     app.include_router(access_control_router)
+    app.include_router(action_required_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(finance_router)
     app.include_router(founder_onboarding_router)
     app.include_router(free_canonical_media_router, dependencies=[Depends(require_platform_admin_request)])
@@ -320,6 +323,7 @@ def create_app() -> FastAPI:
     app.include_router(market_provider_probe_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(market_smoke_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(imports_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(import_enrichment_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(import_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(inventory_intake_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(inventory_intelligence_router, dependencies=[Depends(require_platform_admin_request)])
