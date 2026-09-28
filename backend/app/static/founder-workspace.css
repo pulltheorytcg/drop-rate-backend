@@ -99,7 +99,9 @@
   .founder-workspace input[type="checkbox"],.modal input[type="checkbox"]{width:22px;height:22px}
   .founder-workspace .seller-nav{scroll-padding-inline:14px;overscroll-behavior-x:contain}
   .modal{max-height:calc(100dvh - 24px);overflow-y:auto}
-  .modal .modal-card{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+  .modal .modal-card{width:100%;max-width:100%;min-width:0;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+  .modal :is(.modal-heading>div,.form-grid>label,input,select,textarea){min-width:0}
+  .modal .icon-button{flex:0 0 44px;width:44px}
   .founder-workspace .seller-nav{top:72px!important;padding:8px 12px!important}
   .founder-workspace .seller-nav-tab[data-target-view]{margin-top:0;min-height:44px}
   .founder-workspace .seller-nav:after{display:none}
