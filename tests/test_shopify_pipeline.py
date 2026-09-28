@@ -988,3 +988,43 @@ def test_media_rights_migration_tracks_exact_identity_and_source_health() -> Non
     assert "source_checked_at" in lowered
     assert "revoked_at" in lowered
     assert "media_assets_storefront_resolver_idx" in lowered
+
+
+def test_shopify_order_can_span_multiple_inventory_owners() -> None:
+    source = PIPELINE.read_text()
+    assert "async def _resolve_order_scopes(" in source
+    assert "len(bootstrap) != 1" not in source
+    assert "Shopify order does not resolve to exactly one Drop Rate owner scope" not in source
+    selector = source[source.index("async def _select_order_units("):source.index("async def process_shopify_webhook(")]
+    assert "where sil.shopify_variant_gid=$1" in selector
+    assert '"owner_id": link["owner_id"]' in selector
+    assert '"created_by_user_id": link["created_by_user_id"]' in selector
+
+
+def test_multi_owner_sale_snapshots_owner_per_physical_allocation() -> None:
+    source = PIPELINE.read_text()
+    paid = source[source.index("async def _process_paid_order("):source.index("async def _process_cancelled_order(")]
+    assert 'owner_id = unit["owner_id"]' in paid
+    assert 'user_id = unit["created_by_user_id"]' in paid
+    assert "order_item_id, order_id, link[\"inventory_id\"], owner_id" in paid
+    assert "link[\"inventory_id\"], owner_id, expected_status" in paid
+    assert "order_item_id, owner_id, user_id, order_reference" in paid
+
+
+def test_multi_owner_pending_order_reserves_and_releases_exact_owner_inventory() -> None:
+    source = PIPELINE.read_text()
+    created = source[source.index("async def _process_created_order("):source.index("async def _process_paid_order(")]
+    cancelled = source[source.index("async def _process_cancelled_order("):source.index("async def _process_refund(")]
+    assert 'link["inventory_id"], unit["owner_id"]' in created
+    assert "RESERVATION_OWNER_MISMATCH" not in cancelled
+    assert 'owner_id = reservation["owner_id"]' in cancelled
+    assert 'reservation["inventory_id"], owner_id' in cancelled
+
+
+def test_multi_owner_refund_reverses_original_order_item_owner() -> None:
+    source = PIPELINE.read_text()
+    refund = source[source.index("async def _process_refund("):]
+    assert 'allocation["owner_id"], allocation["order_id"], allocation["order_item_id"]' in refund
+    assert 'allocation["inventory_id"], allocation["owner_id"]' in refund
+    assert "group by oi.id,oi.owner_id" in refund
+    assert 'row["owner_id"], order["id"], row["order_item_id"]' in refund
