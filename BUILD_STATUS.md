@@ -48,7 +48,7 @@ This file is the persistent source of truth for project progress. A feature coun
 - **`import.committed` automation event added:** successful import commit now emits a durable automation-outbox event, ready for n8n routing when the dispatcher/workflow is deliberately activated.
 
 ### Sealed products
-- **Sealed-product media architecture deployed for the two current One Piece sealed products:** `CANONICAL_PRODUCT` reusable media scope and `SEALED_PRODUCT` first-party capture context are now part of the media model.
+- **Sealed-product media architecture deployed for the two current One Piece sealed products:** **Premium Card Collection – 6 assort vol.1** and **Tin Pack Set Vol. 2 – Portgas.D.Ace** are the current exact products in scope; `CANONICAL_PRODUCT` reusable media scope and `SEALED_PRODUCT` first-party capture context are now part of the media model.
 - **Exact physical packaging photo policy added:** current `COLLECTION` / `SEALED` inventory requires the exact physical front packaging photo rather than borrowing ordinary card-art logic. Region/language remains unknown where the Collectr row does not prove it.
 - **Seller/Founder/Shopify media paths updated:** sealed products now enter Media Intake, first-party sealed photos can render in Seller Hub, and Shopify readiness/bootstrap understands canonical sealed media without conflating it with `CANONICAL_CARD`.
 - **Rights boundary preserved:** official Bandai imagery may be used as identity evidence, but is not silently copied into storefront media where reuse rights are not established.
@@ -58,6 +58,8 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Commerce torture/retry suite added:** high-volume deterministic tests now cover penny conservation, weighted allocation, rounding boundaries, malformed Shopify payloads, replay/deduplication, cross-channel retries and transaction boundaries.
 - **Personal Collection sale intent deployed and production-verified:** `FOR_SALE ↔ PERSONAL_COLLECTION` is now a separate owner-intent dimension; moving an item to personal collection withdraws availability without rewriting ownership or lifecycle history.
 - **Shopify catalogue bootstrap hardened:** image-backed approved/draft inventory can create Shopify drafts, missing Store Price no longer blocks safe draft linking, startup failures are surfaced, and catalogue bootstrap now runs through audited RLS context.
+- **Shopify catalogue population materially advanced:** the store reached **464 draft products**, with **457/464 carrying images** at the verified checkpoint. Base catalogue grouping was **Trading Cards 464 / Pokémon 202 / One Piece 262**. Products remained Draft rather than being silently published, preserving launch control while taxonomy, media and storefront work continue.
+- **Storefront development theme started:** an unpublished development theme now carries the first CRO/navigation pass — search-first navigation, game shortcuts, trust messaging, denser product grids, filter/chip patterns, quick-add concepts and mobile two-column browsing. The live theme was intentionally left unchanged; product-page/cart CRO, analytics, full SEO, deeper collection hierarchy and launch QA remain unfinished.
 - **Founder workspace/Shopify access fixes deployed:** Founder HQ filtering/access regressions and Shopify test-sync shipping-profile initialization were corrected.
 - **Payout scheduler incident resolved:** Railway start-command handling was corrected and a controlled run completed successfully with normal hourly scheduling restored.
 
@@ -91,7 +93,7 @@ This file is the persistent source of truth for project progress. A feature coun
 
 | Milestone | Current status | Remaining to call it complete |
 |---|---|---|
-| **1 — Three founders can log in, add physical cards, assign ownership/cost/condition/grade/location, search inventory and see exactly what they own** | **~96% overall / ~99% core inventory engine** | Restricted OWNER onboarding + owner-safe inventory/finance portal are deployed. Final gate is a genuine second-account cross-owner isolation test and production verification with more than one owner |
+| **1 — Three founders can log in, add physical cards, assign ownership/cost/condition/grade/location, search inventory and see exactly what they own** | **~96% overall / ~99% core inventory engine** | Restricted OWNER onboarding + owner-safe inventory/finance portal are deployed, and the genuine second-account cross-owner production isolation gate has passed. Final gate is onboarding the genuine third founder and repeating the live isolation verification. |
 | **2 — Approved card syncs to Shopify, sells, and sale is attributed to the correct owner** | **~92%** | Single-owner real sale/refund is proven and restricted seller proceeds/settlement views are deployed; still need multi-owner/same-card production test and live payout cutover |
 | **3 — Market data automatically updates valuation and recommended pricing** | **~80%** | Deterministic pricing + snapshots + provisional pricing exist; final provider permissions, eBay sold access/Marketplace Insights, stronger Cardmarket/eBay evidence automation and scheduled production refresh remain |
 
