@@ -181,22 +181,7 @@ function enhanceOwnerInviteAdmin() {
   }
 
   const create = byId("owner-invite-create");
-  if (create) {
-    create.textContent = "Send seller invite";
-    create.addEventListener("click", () => {
-      const message = byId("owner-invite-message");
-      if (!message) return;
-      const observer = new MutationObserver(() => {
-        const result = byId("owner-invite-result");
-        if (result && !result.classList.contains("hidden")) {
-          observer.disconnect();
-          window.setTimeout(() => loadOwnerInvites(), 0);
-        }
-      });
-      observer.observe(message, {childList: true, subtree: true});
-      window.setTimeout(() => observer.disconnect(), 15000);
-    });
-  }
+  if (create) create.textContent = "Send seller invite";
 
   const historyHeading = document.createElement("div");
   historyHeading.className = "page-heading";
