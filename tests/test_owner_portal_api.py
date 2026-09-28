@@ -96,7 +96,7 @@ def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
 def test_owner_overview_contains_no_company_wide_finance_or_admin_data() -> None:
     source = SOURCE.read_text()
     start = source.index('@router.get("/overview")')
-    end = source.index('@router.get("/catalogue-search")', start)
+    end = source.index('@router.get("/insights")', start)
     overview = source[start:end]
 
     assert "where owner_id=$1" in overview
