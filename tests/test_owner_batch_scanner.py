@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RECOGNITION = ROOT / "backend" / "app" / "recognition.py"
 OWNER_API = ROOT / "backend" / "app" / "owner_portal_api.py"
-MIGRATION = ROOT / "database" / "migrations" / "20260928200500_owner_batch_scanner.sql"
+MIGRATION = ROOT / "database" / "migrations" / "20260928201429_owner_batch_scanner.sql"
 
 
 def test_search_correction_is_a_first_class_audited_feedback_outcome() -> None:
