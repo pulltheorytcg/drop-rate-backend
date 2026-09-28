@@ -6,9 +6,35 @@ import os
 import sys
 from datetime import datetime
 
-import asyncpg
+print(
+    json.dumps(
+        {
+            "event": "PAYOUT_SCHEDULER_PROCESS_START",
+            "python": sys.version.split()[0],
+            "database_url_configured": bool(os.getenv("TCG_DATABASE_URL", "").strip()),
+        },
+        sort_keys=True,
+    ),
+    flush=True,
+)
 
-from app.payout_scheduler import queue_due_payouts
+try:
+    import asyncpg
+
+    from app.payout_scheduler import queue_due_payouts
+except Exception as exc:
+    print(
+        json.dumps(
+            {
+                "event": "PAYOUT_SCHEDULER_IMPORT_FAILED",
+                "error_code": type(exc).__name__,
+            },
+            sort_keys=True,
+        ),
+        file=sys.stderr,
+        flush=True,
+    )
+    raise
 
 
 async def _finish_run(
@@ -50,22 +76,70 @@ async def _run() -> int:
     if not database_url:
         raise RuntimeError("TCG_DATABASE_URL is required")
 
-    connection = await asyncpg.connect(
-        dsn=database_url,
-        command_timeout=20,
-        server_settings={
-            "application_name": "drop-rate-payout-scheduler",
-            "search_path": "pg_catalog,tcg",
-            "statement_timeout": "20000",
-            "idle_in_transaction_session_timeout": "10000",
-        },
+    print(
+        json.dumps(
+            {"event": "PAYOUT_SCHEDULER_DB_CONNECT_START"},
+            sort_keys=True,
+        ),
+        flush=True,
     )
+    try:
+        connection = await asyncpg.connect(
+            dsn=database_url,
+            timeout=15,
+            command_timeout=20,
+            server_settings={
+                "application_name": "drop-rate-payout-scheduler",
+                "search_path": "pg_catalog,tcg",
+                "statement_timeout": "20000",
+                "idle_in_transaction_session_timeout": "10000",
+            },
+        )
+    except Exception as exc:
+        print(
+            json.dumps(
+                {
+                    "event": "PAYOUT_SCHEDULER_DB_CONNECT_FAILED",
+                    "error_code": type(exc).__name__,
+                },
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+            flush=True,
+        )
+        raise
+
+    print(
+        json.dumps(
+            {"event": "PAYOUT_SCHEDULER_DB_CONNECTED"},
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+
     run_id = None
     try:
+        print(
+            json.dumps(
+                {"event": "PAYOUT_SCHEDULER_RUN_STARTING"},
+                sort_keys=True,
+            ),
+            flush=True,
+        )
         await connection.fetchval(
             "select tcg.fail_stale_payout_scheduler_runs(interval '30 minutes')"
         )
         run_id = await connection.fetchval("select tcg.start_payout_scheduler_run()")
+        print(
+            json.dumps(
+                {
+                    "event": "PAYOUT_SCHEDULER_RUN_STARTED",
+                    "scheduler_run_id": str(run_id),
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
 
         try:
             summary = await queue_due_payouts(connection)
