@@ -90,3 +90,35 @@ def test_synced_price_minor_uses_zero_only_for_missing_price():
     assert _synced_price_minor(499) == 499
     assert _synced_price_minor(0) == 0
     assert _synced_price_minor(None) == 0
+
+
+def test_bootstrap_prefers_exact_first_party_sealed_media() -> None:
+    source = (
+        __import__("pathlib").Path(__file__).parents[1]
+        / "backend"
+        / "app"
+        / "shopify_catalogue_bootstrap.py"
+    ).read_text()
+
+    assert "ma.scope='INVENTORY_ITEM'" in source
+    assert "ma.inventory_id=i.id" in source
+    assert "ma.rights_tier='FIRST_PARTY_CAPTURE'" in source
+    assert "p.product_type in ('SEALED','COLLECTION')" in source
+    assert "ma.capture_context='SEALED_PRODUCT'" in source
+    assert "case when ma.scope='INVENTORY_ITEM' then 0 else 1 end" in source
+    assert "ma.approval_status='APPROVED'" in source
+
+
+def test_bootstrap_canonical_product_media_requires_verified_region() -> None:
+    source = (
+        __import__("pathlib").Path(__file__).parents[1]
+        / "backend"
+        / "app"
+        / "shopify_catalogue_bootstrap.py"
+    ).read_text()
+
+    assert "else 'CANONICAL_PRODUCT'" in source
+    assert "nullif(btrim(coalesce(p.language,'')),'') is not null" in source
+    assert "lower(btrim(ma.media_language))=lower(btrim(p.language))" in source
+    assert "m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')" in source
+    assert 'str(item.get("media_scope") or "") in {' in source
