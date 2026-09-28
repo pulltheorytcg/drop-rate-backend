@@ -24,6 +24,7 @@ function ensureInventoryImportUI() {
       <div class="form-grid">
         <label>Import source<select id="import-adapter"><option value="AUTO">Auto detect</option><option value="COLLECTR">Collectr export</option><option value="EBAY_PURCHASES">eBay purchases/account export</option><option value="HOLODEX">HoloDex export</option><option value="GENERIC_CSV">Generic CSV</option></select></label>
         <label>Default game<input id="import-default-game" maxlength="80" placeholder="Optional, e.g. Pokemon"></label>
+        <label>Unmarked language<select id="import-default-language"><option value="">Leave for review</option><option value="English">English</option><option value="Japanese">Japanese</option></select></label>
         <label class="full-width">CSV file<input id="import-file" type="file" accept=".csv,text/csv" required></label>
       </div>
       <div id="import-message" class="message" role="status"></div>
@@ -324,6 +325,7 @@ async function previewInventoryImport(event) {
         content,
         adapter: byId("import-adapter").value,
         default_game: emptyToNull(byId("import-default-game").value),
+        default_language: emptyToNull(byId("import-default-language").value),
       }),
     });
 
