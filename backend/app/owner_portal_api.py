@@ -497,7 +497,7 @@ async def owner_channels(
                 coalesce(ebay.last_verified_at,'epoch'::timestamptz)
             ) desc,
             i.inventory_code
-            limit {len(page_params)-1} offset {len(page_params)}
+            limit ${len(page_params)-1} offset ${len(page_params)}
             """,
             *page_params,
         )
@@ -745,7 +745,7 @@ async def owner_inventory(
             join tcg.catalogue_products p on p.id=i.catalogue_id
             where {where}
             order by i.updated_at desc,i.inventory_code
-            limit {len(page_params)-1} offset {len(page_params)}
+            limit ${len(page_params)-1} offset ${len(page_params)}
             """,
             *page_params,
         )
