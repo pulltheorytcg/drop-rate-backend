@@ -1059,7 +1059,8 @@
 
 /* Mobile batch scanning */
 .owner-portal-page .owner-batch-camera-topbar,
-.owner-portal-page .owner-batch-sheet{display:none}
+.owner-portal-page .owner-batch-sheet,
+.owner-portal-page .owner-batch-capture-now{display:none}
 .owner-portal-page .owner-batch-scan-pulse{
   position:absolute;inset:50% auto auto 50%;z-index:6;transform:translate(-50%,-50%);
   padding:9px 13px;border:1px solid rgba(255,255,255,.18);border-radius:999px;
@@ -1193,6 +1194,17 @@
     display:grid;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     border-top:1px solid rgba(255,255,255,.08);background:#06152d;box-shadow:0 -12px 30px rgba(0,0,0,.22)
   }
+  .owner-portal-page .owner-batch-capture-now{
+    width:100%;min-height:48px;display:grid;grid-template-columns:auto auto 1fr;gap:8px;align-items:center;
+    padding:8px 12px;border:1px solid rgba(74,223,237,.38);border-radius:12px;
+    color:#fff;background:#0d6f92;box-shadow:0 6px 18px rgba(0,0,0,.18);text-align:left
+  }
+  .owner-portal-page .owner-batch-capture-now>span{
+    width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.14);font-size:.9rem
+  }
+  .owner-portal-page .owner-batch-capture-now>strong{color:#fff!important;font-size:.68rem}
+  .owner-portal-page .owner-batch-capture-now>small{color:#c9f6fa;font-size:.5rem;text-align:right}
+  .owner-portal-page .owner-batch-capture-now:disabled{opacity:.55}
   .owner-portal-page .owner-batch-summary{
     display:grid;grid-template-columns:1fr 1.15fr auto;gap:8px;align-items:center
   }
