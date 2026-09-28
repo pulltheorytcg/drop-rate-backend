@@ -17,6 +17,7 @@ TRUSTED_REFERENCE_HOSTS = {
     "assets.tcgdex.net",
     "onepiece-cardgame.com",
     "www.onepiece-cardgame.com",
+    "cards.tcggraph.io",
 }
 
 REFERENCE_HASH_CACHE_TTL_SECONDS = 6 * 60 * 60
