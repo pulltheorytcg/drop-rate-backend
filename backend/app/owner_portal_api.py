@@ -419,7 +419,7 @@ async def owner_channels(
                 order by l.created_at desc,l.id desc
                 limit 1
             ) ebay on true
-            where ${where}
+            where {where}
               and (shopify.sync_state is not null or ebay.state is not null)
             """,
             *params,
@@ -490,14 +490,14 @@ async def owner_channels(
                 order by l.created_at desc,l.id desc
                 limit 1
             ) ebay on true
-            where ${where}
+            where {where}
               and (shopify.sync_state is not null or ebay.state is not null)
             order by greatest(
                 coalesce(shopify.last_synced_at,'epoch'::timestamptz),
                 coalesce(ebay.last_verified_at,'epoch'::timestamptz)
             ) desc,
             i.inventory_code
-            limit ${len(page_params)-1} offset ${len(page_params)}
+            limit {len(page_params)-1} offset {len(page_params)}
             """,
             *page_params,
         )
@@ -745,7 +745,7 @@ async def owner_inventory(
             join tcg.catalogue_products p on p.id=i.catalogue_id
             where {where}
             order by i.updated_at desc,i.inventory_code
-            limit ${len(page_params)-1} offset ${len(page_params)}
+            limit {len(page_params)-1} offset {len(page_params)}
             """,
             *page_params,
         )
