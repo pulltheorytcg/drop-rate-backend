@@ -327,7 +327,8 @@ create or replace function tcg.fail_automation_event(
   p_event_id uuid,
   p_worker_id text,
   p_error_code text,
-  p_retry_after_seconds integer default 60
+  p_retry_after_seconds integer default 60,
+  p_force_dead_letter boolean default false
 )
 returns text
 language plpgsql
@@ -362,7 +363,8 @@ begin
     return 'NOT_OWNED';
   end if;
 
-  if v_event.attempt_count >= v_event.max_attempts then
+  if coalesce(p_force_dead_letter,false)
+     or v_event.attempt_count >= v_event.max_attempts then
     update tcg.automation_events
        set status='DEAD_LETTER',
            leased_by=null,
@@ -387,8 +389,8 @@ begin
 end;
 $function$;
 
-revoke all on function tcg.fail_automation_event(uuid,text,text,integer) from public;
-grant execute on function tcg.fail_automation_event(uuid,text,text,integer) to tcg_api;
+revoke all on function tcg.fail_automation_event(uuid,text,text,integer,boolean) from public;
+grant execute on function tcg.fail_automation_event(uuid,text,text,integer,boolean) to tcg_api;
 
 
 -- Emit the first launch-domain event transactionally whenever physical inventory
@@ -403,8 +405,10 @@ as $function$
 declare
   v_event_key text;
 begin
-  if new.status <> 'APPROVED'
-     or (tg_op='UPDATE' and old.status='APPROVED') then
+  if new.status <> 'APPROVED' then
+    return new;
+  end if;
+  if tg_op='UPDATE' and old.status='APPROVED' then
     return new;
   end if;
 
@@ -434,8 +438,14 @@ $function$;
 
 revoke all on function tcg.emit_inventory_approved_event() from public;
 
-create trigger inventory_items_emit_approved_event
-after insert or update of status
+create trigger inventory_items_emit_approved_event_insert
+after insert
+on tcg.inventory_items
+for each row
+execute function tcg.emit_inventory_approved_event();
+
+create trigger inventory_items_emit_approved_event_update
+after update of status
 on tcg.inventory_items
 for each row
 execute function tcg.emit_inventory_approved_event();
