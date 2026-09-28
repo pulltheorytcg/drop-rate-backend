@@ -130,9 +130,11 @@ def test_owner_inventory_and_channels_bind_pagination_parameters() -> None:
     source = SOURCE.read_text()
 
     inventory_start = source.index('@router.get("/inventory")')
+    inventory_end = source.index('@router.post("/recognition-intake"', inventory_start)
     channels_start = source.index('@router.get("/channels")')
-    inventory = source[inventory_start:channels_start]
-    channels = source[channels_start:]
+    channels_end = source.index('@router.get("/catalogue-search")', channels_start)
+    inventory = source[inventory_start:inventory_end]
+    channels = source[channels_start:channels_end]
 
     for block in (inventory, channels):
         assert "page_params = [*params, limit, offset]" in block
