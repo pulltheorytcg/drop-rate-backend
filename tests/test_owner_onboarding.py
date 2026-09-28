@@ -142,6 +142,7 @@ def test_owner_invite_create_fix_qualifies_output_column_collision() -> None:
 
 
 EMAIL_MIGRATION = ROOT / "database" / "migrations" / "20260928174052_owner_invite_email_delivery.sql"
+PREVIEW_CONTRACT_MIGRATION = ROOT / "database" / "migrations" / "20260928184500_owner_invite_preview_contract.sql"
 SELLER_INVITES_JS = ROOT / "backend" / "app" / "static" / "seller-invites.js"
 SETTINGS = ROOT / "backend" / "app" / "settings.py"
 
@@ -162,6 +163,20 @@ def test_owner_invite_redeem_requires_explicit_acknowledgement() -> None:
             acknowledged=True,
             acknowledgement_version=2,
         )
+
+
+def test_public_owner_invite_preview_contract_includes_email_for_masking() -> None:
+    sql = PREVIEW_CONTRACT_MIGRATION.read_text().lower()
+    backend = (ROOT / "backend" / "app" / "owner_onboarding.py").read_text()
+
+    assert "drop function if exists tcg.preview_owner_invite(text)" in sql
+    assert "invited_email text" in sql
+    assert "i.invited_email" in sql
+    assert "security definer" in sql
+    assert "set search_path = pg_catalog, tcg" in sql
+    assert "revoke all on function tcg.preview_owner_invite(text)" in sql
+    assert "grant execute on function tcg.preview_owner_invite(text) to tcg_api" in sql
+    assert 'row["invited_email"]' in backend
 
 
 def test_public_owner_invite_masks_email_address() -> None:
