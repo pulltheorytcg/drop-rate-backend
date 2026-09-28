@@ -494,8 +494,8 @@ async def resolve_tcggraph_media(
                       source_checked_at
                     ) values(
                       $1,$2,'CANONICAL_CARD','FRONT','LICENSED_PROVIDER',
-                      'STOREFRONT_ALLOWED','TCGGraph',$3,$4,$5,$6,$7,$8,
-                      'VERIFIED',$9,'APPROVED',$10,$11,$11,clock_timestamp(),
+                      'INTERNAL_REFERENCE_ONLY','TCGGraph',$3,$4,$5,$6,$7,$8,
+                      'VERIFIED',$9,'PENDING',$10,$11,null,null,
                       clock_timestamp(),'ACTIVE',$12,clock_timestamp()
                     )
                     on conflict do nothing
