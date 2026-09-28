@@ -320,6 +320,17 @@ begin
         end if;
         v_actor := 'automation:' || p_automation_event_id::text;
     else
+        if not exists (
+            select 1
+            from tcg.owner_memberships om
+            where om.user_id=p_created_by_user_id
+              and om.owner_id=p_owner_id
+              and om.active
+              and om.role='PLATFORM_ADMIN'
+        ) then
+            raise exception 'Platform administrator membership required for manual publication'
+                using errcode='42501';
+        end if;
         v_actor := p_created_by_user_id::text;
     end if;
 
