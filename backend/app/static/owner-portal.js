@@ -613,6 +613,8 @@ async function reloadOwnerDashboard() {
     await Promise.all([
       loadOwnerOverview(),
       loadOwnerInventory(),
+      loadOwnerInsights(),
+      loadOwnerChannels(),
       loadOwnerFinanceSummary(),
       loadOwnerSales(),
       loadOwnerSettlements(),
@@ -673,6 +675,7 @@ async function loadOwnerFinanceSummary() {
   byId("owner-overview-proceeds").textContent = formatMoney(data.lifetime_owner_proceeds_minor);
   byId("owner-overview-pending").textContent = formatMoney(data.pending_minor);
   byId("owner-overview-paid").textContent = formatMoney(data.paid_out_minor);
+  renderOwnerPayoutTracker(data);
 }
 
 function otherDeductions(item) {
@@ -913,6 +916,7 @@ function updateOwnerPayoutFields() {
 
 function renderOwnerPayoutPreference(data) {
   const preference = data.preference || data;
+  state.payoutPreference = preference;
   state.payoutPreferenceVersion = Number(preference.version || 0);
   byId("owner-payout-cadence").value = preference.cadence || "MANUAL";
   if (preference.weekday !== null && preference.weekday !== undefined) {
@@ -972,6 +976,7 @@ function activateOwnerView(view) {
     scan: ["Scan cards", "Use Drop Rate recognition to identify a card, confirm it and add it safely to your inventory."],
     sales: ["Sales", "Understand every sale, deduction and penny allocated to you."],
     balance: ["Payouts", "Manage your payout account, balance and preferred payout schedule."],
+    channels: ["Channels", "See exactly where your inventory is synced and whether each channel is healthy."],
     settlements: ["Settlements", "Follow order-by-order allocation and reconciliation."],
   };
   const target = Object.hasOwn(views, view) ? view : "overview";
@@ -1163,7 +1168,7 @@ async function openOwnerPortal() {
   byId("owner-auth-view").classList.add("hidden");
   byId("owner-portal-view").classList.remove("hidden");
   const hashView = window.location.hash.replace("#", "");
-  activateOwnerView(["inventory", "scan", "sales", "balance", "settlements"].includes(hashView) ? hashView : "overview");
+  activateOwnerView(["inventory", "scan", "sales", "balance", "channels", "settlements"].includes(hashView) ? hashView : "overview");
   await reloadOwnerDashboard();
   showOwnerOnboardingWelcome();
 }
@@ -1309,6 +1314,31 @@ document.querySelectorAll("[data-owner-inventory-layout]").forEach((button) => {
       toggle.classList.toggle("active", toggle.dataset.ownerInventoryLayout === layout);
     });
   });
+});
+
+let ownerChannelsSearchTimer = null;
+byId("owner-channels-search").addEventListener("input", (event) => {
+  window.clearTimeout(ownerChannelsSearchTimer);
+  ownerChannelsSearchTimer = window.setTimeout(async () => {
+    state.channels.search = event.currentTarget.value.trim();
+    state.channels.offset = 0;
+    await loadOwnerChannels();
+  }, 320);
+});
+byId("owner-channels-filter").addEventListener("change", async (event) => {
+  state.channels.channel = event.currentTarget.value || "ALL";
+  state.channels.offset = 0;
+  await loadOwnerChannels();
+});
+byId("owner-channels-refresh").addEventListener("click", loadOwnerChannels);
+byId("owner-channels-prev").addEventListener("click", async () => {
+  state.channels.offset = Math.max(0, state.channels.offset - state.channels.limit);
+  await loadOwnerChannels();
+});
+byId("owner-channels-next").addEventListener("click", async () => {
+  if (state.channels.offset + state.channels.limit >= state.channels.total) return;
+  state.channels.offset += state.channels.limit;
+  await loadOwnerChannels();
 });
 
 byId("owner-sales-prev").addEventListener("click", async () => {
