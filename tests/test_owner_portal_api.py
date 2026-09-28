@@ -32,9 +32,11 @@ def test_owner_inventory_is_defence_in_depth_scoped_to_authenticated_owner() -> 
 
 def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
     source = SOURCE.read_text()
-    start = source.index("rows = await connection.fetch(")
-    end = source.index("return jsonable_encoder(", start)
-    query = source[start:end]
+    route_start = source.index('@router.get("/inventory")')
+    route = source[route_start:]
+    start = route.index("rows = await connection.fetch(")
+    end = route.index("return jsonable_encoder(", start)
+    query = route[start:end]
 
     allowed = (
         "i.inventory_code",
@@ -94,7 +96,7 @@ def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
 def test_owner_overview_contains_no_company_wide_finance_or_admin_data() -> None:
     source = SOURCE.read_text()
     start = source.index('@router.get("/overview")')
-    end = source.index('@router.get("/inventory")', start)
+    end = source.index('@router.get("/catalogue-search")', start)
     overview = source[start:end]
 
     assert "where owner_id=$1" in overview
