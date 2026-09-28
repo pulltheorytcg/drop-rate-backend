@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#071b3f">
   <title>Drop Rate — Seller Portal</title>
   <link rel="stylesheet" href="/assets/styles.css?v=owner-v2-base">
-  <link rel="stylesheet" href="/assets/owner-portal.css?v=owner-v5">
+  <link rel="stylesheet" href="/assets/owner-portal.css?v=owner-v6">
 </head>
 <body class="owner-portal-page">
   <div class="ambient ambient-one"></div>
@@ -303,6 +303,18 @@
                         <div><span>Market value</span><strong id="owner-batch-total">£0.00</strong></div>
                         <div id="owner-batch-unresolved-wrap" class="hidden"><span>Needs review</span><strong id="owner-batch-unresolved">0</strong></div>
                       </div>
+                      <article id="owner-batch-latest" class="owner-batch-latest hidden" aria-live="polite">
+                        <div id="owner-batch-latest-thumb" class="owner-batch-latest-thumb"></div>
+                        <div class="owner-batch-latest-copy">
+                          <div><span id="owner-batch-latest-status" class="owner-batch-latest-status">Recognised</span><strong id="owner-batch-latest-name">—</strong></div>
+                          <span id="owner-batch-latest-meta">—</span>
+                          <small id="owner-batch-latest-value">—</small>
+                        </div>
+                        <div class="owner-batch-latest-actions">
+                          <button id="owner-batch-latest-fix" type="button">Fix</button>
+                          <button id="owner-batch-latest-remove" type="button">Remove</button>
+                        </div>
+                      </article>
                       <div id="owner-batch-strip" class="owner-batch-strip">
                         <div class="owner-batch-strip-empty">Recognised cards will appear here automatically.</div>
                       </div>
@@ -636,7 +648,7 @@
     </section>
   </main>
 
-  <script src="/assets/owner-portal.js?v=owner-v5" defer></script>
-  <script src="/assets/owner-recognition.js?v=owner-v5" defer></script>
+  <script src="/assets/owner-portal.js?v=owner-v6" defer></script>
+  <script src="/assets/owner-recognition.js?v=owner-v6" defer></script>
 </body>
 </html>
