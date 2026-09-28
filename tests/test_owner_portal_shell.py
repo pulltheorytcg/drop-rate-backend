@@ -6,6 +6,7 @@ MAIN = ROOT / "backend" / "app" / "main.py"
 HTML = ROOT / "backend" / "app" / "static" / "owner.html"
 JS = ROOT / "backend" / "app" / "static" / "owner-portal.js"
 CSS = ROOT / "backend" / "app" / "static" / "owner-portal.css"
+RECOGNITION_JS = ROOT / "backend" / "app" / "static" / "owner-recognition.js"
 
 
 def test_owner_portal_is_served_separately_from_founder_hq() -> None:
@@ -14,7 +15,8 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=owner-v2" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=owner-v3" defer></script>' in html
+    assert '<script src="/assets/owner-recognition.js?v=owner-v3" defer></script>' in html
 
     for founder_script in (
         "dashboard-shell.js",
@@ -103,10 +105,10 @@ def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None
     for required in (
         "Total inventory",
         "Active market value",
-        "Active store value",
+        "Store / recommended value",
         "Sold",
         "Market value",
-        "Store price",
+        "Recommended retail",
     ):
         assert required in html
 
@@ -142,3 +144,45 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     assert "renderInventoryCards(items)" in js
     assert "renderOverviewLatestInventory(items)" in js
     assert 'addEventListener("input"' in js
+
+
+def test_owner_portal_scan_workspace_uses_shared_recognition_safely() -> None:
+    html = HTML.read_text()
+    js = RECOGNITION_JS.read_text()
+    css = CSS.read_text()
+
+    assert 'data-owner-view="scan"' in html
+    assert 'data-owner-view-panel="scan"' in html
+    assert 'id="owner-scan-file"' in html
+    assert 'capture="environment"' in html
+    assert 'id="owner-scan-video"' in html
+    assert "Scan & add a card" in html
+
+    for path in (
+        "/api/v1/recognition/status",
+        "/api/v1/recognition/resolve",
+        "/api/v1/recognition/runs/",
+        "/api/v1/owner/recognition-intake",
+    ):
+        assert path in js
+
+    assert "/api/v1/inventory/intake" not in js
+    assert "/api/v1/pricing" not in js
+    assert "/api/v1/shopify" not in js
+    assert "/api/v1/storage-locations" not in js
+    assert 'headers: {"Idempotency-Key": state.ownerRecognition.intakeKey}' in js
+    assert "crypto.randomUUID()" in js
+    assert ".owner-scan-camera-viewport" in css
+    assert "grid-template-columns:repeat(6,1fr)" in css
+
+
+def test_owner_scan_requires_confirmation_before_intake() -> None:
+    js = RECOGNITION_JS.read_text()
+
+    feedback_call = "apiRequest(`/api/v1/recognition/runs/${run.id}/feedback`"
+    intake_call = 'apiRequest("/api/v1/owner/recognition-intake"'
+    assert feedback_call in js
+    assert intake_call in js
+    assert js.index(feedback_call) < js.index(intake_call)
+    assert '"CONFIRMED_TOP"' in js
+    assert '"CORRECTED_TO_CANDIDATE"' in js
