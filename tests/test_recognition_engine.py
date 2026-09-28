@@ -13,6 +13,7 @@ from PIL import Image
 from app.recognition_engine import (
     _provider_identity_fingerprint,
     _provider_visual_shortlist,
+    discover_provider_evidence,
     resolve_candidates,
     score_candidate,
     visual_work_short_circuit_reason,
@@ -927,6 +928,54 @@ async def test_punk_records_english_name_lookup_filters_by_visible_stats() -> No
 
 
 @pytest.mark.asyncio
+async def test_round1_low_confidence_number_is_not_used_to_bias_provider_retrieval() -> None:
+    calls: list[dict] = []
+
+    class RecordingPunk:
+        async def find_candidates(self, **kwargs):
+            calls.append(kwargs)
+            return []
+
+    obs = observation(
+        name_guess="ナミ (Nami)",
+        card_number="OP02-036",
+        card_number_confidence=0.78,
+        art_treatment_text="Full-art with visible ROUND1 ONE PIECE mark",
+        art_treatment_confidence=0.98,
+        visible_markers=["ROUND1 ONE PIECE"],
+        ocr_lines=["ナミ", "OP02-036", "ROUND1"],
+    )
+
+    await discover_provider_evidence(obs, punk=RecordingPunk())
+
+    assert len(calls) == 1
+    assert calls[0]["card_number"] is None
+    assert calls[0]["name"] == "ナミ (Nami)"
+    assert calls[0]["power"] == obs.power
+    assert calls[0]["cost"] == obs.cost
+
+
+@pytest.mark.asyncio
+async def test_high_confidence_number_remains_a_provider_retrieval_hint() -> None:
+    calls: list[dict] = []
+
+    class RecordingPunk:
+        async def find_candidates(self, **kwargs):
+            calls.append(kwargs)
+            return []
+
+    obs = observation(
+        card_number="OP05-119",
+        card_number_confidence=0.99,
+    )
+
+    await discover_provider_evidence(obs, punk=RecordingPunk())
+
+    assert len(calls) == 1
+    assert calls[0]["card_number"] == "OP05-119"
+
+
+@pytest.mark.asyncio
 async def test_punk_records_japanese_bilingual_name_recovers_round1_nami() -> None:
     client = PunkRecordsClient(index_ttl_seconds=60)
     cards = {
@@ -1028,7 +1077,7 @@ def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> 
 
 def test_recognition_logic_change_bumps_idempotency_version() -> None:
     api = API.read_text()
-    assert 'ENGINE_VERSION = "v1.5.0"' in api
+    assert 'ENGINE_VERSION = "v1.5.1"' in api
     assert 'f"recognition:{ENGINE_VERSION}:{settings.recognition_model}:"' in api
 
 
