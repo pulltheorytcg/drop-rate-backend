@@ -638,8 +638,15 @@ async def _shipping_profiles(
 
 async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
     owner = await _owner(connection)
-    if owner["role"] != "FOUNDER":
-        raise HTTPException(status_code=403, detail="Only a founder can run Shopify test sync")
+    # Access role and business owner type are deliberately separate. Founder HQ
+    # routes are already protected by require_platform_admin_request in main.py;
+    # this helper only ensures that Shopify operations are being run for founder
+    # inventory rather than a consignor owner.
+    if owner["owner_type"] != "FOUNDER":
+        raise HTTPException(
+            status_code=403,
+            detail="Shopify Founder HQ operations require founder-owned inventory",
+        )
     return owner
 
 
