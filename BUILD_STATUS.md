@@ -12,6 +12,7 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Milestone 2 — Shopify sale attribution:** ~92% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, seller-facing restricted finance views are deployed, and payout control is automated up to REQUESTED state. Multi-owner/same-card production attribution and live Stripe payout cutover remain.
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
 - **Customer storefront / Shopify UX:** ~10–15% of the desired Drop Rate experience. Backend Shopify commerce plumbing is far ahead of the customer-facing theme. A dedicated storefront + Founder HQ UX blueprint is now version-controlled in `docs/STOREFRONT_AND_UX_BLUEPRINT.md`.
+- **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 
 ## Original business milestone status
 
@@ -36,6 +37,8 @@ This file is the persistent source of truth for project progress. A feature coun
 **Nico Robin correction: VERIFIED — ACE 10 Nico Robin OP01-017 Premium Card Collection - ONE PIECE FILM RED Edition was previously mapped to `OP01-017_p2`, which is the English 1st Anniversary Set artwork. Independent product-level verification confirmed the correct FILM RED printing is `OP01-017_p1`; the live media row has been corrected.**
 
 **Storefront + Founder UX benchmark: BLUEPRINTED — `docs/STOREFRONT_AND_UX_BLUEPRINT.md` now defines the Shopify customer experience, autonomous merchandising/management model, TCG-native search/filtering, grouped-copy UX, graded PDP requirements, AI listing boundaries and Founder HQ workflow improvements. RandCards is the customer-storefront inspiration benchmark for collection-led shopping, live stock/condition clarity, set discovery and graded-card presentation; TCG Automate is the operations benchmark for scan/batch speed, quick corrections, card search, repricing, cross-listing and device workflows. Drop Rate must learn from those patterns without copying their design or brand, and exceed both through exact-print recognition, multi-owner/consignor accounting, auditable settlements and consumer recognition features.**
+
+**Native mobile product direction: BLUEPRINTED — Founder HQ is planned to become a first-class iOS + Android app using the same backend and permissions as web, with inspiration from modern TCG collection/market apps such as Collectr, Pulse TCG and HoloDex while remaining operationally focused. It will be camera-first, support scan/intake, inventory, media/condition, pricing evidence, Action Required, sales, consignments, notifications and later Device Bridge printing/scanner workflows. The web dashboard remains the dense desktop control centre; mobile is purpose-built rather than a shrunken web UI.**
 
 
 **Shopify ↔ eBay cross-channel inventory v1: DEPLOYED / PRODUCTION-DORMANT — PR #143 merged as `52dd8937`; controlled single-item eBay publishing, exact Inventory ID/SKU linkage, signed `ORDER_CONFIRMATION` intake, Shopify→eBay withdrawal, eBay→Shopify zeroing with remote verification, deterministic eBay channel pricing, audited eBay fee/postage reconciliation, return-to-INSPECTION isolation and safe re-listing are now deployed. GitHub CI and Railway pre-deploy both passed **563 tests**; Railway deployment `e3f6bade-f6e5-4c0a-a192-5b06340431a5` succeeded and `/health/ready` returned **200**. Production Supabase migrations `20260926144848_ebay_cross_channel_v1` and `20260926144947_index_ebay_cross_channel_fks` are applied. Live eBay tables remain empty and eBay publication is explicitly disabled. The remaining external blocker is seller-authorised eBay OAuth plus the seller's payment/fulfilment/return policy IDs, merchant inventory location and enabled order-confirmation notification subscription; no live eBay listing has been fabricated or published.**
@@ -514,6 +517,7 @@ These are now first-class roadmap items rather than informal design ideas:
 8. **Mobile-first store + operations:** storefront collection/search/PDP and Founder HQ scan/intake need purpose-built mobile layouts.
 9. **Performance at scale:** design now for 5,000–50,000+ cards with dense grids, pagination/virtualisation, image delivery and indexed search.
 10. **AI authority boundary:** AI may generate content and suggestions but cannot silently change identity, owner, price rule, settlement or publication gates.
+11. **Native app parity:** mobile workflows must use the same backend truth, permissions and audit rules as Founder HQ while being purpose-built for camera-first operational use.
 
 Detailed implementation blueprint: `docs/STOREFRONT_AND_UX_BLUEPRINT.md`.
 
@@ -665,6 +669,8 @@ Required controls:
 - only then enable persisted observations and automatic pricing runs source by source
 
 ## Major deferred decisions / features
+
+- native iOS/Android Founder app is now a defined product phase: shared FastAPI/Supabase backend, camera-first recognition/intake, inventory, media/condition, Action Required, sales, consignments, push notifications and later scanner/printer Device Bridge; see `docs/STOREFRONT_AND_UX_BLUEPRINT.md`
 
 - customer-facing Shopify theme/storefront is now a defined major build phase: custom Shopify Online Store 2.0 theme in GitHub, TCG-native search/filtering, collection/product-card system, raw/graded PDPs, grouped physical-copy presentation, database-driven merchandising, AI listing copy and later Scan to Find / Scan to Sell; see `docs/STOREFRONT_AND_UX_BLUEPRINT.md`
 
