@@ -11,12 +11,17 @@
       "name": "Drop Rate Event Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [-620, 0],
+      "position": [
+        -620,
+        0
+      ],
       "parameters": {
         "httpMethod": "POST",
         "path": "drop-rate/events",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {
+          "rawBody": true
+        }
       }
     },
     {
@@ -24,9 +29,12 @@
       "name": "Verify Signature + Envelope",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-380, 0],
+      "position": [
+        -380,
+        0
+      ],
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst item = $input.first().json;\nconst headers = Object.fromEntries(Object.entries(item.headers || {}).map(([k,v]) => [String(k).toLowerCase(), String(v)]));\nconst timestamp = headers['x-drop-rate-timestamp'] || '';\nconst supplied = headers['x-drop-rate-signature'] || '';\nconst secret = String($env.DROP_RATE_AUTOMATION_WEBHOOK_SECRET || '').trim();\nconst now = Math.floor(Date.now()/1000);\nconst ts = Number(timestamp);\nlet error = null;\nif (secret.length < 32) error = 'secret_not_configured';\nelse if (!Number.isInteger(ts) || Math.abs(now-ts) > 300) error = 'stale_or_invalid_timestamp';\nelse if (!supplied.startsWith('sha256=')) error = 'invalid_signature_format';\nconst body = item.body;\nif (!error && (!body || typeof body !== 'object' || Array.isArray(body))) error = 'invalid_body';\nconst required = ['event_id','event_type','schema_version','aggregate','idempotency_key','occurred_at','payload'];\nif (!error && required.some((key) => body[key] === undefined || body[key] === null || body[key] === '')) error = 'invalid_envelope';\nif (!error && (!body.aggregate || !body.aggregate.type || !body.aggregate.id)) error = 'invalid_aggregate';\nif (!error && Number(body.schema_version) < 1) error = 'invalid_schema_version';\nif (!error) {\n  const canonical = JSON.stringify(body);\n  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + canonical, 'utf8').digest('hex');\n  const a = Buffer.from(expected);\n  const b = Buffer.from(supplied);\n  if (a.length !== b.length || !crypto.timingSafeEqual(a,b)) error = 'signature_mismatch';\n}\nreturn [{json:{accepted:!error,statusCode:error?401:202,error,event:body || null}}];"
+        "jsCode": "const crypto = require('crypto');\nconst item = $input.first();\nconst json = item.json || {};\nconst headers = Object.fromEntries(Object.entries(json.headers || {}).map(([k,v]) => [String(k).toLowerCase(), String(v)]));\nconst timestamp = headers['x-drop-rate-timestamp'] || '';\nconst supplied = headers['x-drop-rate-signature'] || '';\nconst secret = String($env.DROP_RATE_AUTOMATION_WEBHOOK_SECRET || '').trim();\nconst now = Math.floor(Date.now()/1000);\nconst ts = Number(timestamp);\nlet error = null;\nif (secret.length < 32) error = 'secret_not_configured';\nelse if (!Number.isInteger(ts) || Math.abs(now-ts) > 300) error = 'stale_or_invalid_timestamp';\nelse if (!/^sha256=[0-9a-f]{64}$/.test(supplied)) error = 'invalid_signature_format';\n\nlet rawBody = '';\nlet body = null;\nif (!error) {\n  const encoded = item.binary?.data?.data;\n  if (!encoded) error = 'raw_body_missing';\n  else {\n    try {\n      rawBody = Buffer.from(encoded, 'base64').toString('utf8');\n      body = JSON.parse(rawBody);\n    } catch {\n      error = 'invalid_json';\n    }\n  }\n}\nif (!error && (!body || typeof body !== 'object' || Array.isArray(body))) error = 'invalid_body';\nconst required = ['event_id','event_type','schema_version','aggregate','idempotency_key','occurred_at','payload'];\nif (!error && required.some((key) => body[key] === undefined || body[key] === null || body[key] === '')) error = 'invalid_envelope';\nif (!error && (!body.aggregate || !body.aggregate.type || !body.aggregate.id)) error = 'invalid_aggregate';\nif (!error && (!Number.isInteger(body.schema_version) || body.schema_version < 1)) error = 'invalid_schema_version';\nif (!error) {\n  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + rawBody, 'utf8').digest('hex');\n  const a = Buffer.from(expected, 'ascii');\n  const b = Buffer.from(supplied, 'ascii');\n  if (a.length !== b.length || !crypto.timingSafeEqual(a,b)) error = 'signature_mismatch';\n}\nreturn [{json:{accepted:!error,error,event:body}}];"
       }
     },
     {
@@ -34,11 +42,30 @@
       "name": "Signature Valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [-120, 0],
+      "position": [
+        -120,
+        0
+      ],
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
-          "conditions": [{"id":"accepted","leftValue":"={{ $json.accepted }}","rightValue":true,"operator":{"type":"boolean","operation":"true","singleValue":true}}],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "accepted",
+              "leftValue": "={{ $json.accepted }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
           "combinator": "and"
         },
         "options": {}
@@ -49,11 +76,16 @@
       "name": "Accepted",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [140, -100],
+      "position": [
+        140,
+        -100
+      ],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ { accepted: true, event_id: $json.event.event_id } }}",
-        "options": {"responseCode": 202}
+        "options": {
+          "responseCode": 202
+        }
       }
     },
     {
@@ -61,18 +93,60 @@
       "name": "Rejected",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [140, 100],
+      "position": [
+        140,
+        100
+      ],
       "parameters": {
         "respondWith": "json",
         "responseBody": "={{ { accepted: false, error: $json.error } }}",
-        "options": {"responseCode": 401}
+        "options": {
+          "responseCode": 401
+        }
       }
     }
   ],
   "connections": {
-    "Drop Rate Event Webhook": {"main":[[{"node":"Verify Signature + Envelope","type":"main","index":0}]]},
-    "Verify Signature + Envelope": {"main":[[{"node":"Signature Valid?","type":"main","index":0}]]},
-    "Signature Valid?": {"main":[[{"node":"Accepted","type":"main","index":0}],[{"node":"Rejected","type":"main","index":0}]]}
+    "Drop Rate Event Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify Signature + Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Signature + Envelope": {
+      "main": [
+        [
+          {
+            "node": "Signature Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature Valid?": {
+      "main": [
+        [
+          {
+            "node": "Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "pinData": {},
   "meta": {
