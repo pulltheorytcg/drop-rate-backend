@@ -140,6 +140,7 @@ class Settings:
     shopify_test_publish_enabled: bool = False
     shopify_publish_enabled: bool = False
     shopify_catalogue_bootstrap_enabled: bool = False
+    shopify_catalogue_bootstrap_actor_user_id: str | None = None
     media_physical_photo_threshold_minor: int = 5_000
     tcggraph_api_key: str | None = None
     tcggraph_max_concurrency: int = 8
@@ -232,6 +233,9 @@ class Settings:
             shopify_publish_enabled=_boolean("TCG_SHOPIFY_PUBLISH_ENABLED", False),
             shopify_catalogue_bootstrap_enabled=_boolean(
                 "TCG_SHOPIFY_CATALOGUE_BOOTSTRAP_ENABLED", False
+            ),
+            shopify_catalogue_bootstrap_actor_user_id=_optional(
+                "TCG_SHOPIFY_CATALOGUE_BOOTSTRAP_ACTOR_USER_ID"
             ),
             media_physical_photo_threshold_minor=_bounded_int(
                 "TCG_MEDIA_PHYSICAL_PHOTO_THRESHOLD_MINOR",
