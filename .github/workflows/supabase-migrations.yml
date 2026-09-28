@@ -51,14 +51,13 @@ jobs:
           test -n "${SUPABASE_ACCESS_TOKEN}" || { echo "Missing SUPABASE_ACCESS_TOKEN"; exit 1; }
           test -n "${SUPABASE_DB_PASSWORD}" || { echo "Missing SUPABASE_DB_PASSWORD"; exit 1; }
 
-      - name: Stage canonical migrations for Supabase CLI
+      - name: Stage canonical migrations against production history
         shell: bash
         run: |
           set -euo pipefail
           supabase init
           rm -rf supabase/migrations
-          mkdir -p supabase/migrations
-          cp database/migrations/*.sql supabase/migrations/
+          python scripts/stage_supabase_migrations.py supabase/migrations
           test -n "$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -print -quit)"
 
       - name: Link production project
