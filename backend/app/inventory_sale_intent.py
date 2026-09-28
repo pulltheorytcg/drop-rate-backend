@@ -9,7 +9,8 @@ from fastapi.encoders import jsonable_encoder
 
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
-from .ebay_sales import EbaySellApiError, withdraw_ebay_for_inventory
+from .ebay_sales import withdraw_ebay_for_inventory
+from .ebay_sell_client import EbaySellApiError
 from .ownership import current_owner as _owner
 from .schemas import InventorySaleIntentChange
 from .shopify_pipeline import withdraw_shopify_for_inventory
@@ -90,7 +91,7 @@ async def change_inventory_sale_intent(
     inventory: dict[str, Any]
     changed = False
     paused_memberships: list[dict[str, Any]] = []
-    had_live_ebay = False
+    had_ebay_candidate = False
 
     async with user_connection(
         request.app.state.db_pool,
@@ -162,13 +163,14 @@ async def change_inventory_sale_intent(
                     owner_id=owner_id,
                     actor_user_id=user.user_id,
                 )
-                had_live_ebay = bool(
+                had_ebay_candidate = bool(
                     await connection.fetchval(
                         """
                         select exists(
                           select 1
                           from tcg.ebay_inventory_links
-                          where inventory_id=$1 and owner_id=$2 and state='LIVE'
+                          where inventory_id=$1 and owner_id=$2
+                            and state in ('LIVE','ERROR')
                         )
                         """,
                         inventory_id,
@@ -200,7 +202,7 @@ async def change_inventory_sale_intent(
             [str(inventory_id)],
             reason="PERSONAL_COLLECTION",
         )
-        if had_live_ebay:
+        if had_ebay_candidate:
             ebay_status = "WITHDRAWN"
     except EbaySellApiError:
         ebay_status = "ERROR"
