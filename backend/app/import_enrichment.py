@@ -220,7 +220,17 @@ async def _confirm_identity(
     return dict(updated), evidence
 
 
-async def _existing_media(connection, catalogue_id: UUID) -> list[dict[str, Any]]:
+async def _existing_media(
+    connection,
+    catalogue_id: UUID,
+    *,
+    language: str | None,
+    variant: str,
+) -> list[dict[str, Any]]:
+    clean_lang = clean_language(language)
+    clean_variant = " ".join(str(variant or "").strip().split())
+    if not clean_lang:
+        return []
     rows = await connection.fetch(
         """
         select *
@@ -230,12 +240,16 @@ async def _existing_media(connection, catalogue_id: UUID) -> list[dict[str, Any]
           and side='FRONT'
           and source_status='ACTIVE'
           and revoked_at is null
+          and lower(btrim(coalesce(media_language,'')))=lower(btrim($2))
+          and lower(btrim(coalesce(media_variant,'')))=lower(btrim($3))
         order by
           case approval_status when 'APPROVED' then 0 else 1 end,
           created_at desc,
           id
         """,
         catalogue_id,
+        clean_lang,
+        clean_variant,
     )
     return [dict(row) for row in rows]
 
@@ -580,7 +594,12 @@ async def _process_one(
                 metadata={"catalogue_id": str(current["catalogue_id"])},
             )
 
-        assets = await _existing_media(connection, current["catalogue_id"])
+        assets = await _existing_media(
+            connection,
+            current["catalogue_id"],
+            language=current.get("language") or current.get("catalogue_language"),
+            variant=str(current.get("variant") or ""),
+        )
         existing_status = _media_status_from_assets(assets)
         media_status = existing_status or "PENDING"
         media_reason: str | None = None
@@ -612,7 +631,12 @@ async def _process_one(
                         row=current,
                         result=provider_result,
                     )
-                assets = await _existing_media(connection, current["catalogue_id"])
+                assets = await _existing_media(
+                    connection,
+                    current["catalogue_id"],
+                    language=current.get("language") or current.get("catalogue_language"),
+                    variant=str(current.get("variant") or ""),
+                )
                 media_status = _media_status_from_assets(assets) or "PENDING_REVIEW"
                 metadata["media_provider"] = provider_result.get("provider") or provider_type
                 metadata["media_provider_id"] = provider_result.get("provider_id")
