@@ -27,6 +27,23 @@ if [ "${#webhook_secret}" -lt 32 ]; then
 fi
 unset webhook_secret
 
+command_secret="${DROP_RATE_AUTOMATION_COMMAND_SECRET:-}"
+if [ "${#command_secret}" -lt 32 ]; then
+  echo "Drop Rate n8n: DROP_RATE_AUTOMATION_COMMAND_SECRET must be at least 32 characters." >&2
+  exit 1
+fi
+unset command_secret
+
+command_url="${DROP_RATE_API_AUTOMATION_URL:-}"
+case "$command_url" in
+  https://*|http://*.railway.internal/*|http://*.railway.internal:*/*) ;;
+  *)
+    echo "Drop Rate n8n: DROP_RATE_API_AUTOMATION_URL must use HTTPS or Railway private DNS." >&2
+    exit 1
+    ;;
+esac
+unset command_url
+
 
 # The persistent volume is mounted before the application start command runs.
 # Provision only version-controlled workflows whose IDs are not already present.
