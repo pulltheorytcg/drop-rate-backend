@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from types import SimpleNamespace
 from uuid import UUID
 
 import asyncpg
@@ -14,6 +15,20 @@ from app.shopify_client import ShopifyApiError
 INVENTORY_ID = UUID("33333333-3333-3333-3333-333333333333")
 OWNER_ID = UUID("22222222-2222-2222-2222-222222222222")
 EVENT_ID = UUID("11111111-1111-1111-1111-111111111111")
+
+
+@pytest.fixture(autouse=True)
+def _shopify_settings(monkeypatch):
+    monkeypatch.setattr(
+        pipeline,
+        "get_settings",
+        lambda: SimpleNamespace(
+            shopify_location_gid="gid://shopify/Location/40",
+            shopify_publication_gid="gid://shopify/Publication/50",
+            shopify_shop_domain="drop-rate.myshopify.com",
+            media_physical_photo_threshold_minor=5_000,
+        ),
+    )
 
 
 def _item() -> dict:
