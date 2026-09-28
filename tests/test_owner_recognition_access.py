@@ -6,7 +6,7 @@ MAIN = ROOT / "backend" / "app" / "main.py"
 API = ROOT / "backend" / "app" / "recognition.py"
 REFERENCE = ROOT / "backend" / "app" / "recognition_reference_index.py"
 LEARNING = ROOT / "backend" / "app" / "recognition_learning.py"
-MIGRATION = ROOT / "database" / "migrations" / "20260928195000_owner_recognition_access.sql"
+MIGRATION = ROOT / "database" / "migrations" / "20260928195408_owner_recognition_access.sql"
 
 
 def test_recognition_router_is_not_globally_platform_admin_only() -> None:
