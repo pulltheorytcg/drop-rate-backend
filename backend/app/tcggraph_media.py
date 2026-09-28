@@ -235,7 +235,7 @@ def resolve_exact_card(
                 if isinstance(provider_set, Mapping)
                 else ""
             )
-            if provider_set_name != local_set:
+            if provider_set_name and provider_set_name != local_set:
                 continue
         if expected_line:
             game_data = row.get("gameData")
