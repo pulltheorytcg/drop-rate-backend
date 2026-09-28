@@ -178,3 +178,17 @@ def test_listing_membership_cannot_reactivate_collection_stock() -> None:
     assert 'inventory["status"] != "APPROVED"' in block
     assert 'inventory["sale_intent"] != "FOR_SALE"' in block
     assert "marketplace listing can be reactivated" in block
+
+
+def test_collection_withdrawal_recovers_uncertain_ebay_offer_state() -> None:
+    source = EBAY.read_text()
+    start = source.index("async def withdraw_ebay_for_inventory(")
+    end = source.index("async def restore_ebay_after_shopify_release(", start)
+    block = source[start:end]
+    assert 'link["state"] in {"LIVE", "ERROR"}' in block
+    assert 'client.get_offers(sku=str(link["sku"]))' in block
+    assert "Multiple eBay offers exist for inventory being withdrawn" in block
+    assert "await client.get_offer(offer_id)" in block
+    assert "await client.withdraw_offer(offer_id)" in block
+    assert "Live eBay link has no recoverable remote offer" in block
+    assert "set state='WITHDRAWN'" in block
