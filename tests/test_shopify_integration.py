@@ -722,7 +722,7 @@ def test_webhook_retry_after_cross_channel_failure_is_database_idempotent() -> N
     assert "status='FAILED'" in source
     pipeline = (ROOT / "backend" / "app" / "shopify_pipeline.py").read_text()
     paid = pipeline[pipeline.index("async def _process_paid_order("):pipeline.index("async def _process_cancelled_order(")]
-    assert "ORDER_ALREADY_PROCESSED" in paid
+    assert '"action": "ORDER_ALREADY_RECORDED"' in paid
     assert "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1" in paid
 
 
