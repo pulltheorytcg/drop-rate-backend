@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import html
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -9,6 +13,70 @@ import httpx
 
 
 RESEND_API_URL = "https://api.resend.com/emails"
+WEBHOOK_TOLERANCE_SECONDS = 300
+
+
+class ResendWebhookVerificationError(ValueError):
+    pass
+
+
+def verify_resend_webhook(
+    *,
+    raw_body: bytes,
+    webhook_secret: str,
+    svix_id: str,
+    svix_timestamp: str,
+    svix_signature: str,
+    now: int | None = None,
+) -> None:
+    secret = webhook_secret.strip()
+    if not secret.startswith("whsec_"):
+        raise ResendWebhookVerificationError("Invalid Resend webhook secret")
+
+    event_id = svix_id.strip()
+    timestamp_text = svix_timestamp.strip()
+    signatures = svix_signature.strip()
+    if not event_id or not timestamp_text or not signatures:
+        raise ResendWebhookVerificationError("Missing Resend webhook signature headers")
+
+    try:
+        timestamp = int(timestamp_text)
+    except ValueError as exc:
+        raise ResendWebhookVerificationError("Invalid Resend webhook timestamp") from exc
+
+    current = int(time.time() if now is None else now)
+    if abs(current - timestamp) > WEBHOOK_TOLERANCE_SECONDS:
+        raise ResendWebhookVerificationError("Resend webhook timestamp is outside tolerance")
+
+    encoded_secret = secret.removeprefix("whsec_")
+    encoded_secret += "=" * (-len(encoded_secret) % 4)
+    try:
+        secret_bytes = base64.b64decode(encoded_secret, validate=True)
+    except (ValueError, base64.binascii.Error) as exc:
+        raise ResendWebhookVerificationError("Invalid Resend webhook secret encoding") from exc
+
+    signed = (
+        event_id.encode("utf-8")
+        + b"."
+        + timestamp_text.encode("ascii")
+        + b"."
+        + raw_body
+    )
+    expected = base64.b64encode(
+        hmac.new(secret_bytes, signed, hashlib.sha256).digest()
+    ).decode("ascii")
+
+    candidates = []
+    for part in signatures.split():
+        version, separator, signature = part.partition(",")
+        if separator and version == "v1" and signature:
+            candidates.append(signature)
+
+    if not candidates or not any(
+        hmac.compare_digest(expected, candidate)
+        for candidate in candidates
+    ):
+        raise ResendWebhookVerificationError("Invalid Resend webhook signature")
 
 
 class ResendApiError(RuntimeError):
