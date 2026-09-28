@@ -4,8 +4,6 @@ import asyncio
 import json
 import os
 import sys
-from urllib.parse import urlparse
-
 import asyncpg
 import httpx
 
@@ -14,6 +12,7 @@ from app.automation_dispatcher import (
     classify_http_failure,
     retry_delay_seconds,
     signature_headers,
+    validate_webhook_url,
 )
 
 
@@ -37,12 +36,10 @@ def _required(name: str) -> str:
 
 def _webhook_url() -> str:
     value = _required("TCG_N8N_WEBHOOK_URL")
-    parsed = urlparse(value)
-    if parsed.scheme != "https" or not parsed.hostname:
-        raise RuntimeError("TCG_N8N_WEBHOOK_URL must be an HTTPS URL")
-    if parsed.username or parsed.password or parsed.fragment:
-        raise RuntimeError("TCG_N8N_WEBHOOK_URL contains unsupported URL components")
-    return value
+    try:
+        return validate_webhook_url(value)
+    except ValueError as exc:
+        raise RuntimeError(f"TCG_N8N_WEBHOOK_URL is invalid: {exc}") from exc
 
 
 async def _configure_connection(connection: asyncpg.Connection) -> None:
