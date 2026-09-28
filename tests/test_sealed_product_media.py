@@ -6,7 +6,7 @@ MIGRATION = (
     ROOT
     / "database"
     / "migrations"
-    / "20260928224500_sealed_product_media.sql"
+    / "20260928224759_sealed_product_media.sql"
 )
 
 
