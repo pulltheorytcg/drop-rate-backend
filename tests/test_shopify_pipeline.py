@@ -402,7 +402,7 @@ def test_shopify_sync_requires_shipping_profile_before_remote_create() -> None:
     start = source.index("async def sync_one_test_item(")
     end = source.index("def _parse_order_lines(", start)
     sync = source[start:end]
-    assert "_shipping_profiles(" in source
+    assert 'shipping_profiles = await _shipping_profiles(connection, owner["id"])' in sync
     assert "shipping_profiles=shipping_profiles" in sync
     assert 'shipping_spec=launch["shippingSpec"]' in sync
     assert 'expected_shipping_spec=launch["shippingSpec"]' in sync
