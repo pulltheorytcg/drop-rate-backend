@@ -108,3 +108,14 @@ def test_founder_hq_settings_can_create_and_revoke_restricted_owner_invites() ->
     assert "commission_bps: Math.round(commissionPercent * 100)" in source
     assert "This can never grant Founder HQ access." in source
 
+
+
+def test_owner_invite_create_fix_qualifies_output_column_collision() -> None:
+    migration = (ROOT / "database" / "migrations" / "20260928061929_fix_owner_invite_ambiguous_email_column.sql").read_text()
+    lower = migration.lower()
+
+    assert "update tcg.owner_invites i" in lower
+    assert "lower(i.invited_email)=v_email" in lower
+    assert "security definer" in lower
+    assert "set search_path = pg_catalog, tcg" in lower
+    assert "grant execute on function tcg.create_owner_invite" in lower
