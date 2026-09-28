@@ -5,6 +5,7 @@ import hmac
 import json
 from datetime import datetime, timezone
 from typing import Any, Mapping
+from urllib.parse import urlparse
 
 
 def _json_payload(value: object) -> dict[str, Any]:
@@ -110,3 +111,22 @@ def classify_http_failure(status_code: int) -> tuple[str, bool]:
     if 400 <= status <= 499:
         return f"N8N_HTTP_{status}", True
     return f"N8N_HTTP_{status}", False
+
+
+def validate_webhook_url(value: str) -> str:
+    """Allow HTTPS everywhere and HTTP only on Railway private DNS."""
+
+    clean = value.strip()
+    parsed = urlparse(clean)
+    hostname = (parsed.hostname or "").lower().rstrip(".")
+    if not hostname:
+        raise ValueError("Automation webhook URL must include a hostname")
+    if parsed.username or parsed.password or parsed.fragment:
+        raise ValueError("Automation webhook URL contains unsupported URL components")
+    if parsed.scheme == "https":
+        return clean
+    if parsed.scheme == "http" and hostname.endswith(".railway.internal"):
+        return clean
+    raise ValueError(
+        "Automation webhook URL must use HTTPS unless it targets Railway private DNS"
+    )

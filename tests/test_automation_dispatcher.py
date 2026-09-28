@@ -11,6 +11,7 @@ from app.automation_dispatcher import (
     classify_http_failure,
     retry_delay_seconds,
     signature_headers,
+    validate_webhook_url,
 )
 
 
@@ -203,3 +204,48 @@ def test_dispatcher_dockerfile_is_minimal() -> None:
     assert "requirements.txt" in dockerfile
     assert "run_automation_dispatcher.py" in dockerfile
     assert "uvicorn" not in dockerfile.lower()
+
+
+def test_webhook_url_accepts_public_https() -> None:
+    assert validate_webhook_url("https://automation.example.com/webhook/drop-rate") == "https://automation.example.com/webhook/drop-rate"
+
+
+def test_webhook_url_accepts_railway_private_http() -> None:
+    url = "http://drop-rate-n8n-e840.railway.internal:5678/webhook/drop-rate"
+    assert validate_webhook_url(url) == url
+
+
+def test_webhook_url_rejects_public_http() -> None:
+    try:
+        validate_webhook_url("http://automation.example.com/webhook/drop-rate")
+    except ValueError as exc:
+        assert "must use HTTPS" in str(exc)
+    else:
+        raise AssertionError("public HTTP webhook must be rejected")
+
+
+def test_webhook_url_rejects_railway_lookalike_hostname() -> None:
+    for url in (
+        "http://railway.internal.evil.com/webhook/drop-rate",
+        "http://evilrailway.internal/webhook/drop-rate",
+        "http://railway.internal/webhook/drop-rate",
+    ):
+        try:
+            validate_webhook_url(url)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"lookalike private hostname accepted: {url}")
+
+
+def test_webhook_url_rejects_userinfo_and_fragments() -> None:
+    for url in (
+        "https://user:pass@automation.example.com/webhook/drop-rate",
+        "http://drop-rate-n8n-e840.railway.internal:5678/webhook/drop-rate#fragment",
+    ):
+        try:
+            validate_webhook_url(url)
+        except ValueError as exc:
+            assert "unsupported URL components" in str(exc)
+        else:
+            raise AssertionError(f"unsafe webhook URL accepted: {url}")
