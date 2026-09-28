@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -54,6 +55,8 @@ from .shopify_catalogue_bootstrap import run_shopify_catalogue_bootstrap
 from .shopify_pipeline import router as shopify_pipeline_router
 from .shopify_readiness import router as shopify_readiness_router
 from .storage_locations import router as storage_locations_router
+
+logger = logging.getLogger(__name__)
 from .stripe_connect import router as stripe_connect_router
 from .tcggraph_media import router as tcggraph_media_router
 
@@ -142,10 +145,40 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI):
         app.state.db_pool = await create_pool(settings)
         bootstrap_task: asyncio.Task | None = None
+        shopify_config_complete = all(
+            (
+                settings.shopify_shop_domain,
+                settings.shopify_client_id,
+                settings.shopify_client_secret,
+                settings.shopify_location_gid,
+                settings.shopify_publication_gid,
+            )
+        )
+        logger.warning(
+            "Shopify catalogue bootstrap startup: enabled=%s config_complete=%s",
+            settings.shopify_catalogue_bootstrap_enabled,
+            shopify_config_complete,
+        )
         if settings.shopify_catalogue_bootstrap_enabled:
             bootstrap_task = asyncio.create_task(
                 run_shopify_catalogue_bootstrap(app.state.db_pool, settings)
             )
+
+            def _bootstrap_done(task: asyncio.Task) -> None:
+                if task.cancelled():
+                    logger.warning("Shopify catalogue bootstrap task was cancelled")
+                    return
+                try:
+                    result = task.result()
+                except Exception:
+                    logger.exception("Shopify catalogue bootstrap task failed")
+                else:
+                    logger.warning(
+                        "Shopify catalogue bootstrap task finished: %s",
+                        result,
+                    )
+
+            bootstrap_task.add_done_callback(_bootstrap_done)
             app.state.shopify_catalogue_bootstrap_task = bootstrap_task
         try:
             yield
