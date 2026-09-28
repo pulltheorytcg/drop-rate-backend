@@ -2486,11 +2486,12 @@ async def _process_created_order(
             "order_reference": order_reference,
         }
 
-    owner_id, user_id = await _resolve_order_owner_scope(
-        connection,
-        variant_gids=variant_gids,
+    scopes = await _resolve_order_scopes(connection, variant_gids=variant_gids)
+    actor_user_id = scopes[0]["created_by_user_id"]
+    await connection.execute(
+        "select set_config('tcg.user_id',$1,true)",
+        str(actor_user_id),
     )
-    await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
 
     existing = await connection.fetchrow(
         "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1",
@@ -2523,12 +2524,11 @@ async def _process_created_order(
           i.status as inventory_status
         from tcg.shopify_inventory_links sil
         join tcg.inventory_items i on i.id=sil.inventory_id
-        where sil.owner_id=$1
-          and sil.reserved_order_reference=$2
+        where sil.reserved_order_reference=$1
         order by sil.allocation_priority,sil.inventory_id
         for update of sil,i
         """,
-        owner_id, order_reference,
+        order_reference,
     )
     if reservations:
         expected_count = sum(spec["quantity"] for spec in line_specs)
@@ -2568,7 +2568,6 @@ async def _process_created_order(
 
     selected_units = await _select_order_units(
         connection,
-        owner_id=owner_id,
         order_reference=order_reference,
         line_specs=line_specs,
     )
@@ -2588,7 +2587,7 @@ async def _process_created_order(
             where id=$1 and owner_id=$2 and status='APPROVED'
             returning id,inventory_code
             """,
-            link["inventory_id"], owner_id,
+            link["inventory_id"], unit["owner_id"],
         )
         if inventory is None:
             raise ShopifyProcessingError(
@@ -2636,11 +2635,12 @@ async def _process_paid_order(
         event_label="paid order",
     )
 
-    owner_id, user_id = await _resolve_order_owner_scope(
-        connection,
-        variant_gids=variant_gids,
+    scopes = await _resolve_order_scopes(connection, variant_gids=variant_gids)
+    actor_user_id = scopes[0]["created_by_user_id"]
+    await connection.execute(
+        "select set_config('tcg.user_id',$1,true)",
+        str(actor_user_id),
     )
-    await connection.execute("select set_config('tcg.user_id',$1,true)", str(user_id))
 
     existing = await connection.fetchrow(
         "select id,status from tcg.orders where source='SHOPIFY' and source_reference=$1",
@@ -2668,7 +2668,6 @@ async def _process_paid_order(
 
     selected_units = await _select_order_units(
         connection,
-        owner_id=owner_id,
         order_reference=order_reference,
         line_specs=line_specs,
     )
@@ -2713,6 +2712,8 @@ async def _process_paid_order(
     created = []
     for index, unit in enumerate(selected_units):
         link = unit["link"]
+        owner_id = unit["owner_id"]
+        user_id = unit["created_by_user_id"]
         order_item_id = uuid4()
         await connection.execute(
             """
