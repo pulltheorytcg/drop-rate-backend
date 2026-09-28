@@ -426,6 +426,122 @@ Key operational surfaces:
 - Analytics
 - Settings / Devices
 
+## Native Founder App — iOS + Android
+
+Founder HQ must also become a first-class native mobile product.
+
+Reference category inspiration includes Collectr, Pulse TCG and HoloDex-style mobile collection/market experiences, while Drop Rate remains focused on operational seller workflows, exact physical inventory and marketplace automation.
+
+### Architecture
+
+- shared FastAPI/Supabase backend with Founder HQ web
+- native/cross-platform mobile client; preferred implementation path is React Native + Expo unless a later technical spike proves Flutter/native Swift/Kotlin materially better
+- no separate mobile source of truth
+- no business logic duplicated in the app
+- APIs must remain versioned, mobile-safe and permission-aware
+- offline-tolerant capture queue where useful, but mutations sync through authenticated backend APIs
+- push notifications for Action Required, sales, sync failures, consignor events and payout/settlement events
+
+### Mobile app principles
+
+- not a webview wrapper
+- camera-first
+- thumb-friendly one-handed operation
+- fast enough for stock intake on a shop floor/table
+- every scan should lead naturally into identity → exact printing → inventory → condition/media → price → listing
+- mobile should expose only the controls useful in the field; dense financial/admin work can remain richer on desktop
+
+### Core mobile surfaces
+
+1. Home / command centre
+2. Scan
+3. Inventory
+4. Card detail / exact Inventory ID
+5. Batch intake
+6. Media & condition
+7. Pricing / market evidence
+8. Shopify / marketplace sync status
+9. Sales
+10. Consignments
+11. Action Required
+12. Notifications
+13. Account / devices
+
+### Camera + recognition
+
+- instant rear-camera launch from Scan
+- live framing guidance
+- burst/auto-capture when stable
+- exact-print candidate results
+- runner-ups
+- confidence/evidence explanation
+- one-tap correction
+- barcode/QR support where useful
+- slab-aware capture for graded cards
+- retain capture metadata for the controlled learning loop
+
+### Inventory workflows
+
+- add physical card
+- assign owner
+- cost / condition / grade / language / location
+- scan existing item
+- move storage location
+- capture front/back media
+- approve exact printing
+- price review
+- publish / unpublish status
+- mark exception / counterfeit concern
+
+### Device Bridge
+
+Future mobile/device integration should support:
+- label printers
+- receipt/thermal printers where useful
+- camera/scanner accessories
+- Bluetooth/network device discovery
+- print job queue/status
+- QR/barcode label generation
+
+### Mobile notifications
+
+Push notifications should be event-driven and actionable:
+- card sold
+- high-value scan needs review
+- Shopify sync failed
+- eBay sync failed
+- price moved materially
+- consignment received/approved/sold
+- settlement ready
+- payout requested/failed
+- device/printer offline when a queued job exists
+
+### Mobile security
+
+- Supabase auth / OAuth reuse
+- short-lived access tokens
+- device/session revocation
+- biometric unlock where supported
+- role/owner permissions enforced server-side
+- no sensitive settlement or ownership rules trusted to the client
+
+### Mobile release sequence
+
+1. API contract hardening for native clients
+2. app shell + auth
+3. Scan / recognition
+4. Inventory search/detail
+5. Add inventory
+6. Media/condition capture
+7. Action Required
+8. Sales + notifications
+9. Consignment workflows
+10. Devices / printing
+11. offline resilience
+12. App Store / Play Store release pipeline
+
+The web Founder HQ and the native app should share design tokens, terminology and permissions, but each interface should be purpose-built for its device.
+
 ## Founder HQ improvements to build
 
 1. Recognition workstation with exact-print evidence, runner-ups and quick correction.
