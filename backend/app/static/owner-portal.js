@@ -647,7 +647,8 @@ function formatDateTime(value) {
 }
 
 function renderEmptyRow(bodyId, colspan, message) {
-  const body = byId(bodyId);
+  const body = typeof bodyId === "string" ? byId(bodyId) : bodyId;
+  if (!body) return;
   body.replaceChildren();
   const row = document.createElement("tr");
   const cell = document.createElement("td");
