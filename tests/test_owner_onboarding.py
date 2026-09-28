@@ -255,7 +255,7 @@ def test_owner_join_flow_is_guided_and_acknowledged_before_redeem() -> None:
     source = JOIN_JS.read_text()
 
     assert "Seller onboarding" in html
-    assert "What your owner account includes" in html
+    assert "What your seller account includes" in html
     assert 'id="owner-join-ack"' in html
     assert 'id="owner-existing-ack"' in html
     assert "acknowledged: true" in source
@@ -395,3 +395,17 @@ def test_resend_webhook_secret_is_not_exposed_publicly() -> None:
         main.index('@app.get("/health/live"')
     ]
     assert "resend_webhook_secret" not in public
+
+
+def test_seller_invitation_avoids_warning_style_owner_copy() -> None:
+    html = JOIN_HTML.read_text()
+    source = JOIN_JS.read_text()
+
+    assert "<title>Drop Rate — Seller Invitation</title>" in html
+    assert "Sell with Drop Rate" in html
+    assert "3 · Seller Hub" in html
+    assert "What your seller account includes" in html
+    assert "restricted owner account" not in html.casefold()
+    assert "owner scoped" not in html.casefold()
+    assert "seller account only gives me access to my own inventory" in html
+    assert "verified seller profile" in source
