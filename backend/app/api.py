@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import json
 from typing import Annotated
+from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
 import asyncpg
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import Response
 
 from .access_control import require_platform_admin_request
 from .ownership import current_owner as _owner
@@ -63,6 +66,33 @@ READY_SQL = f"""
     and i.identity_confirmed
     and {ACTIVE_INVENTORY_SQL}
 """
+
+INVENTORY_IMAGE_EXACT_HOSTS = {
+    "assets.tcgdex.net",
+    "en.onepiece-cardgame.com",
+    "www.onepiece-cardgame.com",
+    "onepiece-cardgame.com",
+    "cdn.shopify.com",
+}
+INVENTORY_IMAGE_ALLOWED_SUFFIXES = (
+    ".shopifycdn.com",
+    ".shopifycdn.net",
+)
+
+
+def _inventory_image_source_allowed(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not host:
+        return False
+    return (
+        host in INVENTORY_IMAGE_EXACT_HOSTS
+        or any(host.endswith(suffix) for suffix in INVENTORY_IMAGE_ALLOWED_SUFFIXES)
+    )
+
 
 ISSUE_FILTERS = {
     "missing_cost": f"({ACTIVE_INVENTORY_SQL}) and i.acquisition_cost_minor is null",
@@ -274,6 +304,121 @@ async def list_inventory(
              "offset": offset, "items": [dict(row) for row in rows]}
         )
 
+
+
+@router.get("/inventory/{inventory_id}/image")
+async def inventory_card_image(
+    inventory_id: UUID,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> Response:
+    """Proxy the best currently-eligible inventory image through Drop Rate.
+
+    Dashboard display eligibility is deliberately separate from exact-print
+    recognition approval. Pending but rights-verified images may display.
+    """
+
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, _request_id(request)
+    ) as connection:
+        owner = await _owner(connection)
+        item = await connection.fetchrow(
+            """
+            select i.id, i.catalogue_id
+            from tcg.inventory_items i
+            where i.id = $1 and i.owner_id = $2
+            """,
+            inventory_id, owner["id"],
+        )
+        if item is None:
+            raise HTTPException(status_code=404, detail="Inventory item not found")
+
+        assets = await connection.fetch(
+            """
+            select
+                ma.id, ma.scope, ma.approval_status, ma.source_provider,
+                ma.shopify_cdn_url, ma.public_source_url, ma.created_at
+            from tcg.media_assets ma
+            where ma.owner_id = $1
+              and ma.side = 'FRONT'
+              and ma.source_status = 'ACTIVE'
+              and ma.rights_status = 'VERIFIED'
+              and ma.approval_status in ('PENDING','APPROVED')
+              and ma.revoked_at is null
+              and coalesce(ma.shopify_cdn_url, ma.public_source_url) is not null
+              and (
+                (ma.scope = 'INVENTORY_ITEM' and ma.inventory_id = $2)
+                or
+                (ma.scope = 'CANONICAL_CARD' and ma.catalogue_id = $3)
+              )
+            order by
+                case when ma.scope = 'INVENTORY_ITEM' then 0 else 1 end,
+                case ma.approval_status when 'APPROVED' then 0 else 1 end,
+                case when nullif(btrim(coalesce(ma.shopify_cdn_url,'')), '') is not null then 0 else 1 end,
+                ma.created_at desc,
+                ma.id
+            """,
+            owner["id"], inventory_id, item["catalogue_id"],
+        )
+
+    if not assets:
+        raise HTTPException(status_code=404, detail="No image is assigned to this card")
+
+    timeout = httpx.Timeout(10.0, connect=5.0)
+    headers = {"User-Agent": "DropRateFounderHQ/1.0"}
+    failures: list[str] = []
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        follow_redirects=True,
+        headers=headers,
+    ) as client:
+        for asset in assets:
+            urls: list[str] = []
+            for candidate in (asset["shopify_cdn_url"], asset["public_source_url"]):
+                clean = str(candidate or "").strip()
+                if clean and clean not in urls:
+                    urls.append(clean)
+
+            for image_url in urls:
+                if not _inventory_image_source_allowed(image_url):
+                    failures.append(f"{asset['id']}: blocked image host")
+                    continue
+                try:
+                    remote = await client.get(image_url)
+                except httpx.HTTPError as exc:
+                    failures.append(f"{asset['id']}: {type(exc).__name__}")
+                    continue
+                if remote.status_code < 200 or remote.status_code >= 300:
+                    failures.append(f"{asset['id']}: HTTP {remote.status_code}")
+                    continue
+                content_type = (
+                    remote.headers.get("content-type") or ""
+                ).split(";", 1)[0].strip().lower()
+                if not content_type.startswith("image/"):
+                    failures.append(
+                        f"{asset['id']}: non-image content type {content_type or 'unknown'}"
+                    )
+                    continue
+                content = remote.content
+                if not content or len(content) > 12 * 1024 * 1024:
+                    failures.append(f"{asset['id']}: invalid image payload size")
+                    continue
+                return Response(
+                    content=content,
+                    media_type=content_type,
+                    headers={
+                        "X-Drop-Rate-Media-Id": str(asset["id"]),
+                        "X-Drop-Rate-Media-Provider": str(asset["source_provider"] or ""),
+                    },
+                )
+
+    raise HTTPException(
+        status_code=502,
+        detail={
+            "message": "Assigned image sources could not be loaded",
+            "attempts": failures[:10],
+        },
+    )
 
 @router.patch("/inventory/{inventory_id}", dependencies=[Depends(require_platform_admin_request)])
 async def update_inventory(
