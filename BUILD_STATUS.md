@@ -1,26 +1,39 @@
 # Drop Rate — Live Build Status
 
-_Last updated: 26 September 2026_
+_Last updated: 28 September 2026_
 
 This file is the persistent source of truth for project progress. A feature counts as **Completed** only after merge, production deployment and production verification where applicable.
 
 ## Current progress
 
-- **Full Drop Rate roadmap:** ~58%
-- **Milestone 1 — Inventory / ownership foundation:** ~99% for the internal founder build and ~95% against the final multi-user milestone. RBAC, admin-route hardening, dedicated OWNER onboarding, owner-safe inventory/finance APIs and the restricted owner portal are deployed. Remaining release gate: real second-account cross-owner isolation verification
+- **Full Drop Rate roadmap:** ~64% overall. The core marketplace/MVP path is further ahead at ~82%; the lower full-roadmap number includes still-deferred AI listings, customer service, SEO, marketing and advanced n8n automation.
+- **Milestone 1 — Inventory / ownership foundation:** ~99% for the internal founder build and ~96% against the final multi-user milestone. RBAC, admin-route hardening, dedicated OWNER onboarding, owner-safe inventory/finance APIs, the restricted owner portal, media/condition workflows and inventory-image delivery are deployed. Remaining release gate: genuine second-account cross-owner isolation verification and controlled multi-owner production use.
 - **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
-- **Milestone 2 — Shopify sale attribution:** ~90% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, and payout control is now automated up to REQUESTED state. Multi-owner production sale attribution + seller-facing restricted dashboards + live Stripe payout cutover remain
+- **Milestone 2 — Shopify sale attribution:** ~92% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, seller-facing restricted finance views are deployed, and payout control is automated up to REQUESTED state. Multi-owner/same-card production attribution and live Stripe payout cutover remain.
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
 
 ## Original business milestone status
 
 | Milestone | Current status | Remaining to call it complete |
 |---|---|---|
-| **1 — Three founders can log in, add physical cards, assign ownership/cost/condition/grade/location, search inventory and see exactly what they own** | **~95% overall / ~99% core inventory engine** | Restricted OWNER onboarding + owner-safe inventory/finance portal are deployed. Final gate is a genuine second-account cross-owner isolation test and production verification with more than one owner |
-| **2 — Approved card syncs to Shopify, sells, and sale is attributed to the correct owner** | **~90%** | Single-owner real sale/refund is proven; still need multi-owner/same-card production test, restricted seller view of proceeds, and live payout cutover |
+| **1 — Three founders can log in, add physical cards, assign ownership/cost/condition/grade/location, search inventory and see exactly what they own** | **~96% overall / ~99% core inventory engine** | Restricted OWNER onboarding + owner-safe inventory/finance portal are deployed. Final gate is a genuine second-account cross-owner isolation test and production verification with more than one owner |
+| **2 — Approved card syncs to Shopify, sells, and sale is attributed to the correct owner** | **~92%** | Single-owner real sale/refund is proven and restricted seller proceeds/settlement views are deployed; still need multi-owner/same-card production test and live payout cutover |
 | **3 — Market data automatically updates valuation and recommended pricing** | **~80%** | Deterministic pricing + snapshots + provisional pricing exist; final provider permissions, eBay sold access/Marketplace Insights, stronger Cardmarket/eBay evidence automation and scheduled production refresh remain |
 
 ## Current stage
+
+## 28 September 2026 — recognition + image corpus checkpoint
+
+**Recognition v1.5 / exact-printing retrieval: DEPLOYED — mobile/desktop scan intake, multi-signal evidence, exact-printing candidate handling, persistent recognition-reference fingerprint infrastructure and fail-closed promo/parallel handling are now in the live codebase. The system no longer treats card identity and exact physical printing as the same confidence problem. TCGAutomate remains the external benchmark; printer/device integration is intentionally later than recognition correctness.**
+
+**Founder inventory image delivery: DEPLOYED — Founder HQ now loads eligible artwork through an authenticated Drop Rate backend proxy instead of direct browser hotlinks. The proxy validates image responses, supports source fallback ordering and prefers INVENTORY_ITEM media over CANONICAL_CARD media. Latest live deployment after the graded-card UI change is SUCCESS.**
+
+**Card-by-card media audit: ACTIVE / HIGH COVERAGE — live inventory is 509 physical items / 462 unique catalogue entries. 420/462 unique entries currently have active front-image coverage: Pokémon 198/198, One Piece 222/231, Dragon Ball Super 0/28 and Dragon Ball Super Fusion World 0/5. One Piece language mismatches are 0 and all earlier guessed `Bandai Official Cardlist` rows have been removed/replaced. The remaining One Piece gaps are exact special-print/product cases and are deliberately unresolved rather than receiving approximate art.**
+
+**Graded-media rule: DEPLOYED — graded inventory now distinguishes canonical reference artwork from the actual slab photo. INVENTORY_ITEM slab media takes precedence; canonical art is only fallback/reference. Founder HQ visibly marks graded items with canonical art but no slab photo as `Reference art · slab photo required`. Current graded inventory: 8 items, 0 slab-front photos, 7 canonical references, 1 canonical exact-image gap. Certificate numbers are still absent from the imported graded rows and should be captured when slab media is added.**
+
+**Nico Robin correction: VERIFIED — ACE 10 Nico Robin OP01-017 Premium Card Collection - ONE PIECE FILM RED Edition was previously mapped to `OP01-017_p2`, which is the English 1st Anniversary Set artwork. Independent product-level verification confirmed the correct FILM RED printing is `OP01-017_p1`; the live media row has been corrected.**
+
 
 **Shopify ↔ eBay cross-channel inventory v1: DEPLOYED / PRODUCTION-DORMANT — PR #143 merged as `52dd8937`; controlled single-item eBay publishing, exact Inventory ID/SKU linkage, signed `ORDER_CONFIRMATION` intake, Shopify→eBay withdrawal, eBay→Shopify zeroing with remote verification, deterministic eBay channel pricing, audited eBay fee/postage reconciliation, return-to-INSPECTION isolation and safe re-listing are now deployed. GitHub CI and Railway pre-deploy both passed **563 tests**; Railway deployment `e3f6bade-f6e5-4c0a-a192-5b06340431a5` succeeded and `/health/ready` returned **200**. Production Supabase migrations `20260926144848_ebay_cross_channel_v1` and `20260926144947_index_ebay_cross_channel_fks` are applied. Live eBay tables remain empty and eBay publication is explicitly disabled. The remaining external blocker is seller-authorised eBay OAuth plus the seller's payment/fulfilment/return policy IDs, merchant inventory location and enabled order-confirmation notification subscription; no live eBay listing has been fabricated or published.**
 
@@ -566,16 +579,24 @@ See `docs/STRIPE_CONNECT_PAYOUTS.md`.
 | 6.5 | RBAC / seller & consignor portal | 🚧 Dedicated OWNER onboarding and restricted `/owner` inventory/sales/balance/settlement/payout/Stripe self-service are deployed. Next: genuine two-account cross-owner isolation proof, then controlled first seller/consignor onboarding |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
-| 9 | AI card identification | ⬜ Not started |
+| 9 | AI card identification | 🚧 Recognition v1.5 is deployed: mobile capture, multi-signal evidence, exact-print candidate logic and persistent visual-reference infrastructure are live. Remaining: finish exact reference corpus, harden exact-print confidence across promos/parallels/graded cards, complete Dragon Ball media coverage and expand evaluation dataset |
 | 10 | Consignment | 🚧 Payout/commission foundation deployed: 10% consignor commission, Stripe Connect readiness and payout approval control exist; consignor onboarding/intake portal remains to build |
 | 11 | AI product listings | ⬜ Not started |
 | 12 | AI customer service | ⬜ Not started |
 | 13 | SEO | ⬜ Not started |
 | 14 | AI marketing | ⬜ Not started |
 | 15 | n8n orchestration | ⬜ Advanced workflows not started |
-| 16 | Analytics / optimisation | ⬜ Not started |
+| 16 | Analytics / optimisation | 🚧 Founder sales analytics, inventory value intelligence, Top 5 value cards and genuine 7-day mover framework are deployed. Broader marketplace/product/marketing optimisation remains |
 
 ## Immediate work order
+
+### Next session — recognition/media closeout + multi-owner release gate
+1. Resolve the **9 remaining One Piece image gaps** only with exact product/printing evidence; do not substitute base art for ROUND1, release-event, regional, anniversary or stamped versions.
+2. Complete **Dragon Ball image coverage (33 unique cards across Masters + Fusion World)** through a permitted exact-print provider. TCGGraph adapter exists but production access is not configured yet.
+3. Capture real **FRONT + BACK slab photos for all 8 graded items** and record certificate numbers where available. Physical slab media becomes the customer-facing primary image; canonical art remains recognition/reference evidence.
+4. Build/refresh verified recognition fingerprints only from exact-print media that has passed the trust gate; do not train on merely visible reference art.
+5. Run the genuine **second OWNER cross-isolation test** and then a controlled multi-owner/same-card sale attribution test.
+6. Re-check Shopify #1002 final refund-fee settlement/idempotency before any cancellation action.
 
 ### Next session — inventory operations + controlled verification
 1. ✅ Seel 021/094 selected, physically verified, priced and published through the guarded single-item path.
