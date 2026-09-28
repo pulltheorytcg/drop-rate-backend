@@ -427,7 +427,7 @@ function renderOwnerChannelsRows(items) {
   body.replaceChildren();
 
   if (!items.length) {
-    renderEmptyRow(body, 6, "No channel-linked inventory matches these filters.");
+    renderEmptyRow("owner-channels-body", 6, "No channel-linked inventory matches these filters.");
     return;
   }
 
@@ -647,7 +647,8 @@ function formatDateTime(value) {
 }
 
 function renderEmptyRow(bodyId, colspan, message) {
-  const body = byId(bodyId);
+  const body = typeof bodyId === "string" ? byId(bodyId) : bodyId;
+  if (!body) return;
   body.replaceChildren();
   const row = document.createElement("tr");
   const cell = document.createElement("td");
