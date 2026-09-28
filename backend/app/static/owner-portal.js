@@ -1190,7 +1190,7 @@ async function initialise() {
   try {
     state.config = await readJson(await fetch("/api/v1/public-config"));
   } catch (_error) {
-    showMessage("The owner portal is temporarily unavailable. Please refresh shortly.", "error");
+    showMessage("Seller Hub is temporarily unavailable. Please refresh shortly.", "error");
     return;
   }
 
