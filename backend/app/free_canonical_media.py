@@ -62,11 +62,15 @@ def _norm(value: object) -> str:
 def _supported_provider(game: object, language: object) -> str | None:
     normalized_game = _norm(game)
     normalized_language = clean_language(language)
-    if normalized_language != "Japanese":
-        return None
-    if normalized_game in {"pokemon", "pokémon"}:
+    if normalized_game in {"pokemon", "pokémon"} and normalized_language in {
+        "English",
+        "Japanese",
+    }:
         return "TCGdex"
-    if normalized_game in {"one piece", "one piece card game"}:
+    if (
+        normalized_game in {"one piece", "one piece card game"}
+        and normalized_language == "Japanese"
+    ):
         return "Punk Records"
     return None
 
@@ -108,7 +112,8 @@ async def _resolve_one(
     async with semaphore:
         try:
             if provider == "TCGdex":
-                result = await tcgdex.resolve_japanese_card(
+                result = await tcgdex.resolve_card(
+                    language=str(language or ""),
                     set_name=str(row.get("set_name") or ""),
                     card_number=str(row.get("card_number") or ""),
                     variant=str(row.get("variant") or ""),
@@ -142,7 +147,7 @@ async def free_media_status(
             {
                 "name": "TCGdex",
                 "game": "Pokemon",
-                "language": "Japanese",
+                "language": "English + Japanese",
                 "source": TCGDEX_SOURCE_URL,
                 "database": TCGDEX_DATABASE_URL,
             },
