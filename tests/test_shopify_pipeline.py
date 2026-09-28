@@ -1045,3 +1045,73 @@ def test_repeated_refunds_walk_remaining_physical_allocations_without_owner_drif
     assert 'int(allocation["refunded_minor"] or 0) < int(allocation["net_sale_minor"])' in refund
     assert "REFUND_EXCEEDS_ITEM_REVENUE" in refund
     assert "remaining_refundable_minor" in refund
+
+
+def test_media_intake_queue_includes_sealed_front_packaging_photo() -> None:
+    sealed = _media_queue_card(
+        id="00000000-0000-0000-0000-000000000009",
+        catalogue_id="10000000-0000-0000-0000-000000000009",
+        inventory_code="INV-SEALED-1",
+        product_type="COLLECTION",
+        game="One Piece",
+        name="Premium Card Collection -6 assort vol.1-",
+        card_number=None,
+        language=None,
+        catalogue_language=None,
+        store_price_minor=14_823,
+        market_value_minor=14_823,
+    )
+
+    result = _build_media_intake_queue([sealed], [])
+
+    assert result["queue_count"] == 1
+    assert result["missing_side_count"] == 1
+    assert result["sealed_items_pending"] == 1
+    assert result["raw_items_pending"] == 0
+    assert result["graded_items_pending"] == 0
+    item = result["items"][0]
+    assert item["is_sealed"] is True
+    assert item["required_sides"] == ["FRONT"]
+    assert item["missing_sides"] == ["FRONT"]
+    assert item["capture_context_hint"] == "SEALED_PRODUCT"
+    assert item["capture_context_options"] == ["SEALED_PRODUCT"]
+
+
+def test_sealed_processing_front_photo_clears_media_capture_queue() -> None:
+    sealed = _media_queue_card(
+        id="00000000-0000-0000-0000-000000000009",
+        catalogue_id="10000000-0000-0000-0000-000000000009",
+        inventory_code="INV-SEALED-1",
+        product_type="COLLECTION",
+        game="One Piece",
+        name="One Piece Tin Pack Set Vol. 2 -Portgas.D.Ace-",
+        card_number=None,
+        language=None,
+        catalogue_language=None,
+    )
+    assets = [{
+        "scope": "INVENTORY_ITEM",
+        "catalogue_id": None,
+        "inventory_id": sealed["id"],
+        "side": "FRONT",
+        "approval_status": "APPROVED",
+        "rights_status": "VERIFIED",
+        "rights_tier": "FIRST_PARTY_CAPTURE",
+        "source_status": "ACTIVE",
+        "shopify_file_status": "PROCESSING",
+        "capture_context": "SEALED_PRODUCT",
+    }]
+
+    result = _build_media_intake_queue([sealed], assets)
+    assert result["queue_count"] == 0
+    assert result["missing_side_count"] == 0
+
+
+def test_sealed_media_creation_is_capture_context_gated() -> None:
+    source = PIPELINE.read_text()
+
+    assert "SEALED_PRODUCT" in source
+    assert 'product_type in {"SEALED", "COLLECTION"}' in source
+    assert 'detail="Sealed products must be photographed as SEALED_PRODUCT"' in source
+    assert 'detail="SEALED_PRODUCT capture context is only for sealed/collection inventory"' in source
+    assert 'scope = "CANONICAL_CARD" if product_type == "CARD" else "CANONICAL_PRODUCT"' in source

@@ -188,30 +188,57 @@ async def _candidate_rows(
                 i.grading_company,i.grade,i.condition_review_status,
                 p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,
                 p.rarity,p.language as catalogue_language,
-                m.id as media_id,m.public_source_url,m.alt_text,
+                m.id as media_id,m.scope as media_scope,
+                m.rights_tier as media_rights_tier,
+                m.capture_context as media_capture_context,
+                m.public_source_url,m.alt_text,
                 m.shopify_file_gid,m.shopify_file_status,m.shopify_cdn_url
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id=i.catalogue_id
             join lateral (
                 select ma.*
                 from tcg.media_assets ma
-                where ma.catalogue_id=i.catalogue_id
-                  and ma.scope='CANONICAL_CARD'
-                  and ma.side='FRONT'
+                where ma.side='FRONT'
                   and ma.source_status='ACTIVE'
                   and ma.rights_status='VERIFIED'
-                  and ma.rights_tier='STOREFRONT_ALLOWED'
-                  and nullif(btrim(coalesce(ma.rights_basis,'')),'') is not null
-                  and nullif(btrim(coalesce(ma.media_language,'')),'') is not null
-                  and (
-                    p.language is null
-                    or lower(btrim(ma.media_language))=lower(btrim(p.language))
-                  )
-                  and lower(btrim(coalesce(ma.media_variant,'')))=
-                      lower(btrim(coalesce(p.variant,'')))
+                  and ma.approval_status='APPROVED'
                   and coalesce(ma.shopify_cdn_url,ma.public_source_url) is not null
+                  and (
+                    (
+                      ma.scope='INVENTORY_ITEM'
+                      and ma.inventory_id=i.id
+                      and ma.rights_tier='FIRST_PARTY_CAPTURE'
+                      and (
+                        (
+                          p.product_type in ('SEALED','COLLECTION')
+                          and ma.capture_context='SEALED_PRODUCT'
+                        )
+                        or (
+                          p.product_type='CARD'
+                          and ma.capture_context in (
+                            'RAW_UNSLEEVED','PENNY_SLEEVE','TOP_LOADER','GRADED_SLAB'
+                          )
+                        )
+                      )
+                    )
+                    or (
+                      ma.catalogue_id=i.catalogue_id
+                      and ma.inventory_id is null
+                      and ma.scope=case
+                        when p.product_type='CARD' then 'CANONICAL_CARD'
+                        else 'CANONICAL_PRODUCT'
+                      end
+                      and ma.rights_tier='STOREFRONT_ALLOWED'
+                      and nullif(btrim(coalesce(ma.rights_basis,'')),'') is not null
+                      and nullif(btrim(coalesce(ma.media_language,'')),'') is not null
+                      and nullif(btrim(coalesce(p.language,'')),'') is not null
+                      and lower(btrim(ma.media_language))=lower(btrim(p.language))
+                      and lower(btrim(coalesce(ma.media_variant,'')))=
+                          lower(btrim(coalesce(p.variant,'')))
+                    )
+                  )
                 order by
-                    case ma.approval_status when 'APPROVED' then 0 else 1 end,
+                    case when ma.scope='INVENTORY_ITEM' then 0 else 1 end,
                     case ma.shopify_file_status when 'READY' then 0 else 1 end,
                     ma.created_at desc
                 limit 1
@@ -325,7 +352,13 @@ async def _record_product(
                 _synced_price_minor(current["store_price_minor"]),
             )
 
-            if isinstance(media, Mapping):
+            if (
+                isinstance(media, Mapping)
+                and str(item.get("media_scope") or "") in {
+                    "CANONICAL_CARD",
+                    "CANONICAL_PRODUCT",
+                }
+            ):
                 media_id = str(media.get("id") or "").strip()
                 remote_status = str(media.get("status") or "").strip().upper()
                 image = media.get("image")
@@ -360,7 +393,7 @@ async def _record_product(
                             updated_at=clock_timestamp(),
                             version=version+1
                         where m.id=$1
-                          and m.scope='CANONICAL_CARD'
+                          and m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
                           and m.side='FRONT'
                           and m.source_status='ACTIVE'
                           and m.rights_status='VERIFIED'

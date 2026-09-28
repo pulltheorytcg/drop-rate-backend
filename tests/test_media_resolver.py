@@ -195,3 +195,74 @@ def test_exact_first_party_front_has_priority_for_low_risk_card() -> None:
     assert result["complete"] is True
     assert result["resolutionSource"] == FIRST_PARTY_CAPTURE
     assert result["selectedMedia"][0]["id"] == "physical-front"
+
+
+def test_sealed_collection_requires_exact_first_party_packaging_front() -> None:
+    item = _item(
+        product_type="COLLECTION",
+        name="Premium Card Collection -6 assort vol.1-",
+        card_number=None,
+        language=None,
+        catalogue_language=None,
+        condition="Near Mint",
+        store_price_minor=14_823,
+        market_value_minor=14_823,
+    )
+    policy = physical_photo_policy(item)
+    assert policy["mediaPolicy"] == "PHYSICAL_ITEM_REQUIRED"
+    assert policy["physicalPhotosRequired"] is True
+    assert policy["requiredSides"] == ["FRONT"]
+    assert policy["captureContext"] == "SEALED_PRODUCT"
+    assert "exact packaging photo" in " ".join(policy["reasons"])
+
+    blocked = resolve_storefront_media(item, [])
+    assert blocked["complete"] is False
+    assert blocked["blockers"] == ["approved first-party physical front image"]
+
+    wrong_context = _asset(
+        asset_id="sealed-wrong",
+        scope="INVENTORY_ITEM",
+        side="FRONT",
+        rights_tier=FIRST_PARTY_CAPTURE,
+        inventory_id="inventory-1",
+        catalogue_id=None,
+        capture_context="RAW_UNSLEEVED",
+    )
+    wrong = resolve_storefront_media(item, [wrong_context])
+    assert wrong["complete"] is False
+    assert "approved first-party physical front image" in wrong["blockers"]
+
+    physical = _asset(
+        asset_id="sealed-front",
+        scope="INVENTORY_ITEM",
+        side="FRONT",
+        rights_tier=FIRST_PARTY_CAPTURE,
+        inventory_id="inventory-1",
+        catalogue_id=None,
+        capture_context="SEALED_PRODUCT",
+    )
+    ready = resolve_storefront_media(item, [physical])
+    assert ready["complete"] is True
+    assert ready["approvedMediaCount"] == 1
+    assert ready["resolutionSource"] == FIRST_PARTY_CAPTURE
+    assert ready["selectedMedia"][0]["captureContext"] == "SEALED_PRODUCT"
+
+
+def test_unknown_region_never_uses_reusable_canonical_product_media_for_sealed() -> None:
+    item = _item(
+        product_type="COLLECTION",
+        name="One Piece Tin Pack Set Vol. 2 -Portgas.D.Ace-",
+        card_number=None,
+        language=None,
+        catalogue_language=None,
+    )
+    canonical = _asset(
+        asset_id="sealed-canonical",
+        scope="CANONICAL_PRODUCT",
+        language="English",
+        variant="Normal",
+    )
+    result = resolve_storefront_media(item, [canonical])
+    assert result["complete"] is False
+    assert result["physicalPhotosRequired"] is True
+    assert result["resolutionSource"] == "NONE"

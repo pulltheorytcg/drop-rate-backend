@@ -147,7 +147,8 @@ def test_media_condition_ui_exposes_physical_capture_and_human_review() -> None:
     helper = HELPER.read_text()
 
     assert "Media & Condition" in ui
-    assert "This queue contains only Inventory IDs that require physical proof" in ui
+    assert "Cards only enter this queue when physical proof is required" in ui
+    assert "Sealed products always use a clear photo of the exact packaging" in ui
     assert 'id="shopify-media-context"' in ui
     assert "RAW_UNSLEEVED" in ui
     assert "PENNY_SLEEVE" in ui

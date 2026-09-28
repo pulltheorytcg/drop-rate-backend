@@ -52,3 +52,16 @@ def test_completed_capture_advances_only_after_a_real_selected_queue_item_disapp
     assert "else if (previous && items.length)" in block
     assert "Math.max(previousIndex, 1)" in block
     assert "applyMediaCandidateDefaults();" in block
+
+
+def test_media_capture_station_supports_sealed_product_context() -> None:
+    helper = SHOPIFY_SETTINGS.read_text()
+    ui = MEDIA_CONDITION.read_text()
+
+    assert '<option value="SEALED_PRODUCT">Sealed product</option>' in ui
+    assert 'option.dataset.isSealed = item.is_sealed ? "true" : "false";' in helper
+    assert 'option.dataset.captureContextHint = item.capture_context_hint || "";' in helper
+    assert 'option.dataset.isSealed === "true"' in helper
+    assert 'captureContext !== "SEALED_PRODUCT"' in helper
+    assert 'Sealed products require the Sealed product context' in helper
+    assert 'sealed_items_pending' in helper

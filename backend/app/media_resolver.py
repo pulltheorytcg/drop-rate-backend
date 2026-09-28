@@ -55,10 +55,21 @@ def physical_photo_policy(
     if threshold_minor < 100:
         raise ValueError("Physical-photo threshold must be at least £1.00")
 
-    if _text(item.get("product_type")) != "CARD":
+    product_type = _text(item.get("product_type"))
+    if product_type in {"SEALED", "COLLECTION"}:
+        return {
+            "mediaPolicy": "PHYSICAL_ITEM_REQUIRED",
+            "physicalPhotosRequired": True,
+            "requiredSides": ["FRONT"],
+            "captureContext": "SEALED_PRODUCT",
+            "reasons": ["sealed product requires exact packaging photo"],
+            "thresholdMinor": threshold_minor,
+        }
+    if product_type != "CARD":
         return {
             "mediaPolicy": "CANONICAL_STOREFRONT_ALLOWED",
             "physicalPhotosRequired": False,
+            "requiredSides": ["FRONT"],
             "reasons": [],
             "thresholdMinor": threshold_minor,
         }
@@ -105,6 +116,7 @@ def physical_photo_policy(
         ),
         "physicalPhotosRequired": required,
         "reasons": reasons,
+        "requiredSides": ["FRONT", "BACK"] if required else ["FRONT"],
         "thresholdMinor": threshold_minor,
     }
 
@@ -145,7 +157,8 @@ def _inventory_capture_candidates(
     assets: list[Mapping[str, Any]],
 ) -> list[Mapping[str, Any]]:
     inventory_id = _text(item.get("id"))
-    return [
+    product_type = _text(item.get("product_type"))
+    candidates = [
         asset
         for asset in assets
         if _base_ready(asset)
@@ -153,16 +166,32 @@ def _inventory_capture_candidates(
         and _text(asset.get("inventory_id")) == inventory_id
         and _text(asset.get("rights_tier")) == FIRST_PARTY_CAPTURE
     ]
+    if product_type in {"SEALED", "COLLECTION"}:
+        return [
+            asset
+            for asset in candidates
+            if _text(asset.get("capture_context")) == "SEALED_PRODUCT"
+        ]
+    return candidates
+
+
+def _canonical_scope(item: Mapping[str, Any]) -> str:
+    return (
+        "CANONICAL_CARD"
+        if _text(item.get("product_type")) == "CARD"
+        else "CANONICAL_PRODUCT"
+    )
 
 
 def _canonical_match_reason(
     item: Mapping[str, Any],
     asset: Mapping[str, Any],
 ) -> str | None:
-    if _text(asset.get("scope")) != "CANONICAL_CARD":
+    expected_scope = _canonical_scope(item)
+    if _text(asset.get("scope")) != expected_scope:
         return "not canonical media"
     if _text(asset.get("catalogue_id")) != _text(item.get("catalogue_id")):
-        return "canonical card identity mismatch"
+        return "canonical product identity mismatch"
     if _text(asset.get("rights_tier")) != STOREFRONT_ALLOWED:
         return "canonical media rights tier is not storefront allowed"
     if _text(asset.get("source_status") or "ACTIVE") != "ACTIVE" or asset.get("revoked_at"):
@@ -184,7 +213,9 @@ def _canonical_match_reason(
         item.get("language") or item.get("catalogue_language")
     )
     asset_language = _language(asset.get("media_language"))
-    if not expected_language or asset_language != expected_language:
+    if not expected_language:
+        return "canonical media blocked until product language/region is verified"
+    if asset_language != expected_language:
         return "canonical media language mismatch"
 
     expected_variant = _norm(item.get("variant"))
@@ -207,8 +238,9 @@ def _canonical_candidates(
     matches: list[Mapping[str, Any]] = []
     diagnostics: list[str] = []
     catalogue_id = _text(item.get("catalogue_id"))
+    expected_scope = _canonical_scope(item)
     for asset in assets:
-        if _text(asset.get("scope")) != "CANONICAL_CARD":
+        if _text(asset.get("scope")) != expected_scope:
             continue
         if _text(asset.get("catalogue_id")) != catalogue_id:
             continue
@@ -263,22 +295,32 @@ def resolve_storefront_media(
     selection_reason = ""
 
     if policy["physicalPhotosRequired"]:
-        if physical_front is None:
-            blockers.append("approved first-party physical front image")
-        if physical_back is None:
-            blockers.append("approved first-party physical back image")
+        required_sides = list(policy.get("requiredSides") or ["FRONT", "BACK"])
+        by_side = {"FRONT": physical_front, "BACK": physical_back}
+        for required_side in required_sides:
+            if by_side.get(required_side) is None:
+                blockers.append(
+                    f"approved first-party physical {required_side.casefold()} image"
+                )
 
-        for side, asset in (("front", physical_front), ("back", physical_back)):
+        for required_side in required_sides:
+            asset = by_side.get(required_side)
             if asset is not None and not _text(asset.get("capture_context")):
-                blockers.append(f"capture context for physical-item {side} image")
+                blockers.append(
+                    f"capture context for physical-item {required_side.casefold()} image"
+                )
 
         if not blockers:
-            selected = [physical_front, physical_back]  # type: ignore[list-item]
+            selected = [
+                by_side[side]
+                for side in required_sides
+                if by_side.get(side) is not None
+            ]
             source = FIRST_PARTY_CAPTURE
             rights_tier = FIRST_PARTY_CAPTURE
             selection_reason = (
-                "Exact first-party front and back selected because physical "
-                "photos are mandatory for this inventory item."
+                "Exact first-party media selected because physical photos are "
+                "mandatory for this inventory item."
             )
     elif physical_front is not None:
         selected = [physical_front]

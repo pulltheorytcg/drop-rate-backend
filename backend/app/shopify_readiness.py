@@ -195,7 +195,7 @@ async def shopify_local_readiness(
             """
             select *
             from tcg.media_assets
-            where owner_id=$1 or scope='CANONICAL_CARD'
+            where owner_id=$1 or scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
             order by created_at,id
             """,
             owner["id"],
