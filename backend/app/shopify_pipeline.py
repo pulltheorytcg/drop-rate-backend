@@ -866,6 +866,7 @@ async def upsert_fulfilment_cost_component(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
+        shipping_profiles = await _shipping_profiles(connection, owner["id"])
         async with connection.transaction():
             profile = await connection.fetchrow(
                 """
@@ -2112,6 +2113,7 @@ async def sync_one_test_item(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _founder(connection)
+        shipping_profiles = await _shipping_profiles(connection, owner["id"])
         async with connection.transaction():
             item = await connection.fetchrow(
                 """
