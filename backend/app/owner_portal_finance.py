@@ -9,6 +9,7 @@ from .access_control import require_owner_portal_request
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .finance import _balance_components
+from .payout_preferences import next_scheduled_at
 
 
 router = APIRouter(prefix="/api/v1/owner/finance", tags=["owner-portal-finance"])
@@ -94,6 +95,63 @@ async def owner_finance_summary(
             owner_id,
         )
         balances = await _balance_components(connection, owner_id)
+        preference = await connection.fetchrow(
+            """
+            select cadence,weekday,monthly_day,fortnightly_anchor_date,timezone
+            from tcg.payout_preferences
+            where owner_id=$1
+            """,
+            owner_id,
+        )
+        scheduled_request = await connection.fetchrow(
+            """
+            select payout_code,amount_minor,currency,status,scheduled_for,requested_at
+            from tcg.payout_requests
+            where owner_id=$1
+              and status in ('REQUESTED','APPROVED')
+              and scheduled_for is not null
+              and scheduled_for >= clock_timestamp()
+            order by scheduled_for,requested_at,id
+            limit 1
+            """,
+            owner_id,
+        )
+
+    preference_data = dict(preference) if preference is not None else {
+        "cadence": "MANUAL",
+        "weekday": None,
+        "monthly_day": None,
+        "fortnightly_anchor_date": None,
+        "timezone": "Europe/London",
+    }
+    calculated_next = next_scheduled_at(
+        cadence=str(preference_data["cadence"]),
+        weekday=preference_data.get("weekday"),
+        monthly_day=preference_data.get("monthly_day"),
+        fortnightly_anchor_date=preference_data.get("fortnightly_anchor_date"),
+    )
+    if scheduled_request is not None:
+        next_payout = {
+            "scheduled_for": scheduled_request["scheduled_for"],
+            "amount_minor": int(scheduled_request["amount_minor"] or 0),
+            "currency": scheduled_request["currency"],
+            "status": scheduled_request["status"],
+            "amount_basis": "SCHEDULED_REQUEST",
+            "payout_code": scheduled_request["payout_code"],
+        }
+    else:
+        next_payout = {
+            "scheduled_for": calculated_next,
+            "amount_minor": int(balances["available_to_withdraw_minor"]),
+            "currency": "GBP",
+            "status": (
+                "ESTIMATED"
+                if calculated_next is not None
+                else "MANUAL"
+            ),
+            "amount_basis": "CURRENT_AVAILABLE_BALANCE",
+            "payout_code": None,
+        }
 
     return jsonable_encoder(
         {
@@ -122,6 +180,7 @@ async def owner_finance_summary(
             "reserved_payout_minor": int(balances["reserved_payout_minor"]),
             "available_to_withdraw_minor": int(balances["available_to_withdraw_minor"]),
             "paid_out_minor": int(balances["paid_out_minor"]),
+            "next_payout": next_payout,
         }
     )
 
