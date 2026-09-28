@@ -24,11 +24,13 @@ from .schemas import (
     PurchaseLotAllocation,
     PurchaseLotCreate,
     ReadinessIssue,
+    SaleIntent,
 )
 
 router = APIRouter(prefix="/api/v1")
 
 ACTIVE_INVENTORY_SQL = "i.status in ('DRAFT', 'INSPECTION', 'APPROVED')"
+WORK_INVENTORY_SQL = f"({WORK_INVENTORY_SQL}) and i.sale_intent='FOR_SALE'"
 BRAND_SQL = brand_sql("p")
 RAW_CARD_READY_SQL = """
     p.product_type = 'CARD'
@@ -176,20 +178,20 @@ async def _fetch_inventory_image(
 
 
 ISSUE_FILTERS = {
-    "missing_cost": f"({ACTIVE_INVENTORY_SQL}) and i.acquisition_cost_minor is null",
-    "missing_condition": f"""({ACTIVE_INVENTORY_SQL})
+    "missing_cost": f"({WORK_INVENTORY_SQL}) and i.acquisition_cost_minor is null",
+    "missing_condition": f"""({WORK_INVENTORY_SQL})
         and p.product_type = 'CARD'
         and i.grading_company is null
         and i.grade is null
         and (i.condition is null or btrim(i.condition) = '')""",
-    "missing_seal_status": f"""({ACTIVE_INVENTORY_SQL})
+    "missing_seal_status": f"""({WORK_INVENTORY_SQL})
         and p.product_type <> 'CARD'
         and i.seal_status is null""",
-    "missing_location": f"({ACTIVE_INVENTORY_SQL}) and i.storage_location_id is null",
-    "missing_language": f"({ACTIVE_INVENTORY_SQL}) and p.product_type = 'CARD' and (i.language is null or btrim(i.language) = '')",
-    "missing_price": f"({ACTIVE_INVENTORY_SQL}) and i.store_price_minor is null",
-    "identity_unconfirmed": f"({ACTIVE_INVENTORY_SQL}) and not i.identity_confirmed",
-    "approval_ready": f"i.status in ('DRAFT', 'INSPECTION') and ({READY_SQL})",
+    "missing_location": f"({WORK_INVENTORY_SQL}) and i.storage_location_id is null",
+    "missing_language": f"({WORK_INVENTORY_SQL}) and p.product_type = 'CARD' and (i.language is null or btrim(i.language) = '')",
+    "missing_price": f"({WORK_INVENTORY_SQL}) and i.store_price_minor is null",
+    "identity_unconfirmed": f"({WORK_INVENTORY_SQL}) and not i.identity_confirmed",
+    "approval_ready": f"i.status in ('DRAFT', 'INSPECTION') and i.sale_intent='FOR_SALE' and ({READY_SQL})",
 }
 
 
@@ -222,7 +224,8 @@ async def inventory_readiness(
         row = await connection.fetchrow(
             f"""
             select
-                count(*) filter (where {ACTIVE_INVENTORY_SQL})::int as total,
+                count(*) filter (where {WORK_INVENTORY_SQL})::int as total,
+                count(*) filter (where i.sale_intent='PERSONAL_COLLECTION')::int as personal_collection,
                 count(*) filter (where {ISSUE_FILTERS['missing_cost']})::int as missing_cost,
                 count(*) filter (where {ISSUE_FILTERS['missing_condition']})::int as missing_condition,
                 count(*) filter (where {ISSUE_FILTERS['missing_seal_status']})::int as missing_seal_status,
@@ -271,6 +274,7 @@ async def list_inventory(
     search: str | None = Query(default=None, max_length=200),
     status_filter: str | None = Query(default=None, alias="status", max_length=30),
     brand_filter: str | None = Query(default=None, alias="brand", max_length=80),
+    sale_intent_filter: SaleIntent | None = Query(default=None, alias="sale_intent"),
     issue: ReadinessIssue | None = Query(default=None),
     storage_location_id: UUID | None = Query(default=None),
     unlocated: bool = Query(default=False),
@@ -310,6 +314,9 @@ async def list_inventory(
         if brand_filter:
             params.append(brand_filter.strip())
             filters.append(f"({BRAND_SQL}) = ${len(params)}")
+        if sale_intent_filter:
+            params.append(sale_intent_filter)
+            filters.append(f"i.sale_intent = ${len(params)}")
         if issue:
             filters.append(ISSUE_FILTERS[issue])
         if storage_location_id is not None:
@@ -336,7 +343,7 @@ async def list_inventory(
                 i.store_price_minor, i.market_value_minor, i.recommended_retail_minor,
                 i.imported_valuation_minor, i.imported_valuation_date,
                 i.imported_price_override_minor, i.identity_confirmed, i.status,
-                i.notes, i.version, i.created_at, i.updated_at, i.purchase_lot_id,
+                i.sale_intent, i.notes, i.version, i.created_at, i.updated_at, i.purchase_lot_id,
                 pl.lot_code as purchase_lot_code,
                 p.id as catalogue_id, p.product_type, p.game, {BRAND_SQL} as brand,
                 p.name, p.set_name, p.card_number, p.variant, p.rarity,
