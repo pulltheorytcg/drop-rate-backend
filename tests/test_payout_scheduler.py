@@ -210,3 +210,19 @@ def test_scheduler_runner_persists_success_and_failure_outcomes() -> None:
     assert 'status="FAILED"' in source
     assert '"scheduler_run_id": str(run_id)' in source
 
+
+def test_scheduler_startup_diagnostics_are_safe_and_stage_specific() -> None:
+    source = SCRIPT.read_text()
+
+    assert "PAYOUT_SCHEDULER_PROCESS_START" in source
+    assert "PAYOUT_SCHEDULER_IMPORT_FAILED" in source
+    assert "PAYOUT_SCHEDULER_DB_CONNECT_START" in source
+    assert "PAYOUT_SCHEDULER_DB_CONNECT_FAILED" in source
+    assert "PAYOUT_SCHEDULER_DB_CONNECTED" in source
+    assert "PAYOUT_SCHEDULER_RUN_STARTING" in source
+    assert "PAYOUT_SCHEDULER_RUN_STARTED" in source
+    assert "database_url_configured" in source
+    assert "timeout=15" in source
+    assert '"detail": str(exc)' not in source
+    assert "print(database_url)" not in source
+
