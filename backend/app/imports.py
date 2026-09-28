@@ -743,6 +743,50 @@ async def preview_import(
         })
 
 
+@router.get("")
+async def list_import_batches(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = 25,
+) -> dict:
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 100")
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        rows = await connection.fetch(
+            """
+            select
+                b.id,b.filename,b.adapter,b.status,b.source_rows,b.physical_units,
+                b.created_at,b.committed_at,b.version,
+                coalesce(e.total_items,0)::int as enrichment_total,
+                coalesce(e.pending_items,0)::int as enrichment_pending,
+                coalesce(e.action_items,0)::int as enrichment_action_required,
+                coalesce(e.complete_items,0)::int as enrichment_complete
+            from tcg.import_batches b
+            left join lateral (
+                select
+                    count(*)::int as total_items,
+                    count(*) filter(where overall_status='PENDING')::int as pending_items,
+                    count(*) filter(where overall_status='ACTION_REQUIRED')::int as action_items,
+                    count(*) filter(where overall_status='COMPLETE')::int as complete_items
+                from tcg.import_enrichment_items ie
+                where ie.batch_id=b.id and ie.owner_id=b.owner_id
+            ) e on true
+            where b.owner_id=$1
+            order by b.created_at desc,b.id desc
+            limit $2
+            """,
+            owner["id"],
+            limit,
+        )
+    return jsonable_encoder({"items": [dict(row) for row in rows]})
+
+
 @router.get("/{batch_id}")
 async def get_import_batch(
     batch_id: UUID,
