@@ -3,6 +3,29 @@ set -eu
 
 WORKFLOW_DIR="/opt/drop-rate/workflows"
 
+# DR-00 verifies HMAC signatures inside an n8n Code node. n8n 2.x blocks
+# environment access in nodes by default and Code nodes deny built-in modules
+# unless explicitly allowed. Fail closed before starting rather than importing a
+# workflow that can never authenticate dispatcher events.
+if [ "${N8N_BLOCK_ENV_ACCESS_IN_NODE:-true}" != "false" ]; then
+  echo "Drop Rate n8n: N8N_BLOCK_ENV_ACCESS_IN_NODE=false is required for signed DR-00 verification." >&2
+  exit 1
+fi
+
+case ",${NODE_FUNCTION_ALLOW_BUILTIN:-}," in
+  *,crypto,*) ;;
+  *)
+    echo "Drop Rate n8n: NODE_FUNCTION_ALLOW_BUILTIN must include crypto." >&2
+    exit 1
+    ;;
+esac
+
+if [ "${#DROP_RATE_AUTOMATION_WEBHOOK_SECRET}" -lt 32 ] 2>/dev/null; then
+  echo "Drop Rate n8n: DROP_RATE_AUTOMATION_WEBHOOK_SECRET must be at least 32 characters." >&2
+  exit 1
+fi
+
+
 # The persistent volume is mounted before the application start command runs.
 # Provision only version-controlled workflows whose IDs are not already present.
 # Never wipe or recreate the n8n database here.
