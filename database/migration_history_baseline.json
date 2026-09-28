@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "historical_version_overrides": {
+    "inventory_workflow": "20260923000948",
+    "purchase_lots": "20260923004713",
+    "inventory_condition_and_seal_status": "20260923010252",
+    "storage_locations": "20260923012316",
+    "manual_intake_idempotency": "20260923014257",
+    "import_framework": "20260923020018",
+    "founder_finance_foundation": "20260923022431",
+    "finance_ledger_indexes": "20260923022906",
+    "market_data_foundation": "20260923024839",
+    "market_data_indexes": "20260923024915",
+    "refund_returns": "20260923025434",
+    "owner_membership_auth_fk": "20260923033156",
+    "market_ingestion_runs": "20260923034037",
+    "revoke_purchase_lot_delete": "20260923192719",
+    "harden_inventory_physical_state": "20260923193517",
+    "grant_inventory_workflow_columns": "20260923193522",
+    "normalize_one_piece_set_name": "20260924124254",
+    "unique_verified_market_mapping": "20260924124908",
+    "founder_invites": "20260924141621",
+    "founder_invite_hardening": "20260924141842",
+    "inventory_physical_state_separation": "20260924145642",
+    "fulfilment_cost_components": "20260925172611",
+    "index_fulfilment_cost_creator": "20260925172757",
+    "fulfilment_material_allocation": "20260925175629",
+    "media_condition_review": "20260926011440",
+    "optimize_condition_review_rls": "20260926011516",
+    "owner_payout_preferences": "20260926203213",
+    "scheduled_payout_worker": "20260926204548",
+    "access_control_foundation": "20260926212410",
+    "harden_schema_migrations_rls": "20260926213206",
+    "schema_migrations_explicit_deny": "20260926213353",
+    "owner_invite_onboarding": "20260926224737",
+    "payout_scheduler_run_observability": "20260926225645",
+    "automation_event_outbox": "20260928051959"
+  },
+  "remote_only_applied": [
+    {
+      "version": "20260921114400",
+      "name": "foundation_and_inventory",
+      "reason": "Applied before the canonical database/migrations directory existed; preserved as a history placeholder for the production migration gate."
+    },
+    {
+      "version": "20260922182300",
+      "name": "automation_runs",
+      "reason": "Applied before the canonical database/migrations directory existed; preserved as a history placeholder for the production migration gate."
+    },
+    {
+      "version": "20260922204035",
+      "name": "grant_inventory_update_columns",
+      "reason": "Applied before the canonical database/migrations directory existed; preserved as a history placeholder for the production migration gate."
+    },
+    {
+      "version": "20260923020155",
+      "name": "import_framework_catalogue_index",
+      "reason": "Applied directly during the early migration sequence; preserved as a history placeholder for the production migration gate."
+    }
+  ],
+  "schema_verified_unrecorded": [
+    {
+      "version": "20260925233000",
+      "name": "store_price_floor",
+      "reason": "Production constraint inventory_items_store_price_floor_check was verified present on 2026-09-28; stage as no-op once so the CLI history can catch up without re-running DDL."
+    },
+    {
+      "version": "20260926001000",
+      "name": "identity_import_exact_method",
+      "reason": "Production identity_verification_events verification_method constraint was verified to include IMPORT_EXACT on 2026-09-28; stage as no-op once so history can catch up."
+    },
+    {
+      "version": "20260926002000",
+      "name": "media_live_side_uniqueness",
+      "reason": "Production canonical and inventory live-side unique indexes were verified present on 2026-09-28; stage as no-op once so history can catch up without recreating indexes."
+    }
+  ]
+}
