@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
+from .automation_commands import router as automation_commands_router
 from .db import create_pool
 from .access_control import require_platform_admin_request, router as access_control_router
 from .finance import router as finance_router
@@ -243,6 +244,7 @@ def create_app() -> FastAPI:
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(router)
+    app.include_router(automation_commands_router)
     app.include_router(access_control_router)
     app.include_router(finance_router)
     app.include_router(founder_onboarding_router)
