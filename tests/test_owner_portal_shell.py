@@ -15,8 +15,8 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=owner-v7" defer></script>' in html
-    assert '<script src="/assets/owner-recognition.js?v=owner-v7" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=owner-v8" defer></script>' in html
+    assert '<script src="/assets/owner-recognition.js?v=owner-v8" defer></script>' in html
 
     for founder_script in (
         "dashboard-shell.js",
@@ -133,7 +133,7 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     css = CSS.read_text()
     js = JS.read_text()
 
-    assert 'href="/assets/owner-portal.css?v=owner-v7"' in html
+    assert 'href="/assets/owner-portal.css?v=owner-v8"' in html
     assert 'class="owner-portal-page"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
@@ -341,3 +341,34 @@ def test_seller_hub_branding_is_neutral_and_not_founder_hq() -> None:
     assert 'drop-rate-logo.png?v=seller-hub-1' in css
     assert 'drop-rate-founder-hq.png' not in css
     assert 'content:"SELLER HUB"' in css
+
+
+def test_seller_channels_empty_state_cannot_throw_null_replacechildren() -> None:
+    js = JS.read_text()
+
+    start = js.index("function renderOwnerChannelsRows")
+    end = js.index("function renderOwnerChannelsPagination", start)
+    block = js[start:end]
+    helper_start = js.index("function renderEmptyRow")
+    helper_end = js.index("\nasync function", helper_start)
+    helper = js[helper_start:helper_end]
+
+    assert 'renderEmptyRow("owner-channels-body", 6' in block
+    assert "renderEmptyRow(body, 6" not in block
+    assert 'typeof bodyId === "string" ? byId(bodyId) : bodyId' in helper
+    assert "if (!body) return;" in helper
+
+
+def test_seller_topbar_brand_is_single_polished_lockup() -> None:
+    html = HTML.read_text()
+    css = CSS.read_text()
+
+    assert 'class="dr-logo-image owner-topbar-logo"' in html
+    assert 'class="owner-topbar-divider"' in html
+    assert "<small>DROP RATE</small>" in html
+    assert "<strong>Seller Hub</strong>" in html
+    assert "<em>Inventory · Sales · Payouts</em>" in html
+    assert ".owner-portal-page .owner-topbar-logo" in css
+    assert "width:96px!important" in css
+    assert ".owner-portal-page .owner-topbar-divider" in css
+    assert ".owner-portal-page .owner-topbar-product em" in css
