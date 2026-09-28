@@ -68,4 +68,10 @@ def test_dr01_database_validates_manual_and_automation_actors() -> None:
     assert sql.count("om.role='platform_admin'") == 2
     assert sql.count("ae.id=p_automation_event_id") == 2
     assert sql.count("ae.owner_id=p_owner_id") == 2
+    assert sql.count("ae.schema_version=1") == 2
+    assert sql.count("ae.status='dispatching'") == 2
     assert sql.count("ae.aggregate_id=p_inventory_id::text") == 2
+    assert sql.count("'inventory.approved:' || p_inventory_id::text") == 2
+    assert sql.count("ae.payload->>'inventory_id'=p_inventory_id::text") == 2
+    assert sql.count("ae.payload->>'status'='approved'") == 2
+    assert sql.count("ae.payload->>'version'=p_expected_version::text") == 2
