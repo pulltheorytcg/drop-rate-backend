@@ -464,7 +464,7 @@ def _build_media_intake_queue(
     *,
     physical_photo_threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
 ) -> dict[str, Any]:
-    """Build a capture queue only for cards whose policy requires physical proof."""
+    """Build a capture queue only for inventory whose policy requires physical proof."""
 
     captured_inventory: dict[str, set[str]] = {}
     ready_inventory: dict[str, set[str]] = {}
@@ -484,7 +484,7 @@ def _build_media_intake_queue(
         if status == "FAILED":
             continue
         side = str(asset.get("side") or "")
-        if side not in {"FRONT", "BACK"}:
+        if side not in {"FRONT", "BACK", "OTHER"}:
             continue
         key = str(asset.get("inventory_id") or "")
         if not key:
@@ -496,11 +496,10 @@ def _build_media_intake_queue(
     queue: list[dict[str, Any]] = []
     raw_pending = 0
     graded_pending = 0
+    sealed_pending = 0
 
     for source in items:
         item = dict(source)
-        if str(item.get("product_type") or "") != "CARD":
-            continue
         policy = physical_photo_policy(
             item,
             threshold_minor=physical_photo_threshold_minor,
@@ -513,22 +512,43 @@ def _build_media_intake_queue(
         if not inventory_id or not catalogue_id:
             continue
 
+        product_type = str(item.get("product_type") or "").strip().upper()
+        is_sealed = product_type in {"SEALED", "COLLECTION"}
         grading_company = str(item.get("grading_company") or "").strip()
         grade = str(item.get("grade") or "").strip()
-        is_graded = bool(grading_company and grade)
+        is_graded = bool(grading_company and grade) and not is_sealed
         captured = captured_inventory.get(inventory_id, set())
         ready = ready_inventory.get(inventory_id, set())
-        missing = [side for side in ("FRONT", "BACK") if side not in captured]
+        required_sides = list(policy.get("requiredSides") or ["FRONT", "BACK"])
+        missing = [side for side in required_sides if side not in captured]
         if not missing:
             continue
 
-        if is_graded:
+        if is_sealed:
+            sealed_pending += 1
+        elif is_graded:
             graded_pending += 1
         else:
             raw_pending += 1
 
+        capture_options = (
+            ["SEALED_PRODUCT"]
+            if is_sealed
+            else ["GRADED_SLAB"]
+            if is_graded
+            else ["RAW_UNSLEEVED", "PENNY_SLEEVE", "TOP_LOADER"]
+        )
+        capture_hint = (
+            "SEALED_PRODUCT"
+            if is_sealed
+            else "GRADED_SLAB"
+            if is_graded
+            else None
+        )
+
         queue.append({
             "catalogue_id": catalogue_id,
+            "product_type": product_type,
             "game": item.get("game"),
             "name": item.get("name"),
             "set_name": item.get("set_name"),
@@ -543,15 +563,13 @@ def _build_media_intake_queue(
             "grading_company": grading_company or None,
             "grade": grade or None,
             "is_graded": is_graded,
+            "is_sealed": is_sealed,
             "copy_count": 1,
+            "required_sides": required_sides,
             "missing_sides": missing,
             "ready_sides": sorted(ready),
-            "capture_context_hint": "GRADED_SLAB" if is_graded else None,
-            "capture_context_options": (
-                ["GRADED_SLAB"]
-                if is_graded
-                else ["RAW_UNSLEEVED", "PENNY_SLEEVE", "TOP_LOADER"]
-            ),
+            "capture_context_hint": capture_hint,
+            "capture_context_options": capture_options,
             "physical_photos_required": True,
             "policy_reasons": policy["reasons"],
             "action_required_reason": (
@@ -575,12 +593,15 @@ def _build_media_intake_queue(
         "physical_items_pending": len(queue),
         "raw_items_pending": raw_pending,
         "graded_items_pending": graded_pending,
+        "sealed_items_pending": sealed_pending,
         "policy": {
             "existing_image_first": True,
             "physical_photo_threshold_minor": physical_photo_threshold_minor,
             "low_risk_raw_cards_use_canonical_storefront_media": True,
+            "sealed_products_use_exact_first_party_front_photo": True,
         },
     }
+
 
 def _launch_completeness(
     item: Any,
