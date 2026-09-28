@@ -1785,6 +1785,48 @@ def _provider_only_candidates(
     return output
 
 
+def _provider_candidate_equivalent_to_local(
+    provider_candidate: Mapping[str, Any],
+    local_top: Mapping[str, Any],
+) -> bool:
+    """Conservatively suppress a duplicate provider row already explained by local evidence."""
+
+    snapshot = provider_candidate.get("candidate_snapshot")
+    if not isinstance(snapshot, Mapping):
+        return False
+    local_snapshot = local_top.get("candidate_snapshot")
+    if not isinstance(local_snapshot, Mapping):
+        return False
+
+    provider_number = _compact(snapshot.get("base_card_id"))
+    local_number = _compact(local_snapshot.get("card_number"))
+    if not provider_number or provider_number != local_number:
+        return False
+
+    local_provider_signal = local_top.get("signals", {}).get("provider", {})
+    if (
+        not isinstance(local_provider_signal, Mapping)
+        or float(local_provider_signal.get("match") or 0.0) < 0.90
+    ):
+        return False
+
+    provider_language = clean_language(snapshot.get("language"))
+    local_language = clean_language(
+        local_top.get("signals", {}).get("language", {}).get("candidate")
+    )
+    if provider_language and local_language and provider_language != local_language:
+        return False
+
+    provider_art = str(snapshot.get("art_treatment") or "").strip()
+    local_art = _candidate_art(local_snapshot)
+    if provider_art and local_art:
+        return _best_alias_match(provider_art, local_art) >= 0.90
+
+    # Without treatment evidence we cannot prove that two same-number provider
+    # rows are the same physical printing.
+    return False
+
+
 def _strong_unmapped_provider_challenger(
     local_top: Mapping[str, Any],
     provider_candidates: list[Mapping[str, Any]],
@@ -1793,6 +1835,8 @@ def _strong_unmapped_provider_challenger(
 
     local_score = float(local_top.get("score") or 0.0)
     for candidate in provider_candidates:
+        if _provider_candidate_equivalent_to_local(candidate, local_top):
+            continue
         provider_signal = candidate.get("signals", {}).get("provider", {})
         if not isinstance(provider_signal, Mapping):
             continue
@@ -1909,17 +1953,30 @@ def resolve_candidates(
         reasons = [
             "No local catalogue printing passed the hard identity gates."
         ]
-        if provider_only:
+        risks: list[str] = []
+        provider_top = provider_only[0] if provider_only else None
+        provider_runner = provider_only[1] if len(provider_only) > 1 else None
+        provider_margin = (
+            round(
+                float(provider_top["score"])
+                - float(provider_runner["score"] if provider_runner else 0.0),
+                5,
+            )
+            if provider_top
+            else None
+        )
+        if provider_top:
+            risks.append("UNMAPPED_PROVIDER_CANDIDATE")
             reasons.append(
-                "A provider candidate exists but is not linked to a local catalogue printing."
+                "The strongest evidence points to a provider printing that is not yet linked to a Drop Rate catalogue record. Human catalogue mapping is required before confirmation."
             )
         return {
             "decision": decision,
-            "top": None,
-            "runner_up": None,
-            "margin": None,
+            "top": provider_top,
+            "runner_up": provider_runner,
+            "margin": provider_margin,
             "reasons": reasons,
-            "risk_flags": [],
+            "risk_flags": risks,
             "candidates": ranked + provider_only,
         }
 
@@ -2162,6 +2219,32 @@ def resolve_candidates(
         risks.append("PROVIDER_CONFLICT")
         reasons.append("Provider evidence points to a different catalogue candidate.")
 
+    local_top = top
+    local_runner = runner
+    challenger = _strong_unmapped_provider_challenger(local_top, provider_only)
+    display_top: Mapping[str, Any] = local_top
+    display_runner: Mapping[str, Any] | None = local_runner
+    display_margin = margin
+
+    if challenger is not None:
+        exact = False
+        risks.append("UNMAPPED_PROVIDER_CHALLENGER")
+        reasons.append(
+            "A strong provider printing is not linked to the Drop Rate catalogue and competes with the local top candidate. Human catalogue mapping is required before exact confirmation."
+        )
+        if float(challenger.get("score") or 0.0) > float(local_top.get("score") or 0.0):
+            display_top = challenger
+            display_runner = local_top
+        else:
+            display_runner = challenger
+        display_margin = round(
+            float(display_top.get("score") or 0.0)
+            - float(display_runner.get("score") or 0.0)
+            if display_runner is not None
+            else float(display_top.get("score") or 0.0),
+            5,
+        )
+
     decision = "EXACT_CANDIDATE" if exact else "NEEDS_REVIEW"
     if exact:
         reasons.append(
@@ -2170,9 +2253,9 @@ def resolve_candidates(
 
     return {
         "decision": decision,
-        "top": top,
-        "runner_up": runner,
-        "margin": margin,
+        "top": dict(display_top),
+        "runner_up": dict(display_runner) if display_runner is not None else None,
+        "margin": display_margin,
         "reasons": list(dict.fromkeys(reasons)),
         "risk_flags": list(dict.fromkeys(risks)),
         "candidates": ranked + provider_only,
