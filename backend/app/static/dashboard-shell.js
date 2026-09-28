@@ -759,7 +759,7 @@ function populateSellerViews() {
       <div>
         <p class="eyebrow">Seller onboarding</p>
         <h2>Invite seller / consignor</h2>
-        <p class="muted">Creates a restricted OWNER account. This can never grant Founder HQ access.</p>
+        <p class="muted">Sends a branded email for a restricted OWNER account. This can never grant Founder HQ access.</p>
       </div>
     </div>
     <div class="form-grid">
@@ -770,7 +770,7 @@ function populateSellerViews() {
     </div>
     <div id="owner-invite-message" class="message panel-message" role="status"></div>
     <div class="toolbar">
-      <button id="owner-invite-create" class="primary-button compact" type="button">Create restricted invite</button>
+      <button id="owner-invite-create" class="primary-button compact" type="button">Send seller invite</button>
     </div>
     <div id="owner-invite-result" class="form-grid hidden">
       <label class="full-width">Invite link<input id="owner-invite-url" type="text" readonly></label>
@@ -798,7 +798,7 @@ function populateSellerViews() {
     }
 
     button.disabled = true;
-    showMessage("owner-invite-message", "Creating restricted owner invite…");
+    showMessage("owner-invite-message", "Creating invite and sending branded email…");
     try {
       const data = await apiRequest("/api/v1/owner-invites", {
         method: "POST",
@@ -812,11 +812,16 @@ function populateSellerViews() {
       byId("owner-invite-url").value = data.invite_url;
       byId("owner-invite-result").dataset.inviteId = data.id;
       byId("owner-invite-result").classList.remove("hidden");
+      const delivery = data.email_delivery || {};
+      const sent = delivery.status === "SENT";
       showMessage(
         "owner-invite-message",
-        `Restricted OWNER invite created at ${commissionPercent}% commission.`,
-        "success"
+        sent
+          ? `Branded invite email sent to ${email} at ${commissionPercent}% commission.`
+          : `Invite created, but email delivery is ${delivery.status || "NOT_SENT"}. The secure link remains available below.`,
+        sent ? "success" : "error"
       );
+      if (typeof loadOwnerInvites === "function") await loadOwnerInvites();
     } catch (error) {
       showMessage("owner-invite-message", error.message, "error");
     } finally {
@@ -842,6 +847,7 @@ function populateSellerViews() {
       result.classList.add("hidden");
       result.dataset.inviteId = "";
       showMessage("owner-invite-message", "Invite revoked.", "success");
+      if (typeof loadOwnerInvites === "function") await loadOwnerInvites();
     } catch (error) {
       showMessage("owner-invite-message", error.message, "error");
     }

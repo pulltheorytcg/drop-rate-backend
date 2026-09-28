@@ -600,6 +600,62 @@ async function hydrateSessionUser() {
   saveSession(state.session);
 }
 
+function showOwnerOnboardingWelcome() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("welcome") !== "1" || byId("owner-onboarding-welcome")) return;
+
+  const content = document.querySelector("#owner-portal-view .dashboard-content");
+  const heading = content?.querySelector(":scope > .page-heading");
+  if (!content || !heading) return;
+
+  const panel = document.createElement("section");
+  panel.id = "owner-onboarding-welcome";
+  panel.className = "inventory-panel owner-onboarding-welcome";
+  panel.innerHTML = `
+    <div class="page-heading" style="padding:22px 22px 0">
+      <div>
+        <p class="eyebrow">Onboarding complete</p>
+        <h2>Welcome to your Drop Rate owner portal</h2>
+        <p class="muted">Your account is active and restricted to your own inventory, sales and payouts.</p>
+      </div>
+    </div>
+    <div class="owner-onboarding-callout" style="margin:0 22px 18px">
+      <strong>Your next steps</strong>
+      <ul>
+        <li>Drop Rate receives, identifies and inspects your cards before listing.</li>
+        <li>You can follow your own inventory, prices and sales from this portal.</li>
+        <li>Set up Stripe when you want payouts sent to your verified account.</li>
+        <li>Choose your preferred payout schedule after Stripe onboarding is complete.</li>
+      </ul>
+    </div>
+    <div class="toolbar" style="padding:0 22px 22px">
+      <button id="owner-welcome-inventory" class="ghost-button compact" type="button">View my inventory</button>
+      <button id="owner-welcome-payouts" class="primary-button compact" type="button">Set up payouts</button>
+      <button id="owner-welcome-dismiss" class="text-button" type="button">Dismiss</button>
+    </div>
+  `;
+
+  heading.insertAdjacentElement("afterend", panel);
+
+  byId("owner-welcome-inventory").addEventListener("click", () => {
+    activateOwnerView("inventory");
+    panel.scrollIntoView({behavior: "smooth", block: "start"});
+  });
+  byId("owner-welcome-payouts").addEventListener("click", () => {
+    activateOwnerView("balance");
+    byId("owner-stripe-connect-panel")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+  byId("owner-welcome-dismiss").addEventListener("click", () => {
+    panel.remove();
+  });
+
+  history.replaceState({}, document.title, "/owner");
+}
+
+
 async function openOwnerPortal() {
   const result = await apiRequest("/api/v1/access/me");
   const access = result.access || {};
@@ -620,6 +676,7 @@ async function openOwnerPortal() {
   byId("owner-auth-view").classList.add("hidden");
   byId("owner-portal-view").classList.remove("hidden");
   await reloadOwnerDashboard();
+  showOwnerOnboardingWelcome();
 }
 
 async function finishSignIn(session) {

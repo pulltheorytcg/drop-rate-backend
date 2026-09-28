@@ -2,12 +2,14 @@
 
 const OWNER_SESSION_KEY = "drop_rate_owner_session";
 const PENDING_OWNER_INVITE_KEY = "drop_rate_pending_owner_invite";
+const PENDING_OWNER_ACK_KEY = "drop_rate_pending_owner_ack";
 
 const state = {
   config: null,
   token: null,
   invite: null,
   providers: {google: false, apple: false},
+  acknowledgementVersion: 1,
 };
 
 const byId = (id) => document.getElementById(id);
@@ -88,13 +90,37 @@ function callbackSession() {
   };
 }
 
-function startOAuth(provider) {
+function acknowledgementAccepted(prefix) {
+  return Boolean(byId(`${prefix}-ack`)?.checked);
+}
+
+function savePendingAcknowledgement() {
+  localStorage.setItem(
+    PENDING_OWNER_ACK_KEY,
+    String(state.acknowledgementVersion)
+  );
+}
+
+function startOAuth(provider, prefix) {
+  const messageId =
+    prefix === "owner-existing" ? "owner-existing-message" : "owner-join-message";
   if (!["google", "apple"].includes(provider) || !state.providers[provider]) {
-    showMessage("owner-join-message", "That sign-in provider is not enabled yet.", "error");
+    showMessage(messageId, "That sign-in provider is not enabled yet.", "error");
     return;
   }
+  if (!acknowledgementAccepted(prefix)) {
+    showMessage(
+      messageId,
+      "Please confirm the seller onboarding acknowledgement before continuing.",
+      "error"
+    );
+    return;
+  }
+
   localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
-  const redirectTo = `${window.location.origin}/owner/join?invite=${encodeURIComponent(state.token)}`;
+  savePendingAcknowledgement();
+  const redirectTo =
+    `${window.location.origin}/owner/join?invite=${encodeURIComponent(state.token)}`;
   const authorizeUrl = new URL(`${state.config.supabase_url}/auth/v1/authorize`);
   authorizeUrl.searchParams.set("provider", provider);
   authorizeUrl.searchParams.set("redirect_to", redirectTo);
@@ -117,6 +143,8 @@ async function redeem(session, displayName) {
     body: JSON.stringify({
       token: state.token,
       display_name: displayName,
+      acknowledged: true,
+      acknowledgement_version: state.acknowledgementVersion,
     }),
   });
   const data = await readJson(response);
@@ -126,10 +154,18 @@ async function redeem(session, displayName) {
     JSON.stringify({...session, user: {email: user.email}})
   );
   localStorage.removeItem(PENDING_OWNER_INVITE_KEY);
+  localStorage.removeItem(PENDING_OWNER_ACK_KEY);
   return data;
 }
 
 async function finishAuthenticatedOnboarding(session, displayName = null) {
+  const pendingAck = Number(localStorage.getItem(PENDING_OWNER_ACK_KEY) || 0);
+  if (pendingAck !== Number(state.acknowledgementVersion || 1)) {
+    throw new Error(
+      "Please return to the invitation and confirm the seller onboarding acknowledgement."
+    );
+  }
+
   const user = await authenticatedUser(session);
   const resolvedName =
     displayName
@@ -140,7 +176,25 @@ async function finishAuthenticatedOnboarding(session, displayName = null) {
     throw new Error("We could not resolve your verified owner profile.");
   }
   await redeem(session, resolvedName);
-  window.location.replace("/owner");
+  window.location.replace("/owner?welcome=1");
+}
+
+function inviteSummaryText() {
+  const commissionPercent = Number(state.invite?.commission_bps || 0) / 100;
+  const expiry = new Date(state.invite?.expires_at);
+  const expiryText = Number.isNaN(expiry.getTime())
+    ? "the date shown in your invitation"
+    : expiry.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+
+  return [
+    `Invited email: ${state.invite?.invited_email_masked || "your invited email"}`,
+    `Drop Rate commission: ${commissionPercent.toFixed(2).replace(/\.00$/, "")}%`,
+    `Expires: ${expiryText}`,
+  ].join(" · ");
 }
 
 function showJoin() {
@@ -148,10 +202,13 @@ function showJoin() {
   byId("owner-invite-invalid").classList.add("hidden");
   byId("owner-join-form").classList.remove("hidden");
   byId("owner-join-name").value = state.invite.invited_name || "";
+  state.acknowledgementVersion = Number(
+    state.invite.acknowledgement_version || 1
+  );
 
-  const commissionPercent = Number(state.invite.commission_bps || 0) / 100;
-  byId("owner-invite-summary").textContent =
-    `This invitation creates a restricted consignor account. Drop Rate commission: ${commissionPercent.toFixed(2).replace(/\.00$/, "")}%.`;
+  const summary = inviteSummaryText();
+  byId("owner-invite-summary").textContent = summary;
+  byId("owner-existing-summary").textContent = summary;
 }
 
 function showInvalid(message) {
@@ -169,13 +226,20 @@ async function initialise() {
     state.token = inviteToken();
 
     if (!state.token) {
-      showInvalid("This invitation link is incomplete. Ask Drop Rate for a new owner invite.");
+      showInvalid(
+        "This invitation link is incomplete. Ask Drop Rate for a new owner invite."
+      );
       return;
     }
 
     localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
     state.invite = await readJson(
-      await fetch(`/api/v1/public/owner-invites/${encodeURIComponent(state.token)}`)
+      await fetch(
+        `/api/v1/public/owner-invites/${encodeURIComponent(state.token)}`
+      )
+    );
+    state.acknowledgementVersion = Number(
+      state.invite.acknowledgement_version || 1
     );
 
     const session = callbackSession();
@@ -195,10 +259,22 @@ async function initialise() {
   }
 }
 
-byId("owner-join-google").addEventListener("click", () => startOAuth("google"));
-byId("owner-join-apple").addEventListener("click", () => startOAuth("apple"));
-byId("owner-existing-google").addEventListener("click", () => startOAuth("google"));
-byId("owner-existing-apple").addEventListener("click", () => startOAuth("apple"));
+byId("owner-join-google").addEventListener(
+  "click",
+  () => startOAuth("google", "owner-join")
+);
+byId("owner-join-apple").addEventListener(
+  "click",
+  () => startOAuth("apple", "owner-join")
+);
+byId("owner-existing-google").addEventListener(
+  "click",
+  () => startOAuth("google", "owner-existing")
+);
+byId("owner-existing-apple").addEventListener(
+  "click",
+  () => startOAuth("apple", "owner-existing")
+);
 
 byId("owner-join-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -211,7 +287,17 @@ byId("owner-join-form").addEventListener("submit", async (event) => {
     showMessage("owner-join-message", "The passwords do not match.", "error");
     return;
   }
+  if (!acknowledgementAccepted("owner-join")) {
+    showMessage(
+      "owner-join-message",
+      "Please confirm the seller onboarding acknowledgement.",
+      "error"
+    );
+    return;
+  }
 
+  localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
+  savePendingAcknowledgement();
   setBusy(form, true);
   showMessage("owner-join-message");
   try {
@@ -234,7 +320,6 @@ byId("owner-join-form").addEventListener("submit", async (event) => {
       return;
     }
 
-    localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
     showMessage(
       "owner-join-message",
       "Account created. Confirm your email, then return through this invitation to finish onboarding.",
@@ -249,11 +334,13 @@ byId("owner-join-form").addEventListener("submit", async (event) => {
 
 byId("owner-show-existing-login").addEventListener("click", () => {
   byId("owner-existing-email").value = byId("owner-join-email").value;
+  byId("owner-existing-ack").checked = byId("owner-join-ack").checked;
   byId("owner-join-form").classList.add("hidden");
   byId("owner-existing-login-form").classList.remove("hidden");
 });
 
 byId("owner-back-to-join").addEventListener("click", () => {
+  byId("owner-join-ack").checked = byId("owner-existing-ack").checked;
   byId("owner-existing-login-form").classList.add("hidden");
   byId("owner-join-form").classList.remove("hidden");
 });
@@ -261,6 +348,17 @@ byId("owner-back-to-join").addEventListener("click", () => {
 byId("owner-existing-login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
+  if (!acknowledgementAccepted("owner-existing")) {
+    showMessage(
+      "owner-existing-message",
+      "Please confirm the seller onboarding acknowledgement.",
+      "error"
+    );
+    return;
+  }
+
+  localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
+  savePendingAcknowledgement();
   setBusy(form, true);
   showMessage("owner-existing-message");
   try {

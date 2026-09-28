@@ -108,3 +108,15 @@ def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None
         "Store price",
     ):
         assert required in html
+
+
+def test_new_owner_onboarding_redirect_has_a_guided_welcome_checklist() -> None:
+    js = JS.read_text()
+
+    assert 'params.get("welcome") !== "1"' in js
+    assert 'id = "owner-onboarding-welcome"' in js
+    assert "Onboarding complete" in js
+    assert "Set up payouts" in js
+    assert 'activateOwnerView("balance")' in js
+    assert 'byId("owner-stripe-connect-panel")' in js
+    assert 'history.replaceState({}, document.title, "/owner")' in js
