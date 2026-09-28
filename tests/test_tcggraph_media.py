@@ -32,6 +32,7 @@ def provider(
     language="ja",
     printings=None,
     line=None,
+    set_name="Egghead Crisis",
 ):
     return {
         "id": card_id,
@@ -39,7 +40,7 @@ def provider(
         "name": name,
         "language": language,
         "collectorNumber": number,
-        "set": {"name": "Egghead Crisis"},
+        "set": {"name": set_name},
         "images": {
             "large": f"https://cards.tcggraph.io/op/{card_id}/large.webp",
         },
@@ -84,6 +85,7 @@ def test_pokemon_holofoil_selects_foil_printing_image() -> None:
         number="020/108",
         name="Eiscue ex",
         game="pokemon",
+        set_name="Ruler of the Black Flame",
         printings=[
             {
                 "key": "normal",
@@ -120,6 +122,7 @@ def test_reverse_holo_never_falls_back_to_normal_or_foil() -> None:
         number="025/165",
         name="Pikachu",
         game="pokemon",
+        set_name="151",
         printings=[
             {
                 "key": "normal",
@@ -144,6 +147,46 @@ def test_language_and_name_must_match_exactly_after_normalisation() -> None:
     assert resolve_exact_card(local(), [wrong_language])["resolved"] is False
     assert resolve_exact_card(local(), [wrong_name])["resolved"] is False
 
+
+
+
+def test_pokemon_exact_match_rechecks_provider_set_name() -> None:
+    row = local(
+        game="Pokemon",
+        name="Pikachu",
+        set_name="151",
+        card_number="025/165",
+        variant="Normal",
+        language="English",
+        catalogue_language="English",
+    )
+    wrong_set = provider(
+        card_id="pkm_wrong_set",
+        number="025/165",
+        name="Pikachu",
+        game="pokemon",
+        language="en",
+        set_name="Another Set",
+    )
+    result = resolve_exact_card(row, [wrong_set])
+    assert result["resolved"] is False
+    assert result["reason"] == "no exact TCGGraph identity match"
+
+
+def test_tcggraph_images_must_come_from_documented_card_cdn() -> None:
+    card = provider()
+    card["images"]["large"] = "https://evil.example/card.webp"
+    result = resolve_exact_card(local(), [card])
+    assert result["resolved"] is False
+    assert result["reason"] == "TCGGraph record has no usable HTTPS image"
+
+    card["images"]["large"] = "https://user:pass@cards.tcggraph.io/op/card.webp"
+    result = resolve_exact_card(local(), [card])
+    assert result["resolved"] is False
+
+    card["images"]["large"] = "https://cards.tcggraph.io/op/card.webp"
+    result = resolve_exact_card(local(), [card])
+    assert result["resolved"] is True
 
 def test_multiple_exact_candidates_fail_closed() -> None:
     result = resolve_exact_card(
@@ -235,6 +278,8 @@ def test_adapter_is_server_side_explicit_and_rights_governed() -> None:
     assert "permission_evidence_url" in source
     assert "provider_asset_id" in source
     assert "physical_photo_policy" in source
+    assert "TCGGRAPH_IMAGE_HOSTS" in source
+    assert "cards.tcggraph.io" in source
     assert '"dragon ball super fusion world": "dragon-ball-super"' in source
     assert '"dragon ball super fusion world": "fusion-world"' in source
     assert "line=game_line" in source

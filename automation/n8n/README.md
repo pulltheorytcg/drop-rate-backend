@@ -32,6 +32,8 @@ Before switching the existing n8n service from the stock image:
 
 No public n8n domain is required for this provisioning model.
 
+The startup provisioner deliberately refuses to start if the DR-00 runtime requirements above are missing. This is safer than starting an apparently healthy n8n service whose signed ingress can never authenticate events.
+
 
 ## DR-00 signed ingress
 
@@ -40,7 +42,9 @@ No public n8n domain is required for this provisioning model.
 Runtime requirements before activation:
 
 - `DROP_RATE_AUTOMATION_WEBHOOK_SECRET` must match the dispatcher secret and be at least 32 characters.
-- The n8n Code node must be allowed to load Node's built-in `crypto` module (for example via the deployment's n8n Code-node built-in-module allowlist).
+- Set `NODE_FUNCTION_ALLOW_BUILTIN=crypto` so the Code node can use Node's HMAC implementation.
+- Set `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` because n8n 2.x blocks `$env` access by default and DR-00 reads only `DROP_RATE_AUTOMATION_WEBHOOK_SECRET` from `$env`.
+- Treat that env-access setting as a security boundary: only trusted, version-controlled Code workflows may run on this n8n instance, and the service environment should contain only secrets it genuinely requires.
 - Requests older/newer than five minutes are rejected.
 - The Webhook node preserves the raw request body; HMAC is verified over those exact bytes with a timing-safe comparison before the event can be acknowledged.
 - Invalid signatures/envelopes receive HTTP 401; valid envelopes receive HTTP 202.

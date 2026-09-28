@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from urllib.parse import urlparse
 from typing import Annotated, Any, Mapping
 from uuid import UUID
 
@@ -61,6 +62,7 @@ LANGUAGE_CODES = {
 BASE_VARIANTS = {"", "normal", "base", "regular"}
 FOIL_VARIANTS = {"holofoil", "holo", "foil"}
 REVERSE_VARIANTS = {"reverse holofoil", "reverse holo", "reverse foil"}
+TCGGRAPH_IMAGE_HOSTS = {"cards.tcggraph.io"}
 
 
 class TcgGraphResolveRequest(BaseModel):
@@ -118,13 +120,33 @@ def _number_equivalent(left: object, right: object) -> bool:
     return canonical(left) == canonical(right)
 
 
+def _trusted_tcggraph_image_url(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    clean = value.strip()
+    try:
+        parsed = urlparse(clean)
+    except ValueError:
+        return None
+    host = (parsed.hostname or "").casefold().rstrip(".")
+    if (
+        parsed.scheme != "https"
+        or host not in TCGGRAPH_IMAGE_HOSTS
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+    ):
+        return None
+    return clean
+
+
 def _image_url(images: object) -> str | None:
     if not isinstance(images, Mapping):
         return None
     for key in ("large", "normal", "small"):
-        value = images.get(key)
-        if isinstance(value, str) and value.startswith("https://"):
-            return value
+        trusted = _trusted_tcggraph_image_url(images.get(key))
+        if trusted:
+            return trusted
     return None
 
 
@@ -194,6 +216,7 @@ def resolve_exact_card(
 
     local_number = str(local.get("card_number") or "").strip()
     local_name = _compact(local.get("name"))
+    local_set = _compact(local.get("set_name"))
     local_variant = _norm(local.get("variant"))
     expected_line = _game_line(local.get("game"))
 
@@ -205,6 +228,15 @@ def resolve_exact_card(
             continue
         if local_name and _compact(row.get("name")) != local_name:
             continue
+        if game_slug == "pokemon" and local_set:
+            provider_set = row.get("set")
+            provider_set_name = (
+                _compact(provider_set.get("name"))
+                if isinstance(provider_set, Mapping)
+                else ""
+            )
+            if provider_set_name and provider_set_name != local_set:
+                continue
         if expected_line:
             game_data = row.get("gameData")
             provider_line = (
