@@ -103,6 +103,7 @@ class Settings:
     resend_api_key: str | None
     seller_invite_from_email: str | None
     seller_invite_reply_to: str | None
+    resend_webhook_secret: str | None
     parse_api_key: str | None
     ebay_client_id: str | None
     ebay_client_secret: str | None
@@ -178,6 +179,7 @@ class Settings:
             resend_api_key=_optional("TCG_RESEND_API_KEY"),
             seller_invite_from_email=_optional("TCG_SELLER_INVITE_FROM_EMAIL"),
             seller_invite_reply_to=_optional("TCG_SELLER_INVITE_REPLY_TO"),
+            resend_webhook_secret=_optional("TCG_RESEND_WEBHOOK_SECRET"),
             parse_api_key=_optional("TCG_PARSE_API_KEY"),
             ebay_client_id=_optional("TCG_EBAY_CLIENT_ID"),
             ebay_client_secret=_optional("TCG_EBAY_CLIENT_SECRET"),
