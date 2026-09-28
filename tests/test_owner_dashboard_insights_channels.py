@@ -80,7 +80,8 @@ def test_channels_api_is_owner_scoped_and_never_returns_ebay_credentials() -> No
     assert block.count("l.owner_id=$1 and l.inventory_id=i.id") >= 4
     assert "where {where}" in block
     assert "where ${where}" not in block
-    assert "limit {len(page_params)-1} offset {len(page_params)}" in block
+    assert "limit ${len(page_params)-1} offset ${len(page_params)}" in block
+    assert "limit {len(page_params)-1} offset {len(page_params)}" not in block
     assert '"source_of_truth": "DROP_RATE"' in block
 
     for forbidden in (
