@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Literal
@@ -14,7 +15,13 @@ from pydantic import BaseModel, Field, field_validator
 from .access_control import require_platform_admin
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
-from .resend_email import ResendApiError, ResendEmailClient, build_seller_invite_email
+from .resend_email import (
+    ResendApiError,
+    ResendEmailClient,
+    ResendWebhookVerificationError,
+    build_seller_invite_email,
+    verify_resend_webhook,
+)
 from .settings import Settings, get_settings
 
 
@@ -372,6 +379,87 @@ async def redeem_owner_invite(
             },
         }
     )
+
+
+@router.post("/api/v1/webhooks/resend")
+async def resend_email_webhook(request: Request) -> dict:
+    settings = get_settings()
+    if not settings.resend_webhook_secret:
+        raise HTTPException(
+            status_code=503,
+            detail="Resend webhook verification is not configured",
+        )
+
+    raw_body = await request.body()
+    svix_id = request.headers.get("svix-id", "")
+    svix_timestamp = request.headers.get("svix-timestamp", "")
+    svix_signature = request.headers.get("svix-signature", "")
+
+    try:
+        verify_resend_webhook(
+            raw_body=raw_body,
+            webhook_secret=settings.resend_webhook_secret,
+            svix_id=svix_id,
+            svix_timestamp=svix_timestamp,
+            svix_signature=svix_signature,
+        )
+    except ResendWebhookVerificationError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Resend webhook signature",
+        ) from exc
+
+    try:
+        event = json.loads(raw_body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid Resend webhook payload") from exc
+    if not isinstance(event, dict):
+        raise HTTPException(status_code=400, detail="Invalid Resend webhook payload")
+
+    event_type = str(event.get("type") or "").strip().lower()
+    supported = {
+        "email.sent",
+        "email.delivered",
+        "email.delivery_delayed",
+        "email.bounced",
+        "email.failed",
+        "email.suppressed",
+        "email.complained",
+    }
+    if event_type not in supported:
+        return {"processed": False, "ignored": True, "event_type": event_type}
+
+    data = event.get("data")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="Resend webhook data is missing")
+    provider_message_id = str(
+        data.get("email_id") or data.get("id") or ""
+    ).strip()
+    if not provider_message_id:
+        raise HTTPException(status_code=400, detail="Resend email ID is missing")
+
+    created_at = str(event.get("created_at") or "").strip()
+    try:
+        occurred_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid Resend event timestamp") from exc
+    if occurred_at.tzinfo is None:
+        raise HTTPException(status_code=400, detail="Invalid Resend event timestamp")
+
+    async with request.app.state.db_pool.acquire() as connection:
+        result = await connection.fetchrow(
+            "select * from tcg.record_owner_invite_email_webhook($1,$2,$3,$4,$5,$6)",
+            "RESEND",
+            svix_id,
+            provider_message_id,
+            event_type,
+            hashlib.sha256(raw_body).hexdigest(),
+            occurred_at,
+        )
+
+    if result is None:
+        raise HTTPException(status_code=500, detail="Resend webhook could not be recorded")
+    return jsonable_encoder(dict(result))
 
 
 @router.delete("/api/v1/owner-invites/{invite_id}")
