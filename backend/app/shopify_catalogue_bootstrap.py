@@ -4,10 +4,12 @@ import asyncio
 import logging
 from pathlib import PurePosixPath
 from typing import Any, Mapping
+from uuid import UUID, uuid4
 from urllib.parse import urlsplit
 
 import asyncpg
 
+from .db import user_connection
 from .settings import Settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
 from .shopify_completeness import build_shopify_product_plan, product_create_input
@@ -162,8 +164,16 @@ async def _product_set_with_retry(
     raise ShopifyApiError("Shopify productSet exhausted retry attempts")
 
 
-async def _candidate_rows(pool: asyncpg.Pool) -> list[dict[str, Any]]:
-    async with pool.acquire() as connection:
+async def _candidate_rows(
+    pool: asyncpg.Pool,
+    *,
+    actor_user_id: UUID,
+) -> list[dict[str, Any]]:
+    async with user_connection(
+        pool,
+        actor_user_id,
+        f"shopify-catalogue-bootstrap-read:{uuid4()}",
+    ) as connection:
         rows = await connection.fetch(
             """
             select
@@ -229,6 +239,7 @@ async def _record_product(
     shop_domain: str,
     location_id: str,
     publication_id: str,
+    actor_user_id: UUID,
 ) -> str:
     variants = product.get("variants")
     variant_nodes = variants.get("nodes") if isinstance(variants, Mapping) else None
@@ -247,7 +258,11 @@ async def _record_product(
     if not product_id or not variant_id or not inventory_item_id:
         return "MISSING_REMOTE_ID"
 
-    async with pool.acquire() as connection:
+    async with user_connection(
+        pool,
+        actor_user_id,
+        f"shopify-catalogue-bootstrap-write:{uuid4()}",
+    ) as connection:
         async with connection.transaction():
             current = await connection.fetchrow(
                 """
@@ -278,19 +293,6 @@ async def _record_product(
                 if str(existing["shopify_product_gid"]) == product_id:
                     return "ALREADY_LINKED"
                 return "LINK_CONFLICT"
-
-            actor_user_id = await connection.fetchval(
-                """
-                select user_id
-                from tcg.owner_memberships
-                where owner_id=$1 and active and role='PLATFORM_ADMIN'
-                order by created_at
-                limit 1
-                """,
-                current["owner_id"],
-            )
-            if actor_user_id is None:
-                return "MISSING_PLATFORM_ADMIN"
 
             await connection.execute(
                 """
@@ -379,9 +381,38 @@ async def run_shopify_catalogue_bootstrap(
         or not settings.shopify_client_secret
         or not settings.shopify_location_gid
         or not settings.shopify_publication_gid
+        or not settings.shopify_catalogue_bootstrap_actor_user_id
     ):
         logger.error("Shopify catalogue bootstrap skipped: Shopify is not fully configured")
         return {"status": "SKIPPED_CONFIGURATION"}
+
+    try:
+        actor_user_id = UUID(settings.shopify_catalogue_bootstrap_actor_user_id)
+    except (TypeError, ValueError):
+        logger.error("Shopify catalogue bootstrap skipped: actor user id is invalid")
+        return {"status": "SKIPPED_ACTOR_CONFIGURATION"}
+
+    async with user_connection(
+        pool,
+        actor_user_id,
+        f"shopify-catalogue-bootstrap-actor-check:{uuid4()}",
+    ) as connection:
+        actor_is_platform_admin = bool(
+            await connection.fetchval(
+                """
+                select exists(
+                    select 1
+                    from tcg.owner_memberships
+                    where user_id=tcg.current_user_id()
+                      and active
+                      and role='PLATFORM_ADMIN'
+                )
+                """
+            )
+        )
+    if not actor_is_platform_admin:
+        logger.error("Shopify catalogue bootstrap skipped: actor is not platform admin")
+        return {"status": "SKIPPED_ACTOR_ACCESS"}
 
     client = ShopifyAdminClient(
         shop_domain=settings.shopify_shop_domain,
@@ -389,7 +420,7 @@ async def run_shopify_catalogue_bootstrap(
         client_secret=settings.shopify_client_secret,
         api_version=settings.shopify_api_version,
     )
-    candidates = await _candidate_rows(pool)
+    candidates = await _candidate_rows(pool, actor_user_id=actor_user_id)
     logger.info(
         "Shopify catalogue bootstrap starting with %s unlinked inventory items",
         len(candidates),
@@ -461,6 +492,7 @@ async def run_shopify_catalogue_bootstrap(
             shop_domain=settings.shopify_shop_domain,
             location_id=settings.shopify_location_gid,
             publication_id=settings.shopify_publication_gid,
+            actor_user_id=actor_user_id,
         )
         if state == "LINKED":
             linked += 1

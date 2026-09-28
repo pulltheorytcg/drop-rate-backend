@@ -68,6 +68,8 @@ def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
         "TCG_SHOPIFY_PUBLICATION_GID",
         "TCG_SHOPIFY_TEST_PUBLISH_ENABLED",
         "TCG_SHOPIFY_PUBLISH_ENABLED",
+        "TCG_SHOPIFY_CATALOGUE_BOOTSTRAP_ENABLED",
+        "TCG_SHOPIFY_CATALOGUE_BOOTSTRAP_ACTOR_USER_ID",
     ):
         monkeypatch.delenv(name, raising=False)
     settings = Settings.from_env()
@@ -80,6 +82,8 @@ def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
     assert settings.shopify_publication_gid is None
     assert settings.shopify_test_publish_enabled is False
     assert settings.shopify_publish_enabled is False
+    assert settings.shopify_catalogue_bootstrap_enabled is False
+    assert settings.shopify_catalogue_bootstrap_actor_user_id is None
 
 
 def test_shopify_domain_requires_canonical_myshopify_domain(monkeypatch):
@@ -103,6 +107,11 @@ def test_shopify_settings_read_server_side_credentials(monkeypatch):
     monkeypatch.setenv("TCG_SHOPIFY_PUBLICATION_GID", "gid://shopify/Publication/456")
     monkeypatch.setenv("TCG_SHOPIFY_TEST_PUBLISH_ENABLED", "true")
     monkeypatch.setenv("TCG_SHOPIFY_PUBLISH_ENABLED", "false")
+    monkeypatch.setenv("TCG_SHOPIFY_CATALOGUE_BOOTSTRAP_ENABLED", "true")
+    monkeypatch.setenv(
+        "TCG_SHOPIFY_CATALOGUE_BOOTSTRAP_ACTOR_USER_ID",
+        "11111111-1111-4111-8111-111111111111",
+    )
     settings = Settings.from_env()
     assert settings.shopify_shop_domain == "drop-rate.myshopify.com"
     assert settings.shopify_client_id == "client-id"
@@ -113,6 +122,10 @@ def test_shopify_settings_read_server_side_credentials(monkeypatch):
     assert settings.shopify_publication_gid == "gid://shopify/Publication/456"
     assert settings.shopify_test_publish_enabled is True
     assert settings.shopify_publish_enabled is False
+    assert settings.shopify_catalogue_bootstrap_enabled is True
+    assert settings.shopify_catalogue_bootstrap_actor_user_id == (
+        "11111111-1111-4111-8111-111111111111"
+    )
 
 
 def test_shopify_webhook_endpoint_must_be_https(monkeypatch):

@@ -152,6 +152,7 @@ def create_app() -> FastAPI:
                 settings.shopify_client_secret,
                 settings.shopify_location_gid,
                 settings.shopify_publication_gid,
+                settings.shopify_catalogue_bootstrap_actor_user_id,
             )
         )
         logger.warning(
