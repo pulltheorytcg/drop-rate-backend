@@ -38,11 +38,13 @@ class ImportPreviewRequest(BaseModel):
     content: str = Field(min_length=1, max_length=8_000_000)
     adapter: ImportAdapter = "AUTO"
     default_game: str | None = Field(default=None, max_length=80)
+    default_language: str | None = Field(default=None, max_length=80)
 
     @model_validator(mode="after")
     def normalise(self) -> "ImportPreviewRequest":
         self.filename = self.filename.strip()
         self.default_game = self.default_game.strip() if self.default_game else None
+        self.default_language = clean_language(self.default_language)
         if not self.filename.lower().endswith(".csv"):
             raise ValueError("Only CSV imports are supported in this first import release")
         return self
@@ -192,6 +194,7 @@ def _normalized_row(
     row: dict[str, str],
     mapping: dict[str, str],
     default_game: str | None,
+    default_language: str | None = None,
     *,
     adapter: str = "GENERIC_CSV",
 ) -> tuple[dict, list[str]]:
@@ -209,7 +212,7 @@ def _normalized_row(
     ]
     if len(set(language_evidence)) > 1:
         issues.append("language_conflict")
-    language = explicit_language or title_language or set_language
+    language = explicit_language or title_language or set_language or clean_language(default_language)
     name = parsed_name
     set_name = raw_set_name
     card_number = _cell(row, mapping, "card_number")
@@ -392,7 +395,7 @@ async def _collectr_previous_snapshot(
     for row in rows:
         raw = _json_value(row["source_record"], expected_type=dict, fallback={})
         mapping = _field_map(list(raw))
-        normalized, issues = _normalized_row(raw, mapping, None, adapter="COLLECTR")
+        normalized, issues = _normalized_row(raw, mapping, None, None, adapter="COLLECTR")
         if issues:
             continue
         quantity = int(raw.get("Quantity") or 1)
@@ -554,6 +557,7 @@ async def preview_import(
                 raw,
                 mapping,
                 payload.default_game,
+                payload.default_language,
                 adapter=adapter,
             )
             if adapter == "COLLECTR":
