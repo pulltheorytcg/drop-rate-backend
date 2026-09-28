@@ -16,7 +16,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
     assert '<script src="/assets/owner-portal.js?v=owner-v3" defer></script>' in html
-    assert '<script src="/assets/owner-recognition.js?v=owner-v3" defer></script>' in html
+    assert '<script src="/assets/owner-recognition.js?v=owner-v4" defer></script>' in html
 
     for founder_script in (
         "dashboard-shell.js",
@@ -186,3 +186,61 @@ def test_owner_scan_requires_confirmation_before_intake() -> None:
     assert js.index(feedback_call) < js.index(intake_call)
     assert '"CONFIRMED_TOP"' in js
     assert '"CORRECTED_TO_CANDIDATE"' in js
+
+
+def test_mobile_batch_scanner_is_camera_first_and_locally_gated() -> None:
+    html = HTML.read_text()
+    js = RECOGNITION_JS.read_text()
+    css = CSS.read_text()
+
+    for element_id in (
+        "owner-batch-camera-state",
+        "owner-batch-count",
+        "owner-batch-total",
+        "owner-batch-unresolved",
+        "owner-batch-strip",
+        "owner-batch-review-button",
+        "owner-batch-review-list",
+        "owner-batch-search-input",
+        "owner-batch-search-results",
+    ):
+        assert f'id="{element_id}"' in html
+
+    assert "ownerBatchFrameFingerprint" in js
+    assert "ownerBatchFingerprintDelta" in js
+    assert "stableFrames >= 3" in js
+    assert "changed >= 0.11" in js
+    assert "window.setInterval(ownerBatchTick, 420)" in js
+    assert "MediaRecorder" not in js
+    assert "RTCPeerConnection" not in js
+    assert "getUserMedia" in js
+    assert "force_refresh: true" in js
+
+    assert ".owner-portal-page .owner-batch-sheet" in css
+    assert ".owner-portal-page.owner-batch-camera-open" in css
+    assert "position:fixed;inset:0;z-index:1000" in css
+    assert "height:100dvh" in css
+
+
+def test_mobile_batch_scanner_keeps_unresolved_cards_and_supports_search_correction() -> None:
+    js = RECOGNITION_JS.read_text()
+
+    assert 'status: autoRecognised ? "recognised" : "unresolved"' in js
+    assert 'outcome: "CORRECTED_BY_SEARCH"' in js
+    assert "/api/v1/owner/catalogue-search" in js
+    assert "ownerBatchOpenCorrection" in js
+    assert "ownerBatchUnresolvedCount" in js
+    assert "ownerBatchReferenceTotal" in js
+    assert "Fix match" in js
+    assert 'headers: {"Idempotency-Key": item.intakeKey}' in js
+    assert 'item.status = "added"' in js
+
+
+def test_mobile_batch_scan_only_commits_confirmed_items_as_draft_inventory() -> None:
+    js = RECOGNITION_JS.read_text()
+
+    feedback_index = js.index("await ownerBatchEnsureFeedback(item)")
+    intake_index = js.index('apiRequest("/api/v1/owner/recognition-intake"', feedback_index)
+    assert feedback_index < intake_index
+    assert 'selected_catalogue_id: item.selected.catalogue_id' in js
+    assert "ownerBatchUnresolvedCount()" in js

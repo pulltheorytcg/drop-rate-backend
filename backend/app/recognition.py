@@ -63,7 +63,7 @@ class RecognitionRequest(BaseModel):
 
 
 class RecognitionFeedbackRequest(BaseModel):
-    outcome: Literal["CONFIRMED_TOP", "CORRECTED_TO_CANDIDATE", "REJECTED_ALL"]
+    outcome: Literal["CONFIRMED_TOP", "CORRECTED_TO_CANDIDATE", "CORRECTED_BY_SEARCH", "REJECTED_ALL"]
     selected_catalogue_id: UUID | None = None
     notes: str = Field(default="", max_length=2000)
 
@@ -115,35 +115,23 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
         from tcg.recognition_candidates rc
         left join lateral (
             select
-                i.market_value_minor,
-                i.recommended_retail_minor,
-                i.pricing_updated_at,
-                s.confidence as pricing_confidence,
-                s.source_count as pricing_source_count,
-                s.observation_count as pricing_observation_count,
-                s.newest_observation_at as pricing_newest_observation_at,
-                s.algorithm_version as pricing_algorithm_version
-            from tcg.inventory_items i
-            left join tcg.pricing_snapshots s on s.id=i.latest_pricing_snapshot_id
-            where i.owner_id=$2
-              and i.catalogue_id=rc.catalogue_id
-              and i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
-              and i.grading_company is null
-              and i.grade is null
-              and i.market_value_minor is not null
-              and (
-                nullif(rc.candidate_snapshot->>'language','') is null
-                or lower(coalesce(i.language,'')) =
-                   lower(rc.candidate_snapshot->>'language')
-              )
-            order by i.pricing_updated_at desc nulls last,i.id
-            limit 1
-        ) price on true
+                v.market_value_minor,
+                v.recommended_retail_minor,
+                v.pricing_updated_at,
+                null::numeric as pricing_confidence,
+                null::integer as pricing_source_count,
+                null::integer as pricing_observation_count,
+                null::timestamptz as pricing_newest_observation_at,
+                'REFERENCE_SNAPSHOT'::text as pricing_algorithm_version
+            from tcg.recognition_catalogue_reference_value(
+                rc.catalogue_id,
+                nullif(rc.candidate_snapshot->>'language','')
+            ) v
+        ) price on rc.catalogue_id is not null
         where rc.run_id=$1
         order by rc.rank
         """,
         run_id,
-        run["owner_id"],
     )
     feedback = await connection.fetch(
         """
@@ -355,7 +343,7 @@ async def record_recognition_feedback(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    if payload.outcome in {"CONFIRMED_TOP", "CORRECTED_TO_CANDIDATE"}:
+    if payload.outcome in {"CONFIRMED_TOP", "CORRECTED_TO_CANDIDATE", "CORRECTED_BY_SEARCH"}:
         if payload.selected_catalogue_id is None:
             raise HTTPException(
                 status_code=422,
@@ -399,7 +387,7 @@ async def record_recognition_feedback(
                         detail="Confirmed-top feedback must select the top candidate",
                     )
 
-            if payload.selected_catalogue_id is not None:
+            if payload.outcome == "CORRECTED_TO_CANDIDATE":
                 candidate_exists = await connection.fetchval(
                     """
                     select exists(
@@ -417,6 +405,24 @@ async def record_recognition_feedback(
                     raise HTTPException(
                         status_code=422,
                         detail="Selected catalogue product is not a viable candidate from this run",
+                    )
+
+            if payload.outcome == "CORRECTED_BY_SEARCH":
+                searchable_card = await connection.fetchval(
+                    """
+                    select exists(
+                        select 1
+                        from tcg.catalogue_products p
+                        join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
+                        where p.id=$1 and p.product_type='CARD'
+                    )
+                    """,
+                    payload.selected_catalogue_id,
+                )
+                if not searchable_card:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Search correction must select a recognised catalogue card",
                     )
 
             previous_feedback_id = await connection.fetchval(
