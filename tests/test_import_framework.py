@@ -126,3 +126,43 @@ def test_conflicting_title_and_set_language_evidence_fails_closed() -> None:
     normalized, issues = _normalized_row(row, mapping, None)
     assert normalized["language"] == "English"
     assert "language_conflict" in issues
+
+
+def test_default_language_fills_only_unmarked_rows() -> None:
+    row = {
+        "Product Name": "Monkey.D.Luffy",
+        "Set": "500 Years in the Future",
+        "Card Number": "OP07-109",
+        "Category": "One Piece",
+        "Variance": "Foil",
+    }
+    mapping = _field_map(list(row))
+    normalized, issues = _normalized_row(
+        row,
+        mapping,
+        None,
+        "English",
+        adapter="COLLECTR",
+    )
+    assert normalized["language"] == "English"
+    assert "missing_language" not in issues
+
+
+def test_explicit_import_language_marker_overrides_default_language() -> None:
+    row = {
+        "Product Name": "Monkey.D.Luffy (JP)",
+        "Set": "The Time of Battle",
+        "Card Number": "OP16-015",
+        "Category": "One Piece",
+        "Variance": "Foil",
+    }
+    mapping = _field_map(list(row))
+    normalized, issues = _normalized_row(
+        row,
+        mapping,
+        None,
+        "English",
+        adapter="COLLECTR",
+    )
+    assert normalized["language"] == "Japanese"
+    assert "missing_language" not in issues

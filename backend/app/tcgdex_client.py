@@ -101,6 +101,161 @@ class TcgDexClient:
         self._jp_aliases_expires_at = 0.0
         self._jp_aliases_lock = asyncio.Lock()
 
+    async def resolve_card(
+        self,
+        *,
+        language: str,
+        set_name: str,
+        card_number: str,
+        variant: str,
+    ) -> dict[str, Any]:
+        normalized_language = _norm(language)
+        if normalized_language in {"japanese", "jp", "ja"}:
+            return await self.resolve_japanese_card(
+                set_name=set_name,
+                card_number=card_number,
+                variant=variant,
+            )
+        if normalized_language in {"english", "en"}:
+            return await self.resolve_english_card(
+                set_name=set_name,
+                card_number=card_number,
+                variant=variant,
+            )
+        return {
+            "resolved": False,
+            "reason": "TCGdex language is not supported by this resolver",
+        }
+
+    async def resolve_english_card(
+        self,
+        *,
+        set_name: str,
+        card_number: str,
+        variant: str,
+    ) -> dict[str, Any]:
+        local_id, official_count = _card_number_parts(card_number)
+        if not local_id:
+            return {"resolved": False, "reason": "Pokémon card number is missing"}
+        if not set_name.strip():
+            return {"resolved": False, "reason": "Pokémon set name is missing"}
+
+        variant_key = _variant_key(variant)
+        if variant_key is None:
+            return {
+                "resolved": False,
+                "reason": "Pokémon variant is not mapped to a TCGdex finish",
+            }
+
+        sets = await self._get_json(
+            "/en/sets",
+            params={"name": set_name.strip()},
+        )
+        if not isinstance(sets, list):
+            raise TcgDexApiError("TCGdex set search returned an invalid response")
+
+        exact_sets: list[Mapping[str, Any]] = []
+        for item in sets:
+            if not isinstance(item, Mapping):
+                continue
+            if _norm(item.get("name")) != _norm(set_name):
+                continue
+            if official_count is not None:
+                card_count = item.get("cardCount")
+                if (
+                    isinstance(card_count, Mapping)
+                    and isinstance(card_count.get("official"), int)
+                    and card_count.get("official") != official_count
+                ):
+                    continue
+            exact_sets.append(item)
+
+        if len(exact_sets) != 1:
+            return {
+                "resolved": False,
+                "reason": "no exact TCGdex English set match",
+            }
+        set_id = str(exact_sets[0].get("id") or "").strip()
+        if not set_id:
+            return {
+                "resolved": False,
+                "reason": "TCGdex English set is missing a stable ID",
+            }
+
+        card: Mapping[str, Any] | None = None
+        attempts = [local_id]
+        stripped = local_id.lstrip("0") or "0"
+        if stripped != local_id:
+            attempts.append(stripped)
+
+        for candidate_local_id in attempts:
+            try:
+                payload = await self._get_json(
+                    f"/en/sets/{set_id}/{candidate_local_id}",
+                )
+            except TcgDexApiError as exc:
+                if exc.status_code == 404:
+                    continue
+                raise
+            if isinstance(payload, Mapping):
+                card = payload
+                break
+
+        if card is None:
+            return {"resolved": False, "reason": "English TCGdex card not found"}
+
+        provider_set = card.get("set")
+        if (
+            not isinstance(provider_set, Mapping)
+            or str(provider_set.get("id") or "").casefold() != set_id.casefold()
+        ):
+            return {"resolved": False, "reason": "TCGdex card set identity mismatch"}
+
+        if official_count is not None:
+            provider_count = provider_set.get("cardCount")
+            if (
+                isinstance(provider_count, Mapping)
+                and isinstance(provider_count.get("official"), int)
+                and provider_count.get("official") != official_count
+            ):
+                return {
+                    "resolved": False,
+                    "reason": "TCGdex English set card-count mismatch",
+                }
+
+        if not _number_equivalent(card.get("localId"), local_id):
+            return {"resolved": False, "reason": "TCGdex card number mismatch"}
+
+        variants = card.get("variants")
+        if not _variant_available(variants, variant_key):
+            return {
+                "resolved": False,
+                "reason": f"TCGdex card does not support {variant_key} finish",
+            }
+
+        image_base = str(card.get("image") or "").strip()
+        if not image_base.startswith("https://assets.tcgdex.net/"):
+            return {"resolved": False, "reason": "TCGdex card has no trusted image asset"}
+
+        provider_id = str(card.get("id") or "").strip()
+        if not provider_id:
+            return {"resolved": False, "reason": "TCGdex card is missing a stable ID"}
+
+        return {
+            "resolved": True,
+            "provider": "TCGdex",
+            "provider_id": provider_id,
+            "image_url": f"{image_base.rstrip('/')}/high.webp",
+            "source_reference": f"https://api.tcgdex.net/v2/en/cards/{provider_id}",
+            "provider_set_id": set_id,
+            "provider_local_id": card.get("localId"),
+            "provider_name": card.get("name"),
+            "provider_rarity": card.get("rarity"),
+            "provider_category": card.get("category"),
+            "provider_types": card.get("types") or [],
+            "finish_key": variant_key,
+        }
+
     async def resolve_japanese_card(
         self,
         *,

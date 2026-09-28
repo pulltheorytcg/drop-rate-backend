@@ -24,12 +24,17 @@ function ensureInventoryImportUI() {
       <div class="form-grid">
         <label>Import source<select id="import-adapter"><option value="AUTO">Auto detect</option><option value="COLLECTR">Collectr export</option><option value="EBAY_PURCHASES">eBay purchases/account export</option><option value="HOLODEX">HoloDex export</option><option value="GENERIC_CSV">Generic CSV</option></select></label>
         <label>Default game<input id="import-default-game" maxlength="80" placeholder="Optional, e.g. Pokemon"></label>
+        <label>Unmarked language<select id="import-default-language"><option value="">Leave for review</option><option value="English">English</option><option value="Japanese">Japanese</option></select></label>
         <label class="full-width">CSV file<input id="import-file" type="file" accept=".csv,text/csv" required></label>
       </div>
       <div id="import-message" class="message" role="status"></div>
       <div id="import-summary" class="allocation-summary hidden"></div>
       <div id="import-warnings" class="message"></div>
       <div id="import-preview-list" class="allocation-list"></div>
+      <div id="import-recent-section">
+        <p class="eyebrow">Recent import batches</p>
+        <div id="import-recent-list" class="allocation-list"></div>
+      </div>
       <div class="modal-actions">
         <button class="ghost-button" type="button" data-close="inventory-import-dialog">Cancel</button>
         <button id="import-preview-button" class="primary-button compact" type="submit">Preview import</button>
@@ -58,6 +63,7 @@ function resetInventoryImport() {
 function openInventoryImport() {
   resetInventoryImport();
   byId("inventory-import-dialog").showModal();
+  loadRecentImports();
 }
 
 function importIssueLabel(issue) {
@@ -324,6 +330,7 @@ async function previewInventoryImport(event) {
         content,
         adapter: byId("import-adapter").value,
         default_game: emptyToNull(byId("import-default-game").value),
+        default_language: emptyToNull(byId("import-default-language").value),
       }),
     });
 
@@ -353,19 +360,181 @@ async function previewInventoryImport(event) {
   }
 }
 
+async function runImportEnrichment(batchId, defaultLanguage, {retryActionRequired = false} = {}) {
+  const initial = await apiRequest(`/api/v1/imports/${batchId}/enrichment`);
+  const total = Number(initial.stages?.total || 0);
+  let remaining = Number(
+    initial.states?.find((row) => row.overall_status === "PENDING")?.count || 0
+  );
+  let processedTotal = 0;
+  let failedTotal = 0;
+  let rounds = 0;
+
+  while (remaining > 0 && rounds < 100) {
+    rounds += 1;
+    showMessage(
+      "import-message",
+      `Enriching imported inventory… ${processedTotal.toLocaleString("en-GB")} / ${total.toLocaleString("en-GB")} processed.`
+    );
+    const result = await apiRequest(`/api/v1/imports/${batchId}/enrichment/process`, {
+      method: "POST",
+      body: JSON.stringify({
+        limit: 18,
+        default_language: defaultLanguage || null,
+        retry_action_required: retryActionRequired && rounds === 1,
+      }),
+    });
+    processedTotal += Number(result.processed_count || 0);
+    failedTotal += Number(result.failed_count || 0);
+    remaining = Number(result.remaining_pending || 0);
+
+    if (
+      remaining > 0
+      && Number(result.processed_count || 0) === 0
+      && Number(result.failed_count || 0) > 0
+    ) {
+      break;
+    }
+  }
+
+  const finalStatus = await apiRequest(`/api/v1/imports/${batchId}/enrichment`);
+  const actionRequired = Number(
+    finalStatus.states?.find((row) => row.overall_status === "ACTION_REQUIRED")?.count || 0
+  );
+  const complete = Number(
+    finalStatus.states?.find((row) => row.overall_status === "COMPLETE")?.count || 0
+  );
+  return {
+    total,
+    complete,
+    actionRequired,
+    remaining: Number(
+      finalStatus.states?.find((row) => row.overall_status === "PENDING")?.count || 0
+    ),
+    failedTotal,
+    stages: finalStatus.stages || {},
+  };
+}
+
+function renderRecentImports(data) {
+  const container = byId("import-recent-list");
+  if (!container) return;
+  container.replaceChildren();
+  const items = data.items || [];
+  if (!items.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "No import batches yet.";
+    container.append(empty);
+    return;
+  }
+
+  items.slice(0, 8).forEach((batch) => {
+    const row = document.createElement("div");
+    row.className = "allocation-row";
+
+    const copy = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = batch.filename || "Import batch";
+    const meta = document.createElement("small");
+    meta.textContent = [
+      batch.adapter,
+      `${Number(batch.physical_units || 0).toLocaleString("en-GB")} physical items`,
+      String(batch.status || "").replaceAll("_", " "),
+    ].filter(Boolean).join(" · ");
+    copy.append(title, meta);
+
+    const state = document.createElement("div");
+    state.className = "card-name";
+    const summary = document.createElement("strong");
+    const pending = Number(batch.enrichment_pending || 0);
+    const action = Number(batch.enrichment_action_required || 0);
+    const complete = Number(batch.enrichment_complete || 0);
+    if (batch.status !== "COMMITTED") {
+      summary.textContent = "Not committed";
+    } else if (!batch.enrichment_total) {
+      summary.textContent = "Enrichment not started";
+    } else {
+      summary.textContent = `${complete} enriched · ${action} action required`;
+    }
+    state.append(summary);
+
+    if (batch.status === "COMMITTED" && (pending > 0 || !batch.enrichment_total || action > 0)) {
+      const resume = document.createElement("button");
+      resume.type = "button";
+      resume.className = "ghost-button";
+      resume.textContent = action > 0 ? "Retry / enrich" : "Resume enrichment";
+      resume.addEventListener("click", async () => {
+        resume.disabled = true;
+        const language = emptyToNull(byId("import-default-language").value);
+        showMessage("import-message", "Running import enrichment…");
+        try {
+          const result = await runImportEnrichment(batch.id, language, {
+            retryActionRequired: action > 0,
+          });
+          showMessage(
+            "import-message",
+            `Enrichment complete: ${result.complete} complete · ${result.actionRequired} action required${result.remaining ? ` · ${result.remaining} still pending` : ""}.`,
+            result.actionRequired || result.remaining ? "error" : "success",
+          );
+          await Promise.all([loadRecentImports(), refreshActionRequiredBadge(), reloadDashboard()]);
+        } catch (error) {
+          showMessage("import-message", error.message, "error");
+        } finally {
+          resume.disabled = false;
+        }
+      });
+      state.append(resume);
+    }
+
+    row.append(copy, state);
+    container.append(row);
+  });
+}
+
+async function loadRecentImports() {
+  const container = byId("import-recent-list");
+  if (!container) return;
+  container.textContent = "Loading recent imports…";
+  try {
+    const data = await apiRequest("/api/v1/imports?limit=8");
+    renderRecentImports(data);
+  } catch (error) {
+    container.textContent = error.message;
+  }
+}
+
 async function commitInventoryImport() {
   if (!activeImportPreview) return;
   const button = byId("import-commit-button");
   button.disabled = true;
   showMessage("import-message", "Creating physical Draft inventory…");
   try {
-    const result = await apiRequest(`/api/v1/imports/${activeImportPreview.batch_id}/commit`, {
+    const batchId = activeImportPreview.batch_id;
+    const defaultLanguage = emptyToNull(byId("import-default-language").value);
+    const result = await apiRequest(`/api/v1/imports/${batchId}/commit`, {
       method: "POST",
       body: JSON.stringify({ version: activeImportPreview.version }),
     });
-    byId("inventory-import-dialog").close();
-    await reloadDashboard();
-    showMessage("inventory-message", `${result.created_count} physical inventory item${result.created_count === 1 ? "" : "s"} imported as Draft.`, "success");
+
+    showMessage(
+      "import-message",
+      `${result.created_count} physical inventory item${result.created_count === 1 ? "" : "s"} created. Running identity, image and pricing enrichment…`
+    );
+
+    const enrichment = await runImportEnrichment(batchId, defaultLanguage);
+    await Promise.all([reloadDashboard(), refreshActionRequiredBadge(), loadRecentImports()]);
+
+    showMessage(
+      "import-message",
+      `Import complete: ${enrichment.complete} enriched · ${enrichment.actionRequired} action required${enrichment.remaining ? ` · ${enrichment.remaining} pending` : ""}.`,
+      enrichment.actionRequired || enrichment.remaining ? "error" : "success",
+    );
+    showMessage(
+      "inventory-message",
+      `${result.created_count} physical inventory item${result.created_count === 1 ? "" : "s"} imported as Draft; post-import enrichment has run.`,
+      "success",
+    );
   } catch (error) {
     showMessage("import-message", error.message, "error");
   } finally {
@@ -373,4 +542,116 @@ async function commitInventoryImport() {
   }
 }
 
+function ensureActionRequiredUI() {
+  if (byId("action-required-button")) return;
+  const actions = byId("refresh-button").parentElement;
+  const button = document.createElement("button");
+  button.id = "action-required-button";
+  button.className = "ghost-button";
+  button.type = "button";
+  button.textContent = "Action Required";
+  actions.insertBefore(button, byId("refresh-button"));
+
+  const dialog = document.createElement("dialog");
+  dialog.id = "action-required-dialog";
+  dialog.className = "modal";
+  dialog.innerHTML = `
+    <div class="modal-card wide">
+      <div class="modal-heading">
+        <div><p class="eyebrow">Exceptions, not routine work</p><h2>Action Required</h2><p class="muted">Only unresolved identity, media, pricing and operational exceptions appear here.</p></div>
+        <button class="icon-button" type="button" data-close="action-required-dialog" aria-label="Close">×</button>
+      </div>
+      <div id="action-required-message" class="message" role="status"></div>
+      <div id="action-required-list" class="allocation-list"></div>
+      <div class="modal-actions">
+        <button id="action-required-refresh" class="ghost-button" type="button">Refresh</button>
+        <button class="primary-button compact" type="button" data-close="action-required-dialog">Close</button>
+      </div>
+    </div>`;
+  document.body.append(dialog);
+
+  button.addEventListener("click", openActionRequired);
+  byId("action-required-refresh").addEventListener("click", loadActionRequired);
+  dialog.querySelectorAll('[data-close="action-required-dialog"]').forEach((close) => {
+    close.addEventListener("click", () => dialog.close());
+  });
+}
+
+function renderActionRequired(data) {
+  const container = byId("action-required-list");
+  container.replaceChildren();
+  const items = data.items || [];
+  if (!items.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Nothing needs attention right now.";
+    container.append(empty);
+    return;
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "allocation-row";
+
+    const copy = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = item.title || item.code;
+    const meta = document.createElement("small");
+    meta.textContent = [item.category, item.severity, item.code]
+      .filter(Boolean)
+      .join(" · ");
+    const detail = document.createElement("p");
+    detail.className = "muted";
+    detail.textContent = item.detail || "";
+    const action = document.createElement("small");
+    action.textContent = item.recommended_action
+      ? "Next: " + item.recommended_action
+      : "";
+    copy.append(title, meta, detail, action);
+    row.append(copy);
+    container.append(row);
+  });
+}
+
+async function loadActionRequired() {
+  const container = byId("action-required-list");
+  if (!container) return;
+  container.textContent = "Loading exceptions…";
+  try {
+    const data = await apiRequest("/api/v1/action-required?status=OPEN&limit=100");
+    renderActionRequired(data);
+    showMessage(
+      "action-required-message",
+      data.total
+        ? `${data.total} open exception${data.total === 1 ? "" : "s"}.`
+        : "All clear.",
+      data.total ? "error" : "success",
+    );
+  } catch (error) {
+    showMessage("action-required-message", error.message, "error");
+  }
+}
+
+async function refreshActionRequiredBadge() {
+  const button = byId("action-required-button");
+  if (!button) return;
+  try {
+    const data = await apiRequest("/api/v1/action-required/summary");
+    const total = (data.items || []).reduce((sum, row) => sum + Number(row.count || 0), 0);
+    button.textContent = total ? `Action Required (${total})` : "Action Required";
+    button.dataset.count = String(total);
+  } catch {
+    button.textContent = "Action Required";
+    delete button.dataset.count;
+  }
+}
+
+async function openActionRequired() {
+  byId("action-required-dialog").showModal();
+  await loadActionRequired();
+}
+
 ensureInventoryImportUI();
+ensureActionRequiredUI();
+refreshActionRequiredBadge();
+

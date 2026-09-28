@@ -53,6 +53,73 @@ async def test_tcgdex_resolves_english_alias_to_japanese_card_image(monkeypatch)
     assert result["image_url"] == "https://assets.tcgdex.net/ja/sv/sv3/20/high.webp"
 
 
+
+@pytest.mark.asyncio
+async def test_tcgdex_resolves_exact_english_card_image(monkeypatch) -> None:
+    client = TcgDexClient()
+
+    async def fake_get(path, *, params=None):
+        if path == "/en/sets":
+            assert params == {"name": "Base Set"}
+            return [
+                {
+                    "id": "base1",
+                    "name": "Base Set",
+                    "cardCount": {"official": 102, "total": 102},
+                }
+            ]
+        assert params is None
+        assert path == "/en/sets/base1/4"
+        return {
+            "id": "base1-4",
+            "localId": "4",
+            "name": "Charizard",
+            "image": "https://assets.tcgdex.net/en/base/base1/4",
+            "set": {
+                "id": "base1",
+                "name": "Base Set",
+                "cardCount": {"official": 102, "total": 102},
+            },
+            "variants": {"normal": False, "holo": True, "reverse": False},
+        }
+
+    monkeypatch.setattr(client, "_get_json", fake_get)
+    result = await client.resolve_card(
+        language="English",
+        set_name="Base Set",
+        card_number="4/102",
+        variant="Holofoil",
+    )
+
+    assert result["resolved"] is True
+    assert result["provider_id"] == "base1-4"
+    assert result["provider_set_id"] == "base1"
+    assert result["finish_key"] == "holo"
+    assert result["source_reference"] == "https://api.tcgdex.net/v2/en/cards/base1-4"
+    assert result["image_url"] == "https://assets.tcgdex.net/en/base/base1/4/high.webp"
+
+
+@pytest.mark.asyncio
+async def test_tcgdex_english_fails_closed_on_ambiguous_set(monkeypatch) -> None:
+    client = TcgDexClient()
+
+    async def fake_get(path, *, params=None):
+        assert path == "/en/sets"
+        return [
+            {"id": "a", "name": "Promo", "cardCount": {"official": 10}},
+            {"id": "b", "name": "Promo", "cardCount": {"official": 10}},
+        ]
+
+    monkeypatch.setattr(client, "_get_json", fake_get)
+    result = await client.resolve_card(
+        language="English",
+        set_name="Promo",
+        card_number="1/10",
+        variant="Normal",
+    )
+    assert result["resolved"] is False
+    assert result["reason"] == "no exact TCGdex English set match"
+
 @pytest.mark.asyncio
 async def test_tcgdex_also_accepts_boolean_variant_shape(monkeypatch) -> None:
     client = TcgDexClient()

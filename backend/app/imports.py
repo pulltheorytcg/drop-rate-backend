@@ -38,11 +38,13 @@ class ImportPreviewRequest(BaseModel):
     content: str = Field(min_length=1, max_length=8_000_000)
     adapter: ImportAdapter = "AUTO"
     default_game: str | None = Field(default=None, max_length=80)
+    default_language: str | None = Field(default=None, max_length=80)
 
     @model_validator(mode="after")
     def normalise(self) -> "ImportPreviewRequest":
         self.filename = self.filename.strip()
         self.default_game = self.default_game.strip() if self.default_game else None
+        self.default_language = clean_language(self.default_language)
         if not self.filename.lower().endswith(".csv"):
             raise ValueError("Only CSV imports are supported in this first import release")
         return self
@@ -192,6 +194,7 @@ def _normalized_row(
     row: dict[str, str],
     mapping: dict[str, str],
     default_game: str | None,
+    default_language: str | None = None,
     *,
     adapter: str = "GENERIC_CSV",
 ) -> tuple[dict, list[str]]:
@@ -209,7 +212,7 @@ def _normalized_row(
     ]
     if len(set(language_evidence)) > 1:
         issues.append("language_conflict")
-    language = explicit_language or title_language or set_language
+    language = explicit_language or title_language or set_language or clean_language(default_language)
     name = parsed_name
     set_name = raw_set_name
     card_number = _cell(row, mapping, "card_number")
@@ -392,7 +395,7 @@ async def _collectr_previous_snapshot(
     for row in rows:
         raw = _json_value(row["source_record"], expected_type=dict, fallback={})
         mapping = _field_map(list(raw))
-        normalized, issues = _normalized_row(raw, mapping, None, adapter="COLLECTR")
+        normalized, issues = _normalized_row(raw, mapping, None, None, adapter="COLLECTR")
         if issues:
             continue
         quantity = int(raw.get("Quantity") or 1)
@@ -554,6 +557,7 @@ async def preview_import(
                 raw,
                 mapping,
                 payload.default_game,
+                payload.default_language,
                 adapter=adapter,
             )
             if adapter == "COLLECTR":
@@ -737,6 +741,50 @@ async def preview_import(
             "candidates": candidates[:200],
             "preview_truncated": len(candidates) > 200,
         })
+
+
+@router.get("")
+async def list_import_batches(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = 25,
+) -> dict:
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 100")
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        rows = await connection.fetch(
+            """
+            select
+                b.id,b.filename,b.adapter,b.status,b.source_rows,b.physical_units,
+                b.created_at,b.committed_at,b.version,
+                coalesce(e.total_items,0)::int as enrichment_total,
+                coalesce(e.pending_items,0)::int as enrichment_pending,
+                coalesce(e.action_items,0)::int as enrichment_action_required,
+                coalesce(e.complete_items,0)::int as enrichment_complete
+            from tcg.import_batches b
+            left join lateral (
+                select
+                    count(*)::int as total_items,
+                    count(*) filter(where overall_status='PENDING')::int as pending_items,
+                    count(*) filter(where overall_status='ACTION_REQUIRED')::int as action_items,
+                    count(*) filter(where overall_status='COMPLETE')::int as complete_items
+                from tcg.import_enrichment_items ie
+                where ie.batch_id=b.id and ie.owner_id=b.owner_id
+            ) e on true
+            where b.owner_id=$1
+            order by b.created_at desc,b.id desc
+            limit $2
+            """,
+            owner["id"],
+            limit,
+        )
+    return jsonable_encoder({"items": [dict(row) for row in rows]})
 
 
 @router.get("/{batch_id}")
