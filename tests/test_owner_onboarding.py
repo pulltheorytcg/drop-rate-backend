@@ -330,6 +330,17 @@ def test_resend_webhook_verification_uses_raw_body_and_tolerance() -> None:
         )
 
 
+def test_resend_webhook_verifier_matches_svix_reference_vector() -> None:
+    verify_resend_webhook(
+        raw_body=b'{"test": 2432232314}',
+        webhook_secret="whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw",
+        svix_id="msg_p5jXN8AQM9LWM0D4loKWxJek",
+        svix_timestamp="1614265330",
+        svix_signature="v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=",
+        now=1614265330,
+    )
+
+
 def test_resend_webhook_delivery_ledger_is_idempotent_and_pii_minimised() -> None:
     sql = EMAIL_MIGRATION.read_text().lower()
 
