@@ -32,7 +32,7 @@ MEDIA_REGISTRY_MIGRATION = ROOT / "database" / "migrations" / "20260925154423_me
 SHIPPING_PROFILE_MIGRATION = ROOT / "database" / "migrations" / "20260925162748_shopify_shipping_profiles.sql"
 FULFILMENT_COST_MIGRATION = ROOT / "database" / "migrations" / "20260925172500_fulfilment_cost_components.sql"
 FULFILMENT_ALLOCATION_MIGRATION = ROOT / "database" / "migrations" / "20260925182500_fulfilment_material_allocation.sql"
-SHOPIFY_AUTOMATION_MIGRATION = ROOT / "database" / "migrations" / "20260928175500_shopify_automation_publication.sql"
+SHOPIFY_AUTOMATION_MIGRATION = ROOT / "database" / "migrations" / "20260928183039_shopify_automation_publication.sql"
 
 
 def test_money_helpers_are_penny_exact() -> None:
