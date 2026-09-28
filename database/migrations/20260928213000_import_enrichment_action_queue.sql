@@ -197,10 +197,6 @@ $function$;
 
 revoke all on function tcg.audit_import_enrichment_change() from public;
 
-create trigger import_enrichment_items_audit
-    after insert or update or delete on tcg.import_enrichment_items
-    for each row execute function tcg.audit_import_enrichment_change();
-
 create trigger action_required_items_audit
     after insert or update or delete on tcg.action_required_items
     for each row execute function tcg.audit_import_enrichment_change();
