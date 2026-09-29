@@ -205,6 +205,34 @@ verified byte-for-byte against the unpublished theme.
 browser/mobile visual QA and one add-to-cart/checkout smoke test proving a selected sibling
 still resolves to the exact Inventory ID before the grouped PDP slice can be called complete.
 
+## 29 September 2026 — exact-copy cart implementation checkpoint
+
+The third storefront-first slice keeps Shopify's native cart and checkout while making the
+one-physical-item model explicit to the customer.
+
+For products carrying a Drop Rate `inventory_id` metafield, the unpublished Brand Redesign
+cart now:
+- shortens the operational Shopify title to the customer-facing card name;
+- shows collector number/set plus condition or grader/grade and language;
+- displays **1 physical copy** instead of presenting the item like bulk inventory;
+- leaves Shopify's quantity component in the DOM but sets `can_update_quantity=false` for
+  tracked physical items;
+- keeps the normal Shopify remove action;
+- leaves native Shopify cart/checkout submission untouched.
+
+This UI lock is defence in depth rather than the stock authority. Representative live
+physical products were independently verified as Shopify `inventoryPolicy=DENY`,
+`inventoryQuantity=1` and `availableForSale=true`, so Shopify itself also prevents a
+customer purchasing two units of the same physical card.
+
+The cart Liquid reads only customer-safe product metafields. It does not expose owner,
+consignor, acquisition-cost, ledger or settlement data. Checkout continues to submit the
+exact Shopify variant/SKU already mapped to one `tcg.shopify_inventory_links` row.
+
+**Status: IN PROGRESS.** Remaining gates are CI, mobile/desktop visual QA and a complete
+cart→checkout smoke test on the unpublished storefront before this slice can be called
+complete.
+
 ## Storefront architecture
 
 Initial approach:
