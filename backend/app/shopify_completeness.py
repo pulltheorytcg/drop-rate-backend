@@ -20,6 +20,7 @@ BASE_COLLECTION = "Trading Cards"
 SEO_TITLE_MAX = 70
 SEO_DESCRIPTION_MAX = 320
 PRODUCT_TITLE_MAX = 255
+SEALED_PRODUCT_TYPES = {"COLLECTION", "SEALED"}
 
 
 def _text(value: object) -> str:
@@ -43,6 +44,10 @@ def _storefront_brand(game: object) -> str:
     if brand == "Pokemon":
         return "Pokémon"
     return brand
+
+
+def _is_sealed(item: Mapping[str, Any]) -> bool:
+    return _text(item.get("product_type")) in SEALED_PRODUCT_TYPES
 
 
 def _condition_label(item: Mapping[str, Any]) -> str:
@@ -82,6 +87,15 @@ def product_description_html(item: Mapping[str, Any]) -> str:
         if value
     )
     name = escape(_text(item.get("name")))
+    if _is_sealed(item):
+        return (
+            f"<p><strong>{name}</strong> is an individually tracked sealed TCG product "
+            "from Drop Rate inventory.</p>"
+            f"<ul>{rows}</ul>"
+            "<p>Product identity, language, condition and price are controlled by the "
+            "Drop Rate inventory system. Storefront media must show the exact sealed "
+            "physical product and clear Drop Rate's publication checks.</p>"
+        )
     return (
         f"<p><strong>{name}</strong> is an individually tracked physical trading card "
         "from Drop Rate inventory.</p>"
@@ -116,8 +130,13 @@ def seo_description(item: Mapping[str, Any]) -> str:
         language,
     ]
     sentence = ", ".join(bit for bit in bits if bit)
+    subject = (
+        "Individually tracked sealed TCG product from Drop Rate."
+        if _is_sealed(item)
+        else "Individually tracked physical trading card from Drop Rate."
+    )
     return _trim(
-        f"{sentence}. Individually tracked physical trading card from Drop Rate.",
+        f"{sentence}. {subject}",
         SEO_DESCRIPTION_MAX,
     )
 
@@ -128,21 +147,33 @@ def product_tags(item: Mapping[str, Any]) -> list[str]:
     condition = _condition_label(item)
     grading_company = _text(item.get("grading_company"))
     grade = _text(item.get("grade"))
-    values = [
-        "Drop Rate",
-        "TCG",
-        "Trading Card",
-        brand,
-        _text(item.get("game")),
-        _text(item.get("set_name")),
-        f"Language:{language}" if language else "",
-        f"Condition:{condition}" if condition else "",
-        f"Rarity:{_text(item.get('rarity'))}" if _text(item.get("rarity")) else "",
-        f"Variant:{_text(item.get('variant'))}" if _text(item.get("variant")) else "",
-        f"Grader:{grading_company}" if grading_company else "",
-        f"Grade:{grade}" if grade else "",
-        "Graded Card" if grading_company and grade else "Raw Card",
-    ]
+    if _is_sealed(item):
+        values = [
+            "Drop Rate",
+            "TCG",
+            "Sealed Product",
+            brand,
+            _text(item.get("game")),
+            _text(item.get("set_name")),
+            f"Language:{language}" if language else "",
+            f"Condition:{condition}" if condition else "",
+        ]
+    else:
+        values = [
+            "Drop Rate",
+            "TCG",
+            "Trading Card",
+            brand,
+            _text(item.get("game")),
+            _text(item.get("set_name")),
+            f"Language:{language}" if language else "",
+            f"Condition:{condition}" if condition else "",
+            f"Rarity:{_text(item.get('rarity'))}" if _text(item.get("rarity")) else "",
+            f"Variant:{_text(item.get('variant'))}" if _text(item.get("variant")) else "",
+            f"Grader:{grading_company}" if grading_company else "",
+            f"Grade:{grade}" if grade else "",
+            "Graded Card" if grading_company and grade else "Raw Card",
+        ]
     result: list[str] = []
     seen: set[str] = set()
     for value in values:
@@ -189,6 +220,10 @@ def required_collection_titles(item: Mapping[str, Any]) -> list[str]:
     result = [BASE_COLLECTION]
     if brand:
         result.append(brand)
+    if _is_sealed(item):
+        result.append("Sealed")
+        if brand:
+            result.append(f"{brand} Sealed")
     return result
 
 
@@ -198,6 +233,8 @@ def shipping_profile_key(item: Mapping[str, Any]) -> str:
         if _text(item.get("grading_company")) and _text(item.get("grade")):
             return "GRADED_CARD"
         return "RAW_CARD"
+    if product_type in SEALED_PRODUCT_TYPES:
+        return "SEALED_PRODUCT"
     return f"UNSUPPORTED_{product_type or 'PRODUCT'}"
 
 
@@ -492,7 +529,13 @@ def build_shopify_product_plan(
         "category": category_id,
         "categoryName": CARD_CATEGORY_NAME if category_id else None,
         "vendor": vendor,
-        "productType": "Trading Card" if product_type == "CARD" else product_type,
+        "productType": (
+            "Trading Card"
+            if product_type == "CARD"
+            else "Sealed Product"
+            if product_type in SEALED_PRODUCT_TYPES
+            else product_type
+        ),
         "tags": product_tags(item),
         "seo": {
             "title": seo_title(item),
