@@ -15,6 +15,18 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — active global theme settings + footer
+
+**Storefront global shell settings: IN PROGRESS —** QA found that, after the active
+`dr-brand-system` fix, Brand Redesign's Shopify-managed current palette/footer JSON still
+contained legacy teal/cream values. `config/settings_data.json`, `header-group.json` and
+`footer-group.json` are now source-controlled and only active colour values are aligned to
+the current Drop Rate navy/ink/blue/cool-grey/white system. The existing
+`drop-rate-brand-logo.png`, logo sizes, `main-menu`, announcement/footer copy, block IDs
+and layout settings are unchanged. No live Horizon, product, price, inventory, ownership,
+cart or checkout mutation is included. Completion requires CI, deployment of the exact
+three files to the unpublished Brand Redesign theme and source/runtime parity.**
+
 ## 29 September 2026 — active global brand layer
 
 **Storefront global brand CSS: IN PROGRESS —** QA found the live unpublished theme renders
