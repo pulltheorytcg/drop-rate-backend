@@ -1177,3 +1177,27 @@ def test_shopify_return_reconciles_aggregate_pooled_quantity() -> None:
     assert "pool_item.sale_intent='FOR_SALE'" in refund
     assert "quantity=int(remaining_sellable_quantity or 0)" in refund
     assert "refund-restock-" in refund
+
+
+def test_shopify_withdraw_preserves_remaining_pool_quantity() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def withdraw_shopify_for_inventory(")
+    end = source.index("def _minor(", start)
+    withdraw = source[start:end]
+    assert "remaining_sellable_quantity = await connection.fetchval" in withdraw
+    assert "pool_link.shopify_variant_gid=$1" in withdraw
+    assert "pool_link.id <> $2" in withdraw
+    assert 'sibling_state = "PUBLISHED" if row["sync_state"] == "PUBLISHED" else "DRAFT"' in withdraw
+    assert "quantity=target_quantity" in withdraw
+    assert '"ACTIVE"' in withdraw
+    assert "target_quantity > 0" in withdraw
+    assert "quantity=0" not in withdraw
+
+
+def test_legacy_price_sync_excludes_pooled_offer_variants() -> None:
+    source = PIPELINE.read_text()
+    start = source.index('@router.post("/price-sync")')
+    end = source.index('@router.post("/test-sync/', start)
+    price_sync = source[start:end]
+    assert "sil.listing_key not like 'shopify-pool:%'" in price_sync
+    assert "offer-level price sync" in price_sync
