@@ -23,3 +23,15 @@ def test_shopify_raw_pool_audit_writer_is_security_definer_and_admin_gated() -> 
     assert "revoke all on function tcg.record_shopify_link_published_audit" in sql
     assert "grant execute on function tcg.record_shopify_link_published_audit" in sql
     assert "to tcg_api" in sql
+
+
+def test_shopify_raw_pool_published_audit_writer_is_security_definer() -> None:
+    sql = (
+        MIGRATIONS / "20260929202000_shopify_raw_pool_published_audit.sql"
+    ).read_text().lower()
+    assert "security definer" in sql
+    assert "if not tcg.is_platform_admin()" in sql
+    assert "shopify_raw_pool_published" in sql
+    assert "revoke all on function tcg.record_shopify_raw_pool_published_audit" in sql
+    assert "grant execute on function tcg.record_shopify_raw_pool_published_audit" in sql
+    assert "to tcg_api" in sql
