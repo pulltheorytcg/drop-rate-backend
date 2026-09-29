@@ -140,3 +140,63 @@ No pool conversion has been applied yet.
 11. refund/return removes only the returned physical unit from available pooled stock;
 12. legacy exact-copy withdrawal/refund behavior remains unchanged;
 13. Shopify quantity and backend eligible-unit reconciliation agree after each mutation.
+
+
+## One-shot conversion worker
+
+Legacy one-product-per-physical-card links are consolidated by the standalone runner:
+
+`python scripts/run_shopify_pooled_offer_conversion.py`
+
+Run it from the backend working directory. It does not import or start FastAPI and is
+therefore not tied to the API container lifespan.
+
+Environment controls:
+
+- `TCG_SHOPIFY_POOLED_OFFER_CONVERSION_ENABLED=false` by default.
+- `TCG_SHOPIFY_POOLED_OFFER_CONVERSION_APPLY=false` by default.
+- `TCG_SHOPIFY_POOLED_OFFER_LANGUAGE_MAP_JSON` may contain only explicit verified
+  `game|set -> language` mappings. Missing language otherwise remains blocked.
+- `TCG_SHOPIFY_POOLED_OFFER_CONVERSION_LIMIT=100` caps pooled offers per run.
+
+The worker always performs a read-only discovery pass first. APPLY preparation is run only
+for the physical members of selected ready duplicate pools, so singleton inventory and
+blocked pools are not silently approved or identity-confirmed.
+
+### Per-pool APPLY sequence
+
+1. Re-run core identity/language/price/physical-policy preparation for selected members.
+2. Rebuild the fingerprint and fail if the group changed.
+3. Force every legacy Shopify product in the pool to DRAFT.
+4. Set each old Shopify inventory item to zero while those products are offline.
+5. Convert the deterministic anchor variant to the pooled SKU/price with tracking enabled
+   and inventoryPolicy=DENY. Do not write an acquisition cost to the shared variant.
+6. In one Postgres transaction, lock every physical member and verify it remains APPROVED,
+   FOR_SALE and unreserved, then repoint all link rows to the anchor product/variant while
+   preserving Inventory ID and Owner ID.
+7. Store the previous live intent as PUBLISHED or DRAFT on every pooled link. A remote
+   failure after this point can therefore be recovered deterministically.
+8. Set the anchor Shopify inventory quantity to the physical member count and verify it
+   while the anchor is still DRAFT.
+9. If the pool was previously live, activate and publish the anchor and verify publication.
+
+Duplicate Shopify products are retained as DRAFT with zero stock during the initial
+migration. They are not deleted, preserving a reversible recovery path and historical
+evidence.
+
+### Failure model
+
+The sequence intentionally prefers underselling over overselling.
+
+- Failure before database repoint: legacy links remain authoritative; products may be
+  temporarily DRAFT/zero and the same run can retry.
+- Failure after database repoint but before Shopify reactivation: pooled links preserve
+  the intended PUBLISHED state while the remote product remains offline; retry detects the
+  already-pooled links, reconciles quantity and restores publication.
+- A database repoint is transactional and cannot partially move only some physical member
+  links.
+- A pooled refund/return counteracts Shopify restock by an idempotent -1 delta because the
+  physical card enters INSPECTION rather than becoming immediately sellable.
+
+The result is emitted as a single machine-readable
+`POOLED_OFFER_CONVERSION_RESULT=<json>` line for Railway logs.
