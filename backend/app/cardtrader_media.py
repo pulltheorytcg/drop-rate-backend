@@ -59,7 +59,7 @@ def _canonical_number(value: object) -> str:
 
 
 def _set_key(value: object) -> str:
-    text = _norm(value)
+    text = _norm(value).replace("&", " and ")
     text = text.replace("pre-release", "pre release")
     text = text.replace("prerelease", "pre release")
     text = text.replace("pre release cards", "pre release promos")
