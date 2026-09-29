@@ -99,9 +99,9 @@ def test_enrichment_never_auto_approves_provider_media() -> None:
     assert "'VERIFIED',$10,'PENDING'" in free_block
     assert "'APPROVED'" not in free_block
 
-    assert "'INTERNAL_REFERENCE_ONLY','TCGGraph'" in graph_block
+    assert "'STOREFRONT_ALLOWED','TCGGraph'" in graph_block
     assert "'VERIFIED',$9,'PENDING'" in graph_block
-    assert "'STOREFRONT_ALLOWED'" not in graph_block
+    assert "human exact-print approval remains required" in graph_block
 
 
 def test_existing_media_must_match_exact_language_and_variant() -> None:
