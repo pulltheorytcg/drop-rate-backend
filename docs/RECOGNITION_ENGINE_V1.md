@@ -107,6 +107,45 @@ Stored source facts are limited to:
 
 For deterministic visual matching, the service computes local perceptual fingerprints in memory. Trusted provider reference images are fetched only from allow-listed card-image hosts.
 
+## Source-image retention policy
+
+**Decision as of 29 September 2026: raw recognition source pixels remain ephemeral for
+the current production phase, but this is a temporary policy rather than a permanent
+architecture commitment.**
+
+Recognition v1 continues to retain the source SHA-256, MIME type, byte size, capture
+dimensions where available, derived perceptual fingerprints, observations, candidate
+evidence and explicit human feedback. The uploaded source image bytes themselves are not
+persisted by the recognition layer.
+
+This keeps the current scan path privacy-conscious and avoids silently creating an
+unreviewed image corpus during the storefront-first feature freeze. It also has an
+important limitation that must remain explicit: **historical verified learning examples
+cannot be reprocessed from their original pixels if the fingerprinting or image
+normalisation approach changes later.** The stored fingerprints/evidence can be reused,
+but the original scan cannot be reconstructed from its hash.
+
+This policy will be revisited only after the storefront milestone is live and recognition
+development is deliberately re-opened. A future retention design must be reviewed as a
+separate feature before any source pixels begin to persist. At minimum that review must
+cover:
+
+- retaining only deliberately eligible human-reviewed learning examples rather than all
+  scans by default;
+- privacy-minimised card-only crops where technically reliable, with camera metadata
+  stripped;
+- private object storage with no public URL and least-privilege service access;
+- a documented retention/deletion lifecycle and storage-cost limit;
+- explicit treatment of founder/internal scans versus future customer/consumer scans;
+- publisher/image-rights review for any model-training or dataset use;
+- no automatic use of retained images as storefront media;
+- migration/versioning so every learning example records which image-processing pipeline
+  produced its derivatives;
+- regression tests proving unreviewed scans still remain ephemeral.
+
+Until that future design is approved and shipped, **no recognition code should assume
+that source pixels will be available after the request finishes.**
+
 ## Audit model
 
 Every run is recorded in `tcg.recognition_runs`.

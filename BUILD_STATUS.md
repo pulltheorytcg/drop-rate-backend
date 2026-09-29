@@ -15,6 +15,17 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — recognition image-retention decision
+
+**Recognition source-image retention: DOCUMENTED / CURRENT POLICY UNCHANGED —** raw
+recognition source pixels remain ephemeral during the storefront-first feature freeze.
+This is now explicitly a temporary policy, not a permanent architecture decision.
+Recognition continues to retain hashes, dimensions, derived fingerprints, observations,
+candidate evidence and human feedback, but historical verified scans cannot be
+re-fingerprinted from original pixels under the current design. Any future source-image
+retention requires a separately reviewed privacy/storage/rights design after recognition
+development is deliberately re-opened; no raw-image persistence was added in this PR.**
+
 ## 29 September 2026 — inventory sale-intent contract
 
 **`sale_intent` documentation: COMPLETE —** `docs/SALE_INTENT.md` now defines the
