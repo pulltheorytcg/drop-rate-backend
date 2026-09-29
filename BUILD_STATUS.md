@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — CardTrader printing safeguards rebased on current main
+
+A clean follow-up hardens the production-tested Dragon Ball matcher without relaxing identity:
+Collectr promo-name suffixes may be removed only from the name comparison, collector number
+remains mandatory, and a local pre-release card may fall back to a base expansion only when
+the Blueprint version itself explicitly proves a pre-release printing. Current CardTrader data
+does not provide that proof for the six outstanding pre-release copies, so they remain blocked.
+This branch is rebased on current `main` after the earlier PR conflicted with concurrent
+CardTrader/status changes.
+
 ## 2026-09-29 — Dragon Ball CardTrader set-alias verification
 
 Production CardTrader diagnostics confirmed the Fusion World local set `Tournament and Championship Promos` maps to provider expansion `Tournament & Championship Promos` (ID 4300). The adapter now normalizes ampersand/word-`and` equivalence while retaining exact set matching.
