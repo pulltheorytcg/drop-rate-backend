@@ -15,6 +15,19 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — collection visual alignment
+
+**Storefront collection design: IN PROGRESS —** the first visible theme pass after the
+storefront engineering gate is now source-controlled. The collection hero, browse chips,
+product-card chrome and Shopify-native filter surfaces are aligned to the current Drop Rate
+Seller Hub palette: deep navy, blue/cyan accents, cool grey background and white cards,
+replacing the older cream/beige treatment on this surface. The browse route also wires the
+existing `Sealed` smart collection behind a product-count gate, so it remains invisible
+until real sealed inventory is publishable. No live Horizon theme, product status, price,
+inventory quantity, ownership or checkout behavior is changed. Completion requires CI,
+deployment to the unpublished `Drop Rate — Brand Redesign` theme, source/runtime parity,
+and desktop/mobile preview QA.**
+
 ## 29 September 2026 — storefront set-facet canonicalization
 
 **Storefront facet data hygiene: IN PROGRESS —** Shopify collection filtering is already
