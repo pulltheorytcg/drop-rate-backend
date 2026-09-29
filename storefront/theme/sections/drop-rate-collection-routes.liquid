@@ -48,7 +48,7 @@
         <a{% if h == 'graded-cards' %} aria-current="page"{% endif %} href="{{ all_graded.url }}">{{ 'dr_brand.browse.graded' | t }}</a>
       {% endif %}
       {% if all_sealed != blank and all_sealed.all_products_count > 0 %}
-        <a{% if h == 'sealed' %} aria-current="page"{% endif %} href="{{ all_sealed.url }}">Sealed</a>
+        <a{% if h == 'sealed' %} aria-current="page"{% endif %} href="{{ all_sealed.url }}">{{ 'dr_brand.browse.sealed' | t }}</a>
       {% endif %}
     </div>
 
