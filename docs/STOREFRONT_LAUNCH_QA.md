@@ -179,6 +179,14 @@ The cart contract itself is unchanged: physical lines are still detected by
 `drop_rate.inventory_id`, quantity editing remains disabled for those lines, remove remains
 available, and Shopify's native cart/checkout path remains authoritative.
 
+## Customer account visual alignment
+
+The header account surface remains Shopify's native `<shopify-account>` component. Its
+popover/button variables now use the current Drop Rate white/navy/blue system, with explicit
+focus treatment and no custom authentication form. Guest checkout and the cart action remain
+separate. No Founder HQ, Seller Hub, Supabase auth or owner/consignor identity is introduced
+into the customer storefront.
+
 ## Customer accounts and order history
 
 Shopify configuration is:
