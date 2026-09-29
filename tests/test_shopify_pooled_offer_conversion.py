@@ -153,8 +153,13 @@ def test_shared_variant_update_never_writes_one_members_cost_basis() -> None:
 def test_conversion_runner_is_standalone_from_fastapi_lifespan() -> None:
     source = RUNNER.read_text()
     assert "run_shopify_pooled_offer_conversion" in source
-    assert "create_pool" in source
+    assert "asyncpg.create_pool" in source
     assert "POOLED_OFFER_CONVERSION_RESULT=" in source
+    assert "TCG_DATABASE_URL" in source
+    assert "TCG_SHOPIFY_SHOP_DOMAIN" in source
     assert "FastAPI" not in source
     assert "create_app" not in source
     assert "app.main" not in source
+    assert "Settings" not in source
+    assert "get_settings" not in source
+    assert "TCG_SUPABASE_PUBLISHABLE_KEY" not in source
