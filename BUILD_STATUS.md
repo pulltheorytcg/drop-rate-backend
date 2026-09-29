@@ -17,18 +17,27 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## 29 September 2026 — sealed capture-context queue hardening
 
-**Sealed media context validation: IN PROGRESS —** review of the superseded PR #253 found
-one safety condition that was not present on current `main`: Media Intake was tracking an
-approved first-party physical image by side only. A FRONT image from a raw-card or graded
-capture context could therefore incorrectly satisfy the one-FRONT sealed requirement. The
-current fix makes queue completion context-aware: sealed/collection requires
-`SEALED_PRODUCT`, graded cards require `GRADED_SLAB`, and raw cards accept only
-`RAW_UNSLEEVED`, `PENNY_SLEEVE` or `TOP_LOADER`. The intake route remains
-authenticated and owner-scoped, and the supported product filter remains explicitly bounded
-to `CARD`, `SEALED` and `COLLECTION`. No schema, ownership, price, inventory status,
-identity, media-rights decision or Shopify publication changes are included. Completion
-requires green CI, production deployment/health verification and regression proof that a
-wrong-context sealed FRONT remains queued while `SEALED_PRODUCT` clears it.**
+**Sealed media context validation: COMPLETE —** PR #282 closes the remaining safety
+condition recovered from superseded PR #253 without bringing forward that PR's stale broad
+query change. Media Intake now counts approved first-party physical images only when their
+capture context matches the workflow: sealed/collection requires `SEALED_PRODUCT`, graded
+cards require `GRADED_SLAB`, and raw cards accept only `RAW_UNSLEEVED`,
+`PENNY_SLEEVE` or `TOP_LOADER`. The supported route filter remains explicitly bounded
+to `CARD`, `SEALED` and `COLLECTION`, with existing `require_user` / `_founder`
+owner scoping unchanged.
+
+GitHub **Backend checks** passed for PR #282, including the regression proving a
+wrong-context raw-card FRONT remains queued for a sealed item while the same approved asset
+under `SEALED_PRODUCT` clears the one-FRONT requirement. Railway production deployment
+`6745ac08-dcaa-4a1d-900a-da5804b9cd89` completed **SUCCESS** from merge commit
+`c7061496615fba7655d77550a6c0daac0c7d7bd1`; the production pre-deploy suite reported
+**1,881 passed**, and `/health/ready` returned **200 OK**.
+
+Post-deploy production read-back confirms both current sealed One Piece items remain
+**DRAFT / FOR_SALE** with **0 inventory media** and **0 FIRST_PARTY_CAPTURE media**, so the
+hardening caused no inventory, ownership, pricing, identity, media-rights or Shopify
+publication mutation. No schema change was required because `media_assets.capture_context`
+already existed.**
 
 ## 29 September 2026 — sealed media intake queue fix
 
