@@ -1,5 +1,20 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — CardTrader Masters bare collector-number suffixes
+
+**SOURCE-CONTROL PR IN PROGRESS —** final production diagnostics found three ordinary Masters
+cards that are present on CardTrader with exact set/name/language/rarity/image evidence, but
+CardTrader stores their collector numbers as bare numeric suffixes rather than full BT codes:
+BT18-067 -> 067, BT18-138 -> 138 and BT13-142 -> 142. A narrow matcher is being added for
+Masters `BTxx-yyy` only; it requires the numeric suffix and explicit provider rarity to agree.
+Fusion World/promos cannot use the fallback.
+
+The main Dragon Ball publication pass is already live: 24 physical Dragon Ball items map to
+22 ACTIVE Shopify products, including two correct quantity-2 pooled listings. Shopify reports
+466 ACTIVE products and 466 Online Store-published products after this release. Eleven
+Dragon Ball items remain unlinked while exact-print media is unresolved; this fix targets
+only the three ordinary Masters cards within that exception set.
+
 ## 2026-09-29 — Fusion World tournament-promo proof
 
 **SOURCE-CONTROL PR IN PROGRESS —** a production CardTrader Blueprint diagnostic showed that
