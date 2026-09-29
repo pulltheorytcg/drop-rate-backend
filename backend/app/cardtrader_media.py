@@ -58,6 +58,40 @@ def _canonical_number(value: object) -> str:
     return "".join(out)
 
 
+def _masters_collector_number_matches(
+    local_number: object,
+    provider_number: object,
+) -> tuple[bool, bool]:
+    """Return (matches, used_bare_suffix_fallback)."""
+    local = _canonical_number(local_number)
+    provider = _canonical_number(provider_number)
+    if not local or not provider:
+        return False, False
+    if provider == local:
+        return True, False
+
+    raw_provider = str(provider_number or "").strip()
+    raw_local = str(local_number or "").strip().upper()
+    if (
+        raw_provider.isdigit()
+        and re.fullmatch(r"BT\d{1,3}-\d{2,3}", raw_local)
+        and int(raw_provider) == int(raw_local.rsplit("-", 1)[1])
+    ):
+        return True, True
+    return False, False
+
+
+def _bare_suffix_rarity_matches(
+    local: Mapping[str, Any],
+    provider: Mapping[str, Any],
+) -> bool:
+    local_rarity = _norm(local.get("rarity"))
+    provider_rarity = _norm(
+        _property_value(provider, "dragonball_rarity", "rarity")
+    )
+    return bool(local_rarity and provider_rarity and local_rarity == provider_rarity)
+
+
 def _normalised_set_text(value: object) -> str:
     text = _norm(value).replace("&", " and ")
     text = text.replace("pre-release", "pre release")
@@ -318,7 +352,19 @@ def resolve_blueprint(
             if len(row_numbers) == 1:
                 number = next(iter(row_numbers))
 
-        if not number or _canonical_number(number) != local_number:
+        if not number:
+            continue
+        if line == "masters":
+            number_matches, used_bare_suffix = _masters_collector_number_matches(
+                local.get("card_number"),
+                number,
+            )
+        else:
+            number_matches = _canonical_number(number) == local_number
+            used_bare_suffix = False
+        if not number_matches:
+            continue
+        if used_bare_suffix and not _bare_suffix_rarity_matches(local, blueprint):
             continue
 
         if supporting_rows:
@@ -343,7 +389,12 @@ def resolve_blueprint(
             {
                 "provider_id": str(blueprint.get("id")),
                 "image_url": image_url,
-                "collector_number": number,
+                "collector_number": (
+                    str(local.get("card_number") or "").strip()
+                    if used_bare_suffix
+                    else number
+                ),
+                "provider_collector_number": number,
                 "provider_name": blueprint.get("name"),
                 "provider_set": expansion.get("name"),
                 "provider_language": language_code,
