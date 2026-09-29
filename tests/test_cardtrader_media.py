@@ -233,31 +233,100 @@ def test_cardtrader_matches_tournament_and_championship_ampersand_alias() -> Non
     assert result["game_line"] == "fusion-world"
 
 
-def test_cardtrader_does_not_fall_back_prerelease_to_base_set() -> None:
-    result = resolve_blueprint(
-        {
-            "game": "Dragon Ball Super",
-            "set_name": "Supreme Rivalry Pre-Release Cards",
-            "name": "Trunks, Thwarting the Dark Empire",
-            "card_number": "BT13-131",
-            "language": "English",
-            "variant": "Normal",
-        },
+def test_cardtrader_prerelease_falls_back_to_base_only_with_version_proof() -> None:
+    local = {
+        "game": "Dragon Ball Super",
+        "set_name": "Supreme Rivalry Pre-Release Cards",
+        "name": "Trunks, Thwarting the Dark Empire",
+        "card_number": "BT13-131",
+        "language": "English",
+        "variant": "Normal",
+    }
+    expansions = [{"id": 2651, "game_id": 16, "name": "Supreme Rivalry"}]
+
+    proven = resolve_blueprint(
+        local,
         games=_games(),
-        expansions=[
-            {"id": 2651, "game_id": 16, "name": "Supreme Rivalry"},
-        ],
+        expansions=expansions,
         blueprints=[
             {
                 "id": 184778,
                 "game_id": 16,
                 "expansion_id": 2651,
                 "name": "Trunks, Thwarting the Dark Empire",
-                "fixed_properties": {"collector_number": "BT13-131"},
+                "version": "Pre-Release BT13-131",
                 "image_url": "https://cardtrader.com/uploads/blueprints/image/184778/preview.jpg",
             }
         ],
     )
+    assert proven["resolved"] is True
 
+    unproven = resolve_blueprint(
+        local,
+        games=_games(),
+        expansions=expansions,
+        blueprints=[
+            {
+                "id": 184779,
+                "game_id": 16,
+                "expansion_id": 2651,
+                "name": "Trunks, Thwarting the Dark Empire",
+                "version": "BT13-131",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/184779/preview.jpg",
+            }
+        ],
+    )
+    assert unproven["resolved"] is False
+
+
+def test_cardtrader_base_print_rejects_prerelease_blueprint() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super",
+            "set_name": "Dawn of the Z-Legends",
+            "name": "Vegeta, Another World Warrior",
+            "card_number": "BT18-035",
+            "language": "English",
+            "variant": "Normal",
+        },
+        games=_games(),
+        expansions=[{"id": 3120, "game_id": 16, "name": "Dawn of the Z-Legends"}],
+        blueprints=[
+            {
+                "id": 6101,
+                "expansion_id": 3120,
+                "name": "Vegeta, Another World Warrior",
+                "version": "Pre-Release BT18-035",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/6101/card.jpg",
+            }
+        ],
+    )
     assert result["resolved"] is False
-    assert "expansion" in result["reason"].lower()
+
+
+def test_cardtrader_strips_collectr_promo_suffix_but_keeps_number_gate() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super Fusion World",
+            "set_name": "Tournament and Championship Promos",
+            "name": "Tien Shinhan - FP-045 (Tournament Pack 07)",
+            "card_number": "FP-045",
+            "language": "English",
+            "variant": "Normal",
+        },
+        games=_games(),
+        expansions=[
+            {"id": 4300, "game_id": 16, "name": "Tournament & Championship Promos"}
+        ],
+        blueprints=[
+            {
+                "id": 5002,
+                "expansion_id": 4300,
+                "name": "Tien Shinhan",
+                "version": "FP-045",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/5002/card.jpg",
+            }
+        ],
+    )
+    assert result["resolved"] is True
+    assert result["collector_number"] == "FP-045"

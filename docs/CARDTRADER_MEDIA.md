@@ -94,3 +94,20 @@ rather than the bare list shown in the public reference. `GET /expansions` still
 CardTrader uses `Tournament & Championship Promos` while the Drop Rate canonical set is `Tournament and Championship Promos`. Set-key normalization treats ampersand and the word `and` as equivalent before exact matching.
 
 Pre-release inventory remains intentionally stricter. CardTrader's base `Supreme Rivalry` and `Dawn of the Z-Legends` blueprints expose the same card numbers/names but no provider-level pre-release evidence for the six physical pre-release copies in the current import. Drop Rate must not fall back those local `... Pre-Release Cards` records to ordinary base-set media; they remain unresolved until exact pre-release media evidence is available.
+
+
+## Printing safeguards after production diagnostics
+
+The provider's production catalogue uses `Tournament & Championship Promos` while Drop Rate
+stores `Tournament and Championship Promos`; ampersand/word-`and` equivalence is normalized
+before exact expansion matching.
+
+Collectr-style local names may include a redundant suffix such as
+`- FP-045 (Tournament Pack 07)`. That suffix may be stripped from the name comparison only;
+collector number remains a mandatory hard identity gate.
+
+For a local pre-release set, the resolver first looks for an exact pre-release expansion. If
+none exists, it may inspect the base expansion only when the chosen Blueprint's own version
+text explicitly proves `Pre-Release`. Base inventory rejects pre-release Blueprints. Current
+CardTrader production data does not expose that proof for the six outstanding Drop Rate
+pre-release copies, so those six remain unresolved rather than receiving base-print media.
