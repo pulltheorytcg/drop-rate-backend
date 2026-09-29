@@ -373,7 +373,7 @@ async def _insert_tcggraph_media(
           source_status,source_status_note,source_checked_at
         ) values(
           $1,$2,'CANONICAL_CARD','FRONT','LICENSED_PROVIDER',
-          'INTERNAL_REFERENCE_ONLY','TCGGraph',$3,$4,$5,$6,$7,$8,
+          'STOREFRONT_ALLOWED','TCGGraph',$3,$4,$5,$6,$7,$8,
           'VERIFIED',$9,'PENDING',$10,$11,clock_timestamp(),
           'ACTIVE',$12,clock_timestamp()
         )
@@ -392,8 +392,8 @@ async def _insert_tcggraph_media(
         alt_text,
         user_id,
         (
-            "Exact TCGGraph reference candidate created by import enrichment; "
-            "storefront rights remain unapproved."
+            "Exact TCGGraph product-listing candidate created by import enrichment; "
+            "human exact-print approval remains required before storefront use."
         ),
     )
     return dict(asset) if asset is not None else None

@@ -24,11 +24,14 @@ router = APIRouter(prefix="/api/v1/media/tcggraph", tags=["media"])
 
 
 TCGGRAPH_TERMS_URL = "https://tcggraph.com/legal/terms"
+UK_SALE_ADVERTISING_URL = "https://www.legislation.gov.uk/ukpga/1988/48/section/63"
 RIGHTS_BASIS = (
-    "TCGGraph API terms permit API data/image display and caching inside Drop Rate, "
-    "but do not grant the underlying publisher artwork rights. Imported matches stay "
-    "INTERNAL_REFERENCE_ONLY and require separate human/publisher-rights approval "
-    "before any storefront use."
+    "TCGGraph API terms permit API data/image display and caching inside paid products "
+    "but do not grant the underlying publisher artwork rights. Drop Rate use is restricted "
+    "to the exact physical-card Shopify product listing for the purpose of advertising that "
+    "card for sale under UK CDPA 1988 s63. Not approved for social media, generic SEO artwork, "
+    "merchandise, AI training, or unrelated marketing. Statutory-use reference: "
+    + UK_SALE_ADVERTISING_URL
 )
 
 GAME_SLUGS = {
@@ -386,7 +389,7 @@ async def tcggraph_media_status(
     return {
         "configured": bool(settings.tcggraph_api_key),
         "provider": "TCGGraph",
-        "usage": "internal exact-print reference candidates; storefront use requires separate approval",
+        "usage": "exact-print product-listing candidates; storefront use remains human-approval gated",
         "supported_games": sorted(set(GAME_SLUGS.values())),
         "dragon_ball_lines": ["masters", "fusion-world"],
         "permission_evidence_url": TCGGRAPH_TERMS_URL,
@@ -526,7 +529,7 @@ async def resolve_tcggraph_media(
                       source_checked_at
                     ) values(
                       $1,$2,'CANONICAL_CARD','FRONT','LICENSED_PROVIDER',
-                      'INTERNAL_REFERENCE_ONLY','TCGGraph',$3,$4,$5,$6,$7,$8,
+                      'STOREFRONT_ALLOWED','TCGGraph',$3,$4,$5,$6,$7,$8,
                       'VERIFIED',$9,'PENDING',$10,$11,null,null,
                       clock_timestamp(),'ACTIVE',$12,clock_timestamp()
                     )
@@ -545,8 +548,8 @@ async def resolve_tcggraph_media(
                     alt_text,
                     user.user_id,
                     (
-                        "Deterministic TCGGraph reference candidate; human exact-print "
-                        "approval and separate storefront-rights review required: "
+                        "Deterministic TCGGraph exact-listing candidate; human exact-print "
+                        "approval remains required before Shopify use: "
                         f"{result.get('provider_name')} · "
                         f"{result.get('collector_number')} · "
                         f"{result.get('provider_language')}"
