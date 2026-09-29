@@ -1976,6 +1976,9 @@ async def sync_shopify_prices(
 
     This endpoint is deliberately price-only. It never publishes products,
     changes quantity, alters shipping configuration or moves inventory state.
+
+    Pooled Shopify offers are excluded: their shared variant price must be
+    changed by an offer-level price sync, never by one physical member.
     """
     if limit < 1 or limit > 100:
         raise HTTPException(status_code=422, detail="limit must be between 1 and 100")
@@ -2012,6 +2015,7 @@ async def sync_shopify_prices(
               and i.sale_intent='FOR_SALE'
               and i.store_price_minor is not null
               and i.store_price_minor <> sil.synced_price_minor
+              and sil.listing_key not like 'shopify-pool:%'
             order by sil.last_synced_at,sil.id
             limit $2
             """,
