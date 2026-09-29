@@ -226,3 +226,80 @@ def test_scheduler_startup_diagnostics_are_safe_and_stage_specific() -> None:
     assert '"detail": str(exc)' not in source
     assert "print(database_url)" not in source
 
+
+
+HEARTBEAT_MIGRATION = (
+    ROOT
+    / "database"
+    / "migrations"
+    / "20260929013000_payout_scheduler_heartbeat.sql"
+)
+HEARTBEAT_SCRIPT = ROOT / "backend" / "scripts" / "check_payout_scheduler_heartbeat.py"
+
+
+class FakeHeartbeatConnection:
+    def __init__(self, row):
+        self.row = row
+        self.calls = []
+
+    async def fetchrow(self, query: str, *args):
+        self.calls.append((query, args))
+        return self.row
+
+
+@pytest.mark.asyncio
+async def test_scheduler_heartbeat_surfaces_unhealthy_state() -> None:
+    from app.payout_scheduler import check_scheduler_heartbeat
+
+    connection = FakeHeartbeatConnection(
+        {
+            "healthy": False,
+            "last_completed_at": datetime(2026, 9, 28, 20, 0, tzinfo=LONDON),
+            "last_status": "SUCCESS",
+            "alerted_founders": 2,
+            "resolved_founders": 0,
+        }
+    )
+    result = await check_scheduler_heartbeat(connection)
+
+    assert result["healthy"] is False
+    assert result["alerted_founders"] == 2
+    assert "check_payout_scheduler_heartbeat" in connection.calls[0][0]
+
+
+@pytest.mark.asyncio
+async def test_scheduler_heartbeat_rejects_unsafe_short_threshold() -> None:
+    from datetime import timedelta
+    from app.payout_scheduler import check_scheduler_heartbeat
+
+    connection = FakeHeartbeatConnection(None)
+    with pytest.raises(ValueError, match="at least 30 minutes"):
+        await check_scheduler_heartbeat(
+            connection,
+            threshold=timedelta(minutes=5),
+        )
+    assert connection.calls == []
+
+
+def test_scheduler_heartbeat_migration_is_founder_scoped_and_fail_closed() -> None:
+    sql = HEARTBEAT_MIGRATION.read_text().lower()
+
+    assert "default interval '90 minutes'" in sql
+    assert "payout_scheduler_unhealthy" in sql
+    assert "owner_type='founder'" in sql.replace(" ", "")
+    assert "security definer" in sql
+    assert "revoke all on function tcg.check_payout_scheduler_heartbeat(interval) from public" in sql
+    assert "grant execute on function tcg.check_payout_scheduler_heartbeat(interval) to tcg_api" in sql
+    assert "on conflict(owner_id,dedupe_key)" in sql.replace(" ", "")
+    assert "status='resolved'" in sql.replace(" ", "")
+
+
+def test_scheduler_heartbeat_runner_never_logs_database_url() -> None:
+    source = HEARTBEAT_SCRIPT.read_text()
+
+    assert "PAYOUT_SCHEDULER_HEARTBEAT_PROCESS_START" in source
+    assert "PAYOUT_SCHEDULER_HEARTBEAT_UNHEALTHY" in source
+    assert "PAYOUT_SCHEDULER_HEARTBEAT_HEALTHY" in source
+    assert "database_url_configured" in source
+    assert "print(database_url)" not in source
+    assert '"detail": str(exc)' not in source
