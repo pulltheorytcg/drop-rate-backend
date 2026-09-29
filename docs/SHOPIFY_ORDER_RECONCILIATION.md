@@ -149,3 +149,12 @@ records were reconstructed.
 
 The deployment is not called Completed until the final combined monitor itself has a
 successful scheduled execution after its IPv6 egress correction.
+
+
+### Migration history alignment
+
+Production Supabase recorded the RLS-safe order-read migration as
+`20260929021203_shopify_reconciliation_rls_read`. The repository filename is aligned to
+that already-applied version. No database history row was deleted, rewritten or re-applied,
+and the live `tcg.shopify_orders_for_reconciliation(timestamptz)` definition was verified
+against the repository SQL before the rename.
