@@ -30,6 +30,21 @@ The only `sealed` collection had zero products, and no game-specific sealed coll
 existed. The runtime-only Sealed links and locale key were therefore reverted to the
 already-tested GitHub versions. No product or live-theme data was changed.
 
+## Homepage visual alignment and source control
+
+The four custom homepage sections used by `templates/index.json` are now mirrored under
+`storefront/theme/sections/**` instead of existing only inside the Shopify theme.
+
+The visual-only alignment removes the older yellow/teal accent treatment and uses the same
+current Drop Rate system as Seller Hub and the rest of the storefront: deep navy, blue/cyan,
+cool grey and white. Native behavior is deliberately preserved:
+- the discovery search remains a Shopify GET to `routes.search_url` with product-only,
+  last-term partial matching;
+- hero products remain theme-editor product settings;
+- game and set cards still link to their configured Shopify collections;
+- the editorial spotlight remains driven by its configured Shopify product and URL;
+- no merchandising, pricing, inventory, ownership or checkout logic moves into Liquid.
+
 ## Collection visual alignment
 
 The collection/browse surface is being aligned to the current Drop Rate product UI rather
