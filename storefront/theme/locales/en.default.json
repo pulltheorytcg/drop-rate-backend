@@ -430,7 +430,13 @@
       "details": "About this card",
       "delivery": "Delivery information",
       "returns": "Returns",
-      "ask": "Ask about this card"
+      "ask": "Ask about this card",
+      "choose_copy": "Choose your copy",
+      "copies_available": "{{ count }} copies available",
+      "from_price": "From {{ price }}",
+      "selected_copy": "Selected",
+      "view_copy": "View copy",
+      "more_copies_note": "More copies are available than can be shown at once."
     },
     "browse": {
       "aria": "Browse trading cards",
