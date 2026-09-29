@@ -30,6 +30,22 @@ The only `sealed` collection had zero products, and no game-specific sealed coll
 existed. The runtime-only Sealed links and locale key were therefore reverted to the
 already-tested GitHub versions. No product or live-theme data was changed.
 
+## Collection visual alignment
+
+The collection/browse surface is being aligned to the current Drop Rate product UI rather
+than the older cream/beige storefront treatment.
+
+The source-controlled theme now uses the Seller Hub visual language for this slice:
+- deep navy collection hero with cyan/blue accents;
+- cool grey page surfaces and white product/filter cards;
+- navy/blue active navigation states;
+- compact two-line TCG card titles and muted set/collector metadata;
+- the Sealed browse destination is wired but remains hidden while the smart collection is
+  empty, preserving the no-dead-destinations rule.
+
+This is an unpublished-theme change only. It does not change product data, ownership,
+pricing, inventory quantity or publication state.
+
 ## Product publication and exact physical-copy contract
 
 Connected Shopify counts:
