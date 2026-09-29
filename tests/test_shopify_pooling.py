@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.shopify_client import ShopifyAdminClient
-from app.shopify_pooling import _evaluate_group, raw_pool_identity
+from app.shopify_pooling import _evaluate_group, _is_consolidated_group, raw_pool_identity
 
 
 ROOT = Path(__file__).parents[1]
@@ -151,6 +151,54 @@ def test_raw_pool_uses_privileged_audit_writer_not_direct_table_insert() -> None
     source = POOLING.read_text().lower()
     assert "record_shopify_raw_pool_audit" in source
     assert "insert into tcg.audit_events" not in source
+
+
+def test_consolidated_group_requires_every_member_on_same_pool_variant() -> None:
+    first, second = _pair()
+    group = _evaluate_group([first, second])
+    listing_key = group["pool"]["listing_key"]
+    sku = group["pool"]["sku"]
+    product_gid = first["shopify_product_gid"]
+    variant_gid = first["shopify_variant_gid"]
+    inventory_item_gid = first["shopify_inventory_item_gid"]
+    location_gid = first["shopify_location_gid"]
+    for row in group["members"]:
+        row["listing_key"] = listing_key
+        row["sku"] = sku
+        row["shopify_product_gid"] = product_gid
+        row["shopify_variant_gid"] = variant_gid
+        row["shopify_inventory_item_gid"] = inventory_item_gid
+        row["shopify_location_gid"] = location_gid
+
+    assert _is_consolidated_group(group) is True
+
+    group["members"][1]["shopify_variant_gid"] = "gid://shopify/ProductVariant/DIFFERENT"
+    assert _is_consolidated_group(group) is False
+
+
+def test_pooled_publication_verifies_remote_and_compensates_before_db_commit() -> None:
+    source = POOLING.read_text()
+    start = source.index("async def _publish_one_group(")
+    end = source.index('@router.get("/draft-raw-plan")', start)
+    block = source[start:end]
+
+    activate = block.index('status="ACTIVE"')
+    verify_publication = block.index("product_published_on_publication")
+    commit = block.index("sync_state='PUBLISHED'")
+    assert activate < verify_publication < commit
+    assert 'status="DRAFT"' in block
+    assert "record_shopify_raw_pool_published_audit" in block
+    assert "inventoryQuantity" in block
+    assert "inventoryPolicy" in block
+    assert "pooled Shopify product has no image" in block
+
+
+def test_pooled_publish_endpoint_only_selects_consolidated_ready_groups() -> None:
+    source = POOLING.read_text()
+    start = source.index('@router.post("/draft-raw-publish")')
+    block = source[start:]
+    assert 'group["ready"] and _is_consolidated_group(group)' in block
+    assert "_publish_one_group(" in block
 
 
 def test_raw_pool_commit_points_every_member_at_primary_variant() -> None:
