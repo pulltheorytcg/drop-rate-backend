@@ -309,6 +309,11 @@ function buildShopifyReadinessPanel() {
         <strong id="shopify-media-ready">—</strong>
         <small id="shopify-media-coverage">Approved media policy satisfied</small>
       </article>
+      <article class="stat-card">
+        <span>Shopify drafts</span>
+        <strong id="shopify-linked-drafts">—</strong>
+        <small id="shopify-linked-drafts-coverage">Existing draft products waiting on Drop Rate gates</small>
+      </article>
     </div>
     <div id="shopify-readiness-blockers" class="allocation-list">
       <p class="muted portfolio-empty">Loading Shopify readiness…</p>
@@ -425,7 +430,7 @@ function appendShopifyReadinessBlockers(container, label, blockers) {
     const name = document.createElement("strong");
     name.textContent = blocker;
     const note = document.createElement("small");
-    note.textContent = label === "Core blockers"
+    note.textContent = label.toLowerCase().includes("core")
       ? "Resolve in Verify / Inventory before Shopify."
       : "Resolve with approved founder or licensed media.";
     details.append(name, note);
@@ -444,18 +449,35 @@ async function loadShopifyReadiness() {
     const considered = Number(data.considered || 0);
     const operationalReady = Number(data.operational_ready || 0);
     const mediaReady = Number(data.media_ready || 0);
+    const linkedDrafts = data.linked_drafts || {};
+    const linkedDraftCount = Number(linkedDrafts.considered || 0);
+    const linkedDraftCoreReady = Number(linkedDrafts.operational_ready || 0);
+    const linkedDraftMediaReady = Number(linkedDrafts.media_ready || 0);
 
     byId("shopify-operational-ready").textContent = operationalReady.toLocaleString("en-GB");
     byId("shopify-media-ready").textContent = mediaReady.toLocaleString("en-GB");
+    byId("shopify-linked-drafts").textContent = linkedDraftCount.toLocaleString("en-GB");
     byId("shopify-operational-coverage").textContent =
       `${operationalReady.toLocaleString("en-GB")} of ${considered.toLocaleString("en-GB")} unsynced items pass core gates`;
     byId("shopify-media-coverage").textContent =
       `${mediaReady.toLocaleString("en-GB")} of ${operationalReady.toLocaleString("en-GB")} core-ready · ${Number(data.canonical_resolved || 0).toLocaleString("en-GB")} reusable · ${Number(data.first_party_resolved || 0).toLocaleString("en-GB")} first-party`;
+    byId("shopify-linked-drafts-coverage").textContent =
+      `${linkedDraftCoreReady.toLocaleString("en-GB")} core-ready · ${linkedDraftMediaReady.toLocaleString("en-GB")} media-ready`;
 
     container.replaceChildren();
     appendMediaResolverSummary(container, data);
     appendShopifyReadinessBlockers(container, "Core blockers", data.operational_blockers);
     appendShopifyReadinessBlockers(container, "Media blockers", data.media_blockers);
+    appendShopifyReadinessBlockers(
+      container,
+      "Shopify draft core blockers",
+      linkedDrafts.operational_blockers,
+    );
+    appendShopifyReadinessBlockers(
+      container,
+      "Shopify draft media blockers",
+      linkedDrafts.media_blockers,
+    );
     appendMediaActionItems(container, data.next_media_items);
     appendResolvedMediaItems(container, data.resolved_media_items);
     if (!container.children.length) {
@@ -469,6 +491,7 @@ async function loadShopifyReadiness() {
   } catch (error) {
     byId("shopify-operational-ready").textContent = "—";
     byId("shopify-media-ready").textContent = "—";
+    byId("shopify-linked-drafts").textContent = "—";
     container.textContent = `Shopify readiness could not be loaded: ${error.message}`;
   }
 }
