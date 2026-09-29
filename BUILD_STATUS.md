@@ -15,6 +15,22 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — storefront cart/checkout contract slice
+
+**Customer storefront / Shopify-native cart & checkout: IN PROGRESS —** the existing
+Drop Rate cart behavior on the unpublished Brand Redesign theme has now been
+source-controlled and contract-tested. Tracked physical cards read
+`drop_rate.inventory_id`, force `can_update_quantity=false`, display exact copy
+metadata and reuse the same cart contract in the drawer. Checkout remains the native Shopify
+cart form/checkout submit path; Liquid does not post ownership, consignor, acquisition-cost,
+ledger or settlement data. The cart page, cart products, cart summary and cart drawer files
+match Shopify byte-for-byte in the GitHub overlay. A representative grouped product was
+verified in Shopify Admin as one exact variant/SKU with quantity 1. An anonymous cart smoke
+could not be executed because the tool runtime could not resolve the public storefront
+hostname, so browser-level cart/checkout smoke remains the completion gate. No product
+status, price, inventory quantity, ownership, schema, ledger, settlement or live-theme
+publication was changed.**
+
 ## 29 September 2026 — storefront grouped-copy PDP slice
 
 **Customer storefront / PDP grouped copies: IN PROGRESS —** exact physical copies are now
