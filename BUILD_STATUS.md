@@ -15,6 +15,16 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — inventory sale-intent contract
+
+**`sale_intent` documentation: COMPLETE —** `docs/SALE_INTENT.md` now defines the
+existing two-state contract: `FOR_SALE` and `PERSONAL_COLLECTION`. The document
+separates commercial intent from workflow status, records SOLD/RESERVED restrictions,
+optimistic-version/idempotency behavior, founder/owner scoping, audit events, channel
+withdrawal semantics and the rule that returning to `FOR_SALE` never silently republishes
+a listing. No schema or runtime behavior changed. Production snapshot on 29 September
+2026: 509/509 inventory items are `FOR_SALE`; 0 are `PERSONAL_COLLECTION`.**
+
 ## 29 September 2026 — Shopify order reconciliation hardening
 
 **Shopify ↔ Drop Rate order reconciliation: IN PROGRESS —** an independently scheduled
