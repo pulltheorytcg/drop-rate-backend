@@ -52,6 +52,72 @@ def test_card_product_plan_fills_customer_and_merchant_fields() -> None:
     assert "Condition:Near Mint" in plan["tags"]
 
 
+def test_sealed_product_plan_uses_sealed_storefront_contract() -> None:
+    sealed = _card(
+        inventory_code="INV-SEALED-1",
+        product_type="COLLECTION",
+        game="One Piece",
+        name="Premium Card Collection -6 assort vol.1-",
+        set_name="One Piece Promotion Cards",
+        card_number=None,
+        language="Japanese",
+        catalogue_language=None,
+        condition=None,
+        grading_company=None,
+        grade=None,
+        rarity=None,
+    )
+
+    plan = build_shopify_product_plan(sealed)
+
+    assert plan["category"] == CARD_CATEGORY_GID
+    assert plan["categoryName"] == "Non-Sports Trading Cards"
+    assert plan["vendor"] == "One Piece"
+    assert plan["productType"] == "Sealed TCG Product"
+    assert plan["shippingProfileKey"] == "SEALED_PRODUCT"
+    assert plan["requiredCollections"] == ["Sealed", "One Piece"]
+    assert "Sealed Product" in plan["tags"]
+    assert "Raw Card" not in plan["tags"]
+    assert "Graded Card" not in plan["tags"]
+    assert "Trading Card" not in plan["tags"]
+    assert "sealed TCG product" in plan["descriptionHtml"]
+    assert "physical trading card" not in plan["descriptionHtml"]
+    assert "sealed TCG product" in plan["seo"]["description"]
+    assert shipping_profile_key(sealed) == "SEALED_PRODUCT"
+
+
+def test_sealed_product_fails_closed_without_real_shipping_profile() -> None:
+    sealed = _card(
+        inventory_code="INV-SEALED-1",
+        product_type="COLLECTION",
+        game="One Piece",
+        name="Premium Card Collection -6 assort vol.1-",
+        set_name="One Piece Promotion Cards",
+        card_number=None,
+        language="Japanese",
+        catalogue_language=None,
+        condition=None,
+        rarity=None,
+    )
+    plan = build_shopify_product_plan(sealed)
+
+    result = product_completeness(
+        plan,
+        store_price_minor=11108,
+        inventory_code="INV-SEALED-1",
+        approved_media_count=1,
+        existing_collection_titles={"Sealed", "One Piece"},
+        publication_configured=True,
+        location_configured=True,
+        shipping_profile=None,
+    )
+
+    assert result["complete"] is False
+    assert "shipping profile: SEALED_PRODUCT" in result["blockers"]
+    assert result["shippingProfileKey"] == "SEALED_PRODUCT"
+    assert result["shippingSpec"] is None
+
+
 def test_product_metafields_are_listing_facts_not_private_finance_or_owner_data() -> None:
     plan = build_shopify_product_plan(_card())
     fields = {row["key"]: row["value"] for row in plan["metafields"]}
