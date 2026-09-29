@@ -38,16 +38,22 @@ a listing. No schema or runtime behavior changed. Production snapshot on 29 Sept
 
 ## 29 September 2026 — Shopify order reconciliation hardening
 
-**Shopify ↔ Drop Rate order reconciliation: IN PROGRESS —** an independently scheduled
-comparison now has a version-controlled implementation: Shopify Admin order pagination,
-a 30-day same-window comparison against `tcg.orders`, payment-aware classification,
-processed-`orders/create` coverage checks, Founder HQ mismatch alerts, PII-minimal
-metadata, fail-closed pagination/API behavior and no automatic ledger repair. The known
-cancelled test order `8488414282075` is the HIGH-severity webhook-gap proof case rather
-than a fabricated paid-sale loss. Completion
-requires CI, migration application, production deployment, a live reconciliation run
-showing the known mismatch, explicit function-permission verification and the 30-minute
-operations monitor schedule to be verified.
+**Shopify ↔ Drop Rate order reconciliation: IN PROGRESS — implementation, migration,
+permissions and production proof case are verified; only the first scheduled execution of
+the final combined operations monitor remains.** PR #256 shipped the reconciliation
+guardrail and PR #258 repaired the final test/documentation drift after payment/webhook-aware
+classification was introduced. CI is green. The production migration is applied and the
+persistence function is `SECURITY DEFINER`, with execute denied to
+PUBLIC/anon/authenticated/service_role/tcg_auditor and granted only to `tcg_api`.
+A controlled production persistence check against Shopify order
+`8488414282075` / `#1001` created exactly two HIGH
+`SHOPIFY_ORDER_WEBHOOK_GAP` Action Required rows for the two active founders and zero
+consignor rows; `#1002` remained the healthy comparison. The check did not reconstruct an
+order or alter inventory, ownership, ledger, settlement or payout data. The final
+30-minute operations monitor is deployed on the repurposed Railway `drop-rate-api`
+service with IPv6 egress enabled and the redundant temporary heartbeat service removed.
+This remains **IN PROGRESS** until that exact final monitor records a successful scheduled
+Shopify reconciliation execution.**
 
 ## 29 September 2026 — verified 24-hour build delta
 
@@ -176,18 +182,44 @@ operations monitor schedule to be verified.
 **Payout scheduler cron incident: RESOLVED — root cause was Railway Dockerfile Start Command exec-form handling. The old override `PYTHONPATH=backend python backend/scripts/run_payout_scheduler.py` was treated as a literal executable name and failed before Python started. Railway service config now uses `python /app/backend/scripts/run_payout_scheduler.py`, while `Dockerfile.scheduler` provides `PYTHONPATH=/app/backend`. PR #212 / `d1f8dc6e` added safe startup diagnostics; PR #214 / `47178e43` forced a fresh scheduler snapshot after the config correction. A controlled verification run at 2026-09-28 04:12:30 UTC completed SUCCESS, checked one owner, created zero payout requests, reported NO_BALANCE once and zero errors. Normal hourly schedule `0 * * * *` has been restored. No payout amounts, eligibility rules, Stripe state or money-movement logic were changed.**
 
 
+## 29 September 2026 — Railway immediate-fix cleanup
+
+**Dead-service cleanup: COMPLETE —** the previously unused Railway `drop-rate-api`
+service has been repurposed as the internal 30-minute operations monitor rather than
+deleted. The accidental duplicate `drop-rate-payout-heartbeat` service created during
+the fix session has been removed. Production now has four services: the repurposed
+operations monitor, `drop-rate-api-live`, the hourly payout scheduler and n8n.
+
+**Historical empty staged patch: INVESTIGATED / NO RECOVERABLE ORIGIN —** Railway's
+available API does not expose historical patch-content or origin metadata, so the
+27 September zero-change patch cannot be attributed after the fact. It is no longer the
+active patch. During this audit Railway created a fresh zero-change patch
+(`changes: []`); the discard operation returned success but Railway's status API may
+continue to display the empty shell. It carries no resource change and no deployable
+configuration. Do not treat an empty patch as pending product work.
+
+**Migration-history note —** Supabase currently records two historical migration-ledger
+entries named `payout_scheduler_heartbeat` from the heartbeat rollout. The SQL itself is
+idempotent and the live function is singular/correct. In accordance with the non-destructive
+migration-history rule, those historical ledger rows have not been deleted or rewritten;
+Claude should treat this as an audit note, not a schema repair request.
+
 ## 29 September 2026 — payout scheduler heartbeat hardening
 
-**Payout scheduler heartbeat alerting: IN PROGRESS — the implementation now has an
-independent health check that treats the scheduler as unhealthy when its most recent
-completed run is older than 90 minutes or is not SUCCESS. The database-side check opens
-a CRITICAL Founder HQ Action Required item only for active FOUNDER owners and automatically
-resolves it after recovery; the standalone monitor exits non-zero on unhealthy state so
-Railway provides a second operational signal. The monitor does not change payout
-eligibility, amounts, Stripe state or money movement. Production completion still requires
-the version-controlled migration to be applied, the independent 30-minute Railway cron to
-be activated, a failure-path run to be observed, and the normal scheduler health to be
-re-verified.**
+**Payout scheduler heartbeat alerting: IN PROGRESS — production plumbing is now in place
+and verified except for the first scheduled execution of the final combined operations
+monitor after its networking correction.** PR #255 shipped the 90-minute deterministic
+heartbeat, founder-only CRITICAL Action Required alerting, automatic recovery resolution,
+failure-path coverage and a locked-down `SECURITY DEFINER` function executable only by
+`tcg_api`. The migration is applied in production. A temporary independent SFO heartbeat
+cron executed successfully at **2026-09-29 01:01 UTC** and reported the latest hourly
+payout scheduler run healthy (`SUCCESS`, finished **01:00:26 UTC**). The final monitor
+now lives on the repurposed Railway `drop-rate-api` service, runs
+`backend/scripts/run_operations_monitor.py` every 30 minutes, has outbound IPv6 enabled,
+and the redundant temporary heartbeat service has been removed. The final service remains
+**IN PROGRESS**, not Completed, until one real scheduled run of that exact combined monitor
+successfully completes after the IPv6 correction. No payout eligibility, amount, approval,
+Stripe state or money-movement rule changed.**
 
 ## 28 September 2026 — recognition + image corpus checkpoint
 
