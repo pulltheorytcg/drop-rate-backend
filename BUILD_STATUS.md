@@ -15,6 +15,25 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — standalone pooled-offer conversion worker
+
+**SOURCE-CONTROL PR IN PROGRESS / DRY-RUN BY DEFAULT / NOT APPLIED —** A dedicated
+one-shot conversion worker is being added on top of the pooled-offer foundation. It runs
+outside the FastAPI lifespan so API restarts cannot cancel a conversion. Discovery is
+always read-only first; APPLY requires both the pooled-conversion ENABLED flag and a
+separate APPLY flag.
+
+The worker converts only ready duplicate raw pools. It freezes legacy Shopify products
+before any database repoint, preserves exact Inventory ID and Owner ID on every link,
+moves all members transactionally onto one deterministic anchor variant, sets Shopify
+quantity to the physical member count, and only then restores a previously-live anchor.
+Duplicate products are retained DRAFT/zero-stock rather than deleted. Retry logic
+recognises an already-pooled `offer:<fingerprint>` link set and reconciles quantity and
+publication instead of creating another storefront object.
+
+The existing legacy linked-draft reconciliation worker remains APPLY=false while this
+conversion path is under validation. No pooled conversion has been applied to production.
+
 ## 29 September 2026 — pooled Shopify offer foundation
 
 **SOURCE-CONTROL PR IN PROGRESS / NO PRODUCTION MUTATION —** Storefront inventory
