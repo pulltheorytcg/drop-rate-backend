@@ -487,6 +487,38 @@ TCG-native filters should include where applicable:
 
 Each game's filter vocabulary should be data-driven rather than globally hard-coded.
 
+
+### Shopify Search & Discovery launch configuration
+
+The theme already renders Shopify-native facets, and the required product metafield
+definitions exist in namespace `drop_rate` as single-line text definitions:
+`game`, `set_name`, `language`, `condition`, `rarity`, `variant`,
+`grading_company` and `grade`.
+
+The connected Shopify Admin API does not expose the merchant-facing Search & Discovery
+storefront-filter configuration used to choose which of those definitions appear as
+customer facets. Do not infer that theme `enable_filtering=true` means the desired TCG
+filters are configured.
+
+Before theme publication, configure/verify these storefront facets in Shopify Search &
+Discovery:
+- Availability
+- Price
+- Set
+- Language
+- Condition
+- Rarity
+- Variant / finish
+- Grading Company
+- Grade
+
+Game is primarily handled by collection/navigation routing and does not need to be a
+redundant filter on every game-specific collection page. Collector/card number remains a
+search concern rather than a facet.
+
+Filter values must come from real Shopify product/metafield data; do not hard-code values
+in Liquid.
+
 ## Autonomous merchandising
 
 Collections should be generated from backend facts wherever possible.
@@ -987,14 +1019,28 @@ Each phase must include:
 
 ## Current release priority
 
-Do not let storefront cosmetics distract from the current correctness gates.
+The active release priority is **STOREFRONT FIRST**.
 
-Near-term priorities remain:
-1. exact recognition/media corpus
-2. Dragon Ball reference coverage
-3. graded slab capture
-4. multi-owner isolation test
-5. multi-owner sale attribution test
-6. trusted market-data automation
+Until the storefront milestone is live and Daiyan explicitly re-opens frozen scope:
+- continue storefront browse/PDP/cart/search/account QA and launch-readiness work;
+- continue payout-scheduler observability, Shopify order reconciliation, security fixes and
+  documentation sync;
+- do not add new recognition capabilities beyond maintenance of the existing verified
+  reference-fingerprint corpus;
+- do not add new owner/Seller Hub features beyond shipped scope;
+- do not add new market-data providers;
+- do not add new automation/outbox event types;
+- do not expand eBay/cross-channel functionality beyond already-deployed dormant pieces.
 
-Once these are stable, storefront implementation becomes a major visible build phase.
+The customer-facing release sequence remains:
+1. collection/browse
+2. grouped-copy PDP
+3. Shopify-native cart/checkout
+4. search v1
+5. Shopify-native customer account/order surface
+6. visual/browser QA of the unpublished Brand Redesign theme
+7. explicit publication decision
+
+Advanced merchandising, AI marketing, recommendations, SEO automation and new-stock
+campaign logic stay deferred until the base buying journey is live and at least one real
+external customer purchase has been observed safely.

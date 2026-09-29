@@ -96,6 +96,31 @@ One Piece/Pokémon pairs were verified in Shopify with shared metadata, quantity
 publication was changed. Theme/runtime files match the GitHub overlay byte-for-byte.
 GitHub backend/theme contract CI is green. Connected-store QA verified 14 grouped products and 28 sibling references with zero broken/unpublished handles. Remaining gate: desktop/mobile visual QA and exact-copy browser handoff.**
 
+## 29 September 2026 — storefront launch structural QA
+
+**Base storefront engineering QA: PASSED / VISUAL + SEARCH & DISCOVERY FACET QA PENDING —**
+the unpublished Brand Redesign theme has been checked against the connected Shopify
+catalogue without publishing it. Current verified launch data:
+- 95/95 ACTIVE Shopify products have a featured image;
+- 95/95 have the customer-safe language plus condition or graded metadata required by the
+  theme's metafield/tag fallback contract;
+- every active product has one priced SKU and one exact Drop Rate Inventory ID;
+- all 16 set routes currently hard-coded into Pokémon/One Piece browse navigation have at
+  least one ACTIVE product;
+- all homepage hero/discovery/spotlight product handles resolve to ACTIVE stock with
+  quantity 1;
+- search by collector number `OP16-071` returns the expected two-copy active group;
+- empty Dragon Ball, Naruto, Riftbound and Sealed destinations are not exposed by the
+  current browse strip;
+- an unfinished Sealed-navigation runtime drift was removed and the affected unpublished
+  theme files restored to GitHub parity.
+
+The required `drop_rate` product metafield definitions for Set, Language, Condition,
+Rarity, Variant, Grading Company and Grade exist in Shopify. The remaining facet gate is
+merchant-side Shopify Search & Discovery configuration/visual verification because that
+storefront-filter selection is not exposed through the connected Admin API. The live
+`Horizon` theme remains untouched.**
+
 ## 29 September 2026 — storefront Milestone 1 browse slice
 
 **Customer storefront / collection-browse milestone: ENGINEERING QA COMPLETE / VISUAL QA PENDING —** the first real-data
