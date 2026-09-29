@@ -7,9 +7,9 @@
   assign pokemon_sets = 'battle-partners|crimson-haze|future-flash|ruler-of-the-black-flame|shiny-treasure-ex|terastal-festival-ex' | split: '|'
   assign one_piece_sets = 'egghead-crisis|the-time-of-battle|the-azure-seas-seven|prb02-one-piece-card-the-best-vol-2|adventure-on-kamis-island|carrying-on-his-will|awakening-of-the-new-era|one-piece-promotion-cards-jp|paramount-war|prb01-one-piece-card-the-best' | split: '|'
 
-  if h == 'pokemon' or h == 'pokemon-singles' or h == 'pokemon-graded-cards'
+  if h == 'pokemon' or h == 'pokemon-singles' or h == 'pokemon-graded-cards' or h == 'pokemon-sealed'
     assign game = 'pokemon'
-  elsif h == 'one-piece' or h == 'one-piece-singles'
+  elsif h == 'one-piece' or h == 'one-piece-singles' or h == 'one-piece-sealed'
     assign game = 'one-piece'
   endif
 
@@ -26,6 +26,7 @@
   assign one_piece = collections['one-piece']
   assign all_singles = collections['singles']
   assign all_graded = collections['graded-cards']
+  assign all_sealed = collections['sealed']
 %}
 
 <nav class="dr-browse-nav" aria-label="{{ 'dr_brand.browse.aria' | t }}">
@@ -46,16 +47,21 @@
       {% if all_graded != blank and all_graded.all_products_count > 0 %}
         <a{% if h == 'graded-cards' %} aria-current="page"{% endif %} href="{{ all_graded.url }}">{{ 'dr_brand.browse.graded' | t }}</a>
       {% endif %}
+      {% if all_sealed != blank and all_sealed.all_products_count > 0 %}
+        <a{% if h == 'sealed' %} aria-current="page"{% endif %} href="{{ all_sealed.url }}">{{ 'dr_brand.browse.sealed' | t }}</a>
+      {% endif %}
     </div>
 
     {% if game == 'pokemon' %}
       {% assign pokemon_singles = collections['pokemon-singles'] %}
       {% assign pokemon_graded = collections['pokemon-graded-cards'] %}
+      {% assign pokemon_sealed = collections['pokemon-sealed'] %}
       <div class="dr-browse-nav__secondary" aria-label="{{ 'dr_brand.browse.pokemon_label' | t }}">
         <span class="dr-browse-nav__label">{{ 'dr_brand.browse.pokemon' | t }}</span>
         {% if pokemon != blank and pokemon.all_products_count > 0 %}<a{% if h == 'pokemon' %} aria-current="page"{% endif %} href="{{ pokemon.url }}">{{ 'dr_brand.browse.all' | t }}</a>{% endif %}
         {% if pokemon_singles != blank and pokemon_singles.all_products_count > 0 %}<a{% if h == 'pokemon-singles' %} aria-current="page"{% endif %} href="{{ pokemon_singles.url }}">{{ 'dr_brand.browse.singles' | t }}</a>{% endif %}
         {% if pokemon_graded != blank and pokemon_graded.all_products_count > 0 %}<a{% if h == 'pokemon-graded-cards' %} aria-current="page"{% endif %} href="{{ pokemon_graded.url }}">{{ 'dr_brand.browse.graded' | t }}</a>{% endif %}
+        {% if pokemon_sealed != blank and pokemon_sealed.all_products_count > 0 %}<a{% if h == 'pokemon-sealed' %} aria-current="page"{% endif %} href="{{ pokemon_sealed.url }}">{{ 'dr_brand.browse.sealed' | t }}</a>{% endif %}
       </div>
       <div class="dr-browse-nav__sets" aria-label="{{ 'dr_brand.browse.pokemon_sets_label' | t }}">
         <span class="dr-browse-nav__label">{{ 'dr_brand.browse.sets' | t }}</span>
@@ -68,10 +74,12 @@
       </div>
     {% elsif game == 'one-piece' %}
       {% assign one_piece_singles = collections['one-piece-singles'] %}
+      {% assign one_piece_sealed = collections['one-piece-sealed'] %}
       <div class="dr-browse-nav__secondary" aria-label="{{ 'dr_brand.browse.one_piece_label' | t }}">
         <span class="dr-browse-nav__label">{{ 'dr_brand.browse.one_piece' | t }}</span>
         {% if one_piece != blank and one_piece.all_products_count > 0 %}<a{% if h == 'one-piece' %} aria-current="page"{% endif %} href="{{ one_piece.url }}">{{ 'dr_brand.browse.all' | t }}</a>{% endif %}
         {% if one_piece_singles != blank and one_piece_singles.all_products_count > 0 %}<a{% if h == 'one-piece-singles' %} aria-current="page"{% endif %} href="{{ one_piece_singles.url }}">{{ 'dr_brand.browse.singles' | t }}</a>{% endif %}
+        {% if one_piece_sealed != blank and one_piece_sealed.all_products_count > 0 %}<a{% if h == 'one-piece-sealed' %} aria-current="page"{% endif %} href="{{ one_piece_sealed.url }}">{{ 'dr_brand.browse.sealed' | t }}</a>{% endif %}
       </div>
       <div class="dr-browse-nav__sets" aria-label="{{ 'dr_brand.browse.one_piece_sets_label' | t }}">
         <span class="dr-browse-nav__label">{{ 'dr_brand.browse.sets' | t }}</span>
