@@ -15,6 +15,19 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — recognition raw-image retention decision
+
+**Recognition source-image retention policy: COMPLETE —** routine recognition scan
+pixels remain ephemeral by design. Recognition persists SHA-256, MIME/size, dimensions,
+derived fingerprints, observations, candidate evidence and verified human labels, but
+does not silently create a durable raw-scan corpus. This deliberately means historical
+real-scan fingerprints cannot be regenerated from old pixels after a future fingerprint
+algorithm change. The governed canonical/reference corpus remains separately rebuildable
+from approved `tcg.media_assets` sources where the source remains available and permitted.
+Any durable inventory/storefront photo must enter the explicit media workflow; any future
+opt-in raw-scan corpus requires a separate reviewed retention/consent/security design.
+No schema or runtime behavior changed. The retention contract is regression-tested.**
+
 ## 29 September 2026 — inventory sale-intent contract
 
 **`sale_intent` documentation: COMPLETE —** `docs/SALE_INTENT.md` now defines the
