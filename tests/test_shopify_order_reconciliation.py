@@ -244,7 +244,7 @@ def test_reconciliation_rls_read_migration_is_narrow_and_api_only() -> None:
         ROOT
         / "database"
         / "migrations"
-        / "20260929022000_shopify_reconciliation_rls_read.sql"
+        / "20260929021203_shopify_reconciliation_rls_read.sql"
     )
     sql = migration.read_text().casefold()
     compact = sql.replace(" ", "").replace("\n", "")
