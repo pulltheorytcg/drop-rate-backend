@@ -159,14 +159,21 @@ def test_enrichment_never_auto_approves_provider_media() -> None:
     source = ENRICHMENT.read_text()
 
     free_start = source.index("async def _insert_free_media")
-    free_end = source.index("async def _insert_tcggraph_media", free_start)
-    free_block = source[free_start:free_end]
-    graph_end = source.index("async def _resolve_media_candidate", free_end)
-    graph_block = source[free_end:graph_end]
+    cardtrader_start = source.index("async def _insert_cardtrader_media", free_start)
+    free_block = source[free_start:cardtrader_start]
+    graph_start = source.index("async def _insert_tcggraph_media", cardtrader_start)
+    cardtrader_block = source[cardtrader_start:graph_start]
+    graph_end = source.index("async def _resolve_media_candidate", graph_start)
+    graph_block = source[graph_start:graph_end]
 
     assert "'STOREFRONT_ALLOWED'" in free_block
     assert "'VERIFIED',$10,'PENDING'" in free_block
     assert "'APPROVED'" not in free_block
+
+    assert "'STOREFRONT_ALLOWED','CardTrader'" in cardtrader_block
+    assert "'VERIFIED',$9,'PENDING'" in cardtrader_block
+    assert "human exact-print approval remains required" in cardtrader_block
+    assert "'APPROVED'" not in cardtrader_block
 
     assert "'STOREFRONT_ALLOWED','TCGGraph'" in graph_block
     assert "'VERIFIED',$9,'PENDING'" in graph_block
@@ -184,6 +191,19 @@ def test_existing_media_must_match_exact_language_and_variant() -> None:
     assert "lower(btrim(coalesce(media_language,'')))=lower(btrim($2))" in block
     assert "lower(btrim(coalesce(media_variant,'')))=lower(btrim($3))" in block
     assert "if not clean_lang" in block
+
+
+def test_cardtrader_is_preferred_before_tcggraph_for_media_only() -> None:
+    source = ENRICHMENT.read_text()
+    start = source.index("async def _resolve_media_candidate")
+    end = source.index("async def _refresh_item_row", start)
+    block = source[start:end]
+
+    assert "settings.cardtrader_api_token" in block
+    assert "lookup_cardtrader_one" in block
+    assert block.index("lookup_cardtrader_one") < block.index("lookup_tcggraph_one")
+    assert 'return "CARDTRADER", result, None' in block
+    assert "cardtrader_configured" in source
 
 
 def test_enrichment_reuses_existing_pricing_and_physical_photo_rules() -> None:
