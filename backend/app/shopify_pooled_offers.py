@@ -201,8 +201,15 @@ def build_shopify_offer_plan(
                     "inventory_code": _clean(row.get("inventory_code")),
                     "owner_id": _clean(row.get("owner_id")),
                     "allocation_priority": index,
+                    "link_id": _clean(row.get("link_id") or row.get("shopify_link_id")),
+                    "current_listing_key": _clean(row.get("listing_key")),
+                    "current_sku": _clean(row.get("link_sku") or row.get("sku")),
                     "current_product_gid": _clean(row.get("shopify_product_gid")),
                     "current_variant_gid": _clean(row.get("shopify_variant_gid")),
+                    "current_inventory_item_gid": _clean(
+                        row.get("shopify_inventory_item_gid")
+                    ),
+                    "current_location_gid": _clean(row.get("shopify_location_gid")),
                     "sync_state": _clean(row.get("sync_state")).upper(),
                 }
             )
