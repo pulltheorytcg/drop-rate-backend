@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — Shopify publication state 463/509
+
+Production is now at **463 PUBLISHED physical inventory links / 443 distinct ACTIVE Shopify products**, and Shopify reports all 443 ACTIVE products as published to the Online Store. The 20-link difference is intentional pooled raw inventory sharing Shopify listings; it is not a storefront publication gap.
+
+Since the prior census:
+- Monkey.D.Luffy ST10-006 English PSA 9 (cert 150446783) was reconciled from explicit founder approval to `VERIFIED_GRADED` and published at £35 with exact PSA FRONT/BACK slab media.
+- Monkey D Luffy P-001 [25th] Japanese PSA 10 (cert 165543324) was founder-verified, bootstrapped after the official-slab bootstrap fix, given both PSA FRONT/BACK product images, and published at £193.03.
+- Nico Robin OP01-017 ACE 10 cert 590532 was verified against ACE's cert page. Its exact official ACE FRONT slab scan is now the Shopify draft image and is registered in `media_assets`; ACE exposes no official BACK scan for this cert, so graded verification remains blocked on an exact back image.
+- Charizard V Darkness Ablaze 019/189 PSA 9 cert 62398872 was verified by PSA as MINT 9, but PSA currently returns no FRONT/BACK cert images. The draft remains blocked on exact slab media rather than using a substitute.
+
+The exact **46 remaining** FOR_SALE inventory items are now: 2 linked graded drafts (Nico Robin ACE 10 and Charizard V PSA 9), 35 unlinked Dragon Ball raw cards (29 Dragon Ball Super Masters + 6 Fusion World), 7 unlinked One Piece raw cards, and 2 unlinked sealed One Piece products. The linked-draft worker has been returned to its standard command with `ENABLED=false` and `APPLY=false` after the controlled publication run.
+
 ## 2026-09-29 — Official graded-slab bootstrap gate
 
 **SOURCE-CONTROL PR IN PROGRESS —** catalogue bootstrap currently excludes cert-linked grading-provider slab media because the inventory-media branch only accepts `FIRST_PARTY_CAPTURE`. This blocked the already founder-verified Monkey D Luffy P-001 Japanese PSA 10 even though exact PSA cert 165543324 FRONT/BACK media is approved, rights-verified and Shopify-ready.
