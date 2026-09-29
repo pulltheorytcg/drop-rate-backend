@@ -30,6 +30,19 @@ The only `sealed` collection had zero products, and no game-specific sealed coll
 existed. The runtime-only Sealed links and locale key were therefore reverted to the
 already-tested GitHub versions. No product or live-theme data was changed.
 
+## Active global brand layer
+
+The unpublished theme's `layout/theme.liquid` renders both
+`drop-rate-global-styles` and `dr-brand-system`. The latter previously loaded after the
+component stylesheet and still contained legacy yellow/teal buttons plus flat overrides for
+product cards, filters and PDP components.
+
+`dr-brand-system` is now source-controlled and intentionally limited to broad theme
+primitives: current Drop Rate colour tokens, focus/header treatment, gallery media,
+product-card purchase controls and footer basics. Component-specific browse/PDP/cart/search
+styles remain owned by `drop-rate-global-styles` so the later-loaded brand layer cannot
+silently flatten them.
+
 ## Homepage visual alignment and source control
 
 The four custom homepage sections used by `templates/index.json` are now mirrored under
