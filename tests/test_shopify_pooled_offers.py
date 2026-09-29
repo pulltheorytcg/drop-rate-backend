@@ -24,6 +24,7 @@ def _row(
     product_gid=None,
     variant_gid=None,
     inventory_item_gid=None,
+    owner_id=None,
 ):
     inventory_id = inventory_id or uuid4()
     catalogue_id = catalogue_id or uuid4()
@@ -41,7 +42,7 @@ def _row(
         "seal_status": seal_status,
         "certificate_number": certificate_number,
         "store_price_minor": price,
-        "owner_id": uuid4(),
+        "owner_id": owner_id or uuid4(),
         "shop_domain": "example.myshopify.com",
         "shopify_product_gid": product_gid or f"gid://shopify/Product/{int(suffix[:6], 16)}",
         "shopify_variant_gid": variant_gid or f"gid://shopify/ProductVariant/{int(suffix[:6], 16)}",
@@ -75,6 +76,41 @@ def test_identical_raw_cards_become_one_quantity_offer() -> None:
     assert [m["allocation_priority"] for m in offer["members"]] == [1, 2]
     assert len(offer["retire_product_gids"]) == 1
     assert offer["sku"].startswith("DR-")
+
+
+def test_identical_raw_cards_from_different_owners_keep_exact_owner_membership() -> None:
+    catalogue_id = uuid4()
+    owner_a = uuid4()
+    owner_b = uuid4()
+    rows = [
+        _row(
+            catalogue_id=catalogue_id,
+            inventory_code="INV-OWNER-A",
+            owner_id=owner_a,
+            price=900,
+        ),
+        _row(
+            catalogue_id=catalogue_id,
+            inventory_code="INV-OWNER-B",
+            owner_id=owner_b,
+            price=900,
+            linked_at="2026-09-29T11:00:00+00:00",
+        ),
+    ]
+
+    offer = build_shopify_offer_plan(rows)["offers"][0]
+
+    assert offer["quantity"] == 2
+    assert offer["pooling_mode"] == "POOLED"
+    assert [m["owner_id"] for m in offer["members"]] == [
+        str(owner_a),
+        str(owner_b),
+    ]
+    assert [m["inventory_code"] for m in offer["members"]] == [
+        "INV-OWNER-A",
+        "INV-OWNER-B",
+    ]
+    assert [m["allocation_priority"] for m in offer["members"]] == [1, 2]
 
 
 def test_raw_language_and_condition_split_into_distinct_offers() -> None:
