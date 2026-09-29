@@ -146,6 +146,10 @@ class Settings:
     shopify_linked_draft_reconciliation_batch_id: str | None = None
     shopify_linked_draft_language_map_json: str | None = None
     shopify_linked_draft_reconciliation_limit: int = 500
+    shopify_pooled_offer_conversion_enabled: bool = False
+    shopify_pooled_offer_conversion_apply: bool = False
+    shopify_pooled_offer_language_map_json: str | None = None
+    shopify_pooled_offer_conversion_limit: int = 100
     media_physical_photo_threshold_minor: int = 5_000
     tcggraph_api_key: str | None = None
     tcggraph_max_concurrency: int = 8
@@ -259,6 +263,21 @@ class Settings:
                 500,
                 minimum=1,
                 maximum=5000,
+            ),
+            shopify_pooled_offer_conversion_enabled=_boolean(
+                "TCG_SHOPIFY_POOLED_OFFER_CONVERSION_ENABLED", False
+            ),
+            shopify_pooled_offer_conversion_apply=_boolean(
+                "TCG_SHOPIFY_POOLED_OFFER_CONVERSION_APPLY", False
+            ),
+            shopify_pooled_offer_language_map_json=_optional(
+                "TCG_SHOPIFY_POOLED_OFFER_LANGUAGE_MAP_JSON"
+            ),
+            shopify_pooled_offer_conversion_limit=_bounded_int(
+                "TCG_SHOPIFY_POOLED_OFFER_CONVERSION_LIMIT",
+                100,
+                minimum=1,
+                maximum=1000,
             ),
             media_physical_photo_threshold_minor=_bounded_int(
                 "TCG_MEDIA_PHYSICAL_PHOTO_THRESHOLD_MINOR",
