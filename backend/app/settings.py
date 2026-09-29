@@ -141,6 +141,11 @@ class Settings:
     shopify_publish_enabled: bool = False
     shopify_catalogue_bootstrap_enabled: bool = False
     shopify_catalogue_bootstrap_actor_user_id: str | None = None
+    shopify_linked_draft_reconciliation_enabled: bool = False
+    shopify_linked_draft_reconciliation_apply: bool = False
+    shopify_linked_draft_reconciliation_batch_id: str | None = None
+    shopify_linked_draft_language_map_json: str | None = None
+    shopify_linked_draft_reconciliation_limit: int = 500
     media_physical_photo_threshold_minor: int = 5_000
     tcggraph_api_key: str | None = None
     tcggraph_max_concurrency: int = 8
@@ -236,6 +241,24 @@ class Settings:
             ),
             shopify_catalogue_bootstrap_actor_user_id=_optional(
                 "TCG_SHOPIFY_CATALOGUE_BOOTSTRAP_ACTOR_USER_ID"
+            ),
+            shopify_linked_draft_reconciliation_enabled=_boolean(
+                "TCG_SHOPIFY_LINKED_DRAFT_RECONCILIATION_ENABLED", False
+            ),
+            shopify_linked_draft_reconciliation_apply=_boolean(
+                "TCG_SHOPIFY_LINKED_DRAFT_RECONCILIATION_APPLY", False
+            ),
+            shopify_linked_draft_reconciliation_batch_id=_optional(
+                "TCG_SHOPIFY_LINKED_DRAFT_RECONCILIATION_BATCH_ID"
+            ),
+            shopify_linked_draft_language_map_json=_optional(
+                "TCG_SHOPIFY_LINKED_DRAFT_LANGUAGE_MAP_JSON"
+            ),
+            shopify_linked_draft_reconciliation_limit=_bounded_int(
+                "TCG_SHOPIFY_LINKED_DRAFT_RECONCILIATION_LIMIT",
+                500,
+                minimum=1,
+                maximum=5000,
             ),
             media_physical_photo_threshold_minor=_bounded_int(
                 "TCG_MEDIA_PHYSICAL_PHOTO_THRESHOLD_MINOR",
