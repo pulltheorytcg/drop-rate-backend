@@ -197,7 +197,68 @@ def test_cardtrader_requires_confirmed_physical_language() -> None:
 
 
 
-def test_cardtrader_matches_tournament_and_championship_ampersand_alias() -> None:
+def test_cardtrader_maps_local_tournament_promos_to_fusion_world_promos() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super Fusion World",
+            "set_name": "Tournament and Championship Promos",
+            "name": "Tien Shinhan - FP-045 (Tournament Pack 07)",
+            "card_number": "FP-045",
+            "language": "English",
+            "variant": "Normal",
+        },
+        games=_games(),
+        expansions=[
+            {"id": 3678, "game_id": 16, "name": "Fusion World Promos"},
+            {"id": 4300, "game_id": 16, "name": "Tournament & Championship Promos"},
+        ],
+        blueprints=[
+            {
+                "id": 357581,
+                "game_id": 16,
+                "expansion_id": 3678,
+                "name": "Tien Shinhan",
+                "version": "Tournament Pack 07",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/357581/preview.jpg",
+                "fixed_properties": {"collector_number": "FP-045"},
+            }
+        ],
+    )
+
+    assert result["resolved"] is True
+    assert result["provider_set"] == "Fusion World Promos"
+    assert result["collector_number"] == "FP-045"
+    assert result["game_line"] == "fusion-world"
+
+
+def test_cardtrader_blocks_tournament_pack_version_mismatch() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super Fusion World",
+            "set_name": "Tournament and Championship Promos",
+            "name": "Nappa - FP-046 (Tournament Pack 07)",
+            "card_number": "FP-046",
+            "language": "English",
+            "variant": "Normal",
+        },
+        games=_games(),
+        expansions=[{"id": 3678, "game_id": 16, "name": "Fusion World Promos"}],
+        blueprints=[
+            {
+                "id": 356684,
+                "expansion_id": 3678,
+                "name": "Nappa",
+                "version": "Tournament Pack 08",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/356684/preview.jpg",
+                "fixed_properties": {"collector_number": "FP-046"},
+            }
+        ],
+    )
+
+    assert result["resolved"] is False
+
+
+def test_cardtrader_blocks_winner_variant_without_exact_version_proof() -> None:
     result = resolve_blueprint(
         {
             "game": "Dragon Ball Super Fusion World",
@@ -205,32 +266,23 @@ def test_cardtrader_matches_tournament_and_championship_ampersand_alias() -> Non
             "name": "Vegeta (Tournament Pack -Winner- 06)",
             "card_number": "FB05-039",
             "language": "English",
-            "variant": "Foil",
+            "variant": "Holofoil",
         },
         games=_games(),
-        expansions=[
-            {
-                "id": 4300,
-                "game_id": 16,
-                "name": "Tournament & Championship Promos",
-            }
-        ],
+        expansions=[{"id": 3678, "game_id": 16, "name": "Fusion World Promos"}],
         blueprints=[
             {
-                "id": 5001,
-                "game_id": 16,
-                "expansion_id": 4300,
-                "name": "Vegeta (Tournament Pack -Winner- 06)",
-                "version": "FB05-039",
-                "image_url": "https://cardtrader.com/uploads/blueprints/image/5001/preview.jpg",
+                "id": 357586,
+                "expansion_id": 3678,
+                "name": "Vegeta",
+                "version": "Tournament Pack 06",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/357586/preview.jpg",
+                "fixed_properties": {"collector_number": "FB05-039"},
             }
         ],
     )
 
-    assert result["resolved"] is True
-    assert result["provider_set"] == "Tournament & Championship Promos"
-    assert result["collector_number"] == "FB05-039"
-    assert result["game_line"] == "fusion-world"
+    assert result["resolved"] is False
 
 
 def test_cardtrader_prerelease_falls_back_to_base_only_with_version_proof() -> None:
@@ -316,15 +368,16 @@ def test_cardtrader_strips_collectr_promo_suffix_but_keeps_number_gate() -> None
         },
         games=_games(),
         expansions=[
-            {"id": 4300, "game_id": 16, "name": "Tournament & Championship Promos"}
+            {"id": 3678, "game_id": 16, "name": "Fusion World Promos"}
         ],
         blueprints=[
             {
-                "id": 5002,
-                "expansion_id": 4300,
+                "id": 357581,
+                "expansion_id": 3678,
                 "name": "Tien Shinhan",
-                "version": "FP-045",
-                "image_url": "https://cardtrader.com/uploads/blueprints/image/5002/card.jpg",
+                "version": "Tournament Pack 07",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/357581/card.jpg",
+                "fixed_properties": {"collector_number": "FP-045"},
             }
         ],
     )
