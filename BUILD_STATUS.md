@@ -78,24 +78,34 @@ withdrawal semantics and the rule that returning to `FOR_SALE` never silently re
 a listing. No schema or runtime behavior changed. Production snapshot on 29 September
 2026: 509/509 inventory items are `FOR_SALE`; 0 are `PERSONAL_COLLECTION`.**
 
+## 29 September 2026 — payout heartbeat production verification
+
+**Payout scheduler heartbeat: COMPLETE —** the final repurposed Railway operations monitor
+completed a real scheduled run at **2026-09-29 02:02 UTC** after IPv6 and database-reference
+corrections. The heartbeat step returned `healthy=true`, `last_status=SUCCESS` and
+observed the hourly payout scheduler completion at **02:00:50 UTC**. The monitor command
+exited 0 and continued into reconciliation. The independent heartbeat migration,
+founder-only alerting, automatic recovery and failure-path tests remain in place; no payout
+eligibility, amount, approval, Stripe state or money-movement rule changed.**
+
 ## 29 September 2026 — Shopify order reconciliation hardening
 
-**Shopify ↔ Drop Rate order reconciliation: IN PROGRESS — implementation, migration,
-permissions and production proof case are verified; only the first scheduled execution of
-the final combined operations monitor remains.** PR #256 shipped the reconciliation
-guardrail and PR #258 repaired the final test/documentation drift after payment/webhook-aware
-classification was introduced. CI is green. The production migration is applied and the
-persistence function is `SECURITY DEFINER`, with execute denied to
-PUBLIC/anon/authenticated/service_role/tcg_auditor and granted only to `tcg_api`.
-A controlled production persistence check against Shopify order
-`8488414282075` / `#1001` created exactly two HIGH
-`SHOPIFY_ORDER_WEBHOOK_GAP` Action Required rows for the two active founders and zero
-consignor rows; `#1002` remained the healthy comparison. The check did not reconstruct an
-order or alter inventory, ownership, ledger, settlement or payout data. The final
-30-minute operations monitor is deployed on the repurposed Railway `drop-rate-api`
-service with IPv6 egress enabled and the redundant temporary heartbeat service removed.
-This remains **IN PROGRESS** until that exact final monitor records a successful scheduled
-Shopify reconciliation execution.**
+**Shopify ↔ Drop Rate order reconciliation: IN PROGRESS — the final combined operations
+monitor now runs successfully, but its first successful reconciliation execution exposed
+an RLS read-path false positive that is being corrected without weakening table security.**
+At **2026-09-29 02:02 UTC** the repurposed Railway operations monitor completed both steps
+with exit code 0; payout heartbeat was healthy against the **02:00:50 UTC** SUCCESS run.
+Reconciliation then reported `remote_count=2` but `local_count=0`, despite Shopify test
+order `8488435581275` / #1002 being present in `tcg.orders`. Production verification
+confirmed the row exists inside the 30-day window: the internal `tcg_api` role was simply
+being correctly restricted by RLS on a direct table read. The fix in this change adds a
+version-controlled, bounded `SECURITY DEFINER` state-read function in the private
+`tcg` schema that returns only reconciliation-safe order/webhook fields, revokes execute
+from PUBLIC/anon/authenticated/service_role/tcg_auditor and grants execute only to
+`tcg_api`. The worker no longer queries `tcg.orders` or
+`tcg.shopify_webhook_events` directly. No ownership, inventory, ledger, settlement or
+payout permissions are broadened. Completion gate: corrected production run must see #1002
+as the healthy local match and leave only #1001 as the known HIGH webhook-gap proof case.**
 
 ## 29 September 2026 — verified 24-hour build delta
 
