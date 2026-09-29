@@ -194,3 +194,131 @@ def test_cardtrader_requires_confirmed_physical_language() -> None:
         "resolved": False,
         "reason": "physical card language is not confirmed",
     }
+
+
+def test_cardtrader_normalizes_and_vs_ampersand_for_promo_expansion() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super Fusion World",
+            "set_name": "Tournament and Championship Promos",
+            "name": "Vegeta (Tournament Pack -Winner- 06)",
+            "card_number": "FB05-039",
+            "language": "English",
+            "variant": "Holofoil",
+        },
+        games=_games(),
+        expansions=[
+            {"id": 4300, "game_id": 16, "name": "Tournament & Championship Promos"}
+        ],
+        blueprints=[
+            {
+                "id": 5001,
+                "expansion_id": 4300,
+                "name": "Vegeta (Tournament Pack -Winner- 06)",
+                "version": "FB05-039",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/5001/card.jpg",
+            }
+        ],
+    )
+
+    assert result["resolved"] is True
+    assert result["provider_id"] == "5001"
+
+
+def test_cardtrader_strips_collectr_promo_suffix_but_keeps_number_gate() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super Fusion World",
+            "set_name": "Tournament and Championship Promos",
+            "name": "Tien Shinhan - FP-045 (Tournament Pack 07)",
+            "card_number": "FP-045",
+            "language": "English",
+            "variant": "Normal",
+        },
+        games=_games(),
+        expansions=[
+            {"id": 4300, "game_id": 16, "name": "Tournament & Championship Promos"}
+        ],
+        blueprints=[
+            {
+                "id": 5002,
+                "expansion_id": 4300,
+                "name": "Tien Shinhan",
+                "version": "FP-045",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/5002/card.jpg",
+            }
+        ],
+    )
+
+    assert result["resolved"] is True
+    assert result["collector_number"] == "FP-045"
+
+
+def test_cardtrader_pre_release_falls_back_to_base_expansion_only_with_version_proof() -> None:
+    local = {
+        "game": "Dragon Ball Super",
+        "set_name": "Dawn of the Z-Legends Pre-Release Cards",
+        "name": "Omega Shenron, Merciless Negativity",
+        "card_number": "BT18-004",
+        "language": "English",
+        "variant": "Normal",
+    }
+    expansions = [{"id": 3120, "game_id": 16, "name": "Dawn of the Z-Legends"}]
+
+    good = resolve_blueprint(
+        local,
+        games=_games(),
+        expansions=expansions,
+        blueprints=[
+            {
+                "id": 6001,
+                "expansion_id": 3120,
+                "name": "Omega Shenron, Merciless Negativity",
+                "version": "Pre-Release BT18-004",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/6001/card.jpg",
+            }
+        ],
+    )
+    assert good["resolved"] is True
+
+    unsafe = resolve_blueprint(
+        local,
+        games=_games(),
+        expansions=expansions,
+        blueprints=[
+            {
+                "id": 6002,
+                "expansion_id": 3120,
+                "name": "Omega Shenron, Merciless Negativity",
+                "version": "BT18-004",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/6002/card.jpg",
+            }
+        ],
+    )
+    assert unsafe["resolved"] is False
+
+
+def test_cardtrader_base_print_excludes_pre_release_blueprint() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super",
+            "set_name": "Dawn of the Z-Legends",
+            "name": "Vegeta, Another World Warrior",
+            "card_number": "BT18-035",
+            "language": "English",
+            "variant": "Normal",
+        },
+        games=_games(),
+        expansions=[{"id": 3120, "game_id": 16, "name": "Dawn of the Z-Legends"}],
+        blueprints=[
+            {
+                "id": 6101,
+                "expansion_id": 3120,
+                "name": "Vegeta, Another World Warrior",
+                "version": "Pre-Release BT18-035",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/6101/card.jpg",
+            }
+        ],
+    )
+
+    assert result["resolved"] is False
