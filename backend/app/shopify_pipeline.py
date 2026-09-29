@@ -3430,12 +3430,27 @@ async def _process_refund(
             if return_to_stock:
                 if client is None:
                     client = _client()
+                remaining_sellable_quantity = await connection.fetchval(
+                    """
+                    select count(*)::int
+                    from tcg.shopify_inventory_links pool_link
+                    join tcg.inventory_items pool_item
+                      on pool_item.id=pool_link.inventory_id
+                    where pool_link.shopify_variant_gid=$1
+                      and pool_link.sync_state='PUBLISHED'
+                      and pool_link.reserved_order_reference is null
+                      and pool_link.reserved_line_reference is null
+                      and pool_item.status='APPROVED'
+                      and pool_item.sale_intent='FOR_SALE'
+                    """,
+                    allocation["shopify_variant_gid"],
+                )
                 await client.set_inventory_quantity(
                     inventory_item_id=allocation["shopify_inventory_item_gid"],
                     location_id=allocation["shopify_location_gid"],
-                    quantity=0,
+                    quantity=int(remaining_sellable_quantity or 0),
                     idempotency_key=(
-                        f"refund-zero-{refund_id}-{allocation['allocation_index']}"
+                        f"refund-restock-{refund_id}-{allocation['allocation_index']}"
                     ),
                 )
                 await connection.execute(
