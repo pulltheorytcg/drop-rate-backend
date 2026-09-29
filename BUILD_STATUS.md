@@ -17,14 +17,16 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## 29 September 2026 — Shopify linked-draft readiness audit
 
-**SOURCE-CONTROL PR IN PROGRESS / READ-ONLY —** Founder HQ is adding a separate readiness
+**DEPLOYED / VERIFIED / READ-ONLY —** PR #306 is merged and deployed to production. Founder HQ now exposes a separate readiness
 summary for Shopify-linked `DRAFT` products. This reuses the existing identity, approval,
 cost, language, condition/grade, price, location and media gates so the 369-product draft
 backlog can be worked safely without bulk activation. The audit performs **zero Shopify
 network calls and zero publication actions**; it does not infer missing language, confirm
 identity, alter price/quantity or change remote product status. Dashboard output separates
 unsynced inventory from already-linked Shopify drafts and exposes their core/media blocker
-counts. Storefront publication remains gated on refreshed mobile QA followed by desktop QA.
+counts. Production deployment `abf12ed481f8c7e7f0e16270da312c6f78d71a00` passed **1,904 tests** and Railway's `/health/ready` check returned HTTP 200.
+
+The post-deploy inventory baseline is **369 linked Shopify drafts**. After reconciling the already-verified Seel 021/094 English image from Shopify `READY` back into the media registry and approving its previously recorded founder physical review, **1 draft is now core-ready and media-ready** while remaining unpublished. Current linked-draft blockers are: 368 approval status, 368 identity confirmation, 367 card language, 5 graded slab verification and 2 store price. Storefront publication remains gated on refreshed mobile QA followed by desktop QA.
 
 ## 29 September 2026 — storefront mobile launch-QA polish
 
