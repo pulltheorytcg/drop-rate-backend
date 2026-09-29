@@ -233,6 +233,31 @@ exact Shopify variant/SKU already mapped to one `tcg.shopify_inventory_links` ro
 cart→checkout smoke test on the unpublished storefront before this slice can be called
 complete.
 
+## 29 September 2026 — Shopify-native search v1 checkpoint
+
+Launch search remains intentionally simple and Shopify-native. No custom search backend,
+vector index or AI ranking layer is required for v1.
+
+The unpublished Brand Redesign search form now:
+- searches Shopify products only;
+- keeps partial matching on the last term;
+- places unavailable products after available matches;
+- uses the TCG-specific placeholder **Search a card, set or collector number…**;
+- explains that customers can search by card name or collector number;
+- reuses the same compact Drop Rate result cards, filters and two-column mobile layout
+  already used by collection browse.
+
+This works with the existing product-title contract, which contains both canonical card
+name and collector number. Connected-store verification confirmed free-text Shopify product
+search matches real active inventory for both `OP16-071` and **Benevolent King**, and
+also matches **Eiscue ex**.
+
+Search v1 therefore introduces no new source of truth and no synchronisation problem:
+Shopify searches the products already published by the guarded catalogue pipeline.
+
+**Status: IN PROGRESS.** Theme behavior is implemented on the unpublished theme. Remaining
+gates are CI and browser/mobile visual/result QA before launch.
+
 ## Storefront architecture
 
 Initial approach:
