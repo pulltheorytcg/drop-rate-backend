@@ -22,7 +22,9 @@ Every 30 minutes the operations monitor runs two independent checks in sequence:
 The Shopify check:
 
 1. retrieves all Shopify orders created in the previous 30 days using cursor pagination;
-2. retrieves all `tcg.orders` rows with `source='SHOPIFY'` in the same time window;
+2. calls the bounded internal `tcg.get_shopify_order_reconciliation_state(...)`
+   function to retrieve only the minimal local order/webhook state needed for the same
+   time window;
 3. compares numeric Shopify order references in both directions;
 4. for Shopify-only orders, checks processed `orders/create` webhook coverage and
    Shopify's current financial status;
@@ -90,8 +92,13 @@ address.
 - Reconciliation never reconstructs a webhook payload.
 - Reconciliation never changes ownership, inventory status, order items, ledger rows,
   settlement rows or payout rows.
-- Alerts are created only for active FOUNDER owners through a `SECURITY DEFINER`
-  function executable only by `tcg_api`.
+- Reconciliation uses two narrowly scoped `SECURITY DEFINER` functions in the private
+  `tcg` schema: one read function for order/webhook reconciliation state and one
+  persistence function for Founder HQ alerts. Both revoke execution from
+  PUBLIC/anon/authenticated/service_role/tcg_auditor and grant execute only to
+  the internal `tcg_api` role.
+- The read function returns no customer name, email, phone, billing/shipping address,
+  payment details, owner identity, acquisition cost, ledger rows or settlement data.
 - Repeated mismatches are idempotent by founder + dedupe key.
 - A manually dismissed mismatch reopens if the anomaly is still present on the next
   completed scan.
@@ -123,5 +130,12 @@ Shopify order `8488414282075` / `#1001`: exactly two HIGH founder alerts were op
 one for each active founder, and no consignor alert was created. No commerce or finance
 records were reconstructed.
 
-The deployment is not called Completed until the final combined monitor itself has a
-successful scheduled execution after its IPv6 egress correction.
+The final combined monitor completed successfully at **2026-09-29 02:02 UTC** after the
+IPv6/database-reference corrections: heartbeat returned healthy and both monitor commands
+exited 0. That first successful reconciliation run also exposed a permission-boundary bug:
+the internal `tcg_api` role correctly could not directly read RLS-protected
+`tcg.orders`, so the worker saw `local_count=0` and falsely classified #1002 as missing.
+The fix keeps RLS intact and replaces those direct reads with the bounded internal state
+function described above. Reconciliation remains IN PROGRESS until the corrected worker
+runs in production and #1002 is resolved as healthy while #1001 remains the expected
+webhook-gap alert.
