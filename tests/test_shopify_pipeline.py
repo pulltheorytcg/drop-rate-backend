@@ -851,6 +851,16 @@ def test_failed_first_party_media_reenters_capture_queue() -> None:
     assert result["items"][0]["missing_sides"] == ["BACK"]
     assert result["items"][0]["ready_sides"] == ["FRONT"]
 
+def test_media_intake_endpoint_includes_sealed_and_collection_inventory() -> None:
+    source = PIPELINE.read_text()
+    start = source.index('@router.get("/media-assets/intake-queue")')
+    end = source.index('@router.get("/media-assets")', start)
+    block = source[start:end]
+
+    assert "p.product_type in ('CARD','SEALED','COLLECTION')" in block
+    assert "p.product_type='CARD'" not in block
+
+
 def test_founder_media_ui_uses_dedicated_physical_capture_queue() -> None:
     helper = SHOPIFY_SETTINGS.read_text()
     ui = MEDIA_CONDITION.read_text()
