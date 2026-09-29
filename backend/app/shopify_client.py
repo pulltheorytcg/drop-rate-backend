@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -259,6 +260,123 @@ class ShopifyAdminClient:
                 )
             result.append(transaction)
         return result
+
+
+    async def list_orders_for_reconciliation(
+        self,
+        *,
+        created_at_gte: datetime,
+        max_pages: int = 100,
+    ) -> list[dict[str, Any]]:
+        if created_at_gte.tzinfo is None or created_at_gte.utcoffset() is None:
+            raise ValueError("created_at_gte must be timezone-aware")
+        if max_pages < 1 or max_pages > 100:
+            raise ValueError("max_pages must be between 1 and 100")
+
+        timestamp = (
+            created_at_gte.astimezone(timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
+        search_query = f"created_at:>='{timestamp}'"
+        cursor: str | None = None
+        orders: list[dict[str, Any]] = []
+
+        for _page in range(max_pages):
+            data = await self.graphql(
+                query="""
+                query DropRateOrderReconciliation(
+                  $first: Int!,
+                  $after: String,
+                  $query: String!
+                ) {
+                  orders(
+                    first: $first,
+                    after: $after,
+                    query: $query,
+                    sortKey: CREATED_AT
+                  ) {
+                    nodes {
+                      id
+                      name
+                      createdAt
+                      cancelledAt
+                      displayFinancialStatus
+                    }
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
+                  }
+                }
+                """,
+                variables={
+                    "first": 100,
+                    "after": cursor,
+                    "query": search_query,
+                },
+            )
+            connection = data.get("orders")
+            if not isinstance(connection, dict):
+                raise ShopifyApiError(
+                    "Shopify order reconciliation query returned an invalid response"
+                )
+            nodes = connection.get("nodes")
+            if not isinstance(nodes, list):
+                raise ShopifyApiError(
+                    "Shopify order reconciliation query is missing nodes"
+                )
+            for node in nodes:
+                if not isinstance(node, dict):
+                    raise ShopifyApiError(
+                        "Shopify order reconciliation query returned an invalid order"
+                    )
+                gid = str(node.get("id") or "").strip()
+                prefix = "gid://shopify/Order/"
+                source_reference = gid.removeprefix(prefix)
+                if (
+                    not gid.startswith(prefix)
+                    or not source_reference.isdigit()
+                    or len(source_reference) > 32
+                ):
+                    raise ShopifyApiError(
+                        "Shopify order reconciliation returned an invalid order ID"
+                    )
+                created_at = str(node.get("createdAt") or "").strip()
+                if not created_at:
+                    raise ShopifyApiError(
+                        "Shopify order reconciliation returned an order without createdAt"
+                    )
+                orders.append(
+                    {
+                        "source_reference": source_reference,
+                        "order_number": str(node.get("name") or "").strip() or None,
+                        "created_at": created_at,
+                        "cancelled_at": (
+                            str(node.get("cancelledAt") or "").strip() or None
+                        ),
+                        "financial_status": (
+                            str(node.get("displayFinancialStatus") or "").strip() or None
+                        ),
+                    }
+                )
+
+            page_info = connection.get("pageInfo")
+            if not isinstance(page_info, dict):
+                raise ShopifyApiError(
+                    "Shopify order reconciliation query is missing pageInfo"
+                )
+            if not page_info.get("hasNextPage"):
+                return orders
+            cursor = page_info.get("endCursor")
+            if not isinstance(cursor, str) or not cursor:
+                raise ShopifyApiError(
+                    "Shopify order reconciliation pagination is invalid"
+                )
+
+        raise ShopifyApiError(
+            "Shopify order reconciliation exceeded the pagination safety limit"
+        )
 
 
     async def list_webhook_subscriptions(self) -> list[dict[str, Any]]:

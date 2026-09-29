@@ -15,6 +15,17 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — Shopify order reconciliation hardening
+
+**Shopify ↔ Drop Rate order reconciliation: IN PROGRESS —** an independently scheduled
+comparison now has a version-controlled implementation: Shopify Admin order pagination,
+a seven-day same-window comparison against `tcg.orders`, Founder HQ mismatch alerts,
+PII-minimal metadata, fail-closed pagination/API behavior and no automatic ledger repair.
+The known missing test order `8488414282075` is the production proof case. Completion
+requires CI, migration application, production deployment, a live reconciliation run
+showing the known mismatch, explicit function-permission verification and the 30-minute
+operations monitor schedule to be verified.
+
 ## 29 September 2026 — verified 24-hour build delta
 
 **Production application head is healthy —** deployed application commit `b3d29745d6` ("Fix seller portal runtime error and polish Seller Hub branding") is healthy. Documentation-only build-status commits may sit ahead of that application SHA on `main`. Railway deployment `324e7d2d-e8d0-487e-b29d-c3188aef2836` completed **SUCCESS**, production pre-deploy passed **1,847 tests**, and `/health/ready` returned **200 OK**. This section summarises the merged work in the preceding 24-hour window; prepared-but-dormant infrastructure is called out separately rather than counted as live automation.
