@@ -109,6 +109,23 @@ def test_bootstrap_prefers_exact_first_party_sealed_media() -> None:
     assert "ma.approval_status='APPROVED'" in source
 
 
+def test_bootstrap_allows_exact_official_slab_media_only_after_graded_verification() -> None:
+    source = (
+        __import__("pathlib").Path(__file__).parents[1]
+        / "backend"
+        / "app"
+        / "shopify_catalogue_bootstrap.py"
+    ).read_text()
+
+    assert "ma.source_type='OFFICIAL_PROVIDER'" in source
+    assert "ma.capture_context='GRADED_SLAB'" in source
+    assert "i.condition_review_status='VERIFIED_GRADED'" in source
+    assert "nullif(btrim(coalesce(i.grading_company,'')),'') is not null" in source
+    assert "nullif(btrim(coalesce(i.grade,'')),'') is not null" in source
+    assert "ma.scope='INVENTORY_ITEM'" in source
+    assert "ma.inventory_id=i.id" in source
+
+
 def test_bootstrap_canonical_product_media_requires_verified_region() -> None:
     source = (
         __import__("pathlib").Path(__file__).parents[1]

@@ -207,17 +207,29 @@ async def _candidate_rows(
                     (
                       ma.scope='INVENTORY_ITEM'
                       and ma.inventory_id=i.id
-                      and ma.rights_tier='FIRST_PARTY_CAPTURE'
                       and (
                         (
-                          p.product_type in ('SEALED','COLLECTION')
-                          and ma.capture_context='SEALED_PRODUCT'
+                          ma.rights_tier='FIRST_PARTY_CAPTURE'
+                          and (
+                            (
+                              p.product_type in ('SEALED','COLLECTION')
+                              and ma.capture_context='SEALED_PRODUCT'
+                            )
+                            or (
+                              p.product_type='CARD'
+                              and ma.capture_context in (
+                                'RAW_UNSLEEVED','PENNY_SLEEVE','TOP_LOADER','GRADED_SLAB'
+                              )
+                            )
+                          )
                         )
                         or (
                           p.product_type='CARD'
-                          and ma.capture_context in (
-                            'RAW_UNSLEEVED','PENNY_SLEEVE','TOP_LOADER','GRADED_SLAB'
-                          )
+                          and nullif(btrim(coalesce(i.grading_company,'')),'') is not null
+                          and nullif(btrim(coalesce(i.grade,'')),'') is not null
+                          and i.condition_review_status='VERIFIED_GRADED'
+                          and ma.source_type='OFFICIAL_PROVIDER'
+                          and ma.capture_context='GRADED_SLAB'
                         )
                       )
                     )

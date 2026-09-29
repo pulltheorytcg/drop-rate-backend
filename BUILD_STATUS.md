@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — Official graded-slab bootstrap gate
+
+**SOURCE-CONTROL PR IN PROGRESS —** catalogue bootstrap currently excludes cert-linked grading-provider slab media because the inventory-media branch only accepts `FIRST_PARTY_CAPTURE`. This blocked the already founder-verified Monkey D Luffy P-001 Japanese PSA 10 even though exact PSA cert 165543324 FRONT/BACK media is approved, rights-verified and Shopify-ready.
+
+The bootstrap media gate is being narrowed to also accept an exact `INVENTORY_ITEM` asset only when the inventory is a graded card, both grader and grade are present, `condition_review_status='VERIFIED_GRADED'`, `source_type='OFFICIAL_PROVIDER'`, and `capture_context='GRADED_SLAB'`. Raw-card and sealed-product rules are unchanged; official provider media does not become a general storefront-media bypass.
+
+Production also advanced Monkey.D.Luffy ST10-006 English PSA 9 to `VERIFIED_GRADED` from explicit founder approval and published its existing £35 Shopify draft successfully. PSA cert lookup confirmed Charizard V Darkness Ablaze 019/189 cert 62398872 as MINT 9 but returned no provider slab images, so that listing remains blocked on exact slab media rather than using a substitute.
+
 ## 2026-09-29 — Shopify publication remainder census (461/509 live)
 
 Production is now at **461 PUBLISHED physical inventory links out of 509 FOR_SALE inventory items**. Three additional items were safely promoted in the latest controlled reconciliation pass: Seel 021/094 English raw, Galarian Obstagoon 209/193 Japanese PSA 10, and Mega Charizard X ex 223/193 Japanese PSA 10. The two graded cards were explicitly founder-approved and recorded as `VERIFIED_GRADED` with exact FRONT/BACK graded-slab evidence before publication. Seel's legacy `test_mode=true` link was explicitly promoted to a normal production DRAFT link with its own audit event before the normal reconciler published it. The linked-draft worker was returned to `ENABLED=false` and `APPLY=false` immediately after the run.
