@@ -731,7 +731,7 @@ async def list_shipping_profiles(
             )
             items.append(item)
         present = {str(row["profile_key"]) for row in rows if row["active"]}
-        required = {"RAW_CARD", "GRADED_CARD"}
+        required = {"RAW_CARD", "GRADED_CARD", "SEALED_PRODUCT"}
         return jsonable_encoder({
             "items": items,
             "required_profile_keys": sorted(required),
@@ -745,10 +745,13 @@ async def create_shipping_profile(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    if payload.profile_key not in {"RAW_CARD", "GRADED_CARD"}:
+    if payload.profile_key not in {"RAW_CARD", "GRADED_CARD", "SEALED_PRODUCT"}:
         raise HTTPException(
             status_code=422,
-            detail="Supported shipping profile keys are RAW_CARD and GRADED_CARD",
+            detail=(
+                "Supported shipping profile keys are RAW_CARD, GRADED_CARD "
+                "and SEALED_PRODUCT"
+            ),
         )
     package_gid = _validated_shipping_package_gid(payload.shipping_package_gid)
     async with user_connection(
