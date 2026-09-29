@@ -396,7 +396,8 @@
     "search": {
       "label": "Looking for a particular card?",
       "placeholder": "Search a card, set or collector number…",
-      "submit": "Search cards"
+      "submit": "Search cards",
+      "help": "Search by card name or collector number."
     },
     "discovery": {
       "eyebrow": "Choose your world",
