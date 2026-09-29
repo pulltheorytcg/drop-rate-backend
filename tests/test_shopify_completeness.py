@@ -11,6 +11,26 @@ from app.shopify_completeness import (
 )
 
 
+def _sealed(**overrides):
+    item = {
+        "inventory_code": "INV-OP-SEALED-001",
+        "product_type": "COLLECTION",
+        "game": "One Piece",
+        "name": "Premium Card Collection -6 assort vol.1-",
+        "set_name": "One Piece Promotion Cards",
+        "card_number": None,
+        "variant": None,
+        "rarity": None,
+        "language": None,
+        "catalogue_language": None,
+        "condition": None,
+        "grading_company": None,
+        "grade": None,
+    }
+    item.update(overrides)
+    return item
+
+
 def _card(**overrides):
     item = {
         "inventory_code": "INV-PKM-TEST-001",
@@ -50,6 +70,79 @@ def test_card_product_plan_fills_customer_and_merchant_fields() -> None:
     assert plan["requiredCollections"] == ["Trading Cards", "Pokémon"]
     assert "Language:English" in plan["tags"]
     assert "Condition:Near Mint" in plan["tags"]
+
+
+def test_sealed_product_plan_is_not_treated_as_raw_card() -> None:
+    plan = build_shopify_product_plan(_sealed())
+
+    assert plan["category"] is None
+    assert plan["productType"] == "Sealed Product"
+    assert plan["shippingProfileKey"] == "SEALED_PRODUCT"
+    assert plan["mediaPolicy"] == "PHYSICAL_ITEM_REQUIRED"
+    assert plan["requiredCollections"] == [
+        "Trading Cards",
+        "One Piece",
+        "Sealed",
+        "One Piece Sealed",
+    ]
+    assert "Sealed Product" in plan["tags"]
+    assert "Raw Card" not in plan["tags"]
+    assert "Graded Card" not in plan["tags"]
+    assert "Trading Card" not in plan["tags"]
+    assert "sealed TCG product" in plan["descriptionHtml"]
+    assert "sealed TCG product" in plan["seo"]["description"]
+    assert shipping_profile_key(_sealed()) == "SEALED_PRODUCT"
+
+
+def test_sealed_product_readiness_fails_closed_without_media_shipping_or_collections() -> None:
+    plan = build_shopify_product_plan(_sealed())
+    result = product_completeness(
+        plan,
+        store_price_minor=11108,
+        inventory_code="INV-OP-SEALED-001",
+        approved_media_count=0,
+        existing_collection_titles={"Trading Cards", "One Piece"},
+        publication_configured=True,
+        location_configured=True,
+        shipping_profile=None,
+    )
+
+    assert result["complete"] is False
+    assert "approved media" in result["blockers"]
+    assert "collection: Sealed" in result["blockers"]
+    assert "collection: One Piece Sealed" in result["blockers"]
+    assert "shipping profile: SEALED_PRODUCT" in result["blockers"]
+    assert result["shippingProfileKey"] == "SEALED_PRODUCT"
+    assert result["shippingSpec"] is None
+
+
+def test_sealed_product_readiness_can_pass_only_with_explicit_sealed_profile() -> None:
+    plan = build_shopify_product_plan(_sealed())
+    result = product_completeness(
+        plan,
+        store_price_minor=11108,
+        inventory_code="INV-OP-SEALED-001",
+        approved_media_count=1,
+        existing_collection_titles={
+            "Trading Cards",
+            "One Piece",
+            "Sealed",
+            "One Piece Sealed",
+        },
+        publication_configured=True,
+        location_configured=True,
+        shipping_profile={
+            "profile_key": "SEALED_PRODUCT",
+            "label": "Verified sealed product",
+            "weight_value": 1,
+            "weight_unit": "GRAMS",
+            "shipping_package_gid": None,
+            "active": True,
+        },
+    )
+
+    assert result["complete"] is True
+    assert result["shippingProfileKey"] == "SEALED_PRODUCT"
 
 
 def test_product_metafields_are_listing_facts_not_private_finance_or_owner_data() -> None:
