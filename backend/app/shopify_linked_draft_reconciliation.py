@@ -186,6 +186,7 @@ async def _load_item(
     return await connection.fetchrow(
         f"""
         select
+            i.id as inventory_id,
             i.*,
             p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,
             p.rarity,p.language as catalogue_language,
