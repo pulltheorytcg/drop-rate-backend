@@ -71,6 +71,18 @@ is blocked as `LANGUAGE_UNRESOLVED`.
 The job is bounded and idempotent. It reports explicit result/blocker codes so a rerun can
 continue from the remaining drafts rather than recreating products.
 
+## Drain throughput
+
+The candidate query selects only links whose current `sync_state` is `DRAFT`. Already-
+published links are deliberately excluded from launch-drain reruns so a large backlog cannot
+spend most of its runtime re-validating products that have already completed publication.
+
+Independent draft items are reconciled with bounded async concurrency. Concurrency is capped
+at four workers and is also capped by the configured database pool size. Every item still
+runs the same identity, language, price, media, collection, stock, ownership-state and
+compensation gates; concurrency changes scheduling only, not publication policy. The summary
+includes the effective concurrency for production verification.
+
 
 ## Inventory-ID audit alias
 
