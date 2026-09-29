@@ -17,6 +17,8 @@ CARD_CATEGORY_GID = "gid://shopify/TaxonomyCategory/ae-2-2-3-3"
 CARD_CATEGORY_NAME = "Non-Sports Trading Cards"
 DEFAULT_THEME_TEMPLATE = "default"
 BASE_COLLECTION = "Trading Cards"
+SEALED_COLLECTION = "Sealed"
+SEALED_PRODUCT_TYPE = "Sealed TCG Product"
 SEO_TITLE_MAX = 70
 SEO_DESCRIPTION_MAX = 320
 PRODUCT_TITLE_MAX = 255
@@ -53,6 +55,10 @@ def _condition_label(item: Mapping[str, Any]) -> str:
     return _text(item.get("condition"))
 
 
+def _is_sealed_product(item: Mapping[str, Any]) -> bool:
+    return _text(item.get("product_type")) in {"SEALED", "COLLECTION"}
+
+
 def product_title(item: Mapping[str, Any]) -> str:
     language = _language(item)
     parts = [
@@ -82,6 +88,15 @@ def product_description_html(item: Mapping[str, Any]) -> str:
         if value
     )
     name = escape(_text(item.get("name")))
+    if _is_sealed_product(item):
+        return (
+            f"<p><strong>{name}</strong> is an individually tracked sealed TCG product "
+            "from Drop Rate inventory.</p>"
+            f"<ul>{rows}</ul>"
+            "<p>Product identity, language/region, seal status and price are controlled by "
+            "the Drop Rate inventory system. Storefront media is governed by Drop Rate's "
+            "item-specific media policy and must clear its publication checks.</p>"
+        )
     return (
         f"<p><strong>{name}</strong> is an individually tracked physical trading card "
         "from Drop Rate inventory.</p>"
@@ -116,8 +131,13 @@ def seo_description(item: Mapping[str, Any]) -> str:
         language,
     ]
     sentence = ", ".join(bit for bit in bits if bit)
+    item_label = (
+        "sealed TCG product"
+        if _is_sealed_product(item)
+        else "physical trading card"
+    )
     return _trim(
-        f"{sentence}. Individually tracked physical trading card from Drop Rate.",
+        f"{sentence}. Individually tracked {item_label} from Drop Rate.",
         SEO_DESCRIPTION_MAX,
     )
 
@@ -128,10 +148,19 @@ def product_tags(item: Mapping[str, Any]) -> list[str]:
     condition = _condition_label(item)
     grading_company = _text(item.get("grading_company"))
     grade = _text(item.get("grade"))
+    sealed = _is_sealed_product(item)
+    card_kind = (
+        "Sealed Product"
+        if sealed
+        else "Graded Card"
+        if grading_company and grade
+        else "Raw Card"
+    )
     values = [
         "Drop Rate",
         "TCG",
-        "Trading Card",
+        "Trading Card" if not sealed else "",
+        "Sealed Product" if sealed else "",
         brand,
         _text(item.get("game")),
         _text(item.get("set_name")),
@@ -141,7 +170,7 @@ def product_tags(item: Mapping[str, Any]) -> list[str]:
         f"Variant:{_text(item.get('variant'))}" if _text(item.get("variant")) else "",
         f"Grader:{grading_company}" if grading_company else "",
         f"Grade:{grade}" if grade else "",
-        "Graded Card" if grading_company and grade else "Raw Card",
+        card_kind,
     ]
     result: list[str] = []
     seen: set[str] = set()
@@ -186,7 +215,7 @@ def product_metafields(item: Mapping[str, Any]) -> list[dict[str, str]]:
 
 def required_collection_titles(item: Mapping[str, Any]) -> list[str]:
     brand = _storefront_brand(item.get("game"))
-    result = [BASE_COLLECTION]
+    result = [SEALED_COLLECTION] if _is_sealed_product(item) else [BASE_COLLECTION]
     if brand:
         result.append(brand)
     return result
@@ -198,6 +227,8 @@ def shipping_profile_key(item: Mapping[str, Any]) -> str:
         if _text(item.get("grading_company")) and _text(item.get("grade")):
             return "GRADED_CARD"
         return "RAW_CARD"
+    if product_type in {"SEALED", "COLLECTION"}:
+        return "SEALED_PRODUCT"
     return f"UNSUPPORTED_{product_type or 'PRODUCT'}"
 
 
@@ -484,7 +515,8 @@ def build_shopify_product_plan(
     physical_photo_threshold_minor: int = DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
 ) -> dict[str, Any]:
     product_type = _text(item.get("product_type"))
-    category_id = CARD_CATEGORY_GID if product_type == "CARD" else None
+    sealed = _is_sealed_product(item)
+    category_id = CARD_CATEGORY_GID if product_type == "CARD" or sealed else None
     vendor = _storefront_brand(item.get("game"))
     return {
         "title": product_title(item),
@@ -492,7 +524,13 @@ def build_shopify_product_plan(
         "category": category_id,
         "categoryName": CARD_CATEGORY_NAME if category_id else None,
         "vendor": vendor,
-        "productType": "Trading Card" if product_type == "CARD" else product_type,
+        "productType": (
+            "Trading Card"
+            if product_type == "CARD"
+            else SEALED_PRODUCT_TYPE
+            if sealed
+            else product_type
+        ),
         "tags": product_tags(item),
         "seo": {
             "title": seo_title(item),
