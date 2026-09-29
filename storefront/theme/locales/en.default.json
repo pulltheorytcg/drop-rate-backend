@@ -452,7 +452,8 @@
       "pokemon_label": "Browse Pokémon",
       "one_piece_label": "Browse One Piece",
       "pokemon_sets_label": "Browse Pokémon sets",
-      "one_piece_sets_label": "Browse One Piece sets"
+      "one_piece_sets_label": "Browse One Piece sets",
+      "sealed": "Sealed"
     },
     "cart": {
       "one_physical_copy": "1 physical copy"
