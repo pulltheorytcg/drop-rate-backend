@@ -17,21 +17,29 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## 29 September 2026 — sealed Shopify product contract
 
-**Sealed Shopify representation: IN PROGRESS / SHIPPING CONFIG REQUIRED —** the deterministic
-Shopify plan now distinguishes `SEALED`/`COLLECTION` inventory from cards. Sealed items
-reuse the store's existing Shopify **Non-Sports Trading Cards** taxonomy category but use
-Shopify product type `Sealed TCG Product`, tag `Sealed Product`, required collections
-`Sealed` + game, sealed-specific customer/SEO copy, and shipping key
-`SEALED_PRODUCT`. They no longer inherit the incorrect `Raw Card` tag or the raw-card
-`Trading Cards` collection requirement.
+**Sealed Shopify representation: COMPLETE / PUBLICATION STILL FAIL-CLOSED —** PR #284
+ports the sealed-storefront contract onto current `main` without losing the newer media
+hardening. `SEALED`/`COLLECTION` inventory now plans as Shopify product type
+`Sealed TCG Product`, tag `Sealed Product`, required collections `Sealed` + game,
+sealed-specific customer/SEO copy, and shipping key `SEALED_PRODUCT`; it no longer
+inherits raw-card tags or the raw-card `Trading Cards` collection requirement. The existing
+Shopify `Sealed` smart collection is present and deterministically keys on
+`Sealed Product`.
 
-Production currently has active shipping profiles only for `RAW_CARD` and
-`GRADED_CARD`; there is intentionally no `SEALED_PRODUCT` profile. Publication therefore
-fails closed until real packed weight/dimensions and carrier/service assumptions are
-approved rather than guessed. No inventory row, owner, price, identity, media, Shopify
-product or live theme is changed by this contract work. Completion requires green CI,
-production deployment/health verification, and proof that a sealed plan is blocked when
-the sealed shipping profile is absent.**
+GitHub **Backend checks** passed for PR #284, including the regression proving sealed
+publication completeness fails closed when the real sealed shipping profile is absent.
+Railway production deployment `a585b073-cba1-4760-b1e2-962f3bf5de16` completed
+**SUCCESS** from merge commit `c6f97a53ac3b13a660c5c5d9f8a95f4dd5697210`; the
+production pre-deploy suite reported **1,883 passed**, and `/health/ready` returned
+**200 OK**.
+
+Post-deploy production read-back confirms only `RAW_CARD` and `GRADED_CARD` shipping
+profiles exist. There is still no `SEALED_PRODUCT` profile, so no package weight,
+dimensions or carrier assumptions were guessed. Both current sealed One Piece inventory
+items remain **DRAFT / FOR_SALE**, identity-unconfirmed and without a Shopify inventory
+link/product GID. No schema, inventory, ownership, price, media, Shopify product or live
+theme mutation occurred. Sealed publication remains blocked until the normal
+identity/seal/media gates and a verified sealed shipping profile are complete.**
 
 ## 29 September 2026 — sealed capture-context queue hardening
 
