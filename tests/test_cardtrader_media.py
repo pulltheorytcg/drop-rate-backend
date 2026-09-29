@@ -383,3 +383,96 @@ def test_cardtrader_strips_collectr_promo_suffix_but_keeps_number_gate() -> None
     )
     assert result["resolved"] is True
     assert result["collector_number"] == "FP-045"
+
+
+def test_cardtrader_masters_accepts_bare_numeric_suffix_with_matching_rarity() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super",
+            "set_name": "Dawn of the Z-Legends",
+            "name": "Krillin, Training's Beginning",
+            "card_number": "BT18-067",
+            "language": "English",
+            "variant": "Normal",
+            "rarity": "Common",
+        },
+        games=_games(),
+        expansions=[{"id": 3120, "game_id": 16, "name": "Dawn of the Z-Legends"}],
+        blueprints=[
+            {
+                "id": 223205,
+                "expansion_id": 3120,
+                "name": "Krillin, Training's Beginning",
+                "version": None,
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/223205/card.jpg",
+                "fixed_properties": {
+                    "collector_number": "067",
+                    "dragonball_rarity": "Common",
+                },
+            }
+        ],
+    )
+
+    assert result["resolved"] is True
+    assert result["collector_number"] == "BT18-067"
+    assert result["provider_collector_number"] == "067"
+
+
+def test_cardtrader_masters_rejects_bare_suffix_when_rarity_disagrees() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super",
+            "set_name": "Dawn of the Z-Legends",
+            "name": "Krillin, Training's Beginning",
+            "card_number": "BT18-067",
+            "language": "English",
+            "variant": "Normal",
+            "rarity": "Common",
+        },
+        games=_games(),
+        expansions=[{"id": 3120, "game_id": 16, "name": "Dawn of the Z-Legends"}],
+        blueprints=[
+            {
+                "id": 223205,
+                "expansion_id": 3120,
+                "name": "Krillin, Training's Beginning",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/223205/card.jpg",
+                "fixed_properties": {
+                    "collector_number": "067",
+                    "dragonball_rarity": "Rare",
+                },
+            }
+        ],
+    )
+
+    assert result["resolved"] is False
+
+
+def test_cardtrader_fusion_does_not_accept_bare_numeric_suffix() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super Fusion World",
+            "set_name": "Wish For Shenron",
+            "name": "Son Goku : DA",
+            "card_number": "FB07-010",
+            "language": "English",
+            "variant": "Holofoil",
+            "rarity": "Common",
+        },
+        games=_games(),
+        expansions=[{"id": 5000, "game_id": 16, "name": "Wish For Shenron"}],
+        blueprints=[
+            {
+                "id": 7001,
+                "expansion_id": 5000,
+                "name": "Son Goku : DA",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/7001/card.jpg",
+                "fixed_properties": {
+                    "collector_number": "010",
+                    "dragonball_rarity": "Common",
+                },
+            }
+        ],
+    )
+
+    assert result["resolved"] is False
