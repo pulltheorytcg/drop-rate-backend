@@ -102,36 +102,61 @@ async def test_shopify_reconciliation_pagination_fails_closed() -> None:
 
 
 class FakeClient:
+    def __init__(
+        self,
+        *,
+        financial_status: str = "PENDING",
+        source_reference: str = "8488414282075",
+    ) -> None:
+        self.financial_status = financial_status
+        self.source_reference = source_reference
+
     async def list_orders_for_reconciliation(self, *, created_at_gte):
         return [
             {
-                "source_reference": "8488414282075",
+                "source_reference": self.source_reference,
                 "order_number": "#1001",
                 "created_at": "2026-09-24T23:04:48Z",
                 "cancelled_at": "2026-09-24T23:20:36Z",
-                "financial_status": "PENDING",
+                "financial_status": self.financial_status,
             }
         ]
 
 
 class FakeConnection:
-    def __init__(self):
+    def __init__(self, *, processed_create: bool = False, include_local: bool = True):
         self.persisted = None
         self.window_start = None
+        self.processed_create = processed_create
+        self.include_local = include_local
+        self.fetch_queries: list[str] = []
 
     @asynccontextmanager
     async def transaction(self):
         yield
 
     async def fetch(self, query: str, *args):
-        self.window_start = args[0]
-        return [{
-            "id": UUID("11111111-1111-1111-1111-111111111111"),
-            "source_reference": "8488435581275",
-            "order_number": "#1002",
-            "status": "CANCELLED",
-            "placed_at": datetime(2026, 9, 24, 23, 38, tzinfo=timezone.utc),
-        }]
+        self.fetch_queries.append(query)
+        if "from tcg.shopify_webhook_events" in query:
+            if self.processed_create:
+                return [{
+                    "resource_id": "8488414282075",
+                    "topic": "orders/create",
+                    "status": "PROCESSED",
+                }]
+            return []
+        if "from tcg.orders" in query:
+            self.window_start = args[0]
+            if not self.include_local:
+                return []
+            return [{
+                "id": UUID("11111111-1111-1111-1111-111111111111"),
+                "source_reference": "8488435581275",
+                "order_number": "#1002",
+                "status": "CANCELLED",
+                "placed_at": datetime(2026, 9, 24, 23, 38, tzinfo=timezone.utc),
+            }]
+        raise AssertionError(f"Unexpected query: {query}")
 
     async def fetchrow(self, query: str, *args):
         self.persisted = args
@@ -139,7 +164,7 @@ class FakeConnection:
 
 
 @pytest.mark.asyncio
-async def test_reconciliation_detects_both_directions_without_mutating_orders() -> None:
+async def test_reconciliation_classifies_unpaid_missing_order_as_webhook_gap() -> None:
     connection = FakeConnection()
     result = await reconcile_shopify_orders(
         connection,  # type: ignore[arg-type]
@@ -149,14 +174,51 @@ async def test_reconciliation_detects_both_directions_without_mutating_orders() 
     )
 
     assert result["remote_only_refs"] == ["8488414282075"]
+    assert result["remote_anomaly_refs"] == ["8488414282075"]
+    assert result["expected_pending_refs"] == []
     assert result["local_only_refs"] == ["8488435581275"]
-    assert result["opened_alerts"] == 4
     assert connection.persisted is not None
-    assert "8488414282075" in connection.persisted[0]
+    assert "SHOPIFY_ORDER_WEBHOOK_GAP" in connection.persisted[0]
     assert connection.persisted[1] == [
         UUID("11111111-1111-1111-1111-111111111111")
     ]
     assert connection.persisted[2] == []
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_treats_processed_unpaid_create_as_expected_pending() -> None:
+    connection = FakeConnection(processed_create=True, include_local=False)
+    result = await reconcile_shopify_orders(
+        connection,  # type: ignore[arg-type]
+        client=FakeClient(),  # type: ignore[arg-type]
+        now=datetime(2026, 9, 29, tzinfo=timezone.utc),
+    )
+
+    assert result["remote_only_refs"] == ["8488414282075"]
+    assert result["remote_anomaly_refs"] == []
+    assert result["expected_pending_refs"] == ["8488414282075"]
+    assert result["remote_anomaly_count"] == 0
+    assert result["expected_pending_count"] == 1
+    assert connection.persisted is not None
+    assert connection.persisted[0] == "[]"
+    assert connection.persisted[1] == []
+    assert connection.persisted[2] == ["8488414282075"]
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_paid_like_missing_order_is_critical_even_with_create_webhook() -> None:
+    connection = FakeConnection(processed_create=True, include_local=False)
+    result = await reconcile_shopify_orders(
+        connection,  # type: ignore[arg-type]
+        client=FakeClient(financial_status="REFUNDED"),  # type: ignore[arg-type]
+        now=datetime(2026, 9, 29, tzinfo=timezone.utc),
+    )
+
+    assert result["remote_anomaly_count"] == 1
+    assert result["expected_pending_count"] == 0
+    assert connection.persisted is not None
+    assert "SHOPIFY_PAID_ORDER_MISSING_IN_DROP_RATE" in connection.persisted[0]
+    assert '"severity":"CRITICAL"' in connection.persisted[0]
 
 
 @pytest.mark.asyncio
@@ -182,7 +244,8 @@ def test_reconciliation_migration_is_founder_scoped_and_api_only() -> None:
     compact = sql.replace(" ", "").replace("\n", "")
 
     assert "security definer" in sql
-    assert "shopify_order_missing_in_drop_rate" in sql
+    assert "shopify_paid_order_missing_in_drop_rate" in sql
+    assert "shopify_order_webhook_gap" in sql
     assert "drop_rate_order_missing_in_shopify" in sql
     assert "owner_type='founder'" in compact
     assert "fromservice_role" in compact
@@ -195,6 +258,8 @@ def test_reconciliation_migration_is_founder_scoped_and_api_only() -> None:
 def test_reconciliation_runner_does_not_log_secrets_or_customer_data() -> None:
     source = RUNNER.read_text()
     assert "SHOPIFY_ORDER_RECONCILIATION_COMPLETE" in source
+    assert '"remote_anomaly_count": result["remote_anomaly_count"]' in source
+    assert '"expected_pending_count": result["expected_pending_count"]' in source
     assert "database_url_configured" in source
     assert "shopify_client_secret_configured" in source
     assert "print(database_url)" not in source

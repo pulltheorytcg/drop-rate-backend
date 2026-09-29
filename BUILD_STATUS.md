@@ -19,9 +19,11 @@ This file is the persistent source of truth for project progress. A feature coun
 
 **Shopify ↔ Drop Rate order reconciliation: IN PROGRESS —** an independently scheduled
 comparison now has a version-controlled implementation: Shopify Admin order pagination,
-a seven-day same-window comparison against `tcg.orders`, Founder HQ mismatch alerts,
-PII-minimal metadata, fail-closed pagination/API behavior and no automatic ledger repair.
-The known missing test order `8488414282075` is the production proof case. Completion
+a 30-day same-window comparison against `tcg.orders`, payment-aware classification,
+processed-`orders/create` coverage checks, Founder HQ mismatch alerts, PII-minimal
+metadata, fail-closed pagination/API behavior and no automatic ledger repair. The known
+cancelled test order `8488414282075` is the HIGH-severity webhook-gap proof case rather
+than a fabricated paid-sale loss. Completion
 requires CI, migration application, production deployment, a live reconciliation run
 showing the known mismatch, explicit function-permission verification and the 30-minute
 operations monitor schedule to be verified.
