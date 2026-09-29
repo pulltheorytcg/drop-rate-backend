@@ -232,3 +232,26 @@ The resulting payout remains `REQUESTED` and therefore still passes through the 
 approval and payout-execution controls. Production money movement remains protected by
 `TCG_STRIPE_PAYOUT_EXECUTION_ENABLED`.
 
+### Independent scheduler heartbeat
+
+The hourly payout-request scheduler is monitored by a separate process so a scheduler
+startup crash cannot hide its own failure. The monitor runs independently every 30
+minutes and calls the deterministic database function
+`tcg.check_payout_scheduler_heartbeat(interval '90 minutes')`.
+
+The heartbeat is unhealthy when the most recent completed scheduler run is older than
+90 minutes or when the most recent completed run is not `SUCCESS`. An unhealthy check:
+
+- opens or refreshes a `CRITICAL` Founder HQ Action Required item with code
+  `PAYOUT_SCHEDULER_UNHEALTHY`;
+- scopes that item to active `FOUNDER` owners only, never consignors;
+- exits non-zero so Railway also shows the heartbeat cron run as failed.
+
+When the scheduler resumes successfully, the same check automatically resolves the open
+heartbeat item. A manual dismissal does not suppress an ongoing fault: the next unhealthy
+check reopens it. The monitor does not calculate payout eligibility, create payout
+requests, call Stripe, or move money.
+
+The database function is `SECURITY DEFINER`, has no public execute permission, and is
+granted only to the backend `tcg_api` role. Founder visibility still passes through the
+existing owner-scoped Action Required RLS boundary.

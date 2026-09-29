@@ -142,6 +142,19 @@ This file is the persistent source of truth for project progress. A feature coun
 **Payout scheduler cron incident: RESOLVED — root cause was Railway Dockerfile Start Command exec-form handling. The old override `PYTHONPATH=backend python backend/scripts/run_payout_scheduler.py` was treated as a literal executable name and failed before Python started. Railway service config now uses `python /app/backend/scripts/run_payout_scheduler.py`, while `Dockerfile.scheduler` provides `PYTHONPATH=/app/backend`. PR #212 / `d1f8dc6e` added safe startup diagnostics; PR #214 / `47178e43` forced a fresh scheduler snapshot after the config correction. A controlled verification run at 2026-09-28 04:12:30 UTC completed SUCCESS, checked one owner, created zero payout requests, reported NO_BALANCE once and zero errors. Normal hourly schedule `0 * * * *` has been restored. No payout amounts, eligibility rules, Stripe state or money-movement logic were changed.**
 
 
+## 29 September 2026 — payout scheduler heartbeat hardening
+
+**Payout scheduler heartbeat alerting: IN PROGRESS — the implementation now has an
+independent health check that treats the scheduler as unhealthy when its most recent
+completed run is older than 90 minutes or is not SUCCESS. The database-side check opens
+a CRITICAL Founder HQ Action Required item only for active FOUNDER owners and automatically
+resolves it after recovery; the standalone monitor exits non-zero on unhealthy state so
+Railway provides a second operational signal. The monitor does not change payout
+eligibility, amounts, Stripe state or money movement. Production completion still requires
+the version-controlled migration to be applied, the independent 30-minute Railway cron to
+be activated, a failure-path run to be observed, and the normal scheduler health to be
+re-verified.**
+
 ## 28 September 2026 — recognition + image corpus checkpoint
 
 **Recognition v1.5.1 / exact-printing retrieval: DEPLOYED — mobile/desktop scan intake, multi-signal evidence, exact-printing candidate handling, persistent recognition-reference fingerprint infrastructure, fail-closed promo/parallel handling, confidence-aware provider retrieval and unmapped-provider challenger surfacing are now in the live codebase. The system no longer treats card identity and exact physical printing as the same confidence problem. TCGAutomate remains the external benchmark; printer/device integration is intentionally later than recognition correctness.**

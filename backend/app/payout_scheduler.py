@@ -234,3 +234,28 @@ async def queue_due_payouts(
     summary["ok"] = not summary["errors"]
     summary["run_at"] = current.isoformat()
     return summary
+
+
+async def check_scheduler_heartbeat(
+    connection: asyncpg.Connection,
+    *,
+    threshold: timedelta = timedelta(minutes=90),
+) -> dict[str, Any]:
+    """Check the independent scheduler heartbeat and maintain the founder alert."""
+    if threshold < timedelta(minutes=30):
+        raise ValueError("Payout scheduler heartbeat threshold must be at least 30 minutes")
+
+    row = await connection.fetchrow(
+        "select * from tcg.check_payout_scheduler_heartbeat($1::interval)",
+        threshold,
+    )
+    if row is None:
+        raise RuntimeError("Payout scheduler heartbeat check returned no result")
+
+    return {
+        "healthy": bool(row["healthy"]),
+        "last_completed_at": row["last_completed_at"],
+        "last_status": row["last_status"],
+        "alerted_founders": int(row["alerted_founders"] or 0),
+        "resolved_founders": int(row["resolved_founders"] or 0),
+    }
