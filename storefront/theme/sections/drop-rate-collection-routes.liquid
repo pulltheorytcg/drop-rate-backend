@@ -26,6 +26,7 @@
   assign one_piece = collections['one-piece']
   assign all_singles = collections['singles']
   assign all_graded = collections['graded-cards']
+  assign all_sealed = collections['sealed']
 %}
 
 <nav class="dr-browse-nav" aria-label="{{ 'dr_brand.browse.aria' | t }}">
@@ -45,6 +46,9 @@
       {% endif %}
       {% if all_graded != blank and all_graded.all_products_count > 0 %}
         <a{% if h == 'graded-cards' %} aria-current="page"{% endif %} href="{{ all_graded.url }}">{{ 'dr_brand.browse.graded' | t }}</a>
+      {% endif %}
+      {% if all_sealed != blank and all_sealed.all_products_count > 0 %}
+        <a{% if h == 'sealed' %} aria-current="page"{% endif %} href="{{ all_sealed.url }}">Sealed</a>
       {% endif %}
     </div>
 
@@ -87,18 +91,23 @@
 </nav>
 
 {% stylesheet %}
-.dr-browse-nav{background:#fff;border-block:1px solid #dce4e9}
-.dr-browse-nav__inner{width:min(100% - 80px,1400px);margin-inline:auto;padding-block:12px;display:grid;gap:9px}
+.dr-browse-nav{border-bottom:1px solid #e2e8f0;background:#fff;box-shadow:0 8px 24px rgba(7,27,63,.035)}
+.dr-browse-nav__inner{display:grid;width:min(100% - 80px,1400px);margin-inline:auto;padding-block:13px;gap:9px}
 .dr-browse-nav__primary,.dr-browse-nav__secondary,.dr-browse-nav__sets{display:flex;align-items:center;gap:7px;overflow-x:auto;scrollbar-width:none}
 .dr-browse-nav__primary::-webkit-scrollbar,.dr-browse-nav__secondary::-webkit-scrollbar,.dr-browse-nav__sets::-webkit-scrollbar{display:none}
-.dr-browse-nav a{flex:0 0 auto;text-decoration:none;white-space:nowrap}
-.dr-browse-nav__primary a{padding:9px 13px;border:1px solid #dce4e9;border-radius:4px;color:#061d3b;background:#f5f8f9;font-size:11px;font-weight:700}
-.dr-browse-nav__primary a[aria-current="page"]{background:#061d3b;border-color:#061d3b;color:#fff}
+.dr-browse-nav a{flex:0 0 auto;text-decoration:none;white-space:nowrap;transition:background 140ms ease,border-color 140ms ease,color 140ms ease,transform 140ms ease}
+.dr-browse-nav__primary a{padding:9px 13px;border:1px solid #dce4ed;border-radius:999px;background:#f4f7fb;color:#13223b;font-size:11px;font-weight:750}
+.dr-browse-nav__primary a:hover{border-color:#9bc4fb;background:#eef5ff;color:#0d5fcb;transform:translateY(-1px)}
+.dr-browse-nav__primary a[aria-current="page"]{border-color:#071b3f;background:linear-gradient(135deg,#071b3f,#0d2a59);color:#fff;box-shadow:0 6px 16px rgba(7,27,63,.14)}
 .dr-browse-nav__secondary,.dr-browse-nav__sets{padding-top:2px}
-.dr-browse-nav__secondary a,.dr-browse-nav__sets a{padding:6px 9px;border-radius:3px;color:#536477;font-size:10px;font-weight:650}
-.dr-browse-nav__secondary a:hover,.dr-browse-nav__sets a:hover,.dr-browse-nav__secondary a[aria-current="page"],.dr-browse-nav__sets a[aria-current="page"]{background:#e8f7f6;color:#006f7a}
-.dr-browse-nav__label{flex:0 0 auto;margin-right:3px;color:#758395;font-size:9px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
-@media(max-width:749px){.dr-browse-nav__inner{width:calc(100% - 32px);padding-block:10px;gap:7px}.dr-browse-nav__primary a{font-size:10px;padding:8px 10px}.dr-browse-nav__secondary a,.dr-browse-nav__sets a{font-size:9px;padding:6px 8px}}
+.dr-browse-nav__secondary a,.dr-browse-nav__sets a{padding:6px 9px;border-radius:999px;color:#6d7b91;font-size:10px;font-weight:700}
+.dr-browse-nav__secondary a:hover,.dr-browse-nav__sets a:hover,.dr-browse-nav__secondary a[aria-current="page"],.dr-browse-nav__sets a[aria-current="page"]{background:#eafcff;color:#0b7080}
+.dr-browse-nav__label{flex:0 0 auto;margin-right:3px;color:#8492a8;font-size:9px;font-weight:850;letter-spacing:.13em;text-transform:uppercase}
+@media(max-width:749px){
+  .dr-browse-nav__inner{width:calc(100% - 32px);padding-block:10px;gap:7px}
+  .dr-browse-nav__primary a{padding:8px 10px;font-size:10px}
+  .dr-browse-nav__secondary a,.dr-browse-nav__sets a{padding:6px 8px;font-size:9px}
+}
 {% endstylesheet %}
 
 {% schema %}
