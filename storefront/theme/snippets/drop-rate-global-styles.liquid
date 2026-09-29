@@ -85,9 +85,45 @@ Global refinements for the Drop Rate storefront.
     -webkit-line-clamp: 2;
   }
 
+  .dr-pdp-heading {
+    display: grid;
+    gap: 5px;
+  }
+
+  .dr-pdp-heading .dr-eyebrow {
+    margin: 0;
+    color: #1f7bf2;
+    font-size: 0.68rem;
+    font-weight: 850;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .dr-pdp-heading h1 {
+    margin: 0;
+    color: #13223b;
+    font-size: clamp(2rem, 3.4vw, 3.35rem);
+    font-weight: 850;
+    letter-spacing: -0.055em;
+    line-height: 0.98;
+  }
+
+  .dr-pdp-heading > p:last-child {
+    margin: 3px 0 0;
+    color: #6d7b91;
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.4;
+  }
+
   .dr-pdp-summary {
     display: grid;
     gap: 14px;
+    padding: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 10px 28px rgba(7,27,63,.055);
   }
 
   .dr-pdp-stock {
@@ -95,8 +131,9 @@ Global refinements for the Drop Rate storefront.
     align-items: center;
     gap: 8px;
     width: fit-content;
-    font-size: 0.82rem;
-    font-weight: 700;
+    color: #13223b;
+    font-size: 0.8rem;
+    font-weight: 750;
   }
 
   .dr-pdp-stock > span {
@@ -104,7 +141,12 @@ Global refinements for the Drop Rate storefront.
     height: 8px;
     border-radius: 999px;
     background: currentColor;
-    opacity: 0.72;
+    opacity: 0.85;
+  }
+
+  .dr-pdp-stock:not(.dr-pdp-stock--out) > span {
+    color: #0f9a64;
+    box-shadow: 0 0 0 4px rgba(15,154,100,.09);
   }
 
   .dr-pdp-stock--out {
@@ -113,34 +155,36 @@ Global refinements for the Drop Rate storefront.
 
   .dr-pdp-facts {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    border: 1px solid rgb(var(--color-foreground-rgb) / 10%);
-    border-radius: 12px;
+    grid-template-columns: repeat(2,minmax(0,1fr));
     overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
   }
 
   .dr-pdp-facts > div {
     display: grid;
     gap: 3px;
     padding: 11px 12px;
-    border-bottom: 1px solid rgb(var(--color-foreground-rgb) / 8%);
+    border-bottom: 1px solid #e2e8f0;
   }
 
   .dr-pdp-facts > div:nth-child(odd) {
-    border-right: 1px solid rgb(var(--color-foreground-rgb) / 8%);
+    border-right: 1px solid #e2e8f0;
   }
 
   .dr-pdp-facts span {
-    color: rgb(var(--color-foreground-rgb) / 55%);
-    font-size: 0.68rem;
-    font-weight: 650;
+    color: #8492a8;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
   }
 
   .dr-pdp-facts strong {
-    font-size: 0.83rem;
-    font-weight: 700;
+    color: #13223b;
+    font-size: 0.82rem;
+    font-weight: 750;
     overflow-wrap: anywhere;
   }
 
@@ -148,65 +192,33 @@ Global refinements for the Drop Rate storefront.
     display: flex;
     flex-wrap: wrap;
     gap: 7px 14px;
-    color: rgb(var(--color-foreground-rgb) / 68%);
-    font-size: 0.74rem;
-    font-weight: 600;
+    color: #6d7b91;
+    font-size: 0.72rem;
+    font-weight: 650;
   }
 
   .dr-pdp-trust span::before {
     content: "✓";
     margin-right: 5px;
+    color: #1f7bf2;
+    font-weight: 900;
   }
 
   .dr-pdp-inventory {
     margin: 0;
-    color: rgb(var(--color-foreground-rgb) / 45%);
-    font-size: 0.66rem;
+    color: #94a0b2;
+    font-size: 0.64rem;
     overflow-wrap: anywhere;
-  }
-
-  .cart-page__more-blocks {
-    margin-top: 18px;
-  }
-
-  @media screen and (max-width: 749px) {
-    .dr-pdp-facts {
-      grid-template-columns: 1fr;
-    }
-
-    .dr-pdp-facts > div:nth-child(odd) {
-      border-right: 0;
-    }
-  }
-
-  .dr-pdp-summary {
-    padding: 14px;
-    background: #f5f1e8;
-    border: 1px solid #e1ddd4;
-    border-radius: 12px;
-  }
-
-  .dr-pdp-stock {
-    color: #10263a;
-  }
-
-  .dr-pdp-stock:not(.dr-pdp-stock--out) > span {
-    color: #2dbcc3;
-  }
-
-  .dr-pdp-facts {
-    background: #fffdf8;
-    border-color: #d7d5cd;
   }
 
   .dr-purchase-note {
     display: grid;
     gap: 3px;
     padding: 11px 13px;
-    border-left: 3px solid #f2b940;
-    border-radius: 8px;
-    background: #fff1c9;
-    color: #10263a;
+    border-left: 3px solid #28d7eb;
+    border-radius: 9px;
+    background: #eafcff;
+    color: #13223b;
     font-size: .76rem;
     line-height: 1.4;
   }
@@ -216,11 +228,57 @@ Global refinements for the Drop Rate storefront.
   }
 
   .dr-purchase-note span {
-    color: #5f6d78;
+    color: #6d7b91;
+  }
+
+  .dr-pdp-description {
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #ffffff;
+  }
+
+  .dr-pdp-description summary {
+    padding: 11px 13px;
+    color: #13223b;
+    font-size: .78rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .dr-pdp-description .rte {
+    padding: 0 13px 13px;
+    color: #59677d;
+    font-size: .76rem;
+    line-height: 1.55;
+  }
+
+  .dr-pdp-policies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+
+  .dr-pdp-policies a {
+    color: #1f7bf2;
+    font-size: .72rem;
+    font-weight: 750;
+    text-decoration: none;
+  }
+
+  .dr-pdp-policies a:hover {
+    text-decoration: underline;
+  }
+
+  .cart-page__more-blocks {
+    margin-top: 18px;
   }
 
   @media screen and (max-width: 749px) {
+    .dr-pdp-heading h1 { font-size: 2.15rem; }
     .dr-pdp-summary { padding: 12px; }
+    .dr-pdp-facts { grid-template-columns: 1fr; }
+    .dr-pdp-facts > div:nth-child(odd) { border-right: 0; }
   }
 
   /* .dr-facets-polish-marker */
@@ -279,9 +337,10 @@ Global refinements for the Drop Rate storefront.
     display: grid;
     gap: 12px;
     padding: 14px;
-    border: 1px solid #d7d5cd;
-    border-radius: 12px;
-    background: #fffdf8;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(7,27,63,.045);
   }
 
   .dr-copy-selector__heading {
@@ -298,24 +357,25 @@ Global refinements for the Drop Rate storefront.
   }
 
   .dr-copy-selector__eyebrow {
-    color: #607082;
-    font-size: .66rem;
-    font-weight: 750;
-    letter-spacing: .08em;
+    color: #1f7bf2;
+    font-size: .64rem;
+    font-weight: 850;
+    letter-spacing: .1em;
     text-transform: uppercase;
   }
 
   .dr-copy-selector h2 {
     margin: 2px 0 0;
-    color: #10263a;
+    color: #13223b;
     font-size: 1rem;
+    font-weight: 800;
     line-height: 1.2;
   }
 
   .dr-copy-selector__from {
-    color: #006f7a;
+    color: #0d5fcb;
     font-size: .76rem;
-    font-weight: 750;
+    font-weight: 800;
     white-space: nowrap;
   }
 
@@ -331,24 +391,25 @@ Global refinements for the Drop Rate storefront.
     gap: 10px;
     min-height: 58px;
     padding: 7px 9px;
-    border: 1px solid #dce4e9;
-    border-radius: 9px;
-    background: #fff;
-    color: #10263a;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #13223b;
     text-decoration: none;
-    transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+    transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease, background 140ms ease;
   }
 
   .dr-copy-option:hover {
-    border-color: #76cfd2;
-    box-shadow: 0 6px 18px rgb(16 38 58 / 8%);
+    border-color: #9bc4fb;
+    background: #ffffff;
+    box-shadow: 0 7px 20px rgba(7,27,63,.075);
     transform: translateY(-1px);
   }
 
   .dr-copy-option--current {
-    border-color: #008693;
-    background: #e8f7f6;
-    box-shadow: inset 0 0 0 1px #008693;
+    border-color: #1f7bf2;
+    background: #eef5ff;
+    box-shadow: inset 0 0 0 1px #1f7bf2;
   }
 
   .dr-copy-option__media {
@@ -357,8 +418,8 @@ Global refinements for the Drop Rate storefront.
     width: 46px;
     height: 46px;
     overflow: hidden;
-    border-radius: 5px;
-    background: #f4f7f7;
+    border-radius: 6px;
+    background: #f4f7fb;
   }
 
   .dr-copy-option__media img {
@@ -377,29 +438,30 @@ Global refinements for the Drop Rate storefront.
     display: flex;
     flex-wrap: wrap;
     gap: 5px 8px;
-    color: #536477;
+    color: #6d7b91;
     font-size: .72rem;
   }
 
   .dr-copy-option__meta strong {
-    color: #10263a;
-    font-weight: 750;
-  }
-
-  .dr-copy-option__price {
-    font-size: .86rem;
+    color: #13223b;
     font-weight: 800;
   }
 
+  .dr-copy-option__price {
+    color: #13223b;
+    font-size: .86rem;
+    font-weight: 850;
+  }
+
   .dr-copy-option__action {
-    color: #006f7a;
+    color: #1f7bf2;
     font-size: .68rem;
-    font-weight: 750;
+    font-weight: 800;
     white-space: nowrap;
   }
 
   .dr-copy-selector__note {
-    color: #607082;
+    color: #8492a8;
     font-size: .68rem;
     line-height: 1.4;
   }
