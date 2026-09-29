@@ -15,6 +15,19 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — active global brand layer
+
+**Storefront global brand CSS: IN PROGRESS —** QA found the live unpublished theme renders
+`dr-brand-system` after `drop-rate-global-styles`. That active runtime snippet still
+contained legacy yellow/teal purchase actions and late overrides that flattened the newer
+product-card, facet and PDP presentation. The snippet is now source-controlled and narrowed
+to current Drop Rate global primitives (navy/ink/blue/cyan/cool-grey/white), gallery media,
+product-card purchase controls, focus/header and footer basics. Component-specific
+browse/PDP/cart/search styling remains owned by `drop-rate-global-styles`. No product,
+price, inventory, ownership, checkout behavior or live Horizon theme change is included.
+Completion requires CI, deployment to the unpublished Brand Redesign theme and full
+source/runtime parity.**
+
 ## 29 September 2026 — homepage visual alignment
 
 **Storefront homepage design/source control: IN PROGRESS —** the four custom Brand Redesign
