@@ -148,6 +148,8 @@ def _provider_exact_identity_evidence(
         result = row.get("result")
         if not language or not isinstance(result, Mapping):
             continue
+        if result.get("provider_status_code") is not None:
+            return None
         if result.get("resolved") is True:
             matches.append((language, result))
 
