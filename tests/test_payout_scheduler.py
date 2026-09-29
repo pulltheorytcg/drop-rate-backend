@@ -290,7 +290,7 @@ def test_scheduler_heartbeat_migration_is_founder_scoped_and_fail_closed() -> No
     assert "security definer" in sql
     assert "revoke all on function tcg.check_payout_scheduler_heartbeat(interval) from public" in sql
     assert "grant execute on function tcg.check_payout_scheduler_heartbeat(interval) to tcg_api" in sql
-    assert "on conflict(owner_id,dedupe_key)" in sql.replace(" ", "")
+    assert "onconflict(owner_id,dedupe_key)" in sql.replace(" ", "")
     assert "status='resolved'" in sql.replace(" ", "")
 
 
