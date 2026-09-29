@@ -1080,7 +1080,7 @@ async def media_intake_queue(
             where i.owner_id=$1
               and i.status in ('DRAFT','INSPECTION','APPROVED')
               and i.sale_intent='FOR_SALE'
-              and p.product_type='CARD'
+              and p.product_type in ('CARD','SEALED','COLLECTION')
             order by p.game,p.set_name,p.name,p.card_number,i.inventory_code
             """,
             owner["id"],
