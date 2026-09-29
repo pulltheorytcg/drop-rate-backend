@@ -44,45 +44,47 @@ async def reconcile_shopify_orders(
         remote_by_ref[source_reference] = order
 
     async with connection.transaction():
-        local_rows = await connection.fetch(
+        remote_refs = set(remote_by_ref)
+        state_rows = await connection.fetch(
             """
-            select id,source_reference,order_number,status,placed_at
-            from tcg.orders
-            where source='SHOPIFY'
-              and placed_at >= $1
-            order by placed_at,id
+            select *
+            from tcg.get_shopify_order_reconciliation_state(
+              $1::timestamptz,
+              $2::text[]
+            )
             """,
             window_start,
+            sorted(remote_refs),
         )
+
+        local_rows = []
+        webhook_rows = []
+        for row in state_rows:
+            record_type = str(row["record_type"] or "")
+            if record_type == "ORDER":
+                local_rows.append(row)
+            elif record_type == "WEBHOOK":
+                webhook_rows.append(row)
+            else:
+                raise RuntimeError(
+                    "Shopify reconciliation state lookup returned an invalid record type"
+                )
+
         local_by_ref = {
             str(row["source_reference"]): row
             for row in local_rows
         }
 
-        remote_refs = set(remote_by_ref)
         local_refs = set(local_by_ref)
         remote_only_refs = sorted(remote_refs - local_refs)
         local_only_refs = sorted(local_refs - remote_refs)
         matched_refs = set(remote_refs & local_refs)
 
-        webhook_rows = []
-        if remote_only_refs:
-            webhook_rows = await connection.fetch(
-                """
-                select resource_id,topic,status
-                from tcg.shopify_webhook_events
-                where resource_id=any($1::text[])
-                  and topic in ('orders/create','orders/paid','orders/cancelled')
-                  and status in ('RECEIVED','PROCESSED','FAILED')
-                order by resource_id,received_at,webhook_id
-                """,
-                remote_only_refs,
-            )
-
         processed_create_refs = {
-            str(row["resource_id"])
+            str(row["source_reference"])
             for row in webhook_rows
-            if row["topic"] == "orders/create" and row["status"] == "PROCESSED"
+            if row["webhook_topic"] == "orders/create"
+            and row["webhook_status"] == "PROCESSED"
         }
 
         remote_alerts: list[dict[str, Any]] = []
