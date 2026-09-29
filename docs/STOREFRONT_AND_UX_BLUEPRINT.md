@@ -201,9 +201,9 @@ copy-handle metadata and `availableForSale=true`/quantity 1 for representative O
 The exact changed theme files are source-controlled under `storefront/theme/**` and were
 verified byte-for-byte against the unpublished theme.
 
-**Status: IN PROGRESS.** Remaining gates are full CI, browser/mobile visual QA and one
-add-to-cart/checkout smoke test proving a selected sibling still resolves to the exact
-Inventory ID before the grouped PDP slice can be called complete.
+**Status: IN PROGRESS.** GitHub backend/theme contract CI is green. Remaining gates are
+browser/mobile visual QA and one add-to-cart/checkout smoke test proving a selected sibling
+still resolves to the exact Inventory ID before the grouped PDP slice can be called complete.
 
 ## Storefront architecture
 
