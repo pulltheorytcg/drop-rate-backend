@@ -17,18 +17,28 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## 29 September 2026 — sealed media intake queue fix
 
-**Sealed storefront media intake: IN PROGRESS —** the existing media resolver, upload API
-and Founder HQ capture UI already support exact sealed-product packaging photos through
-`SEALED_PRODUCT`, but the `/api/v1/shopify/media-assets/intake-queue` SQL incorrectly
-filtered candidates to `p.product_type='CARD'`. The fix now admits
-`CARD`, `SEALED` and `COLLECTION` inventory while preserving the existing deterministic
-physical-photo policy. Sealed items require one exact FRONT packaging photo with
-`FIRST_PARTY_CAPTURE` rights and cannot use raw-card/slab capture contexts. This does not
-confirm identity, set language/region, change inventory status or publish anything.
-Current production sealed stock remains two DRAFT One Piece items, both unreviewed and with
-no media assets; they stay fail-closed until their normal identity/seal/media gates are
-completed. Completion requires CI, production deployment/health verification and a read-back
-showing the two sealed Inventory IDs can enter the capture candidate set.**
+**Sealed storefront media intake: COMPLETE —** PR #279 widened the existing
+`/api/v1/shopify/media-assets/intake-queue` candidate filter from CARD-only to
+`CARD`, `SEALED` and `COLLECTION` while preserving the deterministic physical-photo
+policy. GitHub **Backend checks** completed successfully for head
+`6e9b2a33587c06392d3c867b23bb088e167cd330`. Railway production deployment
+`30c91562-c6ae-4fe6-a77c-0560fc328eb2` completed **SUCCESS** from merge commit
+`65fa522146417056a37d4d900b60e94e81ebea8e`, and its configured
+`/health/ready` check returned **200 OK**.
+
+Production read-back confirms both current sealed One Piece inventory items now satisfy
+the exact owner/status/sale-intent/product-type candidate contract and still have zero
+physical media rows, so both correctly remain capture work rather than being silently
+excluded:
+
+- `INV-5CD6E9E29B9B489D9D8B624A0D0E1609` — Premium Card Collection -6 assort vol.1-
+- `INV-C03F9CCD386C4798A90A45CC5CB00619` — One Piece Tin Pack Set Vol. 2 -Portgas.D.Ace-
+
+Both remain **DRAFT**, `FOR_SALE`, unconfirmed for identity and un-published. The route
+remains behind `require_user` and resolves the requesting founder through `_founder`,
+then scopes both inventory and media reads by owner. No schema, ownership, price,
+inventory status, identity confirmation, seal decision, media-rights decision or Shopify
+publication was changed by this completion proof.**
 
 ## 29 September 2026 — storefront launch engineering QA
 
