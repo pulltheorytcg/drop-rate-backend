@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — Dragon Ball CardTrader one-shot backfill runner
+
+**SOURCE-CONTROL PR IN PROGRESS —** a dedicated management runner now exists for the 35-card Dragon Ball backlog. It reuses the existing import-enrichment core rather than duplicating identity/media business rules. The runner defaults to read-only `probe` mode and requires explicit `apply` mode before any enrichment mutation.
+
+The current production batch is `8f10fd72-b3d9-475a-9598-ce21503ffd98` and contains 29 Dragon Ball Super Masters + 6 Dragon Ball Super Fusion World FOR_SALE items. The founder explicitly confirmed all 35 physical copies are English. Production `drop-rate-api-live` now has `TCG_CARDTRADER_API_TOKEN` configured and the token deployment succeeded. The next execution sequence is: CI/merge runner → one-shot worker probe against representative Masters/Fusion World cards → if exact provider payloads validate, apply existing enrichment to all 35 → human review exact CardTrader media candidates → normal Shopify bootstrap/publication.
+
 ## 2026-09-29 — CardTrader Dragon Ball exact-media Route B
 
 **SOURCE-CONTROL PR IN PROGRESS / PRODUCTION TOKEN NOT YET CONFIGURED —** the catalogue is now at **464 PUBLISHED physical inventory links / 444 distinct live Shopify products**. The 20-link difference remains intentional pooled raw quantity. Shopify has one remaining production DRAFT product: Nico Robin OP01-017 ACE 10. There are 44 unlinked FOR_SALE items: 35 Dragon Ball, 7 One Piece raw and 2 sealed One Piece.
