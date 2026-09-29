@@ -56,6 +56,7 @@ from .shopify_client import ShopifyApiError
 from .shopify_catalogue_bootstrap import run_shopify_catalogue_bootstrap
 from .shopify_linked_draft_reconciliation import run_linked_draft_reconciliation
 from .shopify_pipeline import router as shopify_pipeline_router
+from .shopify_pooling import router as shopify_pooling_router
 from .shopify_readiness import router as shopify_readiness_router
 from .storage_locations import router as storage_locations_router
 
@@ -360,6 +361,7 @@ def create_app() -> FastAPI:
     app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(shopify_router)
     app.include_router(shopify_pipeline_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(shopify_pooling_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(shopify_readiness_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(purchase_lots_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(storage_locations_router, dependencies=[Depends(require_platform_admin_request)])

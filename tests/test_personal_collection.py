@@ -89,7 +89,9 @@ def test_shopify_never_allocates_or_syncs_personal_collection_stock() -> None:
     assert "withdraw_shopify_for_inventory" in source
     assert "sync_state='ARCHIVED'" in source
     assert 'status="DRAFT"' in source
-    assert "quantity=0" in source
+    assert "quantity=target_quantity" in source
+    assert "pool_link.id <> $2" in source
+    assert "pool_item.sale_intent='FOR_SALE'" in source
 
 
 def test_ebay_never_publishes_or_sells_personal_collection_stock() -> None:

@@ -15,6 +15,22 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — pooled raw Shopify inventory architecture
+
+**SOURCE-CONTROL PR IN PROGRESS / NO PRODUCTION POOL MUTATION YET —** The storefront inventory model is being corrected before the remaining Shopify draft backlog is published. Interchangeable raw copies will be represented as Shopify quantity while Supabase continues to own exact physical Inventory ID, owner, acquisition cost, condition, language, location and settlement attribution.
+
+Phase A is intentionally limited to raw duplicate products that are still Shopify DRAFT. The existing shopify_inventory_links schema already permits several physical inventory rows to point at the same Shopify variant, and the production Shopify order processor already allocates quantity deterministically across those physical rows. The new pooling path therefore reuses the existing exact-owner/order/refund logic rather than introducing a parallel allocation system.
+
+Phase A fail-closed requirements are: CARD, ungraded, APPROVED, FOR_SALE, identity-confirmed, language/condition/cost/storage/price present, one shared offer price, no reservation or marketplace-listing membership, and DRAFT/non-test Shopify links only. It chooses one deterministic draft product as the pool anchor, assigns a stable pool SKU, sets Shopify quantity to physical eligible count, zeros/archives redundant draft products, repoints each exact physical link to the anchor variant with deterministic allocation priority, and audit-logs every link mutation. A per-pool PostgreSQL advisory lock and best-effort Shopify compensation protect concurrent/error paths.
+
+Read-only production sizing before implementation: **27 DRAFT raw duplicate groups / 61 physical cards**; **15 groups / 35 physical cards are fully ready now**; 12 groups remain blocked on identity/language readiness; no ready group has a price mismatch.
+
+The old linked-draft reconciliation worker remains **APPLY=false**. Do not bulk-publish the remaining raw duplicate drafts as separate products and undo them later. Published duplicate products require a separate Phase B legacy-variant drain/alias migration so in-flight Shopify orders cannot lose attribution.
+
+Target storefront model after the staged migration: one canonical Shopify product per exact card printing, with sellable offer variants such as English Near Mint quantity N, Japanese Near Mint quantity N, and unique graded variants quantity 1. Shopify Plus is not required. **Drop Rate — Brand Redesign** remains the future MAIN theme and its existing native buy-button logic already hides quantity at stock 1 and exposes Shopify quantity above 1.
+
+See `docs/SHOPIFY_RAW_POOLING.md`.
+
 ## 29 September 2026 — controlled Shopify linked-draft launch reconciliation
 
 **SOURCE-CONTROL PR IN PROGRESS / DISABLED BY DEFAULT —** A one-off, resumable

@@ -192,7 +192,8 @@ async def withdraw_shopify_for_inventory(
             """
             select
                 id,inventory_id,owner_id,sync_state,version,
-                shopify_product_gid,shopify_inventory_item_gid,shopify_location_gid
+                listing_key,shopify_product_gid,shopify_variant_gid,
+                shopify_inventory_item_gid,shopify_location_gid
             from tcg.shopify_inventory_links
             where owner_id=$1
               and inventory_id=any($2::uuid[])
@@ -234,17 +235,43 @@ async def withdraw_shopify_for_inventory(
     results: list[dict[str, Any]] = []
     for row in rows:
         try:
+            sibling_state = "PUBLISHED" if row["sync_state"] == "PUBLISHED" else "DRAFT"
+            async with pool.acquire() as connection:
+                remaining_sellable_quantity = await connection.fetchval(
+                    """
+                    select count(*)::int
+                    from tcg.shopify_inventory_links pool_link
+                    join tcg.inventory_items pool_item
+                      on pool_item.id=pool_link.inventory_id
+                    where pool_link.shopify_variant_gid=$1
+                      and pool_link.id <> $2
+                      and pool_link.sync_state=$3
+                      and pool_link.reserved_order_reference is null
+                      and pool_link.reserved_line_reference is null
+                      and pool_item.status='APPROVED'
+                      and pool_item.sale_intent='FOR_SALE'
+                    """,
+                    row["shopify_variant_gid"],
+                    row["id"],
+                    sibling_state,
+                )
+            target_quantity = int(remaining_sellable_quantity or 0)
+            target_status = (
+                "ACTIVE"
+                if row["sync_state"] == "PUBLISHED" and target_quantity > 0
+                else "DRAFT"
+            )
             await client.set_inventory_quantity(
                 inventory_item_id=str(row["shopify_inventory_item_gid"]),
                 location_id=str(row["shopify_location_gid"]),
-                quantity=0,
+                quantity=target_quantity,
                 idempotency_key=(
                     f"withdraw-{reason.casefold()}-{row['inventory_id']}"
                 ),
             )
             await client.set_product_status(
                 product_id=str(row["shopify_product_gid"]),
-                status="DRAFT",
+                status=target_status,
             )
             snapshot = await client.get_product_snapshot(
                 str(row["shopify_product_gid"])
@@ -255,7 +282,7 @@ async def withdraw_shopify_for_inventory(
                 if len(variants) == 1 and isinstance(variants[0], dict)
                 else None
             )
-            if snapshot.get("status") != "DRAFT" or quantity != 0:
+            if snapshot.get("status") != target_status or quantity != target_quantity:
                 raise ShopifyApiError(
                     "Shopify inventory withdrawal could not be verified"
                 )
@@ -1949,6 +1976,9 @@ async def sync_shopify_prices(
 
     This endpoint is deliberately price-only. It never publishes products,
     changes quantity, alters shipping configuration or moves inventory state.
+
+    Pooled Shopify offers are excluded: their shared variant price must be
+    changed by an offer-level price sync, never by one physical member.
     """
     if limit < 1 or limit > 100:
         raise HTTPException(status_code=422, detail="limit must be between 1 and 100")
@@ -1985,6 +2015,7 @@ async def sync_shopify_prices(
               and i.sale_intent='FOR_SALE'
               and i.store_price_minor is not null
               and i.store_price_minor <> sil.synced_price_minor
+              and sil.listing_key not like 'shopify-pool:%'
             order by sil.last_synced_at,sil.id
             limit $2
             """,
@@ -3430,12 +3461,27 @@ async def _process_refund(
             if return_to_stock:
                 if client is None:
                     client = _client()
+                remaining_sellable_quantity = await connection.fetchval(
+                    """
+                    select count(*)::int
+                    from tcg.shopify_inventory_links pool_link
+                    join tcg.inventory_items pool_item
+                      on pool_item.id=pool_link.inventory_id
+                    where pool_link.shopify_variant_gid=$1
+                      and pool_link.sync_state='PUBLISHED'
+                      and pool_link.reserved_order_reference is null
+                      and pool_link.reserved_line_reference is null
+                      and pool_item.status='APPROVED'
+                      and pool_item.sale_intent='FOR_SALE'
+                    """,
+                    allocation["shopify_variant_gid"],
+                )
                 await client.set_inventory_quantity(
                     inventory_item_id=allocation["shopify_inventory_item_gid"],
                     location_id=allocation["shopify_location_gid"],
-                    quantity=0,
+                    quantity=int(remaining_sellable_quantity or 0),
                     idempotency_key=(
-                        f"refund-zero-{refund_id}-{allocation['allocation_index']}"
+                        f"refund-restock-{refund_id}-{allocation['allocation_index']}"
                     ),
                 )
                 await connection.execute(
