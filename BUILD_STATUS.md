@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — Provider-exact import identity fallback
+
+**SOURCE-CONTROL PR IN PROGRESS / REQUIRES TCGGRAPH KEY FOR PRODUCTION USE —** import enrichment is being extended so unmarked-language cards do not need a blanket batch language. If normal import evidence cannot confirm identity, the backend may probe TCGGraph across the supported candidate languages and accept `PROVIDER_EXACT` only when exactly one language returns the same deterministic exact printing. Zero matches, multiple language matches, any provider/API error, or a concurrent inventory change fails closed.
+
+This path records the provider identity evidence in `identity_verification_events`; it does not approve media, condition, grading or Shopify publication. It is intended to remove the identity/language blocker from the 35 currently unsynced Dragon Ball Super / Fusion World raw cards once a production TCGGraph API key is configured. Production currently has no `TCG_TCGGRAPH_API_KEY` on the API or reconciliation worker, so no provider calls or identity mutations can occur yet.
+
 ## 2026-09-29 — TCGGraph exact-listing storefront media policy
 
 **SOURCE-CONTROL PR IN PROGRESS / NO PRODUCTION MEDIA PROMOTION YET —** current TCGGraph terms were re-verified after their 28 September 2026 update. They expressly permit API-returned card data/images to be displayed inside paid products and cached, while leaving underlying publisher artwork rights with the publishers. Drop Rate's TCGGraph adapter is being narrowed to the same product-sale-only use boundary already used by the storefront media system: exact TCGGraph images may be eligible for the Shopify listing advertising the sale of that exact physical card under the project's UK CDPA 1988 s63 basis, but not for social media, generic SEO artwork, merchandise, AI training or unrelated marketing.
