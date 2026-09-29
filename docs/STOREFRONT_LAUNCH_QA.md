@@ -28,7 +28,7 @@ Shopify remains the storefront, cart, checkout, customer-account and order-histo
 - Role: `UNPUBLISHED`
 - Shopify processing: false
 - Shopify processing failed: false
-- Source-controlled theme files checked against Shopify: **14**
+- Source-controlled theme files checked against Shopify: **25**
 - Byte-for-byte mismatches after QA correction: **0**
 - Live Horizon theme changed by this QA: **no**
 
@@ -44,7 +44,7 @@ through the connected Shopify/GitHub interfaces without rendering the password-p
 storefront.
 
 Verified:
-- the active source-controlled storefront surface is **22 files** across settings,
+- the active source-controlled storefront surface is **25 files** across settings,
   header/footer groups, global brand/component styles, homepage sections, browse, PDP,
   cart, search, account chrome and templates/locales;
 - the latest settings/header/footer deployment passed a pre-write checksum guard, then a
@@ -56,17 +56,39 @@ Verified:
 - homepage configured products/collections resolve and are populated;
 - Sealed remains empty and therefore hidden by the existing count gate.
 
-Remaining external gates:
-1. Install Shopify's free **Search & Discovery** app and configure native collection/search
-   filters for the prepared product metafields (at minimum Set, Condition, Language and
-   price/availability as appropriate).
-2. Run one authenticated desktop and one mobile preview smoke through homepage, browse,
-   filter/sort shell, PDP/grouped copies, exact-copy cart, native checkout entry, search,
-   no-results, customer sign-in and order-history handoff.
+Search & Discovery is now installed and configured with the approved native order:
+Set, Price, Rarity, Variant, Availability, Condition, Language, Grading Company and Grade.
+Facet values remain inventory-driven.
 
-The automated browser in this environment cannot reach the password-protected
-`myshopify.com` preview URL because of platform network policy, so the second gate must
-not be marked passed from static/API evidence alone.
+Remaining publication gate:
+- repeat the authenticated **mobile** preview smoke after PR #303's polish through homepage,
+  browse, filter/sort shell, PDP/grouped copies, exact-copy cart, native checkout entry,
+  search, no-results and customer-account handoff;
+- if mobile is clean, run the equivalent **desktop** preview smoke before publication.
+
+The automated browser in this environment still cannot reach the password-protected
+`myshopify.com` preview URL because of platform network policy. Visual QA is therefore
+being completed from user-supplied preview recordings rather than inferred from static/API
+evidence. The first mobile recording pass was reviewed, surfaced presentation issues, and
+those fixes were deployed to the unpublished theme and merged in PR #303.
+
+## Mobile preview QA polish — 29 September 2026
+
+The first real mobile preview recording pass confirmed the base customer path and surfaced
+several presentation issues before publication. PR #303 source-controls the fixes already
+deployed to the unpublished Brand Redesign theme:
+
+- product-card titles reserve a fixed two-line footprint and browse CTAs stay aligned;
+- accelerated checkout is removed from browse cards but retained in the native purchase flow;
+- the three-card homepage hero rotates its active physical product and synchronises the
+  spotlight name, price and link, with tap-to-promote and reduced-motion handling;
+- mobile facets start collapsed unless active while desktop vertical facets stay expanded;
+- grouped listings expose explicit Copy 1 / Copy 2 labels and use singular wording for one
+  copy (`1 copy available`, direct price rather than `From`).
+
+Language facet verification found one correctly tagged English Shopify product (Seel
+021/094) still in DRAFT and no ACTIVE English product. The active storefront therefore
+correctly exposes Japanese only. Do not hard-code empty language options into the theme.
 
 ## Active global theme settings and footer
 
