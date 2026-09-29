@@ -15,6 +15,24 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — sealed Shopify product contract
+
+**Sealed Shopify representation: IN PROGRESS / SHIPPING CONFIG REQUIRED —** the deterministic
+Shopify plan now distinguishes `SEALED`/`COLLECTION` inventory from cards. Sealed items
+reuse the store's existing Shopify **Non-Sports Trading Cards** taxonomy category but use
+Shopify product type `Sealed TCG Product`, tag `Sealed Product`, required collections
+`Sealed` + game, sealed-specific customer/SEO copy, and shipping key
+`SEALED_PRODUCT`. They no longer inherit the incorrect `Raw Card` tag or the raw-card
+`Trading Cards` collection requirement.
+
+Production currently has active shipping profiles only for `RAW_CARD` and
+`GRADED_CARD`; there is intentionally no `SEALED_PRODUCT` profile. Publication therefore
+fails closed until real packed weight/dimensions and carrier/service assumptions are
+approved rather than guessed. No inventory row, owner, price, identity, media, Shopify
+product or live theme is changed by this contract work. Completion requires green CI,
+production deployment/health verification, and proof that a sealed plan is blocked when
+the sealed shipping profile is absent.**
+
 ## 29 September 2026 — sealed capture-context queue hardening
 
 **Sealed media context validation: COMPLETE —** PR #282 closes the remaining safety
