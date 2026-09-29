@@ -169,14 +169,14 @@
     --shopify-account-font-heading-weight: var(--font-heading--weight);
     --shopify-account-font-body: var(--font-body--family);
     --shopify-account-font-body-weight: var(--font-body--weight);
-    --shopify-account-radius-base: var(--style-border-radius-popover);
-    --shopify-account-radius-button: var(--style-border-radius-buttons-primary);
-    --shopify-account-radius-button-small: var(--style-border-radius-buttons-primary);
-    --shopify-account-radius-input: var(--style-border-radius-buttons-primary);
-    --shopify-account-color-background: var(--color-background);
-    --shopify-account-color-text: var(--color-foreground);
-    --shopify-account-color-accent: var(--color-primary-button-background);
-    --shopify-account-color-accent-text: var(--color-primary-button-text);
+    --shopify-account-radius-base: 14px;
+    --shopify-account-radius-button: 10px;
+    --shopify-account-radius-button-small: 10px;
+    --shopify-account-radius-input: 10px;
+    --shopify-account-color-background: #ffffff;
+    --shopify-account-color-text: #13223b;
+    --shopify-account-color-accent: #1f7bf2;
+    --shopify-account-color-accent-text: #ffffff;
     --shopify-account-dialog-position-top: calc(var(--account-dialog-top, var(--header-height, 0px)) + 10px);
 
     &:not(:defined) {
@@ -194,7 +194,26 @@
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background-color: var(--shopify-account-color-accent, #0a142f);
+    background-color: var(--shopify-account-color-accent, #1f7bf2);
+    box-shadow: 0 0 0 4px rgba(31,123,242,.08);
+  }
+
+  .account-button,
+  .header-actions__action {
+    border-radius: 999px;
+  }
+
+  .account-button:focus-within,
+  .header-actions__action:focus-visible {
+    outline: 2px solid #1f7bf2;
+    outline-offset: 3px;
+  }
+
+  @media (hover: hover) {
+    .account-button:hover,
+    .header-actions__action:hover {
+      background: rgba(31,123,242,.08);
+    }
   }
 
   .account-button--text shopify-account {
