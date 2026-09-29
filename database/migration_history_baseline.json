@@ -34,7 +34,8 @@
     "schema_migrations_explicit_deny": "20260926213353",
     "owner_invite_onboarding": "20260926224737",
     "payout_scheduler_run_observability": "20260926225645",
-    "automation_event_outbox": "20260928051959"
+    "automation_event_outbox": "20260928051959",
+    "shopify_raw_pool_audit_function": "20260929192433"
   },
   "remote_only_applied": [
     {
