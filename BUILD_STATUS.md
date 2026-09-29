@@ -15,6 +15,16 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — storefront search v1 slice
+
+**Customer storefront / simple search: IN PROGRESS —** Shopify-native product search is now
+explicitly configured for product-only results, last-term partial matching and unavailable
+products last. The unpublished Brand Redesign search input uses TCG-specific name/set/
+collector-number language and reuses the compact storefront card grid. Live connected-store
+checks confirmed free-text matches for `OP16-071`, **Benevolent King** and **Eiscue ex**.
+No custom search backend, AI index, schema, product data, price, ownership or live-theme
+publication was added. Remaining gates: CI and visual/result QA.**
+
 ## 29 September 2026 — storefront exact-copy cart slice
 
 **Shopify-native cart / checkout presentation: IN PROGRESS —** the unpublished Brand
