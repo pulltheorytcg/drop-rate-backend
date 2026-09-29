@@ -1,0 +1,433 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "main": {
+      "type": "product-information",
+      "blocks": {
+        "media-gallery": {
+          "type": "_product-media-gallery",
+          "static": true,
+          "settings": {
+            "media_presentation": "carousel",
+            "media_columns": "one",
+            "image_gap": 4,
+            "large_first_image": false,
+            "slideshow_controls_style": "counter",
+            "slideshow_mobile_controls_style": "dots",
+            "thumbnail_position": "bottom",
+            "thumbnail_width": 62,
+            "thumbnail_radius": 0,
+            "aspect_ratio": "adapt",
+            "constrain_to_viewport": true,
+            "media_fit": "contain",
+            "media_radius": 5,
+            "extend_media": false,
+            "zoom": true,
+            "video_loop": false,
+            "hide_variants": true,
+            "padding-block-start": 0,
+            "padding-block-end": 0,
+            "padding-inline-start": 0,
+            "padding-inline-end": 0
+          },
+          "blocks": {}
+        },
+        "product-details": {
+          "type": "_product-details",
+          "static": true,
+          "settings": {
+            "width": "fill",
+            "custom_width": 100,
+            "width_mobile": "fill",
+            "custom_width_mobile": 100,
+            "height": "fit",
+            "details_position": "flex-start",
+            "gap": 18,
+            "sticky_details_desktop": true,
+            "background_media": "none",
+            "background_color": "#FFFFFF",
+            "video_position": "cover",
+            "background_image_position": "cover",
+            "border": "none",
+            "border_width": 1,
+            "border_opacity": 100,
+            "border_color": "#D7D5CD",
+            "border_radius": 0,
+            "padding-block-start": 16,
+            "padding-block-end": 16,
+            "padding-inline-start": 0,
+            "padding-inline-end": 0
+          },
+          "blocks": {
+            "group_icgrde": {
+              "type": "group",
+              "name": "t:names.header",
+              "settings": {
+                "content_direction": "column",
+                "vertical_on_mobile": true,
+                "horizontal_alignment": "flex-start",
+                "vertical_alignment": "center",
+                "align_baseline": false,
+                "horizontal_alignment_flex_direction_column": "flex-start",
+                "vertical_alignment_flex_direction_column": "center",
+                "gap": 12,
+                "width": "fill",
+                "custom_width": 100,
+                "width_mobile": "fill",
+                "custom_width_mobile": 100,
+                "height": "fit",
+                "custom_height": 100,
+                "background_media": "none",
+                "background_color": "",
+                "video_position": "cover",
+                "background_image_position": "cover",
+                "toggle_overlay": false,
+                "overlay_color": "#00000026",
+                "overlay_style": "solid",
+                "gradient_direction": "to top",
+                "border": "none",
+                "border_width": 1,
+                "border_opacity": 100,
+                "border_color": "",
+                "border_radius": 0,
+                "open_in_new_tab": false,
+                "placeholder": "",
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {
+                "text_xrnftG": {
+                  "type": "custom-liquid",
+                  "name": "Card heading",
+                  "settings": {
+                    "custom_liquid": "<div class=\"dr-pdp-heading\"><p class=\"dr-eyebrow\">{{ closest.product.vendor | escape }}</p><h1>{{ closest.product.title | split: \" · \" | first | escape }}</h1><p>{{ closest.product.metafields.drop_rate.card_number.value | escape }} · {{ closest.product.metafields.drop_rate.set_name.value | escape }}</p></div>"
+                  },
+                  "blocks": {}
+                },
+                "price_tVjtKg": {
+                  "type": "price",
+                  "settings": {
+                    "show_sale_price_first": true,
+                    "show_installments": false,
+                    "show_tax_info": false,
+                    "type_preset": "custom",
+                    "width": "100%",
+                    "alignment": "left",
+                    "font": "var(--font-heading--family)",
+                    "font_size": "1.35rem",
+                    "line_height": "tight",
+                    "letter_spacing": "normal",
+                    "case": "none",
+                    "text_color": "",
+                    "padding-block-start": 4,
+                    "padding-block-end": 0,
+                    "padding-inline-start": 0,
+                    "padding-inline-end": 0
+                  },
+                  "blocks": {}
+                }
+              },
+              "block_order": [
+                "text_xrnftG",
+                "price_tVjtKg"
+              ]
+            },
+            "variant_picker_R3rGDr": {
+              "type": "variant-picker",
+              "settings": {
+                "variant_style": "buttons",
+                "show_swatches": false,
+                "option_label_text_color": "",
+                "variant_style_class": "default",
+                "custom_variant_background": "{{ settings.color_palette.background }}",
+                "custom_variant_text": "{{ settings.color_palette.foreground }}",
+                "custom_variant_border": "{{ settings.color_palette.foreground }}",
+                "selected_variant_style_class": "default",
+                "custom_selected_variant_background": "{{ settings.color_palette.foreground }}",
+                "custom_selected_variant_text": "{{ settings.color_palette.background }}",
+                "custom_selected_variant_border": "{{ settings.color_palette.foreground }}",
+                "alignment": "left",
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {}
+            },
+            "buy_buttons_eYQEYi": {
+              "type": "buy-buttons",
+              "settings": {
+                "stacking": true,
+                "text_color": "",
+                "show_pickup_availability": false,
+                "gift_card_form": true,
+                "recipient_button_style": "default",
+                "recipient_button_background": "{{ settings.color_palette.background }}",
+                "recipient_button_text": "{{ settings.color_palette.foreground }}",
+                "recipient_button_border": "{{ settings.color_palette.foreground }}",
+                "selected_recipient_button_style": "default",
+                "selected_recipient_button_background": "{{ settings.color_palette.foreground }}",
+                "selected_recipient_button_text": "{{ settings.color_palette.background }}",
+                "selected_recipient_button_border": "{{ settings.color_palette.foreground }}",
+                "input_style": "default",
+                "input_background_color": "{{ settings.color_palette.background }}",
+                "input_text_color": "{{ settings.color_palette.foreground }}",
+                "input_border_color": "{{ settings.color_palette.foreground }}",
+                "border_width": 1,
+                "border_radius": 0,
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {
+                "quantity": {
+                  "type": "quantity",
+                  "static": true,
+                  "settings": {
+                    "input_style": "default",
+                    "input_background_color": "{{ settings.color_palette.background }}",
+                    "input_text_color": "{{ settings.color_palette.foreground }}",
+                    "input_border_color": "{{ settings.color_palette.foreground }}",
+                    "border_width": 1,
+                    "border_radius": 0
+                  },
+                  "blocks": {}
+                },
+                "add-to-cart": {
+                  "type": "add-to-cart",
+                  "static": true,
+                  "settings": {
+                    "style_class": "button",
+                    "custom_button_background": "#FFD044",
+                    "custom_button_text": "#061D3B",
+                    "custom_button_border": "#FFD044"
+                  },
+                  "blocks": {}
+                },
+                "accelerated-checkout": {
+                  "type": "accelerated-checkout",
+                  "static": true,
+                  "settings": {},
+                  "blocks": {}
+                }
+              },
+              "block_order": []
+            },
+            "text_aEtTtq": {
+              "type": "custom-liquid",
+              "name": "Card description",
+              "settings": {
+                "custom_liquid": "<details class=\"dr-pdp-description\"><summary>{{ \"dr_brand.product.details\" | t }}</summary><div class=\"rte\">{{ closest.product.description }}</div></details><div class=\"dr-pdp-policies\">{% if shop.shipping_policy != blank %}<a href=\"{{ shop.shipping_policy.url }}\">{{ \"dr_brand.product.delivery\" | t }}</a>{% endif %}{% if shop.refund_policy != blank %}<a href=\"{{ shop.refund_policy.url }}\">{{ \"dr_brand.product.returns\" | t }}</a>{% endif %}<a href=\"/pages/contact\">{{ \"dr_brand.product.ask\" | t }}</a></div>"
+              },
+              "blocks": {}
+            },
+            "drop_rate_facts": {
+              "type": "custom-liquid",
+              "name": "Drop Rate card facts",
+              "settings": {
+                "custom_liquid": "{% liquid\n  assign dr_game = closest.product.metafields.drop_rate.game.value\n  assign dr_set = closest.product.metafields.drop_rate.set_name.value\n  assign dr_number = closest.product.metafields.drop_rate.card_number.value\n  assign dr_language = closest.product.metafields.drop_rate.language.value\n  assign dr_condition = closest.product.metafields.drop_rate.condition.value\n  assign dr_grader = closest.product.metafields.drop_rate.grading_company.value\n  assign dr_grade = closest.product.metafields.drop_rate.grade.value\n  assign dr_inventory = closest.product.metafields.drop_rate.inventory_id.value\n  assign dr_variant = closest.product.metafields.drop_rate.variant.value\n  assign dr_stock = closest.product.selected_or_first_available_variant.inventory_quantity\n%}\n<div class=\"dr-pdp-summary\">\n  <div class=\"dr-pdp-stock{% unless closest.product.selected_or_first_available_variant.available %} dr-pdp-stock--out{% endunless %}\">\n    <span aria-hidden=\"true\"></span>\n    {% if closest.product.selected_or_first_available_variant.available %}\n      {{ 'dr_brand.product.in_stock' | t }}\n    {% else %}\n      Sold out\n    {% endif %}\n  </div>\n  <div class=\"dr-pdp-facts\">\n    {% if dr_game != blank %}<div><span>Game</span><strong>{{ dr_game }}</strong></div>{% endif %}\n    {% if dr_set != blank %}<div><span>Set</span><strong>{{ dr_set }}</strong></div>{% endif %}\n    {% if dr_number != blank %}<div><span>Card</span><strong>{{ dr_number }}</strong></div>{% endif %}\n    {% if dr_language != blank %}<div><span>Language</span><strong>{{ dr_language }}</strong></div>{% endif %}\n    {% if dr_grader != blank and dr_grade != blank %}\n      <div><span>Grade</span><strong>{{ dr_grader }} {{ dr_grade }}</strong></div>\n    {% elsif dr_condition != blank %}\n      <div><span>Condition</span><strong>{{ dr_condition }}</strong></div>\n    {% endif %}\n    {% if dr_variant != blank %}<div><span>Variant</span><strong>{{ dr_variant }}</strong></div>{% endif %}\n  </div>\n  <div class=\"dr-pdp-trust\">\n    <span>UK stock</span>\n    <span>Individually tracked</span>\n    <span>Secure Shopify checkout</span>\n  </div>\n  {% if dr_inventory != blank %}<p class=\"dr-pdp-inventory\">Inventory ref: {{ dr_inventory }}</p>{% endif %}\n</div>"
+              },
+              "blocks": {}
+            },
+            "drop_rate_purchase_note": {
+              "type": "custom-liquid",
+              "name": "One-copy purchase note",
+              "settings": {
+                "custom_liquid": "<div class=\"dr-purchase-note\"><strong>{{ \"dr_brand.product.note_title\" | t }}</strong><span>{{ \"dr_brand.product.note\" | t }}</span></div>"
+              },
+              "blocks": {}
+            },
+            "drop_rate_copy_selector": {
+              "type": "dr-copy-selector",
+              "settings": {},
+              "blocks": {}
+            }
+          },
+          "block_order": [
+            "group_icgrde",
+            "drop_rate_copy_selector",
+            "variant_picker_R3rGDr",
+            "buy_buttons_eYQEYi",
+            "drop_rate_facts",
+            "drop_rate_purchase_note",
+            "text_aEtTtq"
+          ]
+        }
+      },
+      "settings": {
+        "content_width": "content-center-aligned",
+        "desktop_media_position": "left",
+        "equal_columns": true,
+        "limit_details_width": true,
+        "gap": 48,
+        "enable_sticky_add_to_cart": true,
+        "background_color": "#FFFFFF",
+        "padding-block-start": 8,
+        "padding-block-end": 32
+      }
+    },
+    "product_recommendations_qggXJq": {
+      "type": "product-recommendations",
+      "blocks": {
+        "text_cbcgyb": {
+          "type": "text",
+          "name": "t:names.header",
+          "settings": {
+            "text": "<h3>You may also like</h3>",
+            "width": "fit-content",
+            "max_width": "normal",
+            "alignment": "left",
+            "type_preset": "h4",
+            "font": "var(--font-body--family)",
+            "font_size": "1.25rem",
+            "line_height": "normal",
+            "letter_spacing": "normal",
+            "case": "none",
+            "wrap": "pretty",
+            "text_color": "",
+            "background": false,
+            "background_color": "#00000026",
+            "corner_radius": 0,
+            "padding-block-start": 0,
+            "padding-block-end": 0,
+            "padding-inline-start": 0,
+            "padding-inline-end": 0
+          },
+          "blocks": {}
+        },
+        "static-product-card": {
+          "type": "_product-card",
+          "name": "t:names.product_card",
+          "static": true,
+          "settings": {
+            "product_card_gap": 7,
+            "background_color": "",
+            "border": "none",
+            "border_width": 1,
+            "border_opacity": 12,
+            "border_color": "",
+            "border_radius": 0,
+            "padding-block-start": 0,
+            "padding-block-end": 0,
+            "padding-inline-start": 0,
+            "padding-inline-end": 0
+          },
+          "blocks": {
+            "product_card_gallery_DNizbJ": {
+              "type": "_product-card-gallery",
+              "name": "t:names.product_card_media",
+              "settings": {
+                "image_ratio": "portrait",
+                "border": "none",
+                "border_width": 1,
+                "border_opacity": 100,
+                "border_color": "",
+                "border_radius": 4,
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {}
+            },
+            "product_title_M7MJkb": {
+              "type": "dr-card-title",
+              "name": "t:names.product_title",
+              "settings": {},
+              "blocks": {}
+            },
+            "price_gLWgA6": {
+              "type": "price",
+              "settings": {
+                "show_sale_price_first": true,
+                "show_installments": false,
+                "show_tax_info": false,
+                "type_preset": "custom",
+                "width": "100%",
+                "alignment": "left",
+                "font": "var(--font-heading--family)",
+                "font_size": "1rem",
+                "line_height": "tight",
+                "letter_spacing": "normal",
+                "case": "none",
+                "text_color": "",
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {}
+            },
+            "drop_rate_meta": {
+              "type": "custom-liquid",
+              "name": "Card details",
+              "settings": {
+                "custom_liquid": "{% liquid\n  assign dr_language = closest.product.metafields.drop_rate.language.value\n  assign dr_condition = closest.product.metafields.drop_rate.condition.value\n  assign dr_grader = closest.product.metafields.drop_rate.grading_company.value\n  assign dr_grade = closest.product.metafields.drop_rate.grade.value\n%}\n<div class=\"dr-product-meta\">\n  {% if dr_language != blank %}<span class=\"dr-product-meta__chip\">{{ dr_language }}</span>{% endif %}\n  {% if dr_grader != blank and dr_grade != blank %}\n    <span class=\"dr-product-meta__chip\">{{ dr_grader }} {{ dr_grade }}</span>\n  {% elsif dr_condition != blank %}\n    <span class=\"dr-product-meta__chip\">{{ dr_condition }}</span>\n  {% endif %}\n</div>"
+              },
+              "blocks": {}
+            },
+            "drop_rate_buy": {
+              "type": "buy-buttons",
+              "name": "Quick add",
+              "settings": {
+                "stacking": false,
+                "show_pickup_availability": false,
+                "gift_card_form": false
+              },
+              "blocks": {}
+            }
+          },
+          "block_order": [
+            "product_card_gallery_DNizbJ",
+            "drop_rate_meta",
+            "product_title_M7MJkb",
+            "price_gLWgA6",
+            "drop_rate_buy"
+          ]
+        }
+      },
+      "block_order": [
+        "text_cbcgyb"
+      ],
+      "name": "t:names.product_recommendations",
+      "settings": {
+        "product": "{{ closest.product }}",
+        "recommendation_type": "related",
+        "layout_type": "grid",
+        "carousel_on_mobile": false,
+        "max_products": 6,
+        "columns": 6,
+        "mobile_columns": "2",
+        "columns_gap": 12,
+        "rows_gap": 28,
+        "icons_style": "arrow",
+        "icons_shape": "none",
+        "section_width": "page-width",
+        "gap": 28,
+        "background_color": "#FFFFFF",
+        "padding-block-start": 48,
+        "padding-block-end": 48
+      }
+    },
+    "breadcrumbs": {
+      "type": "dr-product-breadcrumb",
+      "settings": {}
+    }
+  },
+  "order": [
+    "breadcrumbs",
+    "main",
+    "product_recommendations_qggXJq"
+  ]
+}
