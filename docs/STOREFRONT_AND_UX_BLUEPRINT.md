@@ -1,6 +1,6 @@
 # Drop Rate — Storefront + Founder UX Blueprint
 
-_Last updated: 28 September 2026_
+_Last updated: 29 September 2026_
 
 ## Purpose
 
@@ -97,6 +97,47 @@ The backend Shopify integration is significantly further ahead:
 - deterministic settlement support
 
 The missing layer is the customer-facing theme, discovery, merchandising and storefront automation.
+
+## 29 September 2026 — storefront browse implementation checkpoint
+
+The first storefront-first implementation slice is now deployed only to Shopify's
+**unpublished** `Drop Rate — Brand Redesign` theme
+(`gid://shopify/OnlineStoreTheme/202073866587`). The live `Horizon` theme remains
+untouched.
+
+Verified Shopify catalogue snapshot at implementation time:
+- 464 Shopify products total in the Drop Rate trading-card catalogue
+- 95 ACTIVE products currently eligible to appear on the storefront
+- 369 DRAFT products remain unpublished
+- 202 products are in the Pokémon smart collection
+- 262 products are in the One Piece smart collection
+- 457 raw-card products and 7 graded-card products exist across the catalogue
+- Dragon Ball, Naruto and Riftbound collections currently contain no products
+
+The browse slice now:
+- keeps a compact two-column mobile product grid and small-card desktop layout;
+- adds collection product counts;
+- adds responsive All Cards / Pokémon / One Piece / Singles / Graded navigation;
+- exposes game-specific set navigation only where the collection exists and has products;
+- hides empty game/category destinations from this browse strip rather than routing customers
+  into empty catalogues;
+- shows language, condition or grader/grade, and rarity badges using Drop Rate metafields with
+  Shopify tag fallbacks;
+- shortens operational Shopify product titles for browse cards while retaining card number/set
+  context;
+- preserves Shopify-native filtering, sorting, infinite scroll, cart and checkout behavior;
+- introduces no ownership or pricing decisions into Liquid.
+
+The exact Drop Rate-specific theme files touched by this slice are mirrored under
+`storefront/theme/**` in GitHub. This is currently a source-controlled overlay rather
+than a full copy of Shopify's base theme.
+
+**Known gap:** sealed inventory is not yet represented consistently in Shopify catalogue
+classification, so a Sealed browse lane is intentionally not fabricated in the theme.
+The data classification must be made deterministic before that navigation is added.
+
+**Status: IN PROGRESS.** This slice is not publish-ready until desktop/mobile preview QA,
+failure-path checks and the remaining Milestone 1 browse requirements are completed.
 
 ## Storefront architecture
 

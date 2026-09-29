@@ -1,0 +1,50 @@
+{% liquid
+  assign p = closest.product
+  assign dr_language = p.metafields.drop_rate.language.value
+  assign dr_condition = p.metafields.drop_rate.condition.value
+  assign dr_grader = p.metafields.drop_rate.grading_company.value
+  assign dr_grade = p.metafields.drop_rate.grade.value
+  assign dr_rarity = p.metafields.drop_rate.rarity.value
+
+  for tag in p.tags
+    if dr_language == blank and tag contains 'Language:'
+      assign dr_language = tag | remove_first: 'Language:' | strip
+    endif
+    if dr_condition == blank and tag contains 'Condition:'
+      assign dr_condition = tag | remove_first: 'Condition:' | strip
+    endif
+    if dr_grader == blank and tag contains 'Grader:'
+      assign dr_grader = tag | remove_first: 'Grader:' | strip
+    endif
+    if dr_grade == blank and tag contains 'Grade:'
+      assign dr_grade = tag | remove_first: 'Grade:' | strip
+    endif
+    if dr_rarity == blank and tag contains 'Rarity:'
+      assign dr_rarity = tag | remove_first: 'Rarity:' | strip
+    endif
+  endfor
+
+  if dr_language == 'Japanese'
+    assign dr_language_label = 'JP'
+  elsif dr_language == 'English'
+    assign dr_language_label = 'EN'
+  else
+    assign dr_language_label = dr_language
+  endif
+%}
+<div class="dr-product-meta" {{ block.shopify_attributes }}>
+  {% if dr_language_label != blank %}
+    <span class="dr-product-meta__chip">{{ dr_language_label | escape }}</span>
+  {% endif %}
+  {% if dr_grader != blank and dr_grade != blank %}
+    <span class="dr-product-meta__chip">{{ dr_grader | escape }} {{ dr_grade | escape }}</span>
+  {% elsif dr_condition != blank %}
+    <span class="dr-product-meta__chip">{{ dr_condition | escape }}</span>
+  {% endif %}
+  {% if dr_rarity != blank %}
+    <span class="dr-product-meta__chip dr-product-meta__chip--rarity">{{ dr_rarity | escape }}</span>
+  {% endif %}
+</div>
+{% schema %}
+{"name":"Drop Rate card meta","tag":null,"settings":[]}
+{% endschema %}

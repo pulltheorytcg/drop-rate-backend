@@ -11,9 +11,25 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
 - **Milestone 2 — Shopify sale attribution:** ~92% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, seller-facing restricted finance views are deployed, and payout control is automated up to REQUESTED state. Multi-owner/same-card production attribution and live Stripe payout cutover remain.
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
-- **Customer storefront / Shopify UX:** ~10–15% of the desired Drop Rate experience. Backend Shopify commerce plumbing is far ahead of the customer-facing theme. A dedicated storefront + Founder HQ UX blueprint is now version-controlled in `docs/STOREFRONT_AND_UX_BLUEPRINT.md`. The storefront blueprint now also includes adaptive CRO/SEO experimentation, Shopify event measurement and controlled AI action/rollback.
+- **Customer storefront / Shopify UX:** first real-data browse slice is implemented on the unpublished Brand Redesign theme; overall storefront milestone remains IN PROGRESS. Backend Shopify commerce plumbing is far ahead of the customer-facing theme. A dedicated storefront + Founder HQ UX blueprint is now version-controlled in `docs/STOREFRONT_AND_UX_BLUEPRINT.md`. The storefront blueprint now also includes adaptive CRO/SEO experimentation, Shopify event measurement and controlled AI action/rollback.
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
+
+## 29 September 2026 — storefront Milestone 1 browse slice
+
+**Customer storefront / collection-browse milestone: IN PROGRESS —** the first real-data
+browse slice has been written to Shopify's **UNPUBLISHED**
+`Drop Rate — Brand Redesign` theme; the live `Horizon` theme was not modified.
+At verification time Shopify contained 464 catalogue products: 95 ACTIVE and 369 DRAFT.
+The browse implementation uses existing real smart collections (Pokémon 202, One Piece
+262, Singles 457, Graded 7), hides empty game destinations, preserves two-column mobile
+density, displays product counts, adds TCG metadata badges with metafield/tag fallbacks,
+and provides game/set browse routes. Exact changed theme files are now mirrored under
+`storefront/theme/**` and were verified byte-for-byte against the unpublished Shopify
+theme. No product status, price, ownership, inventory quantity or live theme publication
+was changed. Sealed navigation remains deliberately absent until sealed-product Shopify
+classification is deterministic. Remaining gates: visual QA on desktop/mobile, browse
+failure-path checks, and completion of Milestone 1 before publication.**
 
 ## 29 September 2026 — recognition image-retention decision
 

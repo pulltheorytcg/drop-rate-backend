@@ -1,0 +1,300 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "brand_hero": {
+      "type": "dr-brand-hero",
+      "settings": {
+        "eyebrow": "For the thrill of the find",
+        "heading": "Your next",
+        "highlight": "great drop.",
+        "description": "The binder favourite. The deck upgrade. The one you've been chasing. Find it at Drop Rate.",
+        "button_label": "Explore the cards",
+        "link": "/collections/trading-cards",
+        "featured_product": "drop-rate-inv-352afee4c5dc44d891d6644facf3f8fd",
+        "left_product": "drop-rate-inv-f77e3244d0f24ae49c779be3f5673160",
+        "right_product": "drop-rate-inv-f70293d8755e4e94924daf07987113c7"
+      }
+    },
+    "discovery": {
+      "type": "dr-brand-discovery",
+      "settings": {},
+      "blocks": {
+        "pokemon": {
+          "type": "game",
+          "settings": {
+            "collection": "pokemon",
+            "product": "drop-rate-inv-352afee4c5dc44d891d6644facf3f8fd",
+            "eyebrow": "Catch your next favourite",
+            "label": "Shop Pokémon",
+            "tone": "aqua"
+          }
+        },
+        "onepiece": {
+          "type": "game",
+          "settings": {
+            "collection": "one-piece",
+            "product": "drop-rate-inv-f70293d8755e4e94924daf07987113c7",
+            "eyebrow": "Build your crew",
+            "label": "Shop One Piece",
+            "tone": "navy"
+          }
+        }
+      },
+      "block_order": [
+        "pokemon",
+        "onepiece"
+      ]
+    },
+    "latest": {
+      "type": "product-list",
+      "blocks": {
+        "static-header": {
+          "type": "_product-list-content",
+          "name": "t:names.header",
+          "static": true,
+          "settings": {
+            "content_direction": "row",
+            "vertical_on_mobile": false,
+            "horizontal_alignment": "space-between",
+            "vertical_alignment": "flex-end",
+            "align_baseline": true,
+            "horizontal_alignment_flex_direction_column": "flex-start",
+            "vertical_alignment_flex_direction_column": "center",
+            "gap": 12,
+            "width": "fill",
+            "custom_width": 100,
+            "width_mobile": "fill",
+            "custom_width_mobile": 100,
+            "height": "fit",
+            "custom_height": 100,
+            "background_media": "none",
+            "video_position": "cover",
+            "background_image_position": "cover",
+            "border": "none",
+            "border_width": 1,
+            "border_opacity": 100,
+            "border_radius": 0,
+            "padding-block-start": 0,
+            "padding-block-end": 0,
+            "padding-inline-start": 0,
+            "padding-inline-end": 0
+          },
+          "blocks": {
+            "product_list_text_YFtzcL": {
+              "type": "_product-list-text",
+              "name": "t:names.collection_title",
+              "settings": {
+                "text": "<h2>Fresh finds. New favourites.</h2>",
+                "width": "fit-content",
+                "max_width": "normal",
+                "alignment": "left",
+                "type_preset": "h4",
+                "font": "var(--font-body--family)",
+                "line_height": "normal",
+                "letter_spacing": "normal",
+                "case": "none",
+                "wrap": "pretty",
+                "background": false,
+                "background_color": "#00000026",
+                "corner_radius": 0,
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {}
+            },
+            "product_list_button_MWeP9V": {
+              "type": "_product-list-button",
+              "name": "t:names.product_list_button",
+              "settings": {
+                "label": "Shop all cards",
+                "open_in_new_tab": false,
+                "style_class": "link",
+                "width": "fit-content",
+                "custom_width": 100,
+                "width_mobile": "fit-content",
+                "custom_width_mobile": 100
+              },
+              "blocks": {}
+            }
+          },
+          "block_order": [
+            "product_list_text_YFtzcL",
+            "product_list_button_MWeP9V"
+          ]
+        },
+        "static-product-card": {
+          "type": "_product-card",
+          "name": "t:names.product_card",
+          "static": true,
+          "settings": {
+            "product_card_gap": 7,
+            "border": "none",
+            "border_width": 1,
+            "border_opacity": 12,
+            "border_radius": 0,
+            "padding-block-start": 0,
+            "padding-block-end": 0,
+            "padding-inline-start": 0,
+            "padding-inline-end": 0
+          },
+          "blocks": {
+            "product_card_gallery_677WP3": {
+              "type": "_product-card-gallery",
+              "name": "t:names.product_card_media",
+              "settings": {
+                "image_ratio": "portrait",
+                "border": "none",
+                "border_width": 1,
+                "border_opacity": 100,
+                "border_radius": 4,
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {}
+            },
+            "product_title_YXxMTj": {
+              "type": "dr-card-title",
+              "name": "t:names.product_title",
+              "settings": {},
+              "blocks": {}
+            },
+            "price_JQzVV4": {
+              "type": "price",
+              "name": "t:names.product_price",
+              "settings": {
+                "show_sale_price_first": true,
+                "show_installments": false,
+                "show_tax_info": false,
+                "type_preset": "custom",
+                "width": "100%",
+                "alignment": "left",
+                "font": "var(--font-heading--family)",
+                "font_size": "1rem",
+                "line_height": "tight",
+                "letter_spacing": "normal",
+                "case": "none",
+                "padding-block-start": 0,
+                "padding-block-end": 0,
+                "padding-inline-start": 0,
+                "padding-inline-end": 0
+              },
+              "blocks": {}
+            },
+            "drop_rate_meta": {
+              "type": "dr-card-meta",
+              "settings": {},
+              "blocks": {}
+            },
+            "drop_rate_buy": {
+              "type": "buy-buttons",
+              "name": "Quick add",
+              "settings": {
+                "stacking": false,
+                "show_pickup_availability": false,
+                "gift_card_form": false
+              },
+              "blocks": {}
+            }
+          },
+          "block_order": [
+            "product_card_gallery_677WP3",
+            "drop_rate_meta",
+            "product_title_YXxMTj",
+            "price_JQzVV4",
+            "drop_rate_buy"
+          ]
+        }
+      },
+      "name": "t:names.product_list",
+      "settings": {
+        "collection": "trading-cards",
+        "layout_type": "grid",
+        "carousel_on_mobile": false,
+        "max_products": 6,
+        "columns": 6,
+        "mobile_columns": "2",
+        "mobile_card_size": "60cqw",
+        "columns_gap": 22,
+        "rows_gap": 32,
+        "icons_style": "arrow",
+        "icons_shape": "none",
+        "section_width": "page-width",
+        "horizontal_alignment": "flex-start",
+        "gap": 28,
+        "background_color": "#FFFFFF",
+        "padding-block-start": 10,
+        "padding-block-end": 50
+      }
+    },
+    "spotlight": {
+      "type": "dr-brand-editorial",
+      "settings": {
+        "eyebrow": "The display case",
+        "heading": "Some cards deserve the spotlight.",
+        "description": "Explore graded cards and find a new centrepiece for your collection.",
+        "button": "Explore graded cards",
+        "link": "/collections/graded-cards",
+        "product": "drop-rate-inv-1814fcd478e64e35850fc1dbd167fb54"
+      }
+    },
+    "sets": {
+      "type": "dr-brand-sets",
+      "settings": {},
+      "blocks": {
+        "egghead": {
+          "type": "set",
+          "settings": {
+            "collection": "egghead-crisis",
+            "code": "EB04"
+          }
+        },
+        "battle": {
+          "type": "set",
+          "settings": {
+            "collection": "the-time-of-battle",
+            "code": "OP16"
+          }
+        },
+        "azure": {
+          "type": "set",
+          "settings": {
+            "collection": "the-azure-seas-seven",
+            "code": "OP14"
+          }
+        },
+        "treasure": {
+          "type": "set",
+          "settings": {
+            "collection": "shiny-treasure-ex",
+            "code": "SV4A"
+          }
+        }
+      },
+      "block_order": [
+        "egghead",
+        "battle",
+        "azure",
+        "treasure"
+      ]
+    }
+  },
+  "order": [
+    "brand_hero",
+    "discovery",
+    "latest",
+    "spotlight",
+    "sets"
+  ]
+}
