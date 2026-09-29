@@ -7,7 +7,12 @@ from uuid import uuid4
 import pytest
 
 from app.shopify_client import ShopifyAdminClient
-from app.shopify_pooling import (\n    _evaluate_group,\n    _is_consolidated_group,\n    pooled_product_description_html,\n    raw_pool_identity,\n)
+from app.shopify_pooling import (
+    _evaluate_group,
+    _is_consolidated_group,
+    pooled_product_description_html,
+    raw_pool_identity,
+)
 
 
 ROOT = Path(__file__).parents[1]
