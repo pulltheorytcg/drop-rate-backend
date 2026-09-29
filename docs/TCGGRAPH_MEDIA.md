@@ -1,10 +1,10 @@
-# TCGGraph reference media
+# TCGGraph exact-listing media
 
-Drop Rate may use TCGGraph as an optional exact-card reference provider for supported games.
+Drop Rate may use TCGGraph as an optional exact-card data/image provider for supported games.
 
 No AI-generated card artwork is used.
 
-TCGGraph is **not** treated as granting Drop Rate the underlying publisher artwork rights. Its terms permit API data/image use and caching inside products, while explicitly stating that publisher artwork and trademarks remain owned by the relevant publishers. Therefore TCGGraph imports are fail-closed as internal reference candidates until a separate storefront-rights decision is made.
+TCGGraph's terms (last checked 29 September 2026; terms updated 28 September 2026) expressly permit API data and images to be displayed to users inside paid products and cached by the product. TCGGraph does **not** grant the underlying publisher artwork rights. Drop Rate therefore applies a second, narrower use restriction: an exact TCGGraph image may be used only on the Shopify product listing advertising the sale of that exact physical card, under the project's UK CDPA 1988 s63 sale-advertising basis. It is not approved for social media, generic SEO artwork, merchandise, AI training, or unrelated marketing. Human exact-print approval remains mandatory before Shopify use.
 
 ## Configuration
 
@@ -28,12 +28,12 @@ The adapter remains dormant when the key is absent.
    - scope: `CANONICAL_CARD`
    - side: `FRONT`
    - source type: `LICENSED_PROVIDER`
-   - rights tier: `INTERNAL_REFERENCE_ONLY`
+   - rights tier: `STOREFRONT_ALLOWED` **only for the exact product-sale listing**
    - provider: `TCGGraph`
-   - rights status: `VERIFIED` for the recorded TCGGraph API-use basis
+   - rights status: `VERIFIED` for the recorded TCGGraph terms + product-sale advertising basis
    - approval status: `PENDING`
-7. A human exact-print review and a separate publisher/storefront-rights decision are required before any later promotion to storefront-eligible media.
-8. Existing Shopify readiness/product publishing rules remain unchanged.
+7. A human exact-print review is still required. Provider matching never auto-approves media.
+8. Only an `APPROVED` + `VERIFIED` + source-active TCGGraph asset can proceed to Shopify Files; existing product publication rules remain unchanged.
 
 The adapter must never auto-publish a Shopify product.
 
@@ -131,16 +131,16 @@ Provider failures are returned without raw credentials or sensitive response bod
 
 ## Shopify boundary
 
-New TCGGraph imports are `INTERNAL_REFERENCE_ONLY` and `PENDING`, therefore they are not eligible for Shopify Files sync or publication.
+New exact TCGGraph imports are `STOREFRONT_ALLOWED` for the narrowly recorded product-sale-listing purpose but remain `PENDING`, so provider matching alone still cannot send them to Shopify.
 
-The existing `/sync-shopify` endpoint only processes assets that have separately become:
+The existing `/sync-shopify` endpoint processes only assets that are:
 
 - `STOREFRONT_ALLOWED`
 - `APPROVED`
 - `VERIFIED`
 - source-active
 
-Changing a TCGGraph asset to that state must be an explicit later rights + human-review decision; provider matching alone is insufficient.
+Human exact-print approval is therefore still a hard gate. Shopify use is limited to advertising the sale of the exact physical card represented by the listing; the same asset must not be repurposed into social, generic SEO, merchandise, AI-training or unrelated marketing workflows.
 
 ## Rights record
 
@@ -150,11 +150,13 @@ Each imported asset records:
 - TCGGraph CDN image URL,
 - confirmed local language/variant,
 - TCGGraph terms URL as the provider-use evidence,
-- explicit internal-reference rights tier,
+- explicit exact-product-listing rights tier,
+- TCGGraph provider terms URL,
+- UK CDPA 1988 s63 statutory-use reference in the recorded rights basis,
 - source-check metadata and audit history.
 
 Relevant provider terms:
 - TCGGraph terms: https://tcggraph.com/legal/terms
 - TCGGraph acceptable use: https://tcggraph.com/legal/acceptable-use
 
-Publisher-specific artwork restrictions remain separate from the provider API licence and must be respected.
+Publisher-specific artwork restrictions remain separate from the provider API licence and must be respected. This policy is a narrow operational basis for product-sale listings, not a general artwork licence.
