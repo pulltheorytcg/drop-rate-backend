@@ -28,10 +28,22 @@
     <div class="dr-copy-selector__heading">
       <div>
         <p class="dr-copy-selector__eyebrow">{{ 'dr_brand.product.choose_copy' | t }}</p>
-        <h2>{{ 'dr_brand.product.copies_available' | t: count: available_count }}</h2>
+        <h2>
+          {% if available_count == 1 %}
+            1 copy available
+          {% else %}
+            {{ 'dr_brand.product.copies_available' | t: count: available_count }}
+          {% endif %}
+        </h2>
       </div>
       {% if min_price != blank %}
-        <p class="dr-copy-selector__from">{{ 'dr_brand.product.from_price' | t: price: formatted_min_price }}</p>
+        <p class="dr-copy-selector__from">
+          {% if available_count == 1 %}
+            {{ formatted_min_price }}
+          {% else %}
+            {{ 'dr_brand.product.from_price' | t: price: formatted_min_price }}
+          {% endif %}
+        </p>
       {% endif %}
     </div>
 
