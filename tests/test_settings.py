@@ -86,6 +86,40 @@ def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
     assert settings.shopify_catalogue_bootstrap_actor_user_id is None
 
 
+def test_pooled_offer_conversion_defaults_fail_closed(monkeypatch):
+    _base_env(monkeypatch)
+    for name in (
+        "TCG_SHOPIFY_POOLED_OFFER_CONVERSION_ENABLED",
+        "TCG_SHOPIFY_POOLED_OFFER_CONVERSION_APPLY",
+        "TCG_SHOPIFY_POOLED_OFFER_LANGUAGE_MAP_JSON",
+        "TCG_SHOPIFY_POOLED_OFFER_CONVERSION_LIMIT",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    settings = Settings.from_env()
+    assert settings.shopify_pooled_offer_conversion_enabled is False
+    assert settings.shopify_pooled_offer_conversion_apply is False
+    assert settings.shopify_pooled_offer_language_map_json is None
+    assert settings.shopify_pooled_offer_conversion_limit == 100
+
+
+def test_pooled_offer_conversion_settings_are_explicit(monkeypatch):
+    _base_env(monkeypatch)
+    monkeypatch.setenv("TCG_SHOPIFY_POOLED_OFFER_CONVERSION_ENABLED", "true")
+    monkeypatch.setenv("TCG_SHOPIFY_POOLED_OFFER_CONVERSION_APPLY", "true")
+    monkeypatch.setenv(
+        "TCG_SHOPIFY_POOLED_OFFER_LANGUAGE_MAP_JSON",
+        '{"one piece|egghead crisis":"Japanese"}',
+    )
+    monkeypatch.setenv("TCG_SHOPIFY_POOLED_OFFER_CONVERSION_LIMIT", "34")
+    settings = Settings.from_env()
+    assert settings.shopify_pooled_offer_conversion_enabled is True
+    assert settings.shopify_pooled_offer_conversion_apply is True
+    assert settings.shopify_pooled_offer_language_map_json == (
+        '{"one piece|egghead crisis":"Japanese"}'
+    )
+    assert settings.shopify_pooled_offer_conversion_limit == 34
+
+
 def test_shopify_domain_requires_canonical_myshopify_domain(monkeypatch):
     _base_env(monkeypatch)
     monkeypatch.setenv("TCG_SHOPIFY_SHOP_DOMAIN", "https://drop-rate.myshopify.com/admin")
