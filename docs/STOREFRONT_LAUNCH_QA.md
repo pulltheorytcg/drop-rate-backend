@@ -1,3 +1,10 @@
+
+## Search & Discovery approved filter policy
+
+The approved Shopify Search & Discovery filter order is source-controlled in
+`docs/STOREFRONT_FILTER_POLICY.md`: Set, Price, Rarity, Variant, Availability, Condition,
+Language, Grading Company, Grade. Game is intentionally omitted from the default facet
+stack because it is already a primary browse/navigation dimension. Search & Discovery is installed and this order has now been saved in Shopify Admin. Facet values remain inventory-driven; do not hard-code languages or grades that have no ACTIVE collection inventory.
 # Storefront Launch QA
 
 _Last verified: 29 September 2026_
