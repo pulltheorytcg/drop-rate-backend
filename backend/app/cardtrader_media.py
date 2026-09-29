@@ -87,6 +87,16 @@ def _matching_expansions(
     *,
     game_ids: set[int],
 ) -> list[dict[str, Any]]:
+    local_key = _set_key(local_set)
+    if local_key == _set_key("Tournament and Championship Promos"):
+        return [
+            row
+            for row in expansions
+            if str(row.get("game_id") or "").isdigit()
+            and int(row["game_id"]) in game_ids
+            and _set_key(row.get("name")) == _set_key("Fusion World Promos")
+        ]
+
     exact = [
         row
         for row in expansions
@@ -109,6 +119,12 @@ def _matching_expansions(
     ]
 
 
+def _promo_version_hint(value: object) -> str | None:
+    text = str(value or "").strip()
+    match = re.search(r"\((Tournament Pack[^)]*)\)\s*$", text, re.IGNORECASE)
+    return _compact(match.group(1)) if match else None
+
+
 def _name_key(value: object, card_number: object | None = None) -> str:
     text = str(value or "").strip()
     number = str(card_number or "").strip()
@@ -119,6 +135,12 @@ def _name_key(value: object, card_number: object | None = None) -> str:
             text,
             flags=re.IGNORECASE,
         )
+    text = re.sub(
+        r"\s*\(Tournament Pack[^)]*\)\s*$",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
     return _compact(text)
 
 
@@ -259,6 +281,7 @@ def resolve_blueprint(
     expansion_id = int(expansion["id"])
     local_name = _name_key(local.get("name"), local.get("card_number"))
     local_pre_release = _is_pre_release_set(local.get("set_name"))
+    local_promo_version = _promo_version_hint(local.get("name"))
     local_number = _canonical_number(local.get("card_number"))
     foil = _is_foil(local.get("variant"))
     if foil is None:
@@ -277,6 +300,11 @@ def resolve_blueprint(
         if local_pre_release and not blueprint_pre_release:
             continue
         if not local_pre_release and blueprint_pre_release:
+            continue
+        if (
+            local_promo_version
+            and _compact(blueprint.get("version")) != local_promo_version
+        ):
             continue
 
         number = _collector_number(blueprint)
@@ -397,6 +425,7 @@ async def lookup_one(
 
     local_name = _name_key(row.get("name"), row.get("card_number"))
     local_pre_release = _is_pre_release_set(row.get("set_name"))
+    local_promo_version = _promo_version_hint(row.get("name"))
     candidate_blueprints = [
         blueprint
         for blueprint in blueprints
@@ -410,6 +439,10 @@ async def lookup_one(
                 not local_pre_release
                 and "pre release" not in _normalised_set_text(blueprint.get("version"))
             )
+        )
+        and (
+            local_promo_version is None
+            or _compact(blueprint.get("version")) == local_promo_version
         )
     ]
 
