@@ -15,6 +15,21 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — sealed capture-context queue hardening
+
+**Sealed media context validation: IN PROGRESS —** review of the superseded PR #253 found
+one safety condition that was not present on current `main`: Media Intake was tracking an
+approved first-party physical image by side only. A FRONT image from a raw-card or graded
+capture context could therefore incorrectly satisfy the one-FRONT sealed requirement. The
+current fix makes queue completion context-aware: sealed/collection requires
+`SEALED_PRODUCT`, graded cards require `GRADED_SLAB`, and raw cards accept only
+`RAW_UNSLEEVED`, `PENNY_SLEEVE` or `TOP_LOADER`. The intake route remains
+authenticated and owner-scoped, and the supported product filter remains explicitly bounded
+to `CARD`, `SEALED` and `COLLECTION`. No schema, ownership, price, inventory status,
+identity, media-rights decision or Shopify publication changes are included. Completion
+requires green CI, production deployment/health verification and regression proof that a
+wrong-context sealed FRONT remains queued while `SEALED_PRODUCT` clears it.**
+
 ## 29 September 2026 — sealed media intake queue fix
 
 **Sealed storefront media intake: COMPLETE —** PR #279 widened the existing
