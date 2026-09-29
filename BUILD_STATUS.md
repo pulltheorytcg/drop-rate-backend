@@ -11,13 +11,13 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
 - **Milestone 2 — Shopify sale attribution:** ~92% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, seller-facing restricted finance views are deployed, and payout control is automated up to REQUESTED state. Multi-owner/same-card production attribution and live Stripe payout cutover remain.
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
-- **Customer storefront / Shopify UX:** base-commerce engineering/data-contract QA and the source-controlled visual pass are complete on the unpublished Brand Redesign theme across global shell, homepage, browse, grouped-copy PDP, exact-copy cart/checkout handoff, search and Shopify-native customer accounts. Brand Redesign remains unpublished and the source-controlled overlay is being expanded from 22 to **25 files** by the mobile-QA polish PR so the native facet behavior changed during QA is also reviewable/rollback-safe. The live Horizon theme remains untouched. Overall storefront milestone remains IN PROGRESS for the repeat mobile preview smoke, desktop preview smoke and subsequent publication. See `docs/STOREFRONT_LAUNCH_QA.md`.
+- **Customer storefront / Shopify UX:** base-commerce engineering/data-contract QA and the source-controlled visual pass are complete on the unpublished Brand Redesign theme across global shell, homepage, browse, grouped-copy PDP, exact-copy cart/checkout handoff, search and Shopify-native customer accounts. Brand Redesign remains unpublished and the source-controlled overlay now contains **25 files**, including the native facet files changed during mobile QA, with Shopify/runtime parity verified before merge. The live Horizon theme remains untouched. Overall storefront milestone remains IN PROGRESS for the repeat mobile preview smoke, desktop preview smoke and subsequent publication. See `docs/STOREFRONT_LAUNCH_QA.md`.
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
 ## 29 September 2026 — storefront mobile launch-QA polish
 
-**RUNTIME DEPLOYED / SOURCE-CONTROL PR OPEN / RE-PREVIEW REQUIRED —** review of the real mobile preview recordings found several presentation issues that did not invalidate the base-commerce path but should be fixed before publication. The unpublished `Drop Rate — Brand Redesign` theme now:
+**RUNTIME DEPLOYED / SOURCE CONTROL MERGED / RE-PREVIEW REQUIRED —** review of the real mobile preview recordings found several presentation issues that did not invalidate the base-commerce path but should be fixed before publication. The unpublished `Drop Rate — Brand Redesign` theme now:
 - reserves a fixed two-line title footprint on product cards and anchors browse-card purchase actions so long titles do not break grid symmetry;
 - removes accelerated checkout from collection/home browse cards while retaining the native PDP/cart/checkout path;
 - turns the three-card homepage display into an interactive/automatic spotlight rotation; the active card's product name, price and link move with the front card, tapping a rear card promotes it, manual interaction pauses auto-rotation, and reduced-motion preference disables automatic movement;
@@ -55,19 +55,17 @@ Shopify runtime/config checks also pass:
   brand/component layer. Preset-only Horizon values are not treated as active Brand
   Redesign styling.
 
-Two external gates remain before publication:
-1. **Shopify Search & Discovery** is not installed. Shopify-native Set / Condition /
-   Language facet configuration therefore still requires merchant-side app installation
-   and filter setup; the product metafields and native theme filter UI are ready.
-2. **Password-protected visual smoke** cannot be executed from this environment because
-   both the browser runtime and web retrieval layer are blocked from the
-   `myshopify.com` preview URL by platform network policy. The supplied storefront
-   password is therefore not testable here. One desktop and one mobile smoke remains
-   required for homepage → collection → PDP/grouped copy → cart → native checkout entry,
-   plus search/no-result and signed-out/signed-in account handoff.
+Current publication gates:
+1. **Shopify Search & Discovery is installed and configured** with the approved native
+   filter order: Set, Price, Rarity, Variant, Availability, Condition, Language, Grading
+   Company and Grade. Facet values remain inventory-driven.
+2. **Visual smoke is in progress through user-supplied preview recordings.** The first
+   mobile recording pass verified the base commerce path and exposed presentation issues
+   that were fixed in PR #303. A refreshed mobile pass is now required, followed by the
+   desktop pass, before publication.
 
 Do **not** publish Brand Redesign or reopen deferred recognition/seller/market-data/
-automation scope until those storefront gates are intentionally cleared.**
+automation scope until the refreshed mobile and desktop storefront gates are intentionally cleared.**
 
 ## 29 September 2026 — active global theme settings + footer
 
