@@ -175,6 +175,10 @@ def _money(minor: int) -> str:
     return f"{Decimal(minor) / Decimal(100):.2f}"
 
 
+def _is_pooled_offer_listing_key(value: object) -> bool:
+    return str(value or "").strip().startswith("offer:")
+
+
 async def withdraw_shopify_for_inventory(
     pool: Any,
     inventory_ids: list[str],
@@ -191,7 +195,7 @@ async def withdraw_shopify_for_inventory(
         rows = await connection.fetch(
             """
             select
-                id,inventory_id,owner_id,sync_state,version,
+                id,inventory_id,owner_id,sync_state,version,listing_key,
                 shopify_product_gid,shopify_inventory_item_gid,shopify_location_gid
             from tcg.shopify_inventory_links
             where owner_id=$1
@@ -234,31 +238,41 @@ async def withdraw_shopify_for_inventory(
     results: list[dict[str, Any]] = []
     for row in rows:
         try:
-            await client.set_inventory_quantity(
-                inventory_item_id=str(row["shopify_inventory_item_gid"]),
-                location_id=str(row["shopify_location_gid"]),
-                quantity=0,
-                idempotency_key=(
-                    f"withdraw-{reason.casefold()}-{row['inventory_id']}"
-                ),
-            )
-            await client.set_product_status(
-                product_id=str(row["shopify_product_gid"]),
-                status="DRAFT",
-            )
-            snapshot = await client.get_product_snapshot(
-                str(row["shopify_product_gid"])
-            )
-            variants = snapshot.get("variants", {}).get("nodes", [])
-            quantity = (
-                variants[0].get("inventoryQuantity")
-                if len(variants) == 1 and isinstance(variants[0], dict)
-                else None
-            )
-            if snapshot.get("status") != "DRAFT" or quantity != 0:
-                raise ShopifyApiError(
-                    "Shopify inventory withdrawal could not be verified"
+            if _is_pooled_offer_listing_key(row["listing_key"]):
+                await client.adjust_inventory_quantity(
+                    inventory_item_id=str(row["shopify_inventory_item_gid"]),
+                    location_id=str(row["shopify_location_gid"]),
+                    delta=-1,
+                    idempotency_key=(
+                        f"withdraw-pool-{reason.casefold()}-{row['inventory_id']}"
+                    ),
                 )
+            else:
+                await client.set_inventory_quantity(
+                    inventory_item_id=str(row["shopify_inventory_item_gid"]),
+                    location_id=str(row["shopify_location_gid"]),
+                    quantity=0,
+                    idempotency_key=(
+                        f"withdraw-{reason.casefold()}-{row['inventory_id']}"
+                    ),
+                )
+                await client.set_product_status(
+                    product_id=str(row["shopify_product_gid"]),
+                    status="DRAFT",
+                )
+                snapshot = await client.get_product_snapshot(
+                    str(row["shopify_product_gid"])
+                )
+                variants = snapshot.get("variants", {}).get("nodes", [])
+                quantity = (
+                    variants[0].get("inventoryQuantity")
+                    if len(variants) == 1 and isinstance(variants[0], dict)
+                    else None
+                )
+                if snapshot.get("status") != "DRAFT" or quantity != 0:
+                    raise ShopifyApiError(
+                        "Shopify inventory withdrawal could not be verified"
+                    )
         except ShopifyApiError as exc:
             async with pool.acquire() as connection:
                 await connection.execute(
@@ -3342,8 +3356,8 @@ async def _process_refund(
                      where re.order_item_id=oi.id
                    ),0)::bigint as refunded_minor,
                    i.status as inventory_status,
-                   sil.id as inventory_link_id,sil.shopify_inventory_item_gid,
-                   sil.shopify_location_gid
+                   sil.id as inventory_link_id,sil.listing_key,
+                   sil.shopify_inventory_item_gid,sil.shopify_location_gid
             from tcg.shopify_order_item_links soil
             join tcg.order_items oi on oi.id=soil.order_item_id
             join tcg.inventory_items i on i.id=oi.inventory_id
@@ -3430,14 +3444,25 @@ async def _process_refund(
             if return_to_stock:
                 if client is None:
                     client = _client()
-                await client.set_inventory_quantity(
-                    inventory_item_id=allocation["shopify_inventory_item_gid"],
-                    location_id=allocation["shopify_location_gid"],
-                    quantity=0,
-                    idempotency_key=(
-                        f"refund-zero-{refund_id}-{allocation['allocation_index']}"
-                    ),
-                )
+                if _is_pooled_offer_listing_key(allocation["listing_key"]):
+                    await client.adjust_inventory_quantity(
+                        inventory_item_id=allocation["shopify_inventory_item_gid"],
+                        location_id=allocation["shopify_location_gid"],
+                        delta=-1,
+                        idempotency_key=(
+                            f"refund-pool-remove-{refund_id}-"
+                            f"{allocation['allocation_index']}"
+                        ),
+                    )
+                else:
+                    await client.set_inventory_quantity(
+                        inventory_item_id=allocation["shopify_inventory_item_gid"],
+                        location_id=allocation["shopify_location_gid"],
+                        quantity=0,
+                        idempotency_key=(
+                            f"refund-zero-{refund_id}-{allocation['allocation_index']}"
+                        ),
+                    )
                 await connection.execute(
                     "select set_config('tcg.allow_sold_return','on',true)"
                 )
