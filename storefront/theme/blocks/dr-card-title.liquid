@@ -1,0 +1,38 @@
+{% liquid
+  assign p = closest.product
+  assign title_parts = p.title | split: ' · '
+  assign short_title = title_parts | first
+  assign card_number = p.metafields.drop_rate.card_number.value
+  assign set_name = p.metafields.drop_rate.set_name.value
+
+  if card_number == blank and title_parts.size > 1
+    assign second_part = title_parts[1] | strip
+    if second_part contains '-' or second_part contains '/'
+      assign card_number = second_part
+      if set_name == blank and title_parts.size > 2
+        assign set_name = title_parts[2] | strip
+      endif
+    elsif title_parts.size > 2
+      assign card_number = title_parts[2] | strip
+      if set_name == blank and title_parts.size > 3
+        assign set_name = title_parts[3] | strip
+      endif
+    endif
+  endif
+%}
+<div class="dr-card-copy" {{ block.shopify_attributes }}>
+  <span class="dr-card-copy__game">{{ p.vendor | escape }}</span>
+  <a ref="productTitleLink" href="{{ p.url }}" class="dr-card-copy__title">
+    <h3>{{ short_title | escape }}</h3>
+  </a>
+  {% if card_number != blank or set_name != blank %}
+    <p>
+      {% if card_number != blank %}{{ card_number | escape }}{% endif %}
+      {% if card_number != blank and set_name != blank %} · {% endif %}
+      {% if set_name != blank %}{{ set_name | escape }}{% endif %}
+    </p>
+  {% endif %}
+</div>
+{% schema %}
+{"name":"Drop Rate card title","tag":null,"settings":[]}
+{% endschema %}
