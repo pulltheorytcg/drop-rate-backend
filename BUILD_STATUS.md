@@ -27,7 +27,7 @@ Seven current canonical groups (14 active products) were backfilled and represen
 One Piece/Pokémon pairs were verified in Shopify with shared metadata, quantity 1 and
 `availableForSale=true`. No price, status, quantity, ownership, ledger or live-theme
 publication was changed. Theme/runtime files match the GitHub overlay byte-for-byte.
-Remaining gates: full CI, desktop/mobile visual QA, and exact-copy cart/checkout smoke test.**
+GitHub backend/theme contract CI is green. Remaining gates: desktop/mobile visual QA and exact-copy cart/checkout smoke test.**
 
 ## 29 September 2026 — storefront Milestone 1 browse slice
 
