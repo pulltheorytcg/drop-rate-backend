@@ -80,3 +80,11 @@ All already have a positive store price, Near Mint condition and registered stor
 location. Before this adapter can process them, production still requires a CardTrader API
 token and explicit physical-language confirmation for the imported copies. CardTrader is
 not used to infer the language of the user's physical card.
+
+## Production response normalization
+
+The production CardTrader account currently returns `GET /games` as an object wrapper:
+
+`{"array": [...]}`
+
+rather than the bare list shown in the public reference. `GET /expansions` still returns the documented bare list. Marketplace products are documented as an object keyed by Blueprint ID. The client normalizes these shapes explicitly and fails closed for unknown wrappers or missing Blueprint keys.
