@@ -998,3 +998,23 @@ Near-term priorities remain:
 6. trusted market-data automation
 
 Once these are stable, storefront implementation becomes a major visible build phase.
+
+
+### Customer accounts v1 — launch contract
+
+Launch customer accounts remain Shopify-native.
+
+- Shopify customer account mode: **NEW_CUSTOMER_ACCOUNTS**
+- account requirement: **OPTIONAL**
+- storefront/account login links: **enabled**
+- login required at checkout: **false**
+- order history/account management: Shopify-hosted customer account area
+- theme integration: native `<shopify-account>` header component
+- guest checkout remains supported
+- no custom Drop Rate customer-password system
+- no reuse of Founder HQ or Seller Hub authentication
+- no customer-facing access to owner/consignor, acquisition-cost, ledger or settlement data
+
+This keeps customer identity and order-history UX inside Shopify while Postgres/FastAPI
+continue to own physical inventory identity, ownership attribution and deterministic
+financial records.
