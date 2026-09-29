@@ -1,3 +1,27 @@
+## 29 September 2026 machine-verifiable launch checkpoint
+
+- `Drop Rate — Brand Redesign` remains **UNPUBLISHED**.
+- `Horizon` remains the **MAIN** theme and has not been changed by the storefront pass.
+- All **18/18** source-controlled theme-overlay files match the Brand Redesign theme
+  byte-for-byte.
+- Shopify customer accounts are **New Customer Accounts**, optional, with storefront login
+  links visible and guest checkout still allowed.
+- Homepage feature products are ACTIVE and all configured homepage collection/CTA targets
+  resolve to non-empty destinations.
+- The `Sealed` collection remains empty and its count-gated browse link therefore stays
+  hidden.
+- Shopify Search & Discovery is **not installed**. Native Set / Condition / Language facet
+  configuration remains an explicit Shopify Admin setup gate; the product metafields and
+  native theme filter UI are already ready.
+- Automated browser preview could not be executed from this environment because network
+  policy blocks the password-protected `myshopify.com` preview URL. This is an environment
+  access limitation, not a failed storefront response.
+
+Before publication, perform one real desktop and one real mobile preview smoke using the
+Brand Redesign theme: homepage, collection browse/sort/filter shell, PDP/grouped copies,
+exact-copy cart, native checkout entry, search/no-result state, and signed-out/signed-in
+customer-account handoff. Do not publish Horizon replacement until that smoke passes.
+
 # Storefront Launch QA
 
 _Last verified: 29 September 2026_
