@@ -522,13 +522,14 @@ async def _apply_one_group(
                     price=_money(target_price_minor),
                     sku=target_sku,
                 )
+                remote_changed = True
                 await client.set_inventory_quantity(
                     inventory_item_id=str(primary_inventory_item["id"]),
                     location_id=location_id,
                     quantity=len(members),
                     idempotency_key=f"raw-pool:{current['pool']['fingerprint'][:24]}:primary",
                 )
-                remote_changed = True
+
 
                 for index, snapshot in enumerate(secondary_snapshots, start=1):
                     variant = _single_variant(snapshot)
