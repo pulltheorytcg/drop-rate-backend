@@ -47,10 +47,7 @@ async def reconcile_shopify_orders(
         local_rows = await connection.fetch(
             """
             select id,source_reference,order_number,status,placed_at
-            from tcg.orders
-            where source='SHOPIFY'
-              and placed_at >= $1
-            order by placed_at,id
+            from tcg.shopify_orders_for_reconciliation($1)
             """,
             window_start,
         )
