@@ -84,6 +84,16 @@ Collectr imports with unknown language or unconfirmed identity remain blocked in
 being guessed into the storefront. The purpose is to turn the existing draft backlog into
 an explicit work queue before any product can be promoted to ACTIVE.
 
+PR #306 is merged and production-deployed at
+`abf12ed481f8c7e7f0e16270da312c6f78d71a00`. Railway ran **1,904 tests** during the
+deployment and `/health/ready` returned HTTP 200. The live linked-draft baseline is 369.
+Seel 021/094 (English, Phantasmal Flames) has an earlier founder physical-review audit
+record, complete local operational data and exact English canonical media that Shopify now
+reports `READY`; the stale local media state was reconciled and the inventory item was
+moved from INSPECTION to APPROVED. It remains a Shopify DRAFT and was **not published**.
+That leaves 1 draft core/media-ready and the remaining blocker totals at 368 approval,
+368 identity confirmation, 367 card language, 5 graded slab verification and 2 store price.
+
 ## Mobile preview QA polish — 29 September 2026
 
 The first real mobile preview recording pass confirmed the base customer path and surfaced
