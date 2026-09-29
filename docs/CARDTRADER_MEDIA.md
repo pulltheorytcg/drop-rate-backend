@@ -131,3 +131,22 @@ Production evidence currently confirms:
 - FP-047 Vegeta (Mini) : DA → Tournament Pack 07: eligible for exact-match resolution;
 - FP-046 Nappa local Pack 07 vs provider Pack 08: blocked;
 - FB05-039 Vegeta local Winner 06 vs provider ordinary Tournament Pack 06: blocked.
+
+
+## Masters bare collector-number suffixes
+
+Production CardTrader data has a small number of Dragon Ball Super Masters Blueprints whose
+`collector_number` omits the set prefix, for example:
+
+- Drop Rate `BT18-067` -> CardTrader `067`
+- Drop Rate `BT18-138` -> CardTrader `138`
+- Drop Rate `BT13-142` -> CardTrader `142`
+
+The resolver may treat a bare numeric provider value as the suffix of a local Masters
+`BTxx-yyy` number only when all normal identity gates already match and CardTrader's
+explicit rarity property also matches the local canonical rarity. The returned resolution
+preserves both the full local collector number and the raw provider collector number for
+provenance.
+
+This fallback is deliberately unavailable to Fusion World, FP/P promos and other number
+families.
