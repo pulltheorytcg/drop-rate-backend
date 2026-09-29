@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — Linked-draft drain throughput hardening
+
+- Production publication canary passed end-to-end: Shopify ACTIVE, Supabase link PUBLISHED, matching SKU/price/stock/media and a deterministic DRAFT→PUBLISHED audit event.
+- A 25-candidate production pass completed with 25/25 reconciliation results PUBLISHED and zero blockers; because the legacy selector also included already-PUBLISHED links, only 16 of those candidates advanced new draft links.
+- A larger sequential drain proved unnecessarily slow because it revalidated completed links before reaching outstanding drafts.
+- Source fix: launch-drain candidates are now DRAFT-only and independent items run with bounded concurrency capped at four and by the DB pool size. Per-item identity, language, price, stock, media, collection, ownership-state, audit and compensation gates are unchanged.
+- Production cutover of this throughput fix remains gated on CI and deployment verification.
+
 ## 2026-09-29 — Linked-draft publication audit alias fix
 
 - Standard linked-draft reconciliation was observed in production compensating products back to DRAFT after Shopify activation because the loaded item exposed `id` while the audit commit expected `inventory_id`.
