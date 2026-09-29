@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — Linked-draft publication audit alias fix
+
+- Standard linked-draft reconciliation was observed in production compensating products back to DRAFT after Shopify activation because the loaded item exposed `id` while the audit commit expected `inventory_id`.
+- No failed item was committed as PUBLISHED; compensation returned affected products to DRAFT.
+- The reconciliation worker was paused before continuing the catalogue.
+- Fix: explicitly select `i.id as inventory_id` in the loader, with regression coverage and documentation before the worker is resumed.
+
+
 _Last updated: 29 September 2026_
 
 This file is the persistent source of truth for project progress. A feature counts as **Completed** only after merge, production deployment and production verification where applicable.
