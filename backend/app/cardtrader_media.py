@@ -58,13 +58,67 @@ def _canonical_number(value: object) -> str:
     return "".join(out)
 
 
-def _set_key(value: object) -> str:
+def _normalised_set_text(value: object) -> str:
     text = _norm(value).replace("&", " and ")
     text = text.replace("pre-release", "pre release")
     text = text.replace("prerelease", "pre release")
     text = text.replace("pre release cards", "pre release promos")
     text = text.replace("pre release card", "pre release promos")
     text = re.sub(r"\bfusion world\s*:\s*", "", text)
+    return " ".join(text.split())
+
+
+def _set_key(value: object) -> str:
+    return _compact(_normalised_set_text(value))
+
+
+def _is_pre_release_set(value: object) -> bool:
+    return "pre release" in _normalised_set_text(value)
+
+
+def _base_set_key(value: object) -> str:
+    text = re.sub(r"\bpre release promos?\b", "", _normalised_set_text(value))
+    return _compact(text)
+
+
+def _matching_expansions(
+    local_set: object,
+    expansions: list[dict[str, Any]],
+    *,
+    game_ids: set[int],
+) -> list[dict[str, Any]]:
+    exact = [
+        row
+        for row in expansions
+        if str(row.get("game_id") or "").isdigit()
+        and int(row["game_id"]) in game_ids
+        and _set_key(row.get("name")) == _set_key(local_set)
+    ]
+    if exact:
+        return exact
+    if not _is_pre_release_set(local_set):
+        return []
+    base_key = _base_set_key(local_set)
+    return [
+        row
+        for row in expansions
+        if str(row.get("game_id") or "").isdigit()
+        and int(row["game_id"]) in game_ids
+        and not _is_pre_release_set(row.get("name"))
+        and _base_set_key(row.get("name")) == base_key
+    ]
+
+
+def _name_key(value: object, card_number: object | None = None) -> str:
+    text = str(value or "").strip()
+    number = str(card_number or "").strip()
+    if number:
+        text = re.sub(
+            rf"\s*-\s*{re.escape(number)}(?:\s*\([^)]*\))?\s*$",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
     return _compact(text)
 
 
@@ -145,7 +199,11 @@ def _collector_number(row: Mapping[str, Any]) -> str | None:
         return str(value).strip()
 
     version = str(row.get("version") or "").strip()
-    match = re.search(r"\b(?:BT|FB|FP|P)-?\d{2,3}-\d{2,3}\b", version, re.IGNORECASE)
+    match = re.search(
+        r"\b(?:BT\d{1,3}-\d{2,3}|FB\d{1,3}-\d{2,3}|FP-\d{2,3}|P-\d{2,3})\b",
+        version,
+        re.IGNORECASE,
+    )
     return match.group(0).upper() if match else None
 
 
@@ -174,14 +232,11 @@ def resolve_blueprint(
         return {"resolved": False, "reason": "CardTrader Dragon Ball game was not found"}
 
     game_ids = {int(row["id"]) for row in dragon_games if str(row.get("id") or "").isdigit()}
-    set_key = _set_key(local.get("set_name"))
-    expansion_matches = [
-        row
-        for row in expansions
-        if str(row.get("game_id") or "").isdigit()
-        and int(row["game_id"]) in game_ids
-        and _set_key(row.get("name")) == set_key
-    ]
+    expansion_matches = _matching_expansions(
+        local.get("set_name"),
+        expansions,
+        game_ids=game_ids,
+    )
 
     if line == "fusion-world":
         fusion = [row for row in expansion_matches if "fusionworld" in _compact(row.get("name"))]
@@ -202,7 +257,8 @@ def resolve_blueprint(
 
     expansion = expansion_matches[0]
     expansion_id = int(expansion["id"])
-    local_name = _compact(local.get("name"))
+    local_name = _name_key(local.get("name"), local.get("card_number"))
+    local_pre_release = _is_pre_release_set(local.get("set_name"))
     local_number = _canonical_number(local.get("card_number"))
     foil = _is_foil(local.get("variant"))
     if foil is None:
@@ -212,7 +268,15 @@ def resolve_blueprint(
     for blueprint in blueprints:
         if int(blueprint.get("expansion_id") or 0) != expansion_id:
             continue
-        if _compact(blueprint.get("name")) != local_name:
+        if _name_key(blueprint.get("name")) != local_name:
+            continue
+
+        blueprint_pre_release = "pre release" in _normalised_set_text(
+            blueprint.get("version")
+        )
+        if local_pre_release and not blueprint_pre_release:
+            continue
+        if not local_pre_release and blueprint_pre_release:
             continue
 
         number = _collector_number(blueprint)
@@ -308,13 +372,11 @@ async def lookup_one(
         if str(game.get("id") or "").isdigit()
         and "dragon ball" in _norm(game.get("name"))
     }
-    expansion_matches = [
-        expansion
-        for expansion in expansions
-        if str(expansion.get("game_id") or "").isdigit()
-        and int(expansion["game_id"]) in game_ids
-        and _set_key(expansion.get("name")) == _set_key(row.get("set_name"))
-    ]
+    expansion_matches = _matching_expansions(
+        row.get("set_name"),
+        expansions,
+        game_ids=game_ids,
+    )
     if len(expansion_matches) != 1:
         return {
             "resolved": False,
@@ -333,11 +395,22 @@ async def lookup_one(
             "provider_status_code": exc.status_code,
         }
 
-    local_name = _compact(row.get("name"))
+    local_name = _name_key(row.get("name"), row.get("card_number"))
+    local_pre_release = _is_pre_release_set(row.get("set_name"))
     candidate_blueprints = [
         blueprint
         for blueprint in blueprints
-        if _compact(blueprint.get("name")) == local_name
+        if _name_key(blueprint.get("name")) == local_name
+        and (
+            (
+                local_pre_release
+                and "pre release" in _normalised_set_text(blueprint.get("version"))
+            )
+            or (
+                not local_pre_release
+                and "pre release" not in _normalised_set_text(blueprint.get("version"))
+            )
+        )
     ]
 
     marketplace_rows: dict[int, list[dict[str, Any]]] = {}
