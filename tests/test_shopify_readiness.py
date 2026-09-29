@@ -103,6 +103,8 @@ def test_local_readiness_endpoint_is_owner_scoped_and_has_no_publish_path() -> N
     assert '@router.get("/readiness")' in source
     assert "where i.owner_id=$1" in source
     assert "sil.id is null" in source
+    assert "sil.sync_state='DRAFT'" in source
+    assert '"linked_drafts"] = linked_drafts' in source
     assert "lim.id is null" in source
     assert "_test_sync_missing" in source
     assert "resolve_storefront_media" in source
@@ -120,6 +122,9 @@ def test_dashboard_exposes_shopify_readiness_without_publish_controls() -> None:
     assert "Shopify readiness" in js
     assert "Sellability ready" in js
     assert "Media ready" in js
+    assert "Shopify drafts" in js
+    assert "shopify-linked-drafts-coverage" in js
+    assert "Shopify draft core blockers" in js
     assert "Review cards" in js
     assert "Photos & condition" in js
     assert 'activateSellerView("media", true)' in js
