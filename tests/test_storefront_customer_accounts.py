@@ -45,3 +45,15 @@ def test_header_cart_and_customer_account_remain_separate_actions() -> None:
     assert "<shopify-account" in source
     assert "header-actions__cart-icon" in source
     assert "routes.cart_url" in source
+
+
+def test_native_customer_account_uses_current_drop_rate_visual_tokens() -> None:
+    source = HEADER_ACTIONS.read_text()
+
+    assert "--shopify-account-color-background: #ffffff;" in source
+    assert "--shopify-account-color-text: #13223b;" in source
+    assert "--shopify-account-color-accent: #1f7bf2;" in source
+    assert "--shopify-account-color-accent-text: #ffffff;" in source
+    assert "linear-gradient(135deg,#28d7eb,#1f7bf2)" in source
+    assert "<shopify-account" in source
+    assert "/owner" not in source
