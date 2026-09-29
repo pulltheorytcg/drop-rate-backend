@@ -25,6 +25,20 @@ checks confirmed free-text matches for `OP16-071`, **Benevolent King** and **Eis
 No custom search backend, AI index, schema, product data, price, ownership or live-theme
 publication was added. Remaining gates: CI and visual/result QA.**
 
+## 29 September 2026 — storefront customer account / order surface
+
+**Customer storefront / account & order history: IMPLEMENTED / QA PENDING —** Shopify is
+already configured for OPTIONAL **New Customer Accounts**, with storefront/checkout login
+links enabled and login not required at checkout. The unpublished Brand Redesign header
+uses Shopify's native `<shopify-account>` component; Shopify therefore remains the
+customer identity and order-history surface for v1. The account action has no dependency
+on `/owner`, Founder HQ, Supabase customer auth, owner/consignor identity or a custom
+Drop Rate order-history API. Guest checkout remains available. The exact header account
+snippet is mirrored under `storefront/theme/**` with contract tests enforcing the
+customer-vs-owner auth boundary. No customer/account record, product, price, inventory,
+ownership, ledger, settlement or live-theme publication was changed. Remaining gate is
+normal browser/mobile visual QA as part of the unpublished-theme launch review.**
+
 ## 29 September 2026 — storefront exact-copy cart slice
 
 **Shopify-native cart / checkout presentation: IN PROGRESS —** the unpublished Brand
