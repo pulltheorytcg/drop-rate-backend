@@ -11,6 +11,13 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field, model_validator
 
 from .action_required import resolve_action_required, upsert_action_required
+from .cardtrader_client import CardTraderClient
+from .cardtrader_media import (
+    CARDTRADER_API_DOCS_URL,
+    CARDTRADER_TERMS_URL,
+    RIGHTS_BASIS as CARDTRADER_RIGHTS_BASIS,
+    lookup_one as lookup_cardtrader_one,
+)
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .free_canonical_media import (
@@ -407,6 +414,73 @@ async def _insert_free_media(
     return dict(asset) if asset is not None else None
 
 
+async def _insert_cardtrader_media(
+    connection,
+    *,
+    owner_id: UUID,
+    user_id: UUID,
+    row: Mapping[str, Any],
+    result: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    provider_id = str(result.get("provider_id") or "").strip()
+    image_url = str(result.get("image_url") or "").strip()
+    if not provider_id or not image_url.startswith("https://"):
+        return None
+
+    finish_key = result.get("finish_key")
+    provider_asset_id = f"{provider_id}:{finish_key}" if finish_key else provider_id
+    source_reference = f"cardtrader:{provider_asset_id}"
+    language = clean_language(row.get("language") or row.get("catalogue_language"))
+    variant = " ".join(str(row.get("variant") or "").strip().split())
+    alt_text = " · ".join(
+        part
+        for part in (
+            str(row.get("name") or "").strip(),
+            str(row.get("set_name") or "").strip(),
+            str(row.get("card_number") or "").strip(),
+            language or "",
+        )
+        if part
+    )[:500]
+
+    asset = await connection.fetchrow(
+        """
+        insert into tcg.media_assets(
+          owner_id,catalogue_id,scope,side,source_type,rights_tier,
+          source_provider,provider_asset_id,source_reference,
+          public_source_url,permission_evidence_url,media_language,
+          media_variant,rights_status,rights_basis,approval_status,
+          alt_text,created_by_user_id,rights_verified_at,
+          source_status,source_status_note,source_checked_at
+        ) values(
+          $1,$2,'CANONICAL_CARD','FRONT','LICENSED_PROVIDER',
+          'STOREFRONT_ALLOWED','CardTrader',$3,$4,$5,$6,$7,$8,
+          'VERIFIED',$9,'PENDING',$10,$11,clock_timestamp(),
+          'ACTIVE',$12,clock_timestamp()
+        )
+        on conflict do nothing
+        returning *
+        """,
+        owner_id,
+        row["catalogue_id"],
+        provider_asset_id,
+        source_reference,
+        image_url,
+        CARDTRADER_TERMS_URL,
+        language,
+        variant,
+        CARDTRADER_RIGHTS_BASIS,
+        alt_text,
+        user_id,
+        (
+            "Exact CardTrader product-listing candidate created by import enrichment; "
+            "human exact-print approval remains required before storefront use. "
+            f"API reference: {CARDTRADER_API_DOCS_URL}"
+        ),
+    )
+    return dict(asset) if asset is not None else None
+
+
 async def _insert_tcggraph_media(
     connection,
     *,
@@ -496,6 +570,16 @@ async def _resolve_media_candidate(
         if result.get("resolved"):
             return "FREE", result, None
 
+    cardtrader_reason: str | None = None
+    if settings.cardtrader_api_token:
+        cardtrader = CardTraderClient(api_token=settings.cardtrader_api_token)
+        result = _json_dict(await lookup_cardtrader_one(cardtrader, row))
+        if result.get("resolved"):
+            return "CARDTRADER", result, None
+        if result.get("provider_status_code") is not None:
+            return "NONE", None, str(result.get("reason") or "CardTrader provider error")
+        cardtrader_reason = str(result.get("reason") or "No exact CardTrader match")
+
     if settings.tcggraph_api_key:
         client = TcgGraphClient(api_key=settings.tcggraph_api_key)
         resolved = await lookup_tcggraph_one(
@@ -506,8 +590,10 @@ async def _resolve_media_candidate(
         result = _json_dict(resolved.get("result"))
         if result.get("resolved"):
             return "TCGGRAPH", result, None
-        return "NONE", None, str(result.get("reason") or "No exact TCGGraph match")
+        return "NONE", None, str(result.get("reason") or cardtrader_reason or "No exact TCGGraph match")
 
+    if cardtrader_reason:
+        return "NONE", None, cardtrader_reason
     if free_provider is not None:
         return "NONE", None, "No exact permitted provider image match"
     return (
@@ -721,6 +807,14 @@ async def _process_one(
                         row=current,
                         result=provider_result,
                     )
+                elif provider_type == "CARDTRADER":
+                    await _insert_cardtrader_media(
+                        connection,
+                        owner_id=owner_id,
+                        user_id=user_id,
+                        row=current,
+                        result=provider_result,
+                    )
                 else:
                     await _insert_tcggraph_media(
                         connection,
@@ -849,6 +943,7 @@ async def _process_one(
                     "card_number": current["card_number"],
                     "variant": current["variant"],
                     "language": current.get("language") or current.get("catalogue_language"),
+                    "cardtrader_configured": bool(settings.cardtrader_api_token),
                     "tcggraph_configured": bool(settings.tcggraph_api_key),
                 },
             )

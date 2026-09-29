@@ -1,5 +1,19 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — CardTrader Dragon Ball exact-media Route B
+
+**SOURCE-CONTROL PR IN PROGRESS / PRODUCTION TOKEN NOT YET CONFIGURED —** the catalogue is now at **464 PUBLISHED physical inventory links / 444 distinct live Shopify products**. The 20-link difference remains intentional pooled raw quantity. Shopify has one remaining production DRAFT product: Nico Robin OP01-017 ACE 10. There are 44 unlinked FOR_SALE items: 35 Dragon Ball, 7 One Piece raw and 2 sealed One Piece.
+
+The 35 Dragon Ball cards are split into 29 Dragon Ball Super Masters and 6 Dragon Ball Super Fusion World. They already have sale price, Near Mint condition and registered storage location. Their remaining common blockers are confirmed physical language plus exact permitted storefront media.
+
+A read-only CardTrader provider path is being added as Route B so these cards do not depend on the paid TCGGraph subscription. CardTrader's official API exposes Games, Expansions, Blueprints and Blueprint `image_url` values, and its terms explicitly permit API use for inventory management on other sales channels. The adapter is fail-closed: Masters/Fusion World isolation, exact expansion, exact normalized name, collector-number evidence, supported normal/foil family, unique Blueprint and a CardTrader-owned HTTPS image host are all mandatory. Missing/ambiguous evidence creates no media.
+
+CardTrader is **not** used to infer the language of Drop Rate's physical copy. The existing import enrichment default-language flow remains the deterministic way to record a founder/admin-confirmed batch language. CardTrader provider media is inserted only as `PENDING`, never auto-approved or auto-published.
+
+Production currently has no `TCG_CARDTRADER_API_TOKEN`. After CI/merge/deploy, the external cutover gates are: configure a CardTrader Bearer token from the CardTrader account settings, confirm the physical language of the 35 Dragon Ball copies, run enrichment, review exact media candidates, then use the normal Shopify bootstrap/publication pipeline.
+
+Charizard V 019/189 PSA 9 is now ACTIVE using its current correct card-art image under an explicit founder media override because PSA cert 62398872 returns the correct MINT 9 identity but no provider slab scans. The exact-slab replacement Action Required remains open. Both Luffy slabs (ST10-006 PSA 9 English and P-001 [25th] PSA 10 Japanese) are PUBLISHED with exact PSA front/back media and verified graded audit history. Nico Robin ACE 10 cert 590532 now has the exact ACE front-slab image registered, approved, Shopify-ready and attached as the draft's featured image; identity/language and founder graded-review state remain intentionally unresolved.
+
 ## 2026-09-29 — Official graded-slab bootstrap gate
 
 **SOURCE-CONTROL PR IN PROGRESS —** catalogue bootstrap currently excludes cert-linked grading-provider slab media because the inventory-media branch only accepts `FIRST_PARTY_CAPTURE`. This blocked the already founder-verified Monkey D Luffy P-001 Japanese PSA 10 even though exact PSA cert 165543324 FRONT/BACK media is approved, rights-verified and Shopify-ready.
