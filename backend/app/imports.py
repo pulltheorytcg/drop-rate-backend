@@ -86,6 +86,21 @@ CARD_CONDITION_MAP = {
     "dmg": "Damaged",
 }
 
+CANONICAL_SET_NAMES: dict[tuple[str, str], str] = {
+    ("one piece", "carrying on his will"): "Carrying On His Will",
+}
+
+
+def _canonical_set_name(game: str | None, set_name: str | None) -> str | None:
+    if set_name is None:
+        return None
+    clean = set_name.strip()
+    if not clean:
+        return None
+    game_key = (game or "").strip().casefold()
+    return CANONICAL_SET_NAMES.get((game_key, clean.casefold()), clean)
+
+
 
 def _json_value(value: Any, *, expected_type: type, fallback: Any) -> Any:
     """Decode persisted JSON/JSONB whether asyncpg returns text or an object."""
@@ -214,7 +229,7 @@ def _normalized_row(
         issues.append("language_conflict")
     language = explicit_language or title_language or set_language or clean_language(default_language)
     name = parsed_name
-    set_name = raw_set_name
+    set_name = _canonical_set_name(game, raw_set_name)
     card_number = _cell(row, mapping, "card_number")
     rarity = _cell(row, mapping, "rarity") or ""
 
