@@ -424,14 +424,10 @@ async def _mark_published(
                 raise RuntimeError("Shopify link publication state update did not affect one row")
             await connection.execute(
                 """
-                insert into tcg.audit_events(
-                    actor,request_id,action,entity_type,entity_id,old_values,new_values
-                ) values(
-                    $1,$2,'SHOPIFY_LINK_PUBLISHED_RECONCILIATION',
-                    'SHOPIFY_INVENTORY_LINK',$3,$4::jsonb,$5::jsonb
+                select tcg.record_shopify_link_published_audit(
+                    $1,$2,$3::jsonb,$4::jsonb
                 )
                 """,
-                str(actor_user_id),
                 request_id,
                 item["inventory_id"],
                 json.dumps({
