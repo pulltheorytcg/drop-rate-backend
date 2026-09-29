@@ -18,6 +18,13 @@ MIGRATION = (
     / "migrations"
     / "20260929021000_shopify_order_reconciliation.sql"
 )
+STATE_MIGRATION = (
+    ROOT
+    / "database"
+    / "migrations"
+    / "20260929022000_shopify_reconciliation_rls_state.sql"
+)
+RECONCILER = ROOT / "backend" / "app" / "shopify_reconciliation.py"
 RUNNER = ROOT / "backend" / "scripts" / "reconcile_shopify_orders.py"
 
 
@@ -137,26 +144,34 @@ class FakeConnection:
 
     async def fetch(self, query: str, *args):
         self.fetch_queries.append(query)
-        if "from tcg.shopify_webhook_events" in query:
-            if self.processed_create:
-                return [{
-                    "resource_id": "8488414282075",
-                    "topic": "orders/create",
-                    "status": "PROCESSED",
-                }]
-            return []
-        if "from tcg.orders" in query:
-            self.window_start = args[0]
-            if not self.include_local:
-                return []
-            return [{
-                "id": UUID("11111111-1111-1111-1111-111111111111"),
+        if "get_shopify_order_reconciliation_state" not in query:
+            raise AssertionError(f"Unexpected query: {query}")
+
+        self.window_start = args[0]
+        rows = []
+        if self.include_local:
+            rows.append({
+                "record_type": "ORDER",
+                "order_id": UUID("11111111-1111-1111-1111-111111111111"),
                 "source_reference": "8488435581275",
                 "order_number": "#1002",
-                "status": "CANCELLED",
+                "order_status": "CANCELLED",
                 "placed_at": datetime(2026, 9, 24, 23, 38, tzinfo=timezone.utc),
-            }]
-        raise AssertionError(f"Unexpected query: {query}")
+                "webhook_topic": None,
+                "webhook_status": None,
+            })
+        if self.processed_create:
+            rows.append({
+                "record_type": "WEBHOOK",
+                "order_id": None,
+                "source_reference": "8488414282075",
+                "order_number": None,
+                "order_status": None,
+                "placed_at": None,
+                "webhook_topic": "orders/create",
+                "webhook_status": "PROCESSED",
+            })
+        return rows
 
     async def fetchrow(self, query: str, *args):
         self.persisted = args
@@ -253,6 +268,35 @@ def test_reconciliation_migration_is_founder_scoped_and_api_only() -> None:
         "grantexecuteonfunctiontcg.record_shopify_order_reconciliation"
         "(jsonb,uuid[],text[])totcg_api"
     ) in compact
+
+
+def test_reconciliation_state_lookup_is_bounded_and_api_only() -> None:
+    sql = STATE_MIGRATION.read_text().casefold()
+    compact = sql.replace(" ", "").replace("\n", "")
+
+    assert "security definer" in sql
+    assert "set search_path=pg_catalog" in sql
+    assert "from tcg.orders" in sql
+    assert "from tcg.shopify_webhook_events" in sql
+    assert "61 days" in sql
+    assert "10000" in sql
+    assert "frompublic" in compact
+    assert "fromanon" in compact
+    assert "fromauthenticated" in compact
+    assert "fromservice_role" in compact
+    assert "fromtcg_auditor" in compact
+    assert (
+        "grantexecuteonfunctiontcg.get_shopify_order_reconciliation_state"
+        "(timestamptz,text[])totcg_api"
+    ) in compact
+
+
+def test_reconciler_does_not_query_rls_tables_directly() -> None:
+    source = RECONCILER.read_text()
+
+    assert "get_shopify_order_reconciliation_state" in source
+    assert "from tcg.orders" not in source
+    assert "from tcg.shopify_webhook_events" not in source
 
 
 def test_reconciliation_runner_does_not_log_secrets_or_customer_data() -> None:
