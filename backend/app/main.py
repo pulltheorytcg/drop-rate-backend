@@ -54,6 +54,7 @@ from .settings import get_settings
 from .shopify import router as shopify_router
 from .shopify_client import ShopifyApiError
 from .shopify_catalogue_bootstrap import run_shopify_catalogue_bootstrap
+from .shopify_linked_draft_reconciliation import run_linked_draft_reconciliation
 from .shopify_pipeline import router as shopify_pipeline_router
 from .shopify_readiness import router as shopify_readiness_router
 from .storage_locations import router as storage_locations_router
@@ -147,6 +148,7 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI):
         app.state.db_pool = await create_pool(settings)
         bootstrap_task: asyncio.Task | None = None
+        linked_draft_task: asyncio.Task | None = None
         shopify_config_complete = all(
             (
                 settings.shopify_shop_domain,
@@ -183,20 +185,43 @@ def create_app() -> FastAPI:
 
             bootstrap_task.add_done_callback(_bootstrap_done)
             app.state.shopify_catalogue_bootstrap_task = bootstrap_task
+
+        if settings.shopify_linked_draft_reconciliation_enabled:
+            linked_draft_task = asyncio.create_task(
+                run_linked_draft_reconciliation(app.state.db_pool, settings)
+            )
+
+            def _linked_draft_done(task: asyncio.Task) -> None:
+                if task.cancelled():
+                    logger.warning("Shopify linked-draft reconciliation was cancelled")
+                    return
+                try:
+                    result = task.result()
+                except Exception:
+                    logger.exception("Shopify linked-draft reconciliation failed")
+                else:
+                    logger.warning(
+                        "Shopify linked-draft reconciliation finished: %s",
+                        result,
+                    )
+
+            linked_draft_task.add_done_callback(_linked_draft_done)
+            app.state.shopify_linked_draft_reconciliation_task = linked_draft_task
         try:
             yield
         finally:
-            if bootstrap_task is not None and not bootstrap_task.done():
-                bootstrap_task.cancel()
-                try:
-                    await bootstrap_task
-                except asyncio.CancelledError:
-                    pass
-            elif bootstrap_task is not None:
-                try:
-                    bootstrap_task.result()
-                except Exception:
-                    pass
+            for task in (bootstrap_task, linked_draft_task):
+                if task is not None and not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                elif task is not None:
+                    try:
+                        task.result()
+                    except Exception:
+                        pass
             await app.state.db_pool.close()
 
     app = FastAPI(
