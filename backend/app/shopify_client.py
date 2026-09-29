@@ -1048,6 +1048,67 @@ class ShopifyAdminClient:
             raise ShopifyApiError("Shopify did not return exactly one updated variant")
         return variants[0]
 
+    async def update_pooled_offer_variant(
+        self,
+        *,
+        product_id: str,
+        variant_id: str,
+        price: str,
+        sku: str,
+    ) -> dict[str, Any]:
+        """Update a shared storefront offer without leaking one member's cost basis."""
+
+        clean_sku = str(sku or "").strip()
+        if not clean_sku:
+            raise ValueError("Pooled Shopify offer SKU is required")
+        data = await self.graphql(
+            query="""
+            mutation DropRatePooledOfferVariantUpdate(
+              $productId: ID!,
+              $variants: [ProductVariantsBulkInput!]!
+            ) {
+              productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+                productVariants {
+                  id
+                  price
+                  inventoryPolicy
+                  inventoryItem { id sku tracked }
+                }
+                userErrors { field message }
+              }
+            }
+            """,
+            variables={
+                "productId": product_id,
+                "variants": [{
+                    "id": variant_id,
+                    "price": price,
+                    "inventoryPolicy": "DENY",
+                    "inventoryItem": {
+                        "sku": clean_sku,
+                        "tracked": True,
+                    },
+                }],
+            },
+        )
+        payload = data.get("productVariantsBulkUpdate")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError(
+                "Shopify pooled offer variant update returned an invalid response"
+            )
+        self._raise_user_errors(payload, "Shopify rejected pooled offer variant update")
+        variants = payload.get("productVariants")
+        if (
+            not isinstance(variants, list)
+            or len(variants) != 1
+            or not isinstance(variants[0], dict)
+        ):
+            raise ShopifyApiError(
+                "Shopify did not return exactly one pooled offer variant"
+            )
+        return variants[0]
+
+
     async def update_variant_price(
         self,
         *,
