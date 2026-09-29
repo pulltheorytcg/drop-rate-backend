@@ -30,6 +30,20 @@ The only `sealed` collection had zero products, and no game-specific sealed coll
 existed. The runtime-only Sealed links and locale key were therefore reverted to the
 already-tested GitHub versions. No product or live-theme data was changed.
 
+## Homepage source control and visual alignment
+
+The four custom Brand Redesign homepage sections are now part of the GitHub theme overlay
+rather than existing only inside Shopify:
+- `dr-brand-hero.liquid`
+- `dr-brand-discovery.liquid`
+- `dr-brand-editorial.liquid`
+- `dr-brand-sets.liquid`
+
+Their structure, links, product/collection Liquid, imagery and section schemas remain the
+same. This slice changes only legacy colour/style literals so the homepage uses the current
+Drop Rate navy, blue, cyan, white and cool-grey system instead of the earlier teal/yellow
+treatment. Future homepage edits must now flow through source control before Shopify.
+
 ## Collection visual alignment
 
 The collection/browse surface is being aligned to the current Drop Rate product UI rather
