@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — Dragon Ball CardTrader set-alias verification
+
+Production CardTrader diagnostics confirmed the Fusion World local set `Tournament and Championship Promos` maps to provider expansion `Tournament & Championship Promos` (ID 4300). The adapter now normalizes ampersand/word-`and` equivalence while retaining exact set matching.
+
+CardTrader diagnostics also confirmed the six local pre-release cards (five Dawn of the Z-Legends + one Supreme Rivalry) only appear under ordinary base-set blueprints with no pre-release marker in CardTrader's blueprint metadata. Those six are therefore explicitly left unresolved rather than receiving the normal-print image. No production inventory/media mutation occurred during these diagnostics.
+
 ## 2026-09-29 — CardTrader production response wrapper fix
 
 The first production Dragon Ball CardTrader probe authenticated successfully enough to reach provider endpoints but exposed a live response-shape difference: `GET /games` returns `{"array": [...]}` for this account, while `GET /expansions` returns the documented bare list. Marketplace products are also keyed by Blueprint ID per CardTrader's API reference. A focused client compatibility fix now normalizes these shapes and keeps unknown/missing wrappers fail-closed. No Dragon Ball inventory or media was mutated by the failed probe.
