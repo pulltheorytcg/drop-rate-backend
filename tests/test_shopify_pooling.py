@@ -147,6 +147,12 @@ def test_raw_pooling_is_draft_only_and_concurrency_locked() -> None:
     assert "SHOPIFY_RAW_POOL_LINK_CONSOLIDATED" in source
 
 
+def test_raw_pool_uses_privileged_audit_writer_not_direct_table_insert() -> None:
+    source = POOLING.read_text().lower()
+    assert "record_shopify_raw_pool_audit" in source
+    assert "insert into tcg.audit_events" not in source
+
+
 def test_raw_pool_commit_points_every_member_at_primary_variant() -> None:
     source = POOLING.read_text()
     assert "shopify_product_gid=$4" in source
