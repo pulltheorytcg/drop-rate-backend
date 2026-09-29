@@ -41,4 +41,6 @@ Use Shopify-native storefront filtering through Search & Discovery. Do not repla
 
 The relevant `drop_rate` metafield definitions already have Storefront `PUBLIC_READ` access and the Brand Redesign collection template already renders Shopify-native filters.
 
-Search & Discovery app installation is confirmed. The remaining merchant-admin step is to add/save the filters above in the app UI.
+Search & Discovery app installation and the approved filter order are now confirmed in Shopify Admin.
+
+Filter values remain inventory-driven. As of this QA pass, the customer-visible ACTIVE catalogue exposes Japanese because the active cards are Japanese; the English Seel product is correctly tagged `Language:English` but remains DRAFT, so Shopify does not expose English as a live facet value yet. Do not hard-code empty language values into the theme. English, Korean, Chinese and other languages should appear when ACTIVE collection inventory carrying those normalized metafield values exists.
