@@ -1,3 +1,29 @@
+## Final pre-publication checkpoint — 29 September 2026
+
+The source-controlled Brand Redesign storefront is now synchronized through the active
+global theme layer as well as page-level components. The overlay contains **22 files** and
+the deployed unpublished theme has been checked for parity across the previously verified
+commerce files plus `dr-brand-system.liquid`, `config/settings_data.json`,
+`sections/header-group.json`, and `sections/footer-group.json`.
+
+Verified without browser rendering:
+- Brand Redesign remains **UNPUBLISHED**; Horizon remains **MAIN** and was not modified.
+- Current Drop Rate logo/menu/announcement/footer configuration is preserved.
+- Shopify New Customer Accounts are enabled, optional, visible, and guest checkout remains
+  allowed.
+- Homepage featured products are ACTIVE and configured CTA/set collections are non-empty.
+- Sealed remains empty and the count-gated Sealed browse destination remains hidden.
+- Set-facet casing has been canonicalized in the source of truth and in Shopify.
+
+Still required before publication:
+- install/configure Shopify **Search & Discovery** for native Set / Condition / Language
+  filters;
+- perform one real desktop and one real mobile password-protected preview covering homepage,
+  collection browse/filter/sort shell, grouped-copy PDP, exact-copy cart, Shopify checkout
+  entry, search/no-result state and customer-account handoff.
+
+Do not publish the theme until those two gates are complete.
+
 # Storefront Launch QA
 
 _Last verified: 29 September 2026_
