@@ -255,3 +255,22 @@ requests, call Stripe, or move money.
 The database function is `SECURITY DEFINER`, has no public execute permission, and is
 granted only to the backend `tcg_api` role. Founder visibility still passes through the
 existing owner-scoped Action Required RLS boundary.
+
+
+### Production operations-monitor deployment
+
+The production heartbeat now runs as the first step of
+`backend/scripts/run_operations_monitor.py` on the repurposed Railway
+`drop-rate-api` service. That service is an internal cron only: no public domain is
+required. It runs every 30 minutes and then invokes Shopify order reconciliation only if
+the heartbeat command succeeds.
+
+The temporary standalone heartbeat service used to prove the database/network path has
+been removed. Its successful 29 September 2026 01:01 UTC execution proved the heartbeat
+script against production and observed the hourly payout scheduler's 01:00:26 UTC
+SUCCESS run.
+
+The final combined monitor had one pre-fix database-connect failure while outbound IPv6
+was disabled. IPv6 egress is now enabled on the final service. BUILD_STATUS remains
+IN PROGRESS until that exact combined service completes a real scheduled run after the
+networking correction.
