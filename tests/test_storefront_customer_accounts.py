@@ -45,3 +45,15 @@ def test_header_cart_and_customer_account_remain_separate_actions() -> None:
     assert "<shopify-account" in source
     assert "header-actions__cart-icon" in source
     assert "routes.cart_url" in source
+
+
+def test_customer_account_surface_uses_current_drop_rate_palette_only() -> None:
+    source = HEADER_ACTIONS.read_text()
+
+    assert "--shopify-account-color-background: #ffffff;" in source
+    assert "--shopify-account-color-text: #13223b;" in source
+    assert "--shopify-account-color-accent: #1f7bf2;" in source
+    assert "--shopify-account-color-accent-text: #ffffff;" in source
+    assert ".account-button:focus-within" in source
+    assert "<shopify-account" in source
+    assert "<form" not in source
