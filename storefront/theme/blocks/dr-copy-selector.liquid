@@ -1,0 +1,93 @@
+{% liquid
+  assign p = closest.product
+  assign copy_handles = p.metafields.drop_rate.copy_handles.value
+  assign copy_group_truncated = p.metafields.drop_rate.copy_group_truncated.value
+
+  if copy_handles == blank
+    assign copy_handles = p.handle | split: '|'
+  endif
+
+  assign available_count = 0
+  assign min_price = blank
+
+  for copy_handle in copy_handles
+    assign copy_product = all_products[copy_handle]
+    if copy_product != blank and copy_product.available
+      assign available_count = available_count | plus: 1
+      if min_price == blank or copy_product.price < min_price
+        assign min_price = copy_product.price
+      endif
+    endif
+  endfor
+
+  assign formatted_min_price = min_price | money
+%}
+
+{% if available_count > 0 %}
+  <section class="dr-copy-selector" {{ block.shopify_attributes }}>
+    <div class="dr-copy-selector__heading">
+      <div>
+        <p class="dr-copy-selector__eyebrow">{{ 'dr_brand.product.choose_copy' | t }}</p>
+        <h2>{{ 'dr_brand.product.copies_available' | t: count: available_count }}</h2>
+      </div>
+      {% if min_price != blank %}
+        <p class="dr-copy-selector__from">{{ 'dr_brand.product.from_price' | t: price: formatted_min_price }}</p>
+      {% endif %}
+    </div>
+
+    <div class="dr-copy-selector__list">
+      {% for copy_handle in copy_handles %}
+        {% assign copy_product = all_products[copy_handle] %}
+        {% if copy_product != blank and copy_product.available %}
+          {% liquid
+            assign copy_condition = copy_product.metafields.drop_rate.condition.value
+            assign copy_language = copy_product.metafields.drop_rate.language.value
+            assign copy_grader = copy_product.metafields.drop_rate.grading_company.value
+            assign copy_grade = copy_product.metafields.drop_rate.grade.value
+            assign is_current = false
+            if copy_product.handle == p.handle
+              assign is_current = true
+            endif
+          %}
+          <a
+            class="dr-copy-option{% if is_current %} dr-copy-option--current{% endif %}"
+            href="{{ copy_product.url }}"
+            {% if is_current %}aria-current="page"{% endif %}
+          >
+            <span class="dr-copy-option__media">
+              {% if copy_product.featured_image != blank %}
+                {{ copy_product.featured_image | image_url: width: 96 | image_tag: loading: 'lazy', widths: '48,72,96', alt: copy_product.title }}
+              {% endif %}
+            </span>
+            <span class="dr-copy-option__body">
+              <span class="dr-copy-option__meta">
+                {% if copy_grader != blank and copy_grade != blank %}
+                  <strong>{{ copy_grader | escape }} {{ copy_grade | escape }}</strong>
+                {% elsif copy_condition != blank %}
+                  <strong>{{ copy_condition | escape }}</strong>
+                {% endif %}
+                {% if copy_language != blank %}<span>{{ copy_language | escape }}</span>{% endif %}
+              </span>
+              <span class="dr-copy-option__price">{{ copy_product.price | money }}</span>
+            </span>
+            <span class="dr-copy-option__action">
+              {% if is_current %}
+                {{ 'dr_brand.product.selected_copy' | t }}
+              {% else %}
+                {{ 'dr_brand.product.view_copy' | t }}
+              {% endif %}
+            </span>
+          </a>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    {% if copy_group_truncated %}
+      <p class="dr-copy-selector__note">{{ 'dr_brand.product.more_copies_note' | t }}</p>
+    {% endif %}
+  </section>
+{% endif %}
+
+{% schema %}
+{"name":"Drop Rate copy selector","tag":null,"settings":[]}
+{% endschema %}

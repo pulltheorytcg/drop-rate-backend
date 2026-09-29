@@ -160,6 +160,7 @@ def product_tags(item: Mapping[str, Any]) -> list[str]:
 def product_metafields(item: Mapping[str, Any]) -> list[dict[str, str]]:
     values = {
         "inventory_id": _text(item.get("inventory_code")),
+        "catalogue_id": _text(item.get("catalogue_id")),
         "game": _text(item.get("game")),
         "set_name": _text(item.get("set_name")),
         "card_number": _text(item.get("card_number")),

@@ -139,6 +139,72 @@ The data classification must be made deterministic before that navigation is add
 **Status: IN PROGRESS.** This slice is not publish-ready until desktop/mobile preview QA,
 failure-path checks and the remaining Milestone 1 browse requirements are completed.
 
+## 29 September 2026 — grouped-copy PDP implementation checkpoint
+
+The second storefront-first implementation slice is now present on Shopify's
+**unpublished** `Drop Rate — Brand Redesign` theme. The live `Horizon` theme remains
+untouched.
+
+### Grouping contract
+
+Grouped copies are derived from the canonical Supabase `catalogue_id`, never from fuzzy
+title/name matching. A canonical card may therefore have several physical inventory items
+with different condition/grade while preserving exact game, set, collector number,
+language and variant identity.
+
+The existing commerce model remains unchanged:
+- one Shopify product/variant still represents one exact physical Inventory ID;
+- Shopify cart/checkout therefore still buys that exact copy;
+- ownership attribution continues through `tcg.shopify_inventory_links`;
+- no owner/consignor identity or acquisition cost is exposed to Liquid;
+- Supabase/FastAPI remains authoritative for identity, ownership and deterministic pricing.
+
+### Shopify copy-group metadata
+
+The backend now supports derived product metafields:
+- `drop_rate.catalogue_id`
+- `drop_rate.copy_handles` (`list.single_line_text_field`)
+- `drop_rate.copy_group_size`
+- `drop_rate.copy_group_truncated`
+
+After a physical copy is published through the guarded Shopify path, the backend refreshes
+the grouped-copy metadata across every still-published sibling for the same canonical card.
+A metadata-refresh failure is logged and reported in the admin response but does not undo a
+successfully verified product publication or change the physical sale model.
+
+Shopify Liquid's `all_products` lookup is capped at 20 unique handles per page, so the
+metadata helper has the same hard safety limit. For an unusually large group, every PDP
+retains its own physical copy and up to 19 siblings and marks the group as truncated.
+
+### PDP behavior
+
+The unpublished product template now:
+- shows **“N copies available”** and **“From £X”** for grouped inventory;
+- renders a thumbnail, condition or grader/grade, language and exact price per available copy;
+- visibly marks the current physical copy;
+- links a different copy to that exact Shopify product URL;
+- uses Shopify `product.available` so sold/unavailable siblings disappear without theme-side
+  ownership logic;
+- keeps the existing native Shopify Add to Cart / accelerated checkout button attached only
+  to the currently selected physical product;
+- naturally prioritises a physical slab image when that exact graded product owns the
+  approved storefront media.
+
+### Real production-backed proof data
+
+Seven canonical groups currently have multiple published copies (14 active Shopify products
+total). Their existing product metafields were backfilled without modifying price, product
+status, inventory quantity or ownership. Direct Shopify verification confirmed shared
+copy-handle metadata and `availableForSale=true`/quantity 1 for representative One Piece
+(`OP16-071`) and Pokémon (`020/108`) pairs.
+
+The exact changed theme files are source-controlled under `storefront/theme/**` and were
+verified byte-for-byte against the unpublished theme.
+
+**Status: IN PROGRESS.** Remaining gates are full CI, browser/mobile visual QA and one
+add-to-cart/checkout smoke test proving a selected sibling still resolves to the exact
+Inventory ID before the grouped PDP slice can be called complete.
+
 ## Storefront architecture
 
 Initial approach:

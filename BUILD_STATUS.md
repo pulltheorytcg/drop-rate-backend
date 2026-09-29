@@ -15,6 +15,20 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — storefront grouped-copy PDP slice
+
+**Customer storefront / PDP grouped copies: IN PROGRESS —** exact physical copies are now
+grouped by Supabase `catalogue_id`, not fuzzy card text. The guarded Shopify publish path
+now refreshes derived `copy_handles` metadata for published siblings and keeps a hard
+20-handle Shopify Liquid safety limit. The unpublished Brand Redesign product template
+renders available sibling copies with thumbnail, condition/grade, language and exact price,
+while the Shopify-native buy button remains attached to the selected physical product.
+Seven current canonical groups (14 active products) were backfilled and representative
+One Piece/Pokémon pairs were verified in Shopify with shared metadata, quantity 1 and
+`availableForSale=true`. No price, status, quantity, ownership, ledger or live-theme
+publication was changed. Theme/runtime files match the GitHub overlay byte-for-byte.
+Remaining gates: full CI, desktop/mobile visual QA, and exact-copy cart/checkout smoke test.**
+
 ## 29 September 2026 — storefront Milestone 1 browse slice
 
 **Customer storefront / collection-browse milestone: IN PROGRESS —** the first real-data
