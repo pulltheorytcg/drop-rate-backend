@@ -226,6 +226,22 @@ def test_worker_never_creates_duplicate_shopify_products_and_has_compensation():
     assert "i.id as inventory_id" in source
 
 
+
+
+def test_worker_drains_only_drafts_with_bounded_concurrency():
+    source = (
+        Path(__file__).parents[1]
+        / "backend"
+        / "app"
+        / "shopify_linked_draft_reconciliation.py"
+    ).read_text()
+
+    assert "and sil.sync_state='DRAFT'" in source
+    assert "sil.sync_state in ('DRAFT','PUBLISHED')" not in source
+    assert "asyncio.Semaphore(concurrency)" in source
+    assert "concurrency = max(1, min(4, settings.db_pool_max))" in source
+    assert "await asyncio.gather" in source
+
 def test_worker_is_opt_in_and_dry_run_by_default():
     source = (
         Path(__file__).parents[1]
