@@ -15,6 +15,18 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — homepage visual alignment
+
+**Storefront homepage design/source control: IN PROGRESS —** the four custom Brand Redesign
+homepage sections are now mirrored in GitHub and aligned to the same current Drop Rate
+navy/blue/cyan/cool-grey/white visual system as browse, PDP, cart, search and account.
+The older yellow/teal hero/set accents are removed. Native Shopify behavior is preserved:
+discovery search remains a product-only GET to `routes.search_url`, product and collection
+choices remain theme-editor settings, and no pricing, inventory, ownership, merchandising
+decision or checkout rule is moved into Liquid. The live Horizon theme remains untouched.
+Completion requires CI, deployment to the unpublished Brand Redesign theme, source/runtime
+parity and desktop/mobile preview QA.**
+
 ## 29 September 2026 — customer account/header visual alignment
 
 **Storefront account/header presentation: IN PROGRESS —** Shopify's native customer account
