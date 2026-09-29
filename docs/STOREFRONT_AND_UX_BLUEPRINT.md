@@ -258,6 +258,38 @@ Shopify searches the products already published by the guarded catalogue pipelin
 **Status: IN PROGRESS.** Theme behavior is implemented on the unpublished theme. Remaining
 gates are CI and browser/mobile visual/result QA before launch.
 
+## 29 September 2026 — Shopify-native customer account / order surface
+
+The final base-commerce surface uses Shopify **New Customer Accounts** rather than a
+Drop Rate customer-auth implementation.
+
+Verified store configuration:
+- `customerAccounts=OPTIONAL`
+- `customerAccountsVersion=NEW_CUSTOMER_ACCOUNTS`
+- login links are visible on the storefront and checkout
+- login is **not** required at checkout, so guest purchase remains available
+- Shopify hosts the customer account/order-history experience at its customer-account URL
+
+The unpublished Brand Redesign header already uses Shopify's native
+`<shopify-account>` component whenever customer accounts are enabled. This account
+surface is intentionally isolated from Founder HQ and Seller Hub:
+- no `/owner` route is referenced;
+- no Drop Rate/Supabase customer password flow is created;
+- no owner, consignor or PLATFORM_ADMIN identity is exposed;
+- no custom order-history API is introduced;
+- cart and checkout remain separate Shopify-native actions.
+
+The exact account-header snippet is mirrored under
+`storefront/theme/snippets/header-actions.liquid` and contract tests enforce that
+customer auth cannot drift into Drop Rate's internal owner/admin authentication boundary.
+
+This surface requires no Shopify runtime mutation because the required customer-account
+configuration and theme integration were already active. No customer was created and no
+real order/account data was accessed during verification.
+
+**Status: IMPLEMENTED / QA PENDING.** The base account/order-history architecture is
+complete for v1; visual/browser QA remains part of the unpublished-theme launch review.
+
 ## Storefront architecture
 
 Initial approach:
