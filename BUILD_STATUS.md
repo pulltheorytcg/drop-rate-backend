@@ -6,7 +6,7 @@
 - A 25-candidate production pass completed with 25/25 reconciliation results PUBLISHED and zero blockers; because the legacy selector also included already-PUBLISHED links, only 16 of those candidates advanced new draft links.
 - A larger sequential drain proved unnecessarily slow because it revalidated completed links before reaching outstanding drafts.
 - Source fix: launch-drain candidates are now DRAFT-only and independent items run with bounded concurrency capped at four and by the DB pool size. Per-item identity, language, price, stock, media, collection, ownership-state, audit and compensation gates are unchanged.
-- Production cutover of this throughput fix remains gated on CI and deployment verification.
+- Production cutover is complete and verified. The optimized DRAFT-only/concurrency-4 worker published the remaining ordinary catalogue backlog across both import batches. Final production parity is **458 PUBLISHED physical inventory links / 438 distinct live Shopify products**, with the 20-link difference explained by the 15 pooled raw listings. Shopify now has exactly **6 DRAFT products** matching Supabase: **5 graded cards held for founder `VERIFY_GRADED` review** plus **1 deliberate test-mode Seel**. The 20 redundant pre-pooling individual product shells remain ARCHIVED at quantity 0 to prevent double-selling. Reconciliation switches were returned to `ENABLED=false` and `APPLY=false` after the run. Two deterministic Collectr price overrides were repaired and audited before shutdown: Galarian Obstagoon PSA 10 £40 and Monkey D. Luffy ST10-006 PSA 9 £35.
 
 ## 2026-09-29 — Linked-draft publication audit alias fix
 
