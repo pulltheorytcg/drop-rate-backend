@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from app.import_enrichment import _provider_exact_identity_evidence
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MAIN = ROOT / "backend" / "app" / "main.py"
@@ -13,6 +15,62 @@ MIGRATION = (
     / "migrations"
     / "20260928211713_import_enrichment_action_queue.sql"
 )
+
+
+def test_provider_exact_identity_accepts_only_one_unique_language_match() -> None:
+    evidence = _provider_exact_identity_evidence(
+        [
+            {
+                "language": "English",
+                "result": {
+                    "resolved": True,
+                    "provider_id": "db_bt13_002",
+                    "provider_name": "King Vegeta",
+                    "collector_number": "BT13-002",
+                    "provider_language": "en",
+                },
+            },
+            {
+                "language": "Japanese",
+                "result": {
+                    "resolved": False,
+                    "reason": "no exact TCGGraph identity match",
+                },
+            },
+        ]
+    )
+
+    assert evidence is not None
+    assert evidence["verification_method"] == "PROVIDER_EXACT"
+    assert evidence["language"] == "English"
+    assert evidence["provider_id"] == "db_bt13_002"
+
+
+def test_provider_exact_identity_fails_closed_when_languages_are_ambiguous() -> None:
+    evidence = _provider_exact_identity_evidence(
+        [
+            {"language": "English", "result": {"resolved": True, "provider_id": "en"}},
+            {"language": "Japanese", "result": {"resolved": True, "provider_id": "ja"}},
+        ]
+    )
+    assert evidence is None
+
+
+def test_provider_exact_identity_fails_closed_on_provider_error() -> None:
+    evidence = _provider_exact_identity_evidence(
+        [
+            {"language": "English", "result": {"resolved": True, "provider_id": "en"}},
+            {
+                "language": "Japanese",
+                "result": {
+                    "resolved": False,
+                    "provider_status_code": 429,
+                    "retryable": True,
+                },
+            },
+        ]
+    )
+    assert evidence is None
 
 
 def test_enrichment_and_action_required_routes_are_founder_admin_only() -> None:
@@ -72,6 +130,17 @@ def test_import_commit_emits_durable_automation_event_without_private_inventory_
     assert "acquisition_cost" not in block
     assert "notes" not in block
     assert "customer" not in block.lower()
+
+
+def test_enrichment_can_use_unique_provider_exact_language_without_blanket_default() -> None:
+    source = ENRICHMENT.read_text()
+
+    assert 'TCGGRAPH_IDENTITY_LANGUAGES = ("English", "Japanese")' in source
+    assert '"verification_method": "PROVIDER_EXACT"' in source
+    assert "provider_status_code" in source
+    assert "len(matches) != 1" in source
+    assert "_resolve_provider_exact_identity" in source
+    assert "provider_evidence=provider_identity_evidence" in source
 
 
 def test_identity_verification_supports_explicit_import_language_evidence() -> None:
