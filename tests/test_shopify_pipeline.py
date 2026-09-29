@@ -589,7 +589,9 @@ def test_refund_restock_never_returns_directly_to_approved() -> None:
     assert "set status='INSPECTION'" in source
     assert "set sync_state='ARCHIVED'" in source
     assert "set_inventory_quantity(" in source
-    assert "quantity=0" in source
+    assert "quantity=int(remaining_sellable_quantity or 0)" in source
+    assert "pool_link.shopify_variant_gid=$1" in source
+    assert "pool_item.sale_intent='FOR_SALE'" in source
 
 
 def test_shopify_link_tables_have_uniqueness_and_forced_rls() -> None:
