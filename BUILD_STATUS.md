@@ -81,6 +81,35 @@ One Piece/Pokémon pairs were verified in Shopify with shared metadata, quantity
 publication was changed. Theme/runtime files match the GitHub overlay byte-for-byte.
 GitHub backend/theme contract CI is green. Connected-store QA verified 14 grouped products and 28 sibling references with zero broken/unpublished handles. Remaining gate: desktop/mobile visual QA and exact-copy browser handoff.**
 
+## 29 September 2026 — storefront launch QA checkpoint
+
+**Structural/live-data storefront QA: PASSED —** the unpublished Brand Redesign theme
+remains unpublished and the customer-facing browse/search theme overlay is back in exact
+GitHub parity after removal of unfinished empty Sealed navigation.
+
+Verified live Shopify state:
+- 95 ACTIVE products and exactly 95 products with `published_status:published`;
+- one additional DRAFT product is associated with the Online Store channel but has
+  `publishedAt=null` and is not visible;
+- exact active/visible route counts: Trading Cards 95, Singles 93, One Piece 87,
+  Pokémon 8 and Graded 2; every set route exposed in the browse UI has at least one
+  active/visible product;
+- Shopify-native search returns the expected two-copy groups for both card-name and
+  collector-number queries, and a guaranteed nonsense query returns zero;
+- search input, locale and search-results template match GitHub byte-for-byte;
+- all 95 live products have exactly one variant, SKU equals Drop Rate Inventory ID,
+  inventory quantity 1, inventory policy DENY and `availableForSale=true`;
+- Supabase independently shows the same 95 published links as FOR_SALE, APPROVED,
+  unsold, unreserved, positively priced and one-to-one by Shopify product / inventory code;
+- grouped-copy metadata covers 14 live products across 7 canonical groups, every sibling
+  handle resolves to a live product in the same `catalogue_id`, and every group includes
+  the current physical copy;
+- `invalid_published_rows=0` in the source-of-truth database.
+
+No product status, price, inventory quantity, ownership, ledger, settlement or live-theme
+publication was changed by this QA pass. Remaining launch gates are filters/facets/mobile
+browse QA, browser visual review of the unpublished theme, and browser cart/checkout smoke.**
+
 ## 29 September 2026 — storefront Milestone 1 browse slice
 
 **Customer storefront / collection-browse milestone: ENGINEERING QA COMPLETE / VISUAL QA PENDING —** the first real-data
