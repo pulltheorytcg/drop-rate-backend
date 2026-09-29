@@ -93,7 +93,7 @@ async def _batch_context(pool, *, batch_id: UUID, actor_user_id: UUID, request_i
                      where om.owner_id=b.owner_id
                        and om.user_id=$2
                        and om.active=true
-                       and om.role in ('FOUNDER','ADMIN')
+                       and om.role in ('PLATFORM_ADMIN','OWNER')
                    ) as actor_authorized
             from tcg.import_batches b
             where b.id=$1
