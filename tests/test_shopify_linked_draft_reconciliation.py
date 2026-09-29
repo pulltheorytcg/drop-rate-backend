@@ -223,6 +223,7 @@ def test_worker_never_creates_duplicate_shopify_products_and_has_compensation():
     assert "record_shopify_link_published_audit" in source
     assert "insert into tcg.audit_events" not in source
     assert "sync_state='PUBLISHED'" in source
+    assert "i.id as inventory_id" in source
 
 
 def test_worker_is_opt_in_and_dry_run_by_default():

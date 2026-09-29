@@ -70,3 +70,10 @@ is blocked as `LANGUAGE_UNRESOLVED`.
 
 The job is bounded and idempotent. It reports explicit result/blocker codes so a rerun can
 continue from the remaining drafts rather than recreating products.
+
+
+## Inventory-ID audit alias
+
+The linked-draft loader must expose the physical primary key under the explicit `inventory_id` key as well as the inventory row's native `id`.
+
+The publication audit helper consumes `inventory_id`. Without the explicit alias, Shopify activation can succeed but the database publication commit fails with `KeyError: 'inventory_id'`; compensation then returns the product to DRAFT. The loader therefore selects `i.id as inventory_id` and regression coverage locks that contract.
