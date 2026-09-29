@@ -77,13 +77,44 @@ class CardTraderClient:
         if foil is not None:
             params["foil"] = foil
         payload = await self._request("/marketplace/products", params=params)
-        return self._as_list(payload, "marketplace products")
+        return self._marketplace_list(payload, blueprint_id=blueprint_id)
 
     @staticmethod
     def _as_list(payload: object, label: str) -> list[dict[str, Any]]:
-        if not isinstance(payload, list):
-            raise CardTraderApiError(f"CardTrader {label} response is not a list")
-        return [row for row in payload if isinstance(row, dict)]
+        if isinstance(payload, list):
+            rows = payload
+        elif isinstance(payload, dict) and isinstance(payload.get("array"), list):
+            rows = payload["array"]
+        else:
+            raise CardTraderApiError(
+                f"CardTrader {label} response has an unsupported list wrapper"
+            )
+        return [row for row in rows if isinstance(row, dict)]
+
+    @staticmethod
+    def _marketplace_list(
+        payload: object,
+        *,
+        blueprint_id: int,
+    ) -> list[dict[str, Any]]:
+        if isinstance(payload, list):
+            rows = payload
+        elif isinstance(payload, dict):
+            if isinstance(payload.get("array"), list):
+                rows = payload["array"]
+            else:
+                rows = payload.get(str(blueprint_id))
+                if rows is None:
+                    rows = payload.get(blueprint_id)
+                if not isinstance(rows, list):
+                    raise CardTraderApiError(
+                        "CardTrader marketplace response does not contain the requested blueprint"
+                    )
+        else:
+            raise CardTraderApiError(
+                "CardTrader marketplace response has an unsupported shape"
+            )
+        return [row for row in rows if isinstance(row, dict)]
 
     async def _request(
         self,
