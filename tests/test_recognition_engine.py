@@ -1513,3 +1513,36 @@ def test_scanner_candidate_image_uses_authenticated_proxy_and_shows_market_value
     assert "Previous results are not shown during this scan." in ui
     assert "The previous scan result has been cleared." in ui
     assert "const viableCandidates = candidates.filter((item) => !item.hard_rejected);" in ui
+
+
+def test_recognition_raw_scan_retention_contract_is_ephemeral() -> None:
+    api = API.read_text()
+    migration = MIGRATION.read_text().casefold()
+    learning = (
+        ROOT / "database" / "migrations" / "20260927205101_recognition_verified_learning.sql"
+    ).read_text().casefold()
+    reference = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20260927231525_recognition_reference_fingerprint_index.sql"
+    ).read_text().casefold()
+
+    assert '"stores_source_image": False' in api
+    assert '"learning_raw_pixels_stored": False' in api
+    assert "source_image_sha256" in migration
+    assert "source_mime_type" in migration
+    assert "source_size_bytes" in migration
+    assert "source_fingerprints" in learning
+
+    # Recognition-owned persistence must not quietly grow a raw-image blob/url field.
+    assert "source_image_bytes" not in migration
+    assert "source_image_blob" not in migration
+    assert "source_image_url" not in migration
+    assert " bytea" not in migration
+    assert "raw scan pixels remain ephemeral" in learning
+
+    # Rebuildable canonical/reference images stay in the separately governed media path.
+    assert "media_asset_id" in reference
+    assert "fingerprint_version" in reference
+    assert "source_url" in reference
