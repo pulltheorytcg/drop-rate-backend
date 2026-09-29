@@ -147,8 +147,16 @@ Shopify order `8488414282075` / `#1001`: exactly two HIGH founder alerts were op
 one for each active founder, and no consignor alert was created. No commerce or finance
 records were reconstructed.
 
-The deployment is not called Completed until the final combined monitor itself has a
-successful scheduled execution after its IPv6 egress correction.
+Production completion was verified on the **2026-09-29 02:30 UTC** scheduled
+execution. The final combined monitor returned heartbeat healthy, then reconciliation
+reported two Shopify orders, one local Drop Rate order, one correct match, one remote-only
+anomaly and zero local-only anomalies. The run resolved the two false #1002 CRITICAL
+alerts created before the RLS-safe read fix and retained the two expected #1001 HIGH
+founder webhook-gap alerts. Both monitor steps exited 0.
+
+This completes the reconciliation release gate. Recovery remains detection-first: the
+worker does not fabricate missing orders or mutate inventory, ownership, ledger,
+settlement or payout history.
 
 
 ### Migration history alignment
