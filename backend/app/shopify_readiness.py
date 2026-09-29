@@ -191,6 +191,33 @@ async def shopify_local_readiness(
             """,
             owner["id"],
         )
+        draft_rows = await connection.fetch(
+            """
+            select
+                i.id,i.catalogue_id,i.owner_id,i.inventory_code,i.version,i.status,
+                i.identity_confirmed,i.acquisition_cost_minor,i.store_price_minor,
+                i.market_value_minor,i.recommended_retail_minor,
+                i.storage_location_id,i.language,i.condition,i.seal_status,
+                i.grading_company,i.grade,i.condition_review_status,
+                p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,
+                p.rarity,p.language as catalogue_language,
+                sl.id as registered_location_id,
+                sl.active as registered_location_active
+            from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id=i.catalogue_id
+            left join tcg.storage_locations sl on sl.id=i.storage_location_id
+            join tcg.shopify_inventory_links sil on sil.inventory_id=i.id
+            left join tcg.listing_inventory_members lim
+              on lim.inventory_id=i.id and lim.state <> 'REMOVED'
+            where i.owner_id=$1
+              and i.status in ('DRAFT','INSPECTION','APPROVED')
+              and i.sale_intent='FOR_SALE'
+              and sil.sync_state='DRAFT'
+              and lim.id is null
+            order by i.updated_at,i.inventory_code
+            """,
+            owner["id"],
+        )
         media_rows = await connection.fetch(
             """
             select *
@@ -206,7 +233,17 @@ async def shopify_local_readiness(
         [dict(row) for row in media_rows],
         physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor,
     )
+    linked_drafts = summarize_local_readiness(
+        [dict(row) for row in draft_rows],
+        [dict(row) for row in media_rows],
+        physical_photo_threshold_minor=settings.media_physical_photo_threshold_minor,
+    )
+    linked_drafts["scope"] = "LINKED_SHOPIFY_DRAFTS"
+    linked_drafts["network_calls"] = 0
+    linked_drafts["publication_actions"] = 0
+
     result["scope"] = "UNSYNCED_FOUNDER_INVENTORY"
     result["network_calls"] = 0
     result["publication_actions"] = 0
+    result["linked_drafts"] = linked_drafts
     return jsonable_encoder(result)
