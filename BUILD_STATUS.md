@@ -15,6 +15,17 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — pooled raw Shopify publication
+
+**SOURCE-CONTROL PR IN PROGRESS / NOT DEPLOYED YET —** Adds a platform-admin-only
+publication path for raw pools that have already been consolidated by Phase A. It verifies
+every physical member and the remote pooled Shopify projection (DRAFT status, image,
+required collections, shared price/SKU, tracked inventory, DENY oversell policy and exact
+quantity), activates/publishes Shopify first, then transactionally marks every physical
+link PUBLISHED with audit events. Any failure after remote activation compensates the
+product back to DRAFT. No ownership, acquisition cost or graded-card behavior is moved into
+Shopify.
+
 ## 29 September 2026 — pooled raw Shopify inventory architecture
 
 **SOURCE-CONTROL PR IN PROGRESS / NO PRODUCTION POOL MUTATION YET —** The storefront inventory model is being corrected before the remaining Shopify draft backlog is published. Interchangeable raw copies will be represented as Shopify quantity while Supabase continues to own exact physical Inventory ID, owner, acquisition cost, condition, language, location and settlement attribution.
