@@ -15,6 +15,17 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — customer account visual alignment
+
+**Storefront customer account presentation: IN PROGRESS —** the existing Shopify-native
+`<shopify-account>` surface now uses the current Drop Rate white/navy/blue visual system
+and explicit keyboard-focus treatment. Shopify remains the customer identity and order
+history system; guest checkout remains available, and no `/owner`, Founder HQ, Supabase
+customer-auth or custom checkout/login flow is introduced. No product, price, inventory,
+ownership, order or live Horizon theme change is included. Completion requires CI,
+deployment to the unpublished Brand Redesign theme, source/runtime parity and browser
+preview QA.**
+
 ## 29 September 2026 — search visual alignment
 
 **Storefront search presentation: IN PROGRESS —** Shopify-native product search now uses
