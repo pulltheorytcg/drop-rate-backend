@@ -15,6 +15,23 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — controlled Shopify linked-draft launch reconciliation
+
+**SOURCE-CONTROL PR IN PROGRESS / DISABLED BY DEFAULT —** A one-off, resumable
+reconciliation worker has been added for the legacy Collectr-linked Shopify draft backlog.
+It operates only on already-linked, non-test Shopify products and never creates replacement
+products. Exact import identity, per-set language evidence, deterministic price overrides,
+existing condition/graded-photo policy, exact Shopify product/variant/SKU, positive stock,
+remote image presence and browse collection membership are all enforced before activation.
+
+The worker regenerates Shopify title/description/SEO/tags/metafields from corrected backend
+data, publishes Shopify first, and only then marks the corresponding
+`shopify_inventory_links` row `PUBLISHED`. A database failure after remote activation
+triggers best-effort compensation back to Shopify `DRAFT`. Existing Shopify imagery is
+used only as a remote-presence gate for this controlled legacy reconciliation; no fake
+`media_assets` or rights claims are created and the standard ongoing media/publish
+pipeline is unchanged. Production execution remains pending dry-run validation.
+
 ## 29 September 2026 — Shopify linked-draft readiness audit
 
 **DEPLOYED / VERIFIED / READ-ONLY —** PR #306 is merged and deployed to production. Founder HQ now exposes a separate readiness
