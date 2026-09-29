@@ -512,7 +512,11 @@ async def _apply_one_group(
             secondary_snapshots = snapshots[1:]
             primary_variant = _single_variant(primary_snapshot)
             primary_inventory_item = primary_variant["inventoryItem"]
-            compensation_key = f"raw-pool-compensate:{current['pool']['fingerprint'][:24]}"
+            operation_token = uuid4().hex[:12]
+            operation_key = (
+                f"raw-pool:{current['pool']['fingerprint'][:16]}:{operation_token}"
+            )
+            compensation_key = f"{operation_key}:compensate"
 
             remote_changed = False
             try:
@@ -527,7 +531,7 @@ async def _apply_one_group(
                     inventory_item_id=str(primary_inventory_item["id"]),
                     location_id=location_id,
                     quantity=len(members),
-                    idempotency_key=f"raw-pool:{current['pool']['fingerprint'][:24]}:primary",
+                    idempotency_key=f"{operation_key}:primary",
                 )
 
 
@@ -538,7 +542,7 @@ async def _apply_one_group(
                         inventory_item_id=str(inventory_item["id"]),
                         location_id=location_id,
                         quantity=0,
-                        idempotency_key=f"raw-pool:{current['pool']['fingerprint'][:24]}:secondary:{index}",
+                        idempotency_key=f"{operation_key}:secondary:{index}",
                     )
                     await client.set_product_status(
                         product_id=str(snapshot["id"]),
