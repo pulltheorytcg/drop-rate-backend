@@ -145,7 +145,7 @@ class FakeConnection:
                     "status": "PROCESSED",
                 }]
             return []
-        if "from tcg.orders" in query:
+        if "from tcg.shopify_orders_for_reconciliation" in query:
             self.window_start = args[0]
             if not self.include_local:
                 return []
@@ -237,6 +237,31 @@ async def test_reconciliation_shopify_failure_performs_no_database_work() -> Non
             client=FailedClient(),  # type: ignore[arg-type]
             now=datetime(2026, 9, 29, tzinfo=timezone.utc),
         )
+
+
+def test_reconciliation_rls_read_migration_is_narrow_and_api_only() -> None:
+    migration = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20260929022000_shopify_reconciliation_rls_read.sql"
+    )
+    sql = migration.read_text().casefold()
+    compact = sql.replace(" ", "").replace("\n", "")
+
+    assert "security definer" in sql
+    assert "stable" in sql
+    assert "from tcg.orders o" in sql
+    assert "where o.source='shopify'" in sql
+    assert "owner_id" not in sql
+    assert "customer" not in sql
+    assert "billing" not in sql
+    assert "shipping" not in sql
+    assert "fromservice_role" in compact
+    assert (
+        "grantexecuteonfunctiontcg.shopify_orders_for_reconciliation"
+        "(timestamptz)totcg_api"
+    ) in compact
 
 
 def test_reconciliation_migration_is_founder_scoped_and_api_only() -> None:
