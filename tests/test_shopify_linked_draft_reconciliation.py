@@ -220,7 +220,8 @@ def test_worker_never_creates_duplicate_shopify_products_and_has_compensation():
     assert "get_product_snapshot(product_gid)" in source
     assert 'set_product_status(product_id=product_gid, status="ACTIVE")' in source
     assert 'set_product_status(product_id=product_gid, status="DRAFT")' in source
-    assert "SHOPIFY_LINK_PUBLISHED_RECONCILIATION" in source
+    assert "record_shopify_link_published_audit" in source
+    assert "insert into tcg.audit_events" not in source
     assert "sync_state='PUBLISHED'" in source
 
 
