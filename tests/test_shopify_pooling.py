@@ -144,7 +144,7 @@ def test_raw_pooling_is_draft_only_and_concurrency_locked() -> None:
     assert "pg_advisory_unlock" in source
     assert 'status="ARCHIVED"' in source
     assert "quantity=len(members)" in source
-    assert "SHOPIFY_RAW_POOL_LINK_CONSOLIDATED" in source
+    assert "record_shopify_raw_pool_audit" in source
 
 
 def test_raw_pool_uses_privileged_audit_writer_not_direct_table_insert() -> None:
