@@ -1,5 +1,9 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — CardTrader production response wrapper fix
+
+The first production Dragon Ball CardTrader probe authenticated successfully enough to reach provider endpoints but exposed a live response-shape difference: `GET /games` returns `{"array": [...]}` for this account, while `GET /expansions` returns the documented bare list. Marketplace products are also keyed by Blueprint ID per CardTrader's API reference. A focused client compatibility fix now normalizes these shapes and keeps unknown/missing wrappers fail-closed. No Dragon Ball inventory or media was mutated by the failed probe.
+
 ## 2026-09-29 — Dragon Ball CardTrader one-shot backfill runner
 
 **SOURCE-CONTROL PR IN PROGRESS —** a dedicated management runner now exists for the 35-card Dragon Ball backlog. It reuses the existing import-enrichment core rather than duplicating identity/media business rules. The runner defaults to read-only `probe` mode and requires explicit `apply` mode before any enrichment mutation.
