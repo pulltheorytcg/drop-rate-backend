@@ -107,6 +107,49 @@ Stored source facts are limited to:
 
 For deterministic visual matching, the service computes local perceptual fingerprints in memory. Trusted provider reference images are fetched only from allow-listed card-image hosts.
 
+
+### Raw scan retention policy
+
+**Decision: routine recognition source pixels are ephemeral by design.**
+
+A recognition request may temporarily hold the uploaded/captured image in application
+memory for decoding, vision inference and deterministic fingerprint calculation. Drop
+Rate does not persist those raw scan bytes to PostgreSQL, Supabase Storage, the media
+registry, or another recognition-owned object store.
+
+Durable recognition provenance is limited to the data required for auditability and
+bounded learning:
+
+- source image SHA-256;
+- MIME type and byte size;
+- capture width and height;
+- derived perceptual fingerprints;
+- AI observations and provider evidence;
+- immutable ranked candidates;
+- explicit human feedback and verified learning labels.
+
+This privacy boundary has an accepted trade-off: if the fingerprint algorithm changes
+later, historical real-scan pixels cannot be replayed to regenerate a new fingerprint
+from those old recognition requests. Existing derived fingerprints remain tied to the
+engine/model provenance recorded with the run and learning example.
+
+That trade-off does **not** make the canonical reference corpus unrecoverable. Reference
+fingerprints are built from the separate governed `tcg.media_assets` registry and are
+linked to a media asset/source URL plus a fingerprint version. Where the governed source
+remains available and its rights/approval state permits use, reference fingerprints can
+be rebuilt under a new fingerprint version.
+
+A card photograph that needs durable retention for inventory, condition, grading,
+storefront or other media purposes must enter the media subsystem through its explicit
+upload/rights/approval workflow. Recognition must not silently convert a scan into a
+durable media asset, and it must not automatically repurpose founder, owner, consignor
+or customer scan pixels as training/reference images.
+
+Any future opt-in raw-scan corpus would be a separate product/security feature requiring
+an explicit purpose, permission/consent basis, access controls, retention/deletion rules,
+storage design and review before implementation. It is not part of Recognition Engine v1
+and must not be inferred from a recognition upload.
+
 ## Audit model
 
 Every run is recorded in `tcg.recognition_runs`.
