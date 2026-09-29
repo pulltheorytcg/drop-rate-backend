@@ -109,3 +109,19 @@ surface as the HIGH-severity `SHOPIFY_ORDER_WEBHOOK_GAP` proof case.
 
 The correct response is to investigate delivery coverage, not fabricate a replacement
 sale.
+
+
+## Production monitor deployment
+
+Reconciliation is the second step of the internal Railway operations monitor on the
+repurposed `drop-rate-api` service. The cron schedule is every 30 minutes. The service
+has the Shopify Admin credentials required for the read-only remote scan and the database
+connection required for deterministic persistence.
+
+Production verification already proved the persistence/security boundary using real
+Shopify order `8488414282075` / `#1001`: exactly two HIGH founder alerts were opened,
+one for each active founder, and no consignor alert was created. No commerce or finance
+records were reconstructed.
+
+The deployment is not called Completed until the final combined monitor itself has a
+successful scheduled execution after its IPv6 egress correction.
