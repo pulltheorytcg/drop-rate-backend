@@ -1162,3 +1162,18 @@ def test_sealed_media_creation_is_capture_context_gated() -> None:
     assert 'detail="Sealed products must be photographed as SEALED_PRODUCT"' in source
     assert 'detail="SEALED_PRODUCT capture context is only for sealed/collection inventory"' in source
     assert 'scope = "CANONICAL_CARD" if product_type == "CARD" else "CANONICAL_PRODUCT"' in source
+
+
+def test_shopify_return_reconciles_aggregate_pooled_quantity() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def _process_refund(")
+    refund = source[start:]
+    assert "remaining_sellable_quantity = await connection.fetchval" in refund
+    assert "pool_link.shopify_variant_gid=$1" in refund
+    assert "pool_link.sync_state='PUBLISHED'" in refund
+    assert "pool_link.reserved_order_reference is null" in refund
+    assert "pool_link.reserved_line_reference is null" in refund
+    assert "pool_item.status='APPROVED'" in refund
+    assert "pool_item.sale_intent='FOR_SALE'" in refund
+    assert "quantity=int(remaining_sellable_quantity or 0)" in refund
+    assert "refund-restock-" in refund
