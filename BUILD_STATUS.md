@@ -17,14 +17,17 @@ This file is the persistent source of truth for project progress. A feature coun
 
 ## 29 September 2026 — Shopify order reconciliation hardening
 
-**Shopify ↔ Drop Rate order reconciliation: IN PROGRESS —** an independently scheduled
-comparison now has a version-controlled implementation: Shopify Admin order pagination,
-a seven-day same-window comparison against `tcg.orders`, Founder HQ mismatch alerts,
-PII-minimal metadata, fail-closed pagination/API behavior and no automatic ledger repair.
-The known missing test order `8488414282075` is the production proof case. Completion
-requires CI, migration application, production deployment, a live reconciliation run
-showing the known mismatch, explicit function-permission verification and the 30-minute
-operations monitor schedule to be verified.
+**Shopify ↔ Drop Rate order reconciliation: IN PROGRESS —** the version-controlled
+implementation now performs a 30-day, status-aware Shopify Admin comparison against
+`tcg.orders` and Shopify webhook history. Paid-like Shopify orders missing from
+`tcg.orders` become CRITICAL founder alerts; unpaid Shopify-only orders alert HIGH only
+when no successfully processed `orders/create` proves Drop Rate saw them, avoiding false
+positives for legitimate pending orders. Drop Rate-only orders remain HIGH. No reconciliation
+path reconstructs orders or mutates inventory, ownership, ledger or settlement state.
+Production order `8488414282075` / #1001 is the known webhook-gap proof case; #1002 is
+present in both systems. Completion still requires CI, migration application, production
+operations-monitor activation, a live scan surfacing #1001, and explicit permission/RLS
+verification.
 
 ## 29 September 2026 — verified 24-hour build delta
 
