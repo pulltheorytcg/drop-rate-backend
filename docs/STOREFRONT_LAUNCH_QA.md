@@ -72,6 +72,18 @@ being completed from user-supplied preview recordings rather than inferred from 
 evidence. The first mobile recording pass was reviewed, surfaced presentation issues, and
 those fixes were deployed to the unpublished theme and merged in PR #303.
 
+## Shopify linked-draft readiness audit — 29 September 2026
+
+Founder HQ's existing read-only Shopify readiness panel now reports **two separate funnels**:
+unsynced founder inventory and inventory that already has a linked Shopify product in
+`DRAFT` state. The linked-draft audit reuses the same operational and media gates as the
+publish path, makes zero Shopify network calls and performs zero publication actions.
+
+This is intentionally an audit surface rather than a bulk-activation control. Legacy
+Collectr imports with unknown language or unconfirmed identity remain blocked instead of
+being guessed into the storefront. The purpose is to turn the existing draft backlog into
+an explicit work queue before any product can be promoted to ACTIVE.
+
 ## Mobile preview QA polish — 29 September 2026
 
 The first real mobile preview recording pass confirmed the base customer path and surfaced
