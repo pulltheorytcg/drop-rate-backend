@@ -6,6 +6,7 @@ from app.shopify_pipeline import (
     ShopifyProcessingError,
     _build_media_intake_queue,
     _handle,
+    _is_pooled_offer_listing_key,
     _minor,
     _money,
     _parse_order_lines,
@@ -538,6 +539,42 @@ def test_paid_order_allocation_is_exact_and_fail_closed() -> None:
     assert "PRODUCT_MISMATCH" in source
 
 
+def test_pooled_offer_listing_key_is_explicit_and_fail_closed() -> None:
+    assert _is_pooled_offer_listing_key("offer:abc123") is True
+    assert _is_pooled_offer_listing_key("catalogue:inventory-id") is False
+    assert _is_pooled_offer_listing_key("") is False
+    assert _is_pooled_offer_listing_key(None) is False
+
+
+def test_pooled_withdrawal_decrements_only_one_shared_unit() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def withdraw_shopify_for_inventory(")
+    end = source.index("def _minor(", start)
+    withdrawal = source[start:end]
+    assert 'listing_key' in withdrawal
+    assert '_is_pooled_offer_listing_key(row["listing_key"])' in withdrawal
+    assert "adjust_inventory_quantity(" in withdrawal
+    assert "delta=-1" in withdrawal
+    assert "withdraw-pool-" in withdrawal
+    # Legacy one-off products keep the old exact withdrawal behavior.
+    assert "set_inventory_quantity(" in withdrawal
+    assert 'status="DRAFT"' in withdrawal
+
+
+def test_pooled_refund_removes_only_the_returned_unit_from_available_stock() -> None:
+    source = PIPELINE.read_text()
+    start = source.index("async def _process_refund(")
+    refund = source[start:]
+    assert "sil.id as inventory_link_id,sil.listing_key" in refund
+    assert '_is_pooled_offer_listing_key(allocation["listing_key"])' in refund
+    assert "refund-pool-remove-" in refund
+    assert "adjust_inventory_quantity(" in refund
+    assert "delta=-1" in refund
+    # Unique/exact-copy returns remain fail-closed at quantity zero.
+    assert "refund-zero-" in refund
+    assert "quantity=0" in refund
+
+
 def test_shopify_order_is_idempotent_at_order_and_line_allocation_layers() -> None:
     source = PIPELINE.read_text()
     sql = MIGRATION.read_text().casefold()
@@ -617,12 +654,15 @@ def test_shopify_client_has_only_explicit_mutation_primitives() -> None:
         "update_variant",
         "activate_inventory",
         "set_inventory_quantity",
+        "adjust_inventory_quantity",
         "set_product_status",
         "publish_product",
     ):
         assert f"async def {method}" in source
     assert "inventoryPolicy" in source
     assert '"DENY"' in source
+    assert "inventoryAdjustQuantities" in source
+    assert "@idempotent(key: $idempotencyKey)" in source
 
 
 def test_shopify_titles_always_show_structured_card_language() -> None:
