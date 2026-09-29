@@ -205,6 +205,53 @@ verified byte-for-byte against the unpublished theme.
 browser/mobile visual QA and one add-to-cart/checkout smoke test proving a selected sibling
 still resolves to the exact Inventory ID before the grouped PDP slice can be called complete.
 
+## 29 September 2026 — Shopify-native cart/checkout contract checkpoint
+
+The next storefront-first slice verifies and source-controls the existing Drop Rate cart
+behavior on Shopify's **unpublished** `Drop Rate — Brand Redesign` theme. No runtime theme
+mutation was required for this slice: the cart logic was already present in Shopify and has
+now been mirrored into GitHub exactly.
+
+### Exact physical-copy contract
+
+For products carrying `drop_rate.inventory_id`:
+- the cart reads the exact Shopify line-item product and variant rather than regrouping by
+  canonical card;
+- quantity controls are deliberately locked by setting `can_update_quantity=false`;
+- the cart displays the physical copy's card number, set, language, condition or grade;
+- removal remains available, but quantity inflation is not;
+- the same `cart-products` and `cart-summary` snippets are reused by the cart drawer.
+
+Checkout remains fully Shopify-native:
+- the cart posts to `{{ routes.cart_url }}`;
+- the checkout control is a normal submit button with `name="checkout"`;
+- Shopify accelerated checkout remains available through its native integration;
+- no owner, consignor, acquisition-cost, settlement or ledger fields are posted from Liquid;
+- ownership resolution continues only after Shopify order/webhook processing through the
+  existing exact variant/SKU → `shopify_inventory_links` path.
+
+### Source-control and verification state
+
+The following existing Shopify runtime files are now mirrored under `storefront/theme/**`:
+- `templates/cart.json`
+- `snippets/cart-products.liquid`
+- `snippets/cart-summary.liquid`
+- `snippets/cart-drawer.liquid`
+
+All four files were verified byte-for-byte against the unpublished Shopify theme. Contract
+tests now fail if tracked physical copies become quantity-adjustable, if the cart stops using
+the exact `item.variant`, or if checkout stops using Shopify's native cart form.
+
+A representative grouped product was re-verified in Shopify Admin with one exact variant,
+SKU `INV-0B53355B57CA49FEAB45548220B8AB89`, price £1.32 and inventory quantity 1.
+An anonymous storefront cart smoke was attempted from the execution environment, but that
+environment could not resolve the store hostname; this is an environment networking
+limitation, not a storefront failure signal.
+
+**Status: IN PROGRESS.** Remaining gate is browser-level cart/checkout smoke testing on the
+unpublished theme (including a sibling-copy selection and confirmation that the cart line
+shows the intended Inventory ID/SKU). No real order is required for that smoke test.
+
 ## Storefront architecture
 
 Initial approach:
