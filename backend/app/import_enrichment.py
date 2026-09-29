@@ -47,6 +47,8 @@ from .tcggraph_media import (
 
 router = APIRouter(prefix="/api/v1/imports", tags=["import-enrichment"])
 
+TCGGRAPH_IDENTITY_LANGUAGES = ("English", "Japanese")
+
 
 class ImportEnrichmentProcessRequest(BaseModel):
     limit: int = Field(default=25, ge=1, le=100)
@@ -137,6 +139,71 @@ def _unmarked_import_identity_evidence(
     }
 
 
+def _provider_exact_identity_evidence(
+    results: list[Mapping[str, Any]],
+) -> dict[str, Any] | None:
+    matches: list[tuple[str, Mapping[str, Any]]] = []
+    for row in results:
+        language = clean_language(row.get("language"))
+        result = row.get("result")
+        if not language or not isinstance(result, Mapping):
+            continue
+        if result.get("provider_status_code") is not None:
+            return None
+        if result.get("resolved") is True:
+            matches.append((language, result))
+
+    if len(matches) != 1:
+        return None
+
+    language, result = matches[0]
+    return {
+        "verification_method": "PROVIDER_EXACT",
+        "language": language,
+        "provider": "TCGGraph",
+        "provider_id": result.get("provider_id"),
+        "provider_name": result.get("provider_name"),
+        "provider_set": result.get("provider_set"),
+        "provider_card_number": result.get("collector_number"),
+        "provider_finish_key": result.get("finish_key"),
+        "provider_language": result.get("provider_language"),
+    }
+
+
+async def _resolve_provider_exact_identity(
+    row: Mapping[str, Any],
+    *,
+    settings,
+) -> dict[str, Any] | None:
+    if not settings.tcggraph_api_key:
+        return None
+
+    existing_language = clean_language(
+        row.get("language") or row.get("catalogue_language")
+    )
+    languages = (
+        (existing_language,)
+        if existing_language
+        else TCGGRAPH_IDENTITY_LANGUAGES
+    )
+
+    client = TcgGraphClient(api_key=settings.tcggraph_api_key)
+    semaphore = asyncio.Semaphore(min(len(languages), settings.tcggraph_max_concurrency))
+    looked_up: list[dict[str, Any]] = []
+    for language in languages:
+        probe = dict(row)
+        probe["language"] = language
+        probe["catalogue_language"] = language
+        resolved = await lookup_tcggraph_one(client, probe, semaphore)
+        looked_up.append(
+            {
+                "language": language,
+                "result": _json_dict(resolved.get("result")),
+            }
+        )
+    return _provider_exact_identity_evidence(looked_up)
+
+
 async def _confirm_identity(
     connection,
     *,
@@ -144,6 +211,7 @@ async def _confirm_identity(
     user_id: UUID,
     row: Mapping[str, Any],
     default_language: str | None,
+    provider_evidence: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     if row.get("identity_confirmed"):
         return dict(row), {"verification_method": "EXISTING"}
@@ -154,6 +222,8 @@ async def _confirm_identity(
             row,
             default_language=default_language,
         )
+    if evidence is None and provider_evidence is not None:
+        evidence = dict(provider_evidence)
     if evidence is None:
         return None, None
 
@@ -213,7 +283,11 @@ async def _confirm_identity(
             + (
                 "an explicit source language marker."
                 if evidence["verification_method"] == "IMPORT_EXACT"
-                else "the admin-selected default language for unmarked rows."
+                else (
+                    "the admin-selected default language for unmarked rows."
+                    if evidence["verification_method"] == "IMPORT_DEFAULT_LANGUAGE"
+                    else "one unique exact TCGGraph provider match across supported languages."
+                )
             )
         ),
     )
@@ -472,6 +546,27 @@ async def _process_one(
     settings = get_settings()
     action_codes: list[str] = []
     metadata: dict[str, Any] = {}
+    provider_identity_evidence: dict[str, Any] | None = None
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user_id,
+        request.state.request_id,
+    ) as connection:
+        probe_row = await _refresh_item_row(connection, inventory_id, owner_id)
+
+    if probe_row is None:
+        raise HTTPException(status_code=404, detail="Imported inventory item no longer exists")
+    if not probe_row["identity_confirmed"]:
+        existing_evidence = import_exact_evidence(probe_row) or _unmarked_import_identity_evidence(
+            probe_row,
+            default_language=default_language,
+        )
+        if existing_evidence is None:
+            provider_identity_evidence = await _resolve_provider_exact_identity(
+                probe_row,
+                settings=settings,
+            )
 
     async with user_connection(
         request.app.state.db_pool,
@@ -488,6 +583,7 @@ async def _process_one(
             user_id=user_id,
             row=row,
             default_language=default_language,
+            provider_evidence=provider_identity_evidence,
         )
         if identity_row is None:
             identity_status = "ACTION_REQUIRED"
@@ -530,6 +626,8 @@ async def _process_one(
                 actor_user_id=user_id,
             )
             metadata["identity_evidence"] = identity_evidence or {}
+            if (identity_evidence or {}).get("verification_method") == "PROVIDER_EXACT":
+                metadata["identity_provider"] = "TCGGraph"
 
         current = dict(row)
         benchmark = extract_imported_benchmark(current.get("source_record"))

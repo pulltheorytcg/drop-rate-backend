@@ -124,6 +124,27 @@ Important safety rule:
 
 The existing TCGdex/Punk Records media matches are imported only as REVIEW evidence. Human image approval does not silently convert them into fully verified canonical identity.
 
+## Provider-exact import language evidence
+
+Imported physical cards may arrive without an explicit language marker. Drop Rate must not
+solve that by assigning one blanket language to an import batch.
+
+When TCGGraph is configured, import enrichment may probe the supported candidate languages
+for the existing canonical printing. Automatic identity confirmation is allowed only when:
+
+- the original import still exactly matches the canonical name, set, collector number and
+  variant/finish;
+- exactly one candidate language produces a deterministic exact TCGGraph match;
+- the provider request itself completed successfully for every language probed;
+- the inventory version has not changed before the write.
+
+The resulting identity event uses `verification_method=PROVIDER_EXACT` and stores the
+provider ID/language evidence. Zero matches, more than one language match, a provider/API
+error, or a concurrent inventory edit fails closed and leaves the item in Identity Review.
+
+This is identity evidence only. It does not auto-approve media, condition, grading, Shopify
+publication or any ownership/price mutation.
+
 ## AI recognition contract
 
 The future recogniser must identify into this model rather than returning only a card name.
