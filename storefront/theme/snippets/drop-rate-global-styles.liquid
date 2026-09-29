@@ -26,18 +26,63 @@ Global refinements for the Drop Rate storefront.
   }
 
   .product-grid .product-card {
-    background: #fffdf8;
-    border-color: #d7d5cd;
-    border-radius: 14px;
-    box-shadow: 0 8px 24px rgb(16 38 58 / 6%);
-    transition: transform 160ms ease, box-shadow 160ms ease;
+    background: #ffffff;
+    border-color: #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgb(7 27 63 / 6%);
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
   }
 
   @media (hover: hover) {
     .product-grid .product-card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 12px 30px rgb(16 38 58 / 10%);
+      border-color: #bdd5f6;
+      box-shadow: 0 14px 34px rgb(7 27 63 / 11%);
     }
+  }
+
+  .dr-card-copy {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .dr-card-copy__game {
+    color: #1f7bf2;
+    font-size: 0.62rem;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .dr-card-copy__title {
+    color: #13223b;
+    text-decoration: none;
+  }
+
+  .dr-card-copy__title h3 {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: #13223b;
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.22;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .dr-card-copy p {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: #6d7b91;
+    font-size: 0.69rem;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .dr-pdp-summary {
@@ -182,10 +227,10 @@ Global refinements for the Drop Rate storefront.
   div.facets-block-wrapper--vertical {
     align-self: start;
     padding: 12px;
-    background: #fffdf8;
-    border: 1px solid #d7d5cd;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 14px;
-    box-shadow: 0 8px 24px rgb(16 38 58 / 5%);
+    box-shadow: 0 8px 24px rgb(7 27 63 / 5%);
   }
 
   .facets--filters-title,
@@ -195,31 +240,32 @@ Global refinements for the Drop Rate storefront.
 
   .facets--horizontal.facets-controls-wrapper {
     padding-block: 10px;
-    border-bottom: 1px solid #d7d5cd;
+    border-bottom: 1px solid #e2e8f0;
   }
 
   .facets-toggle {
-    background: #fffdf8;
-    border-block: 1px solid #d7d5cd;
+    background: #ffffff;
+    border-block: 1px solid #e2e8f0;
   }
 
   .facets-toggle__button {
     min-height: 40px;
     padding-inline: 14px;
-    border: 1px solid #10263a;
+    border: 1px solid #cbd5e1;
     border-radius: 999px;
-    color: #10263a;
+    color: #071b3f;
+    background: #ffffff;
     font-weight: 700;
   }
 
   theme-drawer#filters-drawer .theme-drawer__dialog {
-    background: #fffdf8;
-    color: #10263a;
+    background: #ffffff;
+    color: #13223b;
   }
 
   theme-drawer#filters-drawer .facets__drawer-actions {
-    background: #fffdf8;
-    border-top: 1px solid #d7d5cd;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
   }
 
   @media screen and (max-width: 749px) {
