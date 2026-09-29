@@ -15,6 +15,21 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — Shopify-native customer accounts v1
+
+**Customer account + order-history surface: COMPLETE IN CONFIG / SOURCE-CONTROLLED IN THEME —**
+the store is using Shopify **NEW_CUSTOMER_ACCOUNTS** with accounts OPTIONAL, storefront
+login links visible and checkout login not required. Customers can therefore complete
+guest checkout and later use Shopify's hosted customer-account area for account/order
+history without Drop Rate creating a second customer-auth system. The unpublished Brand
+Redesign header uses Shopify's native `<shopify-account>` component; that exact snippet is
+now mirrored under `storefront/theme/**` with contract tests that forbid links into
+`/owner`, Founder HQ access APIs, Supabase browser auth or owner/consignor identities.
+No customer data, order data, inventory ownership, pricing, ledger or settlement logic was
+moved into the theme. Remaining storefront gates are browser-level visual/smoke QA and
+publication of the approved unpublished theme.**
+
+
 ## 29 September 2026 — storefront search v1 slice
 
 **Customer storefront / simple search: IN PROGRESS —** Shopify-native product search is now
