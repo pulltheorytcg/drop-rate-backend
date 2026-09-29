@@ -83,102 +83,108 @@
 </form>
 
 {% stylesheet %}
-  .search-page-input {
-    width: 100%;
-    color: var(--color-input-text);
-    background-color: var(--color-input-background);
-    padding-block: var(--padding-lg);
-    padding-inline: calc(var(--icon-size-lg) + var(--margin-xl) * 1.5);
-    text-overflow: ellipsis;
-    overflow: hidden;
-    border-radius: var(--style-border-radius-inputs);
-    border: var(--style-border-width-inputs) solid var(--color-input-border);
-
-    @media screen and (max-width: 749px) {
-      padding-inline: calc(var(--margin-xs) + var(--icon-size-lg) + var(--padding-md));
-    }
-  }
-
-  .search-page-input::placeholder {
-    color: rgb(var(--color-input-text-rgb) / var(--opacity-subdued-text));
-  }
-
   .search-page-input__parent {
     display: flex;
     flex-direction: column;
     align-items: var(--horizontal-alignment);
   }
 
-  .search-results__no-results {
-    opacity: var(--opacity-subdued-text);
+  search-page-input-component {
+    position: relative;
+    top: 0;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: var(--size-style-width);
+    margin: var(--margin-2xl) 0 var(--margin-md);
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(7,27,63,.055);
+  }
+
+  .search-page-input {
+    width: 100%;
+    min-height: 56px;
+    padding-block: 14px;
+    padding-inline: calc(var(--icon-size-lg) + var(--margin-xl) * 1.5);
+    overflow: hidden;
+    border: 1px solid #dce4ed;
+    border-radius: 14px;
+    background: #ffffff;
+    color: #13223b;
+    font-size: .95rem;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+
+  .search-page-input:focus {
+    outline: none;
+    border-color: #8bb9f8;
+    box-shadow: 0 0 0 4px rgba(31,123,242,.09);
+  }
+
+  .search-page-input::placeholder {
+    color: #8492a8;
   }
 
   .dr-search-help {
-    width: min(100%, 46rem);
+    width: min(100%,46rem);
     margin: 0;
-    color: rgb(var(--color-foreground-rgb) / .62);
-    font-size: .78rem;
+    color: #6d7b91;
+    font-size: .76rem;
+    font-weight: 600;
     line-height: 1.45;
   }
 
-  search-page-input-component {
-    position: relative;
-    width: 100%;
-    display: flex;
-    top: 0;
-    max-width: var(--size-style-width);
-    align-items: center;
-    background-color: var(--color-background);
-    margin: var(--margin-2xl) 0 var(--margin-md);
-
-    @media screen and (max-width: 749px) {
-      max-width: 100%;
-    }
+  .search-results__no-results {
+    width: min(100%,46rem);
+    margin-top: 16px;
+    padding: 12px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #59677d;
+    font-size: .8rem;
   }
 
   search-page-input-component .search__icon,
   search-page-input-component .search__icon:hover,
   search-page-input-component .search__reset-button,
   search-page-input-component .search__reset-button:hover {
-    background: transparent;
     position: absolute;
     top: auto;
     width: var(--icon-size-lg);
     height: var(--icon-size-lg);
-  }
-
-  search-page-input-component .search__icon svg,
-  search-page-input-component .search__reset-button svg {
-    width: var(--icon-size-md);
-    height: var(--icon-size-md);
-  }
-
-  search-page-input-component .search__icon svg {
-    color: var(--color-input-text);
+    background: transparent;
   }
 
   search-page-input-component .search__icon {
     inset-inline-start: var(--margin-lg);
+    color: #1f7bf2;
+  }
 
-    @media screen and (max-width: 749px) {
-      inset-inline-start: var(--margin-md);
-    }
+  search-page-input-component .search__icon svg {
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
+    color: #1f7bf2;
   }
 
   search-page-input-component .search__reset-button {
-    border-radius: 100%;
-    color: var(--color-input-text);
     inset-inline-end: var(--margin-lg);
+    border-radius: 100%;
+    color: #6d7b91;
     cursor: pointer;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
     transition: opacity var(--animation-speed) var(--animation-easing),
       visibility var(--animation-speed) var(--animation-easing);
+  }
 
-    @media screen and (max-width: 749px) {
-      inset-inline-end: var(--margin-md);
-    }
+  search-page-input-component .search__reset-button svg {
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
   }
 
   search-page-input-component:has(.search-page-input:not(:placeholder-shown)) .search__reset-button {
@@ -188,34 +194,40 @@
   }
 
   search-page-input-component .search__reset-button-icon {
-    vertical-align: middle;
     display: flex;
     align-items: center;
     justify-content: center;
     width: var(--icon-size-lg);
     height: var(--icon-size-lg);
+    vertical-align: middle;
     transition: transform var(--animation-speed) var(--animation-easing);
   }
 
   search-page-input-component .search__reset-button:active .search__reset-button-icon {
-    transform: scale(0.9);
-  }
-
-  search-page-input-component .search__reset-button-icon svg {
-    width: var(--icon-size-md);
-    height: var(--icon-size-md);
+    transform: scale(.9);
   }
 
   search-page-input-component .search__reset-button--hidden {
     cursor: default;
     opacity: 0;
-    transition: opacity var(--animation-speed) var(--animation-easing);
-    pointer-events: none;
     visibility: hidden;
+    pointer-events: none;
+    transition: opacity var(--animation-speed) var(--animation-easing);
   }
 
   search-page-input-component .search__reset-button-text {
     display: none;
+  }
+
+  @media screen and (max-width:749px) {
+    search-page-input-component { max-width: 100%; }
+    .search-page-input {
+      min-height: 52px;
+      padding-inline: calc(var(--margin-xs) + var(--icon-size-lg) + var(--padding-md));
+      font-size: .9rem;
+    }
+    search-page-input-component .search__icon { inset-inline-start: var(--margin-md); }
+    search-page-input-component .search__reset-button { inset-inline-end: var(--margin-md); }
   }
 {% endstylesheet %}
 
