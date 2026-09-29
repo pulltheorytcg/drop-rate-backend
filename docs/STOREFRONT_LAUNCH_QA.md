@@ -30,6 +30,18 @@ The only `sealed` collection had zero products, and no game-specific sealed coll
 existed. The runtime-only Sealed links and locale key were therefore reverted to the
 already-tested GitHub versions. No product or live-theme data was changed.
 
+## Active global theme settings and footer
+
+Brand Redesign's Shopify-managed `config/settings_data.json`, `header-group.json` and
+`footer-group.json` are now source-controlled as part of the storefront overlay. Only
+active colour values are changed: the current palette uses navy/ink/blue/cool-grey/white,
+the announcement bar uses current navy, and footer/email surfaces use cool grey/white with
+the current border/text colours.
+
+The uploaded `drop-rate-brand-logo.png`, logo sizing, `main-menu`, announcement copy,
+footer copy, social/policy blocks, section IDs and layout settings are preserved. Preset
+definitions are not used as a backdoor to alter the live Horizon theme.
+
 ## Active global brand layer
 
 The unpublished theme's `layout/theme.liquid` renders both
