@@ -78,6 +78,15 @@ withdrawal semantics and the rule that returning to `FOR_SALE` never silently re
 a listing. No schema or runtime behavior changed. Production snapshot on 29 September
 2026: 509/509 inventory items are `FOR_SALE`; 0 are `PERSONAL_COLLECTION`.**
 
+## 29 September 2026 — reconciliation migration history alignment
+
+**Migration history alignment: COMPLETE IN REPO / NO SCHEMA CHANGE —** Supabase production
+records the already-applied RLS-safe reconciliation migration as
+`20260929021203_shopify_reconciliation_rls_read`. The live function definition matches
+the merged migration SQL. The repository filename has therefore been renamed from
+`20260929022000_...` to `20260929021203_...` so version-controlled history matches
+production without deleting, rewriting or re-applying any Supabase migration row.
+
 ## 29 September 2026 — Shopify order reconciliation hardening
 
 **Shopify ↔ Drop Rate order reconciliation: IN PROGRESS — production scheduling is healthy,
