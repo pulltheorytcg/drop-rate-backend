@@ -19,4 +19,7 @@ def test_shopify_raw_pool_audit_writer_is_security_definer_and_admin_gated() -> 
     assert "insert into tcg.audit_events" in sql
     assert "revoke all on function tcg.record_shopify_raw_pool_audit" in sql
     assert "grant execute on function tcg.record_shopify_raw_pool_audit" in sql
+    assert "record_shopify_link_published_audit" in sql
+    assert "revoke all on function tcg.record_shopify_link_published_audit" in sql
+    assert "grant execute on function tcg.record_shopify_link_published_audit" in sql
     assert "to tcg_api" in sql
