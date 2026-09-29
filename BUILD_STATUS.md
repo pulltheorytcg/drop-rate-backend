@@ -113,22 +113,18 @@ production without deleting, rewriting or re-applying any Supabase migration row
 
 ## 29 September 2026 — Shopify order reconciliation hardening
 
-**Shopify ↔ Drop Rate order reconciliation: IN PROGRESS — production scheduling is healthy,
-but the first successful combined run exposed an RLS-context false positive that is now
-being fixed.** The 30-minute operations monitor completed successfully after its Railway
-credential correction: payout heartbeat was healthy and Shopify reconciliation exited
-cleanly. The run correctly continued to surface the known cancelled #1001 webhook gap,
-but incorrectly flagged paid/refunded test order #1002 as missing even though
-`tcg.orders.source_reference='8488435581275'` exists.
-
-Root cause: the cron worker connects as restricted `tcg_api` with no authenticated
-owner/platform-admin session, so its direct `tcg.orders` SELECT was filtered to zero rows
-by owner-scoped RLS. The fix keeps RLS unchanged and introduces a narrowly scoped,
-read-only `SECURITY DEFINER` function that returns only the five fields required for
-reconciliation. A regression test requires the worker to use that function. No order,
-inventory, ownership, ledger, settlement or payout data is repaired or rewritten.
-Completion remains blocked until the migration is deployed and a production monitor run
-shows #1002 matched while #1001 remains the expected webhook-gap anomaly.**
+**Shopify ↔ Drop Rate order reconciliation: COMPLETE —** the corrected 30-minute
+production operations monitor completed successfully at **2026-09-29 02:30 UTC**. The
+heartbeat step remained healthy and reconciliation reported `remote_count=2`,
+`local_count=1`, `matched_count=1`, `remote_only_count=1`,
+`remote_anomaly_count=1`, `local_only_count=0`, `resolved_alerts=2`; both monitor
+steps exited 0. This proves the RLS-safe order-read function now sees Shopify test order
+#1002 / `8488435581275` correctly while preserving the known cancelled #1001 /
+`8488414282075` webhook-gap proof case. Supabase verification shows the two false
+CRITICAL #1002 alerts are RESOLVED and the two expected HIGH #1001 founder alerts remain
+OPEN. No order, inventory, ownership, ledger, settlement or payout record was reconstructed
+or rewritten. The migration history is aligned in repo as
+`20260929021203_shopify_reconciliation_rls_read`.**
 
 ## 29 September 2026 — verified 24-hour build delta
 
