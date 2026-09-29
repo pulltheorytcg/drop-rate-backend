@@ -30,6 +30,37 @@ The only `sealed` collection had zero products, and no game-specific sealed coll
 existed. The runtime-only Sealed links and locale key were therefore reverted to the
 already-tested GitHub versions. No product or live-theme data was changed.
 
+## Final machine-verifiable checkpoint — 29 September 2026
+
+The unpublished Brand Redesign theme has completed every launch check that can be verified
+through the connected Shopify/GitHub interfaces without rendering the password-protected
+storefront.
+
+Verified:
+- the active source-controlled storefront surface is **22 files** across settings,
+  header/footer groups, global brand/component styles, homepage sections, browse, PDP,
+  cart, search, account chrome and templates/locales;
+- the latest settings/header/footer deployment passed a pre-write checksum guard, then a
+  post-write byte-for-byte GitHub↔Shopify read-back;
+- all earlier source-controlled files were already independently parity-verified;
+- Brand Redesign is still **UNPUBLISHED** and Horizon is still **MAIN**;
+- New Customer Accounts are enabled with visible login links, optional sign-in and guest
+  checkout preserved;
+- homepage configured products/collections resolve and are populated;
+- Sealed remains empty and therefore hidden by the existing count gate.
+
+Remaining external gates:
+1. Install Shopify's free **Search & Discovery** app and configure native collection/search
+   filters for the prepared product metafields (at minimum Set, Condition, Language and
+   price/availability as appropriate).
+2. Run one authenticated desktop and one mobile preview smoke through homepage, browse,
+   filter/sort shell, PDP/grouped copies, exact-copy cart, native checkout entry, search,
+   no-results, customer sign-in and order-history handoff.
+
+The automated browser in this environment cannot reach the password-protected
+`myshopify.com` preview URL because of platform network policy, so the second gate must
+not be marked passed from static/API evidence alone.
+
 ## Active global theme settings and footer
 
 Brand Redesign's Shopify-managed `config/settings_data.json`, `header-group.json` and
