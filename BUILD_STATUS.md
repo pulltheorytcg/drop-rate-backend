@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — TCGGraph exact-listing storefront media policy
+
+**SOURCE-CONTROL PR IN PROGRESS / NO PRODUCTION MEDIA PROMOTION YET —** current TCGGraph terms were re-verified after their 28 September 2026 update. They expressly permit API-returned card data/images to be displayed inside paid products and cached, while leaving underlying publisher artwork rights with the publishers. Drop Rate's TCGGraph adapter is being narrowed to the same product-sale-only use boundary already used by the storefront media system: exact TCGGraph images may be eligible for the Shopify listing advertising the sale of that exact physical card under the project's UK CDPA 1988 s63 basis, but not for social media, generic SEO artwork, merchandise, AI training or unrelated marketing.
+
+The change does **not** auto-approve media, relax exact-print matching or bypass physical-photo policy. TCGGraph assets remain `PENDING`; exact game/line/language/name/collector-number/finish matching remains fail-closed; graded, high-value, condition-sensitive and sealed inventory still require first-party physical evidence where the existing policy says so. Only human-approved, rights-verified, source-active exact matches may advance to Shopify Files. This is intended to unblock the 35 currently unsynced Dragon Ball Super / Fusion World raw cards without weakening publication controls.
+
 ## 2026-09-29 — Linked-draft drain throughput hardening
 
 - Production publication canary passed end-to-end: Shopify ACTIVE, Supabase link PUBLISHED, matching SKU/price/stock/media and a deterministic DRAFT→PUBLISHED audit event.
