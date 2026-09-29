@@ -15,6 +15,33 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — pooled Shopify offer foundation
+
+**SOURCE-CONTROL PR IN PROGRESS / NO PRODUCTION MUTATION —** Storefront inventory
+architecture is being changed from one Shopify product per physical raw card to pooled
+Shopify quantity for genuinely interchangeable raw inventory. Pool equivalence reuses the
+existing deterministic marketplace listing fingerprint: same canonical card, language and
+condition may pool; graded/copy-specific inventory remains unique. Every physical Inventory
+ID, owner, acquisition cost and allocation record remains in Supabase.
+
+The feature branch adds a read-only consolidation planner plus pool-aware Shopify inventory
+lifecycle handling. Shared pooled links use an explicit `offer:<fingerprint>` listing key and
+an idempotent Shopify inventory delta when one member is withdrawn or returned, preventing
+the legacy exact-copy `quantity=0` behavior from zeroing an entire shared pool. Legacy
+one-copy listings retain their existing behavior.
+
+Production read-only baseline: **457 raw linked units**, **34 duplicate raw offer groups**
+covering **75 physical cards**, **22 groups immediately poolable**, **27 duplicate Shopify
+products removable after verified consolidation**, **12 duplicate groups blocked solely by
+missing language**, and **7 graded linked units remaining unique**. No consolidation has
+been applied yet. The legacy linked-draft reconciliation worker must remain
+`APPLY=false` until pooled-offer conversion is ready.
+
+Customer-facing storefront work is to continue on the unpublished
+**Drop Rate — Brand Redesign** theme. Its existing buy-button logic already hides quantity
+for stock <=1 and exposes native Shopify quantity for stock >1, so no Shopify Plus feature
+is required for pooled raw inventory.
+
 ## 29 September 2026 — controlled Shopify linked-draft launch reconciliation
 
 **SOURCE-CONTROL PR IN PROGRESS / DISABLED BY DEFAULT —** A one-off, resumable
