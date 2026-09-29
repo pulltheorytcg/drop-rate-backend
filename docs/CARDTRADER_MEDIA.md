@@ -88,3 +88,20 @@ The production CardTrader account currently returns `GET /games` as an object wr
 `{"array": [...]}`
 
 rather than the bare list shown in the public reference. `GET /expansions` still returns the documented bare list. Marketplace products are documented as an object keyed by Blueprint ID. The client normalizes these shapes explicitly and fails closed for unknown wrappers or missing Blueprint keys.
+
+
+## Dragon Ball naming/printing normalization
+
+Production CardTrader data exposed two provider-specific representation differences that are
+handled deterministically:
+
+- Drop Rate catalogue `and` and CardTrader `&` are treated as equivalent in expansion names.
+- Collectr-style promo suffixes such as `- FP-045 (Tournament Pack 07)` are removed from the
+  local comparison name, while collector number remains a mandatory hard identity gate.
+- If a local set is explicitly a pre-release printing and CardTrader has no separate pre-release
+  expansion, the resolver may fall back to the base expansion only when the Blueprint's own
+  version text explicitly proves `Pre-Release`.
+- Base-set inventory rejects Blueprints whose version is marked pre-release.
+
+These rules do not relax collector-number, language, game-line, exact Blueprint uniqueness or
+trusted image-host checks.
