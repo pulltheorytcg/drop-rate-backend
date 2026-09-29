@@ -15,6 +15,18 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — storefront exact-copy cart slice
+
+**Shopify-native cart / checkout presentation: IN PROGRESS —** the unpublished Brand
+Redesign cart now recognises Drop Rate physical products by their `inventory_id`
+metafield, shows concise card/set/condition/language details and locks the customer-facing
+quantity control to one physical copy while preserving Shopify's existing cart form,
+remove action and native checkout. Representative live variants are also verified with
+Shopify `inventoryPolicy=DENY` and quantity 1, so the storefront presentation matches the
+platform stock invariant. No price, stock quantity, ownership, order, ledger, settlement
+or live-theme publication changed. Remaining gates: CI, visual QA and cart→checkout smoke
+test.**
+
 ## 29 September 2026 — storefront grouped-copy PDP slice
 
 **Customer storefront / PDP grouped copies: IN PROGRESS —** exact physical copies are now
