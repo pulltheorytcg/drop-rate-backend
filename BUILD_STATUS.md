@@ -15,6 +15,21 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — storefront set-facet canonicalization
+
+**Storefront facet data hygiene: IN PROGRESS —** Shopify collection filtering is already
+enabled in the unpublished Brand Redesign template, and all 95 ACTIVE products carry the
+core `drop_rate` metafields needed for customer filters. QA found one duplicate-looking
+Set value: `Carrying on His Will` versus the canonical `Carrying On His Will`.
+The historical one-off migration for this label had already run before a later Collectr
+import recreated the provider casing. The import boundary is therefore being hardened with
+a narrow known-alias canonicalization rule rather than generic title-casing. Unknown set
+labels remain unchanged. This work changes display metadata only; it does not change
+catalogue IDs, card numbers, variants, languages, ownership, prices, inventory quantities
+or publication state. Completion requires CI, production deployment, a one-row source-of-
+truth backfill, Shopify metafield resync and verification that the live Set facet value is
+no longer duplicated.**
+
 ## 29 September 2026 — sealed Shopify product contract
 
 **Sealed Shopify representation: IN PROGRESS / SHIPPING CONFIG REQUIRED —** the deterministic
