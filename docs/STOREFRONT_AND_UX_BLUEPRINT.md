@@ -290,6 +290,41 @@ real order/account data was accessed during verification.
 **Status: IMPLEMENTED / QA PENDING.** The base account/order-history architecture is
 complete for v1; visual/browser QA remains part of the unpublished-theme launch review.
 
+## 29 September 2026 — launch QA evidence
+
+A live-data launch QA pass was run against Shopify Admin and Supabase after the browse,
+grouped-PDP, cart, search and account slices were merged.
+
+### Verified customer catalogue invariants
+- 95 ACTIVE products = 95 Online Store published/visible products.
+- Every visible physical card has exactly one Shopify variant.
+- Variant SKU equals the Drop Rate Inventory ID.
+- Inventory quantity is exactly 1 and overselling is denied.
+- All visible products are available for sale at the time of the check.
+- Supabase has exactly 95 matching `PUBLISHED` inventory links; all are FOR_SALE,
+  APPROVED, unsold, unreserved and positively priced.
+- No invalid published inventory rows were found.
+
+### Verified browse/search invariants
+- Every route displayed by the current browse navigation has at least one active/visible
+  product; intentionally unsupported Sealed routes remain hidden because sealed Shopify
+  classification is not yet deterministic.
+- Exact active/visible counts include Trading Cards 95, Singles 93, One Piece 87,
+  Pokémon 8 and Graded 2.
+- Shopify-native search successfully resolves known cards by name and collector number,
+  including `Benevolent King of the Waves`, `OP16-071` and Pokémon `020/108`.
+- A guaranteed no-result query returns zero products.
+- Search runtime files match the GitHub storefront overlay exactly.
+
+### Verified grouped-copy invariants
+- 14 live products participate in 7 canonical grouped-copy sets.
+- Every `copy_handles` entry resolves to another currently live Shopify product.
+- Every sibling carries the same canonical `catalogue_id`.
+- Every group includes the current physical product itself.
+
+This evidence is structural/live-data QA, not browser visual QA. The unpublished Brand
+Redesign theme remains the only storefront work target until explicit publication review.
+
 ## Storefront architecture
 
 Initial approach:
