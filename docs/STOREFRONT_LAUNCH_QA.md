@@ -46,6 +46,21 @@ The source-controlled theme now uses the Seller Hub visual language for this sli
 This is an unpublished-theme change only. It does not change product data, ownership,
 pricing, inventory quantity or publication state.
 
+## PDP and grouped-copy visual alignment
+
+The source-controlled PDP presentation now uses the same Drop Rate product UI language as
+Seller Hub and the collection browse surface:
+
+- navy/ink typography with blue/cyan accents;
+- white/cool-grey fact and grouped-copy surfaces instead of the older cream treatment;
+- a clearer selected-copy state for grouped physical copies;
+- a blue primary add-to-cart action consistent with the current brand system;
+- compact mobile facts/copy selection without changing exact-copy identity.
+
+The existing grouped-copy contract is unchanged: copy choices still resolve through exact
+Shopify handles derived from canonical catalogue grouping, and the native Shopify buy/
+checkout blocks remain in place.
+
 ## Product publication and exact physical-copy contract
 
 Connected Shopify counts:
