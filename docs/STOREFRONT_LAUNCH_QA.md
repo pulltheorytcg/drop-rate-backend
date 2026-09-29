@@ -89,6 +89,16 @@ exposed.
 The source-controlled collection route and Shopify runtime file are byte-for-byte equal
 after the QA correction.
 
+### Facet data hygiene
+
+The collection template already has Shopify-native filtering enabled. Before exposing
+metafield facets broadly, live product metadata was checked for duplicate display values.
+One OP-13 set label had been reintroduced by a later import as `Carrying on His Will`
+even though the canonical catalogue label is `Carrying On His Will`. Import
+normalisation now maps that known alias at the intake boundary while preserving unknown
+set names verbatim. This prevents future Collectr/import batches from recreating the
+duplicate-looking Set facet without applying unsafe generic title-casing rules.
+
 ## Search v1
 
 Search remains Shopify-native and product-only.
