@@ -137,3 +137,27 @@ Coverage includes:
 - source-status/revocation controls,
 - migration layout and source-governance fields,
 - existing full project suite.
+
+
+## Sealed product physical capture
+
+Sealed/collection inventory uses the same founder media intake surface as cards, but follows
+a different deterministic policy.
+
+For `product_type in ('SEALED','COLLECTION')`:
+
+- the media intake queue includes DRAFT/INSPECTION/APPROVED `FOR_SALE` inventory;
+- exact physical packaging photography is required;
+- only the **FRONT** side is required by default;
+- the capture context is fixed to `SEALED_PRODUCT`;
+- physical media must be `INVENTORY_ITEM` scope with `FIRST_PARTY_CAPTURE` rights;
+- raw-card condition review is not reused for sealed products;
+- the Shopify publication gate still independently requires identity confirmation,
+  seal status, price, registered location and approved/ready storefront media.
+
+The queue is only a work-list. Appearing in it does not approve identity, change inventory
+status, publish a Shopify product or bypass rights checks.
+
+A previous route-level SQL filter admitted only `CARD` products even though the media
+resolver and upload endpoint already supported sealed inventory. That filter is now aligned
+with the existing resolver contract by allowing `CARD`, `SEALED` and `COLLECTION`.
