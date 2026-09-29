@@ -260,8 +260,8 @@ async def _prepare_core(
             raise ReconciliationBlocked("NOT_FOR_SALE", "Inventory is not marked FOR_SALE")
         if str(item.get("status") or "") not in {"DRAFT", "INSPECTION", "APPROVED"}:
             raise ReconciliationBlocked("INVENTORY_STATUS", "Inventory is not launchable")
-        if str(item.get("sync_state") or "") not in {"DRAFT", "PUBLISHED"}:
-            raise ReconciliationBlocked("LINK_STATE", "Shopify link is not draft/published")
+        if str(item.get("sync_state") or "") != "DRAFT":
+            raise ReconciliationBlocked("LINK_STATE", "Shopify link is not in DRAFT state")
         if item.get("has_listing_membership"):
             raise ReconciliationBlocked("POOLED_INVENTORY", "Inventory belongs to a pooled listing")
         if item.get("has_active_reservation"):
@@ -583,8 +583,6 @@ async def run_linked_draft_reconciliation(
 
     if not settings.shopify_catalogue_bootstrap_actor_user_id:
         raise RuntimeError("Linked-draft reconciliation actor user ID is required")
-    if not settings.shopify_linked_draft_reconciliation_batch_id:
-        raise RuntimeError("Linked-draft reconciliation import batch ID is required")
     if not all(
         (
             settings.shopify_shop_domain,
@@ -596,7 +594,6 @@ async def run_linked_draft_reconciliation(
         raise RuntimeError("Linked-draft reconciliation Shopify configuration is incomplete")
 
     actor_user_id = UUID(settings.shopify_catalogue_bootstrap_actor_user_id)
-    batch_id = UUID(settings.shopify_linked_draft_reconciliation_batch_id)
     language_map = parse_language_map(settings.shopify_linked_draft_language_map_json)
 
     client = ShopifyAdminClient(
@@ -616,16 +613,14 @@ async def run_linked_draft_reconciliation(
             select i.id
             from tcg.inventory_items i
             join tcg.shopify_inventory_links sil on sil.inventory_id=i.id
-            where i.import_batch_id=$1
-              and sil.shop_domain=$2
+            where sil.shop_domain=$1
               and sil.test_mode=false
-              and sil.sync_state in ('DRAFT','PUBLISHED')
+              and sil.sync_state='DRAFT'
               and i.sale_intent='FOR_SALE'
               and i.status in ('DRAFT','INSPECTION','APPROVED')
             order by i.created_at,i.id
-            limit $3
+            limit $2
             """,
-            batch_id,
             str(settings.shopify_shop_domain),
             settings.shopify_linked_draft_reconciliation_limit,
         )
@@ -656,7 +651,7 @@ async def run_linked_draft_reconciliation(
     summary = {
         "status": "COMPLETE",
         "mode": "APPLY" if settings.shopify_linked_draft_reconciliation_apply else "DRY_RUN",
-        "batch_id": str(batch_id),
+        "scope": "ALL_NON_TEST_DRAFT_LINKS",
         "considered": len(results),
         "totals": totals,
         "blockers": blockers,
