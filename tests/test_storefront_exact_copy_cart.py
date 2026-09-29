@@ -29,7 +29,7 @@ def test_drop_rate_cart_keeps_remove_control_and_native_cart_form() -> None:
     source = (THEME / "snippets" / "cart-products.liquid").read_text()
 
     assert 'action="{{ routes.cart_url }}"' in source
-    assert "on:click="/onLineItemRemove/" in source
+    assert 'on:click="/onLineItemRemove/' in source
     assert "render 'quantity-selector'" in source
     assert "updates[]" not in source  # quantity field remains encapsulated in Shopify snippet
 
