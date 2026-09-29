@@ -1,0 +1,106 @@
+{% liquid
+  assign h = collection.handle
+  assign game = 'all'
+  assign is_one_piece_set = false
+  assign is_pokemon_set = false
+
+  assign pokemon_sets = 'battle-partners|crimson-haze|future-flash|ruler-of-the-black-flame|shiny-treasure-ex|terastal-festival-ex' | split: '|'
+  assign one_piece_sets = 'egghead-crisis|the-time-of-battle|the-azure-seas-seven|prb02-one-piece-card-the-best-vol-2|adventure-on-kamis-island|carrying-on-his-will|awakening-of-the-new-era|one-piece-promotion-cards-jp|paramount-war|prb01-one-piece-card-the-best' | split: '|'
+
+  if h == 'pokemon' or h == 'pokemon-singles' or h == 'pokemon-graded-cards'
+    assign game = 'pokemon'
+  elsif h == 'one-piece' or h == 'one-piece-singles'
+    assign game = 'one-piece'
+  endif
+
+  if pokemon_sets contains h
+    assign game = 'pokemon'
+    assign is_pokemon_set = true
+  elsif one_piece_sets contains h
+    assign game = 'one-piece'
+    assign is_one_piece_set = true
+  endif
+
+  assign all_cards = collections['trading-cards']
+  assign pokemon = collections['pokemon']
+  assign one_piece = collections['one-piece']
+  assign all_singles = collections['singles']
+  assign all_graded = collections['graded-cards']
+%}
+
+<nav class="dr-browse-nav" aria-label="Browse trading cards">
+  <div class="dr-browse-nav__inner">
+    <div class="dr-browse-nav__primary" aria-label="Browse by game">
+      {% if all_cards != blank and all_cards.all_products_count > 0 %}
+        <a{% if h == 'trading-cards' %} aria-current="page"{% endif %} href="{{ all_cards.url }}">All cards</a>
+      {% endif %}
+      {% if pokemon != blank and pokemon.all_products_count > 0 %}
+        <a{% if game == 'pokemon' and h == 'pokemon' %} aria-current="page"{% endif %} href="{{ pokemon.url }}">Pokémon</a>
+      {% endif %}
+      {% if one_piece != blank and one_piece.all_products_count > 0 %}
+        <a{% if game == 'one-piece' and h == 'one-piece' %} aria-current="page"{% endif %} href="{{ one_piece.url }}">One Piece</a>
+      {% endif %}
+      {% if all_singles != blank and all_singles.all_products_count > 0 %}
+        <a{% if h == 'singles' %} aria-current="page"{% endif %} href="{{ all_singles.url }}">Singles</a>
+      {% endif %}
+      {% if all_graded != blank and all_graded.all_products_count > 0 %}
+        <a{% if h == 'graded-cards' %} aria-current="page"{% endif %} href="{{ all_graded.url }}">Graded</a>
+      {% endif %}
+    </div>
+
+    {% if game == 'pokemon' %}
+      {% assign pokemon_singles = collections['pokemon-singles'] %}
+      {% assign pokemon_graded = collections['pokemon-graded-cards'] %}
+      <div class="dr-browse-nav__secondary" aria-label="Browse Pokémon">
+        <span class="dr-browse-nav__label">Pokémon</span>
+        {% if pokemon != blank and pokemon.all_products_count > 0 %}<a{% if h == 'pokemon' %} aria-current="page"{% endif %} href="{{ pokemon.url }}">All</a>{% endif %}
+        {% if pokemon_singles != blank and pokemon_singles.all_products_count > 0 %}<a{% if h == 'pokemon-singles' %} aria-current="page"{% endif %} href="{{ pokemon_singles.url }}">Singles</a>{% endif %}
+        {% if pokemon_graded != blank and pokemon_graded.all_products_count > 0 %}<a{% if h == 'pokemon-graded-cards' %} aria-current="page"{% endif %} href="{{ pokemon_graded.url }}">Graded</a>{% endif %}
+      </div>
+      <div class="dr-browse-nav__sets" aria-label="Pokémon sets">
+        <span class="dr-browse-nav__label">Sets</span>
+        {% for set_handle in pokemon_sets %}
+          {% assign set_collection = collections[set_handle] %}
+          {% if set_collection != blank and set_collection.all_products_count > 0 %}
+            <a{% if h == set_handle %} aria-current="page"{% endif %} href="{{ set_collection.url }}">{{ set_collection.title | escape }}</a>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% elsif game == 'one-piece' %}
+      {% assign one_piece_singles = collections['one-piece-singles'] %}
+      <div class="dr-browse-nav__secondary" aria-label="Browse One Piece">
+        <span class="dr-browse-nav__label">One Piece</span>
+        {% if one_piece != blank and one_piece.all_products_count > 0 %}<a{% if h == 'one-piece' %} aria-current="page"{% endif %} href="{{ one_piece.url }}">All</a>{% endif %}
+        {% if one_piece_singles != blank and one_piece_singles.all_products_count > 0 %}<a{% if h == 'one-piece-singles' %} aria-current="page"{% endif %} href="{{ one_piece_singles.url }}">Singles</a>{% endif %}
+      </div>
+      <div class="dr-browse-nav__sets" aria-label="One Piece sets">
+        <span class="dr-browse-nav__label">Sets</span>
+        {% for set_handle in one_piece_sets %}
+          {% assign set_collection = collections[set_handle] %}
+          {% if set_collection != blank and set_collection.all_products_count > 0 %}
+            <a{% if h == set_handle %} aria-current="page"{% endif %} href="{{ set_collection.url }}">{{ set_collection.title | escape }}</a>
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</nav>
+
+{% stylesheet %}
+.dr-browse-nav{background:#fff;border-block:1px solid #dce4e9}
+.dr-browse-nav__inner{width:min(100% - 80px,1400px);margin-inline:auto;padding-block:12px;display:grid;gap:9px}
+.dr-browse-nav__primary,.dr-browse-nav__secondary,.dr-browse-nav__sets{display:flex;align-items:center;gap:7px;overflow-x:auto;scrollbar-width:none}
+.dr-browse-nav__primary::-webkit-scrollbar,.dr-browse-nav__secondary::-webkit-scrollbar,.dr-browse-nav__sets::-webkit-scrollbar{display:none}
+.dr-browse-nav a{flex:0 0 auto;text-decoration:none;white-space:nowrap}
+.dr-browse-nav__primary a{padding:9px 13px;border:1px solid #dce4e9;border-radius:4px;color:#061d3b;background:#f5f8f9;font-size:11px;font-weight:700}
+.dr-browse-nav__primary a[aria-current="page"]{background:#061d3b;border-color:#061d3b;color:#fff}
+.dr-browse-nav__secondary,.dr-browse-nav__sets{padding-top:2px}
+.dr-browse-nav__secondary a,.dr-browse-nav__sets a{padding:6px 9px;border-radius:3px;color:#536477;font-size:10px;font-weight:650}
+.dr-browse-nav__secondary a:hover,.dr-browse-nav__sets a:hover,.dr-browse-nav__secondary a[aria-current="page"],.dr-browse-nav__sets a[aria-current="page"]{background:#e8f7f6;color:#006f7a}
+.dr-browse-nav__label{flex:0 0 auto;margin-right:3px;color:#758395;font-size:9px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+@media(max-width:749px){.dr-browse-nav__inner{width:calc(100% - 32px);padding-block:10px;gap:7px}.dr-browse-nav__primary a{font-size:10px;padding:8px 10px}.dr-browse-nav__secondary a,.dr-browse-nav__sets a{font-size:9px;padding:6px 8px}}
+{% endstylesheet %}
+
+{% schema %}
+{"name":"DR collection routes","settings":[],"presets":[{"name":"DR collection routes"}]}
+{% endschema %}
