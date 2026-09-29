@@ -42,7 +42,7 @@ Effects:
 - the item remains in inventory and keeps its owner, cost, identity and history;
 - a later return to `FOR_SALE` requires explicit re-listing.
 
-A channel withdrawal failure does not silently revert the local sale intent. The API reports the failure as Action Required so the physical item remains protected locally while the external discrepancy is repaired.
+A channel withdrawal failure does not silently revert the local sale intent. The API returns a structured 502 retry-required error with per-channel withdrawal details, so the physical item remains protected locally while the external discrepancy is repaired.
 
 ## State restrictions
 
