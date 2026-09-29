@@ -272,7 +272,10 @@ def test_adapter_is_server_side_explicit_and_rights_governed() -> None:
     settings = SETTINGS.read_text()
 
     assert 'TCGGRAPH_TERMS_URL = "https://tcggraph.com/legal/terms"' in source
-    assert "INTERNAL_REFERENCE_ONLY" in source
+    assert "STOREFRONT_ALLOWED" in source
+    assert "UK_SALE_ADVERTISING_URL" in source
+    assert "legislation.gov.uk/ukpga/1988/48/section/63" in source
+    assert "Not approved for social media" in source
     assert "'PENDING'" in source
     assert "LICENSED_PROVIDER" in source
     assert "permission_evidence_url" in source
@@ -287,6 +290,19 @@ def test_adapter_is_server_side_explicit_and_rights_governed() -> None:
     assert 'TCG_TCGGRAPH_API_KEY' in settings
     assert "tcggraph_media_router" in main
     assert "require_platform_admin_request" in main
+
+
+def test_tcggraph_listing_rights_never_bypass_human_media_approval() -> None:
+    source = MEDIA.read_text()
+    resolve_start = source.index('@router.post("/resolve")')
+    sync_start = source.index('@router.post("/sync-shopify")')
+    resolve_block = source[resolve_start:sync_start]
+
+    assert "'STOREFRONT_ALLOWED','TCGGraph'" in resolve_block
+    assert "'VERIFIED',$9,'PENDING'" in resolve_block
+    assert "approved_by_user_id,approved_at" in resolve_block
+    assert "$11,null,null" in resolve_block
+    assert "approval remains required before Shopify use" in resolve_block
 
 
 def test_tcggraph_shopify_sync_is_bulk_and_never_publishes_products() -> None:
