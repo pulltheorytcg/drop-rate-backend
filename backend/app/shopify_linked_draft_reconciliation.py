@@ -9,7 +9,8 @@ from uuid import UUID, uuid4
 import asyncpg
 
 from .db import user_connection
-from .import_enrichment import _confirm_identity
+from .import_enrichment import _confirm_identity, _unmarked_import_identity_evidence
+from .identity_review import import_exact_evidence
 from .language import clean_language
 from .physical_state import validate_physical_state
 from .settings import Settings
@@ -271,13 +272,23 @@ async def _prepare_core(
         language = resolve_reconciliation_language(item, language_map)
         if not item.get("identity_confirmed"):
             evidence_row = dict(item)
-            identity_row, evidence = await _confirm_identity(
-                connection,
-                owner_id=item["owner_id"],
-                user_id=actor_user_id,
-                row=evidence_row,
-                default_language=language,
-            ) if apply else (evidence_row, {"verification_method": "DRY_RUN"})
+            if apply:
+                identity_row, evidence = await _confirm_identity(
+                    connection,
+                    owner_id=item["owner_id"],
+                    user_id=actor_user_id,
+                    row=evidence_row,
+                    default_language=language,
+                )
+            else:
+                evidence = (
+                    import_exact_evidence(evidence_row)
+                    or _unmarked_import_identity_evidence(
+                        evidence_row,
+                        default_language=language,
+                    )
+                )
+                identity_row = evidence_row if evidence is not None else None
             if identity_row is None:
                 raise ReconciliationBlocked(
                     "IDENTITY_NOT_EXACT",
@@ -285,8 +296,9 @@ async def _prepare_core(
                 )
             item["identity_confirmed"] = True
             item["language"] = language
-            if apply:
-                changes.append(f"identity:{(evidence or {}).get('verification_method','CONFIRMED')}")
+            changes.append(
+                f"identity:{(evidence or {}).get('verification_method','CONFIRMED')}"
+            )
         else:
             current_language = clean_language(item.get("language"))
             if current_language and current_language != language:
