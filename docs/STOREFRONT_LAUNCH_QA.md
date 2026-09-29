@@ -158,6 +158,20 @@ Verified contract:
 
 No custom checkout or customer-payment path is introduced.
 
+## Cart visual alignment
+
+The exact-copy cart presentation now follows the same current Drop Rate visual language as
+browse and PDP:
+
+- exact physical-copy metadata uses compact blue/cyan badges;
+- the one-copy quantity lock is explicit and visually separated from normal quantity UI;
+- cart titles and prices use the current ink/navy emphasis;
+- the native Shopify checkout CTA is styled blue without replacing the checkout form/action.
+
+The cart contract itself is unchanged: physical lines are still detected by
+`drop_rate.inventory_id`, quantity editing remains disabled for those lines, remove remains
+available, and Shopify's native cart/checkout path remains authoritative.
+
 ## Customer accounts and order history
 
 Shopify configuration is:

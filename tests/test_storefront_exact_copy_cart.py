@@ -51,3 +51,16 @@ def test_drop_rate_cart_shows_customer_safe_copy_metadata_only() -> None:
 def test_exact_copy_cart_translation_exists() -> None:
     locale = _json_with_comment(THEME / "locales" / "en.default.json")
     assert locale["dr_brand"]["cart"]["one_physical_copy"] == "1 physical copy"
+
+
+def test_exact_copy_cart_uses_current_drop_rate_visual_states() -> None:
+    cart = (THEME / "snippets" / "cart-products.liquid").read_text()
+    global_styles = (THEME / "snippets" / "drop-rate-global-styles.liquid").read_text()
+
+    assert ".dr-cart-copy-lock::before" in cart
+    assert "background: #eafcff;" in cart
+    assert "border: 1px solid #b9eef4;" in cart
+    assert "color: #1f7bf2;" in cart
+    assert ".cart__checkout-button" in global_styles
+    assert "background: #1f7bf2 !important;" in global_styles
+    assert "color: #ffffff !important;" in global_styles
