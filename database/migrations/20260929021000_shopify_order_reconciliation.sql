@@ -1,9 +1,9 @@
 begin;
 
 create or replace function tcg.record_shopify_order_reconciliation(
-  p_remote_only jsonb,
+  p_remote_alerts jsonb,
   p_local_only uuid[],
-  p_matched_refs text[]
+  p_healthy_refs text[]
 )
 returns table(
   opened_alerts integer,
@@ -19,41 +19,53 @@ declare
   v_local_opened integer := 0;
   v_resolved integer := 0;
 begin
-  p_remote_only := coalesce(p_remote_only, '[]'::jsonb);
+  p_remote_alerts := coalesce(p_remote_alerts, '[]'::jsonb);
   p_local_only := coalesce(p_local_only, array[]::uuid[]);
-  p_matched_refs := coalesce(p_matched_refs, array[]::text[]);
+  p_healthy_refs := coalesce(p_healthy_refs, array[]::text[]);
 
-  if jsonb_typeof(p_remote_only) <> 'array' then
-    raise exception 'p_remote_only must be a JSON array'
+  if jsonb_typeof(p_remote_alerts) <> 'array' then
+    raise exception 'p_remote_alerts must be a JSON array'
       using errcode='22023';
   end if;
-  if jsonb_array_length(p_remote_only) > 10000
+  if jsonb_array_length(p_remote_alerts) > 10000
      or cardinality(p_local_only) > 10000
-     or cardinality(p_matched_refs) > 10000 then
+     or cardinality(p_healthy_refs) > 10000 then
     raise exception 'Shopify reconciliation batch exceeds safety limit'
       using errcode='22023';
   end if;
 
   if exists (
     select 1
-    from jsonb_array_elements(p_remote_only) item
+    from jsonb_array_elements(p_remote_alerts) item
     where jsonb_typeof(item) <> 'object'
        or coalesce(item->>'source_reference','') !~ '^[0-9]{1,32}$'
        or length(coalesce(item->>'order_number','')) > 100
        or length(coalesce(item->>'created_at','')) > 64
        or length(coalesce(item->>'cancelled_at','')) > 64
        or length(coalesce(item->>'financial_status','')) > 64
+       or coalesce(item->>'alert_code','') not in (
+         'SHOPIFY_PAID_ORDER_MISSING_IN_DROP_RATE',
+         'SHOPIFY_ORDER_WEBHOOK_GAP'
+       )
+       or (
+         item->>'alert_code'='SHOPIFY_PAID_ORDER_MISSING_IN_DROP_RATE'
+         and coalesce(item->>'severity','') <> 'CRITICAL'
+       )
+       or (
+         item->>'alert_code'='SHOPIFY_ORDER_WEBHOOK_GAP'
+         and coalesce(item->>'severity','') <> 'HIGH'
+       )
   ) then
-    raise exception 'Shopify reconciliation remote order payload is invalid'
+    raise exception 'Shopify reconciliation remote alert payload is invalid'
       using errcode='22023';
   end if;
 
   if exists (
     select 1
-    from unnest(p_matched_refs) ref
+    from unnest(p_healthy_refs) ref
     where ref !~ '^[0-9]{1,32}$'
   ) then
-    raise exception 'Shopify reconciliation matched reference is invalid'
+    raise exception 'Shopify reconciliation healthy reference is invalid'
       using errcode='22023';
   end if;
 
@@ -88,16 +100,30 @@ begin
   select
     founder.id,
     'SHOPIFY',
-    'SHOPIFY_ORDER_MISSING_IN_DROP_RATE',
-    'CRITICAL',
+    remote.item->>'alert_code',
+    remote.item->>'severity',
     'OWNER',
     founder.id,
     'shopify-reconciliation:remote:' || (remote.item->>'source_reference'),
-    'Shopify order is missing from Drop Rate',
-    'Shopify order '
-      || coalesce(nullif(remote.item->>'order_number',''), remote.item->>'source_reference')
-      || ' is not present in tcg.orders.',
-    'Review Shopify webhook history before taking any recovery action. Do not create ledger entries manually.',
+    case
+      when remote.item->>'alert_code'='SHOPIFY_PAID_ORDER_MISSING_IN_DROP_RATE'
+        then 'Paid Shopify order is missing from Drop Rate'
+      else 'Shopify order webhook coverage gap'
+    end,
+    case
+      when remote.item->>'alert_code'='SHOPIFY_PAID_ORDER_MISSING_IN_DROP_RATE'
+        then 'Shopify order '
+          || coalesce(nullif(remote.item->>'order_number',''), remote.item->>'source_reference')
+          || ' has a paid-like financial state but is not present in tcg.orders.'
+      else 'Shopify order '
+          || coalesce(nullif(remote.item->>'order_number',''), remote.item->>'source_reference')
+          || ' is not present in tcg.orders and has no successfully processed orders/create webhook.'
+    end,
+    case
+      when remote.item->>'alert_code'='SHOPIFY_PAID_ORDER_MISSING_IN_DROP_RATE'
+        then 'Review Shopify payment/webhook history immediately. Do not create ledger entries manually.'
+      else 'Review Shopify webhook history and pending-order reservation state before taking recovery action.'
+    end,
     'OPEN',
     jsonb_strip_nulls(jsonb_build_object(
       'source','SHOPIFY',
@@ -108,7 +134,7 @@ begin
       'cancelled_at',nullif(remote.item->>'cancelled_at',''),
       'financial_status',nullif(remote.item->>'financial_status','')
     ))
-  from jsonb_array_elements(p_remote_only) remote(item)
+  from jsonb_array_elements(p_remote_alerts) remote(item)
   cross join tcg.owners founder
   where founder.owner_type='FOUNDER'
     and founder.active
@@ -204,10 +230,11 @@ begin
          version=ari.version+1
    where ari.status='OPEN'
      and ari.code in (
-       'SHOPIFY_ORDER_MISSING_IN_DROP_RATE',
+       'SHOPIFY_PAID_ORDER_MISSING_IN_DROP_RATE',
+       'SHOPIFY_ORDER_WEBHOOK_GAP',
        'DROP_RATE_ORDER_MISSING_IN_SHOPIFY'
      )
-     and ari.metadata->>'source_reference' = any(p_matched_refs)
+     and ari.metadata->>'source_reference' = any(p_healthy_refs)
      and exists (
        select 1
        from tcg.owners founder
