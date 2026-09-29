@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — Pooled storefront copy hardening
+
+- Production raw-card consolidation completed successfully: 15 pools / 35 physical cards.
+- The 15 pooled offers were published successfully, then their inherited single-copy descriptions were corrected immediately in Shopify so no pooled offer exposes one anchor Inventory ID.
+- Publication is being hardened so future pooled offers remove the anchor Inventory ID from public description copy and use truthful pooled-copy wording before activation; publication fails closed if the corrected Shopify description cannot be verified.
+- Sakazuki OP16-065 was verified as English media from the official English One Piece source; the incorrect Japanese-reference alt text was corrected in Shopify and Supabase with an audit event.
+
+
 ## 2026-09-29 — Linked-draft publication audit alias fix
 
 - Standard linked-draft reconciliation was observed in production compensating products back to DRAFT after Shopify activation because the loaded item exposed `id` while the audit commit expected `inventory_id`.
