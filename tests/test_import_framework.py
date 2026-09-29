@@ -100,6 +100,42 @@ def test_sealed_products_do_not_use_raw_card_condition() -> None:
     assert issues == []
 
 
+def test_known_one_piece_set_alias_is_canonicalized_without_touching_identity_fields() -> None:
+    row = {
+        "Product Name": "Five Elders",
+        "Set": "Carrying on His Will",
+        "Card Number": "OP13-082",
+        "Category": "One Piece",
+        "Variance": "Foil",
+        "Rarity": "SR",
+        "Language": "Japanese",
+    }
+    mapping = _field_map(list(row))
+    normalized, issues = _normalized_row(row, mapping, None, adapter="COLLECTR")
+
+    assert normalized["set_name"] == "Carrying On His Will"
+    assert normalized["name"] == "Five Elders"
+    assert normalized["card_number"] == "OP13-082"
+    assert normalized["variant"] == "Foil"
+    assert normalized["language"] == "Japanese"
+    assert issues == []
+
+
+def test_unknown_set_label_is_preserved_verbatim_after_trimming() -> None:
+    row = {
+        "Product Name": "Eiscue ex",
+        "Set": "Future Flash",
+        "Card Number": "020/108",
+        "Game": "Pokemon",
+        "Language": "Japanese",
+    }
+    mapping = _field_map(list(row))
+    normalized, issues = _normalized_row(row, mapping, None)
+
+    assert normalized["set_name"] == "Future Flash"
+    assert issues == []
+
+
 def test_language_can_be_preserved_from_trailing_set_token() -> None:
     row = {
         "Product Name": "Monkey.D.Luffy",
