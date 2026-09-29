@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -616,7 +617,7 @@ async def run_linked_draft_reconciliation(
             where i.import_batch_id=$1
               and sil.shop_domain=$2
               and sil.test_mode=false
-              and sil.sync_state in ('DRAFT','PUBLISHED')
+              and sil.sync_state='DRAFT'
               and i.sale_intent='FOR_SALE'
               and i.status in ('DRAFT','INSPECTION','APPROVED')
             order by i.created_at,i.id
@@ -627,10 +628,12 @@ async def run_linked_draft_reconciliation(
             settings.shopify_linked_draft_reconciliation_limit,
         )
 
-    results: list[dict[str, Any]] = []
-    for row in rows:
-        results.append(
-            await reconcile_one_linked_draft(
+    concurrency = max(1, min(4, settings.db_pool_max))
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _reconcile_row(row: asyncpg.Record) -> dict[str, Any]:
+        async with semaphore:
+            return await reconcile_one_linked_draft(
                 pool,
                 settings=settings,
                 client=client,
@@ -639,7 +642,8 @@ async def run_linked_draft_reconciliation(
                 language_map=language_map,
                 apply=settings.shopify_linked_draft_reconciliation_apply,
             )
-        )
+
+    results = await asyncio.gather(*(_reconcile_row(row) for row in rows))
 
     totals: dict[str, int] = {}
     blockers: dict[str, int] = {}
@@ -655,6 +659,7 @@ async def run_linked_draft_reconciliation(
         "mode": "APPLY" if settings.shopify_linked_draft_reconciliation_apply else "DRY_RUN",
         "batch_id": str(batch_id),
         "considered": len(results),
+        "concurrency": concurrency,
         "totals": totals,
         "blockers": blockers,
         "results": results,
