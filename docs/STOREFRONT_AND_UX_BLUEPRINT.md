@@ -132,9 +132,20 @@ The exact Drop Rate-specific theme files touched by this slice are mirrored unde
 `storefront/theme/**` in GitHub. This is currently a source-controlled overlay rather
 than a full copy of Shopify's base theme.
 
-**Known gap:** sealed inventory is not yet represented consistently in Shopify catalogue
-classification, so a Sealed browse lane is intentionally not fabricated in the theme.
-The data classification must be made deterministic before that navigation is added.
+**Sealed contract:** sealed/collection inventory now has an explicit Shopify representation:
+- Shopify taxonomy category: Non-Sports Trading Cards;
+- Shopify product type: `Sealed TCG Product`;
+- smart-collection tag: `Sealed Product`;
+- required collections: `Sealed` plus the game collection;
+- storefront copy describes an individually tracked sealed TCG product rather than a raw
+  trading card;
+- shipping profile key: `SEALED_PRODUCT`.
+
+The existing Shopify `Sealed` smart collection already keys on `Sealed Product`. A sealed
+item still cannot publish until identity, seal status, registered location, exact approved
+packaging media and a real `SEALED_PRODUCT` shipping profile all pass. Production currently
+has no sealed shipping profile, so the new contract remains fail-closed rather than guessing
+package weight/dimensions.
 
 **Status: IN PROGRESS.** This slice is not publish-ready until desktop/mobile preview QA,
 failure-path checks and the remaining Milestone 1 browse requirements are completed.
