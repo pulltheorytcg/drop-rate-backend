@@ -28,37 +28,37 @@
   assign all_graded = collections['graded-cards']
 %}
 
-<nav class="dr-browse-nav" aria-label="Browse trading cards">
+<nav class="dr-browse-nav" aria-label="{{ 'dr_brand.browse.aria' | t }}">
   <div class="dr-browse-nav__inner">
-    <div class="dr-browse-nav__primary" aria-label="Browse by game">
+    <div class="dr-browse-nav__primary" aria-label="{{ 'dr_brand.browse.by_game' | t }}">
       {% if all_cards != blank and all_cards.all_products_count > 0 %}
-        <a{% if h == 'trading-cards' %} aria-current="page"{% endif %} href="{{ all_cards.url }}">All cards</a>
+        <a{% if h == 'trading-cards' %} aria-current="page"{% endif %} href="{{ all_cards.url }}">{{ 'dr_brand.browse.all_cards' | t }}</a>
       {% endif %}
       {% if pokemon != blank and pokemon.all_products_count > 0 %}
-        <a{% if game == 'pokemon' and h == 'pokemon' %} aria-current="page"{% endif %} href="{{ pokemon.url }}">Pokémon</a>
+        <a{% if game == 'pokemon' and h == 'pokemon' %} aria-current="page"{% endif %} href="{{ pokemon.url }}">{{ 'dr_brand.browse.pokemon' | t }}</a>
       {% endif %}
       {% if one_piece != blank and one_piece.all_products_count > 0 %}
-        <a{% if game == 'one-piece' and h == 'one-piece' %} aria-current="page"{% endif %} href="{{ one_piece.url }}">One Piece</a>
+        <a{% if game == 'one-piece' and h == 'one-piece' %} aria-current="page"{% endif %} href="{{ one_piece.url }}">{{ 'dr_brand.browse.one_piece' | t }}</a>
       {% endif %}
       {% if all_singles != blank and all_singles.all_products_count > 0 %}
-        <a{% if h == 'singles' %} aria-current="page"{% endif %} href="{{ all_singles.url }}">Singles</a>
+        <a{% if h == 'singles' %} aria-current="page"{% endif %} href="{{ all_singles.url }}">{{ 'dr_brand.browse.singles' | t }}</a>
       {% endif %}
       {% if all_graded != blank and all_graded.all_products_count > 0 %}
-        <a{% if h == 'graded-cards' %} aria-current="page"{% endif %} href="{{ all_graded.url }}">Graded</a>
+        <a{% if h == 'graded-cards' %} aria-current="page"{% endif %} href="{{ all_graded.url }}">{{ 'dr_brand.browse.graded' | t }}</a>
       {% endif %}
     </div>
 
     {% if game == 'pokemon' %}
       {% assign pokemon_singles = collections['pokemon-singles'] %}
       {% assign pokemon_graded = collections['pokemon-graded-cards'] %}
-      <div class="dr-browse-nav__secondary" aria-label="Browse Pokémon">
-        <span class="dr-browse-nav__label">Pokémon</span>
-        {% if pokemon != blank and pokemon.all_products_count > 0 %}<a{% if h == 'pokemon' %} aria-current="page"{% endif %} href="{{ pokemon.url }}">All</a>{% endif %}
-        {% if pokemon_singles != blank and pokemon_singles.all_products_count > 0 %}<a{% if h == 'pokemon-singles' %} aria-current="page"{% endif %} href="{{ pokemon_singles.url }}">Singles</a>{% endif %}
-        {% if pokemon_graded != blank and pokemon_graded.all_products_count > 0 %}<a{% if h == 'pokemon-graded-cards' %} aria-current="page"{% endif %} href="{{ pokemon_graded.url }}">Graded</a>{% endif %}
+      <div class="dr-browse-nav__secondary" aria-label="{{ 'dr_brand.browse.pokemon_label' | t }}">
+        <span class="dr-browse-nav__label">{{ 'dr_brand.browse.pokemon' | t }}</span>
+        {% if pokemon != blank and pokemon.all_products_count > 0 %}<a{% if h == 'pokemon' %} aria-current="page"{% endif %} href="{{ pokemon.url }}">{{ 'dr_brand.browse.all' | t }}</a>{% endif %}
+        {% if pokemon_singles != blank and pokemon_singles.all_products_count > 0 %}<a{% if h == 'pokemon-singles' %} aria-current="page"{% endif %} href="{{ pokemon_singles.url }}">{{ 'dr_brand.browse.singles' | t }}</a>{% endif %}
+        {% if pokemon_graded != blank and pokemon_graded.all_products_count > 0 %}<a{% if h == 'pokemon-graded-cards' %} aria-current="page"{% endif %} href="{{ pokemon_graded.url }}">{{ 'dr_brand.browse.graded' | t }}</a>{% endif %}
       </div>
-      <div class="dr-browse-nav__sets" aria-label="Pokémon sets">
-        <span class="dr-browse-nav__label">Sets</span>
+      <div class="dr-browse-nav__sets" aria-label="{{ 'dr_brand.browse.pokemon_sets_label' | t }}">
+        <span class="dr-browse-nav__label">{{ 'dr_brand.browse.sets' | t }}</span>
         {% for set_handle in pokemon_sets %}
           {% assign set_collection = collections[set_handle] %}
           {% if set_collection != blank and set_collection.all_products_count > 0 %}
@@ -68,13 +68,13 @@
       </div>
     {% elsif game == 'one-piece' %}
       {% assign one_piece_singles = collections['one-piece-singles'] %}
-      <div class="dr-browse-nav__secondary" aria-label="Browse One Piece">
-        <span class="dr-browse-nav__label">One Piece</span>
-        {% if one_piece != blank and one_piece.all_products_count > 0 %}<a{% if h == 'one-piece' %} aria-current="page"{% endif %} href="{{ one_piece.url }}">All</a>{% endif %}
-        {% if one_piece_singles != blank and one_piece_singles.all_products_count > 0 %}<a{% if h == 'one-piece-singles' %} aria-current="page"{% endif %} href="{{ one_piece_singles.url }}">Singles</a>{% endif %}
+      <div class="dr-browse-nav__secondary" aria-label="{{ 'dr_brand.browse.one_piece_label' | t }}">
+        <span class="dr-browse-nav__label">{{ 'dr_brand.browse.one_piece' | t }}</span>
+        {% if one_piece != blank and one_piece.all_products_count > 0 %}<a{% if h == 'one-piece' %} aria-current="page"{% endif %} href="{{ one_piece.url }}">{{ 'dr_brand.browse.all' | t }}</a>{% endif %}
+        {% if one_piece_singles != blank and one_piece_singles.all_products_count > 0 %}<a{% if h == 'one-piece-singles' %} aria-current="page"{% endif %} href="{{ one_piece_singles.url }}">{{ 'dr_brand.browse.singles' | t }}</a>{% endif %}
       </div>
-      <div class="dr-browse-nav__sets" aria-label="One Piece sets">
-        <span class="dr-browse-nav__label">Sets</span>
+      <div class="dr-browse-nav__sets" aria-label="{{ 'dr_brand.browse.one_piece_sets_label' | t }}">
+        <span class="dr-browse-nav__label">{{ 'dr_brand.browse.sets' | t }}</span>
         {% for set_handle in one_piece_sets %}
           {% assign set_collection = collections[set_handle] %}
           {% if set_collection != blank and set_collection.all_products_count > 0 %}
