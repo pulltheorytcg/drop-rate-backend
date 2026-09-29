@@ -92,7 +92,7 @@ begin
     'CRITICAL',
     'OWNER',
     founder.id,
-    'shopify-reconciliation:remote:' || remote.item->>'source_reference',
+    'shopify-reconciliation:remote:' || (remote.item->>'source_reference'),
     'Shopify order is missing from Drop Rate',
     'Shopify order '
       || coalesce(nullif(remote.item->>'order_number',''), remote.item->>'source_reference')
