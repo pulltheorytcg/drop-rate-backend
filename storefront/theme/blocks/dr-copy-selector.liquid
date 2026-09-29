@@ -28,17 +28,31 @@
     <div class="dr-copy-selector__heading">
       <div>
         <p class="dr-copy-selector__eyebrow">{{ 'dr_brand.product.choose_copy' | t }}</p>
-        <h2>{{ 'dr_brand.product.copies_available' | t: count: available_count }}</h2>
+        <h2>
+          {% if available_count == 1 %}
+            1 copy available
+          {% else %}
+            {{ 'dr_brand.product.copies_available' | t: count: available_count }}
+          {% endif %}
+        </h2>
       </div>
       {% if min_price != blank %}
-        <p class="dr-copy-selector__from">{{ 'dr_brand.product.from_price' | t: price: formatted_min_price }}</p>
+        <p class="dr-copy-selector__from">
+          {% if available_count == 1 %}
+            {{ formatted_min_price }}
+          {% else %}
+            {{ 'dr_brand.product.from_price' | t: price: formatted_min_price }}
+          {% endif %}
+        </p>
       {% endif %}
     </div>
 
     <div class="dr-copy-selector__list">
+      {% assign visible_copy_index = 0 %}
       {% for copy_handle in copy_handles %}
         {% assign copy_product = all_products[copy_handle] %}
         {% if copy_product != blank and copy_product.available %}
+          {% assign visible_copy_index = visible_copy_index | plus: 1 %}
           {% liquid
             assign copy_condition = copy_product.metafields.drop_rate.condition.value
             assign copy_language = copy_product.metafields.drop_rate.language.value
@@ -60,6 +74,7 @@
               {% endif %}
             </span>
             <span class="dr-copy-option__body">
+              <span class="dr-copy-option__copy-label">Copy {{ visible_copy_index }}</span>
               <span class="dr-copy-option__meta">
                 {% if copy_grader != blank and copy_grade != blank %}
                   <strong>{{ copy_grader | escape }} {{ copy_grade | escape }}</strong>

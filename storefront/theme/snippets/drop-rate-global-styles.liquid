@@ -493,4 +493,82 @@ Global refinements for the Drop Rate storefront.
     }
   }
 
+
+  /* Drop Rate mobile QA polish */
+  .product-grid .dr-card-copy__title h3,
+  .product-list .dr-card-copy__title h3 {
+    min-height: 2.44em;
+  }
+
+  .product-grid .product-card,
+  .product-list .product-card {
+    height: 100%;
+  }
+
+  .product-grid .shopify-payment-button,
+  .product-grid shopify-accelerated-checkout,
+  .product-list .shopify-payment-button,
+  .product-list shopify-accelerated-checkout {
+    display: none !important;
+  }
+
+  .dr-hero__stage [data-dr-hero-card] {
+    cursor: pointer;
+    will-change: transform;
+  }
+
+  .dr-hero__stage .dr-fan--main {
+    cursor: pointer;
+  }
+
+  @media screen and (max-width: 749px) {
+    theme-drawer#filters-drawer .theme-drawer__dialog {
+      width: min(92vw, 390px);
+    }
+
+    theme-drawer#filters-drawer details:not([open]) > :not(summary) {
+      display: none;
+    }
+
+    .dr-card-copy__title h3 {
+      min-height: 2.44em;
+    }
+  }
+
+
+  /* Mobile QA follow-up: aligned actions, compact facets and scannable copy rows */
+  .product-grid .buy-buttons-block,
+  .product-list .buy-buttons-block {
+    display: block;
+    margin-top: auto;
+  }
+
+  .dr-copy-option__copy-label {
+    color: #1f7bf2;
+    font-size: .61rem;
+    font-weight: 850;
+    letter-spacing: .08em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  @media screen and (max-width: 749px) {
+    theme-drawer#filters-drawer .facets__panel {
+      border-bottom: 1px solid #e8edf4;
+    }
+
+    theme-drawer#filters-drawer .facets__summary {
+      min-height: 46px;
+      padding-block: 10px;
+    }
+
+    theme-drawer#filters-drawer .facets__panel-content {
+      padding-bottom: 12px;
+    }
+
+    theme-drawer#filters-drawer .facets__filters-wrapper {
+      gap: 0;
+    }
+  }
+
 {% endstylesheet %}
