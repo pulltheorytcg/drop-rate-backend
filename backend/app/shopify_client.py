@@ -1207,6 +1207,74 @@ class ShopifyAdminClient:
             raise ShopifyApiError("Shopify product publication returned an invalid response")
         self._raise_user_errors(payload, "Shopify rejected product publication")
 
+    async def set_product_metafields(
+        self,
+        *,
+        product_id: str,
+        metafields: list[dict[str, str]],
+    ) -> list[dict[str, Any]]:
+        if not product_id.strip():
+            raise ValueError("Shopify product ID is required")
+        if not metafields:
+            raise ValueError("At least one Shopify metafield is required")
+        if len(metafields) > 25:
+            raise ValueError("Shopify metafieldsSet supports at most 25 inputs per call")
+
+        inputs: list[dict[str, str]] = []
+        for metafield in metafields:
+            namespace = str(metafield.get("namespace") or "").strip()
+            key = str(metafield.get("key") or "").strip()
+            type_name = str(metafield.get("type") or "").strip()
+            value = str(metafield.get("value") or "")
+            if not namespace or not key or not type_name:
+                raise ValueError("Shopify metafield namespace, key and type are required")
+            inputs.append(
+                {
+                    "ownerId": product_id,
+                    "namespace": namespace,
+                    "key": key,
+                    "type": type_name,
+                    "value": value,
+                }
+            )
+
+        data = await self.graphql(
+            query="""
+            mutation DropRateProductMetafieldsSet(
+              $metafields: [MetafieldsSetInput!]!
+            ) {
+              metafieldsSet(metafields: $metafields) {
+                metafields {
+                  id
+                  namespace
+                  key
+                  type
+                  value
+                }
+                userErrors {
+                  field
+                  message
+                  code
+                }
+              }
+            }
+            """,
+            variables={"metafields": inputs},
+        )
+        payload = data.get("metafieldsSet")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError(
+                "Shopify metafieldsSet returned an invalid response"
+            )
+        self._raise_user_errors(payload, "Shopify rejected product metafields")
+        rows = payload.get("metafields")
+        if not isinstance(rows, list):
+            raise ShopifyApiError(
+                "Shopify metafieldsSet response is missing metafields"
+            )
+        return [row for row in rows if isinstance(row, dict)]
+
+
     @staticmethod
     def _raise_user_errors(payload: dict[str, Any], default: str) -> None:
         errors = payload.get("userErrors")
