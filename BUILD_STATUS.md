@@ -11,23 +11,40 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
 - **Milestone 2 — Shopify sale attribution:** ~92% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, seller-facing restricted finance views are deployed, and payout control is automated up to REQUESTED state. Multi-owner/same-card production attribution and live Stripe payout cutover remain.
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
-- **Customer storefront / Shopify UX:** first real-data browse slice is implemented on the unpublished Brand Redesign theme; overall storefront milestone remains IN PROGRESS. Backend Shopify commerce plumbing is far ahead of the customer-facing theme. A dedicated storefront + Founder HQ UX blueprint is now version-controlled in `docs/STOREFRONT_AND_UX_BLUEPRINT.md`. The storefront blueprint now also includes adaptive CRO/SEO experimentation, Shopify event measurement and controlled AI action/rollback.
+- **Customer storefront / Shopify UX:** base-commerce engineering/data-contract QA is complete on the unpublished Brand Redesign theme across browse, grouped-copy PDP, exact-copy cart/checkout handoff, search and Shopify-native customer accounts. All 14 source-controlled theme files match Shopify byte-for-byte; all 95 published products pass the one-copy inventory contract and have READY media. Overall storefront milestone remains IN PROGRESS only for authenticated desktop/mobile visual preview approval and subsequent publication. See `docs/STOREFRONT_LAUNCH_QA.md`.
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — storefront launch engineering QA
+
+**Base-commerce engineering QA: COMPLETE / PUBLICATION PENDING —** the unpublished
+`Drop Rate — Brand Redesign` theme is healthy and all **14/14** source-controlled theme
+files match Shopify byte-for-byte. Shopify reports **95 ACTIVE / 95 Online Store-published**
+products and 369 intentionally unpublished products. A full sweep of the 95 published
+products found **0** physical-copy invariant failures: one variant per listing, SKU =
+Inventory ID, quantity 1, oversell DENY and available-for-sale true. All **95/95** have
+READY featured media. Grouped-copy QA checked **14 products / 28 sibling references** with
+zero broken references. Search passed collector-number, card-name, Pokémon-name and
+no-result cases. Shopify New Customer Accounts remain optional with guest checkout.
+The native cart checkout action is intact. QA also removed unfinished empty Sealed
+navigation from the unpublished runtime theme and restored source-control parity.
+Detailed evidence is in `docs/STOREFRONT_LAUNCH_QA.md`. The only remaining v1 storefront
+gate is authenticated desktop/mobile visual preview and cart→checkout browser smoke before
+theme publication. The live Horizon theme has not been changed.**
+
 ## 29 September 2026 — storefront search v1 slice
 
-**Customer storefront / simple search: IN PROGRESS —** Shopify-native product search is now
+**Customer storefront / simple search: ENGINEERING QA COMPLETE / VISUAL QA PENDING —** Shopify-native product search is now
 explicitly configured for product-only results, last-term partial matching and unavailable
 products last. The unpublished Brand Redesign search input uses TCG-specific name/set/
 collector-number language and reuses the compact storefront card grid. Live connected-store
 checks confirmed free-text matches for `OP16-071`, **Benevolent King** and **Eiscue ex**.
 No custom search backend, AI index, schema, product data, price, ownership or live-theme
-publication was added. Remaining gates: CI and visual/result QA.**
+publication was added. CI is green; connected-store name/collector-number/no-result checks passed. Remaining gate: authenticated visual/result QA on the unpublished theme.**
 
 ## 29 September 2026 — storefront customer account / order surface
 
-**Customer storefront / account & order history: IMPLEMENTED / QA PENDING —** Shopify is
+**Customer storefront / account & order history: ENGINEERING QA COMPLETE / VISUAL QA PENDING —** Shopify is
 already configured for OPTIONAL **New Customer Accounts**, with storefront/checkout login
 links enabled and login not required at checkout. The unpublished Brand Redesign header
 uses Shopify's native `<shopify-account>` component; Shopify therefore remains the
@@ -41,19 +58,18 @@ normal browser/mobile visual QA as part of the unpublished-theme launch review.*
 
 ## 29 September 2026 — storefront exact-copy cart slice
 
-**Shopify-native cart / checkout presentation: IN PROGRESS —** the unpublished Brand
+**Shopify-native cart / checkout presentation: ENGINEERING QA COMPLETE / BROWSER QA PENDING —** the unpublished Brand
 Redesign cart now recognises Drop Rate physical products by their `inventory_id`
 metafield, shows concise card/set/condition/language details and locks the customer-facing
 quantity control to one physical copy while preserving Shopify's existing cart form,
 remove action and native checkout. Representative live variants are also verified with
 Shopify `inventoryPolicy=DENY` and quantity 1, so the storefront presentation matches the
 platform stock invariant. No price, stock quantity, ownership, order, ledger, settlement
-or live-theme publication changed. Remaining gates: CI, visual QA and cart→checkout smoke
-test.**
+or live-theme publication changed. GitHub CI is green and the complete 95-product Shopify sweep passed the physical-copy inventory contract. Remaining gate: authenticated browser cart→checkout handoff/visual QA on the unpublished theme.**
 
 ## 29 September 2026 — storefront grouped-copy PDP slice
 
-**Customer storefront / PDP grouped copies: IN PROGRESS —** exact physical copies are now
+**Customer storefront / PDP grouped copies: ENGINEERING QA COMPLETE / VISUAL QA PENDING —** exact physical copies are now
 grouped by Supabase `catalogue_id`, not fuzzy card text. The guarded Shopify publish path
 now refreshes derived `copy_handles` metadata for published siblings and keeps a hard
 20-handle Shopify Liquid safety limit. The unpublished Brand Redesign product template
@@ -63,11 +79,11 @@ Seven current canonical groups (14 active products) were backfilled and represen
 One Piece/Pokémon pairs were verified in Shopify with shared metadata, quantity 1 and
 `availableForSale=true`. No price, status, quantity, ownership, ledger or live-theme
 publication was changed. Theme/runtime files match the GitHub overlay byte-for-byte.
-GitHub backend/theme contract CI is green. Remaining gates: desktop/mobile visual QA and exact-copy cart/checkout smoke test.**
+GitHub backend/theme contract CI is green. Connected-store QA verified 14 grouped products and 28 sibling references with zero broken/unpublished handles. Remaining gate: desktop/mobile visual QA and exact-copy browser handoff.**
 
 ## 29 September 2026 — storefront Milestone 1 browse slice
 
-**Customer storefront / collection-browse milestone: IN PROGRESS —** the first real-data
+**Customer storefront / collection-browse milestone: ENGINEERING QA COMPLETE / VISUAL QA PENDING —** the first real-data
 browse slice has been written to Shopify's **UNPUBLISHED**
 `Drop Rate — Brand Redesign` theme; the live `Horizon` theme was not modified.
 At verification time Shopify contained 464 catalogue products: 95 ACTIVE and 369 DRAFT.
@@ -77,9 +93,7 @@ density, displays product counts, adds TCG metadata badges with metafield/tag fa
 and provides game/set browse routes. Exact changed theme files are now mirrored under
 `storefront/theme/**` and were verified byte-for-byte against the unpublished Shopify
 theme. No product status, price, ownership, inventory quantity or live theme publication
-was changed. Sealed navigation remains deliberately absent until sealed-product Shopify
-classification is deterministic. Remaining gates: visual QA on desktop/mobile, browse
-failure-path checks, and completion of Milestone 1 before publication.**
+was changed. Connected-store QA confirmed empty game destinations remain hidden and removed an unfinished empty Sealed-navigation runtime drift; the runtime theme is again byte-for-byte aligned with GitHub. Remaining gate: authenticated desktop/mobile visual preview before publication.**
 
 ## 29 September 2026 — recognition image-retention decision
 
