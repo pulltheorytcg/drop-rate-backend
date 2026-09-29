@@ -194,3 +194,70 @@ def test_cardtrader_requires_confirmed_physical_language() -> None:
         "resolved": False,
         "reason": "physical card language is not confirmed",
     }
+
+
+
+def test_cardtrader_matches_tournament_and_championship_ampersand_alias() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super Fusion World",
+            "set_name": "Tournament and Championship Promos",
+            "name": "Vegeta (Tournament Pack -Winner- 06)",
+            "card_number": "FB05-039",
+            "language": "English",
+            "variant": "Foil",
+        },
+        games=_games(),
+        expansions=[
+            {
+                "id": 4300,
+                "game_id": 16,
+                "name": "Tournament & Championship Promos",
+            }
+        ],
+        blueprints=[
+            {
+                "id": 5001,
+                "game_id": 16,
+                "expansion_id": 4300,
+                "name": "Vegeta (Tournament Pack -Winner- 06)",
+                "version": "FB05-039",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/5001/preview.jpg",
+            }
+        ],
+    )
+
+    assert result["resolved"] is True
+    assert result["provider_set"] == "Tournament & Championship Promos"
+    assert result["collector_number"] == "FB05-039"
+    assert result["game_line"] == "fusion-world"
+
+
+def test_cardtrader_does_not_fall_back_prerelease_to_base_set() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super",
+            "set_name": "Supreme Rivalry Pre-Release Cards",
+            "name": "Trunks, Thwarting the Dark Empire",
+            "card_number": "BT13-131",
+            "language": "English",
+            "variant": "Normal",
+        },
+        games=_games(),
+        expansions=[
+            {"id": 2651, "game_id": 16, "name": "Supreme Rivalry"},
+        ],
+        blueprints=[
+            {
+                "id": 184778,
+                "game_id": 16,
+                "expansion_id": 2651,
+                "name": "Trunks, Thwarting the Dark Empire",
+                "fixed_properties": {"collector_number": "BT13-131"},
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/184778/preview.jpg",
+            }
+        ],
+    )
+
+    assert result["resolved"] is False
+    assert "expansion" in result["reason"].lower()
