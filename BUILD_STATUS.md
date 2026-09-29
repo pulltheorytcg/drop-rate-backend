@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — Fusion World tournament-promo proof
+
+**SOURCE-CONTROL PR IN PROGRESS —** a production CardTrader Blueprint diagnostic showed that
+the local tournament-promo cards live under provider expansion `Fusion World Promos` (3678),
+not `Tournament & Championship Promos` (4300). The resolver is being narrowed to that
+production mapping while requiring the local Tournament Pack label to agree with the Blueprint
+version. This allows exact Pack 07 matches but deliberately blocks Nappa FP-046 (local Pack 07,
+provider Pack 08) and Vegeta FB05-039 (local Winner 06, provider ordinary Tournament Pack 06).
+No inventory/media mutation occurred during the diagnostic.
+
 ## 2026-09-29 — CardTrader printing safeguards rebased on current main
 
 A clean follow-up hardens the production-tested Dragon Ball matcher without relaxing identity:

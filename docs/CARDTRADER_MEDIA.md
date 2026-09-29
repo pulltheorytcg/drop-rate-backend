@@ -111,3 +111,23 @@ none exists, it may inspect the base expansion only when the chosen Blueprint's 
 text explicitly proves `Pre-Release`. Base inventory rejects pre-release Blueprints. Current
 CardTrader production data does not expose that proof for the six outstanding Drop Rate
 pre-release copies, so those six remain unresolved rather than receiving base-print media.
+
+
+## Fusion World tournament-promo proof
+
+Production CardTrader diagnostics show the current tournament-pack cards are stored under
+`Fusion World Promos` (expansion 3678), not under `Tournament & Championship Promos`.
+
+Drop Rate therefore maps the local canonical set `Tournament and Championship Promos` to
+CardTrader `Fusion World Promos`, but only with exact Blueprint proof:
+
+- collector number remains mandatory;
+- the local Tournament Pack label must match the Blueprint `version` text exactly;
+- a local `Winner` label cannot match an ordinary Tournament Pack Blueprint;
+- a Pack 07 import cannot match a Pack 08 Blueprint.
+
+Production evidence currently confirms:
+- FP-045 Tien Shinhan → Tournament Pack 07: eligible for exact-match resolution;
+- FP-047 Vegeta (Mini) : DA → Tournament Pack 07: eligible for exact-match resolution;
+- FP-046 Nappa local Pack 07 vs provider Pack 08: blocked;
+- FB05-039 Vegeta local Winner 06 vs provider ordinary Tournament Pack 06: blocked.
