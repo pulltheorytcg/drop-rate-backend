@@ -42,3 +42,18 @@ def test_search_v1_has_no_custom_backend_dependency() -> None:
     assert "/api/v1/" not in source
     assert "fetch(" not in source
     assert "supabase" not in source
+
+
+def test_search_visuals_use_current_drop_rate_palette_without_changing_query_contract() -> None:
+    source = (THEME / "blocks" / "_search-input.liquid").read_text()
+    template = _json_with_comment(THEME / "templates" / "search.json")
+
+    assert "border-color: #8bb9f8;" in source
+    assert "color: #1f7bf2;" in source
+    assert "background: #ffffff;" in source
+    assert template["sections"]["search"]["settings"]["background_color"] == "#F4F7FB"
+    assert template["sections"]["main"]["settings"]["background_color"] == "#F4F7FB"
+    assert 'name="type"' in source
+    assert 'value="product"' in source
+    assert 'name="options[prefix]"' in source
+    assert 'value="last"' in source
