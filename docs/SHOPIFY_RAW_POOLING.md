@@ -88,6 +88,15 @@ This means Phase A can pool quantity without weakening the existing ownership or
 
 tcg.sellable_listings, tcg.listing_inventory_members and tcg.inventory_reservations remain the broader marketplace-listing foundation. They are not silently populated by this migration.
 
+## Ongoing pool-safe operations
+
+Pooling changes the semantics of a Shopify inventory quantity from "this one physical item" to "remaining eligible physical members". Existing single-item maintenance paths therefore follow these rules:
+
+- **Return/refund:** a returned physical item moves to INSPECTION and its exact link is archived, but Shopify quantity is reconciled to the count of remaining unreserved PUBLISHED links behind that variant. A unique one-copy variant naturally reconciles to zero.
+- **Withdraw from sale / Personal Collection:** withdrawing one member reconciles quantity to the remaining eligible sibling links. A published pool stays ACTIVE while quantity remains above zero; the final member still produces quantity zero and DRAFT, preserving the old fail-closed behaviour.
+- **Cancellation before payment:** the existing Shopify reservation path releases the exact reserved Inventory IDs and does not force the shared variant to zero. Shopify remains responsible for its native cancellation inventory restoration.
+- **Price changes:** the legacy owner/item price-sync endpoint explicitly excludes shopify-pool links. Shared offer prices require a dedicated offer-level price sync so one physical owner/member cannot silently overwrite a pooled variant price.
+
 ## Published duplicates: Phase B
 
 Already-published duplicate products are not migrated by Phase A.
