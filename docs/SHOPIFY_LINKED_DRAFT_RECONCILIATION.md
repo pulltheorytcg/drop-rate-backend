@@ -89,3 +89,16 @@ includes the effective concurrency for production verification.
 The linked-draft loader must expose the physical primary key under the explicit `inventory_id` key as well as the inventory row's native `id`.
 
 The publication audit helper consumes `inventory_id`. Without the explicit alias, Shopify activation can succeed but the database publication commit fails with `KeyError: 'inventory_id'`; compensation then returns the product to DRAFT. The loader therefore selects `i.id as inventory_id` and regression coverage locks that contract.
+
+## Production completion — 29 September 2026
+
+The launch backlog has been drained in production using the DRAFT-only, bounded-concurrency worker.
+Final source-of-truth parity after the run:
+
+- 458 physical inventory links are `PUBLISHED`;
+- those links map to 438 distinct live Shopify products because pooled raw listings intentionally share product/variant IDs;
+- 20 redundant pre-pooling individual Shopify product shells remain `ARCHIVED` at quantity 0 and must not be reactivated;
+- Shopify and Supabase both show exactly 6 remaining drafts: five graded cards requiring founder `VERIFY_GRADED` review and one deliberate test-mode Seel;
+- the worker was returned to `ENABLED=false` and `APPLY=false` after production execution.
+
+The remaining graded drafts are not publication failures. The condition-review policy deliberately requires a founder decision before `condition_review_status` can become `VERIFIED_GRADED`; approved slab media alone does not silently satisfy that human-review gate.
