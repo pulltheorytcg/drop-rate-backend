@@ -1,0 +1,187 @@
+{% doc %}
+Shared Drop Rate brand typography and commerce presentation.
+Keep this layer complementary to drop-rate-global-styles: global component-specific
+collection/PDP/cart/search styling lives there; this file owns broad theme primitives.
+{% enddoc %}
+
+{% stylesheet %}
+  :root {
+    --dr-ink: #071b3f;
+    --dr-ink-soft: #13223b;
+    --dr-blue: #1f7bf2;
+    --dr-cyan: #28d7eb;
+    --dr-muted: #6d7b91;
+    --dr-bg: #f4f7fb;
+    --dr-line: #e2e8f0;
+  }
+
+  body {
+    background: #fff;
+    color: var(--dr-ink-soft);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--dr-blue);
+    outline-offset: 4px;
+  }
+
+  .header__row {
+    border-color: var(--dr-line);
+  }
+
+  .header-logo__image {
+    object-fit: contain;
+  }
+
+  .header__menu-item,
+  .menu-list__link {
+    font-weight: 650;
+  }
+
+  .announcement-bar {
+    font-size: 11px;
+  }
+
+  .announcement-bar__text {
+    color: #fff !important;
+  }
+
+  .product-card .card-gallery {
+    overflow: hidden;
+    border-radius: 8px;
+    background: var(--dr-bg);
+  }
+
+  .product-card .card-gallery img {
+    object-fit: contain !important;
+    padding: 14px;
+    transition: transform .25s;
+  }
+
+  .product-card .product-card__content {
+    height: 100%;
+  }
+
+  .product-card:hover .card-gallery img {
+    transform: translateY(-3px);
+  }
+
+  .product-card product-price {
+    margin-top: 3px;
+    color: var(--dr-ink-soft);
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .product-card .button,
+  .product-card .add-to-cart-button {
+    min-height: 38px;
+    border: 1px solid var(--dr-blue);
+    border-radius: 9px;
+    background: var(--dr-blue);
+    color: #fff;
+    box-shadow: none;
+    font-size: 11px;
+    font-weight: 750;
+  }
+
+  @media (hover: hover) {
+    .product-card .button:hover,
+    .product-card .add-to-cart-button:hover {
+      border-color: #176bd9;
+      background: #176bd9;
+    }
+  }
+
+  .product-card .product-form-buttons {
+    gap: 6px;
+  }
+
+  .product-card quantity-selector-component {
+    display: none;
+  }
+
+  .product-card .buy-buttons-block {
+    width: 100%;
+  }
+
+  .product-card .quick-add {
+    display: none;
+  }
+
+  .product-grid {
+    row-gap: 34px;
+  }
+
+  .product-grid__item {
+    min-width: 0;
+  }
+
+  .facets__label,
+  .facets__summary {
+    font-size: 12px;
+  }
+
+  .product-information .product-media-container {
+    border-radius: 8px;
+    background: var(--dr-bg);
+  }
+
+  .product-information .product-media-container img {
+    object-fit: contain;
+  }
+
+  .product-information .product-details {
+    border-color: var(--dr-line) !important;
+    background: #fff !important;
+  }
+
+  .product-information product-price {
+    color: var(--dr-ink-soft);
+    font-size: 26px;
+    font-weight: 800;
+  }
+
+  .shopify-section-group-footer-group {
+    border-top: 1px solid var(--dr-line);
+  }
+
+  .footer input {
+    border-radius: 8px;
+  }
+
+  .footer .group-block h2 {
+    font-size: 24px;
+    letter-spacing: -.04em;
+  }
+
+  @media (max-width: 749px) {
+    .product-card .card-gallery img {
+      padding: 9px;
+    }
+
+    .product-card .button,
+    .product-card .add-to-cart-button {
+      min-height: 40px;
+      font-size: 10px;
+    }
+
+    .product-card product-price {
+      font-size: 15px;
+    }
+
+    .product-information .product-details {
+      padding-top: 16px !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .product-card .card-gallery img {
+      transition: none;
+    }
+
+    .product-card:hover .card-gallery img {
+      transform: none;
+    }
+  }
+{% endstylesheet %}
