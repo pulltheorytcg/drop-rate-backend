@@ -80,22 +80,22 @@ a listing. No schema or runtime behavior changed. Production snapshot on 29 Sept
 
 ## 29 September 2026 — Shopify order reconciliation hardening
 
-**Shopify ↔ Drop Rate order reconciliation: IN PROGRESS — implementation, migration,
-permissions and production proof case are verified; only the first scheduled execution of
-the final combined operations monitor remains.** PR #256 shipped the reconciliation
-guardrail and PR #258 repaired the final test/documentation drift after payment/webhook-aware
-classification was introduced. CI is green. The production migration is applied and the
-persistence function is `SECURITY DEFINER`, with execute denied to
-PUBLIC/anon/authenticated/service_role/tcg_auditor and granted only to `tcg_api`.
-A controlled production persistence check against Shopify order
-`8488414282075` / `#1001` created exactly two HIGH
-`SHOPIFY_ORDER_WEBHOOK_GAP` Action Required rows for the two active founders and zero
-consignor rows; `#1002` remained the healthy comparison. The check did not reconstruct an
-order or alter inventory, ownership, ledger, settlement or payout data. The final
-30-minute operations monitor is deployed on the repurposed Railway `drop-rate-api`
-service with IPv6 egress enabled and the redundant temporary heartbeat service removed.
-This remains **IN PROGRESS** until that exact final monitor records a successful scheduled
-Shopify reconciliation execution.**
+**Shopify ↔ Drop Rate order reconciliation: IN PROGRESS — production scheduling is healthy,
+but the first successful combined run exposed an RLS-context false positive that is now
+being fixed.** The 30-minute operations monitor completed successfully after its Railway
+credential correction: payout heartbeat was healthy and Shopify reconciliation exited
+cleanly. The run correctly continued to surface the known cancelled #1001 webhook gap,
+but incorrectly flagged paid/refunded test order #1002 as missing even though
+`tcg.orders.source_reference='8488435581275'` exists.
+
+Root cause: the cron worker connects as restricted `tcg_api` with no authenticated
+owner/platform-admin session, so its direct `tcg.orders` SELECT was filtered to zero rows
+by owner-scoped RLS. The fix keeps RLS unchanged and introduces a narrowly scoped,
+read-only `SECURITY DEFINER` function that returns only the five fields required for
+reconciliation. A regression test requires the worker to use that function. No order,
+inventory, ownership, ledger, settlement or payout data is repaired or rewritten.
+Completion remains blocked until the migration is deployed and a production monitor run
+shows #1002 matched while #1001 remains the expected webhook-gap anomaly.**
 
 ## 29 September 2026 — verified 24-hour build delta
 

@@ -111,6 +111,30 @@ The correct response is to investigate delivery coverage, not fabricate a replac
 sale.
 
 
+## RLS-safe local order read
+
+The production monitor connects as the restricted `tcg_api` role without a browser user
+session. A direct SELECT from `tcg.orders` is therefore subject to the same owner-scoped
+RLS policy used by interactive application traffic. In a cron context that policy can
+legitimately expose zero rows even when Shopify orders exist.
+
+Reconciliation must not weaken that RLS boundary. Instead it reads only the fields needed
+for comparison through `tcg.shopify_orders_for_reconciliation(window_start)`, a
+`SECURITY DEFINER`, `STABLE` function with execute permission granted only to
+`tcg_api`. The function returns only:
+
+- internal order ID
+- Shopify source reference
+- order number
+- Drop Rate status
+- placed timestamp
+
+It does not return owner, customer, address, payment, ledger or settlement data.
+
+This change fixes a production false positive where Shopify #1002 /
+`8488435581275` was incorrectly classified as Shopify-only even though its
+`tcg.orders` row exists.
+
 ## Production monitor deployment
 
 Reconciliation is the second step of the internal Railway operations monitor on the
