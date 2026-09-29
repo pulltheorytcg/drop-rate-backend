@@ -429,7 +429,7 @@ async def _mark_published(
                 )
                 """,
                 request_id,
-                item["inventory_id"],
+                item["id"],
                 json.dumps({
                     "link_id": str(item["link_id"]),
                     "sync_state": "DRAFT",
