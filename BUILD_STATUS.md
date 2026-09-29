@@ -1,5 +1,9 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — CardTrader Dragon Ball printing normalization
+
+**SOURCE-CONTROL PR IN PROGRESS —** production probe confirmed Masters exact-match resolution and exposed provider naming differences on Fusion World/promotional/pre-release printings. The resolver is being hardened for CardTrader's `Tournament & Championship Promos` naming, Collectr promo-name suffixes, and pre-release printings represented inside a base expansion. Pre-release fallback remains fail-closed unless the Blueprint version itself explicitly proves a pre-release printing. Base inventory rejects pre-release Blueprints.
+
 ## 2026-09-29 — CardTrader production response wrapper fix
 
 The first production Dragon Ball CardTrader probe authenticated successfully enough to reach provider endpoints but exposed a live response-shape difference: `GET /games` returns `{"array": [...]}` for this account, while `GET /expansions` returns the documented bare list. Marketplace products are also keyed by Blueprint ID per CardTrader's API reference. A focused client compatibility fix now normalizes these shapes and keeps unknown/missing wrappers fail-closed. No Dragon Ball inventory or media was mutated by the failed probe.
