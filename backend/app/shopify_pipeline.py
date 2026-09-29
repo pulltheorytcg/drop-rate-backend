@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import logging
 from typing import Annotated, Any, Mapping
 from uuid import UUID, uuid4
 
@@ -33,7 +34,10 @@ from .shopify_completeness import (
     verify_remote_product,
 )
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
+from .shopify_copy_groups import sync_shopify_copy_group_metadata
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/shopify", tags=["shopify"])
 
@@ -2545,6 +2549,25 @@ async def sync_one_test_item(
                 """,
                 link["id"],
             )
+
+            copy_group_sync: dict[str, Any]
+            try:
+                copy_group_sync = await sync_shopify_copy_group_metadata(
+                    connection,
+                    client,
+                    catalogue_id=item["catalogue_id"],
+                )
+            except (ShopifyApiError, ValueError, RuntimeError) as exc:
+                logger.exception(
+                    "Shopify copy-group metadata sync failed for catalogue %s",
+                    item["catalogue_id"],
+                )
+                copy_group_sync = {
+                    "status": "ERROR",
+                    "catalogue_id": str(item["catalogue_id"]),
+                    "detail": type(exc).__name__,
+                }
+
             return jsonable_encoder({
                 "status": "PUBLISHED_TEST_ITEM",
                 "inventory": {
@@ -2561,6 +2584,7 @@ async def sync_one_test_item(
                     "final": final_verification,
                     "published_on_publication": published,
                 },
+                "copy_group_sync": copy_group_sync,
             })
 
 
