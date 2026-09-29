@@ -192,6 +192,17 @@ The header uses Shopify's native `<shopify-account>` component. Guest checkout r
 available. Customer auth is separate from Founder HQ and Seller Hub; the storefront does
 not reuse `/owner`, PLATFORM_ADMIN, consignor identity or Supabase browser auth.
 
+## Customer account/header visual alignment
+
+The native Shopify customer-account and cart header actions now use the same current
+Drop Rate visual tokens as browse, PDP, cart and search. The `<shopify-account>`
+component remains Shopify-native and uses a white surface, ink text and blue accent;
+the signed-in fallback/avatar treatment uses the blue/cyan brand gradient.
+
+No custom customer authentication, owner/seller authentication reuse or checkout login
+requirement is introduced. Guest checkout and the existing separate cart action remain
+unchanged.
+
 ## Operations dependency
 
 The 30-minute production operations monitor passed the corrected reconciliation path at
