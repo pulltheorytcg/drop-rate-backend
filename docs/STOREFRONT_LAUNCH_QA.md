@@ -158,6 +158,13 @@ Verified contract:
 
 No custom checkout or customer-payment path is introduced.
 
+## Search visual alignment
+
+Shopify-native search now uses the same current Drop Rate visual system as browse/PDP:
+a white elevated search field on the cool-grey surface, blue focus/icon states and a
+compact no-results treatment. Query semantics remain unchanged: search is still product-only,
+last-term partial matching is preserved, and unavailable products remain ordered last.
+
 ## Cart visual alignment
 
 The exact-copy cart presentation now follows the same current Drop Rate visual language as
