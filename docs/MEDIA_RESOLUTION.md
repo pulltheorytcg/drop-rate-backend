@@ -158,6 +158,12 @@ For `product_type in ('SEALED','COLLECTION')`:
 The queue is only a work-list. Appearing in it does not approve identity, change inventory
 status, publish a Shopify product or bypass rights checks.
 
+Capture completion is context-aware. A FRONT image captured as a raw card or graded slab
+does **not** satisfy a sealed-product requirement; only a valid `SEALED_PRODUCT` capture
+does. Likewise, graded requirements accept only `GRADED_SLAB`, while raw-card requirements
+accept only `RAW_UNSLEEVED`, `PENNY_SLEEVE` or `TOP_LOADER`. This prevents a valid
+first-party image from being reused under the wrong physical-media workflow.
+
 A previous route-level SQL filter admitted only `CARD` products even though the media
 resolver and upload endpoint already supported sealed inventory. That filter is now aligned
 with the existing resolver contract by allowing `CARD`, `SEALED` and `COLLECTION`.

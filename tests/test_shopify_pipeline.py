@@ -770,6 +770,7 @@ def test_media_intake_queue_does_not_recapture_approved_processing_physical_medi
             "rights_tier": "FIRST_PARTY_CAPTURE",
             "source_status": "ACTIVE",
             "shopify_file_status": "PROCESSING",
+            "capture_context": "PENNY_SLEEVE",
         }
         for side in ("FRONT", "BACK")
     ]
@@ -831,6 +832,7 @@ def test_failed_first_party_media_reenters_capture_queue() -> None:
             "rights_tier": "FIRST_PARTY_CAPTURE",
             "source_status": "ACTIVE",
             "shopify_file_status": "READY",
+            "capture_context": "GRADED_SLAB",
         },
         {
             "scope": "INVENTORY_ITEM",
@@ -842,6 +844,7 @@ def test_failed_first_party_media_reenters_capture_queue() -> None:
             "rights_tier": "FIRST_PARTY_CAPTURE",
             "source_status": "ACTIVE",
             "shopify_file_status": "FAILED",
+            "capture_context": "GRADED_SLAB",
         },
     ]
 
@@ -850,6 +853,40 @@ def test_failed_first_party_media_reenters_capture_queue() -> None:
     assert result["queue_count"] == 1
     assert result["items"][0]["missing_sides"] == ["BACK"]
     assert result["items"][0]["ready_sides"] == ["FRONT"]
+
+def test_sealed_wrong_capture_context_does_not_clear_queue() -> None:
+    sealed = _media_queue_card(
+        id="00000000-0000-0000-0000-000000000019",
+        catalogue_id="10000000-0000-0000-0000-000000000019",
+        inventory_code="INV-SEALED-19",
+        product_type="COLLECTION",
+        game="One Piece",
+        name="Premium Card Collection -6 assort vol.1-",
+        card_number=None,
+        language=None,
+        catalogue_language=None,
+    )
+    wrong = [{
+        "scope": "INVENTORY_ITEM",
+        "catalogue_id": None,
+        "inventory_id": sealed["id"],
+        "side": "FRONT",
+        "approval_status": "APPROVED",
+        "rights_status": "VERIFIED",
+        "rights_tier": "FIRST_PARTY_CAPTURE",
+        "source_status": "ACTIVE",
+        "shopify_file_status": "READY",
+        "capture_context": "RAW_UNSLEEVED",
+    }]
+
+    result = _build_media_intake_queue([sealed], wrong)
+    assert result["queue_count"] == 1
+    assert result["items"][0]["missing_sides"] == ["FRONT"]
+
+    correct = [{**wrong[0], "capture_context": "SEALED_PRODUCT"}]
+    ready = _build_media_intake_queue([sealed], correct)
+    assert ready["queue_count"] == 0
+
 
 def test_media_intake_endpoint_includes_sealed_and_collection_inventory() -> None:
     source = PIPELINE.read_text()
