@@ -1,5 +1,19 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-29 — Shopify publication remainder census (461/509 live)
+
+Production is now at **461 PUBLISHED physical inventory links out of 509 FOR_SALE inventory items**. Three additional items were safely promoted in the latest controlled reconciliation pass: Seel 021/094 English raw, Galarian Obstagoon 209/193 Japanese PSA 10, and Mega Charizard X ex 223/193 Japanese PSA 10. The two graded cards were explicitly founder-approved and recorded as `VERIFIED_GRADED` with exact FRONT/BACK graded-slab evidence before publication. Seel's legacy `test_mode=true` link was explicitly promoted to a normal production DRAFT link with its own audit event before the normal reconciler published it. The linked-draft worker was returned to `ENABLED=false` and `APPLY=false` immediately after the run.
+
+The exact **48 remaining** items are:
+- **3 linked graded Shopify drafts** — Nico Robin OP01-017 ACE 10 (no trusted slab media yet), Monkey.D.Luffy ST10-006 PSA 9 (front/back media ready; founder graded review still required), and Charizard V 019/189 PSA 9 (no trusted slab media yet).
+- **1 unlinked graded item** — Monkey D Luffy P-001 [25th] Japanese PSA 10; identity and front/back slab media are already ready, but founder `VERIFY_GRADED` is still required before Shopify bootstrap/publication.
+- **42 unlinked raw cards** — 29 Dragon Ball Super Masters, 6 Dragon Ball Super Fusion World, and 7 One Piece. All already have sale price, Near Mint condition and storage location. Their common blockers are identity/language confirmation and storefront-eligible exact media.
+- **2 unlinked sealed One Piece products** — Premium Card Collection -6 assort vol.1- and Tin Pack Set Vol. 2 -Portgas.D.Ace-. Both require first-party exact package photo, language/region confirmation, real packed weight/dimensions and a verified sealed-product shipping profile. The Ace tin additionally has no recorded `seal_status` yet.
+
+TCGGraph storefront-media policy is deployed and the provider-exact language/identity fallback is merged, tested and deploying. Production currently has **no `TCG_TCGGRAPH_API_KEY` configured**, so the 35 Dragon Ball/Fusion World cards cannot yet execute that provider path. TCGGraph account/subscription cost is an external commercial dependency and must not be purchased automatically.
+
+HIGH-priority Action Required rows now exist for both sealed products and all four remaining graded items, separating founder-review-ready slabs from slabs that still need exact physical media.
+
 ## 2026-09-29 — Provider-exact import identity fallback
 
 **SOURCE-CONTROL PR IN PROGRESS / REQUIRES TCGGRAPH KEY FOR PRODUCTION USE —** import enrichment is being extended so unmarked-language cards do not need a blanket batch language. If normal import evidence cannot confirm identity, the backend may probe TCGGraph across the supported candidate languages and accept `PROVIDER_EXACT` only when exactly one language returns the same deterministic exact printing. Zero matches, multiple language matches, any provider/API error, or a concurrent inventory change fails closed.
