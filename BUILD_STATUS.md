@@ -11,13 +11,52 @@ This file is the persistent source of truth for project progress. A feature coun
 - **Internal commerce / founder finance foundation:** ~92%; Stripe Connect sandbox transfer/reversal is proven, payout preferences are live and the scheduled payout-request worker is deployed, while real-money execution remains intentionally locked
 - **Milestone 2 — Shopify sale attribution:** ~92% technically complete; first real paid sale and full refund/restock path are production-verified, deterministic settlement reporting exists, seller-facing restricted finance views are deployed, and payout control is automated up to REQUESTED state. Multi-owner/same-card production attribution and live Stripe payout cutover remain.
 - **Milestone 3 — Automated market valuation/pricing:** ~80% technically complete; provider ingestion remains intentionally gated until source-by-source production approval/validation
-- **Customer storefront / Shopify UX:** base-commerce engineering/data-contract QA is complete on the unpublished Brand Redesign theme across browse, grouped-copy PDP, exact-copy cart/checkout handoff, search and Shopify-native customer accounts. All 14 source-controlled theme files match Shopify byte-for-byte; all 95 published products pass the one-copy inventory contract and have READY media. Overall storefront milestone remains IN PROGRESS only for authenticated desktop/mobile visual preview approval and subsequent publication. See `docs/STOREFRONT_LAUNCH_QA.md`.
+- **Customer storefront / Shopify UX:** base-commerce engineering/data-contract QA and the source-controlled visual pass are complete on the unpublished Brand Redesign theme across global shell, homepage, browse, grouped-copy PDP, exact-copy cart/checkout handoff, search and Shopify-native customer accounts. All **22 source-controlled theme files** are deployed in source/runtime parity; the live Horizon theme remains untouched. Overall storefront milestone remains IN PROGRESS only for the real password-protected desktop/mobile preview smoke, Shopify Search & Discovery filter setup, and subsequent publication. See `docs/STOREFRONT_LAUNCH_QA.md`.
 - **Native Founder app — iOS + Android:** blueprint added. The app will share the FastAPI/Supabase backend with Founder HQ but be a purpose-built camera-first mobile client, not a webview wrapper. Initial priority is Scan → exact-print recognition → inventory/media/condition → Action Required; later phases add sales, consignments, push notifications and Device Bridge printing/scanner workflows.
 - **Seller Hub / mobile seller operations:** now materially deployed rather than merely blueprinted. Restricted-owner onboarding, seller-safe inventory/finance views, continuous mobile scanning, batch value totals, match correction, top-valued cards, weekly movers, payout tracking, Shopify/eBay channel visibility, Collectr post-import enrichment, Action Required exceptions and sealed-product media handling are live. Remaining product work is real-world mobile scan tuning, seller-controlled channel actions, third-founder production verification and broader production data-provider coverage.
 
+## 29 September 2026 — storefront final machine-verifiable gate
+
+**Machine-verifiable storefront gate: COMPLETE / TWO EXTERNAL GATES REMAIN —** the
+unpublished `Drop Rate — Brand Redesign` theme is now fully aligned across the active
+global brand layer, Shopify current settings/header/footer, homepage, collection/browse,
+grouped-copy PDP, exact-copy cart, search and native customer-account chrome. The
+source-controlled overlay now contains **22 files**, and the newly added settings/header/
+footer files were deployed only after their pre-write Shopify checksums matched the values
+captured before CI. Post-write read-back confirms those files match GitHub byte-for-byte;
+the previously deployed 19 files had already been independently parity-verified.
+
+Shopify runtime/config checks also pass:
+- `Drop Rate — Brand Redesign` remains **UNPUBLISHED**.
+- `Horizon` remains **MAIN** and its last update remains
+  **24 September 2026 17:17:28 UTC**.
+- customer accounts use **NEW_CUSTOMER_ACCOUNTS**; login links are visible, accounts are
+  optional and login is not required at checkout, so guest checkout remains available;
+- the homepage's four configured feature products are ACTIVE and its Trading Cards,
+  Pokémon, One Piece, Graded Cards and four set destinations all resolve with products;
+- the `Sealed` collection remains exactly **0 products**, so its count-gated browse link
+  stays hidden;
+- the old yellow/teal/cream palette is no longer present in the active source-controlled
+  brand/component layer. Preset-only Horizon values are not treated as active Brand
+  Redesign styling.
+
+Two external gates remain before publication:
+1. **Shopify Search & Discovery** is not installed. Shopify-native Set / Condition /
+   Language facet configuration therefore still requires merchant-side app installation
+   and filter setup; the product metafields and native theme filter UI are ready.
+2. **Password-protected visual smoke** cannot be executed from this environment because
+   both the browser runtime and web retrieval layer are blocked from the
+   `myshopify.com` preview URL by platform network policy. The supplied storefront
+   password is therefore not testable here. One desktop and one mobile smoke remains
+   required for homepage → collection → PDP/grouped copy → cart → native checkout entry,
+   plus search/no-result and signed-out/signed-in account handoff.
+
+Do **not** publish Brand Redesign or reopen deferred recognition/seller/market-data/
+automation scope until those storefront gates are intentionally cleared.**
+
 ## 29 September 2026 — active global theme settings + footer
 
-**Storefront global shell settings: IN PROGRESS —** QA found that, after the active
+**Storefront global shell settings: DEPLOYED / BROWSER QA PENDING —** QA found that, after the active
 `dr-brand-system` fix, Brand Redesign's Shopify-managed current palette/footer JSON still
 contained legacy teal/cream values. `config/settings_data.json`, `header-group.json` and
 `footer-group.json` are now source-controlled and only active colour values are aligned to
@@ -29,7 +68,7 @@ three files to the unpublished Brand Redesign theme and source/runtime parity.**
 
 ## 29 September 2026 — active global brand layer
 
-**Storefront global brand CSS: IN PROGRESS —** QA found the live unpublished theme renders
+**Storefront global brand CSS: DEPLOYED / BROWSER QA PENDING —** QA found the live unpublished theme renders
 `dr-brand-system` after `drop-rate-global-styles`. That active runtime snippet still
 contained legacy yellow/teal purchase actions and late overrides that flattened the newer
 product-card, facet and PDP presentation. The snippet is now source-controlled and narrowed
@@ -42,7 +81,7 @@ source/runtime parity.**
 
 ## 29 September 2026 — homepage visual alignment
 
-**Storefront homepage design/source control: IN PROGRESS —** the four custom Brand Redesign
+**Storefront homepage design/source control: DEPLOYED / BROWSER QA PENDING —** the four custom Brand Redesign
 homepage sections are now mirrored in GitHub and aligned to the same current Drop Rate
 navy/blue/cyan/cool-grey/white visual system as browse, PDP, cart, search and account.
 The older yellow/teal hero/set accents are removed. Native Shopify behavior is preserved:
@@ -54,7 +93,7 @@ parity and desktop/mobile preview QA.**
 
 ## 29 September 2026 — customer account/header visual alignment
 
-**Storefront account/header presentation: IN PROGRESS —** Shopify's native customer account
+**Storefront account/header presentation: DEPLOYED / BROWSER QA PENDING —** Shopify's native customer account
 surface and cart header actions now use the current Drop Rate white/ink/blue/cyan visual
 tokens. The `<shopify-account>` component remains the customer auth/order-history surface;
 Founder HQ/Seller Hub auth remains separate, guest checkout stays available, and no custom
@@ -65,7 +104,7 @@ of signed-out/signed-in account handoff on desktop/mobile.**
 
 ## 29 September 2026 — search visual alignment
 
-**Storefront search presentation: IN PROGRESS —** Shopify-native product search now uses
+**Storefront search presentation: DEPLOYED / BROWSER QA PENDING —** Shopify-native product search now uses
 the current Drop Rate white/cool-grey/blue visual system while preserving the already-tested
 v1 search contract: product-only results, last-term partial matching and unavailable
 products last. The search field, focus state, help text and no-results state were restyled;
@@ -75,7 +114,7 @@ theme, source/runtime parity and desktop/mobile search/no-result preview QA.**
 
 ## 29 September 2026 — cart visual alignment
 
-**Storefront exact-copy cart presentation: IN PROGRESS —** the cart now aligns to the
+**Storefront exact-copy cart presentation: DEPLOYED / BROWSER QA PENDING —** the cart now aligns to the
 current Drop Rate navy/blue/cyan visual system while preserving Shopify-native commerce.
 Customer-safe copy metadata uses compact blue/cyan states, the one-physical-copy lock is
 more explicit, and the native checkout CTA is styled in the current blue brand action.
@@ -87,7 +126,7 @@ desktop/mobile cart→checkout preview smoke.**
 
 ## 29 September 2026 — PDP visual alignment
 
-**Storefront PDP/grouped copies: IN PROGRESS —** the next storefront-first presentation
+**Storefront PDP/grouped copies: DEPLOYED / BROWSER QA PENDING —** the next storefront-first presentation
 slice aligns the product page to the current Drop Rate navy/blue/cyan system. The card
 heading, deterministic facts panel, one-copy purchase note, grouped-copy selector and
 primary add-to-cart action now use white/cool-grey surfaces with explicit blue selected-copy
@@ -99,7 +138,7 @@ Redesign theme, byte-for-byte source/runtime parity and desktop/mobile preview Q
 
 ## 29 September 2026 — collection visual alignment
 
-**Storefront collection design: IN PROGRESS —** the first visible theme pass after the
+**Storefront collection design: DEPLOYED / BROWSER QA PENDING —** the first visible theme pass after the
 storefront engineering gate is now source-controlled. The collection hero, browse chips,
 product-card chrome and Shopify-native filter surfaces are aligned to the current Drop Rate
 Seller Hub palette: deep navy, blue/cyan accents, cool grey background and white cards,
@@ -112,7 +151,7 @@ and desktop/mobile preview QA.**
 
 ## 29 September 2026 — storefront set-facet canonicalization
 
-**Storefront facet data hygiene: IN PROGRESS —** Shopify collection filtering is already
+**Storefront facet data hygiene: COMPLETE —** Shopify collection filtering is already
 enabled in the unpublished Brand Redesign template, and all 95 ACTIVE products carry the
 core `drop_rate` metafields needed for customer filters. QA found one duplicate-looking
 Set value: `Carrying on His Will` versus the canonical `Carrying On His Will`.
