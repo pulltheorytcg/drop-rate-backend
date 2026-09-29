@@ -1174,6 +1174,51 @@ class ShopifyAdminClient:
             raise ShopifyApiError("Shopify inventory quantity update returned an invalid response")
         self._raise_user_errors(payload, "Shopify rejected inventory quantity update")
 
+    async def adjust_inventory_quantity(
+        self,
+        *,
+        inventory_item_id: str,
+        location_id: str,
+        delta: int,
+        idempotency_key: str,
+        reason: str = "correction",
+    ) -> None:
+        if delta == 0:
+            return
+        data = await self.graphql(
+            query="""
+            mutation DropRateInventoryAdjust(
+              $input: InventoryAdjustQuantitiesInput!,
+              $idempotencyKey: String!
+            ) {
+              inventoryAdjustQuantities(input: $input) @idempotent(key: $idempotencyKey) {
+                inventoryAdjustmentGroup {
+                  changes { name delta quantityAfterChange }
+                }
+                userErrors { field message code }
+              }
+            }
+            """,
+            variables={
+                "input": {
+                    "name": "available",
+                    "reason": reason,
+                    "referenceDocumentUri": f"drop-rate://inventory-adjustment/{idempotency_key}",
+                    "changes": [{
+                        "inventoryItemId": inventory_item_id,
+                        "locationId": location_id,
+                        "delta": int(delta),
+                        "changeFromQuantity": None,
+                    }],
+                },
+                "idempotencyKey": idempotency_key,
+            },
+        )
+        payload = data.get("inventoryAdjustQuantities")
+        if not isinstance(payload, dict):
+            raise ShopifyApiError("Shopify inventory quantity adjustment returned an invalid response")
+        self._raise_user_errors(payload, "Shopify rejected inventory quantity adjustment")
+
     async def set_product_status(self, *, product_id: str, status: str) -> None:
         data = await self.graphql(
             query="""
