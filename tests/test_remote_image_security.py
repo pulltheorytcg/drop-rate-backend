@@ -6,6 +6,7 @@ import pytest
 
 from app.api import (
     _fetch_inventory_image,
+    _inventory_image_direct_cdn_allowed,
     _inventory_image_redirect_target,
     _inventory_image_source_allowed,
 )
@@ -58,6 +59,19 @@ def test_inventory_image_allowlist_rejects_unsafe_url_components() -> None:
     assert not _inventory_image_source_allowed("https://127.0.0.1/card.png")
     assert not _inventory_image_source_allowed("https://user:pass@assets.tcgdex.net/card.png")
     assert not _inventory_image_source_allowed("https://assets.tcgdex.net/card.png#fragment")
+
+
+def test_inventory_direct_image_fast_path_is_shopify_cdn_only() -> None:
+    assert _inventory_image_direct_cdn_allowed("https://cdn.shopify.com/s/files/card.png")
+    assert _inventory_image_direct_cdn_allowed("https://x.shopifycdn.com/card.webp")
+    assert _inventory_image_direct_cdn_allowed("https://x.shopifycdn.net/card.webp")
+    assert not _inventory_image_direct_cdn_allowed("https://assets.tcgdex.net/card.png")
+    assert not _inventory_image_direct_cdn_allowed("https://cards.tcggraph.io/op/card.webp")
+    assert not _inventory_image_direct_cdn_allowed("http://cdn.shopify.com/card.png")
+    assert not _inventory_image_direct_cdn_allowed("https://evil.example/card.png")
+    assert not _inventory_image_direct_cdn_allowed(
+        "https://user:pass@cdn.shopify.com/card.png"
+    )
 
 
 def test_inventory_image_redirect_must_remain_on_allowlisted_https_host() -> None:
