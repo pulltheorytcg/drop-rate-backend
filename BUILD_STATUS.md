@@ -1,5 +1,31 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Phase 2 launch-discipline / efficiency audit started
+
+**PHASE 2 ACTIVE / BRAND REDESIGN STILL UNPUBLISHED —** the second operating manual is now in force on top of the storefront-first manual. No deferred feature workstream is reopened by this checkpoint.
+
+### Completed in this audit slice
+
+- ✅ **Stale PR housekeeping completed:** #309, #311–#314, #317 and #325 were reviewed against current `main` before closure. The production pooling/publication/copy functionality is retained in the later merged/current implementation; #314's broad audit-table grant was superseded by #315's narrower protected `SECURITY DEFINER` writers, and #312's one-shot conversion worker targeted a legacy linked-draft state that production has already drained to zero.
+- ✅ **One-page production system map added:** `docs/PRODUCTION_SYSTEM_MAP.md` now records every Railway service and the major Supabase/FastAPI/Shopify/n8n boundaries in plain English.
+- ✅ **Phase 2 efficiency audit added:** `docs/PHASE2_EFFICIENCY_AUDIT.md` records the publish gate, current blockers, live timing evidence and the human tests that still require a real phone/checkout.
+- ✅ **PSA capability retained:** `psa-cert-lookup-temp` and `psa-fetch-batch` are not being deleted. Production evidence shows the underlying capability is valuable: PSA certificate → exact graded identity/grade → exact official slab media when PSA provides it. The future cleanup is to formalise/consolidate/rename this capability as source-controlled graded-card infrastructure, not remove it.
+- ✅ **System-side timing baseline captured:** ordinary authenticated API reads are generally sub-second, but inventory image requests commonly take ~1.8–2.1 seconds each. Media delivery is therefore a concrete Phase 2 efficiency target, especially for mobile grids.
+- ✅ **17-item evidence review reconfirmed:** 8 Dragon Ball exact-print exceptions, 7 One Piece raw cards and 2 sealed items remain unlinked. The seven One Piece raw items have no physical-language evidence in their Collectr source rows, no prior identity-verification events and no verified provider mappings; they remain fail-closed pending physical review rather than being guessed.
+- ✅ **Two graded-media exceptions intentionally retained:** Nico Robin ACE 10 cert 590532 still lacks an exact back image; Charizard V PSA 9 cert 62398872 still lacks exact slab scans. Do not substitute another slab.
+- ✅ **Horizon historical-order question narrowed:** Shopify #1002 is the successful historical test order that reached Drop Rate and was later refunded/cancelled. Shopify #1001 is a cancelled historical test order whose cancellation webhook was processed but whose `orders/create` event/local order never existed; no stuck reservation remains. The two HIGH webhook-gap items both describe this same historical #1001 gap. This does not satisfy the required Brand Redesign launch purchase.
+
+### Still required before Brand Redesign publish
+
+1. Real-phone mobile smoke through the entire storefront path.
+2. Full desktop smoke.
+3. One real controlled purchase while Brand Redesign itself is MAIN, with confirmation email and exact owner/inventory attribution verified.
+4. Reconcile/close the historical #1001 webhook-gap Action Required items without fabricating a local order.
+5. Confirm the rollback control immediately before launch: Horizon can be republished as MAIN if checkout fails.
+6. Complete the real-device one-card timing test and record elapsed time/screens/taps.
+7. Do not reopen Seller Hub expansion, recognition expansion, pricing-provider expansion, cross-channel expansion or autonomous n8n/SEO/CRO until an explicit post-launch stability threshold is met.
+
+
 ## 2026-09-30 — Phase 2 Shopify #1001 reconciliation fix
 
 - Phase 2 launch-gate review confirmed historical Shopify test order #1001 was PENDING/unpaid, cancelled on 24 September, had a successfully processed `orders/cancelled` webhook, created no local `tcg.orders` row, left no reservation, and was followed by successful order #1002 on the same Sunny-owned Seel inventory.
