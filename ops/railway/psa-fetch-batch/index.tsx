@@ -130,9 +130,15 @@ async function lookupCert(cert: string, token: string) {
 }
 
 app.get("/", async (c) => {
-  const token = Bun.env.PSA_PUBLIC_API_TOKEN || Bun.env.TCG_PARSE_API_KEY;
+  const token = Bun.env.PSA_PUBLIC_API_TOKEN;
   if (!token) {
-    return c.json({ error: "PSA API token not configured" }, 503);
+    return c.json(
+      {
+        error: "PSA Public API token not configured",
+        code: "PSA_PUBLIC_API_TOKEN_REQUIRED",
+      },
+      503,
+    );
   }
 
   const requested = String(c.req.query("cert") || "").trim();

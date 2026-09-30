@@ -20,7 +20,11 @@ The PSA Public API currently documents:
 - cert lookup: `GET cert/GetByCertNumber/{cert}`;
 - authentication: `Authorization: bearer <access token>`.
 
-The Railway service reads `PSA_PUBLIC_API_TOKEN` if introduced later and falls back to the legacy existing secret name `TCG_PARSE_API_KEY` so the compatibility repair can be deployed without exposing or copying the token.
+The Railway service requires a dedicated `PSA_PUBLIC_API_TOKEN`.
+
+Production audit on 30 September 2026 confirmed no PSA-specific credential is currently configured on `drop-rate-api-live`; the old prototype incorrectly referenced `TCG_PARSE_API_KEY`, which is not a PSA credential and produced HTTP 403 responses from PSA.
+
+Do not reuse unrelated provider secrets. Until a valid PSA Public API bearer token is configured, the lookup service must return `503 PSA_PUBLIC_API_TOKEN_REQUIRED` rather than pretending certificate verification is operational.
 
 ## Endpoint
 
