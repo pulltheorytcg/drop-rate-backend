@@ -76,7 +76,7 @@ def test_sealed_product_plan_uses_sealed_storefront_contract() -> None:
     assert plan["vendor"] == "One Piece"
     assert plan["productType"] == "Sealed TCG Product"
     assert plan["shippingProfileKey"] == "SEALED_60D5B80E39B94311AA28599A1D0DE9B2"
-    assert plan["requiredCollections"] == ["Sealed", "One Piece"]
+    assert plan["requiredCollections"] == ["Sealed Sets", "One Piece"]
     assert "Sealed Product" in plan["tags"]
     assert "Raw Card" not in plan["tags"]
     assert "Graded Card" not in plan["tags"]
@@ -134,7 +134,7 @@ def test_sealed_product_fails_closed_without_real_shipping_profile() -> None:
         store_price_minor=11108,
         inventory_code="INV-SEALED-1",
         approved_media_count=1,
-        existing_collection_titles={"Sealed", "One Piece"},
+        existing_collection_titles={"Sealed Sets", "One Piece"},
         publication_configured=True,
         location_configured=True,
         shipping_profile=None,
