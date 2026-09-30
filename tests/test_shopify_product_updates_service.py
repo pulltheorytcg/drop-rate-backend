@@ -225,10 +225,10 @@ async def test_dr02_success_finalizes_exact_snapshot_and_price() -> None:
     assert result["synced_count"] == 1
     assert connection.finalize_calls == 1
     assert connection.finalize_args == (
-        str(LINK_ID),
-        str(OWNER_ID),
+        LINK_ID,
+        OWNER_ID,
         4,
-        str(INVENTORY_ID),
+        INVENTORY_ID,
         7,
         650,
         "request-success",
