@@ -375,7 +375,7 @@ def test_seller_topbar_brand_is_single_polished_lockup() -> None:
     assert "<small>DROP RATE</small>" not in html
     assert "<em>Inventory · Sales · Payouts</em>" not in html
     assert ".owner-portal-page .owner-topbar-logo" in css
-    assert "width:254px!important" in css
+    assert "width:220px!important" in css
     assert "width:136px!important" in css
     assert "left:50%" in css
     assert "transform:translateX(-50%)" in css
