@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Public Seller Hub stale-invite fix
+
+- Root cause found for storefront **Sell With Us** showing **“This invite cannot be used”**: a clean `/owner/join` visit could reuse an expired invite token from browser local storage.
+- Public invite-free entry now accepts an invite token only when it is explicitly present in the URL; cached invite state is recovered only during an authentication callback.
+- Genuine founder-issued invite links remain supported and continue using the existing invite redemption path.
+- Cache-bumped `owner-join.js` so production browsers receive the fixed join logic immediately after deploy.
+- Added regression coverage and updated the storefront Seller Hub contract documentation.
+- No owner permissions, founder access, ownership, pricing, settlement, payout or Shopify order logic changed.
+- Production verification remains pending CI, merge, Railway deploy and live route read-back.
+
 ## 2026-09-30 — Seller Hub brand lockup refinement in progress
 
 - Replaced the previous Seller Hub artwork with the user-approved transparent **Drop Rate Seller Hub** integrated lockup.
