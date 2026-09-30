@@ -19,7 +19,8 @@ def test_psa_lookup_is_parameterised_and_read_only() -> None:
     source = SOURCE.read_text(encoding="utf-8")
     assert 'c.req.query("cert")' in source
     assert "cert must be 7-10 digits" in source
-    assert "PSA_PUBLIC_API_TOKEN || Bun.env.TCG_PARSE_API_KEY" in source
+    assert "Bun.env.PSA_PUBLIC_API_TOKEN" in source
+    assert "TCG_PARSE_API_KEY" not in source
     assert "inventory_items" not in source
     assert "shopify" not in source.lower()
     assert "update " not in source.lower()
