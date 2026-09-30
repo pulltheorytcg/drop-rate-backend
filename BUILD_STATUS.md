@@ -1,5 +1,29 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: dispatcher heartbeat prepared
+
+- Added private `tcg.automation_component_heartbeats` state plus narrow `SECURITY DEFINER` heartbeat write/check functions.
+- The long-running automation dispatcher now writes a `DISPATCHER` heartbeat at startup and periodically (default 30 seconds), including worker instance and component version.
+- Heartbeat health is independent from outbox health: it can detect a dead dispatcher even while the queue is empty.
+- Added `check_automation_dispatcher_heartbeat.py` to the existing combined operations monitor.
+- **Dormant by default:** `TCG_AUTOMATION_DISPATCHER_ALERTS_ENABLED=false` until the dispatcher service is intentionally deployed.
+- Once enabled, a missing/stale dispatcher heartbeat opens founder **CRITICAL `AUTOMATION_DISPATCHER_UNHEALTHY`** and fails the operations monitor; recovery resolves the alert.
+- Default health threshold is 90 seconds and is bounded between 30 seconds and 15 minutes.
+- No business state, outbox event state, inventory, Shopify, order, ownership, pricing, finance or settlement truth is mutated by the heartbeat monitor.
+- This prepares the dispatcher for production but does **not** create/deploy a new Railway service. Any dispatcher service deployment still requires BUILD_STATUS documentation and explicit activation sequencing.
+- Runbook: `docs/AUTOMATION_DISPATCHER_HEARTBEAT.md`.
+
+## 2026-09-30 — n8n Wave A: reusable durable success receipts
+
+- Added inactive reusable n8n sub-workflow `DR91SuccessReceiptV1`.
+- Parent workflows provide typed workflow/execution/idempotency/event metadata only after their governed action has completed and been verified.
+- DR-91 validates identifiers, creates a `SUCCEEDED` receipt, HMAC-signs it and requires durable FastAPI acceptance.
+- The FastAPI receipt control now uses the supplied **idempotency key** as `automation_runs.run_key`, rather than n8n execution ID. Separate n8n executions handling the same business event therefore collapse to one durable receipt.
+- Execution ID remains stored in receipt result metadata for diagnostics.
+- DR-90 failure receipts remain behaviorally compatible because their idempotency keys already include the failed execution identity.
+- No parent workflow should treat “started” or “HTTP request sent” as success; DR-91 belongs after deterministic/read-back verification.
+- No business truth is stored in n8n execution history; durable run truth returns to Postgres.
+
 ## 2026-09-30 — n8n Wave A: automation run schema aligned with control-plane receipts
 
 - Pre-activation review found `tcg.automation_runs` still carried legacy-only checks: `job_type='INVENTORY_REVIEW'`, `initiated_by='AUTOMATION_SERVICE'`, and `run_key` length ≤96.
