@@ -15,6 +15,24 @@
 - The reconciliation changed no owner, acquisition cost, sale history, refund history, settlement history or canonical card identity.
 - Brand Redesign remains UNPUBLISHED while the separate storefront **Sell With Us → Seller Hub** launch slice is completed and verified.
 
+## 2026-09-30 — Storefront “Sell With Us” → Seller Hub self-registration in progress
+
+- Added a customer-facing storefront conversion path so Brand Redesign can connect buyers directly to the restricted Drop Rate Seller Hub.
+- Existing `/owner/join` was verified as invitation-only before this change; the storefront CTA is therefore paired with a real invite-free registration contract rather than linking customers to a dead-end token page.
+- New self-registration remains fail-closed and role-safe:
+  - requires an authenticated, non-anonymous Supabase user with a confirmed email;
+  - creates `CONSIGNOR` ownership only;
+  - creates `OWNER` membership only;
+  - defaults commission to 1000 bps / 10%;
+  - idempotently reuses an existing active OWNER/CONSIGNOR membership;
+  - refuses to overwrite or downgrade PLATFORM_ADMIN / other conflicting access.
+- The database, not browser-supplied email, verifies the authenticated user against `auth.users`.
+- Founder HQ remains inaccessible to self-registered sellers; payout approval/execution and internal admin controls remain outside this flow.
+- Existing founder-issued seller invitations remain supported.
+- Brand Redesign header source now contains a prominent **Sell With Us** desktop CTA and compact **Sell** mobile CTA pointing to the Seller Hub join page.
+- The migration remains unapplied and the Brand Redesign runtime theme remains unpublished until CI, production deployment, migration application and theme source/runtime parity checks pass.
+- See `docs/SELL_WITH_US_STOREFRONT.md`.
+
 ## 2026-09-30 — Published pool historical-priority edge case fixed
 
 - First live Phase-B migration was deliberately limited to Uta OP13-023 after production deployment.

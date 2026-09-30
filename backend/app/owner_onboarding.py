@@ -100,6 +100,17 @@ class OwnerInviteRedeem(BaseModel):
         return value.strip()
 
 
+class OwnerSelfRegister(BaseModel):
+    display_name: str = Field(min_length=1, max_length=120)
+    acknowledged: bool
+    acknowledgement_version: Literal[1] = ONBOARDING_ACK_VERSION
+
+    @field_validator("display_name")
+    @classmethod
+    def clean_display_name(cls, value: str) -> str:
+        return value.strip()
+
+
 async def _record_email_result(
     *,
     request: Request,
@@ -333,6 +344,59 @@ async def preview_owner_invite(token: str, request: Request) -> dict:
             "commission_bps": row["commission_bps"],
             "expires_at": row["expires_at"],
             "acknowledgement_version": ONBOARDING_ACK_VERSION,
+        }
+    )
+
+
+@router.post("/api/v1/owner-self-register")
+async def self_register_owner(
+    payload: OwnerSelfRegister,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    if not user.email:
+        raise HTTPException(
+            status_code=403,
+            detail="A verified account email is required to create a Seller Hub account",
+        )
+    if not payload.acknowledged:
+        raise HTTPException(
+            status_code=422,
+            detail="Seller onboarding acknowledgement is required",
+        )
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        row = await connection.fetchrow(
+            "select * from tcg.self_register_owner($1,$2)",
+            payload.display_name,
+            payload.acknowledgement_version,
+        )
+
+    if row is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Seller Hub account could not be created",
+        )
+    owner = dict(row)
+    return jsonable_encoder(
+        {
+            "owner": {
+                "id": owner["owner_id"],
+                "display_name": owner["display_name"],
+                "owner_type": owner["owner_type"],
+                "commission_bps": owner["commission_bps"],
+            },
+            "membership_role": owner["membership_role"],
+            "created": owner["created"],
+            "onboarding": {
+                "status": "COMPLETE",
+                "acknowledgement_version": payload.acknowledgement_version,
+                "next": "/owner?welcome=1",
+            },
         }
     )
 
