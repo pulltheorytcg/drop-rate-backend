@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Founder HQ stacked inventory-filter correctness
+
+- Repo hygiene review found PR #230 still contained one unique unsuperseded bug fix.
+- The location-aware Founder HQ `loadInventory` override omitted `sale_intent`, so combining **Personal Collection** with a storage-location filter could silently drop the Personal Collection scope and show the wrong inventory.
+- The fix forwards `sale_intent` alongside search/status/brand/issue/location filters.
+- The composed dashboard DOM test proves `sale_intent=PERSONAL_COLLECTION` and `unlocated=true` coexist in the real overridden request and that Clear Filters/global search reset the collection scope.
+- No backend, ownership, inventory, pricing, Shopify or settlement mutation is involved.
+
 ## 2026-09-30 — Phase 2 audit consolidated onto current main
 
 - Phase 2 remains the active operating layer on top of the storefront-first manual. Brand Redesign remains unpublished until the full launch gate passes.
