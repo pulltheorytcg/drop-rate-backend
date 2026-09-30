@@ -56,6 +56,33 @@ async def _run() -> int:
         },
     )
     try:
+        installed = bool(
+            await connection.fetchval(
+                """
+                select to_regprocedure(
+                  'tcg.check_automation_dispatcher_heartbeat(boolean,interval)'
+                ) is not null
+                """
+            )
+        )
+        if not installed:
+            if alert_enabled:
+                raise RuntimeError(
+                    "Automation dispatcher heartbeat migration is not installed"
+                )
+            print(
+                json.dumps(
+                    {
+                        "event": "AUTOMATION_DISPATCHER_HEARTBEAT_NOT_INSTALLED_DORMANT",
+                        "alert_enabled": False,
+                        "threshold_seconds": threshold_seconds,
+                    },
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
+            return 0
+
         row = await connection.fetchrow(
             """
             select *
