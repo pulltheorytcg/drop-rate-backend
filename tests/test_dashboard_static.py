@@ -184,6 +184,14 @@ def test_inventory_defaults_to_visual_collectr_style_cards() -> None:
     assert "image.src = directImageUrl" in js
     assert 'image.addEventListener("error", loadFromProxy, { once: true })' in js
     assert "apiImageBlob(proxyPath)" in js
+    assert "let proxyLoadStarted = false" in js
+    assert "if (proxyLoadStarted) return" in js
+    assert "function loadProxyNearViewport" not in js
+    assert "const loadProxyNearViewport = () =>" in js
+    assert 'typeof window.IntersectionObserver !== "function"' in js
+    assert 'rootMargin: "320px 0px"' in js
+    assert "observer.observe(figure)" in js
+    assert "loadProxyNearViewport();" in js
     assert "item.market_value_minor" in js
     assert "item.store_price_minor" in js
     assert "item.acquisition_cost_minor" in js
