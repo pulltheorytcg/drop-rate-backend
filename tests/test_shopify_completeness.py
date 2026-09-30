@@ -116,6 +116,7 @@ def test_sealed_shipping_profile_fails_closed_without_canonical_id() -> None:
 def test_sealed_product_fails_closed_without_real_shipping_profile() -> None:
     sealed = _card(
         inventory_code="INV-SEALED-1",
+        catalogue_id="60d5b80e-39b9-4311-aa28-599a1d0de9b2",
         product_type="COLLECTION",
         game="One Piece",
         name="Premium Card Collection -6 assort vol.1-",
