@@ -1,16 +1,14 @@
 # Drop Rate — Live Build Status
 
-## 2026-09-30 — n8n Wave A: independent workflow heartbeat
+## 2026-09-30 — n8n heartbeat consolidation correction
 
-- Added inactive source-controlled workflow `DR92WorkflowHeartbeatV1`.
-- Once explicitly published/activated, DR-92 runs every 5 minutes and calls DR-91 using the stable workflow ID `DR91SuccessReceiptV1`.
-- Heartbeat idempotency is based on the UTC 5-minute bucket, so retries or duplicate executions for the same slot collapse to one durable logical run.
-- Durable heartbeat truth lives in `tcg.automation_runs` as `N8N:workflow-heartbeat`; n8n execution history is not the monitor's source of truth.
-- Added independent Postgres health check `tcg.check_n8n_workflow_heartbeat(alert_enabled,threshold)` plus the existing Railway operations-monitor path.
-- Alerting defaults **dormant**. It may observe missing/stale heartbeat without opening incidents until `TCG_N8N_HEARTBEAT_ALERTS_ENABLED=true` is deliberately enabled after live proof.
-- When alerting is enabled, a stale heartbeat opens/updates founder HIGH `N8N_HEARTBEAT_STALE` Action Required items; a recovered heartbeat resolves them automatically.
-- DR-92 routes execution errors to DR-90 and records successful completion only through DR-91.
-- Activation gate: DR-90 and DR-91 must be published/proven first, then DR-92 is published, one manual/live heartbeat is verified in Postgres, duplicate safety is proven, and only then heartbeat alerting is enabled.
+- The canonical n8n heartbeat remains **DR-92 n8n Runtime Heartbeat** from PR #380.
+- A second workflow-heartbeat implementation briefly merged in PR #381 duplicated DR-92's core purpose and introduced a variable-name collision in the combined operations monitor.
+- The duplicate workflow, checker, wrapper, test and unapplied migration are removed before the duplicate database function reached production.
+- `run_operations_monitor.py` is restored to one canonical `check_n8n_runtime_heartbeat.py` result and one `n8n_heartbeat_code` field.
+- This keeps one 5-minute scheduled n8n liveness path: n8n → signed FastAPI heartbeat → private Postgres heartbeat state → independent operations monitor → dormant/armed Action Required.
+- DR-91 remains the reusable durable success-receipt contract for real business workflows; it does not need a second heartbeat workflow to prove liveness.
+- No production data was deleted and heartbeat alerting remains dormant by default.
 
 ## 2026-09-30 — n8n Wave A: source cutover verified + DR-92 runtime heartbeat built inactive
 
