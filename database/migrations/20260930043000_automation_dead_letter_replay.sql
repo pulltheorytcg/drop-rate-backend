@@ -91,8 +91,8 @@ grant execute on function tcg.list_automation_outbox_events(text,text,integer) t
 
 create or replace function tcg.replay_dead_letter_automation_event(
   p_event_id uuid,
+  p_actor_user_id uuid,
   p_reason text,
-  p_actor text,
   p_request_id text default null
 )
 returns jsonb
@@ -103,7 +103,7 @@ as $function$
 declare
   v_event tcg.automation_events%rowtype;
   v_reason text := btrim(coalesce(p_reason,''));
-  v_actor text := btrim(coalesce(p_actor,''));
+  v_actor text;
   v_request_id text := nullif(btrim(coalesce(p_request_id,'')),'');
   v_before jsonb;
 begin
@@ -111,10 +111,25 @@ begin
     raise exception 'Replay reason must be between 8 and 500 characters'
       using errcode='22023';
   end if;
-  if char_length(v_actor) < 3 or char_length(v_actor) > 120 then
-    raise exception 'Replay actor must be between 3 and 120 characters'
+  if p_actor_user_id is null then
+    raise exception 'Replay actor user ID is required'
       using errcode='22023';
   end if;
+  if not exists(
+    select 1
+    from tcg.owner_memberships m
+    join tcg.owners o on o.id=m.owner_id
+    where m.user_id=p_actor_user_id
+      and m.active
+      and m.role='PLATFORM_ADMIN'
+      and o.active
+      and o.owner_type='FOUNDER'
+  ) then
+    raise exception 'Platform administrator access required'
+      using errcode='42501';
+  end if;
+  v_actor := 'user:' || p_actor_user_id::text;
+
   if v_request_id is not null and char_length(v_request_id) > 255 then
     raise exception 'Replay request ID must be at most 255 characters'
       using errcode='22023';
@@ -194,9 +209,9 @@ begin
 end;
 $function$;
 
-revoke all on function tcg.replay_dead_letter_automation_event(uuid,text,text,text) from public;
-revoke all on function tcg.replay_dead_letter_automation_event(uuid,text,text,text)
+revoke all on function tcg.replay_dead_letter_automation_event(uuid,uuid,text,text) from public;
+revoke all on function tcg.replay_dead_letter_automation_event(uuid,uuid,text,text)
   from anon,authenticated,service_role,tcg_auditor;
-grant execute on function tcg.replay_dead_letter_automation_event(uuid,text,text,text) to tcg_api;
+grant execute on function tcg.replay_dead_letter_automation_event(uuid,uuid,text,text) to tcg_api;
 
 commit;
