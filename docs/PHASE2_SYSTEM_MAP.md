@@ -105,32 +105,23 @@ A production behavior that exists only in a dashboard/UI is operational drift an
 
 ## 5. n8n
 
-The n8n runtime exists, but advanced automation is intentionally gated.
+The n8n runtime is now repository-controlled, but business workflows remain intentionally activation-gated.
 
-Current important branches:
-- PR #236 — DR-01 approved-inventory → Shopify orchestration, including a version-controlled workflow JSON. **Open/unmerged/unactivated.**
-- PR #215 — governed CRO/SEO experiment foundation. **Open/unmerged.**
-- PR #216 — content-machine foundation. **Open/unmerged.**
+Current source-controlled state:
+- **Wave A control plane is implemented in Git**: signed ingress, DR-90 global failure handling, DR-91 durable success receipts, Action Required integration, dead-letter/replay visibility, outbox health, canonical DR-92 runtime heartbeat and dispatcher-process heartbeat support.
+- **DR-01 Shopify product creation is BUILT_INACTIVE.** DR-01 V2 + DR-00 V3 are the valid route-corrected versions; superseded V1/V2 workflow versions remain inactive audit history.
+- **DR-02 Shopify product updates is BUILT_INACTIVE.** V1 is deliberately bounded to Store Price reconciliation only; pricing truth remains Postgres/FastAPI.
+- PRs #215 and #216 remain open/unmerged and must stay governed/deferred until real storefront signal exists.
 
-Phase 2 activation order:
-1. one low-risk notification workflow;
-2. n8n error workflow;
-3. prove signed ingress, idempotent retries and correct delivery;
-4. export JSON and commit it;
-5. only then consider higher-value workflows such as Merchant Center diagnostics;
-6. deterministic decisions remain in FastAPI/Postgres.
-
-### Production n8n audit — 30 September 2026
-
-Railway read-only inspection confirms:
+Production n8n verification — 30 September 2026:
 - runtime version: **n8n 2.32.6**;
-- startup dependency-index log: **0 draft workflows / 0 published workflows**;
-- therefore no active production workflow exists today;
-- no error workflow is currently configured;
-- persistent SQLite state exists on the n8n volume;
-- the service runs from the pinned n8n Docker image rather than a repository checkout.
+- Railway now sources the service from this repository through `Dockerfile.n8n` while retaining the pinned image/version and persistent `/home/node/.n8n` volume;
+- latest startup reported **0 published workflows**;
+- DR-00/DR-01/DR-02/DR-90/DR-91/DR-92 therefore remain non-customer-facing until their explicit activation proofs are completed;
+- DR-02's `shopify_price_reconciliation` migration is present in Git but **not applied in production** at this review;
+- the dispatcher-heartbeat migration is also deliberately unapplied and no dispatcher Railway service has been created.
 
-This means there is currently **no hidden live n8n workflow drift**. The absence of an error workflow is acceptable only while there are zero workflows. Before the first production workflow is activated, its JSON must be committed to GitHub and the n8n error workflow must be configured and tested.
+Activation remains proof-driven: signed ingress, idempotency/duplicate behavior, stale-state handling, provider read-back, DR-90/DR-91 durability, runtime health and deliberate dispatcher cutover must be demonstrated before enabling business workflows. n8n never becomes a second pricing, ownership, identity or finance rules engine.
 
 ## 6. External providers
 
@@ -143,6 +134,14 @@ No provider may silently determine:
 - canonical exact-print identity when evidence is ambiguous;
 - final price;
 - settlement outcome.
+
+## Current launch-readiness snapshot — later 30 September review
+
+- **17 FOR_SALE units remain unlinked:** 8 Dragon Ball cards, 7 One Piece cards and 2 One Piece collection/sealed products.
+- **OPEN HIGH exceptions:** 2 `GRADED_SLAB_MEDIA_REQUIRED` and 2 `SEALED_PUBLICATION_INPUTS_REQUIRED`.
+- The two historical `SHOPIFY_ORDER_WEBHOOK_GAP` items are `DISMISSED` with an explicit Phase 2 resolution for cancelled test order #1001; they are not active publish blockers.
+- **No OPEN CRITICAL Action Required items** were present at this review.
+- Still requiring real human/browser evidence: mobile smoke, desktop smoke, a Brand Redesign test purchase with owner attribution, exact Horizon rollback confirmation, the timed founder intake test and the timed customer purchase test.
 
 ## 7. Complexity decisions from the Phase 2 review
 
