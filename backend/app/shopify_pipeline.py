@@ -1966,6 +1966,128 @@ async def test_sync_status(
         })
 
 
+async def reconcile_shopify_product_prices(
+    pool: Any,
+    *,
+    limit: int = 50,
+    request_id: str = "",
+    client: ShopifyAdminClient | None = None,
+) -> dict[str, Any]:
+    """Reconcile canonical Store Price to published single-item Shopify variants.
+
+    This automation path is deliberately narrower than the founder price-sync UI:
+    only non-test, non-pooled, unreserved PUBLISHED links are eligible. PostgreSQL
+    selects candidates and revalidates exact link/inventory versions after remote
+    read-back; no database transaction is held across Shopify I/O.
+    """
+
+    if limit < 1 or limit > 100:
+        raise ValueError("limit must be between 1 and 100")
+
+    shopify = client or _client()
+    async with pool.acquire() as connection:
+        candidates_value = await connection.fetchval(
+            "select tcg.shopify_price_sync_candidates($1)",
+            limit,
+        )
+    candidates = (
+        [dict(row) for row in candidates_value]
+        if isinstance(candidates_value, list)
+        else []
+    )
+
+    results: list[dict[str, Any]] = []
+    for candidate in candidates:
+        target_price = int(candidate["store_price_minor"])
+        try:
+            remote = await shopify.update_variant_price(
+                product_id=str(candidate["shopify_product_gid"]),
+                variant_id=str(candidate["shopify_variant_gid"]),
+                price=_money(target_price),
+            )
+        except ShopifyApiError as exc:
+            results.append({
+                "inventory_id": candidate["inventory_id"],
+                "inventory_code": candidate["inventory_code"],
+                "status": "SHOPIFY_ERROR",
+                "retryable": bool(exc.retryable),
+            })
+            continue
+
+        if str(remote.get("id") or "") != str(candidate["shopify_variant_gid"]):
+            results.append({
+                "inventory_id": candidate["inventory_id"],
+                "inventory_code": candidate["inventory_code"],
+                "status": "SHOPIFY_MISMATCH",
+                "detail": "Shopify returned a different variant",
+                "retryable": False,
+            })
+            continue
+
+        try:
+            remote_price_minor = _minor(remote.get("price"), field="variant price")
+        except ShopifyProcessingError:
+            results.append({
+                "inventory_id": candidate["inventory_id"],
+                "inventory_code": candidate["inventory_code"],
+                "status": "SHOPIFY_MISMATCH",
+                "detail": "Shopify returned an invalid variant price",
+                "retryable": False,
+            })
+            continue
+
+        if remote_price_minor != target_price:
+            results.append({
+                "inventory_id": candidate["inventory_id"],
+                "inventory_code": candidate["inventory_code"],
+                "status": "SHOPIFY_MISMATCH",
+                "detail": "Shopify price readback does not match Drop Rate",
+                "retryable": False,
+            })
+            continue
+
+        async with pool.acquire() as connection:
+            finalized = await connection.fetchval(
+                """
+                select tcg.finalize_shopify_price_sync(
+                  $1,$2,$3,$4,$5,$6,$7
+                )
+                """,
+                UUID(str(candidate["link_id"])),
+                UUID(str(candidate["owner_id"])),
+                int(candidate["link_version"]),
+                UUID(str(candidate["inventory_id"])),
+                int(candidate["inventory_version"]),
+                target_price,
+                request_id,
+            )
+
+        if not isinstance(finalized, dict):
+            results.append({
+                "inventory_id": candidate["inventory_id"],
+                "inventory_code": candidate["inventory_code"],
+                "status": "RETRY_REQUIRED",
+                "detail": "Price sync finalization returned no durable result",
+                "retryable": True,
+            })
+            continue
+        results.append(finalized)
+
+    return jsonable_encoder({
+        "candidate_count": len(candidates),
+        "synced_count": sum(1 for item in results if item.get("status") == "SYNCED"),
+        "retry_required_count": sum(
+            1 for item in results if item.get("status") == "RETRY_REQUIRED"
+        ),
+        "failed_count": sum(
+            1
+            for item in results
+            if item.get("status") in {"SHOPIFY_ERROR", "SHOPIFY_MISMATCH"}
+        ),
+        "results": results,
+    })
+
+
 @router.post("/price-sync")
 async def sync_shopify_prices(
     request: Request,
