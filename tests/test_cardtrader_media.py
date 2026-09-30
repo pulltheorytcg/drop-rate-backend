@@ -339,7 +339,7 @@ def test_cardtrader_maps_local_tournament_promos_to_fusion_world_promos() -> Non
     assert result["game_line"] == "fusion-world"
 
 
-def test_cardtrader_blocks_tournament_pack_version_mismatch() -> None:
+def test_cardtrader_accepts_known_fp046_provider_pack_label_anomaly() -> None:
     result = resolve_blueprint(
         {
             "game": "Dragon Ball Super Fusion World",
@@ -359,6 +359,38 @@ def test_cardtrader_blocks_tournament_pack_version_mismatch() -> None:
                 "version": "Tournament Pack 08",
                 "image_url": "https://cardtrader.com/uploads/blueprints/image/356684/preview.jpg",
                 "fixed_properties": {"collector_number": "FP-046"},
+            }
+        ],
+    )
+
+    assert result["resolved"] is True
+    assert result["provider_id"] == "356684"
+    assert result["provider_version"] == "Tournament Pack 08"
+    assert result["identity_evidence_url"] == (
+        "https://www.dbs-cardgame.com/fw/asia-en/events/03_114.html"
+    )
+
+
+def test_cardtrader_still_blocks_unproven_tournament_pack_mismatch() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super Fusion World",
+            "set_name": "Tournament and Championship Promos",
+            "name": "Vegeta (Mini) : DA - FP-047 (Tournament Pack 07)",
+            "card_number": "FP-047",
+            "language": "English",
+            "variant": "Normal",
+        },
+        games=_games(),
+        expansions=[{"id": 3678, "game_id": 16, "name": "Fusion World Promos"}],
+        blueprints=[
+            {
+                "id": 356687,
+                "expansion_id": 3678,
+                "name": "Vegeta (Mini) : DA",
+                "version": "Tournament Pack 08",
+                "image_url": "https://cardtrader.com/uploads/blueprints/image/356687/preview.jpg",
+                "fixed_properties": {"collector_number": "FP-047"},
             }
         ],
     )
