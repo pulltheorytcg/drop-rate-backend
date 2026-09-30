@@ -1,5 +1,20 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Google Shopping pre-launch readiness audit
+
+- Shopify's native Google & YouTube channel remains the Phase 2 feed strategy; no custom n8n feed will be built.
+- Live Shopify audit: **470 ACTIVE products**, all with featured media, positive inventory and positive price; **0 / 470 have a barcode/GTIN**.
+- Google & YouTube is **not installed**, so there is no hidden feed currently publishing Horizon catalogue pages.
+- Google condition mapping is corrected before setup:
+  - raw singles → `used`;
+  - graded slabs → `used` by default;
+  - genuinely unopened factory-sealed ETBs/booster boxes/packs/etc. → `new`.
+- Singles with no valid manufacturer GTIN or MPN+brand evidence should use `identifier_exists=false`; sealed products must not default to false because many have real UPC/EAN/GTIN values.
+- Current Shopify metadata coverage: all 470 products have language; 462 raw products carry Near Mint condition; 8 graded products carry grader + grade.
+- Do not install/activate Merchant Center until Brand Redesign is public and its real purchase/attribution gate passes.
+- After launch: free listings first; paid Shopping requires explicit founder approval.
+- Full runbook: `docs/GOOGLE_SHOPPING_READINESS.md`.
+
 ## 2026-09-30 — Sealed catalogue + scanner architecture clarified
 
 - Sealed inventory is now explicitly defined as a **first-class canonical product family**, not one generic row per TCG set.
