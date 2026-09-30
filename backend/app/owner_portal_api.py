@@ -34,6 +34,8 @@ class OwnerProfileUpdate(BaseModel):
     @model_validator(mode="after")
     def clean_profile(self) -> "OwnerProfileUpdate":
         self.display_name = self.display_name.strip()
+        if not self.display_name:
+            raise ValueError("Display name is required")
         username = (self.username or "").strip().lower()
         self.username = username or None
         if self.username is not None:
