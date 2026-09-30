@@ -6,7 +6,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INGRESS = ROOT / "automation" / "n8n" / "workflows" / "dr-00-v2-signed-event-router.json"
-DR01 = ROOT / "automation" / "n8n" / "workflows" / "dr-01-inventory-approved-shopify.json"\nDR01_V2 = ROOT / "automation" / "n8n" / "workflows" / "dr-01-v2-inventory-approved-shopify.json"\nINGRESS_V3 = ROOT / "automation" / "n8n" / "workflows" / "dr-00-v3-signed-event-router.json"
+DR01 = ROOT / "automation" / "n8n" / "workflows" / "dr-01-inventory-approved-shopify.json"
+DR01_V2 = ROOT / "automation" / "n8n" / "workflows" / "dr-01-v2-inventory-approved-shopify.json"
+INGRESS_V3 = ROOT / "automation" / "n8n" / "workflows" / "dr-00-v3-signed-event-router.json"
 COMMANDS = ROOT / "backend" / "app" / "automation_commands.py"
 
 
