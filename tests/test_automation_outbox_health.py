@@ -18,6 +18,12 @@ MIGRATION = (
 )
 SCRIPT = ROOT / "backend" / "scripts" / "check_automation_outbox_health.py"
 MONITOR = ROOT / "backend" / "scripts" / "run_operations_monitor.py"
+ACTION_CATEGORY_MIGRATION = (
+    ROOT
+    / "database"
+    / "migrations"
+    / "20260930163000_action_required_automation_category.sql"
+)
 
 
 class _Connection:
@@ -115,3 +121,24 @@ def test_active_unhealthy_mode_fails_and_surfaces_alert() -> None:
     assert '"AUTOMATION_OUTBOX_UNHEALTHY"' in source
     assert "return 2" in source
     assert "alert_enabled=alert_enabled" in source
+
+
+def test_action_required_category_allows_automation_alerts() -> None:
+    sql = ACTION_CATEGORY_MIGRATION.read_text().casefold()
+
+    assert "drop constraint action_required_items_category_check" in sql
+    assert "add constraint action_required_items_category_check" in sql
+    assert "'automation'::text" in sql
+    for existing in (
+        "identity",
+        "media",
+        "pricing",
+        "import",
+        "shopify",
+        "channel",
+        "settlement",
+        "ownership",
+        "duplicate",
+        "customer_dispute",
+    ):
+        assert f"'{existing}'::text" in sql
