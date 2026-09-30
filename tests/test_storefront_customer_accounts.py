@@ -17,7 +17,6 @@ def test_customer_account_surface_is_shopify_native() -> None:
 
     # Customer storefront auth must remain separate from internal Founder/Seller auth.
     forbidden = (
-        "/owner",
         "/api/v1/access",
         "supabase.auth",
         "owner_id",
@@ -27,6 +26,10 @@ def test_customer_account_surface_is_shopify_native() -> None:
     lowered = source.casefold()
     for value in forbidden:
         assert value.casefold() not in lowered
+
+    # The public Seller Hub CTA is navigation only. It must not embed seller auth
+    # or internal access logic into Shopify customer-account handling.
+    assert source.count("https://drop-rate-api-live-production.up.railway.app/owner/join") == 1
 
 
 def test_customer_account_surface_does_not_replace_shopify_checkout() -> None:
@@ -56,4 +59,5 @@ def test_native_customer_account_uses_current_drop_rate_visual_tokens() -> None:
     assert "--shopify-account-color-accent-text: #ffffff;" in source
     assert "linear-gradient(135deg,#28d7eb,#1f7bf2)" in source
     assert "<shopify-account" in source
-    assert "/owner" not in source
+    assert "/owner?" not in source
+    assert "/api/v1/access" not in source
