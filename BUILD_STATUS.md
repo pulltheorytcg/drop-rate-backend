@@ -1,5 +1,20 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Published raw-card pooling Phase B complete
+
+- Production reconciliation is complete for **20 duplicate raw-card groups / 48 physical inventory links** exposed by Brand Redesign launch QA.
+- Every affected physical Inventory ID remains independently owned and auditable in Postgres; only the customer-facing Shopify projection was consolidated.
+- Redundant Shopify products were not deleted: they were set to quantity 0 and ARCHIVED so historical order references remain intact.
+- Final production audit:
+  - **0** remaining eligible raw-card groups split across multiple Shopify products;
+  - **0** `(listing_key, allocation_priority)` collisions;
+  - all **20** pooled anchor products read back ACTIVE with Shopify quantity exactly matching currently sellable physical-copy count and the expected deterministic `DRP-...` SKU;
+  - **0 CRITICAL**, **0 SHOPIFY**, **0 SETTLEMENT**, and **0 SHOPIFY_ORDER_WEBHOOK_GAP** open Action Required items;
+  - **0** unhealthy automation events in PENDING / DISPATCHING / DEAD_LETTER.
+- Uta OP13-023 proved the historical-priority edge case: the refunded #1003 copy remains INSPECTION/ARCHIVED at historical priority 1, active pooled copies preserve 2/3/4, and the newly merged copy uses priority 5.
+- The reconciliation changed no owner, acquisition cost, sale history, refund history, settlement history or canonical card identity.
+- Brand Redesign remains UNPUBLISHED while the separate storefront **Sell With Us → Seller Hub** launch slice is completed and verified.
+
 ## 2026-09-30 — Storefront “Sell With Us” → Seller Hub self-registration in progress
 
 - Added a customer-facing storefront conversion path so Brand Redesign can connect buyers directly to the restricted Drop Rate Seller Hub.
@@ -25,7 +40,7 @@
 - The first database commit safely rolled back before mutation because the refunded #1003 physical copy correctly retained allocation priority 1 under the historical pool key; renumbering active members to 1..N would collide with the unique `(listing_key, allocation_priority)` constraint.
 - Live Uta reconciliation was then completed without rewriting history: existing active pool priorities 2/3/4 were preserved and the newly consolidated physical copy received priority 5. The refunded INSPECTION/ARCHIVED copy remains priority 1 and auditable.
 - Phase-B code is hardened accordingly: existing pool members keep their allocation priorities and newly merged members are assigned only after the maximum historical priority for that listing key.
-- Remaining published duplicate groups stay untouched until this regression fix passes CI and deploys.
+- That regression fix subsequently passed CI and deployed; all remaining eligible published duplicate groups were then reconciled, as recorded above.
 
 ## 2026-09-30 — Published duplicate raw-card pooling Phase B in progress
 
@@ -35,10 +50,10 @@
 - Mobile Apple Pay order #1004 also completed successfully through Shopify Payments and the Drop Rate webhook/order/ownership/ledger path. Its later cancellation/refund returned the exact physical card to INSPECTION and archived that link.
 - The mobile purchase exposed that the same Uta OP13-023 English Near Mint Foil identity was still split between an existing pooled product and individual ACTIVE products.
 - Root cause: the original raw pooling release intentionally consolidated DRAFT duplicates only; a Phase-B migration for already-PUBLISHED duplicates had not yet been implemented.
-- Strict production audit found **19 published duplicate raw groups / 48 currently sellable physical cards** that meet the full safety gate: identity-confirmed, raw only, same canonical card/language/condition/price, cost + storage present, no reservations/listing membership, same Shopify location/publication and synced price parity.
+- Strict production audit ultimately identified **20 published duplicate raw groups / 48 currently sellable physical cards** that meet the full safety gate: identity-confirmed, raw only, same canonical card/language/condition/price, cost + storage present, no reservations/listing membership, same Shopify location/publication and synced price parity.
 - Added a PLATFORM_ADMIN-only published-pool plan/apply path that prefers an existing pool anchor, verifies live Shopify product/variant/inventory state, converts the anchor to the deterministic pooled SKU/quantity, archives redundant sellable products at quantity zero, repoints only current APPROVED/PUBLISHED physical links, preserves historical SOLD/ARCHIVED links and audit-logs every migrated Inventory ID.
 - Remote compensation is included if the database commit fails. Graded inventory and ambiguous groups remain fail-closed.
-- Brand Redesign remains UNPUBLISHED until the 19 live groups are reconciled and Shopify/Postgres storefront parity is re-verified.
+- Those groups have now been reconciled with Shopify/Postgres parity verified; see the completion section above.
 - See `docs/SHOPIFY_PUBLISHED_POOLING.md`.
 
 ## 2026-09-30 — Final storefront launch gate passed; manual Shopify theme publish remains
