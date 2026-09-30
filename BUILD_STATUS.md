@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — DR-01 inactive command-route correction
+
+- Found before activation: `DR01InventoryApprovedShopifyV1` still targeted the old automation-control URL after the signed Shopify command moved into the narrower automation-commands router.
+- No production business action occurred because DR-01 V1 and DR-00 V2 were imported inactive.
+- Added `DR01InventoryApprovedShopifyV2` with the correct `/api/v1/automation/commands/shopify/inventory-approved` path.
+- Added `DR00IngressV3` at `/drop-rate/events-v3`, routing `inventory.approved` only to DR-01 V2.
+- V1/V2 remain inactive audit history; the provisioner does not overwrite persistent workflow IDs.
+- Activation gate now points only to DR-00 V3 + DR-01 V2.
+
 ## 2026-09-30 — operations-monitor Railway watch list repaired
 
 - Railway `drop-rate-api` operations-monitor watch patterns now include the n8n runtime heartbeat checker/migration and dispatcher heartbeat checker/migration.
