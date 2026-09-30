@@ -35,14 +35,30 @@ Production Railway HTTP logs were sampled from real application use across 27–
 
 ### Recognition
 
-Observed `POST /api/v1/recognition/resolve` completions:
+Observed `POST /api/v1/recognition/resolve` HTTP completions included:
 - **5.100 s**
 - **12.413 s**
 - **21.672 s**
 
-Observed sample median: **12.413 s** (n=3).
+The database contains fuller per-run timing evidence. The two most recent supported One Piece v1.4.2 runs that executed the complete provider/candidate path took **11.965 s** and **21.358 s** end to end.
 
-This is the clearest measured performance hotspot. It is large enough to dominate perceived scan speed even when the surrounding UI/API is fast.
+Stage timing shows where the time went:
+
+| Stage | 11.965s run | 21.358s run |
+| --- | ---: | ---: |
+| OpenAI vision observation | 8.659s | 18.728s |
+| Provider discovery | 1.370s | 0.562s |
+| Provider-image visual work | 1.532s | 1.718s |
+| Catalogue lookup | 113ms | 65ms |
+| Learning hints | 63ms | 60ms |
+| Learning visual | 53ms | 37ms |
+| Final deterministic resolve/scoring | 1.14ms | 0.62ms |
+
+The vision observation consumed roughly **73%** and **88%** of those two complete-path runs. Catalogue lookup and deterministic scoring are not the current bottleneck.
+
+Two newer v1.5.1 runs completed in **4.775s** and **5.090s**, but both images were poor/unknown-game inputs and exited before the full provider/candidate path. They are encouraging for the early-exit path but are **not** valid evidence that an exact supported-card scan now completes in ~5 seconds. A real supported-card v1.5.1 phone test is still required.
+
+This makes the optimization priority much more specific: measure and reduce vision-stage latency first, then provider-image work. Do not add database/infrastructure complexity to solve a bottleneck that the evidence does not place in Postgres or deterministic scoring.
 
 ### Typical founder/dashboard reads
 
