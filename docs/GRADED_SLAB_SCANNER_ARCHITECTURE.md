@@ -115,6 +115,27 @@ Scanner should therefore support:
 
 Do not bypass provider rate limits or build an undocumented scraper if CGC does not provide permitted machine access.
 
+### TAG
+
+**Target: cert/QR-first verification with rich digital grading evidence.**
+
+TAG is especially well suited to Graded Slab mode because every TAG slab can expose its DIG (Digital Image & Grading) Report by certificate number or QR code. TAG documents certificate search, QR access and digital reports containing card identification, industry-standard grade, TAG Score where applicable, detailed grading metrics/defects and high-resolution imaging.
+
+Scanner support should include:
+- detect TAG slab/label;
+- read the TAG certificate number;
+- scan the slab QR code when available;
+- resolve the corresponding DIG report through a permitted provider path;
+- ingest exact card identity, standard grade and TAG Score where present;
+- preserve detailed TAG grading metrics as provider evidence rather than flattening them into Drop Rate's core grade field;
+- store the TAG certificate number directly on the physical Inventory Item;
+- attach exact TAG slab/card media only where permitted;
+- retain the DIG/provider reference for audit and customer/admin verification.
+
+TAG also supports Proof™ anti-counterfeit authentication on slabs. This should be treated as a separate authenticity signal from ordinary certificate lookup and should not be silently equated with canonical card identity.
+
+Do not assume the public certificate-search/DIG pages constitute an unrestricted scraping API. Prefer a documented/approved machine integration or partnership route before enabling automated server-side extraction.
+
 ### BGS / Beckett
 
 **Target: adapter-ready but fail-closed for automation until permitted machine access is available.**
@@ -195,6 +216,7 @@ Two large choices:
 Show:
 - grader logo/name;
 - verified / needs review state;
+- grader-specific score where relevant (for example TAG Score);
 - card image/slab image;
 - card name;
 - set;
