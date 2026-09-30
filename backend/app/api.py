@@ -84,6 +84,14 @@ INVENTORY_IMAGE_ALLOWED_SUFFIXES = (
     ".shopifycdn.net",
 )
 
+INVENTORY_IMAGE_DIRECT_CDN_EXACT_HOSTS = {
+    "cdn.shopify.com",
+}
+INVENTORY_IMAGE_DIRECT_CDN_ALLOWED_SUFFIXES = (
+    ".shopifycdn.com",
+    ".shopifycdn.net",
+)
+
 
 INVENTORY_IMAGE_MAX_BYTES = 12 * 1024 * 1024
 INVENTORY_IMAGE_MAX_REDIRECTS = 3
@@ -111,6 +119,28 @@ def _inventory_image_source_allowed(url: str) -> bool:
     return (
         host in INVENTORY_IMAGE_EXACT_HOSTS
         or any(host.endswith(suffix) for suffix in INVENTORY_IMAGE_ALLOWED_SUFFIXES)
+    )
+
+
+def _inventory_image_direct_cdn_allowed(url: str) -> bool:
+    """Allow direct browser loading only from Shopify-controlled CDN hosts."""
+
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if (
+        parsed.scheme != "https"
+        or not host
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+    ):
+        return False
+    return (
+        host in INVENTORY_IMAGE_DIRECT_CDN_EXACT_HOSTS
+        or any(host.endswith(suffix) for suffix in INVENTORY_IMAGE_DIRECT_CDN_ALLOWED_SUFFIXES)
     )
 
 
@@ -349,7 +379,8 @@ async def list_inventory(
                 p.id as catalogue_id, p.product_type, p.game, {BRAND_SQL} as brand,
                 p.name, p.set_name, p.card_number, p.variant, p.rarity,
                 p.language as catalogue_language,
-                media.card_image_url, media.card_image_approval_status,
+                media.card_image_url, media.card_image_shopify_cdn_url,
+                media.card_image_approval_status,
                 media.card_image_source_provider, media.card_image_scope,
                 eil.state as ebay_state, eil.listing_id as ebay_listing_id,
                 eil.offer_id as ebay_offer_id, eil.listed_price_minor as ebay_price_minor,
@@ -361,6 +392,7 @@ async def list_inventory(
             left join lateral (
                 select
                     coalesce(ma.shopify_cdn_url, ma.public_source_url) as card_image_url,
+                    ma.shopify_cdn_url as card_image_shopify_cdn_url,
                     ma.approval_status as card_image_approval_status,
                     ma.source_provider as card_image_source_provider,
                     ma.scope as card_image_scope
@@ -388,9 +420,18 @@ async def list_inventory(
             """,
             *params,
         )
+        items: list[dict[str, object]] = []
+        for row in rows:
+            item = dict(row)
+            direct_cdn_url = str(item.pop("card_image_shopify_cdn_url", "") or "").strip()
+            item["card_image_cdn_url"] = (
+                direct_cdn_url if _inventory_image_direct_cdn_allowed(direct_cdn_url) else None
+            )
+            items.append(item)
+
         return jsonable_encoder(
             {"owner": dict(owner), "total": total, "limit": limit,
-             "offset": offset, "items": [dict(row) for row in rows]}
+             "offset": offset, "items": items}
         )
 
 
