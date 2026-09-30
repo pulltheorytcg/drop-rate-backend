@@ -93,7 +93,7 @@ def test_seller_hub_profile_ui_supports_identity_email_and_password_changes() ->
     assert 'body: JSON.stringify({email: newEmail})' in js
 
     assert "service_role" not in js.lower()
-    assert "password" not in str(ROOT / "BUILD_STATUS.md").lower()
+    assert "supabase_service_role_key" not in js.lower()
 
 
 def test_profile_is_reachable_on_mobile_without_overcrowding_fixed_tabs() -> None:
