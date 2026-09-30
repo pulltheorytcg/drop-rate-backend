@@ -102,3 +102,14 @@ Before activation:
 6. prove exactly one automation_run per founder and one deduped Action Required per founder;
 7. replay the same receipt and prove no duplicate state;
 8. only then set DR-90 as the error workflow for other workflows.
+
+
+## Production source cutover safety
+
+Production currently runs the stock pinned image `ghcr.io/n8n-io/n8n:2.32.6` with its persistent volume mounted at `/home/node/.n8n`.
+
+The repo-controlled image uses the same pinned n8n version. Before any missing workflow is imported, startup now validates DR-00/DR-90 runtime requirements, creates a one-time `database.sqlite.pre-drop-rate-provision-v1.bak` rollback copy, refuses workflow JSON unless `active=false`, imports only missing stable IDs, and verifies every expected workflow ID exists after import.
+
+The provisioner never wipes/recreates the persistent database and never imports credentials. The volume-local copy protects the source/provisioning rollback path; it does not replace normal platform-level backups.
+
+Source cutover remains a deliberate production action. Do not create a second production n8n service merely to avoid changing the existing source.
