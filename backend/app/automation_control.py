@@ -11,10 +11,47 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 from .action_required import upsert_action_required
 from .automation_dispatcher import verify_signed_body
 from .settings import get_settings
+from .shopify_pipeline import publish_inventory_to_shopify
 
 
 router = APIRouter(prefix="/api/v1/automation/control", tags=["automation-control"])
 MAX_AUTOMATION_CONTROL_BODY_BYTES = 64 * 1024
+
+
+class AutomationAggregate(BaseModel):
+    type: Literal["INVENTORY_ITEM"]
+    id: UUID
+
+
+class InventoryApprovedPayload(BaseModel):
+    inventory_id: UUID
+    inventory_code: str = Field(min_length=1, max_length=120)
+    catalogue_id: UUID
+    status: Literal["APPROVED"]
+    version: int = Field(ge=1)
+
+
+class InventoryApprovedEvent(BaseModel):
+    event_id: UUID
+    event_type: Literal["inventory.approved"]
+    schema_version: Literal[1]
+    aggregate: AutomationAggregate
+    idempotency_key: str = Field(min_length=1, max_length=255)
+    owner_id: UUID
+    attempt: int = Field(ge=0)
+    occurred_at: datetime
+    payload: InventoryApprovedPayload
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> "InventoryApprovedEvent":
+        if self.aggregate.id != self.payload.inventory_id:
+            raise ValueError("Aggregate ID must match payload inventory ID")
+        expected_key = (
+            f"inventory.approved:{self.payload.inventory_id}:v{self.payload.version}"
+        )
+        if self.idempotency_key != expected_key:
+            raise ValueError("Inventory approval idempotency key is invalid")
+        return self
 
 
 class AutomationHeartbeat(BaseModel):
@@ -150,6 +187,51 @@ async def record_automation_heartbeat(
         "beat_count": int(row["beat_count"]),
         "duplicate": bool(row["duplicate"]),
     }
+
+
+@router.post("/shopify/inventory-approved")
+async def publish_inventory_approved_to_shopify(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(
+        default=None,
+        alias="X-Drop-Rate-Timestamp",
+    ),
+    x_drop_rate_signature: str | None = Header(
+        default=None,
+        alias="X-Drop-Rate-Signature",
+    ),
+) -> dict:
+    settings = get_settings()
+    if not settings.shopify_publish_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="Automated Shopify publishing is locked off",
+        )
+
+    raw_body = await _verified_control_body(
+        request,
+        timestamp_header=x_drop_rate_timestamp,
+        signature_header=x_drop_rate_signature,
+    )
+    try:
+        event = InventoryApprovedEvent.model_validate_json(raw_body)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid inventory.approved automation envelope",
+        ) from exc
+
+    async with request.app.state.db_pool.acquire() as connection:
+        return await publish_inventory_to_shopify(
+            connection,
+            inventory_id=event.payload.inventory_id,
+            owner_id=event.owner_id,
+            expected_version=event.payload.version,
+            actor_user_id=None,
+            automation_event_id=event.event_id,
+            request_id=request.state.request_id,
+            test_mode=False,
+        )
 
 
 @router.post("/receipt")
