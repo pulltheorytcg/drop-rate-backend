@@ -343,7 +343,7 @@ def test_shopify_test_sync_fails_before_remote_create_when_launch_incomplete() -
     assert "ACTIVE_FAIL_CLOSED" in source
     assert "approval_status='APPROVED'" in source
     assert "rights_status='VERIFIED'" in source
-    assert "shopify_file_status='READY'" in source
+    assert "shopify_publication_context(" in sync
 
 
 def test_shopify_shipping_profile_registry_is_rls_protected_and_audited() -> None:
