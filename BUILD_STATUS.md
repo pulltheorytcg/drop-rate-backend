@@ -1,5 +1,18 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: dispatcher heartbeat prepared
+
+- Added private `tcg.automation_component_heartbeats` state plus narrow `SECURITY DEFINER` heartbeat write/check functions.
+- The long-running automation dispatcher writes a `DISPATCHER` heartbeat at startup and periodically (default 30 seconds), including worker instance and component version.
+- Heartbeat health is independent from outbox health: it can detect a dead dispatcher even while the queue is empty.
+- Added `check_automation_dispatcher_heartbeat.py` to the existing combined operations monitor.
+- **Dormant by default:** `TCG_AUTOMATION_DISPATCHER_ALERTS_ENABLED=false` until the dispatcher service is intentionally deployed.
+- Once enabled, a missing/stale dispatcher heartbeat opens founder **CRITICAL `AUTOMATION_DISPATCHER_UNHEALTHY`** and fails the operations monitor; recovery resolves the alert.
+- Default health threshold is 90 seconds and is bounded between 30 seconds and 15 minutes.
+- No business state, outbox event state, inventory, Shopify, order, ownership, pricing, finance or settlement truth is mutated by the heartbeat monitor.
+- This prepares the dispatcher for production but does **not** create/deploy a new Railway service. Any dispatcher service deployment still requires BUILD_STATUS documentation and explicit activation sequencing.
+- Runbook: `docs/AUTOMATION_DISPATCHER_HEARTBEAT.md`.
+
 ## 2026-09-30 — n8n Wave A: reusable durable success receipts
 
 - Added inactive reusable n8n sub-workflow `DR91SuccessReceiptV1`.
