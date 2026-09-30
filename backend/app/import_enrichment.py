@@ -476,7 +476,12 @@ async def _insert_cardtrader_media(
             "Exact CardTrader product-listing candidate created by import enrichment; "
             "human exact-print approval remains required before storefront use. "
             f"API reference: {CARDTRADER_API_DOCS_URL}"
-        ),
+            + (
+                f"; official identity correction evidence: {result['identity_evidence_url']}"
+                if result.get("identity_evidence_url")
+                else ""
+            )
+        )[:1000],
     )
     return dict(asset) if asset is not None else None
 
