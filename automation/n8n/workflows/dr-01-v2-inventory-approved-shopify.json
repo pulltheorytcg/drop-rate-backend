@@ -1,0 +1,250 @@
+{
+  "id": "DR01InventoryApprovedShopifyV2",
+  "name": "DR-01 Inventory Approved to Shopify V2",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "DR90GlobalErrorV1"
+  },
+  "nodes": [
+    {
+      "id": "dr01-trigger",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -760,
+        0
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "event_json",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dr01-normalize",
+      "name": "Normalize Inventory Approved",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const raw = String($json.event_json || '').trim();\nlet event;\ntry { event = JSON.parse(raw); } catch { throw new Error('invalid_inventory_approved_json'); }\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nif (!uuid.test(String(event.event_id || ''))) throw new Error('invalid_event_id');\nif (event.event_type !== 'inventory.approved') throw new Error('unsupported_event_type');\nif (event.schema_version !== 1) throw new Error('unsupported_schema_version');\nif (!uuid.test(String(event.owner_id || ''))) throw new Error('invalid_owner_id');\nif (!event.aggregate || event.aggregate.type !== 'INVENTORY_ITEM' || !uuid.test(String(event.aggregate.id || ''))) throw new Error('invalid_aggregate');\nif (!event.payload || !uuid.test(String(event.payload.inventory_id || '')) || !uuid.test(String(event.payload.catalogue_id || ''))) throw new Error('invalid_payload_identity');\nif (event.payload.status !== 'APPROVED' || !Number.isInteger(event.payload.version) || event.payload.version < 1) throw new Error('invalid_payload_state');\nif (String(event.aggregate.id) !== String(event.payload.inventory_id)) throw new Error('aggregate_inventory_mismatch');\nconst expectedKey = `inventory.approved:${event.payload.inventory_id}:v${event.payload.version}`;\nif (String(event.idempotency_key || '') !== expectedKey) throw new Error('invalid_idempotency_key');\nreturn [{json:{event}}];"
+      }
+    },
+    {
+      "id": "dr01-sign",
+      "name": "Sign Shopify Publication Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst event = $json.event;\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst receiptUrl = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nif (secret.length < 32) throw new Error('automation_command_secret_not_configured');\nif (!/\\/automation\\/control\\/receipt$/.test(receiptUrl)) throw new Error('automation_control_receipt_url_invalid');\nconst body = JSON.stringify(event);\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body, 'utf8').digest('hex');\nconst commandUrl = receiptUrl.replace(/\\/automation\\/control\\/receipt$/, '/automation/commands/shopify/inventory-approved');\nreturn [{json:{command_url:commandUrl,command_body:body,command_timestamp:timestamp,command_signature:signature}}];"
+      }
+    },
+    {
+      "id": "dr01-http",
+      "name": "Publish via FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.command_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.command_timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.command_signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.command_body }}",
+        "options": {
+          "timeout": 90000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr01-verify",
+      "name": "Shopify Publication Verified?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const response = $input.first().json || {};\nconst statusCode = Number(response.statusCode || 0);\nif (statusCode < 200 || statusCode >= 300) throw new Error('shopify_publication_http_' + statusCode);\nconst body = response.body || {};\nif (!['PUBLISHED','ALREADY_LINKED'].includes(String(body.status || ''))) throw new Error('shopify_publication_not_verified');\nreturn [{json:{published:true,status:body.status}}];"
+      }
+    },
+    {
+      "id": "dr01-receipt",
+      "name": "Record Durable Success",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        520,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "DR91SuccessReceiptV1",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow_key": "shopify-product-creation",
+            "workflow_version": "v1",
+            "execution_id": "={{ $execution.id }}",
+            "idempotency_key": "={{ $('Normalize Inventory Approved').item.json.event.idempotency_key }}",
+            "occurred_at": "={{ $now.toISO() }}",
+            "owner_id": "={{ $('Normalize Inventory Approved').item.json.event.owner_id }}",
+            "event_id": "={{ $('Normalize Inventory Approved').item.json.event.event_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow_key",
+              "displayName": "workflow_key",
+              "type": "string"
+            },
+            {
+              "id": "workflow_version",
+              "displayName": "workflow_version",
+              "type": "string"
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "type": "string"
+            },
+            {
+              "id": "idempotency_key",
+              "displayName": "idempotency_key",
+              "type": "string"
+            },
+            {
+              "id": "occurred_at",
+              "displayName": "occurred_at",
+              "type": "string"
+            },
+            {
+              "id": "owner_id",
+              "displayName": "owner_id",
+              "type": "string"
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Inventory Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Inventory Approved": {
+      "main": [
+        [
+          {
+            "node": "Sign Shopify Publication Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Shopify Publication Command": {
+      "main": [
+        [
+          {
+            "node": "Publish via FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish via FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Shopify Publication Verified?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shopify Publication Verified?": {
+      "main": [
+        [
+          {
+            "node": "Record Durable Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-01",
+      "version": 2,
+      "role": "inventory-approved-shopify-publication",
+      "activationGate": "Keep inactive until DR-90 and DR-91 are published/proven, DR-00 V3 ingress is proven, the canonical DR-01 migration is confirmed in production history, automated Shopify publishing is deliberately enabled, and a controlled inventory.approved event passes duplicate/retry/read-back tests."
+    }
+  }
+}
