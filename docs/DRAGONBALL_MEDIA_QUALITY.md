@@ -15,6 +15,8 @@ A file that has merely been enlarged to 2160 pixels does not gain real detail. G
 - 25 unique Dragon Ball Shopify products are currently published.
 - They represent 27 physical inventory units.
 - All 25 currently rely on CardTrader canonical URLs whose filenames are `preview_...`.
+- Direct Shopify Admin read-back confirms **all 25 are below the 2160px target**.
+- Current Shopify image dimensions range from **251×350px** at the low end to **1279×1782px** at the high end; common Dawn of the Z-Legends assets are about **313×437px**.
 - Eight additional FOR_SALE Dragon Ball items are identity-confirmed, English, Near Mint and priced but remain unpublished because exact-print media is unresolved.
 - Six of those eight are Masters pre-release copies.
 - The other two are Fusion World tournament variants:
