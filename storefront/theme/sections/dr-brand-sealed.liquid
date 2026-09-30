@@ -19,6 +19,7 @@
       {% for product in sealed_collection.products limit: section.settings.product_limit %}
         {% liquid
           assign language = product.metafields.drop_rate.language.value
+          assign game = product.metafields.drop_rate.game.value | default: product.vendor
           if language == 'Japanese'
             assign language_label = 'JP'
           elsif language == 'English'
@@ -41,9 +42,9 @@
 
           <div class="dr-sealed-card__body">
             <div class="dr-sealed-card__meta">
-              <span>One Piece</span>
+              {% if game != blank %}<span>{{ game | escape }}</span>{% endif %}
               {% if language_label != blank %}<span>{{ language_label | escape }}</span>{% endif %}
-              <span>In stock</span>
+              {% if product.available %}<span>In stock</span>{% else %}<span>Sold out</span>{% endif %}
             </div>
             <a class="dr-sealed-card__title" href="{{ product.url }}">
               <h3>{{ product.title | split: ' · ' | first | escape }}</h3>
