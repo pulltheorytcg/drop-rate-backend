@@ -278,7 +278,7 @@ def create_app() -> FastAPI:
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self'; style-src 'self'; "
-            "img-src 'self' data: blob: https://assets.tcgdex.net https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com; "
+            "img-src 'self' data: blob: https://assets.tcgdex.net https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net; "
             f"connect-src 'self' {settings.supabase_url}; "
             "font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )
