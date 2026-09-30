@@ -27,7 +27,7 @@ At the start of this audit:
 - Brand Redesign: unpublished;
 - verified real external-customer sales: still not established.
 
-Two of the seven Railway services are confirmed temporary diagnostics with no inbound dependencies. Their deletion is staged, reducing the intended steady-state Railway topology to five services.
+The audit initially misclassified the two PSA services as temporary diagnostics because they have no inbound Railway service dependencies and were sleeping. The founder clarified their intended role: on-demand PSA certificate verification, exact slab matching and PSA image retrieval for graded inventory. Their staged deletion was cancelled before application. Sleeping/no inbound dependency is therefore expected behavior, not evidence that the capability is obsolete.
 
 ## 2. Machine-side latency evidence
 
@@ -151,9 +151,11 @@ Actions completed:
 
 PR #338 changes reconciliation so a cancelled unpaid remote-only order with processed cancellation evidence is terminally acknowledged. Paid-like remote-only orders remain CRITICAL; uncancelled pending orders with missing create proof remain HIGH.
 
-### Temporary Railway diagnostics — staged for deletion
+### PSA certificate/media services — retained
 
-`psa-cert-lookup-temp` and `psa-fetch-batch` were useful investigation tools on 29 September but are not production dependencies. Railway independently confirmed no inbound dependency and staged both deletions. Dashboard 2FA is required to commit the destructive change.
+`psa-cert-lookup-temp` and `psa-fetch-batch` are retained as graded-card infrastructure. Their purpose is certificate-number lookup, exact PSA slab matching and bulk retrieval of permitted PSA certification data/images. Railway's earlier staged deletion was cancelled before anything was removed.
+
+The current names reflect their investigative origin rather than their intended long-term role. Renaming/consolidation can be reviewed after launch, but the capability itself remains important.
 
 ### Action Required queue — three stale media exceptions identified
 
@@ -169,7 +171,7 @@ They should be reconciled through the Action Required lifecycle rather than dele
 The product does not need another infrastructure layer before launch.
 
 The useful simplifications are:
-- remove temporary services;
+- distinguish genuinely obsolete services from low-frequency on-demand capabilities before removing anything;
 - close/supersede stale PRs only after preserving unique behavior;
 - keep one authoritative operations monitor;
 - keep n8n dormant until one low-risk workflow proves the pattern;
