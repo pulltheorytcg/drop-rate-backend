@@ -168,6 +168,32 @@ def _promo_version_hint(value: object) -> str | None:
     return f"tournamentpack{pack_number}{suffix}"
 
 
+BANDAI_FP046_PACK07_EVIDENCE_URL = (
+    "https://www.dbs-cardgame.com/fw/asia-en/events/03_114.html"
+)
+
+
+def _known_official_promo_metadata_correction(
+    local_number: object,
+    local_promo_version: str | None,
+    provider_promo_version: str | None,
+) -> str | None:
+    """Return official evidence for one proven provider metadata anomaly.
+
+    Bandai's own July 2025 event page lists FP-046 Nappa in Battle Pack 07.
+    CardTrader currently labels the exact non-Winner FP-046 Blueprint as
+    Tournament Pack 08. Keep this correction deliberately card-specific so
+    unrelated pack-number mismatches still fail closed.
+    """
+    if (
+        _canonical_number(local_number) == _canonical_number("FP-046")
+        and local_promo_version == "tournamentpack7"
+        and provider_promo_version == "tournamentpack8"
+    ):
+        return BANDAI_FP046_PACK07_EVIDENCE_URL
+    return None
+
+
 def _fusion_collector_number_matches(
     local_number: object,
     provider_number: object,
@@ -397,11 +423,16 @@ def resolve_blueprint(
             continue
         if not local_pre_release and blueprint_pre_release:
             continue
-        if (
-            local_promo_version
-            and _promo_version_hint(blueprint.get("version")) != local_promo_version
-        ):
-            continue
+        provider_promo_version = _promo_version_hint(blueprint.get("version"))
+        promo_identity_evidence_url: str | None = None
+        if local_promo_version and provider_promo_version != local_promo_version:
+            promo_identity_evidence_url = _known_official_promo_metadata_correction(
+                local.get("card_number"),
+                local_promo_version,
+                provider_promo_version,
+            )
+            if promo_identity_evidence_url is None:
+                continue
 
         number = _collector_number(blueprint)
         supporting_rows = (marketplace_rows or {}).get(int(blueprint.get("id") or 0), [])
@@ -468,6 +499,8 @@ def resolve_blueprint(
                 "finish_key": "foil" if foil else "normal",
                 "expansion_id": expansion_id,
                 "game_line": line,
+                "provider_version": blueprint.get("version"),
+                "identity_evidence_url": promo_identity_evidence_url,
             }
         )
 

@@ -97,10 +97,18 @@ def product_description_html(item: Mapping[str, Any]) -> str:
             "the Drop Rate inventory system. Storefront media is governed by Drop Rate's "
             "item-specific media policy and must clear its publication checks.</p>"
         )
+    pre_release_note = ""
+    if "pre-release" in _text(item.get("set_name")).casefold():
+        pre_release_note = (
+            "<p><strong>Image note:</strong> The official reference image may show "
+            "the base artwork. The physical item is the Pre-Release printing; "
+            "event/pre-release markings may differ from the reference image.</p>"
+        )
     return (
         f"<p><strong>{name}</strong> is an individually tracked physical trading card "
         "from Drop Rate inventory.</p>"
         f"<ul>{rows}</ul>"
+        f"{pre_release_note}"
         "<p>Card identity, language, condition and price are controlled by the "
         "Drop Rate inventory system. Storefront media is governed by Drop Rate's "
         "item-specific media policy and must clear its publication checks.</p>"
