@@ -1,5 +1,18 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Dragon Ball storefront media quality upgraded
+
+- Confirmed the quality fault was upstream media, not storefront CSS: all 25 published Dragon Ball products were using CardTrader `preview_` derivatives at roughly 180 x 251 px.
+- Proved Shopify `fileUpdate(originalSource)` can replace product media in place without changing product/variant/inventory identity.
+- Upgraded all 25 live Dragon Ball product images to the same exact CardTrader Blueprint's larger original; all 25 re-read as READY.
+- Verified resulting dimensions range from 251 x 350 on older Masters cards to 1279 x 1782 on the strongest current source; Fusion World examples are typically 600 x 838 to 716 x 1000.
+- Updated the 25 approved CardTrader media registry rows so Postgres now stores the original-size URL rather than the low-resolution preview derivative.
+- True 4K is **not** claimed where the provider source is smaller. The long-term 4K rule is genuine 2160+ px long-edge source or first-party high-resolution capture/scan, not synthetic enlargement.
+- CardTrader resolver hardening is being shipped in this slice so future exact Dragon Ball media automatically prefers the same Blueprint original URL.
+- Added strict Fusion World Winner handling for provider `w` collector suffixes only when the local card explicitly proves the same Tournament Pack Winner version.
+- Of the 8 remaining unlinked Dragon Ball cards, six pre-release Masters copies and Nappa Pack 07 remain fail-closed pending exact storefront-permitted media/physical capture; Vegeta FB05-039 Winner 06 now has an exact CardTrader Winner resolution path.
+
+
 ## 2026-09-30 — Phase 2 system map + efficiency audit refreshed
 
 - Re-verified `docs/PHASE2_SYSTEM_MAP.md` against live Railway, Supabase and current Git state.

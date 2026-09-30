@@ -69,17 +69,57 @@ Optional environment variables:
 
 No token is stored in source control or returned to the browser.
 
+## Original-size image policy
+
+CardTrader Blueprint payloads may return a `preview_...` derivative. Production checks on
+30 September 2026 confirmed those preview files were typically only about **180 x 251 px**,
+while the same exact Blueprint path without the `preview_` filename prefix returns the
+larger provider original.
+
+The adapter now canonicalises only that filename prefix on the same HTTPS CardTrader host,
+Blueprint directory and provider asset. It does not change card identity, set, language,
+finish or provider asset ID.
+
+Observed original sizes vary by era/source and are still not necessarily 4K:
+
+- older Masters examples: about 251 x 350;
+- Dawn of the Z-Legends examples: about 313 x 437;
+- later Masters examples: up to about 1279 x 1782;
+- Fusion World promo examples: about 600 x 838 to 716 x 1000.
+
+Therefore "4K" must never mean enlarging a thumbnail and calling it a higher-quality
+canonical image. For a genuine 4K-class storefront source (2160+ px long edge), Drop Rate
+should use an exact first-party high-resolution capture/scan when no permitted provider
+offers one. A 1200-DPI scan of a standard trading card is roughly 3000 x 4200 px and clears
+that quality target without reconstructing or hallucinating artwork/text.
+
+## Winner promo matching
+
+Fusion World Winner promos may encode the Winner distinction in two places at CardTrader:
+the Blueprint version (for example `Tournament Pack 06 | Winner`) and a provider collector
+suffix such as `FB05-039w`.
+
+Drop Rate accepts that `w` suffix only when the local physical inventory explicitly says
+Winner and its Tournament Pack number matches the provider version. The same suffix is
+rejected for ordinary/non-Winner local cards. Pack-number mismatches remain blocked.
+
 ## Current Dragon Ball backlog
 
-The production backlog is 35 unlinked raw cards:
+As of 30 September 2026, 25 Dragon Ball Shopify products are published and their
+CardTrader preview derivatives have been replaced in place with the same Blueprint's
+verified larger original.
 
-- 29 Dragon Ball Super Masters
-- 6 Dragon Ball Super Fusion World
+Eight FOR_SALE Dragon Ball cards remain unlinked:
 
-All already have a positive store price, Near Mint condition and registered storage
-location. Before this adapter can process them, production still requires a CardTrader API
-token and explicit physical-language confirmation for the imported copies. CardTrader is
-not used to infer the language of the user's physical card.
+- six Masters pre-release copies whose exact pre-release print is not proven by CardTrader;
+- Nappa FP-046, where the local physical card is Tournament Pack 07 but CardTrader currently
+  exposes Pack 08;
+- Vegeta FB05-039 Winner 06, for which exact CardTrader Winner evidence is available and the
+  resolver now supports the provider Winner suffix without weakening ordinary-card matching.
+
+The six pre-release copies and Nappa remain fail-closed until exact storefront-permitted
+media exists or an exact first-party physical image is captured. CardTrader is never used
+to infer the language of the user's physical card.
 
 ## Production response normalization
 

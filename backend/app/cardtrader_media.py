@@ -154,9 +154,51 @@ def _matching_expansions(
 
 
 def _promo_version_hint(value: object) -> str | None:
+    """Return a stable Tournament Pack key, preserving the Winner distinction."""
     text = str(value or "").strip()
-    match = re.search(r"\((Tournament Pack[^)]*)\)\s*$", text, re.IGNORECASE)
-    return _compact(match.group(1)) if match else None
+    match = re.search(
+        r"tournament\s+pack[^0-9]*(\d{1,2})",
+        text,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    pack_number = int(match.group(1))
+    suffix = "winner" if re.search(r"\bwinner\b", text, re.IGNORECASE) else ""
+    return f"tournamentpack{pack_number}{suffix}"
+
+
+def _fusion_collector_number_matches(
+    local_number: object,
+    provider_number: object,
+    *,
+    local_promo_version: str | None,
+    provider_version: object,
+) -> bool:
+    local = _canonical_number(local_number)
+    provider_text = str(provider_number or "").strip().upper()
+    provider = _canonical_number(provider_text)
+    if not local or not provider:
+        return False
+    if provider == local:
+        return True
+
+    # CardTrader encodes some Fusion World Winner promos with a trailing
+    # "w" on the collector number (for example FB05-039w). Strip that
+    # provider-only suffix before canonicalising the numeric portion so
+    # leading-zero normalisation remains consistent with the local number.
+    provider_promo_version = _promo_version_hint(provider_version)
+    provider_winner_base = (
+        _canonical_number(provider_text[:-1])
+        if provider_text.endswith("W")
+        else ""
+    )
+    return bool(
+        local_promo_version
+        and local_promo_version.endswith("winner")
+        and provider_promo_version == local_promo_version
+        and provider_winner_base == local
+    )
 
 
 def _name_key(value: object, card_number: object | None = None) -> str:
@@ -215,11 +257,31 @@ def _trusted_image_url(value: object) -> str | None:
         or parsed.fragment
     ):
         return None
-    # Actual provider host is validated on the first production-token probe.
-    # Until then, only CardTrader-owned or explicitly CardTrader-named hosts pass.
     if host != "cardtrader.com" and not host.endswith(".cardtrader.com"):
         return None
-    return clean
+
+    # CardTrader Blueprint payloads currently expose a small `preview_...`
+    # derivative even when the same trusted Blueprint path also has the larger
+    # original. Keep identity/host/path fixed and remove only that filename
+    # prefix. This is not an inferred card substitution: provider asset ID,
+    # directory and filename remain the exact same Blueprint asset.
+    directory, separator, filename = parsed.path.rpartition("/")
+    blueprint_path = re.fullmatch(
+        r"/uploads/blueprints/image/\d+",
+        directory,
+        re.IGNORECASE,
+    )
+    if (
+        host == "cardtrader.com"
+        and separator
+        and blueprint_path
+        and filename.startswith("preview_")
+        and len(filename) > len("preview_")
+    ):
+        parsed = parsed._replace(
+            path=f"{directory}/{filename.removeprefix('preview_')}"
+        )
+    return parsed.geturl()
 
 
 def _property_value(row: Mapping[str, Any], *keys: str) -> object | None:
@@ -337,7 +399,7 @@ def resolve_blueprint(
             continue
         if (
             local_promo_version
-            and _compact(blueprint.get("version")) != local_promo_version
+            and _promo_version_hint(blueprint.get("version")) != local_promo_version
         ):
             continue
 
@@ -360,7 +422,12 @@ def resolve_blueprint(
                 number,
             )
         else:
-            number_matches = _canonical_number(number) == local_number
+            number_matches = _fusion_collector_number_matches(
+                local.get("card_number"),
+                number,
+                local_promo_version=local_promo_version,
+                provider_version=blueprint.get("version"),
+            )
             used_bare_suffix = False
         if not number_matches:
             continue
@@ -493,7 +560,7 @@ async def lookup_one(
         )
         and (
             local_promo_version is None
-            or _compact(blueprint.get("version")) == local_promo_version
+            or _promo_version_hint(blueprint.get("version")) == local_promo_version
         )
     ]
 
