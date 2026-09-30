@@ -124,10 +124,17 @@ class FakeClient:
 
 
 class FakeConnection:
-    def __init__(self, *, processed_create: bool = False, include_local: bool = True):
+    def __init__(
+        self,
+        *,
+        processed_create: bool = False,
+        processed_cancel: bool = False,
+        include_local: bool = True,
+    ):
         self.persisted = None
         self.window_start = None
         self.processed_create = processed_create
+        self.processed_cancel = processed_cancel
         self.include_local = include_local
         self.fetch_queries: list[str] = []
 
@@ -138,13 +145,20 @@ class FakeConnection:
     async def fetch(self, query: str, *args):
         self.fetch_queries.append(query)
         if "from tcg.shopify_webhook_events" in query:
+            rows = []
             if self.processed_create:
-                return [{
+                rows.append({
                     "resource_id": "8488414282075",
                     "topic": "orders/create",
                     "status": "PROCESSED",
-                }]
-            return []
+                })
+            if self.processed_cancel:
+                rows.append({
+                    "resource_id": "8488414282075",
+                    "topic": "orders/cancelled",
+                    "status": "PROCESSED",
+                })
+            return rows
         if "from tcg.shopify_orders_for_reconciliation" in query:
             self.window_start = args[0]
             if not self.include_local:
@@ -186,6 +200,26 @@ async def test_reconciliation_classifies_unpaid_missing_order_as_webhook_gap() -
 
 
 @pytest.mark.asyncio
+async def test_reconciliation_treats_processed_unpaid_cancel_as_terminal_acknowledged() -> None:
+    connection = FakeConnection(processed_cancel=True, include_local=False)
+    result = await reconcile_shopify_orders(
+        connection,  # type: ignore[arg-type]
+        client=FakeClient(),  # type: ignore[arg-type]
+        now=datetime(2026, 9, 29, tzinfo=timezone.utc),
+    )
+
+    assert result["remote_only_refs"] == ["8488414282075"]
+    assert result["remote_anomaly_refs"] == []
+    assert result["expected_pending_refs"] == []
+    assert result["acknowledged_cancelled_refs"] == ["8488414282075"]
+    assert result["acknowledged_cancelled_count"] == 1
+    assert connection.persisted is not None
+    assert connection.persisted[0] == "[]"
+    assert connection.persisted[1] == []
+    assert connection.persisted[2] == ["8488414282075"]
+
+
+@pytest.mark.asyncio
 async def test_reconciliation_treats_processed_unpaid_create_as_expected_pending() -> None:
     connection = FakeConnection(processed_create=True, include_local=False)
     result = await reconcile_shopify_orders(
@@ -217,6 +251,21 @@ async def test_reconciliation_paid_like_missing_order_is_critical_even_with_crea
     assert result["remote_anomaly_count"] == 1
     assert result["expected_pending_count"] == 0
     assert connection.persisted is not None
+    assert "SHOPIFY_PAID_ORDER_MISSING_IN_DROP_RATE" in connection.persisted[0]
+    assert '"severity":"CRITICAL"' in connection.persisted[0]
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_paid_like_cancelled_missing_order_remains_critical() -> None:
+    connection = FakeConnection(processed_cancel=True, include_local=False)
+    result = await reconcile_shopify_orders(
+        connection,  # type: ignore[arg-type]
+        client=FakeClient(financial_status="REFUNDED"),  # type: ignore[arg-type]
+        now=datetime(2026, 9, 29, tzinfo=timezone.utc),
+    )
+
+    assert result["remote_anomaly_count"] == 1
+    assert result["acknowledged_cancelled_count"] == 0
     assert "SHOPIFY_PAID_ORDER_MISSING_IN_DROP_RATE" in connection.persisted[0]
     assert '"severity":"CRITICAL"' in connection.persisted[0]
 
