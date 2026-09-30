@@ -28,7 +28,7 @@
             assign language_label = language
           endif
         %}
-        <article class="dr-sealed-card">
+        <article class="dr-sealed-card" data-product-id="{{ product.id }}">
           <a class="dr-sealed-card__media" href="{{ product.url }}" aria-label="{{ product.title | escape }}">
             {% if product.featured_image %}
               {{ product.featured_image | image_url: width: 800 | image_tag:
@@ -72,7 +72,8 @@
 .dr-sealed-card{display:grid;grid-template-columns:minmax(180px,215px) minmax(0,1fr);min-height:238px;overflow:hidden;border:1px solid #dfe7f1;border-radius:14px;background:#fff;box-shadow:0 10px 28px rgba(7,27,63,.06);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
 .dr-sealed-card__media{position:relative;display:grid;place-items:center;min-height:238px;padding:20px;background:linear-gradient(145deg,#eef5ff,#f8fbff);overflow:hidden}
 .dr-sealed-card__media:after{content:"";position:absolute;width:170px;height:170px;border:1px solid rgba(31,123,242,.13);border-radius:50%;z-index:0}
-.dr-sealed-card__media img{position:relative;z-index:1;width:100%;height:190px;object-fit:contain;filter:drop-shadow(0 12px 12px rgba(7,27,63,.14));transition:transform .2s ease}
+.dr-sealed-card__media img{position:relative;z-index:1;width:82%;height:172px;object-fit:contain;filter:drop-shadow(0 12px 12px rgba(7,27,63,.14));transition:transform .2s ease}
+.dr-sealed-card[data-product-id="10772523286875"] .dr-sealed-card__media img{mix-blend-mode:multiply}
 .dr-sealed-card__badge{position:absolute;top:12px;left:12px;z-index:2;padding:5px 8px;border:1px solid rgba(40,215,235,.3);border-radius:999px;background:#071b3f;color:#8ef0fa;font-size:8px;font-weight:850;letter-spacing:.11em;text-transform:uppercase}
 .dr-sealed-card__body{display:flex;flex-direction:column;min-width:0;padding:22px 22px 20px}
 .dr-sealed-card__meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:13px}
@@ -91,7 +92,7 @@
   .dr-sealed-feature__grid{grid-template-columns:1fr}
   .dr-sealed-card{grid-template-columns:165px minmax(0,1fr);min-height:195px}
   .dr-sealed-card__media{min-height:195px;padding:16px}
-  .dr-sealed-card__media img{height:160px}
+  .dr-sealed-card__media img{width:80%;height:148px}
 }
 @media(max-width:749px){
   .dr-sealed-feature{padding-block:32px 36px}
@@ -105,7 +106,7 @@
   .dr-sealed-card{grid-template-columns:118px minmax(0,1fr);min-height:164px;border-radius:11px}
   .dr-sealed-card__media{min-height:164px;padding:12px}
   .dr-sealed-card__media:after{width:104px;height:104px}
-  .dr-sealed-card__media img{height:132px}
+  .dr-sealed-card__media img{width:82%;height:118px}
   .dr-sealed-card__badge{top:8px;left:8px;padding:4px 6px;font-size:7px}
   .dr-sealed-card__body{padding:14px 14px 12px}
   .dr-sealed-card__meta{gap:4px;margin-bottom:8px}
