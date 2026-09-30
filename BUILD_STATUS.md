@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Seller Hub explicit logo rendering + mobile centring
+
+- Replaced the Seller Hub logo's CSS background-span rendering with a real transparent `<img>` using the approved integrated **Drop Rate Seller Hub** asset.
+- Desktop keeps the logo left-aligned at the start of the header.
+- Mobile positions the logo at the true horizontal centre of the topbar while the existing account/sign-out controls remain on the right.
+- Mobile logo width is constrained to avoid overlap with the unchanged account controls on narrow phones.
+- Seller Hub login branding uses the same explicit image rendering so the asset cannot disappear because of background sizing/clipping.
+- Cache-bumped Seller Hub CSS to `owner-v11` and the logo asset reference to `seller-hub-3`.
+- Added regression coverage for explicit image rendering, desktop sizing, mobile centring and removal of legacy split branding.
+- No auth, ownership, inventory, pricing, order, settlement, payout or Shopify logic changed.
+- Production verification remains pending CI, merge and Railway deployment.
+
 ## 2026-09-30 — Public Seller Hub stale-invite fix
 
 - Root cause found for storefront **Sell With Us** showing **“This invite cannot be used”**: a clean `/owner/join` visit could reuse an expired invite token from browser local storage.
