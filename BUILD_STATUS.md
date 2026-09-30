@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: reusable durable success receipts
+
+- Added inactive reusable n8n sub-workflow `DR91SuccessReceiptV1`.
+- Parent workflows provide typed workflow/execution/idempotency/event metadata only after their governed action has completed and been verified.
+- DR-91 validates identifiers, creates a `SUCCEEDED` receipt, HMAC-signs it and requires durable FastAPI acceptance.
+- The FastAPI receipt control now uses the supplied **idempotency key** as `automation_runs.run_key`, rather than n8n execution ID. Separate n8n executions handling the same business event therefore collapse to one durable receipt.
+- Execution ID remains stored in receipt result metadata for diagnostics.
+- DR-90 failure receipts remain behaviorally compatible because their idempotency keys already include the failed execution identity.
+- No parent workflow should treat “started” or “HTTP request sent” as success; DR-91 belongs after deterministic/read-back verification.
+- No business truth is stored in n8n execution history; durable run truth returns to Postgres.
+
 ## 2026-09-30 — n8n Wave A: guarded dead-letter recovery
 
 - Added Founder HQ dead-letter visibility and replay architecture so terminal automation failures can be recovered without manual SQL.
