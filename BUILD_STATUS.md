@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: reusable durable success receipts
+
+- Added inactive reusable n8n sub-workflow `DR91SuccessReceiptV1`.
+- Parent workflows provide typed workflow/execution/idempotency/event metadata only after their governed action has completed and been verified/read back.
+- DR-91 validates identifiers, creates a `SUCCEEDED` receipt, HMAC-signs it and requires durable FastAPI acceptance.
+- FastAPI durable receipt idempotency now uses the supplied **Drop Rate idempotency key** as `automation_runs.run_key`, rather than the n8n execution ID. Separate n8n executions handling the same business event therefore collapse to one durable logical receipt.
+- Execution ID remains stored in receipt result metadata for diagnostics.
+- DR-90 failure behavior remains compatible because its failure idempotency key includes the failed execution identity.
+- Production `automation_runs` constraints were aligned first in #375, so the receipt path now has a compatible database contract.
+- No workflow may treat “started” or “HTTP request sent” as success; DR-91 belongs after deterministic/read-back verification.
+- DR-91 remains inactive until the repo-controlled n8n workflow provisioning path is deliberately cut over and a duplicate-safe signed receipt is proven.
+
 ## 2026-09-30 — n8n Wave A: automation run schema aligned with control-plane receipts
 
 - Pre-activation review found `tcg.automation_runs` still carried legacy-only checks: `job_type='INVENTORY_REVIEW'`, `initiated_by='AUTOMATION_SERVICE'`, and `run_key` length ≤96.
