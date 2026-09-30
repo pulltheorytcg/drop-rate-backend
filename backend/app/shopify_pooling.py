@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from collections import defaultdict
 from typing import Annotated, Any, Mapping
 from uuid import UUID, uuid4
@@ -40,6 +41,37 @@ def _key(value: object) -> str:
 
 def _money(minor: int) -> str:
     return f"{minor / 100:.2f}"
+
+
+_SINGLE_COPY_DESCRIPTION = (
+    " is an individually tracked physical trading card from Drop Rate inventory."
+)
+_POOLED_COPY_DESCRIPTION = (
+    " is offered from a pool of interchangeable physical copies held by Drop Rate. "
+    "Each physical copy is tracked individually in our inventory system."
+)
+_INVENTORY_ID_ROW = re.compile(
+    r"<li><strong>Inventory ID:</strong>.*?</li>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+
+
+def pooled_product_description_html(description_html: str) -> str:
+    """Convert the deterministic single-copy description into pooled-safe copy."""
+
+    source = str(description_html or "").strip()
+    if not source:
+        raise ValueError("Pooled Shopify product description is missing")
+    if _POOLED_COPY_DESCRIPTION in source and "Inventory ID:" not in source:
+        return source
+    if _SINGLE_COPY_DESCRIPTION not in source:
+        raise ValueError("Pooled Shopify product description is not a recognised Drop Rate card description")
+
+    pooled = _INVENTORY_ID_ROW.sub("", source)
+    pooled = pooled.replace(_SINGLE_COPY_DESCRIPTION, _POOLED_COPY_DESCRIPTION, 1)
+    if "Inventory ID:" in pooled:
+        raise ValueError("Pooled Shopify product description still exposes a single Inventory ID")
+    return pooled
 
 
 def raw_pool_identity(row: Mapping[str, Any]) -> dict[str, str]:
@@ -769,6 +801,22 @@ async def _publish_one_group(
                     "status": "BLOCKED",
                     "blockers": ["pooled Shopify product is not DRAFT"],
                 }
+
+            pooled_description = pooled_product_description_html(
+                str(snapshot.get("descriptionHtml") or "")
+            )
+            if _clean(snapshot.get("descriptionHtml")) != _clean(pooled_description):
+                await client.update_product(
+                    product_id=product_id,
+                    product={"descriptionHtml": pooled_description},
+                )
+                snapshot = await client.get_product_snapshot(product_id)
+                if str(snapshot.get("status") or "").upper() != "DRAFT":
+                    raise RuntimeError(
+                        "Pooled Shopify product status changed while correcting public copy"
+                    )
+                if _clean(snapshot.get("descriptionHtml")) != _clean(pooled_description):
+                    raise RuntimeError("Pooled Shopify description did not persist")
 
             media = snapshot.get("media")
             media_nodes = media.get("nodes") if isinstance(media, Mapping) else None

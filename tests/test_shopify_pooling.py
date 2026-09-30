@@ -7,7 +7,12 @@ from uuid import uuid4
 import pytest
 
 from app.shopify_client import ShopifyAdminClient
-from app.shopify_pooling import _evaluate_group, _is_consolidated_group, raw_pool_identity
+from app.shopify_pooling import (
+    _evaluate_group,
+    _is_consolidated_group,
+    pooled_product_description_html,
+    raw_pool_identity,
+)
 
 
 ROOT = Path(__file__).parents[1]
@@ -174,6 +179,40 @@ def test_consolidated_group_requires_every_member_on_same_pool_variant() -> None
 
     group["members"][1]["shopify_variant_gid"] = "gid://shopify/ProductVariant/DIFFERENT"
     assert _is_consolidated_group(group) is False
+
+
+def test_pooled_public_copy_removes_single_inventory_reference() -> None:
+    source = (
+        "<p><strong>Uta</strong> is an individually tracked physical trading card "
+        "from Drop Rate inventory.</p><ul>"
+        "<li><strong>Game:</strong> One Piece</li>"
+        "<li><strong>Inventory ID:</strong> INV-EXAMPLE</li>"
+        "</ul><p>Card identity, language, condition and price are controlled by "
+        "the Drop Rate inventory system.</p>"
+    )
+
+    pooled = pooled_product_description_html(source)
+
+    assert "Inventory ID:" not in pooled
+    assert "INV-EXAMPLE" not in pooled
+    assert "pool of interchangeable physical copies" in pooled
+    assert "Each physical copy is tracked individually" in pooled
+    assert pooled_product_description_html(pooled) == pooled
+
+
+def test_pooled_publication_corrects_and_verifies_copy_before_activation() -> None:
+    source = POOLING.read_text()
+    start = source.index("async def _publish_one_group(")
+    end = source.index('@router.get("/draft-raw-plan")', start)
+    block = source[start:end]
+
+    correct_copy = block.index("pooled_product_description_html")
+    update_copy = block.index("client.update_product", correct_copy)
+    verify_copy = block.index("Pooled Shopify description did not persist", update_copy)
+    activate = block.index('status="ACTIVE"')
+
+    assert correct_copy < update_copy < verify_copy < activate
+    assert '"descriptionHtml": pooled_description' in block
 
 
 def test_pooled_publication_verifies_remote_and_compensates_before_db_commit() -> None:

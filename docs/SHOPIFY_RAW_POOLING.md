@@ -161,3 +161,16 @@ Read-only production audit before implementation:
 - 0 ready candidate groups with a price mismatch
 
 No production pooling mutation has been run yet.
+
+## Customer-facing pooled copy
+
+A pooled Shopify offer must never present one physical member's Inventory ID as if it identifies the whole offer.
+
+Before a consolidated raw pool can be activated, the pooled publication path:
+- requires the draft description to match the deterministic Drop Rate card-description contract
+- removes the single-copy `Inventory ID` row
+- replaces the single-item wording with pooled-copy wording
+- writes that corrected description while the product is still DRAFT
+- re-reads Shopify and fails closed if the corrected description did not persist
+
+Exact physical Inventory IDs remain in Supabase and in per-member Shopify link records for deterministic allocation, ownership, refunds and settlement. They are not customer-facing pooled-offer identity.
