@@ -23,7 +23,7 @@
   background-size:24px 24px;
   mask-image:linear-gradient(120deg,transparent 18%,#000 76%);
 }
-.dr-collection-intro .dr-wrap{position:relative;z-index:1}
+.dr-collection-intro .dr-wrap{position:relative;z-index:1;width:min(100% - 80px,1400px);margin-inline:auto}
 .dr-breadcrumb{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:30px;color:#8fa9ca;font-size:10px;font-weight:650}
 .dr-breadcrumb a{color:#c8d6ec;text-decoration:none}
 .dr-breadcrumb a:hover{color:#fff}
@@ -34,7 +34,10 @@
 .dr-collection-intro__count{display:inline-flex;margin:14px 0 0!important;padding:6px 9px;border:1px solid rgba(40,215,235,.28);border-radius:999px;background:rgba(40,215,235,.1);color:#8ef0fa!important;font-size:10px!important;font-weight:800;letter-spacing:.05em}
 .dr-collection-intro__description,.dr-collection-intro p:not(.dr-eyebrow):not(.dr-collection-intro__count){max-width:700px;margin-top:16px;color:#c8d6ec;font-size:13px;line-height:1.65}
 .dr-collection-intro__star{padding:0 20px;color:rgba(40,215,235,.3);font-size:118px;line-height:.8;text-shadow:0 0 36px rgba(40,215,235,.16)}
+.dr-breadcrumb,.dr-collection-intro__row>div:first-child{padding-inline-start:12px;box-sizing:border-box}
 @media(max-width:749px){
+  .dr-collection-intro .dr-wrap{width:calc(100% - 32px)}
+  .dr-breadcrumb,.dr-collection-intro__row>div:first-child{padding-inline-start:4px}
   .dr-collection-intro{padding-block:22px 30px}
   .dr-breadcrumb{margin-bottom:22px}
   .dr-collection-intro__row{align-items:flex-end;gap:12px}
