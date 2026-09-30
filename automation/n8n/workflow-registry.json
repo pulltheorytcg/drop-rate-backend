@@ -881,7 +881,7 @@
       "sequence": 40,
       "domain": "Control",
       "authority": "OBSERVE",
-      "status": "PLANNED",
+      "status": "BUILT_INACTIVE",
       "source_of_truth": "PostgreSQL/Supabase",
       "decision_engine": "FastAPI",
       "orchestrator": "n8n",
@@ -896,7 +896,11 @@
         "failure/retry test",
         "observability/error routing",
         "provider terms/rate-limit review where applicable"
-      ]
+      ],
+      "implementation_id": "DR90GlobalErrorV1",
+      "implementation_path": "automation/n8n/workflows/dr-90-global-error.json",
+      "control_contract": "/api/v1/automation/control/receipt",
+      "activation_note": "Synthetic failure + duplicate replay proof required before ACTIVE."
     },
     {
       "key": "hardware-workflow-triggers",
