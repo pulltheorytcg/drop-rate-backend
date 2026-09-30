@@ -18,6 +18,7 @@ from .finance import allocate_minor
 from .language import clean_language
 from .media_resolver import (
     DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR,
+    DRAGON_BALL_4K_LONG_EDGE_PX,
     FIRST_PARTY_CAPTURE,
     STOREFRONT_ALLOWED,
     physical_photo_policy,
@@ -173,6 +174,21 @@ def _client() -> ShopifyAdminClient:
 
 def _money(minor: int) -> str:
     return f"{Decimal(minor) / Decimal(100):.2f}"
+
+
+def _media_quality_status(width: object, height: object) -> str:
+    try:
+        clean_width = int(width) if width is not None else 0
+        clean_height = int(height) if height is not None else 0
+    except (TypeError, ValueError):
+        return "UNMEASURED"
+    if clean_width <= 0 or clean_height <= 0:
+        return "UNMEASURED"
+    return (
+        "TARGET_MET"
+        if max(clean_width, clean_height) >= DRAGON_BALL_4K_LONG_EDGE_PX
+        else "BELOW_TARGET"
+    )
 
 
 async def withdraw_shopify_for_inventory(
@@ -1609,10 +1625,18 @@ async def sync_media_asset(
         async with connection.transaction():
             asset = await connection.fetchrow(
                 """
-                select *
-                from tcg.media_assets
-                where id=$1 and owner_id=$2
-                for update
+                select
+                    m.*,
+                    coalesce(catalogue_product.game, inventory_product.game) as media_game
+                from tcg.media_assets m
+                left join tcg.catalogue_products catalogue_product
+                  on catalogue_product.id=m.catalogue_id
+                left join tcg.inventory_items inventory
+                  on inventory.id=m.inventory_id
+                left join tcg.catalogue_products inventory_product
+                  on inventory_product.id=inventory.catalogue_id
+                where m.id=$1 and m.owner_id=$2
+                for update of m
                 """,
                 asset_id, owner["id"],
             )
@@ -1708,6 +1732,20 @@ async def sync_media_asset(
                 if isinstance(image, dict)
                 else ""
             )
+            source_width_px = (
+                int(image.get("width"))
+                if isinstance(image, dict) and image.get("width") is not None
+                else None
+            )
+            source_height_px = (
+                int(image.get("height"))
+                if isinstance(image, dict) and image.get("height") is not None
+                else None
+            )
+            source_quality_status = _media_quality_status(
+                source_width_px,
+                source_height_px,
+            )
             if not file_id or file_status not in {"UPLOADED","PROCESSING","READY","FAILED"}:
                 raise HTTPException(
                     status_code=502,
@@ -1724,21 +1762,53 @@ async def sync_media_asset(
                       when nullif($5,'') is not null then $5
                       else shopify_cdn_url
                     end,
+                    source_width_px=$6,
+                    source_height_px=$7,
+                    source_quality_status=$8,
+                    source_checked_at=clock_timestamp(),
+                    source_status_note=case
+                      when $8='BELOW_TARGET' then
+                        'Measured media is below the Dragon Ball 2160px long-edge quality target'
+                      when $8='TARGET_MET' then
+                        'Measured media meets the Dragon Ball 2160px long-edge quality target'
+                      else source_status_note
+                    end,
                     updated_at=clock_timestamp(),
                     version=version+1
                 where id=$1 and owner_id=$2
                 returning *
                 """,
-                asset_id, owner["id"], file_id, file_status, cdn_url,
+                asset_id,
+                owner["id"],
+                file_id,
+                file_status,
+                cdn_url,
+                source_width_px,
+                source_height_px,
+                source_quality_status,
             )
             if file_status == "READY" and not str(row["shopify_cdn_url"] or "").strip():
                 raise HTTPException(
                     status_code=502,
                     detail="Shopify ready image is missing its delivery URL",
                 )
+            quality_blocked = (
+                str(asset.get("media_game") or "").strip().casefold()
+                in {
+                    "dragon ball super",
+                    "dragon ball super masters",
+                    "dragon ball super fusion world",
+                }
+                and source_quality_status == "BELOW_TARGET"
+            )
             return jsonable_encoder({
                 "asset": dict(row),
-                "ready": file_status == "READY",
+                "ready": file_status == "READY" and not quality_blocked,
+                "quality_blocked": quality_blocked,
+                "quality_target_long_edge_px": DRAGON_BALL_4K_LONG_EDGE_PX,
+                "measured_width_px": source_width_px,
+                "measured_height_px": source_height_px,
+                "source_quality_status": source_quality_status,
             })
 
 
