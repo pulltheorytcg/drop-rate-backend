@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Dragon Ball media cleanup wrapped to external-source boundary
+
+- Rechecked the remaining Dragon Ball media backlog after the production original-size rollout.
+- The storefront-quality regression itself is closed: all 25 currently published Dragon Ball products use the largest exact CardTrader Blueprint original available instead of the tiny preview derivative.
+- There are still 8 unlinked FOR_SALE Dragon Ball units, but only 7 remain genuinely media-unresolved: Vegeta FB05-039 Tournament Pack 06 Winner now has an exact CardTrader Winner candidate in `PENDING_REVIEW`; its old `MEDIA_UNRESOLVED` item is resolved.
+- The remaining 7 are six exact Masters pre-release printings plus Nappa FP-046 Tournament Pack 07. CardTrader cannot prove those exact printings: the Masters Blueprints are base-set images and CardTrader currently exposes Nappa as Tournament Pack 08.
+- External identity checks confirm the special printings themselves exist, but those sources are not being copied into Shopify: TCGplayer's public terms restrict crawling/scraping and outside use of its content, and Bandai's public card-list image is the base card rather than proof of the stamped pre-release physical printing.
+- The existing TCGGraph adapter is the clean no-photo fallback already present in the backend. It supports Dragon Ball Masters/Fusion World exact printings, exact line isolation, rights/provenance metadata and human approval before Shopify use.
+- Production still does **not** have `TCG_TCGGRAPH_API_KEY`. No paid provider subscription, credential, or new recurring dependency was created during this cleanup.
+- Until an approved storefront-permitted provider credential is configured, the 7 special-print items intentionally remain fail-closed rather than receiving visually similar or legally unclear images.
+
 ## 2026-09-30 — Dragon Ball storefront media quality upgraded
 
 - Confirmed the quality fault was upstream media, not storefront CSS: all 25 published Dragon Ball products were using CardTrader `preview_` derivatives at roughly 180 x 251 px.
