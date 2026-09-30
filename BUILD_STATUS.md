@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — PSA certificate lookup compatibility repair
+
+- Phase 2 review confirmed the retained `psa-fetch-batch` Railway service is important graded-card infrastructure, but a live exact-cert check returned **HTTP 403** for PSA cert 62398872.
+- Root cause: the Railway Function still uses an obsolete PSA API shape: `https://api.psacard.com/cert/{cert}` with `X-PSA-API-KEY`.
+- PSA's current official Public API documents `https://api.psacard.com/publicapi/cert/GetByCertNumber/{cert}` with `Authorization: bearer <access token>`.
+- The Railway Function source is being brought into GitHub at `ops/railway/psa-fetch-batch/index.tsx` and updated to the current documented contract.
+- The utility remains read-only: provider cert evidence only, no inventory identity mutation, media approval, Shopify publication or Action Required resolution.
+- The function now supports `?cert=<number>` for one exact lookup as well as the retained diagnostic batch.
+- After merge, deploy this exact source back to the existing `psa-fetch-batch` service and re-test cert 62398872. If the existing token is expired/invalid, do not invent a workaround; refresh the PSA access token through the official account flow.
+- `GRADED_SLAB_MEDIA_REQUIRED` closes only if the exact cert returns exact permitted slab media; a successful cert lookup without scans is not sufficient.
+
 ## 2026-09-30 — Founder HQ stacked inventory-filter correctness
 
 - Repo hygiene review found PR #230 still contained one unique unsuperseded bug fix.
