@@ -10,7 +10,13 @@ from app.automation_recovery import AutomationReplayRequest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = (
+BASE_MIGRATION = (
+    ROOT
+    / "database"
+    / "migrations"
+    / "20260930042000_automation_dead_letter_recovery.sql"
+)
+FIX_MIGRATION = (
     ROOT
     / "database"
     / "migrations"
@@ -29,7 +35,7 @@ def test_replay_reason_is_required_and_normalized() -> None:
 
 
 def test_dead_letter_listing_is_read_only_and_sanitized() -> None:
-    sql = MIGRATION.read_text().lower()
+    sql = BASE_MIGRATION.read_text().lower()
 
     assert "list_automation_dead_letters" in sql
     assert "where ae.status='dead_letter'" in sql
@@ -41,7 +47,7 @@ def test_dead_letter_listing_is_read_only_and_sanitized() -> None:
 
 
 def test_replay_is_dead_letter_only_admin_gated_and_audited() -> None:
-    sql = MIGRATION.read_text()
+    sql = FIX_MIGRATION.read_text()
     lower = sql.lower()
 
     assert "replay_dead_letter_automation_event" in lower
@@ -68,7 +74,7 @@ def test_replay_is_dead_letter_only_admin_gated_and_audited() -> None:
 
 
 def test_replay_does_not_allow_delivered_or_superseded_history() -> None:
-    lower = MIGRATION.read_text().lower()
+    lower = FIX_MIGRATION.read_text().lower()
     assert "where id=p_event_id" in lower
     assert "and status='dead_letter'" in lower
     assert "status='delivered'" not in lower
@@ -76,7 +82,7 @@ def test_replay_does_not_allow_delivered_or_superseded_history() -> None:
 
 
 def test_recovery_functions_are_not_exposed_to_user_roles() -> None:
-    lower = MIGRATION.read_text().lower()
+    lower = (BASE_MIGRATION.read_text() + "\n" + FIX_MIGRATION.read_text()).lower()
     for role in ("public", "anon", "authenticated", "service_role", "tcg_auditor"):
         assert f"from {role}" in lower or role in lower
     assert "to tcg_api" in lower
