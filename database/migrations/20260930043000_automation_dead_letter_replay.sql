@@ -92,7 +92,8 @@ grant execute on function tcg.list_automation_outbox_events(text,text,integer) t
 create or replace function tcg.replay_dead_letter_automation_event(
   p_event_id uuid,
   p_reason text,
-  p_actor text
+  p_actor text,
+  p_request_id text default null
 )
 returns jsonb
 language plpgsql
@@ -103,6 +104,7 @@ declare
   v_event tcg.automation_events%rowtype;
   v_reason text := btrim(coalesce(p_reason,''));
   v_actor text := btrim(coalesce(p_actor,''));
+  v_request_id text := nullif(btrim(coalesce(p_request_id,'')),'');
   v_before jsonb;
 begin
   if char_length(v_reason) < 8 or char_length(v_reason) > 500 then
@@ -111,6 +113,10 @@ begin
   end if;
   if char_length(v_actor) < 3 or char_length(v_actor) > 120 then
     raise exception 'Replay actor must be between 3 and 120 characters'
+      using errcode='22023';
+  end if;
+  if v_request_id is not null and char_length(v_request_id) > 255 then
+    raise exception 'Replay request ID must be at most 255 characters'
       using errcode='22023';
   end if;
 
@@ -156,7 +162,7 @@ begin
   )
   select
     v_actor,
-    null,
+    v_request_id,
     'AUTOMATION_EVENT_REPLAY_REQUESTED',
     'AUTOMATION_EVENT',
     ae.id,
@@ -188,9 +194,9 @@ begin
 end;
 $function$;
 
-revoke all on function tcg.replay_dead_letter_automation_event(uuid,text,text) from public;
-revoke all on function tcg.replay_dead_letter_automation_event(uuid,text,text)
+revoke all on function tcg.replay_dead_letter_automation_event(uuid,text,text,text) from public;
+revoke all on function tcg.replay_dead_letter_automation_event(uuid,text,text,text)
   from anon,authenticated,service_role,tcg_auditor;
-grant execute on function tcg.replay_dead_letter_automation_event(uuid,text,text) to tcg_api;
+grant execute on function tcg.replay_dead_letter_automation_event(uuid,text,text,text) to tcg_api;
 
 commit;
