@@ -1,0 +1,375 @@
+{
+  "id": "DR00IngressV4",
+  "name": "DR-00 Signed Event Ingress V4",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "dr00v4-webhook",
+      "name": "Drop Rate Event Webhook V4",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -760,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "drop-rate/events-v4",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      }
+    },
+    {
+      "id": "dr00v2-verify",
+      "name": "Verify Signature + Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst item = $input.first();\nconst json = item.json || {};\nconst headers = Object.fromEntries(Object.entries(json.headers || {}).map(([k,v]) => [String(k).toLowerCase(), String(v)]));\nconst timestamp = headers['x-drop-rate-timestamp'] || '';\nconst supplied = headers['x-drop-rate-signature'] || '';\nconst secret = String($env.DROP_RATE_AUTOMATION_WEBHOOK_SECRET || '').trim();\nconst now = Math.floor(Date.now()/1000);\nconst ts = Number(timestamp);\nlet error = null;\nif (secret.length < 32) error = 'secret_not_configured';\nelse if (!Number.isInteger(ts) || Math.abs(now-ts) > 300) error = 'stale_or_invalid_timestamp';\nelse if (!/^sha256=[0-9a-f]{64}$/.test(supplied)) error = 'invalid_signature_format';\n\nlet rawBody = '';\nlet body = null;\nif (!error) {\n  const encoded = item.binary?.data?.data;\n  if (!encoded) error = 'raw_body_missing';\n  else {\n    try {\n      rawBody = Buffer.from(encoded, 'base64').toString('utf8');\n      body = JSON.parse(rawBody);\n    } catch {\n      error = 'invalid_json';\n    }\n  }\n}\nif (!error && (!body || typeof body !== 'object' || Array.isArray(body))) error = 'invalid_body';\nconst required = ['event_id','event_type','schema_version','aggregate','idempotency_key','occurred_at','payload'];\nif (!error && required.some((key) => body[key] === undefined || body[key] === null || body[key] === '')) error = 'invalid_envelope';\nif (!error && (!body.aggregate || !body.aggregate.type || !body.aggregate.id)) error = 'invalid_aggregate';\nif (!error && (!Number.isInteger(body.schema_version) || body.schema_version < 1)) error = 'invalid_schema_version';\nif (!error) {\n  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + rawBody, 'utf8').digest('hex');\n  const a = Buffer.from(expected, 'ascii');\n  const b = Buffer.from(supplied, 'ascii');\n  if (a.length !== b.length || !crypto.timingSafeEqual(a,b)) error = 'signature_mismatch';\n}\nreturn [{json:{accepted:!error,error,event:body}}];"
+      }
+    },
+    {
+      "id": "dr00v2-signature",
+      "name": "Signature Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -280,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "accepted",
+              "leftValue": "={{ $json.accepted }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "dr00v2-route",
+      "name": "Inventory Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -40,
+        -120
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "inventory-approved",
+              "leftValue": "={{ $json.event.event_type }}",
+              "rightValue": "inventory.approved",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "dr00v2-dr01",
+      "name": "Run DR-01 V2",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        -160
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "DR01InventoryApprovedShopifyV2",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_json": "={{ JSON.stringify($json.event) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "event_json",
+              "displayName": "event_json",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "dr00v2-success",
+      "name": "Handled",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        760,
+        -120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: true, event_id: $('Verify Signature + Envelope').item.json.event.event_id, result: $json } }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "dr00v2-unsupported",
+      "name": "Unsupported Event",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        500,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: false, error: 'unsupported_event_type' } }}",
+        "options": {
+          "responseCode": 422
+        }
+      }
+    },
+    {
+      "id": "dr00v2-rejected",
+      "name": "Rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -40,
+        160
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: false, error: $json.error } }}",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    },
+    {
+      "id": "dr00v4-order-route",
+      "name": "Shopify Order Processed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "shopify-order-processed",
+              "leftValue": "={{ $json.event.event_type }}",
+              "rightValue": "shopify.order.processed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "dr00v4-dr03",
+      "name": "Run DR-03",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        500,
+        -20
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "DR03ShopifyOrderProcessedV1",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "event_json": "={{ JSON.stringify($json.event) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "event_json",
+              "displayName": "event_json",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Verify Signature + Envelope": {
+      "main": [
+        [
+          {
+            "node": "Signature Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature Valid?": {
+      "main": [
+        [
+          {
+            "node": "Inventory Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inventory Approved?": {
+      "main": [
+        [
+          {
+            "node": "Run DR-01 V2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Shopify Order Processed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run DR-01 V2": {
+      "main": [
+        [
+          {
+            "node": "Handled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drop Rate Event Webhook V4": {
+      "main": [
+        [
+          {
+            "node": "Verify Signature + Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shopify Order Processed?": {
+      "main": [
+        [
+          {
+            "node": "Run DR-03",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unsupported Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run DR-03": {
+      "main": [
+        [
+          {
+            "node": "Handled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-00",
+      "version": 4,
+      "role": "versioned-signed-event-router",
+      "activationGate": "Keep inactive until DR-01 V2, DR-03, DR-90 and DR-91 are proven. Switch the dispatcher webhook URL to events-v4 only during a controlled activation test; do not consume unintended backlog."
+    }
+  }
+}
