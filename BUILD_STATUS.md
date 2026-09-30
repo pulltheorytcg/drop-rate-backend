@@ -1,5 +1,19 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Google Shopping readiness: exact remaining Shopify prerequisites
+
+- Google & YouTube is still **not installed/activated**, so no feed is currently publishing Horizon.
+- Contact-information requirement is **already satisfied**: Shopify has a public contact email, published Contact page, published Contact Information page and footer links.
+- Refund & Returns and Terms of Service content already exists as published pages, but Shopify currently exposes only Privacy Policy as a native `ShopPolicy`.
+- API write attempt confirmed the blocker: the authenticated Shopify connector lacks `write_legal_policies`; a full installed-app scope audit confirms **none** of Messaging, Shopify ChatGPT MCP App, Drop Rate Backend or Search & Discovery currently has that write scope.
+- Therefore Refund Policy and Terms of Service are a one-time manual Shopify Admin task using the existing approved text:
+  - Settings → Policies → Refund policy;
+  - Settings → Policies → Terms of service.
+- Do **not** broaden the Drop Rate Backend app's permissions merely for this one-time merchant setting unless a recurring product requirement appears.
+- The remaining Google prerequisite “store live/public” stays intentionally blocked by the Phase 2 Brand Redesign publish gate.
+- Feed strategy remains Shopify-native Google & YouTube, free listings first, no paid Shopping without explicit founder approval.
+- Full runbook: `docs/GOOGLE_SHOPPING_READINESS.md`.
+
 ## 2026-09-30 — PSA credential hardening
 
 - The retained PSA cert-lookup Function uses PSA's current documented Public API endpoint/auth contract, but production retest returned **HTTP 403** because no PSA-specific credential is configured.
