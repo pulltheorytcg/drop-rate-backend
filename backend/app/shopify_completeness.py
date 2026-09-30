@@ -253,7 +253,17 @@ def shipping_profile_key(item: Mapping[str, Any]) -> str:
             return "GRADED_CARD"
         return "RAW_CARD"
     if product_type in {"SEALED", "COLLECTION"}:
-        return "SEALED_PRODUCT"
+        catalogue_key = _text(item.get("catalogue_id")).replace("-", "").upper()
+        if (
+            len(catalogue_key) == 32
+            and all(char in "0123456789ABCDEF" for char in catalogue_key)
+        ):
+            # Sealed formats vary too widely for one generic weight. Keep the
+            # shipping profile owner-scoped, but key it to the canonical product
+            # so copies of the same exact sealed SKU share verified dimensions
+            # and weight without leaking those values across unrelated products.
+            return f"SEALED_{catalogue_key}"
+        return "UNSUPPORTED_SEALED_PRODUCT_ID"
     return f"UNSUPPORTED_{product_type or 'PRODUCT'}"
 
 
