@@ -23,13 +23,18 @@ def test_n8n_startup_provisioner_is_additive() -> None:
 
     forbidden = (
         "rm -f",
-        "database.sqlite",
         "delete:workflow",
         "reset",
         "import:credentials",
+        "truncate",
+        "drop table",
     )
     for token in forbidden:
         assert token not in script
+
+    assert 'rm "$N8N_DB"' not in script
+    assert 'mv "$N8N_DB"' not in script
+    assert 'cp "$N8N_DB" "$N8N_PREPROVISION_BACKUP"' in script
 
 
 def test_n8n_provisioning_never_commits_secret_values() -> None:
