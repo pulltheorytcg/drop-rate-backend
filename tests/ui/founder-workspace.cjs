@@ -24,7 +24,7 @@ for(const file of scripts){
   if(file==='app.js') text=text.replace(/\ninitialise\(\);\s*$/, '\n');
   vm.runInContext(text,ctx,{filename:file});
 }
-run(`apiRequest = async () => ({items:[],total:0, owner:{display_name:'Demo founder',email:'preview@example.test'}});`);
+run(`window.inventoryRequests=[]; apiRequest = async (url) => {window.inventoryRequests.push(url); return {items:[],total:0, owner:{display_name:'Demo founder',email:'preview@example.test'}};};`);
 const doc=dom.window.document;
 assert.equal(errors.length,0);
 assert.equal(doc.querySelectorAll('.seller-nav-tab').length,9);
@@ -41,14 +41,26 @@ doc.querySelector('.issue-button').click();
 assert.equal(dom.window.location.hash,'#inventory');
 assert.equal(run('state.issue'),'missing_cost');
 assert.match(doc.getElementById('workspace-filter-summary').textContent,/Missing cost/);
+run(`state.saleIntent='PERSONAL_COLLECTION'; state.storageLocationFilter='__UNLOCATED__'; loadInventory();`);
+assert.ok(
+  run(`window.inventoryRequests.some(url=>url.includes('sale_intent=PERSONAL_COLLECTION')&&url.includes('unlocated=true'))`),
+  'Real inventory request includes both collection and location filters'
+);
+doc.getElementById('location-filter').value='__UNLOCATED__';
+doc.getElementById('sale-intent-filter').value='PERSONAL_COLLECTION';
+run('updateWorkspaceFilters()');
+assert.match(doc.getElementById('workspace-filter-summary').textContent,/Personal collection/);
 doc.getElementById('workspace-clear-filters').click();
 assert.equal(run('state.issue'),'');
+assert.equal(run('state.saleIntent'),'');
+assert.equal(run('state.storageLocationFilter'),'');
+assert.equal(doc.getElementById('sale-intent-filter').value,'');
 assert.ok(doc.getElementById('workspace-clear-filters').hidden);
-run(`state.brand='Pokemon'; state.status='DRAFT'; state.issue='missing_price';`);
+run(`state.brand='Pokemon'; state.status='DRAFT'; state.issue='missing_price'; state.saleIntent='PERSONAL_COLLECTION';`);
 doc.getElementById('workspace-search').value='Luffy';
 doc.querySelector('.workspace-search').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true}));
 assert.equal(run('state.search'),'Luffy');
-assert.equal(run('state.brand + state.status + state.issue'),'');
+assert.equal(run('state.brand + state.status + state.saleIntent + state.issue'),'');
 assert.equal(doc.getElementById('search-input').value,'Luffy');
 doc.getElementById('seller-tab-dashboard').focus();
 doc.getElementById('seller-tab-dashboard').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
