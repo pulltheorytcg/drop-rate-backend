@@ -240,6 +240,56 @@ Across the 29–30 September work:
 7. **GitHub housekeeping:** close stale open PRs that have been superseded by merged production work (#309, #311–#314, #317, #325) after confirming none contains unique unmerged content.
 8. Once Brand Redesign is live and stable, **explicitly reopen the manual's deferred workstreams** in priority order rather than automatically resuming all of them at once.
 
+
+## 2026-09-30 — Founder-requested post-storefront roadmap additions
+
+**ROADMAP RECORDED / NOT YET COMPLETE —** the following founder-requested capabilities must remain visible in the build plan. They are not considered completed by the current storefront milestone and should be scheduled explicitly after the Brand Redesign launch is stable, unless a blocking bug requires earlier work.
+
+### Sealed-product commerce and intelligence
+
+- **Publish sealed products to Shopify:** complete the physical-input gate for current and future sealed inventory, including exact package media, language/region, seal status, packed weight/dimensions, shipping profile, pricing and Shopify collection/product presentation. Do not guess shipping dimensions or reuse card-oriented media rules.
+- **Sealed-product scanning/recognition:** extend intake so the platform can recognise sealed boxes, booster boxes, tins, collections and other supported sealed products from images/scans. Recognition must remain confidence-scored and fail closed for ambiguous/high-value products.
+- **Sealed-product market valuation:** extend the pricing/market-data layer so sealed products have deterministic market value, recommended retail, quick-sale and acquisition-price outputs using permitted provider data. Sealed valuation must remain separate from raw/graded-card assumptions where liquidity, pack count, product configuration or region materially differ.
+
+### Seller Hub / mobile application
+
+- **Seller Hub as full desktop + mobile product:** turn Seller Hub into a complete responsive desktop experience plus purpose-built iOS and Android apps, usable end-to-end on a phone rather than relying on a partial mobile web workflow.
+- The native mobile app should continue to use the existing FastAPI/Supabase backend rather than becoming a separate source of truth.
+- Core mobile flows should include camera/scanner intake, inventory management, pricing/value views, Action Required, sales/channel state, portfolio, payouts/settlements and account/profile operations.
+
+### Multi-channel commerce expansion
+
+- **Connect Whatnot, Cardmarket and TCGplayer** as additional sales channels alongside Shopify and the existing dormant eBay groundwork.
+- Each channel must use a replaceable adapter and backend API contract; n8n must not own inventory truth or allocation logic.
+- Cross-channel stock must remain Inventory-ID/owner aware and idempotent so one physical item cannot be oversold across Shopify/eBay/Whatnot/Cardmarket/TCGplayer.
+- Channel expansion remains gated behind provider/platform terms, available official APIs/authorised integrations, credentials, webhook/order support and seller-account approval. Do not assume scraping or unsupported automation is permitted.
+
+### Shopify customer → Seller Hub conversion
+
+- **Offer Seller Hub signup to Shopify customers:** when a customer provides an email by creating a Shopify account or making a purchase, present a clear invitation to create a Drop Rate Seller Hub account and explain the value proposition.
+- After a customer explicitly signs up/links the account, eligible purchases should be associated with that Seller Hub identity and purchased cards should be added to their portfolio automatically without transferring physical ownership records incorrectly.
+- Customer/storefront auth must remain separate from founder/admin permissions; do not silently create privileged Seller Hub accounts from checkout alone.
+- Consent, email matching/account linking, duplicate-account handling, refunds/returns and privacy rules must be defined before automatic portfolio import is enabled.
+
+### Founder Dashboard + Seller Hub simplification
+
+- **Simplify both Founder Dashboard and Seller Hub:** reduce complexity, duplication and unnecessary controls so routine inventory/sales work is fast and obvious on desktop and mobile.
+- Prioritise common actions, clear status, search/filtering, compact card grids, Action Required exceptions and context-aware controls rather than exposing internal system complexity.
+- Keep founder/admin-only capabilities clearly separated from seller/consignor/customer-safe functionality.
+
+### Hardware / scanner / printer integration
+
+- **Allow sellers/founders to connect supported printers and scanners** from Seller Hub / Founder Dashboard.
+- Support direct card intake from compatible scanners/cameras into the normal inventory/recognition pipeline rather than creating a separate unmanaged import path.
+- Add a Device Bridge / local connector architecture for hardware that requires local desktop/mobile access.
+- Printer support should cover useful operational workflows such as labels, inventory IDs, order/pick labels or other approved fulfilment outputs.
+- Hardware integrations must preserve authenticated user/owner context, audit events, duplicate protection and explicit device permissions.
+
+### Sequencing note
+
+These items are now part of the official roadmap but **do not override the current storefront-first launch gate**. Immediate order remains: final Brand Redesign smoke QA → publish Brand Redesign → post-launch verification → resolve remaining storefront inventory exceptions. After that, explicitly reopen deferred workstreams in controlled phases rather than building all roadmap items simultaneously.
+
+
 ## 2026-09-30 — Dragon Ball publication final production verification
 
 **PRODUCTION VERIFIED —** the CardTrader Dragon Ball backfill/publication pass is complete for every exact printing the current permitted provider data can prove. Production now has **27 / 35 Dragon Ball physical FOR_SALE items published**, represented by **25 live Shopify products** because two duplicate physical copies are intentionally pooled into quantity-2 listings.
