@@ -568,10 +568,11 @@ function inventoryImageFigure(item) {
       .catch(showFailure);
   };
 
-  if (item.card_image_cdn_url) {
+  const directImageUrl = item.card_image_direct_url || item.card_image_cdn_url;
+  if (directImageUrl) {
     image.loading = "lazy";
     image.addEventListener("error", loadFromProxy, { once: true });
-    image.src = item.card_image_cdn_url;
+    image.src = directImageUrl;
   } else {
     loadFromProxy();
   }
