@@ -36,6 +36,50 @@ Graded Slab becomes a separate verification pipeline designed around the slab la
 
 The system must never infer or overwrite a different physical card solely because the slab artwork looks visually similar.
 
+
+
+## Language recognition
+
+Language detection is part of the scanner identity pipeline for both **Raw Card** and **Graded Slab** modes.
+
+Initial supported languages:
+- English (`EN`);
+- Japanese (`JA`);
+- Chinese (`ZH`);
+- Korean (`KO`).
+
+The scanner must not determine language from artwork alone. It should combine:
+- OCR/script evidence from the physical card or slab label;
+- Unicode/script classification (Latin, Japanese kana/kanji, Hangul, Chinese Han text);
+- card/set/collector-number conventions;
+- provider/canonical catalogue evidence;
+- grading-provider certificate language/printing fields when available;
+- known language availability for the exact printing.
+
+For Chinese, the data model should preserve room for script/market detail such as Simplified vs Traditional Chinese (for example `ZH-HANS` / `ZH-HANT`) even if the initial UI displays simply **Chinese**.
+
+Suggested normalized result:
+
+`language_detection = { language, script_variant, confidence, evidence[] }`
+
+Rules:
+- **HIGH confidence + canonical compatibility** → preselect language for confirmation;
+- **MEDIUM confidence** → show language prominently for human confirmation;
+- **LOW confidence / conflicting evidence** → Action Required; do not silently assign language;
+- a provider response may corroborate language but must not overwrite contradictory first-party physical evidence without review.
+
+For graded slabs, provider cert data and slab-label OCR should be compared. A mismatch (for example provider says English while the physical slab/card appears Japanese) must fail closed.
+
+The confirmed language is stored on the **physical Inventory Item** and participates in:
+- exact canonical printing matching;
+- recognition;
+- market-data/pricing selection;
+- Shopify title/metafields/filters;
+- duplicate/pooling eligibility;
+- future cross-channel publication.
+
+Two otherwise identical cards in different languages must never be pooled together.
+
 ## Provider adapter contract
 
 Each grader implements the same interface conceptually:
