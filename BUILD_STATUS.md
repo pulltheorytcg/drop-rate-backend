@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Seller Hub CSS cache-bust v12
+
+- Bumped the Seller Hub stylesheet asset version to `owner-v12` so browsers immediately receive the deployed header-spacing and Profile-page styles instead of reusing the previous `owner-v11` cache.
+- No UI logic, auth, database, ownership, pricing, settlement or payout behaviour changed.
+
+
 ## 2026-09-30 — Seller Hub profile & account settings
 
 - Added a dedicated **Profile** view for restricted Seller Hub owners.
