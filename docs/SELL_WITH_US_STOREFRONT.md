@@ -78,8 +78,20 @@ Before Brand Redesign publication:
 9. Seller Hub redirects only to `/owner`, never Founder HQ;
 10. Brand Redesign theme source/runtime parity is reverified after deployment.
 
-## Activation
+## Activation status — 30 September 2026
 
-The migration must be applied through the normal Supabase migration process after its PR
-is merged. The updated header is then synced only to the unpublished Brand Redesign
-theme and read back before launch.
+Production activation is complete without publishing the storefront theme:
+
+- PR #414 merged and deployed successfully to the live FastAPI service;
+- the version-controlled self-registration migration is applied in Supabase;
+- function EXECUTE is restricted to `tcg_api`, not `PUBLIC`, `anon` or browser `authenticated`;
+- an existing PLATFORM_ADMIN founder identity was verified to fail closed with no new owner/audit rows;
+- the source-controlled header was synced only to `Drop Rate — Brand Redesign`;
+- Shopify read-back confirms the theme remains UNPUBLISHED, healthy and contains the newly written header file;
+- Horizon remains MAIN;
+- no external seller account was created during system verification.
+
+The final human smoke check is to preview Brand Redesign on desktop/mobile, follow **Sell With Us**,
+and confirm the hosted Supabase Auth redirect allow-list returns confirmation/OAuth callbacks to
+`/owner/join`. The currently connected Supabase management surface does not expose that allow-list,
+so no unverified global Auth configuration change was made.

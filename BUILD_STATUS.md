@@ -1,5 +1,28 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Storefront “Sell With Us” → Seller Hub production verification complete
+
+- PR #414 is merged and deployed to `drop-rate-api-live` at commit `8e851f96e9aba1b747607e2881bebf9ebe357925`.
+- Railway production deployment is SUCCESS; pre-start/runtime verification reported **2122 tests passed** and `GET /health/ready` = 200.
+- Supabase migration `public_owner_self_registration` is applied in production (live migration version `20260930204126`).
+- Live function grants are fail-closed:
+  - `PUBLIC`: no EXECUTE;
+  - `anon`: no EXECUTE;
+  - Supabase `authenticated`: no direct EXECUTE;
+  - `tcg_api`: EXECUTE.
+- The self-registration function is SECURITY DEFINER but verifies the authenticated `auth.users` record, requires confirmed non-anonymous email, creates only `CONSIGNOR` + `OWNER` access at the existing 1000 bps / 10% default commission, and refuses conflicting roles.
+- Founder/admin boundary was exercised against an existing PLATFORM_ADMIN founder identity: self-registration was rejected and created **0** owner/audit records.
+- `Drop Rate — Brand Redesign` now contains the source-controlled `Sell With Us` desktop CTA / `Sell` mobile CTA linking to `/owner/join` on the production Seller Hub domain.
+- Shopify runtime read-back:
+  - Brand Redesign remains **UNPUBLISHED**;
+  - `processing=false`, `processingFailed=false`;
+  - `snippets/header-actions.liquid` checksum `7d4cfc59e588fd0a41ed414d9fa07b81`, 11504 bytes, updated 2026-09-30 20:45:13Z;
+  - Horizon remains the **MAIN** theme.
+- No external seller account was created during verification, preserving the no-external-owner-activation rule.
+- Shopify catalogue after Phase-B pooling: **461 ACTIVE**, **0 DRAFT**, **46 ARCHIVED** products.
+- Remaining human launch QA for this slice: visually open Brand Redesign on desktop/mobile and tap **Sell With Us**; confirm the hosted Supabase Auth redirect allow-list returns email/OAuth confirmations to `/owner/join`. The current connected Supabase tooling cannot read that hosted Auth allow-list, so it is not being changed blindly.
+- Brand Redesign is still intentionally unpublished pending the full storefront launch gate.
+
 ## 2026-09-30 — Published raw-card pooling Phase B complete
 
 - Production reconciliation is complete for **20 duplicate raw-card groups / 48 physical inventory links** exposed by Brand Redesign launch QA.
@@ -30,7 +53,7 @@
 - Founder HQ remains inaccessible to self-registered sellers; payout approval/execution and internal admin controls remain outside this flow.
 - Existing founder-issued seller invitations remain supported.
 - Brand Redesign header source now contains a prominent **Sell With Us** desktop CTA and compact **Sell** mobile CTA pointing to the Seller Hub join page.
-- The migration remains unapplied and the Brand Redesign runtime theme remains unpublished until CI, production deployment, migration application and theme source/runtime parity checks pass.
+- The production migration and Brand Redesign theme sync are now applied and verified; Brand Redesign remains intentionally UNPUBLISHED pending human launch smoke testing.
 - See `docs/SELL_WITH_US_STOREFRONT.md`.
 
 ## 2026-09-30 — Published pool historical-priority edge case fixed
