@@ -7,6 +7,10 @@
 - Premium Card Collection -6 assort vol.1- image quality was audited at 546x546 on the previous official Bandai asset; that low-resolution media was replaced on Shopify with a 1600x1600 product photograph for sharper collection/PDP rendering.
 - Supabase media provenance keeps the superseded 546x546 Bandai asset as revoked history and records the active 1600x1600 storefront reference separately. No ownership, price, quantity, settlement or canonical sealed identity changed.
 - Brand Redesign remains UNPUBLISHED; this change does not publish or replace the live theme.
+- The merged homepage file was applied to the unpublished Brand Redesign runtime and read back successfully: `templates/index.json` checksum `247d50760b1b7a66c19ffe88e4f209c7`, with `latest → sealed → spotlight` ordering; theme processing=false and processingFailed=false.
+- Runtime collection-route verification confirms the existing count-gated Sealed browse chip is present, and the live `Sealed` smart collection now contains 2 ACTIVE products, so the collection navigation condition is satisfied.
+- Post-change Shopify read-back confirms Premium Card Collection media is READY at 1600×1600 and is the collection/PDP featured image.
+
 
 ## 2026-09-30 — Japanese Nami + sealed One Piece publication + outbox recovery complete
 
