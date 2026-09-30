@@ -1,6 +1,12 @@
 
 
-{% assign product = closest.product %}
+{% liquid
+  assign product = closest.product
+  assign is_sealed_product = false
+  if product.product_type == 'Sealed TCG Product'
+    assign is_sealed_product = true
+  endif
+%}
 
 {% capture children %}
   {% unless product == blank %}
@@ -52,6 +58,25 @@
   transform-origin:center;
 }
 {% endstylesheet %}
+{% if is_sealed_product %}
+  <style>
+    .card-gallery[data-product-id="{{ product.id }}"] .product-media-container{
+      background:#f4f7fb;
+    }
+    .card-gallery[data-product-id="{{ product.id }}"] .product-media-container img{
+      object-fit:contain;
+      transform:scale(.82);
+      transform-origin:center;
+    }
+  </style>
+{% endif %}
+{% if product.id == 10772523286875 %}
+  <style>
+    .card-gallery[data-product-id="{{ product.id }}"] .product-media-container img{
+      mix-blend-mode:multiply;
+    }
+  </style>
+{% endif %}
 {% schema %}
 {
   "name": "t:names.product_image",
