@@ -84,10 +84,11 @@ INVENTORY_IMAGE_ALLOWED_SUFFIXES = (
     ".shopifycdn.net",
 )
 
-INVENTORY_IMAGE_DIRECT_CDN_EXACT_HOSTS = {
+INVENTORY_IMAGE_DIRECT_EXACT_HOSTS = {
     "cdn.shopify.com",
+    "assets.tcgdex.net",
 }
-INVENTORY_IMAGE_DIRECT_CDN_ALLOWED_SUFFIXES = (
+INVENTORY_IMAGE_DIRECT_ALLOWED_SUFFIXES = (
     ".shopifycdn.com",
     ".shopifycdn.net",
 )
@@ -122,8 +123,12 @@ def _inventory_image_source_allowed(url: str) -> bool:
     )
 
 
-def _inventory_image_direct_cdn_allowed(url: str) -> bool:
-    """Allow direct browser loading only from Shopify-controlled CDN hosts."""
+def _inventory_image_direct_browser_allowed(url: str) -> bool:
+    """Allow direct browser loading only from explicitly trusted image hosts.
+
+    These hosts are already permitted by Founder HQ CSP. All other provider
+    URLs remain behind the authenticated bounded proxy.
+    """
 
     try:
         parsed = urlparse(url)
@@ -139,9 +144,25 @@ def _inventory_image_direct_cdn_allowed(url: str) -> bool:
     ):
         return False
     return (
-        host in INVENTORY_IMAGE_DIRECT_CDN_EXACT_HOSTS
-        or any(host.endswith(suffix) for suffix in INVENTORY_IMAGE_DIRECT_CDN_ALLOWED_SUFFIXES)
+        host in INVENTORY_IMAGE_DIRECT_EXACT_HOSTS
+        or any(host.endswith(suffix) for suffix in INVENTORY_IMAGE_DIRECT_ALLOWED_SUFFIXES)
     )
+
+
+def _inventory_image_direct_browser_url(url: str) -> str | None:
+    """Return the preferred direct-browser URL for an explicitly trusted source."""
+
+    clean = str(url or "").strip()
+    if not _inventory_image_direct_browser_allowed(clean):
+        return None
+    parsed = urlparse(clean)
+    if (parsed.hostname or "").lower().rstrip(".") == "assets.tcgdex.net":
+        # TCGdex explicitly recommends low-quality WebP for grid-style displays.
+        path = parsed.path
+        if path.endswith("/high.webp"):
+            path = path[: -len("/high.webp")] + "/low.webp"
+            return parsed._replace(path=path).geturl()
+    return clean
 
 
 def _inventory_image_redirect_target(current_url: str, location: str) -> str | None:
@@ -380,6 +401,7 @@ async def list_inventory(
                 p.name, p.set_name, p.card_number, p.variant, p.rarity,
                 p.language as catalogue_language,
                 media.card_image_url, media.card_image_shopify_cdn_url,
+                media.card_image_public_source_url,
                 media.card_image_approval_status,
                 media.card_image_source_provider, media.card_image_scope,
                 eil.state as ebay_state, eil.listing_id as ebay_listing_id,
@@ -393,6 +415,7 @@ async def list_inventory(
                 select
                     coalesce(ma.shopify_cdn_url, ma.public_source_url) as card_image_url,
                     ma.shopify_cdn_url as card_image_shopify_cdn_url,
+                    ma.public_source_url as card_image_public_source_url,
                     ma.approval_status as card_image_approval_status,
                     ma.source_provider as card_image_source_provider,
                     ma.scope as card_image_scope
@@ -424,9 +447,17 @@ async def list_inventory(
         for row in rows:
             item = dict(row)
             direct_cdn_url = str(item.pop("card_image_shopify_cdn_url", "") or "").strip()
-            item["card_image_cdn_url"] = (
-                direct_cdn_url if _inventory_image_direct_cdn_allowed(direct_cdn_url) else None
+            direct_public_url = str(
+                item.pop("card_image_public_source_url", "") or ""
+            ).strip()
+            direct_url = (
+                _inventory_image_direct_browser_url(direct_cdn_url)
+                or _inventory_image_direct_browser_url(direct_public_url)
+                or ""
             )
+            item["card_image_direct_url"] = direct_url or None
+            # Backwards-compatible alias for the first fast-path rollout.
+            item["card_image_cdn_url"] = direct_url or None
             items.append(item)
 
         return jsonable_encoder(
