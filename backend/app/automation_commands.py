@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 from .automation_dispatcher import verify_signed_body
 from .settings import get_settings
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
+from .shopify_order_automation import verify_shopify_order_processed
 
 
 router = APIRouter(prefix="/api/v1/automation/commands", tags=["automation-commands"])
@@ -27,6 +28,39 @@ class InventoryApprovedPayload(BaseModel):
     catalogue_id: UUID
     status: Literal["APPROVED"]
     version: int = Field(ge=1)
+
+
+class OrderAutomationAggregate(BaseModel):
+    type: Literal["ORDER"]
+    id: UUID
+
+
+class ShopifyOrderProcessedPayload(BaseModel):
+    order_id: UUID
+    source_reference: str = Field(min_length=1, max_length=255)
+    status: Literal["PAID"]
+    item_count: int = Field(ge=1, le=1000)
+
+
+class ShopifyOrderProcessedEvent(BaseModel):
+    event_id: UUID
+    event_type: Literal["shopify.order.processed"]
+    schema_version: Literal[1]
+    aggregate: OrderAutomationAggregate
+    idempotency_key: str = Field(min_length=1, max_length=255)
+    owner_id: None = None
+    attempt: int = Field(ge=0)
+    occurred_at: datetime
+    payload: ShopifyOrderProcessedPayload
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> "ShopifyOrderProcessedEvent":
+        if self.aggregate.id != self.payload.order_id:
+            raise ValueError("Aggregate ID must match payload order ID")
+        expected_key = f"shopify.order.processed:{self.payload.order_id}:v1"
+        if self.idempotency_key != expected_key:
+            raise ValueError("Shopify order processed idempotency key is invalid")
+        return self
 
 
 class ShopifyProductUpdatesCommand(BaseModel):
@@ -88,6 +122,40 @@ async def _verified_command_body(
     ):
         raise HTTPException(status_code=401, detail="Invalid automation command signature")
     return raw_body
+
+
+@router.post("/shopify/order-processed")
+async def verify_shopify_order_processed_command(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(
+        default=None,
+        alias="X-Drop-Rate-Timestamp",
+    ),
+    x_drop_rate_signature: str | None = Header(
+        default=None,
+        alias="X-Drop-Rate-Signature",
+    ),
+) -> dict:
+    raw_body = await _verified_command_body(
+        request,
+        timestamp_header=x_drop_rate_timestamp,
+        signature_header=x_drop_rate_signature,
+    )
+    try:
+        event = ShopifyOrderProcessedEvent.model_validate_json(raw_body)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid shopify.order.processed automation envelope",
+        ) from exc
+
+    async with request.app.state.db_pool.acquire() as connection:
+        return await verify_shopify_order_processed(
+            connection,
+            order_id=event.payload.order_id,
+            source_reference=event.payload.source_reference,
+            expected_item_count=event.payload.item_count,
+        )
 
 
 @router.post("/shopify/product-updates")
