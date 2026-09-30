@@ -1,5 +1,18 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: automation run schema aligned with control-plane receipts
+
+- Pre-activation review found `tcg.automation_runs` still carried legacy-only checks: `job_type='INVENTORY_REVIEW'`, `initiated_by='AUTOMATION_SERVICE'`, and `run_key` length ≤96.
+- The DR-90/DR-91 receipt control plane uses bounded `N8N:<workflow-key>` job types, `N8N` initiator and Drop Rate idempotency keys up to 255 characters; without a schema fix the first real receipt would fail.
+- Added a narrow migration that:
+  - preserves legacy `INVENTORY_REVIEW` / `AUTOMATION_SERVICE`;
+  - permits only `N8N:[a-z0-9][a-z0-9-]{1,119}`;
+  - permits initiator `N8N`;
+  - widens only the run-key check from 96 to 255 characters.
+- Existing owner FK and unique `(owner_id,job_type,run_key)` constraints remain unchanged.
+- Production currently contains **0 automation_runs**, so no historical rows require conversion.
+- This is a prerequisite for activating DR-90/DR-91; neither workflow should be considered proven until a real signed receipt succeeds after this migration.
+
 ## 2026-09-30 — n8n repo-controlled source cutover hardening
 
 - Production n8n still runs stock pinned image `ghcr.io/n8n-io/n8n:2.32.6`; no source cutover has been performed yet.
