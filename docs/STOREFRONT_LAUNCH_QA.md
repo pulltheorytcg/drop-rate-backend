@@ -1,4 +1,44 @@
 
+## 30 September 2026 — desktop visual QA, Dragon Ball browse parity and final catalogue state
+
+User-authenticated Brand Redesign preview review continued after the 29 September mobile pass.
+
+Verified/current catalogue:
+- 470 Shopify products ACTIVE and 470 Online Store-published;
+- 0 Shopify DRAFT products;
+- 492 published physical Supabase links representing 470 distinct live products;
+- 17 FOR_SALE items intentionally unlinked because exact publication evidence is incomplete;
+- Horizon remains MAIN; Brand Redesign remains UNPUBLISHED.
+
+Dragon Ball browse parity is now present:
+- top-level Dragon Ball route;
+- Singles and Graded Cards;
+- Masters and Fusion World series routes;
+- current set/promo routes for Beyond Generations, Dawn of the Z-Legends, Perfect Combination,
+  Power Absorbed, Prismatic Clash, Supreme Rivalry, Three Glorious Fighters,
+  Tournament and Championship Promos and Wish For Shenron;
+- all 13 new Dragon Ball collections verified published to Online Store;
+- existing Search & Discovery filter contract reused; no duplicate Dragon Ball-only filter model.
+
+Visual issues surfaced by the desktop screenshots and corrected on Brand Redesign:
+- customer-visible titles cleaned where card number/set/event wording duplicated the subtitle;
+- 40 affected One Piece/Dragon Ball visible titles cleaned while canonical identity/metafields remain; all 40 SEO titles were audited, 39 already retained collector number, and Nico Robin ACE 10 was corrected to an explicit `Nico Robin OP01-017 ACE 10 | One Piece | Drop Rate` SEO title;
+- subtitle card-number/set row constrained to one line with ellipsis to prevent unequal purchase-button height;
+- homepage/section headings receive a small optical left inset;
+- collection hero/header wrapper made self-contained so it cannot fall flush-left when homepage styles are absent;
+- Nico Robin ACE 10 cert 590532 keeps the exact original ACE image file; only the product-card gallery presentation is scaled for PSA-like visual footprint.
+
+The exact changed runtime files are synchronized into `storefront/theme/**` in the same checkpoint PR:
+`templates/index.json`, `sections/dr-brand-discovery.liquid`,
+`sections/dr-brand-collection.liquid`, `blocks/dr-card-title.liquid` and
+`blocks/_product-card-gallery.liquid`.
+
+Remaining theme gate is unchanged in principle: complete one final end-to-end authenticated
+mobile + desktop smoke after these latest visual changes, then publish Brand Redesign and run a
+post-publication live smoke/reconciliation. Product publication is not evidence that the theme
+itself is live.
+
+
 ## Search & Discovery approved filter policy
 
 The approved Shopify Search & Discovery filter order is source-controlled in
@@ -7,7 +47,7 @@ Language, Grading Company, Grade. Game is intentionally omitted from the default
 stack because it is already a primary browse/navigation dimension. Search & Discovery is installed and this order has now been saved in Shopify Admin. Facet values remain inventory-driven; do not hard-code languages or grades that have no ACTIVE collection inventory.
 # Storefront Launch QA
 
-_Last verified: 29 September 2026_
+_Last verified: 30 September 2026_
 
 ## Scope
 
