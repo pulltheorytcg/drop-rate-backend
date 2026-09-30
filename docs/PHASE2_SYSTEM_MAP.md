@@ -15,8 +15,8 @@ Production currently exposes seven Railway services. The two PSA-labelled servic
 | `drop-rate-payout-scheduler` | Hourly deterministic payout-request scheduler. It creates eligible payout requests only; automatic money movement remains disabled. | Cron: `0 * * * *`. | Yes — finance control plane. |
 | `drop-rate-n8n-e840` | n8n orchestration runtime with persistent volume. It must trigger/move data only; it must not own pricing, ownership, identity or finance decisions. | Online, 1GB persistent volume, currently kept production-dormant for advanced workflows. | Yes, but workflow activation remains gated. |
 | `shopify-reconciliation-worker` | Controlled one-shot operational worker used for the linked-DRAFT/Dragon Ball publication backlog. It is not a permanent scheduler. | Deployed, no cron. Current linked-DRAFT backlog is zero. | Keep through launch as a recovery tool; review for retirement after launch stability. |
-| `psa-cert-lookup-temp` | PSA certificate lookup / exact-slab verification service. Intended to resolve a PSA cert number to the exact graded item and expose permitted PSA certification data/images to Drop Rate's graded-card workflow. | Sleeping when unused; no inbound Railway service dependency is expected because it is an on-demand lookup capability. | **Keep.** The name is now misleading; consider renaming after launch without changing behavior. |
-| `psa-fetch-batch` | Batch PSA certificate/media lookup capability for bulk graded inventory verification and image acquisition. | Sleeping when unused; invoked only when batch graded-card work is required. | **Keep.** Useful for bulk slab ingestion and reconciliation. |
+| `psa-cert-lookup-temp` | **Currently a CardTrader Dragon Ball discovery/probe Function despite its name.** It queries CardTrader `/info`, `/games` and `/expansions`; it does not currently perform PSA cert lookup. | Sleeping, on-demand. | **Keep for now, but do not treat it as PSA production capability.** Rename or repurpose after launch once its enduring role is decided. |
+| `psa-fetch-batch` | Working PSA certificate batch prototype. It calls PSA's cert endpoint for seven hardcoded certs and normalises cert number, title, set/brand, card number, grade, language/printing, front/back image URLs and identity-match state. | Sleeping, on-demand. | **Keep.** This proves the graded-card cert/media workflow; refactor from hardcoded batch Function into a reusable adapter after launch. |
 
 ### Railway rule going forward
 
@@ -142,7 +142,9 @@ Keep:
 - the existing reconciliation worker through launch as a recovery mechanism.
 
 Keep:
-- both PSA services as graded-card certificate/media infrastructure. Their staged deletion was cancelled before application.
+- `psa-fetch-batch` as the working PSA certificate/media prototype;
+- `psa-cert-lookup-temp` for now because its current CardTrader probe may still be useful, but classify it accurately and review rename/repurpose after launch.
+- the staged deletion of both services was cancelled before application.
 
 Do not add:
 - a custom Google Shopping feed service;
