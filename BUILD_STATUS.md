@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Founder HQ stacked inventory-filter correctness
+
+- Repo hygiene review found PR #230 still contained one unique unsuperseded bug fix.
+- The location-aware Founder HQ `loadInventory` override omitted `sale_intent`, so combining **Personal Collection** with a storage-location filter could silently drop the Personal Collection scope and show the wrong inventory.
+- The fix forwards `sale_intent` alongside search/status/brand/issue/location filters.
+- The composed dashboard DOM test proves `sale_intent=PERSONAL_COLLECTION` and `unlocated=true` coexist in the real overridden request and that Clear Filters/global search reset the collection scope.
+- No backend, ownership, inventory, pricing, Shopify or settlement mutation is involved.
+
 ## 2026-09-30 — Founder HQ TCGdex direct-image fast path
 
 - Post-deploy coverage audit of PR #344 found only **10 / 490 displayed inventory images (2.0%)** currently have a Shopify CDN URL, so the first fast path was correct but too narrow to materially solve the measured grid latency alone.
