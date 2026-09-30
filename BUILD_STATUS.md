@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Sealed media scale refinement
+
+- Reused the existing Shopify product imagery for sealed products; no alternate or Photoshop-derived asset was introduced.
+- Increased standard sealed-product grid scale from 82% to 94% so tins/collections occupy a visual footprint closer to normal card images while retaining `object-fit: contain`.
+- Increased the custom homepage sealed feature from 82%/172 px to 94%/190 px on desktop, with proportional 92% sizing on tablet and mobile.
+- Premium Card Collection retains the same high-resolution Shopify featured image and the same scoped background-blending treatment already used on collection cards, keeping homepage and browse presentation consistent.
+
 ## 2026-09-30 — Sealed media sizing + Premium Collection background normalization
 
 - Normalized sealed product imagery in both the custom homepage feature and standard Shopify product-card galleries, so non-card-shaped sealed products do not visually overpower or undersize relative to trading-card products.
