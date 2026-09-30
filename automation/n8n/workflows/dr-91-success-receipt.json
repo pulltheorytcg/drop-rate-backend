@@ -1,0 +1,189 @@
+{
+  "id": "DR91SuccessReceiptV1",
+  "name": "DR-91 Durable Success Receipt",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "dr91-trigger",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -620,
+        0
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "workflow_key",
+              "type": "string"
+            },
+            {
+              "name": "workflow_version",
+              "type": "string"
+            },
+            {
+              "name": "execution_id",
+              "type": "string"
+            },
+            {
+              "name": "idempotency_key",
+              "type": "string"
+            },
+            {
+              "name": "occurred_at",
+              "type": "string"
+            },
+            {
+              "name": "owner_id",
+              "type": "string"
+            },
+            {
+              "name": "event_id",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dr91-normalize",
+      "name": "Normalize Success Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -360,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const input = $input.first().json || {};\nconst workflowKey = String(input.workflow_key || '').trim();\nconst workflowVersion = String(input.workflow_version || 'unknown').trim();\nconst executionId = String(input.execution_id || '').trim();\nconst idempotencyKey = String(input.idempotency_key || '').trim();\nconst occurredAt = String(input.occurred_at || new Date().toISOString()).trim();\nconst ownerId = String(input.owner_id || '').trim();\nconst eventId = String(input.event_id || '').trim();\n\nif (!/^[a-z0-9][a-z0-9-]{1,119}$/.test(workflowKey)) throw new Error('invalid_workflow_key');\nif (!workflowVersion || workflowVersion.length > 80) throw new Error('invalid_workflow_version');\nif (!executionId || executionId.length > 255) throw new Error('invalid_execution_id');\nif (!idempotencyKey || idempotencyKey.length > 255) throw new Error('invalid_idempotency_key');\nif (!Number.isFinite(Date.parse(occurredAt))) throw new Error('invalid_occurred_at');\n\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nif (ownerId && !uuid.test(ownerId)) throw new Error('invalid_owner_id');\nif (eventId && !uuid.test(eventId)) throw new Error('invalid_event_id');\n\nreturn [{json:{receipt:{\n  workflow_key:workflowKey,\n  workflow_version:workflowVersion,\n  execution_id:executionId,\n  status:'SUCCEEDED',\n  idempotency_key:idempotencyKey,\n  occurred_at:new Date(occurredAt).toISOString(),\n  owner_id:ownerId || null,\n  event_id:eventId || null,\n  error_code:null,\n  error_message:null\n}}}];"
+      }
+    },
+    {
+      "id": "dr91-sign",
+      "name": "Sign Success Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst receipt = $json.receipt;\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst url = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nif (secret.length < 32) throw new Error('automation_command_secret_not_configured');\nif (!url) throw new Error('automation_control_url_not_configured');\nconst body = JSON.stringify(receipt);\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto\n  .createHmac('sha256', secret)\n  .update(timestamp + '.' + body, 'utf8')\n  .digest('hex');\nreturn [{json:{\n  receipt_url:url,\n  receipt_body:body,\n  receipt_timestamp:timestamp,\n  receipt_signature:signature\n}}];"
+      }
+    },
+    {
+      "id": "dr91-http",
+      "name": "Record Success in FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.receipt_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.receipt_timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.receipt_signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.receipt_body }}",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr91-verify",
+      "name": "Success Receipt Accepted?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const response = $input.first().json || {};\nconst statusCode = Number(response.statusCode || 0);\nif (statusCode < 200 || statusCode >= 300) {\n  throw new Error('automation_success_receipt_failed_http_' + statusCode);\n}\nconst body = response.body || {};\nif (body.accepted !== true || body.status !== 'SUCCEEDED') {\n  throw new Error('automation_success_receipt_not_accepted');\n}\nreturn [{json:{\n  recorded:true,\n  workflow_key:body.workflow_key,\n  execution_id:body.execution_id,\n  duplicate_owner_receipts:Number(body.duplicate_owner_receipts || 0)\n}}];"
+      }
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Success Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Success Receipt": {
+      "main": [
+        [
+          {
+            "node": "Sign Success Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Success Receipt": {
+      "main": [
+        [
+          {
+            "node": "Record Success in FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Success in FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Success Receipt Accepted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-91",
+      "version": 1,
+      "role": "durable-success-receipt",
+      "activationGate": "Import inactive with the control plane; parent workflows may use it only after the signed FastAPI receipt endpoint has been proven with duplicate-safe success receipts."
+    }
+  }
+}
