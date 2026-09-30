@@ -50,3 +50,25 @@ Runtime requirements before activation:
 - Invalid signatures/envelopes receive HTTP 401; valid envelopes receive HTTP 202.
 
 **Important:** do not activate DR-00 merely because it imports successfully. A 202 causes the dispatcher to ACK the outbox event. Activation therefore waits until the event router/handler is connected and an end-to-end test proves that accepted events are durably handled rather than swallowed.
+
+
+## Launch operating system
+
+The founder-approved pre-launch strategy is documented in:
+
+- `docs/N8N_LAUNCH_OPERATING_SYSTEM.md`
+- `automation/n8n/workflow-registry.json`
+
+The strategy is **build broad / activate narrow**.
+
+All 42 workflow families may be designed and implemented before launch, but a workflow may not become ACTIVE until its registry activation requirements are satisfied.
+
+The control plane is the first implementation wave:
+- global error workflow;
+- Action Required bridge;
+- execution receipts;
+- dead-letter/replay visibility;
+- backlog/heartbeat monitoring;
+- workflow health.
+
+The registry is source-controlled and tested. n8n UI state is never the authoritative workflow catalogue.
