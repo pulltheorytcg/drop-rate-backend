@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Sealed media sizing + Premium Collection background normalization
+
+- Normalized sealed product imagery in both the custom homepage feature and standard Shopify product-card galleries, so non-card-shaped sealed products do not visually overpower or undersize relative to trading-card products.
+- Standard product grids now detect `product_type = Sealed TCG Product`, keep the same card frame, use the Drop Rate cool-grey media surface and scale the contained product artwork to 82% of the available media area.
+- The homepage sealed feature uses a capped 82% / 172 px desktop media presentation, with smaller proportional tablet/mobile caps.
+- Premium Card Collection -6 assort vol.1- keeps its 1600×1600 high-resolution source, but uses a scoped multiply blend against the cool-grey media surface so the source JPEG's hard white square no longer reads as a pasted-on white tile.
+- The Premium Collection blend rule is product-specific; it does not alter colour handling for other sealed products.
+
 ## 2026-09-30 — Sealed homepage UI refinement
 
 - Replaced the generic two-column Shopify product-list homepage treatment with a dedicated `dr-brand-sealed` component.
