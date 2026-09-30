@@ -1,5 +1,24 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A control plane: durable execution/error receipts
+
+- First launch-grade n8n control-plane component is now in source control.
+- Added signed FastAPI endpoint: `POST /api/v1/automation/control/receipt`.
+- n8n receipts are authenticated with a dedicated `TCG_AUTOMATION_COMMAND_SECRET` / `DROP_RATE_AUTOMATION_COMMAND_SECRET` HMAC contract and a 5-minute replay window.
+- Execution receipts are written to existing `tcg.automation_runs` using the existing unique `(owner_id, job_type, run_key)` constraint.
+- Duplicate delivery of the same n8n execution is a pure no-op: it does not create a second run or bump the failure alert.
+- FAILED receipts create a deterministic HIGH `N8N_WORKFLOW_FAILED` Action Required item; n8n cannot choose the severity/category/code itself.
+- System-level failures without owner context fan out only to active FOUNDER owners. No customer/consignor owner is invented.
+- Added inactive version-controlled workflow `DR90GlobalErrorV1`:
+  - n8n Error Trigger;
+  - normalise failed execution;
+  - sign control receipt;
+  - call FastAPI;
+  - fail the error-workflow execution if FastAPI does not durably accept the receipt.
+- DR-90 is explicitly forbidden from using itself as its own error workflow, preventing recursive alert storms.
+- No inventory, ownership, price, Shopify publication, settlement or financial truth is mutated by this control-plane path.
+- Activation remains gated on backend deployment + matching secrets + one synthetic failure + duplicate replay proof.
+
 ## 2026-09-30 — Founder override: n8n becomes a parallel pre-launch operating-system workstream
 
 - The business goal is now explicit: Drop Rate should be able to **run, operate and make money with minimal founder intervention beyond physical stock acquisition, strategic decisions and packing/dispatch**.
