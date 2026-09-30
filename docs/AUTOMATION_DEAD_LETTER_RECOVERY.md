@@ -40,9 +40,9 @@ The database function independently verifies:
 
 Replay changes only orchestration delivery state:
 - DEAD_LETTER → PENDING;
-- attempt_count → 0;
 - next attempt → now;
-- lease/error/dead-letter timestamps cleared.
+- lease/dead-letter state cleared;
+- last error marker becomes `MANUAL_REPLAY_REQUESTED`.
 
 It preserves:
 - event ID;
@@ -51,16 +51,20 @@ It preserves:
 - aggregate;
 - idempotency key;
 - payload;
-- max attempts.
+- existing `attempt_count` history.
+
+The retry ceiling is increased only enough to permit one additional claim. Replay does not reset the historical attempt counter.
 
 DELIVERED and SUPERSEDED history cannot be replayed through this function.
 
 ## Audit
 
-Every successful replay writes `AUTOMATION_EVENT_REPLAYED` to `tcg.audit_events` with:
+Every successful replay request writes `AUTOMATION_EVENT_REPLAY_REQUESTED` to `tcg.audit_events` with:
 - actor user;
+- originating request ID;
 - old terminal/error state;
 - new PENDING state;
+- preserved attempt history;
 - explicit replay reason.
 
 ## Future intelligence
