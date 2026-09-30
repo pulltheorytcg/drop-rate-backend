@@ -66,6 +66,7 @@ def test_control_endpoint_is_signed_idempotent_and_business_state_safe() -> None
     assert "MAX_AUTOMATION_CONTROL_BODY_BYTES = 64 * 1024" in source
     assert "on conflict(owner_id,job_type,run_key) do nothing" in source
     assert "insert into tcg.automation_runs" in source
+    assert "receipt.idempotency_key" in source
     assert "upsert_action_required(" in source
     assert 'category="AUTOMATION"' in source
     assert 'code="N8N_WORKFLOW_FAILED"' in source
