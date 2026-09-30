@@ -63,6 +63,15 @@
   {% endif %}
   {{- block.shopify_attributes -}}
 >
+  <a
+    href="https://drop-rate-api-live-production.up.railway.app/owner/join"
+    class="dr-sell-with-us"
+    aria-label="Sell with Drop Rate"
+  >
+    <span class="dr-sell-with-us__desktop">Sell With Us</span>
+    <span class="dr-sell-with-us__mobile">Sell</span>
+  </a>
+
   {% if shop.customer_accounts_enabled %}
     {% liquid
       assign account_actions_style = ''
@@ -155,6 +164,53 @@
   .account-button {
     /* Remove the background color from the color scheme, we want to inherit the color of the header */
     background: transparent;
+  }
+
+  .dr-sell-with-us {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid rgba(31, 123, 242, 0.18);
+    border-radius: 999px;
+    background: #1f7bf2;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 750;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(31, 123, 242, 0.18);
+    transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  }
+
+  .dr-sell-with-us:hover {
+    background: #1769d8;
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px rgba(31, 123, 242, 0.24);
+  }
+
+  .dr-sell-with-us__mobile {
+    display: none;
+  }
+
+  @media screen and (max-width: 749px) {
+    .dr-sell-with-us {
+      min-height: 34px;
+      padding: 0 11px;
+      font-size: 12px;
+    }
+
+    .dr-sell-with-us__desktop {
+      display: none;
+    }
+
+    .dr-sell-with-us__mobile {
+      display: inline;
+    }
   }
 
   .account-button__icon,
