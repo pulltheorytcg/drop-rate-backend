@@ -74,6 +74,7 @@ async def _run() -> int:
                 json.dumps(
                     {
                         "event": "AUTOMATION_DISPATCHER_HEARTBEAT_NOT_INSTALLED_DORMANT",
+                        "installed": False,
                         "alert_enabled": False,
                         "threshold_seconds": threshold_seconds,
                     },
