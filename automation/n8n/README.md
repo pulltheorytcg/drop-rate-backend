@@ -173,3 +173,16 @@ Failures inside DR-01 route to `DR90GlobalErrorV1`. DR-00 V2 returns HTTP 200 on
 DR-01 owns no Shopify or database business rules. FastAPI validates the exact `inventory.approved` envelope and the database revalidates the matching DISPATCHING automation event before draft persistence/finalization.
 
 Both workflows are imported inactive. Activation requires a controlled switch of the dispatcher webhook URL to `drop-rate/events-v2`; do not repoint the dispatcher until DR-90/91 are published/proven and a controlled DR-01 event has passed duplicate, retry and read-back tests.
+
+## DR-01 V2 / DR-00 V3 command-router correction
+
+The first inactive DR-01 build was imported before the signed Shopify command was split from the generic automation-control router. Its stored command URL therefore targets the retired control-path location.
+
+Do not activate `DR01InventoryApprovedShopifyV1` or `DR00IngressV2`.
+
+Use the versioned corrected path only:
+
+`dispatcher → DR00IngressV3 (/drop-rate/events-v3) → DR01InventoryApprovedShopifyV2 → /api/v1/automation/commands/shopify/inventory-approved → DR91`
+
+The old workflows remain inactive as audit history because the provisioner deliberately never overwrites a persistent workflow ID.
+
