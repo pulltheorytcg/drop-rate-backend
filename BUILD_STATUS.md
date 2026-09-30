@@ -1,5 +1,21 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — One Piece raw publication reconciliation advanced
+
+- Reconciled live production after the Dragon Ball completion run: all Dragon Ball FOR_SALE inventory is now Shopify-linked; the earlier BUILD_STATUS note showing 8 unlinked Dragon Ball items is superseded by this section.
+- Started with 7 unlinked One Piece raw cards plus 2 One Piece collection/sealed products.
+- Added and merged the narrow One Piece promotional-reference disclosure guard (PR #397) before publication; CI passed.
+- Shopify catalogue bootstrap then considered exactly 5 eligible One Piece raw cards and linked 5/5 as non-test DRAFT products with 0 failures.
+- Published the first import batch as exactly 4/4 and the second batch as exactly 1/1 through the bounded linked-draft reconciliation path; Shopify/Supabase read-back confirmed correct SKU, price, quantity and PUBLISHED link state.
+- Newly published raw cards: Edward.Newgate ST15-002, Eustass\"Captain\"Kid P-003 participant promo, King OP17-064, I'll Feed on This Rage and Use It to Bring the World to Ruin!!! OP17-097, and Nami ST29-008 Round 1 Promo.
+- The one-off Shopify catalogue-bootstrap and linked-draft reconciliation controls were returned to disabled after use.
+- Exactly 4 FOR_SALE items remain unlinked: 2 One Piece raw cards and 2 One Piece collection/sealed products.
+- Raw-card exceptions remain deliberately fail-closed:
+  - Monkey.D.Luffy (Release Event Leader), collector number P: identity is confirmed, but current import metadata says Foil while external catalogue evidence for the standard English event leader is inconsistent with that variant; no approved storefront media is attached.
+  - DON!! Card (Egghead), The Azure Sea's Seven: identity is confirmed, but the only stored image is INTERNAL_REFERENCE_ONLY rather than STOREFRONT_ALLOWED.
+- Do not publish either raw exception by guessing or by copying arbitrary retailer/marketplace imagery. Require stronger exact-print evidence plus storefront-permitted media or a first-party physical capture.
+- Next inventory-publication concern is the 2 sealed/collection products, after the two raw exceptions remain explicitly tracked as blocked.
+
 ## 2026-09-30 — Dragon Ball media cleanup wrapped to external-source boundary
 
 - Rechecked the remaining Dragon Ball media backlog after the production original-size rollout.
