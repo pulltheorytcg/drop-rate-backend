@@ -1,5 +1,233 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Consolidated checkpoint: 29 September → 30 September 01:52 BST
+
+**PRODUCTION VERIFIED / STOREFRONT CATALOGUE LIVE / BRAND REDESIGN THEME STILL UNPUBLISHED —** this section is the authoritative handover for all work completed since the Claude storefront-first operating manual was adopted on 29 September 2026. Historical entries below are retained as an audit trail; where an older count conflicts with this section, this section is the current state.
+
+### Current production state
+
+- **Shopify products:** 470 ACTIVE, 470 Online Store-published, 0 DRAFT, 22 ARCHIVED.
+- **Supabase inventory:** 509 physical inventory items with `sale_intent='FOR_SALE'`.
+- **Published ownership links:** 492 physical inventory rows are linked to PUBLISHED Shopify inventory; those 492 physical rows intentionally collapse to **470 distinct live Shopify products** because interchangeable raw duplicates are pooled as Shopify quantity while Supabase still owns exact Inventory ID / Owner / Cost / Condition / Language / Location / settlement attribution.
+- **Unlinked FOR_SALE inventory:** 17 total: 8 Dragon Ball raw cards, 7 One Piece raw cards and 2 One Piece sealed/collection products.
+- **Linked Shopify drafts:** 0. The legacy linked-draft backlog has been fully drained or deliberately converted into explicit unlinked Action Required exceptions.
+- **Theme state:** `Drop Rate — Brand Redesign` is still **UNPUBLISHED**. `Horizon` is still Shopify **MAIN**. Product publication and theme publication are separate launch gates.
+- **Action Required:** 42 OPEN, 0 CRITICAL. HIGH = 2 `GRADED_SLAB_MEDIA_REQUIRED`, 2 `SEALED_PUBLICATION_INPUTS_REQUIRED`, 2 `SHOPIFY_ORDER_WEBHOOK_GAP`. MEDIUM = 25 `MEDIA_REVIEW_REQUIRED`, 11 `MEDIA_UNRESOLVED`.
+- **n8n:** foundation remains intentionally production-dormant; the storefront-first freeze has not been lifted for advanced automation/marketing.
+- **eBay / new channel expansion:** still frozen for new scope under the operating manual.
+
+### 1. Immediate reliability work required by the Claude manual — COMPLETE
+
+The manual required six operational fixes before new storefront expansion. They were completed in the required order rather than bypassed:
+
+1. **Independent payout-scheduler heartbeat** — PR #255 added the >90-minute deterministic heartbeat, founder-only CRITICAL Action Required alert, automatic recovery resolution, restricted `SECURITY DEFINER` execution and a standalone monitor path. The Railway scheduler-start-command incident from 28 September had already been corrected; the independent check prevents the scheduler from being the only component responsible for detecting its own failure.
+2. **Shopify ↔ Drop Rate order reconciliation** — PRs #256/#258 added the read-only two-way reconciliation, payment/webhook-aware classification, fail-closed pagination/error handling and founder Action Required alerts without auto-fabricating missing orders.
+3. **Cron/RLS reconciliation correction** — PR #269 fixed false remote-only alerts caused by owner-scoped RLS when the cron ran as `tcg_api`; the fix used a narrow read-only `SECURITY DEFINER` function rather than weakening RLS. PR #271 aligned migration history to the production-applied version. PR #275 recorded the successful production monitor run: heartbeat healthy, Shopify remote=2/local=1/matched=1/remote-only=1/local-only=0, with the expected cancelled test-order webhook gap retained.
+4. **Railway dead-service cleanup** — the unused `drop-rate-api` service was repurposed as the internal operations monitor; the accidental duplicate heartbeat service was removed. The historical zero-change staged patch was investigated and documented as non-actionable rather than fabricating an origin.
+5. **`sale_intent` contract** — PR #259 documented FOR_SALE vs PERSONAL_COLLECTION, owner scope, status separation, idempotency/versioning, withdrawal behaviour and explicit relisting semantics.
+6. **Recognition image-retention decision** — PR #260 documented the current ephemeral raw-recognition-image policy and explicitly deferred any future raw-image retention until a privacy/storage/rights review. No silent storage expansion was introduced.
+
+PR #262 then recorded the resulting operations-monitor topology/status. The manual's instruction to do these reliability items before storefront expansion was therefore followed.
+
+### 2. Storefront built in the manual's required order — COMPLETE THROUGH ENGINEERING, THEME PUBLICATION STILL GATED
+
+The required order was `Collection/Browse → grouped-copy PDP → Shopify-native cart/checkout → simple name/collector-number search → Shopify-native customer accounts/orders`. That order was followed:
+
+- **Collection / browse:** PR #263 introduced the first real-data responsive browse/game/set routes on the unpublished Brand Redesign theme.
+- **Grouped-copy PDP:** PRs #264/#265 added deterministic grouping by Supabase `catalogue_id`, exact-copy sibling metadata and a bounded grouped-copy selector without changing owner attribution.
+- **Exact-copy cart / Shopify checkout:** PR #266 locked customer quantity for unique physical-copy lines while preserving Shopify's native cart form, remove action and checkout.
+- **Search v1:** PR #272 kept search Shopify-native and product-only, added last-term partial matching and customer-visible card/set/collector-number context. No AI/custom search index was introduced.
+- **Customer accounts/order history:** PR #273 verified Shopify New Customer Accounts remain native and separate from Founder HQ / Seller Hub auth; guest checkout remains available.
+- **Launch engineering QA:** PRs #276/#278 documented product/media/SKU/oversell/grouped-handle/search/account structural QA and kept theme publication gated on real visual preview.
+
+This means the **base-commerce engineering sequence is complete**, but the Brand Redesign theme itself is still unpublished pending final preview/smoke approval.
+
+### 3. Search & Discovery filters, set hygiene and browse structure — COMPLETE FOR CURRENT CATALOGUE
+
+- PR #302 records the approved Shopify-native filter order: **Set → Price → Rarity → Variant → Availability → Condition → Language → Grading Company → Grade**.
+- Filter values remain inventory-driven; empty languages/grades are not hard-coded merely to make them appear.
+- PR #288 canonicalized the known One Piece set-label alias `Carrying on His Will` → `Carrying On His Will` at import intake so duplicate-looking filter values are not reintroduced.
+- PR #303 completed mobile facet polish while preserving Shopify Search & Discovery: desktop facets expanded, mobile drawer facets collapsed by default unless active, with tighter mobile spacing.
+- Dragon Ball products now use the same `drop_rate` metafields as Pokémon/One Piece, so Dragon Ball does **not** have a duplicate custom filter system.
+
+### 4. Storefront visual system and mobile QA — COMPLETE FOR THE CURRENT DRAFT THEME, FINAL FULL-SMOKE STILL REQUIRED
+
+The Brand Redesign theme was aligned to the current Drop Rate navy/blue/cyan/white/cool-grey visual system rather than the old colour direction:
+
+- PR #289 — collection/browse visual alignment.
+- PR #290 — PDP and grouped-copy visual alignment.
+- PR #291 — exact-copy cart visual alignment.
+- PR #292 — Shopify-native search visual alignment.
+- PR #293 — native account/header visual alignment.
+- PR #295 — homepage source-control/visual alignment.
+- PR #297 — active global brand-layer cleanup so old late CSS overrides stopped flattening the newer components.
+- PR #299 — active global theme settings/header/footer source-control and colour alignment.
+- PR #301 — final machine-verifiable storefront gate.
+- PR #303 — user-recording-driven mobile polish: card symmetry, browse-button positioning, removal of accelerated checkout from browse cards, rotating homepage spotlight, mobile facet behaviour, Copy 1/Copy 2 labels for grouped physical listings.
+- PR #304 — status sync after the mobile QA polish and Search & Discovery configuration.
+
+On 30 September, direct visual QA from the user's Shopify preview also produced these additional refinements on **Brand Redesign only**:
+- `Fresh finds. New favourites.` and collection/header copy received a subtle optical left inset so headings do not feel flush to the viewport edge.
+- Collection headers were made self-contained rather than relying on a homepage-only `.dr-wrap` declaration.
+- card-number/set subtitle text is kept to one line with ellipsis so a long set name cannot push one product's purchase buttons lower than its neighbours.
+- Nico Robin ACE 10 cert 590532 retains the exact authenticated ACE image file; only that product's gallery presentation is visually scaled inside the existing frame so the slab occupies a similar footprint to PSA slabs without altering the slab image itself.
+- the exact runtime changes to `templates/index.json`, `dr-brand-discovery.liquid`, `dr-brand-collection.liquid`, `dr-card-title.liquid` and `_product-card-gallery.liquid` are source-controlled in the checkpoint PR rather than being left as Shopify-only drift.
+
+### 5. Shopify catalogue publication and raw-quantity architecture — MAJOR MILESTONE COMPLETE
+
+The starting point on 29 September was a large legacy linked-DRAFT backlog. We did **not** simply bulk-activate it.
+
+- PRs #306/#307 created and production-verified a **read-only linked-draft readiness audit** so the backlog became an explicit work queue.
+- PR #308 added controlled, resumable linked-draft reconciliation with exact identity, language, pricing, condition/grade, media, inventory, SKU, collection and compensation gates.
+- Raw duplicate architecture was corrected so interchangeable raw cards appear as Shopify **quantity**, while Supabase remains the master record for every physical copy and owner:
+  - PR #310 — DRAFT-only pooled raw inventory architecture.
+  - PR #315 — fixed the production audit-permission blocker with narrowly scoped protected audit writers rather than granting broad table access.
+  - PR #316 — safely published consolidated raw pools with re-lock/revalidation, remote Shopify verification, all-member transactional publication and compensation on DB failure.
+- PR #318 fixed the `inventory_id` audit alias bug found during publication; failed attempts compensated back to DRAFT and did not falsely commit publication state.
+- PR #319 changed the drain to DRAFT-only selection with bounded concurrency <=4 so it stopped reprocessing already-complete links.
+- PR #320 recorded the production publication completion state after the main backlog drain.
+
+The catalogue has since advanced further to the current verified state of **492 published physical links / 470 distinct live Shopify products / 0 drafts**.
+
+### 6. Sealed-product safety contract — IMPLEMENTED, TWO CURRENT ITEMS INTENTIONALLY BLOCKED
+
+The two One Piece sealed/collection items were not forced through card-oriented logic:
+
+- PR #279 widened Media Intake to CARD/SEALED/COLLECTION.
+- PR #281 recorded the production deployment/read-back.
+- PR #282 enforced physical capture-context rules: sealed requires `SEALED_PRODUCT`, graded requires `GRADED_SLAB`, raw cards require the approved raw capture contexts.
+- PR #283 recorded deployment verification.
+- PR #284 defined the sealed Shopify contract: Sealed TCG Product type/tags/collection rules and `SEALED_PRODUCT` shipping key.
+- PR #286 recorded production completion of that contract.
+
+The current two sealed One Piece items remain deliberately unlinked because they still require exact physical package evidence, language/region confirmation, packed weight/dimensions and a real sealed shipping profile; the Portgas.D.Ace tin also still needs seal-status evidence. No guessed shipping dimensions or stock-facing media have been fabricated.
+
+### 7. Graded-card publication and exact slab handling — COMPLETED WHERE EVIDENCE EXISTS
+
+The graded-media path was tightened rather than bypassed:
+
+- PR #324 allows exact inventory-bound official grading-provider slab media only for graded inventory that is already `VERIFIED_GRADED`, `OFFICIAL_PROVIDER`, `GRADED_SLAB`, APPROVED and VERIFIED. This does not create a general provider-media bypass for raw/sealed inventory.
+- Exact PSA front/back media allowed the relevant Luffy/Galarian Obstagoon/Mega Charizard graded listings to advance through the normal backend publication path.
+- Charizard V PSA 9 was permitted to use the correct current card-art image under an explicit founder media exception because PSA cert 62398872 confirms identity/grade but provides no slab scan; the exact-slab replacement Action Required remains open.
+- Nico Robin OP01-017 ACE 10 cert **590532** now uses the exact ACE front slab. On 30 September the founder explicitly approved storefront publication with the exact ACE front while retaining the missing-back Action Required. The backend recorded the graded review/audit state and the normal reconciliation worker published it at **£51.61**.
+- That publication moved Shopify from 469 ACTIVE / 1 DRAFT to the current **470 ACTIVE / 0 DRAFT** state. The original ACE image remains unmodified; only Brand Redesign presentation scale was adjusted for visual consistency.
+
+### 8. Dragon Ball/CardTrader backlog — 27/35 PHYSICAL ITEMS LIVE, 8 EXACT-PRINT EXCEPTIONS REMAIN
+
+The Dragon Ball work was undertaken as a **narrow storefront-unblocking backlog fix**, not as a new market-data expansion. It respected the manual freeze by reusing the existing import/media/Shopify pipelines and keeping all provider decisions fail-closed.
+
+Merged work:
+- PR #326 — read-only CardTrader API client + fail-closed exact-media resolver for Dragon Ball Super Masters / Fusion World; provider media starts PENDING and cannot infer physical language.
+- PR #327 — one-shot backlog runner, probe/read-only by default, explicit apply required.
+- PR #328 — normalized CardTrader's live `{"array":[...]}` response wrappers and blueprint-keyed marketplace payloads.
+- PR #330 — normalized `&` vs `and` set aliases while retaining exact set/printing gates.
+- PR #331 — hardened promo-name/pre-release comparison without weakening collector-number or physical-language gates.
+- PR #332 — required exact Fusion World Tournament Pack version proof.
+- PR #333 — allowed a very narrow Masters-only bare numeric collector suffix fallback when set/name/language/finish **and provider rarity** all agree.
+- PR #334 — recorded the verified Dragon Ball publication result.
+
+Production result:
+- **27 / 35 physical Dragon Ball FOR_SALE items are published**, represented by **25 Shopify products** because two pairs are intentionally pooled as quantity-2 listings.
+- The final ordinary Masters cards resolved safely: BT18-067 Krillin, BT18-138 Reaper's Cunning and BT13-142 Dark King Mechikabura.
+- Exactly **8** remain unlinked:
+  - Dawn of the Z-Legends pre-release: BT18-004, BT18-018, BT18-025, BT18-043, BT18-044.
+  - Supreme Rivalry pre-release: BT13-131.
+  - Nappa FP-046 imported as Tournament Pack 07, while CardTrader exposes Pack 08.
+  - Vegeta FB05-039 imported as Tournament Pack -Winner- 06, while CardTrader exposes ordinary Pack 06.
+- These are deliberately blocked on exact-print proof/media. Similar base-set/promo art was not substituted.
+- Bandai's official database was used only as identity/reference evidence during investigation; because its site prohibits unauthorized image/data reproduction, it was **not** turned into a storefront-image provider.
+
+### 9. Dragon Ball storefront merchandising/navigation — COMPLETE FOR CURRENT LIVE INVENTORY
+
+Before 30 September, Dragon Ball products existed but did not have Pokémon/One Piece-equivalent browse structure. This has now been corrected on the Brand Redesign storefront:
+
+- Dragon Ball top-level navigation now includes **Shop All Dragon Ball, Singles, Graded Cards, Series and Sets**.
+- Series routes: **Dragon Ball Super Masters** and **Dragon Ball Super Fusion World**.
+- Current set/promo routes: **Beyond Generations, Dawn of the Z-Legends, Perfect Combination, Power Absorbed, Prismatic Clash, Supreme Rivalry, Three Glorious Fighters, Tournament and Championship Promos, Wish For Shenron**.
+- All 13 newly created Dragon Ball collection routes were verified as published to the Online Store.
+- Dragon Ball uses the same existing Set/Price/Rarity/Variant/Availability/Condition/Language/Grading Company/Grade filter contract as the rest of Drop Rate.
+- Current Dragon Ball inventory is English; grader/grade filter values will remain empty until graded Dragon Ball stock exists rather than being hard-coded.
+
+### 10. Storefront title/SEO presentation cleanup — COMPLETE FOR IDENTIFIED DUPLICATION
+
+To improve grid symmetry without sacrificing search identity:
+- 3 Dragon Ball visible titles were shortened first: Son Goku : DA, Vegeta (Mini) : DA and Tien Shinhan.
+- A subsequent store-wide audit identified 37 affected One Piece presentation titles where collector number/source wording was duplicated in the visible name and the separate card-number/set subtitle.
+- **40 visible Shopify product titles in total** were cleaned without changing canonical Supabase card identity.
+- Meaningful distinctions such as Reprint, Alternate Art, Parallel, Zoro Deck, 3rd Anniversary and Premium Card Collection were retained where useful.
+- Collector number, set, language, rarity/variant and full searchable identity remain in the `drop_rate` metafields/backend data and existing SEO metadata; the cleanup changed presentation copy, not canonical identity.
+- The card subtitle now uses one-line ellipsis so long set names do not create uneven purchase-button rows.
+
+### 11. Rights, provenance and provider safeguards — FOLLOWED
+
+- We did not assume scraping permission.
+- CardTrader was integrated through its authenticated API.
+- TCGGraph exact-listing rights policy was narrowed in PR #321 to product-sale listing use only, with PENDING human review, exact-match gates and no social/generic SEO/AI-training reuse.
+- PR #322 added provider-exact identity fallback only when one language returns a unique deterministic exact printing; zero/multiple/API-error cases fail closed.
+- Provider media never silently overrides physical language, condition, grade, ownership or price.
+- Bandai images were not reused after the provider's reproduction restriction was identified.
+- Historical observations/audit history were not destructively rewritten.
+
+### 12. Security, audit and failure behaviour preserved
+
+Across the 29–30 September work:
+- Supabase/Postgres remains the source of truth for physical inventory, ownership and financial attribution.
+- Shopify remains the storefront/cart/checkout/customer surface.
+- FastAPI remains the deterministic rule layer.
+- n8n was not used as a database or as a substitute for business rules.
+- RLS was not weakened to make cron jobs easier; narrow `SECURITY DEFINER` functions were used where required.
+- publication paths verify Shopify remotely before committing PUBLISHED state.
+- failed publication/pooling operations compensate back to safe Shopify state.
+- pooling never discards physical Inventory IDs or owners.
+- graded/high-value/ambiguous exact-print cases remain human-review/fail-closed.
+- migrations were version-controlled; historical migration rows were not destructively rewritten.
+- secrets were kept in Railway and were not printed during CardTrader probing.
+- tests/docs/status were kept with the implementation PRs; the current direct Brand Redesign visual tweaks are being brought back into GitHub in this checkpoint PR so there is no runtime-only theme drift.
+
+### 13. Claude operating-manual compliance audit
+
+**Followed:**
+- storefront-first priority;
+- immediate reliability fixes before storefront expansion;
+- required storefront build order;
+- no destructive production/data-history changes;
+- one concern per implementation PR, with superseded attempts closed rather than force-pushed into history;
+- schema changes through versioned migrations;
+- Supabase source of truth / FastAPI deterministic logic;
+- no AI/provider silent override of identity/ownership/price;
+- no new external owner/consignor activation;
+- no broad eBay expansion;
+- no autonomous merchandising/SEO/marketing automation before storefront launch;
+- human exception handling for ambiguous/high-risk items;
+- live Horizon left untouched while Brand Redesign was iterated as the launch candidate.
+
+**Narrow exceptions to the freeze, consistent with the manual's bug/storefront allowance:**
+- CardTrader/TCGGraph work was limited to resolving the already-existing storefront publication backlog and exact-media/identity defects; it was not a new pricing-provider or cross-channel expansion.
+- sealed-media and graded-slab changes were fixes to existing publication paths, not new product-scope expansion.
+- pooling was required to correct the storefront representation of already-owned duplicate raw inventory before launch.
+
+**Still frozen until storefront milestone is explicitly reopened:**
+- new recognition capabilities beyond existing correctness fixes/corpus work;
+- new Seller Hub features;
+- new market-data providers/pricing expansion;
+- new automation/outbox event types and autonomous n8n growth;
+- eBay/cross-channel expansion;
+- autonomous SEO/CRO/marketing experimentation.
+
+### 14. Remaining work / next exact order
+
+1. **Final authenticated Brand Redesign smoke QA** — complete a full mobile and desktop pass through homepage → collection → filters/sort → PDP/grouped copies → exact-copy cart → native checkout entry → search/no-result → customer account/order-history handoff, including the 30 September spacing/title/Nico-image polish.
+2. **Publish Brand Redesign theme only after that smoke is approved.** Horizon remains MAIN until then.
+3. **Immediately run post-publication live smoke/reconciliation**: navigation, filters, cart stock, checkout handoff, account/login, exact-copy/pooled stock behaviour, Shopify↔Supabase ownership/link parity.
+4. **Resolve the 17 unlinked FOR_SALE items without guessing:**
+   - 8 Dragon Ball exact-print media exceptions;
+   - 7 One Piece raw cards requiring exact physical language/media/variant proof;
+   - 2 sealed One Piece items requiring exact package media + language/region + packed dimensions/weight + sealed shipping profile/seal-status evidence.
+5. **Resolve the two expected Shopify webhook-gap HIGH alerts** or formally close them when their known test-order status is reconciled.
+6. **Graded media follow-up:** obtain exact replacement slab/back evidence for the two remaining `GRADED_SLAB_MEDIA_REQUIRED` exceptions where possible; do not substitute another slab.
+7. **GitHub housekeeping:** close stale open PRs that have been superseded by merged production work (#309, #311–#314, #317, #325) after confirming none contains unique unmerged content.
+8. Once Brand Redesign is live and stable, **explicitly reopen the manual's deferred workstreams** in priority order rather than automatically resuming all of them at once.
+
 ## 2026-09-30 — Dragon Ball publication final production verification
 
 **PRODUCTION VERIFIED —** the CardTrader Dragon Ball backfill/publication pass is complete for every exact printing the current permitted provider data can prove. Production now has **27 / 35 Dragon Ball physical FOR_SALE items published**, represented by **25 live Shopify products** because two duplicate physical copies are intentionally pooled into quantity-2 listings.
@@ -130,7 +358,7 @@ The change does **not** auto-approve media, relax exact-print matching or bypass
 - Fix: explicitly select `i.id as inventory_id` in the loader, with regression coverage and documentation before the worker is resumed.
 
 
-_Last updated: 29 September 2026_
+_Last updated: 30 September 2026, 01:52 BST_
 
 This file is the persistent source of truth for project progress. A feature counts as **Completed** only after merge, production deployment and production verification where applicable.
 
