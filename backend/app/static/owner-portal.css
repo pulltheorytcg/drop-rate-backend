@@ -26,7 +26,7 @@
   letter-spacing:-.012em;
 }
 .owner-portal-page .dr-logo-image{
-  background-image:url("/assets/brand-assets/drop-rate-logo.png?v=seller-hub-1")!important;
+  background-image:url("/assets/brand-assets/drop-rate-seller-hub.png?v=20260930")!important;
   filter:drop-shadow(0 6px 14px rgba(2,18,45,.24))!important;
 }
 
@@ -81,7 +81,7 @@
 .owner-portal-page .owner-auth-brand .lead{color:#c8d6ec;font-size:1.08rem}
 .owner-portal-page .owner-auth-brand .trust-row{color:#91a9ca}
 .owner-portal-page .owner-auth-brand .trust-row span:before{background:#47dff0}
-.owner-portal-page .owner-auth-logo{width:132px;height:94px;display:block}
+.owner-portal-page .owner-auth-logo{width:min(100%,310px);height:112px;display:block;background-position:left center!important}
 .owner-portal-page .owner-auth-panel{
   display:grid;
   place-items:center;
@@ -148,61 +148,20 @@
   box-shadow:0 3px 18px rgba(7,27,63,.13)!important;
 }
 .owner-portal-page .owner-topbar-brand{
-  min-width:0;
+  min-width:230px;
   display:flex;
   align-items:center;
-  gap:13px;
+  flex:0 0 auto;
 }
 .owner-portal-page .owner-topbar-logo{
   display:block!important;
-  width:96px!important;
-  height:58px!important;
+  width:224px!important;
+  height:70px!important;
   flex:0 0 auto;
   background-repeat:no-repeat!important;
-  background-position:center!important;
+  background-position:left center!important;
   background-size:contain!important;
   filter:drop-shadow(0 5px 12px rgba(0,0,0,.22))!important;
-}
-.owner-portal-page .owner-topbar-divider{
-  width:1px;
-  height:34px;
-  flex:0 0 auto;
-  background:linear-gradient(180deg,transparent,rgba(255,255,255,.28),transparent);
-}
-.owner-portal-page .owner-topbar-product{
-  min-width:0;
-  display:grid;
-  grid-template-columns:auto;
-  align-content:center;
-  gap:0;
-  padding:0;
-  border:0;
-  color:#fff;
-  letter-spacing:0;
-}
-.owner-portal-page .owner-topbar-product small{
-  color:#55dfea;
-  font-size:.46rem;
-  line-height:1.1;
-  font-weight:950;
-  letter-spacing:.16em;
-}
-.owner-portal-page .owner-topbar-product strong{
-  margin-top:2px;
-  color:#fff!important;
-  font-size:.92rem;
-  line-height:1;
-  font-weight:900;
-  letter-spacing:-.025em;
-}
-.owner-portal-page .owner-topbar-product em{
-  margin-top:4px;
-  color:#8fa9ca;
-  font-size:.49rem;
-  line-height:1;
-  font-weight:700;
-  font-style:normal;
-  letter-spacing:.04em;
 }
 .owner-portal-page .owner-topbar .topbar-actions{gap:10px}
 .owner-portal-page .owner-topbar .user-chip{
@@ -883,28 +842,19 @@
 @media(max-width:900px){
 
   .owner-portal-page .owner-topbar{height:64px!important;padding:0 12px!important}
-  .owner-portal-page .owner-topbar-brand{gap:8px}
-  .owner-portal-page .owner-topbar-logo{width:66px!important;height:44px!important}
-  .owner-portal-page .owner-topbar-divider{height:26px}
-  .owner-portal-page .owner-topbar-product strong{font-size:.72rem}
-  .owner-portal-page .owner-topbar-product small{font-size:.39rem}
-  .owner-portal-page .owner-topbar-product em{display:none}
+  .owner-portal-page .owner-topbar-brand{min-width:0}
+  .owner-portal-page .owner-topbar-logo{width:154px!important;height:54px!important}
 
   .owner-portal-page .owner-auth-layout{grid-template-columns:1fr}
   .owner-portal-page .owner-auth-brand{display:none}
   .owner-portal-page .owner-auth-panel{min-height:100vh;padding:22px}
   .owner-portal-page .owner-auth-card{margin:0}
   .owner-portal-page .owner-auth-mobile-logo{display:block;margin-bottom:22px}
-  .owner-portal-page .owner-auth-mobile-logo .dr-logo-image{display:block;width:74px;height:74px}
+  .owner-portal-page .owner-auth-mobile-logo .dr-logo-image{display:block;width:min(100%,240px);height:86px;background-position:left center!important}
 
   .owner-portal-page .owner-topbar{height:64px!important;padding:0 14px!important}
   .owner-portal-page .owner-secure-chip{display:none}
-  .owner-portal-page .owner-topbar-logo{width:54px!important;height:42px!important}
-  .owner-portal-page .owner-topbar-divider{height:24px}
-  .owner-portal-page .owner-topbar-product{display:grid}
-  .owner-portal-page .owner-topbar-product small,
-  .owner-portal-page .owner-topbar-product em{display:none}
-  .owner-portal-page .owner-topbar-product strong{font-size:.68rem}
+  .owner-portal-page .owner-topbar-logo{width:154px!important;height:54px!important}
   .owner-portal-page .owner-topbar .user-chip div{display:none}
   .owner-portal-page .owner-topbar .user-chip{padding-right:5px}
   .owner-portal-page .owner-signout{font-size:.66rem;padding:0 10px!important}
