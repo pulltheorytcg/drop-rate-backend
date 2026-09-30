@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Scanner language recognition added to deferred architecture
+
+- The approved future scanner architecture now includes **automatic language recognition** for **English, Japanese, Chinese and Korean** across both Raw Card and Graded Slab modes.
+- Detection must combine physical OCR/script evidence, collector/set metadata, canonical/provider evidence and grader certificate fields where available; artwork alone is not sufficient.
+- Language output is confidence-scored and human-confirmed when uncertain. Conflicting or low-confidence evidence must fail closed into Action Required rather than being guessed.
+- Chinese should retain room for Simplified/Traditional script detail even if the first UI groups both under Chinese.
+- Confirmed language is stored on the physical Inventory Item and feeds exact-print matching, pricing, Shopify metadata/filters and pooling/cross-channel eligibility.
+- Different-language physical copies must never be pooled as interchangeable stock.
+- This remains deferred behind the Phase 2 storefront stability gate alongside the PSA/ACE/CGC/TAG/BGS graded-slab scanner implementation.
+
 ## 2026-09-30 — PSA certificate lookup compatibility repair
 
 - Phase 2 review confirmed the retained `psa-fetch-batch` Railway service is important graded-card infrastructure, but a live exact-cert check returned **HTTP 403** for PSA cert 62398872.
