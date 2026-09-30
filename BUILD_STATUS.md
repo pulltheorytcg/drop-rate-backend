@@ -1,5 +1,22 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Sealed catalogue + scanner architecture clarified
+
+- Sealed inventory is now explicitly defined as a **first-class canonical product family**, not one generic row per TCG set.
+- Initial priority sealed formats are:
+  - **Elite Trainer Boxes (ETBs)**;
+  - **Booster Boxes / Displays**;
+  - **Single Booster Packs**.
+- A TCG set is the parent release; each official sealed SKU under it is a separate canonical sealed product. Example: one set can have a standard ETB, Pokémon Center ETB, booster box, single pack, sleeved booster and booster bundle, each with different identity/market data.
+- Future scanner modes are now **Raw Card / Graded Slab / Sealed Product**.
+- Sealed recognition must combine packaging OCR, set/product text, barcode/product code, pack count, official reference images, language and region; low-confidence results fail closed.
+- The sealed catalogue must become a governed corpus large enough to recognise sealed products that have never previously been scanned by a Drop Rate user.
+- Sealed products get exact-SKU market-data mappings and their own pricing normalization; booster-box pricing must not be derived by simply multiplying single-pack value.
+- Language and region remain distinct. Different-language/region sealed products are not automatically interchangeable.
+- Real packed dimensions/weight, seal condition and shipping profile remain required publication inputs where applicable.
+- Full design: `docs/SEALED_PRODUCT_CATALOGUE_SCANNER_ARCHITECTURE.md`.
+- Implementation remains behind the current Phase 2 storefront stability gate, but sealed recognition/catalogue expansion should be a high-priority workstream once that gate reopens.
+
 ## 2026-09-30 — Founder HQ proxy-image viewport loading
 
 - After the Shopify CDN + TCGdex direct-image optimisations, the remaining provider images still use the authenticated FastAPI proxy by design.
