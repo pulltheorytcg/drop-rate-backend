@@ -1768,9 +1768,9 @@ async def sync_media_asset(
                     source_checked_at=clock_timestamp(),
                     source_status_note=case
                       when $8='BELOW_TARGET' then
-                        'Measured media is below the Dragon Ball 2160px long-edge quality target'
+                        'Measured media is below the configured 2160px long-edge quality target'
                       when $8='TARGET_MET' then
-                        'Measured media meets the Dragon Ball 2160px long-edge quality target'
+                        'Measured media meets the configured 2160px long-edge quality target'
                       else source_status_note
                     end,
                     updated_at=clock_timestamp(),
