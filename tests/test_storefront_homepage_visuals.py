@@ -84,4 +84,5 @@ def test_homepage_sealed_collection_is_featured() -> None:
     assert '"label": "Shop sealed"' in source
     assert '"max_products": 4' in source
     assert '"columns": 2' in source
-    assert source.index('"latest"') < source.index('"sealed"') < source.index('"spotlight"')
+    order_source = source[source.index('"order"'):]
+    assert order_source.index('"latest"') < order_source.index('"sealed"') < order_source.index('"spotlight"')
