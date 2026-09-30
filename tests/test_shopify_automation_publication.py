@@ -75,3 +75,12 @@ def test_dr01_database_validates_manual_and_automation_actors() -> None:
     assert sql.count("ae.payload->>'inventory_id'=p_inventory_id::text") == 2
     assert sql.count("ae.payload->>'status'='approved'") == 2
     assert sql.count("ae.payload->>'version'=p_expected_version::text") == 2
+
+
+def test_dr01_publication_context_only_returns_shopify_ready_media() -> None:
+    sql = MIGRATION.read_text().lower()
+    assert "approval_status='approved'" in sql
+    assert "rights_status='verified'" in sql
+    assert "shopify_file_status='ready'" in sql
+    assert "(ma.scope='inventory_item' and ma.inventory_id=i.id)" in sql
+    assert "(ma.scope='canonical_card' and ma.catalogue_id=i.catalogue_id)" in sql
