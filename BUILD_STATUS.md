@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — PSA credential audit
+
+- The retained PSA cert-lookup Function is now source-controlled and uses PSA's current documented Public API endpoint/auth contract.
+- Exact production retest still returned **HTTP 403** for cert 62398872 and the retained batch.
+- Railway variable audit confirmed there is **no PSA-specific credential** configured on `drop-rate-api-live`; the old Function referenced `TCG_PARSE_API_KEY`, which is unrelated and must not be reused as a PSA token.
+- The PSA Function is therefore being hardened to require a dedicated `PSA_PUBLIC_API_TOKEN` and to return `503 PSA_PUBLIC_API_TOKEN_REQUIRED` until that official credential is configured.
+- No slab-media exception is closed from a failed lookup. Charizard V PSA 9 cert 62398872 remains `GRADED_SLAB_MEDIA_REQUIRED`.
+- Once a valid PSA Public API bearer token is available, configure it only on the PSA lookup service, redeploy, then verify a known-good cert plus 62398872 before wiring the adapter into the graded-slab scanner.
+
 ## 2026-09-30 — Scanner language recognition added to deferred architecture
 
 - The approved future scanner architecture now includes **automatic language recognition** for **English, Japanese, Chinese and Korean** across both Raw Card and Graded Slab modes.
