@@ -89,6 +89,19 @@ def test_join_page_supports_public_and_invite_modes() -> None:
     assert 'window.location.replace("/owner?welcome=1")' in source
 
 
+def test_clean_public_join_ignores_stale_invite_storage() -> None:
+    html = JOIN_HTML.read_text()
+    source = JOIN_JS.read_text()
+
+    assert 'src="/assets/owner-join.js?v=public-join-2"' in html
+    assert 'const explicitToken = params.get("invite");' in source
+    assert "if (explicitToken) return explicitToken;" in source
+    assert 'const callback = new URLSearchParams(window.location.hash.slice(1));' in source
+    assert 'if (callback.get("access_token")) {' in source
+    assert "return localStorage.getItem(PENDING_OWNER_INVITE_KEY);" in source
+    assert 'return params.get("invite") || localStorage.getItem(PENDING_OWNER_INVITE_KEY);' not in source
+
+
 def test_storefront_keeps_header_sell_cta_desktop_only() -> None:
     source = HEADER.read_text()
 
