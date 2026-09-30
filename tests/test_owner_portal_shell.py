@@ -134,7 +134,7 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     css = CSS.read_text()
     js = JS.read_text()
 
-    assert 'href="/assets/owner-portal.css?v=owner-v9"' in html
+    assert 'href="/assets/owner-portal.css?v=owner-v10"' in html
     assert 'class="owner-portal-page"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
@@ -380,3 +380,23 @@ def test_seller_topbar_brand_is_single_polished_lockup() -> None:
     assert "width:154px!important" in css
     assert ".owner-topbar-divider" not in css
     assert ".owner-topbar-product" not in css
+
+
+def test_owner_portal_uses_integrated_seller_hub_brand_lockup() -> None:
+    html = HTML.read_text()
+    css = CSS.read_text()
+    asset = (
+        Path(__file__).parents[1]
+        / "backend"
+        / "app"
+        / "static"
+        / "brand-assets"
+        / "drop-rate-seller-hub.png"
+    )
+
+    assert 'aria-label="Drop Rate Seller Hub"' in html
+    assert 'class="dr-logo-image owner-topbar-logo"' in html
+    assert 'drop-rate-seller-hub.png?v=seller-hub-2' in css
+    assert "width:254px!important" in css
+    assert asset.exists()
+    assert asset.read_bytes().startswith(b"\\x89PNG\\r\\n\\x1a\\n")
