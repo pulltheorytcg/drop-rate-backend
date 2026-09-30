@@ -111,15 +111,27 @@ verified larger original.
 
 Eight FOR_SALE Dragon Ball cards remain unlinked:
 
-- six Masters pre-release copies whose exact pre-release print is not proven by CardTrader;
-- Nappa FP-046, where the local physical card is Tournament Pack 07 but CardTrader currently
-  exposes Pack 08;
-- Vegeta FB05-039 Winner 06, for which exact CardTrader Winner evidence is available and the
-  resolver now supports the provider Winner suffix without weakening ordinary-card matching.
+- Vegeta FB05-039 Winner 06 now has an exact CardTrader Winner candidate registered in
+  `PENDING_REVIEW`; its former `MEDIA_UNRESOLVED` exception is resolved;
+- six Masters pre-release copies remain genuinely media-unresolved because CardTrader's
+  Blueprints expose only the ordinary base-set printing;
+- Nappa FP-046 remains genuinely media-unresolved because the local physical item is
+  Tournament Pack 07 while CardTrader currently exposes Tournament Pack 08.
 
-The six pre-release copies and Nappa remain fail-closed until exact storefront-permitted
-media exists or an exact first-party physical image is captured. CardTrader is never used
-to infer the language of the user's physical card.
+That means the unresolved-media count is now seven, even though eight physical Dragon Ball
+units are still not linked to Shopify.
+
+The no-photo fallback is the already-built TCGGraph exact-media adapter. TCGGraph supports
+both Dragon Ball lines and exact-print image candidates, but production does not currently
+have `TCG_TCGGRAPH_API_KEY` configured. No paid provider dependency is silently enabled.
+
+External public pages may be used as identity evidence only. They are not automatically
+promoted into storefront media: TCGplayer's public terms restrict crawling/scraping and
+outside use of its content, while Bandai's public Masters card list exposes the ordinary
+card image and does not itself prove the stamped pre-release physical printing. The seven
+special prints therefore remain fail-closed until a storefront-permitted exact provider
+credential is configured. CardTrader is never used to infer the language of the user's
+physical card.
 
 ## Production response normalization
 
