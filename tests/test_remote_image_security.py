@@ -7,6 +7,7 @@ import pytest
 from app.api import (
     _fetch_inventory_image,
     _inventory_image_direct_browser_allowed,
+    _inventory_image_direct_browser_url,
     _inventory_image_redirect_target,
     _inventory_image_source_allowed,
 )
@@ -66,10 +67,10 @@ def test_inventory_direct_image_fast_path_is_strictly_allowlisted() -> None:
     assert _inventory_image_direct_browser_allowed("https://x.shopifycdn.com/card.webp")
     assert _inventory_image_direct_browser_allowed("https://x.shopifycdn.net/card.webp")
     assert _inventory_image_direct_browser_allowed("https://assets.tcgdex.net/card.png")
-    assert _inventory_image_direct_browser_allowed(
+    assert not _inventory_image_direct_browser_allowed(
         "https://en.onepiece-cardgame.com/images/card.png"
     )
-    assert _inventory_image_direct_browser_allowed(
+    assert not _inventory_image_direct_browser_allowed(
         "https://www.onepiece-cardgame.com/images/card.png"
     )
     assert not _inventory_image_direct_browser_allowed("https://cardtrader.com/card.png")
@@ -79,6 +80,27 @@ def test_inventory_direct_image_fast_path_is_strictly_allowlisted() -> None:
     assert not _inventory_image_direct_browser_allowed("https://evil.example/card.png")
     assert not _inventory_image_direct_browser_allowed(
         "https://user:pass@cdn.shopify.com/card.png"
+    )
+
+
+def test_inventory_direct_tcgdex_grid_url_prefers_low_webp() -> None:
+    assert (
+        _inventory_image_direct_browser_url(
+            "https://assets.tcgdex.net/en/me/me02/047/high.webp"
+        )
+        == "https://assets.tcgdex.net/en/me/me02/047/low.webp"
+    )
+    assert (
+        _inventory_image_direct_browser_url(
+            "https://cdn.shopify.com/s/files/card.png"
+        )
+        == "https://cdn.shopify.com/s/files/card.png"
+    )
+    assert (
+        _inventory_image_direct_browser_url(
+            "https://en.onepiece-cardgame.com/images/card.png"
+        )
+        is None
     )
 
 
