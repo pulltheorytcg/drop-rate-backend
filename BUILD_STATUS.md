@@ -1,5 +1,35 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Final storefront launch gate passed; manual Shopify theme publish remains
+
+- Completed the final machine-verifiable launch gate for `Drop Rate — Brand Redesign`.
+- Shopify theme state: UNPUBLISHED, processing=false, processingFailed=false.
+- Verified all **27** source-controlled Brand Redesign theme files against Shopify; **0 content mismatches**.
+- Latest full CI suite passed: **2110 tests**.
+- Shopify catalogue state at gate:
+  - **485 ACTIVE products**;
+  - **485 ACTIVE + published-to-Online-Store products**;
+  - **0 DRAFT products**;
+  - **0 ACTIVE-but-unpublished products**;
+  - **42 published collections**.
+- Navigation read-back confirms top-level Shop All / Singles / Graded / Sealed plus Pokémon / One Piece / Dragon Ball, with One Piece → Sealed present and customer-account menu retaining Shopify-native Orders/Profile.
+- `Sealed` smart collection is populated with 2 products; One Piece contains 270 products.
+- Production inventory/link integrity:
+  - **509 FOR_SALE physical inventory items**;
+  - **507 Shopify-linked / 2 intentionally unlinked**;
+  - **507 PUBLISHED non-test inventory links** backing **485 distinct Shopify products**;
+  - **0 missing owners**, **0 synced-price mismatches**, **0 wrong sale-intent links**, **0 missing Shopify variant/inventory/location IDs**;
+  - pooled identical physical copies intentionally share Shopify products/variants and remain individually owned in Postgres.
+- Open operational blockers: **0 SHOPIFY** Action Required items and **0 SETTLEMENT** Action Required items.
+- Reconciled 2 new `inventory.approved` outbox events for the already-published sealed products through the guarded audited supersede function. Outbox health returned healthy=true with pending/due/dispatching/dead-letter/stale all zero, and both automation alerts resolved.
+- Railway launch read-back: `drop-rate-api-live` SUCCESS, scheduled `drop-rate-api` operations monitor SUCCESS, n8n SUCCESS.
+- Final customer-path code contract remains covered by green tests: exact-copy cart quantity lock, grouped-copy PDP, Shopify-native checkout/account handoff, product-only partial-match search, collection facets/sort shell and current visual system.
+- The connected Shopify API exposes `themePublish`, but the connector safety layer explicitly blocks making a theme MAIN. A direct publish attempt was refused for that reason. **The remaining launch action is a manual Shopify Admin Publish click for Brand Redesign.**
+- Exactly 2 FOR_SALE cards remain intentionally unlinked after renewed evidence review:
+  - Monkey.D.Luffy (Release Event Leader), #P: exact card identity is strongly corroborated, but public catalogues disagree on Normal vs Foil and no governed exact-print storefront media is attached. Do not guess the physical printing.
+  - DON!! Card (Egghead), The Azure Sea's Seven: exact English identity is corroborated, but the stored exact image remains INTERNAL_REFERENCE_ONLY and currently available public image results include materially different Gold variants. Do not substitute a Gold image for the normal physical item.
+- These two inventory exceptions do **not** block the storefront theme launch; they remain fail-closed until exact physical/media evidence is available.
+
 ## 2026-09-30 — Sealed artwork footprint matched to card grid
 
 - Kept the custom `Keep it sealed.` homepage feature intact; only its media treatment changed.

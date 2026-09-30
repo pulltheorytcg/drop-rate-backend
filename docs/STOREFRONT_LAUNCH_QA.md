@@ -1,3 +1,28 @@
+## 30 September 2026 — final launch-gate checkpoint
+
+Brand Redesign has completed the final machine-verifiable pre-publication gate.
+
+Verified:
+- all 27 source-controlled theme files match the unpublished Shopify theme byte-for-byte;
+- Shopify reports theme processing=false and processingFailed=false;
+- 485 products are ACTIVE and published to Online Store, with 0 drafts and 0 active-unpublished products;
+- 42 collections are published;
+- main navigation includes Sealed at top level and under One Piece;
+- customer account navigation is Shopify-native;
+- the populated Sealed collection contains 2 products and the One Piece collection contains 270;
+- the latest repository CI run completed with 2110 passing tests;
+- production link integrity has 507 non-test PUBLISHED physical inventory links, no missing ownership, no synced-price mismatches and no missing Shopify variant/inventory/location identifiers;
+- there are no open Shopify or Settlement Action Required items;
+- the two stale post-publication sealed `inventory.approved` events were superseded through the guarded audited reconciliation helper, after which automation outbox health returned fully healthy;
+- Railway `drop-rate-api-live`, the scheduled operations monitor and n8n all report SUCCESS.
+
+The latest user-supplied desktop screenshots were used for visual QA of the final Sealed homepage and collection-card treatment. The final responsive treatment remains source-controlled and regression-tested.
+
+The Shopify connector explicitly blocks `themePublish`; a direct mutation attempt was rejected by the connector safety layer. Publishing Brand Redesign therefore requires the merchant to perform the final Shopify Admin Publish action manually. After that click, perform the post-publication live smoke: homepage, navigation, Sealed, representative collection/filter/sort, raw/graded/sealed PDP, exact-copy cart, checkout entry, search/no-results and customer-account handoff.
+
+Two raw One Piece inventory exceptions remain fail-closed and are not launch blockers: Monkey.D.Luffy Release Event Leader #P (printing/media conflict) and DON!! Card (Egghead) (no storefront-approved exact normal-print media).
+
+
 ## 30 September 2026 — Sealed navigation, homepage merchandising and image-quality CRO pass
 
 Sealed is no longer an empty destination. After the first two Japanese One Piece sealed products were published:
