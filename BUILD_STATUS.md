@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Seller Hub mobile placement refined
+
+- Removed the **Sell** pill from the Brand Redesign mobile header; desktop retains **Sell With Us** in the header.
+- Created a Brand Redesign-specific Shopify navigation menu copied from the current main menu, with **Sell With Us** added as a Seller Hub destination. Horizon's live `main-menu` is untouched.
+- Brand Redesign now points its header menu at `brand-redesign-main-menu`; the Seller Hub menu item is hidden at desktop widths and therefore appears only in the mobile drawer.
+- Added a compact Seller Hub footer callout that renders only below 750 px.
+- All Seller Hub links use the existing verified production `/owner/join` flow. No auth, owner, inventory, pricing or settlement logic changed.
+- Brand Redesign remains UNPUBLISHED until this UI refinement passes CI, theme sync and mobile/desktop preview read-back.
+
 ## 2026-09-30 — Storefront “Sell With Us” → Seller Hub production verification complete
 
 - PR #414 is merged and deployed to `drop-rate-api-live` at commit `8e851f96e9aba1b747607e2881bebf9ebe357925`.
