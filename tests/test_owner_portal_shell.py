@@ -338,7 +338,7 @@ def test_seller_hub_branding_is_neutral_and_not_founder_hq() -> None:
     assert "Drop Rate Seller Hub" in html
     assert "Private workspace" not in html
     assert "Seller account" in html
-    assert 'drop-rate-seller-hub.png?v=20260930' in css
+    assert 'drop-rate-seller-hub.png?v=seller-hub-2' in css
     assert 'drop-rate-logo.png?v=seller-hub-1' not in css
     assert 'drop-rate-founder-hq.png' not in css
     assert 'content:"SELLER HUB"' in css
@@ -376,8 +376,8 @@ def test_seller_topbar_brand_is_single_polished_lockup() -> None:
     assert "<small>DROP RATE</small>" not in html
     assert "<em>Inventory · Sales · Payouts</em>" not in html
     assert ".owner-portal-page .owner-topbar-logo" in css
-    assert "width:224px!important" in css
-    assert "width:154px!important" in css
+    assert "width:254px!important" in css
+    assert "width:174px!important" in css
     assert ".owner-topbar-divider" not in css
     assert ".owner-topbar-product" not in css
 
@@ -399,4 +399,4 @@ def test_owner_portal_uses_integrated_seller_hub_brand_lockup() -> None:
     assert 'drop-rate-seller-hub.png?v=seller-hub-2' in css
     assert "width:254px!important" in css
     assert asset.exists()
-    assert asset.read_bytes().startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+    assert asset.read_bytes().startswith(bytes((137, 80, 78, 71, 13, 10, 26, 10)))
