@@ -178,9 +178,10 @@ def test_inventory_defaults_to_visual_collectr_style_cards() -> None:
     assert "function inventoryVisualCard(item)" in js
     assert "function inventoryImageFigure(item)" in js
     assert "item.card_image_url" in js
+    assert "item.card_image_direct_url" in js
     assert "item.card_image_cdn_url" in js
-    assert 'if (item.card_image_cdn_url)' in js
-    assert "image.src = item.card_image_cdn_url" in js
+    assert "const directImageUrl = item.card_image_direct_url || item.card_image_cdn_url" in js
+    assert "image.src = directImageUrl" in js
     assert 'image.addEventListener("error", loadFromProxy, { once: true })' in js
     assert "apiImageBlob(proxyPath)" in js
     assert "item.market_value_minor" in js
@@ -197,8 +198,10 @@ def test_inventory_defaults_to_visual_collectr_style_cards() -> None:
 
     assert "card_image_url" in api
     assert "card_image_shopify_cdn_url" in api
+    assert "card_image_public_source_url" in api
+    assert '"card_image_direct_url"' in api
     assert '"card_image_cdn_url"' in api
-    assert "_inventory_image_direct_cdn_allowed" in api
+    assert "_inventory_image_direct_browser_allowed" in api
     assert "card_image_approval_status" in api
     assert "ma.approval_status in ('PENDING','APPROVED')" in api
     assert "case when ma.scope='INVENTORY_ITEM' then 0 else 1 end" in api
