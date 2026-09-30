@@ -152,7 +152,7 @@ def test_shopify_relisting_is_explicit_and_reuses_existing_link() -> None:
     assert "Existing Shopify link points to a different variant" in sync
     assert "Existing Shopify link points to a different inventory item" in sync
     assert "save_shopify_inventory_draft(" in sync
-    assert "set sync_state='PUBLISHED'" in sync
+    assert "mark_shopify_inventory_published(" in sync
 
 
 def test_personal_collection_dashboard_has_filter_and_explicit_actions() -> None:
