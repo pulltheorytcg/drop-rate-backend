@@ -134,7 +134,7 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     css = CSS.read_text()
     js = JS.read_text()
 
-    assert 'href="/assets/owner-portal.css?v=owner-v11"' in html
+    assert 'href="/assets/owner-portal.css?v=owner-v12"' in html
     assert 'class="owner-portal-page"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
