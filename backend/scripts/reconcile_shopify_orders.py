@@ -79,6 +79,7 @@ async def _run() -> int:
                 "remote_only_count": result["remote_only_count"],
                 "remote_anomaly_count": result["remote_anomaly_count"],
                 "expected_pending_count": result["expected_pending_count"],
+                "acknowledged_cancelled_count": result["acknowledged_cancelled_count"],
                 "local_only_count": result["local_only_count"],
                 "matched_count": result["matched_count"],
                 "opened_alerts": result["opened_alerts"],

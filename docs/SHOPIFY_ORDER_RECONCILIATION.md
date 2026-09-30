@@ -166,3 +166,15 @@ Production Supabase recorded the RLS-safe order-read migration as
 that already-applied version. No database history row was deleted, rewritten or re-applied,
 and the live `tcg.shopify_orders_for_reconciliation(timestamptz)` definition was verified
 against the repository SQL before the rename.
+
+## Terminal unpaid cancellations
+
+A remote-only Shopify order remains a HIGH `SHOPIFY_ORDER_WEBHOOK_GAP` while it is unpaid and Drop Rate has no processed `orders/create` proof.
+
+Once Shopify reports that unpaid order as cancelled, a successfully processed `orders/cancelled` webhook is sufficient terminal evidence that the order can no longer become a sale. Reconciliation then treats it as acknowledged/matched and resolves the historical HIGH rather than reopening it forever.
+
+This rule is deliberately narrow:
+- paid-like remote-only orders remain CRITICAL even when cancelled/refunded;
+- uncancelled unpaid orders with a missing create webhook remain HIGH;
+- a cancelled unpaid order without a processed cancellation webhook remains HIGH;
+- no synthetic Drop Rate order is created.
