@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+
+import asyncpg
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -22,6 +24,28 @@ router = APIRouter(prefix="/api/v1/owner", tags=["owner-portal"])
 BRAND_SQL = brand_sql("p")
 VISIBLE_STATUSES = ("DRAFT", "INSPECTION", "APPROVED", "RESERVED", "SOLD", "WITHDRAWN")
 OWNER_SCAN_SOURCE = "OWNER_SCAN"
+
+
+class OwnerProfileUpdate(BaseModel):
+    display_name: str = Field(min_length=1, max_length=120)
+    username: str | None = Field(default=None, max_length=30)
+
+    @model_validator(mode="after")
+    def clean_profile(self) -> "OwnerProfileUpdate":
+        self.display_name = self.display_name.strip()
+        username = (self.username or "").strip().lower()
+        self.username = username or None
+        if self.username is not None:
+            if len(self.username) < 3:
+                raise ValueError("Username must be at least 3 characters")
+            if not self.username[0].isalnum() or any(
+                not (character.isalnum() or character == "_")
+                for character in self.username
+            ):
+                raise ValueError(
+                    "Username can only use letters, numbers and underscores and must start with a letter or number"
+                )
+        return self
 
 
 class OwnerRecognitionIntakeRequest(BaseModel):
@@ -107,6 +131,83 @@ def _owner_scan_inventory_payload(row: object, catalogue: object, *, replayed: b
         },
         "replayed": replayed,
     }
+
+
+@router.get("/profile")
+async def owner_profile(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+) -> dict:
+    owner_id = access["owner_id"]
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        row = await connection.fetchrow(
+            """
+            select
+                o.id as owner_id,
+                o.display_name,
+                o.username,
+                o.owner_type,
+                o.commission_bps,
+                o.created_at,
+                m.created_at as membership_created_at
+            from tcg.owners o
+            join tcg.owner_memberships m
+              on m.owner_id=o.id
+             and m.user_id=tcg.current_user_id()
+             and m.active
+             and m.role='OWNER'
+            where o.id=$1
+              and o.active
+            """,
+            owner_id,
+        )
+    if row is None:
+        raise HTTPException(status_code=403, detail="Owner profile unavailable")
+    return jsonable_encoder(
+        {
+            "profile": dict(row),
+            "email": user.email,
+        }
+    )
+
+
+@router.patch("/profile")
+async def update_owner_profile(
+    payload: OwnerProfileUpdate,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+) -> dict:
+    del access  # Database function independently enforces current OWNER membership.
+    try:
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            row = await connection.fetchrow(
+                "select * from tcg.update_owner_profile($1,$2)",
+                payload.display_name,
+                payload.username,
+            )
+    except asyncpg.UniqueViolationError as exc:
+        raise HTTPException(status_code=409, detail="That username is already taken") from exc
+    except asyncpg.InvalidParameterValueError as exc:
+        raise HTTPException(status_code=422, detail="Invalid profile details") from exc
+
+    if row is None:
+        raise HTTPException(status_code=500, detail="Owner profile could not be updated")
+    return jsonable_encoder(
+        {
+            "profile": dict(row),
+            "email": user.email,
+        }
+    )
 
 
 @router.get("/overview")
