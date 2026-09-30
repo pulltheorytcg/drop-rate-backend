@@ -552,17 +552,29 @@ function inventoryImageFigure(item) {
     figure.append(empty);
   };
 
-  apiImageBlob(`/api/v1/inventory/${encodeURIComponent(item.id)}/image`)
-    .then((blob) => {
-      const objectUrl = URL.createObjectURL(blob);
-      image.addEventListener("load", () => URL.revokeObjectURL(objectUrl), { once: true });
-      image.addEventListener("error", () => {
-        URL.revokeObjectURL(objectUrl);
-        showFailure();
-      }, { once: true });
-      image.src = objectUrl;
-    })
-    .catch(showFailure);
+  const proxyPath = `/api/v1/inventory/${encodeURIComponent(item.id)}/image`;
+
+  const loadFromProxy = () => {
+    apiImageBlob(proxyPath)
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        image.addEventListener("load", () => URL.revokeObjectURL(objectUrl), { once: true });
+        image.addEventListener("error", () => {
+          URL.revokeObjectURL(objectUrl);
+          showFailure();
+        }, { once: true });
+        image.src = objectUrl;
+      })
+      .catch(showFailure);
+  };
+
+  if (item.card_image_cdn_url) {
+    image.loading = "lazy";
+    image.addEventListener("error", loadFromProxy, { once: true });
+    image.src = item.card_image_cdn_url;
+  } else {
+    loadFromProxy();
+  }
   figure.append(image);
 
   const badge = document.createElement("span");
