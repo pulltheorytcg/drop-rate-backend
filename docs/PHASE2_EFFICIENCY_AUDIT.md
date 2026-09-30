@@ -193,6 +193,16 @@ PSA is the first full automation target because an official cert API exists. TAG
 
 Implementation remains behind the Phase 2 storefront stability gate.
 
+### n8n production state — verified empty
+
+A read-only Railway inspection of the production n8n service confirmed:
+- n8n **2.32.6**;
+- startup processed **0 draft workflows and 0 published workflows**;
+- no active workflow exists;
+- no error workflow is configured.
+
+So the Phase 2 version-control rule is not currently being violated by an invisible live workflow. The first real production workflow still needs to prove the required pattern: exported JSON in GitHub, signed/idempotent ingress, safe retry behaviour, and an n8n error workflow before activation.
+
 ## 6. Simplicity conclusions
 
 The product does not need another infrastructure layer before launch.
