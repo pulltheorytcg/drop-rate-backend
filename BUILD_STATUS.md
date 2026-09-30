@@ -1,5 +1,20 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Dragon Ball publication final production verification
+
+**PRODUCTION VERIFIED —** the CardTrader Dragon Ball backfill/publication pass is complete for every exact printing the current permitted provider data can prove. Production now has **27 / 35 Dragon Ball physical FOR_SALE items published**, represented by **25 live Shopify products** because two duplicate physical copies are intentionally pooled into quantity-2 listings.
+
+The final three ordinary Masters cards with CardTrader bare numeric collector-number suffixes are live after the narrow rarity-guarded matcher was deployed: BT18-067, BT18-138 and BT13-142. The production safety rules remain fail-closed and do not extend that suffix fallback to Fusion World or promo cards.
+
+Exactly **8 Dragon Ball physical items remain intentionally unlinked**:
+- Dawn of the Z-Legends pre-release: BT18-004, BT18-018, BT18-025, BT18-043 and BT18-044.
+- Supreme Rivalry pre-release: BT13-131.
+- Fusion World promos: Nappa FP-046 imported as Tournament Pack 07 and Vegeta FB05-039 imported as Tournament Pack -Winner- 06.
+
+CardTrader does not provide exact-print proof for those eight. Production diagnostics show FP-046 only as Tournament Pack 08 and FB05-039 only as ordinary Tournament Pack 06; the six Masters pre-release records only resolve to ordinary base-set blueprints without pre-release evidence. The system therefore correctly refuses visually similar substitute art. Each unresolved printing has an OPEN `MEDIA_UNRESOLVED` Action Required record and requires an exact permitted provider source or first-party physical-card capture before normal Shopify bootstrap/publication.
+
+Shopify production is now **469 ACTIVE products / 469 Online Store-published products**, with **1 DRAFT** product (the known Nico Robin OP01-017 ACE 10 review hold) and **22 ARCHIVED** zero-stock/redundant shells. No duplicate Shopify product shells exist for the eight unresolved Dragon Ball cards.
+
 ## 2026-09-30 — CardTrader Masters bare collector-number suffixes
 
 **SOURCE-CONTROL PR IN PROGRESS —** final production diagnostics found three ordinary Masters
