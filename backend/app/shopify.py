@@ -27,6 +27,56 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/shopify", tags=["shopify"])
 
+async def _enqueue_shopify_order_processed_event(
+    connection: Any,
+    *,
+    payload: dict[str, Any],
+    result: dict[str, Any],
+) -> dict[str, Any] | None:
+    action = str(result.get("action") or "")
+    if action not in {"PAID_ORDER_RECORDED", "ORDER_ALREADY_RECORDED"}:
+        return None
+
+    order_id = str(result.get("order_id") or "").strip()
+    source_reference = str(payload.get("id") or "").strip()
+    items = result.get("items")
+    if not order_id or not source_reference or not isinstance(items, list) or not items:
+        raise RuntimeError("Processed Shopify order automation envelope is incomplete")
+
+    event_key = f"shopify.order.processed:{order_id}:v1"
+    event_payload = {
+        "order_id": order_id,
+        "source_reference": source_reference,
+        "status": "PAID",
+        "item_count": len(items),
+    }
+    row = await connection.fetchrow(
+        """
+        select event_id,created
+        from tcg.enqueue_automation_event(
+          null,
+          'shopify.order.processed',
+          1,
+          'ORDER',
+          $1,
+          $2,
+          $3::jsonb,
+          clock_timestamp()
+        )
+        """,
+        order_id,
+        event_key,
+        json.dumps(event_payload, sort_keys=True, separators=(",", ":")),
+    )
+    if row is None:
+        raise RuntimeError("Shopify order automation event enqueue returned no result")
+    return {
+        "event_id": str(row["event_id"]),
+        "created": bool(row["created"]),
+        "idempotency_key": event_key,
+    }
+
+
 MAX_WEBHOOK_BODY_BYTES = 2_000_000
 INITIAL_WEBHOOK_TOPICS = frozenset(
     {
@@ -556,14 +606,21 @@ async def shopify_webhook(
         )
 
     async with request.app.state.db_pool.acquire() as connection:
-        await connection.execute(
-            """
-            update tcg.shopify_webhook_events
-            set status=$2,processed_at=clock_timestamp(),error_code=null
-            where id=$1
-            """,
-            event["id"], next_status,
-        )
+        async with connection.transaction():
+            if settings.automation_order_events_enabled and topic == "orders/paid":
+                await _enqueue_shopify_order_processed_event(
+                    connection,
+                    payload=payload,
+                    result=result,
+                )
+            await connection.execute(
+                """
+                update tcg.shopify_webhook_events
+                set status=$2,processed_at=clock_timestamp(),error_code=null
+                where id=$1
+                """,
+                event["id"], next_status,
+            )
 
     return JSONResponse(
         status_code=200,
