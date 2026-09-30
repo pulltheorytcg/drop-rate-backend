@@ -78,6 +78,16 @@ Before Brand Redesign publication:
 9. Seller Hub redirects only to `/owner`, never Founder HQ;
 10. Brand Redesign theme source/runtime parity is reverified after deployment.
 
+
+## Mobile placement refinement — 30 September 2026
+
+- Desktop keeps the prominent header **Sell With Us** CTA.
+- Mobile removes the Sell CTA from the header to preserve a clean, compact action row.
+- Brand Redesign uses a dedicated `brand-redesign-main-menu` copy so the Seller Hub item can appear in the mobile drawer without changing Horizon's live global navigation.
+- The Seller Hub menu item is suppressed in Brand Redesign's desktop header navigation.
+- Mobile also gets a dedicated Seller Hub footer link; that section is hidden at 750 px and above.
+- Both mobile entry points route to the same verified `/owner/join` onboarding path.
+
 ## Activation status — 30 September 2026
 
 Production activation is complete without publishing the storefront theme:
