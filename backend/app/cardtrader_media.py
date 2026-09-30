@@ -176,19 +176,28 @@ def _fusion_collector_number_matches(
     provider_version: object,
 ) -> bool:
     local = _canonical_number(local_number)
-    provider = _canonical_number(provider_number)
+    provider_text = str(provider_number or "").strip().upper()
+    provider = _canonical_number(provider_text)
     if not local or not provider:
         return False
     if provider == local:
         return True
 
+    # CardTrader encodes some Fusion World Winner promos with a trailing
+    # "w" on the collector number (for example FB05-039w). Strip that
+    # provider-only suffix before canonicalising the numeric portion so
+    # leading-zero normalisation remains consistent with the local number.
     provider_promo_version = _promo_version_hint(provider_version)
+    provider_winner_base = (
+        _canonical_number(provider_text[:-1])
+        if provider_text.endswith("W")
+        else ""
+    )
     return bool(
         local_promo_version
         and local_promo_version.endswith("winner")
         and provider_promo_version == local_promo_version
-        and provider.endswith("W")
-        and provider[:-1] == local
+        and provider_winner_base == local
     )
 
 
@@ -257,7 +266,18 @@ def _trusted_image_url(value: object) -> str | None:
     # prefix. This is not an inferred card substitution: provider asset ID,
     # directory and filename remain the exact same Blueprint asset.
     directory, separator, filename = parsed.path.rpartition("/")
-    if separator and filename.startswith("preview_") and len(filename) > len("preview_"):
+    blueprint_path = re.fullmatch(
+        r"/uploads/blueprints/image/\d+",
+        directory,
+        re.IGNORECASE,
+    )
+    if (
+        host == "cardtrader.com"
+        and separator
+        and blueprint_path
+        and filename.startswith("preview_")
+        and len(filename) > len("preview_")
+    ):
         parsed = parsed._replace(
             path=f"{directory}/{filename.removeprefix('preview_')}"
         )
