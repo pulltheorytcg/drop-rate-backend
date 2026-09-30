@@ -15,6 +15,8 @@ Founder HQ remains a separate PLATFORM_ADMIN boundary.
 
 The public registration page is `/owner/join`.
 
+A clean invite-free visit must ignore any previously cached founder-invite token. Cached invite state is only recovered during an authentication callback, so an expired test invitation cannot hijack the storefront's public **Sell With Us** path.
+
 It supports two modes:
 
 1. existing founder-issued seller invitations, preserving the existing email-locked invite contract;
