@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — inactive n8n orphan explicitly source-controlled
+
+- Production n8n still contains one known inactive orphan, `DR92WorkflowHeartbeatV1`, imported briefly by superseded PR #381 before heartbeat consolidation.
+- Canonical heartbeat remains `DR92RuntimeHeartbeatV1`; the orphan must never be activated, published, called or re-imported.
+- The exact orphan JSON is retained under `automation/n8n/orphans/` so it is reviewable in Git without being copied into the n8n image or startup provisioning directory.
+- Supported cleanup is currently blocked by the absence of an authenticated n8n API key/admin automation path and the absence of arbitrary Railway container exec. Direct SQLite editing is intentionally prohibited.
+- Cleanup must use a supported authenticated n8n delete/archive operation, verify the exact orphan ID, and prove canonical DR-92 remains intact.
+- Regression coverage guarantees the orphan stays inactive and outside the provisioner.
+
 ## 2026-09-30 — n8n heartbeat consolidation correction
 
 - The canonical n8n heartbeat remains **DR-92 n8n Runtime Heartbeat** from PR #380.
