@@ -73,3 +73,16 @@ def test_homepage_merchandising_links_and_settings_are_preserved() -> None:
     assert "block.settings.collection" in sets
     assert 'href="{{ c.url }}"' in sets
     assert "pages['contact'].url" in sets
+
+
+def test_homepage_sealed_collection_is_featured() -> None:
+    source = (ROOT / "storefront" / "theme" / "templates" / "index.json").read_text()
+
+    assert '"sealed": {' in source
+    assert '"collection": "sealed"' in source
+    assert "Sealed drops. Built for collectors." in source
+    assert '"label": "Shop sealed"' in source
+    assert '"max_products": 4' in source
+    assert '"columns": 2' in source
+    order_source = source[source.index('"order"'):]
+    assert order_source.index('"latest"') < order_source.index('"sealed"') < order_source.index('"spotlight"')
