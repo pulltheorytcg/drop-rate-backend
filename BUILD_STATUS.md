@@ -1,5 +1,18 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: automation outbox health monitoring
+
+- Added a narrow `SECURITY DEFINER` automation-outbox health monitor; `tcg_api` still receives **no direct SELECT access** to `tcg.automation_events`.
+- Health snapshot covers PENDING, due, DISPATCHING, DEAD_LETTER, expired leases and oldest-pending age.
+- The monitor has two explicit modes:
+  - **observe/dormant** (default): report metrics and return success without opening incidents;
+  - **alerting**: stale pending events, dead letters or stale leases create/update founder HIGH `AUTOMATION_OUTBOX_UNHEALTHY` Action Required items and cause the operations monitor to fail.
+- This is intentionally dormant initially because production currently contains **396 historical PENDING `inventory.approved` events** created before routing/activation was proven.
+- Added `backend/scripts/check_automation_outbox_health.py` to the existing 30-minute operations monitor alongside payout heartbeat and Shopify order reconciliation.
+- Alert activation is controlled by `TCG_AUTOMATION_OUTBOX_ALERTS_ENABLED`; pending-age threshold defaults to 30 minutes and is bounded 5 minutes–24 hours.
+- No outbox event is deleted, ACKed, replayed or dead-lettered by the health monitor.
+- Canonical workflow registry now marks **error-exception-alerts** and **operational-monitoring** as `BUILT_INACTIVE`; they move to `PROVEN` only after production proof.
+
 ## 2026-09-30 — n8n Wave A control plane: durable execution/error receipts
 
 - First launch-grade n8n control-plane component is now in source control.
