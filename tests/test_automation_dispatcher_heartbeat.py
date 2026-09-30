@@ -48,7 +48,7 @@ def test_dispatcher_heartbeat_monitor_is_dormant_until_explicitly_enabled() -> N
     assert '"AUTOMATION_DISPATCHER_HEARTBEAT_OBSERVED_DORMANT"' in source
     assert "if not alert_enabled:" in source
     assert "return 0" in source
-    assert '"AUTOMATION_DISPATCHER_UNHEALTHY"' in source
+    assert '"AUTOMATION_DISPATCHER_HEARTBEAT_UNHEALTHY"' in source
     assert "return 2" in source
 
     assert 'check_automation_dispatcher_heartbeat.py' in monitor
