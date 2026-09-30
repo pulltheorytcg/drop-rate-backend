@@ -27,7 +27,7 @@ At the start of this audit:
 - Brand Redesign: unpublished;
 - verified real external-customer sales: still not established.
 
-The audit initially misclassified the two PSA services as temporary diagnostics because they have no inbound Railway service dependencies and were sleeping. The founder clarified their intended role: on-demand PSA certificate verification, exact slab matching and PSA image retrieval for graded inventory. Their staged deletion was cancelled before application. Sleeping/no inbound dependency is therefore expected behavior, not evidence that the capability is obsolete.
+The audit initially proposed deleting two sleeping services because they had no inbound Railway dependencies. The founder correctly flagged the intended graded-card certificate/media capability, so the deletion was cancelled before application. A code inspection then showed the services are not equivalent: `psa-fetch-batch` is a working PSA cert/media batch prototype, while `psa-cert-lookup-temp` is currently a CardTrader Dragon Ball discovery probe despite its name. Sleeping/no inbound dependency is expected for on-demand utilities and is not sufficient evidence for retirement.
 
 ## 2. Machine-side latency evidence
 
@@ -151,11 +151,13 @@ Actions completed:
 
 PR #338 changes reconciliation so a cancelled unpaid remote-only order with processed cancellation evidence is terminally acknowledged. Paid-like remote-only orders remain CRITICAL; uncancelled pending orders with missing create proof remain HIGH.
 
-### PSA certificate/media services — retained
+### PSA certificate/media capability — retained and reclassified accurately
 
-`psa-cert-lookup-temp` and `psa-fetch-batch` are retained as graded-card infrastructure. Their purpose is certificate-number lookup, exact PSA slab matching and bulk retrieval of permitted PSA certification data/images. Railway's earlier staged deletion was cancelled before anything was removed.
+`psa-fetch-batch` is a real PSA certificate lookup prototype. Its current code fetches seven hardcoded PSA certs and returns normalised cert identity, grade, language/printing and front/back image URLs. It should remain available as proof of the slab-verification/media path, then be refactored into a parameterised adapter after the storefront milestone.
 
-The current names reflect their investigative origin rather than their intended long-term role. Renaming/consolidation can be reviewed after launch, but the capability itself remains important.
+`psa-cert-lookup-temp` is **not currently a PSA cert service**. Its present Function code probes CardTrader games/expansions for Dragon Ball. It is retained for now rather than destructively removed, but should be renamed or repurposed later so the infrastructure map matches reality.
+
+PSA image publication must remain rights-aware: cert verification/data lookup is a separate question from whether a particular PSA-hosted image may be republished on the storefront.
 
 ### Action Required queue — three stale media exceptions identified
 
