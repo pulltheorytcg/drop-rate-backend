@@ -218,6 +218,24 @@ def test_enrichment_reuses_existing_pricing_and_physical_photo_rules() -> None:
     assert '"MEDIA_UNRESOLVED"' in source
 
 
+def test_media_action_required_state_closes_unresolved_after_candidate_found() -> None:
+    source = ENRICHMENT.read_text()
+    start = source.index('if media_status != "PENDING":')
+    end = source.index('overall_status = "ACTION_REQUIRED"', start)
+    block = source[start:end]
+
+    unresolved_key = '"MEDIA_UNRESOLVED"'
+    review_branch = 'if media_status == "PENDING_REVIEW":'
+    pending_branch = 'elif media_status == "PENDING":'
+
+    assert unresolved_key in block
+    assert "resolve_action_required(" in block
+    assert block.index(unresolved_key) < block.index(review_branch)
+    assert block.index(unresolved_key) < block.index(pending_branch)
+    assert 'if media_status != "PENDING":' in block
+    assert 'code = "MEDIA_UNRESOLVED"' in block
+
+
 def test_enrichment_is_chunked_bounded_parallel_and_retryable() -> None:
     source = ENRICHMENT.read_text()
 

@@ -880,6 +880,19 @@ async def _process_one(
                 actor_user_id=user_id,
             )
 
+        # MEDIA_UNRESOLVED is a state-specific blocker, not permanent history.
+        # Once exact media has advanced beyond PENDING, close the obsolete blocker
+        # before opening/retaining any more specific review state.
+        if media_status != "PENDING":
+            await resolve_action_required(
+                connection,
+                owner_id=owner_id,
+                dedupe_key=_catalogue_action_key(
+                    current["catalogue_id"], "MEDIA_UNRESOLVED"
+                ),
+                actor_user_id=user_id,
+            )
+
         if media_status == "PENDING_REVIEW":
             code = "MEDIA_REVIEW_REQUIRED"
             action_codes.append(code)
@@ -947,14 +960,6 @@ async def _process_one(
                     "tcggraph_configured": bool(settings.tcggraph_api_key),
                 },
             )
-        else:
-            await resolve_action_required(
-                connection,
-                owner_id=owner_id,
-                dedupe_key=_catalogue_action_key(current["catalogue_id"], "MEDIA_UNRESOLVED"),
-                actor_user_id=user_id,
-            )
-
         overall_status = "ACTION_REQUIRED" if action_codes else "COMPLETE"
         updated = await connection.fetchrow(
             """
