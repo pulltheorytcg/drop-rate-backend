@@ -22,7 +22,7 @@ Dragon Ball browse parity is now present:
 
 Visual issues surfaced by the desktop screenshots and corrected on Brand Redesign:
 - customer-visible titles cleaned where card number/set/event wording duplicated the subtitle;
-- 40 affected One Piece/Dragon Ball visible titles cleaned while canonical identity/metafields/SEO remain;
+- 40 affected One Piece/Dragon Ball visible titles cleaned while canonical identity/metafields remain; all 40 SEO titles were audited, 39 already retained collector number, and Nico Robin ACE 10 was corrected to an explicit `Nico Robin OP01-017 ACE 10 | One Piece | Drop Rate` SEO title;
 - subtitle card-number/set row constrained to one line with ellipsis to prevent unequal purchase-button height;
 - homepage/section headings receive a small optical left inset;
 - collection hero/header wrapper made self-contained so it cannot fall flush-left when homepage styles are absent;
