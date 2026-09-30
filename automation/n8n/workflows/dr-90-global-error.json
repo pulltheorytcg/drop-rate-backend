@@ -1,0 +1,157 @@
+{
+  "id": "DR90GlobalErrorV1",
+  "name": "DR-90 Global Error / Action Required",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "dr90-error-trigger",
+      "name": "Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "dr90-normalize",
+      "name": "Normalize Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const input = $input.first().json || {};\nconst execution = input.execution || {};\nconst workflow = input.workflow || {};\nconst executionId = String(execution.id || '').trim();\nconst workflowId = String(workflow.id || '').trim();\nconst workflowName = String(workflow.name || '').trim();\nif (!executionId) throw new Error('missing_failed_execution_id');\nif (!workflowId && !workflowName) throw new Error('missing_failed_workflow_identity');\n\nconst rawKey = workflowName || ('workflow-' + workflowId);\nconst workflowKey = rawKey\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-+|-+$/g, '')\n  .slice(0, 120);\nif (workflowKey.length < 2) throw new Error('invalid_failed_workflow_key');\n\nconst error = execution.error || {};\nconst errorCode = String(error.name || error.type || 'N8N_WORKFLOW_ERROR').slice(0, 120);\nconst errorMessage = String(error.message || 'Workflow execution failed').slice(0, 1200);\nconst eventId = execution.customData?.event_id || null;\n\nreturn [{json:{\n  receipt:{\n    workflow_key: workflowKey,\n    workflow_version: String(workflowId || 'unknown').slice(0, 80),\n    execution_id: executionId,\n    status: 'FAILED',\n    idempotency_key: ('n8n-error:' + (workflowId || workflowKey) + ':' + executionId).slice(0, 255),\n    occurred_at: new Date().toISOString(),\n    owner_id: null,\n    event_id: eventId,\n    error_code: errorCode,\n    error_message: errorMessage\n  }\n}}];"
+      }
+    },
+    {
+      "id": "dr90-sign",
+      "name": "Sign Control Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst receipt = $json.receipt;\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst url = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nif (secret.length < 32) throw new Error('automation_command_secret_not_configured');\nif (!url) throw new Error('automation_control_url_not_configured');\nconst body = JSON.stringify(receipt);\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto\n  .createHmac('sha256', secret)\n  .update(timestamp + '.' + body, 'utf8')\n  .digest('hex');\nreturn [{json:{\n  receipt_url:url,\n  receipt_body:body,\n  receipt_timestamp:timestamp,\n  receipt_signature:signature\n}}];"
+      }
+    },
+    {
+      "id": "dr90-http",
+      "name": "Record Failure in FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        140,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.receipt_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.receipt_timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.receipt_signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.receipt_body }}",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr90-verify",
+      "name": "Control Receipt Accepted?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const response = $input.first().json || {};\nconst statusCode = Number(response.statusCode || 0);\nif (statusCode < 200 || statusCode >= 300) {\n  throw new Error('automation_control_receipt_failed_http_' + statusCode);\n}\nconst body = response.body || {};\nif (body.accepted !== true) {\n  throw new Error('automation_control_receipt_not_accepted');\n}\nreturn [{json:{recorded:true,workflow_key:body.workflow_key,execution_id:body.execution_id}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Normalize Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Failure": {
+      "main": [
+        [
+          {
+            "node": "Sign Control Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Control Receipt": {
+      "main": [
+        [
+          {
+            "node": "Record Failure in FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Failure in FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Control Receipt Accepted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-90",
+      "version": 1,
+      "role": "global-error-control-plane",
+      "recursiveErrorWorkflowForbidden": true,
+      "activationGate": "Activate only after signed FastAPI control receipts are deployed, TCG_AUTOMATION_COMMAND_SECRET / matching n8n secret are configured, and one synthetic failure proves durable Action Required fan-out."
+    }
+  }
+}

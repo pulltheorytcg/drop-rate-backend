@@ -12,6 +12,7 @@ from app.automation_dispatcher import (
     retry_delay_seconds,
     signature_headers,
     validate_webhook_url,
+    verify_signed_body,
 )
 
 
@@ -107,6 +108,35 @@ def test_signature_rejects_weak_secret() -> None:
         assert "at least 32 characters" in str(exc)
     else:
         raise AssertionError("weak webhook secret should be rejected")
+
+
+def test_signed_body_verification_is_exact_and_time_bounded() -> None:
+    secret = "c" * 32
+    body = b'{"workflow_key":"inventory-intelligence"}'
+    timestamp = datetime(2026, 9, 30, 3, 30, tzinfo=timezone.utc)
+    headers = signature_headers(secret=secret, body=body, timestamp=timestamp)
+
+    assert verify_signed_body(
+        secret=secret,
+        body=body,
+        timestamp_header=headers["X-Drop-Rate-Timestamp"],
+        signature_header=headers["X-Drop-Rate-Signature"],
+        now=timestamp,
+    )
+    assert not verify_signed_body(
+        secret=secret,
+        body=body + b" ",
+        timestamp_header=headers["X-Drop-Rate-Timestamp"],
+        signature_header=headers["X-Drop-Rate-Signature"],
+        now=timestamp,
+    )
+    assert not verify_signed_body(
+        secret=secret,
+        body=body,
+        timestamp_header=headers["X-Drop-Rate-Timestamp"],
+        signature_header=headers["X-Drop-Rate-Signature"],
+        now=datetime(2026, 9, 30, 3, 40, 1, tzinfo=timezone.utc),
+    )
 
 
 def test_retry_backoff_is_bounded() -> None:
