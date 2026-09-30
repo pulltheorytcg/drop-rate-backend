@@ -2,6 +2,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+STATIC = ROOT / "backend" / "app" / "static"
 MAIN = ROOT / "backend" / "app" / "main.py"
 HTML = ROOT / "backend" / "app" / "static" / "owner.html"
 JS = ROOT / "backend" / "app" / "static" / "owner-portal.js"
