@@ -2053,10 +2053,10 @@ async def reconcile_shopify_product_prices(
                   $1,$2,$3,$4,$5,$6,$7
                 )
                 """,
-                candidate["link_id"],
-                candidate["owner_id"],
+                UUID(str(candidate["link_id"])),
+                UUID(str(candidate["owner_id"])),
                 int(candidate["link_version"]),
-                candidate["inventory_id"],
+                UUID(str(candidate["inventory_id"])),
                 int(candidate["inventory_version"]),
                 target_price,
                 request_id,
