@@ -1,5 +1,28 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Phase 2 audit consolidated onto current main
+
+- Phase 2 remains the active operating layer on top of the storefront-first manual. Brand Redesign remains unpublished until the full launch gate passes.
+- Added `docs/PHASE2_EFFICIENCY_AUDIT.md`, `docs/PHASE2_SYSTEM_MAP.md` and the verified `docs/STOREFRONT_ROLLBACK.md`.
+- Machine-side efficiency evidence is now explicit:
+  - normal inventory/readiness APIs are generally sub-second;
+  - exact supported-card recognition latency is dominated by the vision stage, not Postgres/scoring;
+  - inventory-image proxy responses were observed around 1.5–2.8s; PR #344 is merged and deployed with the Shopify-CDN-first optimisation.
+- Historical Shopify test order #1001 is fully reconciled:
+  - no local order was fabricated;
+  - PR #338 prevents a processed unpaid cancellation from reopening forever;
+  - the two old HIGH `SHOPIFY_ORDER_WEBHOOK_GAP` rows were guardedly dismissed with audit records;
+  - production now has **0 OPEN Shopify webhook-gap alerts**.
+- Media exception lifecycle is corrected by PR #340. The three stale Dragon Ball `MEDIA_UNRESOLVED` rows were guardedly resolved after verifying exact eligible media + published physical links. Production now has exactly **8 OPEN `MEDIA_UNRESOLVED` rows**, matching the eight genuine Dragon Ball exact-print blockers.
+- Current Action Required OPEN census: **37 total / 0 CRITICAL**:
+  - HIGH: 2 `GRADED_SLAB_MEDIA_REQUIRED`, 2 `SEALED_PUBLICATION_INPUTS_REQUIRED`;
+  - MEDIUM: 25 `MEDIA_REVIEW_REQUIRED`, 8 `MEDIA_UNRESOLVED`.
+- PSA certificate/media capability is retained. `psa-fetch-batch` is the actual working PSA cert/media prototype; the misleadingly named `psa-cert-lookup-temp` currently contains a CardTrader Dragon Ball probe and should be renamed/repurposed later rather than silently deleted.
+- PR #342 merged the deferred multi-grader **Raw Card / Graded Slab** scanner architecture for **PSA, ACE, CGC, TAG and BGS/BVG/BCCG**. Implementation remains frozen until the storefront stability gate explicitly reopens recognition/Seller Hub work.
+- Rollback plan is now verified: Shopify reports Horizon as MAIN and Brand Redesign as UNPUBLISHED; Shopify's `themePublish(id: ID!)` contract is schema-valid. Emergency rollback is republish Horizon, verify Horizon=MAIN, then run the minimal recovery smoke. Theme publishing itself requires an authorized operator in Shopify Admin.
+- Remaining human-only Phase 2 gates are unchanged: real-phone card scan timing, full mobile smoke, full desktop smoke and one controlled Brand Redesign purchase with confirmation + exact owner/inventory attribution.
+- Stability threshold before reopening deferred scope remains: 72h Brand Redesign MAIN without rollback, 5 genuine paid non-founder orders, zero attribution/allocation/oversell/settlement errors, zero CRITICAL Action Required for 72h, no unresolved post-launch webhook gap, and one outside-person purchase test.
+
 ## 2026-09-30 — Founder HQ inventory image latency fast path
 
 - Phase 2 production timing found inventory image responses frequently taking roughly **1.5–2.8 seconds** even while ordinary inventory/readiness metadata APIs remain sub-second.
