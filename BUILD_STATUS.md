@@ -1,5 +1,18 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Founder HQ inventory image latency fast path
+
+- Phase 2 production timing found inventory image responses frequently taking roughly **1.5–2.8 seconds** even while ordinary inventory/readiness metadata APIs remain sub-second.
+- Root cause: Founder HQ visual inventory always fetched `/api/v1/inventory/{id}/image`, causing FastAPI to re-download and stream the remote image for every card render; the global authenticated response policy is also `Cache-Control: no-store`.
+- The safe optimisation is **Shopify-CDN-first, authenticated-proxy fallback**:
+  - the inventory API exposes a direct URL only when the selected media asset already has a strict HTTPS Shopify CDN URL;
+  - Founder HQ loads that CDN image directly and lazily;
+  - if the CDN request fails, the existing authenticated bounded/allowlisted FastAPI proxy is used automatically;
+  - non-Shopify provider/source URLs continue through the existing proxy and are not exposed as the direct fast path.
+- CSP is widened only for Shopify CDN hosts; provider hotlinking/privacy boundaries are unchanged.
+- Existing proxy SSRF/content-type/size/redirect protections remain intact.
+- This is a measured Phase 2 efficiency fix, not new Seller Hub/recognition feature scope.
+
 ## 2026-09-30 — Media Action Required lifecycle correction
 
 - Phase 2 queue review found three stale OPEN `MEDIA_UNRESOLVED` rows for Dragon Ball cards that later obtained exact media and were published: BT18-067, BT18-138 and BT13-142.
