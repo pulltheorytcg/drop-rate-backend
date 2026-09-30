@@ -145,22 +145,22 @@
   top:0;
   z-index:30;
   height:78px!important;
-  padding:0 28px!important;
+  padding:0 36px!important;
   border:0!important;
   border-bottom:1px solid rgba(255,255,255,.08)!important;
   background:linear-gradient(90deg,#061a3c,#08234d)!important;
   box-shadow:0 3px 18px rgba(7,27,63,.13)!important;
 }
 .owner-portal-page .owner-topbar-brand{
-  min-width:268px;
+  min-width:236px;
   display:flex;
   align-items:center;
   flex:0 0 auto;
 }
 .owner-portal-page .owner-topbar-logo{
   display:block!important;
-  width:254px!important;
-  height:68px!important;
+  width:220px!important;
+  height:56px!important;
   flex:0 0 auto;
   object-fit:contain;
   object-position:left center;
