@@ -75,7 +75,14 @@ async function loadSocialProviders() {
 
 function inviteToken() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("invite") || localStorage.getItem(PENDING_OWNER_INVITE_KEY);
+  const explicitToken = params.get("invite");
+  if (explicitToken) return explicitToken;
+
+  const callback = new URLSearchParams(window.location.hash.slice(1));
+  if (callback.get("access_token")) {
+    return localStorage.getItem(PENDING_OWNER_INVITE_KEY);
+  }
+  return null;
 }
 
 function callbackSession() {
