@@ -929,7 +929,7 @@
       "sequence": 42,
       "domain": "Control",
       "authority": "OBSERVE",
-      "status": "PLANNED",
+      "status": "BUILT_INACTIVE",
       "source_of_truth": "PostgreSQL/Supabase",
       "decision_engine": "FastAPI",
       "orchestrator": "n8n",

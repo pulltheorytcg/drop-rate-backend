@@ -1,5 +1,18 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: automation outbox health monitoring
+
+- Historical pre-routing backlog has now been reconciled in production: **396 / 396** obsolete `inventory.approved` events are `SUPERSEDED`, with **396** matching audit events; inventory remains **509** and published Shopify inventory links remain **492**.
+- Added a narrow `SECURITY DEFINER` automation-outbox health monitor; `tcg_api` still receives **no direct SELECT access** to `tcg.automation_events`.
+- Health snapshot covers PENDING, due, DISPATCHING, DEAD_LETTER, expired leases and oldest-pending age. `SUPERSEDED` is terminal history and is intentionally excluded from unhealthy queue counts.
+- The monitor has two explicit modes:
+  - **observe/dormant** (default): report metrics and return success without opening incidents;
+  - **alerting**: stale pending events, dead letters or stale leases create/update founder HIGH `AUTOMATION_OUTBOX_UNHEALTHY` Action Required items and cause the operations monitor to fail.
+- Added `backend/scripts/check_automation_outbox_health.py` to the existing 30-minute operations monitor alongside payout heartbeat and Shopify order reconciliation.
+- Alert activation is controlled by `TCG_AUTOMATION_OUTBOX_ALERTS_ENABLED`; pending-age threshold defaults to 30 minutes and is bounded 5 minutes–24 hours.
+- No outbox event is deleted, ACKed, replayed, superseded or dead-lettered by the health monitor.
+- Canonical workflow registry marks **error-exception-alerts** and **operational-monitoring** as `BUILT_INACTIVE`; they move to `PROVEN` only after deployment/live execution proof.
+
 ## 2026-09-30 — n8n Wave A: historical outbox backlog retirement
 
 - Production currently has **396 PENDING `inventory.approved` automation events** created before n8n dispatcher activation.
