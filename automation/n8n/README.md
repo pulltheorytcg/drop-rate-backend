@@ -159,3 +159,17 @@ Activation gate:
 4. replay the same execution and prove duplicate safety;
 5. prove the stale/healthy Action Required lifecycle;
 6. only then activate DR-92 and enable heartbeat alerts.
+
+## DR-00 V2 + DR-01 Shopify publication
+
+DR-00 V1 remains untouched because production n8n provisioning never overwrites an existing stable workflow ID.
+
+The versioned path is:
+
+`automation dispatcher → DR00IngressV2 → DR01InventoryApprovedShopifyV1 → signed FastAPI command → deterministic Shopify publication/read-back → DR91SuccessReceiptV1`
+
+Failures inside DR-01 route to `DR90GlobalErrorV1`. DR-00 V2 returns HTTP 200 only after the child workflow completes successfully; a child failure therefore remains retryable to the dispatcher.
+
+DR-01 owns no Shopify or database business rules. FastAPI validates the exact `inventory.approved` envelope and the database revalidates the matching DISPATCHING automation event before draft persistence/finalization.
+
+Both workflows are imported inactive. Activation requires a controlled switch of the dispatcher webhook URL to `drop-rate/events-v2`; do not repoint the dispatcher until DR-90/91 are published/proven and a controlled DR-01 event has passed duplicate, retry and read-back tests.

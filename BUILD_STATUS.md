@@ -1,5 +1,19 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave B: DR-01 Shopify product creation built inactive
+
+- Restored the canonical `20260928183039_shopify_automation_publication` migration file to Git; production Supabase already reports that exact migration version/name as applied.
+- Extracted one deterministic `publish_inventory_to_shopify(...)` service from the current single-item Shopify path so manual founder testing and automation use the same publication/read-back rules.
+- Preserved current copy-group metadata sync after publication.
+- Added signed FastAPI automation command `POST /api/v1/automation/control/shopify/inventory-approved`.
+- Added inactive versioned ingress `DR00IngressV2` because the n8n provisioner intentionally does not overwrite persistent DR-00 V1.
+- Added inactive `DR01InventoryApprovedShopifyV1`.
+- DR-00 V2 accepts only a valid signed dispatcher envelope and currently routes only `inventory.approved`; unsupported events fail closed.
+- DR-01 validates deterministic event identity/idempotency, calls FastAPI, requires verified Shopify success, then records durable success through DR-91. Workflow errors route to DR-90.
+- n8n contains no ownership, readiness, Shopify product-building or financial business rules.
+- Registry state for `shopify-product-creation` is now `BUILT_INACTIVE`.
+- **Activation remains blocked:** DR-90/DR-91 publication/proof, the manual dispatcher-heartbeat migration gate, controlled DR-00 V2/DR-01 live test, duplicate/retry proof, and deliberate dispatcher webhook cutover are still required.
+
 ## 2026-09-30 — n8n Wave A control plane implementation closed
 
 - **Wave A build scope is now implemented in source control:** registry, signed ingress, global error handling, reusable success receipts, Action Required integration, dead-letter/replay visibility, outbox backlog health, canonical n8n runtime heartbeat and dispatcher-process heartbeat.
