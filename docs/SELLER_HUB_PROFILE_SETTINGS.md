@@ -80,3 +80,18 @@ The regression suite verifies:
 7. password change re-authenticates before credential update;
 8. no service-role secret is present in browser code;
 9. the profile destination remains reachable on mobile.
+
+
+## Production activation — 30 September 2026
+
+- PR #428 merged to `main`.
+- Supabase migration `owner_profile_settings` applied successfully.
+- Production verification confirmed:
+  - `tcg.owners.username` exists;
+  - `tcg.update_owner_profile(text,text)` exists;
+  - `tcg_api` can execute the function;
+  - `anon` and browser `authenticated` cannot execute it directly;
+  - the case-insensitive username unique index exists.
+- Railway deployment `a6827447-fb6d-42f3-8c83-2bbef058cd52` completed successfully.
+- Railway pre-deploy checks reported **2,131 passed** and `/health/ready` returned HTTP 200 after startup.
+- Supabase security advisor still reports leaked-password protection disabled. This is a platform Auth setting, not a Seller Hub code defect; it should be enabled separately when the account plan/settings permit it.
