@@ -56,15 +56,14 @@ async def replay_automation_event(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    actor = f"user:{user.user_id}"
     async with request.app.state.db_pool.acquire() as connection:
         result = await connection.fetchval(
             """
             select tcg.replay_dead_letter_automation_event($1,$2,$3,$4)
             """,
             event_id,
+            user.user_id,
             payload.reason,
-            actor,
             request.state.request_id,
         )
 
