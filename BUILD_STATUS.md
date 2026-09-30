@@ -300,6 +300,173 @@ Across the 29–30 September work:
 8. Once Brand Redesign is live and stable, **explicitly reopen the manual's deferred workstreams** in priority order rather than automatically resuming all of them at once.
 9. **Deferred graded-slab scanner architecture — APPROVED BACKLOG:** when recognition/Seller Hub scope is explicitly reopened, add a scanner choice for **Raw Card / Graded Slab** across Founder HQ and the future Seller Hub/mobile app. Graded Slab mode must detect the grader, read the certificate/serial, route through a grader adapter, verify the exact graded identity where permitted, store grader + grade + cert directly on the physical Inventory Item, attach exact official slab media where permitted/available, and require human confirmation before commit. Initial grader targets are **PSA, ACE, CGC, TAG and BGS/Beckett**. PSA has an official cert API and is the first full automation target; TAG should support certificate/QR → DIG report verification, TAG Score and grader-specific digital evidence through a permitted integration path; ACE/CGC should use provider verification only through permitted machine access; BGS remains adapter-ready but automatic lookup must stay disabled unless Beckett provides/approves machine access rather than bypassing its verification protections. Preserve BGS half grades/subgrades including 9.5 and Black Label 10, and preserve TAG's provider-specific score/metrics as evidence rather than flattening them into the core grade. Full design: `docs/GRADED_SLAB_SCANNER_ARCHITECTURE.md`.
 
+
+## 2026-09-30 — Founder-requested post-storefront roadmap additions
+
+**ROADMAP RECORDED / NOT YET COMPLETE —** the following founder-requested capabilities must remain visible in the build plan. They are not considered completed by the current storefront milestone and should be scheduled explicitly after the Brand Redesign launch is stable, unless a blocking bug requires earlier work.
+
+### Sealed-product commerce and intelligence
+
+- **Publish sealed products to Shopify:** complete the physical-input gate for current and future sealed inventory, including exact package media, language/region, seal status, packed weight/dimensions, shipping profile, pricing and Shopify collection/product presentation. Do not guess shipping dimensions or reuse card-oriented media rules.
+- **Sealed-product scanning/recognition:** extend intake so the platform can recognise sealed boxes, booster boxes, tins, collections and other supported sealed products from images/scans. Recognition must remain confidence-scored and fail closed for ambiguous/high-value products.
+- **Sealed-product market valuation:** extend the pricing/market-data layer so sealed products have deterministic market value, recommended retail, quick-sale and acquisition-price outputs using permitted provider data. Sealed valuation must remain separate from raw/graded-card assumptions where liquidity, pack count, product configuration or region materially differ.
+
+### Seller Hub / mobile application
+
+- **Seller Hub as full desktop + mobile product:** turn Seller Hub into a complete responsive desktop experience plus purpose-built iOS and Android apps, usable end-to-end on a phone rather than relying on a partial mobile web workflow.
+- The native mobile app should continue to use the existing FastAPI/Supabase backend rather than becoming a separate source of truth.
+- Core mobile flows should include camera/scanner intake, inventory management, pricing/value views, Action Required, sales/channel state, portfolio, payouts/settlements and account/profile operations.
+
+### Multi-channel commerce expansion
+
+- **Connect Whatnot, Cardmarket and TCGplayer** as additional sales channels alongside Shopify and the existing dormant eBay groundwork.
+- Each channel must use a replaceable adapter and backend API contract; n8n must not own inventory truth or allocation logic.
+- Cross-channel stock must remain Inventory-ID/owner aware and idempotent so one physical item cannot be oversold across Shopify/eBay/Whatnot/Cardmarket/TCGplayer.
+- Channel expansion remains gated behind provider/platform terms, available official APIs/authorised integrations, credentials, webhook/order support and seller-account approval. Do not assume scraping or unsupported automation is permitted.
+
+### Shopify customer → Seller Hub conversion
+
+- **Offer Seller Hub signup to Shopify customers:** when a customer provides an email by creating a Shopify account or making a purchase, present a clear invitation to create a Drop Rate Seller Hub account and explain the value proposition.
+- After a customer explicitly signs up/links the account, eligible purchases should be associated with that Seller Hub identity and purchased cards should be added to their portfolio automatically without transferring physical ownership records incorrectly.
+- Customer/storefront auth must remain separate from founder/admin permissions; do not silently create privileged Seller Hub accounts from checkout alone.
+- Consent, email matching/account linking, duplicate-account handling, refunds/returns and privacy rules must be defined before automatic portfolio import is enabled.
+
+### Founder Dashboard + Seller Hub simplification
+
+- **Simplify both Founder Dashboard and Seller Hub:** reduce complexity, duplication and unnecessary controls so routine inventory/sales work is fast and obvious on desktop and mobile.
+- Prioritise common actions, clear status, search/filtering, compact card grids, Action Required exceptions and context-aware controls rather than exposing internal system complexity.
+- Keep founder/admin-only capabilities clearly separated from seller/consignor/customer-safe functionality.
+
+### Hardware / scanner / printer integration
+
+- **Allow sellers/founders to connect supported printers and scanners** from Seller Hub / Founder Dashboard.
+- Support direct card intake from compatible scanners/cameras into the normal inventory/recognition pipeline rather than creating a separate unmanaged import path.
+- Add a Device Bridge / local connector architecture for hardware that requires local desktop/mobile access.
+- Printer support should cover useful operational workflows such as labels, inventory IDs, order/pick labels or other approved fulfilment outputs.
+- Hardware integrations must preserve authenticated user/owner context, audit events, duplicate protection and explicit device permissions.
+
+
+### Recognition corpus / massive canonical card database
+
+- **Build a large governed recognition corpus so the scanner can recognise cards that have never previously been scanned by Drop Rate.**
+- The corpus must be organised around canonical card/printing identity rather than a loose image folder. Each supported printing should be capable of carrying:
+  - game/line;
+  - set/expansion;
+  - canonical card name;
+  - collector number;
+  - rarity;
+  - variant/parallel/promo/event printing;
+  - language;
+  - foil/finish;
+  - provider/reference IDs;
+  - permitted reference media/fingerprints;
+  - image hashes/visual embeddings where appropriate;
+  - human-confirmed corrections;
+  - confidence/evidence history.
+- Initial supported families remain Pokémon, One Piece, Dragon Ball, Naruto and Riftbound, with future games added through modular adapters/corpus packs.
+- The scanner must not depend only on examples already seen by Drop Rate. Recognition should compare a new scan against the broader corpus plus deterministic metadata/provider evidence.
+- High-value, promo, parallel, pre-release, winner, event, graded or otherwise ambiguous exact printings must remain fail-closed and go to Action Required when evidence is insufficient.
+- Human-confirmed corrections should improve future recognition, but only confirmed outcomes may enter the governed learning loop.
+- Raw recognition images remain subject to the existing retention/privacy/rights policy. The corpus should prefer durable fingerprints/embeddings/reference metadata where rights/storage policy permits rather than becoming an uncontrolled image archive.
+- n8n may orchestrate corpus ingestion/enrichment jobs, but canonical identity, mappings, fingerprints and recognition state belong in Supabase/object storage/FastAPI rather than inside n8n.
+
+### Dragon Ball storefront media quality / high-resolution image programme
+
+- **Audit every live Dragon Ball storefront image for quality, exact-print correctness and resolution.**
+- Current Dragon Ball CardTrader images are materially lower quality than the Pokémon/One Piece catalogue and must be treated as an interim source where no better legitimate exact-print media exists.
+- Target high-resolution / approximately 4K-quality presentation where a legitimate exact-print source or first-party capture is available.
+- Do not upscale with generative reconstruction that changes card text/artwork/printing details. Any enhancement must preserve the exact source image faithfully.
+- Prefer, in order where permitted and exact:
+  1. first-party high-resolution physical capture;
+  2. official grading-provider slab scan for graded cards;
+  3. rights-cleared/permitted exact-print provider media;
+  4. existing lower-resolution provider media only as a temporary fallback.
+- Add an image-quality audit/remediation queue for low-resolution, incorrect crop/aspect, missing slab back, wrong printing and replacement-available cases.
+- Extend the same quality standard to other games when poorer legacy media is found; Dragon Ball is the first priority.
+
+### Planned n8n automation programme
+
+n8n remains the orchestration layer only. Supabase/Postgres remains the source of truth and FastAPI remains the deterministic business-rule layer. AI may assist inside workflows but must not silently alter canonical identity, ownership, price, settlement or financial truth.
+
+Planned automations/workflows:
+
+1. **New card intake** — react to new founder/seller inventory and call the normal backend intake pipeline with owner context, Inventory ID, media state and next required step.
+2. **Bulk card import** — orchestrate Collectr/CSV/bulk imports, deduplication, deterministic physical-quantity expansion and exception routing.
+3. **AI card identification** — send captured/scanned cards through recognition and route low-confidence/high-value results to Action Required.
+4. **Recognition corpus enrichment** — after human confirmation, add governed metadata/fingerprints/corrections to the canonical recognition corpus so future unseen-card scans improve.
+5. **Sealed-product recognition** — process booster boxes, tins, decks, collections and other sealed products through a sealed-specific identification pipeline.
+6. **Inventory status changes** — react to APPROVED/LISTED/RESERVED/SOLD/RETURNED etc. and trigger only valid downstream workflows.
+7. **Market-data ingestion** — periodically request permitted pricing/sales data from configured provider adapters.
+8. **Market-data normalisation** — normalise source/currency/shipping/condition/grade/language/sold-vs-listed/timestamp/provenance.
+9. **Pricing recalculation** — call FastAPI pricing rules when meaningful new evidence arrives; produce Market Value, Recommended Retail, Quick-Sale and Target Acquisition prices.
+10. **Sealed-product valuation** — run sealed-specific price/market workflows with region/configuration/liquidity-aware inputs.
+11. **Shopify product creation** — once backend readiness passes, create the Shopify product/media/metafields/collections/SEO/inventory linkage.
+12. **Shopify product updates** — synchronise legitimate backend changes without making Shopify the master record.
+13. **Shopify order processing** — consume verified webhooks idempotently and reconcile order state against Supabase.
+14. **Multi-owner order allocation** — route sold line items through deterministic Inventory → Owner → Fees/Commission → Net Proceeds allocation.
+15. **Refunds/returns/cancellations** — reverse the correct inventory/financial state and return items to inspection when required.
+16. **Founder/consignor settlement preparation** — generate deterministic settlement reports, balances, commissions, deductions and amount owed.
+17. **Payout monitoring** — watch scheduler health, payout requests, reconciliation and discrepancies; create Action Required exceptions rather than silently moving money.
+18. **Consignment submissions** — intake customer submissions and initialise the SUBMITTED → RECEIVED workflow.
+19. **Consignment processing** — orchestrate RECEIVED → INSPECTION → APPROVED → LISTED and exception handling.
+20. **Consignment sale/settlement updates** — update consignor visibility for sale, commission, amount owed and settlement state.
+21. **Cross-channel publishing** — controlled publishing to Shopify/eBay/Whatnot/Cardmarket/TCGplayer through replaceable channel adapters.
+22. **Cross-channel inventory protection** — on sale/reservation, immediately reserve/zero/withdraw the same physical stock from other channels.
+23. **Cross-channel order reconciliation** — compare channel orders/listings against Drop Rate and alert on mismatches without fabricating financial state.
+24. **Shopify customer → Seller Hub invitation** — after customer account creation/purchase/email capture, send a clear invitation explaining Seller Hub and its value.
+25. **Purchase → Seller Hub portfolio** — after explicit account linking, add eligible purchased cards to the customer's portfolio and handle refunds/returns safely.
+26. **New-stock marketing triggers** — detect grails, significant new inventory, set drops and noteworthy restocks.
+27. **Price-movement/trending triggers** — surface meaningful market moves/trends as internal events using deterministic thresholds before AI interpretation.
+28. **AI product listing copy** — generate titles/descriptions/SEO/tags/alt text only from confirmed database facts.
+29. **SEO maintenance** — identify weak/missing metadata, internal-linking gaps, collection/set content gaps and indexing issues.
+30. **SEO/CRO experimentation** — after sufficient traffic, propose/run controlled A/B tests for collection layouts, CTA copy, product-card layout and conversion flow with measurable rollback-safe results.
+31. **AI creative generation** — Event → AI brief → Higgsfield/Banana Pro → creative/caption/CTA → approval.
+32. **Social publishing** — publish approved social content on schedule and record source event/inventory/campaign linkage.
+33. **Customer email lifecycle** — welcome, post-purchase, back-in-stock, portfolio onboarding, relevant recommendations and lifecycle follow-up.
+34. **AI customer service** — resolve routine order/product/policy questions using live permitted context; escalate disputes/refunds/financially sensitive issues.
+35. **Recommendations** — recommend relevant cards/products from real catalogue/inventory/purchase/portfolio data rather than generic AI guesses.
+36. **Inventory intelligence** — surface ageing stock, low stock, high-value inventory, fast sellers, slow movers, liquidity issues and acquisition opportunities.
+37. **Founder/seller daily briefing** — summarise sales, valuation changes, Action Required, consignments, inventory and operational exceptions.
+38. **Analytics automation** — maintain sales/channel/inventory/owner performance datasets and surface meaningful changes automatically.
+39. **Image-quality audit automation** — detect low-resolution images, incorrect crops/aspect, missing slab backs and replacement-available media; Dragon Ball is first remediation target.
+40. **Error/exception alerts** — API failures, Shopify sync failure, provider failure, duplicates, missing owner, webhook gaps, settlement discrepancies, recognition uncertainty and other operational faults into Action Required.
+41. **Hardware workflow triggers** — receive scanner/device captures into the normal intake/recognition path and send approved printer jobs for labels/fulfilment.
+42. **Operational monitoring** — heartbeat/health checks for n8n, backend jobs, payouts, marketplace integrations and other critical scheduled workflows.
+
+Preferred automation activation order after storefront launch:
+**inventory/intake → Shopify/order/reconciliation → pricing/market data → Seller Hub/customer portfolio → consignments → cross-channel → customer lifecycle → SEO/CRO → AI marketing/social.**
+
+### Additional deferred product/workstream items already discussed
+
+- **Third-founder completion:** onboard the genuine third founder and repeat production cross-owner isolation verification to finish the final Milestone 1 release gate.
+- **Real multi-owner commerce proof:** production-test a same-order/multi-owner or pooled-stock sale through allocation, refund and settlement reporting.
+- **Live payout cutover:** keep automatic money movement locked until settlement/reconciliation is fully production-proven and explicitly approved.
+- **Consignor portal/full consignment rollout:** submissions, status tracking, listed stock, sales, commission, amount owed and settlement visibility.
+- **Seller Hub portfolio:** inventory value, top-valued cards, weekly movers, sales/channel state, payout tracking and portfolio performance.
+- **Shopify-customer portfolio ownership experience:** customers who buy from Drop Rate should be able to claim/link purchases into Seller Hub after explicit signup.
+- **Mobile-first scan experience:** full-screen camera, rapid capture, batch totals, manual capture fallback, correction flow and unresolved queue.
+- **Desktop/mobile UX simplification:** fewer internal/technical controls, compact grids, better defaults, clear common actions and a strong Action Required workflow.
+- **Device Bridge:** local desktop/mobile bridge for supported scanners, label printers and other hardware that browsers cannot securely access directly.
+- **One-click cross-listing:** once channels are authorised, list eligible stock to selected marketplaces while backend ownership/inventory remains authoritative.
+- **Channel dashboard:** seller-facing visibility of Shopify/eBay/Whatnot/Cardmarket/TCGplayer state without exposing unsafe channel controls.
+- **Recommendations and collection intelligence:** customer-facing recommendations plus founder-facing acquisition/stock intelligence.
+- **Native notifications:** mobile push/email/in-app notifications for sales, payouts, price movement, Action Required and significant inventory events.
+- **AI product listings:** controlled generation of product copy after canonical identity/pricing/media are confirmed.
+- **AI customer service:** routine support automation with human escalation.
+- **SEO programme:** collection/set/card metadata, internal linking, structured content and Search Console-style issue handling based on real database facts.
+- **CRO programme:** controlled A/B testing only after enough real traffic/conversion data exists.
+- **AI marketing programme:** new grails, new inventory, price movements, trending cards, new sets, major sales, low stock and collection drops.
+- **Analytics/optimisation:** founder dashboards for revenue, profit, inventory turn, owner performance, channel performance and campaign attribution.
+- **Data/provider expansion:** additional legitimate market/reference providers only after source-by-source terms, rights, API quality and economics are reviewed.
+- **Recognition performance:** parallelism, fingerprint caching, short-circuiting, per-stage timing and corpus-quality metrics after the storefront freeze is explicitly reopened.
+- **Counterfeit/risk review:** retain a human-review path for suspicious cards/products rather than treating AI confidence as authenticity proof.
+- **Backups/dev-prod/security hardening:** maintain separate environments, RLS/RBAC, secure secrets, webhook verification, audit logs, recovery/backups and controlled migrations as the platform grows.
+
+### Sequencing note
+
+These items are now part of the official roadmap but **do not override the current storefront-first launch gate**. Immediate order remains: final Brand Redesign smoke QA → publish Brand Redesign → post-launch verification → resolve remaining storefront inventory exceptions. After that, explicitly reopen deferred workstreams in controlled phases rather than building all roadmap items simultaneously.
+
+
 ## 2026-09-30 — Dragon Ball publication final production verification
 
 **PRODUCTION VERIFIED —** the CardTrader Dragon Ball backfill/publication pass is complete for every exact printing the current permitted provider data can prove. Production now has **27 / 35 Dragon Ball physical FOR_SALE items published**, represented by **25 live Shopify products** because two duplicate physical copies are intentionally pooled into quantity-2 listings.
