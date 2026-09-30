@@ -150,6 +150,19 @@ def test_pre_release_description_discloses_reference_image_difference() -> None:
     assert "markings may differ from the reference image" in plan["descriptionHtml"]
 
 
+def test_one_piece_promo_description_discloses_reference_image_difference() -> None:
+    plan = build_shopify_product_plan(
+        _card(
+            game="One Piece",
+            set_name="One Piece Promotion Cards",
+            card_number="P-003",
+            name='Eustass"Captain"Kid (Online Regional 2024 Vol. 2) [Participant]',
+        )
+    )
+    assert "promotional/event printing" in plan["descriptionHtml"]
+    assert "event markings may differ from the reference image" in plan["descriptionHtml"]
+
+
 def _ready_asset(
     *,
     scope="CANONICAL_CARD",
