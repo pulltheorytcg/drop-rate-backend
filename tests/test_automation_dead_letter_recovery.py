@@ -49,9 +49,12 @@ def test_replay_is_dead_letter_only_admin_gated_and_audited() -> None:
     assert "o.owner_type='FOUNDER'" in sql
     assert "if v_event.status <> 'DEAD_LETTER'" in sql
     assert "Only DEAD_LETTER automation events may be replayed" in sql
-    assert "AUTOMATION_EVENT_REPLAYED" in sql
+    assert "AUTOMATION_EVENT_REPLAY_REQUESTED" in sql
     assert "insert into tcg.audit_events" in lower
-    assert "attempt_count=0" in lower
+    assert "attempt_count=0" not in lower
+    assert "max_attempts=greatest(max_attempts,attempt_count+1)" in lower
+    assert "last_error_code='manual_replay_requested'" in lower
+    assert "p_request_id" in lower
     assert "status='PENDING'" in sql
 
     for forbidden in (
@@ -85,7 +88,8 @@ def test_api_requires_platform_admin_and_uses_database_guards() -> None:
 
     assert "await require_platform_admin(connection)" in source
     assert "tcg.list_automation_dead_letters" in source
-    assert "tcg.replay_dead_letter_automation_event" in source
+    assert "tcg.replay_dead_letter_automation_event($1,$2,$3,$4)" in source
+    assert "request.state.request_id" in source
     assert 'status_code=404' in source
     assert 'status_code=409' in source
     assert "app.include_router(automation_recovery_router)" in main
