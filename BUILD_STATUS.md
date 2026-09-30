@@ -1,16 +1,16 @@
 # Drop Rate — Live Build Status
 
-## 2026-09-30 — Founder HQ trusted-image fast path expansion
+## 2026-09-30 — Founder HQ TCGdex direct-image fast path
 
 - Post-deploy coverage audit of PR #344 found only **10 / 490 displayed inventory images (2.0%)** currently have a Shopify CDN URL, so the first fast path was correct but too narrow to materially solve the measured grid latency alone.
-- Current selected image-source distribution shows the dominant remaining inventory media is already on hosts explicitly trusted by Founder HQ CSP:
-  - TCGdex `assets.tcgdex.net`: 195 inventory items;
-  - official One Piece hosts `en.onepiece-cardgame.com` / `www.onepiece-cardgame.com`: 260 inventory items;
-  - CardTrader: 27 items;
-  - OPTCG API: 1 item.
-- The direct-browser fast path is therefore expanded only to **Shopify CDN + TCGdex + official One Piece image hosts**, with the existing authenticated proxy as automatic fallback.
-- CardTrader, OPTCG API, TCGGraph and any unknown hosts remain proxy-only until separately reviewed; there is no wildcard/direct arbitrary-provider path.
-- This should move roughly **94% of currently displayed inventory images** onto a direct/lazy browser path while preserving the existing proxy security boundary for everything else.
+- TCGdex accounts for **195** selected Founder HQ inventory images. Its current API documentation explicitly supports direct card-image URLs and recommends the **low-quality WebP** variant when displaying many small images in a grid.
+- The direct-browser fast path is therefore expanded only to **Shopify CDN + TCGdex**:
+  - TCGdex `high.webp` grid URLs are converted to `low.webp` for the visual inventory view;
+  - the authenticated bounded proxy remains the automatic fallback if the browser load fails;
+  - official One Piece, CardTrader, OPTCG API, TCGGraph and unknown hosts remain proxy-only unless their display terms are separately confirmed.
+- Current production data indicates **202 / 490 displayed inventory images (~41.2%)** can use the direct path after this change.
+- No wildcard direct-provider path is introduced, and provider-source privacy/terms boundaries remain fail-closed.
+
 
 ## 2026-09-30 — Founder HQ inventory image latency fast path
 
