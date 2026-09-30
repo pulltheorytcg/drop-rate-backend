@@ -283,14 +283,31 @@ The 42 current workflow families cover:
 ## Pre-launch build waves
 
 ### Wave A — Control Plane
-Build now:
+Implementation status: **source-control complete; production activation intentionally gated**.
+
+Implemented:
 - registry;
-- error workflow;
-- Action Required bridge;
-- execution receipt contract;
+- signed event ingress;
+- global error workflow;
+- reusable durable success receipt contract;
+- Action Required integration;
 - dead-letter/replay visibility;
 - dispatcher backlog monitoring;
-- workflow heartbeat.
+- canonical n8n runtime heartbeat;
+- dispatcher-process heartbeat monitoring.
+
+### Action Required bridge decision
+
+Do **not** add a separate generic n8n “Action Required bridge” workflow.
+
+The bridge is already deterministic:
+- DR-90 sends an HMAC-signed FAILED execution receipt to FastAPI;
+- FastAPI validates it, writes the durable `tcg.automation_runs` receipt and upserts a deduped `N8N_WORKFLOW_FAILED` Action Required item;
+- backend/Postgres health monitors create and resolve their own deduped Action Required items for outbox, heartbeat and other system-health failures.
+
+This preserves the architecture boundary: n8n orchestrates, FastAPI decides deterministic control behavior, Postgres stores durable truth.
+
+Activation remains gated on migration/application proof, workflow publication proof, duplicate/retry tests and historical-backlog disposition.
 
 ### Wave B — Core Commerce Operations
 Build before launch:
