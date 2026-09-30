@@ -3,6 +3,14 @@ Global refinements for the Drop Rate storefront.
 {% enddoc %}
 
 {% stylesheet %}
+
+  /* Brand Redesign keeps Sell With Us in the mobile drawer only. */
+  @media screen and (min-width: 750px) {
+    header-menu .menu-list__list-item:has(a[href="https://drop-rate-api-live-production.up.railway.app/owner/join"]) {
+      display: none !important;
+    }
+  }
+
   .dr-product-meta {
     display: flex;
     flex-wrap: wrap;

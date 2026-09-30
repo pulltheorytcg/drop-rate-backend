@@ -14,6 +14,10 @@ ONBOARDING = ROOT / "backend" / "app" / "owner_onboarding.py"
 JOIN_HTML = ROOT / "backend" / "app" / "static" / "owner-join.html"
 JOIN_JS = ROOT / "backend" / "app" / "static" / "owner-join.js"
 HEADER = ROOT / "storefront" / "theme" / "snippets" / "header-actions.liquid"
+HEADER_GROUP = ROOT / "storefront" / "theme" / "sections" / "header-group.json"
+FOOTER_GROUP = ROOT / "storefront" / "theme" / "sections" / "footer-group.json"
+MOBILE_FOOTER = ROOT / "storefront" / "theme" / "sections" / "dr-mobile-sell-with-us.liquid"
+GLOBAL_STYLES = ROOT / "storefront" / "theme" / "snippets" / "drop-rate-global-styles.liquid"
 
 
 def test_self_registration_payload_requires_acknowledgement_version_one() -> None:
@@ -85,11 +89,34 @@ def test_join_page_supports_public_and_invite_modes() -> None:
     assert 'window.location.replace("/owner?welcome=1")' in source
 
 
-def test_storefront_has_sell_with_us_cta_for_desktop_and_mobile() -> None:
+def test_storefront_keeps_header_sell_cta_desktop_only() -> None:
     source = HEADER.read_text()
 
     assert "Sell With Us" in source
-    assert ">Sell<" in source
     assert "drop-rate-api-live-production.up.railway.app/owner/join" in source
     assert 'class="dr-sell-with-us"' in source
-    assert ".dr-sell-with-us__mobile" in source
+    assert ".dr-sell-with-us__mobile" not in source
+    assert ">Sell<" not in source
+    assert "@media screen and (max-width: 749px)" in source
+    assert ".dr-sell-with-us {\n      display: none;" in source
+
+
+def test_brand_redesign_uses_mobile_sell_menu_without_changing_default_menu() -> None:
+    header_group = HEADER_GROUP.read_text()
+    styles = GLOBAL_STYLES.read_text()
+
+    assert '"menu": "brand-redesign-main-menu"' in header_group
+    assert "Brand Redesign keeps Sell With Us in the mobile drawer only." in styles
+    assert 'header-menu .menu-list__list-item:has(a[href="https://drop-rate-api-live-production.up.railway.app/owner/join"])' in styles
+    assert "@media screen and (min-width: 750px)" in styles
+
+
+def test_mobile_footer_has_sell_with_us_link() -> None:
+    footer = MOBILE_FOOTER.read_text()
+    footer_group = FOOTER_GROUP.read_text()
+
+    assert "Sell With Us" in footer
+    assert "drop-rate-api-live-production.up.railway.app/owner/join" in footer
+    assert ".dr-mobile-sell-footer {\n    display: none;" in footer
+    assert "@media screen and (max-width: 749px)" in footer
+    assert '"type": "dr-mobile-sell-with-us"' in footer_group

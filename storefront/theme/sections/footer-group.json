@@ -143,6 +143,10 @@
         "padding-block-end": 38
       }
     },
+    "dr_mobile_sell_with_us": {
+      "type": "dr-mobile-sell-with-us",
+      "settings": {}
+    },
     "footer_utilities_jLGE8U": {
       "type": "footer-utilities",
       "blocks": {
@@ -194,6 +198,7 @@
   },
   "order": [
     "footer_m9NzUG",
+    "dr_mobile_sell_with_us",
     "footer_utilities_jLGE8U"
   ]
 }
