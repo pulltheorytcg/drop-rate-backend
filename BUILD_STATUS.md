@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Sealed homepage UI refinement
+
+- Replaced the generic two-column Shopify product-list homepage treatment with a dedicated `dr-brand-sealed` component.
+- Desktop sealed cards are compact horizontal cards with a capped ~210 px media column instead of large half-page product tiles.
+- Tablet switches to a single compact row; mobile uses a proportional 118 px media column with tighter typography and metadata.
+- Visual treatment matches the existing Drop Rate storefront system: cool-grey section surface, white cards, navy/ink typography, blue/cyan accents, subtle borders/shadows and rounded product surfaces.
+- The section remains driven by the real `sealed` Shopify collection and supports up to four products without hard-coded product IDs.
+
 ## 2026-09-30 — Sealed storefront CRO pass
 
 - Shopify `main-menu` now exposes `Sealed` as a top-level destination and as a One Piece submenu entry, both linked to the populated smart collection `/collections/sealed`.
