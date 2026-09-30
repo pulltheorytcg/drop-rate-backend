@@ -1,0 +1,142 @@
+{
+  "id": "DR92RuntimeHeartbeatV1",
+  "name": "DR-92 n8n Runtime Heartbeat",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "dr92-schedule",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -620,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dr92-sign",
+      "name": "Build and Sign Heartbeat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -340,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst receiptUrl = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nif (secret.length < 32) throw new Error('automation_command_secret_not_configured');\nif (!/\\/receipt$/.test(receiptUrl)) throw new Error('automation_control_receipt_url_invalid');\nconst executionId = String($execution.id || '').trim();\nif (!executionId) throw new Error('missing_execution_id');\nconst body = JSON.stringify({\n  heartbeat_key:'n8n-runtime',\n  workflow_version:'v1',\n  execution_id:executionId.slice(0,255),\n  occurred_at:new Date().toISOString()\n});\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto\n  .createHmac('sha256', secret)\n  .update(timestamp + '.' + body, 'utf8')\n  .digest('hex');\nreturn [{json:{\n  heartbeat_url:receiptUrl.replace(/\\/receipt$/, '/heartbeat'),\n  heartbeat_body:body,\n  heartbeat_timestamp:timestamp,\n  heartbeat_signature:signature\n}}];"
+      }
+    },
+    {
+      "id": "dr92-http",
+      "name": "Record Heartbeat in FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -60,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.heartbeat_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.heartbeat_timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.heartbeat_signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.heartbeat_body }}",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr92-verify",
+      "name": "Heartbeat Accepted?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const response = $input.first().json || {};\nconst statusCode = Number(response.statusCode || 0);\nif (statusCode < 200 || statusCode >= 300) {\n  throw new Error('automation_heartbeat_failed_http_' + statusCode);\n}\nconst body = response.body || {};\nif (body.accepted !== true || body.heartbeat_key !== 'n8n-runtime') {\n  throw new Error('automation_heartbeat_not_accepted');\n}\nreturn [{json:{\n  recorded:true,\n  heartbeat_key:body.heartbeat_key,\n  received_at:body.received_at,\n  beat_count:Number(body.beat_count || 0),\n  duplicate:Boolean(body.duplicate)\n}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Build and Sign Heartbeat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build and Sign Heartbeat": {
+      "main": [
+        [
+          {
+            "node": "Record Heartbeat in FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Heartbeat in FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Heartbeat Accepted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-92",
+      "version": 1,
+      "role": "n8n-runtime-heartbeat",
+      "intervalMinutes": 5,
+      "activationGate": "Keep inactive until the heartbeat database migration and signed FastAPI endpoint are deployed, one manual execution is durably recorded, duplicate replay is proven safe, and operations-monitor alerting is tested before TCG_N8N_HEARTBEAT_ALERTS_ENABLED is enabled."
+    }
+  }
+}
