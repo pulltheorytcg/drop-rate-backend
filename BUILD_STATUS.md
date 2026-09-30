@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Phase 2 Shopify #1001 reconciliation fix
+
+- Phase 2 launch-gate review confirmed historical Shopify test order #1001 was PENDING/unpaid, cancelled on 24 September, had a successfully processed `orders/cancelled` webhook, created no local `tcg.orders` row, left no reservation, and was followed by successful order #1002 on the same Sunny-owned Seel inventory.
+- The two HIGH `SHOPIFY_ORDER_WEBHOOK_GAP` rows are founder-scoped fan-out of that one historical order, not two missing sales.
+- Reconciliation is being tightened so a remote-only unpaid order with Shopify `cancelled_at` plus a PROCESSED `orders/cancelled` webhook is treated as terminally acknowledged; paid-like orders remain CRITICAL and missing-create pending orders remain HIGH.
+- This lets the monitor resolve #1001 durably instead of relying on a manual dismissal that the next 30-minute reconciliation run would reopen.
+
 ## 2026-09-30 — Phase 2 pooled storefront copy correction
 
 - Phase 2 stale-PR audit found PR #317 contained unique customer-facing safety behaviour not present on current `main`; it was preserved rather than discarded.
