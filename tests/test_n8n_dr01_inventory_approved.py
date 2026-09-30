@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INGRESS = ROOT / "automation" / "n8n" / "workflows" / "dr-00-v2-signed-event-router.json"
 DR01 = ROOT / "automation" / "n8n" / "workflows" / "dr-01-inventory-approved-shopify.json"
-CONTROL = ROOT / "backend" / "app" / "automation_control.py"
+COMMANDS = ROOT / "backend" / "app" / "automation_commands.py"
 
 
 def _load(path: Path) -> dict:
@@ -71,12 +71,12 @@ def test_dr01_calls_fastapi_then_dr91_and_routes_errors_to_dr90() -> None:
 
 
 def test_dr01_fastapi_command_is_signed_gated_and_uses_reusable_service() -> None:
-    source = CONTROL.read_text()
+    source = COMMANDS.read_text()
 
     assert '@router.post("/shopify/inventory-approved")' in source
     assert "InventoryApprovedEvent.model_validate_json" in source
     assert "if not settings.shopify_publish_enabled" in source
-    assert "_verified_control_body(" in source
+    assert "_verified_command_body(" in source
     assert "publish_inventory_to_shopify(" in source
     assert "automation_event_id=event.event_id" in source
     assert "actor_user_id=None" in source
