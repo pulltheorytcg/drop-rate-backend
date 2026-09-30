@@ -72,3 +72,33 @@ The control plane is the first implementation wave:
 - workflow health.
 
 The registry is source-controlled and tested. n8n UI state is never the authoritative workflow catalogue.
+
+## DR-90 global error workflow
+
+`DR90GlobalErrorV1` is the first control-plane workflow.
+
+It is imported **inactive** until the backend receipt endpoint and matching runtime secrets are deployed and a synthetic failure is proven end-to-end.
+
+Flow:
+
+`n8n Error Trigger → normalize execution → HMAC-sign receipt → FastAPI /api/v1/automation/control/receipt → automation_runs + Action Required`
+
+Rules:
+- the workflow itself must not use itself as its own Error Workflow;
+- failed execution IDs are idempotent;
+- duplicate receipt delivery is a no-op;
+- system-level failures fan out only to active founder Action Required queues;
+- n8n cannot choose Action Required severity/category/code;
+- no inventory/ownership/price/settlement mutation occurs;
+- `DROP_RATE_AUTOMATION_COMMAND_SECRET` must match FastAPI `TCG_AUTOMATION_COMMAND_SECRET`;
+- `DROP_RATE_API_AUTOMATION_CONTROL_URL` points to the governed FastAPI receipt endpoint.
+
+Before activation:
+1. deploy backend receipt endpoint;
+2. configure matching command secret;
+3. configure private/internal FastAPI control URL;
+4. import DR-90;
+5. trigger one synthetic failure;
+6. prove exactly one automation_run per founder and one deduped Action Required per founder;
+7. replay the same receipt and prove no duplicate state;
+8. only then set DR-90 as the error workflow for other workflows.
