@@ -58,13 +58,13 @@
         </div>
         <div class="topbar-actions">
           <div class="owner-secure-chip" aria-label="Private seller account"><span></span>Seller account</div>
-          <div class="user-chip">
+          <button class="user-chip owner-profile-trigger" type="button" data-owner-jump="profile" aria-label="Open profile and account settings">
             <span id="owner-portal-initial">O</span>
             <div>
               <strong id="owner-portal-name">Owner</strong>
               <small id="owner-portal-email"></small>
             </div>
-          </div>
+          </button>
           <button id="owner-logout-button" class="ghost-button owner-signout" type="button">Sign out</button>
         </div>
       </header>
@@ -99,6 +99,10 @@
             <button class="owner-nav-item" type="button" data-owner-view="settlements" aria-label="Settlements">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2v-17Zm3 5h6m-6 4h6"/></svg>
               <span>Settlements</span>
+            </button>
+            <button class="owner-nav-item" type="button" data-owner-view="profile" aria-label="Profile and account settings">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0"/></svg>
+              <span>Profile</span>
             </button>
           </nav>
 
@@ -643,12 +647,62 @@
               <div class="owner-pagination"><button id="owner-settlements-prev" type="button">← Previous</button><span id="owner-settlements-page">—</span><button id="owner-settlements-next" type="button">Next →</button></div>
             </section>
           </section>
+
+          <section id="owner-view-profile" class="owner-view hidden" data-owner-view-panel="profile">
+            <div class="owner-profile-grid">
+              <section class="owner-panel">
+                <div class="owner-panel-heading">
+                  <div><span class="owner-section-kicker">Public seller identity</span><h3>Profile details</h3><p>Your display name appears inside Seller Hub. Your username is a unique Drop Rate handle for future portfolio and seller features.</p></div>
+                </div>
+                <form id="owner-profile-form" class="owner-form-stack">
+                  <label>Display name<input id="owner-profile-display-name" type="text" maxlength="120" autocomplete="name" required></label>
+                  <label>Username
+                    <div class="owner-username-field"><span>@</span><input id="owner-profile-username" type="text" minlength="3" maxlength="30" inputmode="text" autocomplete="username" placeholder="your_username"></div>
+                  </label>
+                  <small class="owner-field-help">3–30 characters. Lowercase letters, numbers and underscores only. Leave blank if you do not want a username yet.</small>
+                  <div id="owner-profile-message" class="message owner-card-message" role="status"></div>
+                  <button id="owner-profile-save" class="owner-primary-action" type="submit">Save profile <span>→</span></button>
+                </form>
+              </section>
+
+              <section class="owner-panel">
+                <div class="owner-panel-heading">
+                  <div><span class="owner-section-kicker">Account</span><h3>Email & seller account</h3><p>Your login email is managed securely by Supabase Auth. Email changes only take effect after the required verification flow completes.</p></div>
+                </div>
+                <div class="owner-profile-facts">
+                  <div><span>Current email</span><strong id="owner-profile-current-email">—</strong><small id="owner-profile-email-status">Checking verification…</small></div>
+                  <div><span>Seller type</span><strong id="owner-profile-owner-type">—</strong><small>Account access level</small></div>
+                  <div><span>Member since</span><strong id="owner-profile-member-since">—</strong><small>Seller Hub membership</small></div>
+                  <div><span>Drop Rate commission</span><strong id="owner-profile-commission">—</strong><small>Your current seller commission rate</small></div>
+                </div>
+                <form id="owner-email-form" class="owner-form-stack owner-profile-subform">
+                  <label>New email address<input id="owner-profile-new-email" type="email" maxlength="320" autocomplete="email" placeholder="new@email.com" required></label>
+                  <div id="owner-email-message" class="message owner-card-message" role="status"></div>
+                  <button id="owner-email-save" class="owner-secondary-action" type="submit">Change email</button>
+                </form>
+              </section>
+
+              <section class="owner-panel owner-profile-security">
+                <div class="owner-panel-heading">
+                  <div><span class="owner-section-kicker">Security</span><h3>Change password</h3><p>For password accounts, we verify your current password first and then update the credential. Drop Rate never stores your password.</p></div>
+                </div>
+                <form id="owner-password-form" class="owner-form-stack">
+                  <label>Current password<input id="owner-profile-current-password" type="password" autocomplete="current-password" required></label>
+                  <label>New password<input id="owner-profile-new-password" type="password" minlength="12" autocomplete="new-password" required></label>
+                  <label>Confirm new password<input id="owner-profile-confirm-password" type="password" minlength="12" autocomplete="new-password" required></label>
+                  <div id="owner-password-message" class="message owner-card-message" role="status"></div>
+                  <button id="owner-password-save" class="owner-secondary-action" type="submit">Change password</button>
+                </form>
+                <p class="owner-security-note">Signed in with Google or Apple and do not use a password? Keep using that provider; a separate password-reset/setup flow can be added without changing your seller ownership record.</p>
+              </section>
+            </div>
+          </section>
         </div>
       </div>
     </section>
   </main>
 
-  <script src="/assets/owner-portal.js?v=owner-v8" defer></script>
+  <script src="/assets/owner-portal.js?v=owner-v9" defer></script>
   <script src="/assets/owner-recognition.js?v=owner-v8" defer></script>
   <script src="/assets/reference-library.js?v=2" defer></script>
 </body>
