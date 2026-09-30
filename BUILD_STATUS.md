@@ -1,5 +1,23 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: historical outbox backlog retirement
+
+- Production currently has **396 PENDING `inventory.approved` automation events** created before n8n dispatcher activation.
+- Read-only reconciliation proves **all 396 / 396 already have PUBLISHED Shopify inventory links**; none remains an actionable publication job.
+- They must not be called DELIVERED because n8n never delivered them, and must not be called DEAD_LETTER because they did not fail.
+- Added a fifth terminal/event state: **SUPERSEDED** with explicit `superseded_at` and `superseded_reason`.
+- Added guarded `tcg.supersede_published_inventory_approved_events(...)`:
+  - PENDING only;
+  - `inventory.approved` only;
+  - `INVENTORY_ITEM` only;
+  - requires the same Inventory ID to already have a PUBLISHED Shopify link;
+  - bounded/locked batch;
+  - tcg_api-only execution;
+  - per-event audit record.
+- The function cannot mutate inventory, Shopify links, orders, pricing, ownership, finance or settlement state.
+- After merge/migration, the 396 historical events can be honestly retired before the dispatcher is activated.
+- Runbook: `docs/AUTOMATION_EVENT_BACKLOG_RECONCILIATION.md`.
+
 ## 2026-09-30 — n8n Wave A control plane: durable execution/error receipts
 
 - First launch-grade n8n control-plane component is now in source control.
