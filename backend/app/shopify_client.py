@@ -588,7 +588,7 @@ class ShopifyAdminClient:
             query="""
             mutation DropRateFileCreate($files: [FileCreateInput!]!) {
               fileCreate(files: $files) {
-                files { id fileStatus alt image { url } }
+                files { id fileStatus alt image { url width height } }
                 userErrors { field message }
               }
             }
@@ -627,7 +627,7 @@ class ShopifyAdminClient:
                   id
                   fileStatus
                   alt
-                  image { url }
+                  image { url width height }
                 }
               }
             }
