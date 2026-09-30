@@ -6,7 +6,7 @@ This is the plain-English system map required by the Phase 2 Operating Manual. I
 
 ## 1. Railway production services
 
-Production currently exposes seven Railway services. Two are temporary diagnostics already dependency-audited and staged for deletion, so the intended steady-state topology is five services.
+Production currently exposes seven Railway services. The two PSA-labelled services were initially misclassified during this audit as disposable diagnostics; the founder clarified that they are intended graded-card infrastructure for certificate verification, exact slab matching and PSA image retrieval. Their staged deletion was cancelled before anything was removed.
 
 | Service | Purpose | Normal state | Keep? |
 | --- | --- | --- | --- |
@@ -15,8 +15,8 @@ Production currently exposes seven Railway services. Two are temporary diagnosti
 | `drop-rate-payout-scheduler` | Hourly deterministic payout-request scheduler. It creates eligible payout requests only; automatic money movement remains disabled. | Cron: `0 * * * *`. | Yes — finance control plane. |
 | `drop-rate-n8n-e840` | n8n orchestration runtime with persistent volume. It must trigger/move data only; it must not own pricing, ownership, identity or finance decisions. | Online, 1GB persistent volume, currently kept production-dormant for advanced workflows. | Yes, but workflow activation remains gated. |
 | `shopify-reconciliation-worker` | Controlled one-shot operational worker used for the linked-DRAFT/Dragon Ball publication backlog. It is not a permanent scheduler. | Deployed, no cron. Current linked-DRAFT backlog is zero. | Keep through launch as a recovery tool; review for retirement after launch stability. |
-| `psa-cert-lookup-temp` | One-off PSA/ACE/CardTrader diagnostic function used during 29 Sep media/cert investigations. | Sleeping. No inbound dependencies. | Delete. Removal is staged; Railway requires dashboard 2FA to commit. |
-| `psa-fetch-batch` | One-off PSA batch diagnostic function used during 29 Sep slab investigation. | Sleeping. No inbound dependencies. | Delete. Removal is staged; Railway requires dashboard 2FA to commit. |
+| `psa-cert-lookup-temp` | PSA certificate lookup / exact-slab verification service. Intended to resolve a PSA cert number to the exact graded item and expose permitted PSA certification data/images to Drop Rate's graded-card workflow. | Sleeping when unused; no inbound Railway service dependency is expected because it is an on-demand lookup capability. | **Keep.** The name is now misleading; consider renaming after launch without changing behavior. |
+| `psa-fetch-batch` | Batch PSA certificate/media lookup capability for bulk graded inventory verification and image acquisition. | Sleeping when unused; invoked only when batch graded-card work is required. | **Keep.** Useful for bulk slab ingestion and reconciliation. |
 
 ### Railway rule going forward
 
@@ -141,8 +141,8 @@ Keep:
 - one n8n runtime;
 - the existing reconciliation worker through launch as a recovery mechanism.
 
-Remove:
-- the two temporary PSA diagnostic services once Railway dashboard 2FA applies the already-staged deletion.
+Keep:
+- both PSA services as graded-card certificate/media infrastructure. Their staged deletion was cancelled before application.
 
 Do not add:
 - a custom Google Shopping feed service;
