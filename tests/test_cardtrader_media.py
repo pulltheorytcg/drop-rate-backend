@@ -148,6 +148,114 @@ def test_cardtrader_rejects_wrong_collector_number() -> None:
     assert "card-number evidence" in result["reason"]
 
 
+
+def test_cardtrader_promotes_preview_url_to_same_blueprint_original() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super",
+            "set_name": "Supreme Rivalry",
+            "name": "King Vegeta",
+            "card_number": "BT13-002",
+            "language": "English",
+            "variant": "Normal",
+        },
+        games=_games(),
+        expansions=[{"id": 130, "game_id": 16, "name": "Supreme Rivalry"}],
+        blueprints=[
+            {
+                "id": 2001,
+                "expansion_id": 130,
+                "name": "King Vegeta",
+                "image_url": (
+                    "https://cardtrader.com/uploads/blueprints/image/2001/"
+                    "preview_king-vegeta.jpg"
+                ),
+                "fixed_properties": {"collector_number": "BT13-002"},
+            }
+        ],
+    )
+
+    assert result["resolved"] is True
+    assert result["image_url"] == (
+        "https://cardtrader.com/uploads/blueprints/image/2001/"
+        "king-vegeta.jpg"
+    )
+
+
+def test_cardtrader_resolves_explicit_fusion_world_winner_suffix() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super Fusion World",
+            "set_name": "Tournament and Championship Promos",
+            "name": "Vegeta (Tournament Pack -Winner- 06)",
+            "card_number": "FB05-039",
+            "language": "English",
+            "variant": "Holofoil",
+        },
+        games=_games(),
+        expansions=[{"id": 3678, "game_id": 16, "name": "Fusion World Promos"}],
+        blueprints=[
+            {
+                "id": 357586,
+                "expansion_id": 3678,
+                "name": "Vegeta",
+                "version": "Tournament Pack 06",
+                "image_url": (
+                    "https://cardtrader.com/uploads/blueprints/image/357586/"
+                    "preview_vegeta-tournament-pack-06.jpg"
+                ),
+                "fixed_properties": {"collector_number": "FB05-039"},
+            },
+            {
+                "id": 357587,
+                "expansion_id": 3678,
+                "name": "Vegeta",
+                "version": "Tournament Pack 06 | Winner",
+                "image_url": (
+                    "https://cardtrader.com/uploads/blueprints/image/357587/"
+                    "preview_vegeta-tournament-pack-06-winner.jpg"
+                ),
+                "fixed_properties": {"collector_number": "FB05-039w"},
+            },
+        ],
+    )
+
+    assert result["resolved"] is True
+    assert result["provider_id"] == "357587"
+    assert result["provider_collector_number"] == "FB05-039w"
+    assert result["image_url"].endswith("/vegeta-tournament-pack-06-winner.jpg")
+
+
+def test_cardtrader_winner_suffix_never_matches_non_winner_local_card() -> None:
+    result = resolve_blueprint(
+        {
+            "game": "Dragon Ball Super Fusion World",
+            "set_name": "Tournament and Championship Promos",
+            "name": "Vegeta",
+            "card_number": "FB05-039",
+            "language": "English",
+            "variant": "Holofoil",
+        },
+        games=_games(),
+        expansions=[{"id": 3678, "game_id": 16, "name": "Fusion World Promos"}],
+        blueprints=[
+            {
+                "id": 357587,
+                "expansion_id": 3678,
+                "name": "Vegeta",
+                "version": "Tournament Pack 06 | Winner",
+                "image_url": (
+                    "https://cardtrader.com/uploads/blueprints/image/357587/"
+                    "preview_vegeta-tournament-pack-06-winner.jpg"
+                ),
+                "fixed_properties": {"collector_number": "FB05-039w"},
+            }
+        ],
+    )
+
+    assert result["resolved"] is False
+
+
 def test_cardtrader_rejects_unknown_image_host() -> None:
     result = resolve_blueprint(
         {
