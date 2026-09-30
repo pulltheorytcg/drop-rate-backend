@@ -238,6 +238,27 @@ def _groups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
+def _allocation_priority_for_member(
+    row: Mapping[str, Any],
+    *,
+    listing_key: str,
+    anchor_product_id: str,
+    max_priority: int,
+) -> tuple[int, int]:
+    current_priority = row.get("allocation_priority")
+    existing_pool_member = (
+        _clean(row.get("listing_key")) == listing_key
+        and _clean(row.get("shopify_product_gid")) == anchor_product_id
+        and current_priority is not None
+    )
+    if existing_pool_member:
+        priority = int(current_priority)
+        return priority, max(max_priority, priority)
+
+    next_priority = max_priority + 1
+    return next_priority, next_priority
+
+
 def _single_variant(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     variants = snapshot.get("variants")
     nodes = variants.get("nodes") if isinstance(variants, Mapping) else None
@@ -461,8 +482,26 @@ async def _apply_one(
                             _clean(row["inventory_code"]),
                         ),
                     )
-                    for priority, row in enumerate(ordered, start=1):
+                    max_priority = int(
+                        await connection.fetchval(
+                            """
+                            select coalesce(max(allocation_priority),0)::int
+                            from tcg.shopify_inventory_links
+                            where shop_domain=$1 and listing_key=$2
+                            """,
+                            str(settings.shopify_shop_domain),
+                            listing_key,
+                        )
+                        or 0
+                    )
+                    for row in ordered:
                         old = current_by_id[str(row["inventory_id"])]
+                        priority, max_priority = _allocation_priority_for_member(
+                            old,
+                            listing_key=listing_key,
+                            anchor_product_id=anchor_product_id,
+                            max_priority=max_priority,
+                        )
                         old_values = {
                             "listing_key": old["listing_key"],
                             "allocation_priority": old["allocation_priority"],
