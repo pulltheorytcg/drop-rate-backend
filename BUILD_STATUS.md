@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave B: DR-02 Shopify product updates built inactive
+
+- Added inactive `DR02ShopifyProductUpdatesV1`, scheduled every 15 minutes once deliberately published.
+- v1 scope is intentionally **Store Price reconciliation only**; canonical `store_price_minor` remains Postgres truth.
+- Added narrow SECURITY DEFINER candidate/finalize functions for production, single-item, unreserved, PUBLISHED Shopify links only.
+- Test-mode products, pooled variants, Personal Collection, non-APPROVED inventory and unchanged prices are excluded.
+- FastAPI updates the exact Shopify variant, verifies returned variant identity and price, then revalidates link + inventory versions in Postgres before recording the sync.
+- Partial failures or concurrent-state changes fail the workflow so DR-90 handles the exception; successful runs record DR-91.
+- n8n contains no price-setting, ownership, inventory, Shopify GraphQL or finance business logic.
+- Registry state for `shopify-product-updates` is now `BUILT_INACTIVE`.
+- **Activation remains blocked:** migration application, DR-90/DR-91 publication/proof, deliberate Shopify automation enablement, and controlled no-op/duplicate/stale/API-failure/read-back tests.
+
 ## 2026-09-30 — DR-01 inactive command-route correction
 
 - Found before activation: `DR01InventoryApprovedShopifyV1` still targeted the old automation-control URL after the signed Shopify command moved into the narrower automation-commands router.
