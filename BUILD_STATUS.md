@@ -1,5 +1,37 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Storefront “Sell With Us” → Seller Hub self-registration in progress
+
+- Added a customer-facing storefront conversion path so Brand Redesign can connect buyers directly to the restricted Drop Rate Seller Hub.
+- Existing `/owner/join` was verified as invitation-only before this change; the storefront CTA is therefore paired with a real invite-free registration contract rather than linking customers to a dead-end token page.
+- New self-registration remains fail-closed and role-safe:
+  - requires an authenticated, non-anonymous Supabase user with a confirmed email;
+  - creates `CONSIGNOR` ownership only;
+  - creates `OWNER` membership only;
+  - defaults commission to 1000 bps / 10%;
+  - idempotently reuses an existing active OWNER/CONSIGNOR membership;
+  - refuses to overwrite or downgrade PLATFORM_ADMIN / other conflicting access.
+- The database, not browser-supplied email, verifies the authenticated user against `auth.users`.
+- Founder HQ remains inaccessible to self-registered sellers; payout approval/execution and internal admin controls remain outside this flow.
+- Existing founder-issued seller invitations remain supported.
+- Brand Redesign header source now contains a prominent **Sell With Us** desktop CTA and compact **Sell** mobile CTA pointing to the Seller Hub join page.
+- The migration remains unapplied and the Brand Redesign runtime theme remains unpublished until CI, production deployment, migration application and theme source/runtime parity checks pass.
+- See `docs/SELL_WITH_US_STOREFRONT.md`.
+
+## 2026-09-30 — Published duplicate raw-card pooling Phase B in progress
+
+- Brand Redesign production checkout QA exposed a catalogue projection gap rather than an order-allocation defect.
+- Desktop grouped-copy order #1003 proved the pooled Shopify variant path end-to-end: Shopify payment/webhooks, exact physical allocation, Sunny ownership, SOLD transition, quantity decrement and ledger creation all succeeded.
+- #1003 cancellation/refund then returned the exact sold card to INSPECTION, archived its physical Shopify link and created item + shipping reversal ledger entries. Shopify's refund transaction was still PENDING at the immediate read-back.
+- Mobile Apple Pay order #1004 also completed successfully through Shopify Payments and the Drop Rate webhook/order/ownership/ledger path. Its later cancellation/refund returned the exact physical card to INSPECTION and archived that link.
+- The mobile purchase exposed that the same Uta OP13-023 English Near Mint Foil identity was still split between an existing pooled product and individual ACTIVE products.
+- Root cause: the original raw pooling release intentionally consolidated DRAFT duplicates only; a Phase-B migration for already-PUBLISHED duplicates had not yet been implemented.
+- Strict production audit found **19 published duplicate raw groups / 48 currently sellable physical cards** that meet the full safety gate: identity-confirmed, raw only, same canonical card/language/condition/price, cost + storage present, no reservations/listing membership, same Shopify location/publication and synced price parity.
+- Added a PLATFORM_ADMIN-only published-pool plan/apply path that prefers an existing pool anchor, verifies live Shopify product/variant/inventory state, converts the anchor to the deterministic pooled SKU/quantity, archives redundant sellable products at quantity zero, repoints only current APPROVED/PUBLISHED physical links, preserves historical SOLD/ARCHIVED links and audit-logs every migrated Inventory ID.
+- Remote compensation is included if the database commit fails. Graded inventory and ambiguous groups remain fail-closed.
+- Brand Redesign remains UNPUBLISHED until the 19 live groups are reconciled and Shopify/Postgres storefront parity is re-verified.
+- See `docs/SHOPIFY_PUBLISHED_POOLING.md`.
+
 ## 2026-09-30 — Final storefront launch gate passed; manual Shopify theme publish remains
 
 - Completed the final machine-verifiable launch gate for `Drop Rate — Brand Redesign`.
