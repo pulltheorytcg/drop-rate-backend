@@ -65,6 +65,10 @@ def test_replay_is_dead_letter_only_and_preserves_failure_history() -> None:
     assert "automation_event_replay_requested" in replay
     assert "insert into tcg.audit_events" in replay
     assert "v_request_id" in replay
+    assert "m.role='platform_admin'" in replay
+    assert "o.owner_type='founder'" in replay
+    assert "platform administrator access required" in replay
+    assert "p_actor_user_id" in replay
     assert "update tcg.inventory_items" not in replay
     assert "update tcg.shopify_inventory_links" not in replay
     assert "financial_ledger_entries" not in replay
@@ -76,10 +80,10 @@ def test_admin_api_derives_actor_from_authenticated_user() -> None:
 
     assert 'prefix="/api/v1/automation/operations"' in api
     assert "Depends(require_user)" in api
-    assert 'actor = f"user:{user.user_id}"' in api
+    assert "user.user_id" in api
     assert "request.state.request_id" in api
     assert "replay_dead_letter_automation_event" in api
-    assert "actor:" not in api
+    assert "actor = " not in api
     assert "payload jsonb" not in api.lower()
     assert (
         "app.include_router(automation_operations_router, "
