@@ -8,7 +8,9 @@
 - Desktop remains left-aligned; mobile remains true-centred from PR #424; account/sign-out controls are unchanged.
 - Regression tests now assert the production Seller Hub markup uses the approved CDN asset and no longer references the superseded local Seller Hub PNG.
 - No auth, ownership, inventory, pricing, order, settlement, payout or Shopify commerce logic changed.
-- Production deployment/read-back pending CI and merge.
+- PR #425 passed CI, merged, and Railway production deployment `35a709c5-ab1a-49de-b541-afbd3aca4cca` completed **SUCCESS** at commit `196b7a8e34f034b1a891118fc84909e77d73685c`.
+- Shopify file read-back reports the approved logo **READY**, **2048×682**, **1,582,010 bytes**, matching the uploaded attachment's dimensions and byte size.
+- End-user browser rendering remains to be visually smoke-checked on desktop/mobile after the next storefront click-through.
 
 ## 2026-09-30 — Seller Hub explicit logo rendering + mobile centring
 
@@ -20,7 +22,8 @@
 - Cache-bumped Seller Hub CSS to `owner-v11` and the logo asset reference to `seller-hub-3`.
 - Added regression coverage for explicit image rendering, desktop sizing, mobile centring and removal of legacy split branding.
 - No auth, ownership, inventory, pricing, order, settlement, payout or Shopify logic changed.
-- Production verification remains pending CI, merge and Railway deployment.
+- PR #424 passed CI, merged, and Railway production deployment `9c3a1024-6ba4-48a3-8cef-6521b42f284b` completed **SUCCESS** at commit `6892c352e349266df7cca9820a86ac6c07c922b3`.
+- End-user desktop/mobile visual smoke remains pending the next real browser visit.
 
 ## 2026-09-30 — Public Seller Hub stale-invite fix
 
@@ -30,7 +33,10 @@
 - Cache-bumped `owner-join.js` so production browsers receive the fixed join logic immediately after deploy.
 - Added regression coverage and updated the storefront Seller Hub contract documentation.
 - No owner permissions, founder access, ownership, pricing, settlement, payout or Shopify order logic changed.
-- Production verification remains pending CI, merge, Railway deploy and live route read-back.
+- PR #423 passed CI (**2,126 tests**) and Railway production deployment `00593bd1-a3aa-4ab4-be36-c306caf4f344` completed **SUCCESS** at commit `84afc34f63217691a9b35ad334259886eeb9d56c`.
+- Shopify Admin read-back confirms **Sell With Us** points to the clean production `/owner/join` URL with no invite token attached.
+- Supabase read-back confirms `tcg.self_register_owner(text,integer)` exists and remains server-only: `tcg_api` can execute; `anon` and browser `authenticated` cannot.
+- End-user click-through remains the final smoke check for clearing the previously cached invite failure in a real browser.
 
 ## 2026-09-30 — Seller Hub brand lockup refinement in progress
 
