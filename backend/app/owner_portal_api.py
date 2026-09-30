@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 import asyncpg
 from typing import Annotated
@@ -38,12 +39,9 @@ class OwnerProfileUpdate(BaseModel):
         if self.username is not None:
             if len(self.username) < 3:
                 raise ValueError("Username must be at least 3 characters")
-            if not self.username[0].isalnum() or any(
-                not (character.isalnum() or character == "_")
-                for character in self.username
-            ):
+            if re.fullmatch(r"[a-z0-9][a-z0-9_]{2,29}", self.username) is None:
                 raise ValueError(
-                    "Username can only use letters, numbers and underscores and must start with a letter or number"
+                    "Username can only use lowercase letters, numbers and underscores and must start with a letter or number"
                 )
         return self
 
