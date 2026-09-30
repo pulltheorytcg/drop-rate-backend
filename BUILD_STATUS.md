@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Seller Hub logo clipping fix
+
+- Production QA showed the integrated Seller Hub lockup was being rendered as a thin clipped strip in the top-left header.
+- Root cause: the previously committed PNG was a malformed/incorrect 7.5 KB export, and the Seller Hub still rendered branding through the legacy background-image span contract.
+- Replaced the asset with the approved transparent Seller Hub lockup web export and switched Seller Hub auth/header branding to real `<img>` elements with `object-fit: contain`.
+- Cache-bumped Seller Hub CSS to `owner-v10` and logo asset query to `20260930b`.
+- Founder HQ and storefront branding are untouched.
+- No auth, owner, inventory, pricing, order, settlement or Shopify business logic changed.
+
 ## 2026-09-30 — Seller Hub integrated brand lockup
 
 - Replaced the Seller Hub's generic Drop Rate image + separately rendered product text with the approved integrated **Drop Rate Seller Hub** logo.
