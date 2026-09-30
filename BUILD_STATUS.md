@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A control plane implementation closed
+
+- **Wave A build scope is now implemented in source control:** registry, signed ingress, global error handling, reusable success receipts, Action Required integration, dead-letter/replay visibility, outbox backlog health, canonical n8n runtime heartbeat and dispatcher-process heartbeat.
+- The **Action Required bridge does not need a separate n8n workflow**. DR-90 failure receipts are HMAC-signed into FastAPI, where deterministic backend logic writes deduped `N8N_WORKFLOW_FAILED` Action Required items. Backend/Postgres health monitors likewise open and resolve their own deduped exceptions.
+- This keeps n8n as orchestration, FastAPI as deterministic business/control logic, and Postgres as durable truth.
+- Canonical n8n heartbeat remains `DR92RuntimeHeartbeatV1`; the brief duplicate heartbeat stays tracked only as an inactive orphan until supported authenticated cleanup is available.
+- PR #384 prepared dispatcher heartbeat monitoring without creating or activating a dispatcher Railway service.
+- **Production activation is intentionally not complete:** the dispatcher-heartbeat migration remains behind the existing manual Supabase migration gate; DR-00/DR-90/DR-91/DR-92 remain inactive/unpublished until their activation proofs are deliberately executed.
+- No historical backlog, business workflow, customer workflow or money movement was activated as part of Wave A.
+- Next build wave is **Wave B — Core Commerce Operations**, starting from the current controlled Shopify/order/refund/allocation foundations and keeping all new n8n workflows inactive until their proof gates pass.
+
 ## 2026-09-30 — n8n Wave A: dispatcher heartbeat prepared
 
 - Added private `tcg.automation_component_heartbeats` state plus narrow `SECURITY DEFINER` heartbeat write/check functions.
