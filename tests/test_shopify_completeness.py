@@ -55,6 +55,7 @@ def test_card_product_plan_fills_customer_and_merchant_fields() -> None:
 def test_sealed_product_plan_uses_sealed_storefront_contract() -> None:
     sealed = _card(
         inventory_code="INV-SEALED-1",
+        catalogue_id="60d5b80e-39b9-4311-aa28-599a1d0de9b2",
         product_type="COLLECTION",
         game="One Piece",
         name="Premium Card Collection -6 assort vol.1-",
@@ -74,7 +75,7 @@ def test_sealed_product_plan_uses_sealed_storefront_contract() -> None:
     assert plan["categoryName"] == "Non-Sports Trading Cards"
     assert plan["vendor"] == "One Piece"
     assert plan["productType"] == "Sealed TCG Product"
-    assert plan["shippingProfileKey"] == "SEALED_PRODUCT"
+    assert plan["shippingProfileKey"] == "SEALED_60D5B80E39B94311AA28599A1D0DE9B2"
     assert plan["requiredCollections"] == ["Sealed", "One Piece"]
     assert "Sealed Product" in plan["tags"]
     assert "Raw Card" not in plan["tags"]
@@ -83,7 +84,33 @@ def test_sealed_product_plan_uses_sealed_storefront_contract() -> None:
     assert "sealed TCG product" in plan["descriptionHtml"]
     assert "physical trading card" not in plan["descriptionHtml"]
     assert "sealed TCG product" in plan["seo"]["description"]
-    assert shipping_profile_key(sealed) == "SEALED_PRODUCT"
+    assert shipping_profile_key(sealed) == "SEALED_60D5B80E39B94311AA28599A1D0DE9B2"
+
+
+def test_sealed_shipping_profile_is_canonical_product_specific() -> None:
+    premium = _card(
+        catalogue_id="60d5b80e-39b9-4311-aa28-599a1d0de9b2",
+        product_type="COLLECTION",
+    )
+    tin = _card(
+        catalogue_id="ae2e4ec7-1cd4-42ec-9f36-5a65cad04bef",
+        product_type="COLLECTION",
+    )
+
+    assert (
+        shipping_profile_key(premium)
+        == "SEALED_60D5B80E39B94311AA28599A1D0DE9B2"
+    )
+    assert (
+        shipping_profile_key(tin)
+        == "SEALED_AE2E4EC71CD442EC9F365A65CAD04BEF"
+    )
+    assert shipping_profile_key(premium) != shipping_profile_key(tin)
+
+
+def test_sealed_shipping_profile_fails_closed_without_canonical_id() -> None:
+    sealed = _card(product_type="COLLECTION", catalogue_id=None)
+    assert shipping_profile_key(sealed) == "UNSUPPORTED_SEALED_PRODUCT_ID"
 
 
 def test_sealed_product_fails_closed_without_real_shipping_profile() -> None:
@@ -113,8 +140,11 @@ def test_sealed_product_fails_closed_without_real_shipping_profile() -> None:
     )
 
     assert result["complete"] is False
-    assert "shipping profile: SEALED_PRODUCT" in result["blockers"]
-    assert result["shippingProfileKey"] == "SEALED_PRODUCT"
+    assert (
+        "shipping profile: SEALED_60D5B80E39B94311AA28599A1D0DE9B2"
+        in result["blockers"]
+    )
+    assert result["shippingProfileKey"] == "SEALED_60D5B80E39B94311AA28599A1D0DE9B2"
     assert result["shippingSpec"] is None
 
 
