@@ -8,9 +8,9 @@
   - `tcg.list_automation_dead_letters(limit,offset)` returns operational metadata only and excludes event payloads;
   - `tcg.replay_dead_letter_automation_event(event_id,actor_user_id,reason)` can replay **DEAD_LETTER only**.
 - Replay is independently database-gated to an active FOUNDER `PLATFORM_ADMIN`, even though the FastAPI route also checks platform-admin access.
-- Replay preserves event identity, owner, aggregate, payload, idempotency key and max attempts; it resets only delivery attempt/lease/error state and returns the event to `PENDING`.
+- Replay preserves event identity, owner, aggregate, payload, idempotency key **and existing attempt history**. It returns the event to `PENDING`, clears dead-letter lease state, marks `MANUAL_REPLAY_REQUESTED`, and raises the retry ceiling only enough to permit one additional claim.
 - `DELIVERED` and `SUPERSEDED` history cannot be replayed by this path.
-- Every replay requires an explicit reason and writes an `AUTOMATION_EVENT_REPLAYED` audit event.
+- Every replay requires an explicit reason and writes an `AUTOMATION_EVENT_REPLAY_REQUESTED` audit event with the authenticated actor and originating request ID.
 - No inventory, Shopify link, order, price, ownership, finance, settlement or market-data row can be mutated by this recovery function.
 - Runbook: `docs/AUTOMATION_DEAD_LETTER_RECOVERY.md`.
 
