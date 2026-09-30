@@ -87,14 +87,10 @@ INVENTORY_IMAGE_ALLOWED_SUFFIXES = (
 INVENTORY_IMAGE_DIRECT_EXACT_HOSTS = {
     "cdn.shopify.com",
     "assets.tcgdex.net",
-    "en.onepiece-cardgame.com",
-    "www.onepiece-cardgame.com",
-    "onepiece-cardgame.com",
 }
 INVENTORY_IMAGE_DIRECT_ALLOWED_SUFFIXES = (
     ".shopifycdn.com",
     ".shopifycdn.net",
-    ".onepiece-cardgame.com",
 )
 
 
@@ -151,6 +147,22 @@ def _inventory_image_direct_browser_allowed(url: str) -> bool:
         host in INVENTORY_IMAGE_DIRECT_EXACT_HOSTS
         or any(host.endswith(suffix) for suffix in INVENTORY_IMAGE_DIRECT_ALLOWED_SUFFIXES)
     )
+
+
+def _inventory_image_direct_browser_url(url: str) -> str | None:
+    """Return the preferred direct-browser URL for an explicitly trusted source."""
+
+    clean = str(url or "").strip()
+    if not _inventory_image_direct_browser_allowed(clean):
+        return None
+    parsed = urlparse(clean)
+    if (parsed.hostname or "").lower().rstrip(".") == "assets.tcgdex.net":
+        # TCGdex explicitly recommends low-quality WebP for grid-style displays.
+        path = parsed.path
+        if path.endswith("/high.webp"):
+            path = path[: -len("/high.webp")] + "/low.webp"
+            return parsed._replace(path=path).geturl()
+    return clean
 
 
 def _inventory_image_redirect_target(current_url: str, location: str) -> str | None:
@@ -439,11 +451,9 @@ async def list_inventory(
                 item.pop("card_image_public_source_url", "") or ""
             ).strip()
             direct_url = (
-                direct_cdn_url
-                if _inventory_image_direct_browser_allowed(direct_cdn_url)
-                else direct_public_url
-                if _inventory_image_direct_browser_allowed(direct_public_url)
-                else ""
+                _inventory_image_direct_browser_url(direct_cdn_url)
+                or _inventory_image_direct_browser_url(direct_public_url)
+                or ""
             )
             item["card_image_direct_url"] = direct_url or None
             # Backwards-compatible alias for the first fast-path rollout.
