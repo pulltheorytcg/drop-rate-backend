@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from app.import_enrichment import _provider_exact_identity_evidence
+from app.import_enrichment import (
+    _cardtrader_preview_is_below_dragon_ball_target,
+    _provider_exact_identity_evidence,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -193,7 +196,7 @@ def test_existing_media_must_match_exact_language_and_variant() -> None:
     assert "if not clean_lang" in block
 
 
-def test_cardtrader_is_preferred_before_tcggraph_for_media_only() -> None:
+def test_cardtrader_remains_first_provider_but_dragon_ball_previews_fall_through() -> None:
     source = ENRICHMENT.read_text()
     start = source.index("async def _resolve_media_candidate")
     end = source.index("async def _refresh_item_row", start)
@@ -202,8 +205,35 @@ def test_cardtrader_is_preferred_before_tcggraph_for_media_only() -> None:
     assert "settings.cardtrader_api_token" in block
     assert "lookup_cardtrader_one" in block
     assert block.index("lookup_cardtrader_one") < block.index("lookup_tcggraph_one")
-    assert 'return "CARDTRADER", result, None' in block
+    assert "_cardtrader_preview_is_below_dragon_ball_target" in block
+    assert "preview-quality" in block
+    assert 'return "TCGGRAPH", result, None' in block
     assert "cardtrader_configured" in source
+
+
+def test_dragon_ball_cardtrader_preview_detection_is_specific_and_fail_closed() -> None:
+    preview = {
+        "resolved": True,
+        "image_url": (
+            "https://cardtrader.com/uploads/blueprints/image/123/"
+            "preview_exact-card.jpg"
+        ),
+    }
+    original = {
+        "resolved": True,
+        "image_url": (
+            "https://cardtrader.com/uploads/blueprints/image/123/"
+            "exact-card.jpg"
+        ),
+    }
+    dragon_ball = {"game": "Dragon Ball Super"}
+    fusion = {"game": "Dragon Ball Super Fusion World"}
+    pokemon = {"game": "Pokemon"}
+
+    assert _cardtrader_preview_is_below_dragon_ball_target(dragon_ball, preview)
+    assert _cardtrader_preview_is_below_dragon_ball_target(fusion, preview)
+    assert not _cardtrader_preview_is_below_dragon_ball_target(dragon_ball, original)
+    assert not _cardtrader_preview_is_below_dragon_ball_target(pokemon, preview)
 
 
 def test_enrichment_reuses_existing_pricing_and_physical_photo_rules() -> None:

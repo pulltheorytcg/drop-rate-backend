@@ -1,5 +1,22 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Dragon Ball high-resolution media gate prepared
+
+- Audited the live Dragon Ball storefront media: 25 unique published products / 27 physical units currently resolve to CardTrader `preview_...` canonical images.
+- Verified the live Shopify media dimensions directly: **all 25 are below the 2160px target**, ranging from **251×350px** to **1279×1782px**.
+- Confirmed 8 additional FOR_SALE Dragon Ball cards are identity-confirmed and priced but remain blocked on exact-print media: 6 Masters pre-release cards plus Nappa FP-046 Tournament Pack 07 and Vegeta FB05-039 Tournament Pack Winner 06.
+- Added additive measured-media fields: source width, source height and quality state (`UNMEASURED`, `BELOW_TARGET`, `TARGET_MET`).
+- Defined the Dragon Ball storefront target as a measured **2160px minimum long edge**. This is a real source/read-back quality gate, not an AI upscale target.
+- Shopify Files read-back now requests image width/height and records the measured quality state.
+- Dragon Ball media measured below target cannot become the preferred storefront replacement. Existing legacy `UNMEASURED` media remains temporarily eligible so no live image is removed before a verified replacement exists.
+- Dragon Ball CardTrader `preview...` derivatives no longer short-circuit the higher-quality fallback path during enrichment.
+- TCGGraph remains the exact external fallback when configured; its `large` candidate must still pass measured resolution and human exact-print approval. Production currently has no TCGGraph key configured.
+- Bandai official web images are reference-only for this workflow because Bandai's site prohibits unauthorised reproduction/reprinting; they are not automatically copied to Shopify.
+- First-party founder capture through the existing media intake path is the guaranteed 4K fallback for exact pre-release/tournament/winner printings with no permitted high-resolution provider image.
+- Replacement is non-destructive: acquire → exact-print/rights approval → Shopify File sync → dimension proof → attach/switch → PDP verification → retire old preview.
+- No existing Shopify image, product, inventory item or historical media record was deleted or unpublished by this change.
+- Runbook: `docs/DRAGONBALL_MEDIA_QUALITY.md`.
+
 ## 2026-09-30 — Phase 2 system map + efficiency audit refreshed
 
 - Re-verified `docs/PHASE2_SYSTEM_MAP.md` against live Railway, Supabase and current Git state.

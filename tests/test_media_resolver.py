@@ -47,6 +47,9 @@ def _asset(
     catalogue_id="catalogue-1",
     source_status="ACTIVE",
     capture_context=None,
+    source_quality_status="UNMEASURED",
+    source_width_px=None,
+    source_height_px=None,
 ):
     return {
         "id": asset_id,
@@ -70,6 +73,9 @@ def _asset(
         "shopify_file_status": "READY",
         "shopify_file_gid": f"gid://shopify/MediaImage/{asset_id}",
         "shopify_cdn_url": f"https://cdn.example.com/{asset_id}.jpg",
+        "source_quality_status": source_quality_status,
+        "source_width_px": source_width_px,
+        "source_height_px": source_height_px,
         "created_at": "2026-09-27T10:00:00Z",
         "approved_at": "2026-09-27T10:01:00Z",
     }
@@ -266,3 +272,81 @@ def test_unknown_region_never_uses_reusable_canonical_product_media_for_sealed()
     assert result["complete"] is False
     assert result["physicalPhotosRequired"] is True
     assert result["resolutionSource"] == "NONE"
+
+
+def test_dragon_ball_legacy_unmeasured_media_remains_backward_compatible() -> None:
+    result = resolve_storefront_media(
+        _item(game="Dragon Ball Super"),
+        [_asset(source_quality_status="UNMEASURED")],
+    )
+    assert result["complete"] is True
+    assert result["selectedMedia"][0]["sourceQualityStatus"] == "UNMEASURED"
+
+
+def test_dragon_ball_measured_low_resolution_canonical_media_is_rejected() -> None:
+    result = resolve_storefront_media(
+        _item(game="Dragon Ball Super"),
+        [
+            _asset(
+                source_quality_status="BELOW_TARGET",
+                source_width_px=500,
+                source_height_px=700,
+            )
+        ],
+    )
+    assert result["complete"] is False
+    assert any("2160px" in blocker for blocker in result["blockers"])
+
+
+def test_dragon_ball_measured_4k_target_media_is_selected() -> None:
+    result = resolve_storefront_media(
+        _item(game="Dragon Ball Super Fusion World"),
+        [
+            _asset(
+                source_quality_status="TARGET_MET",
+                source_width_px=2160,
+                source_height_px=3024,
+            )
+        ],
+    )
+    assert result["complete"] is True
+    selected = result["selectedMedia"][0]
+    assert selected["sourceQualityStatus"] == "TARGET_MET"
+    assert selected["sourceWidthPx"] == 2160
+    assert selected["sourceHeightPx"] == 3024
+
+
+def test_dragon_ball_low_resolution_first_party_capture_cannot_satisfy_required_media() -> None:
+    item = _item(
+        game="Dragon Ball Super",
+        store_price_minor=5_000,
+        market_value_minor=5_000,
+    )
+    front = _asset(
+        asset_id="front-low",
+        scope="INVENTORY_ITEM",
+        side="FRONT",
+        rights_tier=FIRST_PARTY_CAPTURE,
+        inventory_id="inventory-1",
+        catalogue_id=None,
+        capture_context="RAW_UNSLEEVED",
+        source_quality_status="BELOW_TARGET",
+        source_width_px=900,
+        source_height_px=1260,
+    )
+    back = _asset(
+        asset_id="back-low",
+        scope="INVENTORY_ITEM",
+        side="BACK",
+        rights_tier=FIRST_PARTY_CAPTURE,
+        inventory_id="inventory-1",
+        catalogue_id=None,
+        capture_context="RAW_UNSLEEVED",
+        source_quality_status="BELOW_TARGET",
+        source_width_px=900,
+        source_height_px=1260,
+    )
+    result = resolve_storefront_media(item, [front, back], threshold_minor=5_000)
+    assert result["complete"] is False
+    assert "approved first-party physical front image" in result["blockers"]
+    assert "approved first-party physical back image" in result["blockers"]

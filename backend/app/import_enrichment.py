@@ -547,6 +547,18 @@ async def _insert_tcggraph_media(
     return dict(asset) if asset is not None else None
 
 
+def _cardtrader_preview_is_below_dragon_ball_target(
+    row: Mapping[str, Any],
+    result: Mapping[str, Any],
+) -> bool:
+    game = " ".join(str(row.get("game") or "").strip().casefold().split())
+    if not game.startswith("dragon ball"):
+        return False
+    image_url = str(result.get("image_url") or "").strip()
+    filename = image_url.split("?", 1)[0].rsplit("/", 1)[-1].casefold()
+    return filename.startswith("preview")
+
+
 async def _resolve_media_candidate(
     *,
     row: Mapping[str, Any],
@@ -575,10 +587,17 @@ async def _resolve_media_candidate(
         cardtrader = CardTraderClient(api_token=settings.cardtrader_api_token)
         result = _json_dict(await lookup_cardtrader_one(cardtrader, row))
         if result.get("resolved"):
-            return "CARDTRADER", result, None
-        if result.get("provider_status_code") is not None:
+            if _cardtrader_preview_is_below_dragon_ball_target(row, result):
+                cardtrader_reason = (
+                    "Exact CardTrader image is preview-quality; a high-resolution "
+                    "exact-print source or first-party capture is required"
+                )
+            else:
+                return "CARDTRADER", result, None
+        elif result.get("provider_status_code") is not None:
             return "NONE", None, str(result.get("reason") or "CardTrader provider error")
-        cardtrader_reason = str(result.get("reason") or "No exact CardTrader match")
+        else:
+            cardtrader_reason = str(result.get("reason") or "No exact CardTrader match")
 
     if settings.tcggraph_api_key:
         client = TcgGraphClient(api_key=settings.tcggraph_api_key)
@@ -590,7 +609,10 @@ async def _resolve_media_candidate(
         result = _json_dict(resolved.get("result"))
         if result.get("resolved"):
             return "TCGGRAPH", result, None
-        return "NONE", None, str(result.get("reason") or cardtrader_reason or "No exact TCGGraph match")
+        graph_reason = str(result.get("reason") or "No exact TCGGraph match")
+        if cardtrader_reason:
+            return "NONE", None, f"{cardtrader_reason}; {graph_reason}"
+        return "NONE", None, graph_reason
 
     if cardtrader_reason:
         return "NONE", None, cardtrader_reason
