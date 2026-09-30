@@ -120,6 +120,18 @@ Phase 2 activation order:
 5. only then consider higher-value workflows such as Merchant Center diagnostics;
 6. deterministic decisions remain in FastAPI/Postgres.
 
+### Production n8n audit — 30 September 2026
+
+Railway read-only inspection confirms:
+- runtime version: **n8n 2.32.6**;
+- startup dependency-index log: **0 draft workflows / 0 published workflows**;
+- therefore no active production workflow exists today;
+- no error workflow is currently configured;
+- persistent SQLite state exists on the n8n volume;
+- the service runs from the pinned n8n Docker image rather than a repository checkout.
+
+This means there is currently **no hidden live n8n workflow drift**. The absence of an error workflow is acceptable only while there are zero workflows. Before the first production workflow is activated, its JSON must be committed to GitHub and the n8n error workflow must be configured and tested.
+
 ## 6. External providers
 
 Current provider integrations/evidence include Shopify, Stripe, CardTrader, TCGGraph and existing eBay groundwork. Provider terms/rate limits remain explicit constraints.
