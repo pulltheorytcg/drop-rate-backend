@@ -154,3 +154,12 @@ def test_trawl_api_key_is_optional_and_server_side(monkeypatch):
     assert Settings.from_env().trawl_api_key is None
     monkeypatch.setenv("TCG_TRAWL_API_KEY", "trawl-secret")
     assert Settings.from_env().trawl_api_key == "trawl-secret"
+
+
+def test_automation_command_secret_is_optional_server_side(monkeypatch):
+    _base_env(monkeypatch)
+    monkeypatch.delenv("TCG_AUTOMATION_COMMAND_SECRET", raising=False)
+    assert Settings.from_env().automation_command_secret is None
+
+    monkeypatch.setenv("TCG_AUTOMATION_COMMAND_SECRET", "x" * 32)
+    assert Settings.from_env().automation_command_secret == "x" * 32
