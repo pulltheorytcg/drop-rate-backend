@@ -1082,7 +1082,7 @@ def test_vision_schema_extracts_gameplay_fingerprint_not_only_tiny_card_id() -> 
 
 def test_recognition_logic_change_bumps_idempotency_version() -> None:
     api = API.read_text()
-    assert 'ENGINE_VERSION = "v1.5.1"' in api
+    assert 'ENGINE_VERSION = "v1.6.0"' in api
     assert 'f"recognition:{ENGINE_VERSION}:{settings.recognition_model}:"' in api
 
 
@@ -1467,7 +1467,7 @@ def test_v14_parallel_evidence_work_and_stage_timing_are_wired_without_gate_chan
     api = API.read_text()
     engine = ENGINE.read_text()
 
-    assert "provider_result, learning_hints = await asyncio.gather(" in api
+    assert "provider_result, learning_hints, library_items = await asyncio.gather(" in api
     assert "candidates, _ = await asyncio.gather(" in api
     assert '"provider_discovery"' in api
     assert '"learning_hints"' in api

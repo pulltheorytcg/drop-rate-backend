@@ -18,6 +18,8 @@ TRUSTED_REFERENCE_HOSTS = {
     "onepiece-cardgame.com",
     "www.onepiece-cardgame.com",
     "cards.tcggraph.io",
+    "www.dbs-cardgame.com",
+    "narutocardgame.gg",
 }
 
 REFERENCE_HASH_CACHE_TTL_SECONDS = 6 * 60 * 60
