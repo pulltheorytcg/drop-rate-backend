@@ -1,5 +1,18 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: guarded dead-letter visibility and replay
+
+- Added platform-admin automation recovery API:
+  - `GET /api/v1/automation/operations/events` for sanitized outbox history;
+  - `POST /api/v1/automation/operations/events/{event_id}/replay` for guarded recovery.
+- Outbox visibility deliberately excludes raw event payloads/secrets and uses a narrow `SECURITY DEFINER` function rather than granting table SELECT.
+- Manual replay is restricted to **DEAD_LETTER only**. `DELIVERED`, `SUPERSEDED`, `PENDING` and `DISPATCHING` events cannot use this path.
+- Replay does not reset `attempt_count`; it preserves failure history, increases the ceiling only enough to permit another claim, marks `MANUAL_REPLAY_REQUESTED`, and requeues the same immutable event envelope.
+- Replay reason is mandatory. Audit actor is derived from the authenticated platform-admin user and request ID is preserved in `AUTOMATION_EVENT_REPLAY_REQUESTED`.
+- Replay cannot mutate inventory, ownership, Shopify links, orders, price, finance or settlement state directly.
+- The 396 historical `inventory.approved` events are `SUPERSEDED` and therefore permanently excluded from replay.
+- Full runbook: `docs/AUTOMATION_DEAD_LETTER_RECOVERY.md`.
+
 ## 2026-09-30 — n8n Wave A: automation outbox health monitoring
 
 - Historical pre-routing backlog has now been reconciled in production: **396 / 396** obsolete `inventory.approved` events are `SUPERSEDED`, with **396** matching audit events; inventory remains **509** and published Shopify inventory links remain **492**.
