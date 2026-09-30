@@ -345,7 +345,7 @@ def test_seller_hub_branding_is_neutral_and_not_founder_hq() -> None:
 
     logo = STATIC / "brand-assets" / "drop-rate-seller-hub.png"
     payload = logo.read_bytes()
-    assert payload[:8] == b"\\x89PNG\\r\\n\\x1a\\n"
+    assert payload[:8] == bytes((137, 80, 78, 71, 13, 10, 26, 10))
     assert b"tRNS" in payload  # Palette transparency; no white rectangle baked into the asset.
 
 
