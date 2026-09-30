@@ -203,6 +203,13 @@
 }
 .owner-portal-page .owner-signout:hover{background:rgba(255,255,255,.1)!important}
 
+.owner-portal-page .owner-profile-trigger{
+  text-align:left;
+}
+.owner-portal-page .owner-profile-trigger:hover{
+  background:rgba(255,255,255,.11);
+}
+
 .owner-portal-page .owner-app-shell{min-height:calc(100vh - 78px)}
 .owner-portal-page .owner-sidebar{
   position:fixed;
@@ -883,12 +890,17 @@
     box-shadow:0 -8px 24px rgba(19,34,59,.06);
   }
   .owner-portal-page .owner-nav{
-    grid-template-columns:repeat(5,1fr);
-    gap:2px;
+    display:flex;
+    gap:4px;
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    scrollbar-width:none;
   }
+  .owner-portal-page .owner-nav::-webkit-scrollbar{display:none}
   .owner-portal-page .owner-nav:before,.owner-portal-page .owner-sidebar-footer{display:none}
   .owner-portal-page .owner-nav-item{
     min-height:50px;
+    flex:0 0 76px;
     display:grid;
     justify-items:center;
     gap:2px;
@@ -913,6 +925,10 @@
   }
   .owner-portal-page .owner-search-field{grid-column:1/-1}
   .owner-portal-page .owner-refresh-button span{display:none}
+}
+@media(max-width:900px){
+  .owner-portal-page .owner-profile-grid{grid-template-columns:1fr}
+  .owner-portal-page .owner-profile-security{grid-column:auto}
 }
 @media(max-width:620px){
   .owner-portal-page .owner-page-header h1{font-size:2.15rem}
@@ -1422,6 +1438,95 @@
 .owner-portal-page .owner-movement.up{color:#087a4e;background:#e4f8ee}
 .owner-portal-page .owner-movement.down{color:#b44343;background:#fff0ef}
 .owner-portal-page .owner-movement.flat{color:#637287;background:#eef2f6}
+
+/* Profile & account settings */
+.owner-portal-page .owner-profile-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+  align-items:start;
+}
+.owner-portal-page .owner-profile-security{grid-column:1/-1}
+.owner-portal-page .owner-profile-facts{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+  margin:4px 0 18px;
+}
+.owner-portal-page .owner-profile-facts>div{
+  min-width:0;
+  display:grid;
+  gap:4px;
+  padding:13px 14px;
+  border:1px solid #e7edf4;
+  border-radius:12px;
+  background:#f9fbfd;
+}
+.owner-portal-page .owner-profile-facts span{
+  color:#8a96a7;
+  font-size:.56rem;
+  font-weight:780;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.owner-portal-page .owner-profile-facts strong{
+  overflow:hidden;
+  color:#2d435f!important;
+  font-size:.77rem;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.owner-portal-page .owner-profile-facts small{
+  color:#8b97a7;
+  font-size:.56rem;
+}
+.owner-portal-page .owner-username-field{
+  display:flex;
+  align-items:center;
+  min-height:44px;
+  overflow:hidden;
+  border:1px solid #d7dfe8;
+  border-radius:10px;
+  background:#fff;
+}
+.owner-portal-page .owner-username-field:focus-within{
+  border-color:#8bb7ed;
+  box-shadow:0 0 0 3px rgba(31,123,242,.08);
+}
+.owner-portal-page .owner-username-field>span{
+  padding-left:13px;
+  color:#7f8da1;
+  font-weight:800;
+}
+.owner-portal-page .owner-username-field input{
+  width:100%;
+  min-height:42px;
+  padding:0 12px 0 4px;
+  border:0!important;
+  outline:0;
+  box-shadow:none!important;
+  background:transparent;
+}
+.owner-portal-page .owner-field-help{
+  margin-top:-4px;
+  color:#8996a7;
+  font-size:.58rem;
+  line-height:1.5;
+}
+.owner-portal-page .owner-profile-subform{
+  padding-top:17px;
+  border-top:1px solid #edf1f5;
+}
+.owner-portal-page .owner-security-note{
+  margin:16px 0 0;
+  padding:12px 13px;
+  border:1px solid #e5ebf2;
+  border-radius:11px;
+  color:#718095;
+  background:#f8fafc;
+  font-size:.61rem;
+  line-height:1.55;
+}
 
 /* Sales channels */
 .owner-portal-page .owner-channel-grid{

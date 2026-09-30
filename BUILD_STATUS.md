@@ -1,5 +1,19 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Seller Hub profile & account settings
+
+- Added a dedicated **Profile** view for restricted Seller Hub owners.
+- Sellers can update their display name and claim an optional unique username; usernames are PostgreSQL-owned, lowercased, 3–30 characters and case-insensitively unique.
+- Profile changes are owner-scoped through a SECURITY DEFINER database function and write `OWNER_PROFILE_UPDATED` audit events with old/new values.
+- Added read-only seller account context: current email/verification state, seller type, membership date and commission rate.
+- Added authenticated email-change flow through Supabase Auth; the UI makes clear that email changes only take effect after the configured verification flow completes.
+- Added password-change flow that verifies the current password first, obtains a fresh Supabase session, then updates the password without storing credentials in Drop Rate.
+- Added Profile access from the account chip and Seller Hub navigation; mobile navigation becomes horizontally scrollable so Profile and existing destinations remain usable without crushed tabs.
+- No profile control can change owner type, founder slot, commission, inventory ownership, membership role, settlements or payout amounts.
+- Added `docs/SELLER_HUB_PROFILE_SETTINGS.md` and regression coverage for database constraints, owner scoping, browser security and responsive access.
+- Production activation pending CI, merge, migration application, Railway deploy and live verification.
+
+
 ## 2026-09-30 — Seller Hub header breathing-room refinement
 
 - Reduced the signed-in desktop Seller Hub lockup from 254×68 px to 220×56 px so the approved logo has more vertical breathing room inside the 78 px topbar.

@@ -13,6 +13,7 @@ const state = {
   payoutPreferenceVersion: 0,
   financeSummary: null,
   payoutPreference: null,
+  profile: null,
 };
 
 const byId = (id) => document.getElementById(id);
@@ -621,10 +622,171 @@ async function reloadOwnerDashboard() {
       loadOwnerPayouts(),
       loadOwnerPayoutPreference(),
       loadOwnerStripeStatus(),
+      loadOwnerProfile(),
     ]);
     showPortalMessage();
   } catch (error) {
     showPortalMessage(error.message, "error");
+  }
+}
+
+function setProfileMessage(id, text = "", kind = "") {
+  const node = byId(id);
+  if (!node) return;
+  node.textContent = text;
+  node.className = `message owner-card-message${kind ? ` ${kind}` : ""}`;
+}
+
+function renderOwnerProfile(profile) {
+  state.profile = profile || {};
+  const displayName = safeText(state.profile.display_name, "");
+  byId("owner-profile-display-name").value = displayName;
+  byId("owner-profile-username").value = state.profile.username || "";
+  byId("owner-profile-owner-type").textContent =
+    state.profile.owner_type === "CONSIGNOR" ? "Seller" : safeText(state.profile.owner_type);
+  byId("owner-profile-member-since").textContent =
+    formatDate(state.profile.membership_created_at || state.profile.created_at);
+  byId("owner-profile-commission").textContent =
+    `${(Number(state.profile.commission_bps || 0) / 100).toFixed(2).replace(/\.00$/, "")}%`;
+
+  const user = state.session?.user || {};
+  byId("owner-profile-current-email").textContent = safeText(user.email, "—");
+  const verified = Boolean(user.email_confirmed_at || user.confirmed_at);
+  byId("owner-profile-email-status").textContent =
+    verified ? "Verified email" : "Email verification pending";
+}
+
+async function loadOwnerProfile() {
+  const data = await apiRequest("/api/v1/owner/profile");
+  renderOwnerProfile(data.profile || {});
+}
+
+async function saveOwnerProfile(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = byId("owner-profile-save");
+  const displayName = byId("owner-profile-display-name").value.trim();
+  const usernameRaw = byId("owner-profile-username").value.trim().toLowerCase();
+  if (usernameRaw && !/^[a-z0-9][a-z0-9_]{2,29}$/.test(usernameRaw)) {
+    setProfileMessage(
+      "owner-profile-message",
+      "Username must be 3–30 characters using lowercase letters, numbers and underscores.",
+      "error"
+    );
+    return;
+  }
+
+  button.disabled = true;
+  setProfileMessage("owner-profile-message", "Saving profile…");
+  try {
+    const data = await apiRequest("/api/v1/owner/profile", {
+      method: "PATCH",
+      body: JSON.stringify({
+        display_name: displayName,
+        username: usernameRaw || null,
+      }),
+    });
+    renderOwnerProfile(data.profile || {});
+    const name = data.profile?.display_name || displayName || "Owner";
+    byId("owner-portal-name").textContent = name;
+    byId("owner-portal-initial").textContent = name.slice(0, 1).toUpperCase();
+    byId("owner-overview-name").textContent = name;
+    setProfileMessage("owner-profile-message", "Profile saved.", "success");
+  } catch (error) {
+    setProfileMessage("owner-profile-message", error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function changeOwnerEmail(event) {
+  event.preventDefault();
+  const button = byId("owner-email-save");
+  const newEmail = byId("owner-profile-new-email").value.trim().toLowerCase();
+  const currentEmail = String(state.session?.user?.email || "").trim().toLowerCase();
+
+  if (!newEmail || !newEmail.includes("@")) {
+    setProfileMessage("owner-email-message", "Enter a valid email address.", "error");
+    return;
+  }
+  if (newEmail === currentEmail) {
+    setProfileMessage("owner-email-message", "That is already your current email.", "error");
+    return;
+  }
+
+  button.disabled = true;
+  setProfileMessage("owner-email-message", "Sending email-change verification…");
+  try {
+    const updatedUser = await authRequest(
+      `/user?redirect_to=${encodeURIComponent(`${window.location.origin}/owner`)}`,
+      {
+        method: "PUT",
+        headers: {Authorization: `Bearer ${state.session.access_token}`},
+        body: JSON.stringify({email: newEmail}),
+      }
+    );
+    state.session.user = updatedUser;
+    saveSession(state.session);
+    renderOwnerProfile(state.profile || {});
+    byId("owner-profile-new-email").value = "";
+    setProfileMessage(
+      "owner-email-message",
+      "Verification sent. Your login email will change after the required confirmation step completes.",
+      "success"
+    );
+  } catch (error) {
+    setProfileMessage("owner-email-message", error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function changeOwnerPassword(event) {
+  event.preventDefault();
+  const button = byId("owner-password-save");
+  const currentPassword = byId("owner-profile-current-password").value;
+  const newPassword = byId("owner-profile-new-password").value;
+  const confirmation = byId("owner-profile-confirm-password").value;
+  const email = String(state.session?.user?.email || "").trim().toLowerCase();
+
+  if (newPassword !== confirmation) {
+    setProfileMessage("owner-password-message", "The new passwords do not match.", "error");
+    return;
+  }
+  if (newPassword.length < 12) {
+    setProfileMessage("owner-password-message", "Use at least 12 characters for your new password.", "error");
+    return;
+  }
+  if (!email) {
+    setProfileMessage("owner-password-message", "No verified email is available for password re-authentication.", "error");
+    return;
+  }
+
+  button.disabled = true;
+  setProfileMessage("owner-password-message", "Verifying your current password…");
+  try {
+    const freshSession = await authRequest("/token?grant_type=password", {
+      method: "POST",
+      body: JSON.stringify({email, password: currentPassword}),
+    });
+    saveSession(freshSession);
+    await hydrateSessionUser();
+
+    setProfileMessage("owner-password-message", "Updating password…");
+    await authRequest("/user", {
+      method: "PUT",
+      headers: {Authorization: `Bearer ${state.session.access_token}`},
+      body: JSON.stringify({password: newPassword}),
+    });
+    await hydrateSessionUser();
+    byId("owner-profile-current-password").value = "";
+    byId("owner-profile-new-password").value = "";
+    byId("owner-profile-confirm-password").value = "";
+    setProfileMessage("owner-password-message", "Password changed successfully.", "success");
+  } catch (error) {
+    setProfileMessage("owner-password-message", error.message, "error");
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -979,6 +1141,7 @@ function activateOwnerView(view) {
     balance: ["Payouts", "Manage your payout account, balance and preferred payout schedule."],
     channels: ["Channels", "See exactly where your inventory is synced and whether each channel is healthy."],
     settlements: ["Settlements", "Follow order-by-order allocation and reconciliation."],
+    profile: ["Profile", "Manage your Seller Hub identity, login email and password securely."],
   };
   const target = Object.hasOwn(views, view) ? view : "overview";
 
@@ -1169,7 +1332,7 @@ async function openOwnerPortal() {
   byId("owner-auth-view").classList.add("hidden");
   byId("owner-portal-view").classList.remove("hidden");
   const hashView = window.location.hash.replace("#", "");
-  activateOwnerView(["inventory", "scan", "sales", "balance", "channels", "settlements"].includes(hashView) ? hashView : "overview");
+  activateOwnerView(["inventory", "scan", "sales", "balance", "channels", "settlements", "profile"].includes(hashView) ? hashView : "overview");
   await reloadOwnerDashboard();
   showOwnerOnboardingWelcome();
 }
@@ -1360,6 +1523,10 @@ byId("owner-settlements-next").addEventListener("click", async () => {
   state.settlements.offset += state.settlements.limit;
   await loadOwnerSettlements();
 });
+
+byId("owner-profile-form").addEventListener("submit", saveOwnerProfile);
+byId("owner-email-form").addEventListener("submit", changeOwnerEmail);
+byId("owner-password-form").addEventListener("submit", changeOwnerPassword);
 
 byId("owner-payout-cadence").addEventListener("change", updateOwnerPayoutFields);
 byId("owner-payout-save").addEventListener("click", saveOwnerPayoutPreference);
