@@ -137,6 +137,19 @@ def test_description_explains_governed_item_specific_media_policy() -> None:
     assert "Images may be representative" not in plan["descriptionHtml"]
 
 
+def test_pre_release_description_discloses_reference_image_difference() -> None:
+    plan = build_shopify_product_plan(
+        _card(
+            game="Dragon Ball Super",
+            set_name="Dawn of the Z-Legends Pre-Release Cards",
+            card_number="BT18-004",
+            name="Omega Shenron, Merciless Negativity",
+        )
+    )
+    assert "physical item is the Pre-Release printing" in plan["descriptionHtml"]
+    assert "markings may differ from the reference image" in plan["descriptionHtml"]
+
+
 def _ready_asset(
     *,
     scope="CANONICAL_CARD",
