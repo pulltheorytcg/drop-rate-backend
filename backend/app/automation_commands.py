@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from .automation_dispatcher import verify_signed_body
 from .settings import get_settings
-from .shopify_pipeline import publish_inventory_to_shopify
+from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
 
 router = APIRouter(prefix="/api/v1/automation/commands", tags=["automation-commands"])
@@ -27,6 +27,14 @@ class InventoryApprovedPayload(BaseModel):
     catalogue_id: UUID
     status: Literal["APPROVED"]
     version: int = Field(ge=1)
+
+
+class ShopifyProductUpdatesCommand(BaseModel):
+    schema_version: Literal[1] = 1
+    execution_id: str = Field(min_length=1, max_length=120)
+    idempotency_key: str = Field(min_length=1, max_length=255)
+    occurred_at: datetime
+    limit: int = Field(default=50, ge=1, le=100)
 
 
 class InventoryApprovedEvent(BaseModel):
@@ -80,6 +88,64 @@ async def _verified_command_body(
     ):
         raise HTTPException(status_code=401, detail="Invalid automation command signature")
     return raw_body
+
+
+@router.post("/shopify/product-updates")
+async def reconcile_shopify_product_updates(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(
+        default=None,
+        alias="X-Drop-Rate-Timestamp",
+    ),
+    x_drop_rate_signature: str | None = Header(
+        default=None,
+        alias="X-Drop-Rate-Signature",
+    ),
+) -> dict:
+    settings = get_settings()
+    if not settings.shopify_publish_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="Automated Shopify updates are locked off",
+        )
+
+    raw_body = await _verified_command_body(
+        request,
+        timestamp_header=x_drop_rate_timestamp,
+        signature_header=x_drop_rate_signature,
+    )
+    try:
+        command = ShopifyProductUpdatesCommand.model_validate_json(raw_body)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid Shopify product-updates automation command",
+        ) from exc
+
+    result = await reconcile_shopify_product_prices(
+        request.app.state.db_pool,
+        limit=command.limit,
+        request_id=request.state.request_id,
+    )
+    if int(result.get("failed_count") or 0) > 0:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "message": "One or more Shopify product price updates failed read-back",
+                "retryable": True,
+                "result": result,
+            },
+        )
+    if int(result.get("retry_required_count") or 0) > 0:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Drop Rate state changed during Shopify price reconciliation",
+                "retryable": True,
+                "result": result,
+            },
+        )
+    return result
 
 
 @router.post("/shopify/inventory-approved")
