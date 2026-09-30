@@ -214,7 +214,19 @@ Across the 29–30 September work:
 - eBay/cross-channel expansion;
 - autonomous SEO/CRO/marketing experimentation.
 
-### 14. Remaining work / next exact order
+### 14. Overall milestone position after this work
+
+- **Milestone 1 — three-founder inventory/ownership:** internal architecture, owner-safe inventory and ownership tracking are effectively complete, but the final release proof still requires onboarding the genuine third founder and repeating cross-owner production isolation verification. No external owner/consignor activation has been silently opened.
+- **Milestone 2 — approved inventory → Shopify → sale → correct owner attribution:** technically far advanced. Real Shopify sale/refund/restock and deterministic settlement reporting already exist; the 29–30 September work has now made the catalogue/storefront side launch-ready at 470 live products. Remaining production proof is the final Brand Redesign launch smoke plus real multi-owner/same-card attribution under the pooled model and eventual live Stripe payout cutover. Automatic money movement remains intentionally locked behind verified settlement controls.
+- **Milestone 3 — automated valuation/recommended pricing:** infrastructure exists, but provider-by-provider production market-data activation remains intentionally gated. The CardTrader work in this checkpoint was exact identity/media support for storefront backlog, not a reopening of automated pricing-provider expansion.
+- **Consignment:** core architecture/status model exists in the wider roadmap, but full customer-facing consignment rollout remains after the storefront/current commerce milestone.
+- **Seller Hub:** the existing deployed seller-safe surfaces remain, but the requested future flow — Shopify signup/purchase → Seller Hub invitation → purchased cards automatically added to portfolio — remains intentionally deferred under the storefront-first freeze.
+- **AI listings/customer service/SEO/marketing:** not reopened. No autonomous CRO/A/B-testing, AI marketing, social publishing or large-scale SEO automation has been activated before the base storefront goes live and proves stable.
+- **n8n:** the signed-event/outbox foundation from 28 September remains dormant by design; no new event types/workflows were added during this storefront-first period.
+- **eBay/cross-channel:** deployed groundwork remains production-dormant and no new expansion was performed during the freeze.
+- **Recognition:** correctness/bug fixes already shipped are preserved, but new recognition feature scope remains frozen until storefront milestone reopening.
+
+### 15. Remaining work / next exact order
 
 1. **Final authenticated Brand Redesign smoke QA** — complete a full mobile and desktop pass through homepage → collection → filters/sort → PDP/grouped copies → exact-copy cart → native checkout entry → search/no-result → customer account/order-history handoff, including the 30 September spacing/title/Nico-image polish.
 2. **Publish Brand Redesign theme only after that smoke is approved.** Horizon remains MAIN until then.
