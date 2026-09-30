@@ -88,6 +88,44 @@ def signature_headers(
     }
 
 
+def verify_signed_body(
+    *,
+    secret: str,
+    body: bytes,
+    timestamp_header: str | None,
+    signature_header: str | None,
+    now: datetime | None = None,
+    max_skew_seconds: int = 300,
+) -> bool:
+    """Verify a Drop Rate HMAC request without parsing or mutating its body."""
+
+    clean_secret = secret.strip()
+    timestamp_text = str(timestamp_header or "").strip()
+    supplied = str(signature_header or "").strip().lower()
+    if len(clean_secret) < 32 or not body:
+        return False
+    if not timestamp_text.isdigit():
+        return False
+    if not supplied.startswith("sha256=") or len(supplied) != 71:
+        return False
+    digest_text = supplied.removeprefix("sha256=")
+    if any(character not in "0123456789abcdef" for character in digest_text):
+        return False
+
+    timestamp_value = int(timestamp_text)
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    if abs(int(current.timestamp()) - timestamp_value) > max_skew_seconds:
+        return False
+
+    signed = timestamp_text.encode("ascii") + b"." + body
+    expected = "sha256=" + hmac.new(
+        clean_secret.encode("utf-8"),
+        signed,
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, supplied)
+
+
 def retry_delay_seconds(attempt_count: int) -> int:
     """Deterministic exponential backoff capped at 30 minutes."""
 
