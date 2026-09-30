@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Founder HQ TCGdex direct-image fast path
+
+- Post-deploy coverage audit of PR #344 found only **10 / 490 displayed inventory images (2.0%)** currently have a Shopify CDN URL, so the first fast path was correct but too narrow to materially solve the measured grid latency alone.
+- TCGdex accounts for **195** selected Founder HQ inventory images. Its current API documentation explicitly supports direct card-image URLs and recommends the **low-quality WebP** variant when displaying many small images in a grid.
+- The direct-browser fast path is therefore expanded only to **Shopify CDN + TCGdex**:
+  - TCGdex `high.webp` grid URLs are converted to `low.webp`;
+  - the authenticated bounded proxy remains automatic fallback;
+  - official One Piece, CardTrader, OPTCG API, TCGGraph and unknown hosts remain proxy-only unless their display terms are separately confirmed.
+- Current production data indicates **202 / 490 displayed inventory images (~41.2%)** can use the direct path after this change.
+- No wildcard direct-provider path is introduced.
+
 ## 2026-09-30 — Phase 2 audit consolidated onto current main
 
 - Phase 2 remains the active operating layer on top of the storefront-first manual. Brand Redesign remains unpublished until the full launch gate passes.
