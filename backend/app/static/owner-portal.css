@@ -26,7 +26,7 @@
   letter-spacing:-.012em;
 }
 .owner-portal-page .dr-logo-image{
-  background-image:url("/assets/brand-assets/drop-rate-seller-hub.png?v=20260930")!important;
+  background-image:url("/assets/brand-assets/drop-rate-seller-hub.png?v=seller-hub-2")!important;
   filter:drop-shadow(0 6px 14px rgba(2,18,45,.24))!important;
 }
 
@@ -81,7 +81,7 @@
 .owner-portal-page .owner-auth-brand .lead{color:#c8d6ec;font-size:1.08rem}
 .owner-portal-page .owner-auth-brand .trust-row{color:#91a9ca}
 .owner-portal-page .owner-auth-brand .trust-row span:before{background:#47dff0}
-.owner-portal-page .owner-auth-logo{width:min(100%,310px);height:112px;display:block;background-position:left center!important}
+.owner-portal-page .owner-auth-logo{width:min(100%,360px);height:130px;display:block;background-position:left center!important}
 .owner-portal-page .owner-auth-panel{
   display:grid;
   place-items:center;
@@ -148,15 +148,15 @@
   box-shadow:0 3px 18px rgba(7,27,63,.13)!important;
 }
 .owner-portal-page .owner-topbar-brand{
-  min-width:230px;
+  min-width:268px;
   display:flex;
   align-items:center;
   flex:0 0 auto;
 }
 .owner-portal-page .owner-topbar-logo{
   display:block!important;
-  width:224px!important;
-  height:70px!important;
+  width:254px!important;
+  height:68px!important;
   flex:0 0 auto;
   background-repeat:no-repeat!important;
   background-position:left center!important;
@@ -843,18 +843,18 @@
 
   .owner-portal-page .owner-topbar{height:64px!important;padding:0 12px!important}
   .owner-portal-page .owner-topbar-brand{min-width:0}
-  .owner-portal-page .owner-topbar-logo{width:154px!important;height:54px!important}
+  .owner-portal-page .owner-topbar-logo{width:174px!important;height:58px!important}
 
   .owner-portal-page .owner-auth-layout{grid-template-columns:1fr}
   .owner-portal-page .owner-auth-brand{display:none}
   .owner-portal-page .owner-auth-panel{min-height:100vh;padding:22px}
   .owner-portal-page .owner-auth-card{margin:0}
   .owner-portal-page .owner-auth-mobile-logo{display:block;margin-bottom:22px}
-  .owner-portal-page .owner-auth-mobile-logo .dr-logo-image{display:block;width:min(100%,240px);height:86px;background-position:left center!important}
+  .owner-portal-page .owner-auth-mobile-logo .dr-logo-image{display:block;width:min(100%,280px);height:101px;background-position:left center!important}
 
   .owner-portal-page .owner-topbar{height:64px!important;padding:0 14px!important}
   .owner-portal-page .owner-secure-chip{display:none}
-  .owner-portal-page .owner-topbar-logo{width:154px!important;height:54px!important}
+  .owner-portal-page .owner-topbar-logo{width:174px!important;height:58px!important}
   .owner-portal-page .owner-topbar .user-chip div{display:none}
   .owner-portal-page .owner-topbar .user-chip{padding-right:5px}
   .owner-portal-page .owner-signout{font-size:.66rem;padding:0 10px!important}

@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Seller Hub brand lockup refinement in progress
+
+- Replaced the previous Seller Hub artwork with the user-approved transparent **Drop Rate Seller Hub** integrated lockup.
+- The Seller Hub header keeps the existing dark navy chrome and right-side account controls; no auth, ownership, inventory, pricing, settlement or navigation logic changes.
+- The same dedicated Seller Hub lockup is used consistently for desktop header and Seller Hub authentication surfaces.
+- Desktop/mobile logo dimensions were rebalanced for the integrated wide artwork and cache-busted so the old white-background asset cannot persist.
+- Founder HQ branding remains separate and unchanged.
+- Deployment remains pending CI and production read-back.
+
 ## 2026-09-30 — Seller Hub integrated brand lockup
 
 - Replaced the Seller Hub's generic Drop Rate image + separately rendered product text with the approved integrated **Drop Rate Seller Hub** logo.
