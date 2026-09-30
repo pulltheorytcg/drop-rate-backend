@@ -88,6 +88,7 @@ def test_unapplied_dispatcher_heartbeat_migration_is_safe_only_while_dormant() -
     assert "to_regprocedure(" in source
     assert "check_automation_dispatcher_heartbeat(boolean,interval)" in source
     assert '"AUTOMATION_DISPATCHER_HEARTBEAT_NOT_INSTALLED_DORMANT"' in source
+    assert '"installed": False' in source
     assert "if alert_enabled:" in source
     assert "heartbeat migration is not installed" in source
     assert "return 0" in source

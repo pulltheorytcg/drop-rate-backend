@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — operations-monitor Railway watch list repaired
+
+- Railway `drop-rate-api` operations-monitor watch patterns now include the n8n runtime heartbeat checker/migration and dispatcher heartbeat checker/migration.
+- This fixes the deployment sequencing gap where heartbeat monitor code could change without automatically rebuilding the cron service.
+- The dormant dispatcher log now reports `installed=false` explicitly when its manual-gated migration is absent.
+- No schedule, alert enablement, dispatcher activation, Shopify publication activation or database migration state changed.
+
 ## 2026-09-30 — dispatcher-heartbeat dormant migration guard
 
 - Production operations-monitor cron exposed a sequencing bug: dispatcher-heartbeat monitoring was merged before its deliberately manual-gated Supabase migration was applied.
