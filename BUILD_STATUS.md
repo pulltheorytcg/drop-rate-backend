@@ -1,5 +1,32 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Japanese Nami + sealed One Piece publication + outbox recovery complete
+
+- Corrected Nami (Round 1 Promo) ST29-008 end-to-end from the previously incorrect English/base media path to the founder-confirmed Japanese ROUND1 promotional printing.
+  - Supabase inventory and canonical catalogue language are Japanese.
+  - card_printings identity status is VERIFIED with ROUND1 promo metadata.
+  - exact Japanese provider mapping and identity-verification audit evidence are recorded.
+  - prior English/base media records are revoked/rejected; the Japanese storefront media is the sole active approved canonical FRONT.
+  - Shopify product is ACTIVE as `Nami (Round 1 Promo) · JP · ST29-008 · One Piece Promotion Cards · Foil · Near Mint`, with `Language:Japanese` tag/metafield and exact Japanese ROUND1 image.
+- Published both founder-owned Japanese One Piece sealed products through the governed bootstrap -> bounded linked-draft reconciliation path:
+  - `One Piece Tin Pack Set Vol. 2 -Portgas.D.Ace- · JP` at £27.30, inventory `INV-C03F9CCD386C4798A90A45CC5CB00619`.
+  - `Premium Card Collection -6 assort vol.1- · JP` at £111.08, inventory `INV-5CD6E9E29B9B489D9D8B624A0D0E1609`.
+  - bootstrap considered exactly 2 and linked 2/2 with 0 failures; reconciliation considered exactly 2 and published 2/2 with 0 blockers.
+  - both are ACTIVE, quantity 1, vendor/game One Piece, product type `Sealed TCG Product`, language Japanese, seal status SEALED, and belong to both the `Sealed` and `One Piece` Shopify collections.
+  - official product media is attached; product-specific sealed shipping profiles are active at 300 g for the Ace TS-02 tin and 100 g for the Premium Card Collection.
+  - the old `SEALED_PUBLICATION_INPUTS_REQUIRED` HIGH Action Required items are RESOLVED after verified publication; the existing audit trigger records the resolution.
+- Merged PR #403 to clean sealed listing titles/tags/metafields and PR #404 to keep sealed descriptions product-specific (no card-only Variant/Condition/Rarity fields; explicit seal status).
+- Reconciled the automation outbox using the guarded audited supersede function:
+  - all 13 remaining PENDING `inventory.approved` events referenced inventory that was already non-test PUBLISHED in Shopify.
+  - marked those 13 SUPERSEDED, not DELIVERED or DEAD_LETTER, in accordance with `docs/AUTOMATION_EVENT_BACKLOG_RECONCILIATION.md`.
+  - outbox health now reports healthy=true with pending=0, due=0, dispatching=0, dead_letter=0 and stale_dispatching=0; prior outbox Action Required alerts are resolved.
+  - Railway scheduled `drop-rate-api` operations monitor is SUCCESS.
+- Railway `drop-rate-api-live` is SUCCESS after the final sealed-description deployment; full backend pre-deploy suite reported 2108 passed.
+- Exactly 2 FOR_SALE inventory items remain without Shopify links, both known One Piece raw-card media exceptions:
+  - Monkey.D.Luffy (Release Event Leader), number P, English Foil.
+  - DON!! Card (Egghead), The Azure Sea's Seven, English Normal.
+- One-off catalogue-bootstrap / linked-draft reconciliation controls were returned to disabled after the sealed publication run.
+
 ## 2026-09-30 — One Piece raw publication reconciliation advanced
 
 - Reconciled live production after the Dragon Ball completion run: all Dragon Ball FOR_SALE inventory is now Shopify-linked; the earlier BUILD_STATUS note showing 8 unlinked Dragon Ball items is superseded by this section.
