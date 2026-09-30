@@ -53,6 +53,20 @@ async def _configure_connection(connection: asyncpg.Connection) -> None:
         )
 
 
+async def _record_heartbeat(
+    connection: asyncpg.Connection,
+    *,
+    worker_id: str,
+    component_version: str,
+):
+    return await connection.fetchval(
+        "select tcg.record_automation_component_heartbeat($1,$2,$3)",
+        "DISPATCHER",
+        worker_id,
+        component_version,
+    )
+
+
 async def _ack(
     connection: asyncpg.Connection,
     event_id,
@@ -229,6 +243,18 @@ async def _run() -> None:
         minimum=5,
         maximum=120,
     )
+    heartbeat_seconds = _int_env(
+        "TCG_AUTOMATION_HEARTBEAT_SECONDS",
+        30,
+        minimum=10,
+        maximum=300,
+    )
+    component_version = (
+        os.getenv("TCG_AUTOMATION_COMPONENT_VERSION", "dispatcher-v1").strip()
+        or "dispatcher-v1"
+    )
+    if len(component_version) > 80:
+        raise RuntimeError("TCG_AUTOMATION_COMPONENT_VERSION must be at most 80 characters")
     worst_case_window = timeout_seconds * batch_size
     if lease_seconds <= worst_case_window + 10:
         raise RuntimeError(
@@ -253,6 +279,13 @@ async def _run() -> None:
 
     try:
         async with httpx.AsyncClient(timeout=timeout, limits=limits) as client:
+            await _record_heartbeat(
+                connection,
+                worker_id=worker_id,
+                component_version=component_version,
+            )
+            loop = asyncio.get_running_loop()
+            next_heartbeat_at = loop.time() + heartbeat_seconds
             print(
                 json.dumps(
                     {
@@ -261,11 +294,21 @@ async def _run() -> None:
                         "worker_id": worker_id,
                         "batch_size": batch_size,
                         "poll_seconds": poll_seconds,
+                        "heartbeat_seconds": heartbeat_seconds,
+                        "component_version": component_version,
                     },
                     sort_keys=True,
                 )
             )
             while True:
+                if loop.time() >= next_heartbeat_at:
+                    await _record_heartbeat(
+                        connection,
+                        worker_id=worker_id,
+                        component_version=component_version,
+                    )
+                    next_heartbeat_at = loop.time() + heartbeat_seconds
+
                 rows = await connection.fetch(
                     "select * from tcg.claim_automation_events($1,$2,$3)",
                     worker_id,
