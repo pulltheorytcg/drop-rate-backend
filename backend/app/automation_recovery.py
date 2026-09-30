@@ -72,11 +72,12 @@ async def replay_dead_letter(
         try:
             result = await connection.fetchval(
                 """
-                select tcg.replay_dead_letter_automation_event($1,$2,$3)
+                select tcg.replay_dead_letter_automation_event($1,$2,$3,$4)
                 """,
                 event_id,
                 user.user_id,
                 payload.reason,
+                request.state.request_id,
             )
         except Exception as exc:
             sqlstate = getattr(exc, "sqlstate", None)
