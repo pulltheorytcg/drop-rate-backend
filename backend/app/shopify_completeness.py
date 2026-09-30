@@ -61,6 +61,8 @@ def _is_sealed_product(item: Mapping[str, Any]) -> bool:
 
 def product_title(item: Mapping[str, Any]) -> str:
     language = _language(item)
+    if _is_sealed_product(item):
+        return _trim(display_title(item.get("name"), language), PRODUCT_TITLE_MAX)
     parts = [
         display_title(item.get("name"), language),
         _text(item.get("card_number")),
@@ -190,9 +192,17 @@ def product_tags(item: Mapping[str, Any]) -> list[str]:
         _text(item.get("game")),
         _text(item.get("set_name")),
         f"Language:{language}" if language else "",
-        f"Condition:{condition}" if condition else "",
-        f"Rarity:{_text(item.get('rarity'))}" if _text(item.get("rarity")) else "",
-        f"Variant:{_text(item.get('variant'))}" if _text(item.get("variant")) else "",
+        f"Condition:{condition}" if condition and not sealed else "",
+        (
+            f"Rarity:{_text(item.get('rarity'))}"
+            if _text(item.get("rarity")) and not sealed
+            else ""
+        ),
+        (
+            f"Variant:{_text(item.get('variant'))}"
+            if _text(item.get("variant")) and not sealed
+            else ""
+        ),
         f"Grader:{grading_company}" if grading_company else "",
         f"Grade:{grade}" if grade else "",
         card_kind,
@@ -212,19 +222,21 @@ def product_tags(item: Mapping[str, Any]) -> list[str]:
 
 
 def product_metafields(item: Mapping[str, Any]) -> list[dict[str, str]]:
+    sealed = _is_sealed_product(item)
     values = {
         "inventory_id": _text(item.get("inventory_code")),
         "catalogue_id": _text(item.get("catalogue_id")),
         "game": _text(item.get("game")),
         "set_name": _text(item.get("set_name")),
-        "card_number": _text(item.get("card_number")),
+        "card_number": "" if sealed else _text(item.get("card_number")),
         "language": _language(item),
-        "condition": _text(item.get("condition")),
-        "rarity": _text(item.get("rarity")),
-        "variant": _text(item.get("variant")),
-        "grading_company": _text(item.get("grading_company")),
-        "grade": _text(item.get("grade")),
+        "condition": "" if sealed else _text(item.get("condition")),
+        "rarity": "" if sealed else _text(item.get("rarity")),
+        "variant": "" if sealed else _text(item.get("variant")),
+        "grading_company": "" if sealed else _text(item.get("grading_company")),
+        "grade": "" if sealed else _text(item.get("grade")),
         "product_type": _text(item.get("product_type")),
+        "seal_status": _text(item.get("seal_status")) if sealed else "",
     }
     return [
         {
