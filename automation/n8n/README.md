@@ -186,3 +186,23 @@ Use the versioned corrected path only:
 
 The old workflows remain inactive as audit history because the provisioner deliberately never overwrites a persistent workflow ID.
 
+## DR-02 Shopify product updates v1
+
+DR-02 v1 intentionally handles **Store Price projection drift only**.
+
+Flow:
+
+`15-minute schedule → signed FastAPI product-updates command → Postgres candidate snapshot → Shopify variant-price update/read-back → Postgres version revalidation/finalize → DR-91`
+
+Scope is deliberately narrow:
+- published single-item links only;
+- production/non-test products only;
+- pooled variants excluded;
+- reserved lines excluded;
+- inventory must remain APPROVED + FOR_SALE;
+- canonical Store Price always comes from Postgres.
+
+Title, description, SEO, media and arbitrary metafield rewrites are **not** included in DR-02 v1. They require their own deterministic readiness/update contracts rather than being bundled into a generic n8n mutation.
+
+The workflow is imported inactive. Its migration must be applied through the normal manual production migration gate before any controlled activation test.
+
