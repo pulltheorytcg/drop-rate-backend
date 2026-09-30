@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from app.shopify_published_pooling import evaluate_published_group
+from app.shopify_published_pooling import _allocation_priority_for_member, evaluate_published_group
 
 
 CATALOGUE_ID = uuid4()
@@ -179,3 +179,46 @@ def test_group_already_on_one_product_is_not_a_phase_b_candidate() -> None:
 
     assert group["ready"] is False
     assert "already on one Shopify product" in group["blockers"]
+
+
+def test_existing_pool_member_keeps_historical_safe_priority() -> None:
+    row = _row(
+        code="INV-A",
+        product="gid://shopify/Product/10",
+        variant="gid://shopify/ProductVariant/10",
+        inventory_item="gid://shopify/InventoryItem/10",
+        listing_key="shopify-pool:abc",
+        sku="DRP-ABC",
+        priority=2,
+    )
+
+    priority, maximum = _allocation_priority_for_member(
+        row,
+        listing_key="shopify-pool:abc",
+        anchor_product_id="gid://shopify/Product/10",
+        max_priority=4,
+    )
+
+    assert priority == 2
+    assert maximum == 4
+
+
+def test_new_pool_member_uses_next_free_priority_after_history() -> None:
+    row = _row(
+        code="INV-B",
+        product="gid://shopify/Product/20",
+        variant="gid://shopify/ProductVariant/20",
+        inventory_item="gid://shopify/InventoryItem/20",
+        listing_key="catalogue:inv-b",
+        priority=1,
+    )
+
+    priority, maximum = _allocation_priority_for_member(
+        row,
+        listing_key="shopify-pool:abc",
+        anchor_product_id="gid://shopify/Product/10",
+        max_priority=4,
+    )
+
+    assert priority == 5
+    assert maximum == 5
