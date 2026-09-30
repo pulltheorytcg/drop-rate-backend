@@ -1,5 +1,19 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: source cutover verified + DR-92 runtime heartbeat built inactive
+
+- Production `drop-rate-n8n-e840` is now repo-controlled through `Dockerfile.n8n`, still pinned to n8n 2.32.6 and using the existing persistent `/home/node/.n8n` volume.
+- Railway deployment for merge `e1e1668` succeeded; startup detected DR-00/DR-90 as existing persistent workflows, imported DR-91 once as inactive, and n8n reported zero published workflows.
+- Added DR-92 runtime heartbeat as the next Wave A control-plane component:
+  - fixed 5-minute `n8n-runtime` heartbeat;
+  - HMAC-authenticated FastAPI endpoint;
+  - private/RLS-enabled latest-heartbeat table with no direct `tcg_api` table access;
+  - duplicate/out-of-order beats cannot advance the stored heartbeat;
+  - existing operations monitor checks freshness;
+  - Action Required escalation is HIGH and deduped, but **dormant by default** until explicit activation proof.
+- DR-92 cannot mutate inventory, ownership, price, settlement or customer state.
+- Activation remains gated on migration deployment, one durable manual heartbeat, duplicate replay proof and stale→healthy alert lifecycle proof.
+
 ## 2026-09-30 — n8n Wave A: reusable durable success receipts
 
 - Added inactive reusable n8n sub-workflow `DR91SuccessReceiptV1`.
