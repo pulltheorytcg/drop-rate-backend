@@ -67,6 +67,7 @@ def test_sealed_product_plan_uses_sealed_storefront_contract() -> None:
         grading_company=None,
         grade=None,
         rarity=None,
+        seal_status="SEALED",
     )
 
     plan = build_shopify_product_plan(sealed)
@@ -77,7 +78,14 @@ def test_sealed_product_plan_uses_sealed_storefront_contract() -> None:
     assert plan["productType"] == "Sealed TCG Product"
     assert plan["shippingProfileKey"] == "SEALED_60D5B80E39B94311AA28599A1D0DE9B2"
     assert plan["requiredCollections"] == ["Sealed", "One Piece"]
+    assert plan["title"] == "Premium Card Collection -6 assort vol.1- · JP"
     assert "Sealed Product" in plan["tags"]
+    assert "Variant:Normal" not in plan["tags"]
+    sealed_fields = {row["key"]: row["value"] for row in plan["metafields"]}
+    assert sealed_fields["language"] == "Japanese"
+    assert sealed_fields["set_name"] == "One Piece Promotion Cards"
+    assert sealed_fields["seal_status"] == "SEALED"
+    assert "variant" not in sealed_fields
     assert "Raw Card" not in plan["tags"]
     assert "Graded Card" not in plan["tags"]
     assert "Trading Card" not in plan["tags"]
