@@ -1,9 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Sealed homepage UI refinement
+
+- Replaced the generic two-column Shopify product-list homepage treatment with a dedicated `dr-brand-sealed` component.
+- Desktop sealed cards are compact horizontal cards with a capped ~210 px media column instead of large half-page product tiles.
+- Tablet switches to a single compact row; mobile uses a proportional 118 px media column with tighter typography and metadata.
+- Visual treatment matches the existing Drop Rate storefront system: cool-grey section surface, white cards, navy/ink typography, blue/cyan accents, subtle borders/shadows and rounded product surfaces.
+- The section remains driven by the real `sealed` Shopify collection and supports up to four products without hard-coded product IDs.
+
 ## 2026-09-30 — Sealed storefront CRO pass
 
 - Shopify `main-menu` now exposes `Sealed` as a top-level destination and as a One Piece submenu entry, both linked to the populated smart collection `/collections/sealed`.
-- The source-controlled Brand Redesign homepage now features the real `sealed` collection directly after Latest Drops using the native product-list component, with a dedicated heading/CTA and a two-column merchandising layout that scales to four products.
+- The source-controlled Brand Redesign homepage features the real `sealed` collection directly after Latest Drops; the initial generic product-list treatment was superseded by the compact custom `dr-brand-sealed` component.
 - Premium Card Collection -6 assort vol.1- image quality was audited at 546x546 on the previous official Bandai asset; that low-resolution media was replaced on Shopify with a 1600x1600 product photograph for sharper collection/PDP rendering.
 - Supabase media provenance keeps the superseded 546x546 Bandai asset as revoked history and records the active 1600x1600 storefront reference separately. No ownership, price, quantity, settlement or canonical sealed identity changed.
 - Brand Redesign remains UNPUBLISHED; this change does not publish or replace the live theme.

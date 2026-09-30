@@ -17,6 +17,7 @@ def test_homepage_custom_sections_are_source_controlled() -> None:
         "dr-brand-discovery.liquid",
         "dr-brand-editorial.liquid",
         "dr-brand-sets.liquid",
+        "dr-brand-sealed.liquid",
     ):
         assert (THEME / name).exists()
 
@@ -29,6 +30,7 @@ def test_homepage_uses_current_drop_rate_visual_palette() -> None:
             "dr-brand-discovery.liquid",
             "dr-brand-editorial.liquid",
             "dr-brand-sets.liquid",
+            "dr-brand-sealed.liquid",
         )
     ).casefold()
 
@@ -77,12 +79,20 @@ def test_homepage_merchandising_links_and_settings_are_preserved() -> None:
 
 def test_homepage_sealed_collection_is_featured() -> None:
     source = (ROOT / "storefront" / "theme" / "templates" / "index.json").read_text()
+    sealed = _read("dr-brand-sealed.liquid")
 
-    assert '"sealed": {' in source
+    assert '"type": "dr-brand-sealed"' in source
     assert '"collection": "sealed"' in source
-    assert "Sealed drops. Built for collectors." in source
-    assert '"label": "Shop sealed"' in source
-    assert '"max_products": 4' in source
-    assert '"columns": 2' in source
+    assert '"heading": "Keep it sealed."' in source
+    assert '"product_limit": 4' in source
     order_source = source[source.index('"order"'):]
     assert order_source.index('"latest"') < order_source.index('"sealed"') < order_source.index('"spotlight"')
+
+    assert "section.settings.collection" in sealed
+    assert "sealed_collection.products" in sealed
+    assert "product.metafields.drop_rate.game.value" in sealed
+    assert "product.available" in sealed
+    assert "<span>One Piece</span>" not in sealed
+    assert "grid-template-columns:repeat(2,minmax(0,1fr))" in sealed
+    assert "grid-template-columns:118px minmax(0,1fr)" in sealed
+    assert "height:190px;object-fit:contain" in sealed
