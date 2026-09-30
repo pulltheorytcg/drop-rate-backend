@@ -1,5 +1,19 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: guarded dead-letter recovery
+
+- Added Founder HQ dead-letter visibility and replay architecture so terminal automation failures can be recovered without manual SQL.
+- Normal transient failures still use the existing automatic retry/backoff budget first; this path applies only after an event reaches `DEAD_LETTER`.
+- Added narrow `SECURITY DEFINER` functions:
+  - `tcg.list_automation_dead_letters(limit,offset)` returns operational metadata only and excludes event payloads;
+  - `tcg.replay_dead_letter_automation_event(event_id,actor_user_id,reason)` can replay **DEAD_LETTER only**.
+- Replay is independently database-gated to an active FOUNDER `PLATFORM_ADMIN`, even though the FastAPI route also checks platform-admin access.
+- Replay preserves event identity, owner, aggregate, payload, idempotency key and max attempts; it resets only delivery attempt/lease/error state and returns the event to `PENDING`.
+- `DELIVERED` and `SUPERSEDED` history cannot be replayed by this path.
+- Every replay requires an explicit reason and writes an `AUTOMATION_EVENT_REPLAYED` audit event.
+- No inventory, Shopify link, order, price, ownership, finance, settlement or market-data row can be mutated by this recovery function.
+- Runbook: `docs/AUTOMATION_DEAD_LETTER_RECOVERY.md`.
+
 ## 2026-09-30 — n8n Wave A: automation outbox health monitoring
 
 - Historical pre-routing backlog has now been reconciled in production: **396 / 396** obsolete `inventory.approved` events are `SUPERSEDED`, with **396** matching audit events; inventory remains **509** and published Shopify inventory links remain **492**.
