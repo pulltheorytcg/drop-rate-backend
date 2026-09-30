@@ -117,10 +117,15 @@ function startOAuth(provider, prefix) {
     return;
   }
 
-  localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
+  if (state.token) {
+    localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
+  } else {
+    localStorage.removeItem(PENDING_OWNER_INVITE_KEY);
+  }
   savePendingAcknowledgement();
-  const redirectTo =
-    `${window.location.origin}/owner/join?invite=${encodeURIComponent(state.token)}`;
+  const redirectTo = state.token
+    ? `${window.location.origin}/owner/join?invite=${encodeURIComponent(state.token)}`
+    : `${window.location.origin}/owner/join`;
   const authorizeUrl = new URL(`${state.config.supabase_url}/auth/v1/authorize`);
   authorizeUrl.searchParams.set("provider", provider);
   authorizeUrl.searchParams.set("redirect_to", redirectTo);
@@ -133,19 +138,31 @@ async function authenticatedUser(session) {
   });
 }
 
-async function redeem(session, displayName) {
-  const response = await fetch("/api/v1/owner-invites/redeem", {
+async function completeSellerRegistration(session, displayName) {
+  const inviteMode = Boolean(state.token);
+  const endpoint = inviteMode
+    ? "/api/v1/owner-invites/redeem"
+    : "/api/v1/owner-self-register";
+  const body = inviteMode
+    ? {
+        token: state.token,
+        display_name: displayName,
+        acknowledged: true,
+        acknowledgement_version: state.acknowledgementVersion,
+      }
+    : {
+        display_name: displayName,
+        acknowledged: true,
+        acknowledgement_version: state.acknowledgementVersion,
+      };
+
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${session.access_token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      token: state.token,
-      display_name: displayName,
-      acknowledged: true,
-      acknowledgement_version: state.acknowledgementVersion,
-    }),
+    body: JSON.stringify(body),
   });
   const data = await readJson(response);
   const user = await authenticatedUser(session);
@@ -175,12 +192,20 @@ async function finishAuthenticatedOnboarding(session, displayName = null) {
   if (!user.email || !resolvedName) {
     throw new Error("We could not resolve your verified seller profile.");
   }
-  await redeem(session, resolvedName);
+  await completeSellerRegistration(session, resolvedName);
   window.location.replace("/owner?welcome=1");
 }
 
 function inviteSummaryText() {
-  const commissionPercent = Number(state.invite?.commission_bps || 0) / 100;
+  const commissionPercent = Number(state.invite?.commission_bps ?? 1000) / 100;
+  if (!state.token) {
+    return [
+      `Drop Rate commission: ${commissionPercent.toFixed(2).replace(/\\.00$/, "")}%`,
+      "Verified Seller Hub account",
+      "Access is limited to your own inventory and finances",
+    ].join(" · ");
+  }
+
   const expiry = new Date(state.invite?.expires_at);
   const expiryText = Number.isNaN(expiry.getTime())
     ? "the date shown in your invitation"
@@ -192,7 +217,7 @@ function inviteSummaryText() {
 
   return [
     `Invited email: ${state.invite?.invited_email_masked || "your invited email"}`,
-    `Drop Rate commission: ${commissionPercent.toFixed(2).replace(/\.00$/, "")}%`,
+    `Drop Rate commission: ${commissionPercent.toFixed(2).replace(/\\.00$/, "")}%`,
     `Expires: ${expiryText}`,
   ].join(" · ");
 }
@@ -201,9 +226,9 @@ function showJoin() {
   byId("owner-invite-loading").classList.add("hidden");
   byId("owner-invite-invalid").classList.add("hidden");
   byId("owner-join-form").classList.remove("hidden");
-  byId("owner-join-name").value = state.invite.invited_name || "";
+  byId("owner-join-name").value = state.invite?.invited_name || "";
   state.acknowledgementVersion = Number(
-    state.invite.acknowledgement_version || 1
+    state.invite?.acknowledgement_version || 1
   );
 
   const summary = inviteSummaryText();
@@ -225,30 +250,31 @@ async function initialise() {
     await loadSocialProviders();
     state.token = inviteToken();
 
-    if (!state.token) {
-      showInvalid(
-        "This invitation link is incomplete. Ask Drop Rate for a new seller invite."
+    if (state.token) {
+      localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
+      state.invite = await readJson(
+        await fetch(
+          `/api/v1/public/owner-invites/${encodeURIComponent(state.token)}`
+        )
       );
-      return;
+      state.acknowledgementVersion = Number(
+        state.invite.acknowledgement_version || 1
+      );
+    } else {
+      localStorage.removeItem(PENDING_OWNER_INVITE_KEY);
+      state.invite = {
+        commission_bps: 1000,
+        acknowledgement_version: 1,
+      };
+      state.acknowledgementVersion = 1;
     }
-
-    localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
-    state.invite = await readJson(
-      await fetch(
-        `/api/v1/public/owner-invites/${encodeURIComponent(state.token)}`
-      )
-    );
-    state.acknowledgementVersion = Number(
-      state.invite.acknowledgement_version || 1
-    );
 
     const session = callbackSession();
     if (session) {
-      history.replaceState(
-        {},
-        document.title,
-        `/owner/join?invite=${encodeURIComponent(state.token)}`
-      );
+      const cleanPath = state.token
+        ? `/owner/join?invite=${encodeURIComponent(state.token)}`
+        : "/owner/join";
+      history.replaceState({}, document.title, cleanPath);
       await finishAuthenticatedOnboarding(session);
       return;
     }
@@ -296,13 +322,18 @@ byId("owner-join-form").addEventListener("submit", async (event) => {
     return;
   }
 
-  localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
+  if (state.token) {
+    localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
+  } else {
+    localStorage.removeItem(PENDING_OWNER_INVITE_KEY);
+  }
   savePendingAcknowledgement();
   setBusy(form, true);
   showMessage("owner-join-message");
   try {
-    const redirectTo =
-      `${window.location.origin}/owner/join?invite=${encodeURIComponent(state.token)}`;
+    const redirectTo = state.token
+      ? `${window.location.origin}/owner/join?invite=${encodeURIComponent(state.token)}`
+      : `${window.location.origin}/owner/join`;
     const session = await authRequest(
       `/signup?redirect_to=${encodeURIComponent(redirectTo)}`,
       {
@@ -322,7 +353,9 @@ byId("owner-join-form").addEventListener("submit", async (event) => {
 
     showMessage(
       "owner-join-message",
-      "Account created. Confirm your email, then return through this invitation to finish onboarding.",
+      state.token
+        ? "Account created. Confirm your email, then return through this invitation to finish onboarding."
+        : "Account created. Confirm your email, then return to this page to finish Seller Hub setup.",
       "success"
     );
   } catch (error) {
@@ -357,7 +390,11 @@ byId("owner-existing-login-form").addEventListener("submit", async (event) => {
     return;
   }
 
-  localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
+  if (state.token) {
+    localStorage.setItem(PENDING_OWNER_INVITE_KEY, state.token);
+  } else {
+    localStorage.removeItem(PENDING_OWNER_INVITE_KEY);
+  }
   savePendingAcknowledgement();
   setBusy(form, true);
   showMessage("owner-existing-message");
@@ -371,7 +408,7 @@ byId("owner-existing-login-form").addEventListener("submit", async (event) => {
     });
     await finishAuthenticatedOnboarding(
       session,
-      byId("owner-join-name").value.trim() || state.invite.invited_name
+      byId("owner-join-name").value.trim() || state.invite?.invited_name || null
     );
   } catch (error) {
     showMessage("owner-existing-message", error.message, "error");
