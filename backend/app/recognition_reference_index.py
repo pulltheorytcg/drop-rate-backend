@@ -27,7 +27,7 @@ async def _eligible_reference_rows(
     limit: int,
     catalogue_ids: Sequence[UUID] | None = None,
 ) -> list[dict[str, Any]]:
-    params: list[Any] = []
+    params: list[Any] = [FINGERPRINT_VERSION]
     catalogue_filter = ""
     if catalogue_ids:
         params.append(list(dict.fromkeys(catalogue_ids)))
@@ -52,6 +52,8 @@ async def _eligible_reference_rows(
         from tcg.media_assets ma
         join tcg.catalogue_product_profiles pr
           on pr.catalogue_id=ma.catalogue_id
+        left join tcg.recognition_reference_fingerprints rf
+          on rf.media_asset_id=ma.id and rf.fingerprint_version=$1
         left join lateral (
             select
                 x.match_status,
@@ -77,6 +79,13 @@ async def _eligible_reference_rows(
           and ma.rights_status='VERIFIED'
           and ma.public_source_url is not null
           and (
+              rf.id is null or rf.media_asset_version<>ma.version
+              or rf.source_url is distinct from ma.public_source_url
+              or rf.catalogue_id is distinct from ma.catalogue_id
+              or rf.trust_level <> case when ma.approval_status='APPROVED'
+                  then 'VERIFIED' else 'PROVISIONAL' end
+          )
+          and (
               ma.approval_status='APPROVED'
               or (
                   pcm.match_status in ('VERIFIED','REVIEW')
@@ -96,12 +105,23 @@ async def _eligible_reference_rows(
     return [dict(row) for row in rows]
 
 
+async def fingerprint_reference_rows(rows):
+    """Fetch images outside a database transaction, then revalidate on write."""
+    semaphore = asyncio.Semaphore(REBUILD_MAX_CONCURRENCY)
+    async def one(row):
+        async with semaphore:
+            hashes = await reference_image_hashes(str(row.get("public_source_url") or ""))
+        return row, hashes
+    return await asyncio.gather(*(one(row) for row in rows))
+
+
 async def rebuild_reference_index(
     connection,
     *,
     actor_user_id: UUID,
     limit: int = 200,
     catalogue_ids: Sequence[UUID] | None = None,
+    prepared: list | None = None,
 ) -> dict[str, Any]:
     """Hash trusted canonical provider images and persist reusable exact-printing hints.
 
@@ -109,22 +129,11 @@ async def rebuild_reference_index(
     retrieve candidates only. APPROVED media is VERIFIED and can later contribute
     to exact-printing visual evidence.
     """
-    rows = await _eligible_reference_rows(
-        connection,
-        limit=limit,
-        catalogue_ids=catalogue_ids,
-    )
-    semaphore = asyncio.Semaphore(REBUILD_MAX_CONCURRENCY)
-
-    async def fingerprint(row: dict[str, Any]) -> tuple[dict[str, Any], tuple[int, ...] | None]:
-        url = str(row.get("public_source_url") or "").strip()
-        if not url:
-            return row, None
-        async with semaphore:
-            hashes = await reference_image_hashes(url)
-        return row, hashes
-
-    resolved = await asyncio.gather(*[fingerprint(row) for row in rows])
+    if prepared is None:
+        rows = await _eligible_reference_rows(connection,limit=limit,catalogue_ids=catalogue_ids)
+        resolved = await fingerprint_reference_rows(rows)
+    else:
+        resolved = prepared
 
     indexed = 0
     skipped_unavailable = 0
@@ -136,15 +145,21 @@ async def rebuild_reference_index(
             continue
 
         trust_level = _trust_level(row)
-        await connection.execute(
+        write_result = await connection.execute(
             """
             insert into tcg.recognition_reference_fingerprints(
                 catalogue_id,media_asset_id,system_code,fingerprint_version,
                 source_fingerprints,trust_level,media_asset_version,source_url,
                 created_by_user_id
-            ) values(
-                $1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9
-            )
+            ) select $1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9
+              from tcg.media_assets current_media
+              where current_media.id=$2 and current_media.version=$7
+                and current_media.catalogue_id=$1
+                and current_media.public_source_url=$8
+                and current_media.source_status='ACTIVE'
+                and current_media.rights_status='VERIFIED'
+                and (case when current_media.approval_status='APPROVED'
+                     then 'VERIFIED' else 'PROVISIONAL' end)=$6
             on conflict (media_asset_id,fingerprint_version)
             do update set
                 catalogue_id=excluded.catalogue_id,
@@ -179,6 +194,8 @@ async def rebuild_reference_index(
             row["public_source_url"],
             actor_user_id,
         )
+        if write_result == "INSERT 0 0":
+            continue
         indexed += 1
         if trust_level == "VERIFIED":
             verified += 1
@@ -186,7 +203,7 @@ async def rebuild_reference_index(
             provisional += 1
 
     return {
-        "eligible": len(rows),
+        "eligible": len(resolved),
         "indexed": indexed,
         "verified": verified,
         "provisional": provisional,

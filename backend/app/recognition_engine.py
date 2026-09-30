@@ -9,13 +9,9 @@ from .language import clean_language
 from .punk_records_client import PunkRecordsClient, PunkRecordsError
 from .recognition_images import hash_similarity, reference_image_hashes
 from .recognition_vision import RecognitionObservation
+from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .tcgdex_client import TcgDexApiError, TcgDexClient
 
-
-SYSTEM_BY_GAME = {
-    "Pokemon": "POKEMON_TCG",
-    "One Piece": "ONE_PIECE_CARD_GAME",
-}
 
 WEIGHTS = {
     "game": 0.05,
@@ -211,13 +207,13 @@ def _promo_marker_recovery_item(
     ):
         return None
 
-    candidate_number = _compact(candidate.get("card_number"))
+    candidate_number = collector_key(candidate.get("card_number"))
     if not candidate_number:
         return None
 
     eligible: list[Mapping[str, Any]] = []
     for item in provider_evidence:
-        if _compact(item.get("base_card_id")) != candidate_number:
+        if collector_key(item.get("base_card_id")) != candidate_number:
             continue
         if _name_similarity(observation.name_guess, item.get("name")) < 0.95:
             continue
@@ -499,7 +495,7 @@ def _provider_identity_fingerprint(
         add(
             "card_number",
             1.0
-            if _compact(observation.card_number) == _compact(item.get("base_card_id"))
+            if collector_key(observation.card_number) == collector_key(item.get("base_card_id"))
             else 0.0,
             observation.card_number_confidence,
             0.28,
@@ -581,13 +577,13 @@ def _provider_identity_for_candidate(
     candidate: Mapping[str, Any],
     provider_evidence: list[Mapping[str, Any]],
 ) -> Mapping[str, Any] | None:
-    candidate_number = _compact(candidate.get("card_number"))
+    candidate_number = collector_key(candidate.get("card_number"))
     if not candidate_number:
         return None
 
     eligible = []
     for item in provider_evidence:
-        if _compact(item.get("base_card_id")) != candidate_number:
+        if collector_key(item.get("base_card_id")) != candidate_number:
             continue
         score = float(item.get("identity_score") or 0.0)
         weight = float(item.get("identity_evidence_weight") or 0.0)
@@ -637,7 +633,7 @@ def _provider_support(
     best_item: Mapping[str, Any] | None = None
 
     for item in provider_evidence:
-        if _compact(item.get("base_card_id")) != _compact(candidate.get("card_number")):
+        if collector_key(item.get("base_card_id")) != collector_key(candidate.get("card_number")):
             continue
         identity_score = float(item.get("identity_score") or 0.0)
         identity_weight = float(item.get("identity_evidence_weight") or 0.0)
@@ -691,7 +687,9 @@ def score_candidate(
     provider_evidence: list[Mapping[str, Any]] | None = None,
     visual_similarity: float | None = None,
 ) -> dict[str, Any]:
-    provider_evidence = provider_evidence or []
+    # Broad checklists retrieve unseen cards but cannot certify a local printing.
+    provider_evidence = [item for item in (provider_evidence or [])
+                         if not item.get('library_reference')]
     signals: dict[str, Any] = {}
     hard_rejections: list[str] = []
 
@@ -777,8 +775,8 @@ def score_candidate(
         and _round1_candidate(candidate)
     )
 
-    observed_number = _compact(observation.card_number)
-    candidate_number = _compact(candidate.get("card_number"))
+    observed_number = collector_key(observation.card_number)
+    candidate_number = collector_key(candidate.get("card_number"))
     number_match = bool(
         observed_number
         and candidate_number
@@ -792,7 +790,7 @@ def score_candidate(
         number_source = "vision"
         add_identity("card_number", 1.0, observation.card_number_confidence)
     elif observed_number:
-        if provider_override and _compact(recovered_number) == candidate_number:
+        if provider_override and collector_key(recovered_number) == candidate_number:
             number_match = True
             number_source = "provider_override"
             number_confidence = non_number_provider_identity
@@ -802,7 +800,7 @@ def score_candidate(
                 non_number_provider_identity,
                 max(0.90, non_number_provider_identity),
             )
-        elif promo_marker_override and _compact(recovered_number) == candidate_number:
+        elif promo_marker_override and collector_key(recovered_number) == candidate_number:
             number_match = True
             number_source = "promo_marker_recovery"
             number_confidence = 0.92
@@ -811,7 +809,7 @@ def score_candidate(
         else:
             add_identity("card_number", 0.0, observation.card_number_confidence)
             hard_rejections.append("collector number mismatch")
-    elif provider_override and _compact(recovered_number) == candidate_number:
+    elif provider_override and collector_key(recovered_number) == candidate_number:
         number_match = True
         number_source = "provider_fingerprint"
         number_confidence = non_number_provider_identity
@@ -1236,7 +1234,7 @@ async def load_catalogue_candidates(
         {
             _compact(item.get("base_card_id"))
             for item in (provider_evidence or [])
-            if _compact(item.get("base_card_id"))
+            if collector_key(item.get("base_card_id"))
             and (
                 float(item.get("identity_score") or 0.0) >= 0.82
                 or float(item.get("non_number_identity_score") or 0.0) >= 0.88
@@ -1401,7 +1399,7 @@ async def discover_provider_evidence(
 
     if (
         observation.game == "Pokemon"
-        and observation.language == "Japanese"
+        and observation.language in {"English", "Japanese"}
         and observation.card_number
         and observation.set_name_guess
     ):
@@ -1409,7 +1407,8 @@ async def discover_provider_evidence(
         seen: set[tuple[str, str]] = set()
         for variant in _pokemon_variant_from_observation(observation):
             try:
-                result = await client.resolve_japanese_card(
+                result = await client.resolve_card(
+                    language=observation.language,
                     set_name=observation.set_name_guess,
                     card_number=observation.card_number,
                     variant=variant,
@@ -1432,7 +1431,21 @@ async def discover_provider_evidence(
             if key in seen:
                 continue
             seen.add(key)
-            items.append(dict(result))
+            # Both languages use the same provider evidence contract. TCGdex
+            # has one artwork per card, shared by several physical finishes.
+            item = dict(result)
+            item.update({
+                "name": result.get("provider_name"),
+                "rarity": result.get("provider_rarity"),
+                "card_type": result.get("provider_category"),
+                "language": observation.language,
+                "base_card_id": result.get("card_number") or observation.card_number,
+                "set_name": result.get("set_name") or observation.set_name_guess,
+                "finish": result.get("finish_key"),
+                "shared_finish_artwork": True,
+            })
+            item.update(_provider_identity_fingerprint(observation, item))
+            items.append(item)
 
     elif (
         observation.game == "One Piece"
@@ -1666,7 +1679,7 @@ def _provider_only_candidates(
     """
 
     output: list[dict[str, Any]] = []
-    observed_number = _compact(observation.card_number)
+    observed_number = collector_key(observation.card_number)
     observed_language = clean_language(observation.language)
     mapped_keys = _mapped_provider_keys(list(catalogue_candidates or []))
 
@@ -1720,7 +1733,7 @@ def _provider_only_candidates(
             + 0.05 * visual_score
         )
 
-        base_card_id = _compact(item.get("base_card_id"))
+        base_card_id = collector_key(item.get("base_card_id"))
         item_language = clean_language(item.get("language"))
         number_match = bool(
             observed_number and base_card_id and observed_number == base_card_id
@@ -1731,7 +1744,7 @@ def _provider_only_candidates(
 
         output.append(
             {
-                "candidate_key": f"provider:{provider}:{provider_id}",
+                "candidate_key": f"provider:{provider}:{provider_id}:{item.get('finish_key') or ''}",
                 "source_kind": "PROVIDER",
                 "system_code": SYSTEM_BY_GAME.get(observation.game),
                 "catalogue_id": None,
@@ -1810,8 +1823,8 @@ def _provider_candidate_equivalent_to_local(
     if not isinstance(local_snapshot, Mapping):
         return False
 
-    provider_number = _compact(snapshot.get("base_card_id"))
-    local_number = _compact(local_snapshot.get("card_number"))
+    provider_number = collector_key(snapshot.get("base_card_id"))
+    local_number = collector_key(local_snapshot.get("card_number"))
     if not provider_number or provider_number != local_number:
         return False
 
@@ -2002,6 +2015,39 @@ def resolve_candidates(
     reasons: list[str] = []
     risks: list[str] = []
     exact = True
+    if observation.game not in {"Pokemon", "One Piece"}:
+        exact = False
+        risks.append("GAME_PRINTING_VALIDATION_REQUIRED")
+        reasons.append("This game's reference catalogue can suggest identities and sets; exact-printing acceptance requires a validated game-specific evaluation set.")
+
+    # A high weighted score cannot erase explicit printing contradictions,
+    # including when the wrong printing is the only entry in our catalogue.
+    finish_signal = top["signals"]["finish"]
+    observed_finish = _alias(observation.finish_text)
+    candidate_finishes = {_alias(value) for value in finish_signal.get("candidate_values", [])}
+    known_finishes = {"normal", "holofoil", "reverse holofoil"}
+    if observation.game == "Pokemon" and (observed_finish not in known_finishes or observation.finish_confidence < 0.85):
+        exact = False
+        risks.append("FINISH_UNRESOLVED")
+        reasons.append("Pokémon finish must be checked separately; matching card artwork does not distinguish normal, holo and reverse holo copies.")
+    if (observed_finish in known_finishes and observation.finish_confidence >= 0.85
+            and candidate_finishes.intersection(known_finishes)
+            and observed_finish not in candidate_finishes):
+        exact = False
+        risks.append("FINISH_CONFLICT")
+        reasons.append("The observed finish disagrees with the selected printing; shared artwork cannot resolve this conflict.")
+    if (observation.game == "Pokemon" and observation.set_name_guess
+            and observation.set_name_confidence >= 0.90
+            and float(top["signals"]["set"]["match"]) < 0.65):
+        exact = False
+        risks.append("SET_CONFLICT")
+        reasons.append("The observed Pokémon set disagrees with the catalogue printing; collector numbers can repeat between sets.")
+    if (observation.art_treatment_text and observation.art_treatment_confidence >= 0.90
+            and top["signals"]["art"].get("candidate_values")
+            and float(top["signals"]["art"]["match"]) < 0.50):
+        exact = False
+        risks.append("ART_TREATMENT_CONFLICT")
+        reasons.append("The observed artwork treatment disagrees with the selected printing.")
 
     if observation.game_confidence < 0.90:
         exact = False
@@ -2127,8 +2173,8 @@ def resolve_candidates(
     same_number_count = sum(
         1
         for item in viable
-        if _compact(item["candidate_snapshot"].get("card_number"))
-        == _compact(top["candidate_snapshot"].get("card_number"))
+        if collector_key(item["candidate_snapshot"].get("card_number"))
+        == collector_key(top["candidate_snapshot"].get("card_number"))
     )
     if same_number_count > 1:
         art_unique = (
@@ -2172,11 +2218,11 @@ def resolve_candidates(
                 "Multiple printings share the same card number without a unique art/provider/visual discriminator."
             )
 
-    top_card_number = _compact(top["candidate_snapshot"].get("card_number"))
+    top_card_number = collector_key(top["candidate_snapshot"].get("card_number"))
     same_provider_printings = [
         item
         for item in evidence
-        if _compact(item.get("base_card_id")) == top_card_number
+        if collector_key(item.get("base_card_id")) == top_card_number
         and (
             (
                 float(item.get("identity_score") or 0.0) >= 0.88

@@ -5,6 +5,7 @@ from typing import Any, Literal, Mapping
 
 import httpx
 from pydantic import BaseModel, Field, model_validator
+from .recognition_games import SYSTEM_BY_GAME
 
 
 class RecognitionVisionError(RuntimeError):
@@ -22,9 +23,9 @@ class RecognitionVisionError(RuntimeError):
 
 
 class RecognitionObservation(BaseModel):
-    game: Literal["Pokemon", "One Piece", "Unknown"]
+    game: Literal["Pokemon", "One Piece", "Dragon Ball Super Masters", "Dragon Ball Super Fusion World", "Naruto Kayou", "Naruto Bandai Legacy", "Naruto Bandai", "Yu-Gi-Oh!", "Riftbound", "Disney Lorcana", "Unknown"]
     game_confidence: float = Field(ge=0, le=1)
-    language: Literal["English", "Japanese", "Unknown"]
+    language: Literal["English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese", "Unknown"]
     language_confidence: float = Field(ge=0, le=1)
     name_guess: str = Field(max_length=300)
     name_confidence: float = Field(ge=0, le=1)
@@ -113,9 +114,9 @@ OBSERVATION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
-        "game": {"type": "string", "enum": ["Pokemon", "One Piece", "Unknown"]},
+        "game": {"type": "string", "enum": [*SYSTEM_BY_GAME, "Unknown"]},
         "game_confidence": {"type": "number"},
-        "language": {"type": "string", "enum": ["English", "Japanese", "Unknown"]},
+        "language": {"type": "string", "enum": ["English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese", "Unknown"]},
         "language_confidence": {"type": "number"},
         "name_guess": {"type": "string"},
         "name_confidence": {"type": "number"},
@@ -206,7 +207,17 @@ low confidence while preserving independently visible collaboration/event marks 
 as ROUND1, tournament stamps, promo logos or anniversary marks. Do not infer metadata
 from that OCR guess.
 
-Supported recognition targets in this version are Pokemon and One Piece cards.
+Supported game lines: Pokemon, One Piece, Dragon Ball Super Masters, Dragon Ball
+Super Fusion World, Naruto Kayou, Naruto Bandai Legacy, Naruto Bandai (new game),
+Yu-Gi-Oh!, Riftbound and Disney Lorcana. Distinguish game lines from visible logos
+and layout; never treat a franchise name as proof of a specific game. Use Unknown
+when the game line cannot be established. Do not invent unreleased cards or sets.
+For Yu-Gi-Oh!, transcribe the printed set code (e.g. LOB-EN001) as card_number,
+not the eight-digit gameplay passcode; preserve edition, region and rarity clues.
+For Riftbound preserve the complete printed set/card identifier and art markers.
+For Lorcana preserve collector number, set code, subtitle and language clues.
+For Naruto preserve Kayou wave/tier/rarity codes and distinguish legacy Bandai
+from the upcoming game. For Dragon Ball distinguish Masters from Fusion World.
 For Pokemon, distinguish English vs Japanese, collector number, set clues, rarity
 wording/symbols, card category, holo/reverse-holo/normal clues and visible special
 art treatment when possible.

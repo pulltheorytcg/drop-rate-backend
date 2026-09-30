@@ -14,10 +14,12 @@ from pydantic import BaseModel, Field
 
 from .access_control import require_platform_admin_request
 from .auth import AuthenticatedUser, require_user
+from .reference_library import reference_candidates
 from .db import user_connection
 from .ownership import current_owner as _owner
 from .recognition_engine import (
     SYSTEM_BY_GAME,
+    _provider_identity_fingerprint,
     attach_provider_visual_evidence,
     attach_visual_evidence,
     discover_provider_evidence,
@@ -39,6 +41,8 @@ from .recognition_learning import (
     register_runtime_model,
 )
 from .recognition_reference_index import (
+    _eligible_reference_rows,
+    fingerprint_reference_rows,
     attach_reference_candidate_hints,
     discover_reference_candidate_hints,
     rebuild_reference_index,
@@ -52,7 +56,7 @@ from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.5.1"
+ENGINE_VERSION = "v1.6.0"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
@@ -163,7 +167,8 @@ async def recognition_status(
         "engine_version": ENGINE_VERSION,
         "vision_provider": "OpenAI",
         "vision_model": settings.recognition_model,
-        "supported_games": ["Pokemon", "One Piece"],
+        "supported_games": list(SYSTEM_BY_GAME),
+        "coverage_is_not_accuracy": True,
         "exact_threshold": settings.recognition_exact_threshold_bps / 10_000,
         "minimum_runner_up_margin": settings.recognition_min_margin_bps / 10_000,
         "high_value_review_minor": settings.recognition_high_value_review_minor,
@@ -207,11 +212,15 @@ async def recognition_reference_index_rebuild(
         request.state.request_id,
     ) as connection:
         await _owner(connection)
+        rows = await _eligible_reference_rows(connection,limit=payload.limit,catalogue_ids=payload.catalogue_ids)
+    prepared = await fingerprint_reference_rows(rows)
+    async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
         result = await rebuild_reference_index(
             connection,
             actor_user_id=user.user_id,
             limit=payload.limit,
             catalogue_ids=payload.catalogue_ids,
+            prepared=prepared,
         )
         result["status"] = await reference_index_status(connection)
         return jsonable_encoder(result)
@@ -702,15 +711,26 @@ async def recognize_card(
                 system_code=system_code,
             )
 
-    provider_result, learning_hints = await asyncio.gather(
+    async def _load_library_candidates():
+        async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
+            return await reference_candidates(connection,observation)
+
+    provider_result, learning_hints, library_items = await asyncio.gather(
         _timed("provider_discovery", discover_provider_evidence(observation)),
         _timed("learning_hints", _load_learning_hints()),
+        _timed("reference_library", _load_library_candidates()),
     )
     provider_items = [
         dict(item)
         for item in provider_result.get("items", [])
         if isinstance(item, dict)
     ]
+    seen={(item.get('provider'),item.get('provider_id')) for item in provider_items}
+    for item in library_items:
+        if (item.get('provider'),item.get('provider_id')) not in seen:
+            item.update(_provider_identity_fingerprint(observation,item))
+            provider_items.append(item)
+            seen.add((item.get('provider'),item.get('provider_id')))
 
     visual_short_circuit = visual_work_short_circuit_reason(
         observation,
