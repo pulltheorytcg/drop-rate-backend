@@ -14,7 +14,7 @@ MIGRATION = (
     ROOT
     / "database"
     / "migrations"
-    / "20260930042000_automation_dead_letter_recovery.sql"
+    / "20260930044500_fix_automation_replay_history.sql"
 )
 API = ROOT / "backend" / "app" / "automation_recovery.py"
 MAIN = ROOT / "backend" / "app" / "main.py"
