@@ -26,7 +26,11 @@
   letter-spacing:-.012em;
 }
 .owner-portal-page .dr-logo-image{
-  background-image:url("/assets/brand-assets/drop-rate-seller-hub.png?v=20260930")!important;
+  display:block!important;
+  max-width:100%;
+  object-fit:contain;
+  object-position:left center;
+  background:none!important;
   filter:drop-shadow(0 6px 14px rgba(2,18,45,.24))!important;
 }
 
@@ -81,7 +85,7 @@
 .owner-portal-page .owner-auth-brand .lead{color:#c8d6ec;font-size:1.08rem}
 .owner-portal-page .owner-auth-brand .trust-row{color:#91a9ca}
 .owner-portal-page .owner-auth-brand .trust-row span:before{background:#47dff0}
-.owner-portal-page .owner-auth-logo{width:min(100%,310px);height:112px;display:block;background-position:left center!important}
+.owner-portal-page .owner-auth-logo{width:min(100%,310px);height:112px;display:block;object-position:left center}
 .owner-portal-page .owner-auth-panel{
   display:grid;
   place-items:center;
@@ -158,9 +162,8 @@
   width:224px!important;
   height:70px!important;
   flex:0 0 auto;
-  background-repeat:no-repeat!important;
-  background-position:left center!important;
-  background-size:contain!important;
+  object-fit:contain;
+  object-position:left center;
   filter:drop-shadow(0 5px 12px rgba(0,0,0,.22))!important;
 }
 .owner-portal-page .owner-topbar .topbar-actions{gap:10px}
