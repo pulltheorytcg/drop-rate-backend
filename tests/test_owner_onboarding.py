@@ -88,7 +88,13 @@ def test_owner_join_flow_uses_verified_session_and_owner_redeem_endpoint() -> No
     assert "/api/v1/owner-invites/redeem" in source
     assert "drop_rate_pending_owner_invite" in source
     assert "authenticatedUser(session)" in source
-    assert "email," not in source[source.index('body: JSON.stringify({\n      token: state.token'):source.index('}),', source.index('body: JSON.stringify({\n      token: state.token'))]
+    block = source[
+        source.index("async function completeSellerRegistration"):
+        source.index("async function finishAuthenticatedOnboarding")
+    ]
+    assert "email:" not in block
+    assert "display_name" in block
+    assert "acknowledgement_version" in block
 
 
 def test_owner_join_route_and_router_are_wired() -> None:
@@ -401,8 +407,9 @@ def test_seller_invitation_avoids_warning_style_owner_copy() -> None:
     html = JOIN_HTML.read_text()
     source = JOIN_JS.read_text()
 
-    assert "<title>Drop Rate — Seller Invitation</title>" in html
+    assert "<title>Drop Rate — Sell With Us</title>" in html
     assert "Sell with Drop Rate" in html
+    assert "Verified accounts" in html
     assert "3 · Seller Hub" in html
     assert "What your seller account includes" in html
     assert "restricted owner account" not in html.casefold()
