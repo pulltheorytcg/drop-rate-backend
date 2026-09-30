@@ -19,6 +19,7 @@
   - MEDIUM: 25 `MEDIA_REVIEW_REQUIRED`, 8 `MEDIA_UNRESOLVED`.
 - PSA certificate/media capability is retained. `psa-fetch-batch` is the actual working PSA cert/media prototype; the misleadingly named `psa-cert-lookup-temp` currently contains a CardTrader Dragon Ball probe and should be renamed/repurposed later rather than silently deleted.
 - PR #342 merged the deferred multi-grader **Raw Card / Graded Slab** scanner architecture for **PSA, ACE, CGC, TAG and BGS/BVG/BCCG**. Implementation remains frozen until the storefront stability gate explicitly reopens recognition/Seller Hub work.
+- Rollback plan is now verified and written in `docs/STOREFRONT_ROLLBACK.md`: Shopify currently reports Horizon as MAIN and Brand Redesign as UNPUBLISHED; Shopify's `themePublish(id: ID!)` contract is schema-valid. Emergency rollback is simply republish Horizon, then verify Horizon=MAIN and run a minimal recovery smoke. Theme publishing itself requires an authorized operator in Shopify Admin.
 - Remaining human-only Phase 2 gates are unchanged: real-phone card scan timing, full mobile smoke, full desktop smoke and one controlled Brand Redesign purchase with confirmation + exact owner/inventory attribution.
 - Stability threshold before reopening deferred scope remains: 72h Brand Redesign MAIN without rollback, 5 genuine paid non-founder orders, zero attribution/allocation/oversell/settlement errors, zero CRITICAL Action Required for 72h, no unresolved post-launch webhook gap, and one outside-person purchase test.
 
