@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — dormant dispatcher heartbeat schema gate hardened
+
+- Production operations monitoring exposed an intentional sequencing gap: dispatcher-heartbeat code was deployed while its database migration remained behind the manual Supabase gate.
+- The combined 30-minute operations monitor therefore failed with `UndefinedFunctionError` even though dispatcher alerts were explicitly dormant.
+- The checker now treats a missing dispatcher-heartbeat function as **schema pending / dormant** only while `TCG_AUTOMATION_DISPATCHER_ALERTS_ENABLED=false`, logs that state, and returns success so unrelated monitoring remains healthy.
+- If dispatcher alerts are enabled, a missing function still fails hard.
+- The manual Supabase migration gate remains intact; no migration was bypassed or applied by this fix.
+
 ## 2026-09-30 — n8n Wave B: DR-01 Shopify product creation built inactive
 
 - Restored the canonical `20260928183039_shopify_automation_publication` migration file to Git; production Supabase already reports that exact migration version/name as applied.
