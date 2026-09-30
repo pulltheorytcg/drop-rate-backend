@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — dispatcher-heartbeat dormant migration guard
+
+- Production operations-monitor cron exposed a sequencing bug: dispatcher-heartbeat monitoring was merged before its deliberately manual-gated Supabase migration was applied.
+- The dispatcher checker now probes for the narrow heartbeat function before calling it.
+- If the migration is absent **and alerts remain disabled**, the checker reports `AUTOMATION_DISPATCHER_HEARTBEAT_NOT_INSTALLED_DORMANT` and exits 0 so unrelated operations monitoring remains healthy.
+- If dispatcher-heartbeat alerts are enabled while the migration is absent, the checker still fails closed.
+- This does not apply the migration, create the dispatcher service, enable alerts or activate n8n workflows.
+
 ## 2026-09-30 — n8n Wave B: DR-01 Shopify product creation built inactive
 
 - Restored the canonical `20260928183039_shopify_automation_publication` migration file to Git; production Supabase already reports that exact migration version/name as applied.
