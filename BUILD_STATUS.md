@@ -2,14 +2,16 @@
 
 ## 2026-09-30 — Phase 2 system map + efficiency audit refreshed
 
-- Added `docs/PHASE2_SYSTEM_MAP.md` from live Railway, Supabase and current Git state.
-- Confirmed Railway currently has 7 services but only 4 intentional steady-state components; `psa-cert-lookup-temp`, `psa-fetch-batch` and the pinned one-off `shopify-reconciliation-worker` are cleanup candidates, not permanent architecture.
+- Re-verified `docs/PHASE2_SYSTEM_MAP.md` against live Railway, Supabase and current Git state.
+- Confirmed Railway still has 7 services. Core steady-state services remain FastAPI, operations monitor, payout scheduler and n8n.
+- Preserved the prior founder-approved launch decision for the other three services: keep `psa-fetch-batch` as the working PSA cert/media prototype, keep `psa-cert-lookup-temp` for its current CardTrader discovery/probe role pending later rename/repurpose, and keep `shopify-reconciliation-worker` through launch as a recovery tool. No service was deleted.
 - Confirmed 17 unlinked FOR_SALE units remain: 8 Dragon Ball cards, 7 One Piece cards and 2 One Piece collection/sealed products.
 - Confirmed 2 OPEN HIGH `GRADED_SLAB_MEDIA_REQUIRED` and 2 OPEN HIGH `SEALED_PUBLICATION_INPUTS_REQUIRED` items remain.
 - Confirmed the two `SHOPIFY_ORDER_WEBHOOK_GAP` records are DISMISSED with explicit historical-test resolution metadata; they refer to cancelled Shopify order #1001 and are not active publish blockers.
 - Confirmed there are no OPEN CRITICAL Action Required items.
 - Confirmed DR-02 source is merged but its production migration is still unapplied; dispatcher-heartbeat migration also remains deliberately unapplied.
-- No workflow, migration, publication, payout or destructive cleanup was activated by this audit.
+- Confirmed production n8n remains at zero published workflows after the DR-01/DR-02 source deployments.
+- No workflow, migration, publication, payout, service deletion or production data change was activated by this audit.
 - Remaining Phase 2 publish proof is human/browser work: mobile + desktop smoke, Brand Redesign real test purchase, rollback confirmation, and the two timed efficiency tests.
 
 ## 2026-09-30 — n8n Wave B: DR-02 Shopify product updates built inactive
