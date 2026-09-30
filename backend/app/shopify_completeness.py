@@ -97,18 +97,35 @@ def product_description_html(item: Mapping[str, Any]) -> str:
             "the Drop Rate inventory system. Storefront media is governed by Drop Rate's "
             "item-specific media policy and must clear its publication checks.</p>"
         )
-    pre_release_note = ""
-    if "pre-release" in _text(item.get("set_name")).casefold():
-        pre_release_note = (
+    reference_image_note = ""
+    set_name = _text(item.get("set_name")).casefold()
+    name_text = _text(item.get("name")).casefold()
+    if "pre-release" in set_name:
+        reference_image_note = (
             "<p><strong>Image note:</strong> The official reference image may show "
             "the base artwork. The physical item is the Pre-Release printing; "
             "event/pre-release markings may differ from the reference image.</p>"
+        )
+    elif (
+        _text(item.get("game")).casefold() == "one piece"
+        and (
+            "release event" in set_name
+            or "promotion cards" in set_name
+            or "round 1 promo" in name_text
+            or "treasure campaign pack" in name_text
+            or "regional" in name_text
+        )
+    ):
+        reference_image_note = (
+            "<p><strong>Image note:</strong> An official card reference image may be "
+            "shown for this promotional/event printing. The physical promotional "
+            "printing or event markings may differ from the reference image.</p>"
         )
     return (
         f"<p><strong>{name}</strong> is an individually tracked physical trading card "
         "from Drop Rate inventory.</p>"
         f"<ul>{rows}</ul>"
-        f"{pre_release_note}"
+        f"{reference_image_note}"
         "<p>Card identity, language, condition and price are controlled by the "
         "Drop Rate inventory system. Storefront media is governed by Drop Rate's "
         "item-specific media policy and must clear its publication checks.</p>"
