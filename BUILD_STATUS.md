@@ -11,7 +11,8 @@
 - Added Profile access from the account chip and Seller Hub navigation; mobile navigation becomes horizontally scrollable so Profile and existing destinations remain usable without crushed tabs.
 - No profile control can change owner type, founder slot, commission, inventory ownership, membership role, settlements or payout amounts.
 - Added `docs/SELLER_HUB_PROFILE_SETTINGS.md` and regression coverage for database constraints, owner scoping, browser security and responsive access.
-- Production activation pending CI, merge, migration application, Railway deploy and live verification.
+- Production activation complete: PR #428 merged; `owner_profile_settings` applied successfully in Supabase; `tcg_api` has EXECUTE while `anon` and browser `authenticated` do not; the case-insensitive username index is present; Railway deployment `a6827447-fb6d-42f3-8c83-2bbef058cd52` completed successfully; deployment preflight ran **2,131 tests** successfully and production readiness returned HTTP 200.
+- Security follow-up: Supabase's security advisor currently reports **Leaked Password Protection Disabled**. The connected management surface does not expose a safe Auth-config mutation for this setting, so it was not silently changed; enable it in Supabase Auth settings when available.
 
 
 ## 2026-09-30 — Seller Hub header breathing-room refinement
