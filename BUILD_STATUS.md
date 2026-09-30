@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Founder HQ proxy-image viewport loading
+
+- After the Shopify CDN + TCGdex direct-image optimisations, the remaining provider images still use the authenticated FastAPI proxy by design.
+- Founder HQ previously started every proxy request as soon as a visual-grid card was rendered, including cards well below the viewport.
+- Proxy-only inventory images now begin fetching only when their card is within roughly **320px of the viewport**, using `IntersectionObserver`.
+- Browsers without `IntersectionObserver` fall back to the existing immediate proxy behavior.
+- A one-shot guard prevents duplicate proxy downloads if multiple visibility/error signals occur.
+- Direct Shopify/TCGdex images keep native lazy loading; their proxy fallback still starts immediately only if the direct image actually fails.
+- This reduces initial backend/provider image bursts without changing media rights, approved hosts, inventory truth or security controls.
+
 ## 2026-09-30 — Scanner language recognition added to deferred architecture
 
 - The approved future scanner architecture now includes **automatic language recognition** for **English, Japanese, Chinese and Korean** across both Raw Card and Graded Slab modes.

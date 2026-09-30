@@ -554,7 +554,10 @@ function inventoryImageFigure(item) {
 
   const proxyPath = `/api/v1/inventory/${encodeURIComponent(item.id)}/image`;
 
+  let proxyLoadStarted = false;
   const loadFromProxy = () => {
+    if (proxyLoadStarted) return;
+    proxyLoadStarted = true;
     apiImageBlob(proxyPath)
       .then((blob) => {
         const objectUrl = URL.createObjectURL(blob);
@@ -568,15 +571,29 @@ function inventoryImageFigure(item) {
       .catch(showFailure);
   };
 
+  const loadProxyNearViewport = () => {
+    image.loading = "lazy";
+    if (typeof window.IntersectionObserver !== "function") {
+      loadFromProxy();
+      return;
+    }
+    const observer = new window.IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      loadFromProxy();
+    }, { rootMargin: "320px 0px" });
+    observer.observe(figure);
+  };
+
   const directImageUrl = item.card_image_direct_url || item.card_image_cdn_url;
+  figure.append(image);
   if (directImageUrl) {
     image.loading = "lazy";
     image.addEventListener("error", loadFromProxy, { once: true });
     image.src = directImageUrl;
   } else {
-    loadFromProxy();
+    loadProxyNearViewport();
   }
-  figure.append(image);
 
   const badge = document.createElement("span");
   badge.className = `inventory-image-badge ${String(item.card_image_approval_status || "").toLowerCase()}`;
