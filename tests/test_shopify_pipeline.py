@@ -336,7 +336,7 @@ def test_shopify_test_sync_fails_before_remote_create_when_launch_incomplete() -
     end = source.index('@router.post("/test-sync/{inventory_id}")', start)
     sync = source[start:end]
     completeness_pos = sync.index('if not launch["complete"]:')
-    create_pos = sync.index("client.create_product(")
+    create_pos = sync.index("shopify.create_product(")
     assert completeness_pos < create_pos
     assert "No remote product was created or published." in sync
     assert "resolve_storefront_media(" in source
@@ -406,7 +406,7 @@ def test_shopify_sync_requires_shipping_profile_before_remote_create() -> None:
     assert "shipping_profiles=shipping_profiles" in sync
     assert 'shipping_spec=launch["shippingSpec"]' in sync
     assert 'expected_shipping_spec=launch["shippingSpec"]' in sync
-    assert sync.index('if not launch["complete"]:') < sync.index("client.create_product(")
+    assert sync.index('if not launch["complete"]:') < sync.index("shopify.create_product(")
 
 
 def test_shopify_shipping_profile_api_is_versioned_and_owner_scoped() -> None:
@@ -454,8 +454,8 @@ def test_shopify_sync_assigns_collections_media_and_verifies_remote_state() -> N
     assert 'expected_status="ACTIVE"' in sync
     assert "product_published_on_publication(" in sync
     assert "Product was forced back to DRAFT." in sync
-    assert "set sync_state='PUBLISHED'" in sync
-    assert sync.index("verify_remote_product(") < sync.index("set sync_state='PUBLISHED'")
+    assert "mark_shopify_inventory_published(" in sync
+    assert sync.index("verify_remote_product(") < sync.index("mark_shopify_inventory_published(")
 
 
 def test_media_registry_has_explicit_human_approval_and_shopify_file_sync() -> None:
@@ -920,7 +920,7 @@ def test_founder_media_ui_uses_dedicated_physical_capture_queue() -> None:
 def test_shopify_price_sync_is_bounded_price_only_and_fail_closed() -> None:
     source = PIPELINE.read_text()
     start = source.index('@router.post("/price-sync")')
-    end = source.index('@router.post("/test-sync/{inventory_id}")')
+    end = source.index("async def publish_inventory_to_shopify(", start)
     block = source[start:end]
 
     assert "limit < 1 or limit > 100" in block
