@@ -3,6 +3,7 @@
 ## 2026-09-30 — Dragon Ball high-resolution media gate prepared
 
 - Audited the live Dragon Ball storefront media: 25 unique published products / 27 physical units currently resolve to CardTrader `preview_...` canonical images.
+- Verified the live Shopify media dimensions directly: **all 25 are below the 2160px target**, ranging from **251×350px** to **1279×1782px**.
 - Confirmed 8 additional FOR_SALE Dragon Ball cards are identity-confirmed and priced but remain blocked on exact-print media: 6 Masters pre-release cards plus Nappa FP-046 Tournament Pack 07 and Vegeta FB05-039 Tournament Pack Winner 06.
 - Added additive measured-media fields: source width, source height and quality state (`UNMEASURED`, `BELOW_TARGET`, `TARGET_MET`).
 - Defined the Dragon Ball storefront target as a measured **2160px minimum long edge**. This is a real source/read-back quality gate, not an AI upscale target.
