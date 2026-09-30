@@ -65,14 +65,22 @@
     }
     .card-gallery[data-product-id="{{ product.id }}"] .product-media-container img{
       object-fit:contain;
-      transform:scale(.94);
+      transform:scale(1.12);
       transform-origin:center;
+    }
+  </style>
+{% endif %}
+{% if product.id == 10772523319643 %}
+  <style>
+    .card-gallery[data-product-id="{{ product.id }}"] .product-media-container img{
+      transform:scale(1.42);
     }
   </style>
 {% endif %}
 {% if product.id == 10772523286875 %}
   <style>
     .card-gallery[data-product-id="{{ product.id }}"] .product-media-container img{
+      transform:scale(1.28);
       mix-blend-mode:multiply;
     }
   </style>

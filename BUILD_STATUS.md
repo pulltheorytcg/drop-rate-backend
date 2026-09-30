@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Sealed artwork footprint matched to card grid
+
+- Kept the custom `Keep it sealed.` homepage feature intact; only its media treatment changed.
+- Homepage sealed media now uses the same solid `#f4f7fb` surface as standard product-card galleries instead of a separate gradient/ring treatment, so the Premium Collection white source matte blends consistently with the collection grid.
+- Reused the existing Shopify featured images; no replacement image or Photoshop-derived asset was introduced.
+- Normalised by visible artwork rather than file dimensions: current sealed products receive product-specific scale compensation for baked-in whitespace (Ace TS-02 1.42×, Premium Collection 1.28×), while future sealed products keep a conservative 1.12× default.
+- The same scale rules apply to both standard collection/search cards and the homepage sealed feature, preserving consistent visual footprint across desktop and mobile.
+
 ## 2026-09-30 — Sealed media scale refinement
 
 - Reused the existing Shopify product imagery for sealed products; no alternate or Photoshop-derived asset was introduced.
