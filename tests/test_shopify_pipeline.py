@@ -6,6 +6,7 @@ from app.shopify_pipeline import (
     ShopifyProcessingError,
     _build_media_intake_queue,
     _handle,
+    _media_quality_status,
     _minor,
     _money,
     _parse_order_lines,
@@ -33,6 +34,7 @@ SHIPPING_PROFILE_MIGRATION = ROOT / "database" / "migrations" / "20260925162748_
 FULFILMENT_COST_MIGRATION = ROOT / "database" / "migrations" / "20260925172500_fulfilment_cost_components.sql"
 FULFILMENT_ALLOCATION_MIGRATION = ROOT / "database" / "migrations" / "20260925182500_fulfilment_material_allocation.sql"
 SHOPIFY_AUTOMATION_MIGRATION = ROOT / "database" / "migrations" / "20260928183039_shopify_automation_publication.sql"
+MEDIA_QUALITY_MIGRATION = ROOT / "database" / "migrations" / "20260930133000_media_source_quality.sql"
 
 
 def test_money_helpers_are_penny_exact() -> None:
@@ -1204,3 +1206,40 @@ def test_legacy_price_sync_excludes_pooled_offer_variants() -> None:
     price_sync = source[start:end]
     assert "sil.listing_key not like 'shopify-pool:%'" in price_sync
     assert "offer-level price sync" in price_sync
+
+
+def test_media_quality_status_uses_2160px_long_edge_target() -> None:
+    assert _media_quality_status(2160, 1400) == "TARGET_MET"
+    assert _media_quality_status(1400, 2160) == "TARGET_MET"
+    assert _media_quality_status(2159, 1400) == "BELOW_TARGET"
+    assert _media_quality_status(None, None) == "UNMEASURED"
+    assert _media_quality_status("invalid", 2400) == "UNMEASURED"
+
+
+def test_shopify_media_readback_requests_dimensions_and_persists_quality() -> None:
+    client = CLIENT.read_text()
+    pipeline = PIPELINE.read_text()
+    sql = MEDIA_QUALITY_MIGRATION.read_text()
+
+    assert client.count("image { url width height }") >= 2
+    assert "DRAGON_BALL_4K_LONG_EDGE_PX" in pipeline
+    assert "source_width_px=$6" in pipeline
+    assert "source_height_px=$7" in pipeline
+    assert "source_quality_status=$8" in pipeline
+    assert '"quality_blocked": quality_blocked' in pipeline
+    assert "source_width_px integer" in sql
+    assert "source_height_px integer" in sql
+    assert "source_quality_status text not null default 'UNMEASURED'" in sql
+    assert "'UNMEASURED','BELOW_TARGET','TARGET_MET'" in sql
+
+
+def test_low_resolution_quality_measurement_does_not_delete_or_unpublish_media() -> None:
+    pipeline = PIPELINE.read_text()
+    sync_start = pipeline.index('@router.post("/media-assets/{asset_id}/sync")')
+    preview_start = pipeline.index('@router.get("/product-preview/{inventory_id}")', sync_start)
+    sync_block = pipeline[sync_start:preview_start]
+
+    assert "delete from tcg.media_assets" not in sync_block.casefold()
+    assert "publish_product(" not in sync_block
+    assert "unpublish" not in sync_block.casefold()
+    assert '"ready": file_status == "READY" and not quality_blocked' in sync_block
