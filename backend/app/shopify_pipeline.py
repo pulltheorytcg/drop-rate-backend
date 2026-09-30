@@ -2272,10 +2272,7 @@ async def publish_inventory_to_shopify(
         if pooled_membership is not None:
             raise HTTPException(
                 status_code=409,
-                detail=(
-                    "Inventory belongs to the marketplace listing/reservation "
-                    "system and cannot use single-item Shopify publication"
-                ),
+                detail="Inventory belongs to the marketplace listing/reservation system and cannot use single-item Shopify publication",
             )
 
         missing = _test_sync_missing(
@@ -2367,10 +2364,7 @@ async def publish_inventory_to_shopify(
             if remote_inventory_code != item["inventory_code"]:
                 raise HTTPException(
                     status_code=409,
-                    detail=(
-                        "The deterministic Shopify handle belongs to a different "
-                        "inventory item"
-                    ),
+                    detail="The deterministic Shopify handle belongs to a different inventory item",
                 )
             product = await shopify.update_product(
                 product_id=str(remote["id"]),
