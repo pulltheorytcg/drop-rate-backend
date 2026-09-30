@@ -155,7 +155,7 @@ To improve grid symmetry without sacrificing search identity:
 - A subsequent store-wide audit identified 37 affected One Piece presentation titles where collector number/source wording was duplicated in the visible name and the separate card-number/set subtitle.
 - **40 visible Shopify product titles in total** were cleaned without changing canonical Supabase card identity.
 - Meaningful distinctions such as Reprint, Alternate Art, Parallel, Zoro Deck, 3rd Anniversary and Premium Card Collection were retained where useful.
-- Collector number, set, language, rarity/variant and full searchable identity remain in the `drop_rate` metafields/backend data and existing SEO metadata; the cleanup changed presentation copy, not canonical identity.
+- Collector number, set, language, rarity/variant and full searchable identity remain in the `drop_rate` metafields/backend data. A post-change audit checked all 40 affected Shopify products: 39 already retained the collector number in their explicit SEO title; Nico Robin ACE 10 was the only exception, so its SEO title was explicitly corrected to `Nico Robin OP01-017 ACE 10 | One Piece | Drop Rate`. The cleanup changed presentation copy, not canonical identity.
 - The card subtitle now uses one-line ellipsis so long set names do not create uneven purchase-button rows.
 
 ### 11. Rights, provenance and provider safeguards — FOLLOWED
