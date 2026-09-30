@@ -81,9 +81,15 @@ async def reconcile_shopify_orders(
             for row in webhook_rows
             if row["topic"] == "orders/create" and row["status"] == "PROCESSED"
         }
+        processed_cancelled_refs = {
+            str(row["resource_id"])
+            for row in webhook_rows
+            if row["topic"] == "orders/cancelled" and row["status"] == "PROCESSED"
+        }
 
         remote_alerts: list[dict[str, Any]] = []
         expected_pending_refs: list[str] = []
+        acknowledged_cancelled_refs: list[str] = []
         for source_reference in remote_only_refs:
             order = remote_by_ref[source_reference]
             financial_status = str(order.get("financial_status") or "").upper()
@@ -95,6 +101,12 @@ async def reconcile_shopify_orders(
                         "severity": "CRITICAL",
                     }
                 )
+                continue
+
+            cancelled_at = str(order.get("cancelled_at") or "").strip()
+            if cancelled_at and source_reference in processed_cancelled_refs:
+                acknowledged_cancelled_refs.append(source_reference)
+                matched_refs.add(source_reference)
                 continue
 
             if source_reference not in processed_create_refs:
@@ -141,6 +153,7 @@ async def reconcile_shopify_orders(
         "remote_only_count": len(remote_only_refs),
         "remote_anomaly_count": len(remote_alerts),
         "expected_pending_count": len(expected_pending_refs),
+        "acknowledged_cancelled_count": len(acknowledged_cancelled_refs),
         "local_only_count": len(local_only_refs),
         "matched_count": len(matched_refs),
         "opened_alerts": int(result["opened_alerts"] or 0),
@@ -150,5 +163,6 @@ async def reconcile_shopify_orders(
             str(item["source_reference"]) for item in remote_alerts
         ],
         "expected_pending_refs": expected_pending_refs,
+        "acknowledged_cancelled_refs": acknowledged_cancelled_refs,
         "local_only_refs": local_only_refs,
     }
