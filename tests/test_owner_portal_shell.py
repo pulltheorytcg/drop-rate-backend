@@ -133,7 +133,7 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     css = CSS.read_text()
     js = JS.read_text()
 
-    assert 'href="/assets/owner-portal.css?v=owner-v8"' in html
+    assert 'href="/assets/owner-portal.css?v=owner-v9"' in html
     assert 'class="owner-portal-page"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
@@ -334,13 +334,18 @@ def test_seller_hub_branding_is_neutral_and_not_founder_hq() -> None:
     css = CSS.read_text()
 
     assert "<title>Drop Rate — Seller Hub</title>" in html
-    assert "<strong>Seller Hub</strong>" in html
     assert "Drop Rate Seller Hub" in html
     assert "Private workspace" not in html
     assert "Seller account" in html
-    assert 'drop-rate-logo.png?v=seller-hub-1' in css
+    assert 'drop-rate-seller-hub.png?v=20260930' in css
+    assert 'drop-rate-logo.png?v=seller-hub-1' not in css
     assert 'drop-rate-founder-hq.png' not in css
     assert 'content:"SELLER HUB"' in css
+
+    logo = STATIC / "brand-assets" / "drop-rate-seller-hub.png"
+    payload = logo.read_bytes()
+    assert payload[:8] == b"\\x89PNG\\r\\n\\x1a\\n"
+    assert b"tRNS" in payload  # Palette transparency; no white rectangle baked into the asset.
 
 
 def test_seller_channels_empty_state_cannot_throw_null_replacechildren() -> None:
@@ -364,11 +369,13 @@ def test_seller_topbar_brand_is_single_polished_lockup() -> None:
     css = CSS.read_text()
 
     assert 'class="dr-logo-image owner-topbar-logo"' in html
-    assert 'class="owner-topbar-divider"' in html
-    assert "<small>DROP RATE</small>" in html
-    assert "<strong>Seller Hub</strong>" in html
-    assert "<em>Inventory · Sales · Payouts</em>" in html
+    assert 'aria-label="Drop Rate Seller Hub"' in html
+    assert 'class="owner-topbar-divider"' not in html
+    assert 'class="owner-topbar-product"' not in html
+    assert "<small>DROP RATE</small>" not in html
+    assert "<em>Inventory · Sales · Payouts</em>" not in html
     assert ".owner-portal-page .owner-topbar-logo" in css
-    assert "width:96px!important" in css
-    assert ".owner-portal-page .owner-topbar-divider" in css
-    assert ".owner-portal-page .owner-topbar-product em" in css
+    assert "width:224px!important" in css
+    assert "width:154px!important" in css
+    assert ".owner-topbar-divider" not in css
+    assert ".owner-topbar-product" not in css
