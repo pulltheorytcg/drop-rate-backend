@@ -1,0 +1,135 @@
+{% liquid
+  assign sealed_collection = section.settings.collection
+%}
+{% if sealed_collection != blank and sealed_collection.all_products_count > 0 %}
+<section class="dr-sealed-feature" aria-labelledby="dr-sealed-{{ section.id }}">
+  <div class="dr-wrap">
+    <div class="dr-sealed-feature__header">
+      <div class="dr-sealed-feature__heading">
+        <p class="dr-eyebrow"><span class="dr-spark" aria-hidden="true">✦</span> {{ section.settings.eyebrow | escape }}</p>
+        <h2 id="dr-sealed-{{ section.id }}">{{ section.settings.heading | escape }}</h2>
+        <p>{{ section.settings.description | escape }}</p>
+      </div>
+      <a class="dr-sealed-feature__all" href="{{ sealed_collection.url }}">
+        {{ section.settings.button_label | escape }} <span aria-hidden="true">→</span>
+      </a>
+    </div>
+
+    <div class="dr-sealed-feature__grid">
+      {% for product in sealed_collection.products limit: section.settings.product_limit %}
+        {% liquid
+          assign language = product.metafields.drop_rate.language.value
+          if language == 'Japanese'
+            assign language_label = 'JP'
+          elsif language == 'English'
+            assign language_label = 'EN'
+          else
+            assign language_label = language
+          endif
+        %}
+        <article class="dr-sealed-card">
+          <a class="dr-sealed-card__media" href="{{ product.url }}" aria-label="{{ product.title | escape }}">
+            {% if product.featured_image %}
+              {{ product.featured_image | image_url: width: 800 | image_tag:
+                widths: '220, 320, 480, 640, 800',
+                sizes: '(max-width: 749px) 118px, (max-width: 989px) 165px, 210px',
+                loading: 'lazy'
+              }}
+            {% endif %}
+            <span class="dr-sealed-card__badge">Sealed</span>
+          </a>
+
+          <div class="dr-sealed-card__body">
+            <div class="dr-sealed-card__meta">
+              <span>One Piece</span>
+              {% if language_label != blank %}<span>{{ language_label | escape }}</span>{% endif %}
+              <span>In stock</span>
+            </div>
+            <a class="dr-sealed-card__title" href="{{ product.url }}">
+              <h3>{{ product.title | split: ' · ' | first | escape }}</h3>
+            </a>
+            <p class="dr-sealed-card__price">{{ product.price | money }}</p>
+            <a class="dr-sealed-card__view" href="{{ product.url }}">View product <span aria-hidden="true">↗</span></a>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% stylesheet %}
+.dr-sealed-feature{padding-block:46px 52px;background:#f4f7fb;color:#071b3f;border-block:1px solid #e5ebf3}
+.dr-sealed-feature__header{display:flex;align-items:flex-end;justify-content:space-between;gap:34px;margin-bottom:24px}
+.dr-sealed-feature__heading{max-width:610px;padding-inline-start:12px}
+.dr-sealed-feature .dr-eyebrow{margin-bottom:10px;color:#1f7bf2;font-size:9px}
+.dr-sealed-feature h2{margin:0;color:#071b3f;font-size:clamp(30px,3vw,44px);font-weight:850;letter-spacing:-.05em;line-height:1.02}
+.dr-sealed-feature__heading>p:last-child{max-width:520px;margin:12px 0 0;color:#6d7b91;font-size:13px;line-height:1.6}
+.dr-sealed-feature__all{flex:0 0 auto;margin-bottom:4px;color:#13223b;font-size:12px;font-weight:750;text-decoration:none;text-underline-offset:5px}
+.dr-sealed-feature__all span{padding-left:16px;color:#1f7bf2}
+.dr-sealed-feature__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.dr-sealed-card{display:grid;grid-template-columns:minmax(180px,215px) minmax(0,1fr);min-height:238px;overflow:hidden;border:1px solid #dfe7f1;border-radius:14px;background:#fff;box-shadow:0 10px 28px rgba(7,27,63,.06);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.dr-sealed-card__media{position:relative;display:grid;place-items:center;min-height:238px;padding:20px;background:linear-gradient(145deg,#eef5ff,#f8fbff);overflow:hidden}
+.dr-sealed-card__media:after{content:"";position:absolute;width:170px;height:170px;border:1px solid rgba(31,123,242,.13);border-radius:50%;z-index:0}
+.dr-sealed-card__media img{position:relative;z-index:1;width:100%;height:190px;object-fit:contain;filter:drop-shadow(0 12px 12px rgba(7,27,63,.14));transition:transform .2s ease}
+.dr-sealed-card__badge{position:absolute;top:12px;left:12px;z-index:2;padding:5px 8px;border:1px solid rgba(40,215,235,.3);border-radius:999px;background:#071b3f;color:#8ef0fa;font-size:8px;font-weight:850;letter-spacing:.11em;text-transform:uppercase}
+.dr-sealed-card__body{display:flex;flex-direction:column;min-width:0;padding:22px 22px 20px}
+.dr-sealed-card__meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:13px}
+.dr-sealed-card__meta span{padding:5px 7px;border:1px solid #dce6f2;border-radius:999px;background:#f8fafc;color:#5c6d84;font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.dr-sealed-card__meta span:first-child{border-color:#c7e9ee;background:#eafcff;color:#0b7080}
+.dr-sealed-card__title{text-decoration:none;color:#13223b}
+.dr-sealed-card__title h3{display:-webkit-box;margin:0;overflow:hidden;font-size:18px;font-weight:820;letter-spacing:-.035em;line-height:1.18;-webkit-box-orient:vertical;-webkit-line-clamp:3}
+.dr-sealed-card__price{margin:12px 0 0;color:#071b3f;font-size:17px;font-weight:850;letter-spacing:-.02em}
+.dr-sealed-card__view{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-top:auto;padding-top:18px;border-top:1px solid #edf1f6;color:#13223b;font-size:11px;font-weight:750;text-decoration:none}
+.dr-sealed-card__view span{color:#1f7bf2;font-size:17px}
+@media(hover:hover){
+  .dr-sealed-card:hover{transform:translateY(-2px);border-color:#bdd5f6;box-shadow:0 15px 34px rgba(7,27,63,.1)}
+  .dr-sealed-card:hover .dr-sealed-card__media img{transform:scale(1.025)}
+}
+@media(max-width:989px){
+  .dr-sealed-feature__grid{grid-template-columns:1fr}
+  .dr-sealed-card{grid-template-columns:165px minmax(0,1fr);min-height:195px}
+  .dr-sealed-card__media{min-height:195px;padding:16px}
+  .dr-sealed-card__media img{height:160px}
+}
+@media(max-width:749px){
+  .dr-sealed-feature{padding-block:32px 36px}
+  .dr-sealed-feature__header{align-items:flex-end;gap:14px;margin-bottom:16px}
+  .dr-sealed-feature__heading{padding-inline-start:4px}
+  .dr-sealed-feature h2{font-size:30px}
+  .dr-sealed-feature__heading>p:last-child{margin-top:8px;font-size:11px;line-height:1.5}
+  .dr-sealed-feature__all{font-size:10px;white-space:nowrap}
+  .dr-sealed-feature__all span{padding-left:7px}
+  .dr-sealed-feature__grid{gap:11px}
+  .dr-sealed-card{grid-template-columns:118px minmax(0,1fr);min-height:164px;border-radius:11px}
+  .dr-sealed-card__media{min-height:164px;padding:12px}
+  .dr-sealed-card__media:after{width:104px;height:104px}
+  .dr-sealed-card__media img{height:132px}
+  .dr-sealed-card__badge{top:8px;left:8px;padding:4px 6px;font-size:7px}
+  .dr-sealed-card__body{padding:14px 14px 12px}
+  .dr-sealed-card__meta{gap:4px;margin-bottom:8px}
+  .dr-sealed-card__meta span{padding:4px 6px;font-size:7px}
+  .dr-sealed-card__title h3{font-size:14px;line-height:1.22;-webkit-line-clamp:3}
+  .dr-sealed-card__price{margin-top:7px;font-size:14px}
+  .dr-sealed-card__view{padding-top:9px;font-size:9px}
+  .dr-sealed-card__view span{font-size:14px}
+}
+@media(prefers-reduced-motion:reduce){
+  .dr-sealed-card,.dr-sealed-card__media img{transition:none}
+  .dr-sealed-card:hover,.dr-sealed-card:hover .dr-sealed-card__media img{transform:none}
+}
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Drop Rate sealed feature",
+  "settings": [
+    {"type":"collection","id":"collection","label":"Sealed collection"},
+    {"type":"text","id":"eyebrow","label":"Eyebrow","default":"Sealed / ready to ship"},
+    {"type":"text","id":"heading","label":"Heading","default":"Keep it sealed."},
+    {"type":"textarea","id":"description","label":"Description","default":"Collector-ready sealed releases, held in UK stock and ready for their next shelf."},
+    {"type":"text","id":"button_label","label":"Button label","default":"Shop sealed"},
+    {"type":"range","id":"product_limit","label":"Products to show","min":1,"max":4,"step":1,"default":4}
+  ],
+  "presets": [{"name":"Drop Rate sealed feature"}]
+}
+{% endschema %}
