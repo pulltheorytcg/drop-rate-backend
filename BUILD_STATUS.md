@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — PSA credential hardening
+
+- The retained PSA cert-lookup Function uses PSA's current documented Public API endpoint/auth contract, but production retest returned **HTTP 403** because no PSA-specific credential is configured.
+- The old Function incorrectly referenced `TCG_PARSE_API_KEY`, an unrelated provider secret. That fallback is removed.
+- The PSA Function now requires a dedicated `PSA_PUBLIC_API_TOKEN` and returns `503 PSA_PUBLIC_API_TOKEN_REQUIRED` until a valid official bearer token is configured.
+- No slab-media exception is closed from a failed lookup. Charizard V PSA 9 cert 62398872 remains `GRADED_SLAB_MEDIA_REQUIRED`.
+- Once a valid PSA token is available, configure it only on the PSA lookup service, redeploy, then verify a known-good cert plus 62398872 before scanner integration.
+
 ## 2026-09-30 — Sealed catalogue + scanner architecture clarified
 
 - Sealed inventory is now explicitly defined as a **first-class canonical product family**, not one generic row per TCG set.
