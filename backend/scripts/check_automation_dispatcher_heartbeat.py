@@ -56,14 +56,31 @@ async def _run() -> int:
         },
     )
     try:
-        row = await connection.fetchrow(
-            """
-            select *
-            from tcg.check_automation_dispatcher_heartbeat($1,$2::interval)
-            """,
-            alert_enabled,
-            timedelta(seconds=threshold_seconds),
-        )
+        try:
+            row = await connection.fetchrow(
+                """
+                select *
+                from tcg.check_automation_dispatcher_heartbeat($1,$2::interval)
+                """,
+                alert_enabled,
+                timedelta(seconds=threshold_seconds),
+            )
+        except asyncpg.UndefinedFunctionError:
+            if alert_enabled:
+                raise
+            print(
+                json.dumps(
+                    {
+                        "event": "AUTOMATION_DISPATCHER_HEARTBEAT_SCHEMA_PENDING_DORMANT",
+                        "alert_enabled": False,
+                        "healthy": False,
+                        "threshold_seconds": threshold_seconds,
+                    },
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
+            return 0
     finally:
         await connection.close()
 
