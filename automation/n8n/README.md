@@ -102,3 +102,24 @@ Before activation:
 6. prove exactly one automation_run per founder and one deduped Action Required per founder;
 7. replay the same receipt and prove no duplicate state;
 8. only then set DR-90 as the error workflow for other workflows.
+
+
+## DR-91 durable success receipt
+
+`DR91SuccessReceiptV1` is a reusable inactive sub-workflow for parent workflows that have completed and verified their governed action.
+
+Inputs:
+- workflow key/version;
+- n8n execution ID;
+- Drop Rate idempotency key;
+- completion timestamp;
+- optional owner ID;
+- optional automation event ID.
+
+Flow:
+
+`Execute Sub-workflow Trigger → validate/normalize → HMAC-sign SUCCEEDED receipt → FastAPI control receipt → verify durable acceptance`
+
+Durable receipt idempotency uses the supplied `idempotency_key`, not merely the n8n execution ID. If n8n executes the same business event twice, the durable run receipt can therefore remain one logical result.
+
+Parent workflows should call DR-91 only after their external/backend action has been read back or otherwise verified. Starting a workflow is not success.
