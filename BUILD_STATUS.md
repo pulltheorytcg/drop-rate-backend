@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Founder HQ trusted-image fast path expansion
+
+- Post-deploy coverage audit of PR #344 found only **10 / 490 displayed inventory images (2.0%)** currently have a Shopify CDN URL, so the first fast path was correct but too narrow to materially solve the measured grid latency alone.
+- Current selected image-source distribution shows the dominant remaining inventory media is already on hosts explicitly trusted by Founder HQ CSP:
+  - TCGdex `assets.tcgdex.net`: 195 inventory items;
+  - official One Piece hosts `en.onepiece-cardgame.com` / `www.onepiece-cardgame.com`: 260 inventory items;
+  - CardTrader: 27 items;
+  - OPTCG API: 1 item.
+- The direct-browser fast path is therefore expanded only to **Shopify CDN + TCGdex + official One Piece image hosts**, with the existing authenticated proxy as automatic fallback.
+- CardTrader, OPTCG API, TCGGraph and any unknown hosts remain proxy-only until separately reviewed; there is no wildcard/direct arbitrary-provider path.
+- This should move roughly **94% of currently displayed inventory images** onto a direct/lazy browser path while preserving the existing proxy security boundary for everything else.
+
 ## 2026-09-30 — Founder HQ inventory image latency fast path
 
 - Phase 2 production timing found inventory image responses frequently taking roughly **1.5–2.8 seconds** even while ordinary inventory/readiness metadata APIs remain sub-second.
