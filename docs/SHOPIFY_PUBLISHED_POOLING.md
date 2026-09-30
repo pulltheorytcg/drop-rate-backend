@@ -85,6 +85,8 @@ silently becoming sellable again.
 Brand Redesign checkout testing exposed that Uta OP13-023 still had sellable copies split
 between an existing pooled product and separate individual Shopify products.
 
-The strict production audit found 19 eligible published duplicate groups. These must be
-reconciled before Brand Redesign becomes MAIN, followed by Shopify/Postgres parity and
-customer-path read-back.
+The completed production reconciliation covered 20 eligible published duplicate groups /
+48 physical inventory links. Every group now resolves to one ACTIVE Shopify anchor while
+redundant sibling products are ARCHIVED at quantity zero. Final read-back found zero
+remaining eligible duplicate groups, zero pool-priority collisions and exact Shopify
+quantity/SKU parity across all 20 anchors.
