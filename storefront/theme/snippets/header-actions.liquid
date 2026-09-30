@@ -68,8 +68,7 @@
     class="dr-sell-with-us"
     aria-label="Sell with Drop Rate"
   >
-    <span class="dr-sell-with-us__desktop">Sell With Us</span>
-    <span class="dr-sell-with-us__mobile">Sell</span>
+    <span>Sell With Us</span>
   </a>
 
   {% if shop.customer_accounts_enabled %}
@@ -193,23 +192,9 @@
     box-shadow: 0 8px 22px rgba(31, 123, 242, 0.24);
   }
 
-  .dr-sell-with-us__mobile {
-    display: none;
-  }
-
   @media screen and (max-width: 749px) {
     .dr-sell-with-us {
-      min-height: 34px;
-      padding: 0 11px;
-      font-size: 12px;
-    }
-
-    .dr-sell-with-us__desktop {
       display: none;
-    }
-
-    .dr-sell-with-us__mobile {
-      display: inline;
     }
   }
 
