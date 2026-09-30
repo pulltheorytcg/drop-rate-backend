@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Published pool historical-priority edge case fixed
+
+- First live Phase-B migration was deliberately limited to Uta OP13-023 after production deployment.
+- Shopify read-back succeeded: the pooled anchor is ACTIVE at quantity 4 and the redundant individual product is ARCHIVED at quantity 0.
+- The first database commit safely rolled back before mutation because the refunded #1003 physical copy correctly retained allocation priority 1 under the historical pool key; renumbering active members to 1..N would collide with the unique `(listing_key, allocation_priority)` constraint.
+- Live Uta reconciliation was then completed without rewriting history: existing active pool priorities 2/3/4 were preserved and the newly consolidated physical copy received priority 5. The refunded INSPECTION/ARCHIVED copy remains priority 1 and auditable.
+- Phase-B code is hardened accordingly: existing pool members keep their allocation priorities and newly merged members are assigned only after the maximum historical priority for that listing key.
+- Remaining published duplicate groups stay untouched until this regression fix passes CI and deploys.
+
 ## 2026-09-30 — Published duplicate raw-card pooling Phase B in progress
 
 - Brand Redesign production checkout QA exposed a catalogue projection gap rather than an order-allocation defect.
