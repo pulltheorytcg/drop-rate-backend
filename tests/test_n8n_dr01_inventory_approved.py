@@ -107,9 +107,10 @@ def test_dr01_v2_uses_commands_router_not_control_router() -> None:
     assert workflow["meta"]["dropRate"]["version"] == 2
 
     signer = nodes["Sign Shopify Publication Command"]["parameters"]["jsCode"]
-    assert "/automation/control/receipt" in signer
+    assert "automation\\/control\\/receipt" in signer
     assert "/automation/commands/shopify/inventory-approved" in signer
     assert "replace(/\\/automation\\/control\\/receipt$/" in signer
+    assert "\\\\n" not in signer
 
     request = nodes["Publish via FastAPI"]["parameters"]
     assert request["url"] == "={{ $json.command_url }}"
