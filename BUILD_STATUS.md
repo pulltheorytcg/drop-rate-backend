@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Media Action Required lifecycle correction
+
+- Phase 2 queue review found three stale OPEN `MEDIA_UNRESOLVED` rows for Dragon Ball cards that later obtained exact media and were published: BT18-067, BT18-138 and BT13-142.
+- Root cause is in import enrichment state transition: moving from `PENDING` to `PENDING_REVIEW` or `REFERENCE_READY` did not close the older `MEDIA_UNRESOLVED` Action Required item.
+- The lifecycle is being corrected so `MEDIA_UNRESOLVED` remains open only while media is genuinely `PENDING`; once exact media advances, the obsolete blocker is resolved before any current review state is maintained.
+- No media is auto-approved, no ambiguous card is unblocked, and the eight genuinely unresolved Dragon Ball exact-print exceptions remain fail-closed.
+- The three historical stale rows still require one controlled lifecycle reconciliation after deployment; they are not being deleted directly from Postgres.
+
 ## 2026-09-30 — Phase 2 Shopify #1001 reconciliation fix
 
 - Phase 2 launch-gate review confirmed historical Shopify test order #1001 was PENDING/unpaid, cancelled on 24 September, had a successfully processed `orders/cancelled` webhook, created no local `tcg.orders` row, left no reservation, and was followed by successful order #1002 on the same Sunny-owned Seel inventory.
