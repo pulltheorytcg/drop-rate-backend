@@ -149,7 +149,7 @@ async def record_automation_receipt(
                 else:
                     inserted += 1
 
-                if receipt.status == "FAILED":
+                if receipt.status == "FAILED" and row is not None:
                     error_code = str(receipt.error_code or "N8N_WORKFLOW_FAILED").strip()
                     error_message = str(receipt.error_message or "Workflow execution failed").strip()
                     action = await upsert_action_required(
