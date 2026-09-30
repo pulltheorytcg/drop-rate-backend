@@ -47,6 +47,9 @@ def test_owner_profile_payload_normalises_username_and_rejects_invalid_values() 
     with pytest.raises(ValidationError):
         OwnerProfileUpdate(display_name="Seller", username="bad-name")
 
+    with pytest.raises(ValidationError):
+        OwnerProfileUpdate(display_name="   ", username="valid_name")
+
 
 def test_owner_profile_api_is_owner_scoped_and_audited_through_database_function() -> None:
     source = API.read_text()
