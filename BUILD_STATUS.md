@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Phase 2 pooled storefront copy correction
+
+- Phase 2 stale-PR audit found PR #317 contained unique customer-facing safety behaviour not present on current `main`; it was preserved rather than discarded.
+- Two live Dragon Ball quantity-2 pooled products were verified to still use single-copy wording and expose one physical member's internal Inventory ID. Both Shopify descriptions were corrected in place without changing status, quantity, SKU or price.
+- Current pooled-publication code is being hardened so future pooled offers rewrite and verify pooled-safe copy while still DRAFT, before activation.
+- PR #311 was also preserved and merged because its Brand Redesign PDP source change was still unique: internal inventory references are removed from the PDP and pooled stock can display `N in stock`.
+
 ## 2026-09-30 — Consolidated checkpoint: 29 September → 30 September 01:52 BST
 
 **PRODUCTION VERIFIED / STOREFRONT CATALOGUE LIVE / BRAND REDESIGN THEME STILL UNPUBLISHED —** this section is the authoritative handover for all work completed since the Claude storefront-first operating manual was adopted on 29 September 2026. Historical entries below are retained as an audit trail; where an older count conflicts with this section, this section is the current state.
