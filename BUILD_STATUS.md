@@ -1,5 +1,18 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Founder HQ inventory image latency fast path
+
+- Phase 2 production timing found inventory image responses frequently taking roughly **1.5–2.8 seconds** even while ordinary inventory/readiness metadata APIs remain sub-second.
+- Root cause: Founder HQ visual inventory always fetched `/api/v1/inventory/{id}/image`, causing FastAPI to re-download and stream the remote image for every card render; the global authenticated response policy is also `Cache-Control: no-store`.
+- The safe optimisation is **Shopify-CDN-first, authenticated-proxy fallback**:
+  - the inventory API exposes a direct URL only when the selected media asset already has a strict HTTPS Shopify CDN URL;
+  - Founder HQ loads that CDN image directly and lazily;
+  - if the CDN request fails, the existing authenticated bounded/allowlisted FastAPI proxy is used automatically;
+  - non-Shopify provider/source URLs continue through the existing proxy and are not exposed as the direct fast path.
+- CSP is widened only for Shopify CDN hosts; provider hotlinking/privacy boundaries are unchanged.
+- Existing proxy SSRF/content-type/size/redirect protections remain intact.
+- This is a measured Phase 2 efficiency fix, not new Seller Hub/recognition feature scope.
+
 ## 2026-09-30 — Media Action Required lifecycle correction
 
 - Phase 2 queue review found three stale OPEN `MEDIA_UNRESOLVED` rows for Dragon Ball cards that later obtained exact media and were published: BT18-067, BT18-138 and BT13-142.
@@ -261,7 +274,6 @@ Across the 29–30 September work:
 6. **Graded media follow-up:** obtain exact replacement slab/back evidence for the two remaining `GRADED_SLAB_MEDIA_REQUIRED` exceptions where possible; do not substitute another slab.
 7. **GitHub housekeeping:** close stale open PRs that have been superseded by merged production work (#309, #311–#314, #317, #325) after confirming none contains unique unmerged content.
 8. Once Brand Redesign is live and stable, **explicitly reopen the manual's deferred workstreams** in priority order rather than automatically resuming all of them at once.
-9. **Deferred graded-slab scanner architecture — APPROVED BACKLOG:** when recognition/Seller Hub scope is explicitly reopened, add a scanner choice for **Raw Card / Graded Slab** across Founder HQ and the future Seller Hub/mobile app. Graded Slab mode must detect the grader, read the certificate/serial, route through a grader adapter, verify the exact graded identity where permitted, store grader + grade + cert directly on the physical Inventory Item, attach exact official slab media where permitted/available, and require human confirmation before commit. Initial grader targets are **PSA, ACE, CGC, TAG and BGS/Beckett**. PSA has an official cert API and is the first full automation target; TAG should support certificate/QR → DIG report verification, TAG Score and grader-specific digital evidence through a permitted integration path; ACE/CGC should use provider verification only through permitted machine access; BGS remains adapter-ready but automatic lookup must stay disabled unless Beckett provides/approves machine access rather than bypassing its verification protections. Preserve BGS half grades/subgrades including 9.5 and Black Label 10, and preserve TAG's provider-specific score/metrics as evidence rather than flattening them into the core grade. Full design: `docs/GRADED_SLAB_SCANNER_ARCHITECTURE.md`.
 
 ## 2026-09-30 — Dragon Ball publication final production verification
 
