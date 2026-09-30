@@ -419,6 +419,9 @@ def test_shopify_shipping_profile_api_is_versioned_and_owner_scoped() -> None:
     assert "current_version" in source
     assert "RAW_CARD" in source
     assert "GRADED_CARD" in source
+    assert "_supported_shipping_profile_key" in source
+    assert "SEALED_" in source
+    assert "32-character canonical catalogue id" in source
 
 
 def test_media_registry_is_rls_protected_rights_gated_and_audited() -> None:

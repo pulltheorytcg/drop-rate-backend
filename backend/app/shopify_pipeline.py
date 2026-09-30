@@ -716,6 +716,19 @@ async def _founder(connection: asyncpg.Connection) -> asyncpg.Record:
     return owner
 
 
+def _supported_shipping_profile_key(value: str) -> bool:
+    key = str(value or "").strip().upper()
+    if key in {"RAW_CARD", "GRADED_CARD"}:
+        return True
+    if not key.startswith("SEALED_"):
+        return False
+    catalogue_key = key.removeprefix("SEALED_")
+    return (
+        len(catalogue_key) == 32
+        and all(char in "0123456789ABCDEF" for char in catalogue_key)
+    )
+
+
 def _validated_shipping_package_gid(value: str | None) -> str | None:
     clean = str(value or "").strip()
     if not clean:
@@ -786,10 +799,13 @@ async def create_shipping_profile(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    if payload.profile_key not in {"RAW_CARD", "GRADED_CARD"}:
+    if not _supported_shipping_profile_key(payload.profile_key):
         raise HTTPException(
             status_code=422,
-            detail="Supported shipping profile keys are RAW_CARD and GRADED_CARD",
+            detail=(
+                "Supported shipping profile keys are RAW_CARD, GRADED_CARD, "
+                "or SEALED_<32-character canonical catalogue id>"
+            ),
         )
     package_gid = _validated_shipping_package_gid(payload.shipping_package_gid)
     async with user_connection(
