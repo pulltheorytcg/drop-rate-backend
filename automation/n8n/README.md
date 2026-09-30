@@ -159,3 +159,18 @@ Activation gate:
 4. replay the same execution and prove duplicate safety;
 5. prove the stale/healthy Action Required lifecycle;
 6. only then activate DR-92 and enable heartbeat alerts.
+
+## DR-92 workflow heartbeat
+
+`DR92WorkflowHeartbeatV1` is the independent liveness signal for the n8n control plane.
+
+Flow:
+
+`Schedule Trigger (5m) → build 5-minute idempotency bucket → DR-91 durable success receipt → verify receipt`
+
+The workflow is imported inactive. Scheduled execution requires the workflow to be published in n8n. DR-91 must also have a published/proven version because automatic sub-workflow calls resolve the stored workflow by ID.
+
+The backend operations monitor checks the latest durable `N8N:workflow-heartbeat` receipt in Postgres. It does not trust n8n's own execution history to decide whether n8n is healthy.
+
+Alerting is separately gated by `TCG_N8N_HEARTBEAT_ALERTS_ENABLED` and defaults off. A stale heartbeat can therefore be observed safely before alerts are armed.
+

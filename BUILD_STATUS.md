@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n Wave A: independent workflow heartbeat
+
+- Added inactive source-controlled workflow `DR92WorkflowHeartbeatV1`.
+- Once explicitly published/activated, DR-92 runs every 5 minutes and calls DR-91 using the stable workflow ID `DR91SuccessReceiptV1`.
+- Heartbeat idempotency is based on the UTC 5-minute bucket, so retries or duplicate executions for the same slot collapse to one durable logical run.
+- Durable heartbeat truth lives in `tcg.automation_runs` as `N8N:workflow-heartbeat`; n8n execution history is not the monitor's source of truth.
+- Added independent Postgres health check `tcg.check_n8n_workflow_heartbeat(alert_enabled,threshold)` plus the existing Railway operations-monitor path.
+- Alerting defaults **dormant**. It may observe missing/stale heartbeat without opening incidents until `TCG_N8N_HEARTBEAT_ALERTS_ENABLED=true` is deliberately enabled after live proof.
+- When alerting is enabled, a stale heartbeat opens/updates founder HIGH `N8N_HEARTBEAT_STALE` Action Required items; a recovered heartbeat resolves them automatically.
+- DR-92 routes execution errors to DR-90 and records successful completion only through DR-91.
+- Activation gate: DR-90 and DR-91 must be published/proven first, then DR-92 is published, one manual/live heartbeat is verified in Postgres, duplicate safety is proven, and only then heartbeat alerting is enabled.
+
 ## 2026-09-30 — n8n Wave A: source cutover verified + DR-92 runtime heartbeat built inactive
 
 - Production `drop-rate-n8n-e840` is now repo-controlled through `Dockerfile.n8n`, still pinned to n8n 2.32.6 and using the existing persistent `/home/node/.n8n` volume.
