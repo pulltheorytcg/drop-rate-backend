@@ -134,7 +134,7 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     css = CSS.read_text()
     js = JS.read_text()
 
-    assert 'href="/assets/owner-portal.css?v=owner-v10"' in html
+    assert 'href="/assets/owner-portal.css?v=owner-v11"' in html
     assert 'class="owner-portal-page"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
@@ -338,7 +338,7 @@ def test_seller_hub_branding_is_neutral_and_not_founder_hq() -> None:
     assert "Drop Rate Seller Hub" in html
     assert "Private workspace" not in html
     assert "Seller account" in html
-    assert 'drop-rate-seller-hub.png?v=seller-hub-2' in css
+    assert 'drop-rate-seller-hub.png?v=seller-hub-3' in html
     assert 'drop-rate-logo.png?v=seller-hub-1' not in css
     assert 'drop-rate-founder-hq.png' not in css
     assert 'content:"SELLER HUB"' in css
@@ -370,14 +370,17 @@ def test_seller_topbar_brand_is_single_polished_lockup() -> None:
     css = CSS.read_text()
 
     assert 'class="dr-logo-image owner-topbar-logo"' in html
-    assert 'aria-label="Drop Rate Seller Hub"' in html
+    assert 'src="/assets/brand-assets/drop-rate-seller-hub.png?v=seller-hub-3"' in html
+    assert 'alt="Drop Rate Seller Hub"' in html
     assert 'class="owner-topbar-divider"' not in html
     assert 'class="owner-topbar-product"' not in html
     assert "<small>DROP RATE</small>" not in html
     assert "<em>Inventory · Sales · Payouts</em>" not in html
     assert ".owner-portal-page .owner-topbar-logo" in css
     assert "width:254px!important" in css
-    assert "width:174px!important" in css
+    assert "width:136px!important" in css
+    assert "left:50%" in css
+    assert "transform:translateX(-50%)" in css
     assert ".owner-topbar-divider" not in css
     assert ".owner-topbar-product" not in css
 
@@ -394,9 +397,11 @@ def test_owner_portal_uses_integrated_seller_hub_brand_lockup() -> None:
         / "drop-rate-seller-hub.png"
     )
 
-    assert 'aria-label="Drop Rate Seller Hub"' in html
+    assert 'src="/assets/brand-assets/drop-rate-seller-hub.png?v=seller-hub-3"' in html
+    assert 'alt="Drop Rate Seller Hub"' in html
     assert 'class="dr-logo-image owner-topbar-logo"' in html
-    assert 'drop-rate-seller-hub.png?v=seller-hub-2' in css
+    assert "object-fit:contain" in css
+    assert "background:none!important" in css
     assert "width:254px!important" in css
     assert asset.exists()
     assert asset.read_bytes().startswith(bytes((137, 80, 78, 71, 13, 10, 26, 10)))
