@@ -80,3 +80,14 @@ def test_heartbeat_does_not_touch_business_state() -> None:
         "delete from tcg.automation_events",
     ):
         assert forbidden not in sql
+
+
+def test_unapplied_dispatcher_heartbeat_migration_is_safe_only_while_dormant() -> None:
+    source = CHECKER.read_text()
+
+    assert "to_regprocedure(" in source
+    assert "check_automation_dispatcher_heartbeat(boolean,interval)" in source
+    assert '"AUTOMATION_DISPATCHER_HEARTBEAT_NOT_INSTALLED_DORMANT"' in source
+    assert "if alert_enabled:" in source
+    assert "heartbeat migration is not installed" in source
+    assert "return 0" in source
