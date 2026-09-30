@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Phase 2 efficiency/simplicity audit and system map
+
+- Added `docs/PHASE2_SYSTEM_MAP.md`: plain-English map of every Railway service, the major Supabase functional areas, Shopify/GitHub/n8n responsibilities and the current simplification boundary.
+- Added `docs/PHASE2_EFFICIENCY_AUDIT.md`: production machine-side timing evidence plus a strict separation between what can be measured remotely and the real-phone/human tests that still require a person.
+- Production timing evidence identifies recognition resolution as the main measured latency hotspot: observed successful `/api/v1/recognition/resolve` calls at 5.100s, 12.413s and 21.672s (sample median 12.413s, n=3). Ordinary inventory/readiness APIs are generally sub-second; some inventory image responses were ~1.5-2.8s.
+- Defined launch stability before reopening deferred scope: 72h Brand Redesign MAIN without rollback, 5 genuine paid non-founder customer orders, zero attribution/allocation/oversell/settlement errors, zero CRITICAL Action Required items for 72h, no unresolved post-launch Shopify webhook gap, and one outside-person purchase test.
+- Stale PR cleanup is now evidence-based rather than destructive: #311 was preserved/merged; #317's unique behavior was ported and merged as #337; #309/#312/#313/#314/#325 were closed only after confirming later merged production paths supersede them.
+- `psa-cert-lookup-temp` and `psa-fetch-batch` were dependency-audited by Railway and have no inbound production dependency. Both removals are staged; Railway dashboard 2FA is required to commit them.
+- PR #338 is merged and deployed to both `drop-rate-api-live` and the operations monitor, so terminal unpaid cancelled Shopify orders with processed cancellation evidence are no longer designed to reopen a permanent HIGH webhook-gap alert.
+- Three stale `MEDIA_UNRESOLVED` records were identified for already-published Dragon Ball cards (BT18-067, BT18-138, BT13-142). They remain to be reconciled through the Action Required lifecycle rather than directly deleted.
+- Advanced n8n/CRO/content work remains frozen: #236, #215 and #216 are still open/unmerged/unactivated. No new n8n workflow or Railway service was opened as part of this audit.
+
 ## 2026-09-30 — Phase 2 Shopify #1001 reconciliation fix
 
 - Phase 2 launch-gate review confirmed historical Shopify test order #1001 was PENDING/unpaid, cancelled on 24 September, had a successfully processed `orders/cancelled` webhook, created no local `tcg.orders` row, left no reservation, and was followed by successful order #1002 on the same Sunny-owned Seel inventory.
