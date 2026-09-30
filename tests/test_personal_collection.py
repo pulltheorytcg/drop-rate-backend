@@ -140,8 +140,8 @@ def test_sale_intent_router_is_wired_without_platform_admin_dependency() -> None
 
 def test_shopify_relisting_is_explicit_and_reuses_existing_link() -> None:
     source = SHOPIFY.read_text()
-    start = source.index("async def sync_one_test_item(")
-    end = source.index("def _parse_order_lines(", start)
+    start = source.index("async def publish_inventory_to_shopify(")
+    end = source.index('@router.post("/test-sync/{inventory_id}")', start)
     sync = source[start:end]
     assert 'existing["sync_state"] == "SOLD"' in sync
     assert 'existing["sync_state"] == "PUBLISHED"' in sync
