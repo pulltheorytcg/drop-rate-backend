@@ -1,5 +1,21 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — n8n repo-controlled source cutover hardening
+
+- Production n8n still runs stock pinned image `ghcr.io/n8n-io/n8n:2.32.6`; no source cutover has been performed yet.
+- Repo `Dockerfile.n8n` uses the same pinned n8n version, preserving version parity for the eventual cutover.
+- Startup provisioning is hardened before any production source switch:
+  - require DR-00 webhook secret/runtime capabilities;
+  - require DR-90 automation command secret + governed FastAPI control receipt URL;
+  - create one-time persistent-volume rollback copy `database.sqlite.pre-drop-rate-provision-v1.bak` before imports;
+  - refuse workflow JSON unless `active=false`;
+  - import only missing stable IDs;
+  - verify all expected version-controlled workflow IDs after import;
+  - never wipe/recreate the n8n database or import credentials.
+- Railway already wires `DROP_RATE_AUTOMATION_COMMAND_SECRET` by direct reference to `drop-rate-api-live.TCG_AUTOMATION_COMMAND_SECRET`, preventing secret drift without exposing the value.
+- Railway already defines `DROP_RATE_API_AUTOMATION_CONTROL_URL`; no plaintext secret/config value is committed.
+- Source cutover remains a deliberate production action after CI + persistent-state provisioning checks; no duplicate n8n service will be created.
+
 ## 2026-09-30 — n8n Wave A: guarded dead-letter recovery
 
 - Added Founder HQ dead-letter visibility and replay architecture so terminal automation failures can be recovered without manual SQL.
