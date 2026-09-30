@@ -6,6 +6,12 @@ from .language import clean_language
 
 
 DEFAULT_PHYSICAL_PHOTO_THRESHOLD_MINOR = 5_000
+DRAGON_BALL_4K_LONG_EDGE_PX = 2_160
+DRAGON_BALL_GAMES = {
+    "dragon ball super",
+    "dragon ball super masters",
+    "dragon ball super fusion world",
+}
 
 STOREFRONT_ALLOWED = "STOREFRONT_ALLOWED"
 MARKETPLACE_NATIVE_ONLY = "MARKETPLACE_NATIVE_ONLY"
@@ -39,6 +45,21 @@ def _int_value(value: object) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _dragon_ball_quality_blocker(
+    item: Mapping[str, Any],
+    asset: Mapping[str, Any],
+) -> str | None:
+    if _norm(item.get("game")) not in DRAGON_BALL_GAMES:
+        return None
+    quality = _text(asset.get("source_quality_status") or "UNMEASURED")
+    if quality == "BELOW_TARGET":
+        return (
+            "Dragon Ball media is below the "
+            f"{DRAGON_BALL_4K_LONG_EDGE_PX}px long-edge quality target"
+        )
+    return None
 
 
 def physical_photo_policy(
@@ -165,6 +186,7 @@ def _inventory_capture_candidates(
         and _text(asset.get("scope")) == "INVENTORY_ITEM"
         and _text(asset.get("inventory_id")) == inventory_id
         and _text(asset.get("rights_tier")) == FIRST_PARTY_CAPTURE
+        and _dragon_ball_quality_blocker(item, asset) is None
     ]
     if product_type in {"SEALED", "COLLECTION"}:
         return [
@@ -208,6 +230,10 @@ def _canonical_match_reason(
         or not _text(asset.get("shopify_file_gid"))
     ):
         return "canonical media is not ready in Shopify"
+
+    quality_blocker = _dragon_ball_quality_blocker(item, asset)
+    if quality_blocker:
+        return quality_blocker
 
     expected_language = _language(
         item.get("language") or item.get("catalogue_language")
@@ -266,6 +292,9 @@ def _selected_summary(asset: Mapping[str, Any]) -> dict[str, Any]:
         "mediaVariant": asset.get("media_variant"),
         "captureContext": asset.get("capture_context"),
         "shopifyFileId": asset.get("shopify_file_gid"),
+        "sourceWidthPx": asset.get("source_width_px"),
+        "sourceHeightPx": asset.get("source_height_px"),
+        "sourceQualityStatus": asset.get("source_quality_status"),
     }
 
 
