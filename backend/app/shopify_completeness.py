@@ -74,16 +74,27 @@ def product_title(item: Mapping[str, Any]) -> str:
 
 
 def product_description_html(item: Mapping[str, Any]) -> str:
-    fields = [
-        ("Game", _text(item.get("game"))),
-        ("Set", _text(item.get("set_name"))),
-        ("Card number", _text(item.get("card_number"))),
-        ("Language", _language(item)),
-        ("Condition", _condition_label(item)),
-        ("Rarity", _text(item.get("rarity"))),
-        ("Variant", _text(item.get("variant"))),
-        ("Inventory ID", _text(item.get("inventory_code"))),
-    ]
+    sealed = _is_sealed_product(item)
+    fields = (
+        [
+            ("Game", _text(item.get("game"))),
+            ("Set / Series", _text(item.get("set_name"))),
+            ("Language", _language(item)),
+            ("Seal status", _text(item.get("seal_status"))),
+            ("Inventory ID", _text(item.get("inventory_code"))),
+        ]
+        if sealed
+        else [
+            ("Game", _text(item.get("game"))),
+            ("Set", _text(item.get("set_name"))),
+            ("Card number", _text(item.get("card_number"))),
+            ("Language", _language(item)),
+            ("Condition", _condition_label(item)),
+            ("Rarity", _text(item.get("rarity"))),
+            ("Variant", _text(item.get("variant"))),
+            ("Inventory ID", _text(item.get("inventory_code"))),
+        ]
+    )
     rows = "".join(
         f"<li><strong>{escape(label)}:</strong> {escape(value)}</li>"
         for label, value in fields
