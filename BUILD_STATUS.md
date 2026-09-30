@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Seller Hub header breathing-room refinement
+
+- Reduced the signed-in desktop Seller Hub lockup from 254×68 px to 220×56 px so the approved logo has more vertical breathing room inside the 78 px topbar.
+- Increased desktop topbar side padding from 28 px to 36 px and reduced the reserved brand width accordingly.
+- Mobile true-centred logo sizing and all account/sign-out controls remain unchanged.
+- No auth, ownership, inventory, pricing, order, settlement, payout or Shopify logic changed.
+- Production verification pending CI, merge and Railway deployment.
+
 ## 2026-09-30 — Exact approved Seller Hub logo asset
 
 - Verified the previous repository Seller Hub PNG was not the same file as the newly approved artwork: the approved attachment is **2048×682** and the older static export had different dimensions/proportions.

@@ -375,7 +375,7 @@ def test_seller_topbar_brand_is_single_polished_lockup() -> None:
     assert "<small>DROP RATE</small>" not in html
     assert "<em>Inventory · Sales · Payouts</em>" not in html
     assert ".owner-portal-page .owner-topbar-logo" in css
-    assert "width:254px!important" in css
+    assert "width:220px!important" in css
     assert "width:136px!important" in css
     assert "left:50%" in css
     assert "transform:translateX(-50%)" in css
@@ -391,5 +391,5 @@ def test_owner_portal_uses_integrated_seller_hub_brand_lockup() -> None:
     assert 'class="dr-logo-image owner-topbar-logo"' in html
     assert "object-fit:contain" in css
     assert "background:none!important" in css
-    assert "width:254px!important" in css
+    assert "width:220px!important" in css
     assert 'https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031' in html
