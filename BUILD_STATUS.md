@@ -1,5 +1,30 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Founder override: n8n becomes a parallel pre-launch operating-system workstream
+
+- The business goal is now explicit: Drop Rate should be able to **run, operate and make money with minimal founder intervention beyond physical stock acquisition, strategic decisions and packing/dispatch**.
+- The earlier “one small boring n8n workflow first, advanced automation later” sequencing is superseded as the final delivery strategy.
+- New strategy: **build broad before launch; activate narrow based on proof**.
+- n8n remains the orchestration layer only:
+  - PostgreSQL/Supabase = durable business truth;
+  - FastAPI = deterministic rules/permissions;
+  - AI = interpretation/generation/prioritisation;
+  - n8n = event routing, scheduling, retries, provider coordination, notifications and closed-loop orchestration.
+- The full **42-workflow programme** is now a parallel pre-launch workstream rather than a post-launch-only backlog.
+- Added `docs/N8N_LAUNCH_OPERATING_SYSTEM.md` with the launch architecture, authority model, intelligence loop, control plane and pre-launch build waves.
+- Added `automation/n8n/workflow-registry.json` as the canonical source-controlled registry for all 42 workflow families.
+- Every registry entry requires:
+  - idempotency;
+  - version-controlled workflow JSON;
+  - deterministic backend contract;
+  - duplicate-delivery test;
+  - failure/retry test;
+  - error routing/observability;
+  - provider terms/rate-limit review where applicable.
+- Launch-critical target is no longer “one workflow works”; it is a **well-oiled automation control plane plus broad prebuilt workflow coverage**, with production activation gated by evidence.
+- The existing 396 PENDING `inventory.approved` outbox events are treated as a historical backlog and must not be accidentally consumed by the first activated gateway. Backlog disposition/replay must be deliberate.
+- Next implementation wave: **Control Plane** — global error workflow, Action Required bridge, execution receipts, dead-letter/replay visibility, dispatcher backlog monitoring and workflow heartbeat.
+
 ## 2026-09-30 — PSA credential hardening
 
 - The retained PSA cert-lookup Function uses PSA's current documented Public API endpoint/auth contract, but production retest returned **HTTP 403** because no PSA-specific credential is configured.
