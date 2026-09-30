@@ -17,6 +17,13 @@ router = APIRouter(prefix="/api/v1/automation/control", tags=["automation-contro
 MAX_AUTOMATION_CONTROL_BODY_BYTES = 64 * 1024
 
 
+class AutomationHeartbeat(BaseModel):
+    heartbeat_key: Literal["n8n-runtime"] = "n8n-runtime"
+    workflow_version: str = Field(default="v1", min_length=1, max_length=80)
+    execution_id: str = Field(min_length=1, max_length=255)
+    occurred_at: datetime
+
+
 class AutomationExecutionReceipt(BaseModel):
     workflow_key: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{1,119}$")
     workflow_version: str = Field(default="unknown", min_length=1, max_length=80)
@@ -73,18 +80,12 @@ async def _receipt_owner_ids(connection, owner_id: UUID | None) -> list[UUID]:
     return owner_ids
 
 
-@router.post("/receipt")
-async def record_automation_receipt(
+async def _verified_control_body(
     request: Request,
-    x_drop_rate_timestamp: str | None = Header(
-        default=None,
-        alias="X-Drop-Rate-Timestamp",
-    ),
-    x_drop_rate_signature: str | None = Header(
-        default=None,
-        alias="X-Drop-Rate-Signature",
-    ),
-) -> dict:
+    *,
+    timestamp_header: str | None,
+    signature_header: str | None,
+) -> bytes:
     settings = get_settings()
     secret = str(settings.automation_command_secret or "").strip()
     if len(secret) < 32:
@@ -99,10 +100,75 @@ async def record_automation_receipt(
     if not verify_signed_body(
         secret=secret,
         body=raw_body,
-        timestamp_header=x_drop_rate_timestamp,
-        signature_header=x_drop_rate_signature,
+        timestamp_header=timestamp_header,
+        signature_header=signature_header,
     ):
         raise HTTPException(status_code=401, detail="Invalid automation control signature")
+    return raw_body
+
+
+@router.post("/heartbeat")
+async def record_automation_heartbeat(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(
+        default=None,
+        alias="X-Drop-Rate-Timestamp",
+    ),
+    x_drop_rate_signature: str | None = Header(
+        default=None,
+        alias="X-Drop-Rate-Signature",
+    ),
+) -> dict:
+    raw_body = await _verified_control_body(
+        request,
+        timestamp_header=x_drop_rate_timestamp,
+        signature_header=x_drop_rate_signature,
+    )
+    try:
+        heartbeat = AutomationHeartbeat.model_validate_json(raw_body)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail="Invalid automation heartbeat") from exc
+
+    async with request.app.state.db_pool.acquire() as connection:
+        row = await connection.fetchrow(
+            """
+            select *
+            from tcg.record_automation_heartbeat($1,$2,$3,$4)
+            """,
+            heartbeat.heartbeat_key,
+            heartbeat.workflow_version,
+            heartbeat.execution_id,
+            heartbeat.occurred_at,
+        )
+    if row is None:
+        raise HTTPException(status_code=503, detail="Automation heartbeat was not recorded")
+
+    return {
+        "accepted": True,
+        "heartbeat_key": row["heartbeat_key"],
+        "received_at": row["received_at"],
+        "beat_count": int(row["beat_count"]),
+        "duplicate": bool(row["duplicate"]),
+    }
+
+
+@router.post("/receipt")
+async def record_automation_receipt(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(
+        default=None,
+        alias="X-Drop-Rate-Timestamp",
+    ),
+    x_drop_rate_signature: str | None = Header(
+        default=None,
+        alias="X-Drop-Rate-Signature",
+    ),
+) -> dict:
+    raw_body = await _verified_control_body(
+        request,
+        timestamp_header=x_drop_rate_timestamp,
+        signature_header=x_drop_rate_signature,
+    )
 
     try:
         receipt = AutomationExecutionReceipt.model_validate_json(raw_body)

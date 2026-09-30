@@ -106,13 +106,13 @@ Before activation:
 
 ## Production source cutover safety
 
-Production currently runs the stock pinned image `ghcr.io/n8n-io/n8n:2.32.6` with its persistent volume mounted at `/home/node/.n8n`.
+Production source cutover is complete on the existing `drop-rate-n8n-e840` service. Railway builds `Dockerfile.n8n` from the repo while keeping n8n pinned to `ghcr.io/n8n-io/n8n:2.32.6` and preserving the existing volume at `/home/node/.n8n`.
 
-The repo-controlled image uses the same pinned n8n version. Before any missing workflow is imported, startup now validates DR-00/DR-90 runtime requirements, creates a one-time `database.sqlite.pre-drop-rate-provision-v1.bak` rollback copy, refuses workflow JSON unless `active=false`, imports only missing stable IDs, and verifies every expected workflow ID exists after import.
+Startup validates control-plane runtime requirements, creates the one-time `database.sqlite.pre-drop-rate-provision-v1.bak` rollback copy when absent, refuses workflow JSON unless `active=false`, imports only missing stable IDs, and verifies every expected workflow ID exists after import.
+
+The 30 September cutover proved persistent state was retained: DR-00 and DR-90 were detected as existing workflows, DR-91 was imported as a missing inactive workflow, and n8n started with zero published workflows.
 
 The provisioner never wipes/recreates the persistent database and never imports credentials. The volume-local copy protects the source/provisioning rollback path; it does not replace normal platform-level backups.
-
-Source cutover remains a deliberate production action. Do not create a second production n8n service merely to avoid changing the existing source.
 
 ## DR-91 durable success receipt
 
@@ -133,3 +133,29 @@ Flow:
 Durable receipt idempotency uses the supplied `idempotency_key`, not merely the n8n execution ID. If n8n executes the same business event twice, the durable run receipt can therefore remain one logical result.
 
 Parent workflows should call DR-91 only after their external/backend action has been read back or otherwise verified. Starting a workflow is not success.
+
+
+## DR-92 n8n runtime heartbeat
+
+`DR92RuntimeHeartbeatV1` is the inactive control-plane heartbeat. It exists to prove that scheduled n8n execution can still reach and durably update the governed backend; Railway container health alone is not sufficient evidence.
+
+Flow:
+
+`5-minute Schedule Trigger → build fixed heartbeat → HMAC-sign → FastAPI /api/v1/automation/control/heartbeat → private Postgres heartbeat state → 30-minute operations monitor`
+
+Rules:
+- the only accepted heartbeat key is `n8n-runtime`;
+- heartbeats are signed with the existing automation command secret;
+- duplicate or out-of-order executions cannot move the stored heartbeat backwards;
+- the database stores the latest control-plane heartbeat, not business truth;
+- monitoring is dormant by default via `TCG_N8N_HEARTBEAT_ALERTS_ENABLED=false`;
+- when alerting is deliberately enabled, stale heartbeats create one deduped HIGH Action Required item per active founder and a healthy heartbeat resolves it;
+- no inventory, ownership, pricing, settlement or customer state is mutated.
+
+Activation gate:
+1. deploy and apply the heartbeat database contract;
+2. import DR-92 inactive;
+3. manually execute it once and verify a durable heartbeat row;
+4. replay the same execution and prove duplicate safety;
+5. prove the stale/healthy Action Required lifecycle;
+6. only then activate DR-92 and enable heartbeat alerts.
