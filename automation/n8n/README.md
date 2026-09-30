@@ -113,3 +113,24 @@ The repo-controlled image uses the same pinned n8n version. Before any missing w
 The provisioner never wipes/recreates the persistent database and never imports credentials. The volume-local copy protects the source/provisioning rollback path; it does not replace normal platform-level backups.
 
 Source cutover remains a deliberate production action. Do not create a second production n8n service merely to avoid changing the existing source.
+
+
+## DR-91 durable success receipt
+
+`DR91SuccessReceiptV1` is a reusable inactive sub-workflow for parent workflows that have completed and verified their governed action.
+
+Inputs:
+- workflow key/version;
+- n8n execution ID;
+- Drop Rate idempotency key;
+- completion timestamp;
+- optional owner ID;
+- optional automation event ID.
+
+Flow:
+
+`Execute Sub-workflow Trigger → validate/normalize → HMAC-sign SUCCEEDED receipt → FastAPI control receipt → verify durable acceptance`
+
+Durable receipt idempotency uses the supplied `idempotency_key`, not merely the n8n execution ID. If n8n executes the same business event twice, the durable run receipt can therefore remain one logical result.
+
+Parent workflows call DR-91 only after their external/backend action has been read back or otherwise verified. Starting a workflow is not success.
