@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Seller Hub integrated brand lockup
+
+- Replaced the Seller Hub's generic Drop Rate image + separately rendered product text with the approved integrated **Drop Rate Seller Hub** logo.
+- Added source-controlled transparent asset `backend/app/static/brand-assets/drop-rate-seller-hub.png`.
+- Removed the old topbar divider and separate `DROP RATE / Seller Hub / Inventory · Sales · Payouts` construction that caused the header to look misaligned.
+- Seller Hub auth and signed-in header now share the same Seller Hub-specific visual identity; Founder HQ remains unchanged.
+- Desktop topbar uses a 224 px-wide lockup; mobile uses a compact 154 px treatment so account/sign-out controls remain usable.
+- Cache-bumped `owner-portal.css` to `owner-v9`.
+- Regression tests verify the transparent PNG asset, absence of the legacy split lockup and responsive logo sizing.
+- No auth, permissions, inventory, pricing, order, settlement or Shopify logic changed.
+
 ## 2026-09-30 — Seller Hub mobile placement refined
 
 - Removed the **Sell** pill from the Brand Redesign mobile header; desktop retains **Sell With Us** in the header.
