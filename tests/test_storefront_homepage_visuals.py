@@ -95,4 +95,19 @@ def test_homepage_sealed_collection_is_featured() -> None:
     assert "<span>One Piece</span>" not in sealed
     assert "grid-template-columns:repeat(2,minmax(0,1fr))" in sealed
     assert "grid-template-columns:118px minmax(0,1fr)" in sealed
-    assert "height:190px;object-fit:contain" in sealed
+    assert "width:82%;height:172px;object-fit:contain" in sealed
+    assert 'data-product-id="{{ product.id }}"' in sealed
+    assert 'data-product-id="10772523286875"' in sealed
+    assert "mix-blend-mode:multiply" in sealed
+
+
+def test_sealed_product_grid_media_is_normalized() -> None:
+    gallery = (
+        ROOT / "storefront" / "theme" / "blocks" / "_product-card-gallery.liquid"
+    ).read_text()
+
+    assert "product.product_type == 'Sealed TCG Product'" in gallery
+    assert "transform:scale(.82)" in gallery
+    assert "background:#f4f7fb" in gallery
+    assert "10772523286875" in gallery
+    assert "mix-blend-mode:multiply" in gallery
