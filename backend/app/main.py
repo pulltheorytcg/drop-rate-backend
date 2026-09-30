@@ -16,6 +16,7 @@ from .db import create_pool
 from .access_control import require_platform_admin_request, router as access_control_router
 from .action_required import router as action_required_router
 from .automation_control import router as automation_control_router
+from .automation_commands import router as automation_commands_router
 from .automation_recovery import router as automation_recovery_router
 from .finance import router as finance_router
 from .founder_onboarding import router as founder_onboarding_router
@@ -329,6 +330,7 @@ def create_app() -> FastAPI:
     app.include_router(access_control_router)
     app.include_router(action_required_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(automation_control_router)
+    app.include_router(automation_commands_router)
     app.include_router(automation_recovery_router)
     app.include_router(finance_router)
     app.include_router(founder_onboarding_router)
