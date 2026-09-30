@@ -2,9 +2,14 @@
 
 Sealed is no longer an empty destination. After the first two Japanese One Piece sealed products were published:
 - the Shopify `main-menu` gained a top-level Sealed link and a One Piece → Sealed submenu link;
-- the source-controlled Brand Redesign homepage now includes a dedicated native product-list section bound to the real `sealed` smart collection, positioned after Latest Drops and before the graded-card editorial block;
-- the section displays up to four sealed products in a two-column desktop layout and two-column mobile layout;
-- the Premium Card Collection -6 assort vol.1- storefront image was measured at only 546x546 and replaced with a 1600x1600 product image to remove the visible softness on larger cards/PDP media.
+- the source-controlled Brand Redesign homepage is bound to the real `sealed` smart collection, positioned after Latest Drops and before the graded-card editorial block;
+- the initial generic product-list layout was superseded by `sections/dr-brand-sealed.liquid`, matching the existing Drop Rate cool-grey / white / navy / cyan visual system;
+- desktop uses two compact horizontal product cards with the media column capped at roughly 210 px rather than allowing two products to stretch into oversized half-page tiles;
+- tablet collapses the cards to a single compact row and mobile uses a proportional 118 px media column, tighter typography and reduced spacing;
+- the component remains collection-driven and supports up to four products without hard-coded product IDs;
+- the Premium Card Collection -6 assort vol.1- storefront image was measured at only 546x546 and replaced with a 1600x1600 product image to remove visible softness on collection/PDP media.
+
+Shopify's theme-file validator initially rejected the custom section because of an unclosed Liquid guard; the batch was atomic so no partial theme change was written. After correction, the section and homepage template both validated and were applied successfully to the unpublished Brand Redesign theme. Theme processing reports false and processingFailed reports false.
 
 The collection route already contains a count-gated Sealed browse chip, so once the smart collection became populated it no longer requires a separate hard-coded collection-page route. Brand Redesign remains UNPUBLISHED pending the existing final visual smoke/publication gate.
 
