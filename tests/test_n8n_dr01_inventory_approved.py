@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INGRESS = ROOT / "automation" / "n8n" / "workflows" / "dr-00-v2-signed-event-router.json"
-DR01 = ROOT / "automation" / "n8n" / "workflows" / "dr-01-inventory-approved-shopify.json"
+DR01 = ROOT / "automation" / "n8n" / "workflows" / "dr-01-inventory-approved-shopify.json"\nDR01_V2 = ROOT / "automation" / "n8n" / "workflows" / "dr-01-v2-inventory-approved-shopify.json"\nINGRESS_V3 = ROOT / "automation" / "n8n" / "workflows" / "dr-00-v3-signed-event-router.json"
 COMMANDS = ROOT / "backend" / "app" / "automation_commands.py"
 
 
@@ -94,3 +94,31 @@ def test_dr01_does_not_embed_business_rules_in_n8n() -> None:
         "productcreate",
     ):
         assert forbidden not in source
+
+
+def test_dr01_v2_uses_commands_router_not_control_router() -> None:
+    workflow = _load(DR01_V2)
+    nodes = {node["name"]: node for node in workflow["nodes"]}
+
+    assert workflow["id"] == "DR01InventoryApprovedShopifyV2"
+    assert workflow["active"] is False
+    assert workflow["meta"]["dropRate"]["version"] == 2
+
+    signer = nodes["Sign Shopify Publication Command"]["parameters"]["jsCode"]
+    assert "/automation/control/receipt" in signer
+    assert "/automation/commands/shopify/inventory-approved" in signer
+    assert "replace(/\\/automation\\/control\\/receipt$/" in signer
+
+    request = nodes["Publish via FastAPI"]["parameters"]
+    assert request["url"] == "={{ $json.command_url }}"
+
+
+def test_dr00_v3_routes_inventory_approved_to_dr01_v2() -> None:
+    workflow = _load(INGRESS_V3)
+    nodes = {node["name"]: node for node in workflow["nodes"]}
+
+    assert workflow["id"] == "DR00IngressV3"
+    assert workflow["active"] is False
+    assert nodes["Drop Rate Event Webhook V3"]["parameters"]["path"] == "drop-rate/events-v3"
+    assert nodes["Run DR-01 V2"]["parameters"]["workflowId"]["value"] == "DR01InventoryApprovedShopifyV2"
+    assert nodes["Run DR-01 V2"]["parameters"]["options"]["waitForSubWorkflow"] is True
