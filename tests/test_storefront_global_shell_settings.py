@@ -47,7 +47,7 @@ def test_header_brand_alignment_preserves_navigation_and_announcement_copy() -> 
         announcement["blocks"]["announcement_BxgCk9"]["settings"]["text"]
         == "UK stock · Pokémon & One Piece · Find your next great drop"
     )
-    assert header["blocks"]["header-menu"]["settings"]["menu"] == "main-menu"
+    assert header["blocks"]["header-menu"]["settings"]["menu"] == "brand-redesign-main-menu"
     assert header["settings"]["logo_position"] == "left"
     assert header["settings"]["show_search"] is True
 
