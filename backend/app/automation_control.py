@@ -141,7 +141,7 @@ async def record_automation_receipt(
                     """,
                     owner_id,
                     f"N8N:{receipt.workflow_key}",
-                    receipt.execution_id,
+                    receipt.idempotency_key,
                     json.dumps(result_payload, sort_keys=True, separators=(",", ":")),
                 )
                 if row is None:
