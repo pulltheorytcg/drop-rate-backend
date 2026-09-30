@@ -90,6 +90,9 @@ def test_homepage_sealed_collection_is_featured() -> None:
 
     assert "section.settings.collection" in sealed
     assert "sealed_collection.products" in sealed
+    assert "product.metafields.drop_rate.game.value" in sealed
+    assert "product.available" in sealed
+    assert "<span>One Piece</span>" not in sealed
     assert "grid-template-columns:repeat(2,minmax(0,1fr))" in sealed
     assert "grid-template-columns:118px minmax(0,1fr)" in sealed
     assert "height:190px;object-fit:contain" in sealed
