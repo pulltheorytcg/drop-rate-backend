@@ -91,6 +91,9 @@ def test_sealed_product_plan_uses_sealed_storefront_contract() -> None:
     assert "Trading Card" not in plan["tags"]
     assert "sealed TCG product" in plan["descriptionHtml"]
     assert "physical trading card" not in plan["descriptionHtml"]
+    assert "<strong>Seal status:</strong> SEALED" in plan["descriptionHtml"]
+    assert "<strong>Variant:</strong>" not in plan["descriptionHtml"]
+    assert "<strong>Condition:</strong>" not in plan["descriptionHtml"]
     assert "sealed TCG product" in plan["seo"]["description"]
     assert shipping_profile_key(sealed) == "SEALED_60D5B80E39B94311AA28599A1D0DE9B2"
 
