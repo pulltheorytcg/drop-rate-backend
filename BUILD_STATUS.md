@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-09-30 — Exact approved Seller Hub logo asset
+
+- Verified the previous repository Seller Hub PNG was not the same file as the newly approved artwork: the approved attachment is **2048×682** and the older static export had different dimensions/proportions.
+- Uploaded the exact user-approved transparent PNG unchanged to the connected Drop Rate Shopify CDN and wired Seller Hub auth/header branding to that permanent asset URL.
+- The existing CSP already permits `cdn.shopify.com`, so no security-policy widening was required.
+- Desktop remains left-aligned; mobile remains true-centred from PR #424; account/sign-out controls are unchanged.
+- Regression tests now assert the production Seller Hub markup uses the approved CDN asset and no longer references the superseded local Seller Hub PNG.
+- No auth, ownership, inventory, pricing, order, settlement, payout or Shopify commerce logic changed.
+- Production deployment/read-back pending CI and merge.
+
 ## 2026-09-30 — Seller Hub explicit logo rendering + mobile centring
 
 - Replaced the Seller Hub logo's CSS background-span rendering with a real transparent `<img>` using the approved integrated **Drop Rate Seller Hub** asset.
