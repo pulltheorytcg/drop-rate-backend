@@ -239,7 +239,7 @@ Use deterministic code where correctness is knowable.
 
 Before launch, the goal is to have:
 - the control plane implemented;
-- the 42-workflow registry source-controlled;
+- the 43-workflow registry source-controlled;
 - every workflow at least DESIGNED;
 - launch-critical workflows BUILT_INACTIVE or PROVEN;
 - safe OBSERVE workflows activated where useful;
@@ -254,7 +254,7 @@ The canonical registry is:
 
 `automation/n8n/workflow-registry.json`
 
-The 42 current workflow families cover:
+The 43 current workflow families cover:
 - inventory/intake;
 - recognition;
 - sealed;
@@ -343,6 +343,7 @@ Build before or at launch where dependencies allow:
 - SEO maintenance;
 - content/creative briefs;
 - social scheduling;
+- competitor intelligence / opportunity generation in shadow mode;
 - founder daily briefing;
 - analytics.
 
