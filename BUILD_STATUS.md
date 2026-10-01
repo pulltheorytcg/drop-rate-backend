@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence shadow-ingestion production verification
+
+- ✅ PR #454 merged after rebasing onto the final current `main` and passing the full GitHub backend+n8n gate.
+- ✅ Supabase applied `competitive_intelligence_shadow_ingestion` and recorded it as migration version `20261001024803`; this PR aligns the repo filename to that exact applied production history without re-running SQL.
+- ✅ Live function `tcg.ingest_competitive_observation_system(...)` is SECURITY DEFINER; `tcg_api` can execute it, while `anon`, browser `authenticated` and `service_role` cannot.
+- ✅ Competitive observations remain **0** after deployment: no source was activated and no data was created merely by deploying the ingress.
+- ✅ Railway deployment `c13ff97b-ea39-4ce0-8654-54df218ee747` completed SUCCESS with **2,207 tests passed** and `/health/ready` = HTTP 200.
+- n8n collection remains inactive; the next step is a source-controlled DR-43 shadow workflow targeting this signed endpoint.
+
 ## 2026-10-01 — Competitive Intelligence signed shadow ingestion
 
 - Added the safe n8n → FastAPI → Postgres ingress path for DR-43 before any external collector is activated.
