@@ -7,7 +7,7 @@
 - Live verification confirms both qualification columns, the immutable qualification trigger and the composite observation/source ownership index are present.
 - All five Competitive Intelligence tables remain empty; the hardening caused no production data rewrite.
 - Supabase security advisors report no Competitive Intelligence security finding. The earlier unindexed composite-FK performance finding is cleared; remaining Competitive Intelligence index notices are expected unused-index INFO findings on empty tables.
-- Railway deployment from PR #445 is still being verified before this slice is marked fully deployed.
+- ✅ Railway production deployment from PR #445 reached SUCCESS; pre-deploy reported **2,184 tests passed**, the application started cleanly, and `/health/ready` returned **200 OK**.
 
 
 ## 2026-10-01 — Competitive Intelligence replay/evidence hardening
