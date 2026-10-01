@@ -53,3 +53,15 @@ Use the existing recognition run `provider_evidence.timings_ms` plus the new `vi
 - token usage/cached-token behavior.
 
 This provides the evidence required before attempting more aggressive latency changes such as prompt/output reduction, reasoning-effort changes or image-detail changes.
+
+## 1 October 2026: measured critical path and overlapping image checks
+
+Read-only production sample: 11 runs with stage timings averaged 23.96 seconds before persistence; vision averaged 19.90 seconds. Ten runs recorded provider-image work averaging 2.11 seconds and catalogue-image work averaging 0.68 seconds. Stage samples overlap and have different counts; do not add these averages or treat them as a before/after benchmark. Six runs with HTTP telemetry averaged 22.97 seconds at the vision provider.
+
+Catalogue lookup and its subsequent image/learning enrichment now run as one branch beside provider-image enrichment. Previously catalogue image work waited for provider-image work even after catalogue lookup had finished. Resolution still waits for all branches and retains every existing evidence and human-review gate. Failure or cancellation cancels and awaits sibling work rather than returning partial evidence. Concurrency remains bounded by each existing image stage's four-request semaphore.
+
+This improves the shared endpoint used by both browser portals and mobile. It does not claim to remove the dominant AI-reading delay. Changing reasoning effort, image detail, model or schema still requires a labelled photographic benchmark; historical source photos are intentionally not retained, so timing records alone cannot establish an accuracy-preserving model change.
+
+The mobile capture path separately caps the longest edge at 1,500 pixels, matching the browser batch scanner, preserves aspect ratio and never enlarges smaller photos. A 3,000 × 4,000 portrait becomes 1,125 × 1,500 rather than 1,500 × 2,000 (43.75% fewer pixels). JPEG byte savings vary. Physical-device OCR acceptance remains required.
+
+Validation: full backend tests, mobile typecheck/lint/tests, and Android/iOS/web bundle export. Deterministic concurrency tests prove catalogue enrichment starts before provider completion and that both branches finish before returning; tests also cover lookup/enrichment/provider failure and caller cancellation. Live latency improvement must be measured after deployment on representative scans.
