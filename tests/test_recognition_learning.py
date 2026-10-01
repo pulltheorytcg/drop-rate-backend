@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from app.recognition_engine import score_candidate
@@ -7,6 +8,7 @@ from app.recognition_learning import (
     dataset_split,
     decode_fingerprints,
     encode_fingerprints,
+    resolve_learning_system_code,
 )
 
 from test_recognition_engine import candidate, observation
@@ -49,6 +51,83 @@ def test_learning_split_is_deterministic_and_keeps_holdout_isolated() -> None:
     assert dataset_split(train_hash) == "TRAIN"
     assert dataset_split(validation_hash) == "VALIDATION"
     assert dataset_split(holdout_hash) == "HOLDOUT"
+
+
+class _LearningSystemConnection:
+    def __init__(self, selected_system: str | None) -> None:
+        self.selected_system = selected_system
+        self.calls: list[tuple[str, object]] = []
+
+    async def fetchval(self, query: str, selected_catalogue_id: object) -> str | None:
+        self.calls.append((query, selected_catalogue_id))
+        return self.selected_system
+
+
+def test_search_correction_recovers_system_from_canonical_card() -> None:
+    connection = _LearningSystemConnection("ONE_PIECE_CARD_GAME")
+    resolved = asyncio.run(
+        resolve_learning_system_code(
+            connection,
+            {
+                "outcome": "CORRECTED_BY_SEARCH",
+                "system_code": None,
+                "selected_catalogue_id": "card-1",
+            },
+        )
+    )
+
+    assert resolved == "ONE_PIECE_CARD_GAME"
+    assert len(connection.calls) == 1
+    assert "p.product_type='CARD'" in connection.calls[0][0]
+
+
+def test_search_correction_canonical_system_overrides_wrong_run_system() -> None:
+    connection = _LearningSystemConnection("POKEMON")
+    resolved = asyncio.run(
+        resolve_learning_system_code(
+            connection,
+            {
+                "outcome": "CORRECTED_BY_SEARCH",
+                "system_code": "DRAGON_BALL_SUPER",
+                "selected_catalogue_id": "card-2",
+            },
+        )
+    )
+
+    assert resolved == "POKEMON"
+
+
+def test_non_search_feedback_never_guesses_system_from_catalogue() -> None:
+    connection = _LearningSystemConnection("POKEMON")
+    resolved = asyncio.run(
+        resolve_learning_system_code(
+            connection,
+            {
+                "outcome": "CONFIRMED_TOP",
+                "system_code": "ONE_PIECE_CARD_GAME",
+                "selected_catalogue_id": "card-3",
+            },
+        )
+    )
+
+    assert resolved == "ONE_PIECE_CARD_GAME"
+    assert connection.calls == []
+
+
+def test_search_correction_without_canonical_system_fails_closed() -> None:
+    connection = _LearningSystemConnection(None)
+    resolved = asyncio.run(
+        resolve_learning_system_code(
+            connection,
+            {
+                "outcome": "CORRECTED_BY_SEARCH",
+                "system_code": None,
+                "selected_catalogue_id": "card-4",
+            },
+        )
+    )
+
+    assert resolved is None
 
 
 def test_verified_scan_signal_is_bounded_and_visible() -> None:
