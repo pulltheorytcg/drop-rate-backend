@@ -1,5 +1,18 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence persistence production verification complete
+
+- ✅ PR #440 merged after reconciliation onto current `main`; superseded conflicted PR #438 was closed rather than force-merged.
+- ✅ Supabase migration `competitive_intelligence_v1` applied in production and is recorded as migration version `20261001022146`.
+- ✅ Production now contains the five canonical Competitive Intelligence tables: competitors, competitor_sources, competitive_observations, competitive_opportunities and competitive_opportunity_evidence.
+- ✅ All five tables have RLS enabled **and forced**.
+- ✅ Direct `anon`, browser `authenticated` and `service_role` table privileges are absent; `tcg_api` has only the intended SELECT/INSERT/UPDATE subsets and no DELETE path.
+- ✅ Competitive observations and opportunity-evidence rows have immutable UPDATE/DELETE triggers.
+- ✅ Canonical Competitive Intelligence tables have audit triggers writing through the existing audit-event system.
+- ✅ Supabase security/performance advisors returned no findings specific to the new Competitive Intelligence tables immediately after migration.
+- ✅ Railway production deployment `b653d17b-c69d-4bd9-b8d4-b15d843cea73` completed SUCCESS; deployment verification reported **2,176 tests passed** and `/health/ready` returned HTTP 200.
+- External competitor monitoring remains intentionally inactive. The next slice is signed shadow ingestion through FastAPI for founder-approved sources; n8n still does not own database/core business logic.
+
 ## 2026-10-01 — Competitive Intelligence migration history reconciliation
 
 - Corrected repo migration history to match the migration version actually recorded by Supabase for Competitive Intelligence: `20261001022146_competitive_intelligence_v1.sql`.
