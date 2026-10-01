@@ -34,10 +34,15 @@ def test_owner_scan_intake_requires_human_confirmed_or_searched_identity() -> No
     assert 'feedback["selected_catalogue_id"] != payload.selected_catalogue_id' in source
 
 
-def test_owner_scan_intake_cannot_self_approve_identity_or_inventory() -> None:
+def test_owner_scan_intake_only_confirms_verified_exact_sealed_identity() -> None:
     source = _scan_intake_source()
 
-    assert "false,'DRAFT'" in source
+    assert 'run["decision"] == "EXACT_CANDIDATE"' in source
+    assert 'feedback["outcome"] == "CONFIRMED_TOP"' in source
+    assert "pr.collectible_type='SEALED'" in source
+    assert "pr.identity_status='VERIFIED'" in source
+    assert "sd.identity_status='VERIFIED'" in source
+    assert "verified_exact_sealed_identity" in source
     assert '"SELLER_CONFIRMED_PENDING_DROP_RATE_VERIFICATION"' in SOURCE.read_text()
     assert "'APPROVED'" not in source.split("insert into tcg.inventory_items(", 1)[1].split("returning *", 1)[0]
     assert "identity_confirmed,status" in source
