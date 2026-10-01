@@ -147,6 +147,7 @@ def _set_code_keys(value: object) -> set[str]:
 
 def _observed_set_codes(observation: RecognitionObservation) -> set[str]:
     codes = _set_code_keys(observation.set_name_guess)
+    codes.update(_set_code_keys(observation.product_code))
     number = str(observation.card_number or "").strip().upper()
     match = re.match(r"^((?:OP|ST|EB|PRB)\d{1,2})-", number, re.IGNORECASE)
     if match:
@@ -313,6 +314,196 @@ async def discover_one_piece_cardtrader_candidates(
                     "source_reference": CARDTRADER_API_DOCS_URL,
                     "finish": version or None,
                     "art_treatment": version or None,
+                    "retrieval_score": round(retrieval_score, 5),
+                    "library_reference": True,
+                    "retrieval_only": True,
+                    "exact_printing_verified": False,
+                    "cardtrader_expansion_id": expansion.get("id"),
+                    "cardtrader_category_id": blueprint.get("category_id"),
+                    "provider_version": blueprint.get("version"),
+                }
+            )
+
+    candidates.sort(
+        key=lambda item: (
+            -float(item.get("retrieval_score") or 0.0),
+            str(item.get("provider_id") or ""),
+        )
+    )
+    return candidates[:max_candidates]
+
+
+def _sealed_category_types(
+    categories: list[dict[str, Any]],
+    *,
+    game_id: int,
+) -> dict[int, str]:
+    output: dict[int, str] = {}
+    for row in categories:
+        if str(row.get("game_id") or "") != str(game_id):
+            continue
+        raw_id = row.get("id")
+        if not str(raw_id or "").isdigit():
+            continue
+        name = _norm(row.get("name"))
+        if "single" in name:
+            continue
+
+        sealed_type: str | None = None
+        if "booster box" in name or ("display" in name and "booster" in name):
+            sealed_type = "BOOSTER_BOX"
+        elif "booster" in name or name == "boosters":
+            sealed_type = "BOOSTER_PACK"
+        elif "starter" in name and "deck" in name:
+            sealed_type = "STARTER_DECK"
+        elif "tin" in name:
+            sealed_type = "TIN"
+        elif "case" in name:
+            sealed_type = "CASE"
+        elif any(token in name for token in ("collection", "bundle", "gift", "pack set")):
+            sealed_type = "COLLECTION"
+
+        if sealed_type:
+            output[int(raw_id)] = sealed_type
+    return output
+
+
+def _display_set_code(*values: object) -> str | None:
+    for value in values:
+        match = re.search(
+            r"\b(OP|ST|EB|PRB)[- ]?0?(\d{1,2})\b",
+            str(value or ""),
+            re.IGNORECASE,
+        )
+        if match:
+            prefix = match.group(1).upper()
+            number = int(match.group(2))
+            return f"{prefix}-{number:02d}"
+    return None
+
+
+async def discover_one_piece_cardtrader_sealed_candidates(
+    observation: RecognitionObservation,
+    client: CardTraderClient,
+    *,
+    max_expansions: int = 4,
+    max_candidates: int = 16,
+) -> list[dict[str, Any]]:
+    """Retrieve One Piece sealed-product candidates from CardTrader.
+
+    The result is retrieval-only. CardTrader can identify a likely pack/box/deck and
+    provide a transient reference image, but it cannot create or verify canonical
+    Drop Rate sealed identity by itself.
+    """
+
+    if (
+        observation.game != "One Piece"
+        or observation.object_type != "SEALED_PRODUCT"
+        or not (observation.product_code or observation.set_name_guess)
+    ):
+        return []
+
+    games, expansions = await asyncio.gather(
+        client.list_games(),
+        client.list_expansions(),
+    )
+    game_id = _game_id(games)
+    if game_id is None:
+        return []
+
+    categories = await client.list_categories(game_id=game_id)
+    sealed_categories = _sealed_category_types(categories, game_id=game_id)
+    if not sealed_categories:
+        return []
+
+    selected = _select_expansions(
+        observation,
+        expansions,
+        game_id=game_id,
+        max_expansions=max_expansions,
+    )
+    if not selected:
+        return []
+
+    async def fetch_one(expansion: Mapping[str, Any], score: float):
+        raw_id = expansion.get("id")
+        if not str(raw_id or "").isdigit():
+            return expansion, score, []
+        rows = await client.list_blueprints(expansion_id=int(raw_id))
+        return expansion, score, rows
+
+    expansion_rows = await asyncio.gather(
+        *(fetch_one(expansion, score) for expansion, score in selected)
+    )
+
+    observed_code = _compact(observation.product_code)
+    observed_type = str(observation.sealed_product_type or "UNKNOWN").upper()
+    candidates: list[dict[str, Any]] = []
+
+    for expansion, expansion_score, blueprints in expansion_rows:
+        provider_code = _display_set_code(
+            expansion.get("code"),
+            expansion.get("name"),
+            observation.product_code,
+        )
+        provider_code_key = _compact(provider_code)
+        code_match = bool(
+            observed_code
+            and provider_code_key
+            and observed_code == provider_code_key
+        )
+
+        if (
+            observed_code
+            and observation.product_code_confidence >= 0.80
+            and provider_code_key
+            and not code_match
+        ):
+            continue
+
+        for blueprint in blueprints:
+            raw_category = blueprint.get("category_id")
+            if not str(raw_category or "").isdigit():
+                continue
+            candidate_type = sealed_categories.get(int(raw_category))
+            if not candidate_type:
+                continue
+            if (
+                observed_type != "UNKNOWN"
+                and observation.sealed_product_type_confidence >= 0.80
+                and candidate_type != observed_type
+            ):
+                continue
+
+            image_url = _cardtrader_image_url(blueprint.get("image_url"))
+            if not image_url:
+                continue
+
+            name_similarity = max(
+                _ratio(observation.set_name_guess, blueprint.get("name")),
+                _ratio(observation.set_name_guess, expansion.get("name")),
+            )
+            type_match = observed_type != "UNKNOWN" and candidate_type == observed_type
+            if not code_match and not type_match and name_similarity < 0.60:
+                continue
+
+            retrieval_score = min(
+                0.99,
+                (0.55 if code_match else 0.0)
+                + (0.30 if type_match else 0.0)
+                + 0.15 * max(name_similarity, expansion_score),
+            )
+            candidates.append(
+                {
+                    "provider": "CardTrader",
+                    "provider_id": str(blueprint.get("id")),
+                    "name": blueprint.get("name") or expansion.get("name"),
+                    "set_name": expansion.get("name"),
+                    "product_code": provider_code,
+                    "sealed_product_type": candidate_type,
+                    "language": None,
+                    "image_url": image_url,
+                    "source_reference": CARDTRADER_API_DOCS_URL,
                     "retrieval_score": round(retrieval_score, 5),
                     "library_reference": True,
                     "retrieval_only": True,
