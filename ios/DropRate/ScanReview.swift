@@ -44,6 +44,7 @@ struct ScanReview: View {
                                     language = candidate.candidateSnapshot.language ?? ""
                                 } label: {
                                     HStack {
+                                        CandidateImage(runID: result.run.id, candidateID: candidate.id)
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(candidate.candidateSnapshot.name ?? "Unknown card").bold()
                                             Text([candidate.candidateSnapshot.setName, candidate.candidateSnapshot.cardNumber, candidate.candidateSnapshot.variant, candidate.candidateSnapshot.language].compactMap { $0 }.joined(separator: " · ")).font(.caption)
@@ -141,5 +142,22 @@ struct ScanReview: View {
             try await API.shared.saveIntake(payload: pendingPayload!, key: saveKey)
             saved = true; message = "Saved as a draft. Your portfolio will refresh when you close the scanner."
         } catch { message = error.localizedDescription }
+    }
+}
+
+private struct CandidateImage: View {
+    let runID: String
+    let candidateID: String
+    @State private var image: UIImage?
+    var body: some View {
+        Group {
+            if let image { Image(uiImage: image).resizable().scaledToFit() }
+            else { Image(systemName: "rectangle.portrait").foregroundStyle(.secondary) }
+        }.frame(width: 64, height: 90).accessibilityHidden(true)
+            .task(id: candidateID) {
+                if let data = try? await API.shared.candidateImage(runID: runID, candidateID: candidateID) {
+                    image = UIImage(data: data)
+                }
+            }
     }
 }

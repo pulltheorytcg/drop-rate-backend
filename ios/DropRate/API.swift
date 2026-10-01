@@ -138,6 +138,9 @@ actor API {
     func get<T: Decodable>(_ path: String, query: [String: String] = [:]) async throws -> T {
         try Self.decoder().decode(T.self, from: await request(path, query: query))
     }
+    func candidateImage(runID: String, candidateID: String) async throws -> Data {
+        try await request("/api/v1/recognition/runs/\(runID)/candidates/\(candidateID)/image")
+    }
     func post<T: Decodable>(_ path: String, body: [String: String], key: String? = nil) async throws -> T {
         try Self.decoder().decode(T.self, from: await request(path, method: "POST", body: body, key: key))
     }
