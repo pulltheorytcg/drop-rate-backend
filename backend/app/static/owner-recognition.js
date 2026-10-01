@@ -1709,7 +1709,12 @@ function ownerBatchSearchResultCard(row) {
   copy.append(name, meta, value);
 
   const choose = document.createElement("em");
-  choose.textContent = "Choose";
+  choose.textContent = row.requires_materialization ? "Add + choose" : "Choose";
+  if (row.requires_materialization) {
+    const reference = document.createElement("small");
+    reference.textContent = "New to Drop Rate · human review required";
+    copy.append(reference);
+  }
   card.append(imageWrap, copy, choose);
   card.addEventListener("click", () => ownerBatchChooseSearchResult(row));
   return card;
@@ -1722,6 +1727,11 @@ async function ownerBatchSearchCards(query) {
   results.replaceChildren();
   try {
     const params = new URLSearchParams({q: query, limit: "20"});
+    const correctionItem = ownerBatchFindItem(state.ownerRecognition.batch.currentCorrectionId);
+    if (correctionItem?.runId) {
+      params.set("include_reference", "true");
+      params.set("run_id", correctionItem.runId);
+    }
     const data = await apiRequest(`/api/v1/owner/catalogue-search?${params.toString()}`);
     const items = data.items || [];
     message.textContent = items.length ? "" : "No matching cards found. Try the exact card number.";
@@ -1745,17 +1755,36 @@ async function ownerBatchChooseSearchResult(row) {
 
   byId("owner-batch-search-message").textContent = "Saving correction…";
   try {
+    let catalogueId = row.id;
+    if (row.requires_materialization) {
+      const materialized = await apiRequest(
+        `/api/v1/recognition/runs/${item.runId}/references/select`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            provider: row.provider,
+            system_code: row.system_code,
+            language: row.language,
+            provider_id: row.provider_id,
+          }),
+        }
+      );
+      catalogueId = materialized.catalogue_id;
+    }
+    if (!catalogueId) throw new Error("Selected reference did not resolve to a Drop Rate card.");
     await apiRequest(`/api/v1/recognition/runs/${item.runId}/feedback`, {
       method: "POST",
       body: JSON.stringify({
         outcome: "CORRECTED_BY_SEARCH",
-        selected_catalogue_id: row.id,
-        notes: "Seller corrected batch scan using catalogue search",
+        selected_catalogue_id: catalogueId,
+        notes: row.requires_materialization
+          ? "Seller corrected batch scan using governed reference library"
+          : "Seller corrected batch scan using catalogue search",
       }),
     });
     item.selected = {
       manual_search: true,
-      catalogue_id: row.id,
+      catalogue_id: catalogueId,
       game: row.game,
       name: row.name,
       set_name: row.set_name,
