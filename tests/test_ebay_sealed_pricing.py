@@ -130,7 +130,7 @@ def test_sealed_pricing_writes_ebay_sold_gb_observations_then_uses_normal_pricin
     assert 'source_country="GB"' in source
     assert 'seal_status="SEALED"' in source
     assert 'selection_rule": "FIVE_NEWEST_EXACT_SEALED_PACK_SALES"' in source
-    assert "_recalculate_one(connection, owner_id, target["id"])" in source
+    assert '_recalculate_one(connection, owner_id, target["id"])' in source
 
 
 def test_owner_market_refresh_delegates_to_transaction_safe_sealed_pricer() -> None:
