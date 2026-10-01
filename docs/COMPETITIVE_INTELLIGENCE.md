@@ -220,3 +220,20 @@ For competitor evidence, the caller supplies only the stored observation ID. Sou
 5. create only founder-approved watchlist/source records;
 6. build source adapters/n8n collection in a later PR;
 7. keep collection in shadow mode until the Phase 3 launch-stability and source-specific permission gates are satisfied.
+
+## Production verification
+
+PR #440 is merged and the version-controlled migration has been applied to production Supabase.
+
+Verified production state:
+
+- migration `competitive_intelligence_v1` is recorded in Supabase migration history;
+- all five Competitive Intelligence tables exist with forced RLS;
+- browser/client roles do not receive direct table access;
+- `tcg_api` has only the required backend privileges and no DELETE privilege;
+- observation/evidence immutability triggers are present;
+- audit triggers are present across the canonical tables;
+- Supabase advisors reported no new finding specific to these tables after migration;
+- Railway deployed the merged API successfully, ran 2,176 tests, and returned HTTP 200 from `/health/ready`.
+
+This verifies storage/API readiness only. It does not activate competitor collection, external crawling, autonomous publishing or any n8n production workflow.
