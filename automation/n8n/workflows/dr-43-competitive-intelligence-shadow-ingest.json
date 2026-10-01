@@ -1,0 +1,251 @@
+{
+  "id": "DR43CompetitiveIntelligenceShadowV1",
+  "name": "DR-43 Competitive Intelligence Shadow Ingest V1",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "DR90GlobalErrorV1"
+  },
+  "nodes": [
+    {
+      "id": "dr43-trigger",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -780,
+        0
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "observations_json",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dr43-normalize",
+      "name": "Normalize Shadow Observations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const raw = String($json.observations_json || '').trim();\nlet input;\ntry { input = JSON.parse(raw); } catch { throw new Error('invalid_competitive_observations_json'); }\nif (!Array.isArray(input) || input.length < 1 || input.length > 50) throw new Error('competitive_observation_batch_size_invalid');\n\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst timezone = /(Z|[+-]\\d{2}:\\d{2})$/i;\nconst allowedTypes = new Set(['PRODUCT_LAUNCH','PRICE','PROMOTION','STOCK','MERCHANDISING','CRO','SEO','CONTENT','SOCIAL','CHANNEL','REVIEW','CUSTOMER_PAIN','OTHER']);\nconst allowedKeys = new Set(['source_id','dedupe_key','observation_type','subject','facts','evidence','confidence','relevance','observed_at','source_published_at']);\nconst seen = new Set();\n\nconst observations = input.map((item, index) => {\n  if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error('invalid_competitive_observation_' + index);\n  for (const key of Object.keys(item)) {\n    if (!allowedKeys.has(key)) throw new Error('unexpected_competitive_observation_field_' + key);\n  }\n\n  const sourceId = String(item.source_id || '').trim();\n  if (!uuid.test(sourceId)) throw new Error('invalid_competitive_source_id_' + index);\n\n  const dedupeKey = String(item.dedupe_key || '').trim();\n  if (!dedupeKey || dedupeKey.length > 255) throw new Error('invalid_competitive_dedupe_key_' + index);\n  if (seen.has(dedupeKey)) throw new Error('duplicate_competitive_dedupe_key_' + index);\n  seen.add(dedupeKey);\n\n  const observationType = String(item.observation_type || '').trim().toUpperCase();\n  if (!allowedTypes.has(observationType)) throw new Error('invalid_competitive_observation_type_' + index);\n\n  const subject = String(item.subject || '').trim();\n  if (!subject || subject.length > 500) throw new Error('invalid_competitive_subject_' + index);\n\n  const facts = item.facts === undefined ? {} : item.facts;\n  if (!facts || typeof facts !== 'object' || Array.isArray(facts)) throw new Error('invalid_competitive_facts_' + index);\n\n  const evidence = item.evidence === undefined ? [] : item.evidence;\n  if (!Array.isArray(evidence) || evidence.length > 50 || evidence.some((entry) => !entry || typeof entry !== 'object' || Array.isArray(entry))) {\n    throw new Error('invalid_competitive_evidence_' + index);\n  }\n\n  const confidence = Number(item.confidence);\n  const relevance = Number(item.relevance);\n  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) throw new Error('invalid_competitive_confidence_' + index);\n  if (!Number.isFinite(relevance) || relevance < 0 || relevance > 1) throw new Error('invalid_competitive_relevance_' + index);\n\n  const observedRaw = String(item.observed_at || '').trim();\n  if (!timezone.test(observedRaw) || !Number.isFinite(Date.parse(observedRaw))) throw new Error('invalid_competitive_observed_at_' + index);\n  const observedAt = new Date(observedRaw);\n\n  let sourcePublishedAt = null;\n  if (item.source_published_at !== undefined && item.source_published_at !== null && String(item.source_published_at).trim()) {\n    const publishedRaw = String(item.source_published_at).trim();\n    if (!timezone.test(publishedRaw) || !Number.isFinite(Date.parse(publishedRaw))) throw new Error('invalid_competitive_source_published_at_' + index);\n    const publishedAt = new Date(publishedRaw);\n    if (publishedAt.getTime() > observedAt.getTime() + 5 * 60 * 1000) throw new Error('competitive_source_published_after_observed_' + index);\n    sourcePublishedAt = publishedAt.toISOString();\n  }\n\n  return {\n    source_id: sourceId,\n    dedupe_key: dedupeKey,\n    observation_type: observationType,\n    subject,\n    facts,\n    evidence,\n    confidence: Number(confidence.toFixed(5)),\n    relevance: Number(relevance.toFixed(5)),\n    observed_at: observedAt.toISOString(),\n    source_published_at: sourcePublishedAt\n  };\n});\n\nconst executionId = String($execution.id || '').trim();\nif (!executionId) throw new Error('missing_competitive_execution_id');\n\nconst body = JSON.stringify({\n  workflow_key: 'competitive-intelligence',\n  workflow_version: 'v1',\n  execution_id: executionId.slice(0,255),\n  observations\n});\n\nreturn [{json:{\n  shadow_body: body,\n  expected_count: observations.length,\n  dedupe_keys: observations.map((item) => item.dedupe_key).sort()\n}}];"
+      }
+    },
+    {
+      "id": "dr43-sign",
+      "name": "Sign Shadow Observation Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst receiptUrl = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nif (secret.length < 32) throw new Error('automation_command_secret_not_configured');\nif (!/\\/api\\/v1\\/automation\\/control\\/receipt$/.test(receiptUrl)) throw new Error('automation_control_receipt_url_invalid');\n\nconst body = String($json.shadow_body || '');\nif (!body) throw new Error('competitive_shadow_body_missing');\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body, 'utf8').digest('hex');\nconst shadowUrl = receiptUrl.replace(/\\/api\\/v1\\/automation\\/control\\/receipt$/, '/api/v1/automation/competitive-intelligence/observations/shadow');\nconst stableKeys = Array.isArray($json.dedupe_keys) ? [...$json.dedupe_keys].sort() : [];\nconst receiptKey = 'competitive-intelligence-shadow:' + crypto.createHash('sha256').update(JSON.stringify(stableKeys), 'utf8').digest('hex');\n\nreturn [{json:{\n  shadow_url: shadowUrl,\n  shadow_body: body,\n  shadow_timestamp: timestamp,\n  shadow_signature: signature,\n  expected_count: Number($json.expected_count || 0),\n  dedupe_keys: stableKeys,\n  receipt_key: receiptKey\n}}];"
+      }
+    },
+    {
+      "id": "dr43-http",
+      "name": "Submit Shadow Observations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.shadow_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.shadow_timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.shadow_signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.shadow_body }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr43-verify",
+      "name": "Shadow Ingestion Verified?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const response = $input.first().json || {};\nconst statusCode = Number(response.statusCode || 0);\nif (statusCode < 200 || statusCode >= 300) throw new Error('competitive_shadow_http_' + statusCode);\n\nconst body = response.body || {};\nif (body.accepted !== true) throw new Error('competitive_shadow_not_accepted');\nif (String(body.mode || '') !== 'SHADOW') throw new Error('competitive_shadow_mode_invalid');\nif (body.external_action_taken !== false) throw new Error('competitive_shadow_external_action_detected');\n\nconst expectedCount = Number($('Sign Shadow Observation Batch').item.json.expected_count || 0);\nconst inserted = Number(body.inserted_count || 0);\nconst duplicates = Number(body.duplicate_count || 0);\nif (inserted + duplicates !== expectedCount) throw new Error('competitive_shadow_count_mismatch');\nif (!Array.isArray(body.observations) || body.observations.length !== expectedCount) throw new Error('competitive_shadow_result_count_mismatch');\n\nconst expectedKeys = $('Sign Shadow Observation Batch').item.json.dedupe_keys || [];\nconst returnedKeys = body.observations.map((item) => String(item.dedupe_key || '')).sort();\nif (JSON.stringify(expectedKeys) !== JSON.stringify(returnedKeys)) throw new Error('competitive_shadow_dedupe_key_mismatch');\n\nreturn [{json:{\n  shadow_verified:true,\n  inserted_count:inserted,\n  duplicate_count:duplicates,\n  receipt_key:$('Sign Shadow Observation Batch').item.json.receipt_key\n}}];"
+      }
+    },
+    {
+      "id": "dr43-receipt",
+      "name": "Record Durable Success",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        520,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "DR91SuccessReceiptV1",
+          "mode": "id"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow_key": "competitive-intelligence",
+            "workflow_version": "v1",
+            "execution_id": "={{ $execution.id }}",
+            "idempotency_key": "={{ $('Shadow Ingestion Verified?').item.json.receipt_key }}",
+            "occurred_at": "={{ $now.toISO() }}",
+            "owner_id": "",
+            "event_id": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow_key",
+              "displayName": "workflow_key",
+              "type": "string"
+            },
+            {
+              "id": "workflow_version",
+              "displayName": "workflow_version",
+              "type": "string"
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "type": "string"
+            },
+            {
+              "id": "idempotency_key",
+              "displayName": "idempotency_key",
+              "type": "string"
+            },
+            {
+              "id": "occurred_at",
+              "displayName": "occurred_at",
+              "type": "string"
+            },
+            {
+              "id": "owner_id",
+              "displayName": "owner_id",
+              "type": "string"
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Shadow Observations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Shadow Observations": {
+      "main": [
+        [
+          {
+            "node": "Sign Shadow Observation Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Shadow Observation Batch": {
+      "main": [
+        [
+          {
+            "node": "Submit Shadow Observations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit Shadow Observations": {
+      "main": [
+        [
+          {
+            "node": "Shadow Ingestion Verified?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shadow Ingestion Verified?": {
+      "main": [
+        [
+          {
+            "node": "Record Durable Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-43",
+      "version": 1,
+      "role": "competitive-intelligence-shadow-ingress",
+      "authority": "OBSERVE",
+      "activationGate": "Keep inactive until the signed shadow-ingestion backend is production-proven, DR-90 and DR-91 are proven, a founder-approved competitor watchlist and at least one source-specific terms review exist, duplicate/retry tests pass with a controlled source, and the Phase 3 launch-stability gate explicitly permits DR-43 activation. V1 performs no external collection."
+    }
+  }
+}
