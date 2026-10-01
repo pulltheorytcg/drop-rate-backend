@@ -267,3 +267,26 @@ def test_batch_inventory_intake_preserves_sealed_physical_state() -> None:
     assert "function ownerBatchIsSealed(item)" in js
     assert 'seal_status: sealed ? "SEALED" : null' in js
     assert "condition: sealed ? null : condition" in js
+
+
+def test_batch_review_shows_provider_only_sealed_suggestion_without_allowing_intake() -> None:
+    js = OWNER_JS.read_text()
+
+    assert "function ownerBatchDisplayCandidate(item)" in js
+    assert "item?.selected || item?.suggested || null" in js
+    assert 'candidate.catalogue_id || candidate.source_kind === "PROVIDER"' in js
+    assert 'item.suggested?.source_kind === "PROVIDER"' in js
+    assert 'fix.textContent = "Needs Drop Rate review"' in js
+    assert "fix.disabled = true" in js
+    assert "ownerScanLoadCandidateImage(image, item.runId, selected.id)" in js
+
+
+def test_sealed_cardtrader_failure_is_non_fatal_and_audited() -> None:
+    api = API.read_text()
+    sealed = SEALED.read_text()
+
+    assert "except CardTraderApiError as exc:" in api
+    assert '"provider": "CardTrader"' in api
+    assert "sealed_provider_errors" in api
+    assert "provider_errors=sealed_provider_errors" in api
+    assert '"provider_errors": [dict(item) for item in (provider_errors or [])]' in sealed
