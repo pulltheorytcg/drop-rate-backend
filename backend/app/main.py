@@ -52,6 +52,7 @@ from .imported_benchmark_pricing import router as imported_benchmark_pricing_rou
 from .ebay_sold_pricing import router as ebay_sold_pricing_router
 from .pricing_preview import router as pricing_preview_router
 from .recognition import router as recognition_router
+from .owner_mobile import router as owner_mobile_router
 from .reference_library import router as reference_library_router
 from .purchase_lots import router as purchase_lots_router
 from .refunds import router as refunds_router
@@ -369,6 +370,7 @@ def create_app() -> FastAPI:
     app.include_router(inventory_sale_intent_router)
     app.include_router(identity_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(recognition_router)
+    app.include_router(owner_mobile_router)
     app.include_router(reference_library_router)
     app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(shopify_router)
