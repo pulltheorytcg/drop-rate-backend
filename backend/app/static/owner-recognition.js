@@ -1498,11 +1498,23 @@ function ownerBatchUnresolvedCount() {
   ).length;
 }
 
+function ownerBatchPopulateThumb(image, item) {
+  const selected = item?.selected;
+  if (selected?.image_url) {
+    image.src = selected.image_url;
+    return;
+  }
+  image.src = item.captureDataUrl;
+  if (selected?.id && item.runId) {
+    ownerScanLoadCandidateImage(image, item.runId, selected.id);
+  }
+}
+
 function ownerBatchCreateThumb(item, className = "owner-batch-thumb") {
   const wrap = document.createElement("div");
   wrap.className = className;
   const image = document.createElement("img");
-  image.src = item.captureDataUrl;
+  ownerBatchPopulateThumb(image, item);
   image.alt = ownerBatchSelectedName(item);
   wrap.append(image);
   return wrap;
@@ -1586,7 +1598,7 @@ function ownerBatchRenderLatest() {
   const thumb = byId("owner-batch-latest-thumb");
   thumb.replaceChildren();
   const image = document.createElement("img");
-  image.src = item.captureDataUrl;
+  ownerBatchPopulateThumb(image, item);
   image.alt = ownerBatchSelectedName(item);
   thumb.append(image);
 
