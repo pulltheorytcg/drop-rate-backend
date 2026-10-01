@@ -67,6 +67,15 @@ class ShadowObservation(BaseModel):
     def normalize_metrics(cls, value: float) -> float:
         return _normalize_metric(value)
 
+    @field_validator("observed_at", "source_published_at")
+    @classmethod
+    def require_timezone(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("Automation timestamps must include a timezone")
+        return value
+
 
 class ShadowObservationBatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
