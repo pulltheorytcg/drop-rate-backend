@@ -18,7 +18,10 @@
   - the recognition-candidate link.
 - The new canonical row cannot auto-publish or self-approve. The seller still confirms the card again and normal inventory intake creates only a **DRAFT / identity_confirmed=false** physical copy.
 - No pricing, Shopify publication, ownership allocation, settlement or n8n behaviour changes in this repair.
-- Production deployment remains pending green CI, migration review/application, Supabase security read-back and Railway health verification.
+- ✅ PR #473 merged after the required application test gate passed.
+- ✅ Supabase applied the initial materialisation function as `20261001134725_recognition_provider_materialization`; security read-back confirmed `SECURITY DEFINER`, `search_path=pg_catalog`, and EXECUTE only for `tcg_api`.
+- A rollback-only smoke test against the real OP05-069 run exposed one PL/pgSQL ambiguity at `ON CONFLICT(catalogue_id)`; the transaction rolled back and read-back confirmed **no catalogue row, mapping or candidate link persisted**.
+- The follow-up repair targets the named `catalogue_product_profiles_pkey` constraint and preserves every identity/security gate. Production smoke verification remains pending this repair migration + Railway deployment.
 
 
 

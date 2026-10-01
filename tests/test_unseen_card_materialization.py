@@ -6,7 +6,7 @@ from app.recognition import _candidate_materialization_reason
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "backend" / "app" / "recognition.py"
 SCANNER = ROOT / "backend" / "app" / "static" / "owner-recognition.js"
-MIGRATION = ROOT / "database" / "migrations" / "20261001133500_recognition_provider_materialization.sql"
+MIGRATION = ROOT / "database" / "migrations" / "20261001135200_fix_recognition_provider_materialization.sql"
 
 
 def _eligible_candidate() -> dict:
@@ -99,6 +99,7 @@ def test_db_materialization_function_is_narrowly_scoped_and_revalidates_identity
     assert "from public,anon,authenticated,service_role" in sql
     assert "grant execute on function tcg.materialize_recognition_provider_candidate" in sql
     assert "to tcg_api" in sql
+    assert "on conflict on constraint catalogue_product_profiles_pkey do nothing" in sql
 
 
 def test_owner_scanner_displays_unmapped_provider_candidates_and_routes_confirmation() -> None:
