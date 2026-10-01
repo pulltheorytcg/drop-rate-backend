@@ -411,33 +411,26 @@ def test_owner_inventory_exposes_sealed_state_verified_identity_and_refresh_capa
     assert ") sealed_type on true" in block
 
 
-def test_verified_sealed_inventory_market_refresh_is_owner_scoped_and_exact_only() -> None:
+def test_owner_refresh_route_delegates_without_holding_user_connection() -> None:
     api = OWNER_API.read_text()
     start = api.index('@router.post("/inventory/{inventory_code}/refresh-market")')
     end = api.index('@router.post("/graded-certificate-intake"', start)
     block = api[start:end]
 
-    assert "where i.owner_id=$1 and i.inventory_code=$2" in block
-    assert 'row["identity_confirmed"]' in block
-    assert 'row["profile_identity_status"] != "VERIFIED"' in block
-    assert 'row["sealed_identity_status"] != "VERIFIED"' in block
-    assert 'run["decision"] != "EXACT_CANDIDATE"' in block
-    assert 'run["top_catalogue_id"] != row["catalogue_id"]' in block
-    assert "_hydrate_verified_sealed_market(" in block
-    assert "_recalculate_one(connection, owner_id, row["id"])" in block
+    assert "refresh_verified_sealed_ebay_market(" in block
+    assert "user_connection(" not in block
+    assert 'owner_id=UUID(str(access["owner_id"]))' in block
+    assert 'result.get("status") == "BLOCKED"' in block
 
 
-def test_verified_sealed_intake_hydrates_market_before_pricing() -> None:
+def test_recognition_intake_does_not_call_external_market_provider_inside_transaction() -> None:
     api = OWNER_API.read_text()
     start = api.index('@router.post("/recognition-intake"')
     block = api[start:]
 
-    hydrate = block.index("_hydrate_verified_sealed_market(")
-    recalculate = block.index("_recalculate_one(connection, owner_id, inventory_id)")
-    assert hydrate < recalculate
-    assert 'if verified_exact_sealed_identity:' in block
-    assert 'ai_observation=run["ai_observation"]' in block
-    assert 'response["market_refresh"] = market_refresh' in block
+    assert "_hydrate_verified_sealed_market" not in block
+    assert "refresh_verified_sealed_ebay_market" not in block
+    assert "_recalculate_one(connection, owner_id, inventory_id)" in block
 
 
 def test_inventory_ui_renders_sealed_state_identity_and_market_refresh_action() -> None:
