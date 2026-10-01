@@ -1454,8 +1454,12 @@ function ownerBatchCandidateSnapshot(candidate) {
   return candidate?.candidate_snapshot || {};
 }
 
+function ownerBatchDisplayCandidate(item) {
+  return item?.selected || item?.suggested || null;
+}
+
 function ownerBatchIsSealed(item) {
-  const selected = item?.selected;
+  const selected = ownerBatchDisplayCandidate(item);
   const snapshot = ownerBatchCandidateSnapshot(selected);
   return snapshot.collectible_type === "SEALED"
     || snapshot.product_type === "SEALED"
@@ -1464,13 +1468,13 @@ function ownerBatchIsSealed(item) {
 }
 
 function ownerBatchSelectedName(item) {
-  const selected = item.selected;
+  const selected = ownerBatchDisplayCandidate(item);
   const snapshot = ownerBatchCandidateSnapshot(selected);
-  return snapshot.name || selected?.name || item.guess || "Card needs review";
+  return snapshot.name || selected?.name || item.guess || "Item needs review";
 }
 
 function ownerBatchSelectedMeta(item) {
-  const selected = item.selected;
+  const selected = ownerBatchDisplayCandidate(item);
   const snapshot = ownerBatchCandidateSnapshot(selected);
   if (selected?.manual_search) {
     return [
@@ -1508,9 +1512,14 @@ function ownerBatchUnresolvedCount() {
 }
 
 function ownerBatchPopulateThumb(image, item) {
-  const selected = item?.selected;
+  const selected = ownerBatchDisplayCandidate(item);
+  const snapshot = ownerBatchCandidateSnapshot(selected);
   if (selected?.image_url) {
     image.src = selected.image_url;
+    return;
+  }
+  if (snapshot.reference_image_url) {
+    image.src = snapshot.reference_image_url;
     return;
   }
   image.src = item.captureDataUrl;
@@ -1940,8 +1949,17 @@ function ownerBatchRenderReview() {
     if (item.status !== "added") {
       const fix = document.createElement("button");
       fix.type = "button";
-      fix.textContent = item.status === "unresolved" ? "Fix match" : "Change";
-      fix.addEventListener("click", () => ownerBatchOpenCorrection(item.id));
+      const providerOnlySealed =
+        item.status === "unresolved"
+        && item.suggested?.source_kind === "PROVIDER"
+        && ownerBatchIsSealed(item);
+      if (providerOnlySealed) {
+        fix.textContent = "Needs Drop Rate review";
+        fix.disabled = true;
+      } else {
+        fix.textContent = item.status === "unresolved" ? "Fix match" : "Change";
+        fix.addEventListener("click", () => ownerBatchOpenCorrection(item.id));
+      }
       actions.append(fix);
     }
     const remove = document.createElement("button");
