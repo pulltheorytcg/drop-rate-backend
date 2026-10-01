@@ -150,7 +150,7 @@ def test_transport_change_does_not_change_recognition_engine_version_or_gates() 
     recognition = RECOGNITION.read_text()
     vision = VISION.read_text()
 
-    assert 'ENGINE_VERSION = "v1.6.1"' in recognition
+    assert 'ENGINE_VERSION = "v1.7.0"' in recognition
     assert '"detail": "high"' in vision
     assert '"max_output_tokens": 1800' in vision
     assert '"reasoning"' not in vision

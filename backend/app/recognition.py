@@ -54,6 +54,13 @@ from .recognition_reference_index import (
     rebuild_reference_index,
     reference_index_status,
 )
+from .recognition_provider_reference_index import (
+    _eligible_provider_reference_rows,
+    discover_provider_reference_visual_hints,
+    fingerprint_provider_reference_rows,
+    provider_reference_index_status,
+    rebuild_provider_reference_index,
+)
 from .recognition_sealed import load_sealed_candidates, persist_sealed_resolution, resolve_sealed_candidates
 from .recognition_vision import (
     OpenAIRecognitionVisionClient,
@@ -63,7 +70,7 @@ from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.6.1"
+ENGINE_VERSION = "v1.7.0"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
@@ -89,6 +96,12 @@ class RecognitionReferenceSelectionRequest(BaseModel):
 class RecognitionReferenceIndexRebuildRequest(BaseModel):
     limit: int = Field(default=200, ge=1, le=500)
     catalogue_ids: list[UUID] | None = Field(default=None, max_length=500)
+
+
+class RecognitionProviderReferenceIndexRebuildRequest(BaseModel):
+    limit: int = Field(default=500, ge=1, le=1000)
+    system_code: str | None = Field(default=None, max_length=80)
+    language: str | None = Field(default=None, max_length=40)
 
 
 def _candidate_materialization_reason(candidate: dict[str, Any], *, exact_threshold: float) -> str | None:
@@ -244,6 +257,8 @@ async def recognition_status(
         "verified_learning_enabled": True,
         "persistent_reference_index_enabled": True,
         "reference_index_provisional_is_retrieval_only": True,
+        "provider_reference_visual_index_enabled": True,
+        "provider_reference_visual_index_is_retrieval_only": True,
         "learning_labels": "HUMAN_VERIFIED_ONLY",
         "learning_raw_pixels_stored": False,
         "auto_applies_inventory_identity": False,
@@ -290,6 +305,60 @@ async def recognition_reference_index_rebuild(
             prepared=prepared,
         )
         result["status"] = await reference_index_status(connection)
+        return jsonable_encoder(result)
+
+
+@router.get("/provider-reference-index/status")
+async def recognition_provider_reference_index_status(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    _access: Annotated[dict, Depends(require_platform_admin_request)],
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        await _owner(connection)
+        return jsonable_encoder(await provider_reference_index_status(connection))
+
+
+@router.post("/provider-reference-index/rebuild")
+async def recognition_provider_reference_index_rebuild(
+    payload: RecognitionProviderReferenceIndexRebuildRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    _access: Annotated[dict, Depends(require_platform_admin_request)],
+) -> dict:
+    system_code = payload.system_code.strip() if payload.system_code else None
+    language = payload.language.strip() if payload.language else None
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        await _owner(connection)
+        rows = await _eligible_provider_reference_rows(
+            connection,
+            limit=payload.limit,
+            system_code=system_code,
+            language=language,
+        )
+    prepared = await fingerprint_provider_reference_rows(rows)
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        result = await rebuild_provider_reference_index(
+            connection,
+            actor_user_id=user.user_id,
+            limit=payload.limit,
+            system_code=system_code,
+            language=language,
+            prepared=prepared,
+        )
+        result["status"] = await provider_reference_index_status(connection)
         return jsonable_encoder(result)
 
 
@@ -1103,22 +1172,64 @@ async def recognize_card(
         async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
             return await reference_candidates(connection,observation)
 
-    provider_result, learning_hints, library_items = await asyncio.gather(
+    async def _load_provider_reference_hints():
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            return await discover_provider_reference_visual_hints(
+                connection,
+                image.hashes,
+                system_code=system_code,
+                language=observation.language,
+            )
+
+    provider_result, learning_hints, library_items, provider_visual_hints = await asyncio.gather(
         _timed("provider_discovery", discover_provider_evidence(observation)),
         _timed("learning_hints", _load_learning_hints()),
         _timed("reference_library", _load_library_candidates()),
+        _timed("provider_reference_visual", _load_provider_reference_hints()),
     )
     provider_items = [
         dict(item)
         for item in provider_result.get("items", [])
         if isinstance(item, dict)
     ]
-    seen={(item.get('provider'),item.get('provider_id')) for item in provider_items}
-    for item in library_items:
-        if (item.get('provider'),item.get('provider_id')) not in seen:
-            item.update(_provider_identity_fingerprint(observation,item))
-            provider_items.append(item)
-            seen.add((item.get('provider'),item.get('provider_id')))
+    provider_by_key = {
+        (
+            str(item.get("provider") or "").casefold(),
+            str(item.get("provider_id") or ""),
+        ): item
+        for item in provider_items
+        if item.get("provider") and item.get("provider_id")
+    }
+    for source_item in [*library_items, *provider_visual_hints]:
+        item = dict(source_item)
+        key = (
+            str(item.get("provider") or "").casefold(),
+            str(item.get("provider_id") or ""),
+        )
+        if not key[0] or not key[1]:
+            continue
+        current = provider_by_key.get(key)
+        if current is not None:
+            indexed_visual = (
+                item.get("visual_similarity_source") == "provider_reference_index"
+                and item.get("visual_similarity") is not None
+            )
+            if indexed_visual and float(item.get("visual_similarity") or 0.0) > float(
+                current.get("visual_similarity") or 0.0
+            ):
+                current["visual_similarity"] = float(item["visual_similarity"])
+                current["visual_similarity_source"] = "provider_reference_index"
+            if not current.get("image_url") and item.get("image_url"):
+                current["image_url"] = item["image_url"]
+            continue
+
+        item.update(_provider_identity_fingerprint(observation,item))
+        provider_items.append(item)
+        provider_by_key[key] = item
 
     visual_short_circuit = visual_work_short_circuit_reason(
         observation,

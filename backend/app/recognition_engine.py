@@ -1238,6 +1238,10 @@ async def load_catalogue_candidates(
             and (
                 float(item.get("identity_score") or 0.0) >= 0.82
                 or float(item.get("non_number_identity_score") or 0.0) >= 0.88
+                or (
+                    item.get("visual_similarity_source") == "provider_reference_index"
+                    and float(item.get("visual_similarity") or 0.0) >= 0.82
+                )
             )
         }
     )
@@ -1593,20 +1597,33 @@ async def attach_provider_visual_evidence(
     selected_ids = {id(item) for item in selected}
 
     async def one(item: dict[str, Any]) -> None:
+        if (
+            item.get("visual_similarity") is not None
+            and item.get("visual_similarity_source") == "provider_reference_index"
+        ):
+            return
         url = str(item.get("image_url") or "").strip()
         if not url:
             item["visual_similarity"] = None
+            item["visual_similarity_source"] = None
             return
         async with semaphore:
             reference = await reference_image_hashes(url)
         item["visual_similarity"] = (
             hash_similarity(source_hashes, reference) if reference else None
         )
+        item["visual_similarity_source"] = (
+            "remote_provider_image" if item["visual_similarity"] is not None else None
+        )
 
     await asyncio.gather(*[one(item) for item in selected])
     for item in provider_evidence:
-        if id(item) not in selected_ids:
+        if (
+            id(item) not in selected_ids
+            and item.get("visual_similarity_source") != "provider_reference_index"
+        ):
             item["visual_similarity"] = None
+            item["visual_similarity_source"] = None
 
 
 
