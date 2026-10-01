@@ -597,6 +597,11 @@ async def record_competitive_observation(
                 and existing["observation_type"] == payload.observation_type
                 and existing["subject"] == payload.subject
                 and existing["observed_at"] == payload.observed_at
+                and existing["source_published_at"] == payload.source_published_at
+                and existing["facts"] == payload.facts
+                and existing["evidence"] == payload.evidence
+                and float(existing["confidence"]) == payload.confidence
+                and float(existing["relevance"]) == payload.relevance
             )
             if not same_contract:
                 raise HTTPException(
@@ -683,32 +688,6 @@ async def evaluate_and_store_opportunity(
             "select * from tcg.competitive_opportunities where opportunity_key=$1",
             payload.opportunity_key,
         )
-        if existing is not None:
-            same_contract = (
-                existing["opportunity_type"] == payload.opportunity_type
-                and existing["subject"] == payload.subject
-                and existing["hypothesis"] == payload.hypothesis
-            )
-            if not same_contract:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Opportunity key already exists with different content",
-                )
-            evidence_rows = await connection.fetch(
-                """
-                select * from tcg.competitive_opportunity_evidence
-                where opportunity_id=$1
-                order by created_at,id
-                """,
-                existing["id"],
-            )
-            return jsonable_encoder(
-                {
-                    "duplicate": True,
-                    "opportunity": dict(existing),
-                    "evidence": [dict(row) for row in evidence_rows],
-                }
-            )
 
         competitor_ids = [
             item.competitor_observation_id
@@ -721,7 +700,8 @@ async def evaluate_and_store_opportunity(
                 """
                 select
                     o.id,o.observation_type,o.confidence,o.relevance,o.rights_status,
-                    s.source_key,c.competitor_key
+                    s.source_key,s.status as source_status,
+                    c.competitor_key,c.status as competitor_status
                 from tcg.competitive_observations o
                 join tcg.competitor_sources s on s.id=o.source_id
                 join tcg.competitors c on c.id=o.competitor_id
@@ -734,6 +714,15 @@ async def evaluate_and_store_opportunity(
                 raise HTTPException(
                     status_code=404,
                     detail="One or more competitor observations were not found",
+                )
+            if any(
+                row["source_status"] == "BLOCKED"
+                or row["competitor_status"] == "REJECTED"
+                for row in observation_rows.values()
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Blocked or rejected competitive evidence cannot qualify a new opportunity",
                 )
 
         signals: list[CompetitiveEvidence] = []
@@ -803,15 +792,73 @@ async def evaluate_and_store_opportunity(
                 best_evidence_by_source[source_key] = item
         evidence_records = list(best_evidence_by_source.values())
 
+        if existing is not None:
+            evidence_rows = await connection.fetch(
+                """
+                select * from tcg.competitive_opportunity_evidence
+                where opportunity_id=$1
+                order by source_key,origin,id
+                """,
+                existing["id"],
+            )
+            same_core_contract = (
+                existing["opportunity_type"] == payload.opportunity_type
+                and existing["subject"] == payload.subject
+                and existing["hypothesis"] == payload.hypothesis
+                and float(existing["qualification_threshold"]) == payload.qualification_threshold
+                and existing["state"] == decision.state
+                and float(existing["score"]) == decision.score
+            )
+            existing_evidence_contract = sorted(
+                (
+                    row["origin"],
+                    row["source_key"],
+                    str(row["competitor_observation_id"] or ""),
+                    float(row["confidence"]),
+                    float(row["relevance"]),
+                    row["rights_status"],
+                    row["evidence"],
+                )
+                for row in evidence_rows
+            )
+            incoming_evidence_contract = sorted(
+                (
+                    item["origin"],
+                    item["source_key"],
+                    str(item["competitor_observation_id"] or ""),
+                    float(item["confidence"]),
+                    float(item["relevance"]),
+                    item["rights_status"],
+                    item["evidence"],
+                )
+                for item in evidence_records
+            )
+            if (
+                not same_core_contract
+                or existing_evidence_contract != incoming_evidence_contract
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Opportunity key already exists with a different evaluation contract",
+                )
+            return jsonable_encoder(
+                {
+                    "duplicate": True,
+                    "opportunity": dict(existing),
+                    "evidence": [dict(row) for row in evidence_rows],
+                }
+            )
+
         async with connection.transaction():
             row = await connection.fetchrow(
                 """
                 insert into tcg.competitive_opportunities(
                     opportunity_key,opportunity_type,subject,hypothesis,state,
-                    score,reasons,independent_sources,independent_origins,
+                    score,qualification_threshold,reasons,
+                    independent_sources,independent_origins,
                     competitor_sources,non_competitor_sources,created_by_user_id
                 ) values(
-                    $1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12
+                    $1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13
                 )
                 returning *
                 """,
@@ -821,6 +868,7 @@ async def evaluate_and_store_opportunity(
                 payload.hypothesis,
                 decision.state,
                 decision.score,
+                payload.qualification_threshold,
                 json.dumps(list(decision.reasons)),
                 decision.independent_sources,
                 decision.independent_origins,
