@@ -1,6 +1,14 @@
 # Drop Rate — Live Build Status
 
 
+## 2026-10-01 — Recognition reference-search migration history alignment
+
+- Production Supabase contains migration `20261001140820_reference_search_corrections`, applied during the interrupted recognition repair session, but the migration file was missing from Git.
+- Live read-back confirms the function is `SECURITY DEFINER`, fixed to `search_path=pg_catalog`, owner-membership scoped, review-gated, and executable only by `tcg_api`.
+- Live data shows **0** catalogue profiles created through `HUMAN_SELECTED_REFERENCE`, so this dormant path has not altered canonical catalogue data.
+- This change source-controls the exact production migration and adds regression checks only; it does **not** activate new UI/API behaviour or expand recognition scoring.
+
+
 ## 2026-10-01 — Immutable unseen-card materialisation repair in progress
 
 - Rollback-only production smoke testing of the real Japanese Trafalgar Law OP05-069 run exposed a second blocker after the SQL conflict fix: `tcg.recognition_candidates` is deliberately immutable, but the new materialisation function attempted to update `candidate.catalogue_id`.
