@@ -2039,6 +2039,7 @@ async function ownerBatchAddAll() {
   button.disabled = true;
   let added = 0;
   let failed = 0;
+  let marketPending = 0;
 
   for (const item of items) {
     if (item.status === "added") continue;
@@ -2069,6 +2070,26 @@ async function ownerBatchAddAll() {
       item.identityStatus = data.identity_status || null;
       if (data.inventory?.market_value_minor != null) {
         item.selected.market_value_minor = data.inventory.market_value_minor;
+      } else if (
+        sealed
+        && data.inventory?.identity_confirmed
+        && item.inventoryCode
+      ) {
+        try {
+          const market = await apiRequest(
+            `/api/v1/owner/inventory/${encodeURIComponent(item.inventoryCode)}/refresh-market`,
+            {method: "POST", body: "{}"}
+          );
+          const marketValue = market.valuation?.market_value_minor;
+          if (marketValue != null) {
+            item.selected.market_value_minor = marketValue;
+          } else {
+            marketPending += 1;
+          }
+        } catch (marketError) {
+          marketPending += 1;
+          item.marketValueError = marketError.message || "Market value needs more UK sold evidence.";
+        }
       }
       added += 1;
     } catch (error) {
@@ -2093,6 +2114,9 @@ async function ownerBatchAddAll() {
     message.textContent = pending
       ? `${added} ${added === 1 ? "item" : "items"} added; ${pending} still ${pending === 1 ? "needs" : "need"} Drop Rate identity review.`
       : `${added} ${added === 1 ? "item" : "items"} added with verified identity.`;
+    if (!pending && marketPending) {
+      message.textContent += ` ${marketPending} market ${marketPending === 1 ? "value is" : "values are"} pending exact UK sold evidence.`;
+    }
     message.className = "owner-card-message success";
   }
 }
