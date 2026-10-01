@@ -60,6 +60,13 @@ def test_shadow_batch_is_bounded_and_normalizes_metrics() -> None:
         )
 
 
+def test_shadow_batch_rejects_naive_timestamps() -> None:
+    payload = _batch()
+    payload["observations"][0]["observed_at"] = "2026-10-01T01:30:00"
+    with pytest.raises(ValidationError, match="must include a timezone"):
+        ShadowObservationBatch.model_validate(payload)
+
+
 def test_shadow_batch_rejects_duplicate_dedupe_keys() -> None:
     first = _batch()["observations"][0]
     with pytest.raises(ValidationError, match="duplicate observation dedupe keys"):
@@ -124,6 +131,8 @@ def test_database_function_is_strictly_idempotent() -> None:
     assert "v_existing.facts = p_facts" in sql
     assert "v_existing.evidence = p_evidence" in sql
     assert "v_existing.observed_at = p_observed_at" in sql
+    assert "v_existing.source_url is not distinct from v_source.source_url" not in sql
+    assert "v_existing.rights_status = v_source.rights_status" not in sql
     assert "v_existing.source_published_at is not distinct from p_source_published_at" in sql
     assert "v_existing.actor_type = 'SYSTEM'" in sql
     assert "Competitive observation dedupe key collision" in sql
