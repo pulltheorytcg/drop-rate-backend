@@ -63,7 +63,7 @@ def test_vision_request_contract_remains_high_detail_and_semantically_unchanged(
     captured: list[dict] = []
 
     async def run() -> None:
-        async def handler(request: httpx.Request) -> httpx.Response:
+        def handler(request: httpx.Request) -> httpx.Response:
             body = json.loads(request.content)
             captured.append(body)
             return httpx.Response(
