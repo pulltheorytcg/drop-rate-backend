@@ -1,6 +1,16 @@
 # Drop Rate — Live Build Status
 
 
+## 2026-10-01 — Immutable unseen-card materialisation repair in progress
+
+- Rollback-only production smoke testing of the real Japanese Trafalgar Law OP05-069 run exposed a second blocker after the SQL conflict fix: `tcg.recognition_candidates` is deliberately immutable, but the new materialisation function attempted to update `candidate.catalogue_id`.
+- The repair keeps recognition evidence immutable. A VERIFIED provider mapping is now resolved dynamically when returning run candidates instead of rewriting the historical candidate row.
+- Human feedback accepts the dynamically mapped provider candidate only when provider, printing ID, language and system all match the VERIFIED mapping.
+- The materialisation function no longer changes `recognition_candidates` or rewrites `recognition_runs.top_catalogue_id`; it only creates/reuses review-gated canonical data and the human-verified provider mapping.
+- This preserves original machine evidence while allowing the Seller Hub to continue from “New to Drop Rate” → human confirmation → normal DRAFT physical intake.
+- Failure testing remains fail-closed for provider identity/language/card-number conflicts and duplicate mappings.
+- CI, migration application, rollback-only production smoke and Railway verification are pending.
+
 ## 2026-10-01 — New-card scanner regression repair in progress
 
 - Live production investigation of the owner's failed scans isolated **two distinct raw-card failures** rather than a camera/upload outage.
