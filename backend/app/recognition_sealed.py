@@ -117,6 +117,8 @@ async def load_sealed_candidates(
 def resolve_sealed_candidates(
     observation: RecognitionObservation,
     rows: list[Mapping[str, Any]],
+    *,
+    provider_rows: list[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     observed_code = collector_key(observation.product_code)
     observed_language = clean_language(observation.language)
@@ -235,6 +237,150 @@ def resolve_sealed_candidates(
             }
         )
 
+    local_signatures = {
+        (
+            code,
+            str(row.get("sealed_product_type") or "UNKNOWN").strip().upper(),
+        )
+        for row in rows
+        for code in _candidate_code_keys(row)
+    }
+
+    for row in provider_rows or []:
+        provider = str(row.get("provider") or "").strip()
+        provider_id = str(row.get("provider_id") or "").strip()
+        if not provider or not provider_id:
+            continue
+
+        candidate_type = str(
+            row.get("sealed_product_type") or "UNKNOWN"
+        ).strip().upper()
+        provider_code = collector_key(row.get("product_code"))
+        if provider_code and (provider_code, candidate_type) in local_signatures:
+            # Retrieval-only provider evidence must not create a duplicate runner-up
+            # that can demote an already verified local sealed identity.
+            continue
+
+        candidate_language = clean_language(row.get("language"))
+        code_match = bool(observed_code and provider_code and observed_code == provider_code)
+        type_match = bool(
+            observed_type != "UNKNOWN"
+            and candidate_type != "UNKNOWN"
+            and observed_type == candidate_type
+        )
+        language_match = bool(
+            observed_language
+            and candidate_language
+            and observed_language == candidate_language
+        )
+        name_match = max(
+            _name_similarity(observation.set_name_guess, row.get("set_name")),
+            _name_similarity(observation.set_name_guess, row.get("name")),
+        )
+        visual_raw = row.get("visual_similarity")
+        visual_match = (
+            max(0.0, min(1.0, float(visual_raw)))
+            if visual_raw is not None
+            else 0.0
+        )
+
+        rejection_reasons: list[str] = []
+        if (
+            observed_code
+            and observation.product_code_confidence >= 0.80
+            and provider_code
+            and not code_match
+        ):
+            rejection_reasons.append("sealed product code mismatch")
+        if (
+            observed_type != "UNKNOWN"
+            and observation.sealed_product_type_confidence >= 0.80
+            and candidate_type != "UNKNOWN"
+            and not type_match
+        ):
+            rejection_reasons.append("sealed product type mismatch")
+        if (
+            observed_language
+            and observation.language_confidence >= 0.85
+            and candidate_language
+            and not language_match
+        ):
+            rejection_reasons.append("sealed product language mismatch")
+
+        retrieval_score = max(
+            0.0,
+            min(1.0, float(row.get("retrieval_score") or 0.0)),
+        )
+        score = min(
+            0.99,
+            max(
+                retrieval_score,
+                (0.52 if code_match else 0.0)
+                + (0.24 if type_match else 0.0)
+                + (0.10 if language_match else 0.0)
+                + 0.08 * name_match
+                + 0.06 * visual_match,
+            ),
+        )
+        scored.append(
+            {
+                "candidate_key": f"provider:{provider}:{provider_id}:sealed",
+                "source_kind": "PROVIDER",
+                "system_code": SYSTEM_BY_GAME.get(observation.game),
+                "catalogue_id": None,
+                "provider": provider,
+                "provider_id": provider_id,
+                "provider_language": candidate_language or None,
+                "score": score,
+                "hard_rejected": bool(rejection_reasons),
+                "rejection_reasons": rejection_reasons,
+                "signals": {
+                    "object_type": {
+                        "observed": observation.object_type,
+                        "confidence": observation.object_type_confidence,
+                        "candidate": "SEALED_PRODUCT",
+                        "match": 1.0,
+                    },
+                    "product_code": {
+                        "observed": observation.product_code,
+                        "confidence": observation.product_code_confidence,
+                        "candidate": [row.get("product_code")] if row.get("product_code") else [],
+                        "match": 1.0 if code_match else 0.0,
+                    },
+                    "sealed_product_type": {
+                        "observed": observed_type,
+                        "confidence": observation.sealed_product_type_confidence,
+                        "candidate": candidate_type,
+                        "match": 1.0 if type_match else 0.0,
+                    },
+                    "language": {
+                        "observed": observed_language,
+                        "confidence": observation.language_confidence,
+                        "candidate": candidate_language,
+                        "match": 1.0 if language_match else 0.0,
+                    },
+                    "visual": {
+                        "match": visual_match,
+                        "available": visual_raw is not None,
+                        "source": row.get("visual_similarity_source"),
+                    },
+                    "identity_verified": False,
+                    "retrieval_only": True,
+                },
+                "candidate_snapshot": {
+                    **dict(row),
+                    "game": observation.game,
+                    "card_number": None,
+                    "product_type": "SEALED",
+                    "collectible_type": "SEALED",
+                    "sealed_product_type": candidate_type,
+                    "language": candidate_language or observation.language,
+                    "identity_status": "NEEDS_REVIEW",
+                    "reference_image_url": row.get("image_url"),
+                },
+            }
+        )
+
     scored.sort(
         key=lambda item: (
             bool(item["hard_rejected"]),
@@ -264,7 +410,9 @@ def resolve_sealed_candidates(
 
     signals = top["signals"]
     exact = (
-        observation.object_type == "SEALED_PRODUCT"
+        top.get("source_kind") == "CATALOGUE"
+        and top.get("catalogue_id") is not None
+        and observation.object_type == "SEALED_PRODUCT"
         and observation.object_type_confidence >= 0.90
         and observation.product_code_confidence >= 0.85
         and observation.sealed_product_type_confidence >= 0.80
@@ -291,6 +439,11 @@ def resolve_sealed_candidates(
 
     reasons: list[str] = []
     risks: list[str] = []
+    if top.get("source_kind") == "PROVIDER":
+        reasons.append(
+            "A provider-backed sealed product is plausible but is not yet a verified Drop Rate catalogue identity."
+        )
+        risks.append("UNMAPPED_SEALED_PROVIDER_CANDIDATE")
     if observation.object_type_confidence < 0.90:
         reasons.append("Sealed-product classification confidence is below the exact-match gate.")
         risks.append("OBJECT_TYPE_UNCERTAIN")
