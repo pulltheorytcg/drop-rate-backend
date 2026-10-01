@@ -150,7 +150,57 @@ def test_transport_change_does_not_change_recognition_engine_version_or_gates() 
     recognition = RECOGNITION.read_text()
     vision = VISION.read_text()
 
-    assert 'ENGINE_VERSION = "v1.6.0"' in recognition
+    assert 'ENGINE_VERSION = "v1.6.1"' in recognition
     assert '"detail": "high"' in vision
     assert '"max_output_tokens": 1800' in vision
     assert '"reasoning"' not in vision
+
+
+def test_vision_repairs_provider_values_that_exceed_local_bounds() -> None:
+    async def run() -> None:
+        payload = observation_payload()
+        payload["game_confidence"] = 1.00001
+        payload["name_guess"] = "N" * 450
+        payload["effect_text"] = "E" * 2200
+        payload["visible_markers"] = [f"marker-{index}" for index in range(45)]
+        payload["cost"] = 123
+        payload["power"] = 1234567
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "id": "resp_overflow_repair",
+                    "model": "gpt-5.6-sol",
+                    "usage": {},
+                    "output_text": json.dumps(payload),
+                },
+            )
+
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as http_client:
+            client = OpenAIRecognitionVisionClient(
+                api_key="test-key",
+                model="gpt-5.6-sol",
+                http_client=http_client,
+            )
+            result = await client.observe_with_telemetry(
+                "data:image/jpeg;base64,ZmFrZQ=="
+            )
+
+        assert result.observation.game_confidence == 1.0
+        assert len(result.observation.name_guess) == 300
+        assert len(result.observation.effect_text) == 1600
+        assert len(result.observation.visible_markers) == 30
+        assert result.observation.cost == 99
+        assert result.observation.power == 999999
+
+    asyncio.run(run())
+
+
+def test_provider_json_schema_matches_local_validation_bounds() -> None:
+    source = VISION.read_text()
+    assert '"minimum": 0, "maximum": 1' in source
+    assert '"maxLength": 1600' in source
+    assert '"maxItems": 40' in source
+    assert "_repair_observation_payload(parsed)" in source
