@@ -5,8 +5,6 @@ import re
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Annotated, Any
-from urllib.parse import urlencode
-
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -28,7 +26,7 @@ PSA_API_BASE = "https://api.psacard.com/publicapi"
 PSA_CERT_URL = "https://www.psacard.com/cert"
 ACE_CERT_URL = "https://acegrading.com/cert"
 CGC_CERT_URL = "https://www.cgccards.com/certlookup/"
-BECKETT_CERT_URL = "https://www.beckett.com/grading/card-lookup"
+BECKETT_CERT_URL = "https://marketplace.beckett.com/grading/withoutLogin_card_lookup"
 
 PSA_CERT_PATTERN = re.compile(r"^\d{7,10}$")
 GENERIC_CERT_PATTERN = re.compile(r"^\d{4,14}$")
@@ -129,7 +127,10 @@ def provider_verification_url(provider: GradingProvider, certificate: str) -> st
         # stable cert-specific deep-link/API contract for server automation.
         return CGC_CERT_URL
     if provider in {GradingProvider.BGS, GradingProvider.BVG, GradingProvider.BCCG}:
-        return f"{BECKETT_CERT_URL}?{urlencode({'item_id': certificate, 'item_type': provider.value})}"
+        # Beckett explicitly exposes a public graded-card lookup page. Keep the
+        # certificate as data in our result, but do not invent undocumented
+        # deep-link/query semantics for that page.
+        return BECKETT_CERT_URL
     raise ValueError("Unsupported grading provider")
 
 
