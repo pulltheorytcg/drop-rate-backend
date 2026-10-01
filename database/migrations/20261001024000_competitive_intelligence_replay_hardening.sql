@@ -10,6 +10,10 @@ alter table tcg.competitive_opportunities
     add column qualification_state text not null default 'WATCH'
         check (qualification_state in ('WATCH','QUALIFIED'));
 
+-- Cover the composite observation -> source ownership foreign key exactly.
+create index if not exists competitive_observations_source_competitor_idx
+    on tcg.competitive_observations(source_id,competitor_id);
+
 create or replace function tcg.prevent_competitive_qualification_mutation()
 returns trigger
 language plpgsql
