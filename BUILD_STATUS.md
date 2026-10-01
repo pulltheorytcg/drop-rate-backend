@@ -10,7 +10,9 @@
 - Successful session responses are marked `no-store`; invalid credentials return the same generic response for email and username login.
 - Existing Google/Apple login, Supabase session refresh, Seller Hub owner-access checks and Founder HQ redirect behaviour remain unchanged.
 - Added runtime `httpx` dependency declaration, regression tests and `docs/SELLER_HUB_USERNAME_LOGIN.md`.
-- Production activation pending CI, merge, Supabase migration application, Railway deploy and live verification.
+- Production activation complete: PR #431 merged; the Supabase `owner_username_login` migration applied successfully; resolver/rate-limit functions exist with `tcg_api` execute access while `anon` and browser `authenticated` do not; the failure table has RLS enabled; at least one active seller currently has a username and the production resolver can resolve an active username server-side.
+- Railway deployment `784f5b11-54d6-4381-b03b-5a7f74c64c0f` completed successfully; pre-deploy verification reported **2,138 tests passed** and the new container returned HTTP 200 from `/health/ready`.
+- No real seller password was used during deployment verification, so credential-level live smoke testing remains naturally exercised by the next genuine Seller Hub login rather than by creating or altering a production account.
 
 
 ## 2026-09-30 — Seller Hub CSS cache-bust v12
