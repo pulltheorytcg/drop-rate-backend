@@ -68,7 +68,10 @@ async def load_sealed_candidates(
     rows = await connection.fetch(
         """
         select
-            p.id as catalogue_id,p.product_type,p.game,p.name,p.set_name,p.language,
+            p.id as catalogue_id,p.product_type,p.game,
+            coalesce(nullif(sd.attributes->>'display_name_en',''),p.name) as name,
+            coalesce(nullif(sd.attributes->>'set_name_en',''),p.set_name) as set_name,
+            p.language,
             pr.system_code,pr.identity_status,pr.set_code,pr.release_region,
             pr.release_date,pr.attributes as profile_attributes,
             sd.manufacturer_sku,sd.identity_status as sealed_identity_status,

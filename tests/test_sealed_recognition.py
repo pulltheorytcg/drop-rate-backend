@@ -386,3 +386,75 @@ def test_batch_copy_treats_cards_and_sealed_products_as_items() -> None:
     assert "item.identityStatus = data.identity_status || null" in js
     assert 'item.identityStatus !== "VERIFIED_CANONICAL_IDENTITY"' in js
     assert "added with verified identity" in js
+
+
+def test_sealed_recognition_prefers_english_display_metadata() -> None:
+    source = SEALED.read_text()
+
+    assert "sd.attributes->>'display_name_en'" in source
+    assert "sd.attributes->>'set_name_en'" in source
+
+
+def test_owner_inventory_exposes_sealed_state_verified_identity_and_refresh_capability() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.get("/inventory")')
+    end = api.index('@router.post("/inventory/{inventory_code}/refresh-market")', start)
+    block = api[start:end]
+
+    assert "i.seal_status" in block
+    assert "sealed_type.value_code as sealed_product_type" in block
+    assert "as can_refresh_market" in block
+    assert "sd.attributes->>'display_name_en'" in block
+    assert "sd.attributes->>'set_name_en'" in block
+    assert "left join tcg.sealed_product_details sd on sd.catalogue_id=p.id" in block
+    assert ") sealed_type on true" in block
+
+
+def test_owner_refresh_route_delegates_without_holding_user_connection() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.post("/inventory/{inventory_code}/refresh-market")')
+    end = api.index('@router.post("/graded-certificate-intake"', start)
+    block = api[start:end]
+
+    assert "refresh_verified_sealed_ebay_market(" in block
+    assert "user_connection(" not in block
+    assert 'owner_id=UUID(str(access["owner_id"]))' in block
+    assert 'result.get("status") == "BLOCKED"' in block
+
+
+def test_recognition_intake_does_not_call_external_market_provider_inside_transaction() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.post("/recognition-intake"')
+    block = api[start:]
+
+    assert "_hydrate_verified_sealed_market" not in block
+    assert "refresh_verified_sealed_ebay_market" not in block
+    assert "_recalculate_one(connection, owner_id, inventory_id)" in block
+
+
+def test_inventory_ui_renders_sealed_state_identity_and_market_refresh_action() -> None:
+    js = (ROOT / "backend" / "app" / "static" / "owner-portal.js").read_text()
+
+    assert 'return "Sealed"' in js
+    assert 'refresh.textContent = "Refresh market value"' in js
+    assert 'item.market_value_minor == null' in js
+    assert '? "—"' in js
+    assert '/refresh-market' in js
+    assert '"No inventory linked yet"' in js
+    assert '"Your latest cards and sealed products will appear here' in js
+
+
+def test_batch_sealed_intake_refreshes_market_after_inventory_commit_without_failing_item() -> None:
+    js = OWNER_JS.read_text()
+
+    intake_index = js.index('await apiRequest("/api/v1/owner/recognition-intake"')
+    refresh_index = js.index('/refresh-market', intake_index)
+    assert intake_index < refresh_index
+    assert "&& data.inventory?.identity_confirmed" in js
+    assert "marketPending += 1" in js
+    assert "item.marketValueError =" in js
+    market_catch = js.index("} catch (marketError) {", refresh_index)
+    market_catch_end = js.index("}", market_catch + len("} catch (marketError) {"))
+    nested = js[market_catch:market_catch_end]
+    assert 'item.status = "error"' not in nested
+    assert "pending exact UK sold evidence" in js

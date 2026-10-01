@@ -51,9 +51,22 @@ function inventoryCardSubtitle(item) {
 }
 
 function conditionLabel(item) {
+  if (String(item.seal_status || "").toUpperCase() === "SEALED") return "Sealed";
+  if (String(item.seal_status || "").toUpperCase() === "UNSEALED") return "Unsealed";
   return item.grade
     ? `${safeText(item.grading_company, "Graded")} ${item.grade}`
     : safeText(item.condition);
+}
+
+function inventoryTypeLabel(item) {
+  if (item.sealed_product_type) {
+    return String(item.sealed_product_type)
+      .toLowerCase()
+      .split("_")
+      .map((part) => part ? part[0].toUpperCase() + part.slice(1) : "")
+      .join(" ");
+  }
+  return item.product_type === "SEALED" ? "Sealed product" : "Card";
 }
 
 function createCardImage(item, className) {
@@ -128,7 +141,9 @@ function renderInventoryRows(items) {
     statusCell.append(status);
 
     const marketCell = document.createElement("td");
-    marketCell.textContent = formatMoney(item.market_value_minor);
+    marketCell.textContent = item.market_value_minor == null
+      ? "—"
+      : formatMoney(item.market_value_minor);
     const storeCell = document.createElement("td");
     const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
     storeCell.textContent = storeValue == null ? "—" : formatMoney(storeValue);
@@ -150,12 +165,12 @@ function renderInventoryCards(items) {
     icon.textContent = "▣";
     const title = document.createElement("strong");
     title.textContent = state.inventory.search || state.inventory.status
-      ? "No cards match these filters"
-      : "No cards linked yet";
+      ? "No inventory items match these filters"
+      : "No inventory linked yet";
     const copy = document.createElement("span");
     copy.textContent = state.inventory.search || state.inventory.status
       ? "Try clearing your search or choosing another status."
-      : "Once Drop Rate links inventory to your seller account, every card will appear here automatically.";
+      : "Once Drop Rate links inventory to your seller account, every item will appear here automatically.";
     empty.append(icon, title, copy);
     grid.append(empty);
     return;
@@ -189,8 +204,9 @@ function renderInventoryCards(items) {
     const meta = document.createElement("div");
     meta.className = "owner-card-meta";
     const metaValues = [
-      ["Condition", conditionLabel(item)],
+      [item.product_type === "SEALED" ? "Seal" : "Condition", conditionLabel(item)],
       ["Language", safeText(item.language)],
+      ["Type", inventoryTypeLabel(item)],
       ["Game", safeText(item.game)],
       ["Inventory", safeText(item.inventory_code)],
     ];
@@ -224,6 +240,31 @@ function renderInventoryCards(items) {
     }
 
     body.append(heading, meta, prices);
+
+    if (item.can_refresh_market) {
+      const refresh = document.createElement("button");
+      refresh.type = "button";
+      refresh.className = "owner-secondary-button owner-market-refresh";
+      refresh.textContent = "Refresh market value";
+      refresh.addEventListener("click", async () => {
+        refresh.disabled = true;
+        refresh.textContent = "Refreshing value…";
+        try {
+          await apiRequest(
+            `/api/v1/owner/inventory/${encodeURIComponent(item.inventory_code)}/refresh-market`,
+            {method: "POST", body: "{}"}
+          );
+          showPortalMessage("Market value refreshed from current sealed-product evidence.", "success");
+          await Promise.all([loadOwnerOverview(), loadOwnerInventory(), loadOwnerInsights()]);
+        } catch (error) {
+          showPortalMessage(error.message || "Market value could not be refreshed.", "error");
+          refresh.disabled = false;
+          refresh.textContent = "Refresh market value";
+        }
+      });
+      body.append(refresh);
+    }
+
     card.append(imageWrap, body);
     grid.append(card);
   }
@@ -238,9 +279,9 @@ function renderOverviewLatestInventory(items) {
     const empty = document.createElement("div");
     empty.className = "owner-empty-inline";
     const title = document.createElement("strong");
-    title.textContent = "No cards yet";
+    title.textContent = "No inventory yet";
     const copy = document.createElement("span");
-    copy.textContent = "Your latest cards will appear here as soon as inventory is linked to your account.";
+    copy.textContent = "Your latest cards and sealed products will appear here as soon as inventory is linked to your account.";
     empty.append(title, copy);
     container.append(empty);
     return;

@@ -16,6 +16,7 @@ from .access_control import require_owner_portal_request
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
 from .db import user_connection
+from .ebay_sealed_pricing import refresh_verified_sealed_ebay_market
 from .grading_certificates import (
     CertificateProviderConfigurationError,
     CertificateProviderUpstreamError,
@@ -1012,6 +1013,18 @@ async def owner_inventory(
             select count(*)::int
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id=i.catalogue_id
+            left join tcg.sealed_product_details sd on sd.catalogue_id=p.id
+            left join lateral (
+                select a.value_code
+                from tcg.catalogue_taxonomy_assignments a
+                where a.catalogue_id=p.id
+                  and a.scope_kind='SEALED'
+                  and a.dimension_code='SEALED_TYPE'
+                order by
+                  case when a.verification_status='VERIFIED' then 0 else 1 end,
+                  a.created_at desc
+                limit 1
+            ) sealed_type on true
             where {where}
             """,
             *params,
@@ -1025,13 +1038,23 @@ async def owner_inventory(
                 p.product_type,
                 p.game,
                 {BRAND_SQL} as brand,
-                p.name,
-                p.set_name,
+                case
+                  when p.product_type in ('SEALED','COLLECTION')
+                  then coalesce(nullif(sd.attributes->>'display_name_en',''),p.name)
+                  else p.name
+                end as name,
+                case
+                  when p.product_type in ('SEALED','COLLECTION')
+                  then coalesce(nullif(sd.attributes->>'set_name_en',''),p.set_name)
+                  else p.set_name
+                end as set_name,
                 p.card_number,
                 p.variant,
                 p.rarity,
                 coalesce(i.language,p.language) as language,
                 i.condition,
+                i.seal_status,
+                sealed_type.value_code as sealed_product_type,
                 i.grading_company,
                 i.grade,
                 i.status,
@@ -1041,6 +1064,11 @@ async def owner_inventory(
                 i.pricing_updated_at,
                 i.created_at,
                 i.updated_at,
+                (
+                  p.product_type in ('SEALED','COLLECTION')
+                  and coalesce((i.source_record->>'canonical_identity_verified')::boolean,false)
+                  and i.market_value_minor is null
+                ) as can_refresh_market,
                 (
                     select coalesce(m.shopify_cdn_url,m.public_source_url)
                     from tcg.media_assets m
@@ -1073,6 +1101,18 @@ async def owner_inventory(
                 ) as image_url
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id=i.catalogue_id
+            left join tcg.sealed_product_details sd on sd.catalogue_id=p.id
+            left join lateral (
+                select a.value_code
+                from tcg.catalogue_taxonomy_assignments a
+                where a.catalogue_id=p.id
+                  and a.scope_kind='SEALED'
+                  and a.dimension_code='SEALED_TYPE'
+                order by
+                  case when a.verification_status='VERIFIED' then 0 else 1 end,
+                  a.created_at desc
+                limit 1
+            ) sealed_type on true
             where {where}
             order by i.updated_at desc,i.inventory_code
             limit ${len(page_params)-1} offset ${len(page_params)}
@@ -1094,6 +1134,32 @@ async def owner_inventory(
     )
 
 
+
+
+@router.post("/inventory/{inventory_code}/refresh-market")
+async def owner_refresh_inventory_market(
+    inventory_code: str,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+) -> dict:
+    code = inventory_code.strip().upper()
+    if not code.startswith("INV-") or len(code) > 80:
+        raise HTTPException(status_code=422, detail="Invalid inventory code")
+
+    result = await refresh_verified_sealed_ebay_market(
+        request.app.state.db_pool,
+        user_id=user.user_id,
+        request_id=request.state.request_id,
+        owner_id=UUID(str(access["owner_id"])),
+        inventory_code=code,
+    )
+    if result.get("status") == "BLOCKED":
+        raise HTTPException(
+            status_code=422,
+            detail=str(result.get("detail") or "Insufficient exact UK sold evidence"),
+        )
+    return jsonable_encoder(result)
 
 
 @router.post("/graded-certificate-intake", status_code=201)
@@ -1527,12 +1593,11 @@ async def owner_recognition_intake(
         if inventory is None:
             raise HTTPException(status_code=409, detail="Seller inventory creation could not be verified")
 
-        return jsonable_encoder(
-            _owner_scan_inventory_payload(
-                inventory,
-                catalogue,
-                replayed=False,
-                valuation=valuation,
-                valuation_error=valuation_error,
-            )
+        response = _owner_scan_inventory_payload(
+            inventory,
+            catalogue,
+            replayed=False,
+            valuation=valuation,
+            valuation_error=valuation_error,
         )
+        return jsonable_encoder(response)
