@@ -945,6 +945,32 @@
         "observability/error routing",
         "provider terms/rate-limit review where applicable"
       ]
+    },
+    {
+      "key": "competitive-intelligence",
+      "sequence": 43,
+      "domain": "Intelligence",
+      "authority": "OBSERVE",
+      "status": "PLANNED",
+      "source_of_truth": "PostgreSQL/Supabase",
+      "decision_engine": "FastAPI",
+      "orchestrator": "n8n",
+      "ai_may_assist": true,
+      "idempotency_required": true,
+      "version_control_required": true,
+      "error_workflow_required": true,
+      "activation_requires": [
+        "version-controlled workflow JSON",
+        "deterministic backend contract",
+        "duplicate-delivery test",
+        "failure/retry test",
+        "observability/error routing",
+        "provider terms/rate-limit review where applicable",
+        "founder-approved competitor watchlist",
+        "source-specific terms/rights review",
+        "shadow-mode opportunity scoring proof",
+        "no direct external mutation"
+      ]
     }
   ]
 }
