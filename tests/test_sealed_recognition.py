@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import uuid4
 
+from app.owner_portal_api import _owner_scan_inventory_payload
 from app.recognition_sealed import resolve_sealed_candidates
 from app.recognition_vision import OBSERVATION_SCHEMA, RecognitionObservation, VISION_INSTRUCTIONS
 
@@ -17,6 +18,12 @@ MIGRATION = (
     / "database"
     / "migrations"
     / "20261001162000_one_piece_op17_sealed_reference.sql"
+)
+ENGLISH_DISPLAY_MIGRATION = (
+    ROOT
+    / "database"
+    / "migrations"
+    / "20261001185000_op17_english_display_identity.sql"
 )
 
 
@@ -290,3 +297,92 @@ def test_sealed_cardtrader_failure_is_non_fatal_and_audited() -> None:
     assert "sealed_provider_errors" in api
     assert "provider_errors=sealed_provider_errors" in api
     assert '"provider_errors": [dict(item) for item in (provider_errors or [])]' in sealed
+
+
+def test_op17_english_display_name_preserves_japanese_physical_language() -> None:
+    sql = ENGLISH_DISPLAY_MIGRATION.read_text()
+
+    assert "Booster Pack: World''s Strongest Warriors [OP-17]" in sql
+    assert "World''s Strongest Warriors [OP-17]" in sql
+    assert "'display_name_en'" in sql
+    assert "'set_name_en'" in sql
+    assert "sealed:v1:one_piece_card_game:op17:booster_pack:jp" in sql
+
+    seed = MIGRATION.read_text()
+    assert "'Japanese'" in seed
+    assert "'official_name_ja','ブースターパック 世界最強の戦士【OP-17】'" in seed
+
+
+def test_verified_exact_sealed_intake_sets_identity_confirmed_without_affecting_graded_flow() -> None:
+    api = OWNER_API.read_text()
+    recognition_start = api.index('@router.post("/recognition-intake"')
+    recognition_block = api[recognition_start:]
+    graded_start = api.index('@router.post("/graded-certificate-intake"')
+    graded_block = api[graded_start:recognition_start]
+
+    assert "verified_exact_sealed_identity = False" in recognition_block
+    assert 'run["decision"] == "EXACT_CANDIDATE"' in recognition_block
+    assert 'feedback["outcome"] == "CONFIRMED_TOP"' in recognition_block
+    assert "pr.collectible_type='SEALED'" in recognition_block
+    assert "pr.identity_status='VERIFIED'" in recognition_block
+    assert "sd.identity_status='VERIFIED'" in recognition_block
+    assert "$11,'DRAFT',$12,$13::jsonb,'FOR_SALE'" in recognition_block
+    assert "verified_exact_sealed_identity," in recognition_block
+    assert "verified_exact_sealed_identity" not in graded_block
+
+
+def test_scan_inventory_payload_reports_actual_identity_verification_state() -> None:
+    catalogue = {
+        "id": "catalogue",
+        "product_type": "SEALED",
+        "game": "One Piece",
+        "name": "Booster Pack: World's Strongest Warriors [OP-17]",
+        "set_name": "World's Strongest Warriors [OP-17]",
+        "card_number": None,
+        "variant": "",
+        "rarity": "",
+        "language": "Japanese",
+    }
+    base_inventory = {
+        "id": "inventory",
+        "inventory_code": "INV-TEST",
+        "catalogue_id": "catalogue",
+        "status": "DRAFT",
+        "condition": None,
+        "seal_status": "SEALED",
+        "grading_company": None,
+        "grade": None,
+        "certificate_number": None,
+        "language": "Japanese",
+        "market_value_minor": None,
+        "recommended_retail_minor": None,
+        "store_price_minor": None,
+        "pricing_updated_at": None,
+        "created_at": None,
+        "updated_at": None,
+    }
+
+    verified = _owner_scan_inventory_payload(
+        {**base_inventory, "identity_confirmed": True},
+        catalogue,
+        replayed=False,
+    )
+    pending = _owner_scan_inventory_payload(
+        {**base_inventory, "identity_confirmed": False},
+        catalogue,
+        replayed=False,
+    )
+
+    assert verified["identity_status"] == "VERIFIED_CANONICAL_IDENTITY"
+    assert verified["inventory"]["identity_confirmed"] is True
+    assert pending["identity_status"] == "SELLER_CONFIRMED_PENDING_DROP_RATE_VERIFICATION"
+
+
+def test_batch_copy_treats_cards_and_sealed_products_as_items() -> None:
+    js = OWNER_JS.read_text()
+
+    assert "Recognised cards and sealed products will appear here automatically." in js
+    assert "Point at a card or sealed product" in js
+    assert "item.identityStatus = data.identity_status || null" in js
+    assert 'item.identityStatus !== "VERIFIED_CANONICAL_IDENTITY"' in js
+    assert "added with verified identity" in js

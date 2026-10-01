@@ -1160,7 +1160,7 @@ async function ownerScanSubmitIntake(event) {
     }
 
     byId("owner-scan-success").classList.remove("hidden");
-    ownerScanIntakeMessage("Card added successfully.", "success");
+    ownerScanIntakeMessage("Item added successfully.", "success");
     await Promise.all([loadOwnerOverview(), loadOwnerInventory()]);
     byId("owner-scan-success").scrollIntoView({behavior: "smooth", block: "start"});
   } catch (error) {
@@ -1542,7 +1542,7 @@ function ownerBatchRenderStrip() {
   if (!items.length) {
     const empty = document.createElement("div");
     empty.className = "owner-batch-strip-empty";
-    empty.textContent = "Recognised cards will appear here automatically.";
+    empty.textContent = "Recognised cards and sealed products will appear here automatically.";
     strip.append(empty);
     return;
   }
@@ -1591,7 +1591,7 @@ function ownerBatchRemoveItem(itemId) {
     ownerBatchRenderReview();
   }
   ownerBatchSetCameraState(
-    batch.items.length ? "Card removed · keep scanning" : "Point at a card"
+    batch.items.length ? "Item removed · keep scanning" : "Point at a card or sealed product"
   );
 }
 
@@ -2066,6 +2066,7 @@ async function ownerBatchAddAll() {
       });
       item.status = "added";
       item.inventoryCode = data.inventory?.inventory_code || null;
+      item.identityStatus = data.identity_status || null;
       if (data.inventory?.market_value_minor != null) {
         item.selected.market_value_minor = data.inventory.market_value_minor;
       }
@@ -2085,7 +2086,13 @@ async function ownerBatchAddAll() {
     message.textContent = `${added} added, ${failed} need attention. Nothing was duplicated on retry.`;
     message.className = "owner-card-message error";
   } else {
-    message.textContent = `${added} ${added === 1 ? "card" : "cards"} added to your inventory as DRAFT, pending Drop Rate verification.`;
+    const pending = items.filter(
+      (item) => item.status === "added"
+        && item.identityStatus !== "VERIFIED_CANONICAL_IDENTITY"
+    ).length;
+    message.textContent = pending
+      ? `${added} ${added === 1 ? "item" : "items"} added; ${pending} still ${pending === 1 ? "needs" : "need"} Drop Rate identity review.`
+      : `${added} ${added === 1 ? "item" : "items"} added with verified identity.`;
     message.className = "owner-card-message success";
   }
 }

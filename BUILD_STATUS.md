@@ -27,6 +27,7 @@
 - ✅ Recognition **v1.9.0** extends the same retrieval-only CardTrader path to One Piece sealed products (booster packs, booster boxes, starter decks, tins/cases/collections where provider categories prove the format). Provider code/type/image evidence may surface an unseen sealed product for review, but only an existing verified Drop Rate sealed catalogue row can become `EXACT_CANDIDATE` or enter inventory.
 - The sealed path keeps pack-vs-box/type mismatches fail-closed, never copies the camera-observed product code into provider evidence, keeps physical language unproven unless independently established, fails soft if CardTrader is unavailable, and records provider errors in recognition evidence.
 - ✅ PR #487 merged as `26e708dbd976a6ab2e70c8168db321dc6e17eaf9`; CI passed **2,284 tests** plus the pinned n8n image check. Railway deployment `642ce68a-ad41-4dff-ac6d-eee2f2fa65a4` reached SUCCESS, application startup completed and `/health/ready` returned HTTP 200.
+- 🚧 Sealed intake polish: verified Japanese OP-17 now has an English-readable display identity while retaining `language=Japanese`; verified exact sealed matches confirmed by the seller become `identity_confirmed=true` instead of remaining artificially pending, while provider-only/unverified sealed products remain review-gated. Seller Hub batch copy now reports the real identity state and uses generic item/sealed wording rather than card-only wording.
 
 ## 2026-10-01 — Full-library recognition correction in progress
 
