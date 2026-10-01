@@ -1,6 +1,20 @@
 # Drop Rate — Live Build Status
 
 
+## 2026-10-01 — Recognition quality benchmark foundation
+
+- Started the recognition-refinement workstream without expanding the reference corpus or adding new recognition scope.
+- Added a read-only human-labelled evaluation layer for VALIDATION and HOLDOUT examples only; TRAIN examples are explicitly rejected from benchmark claims.
+- Metrics now cover exact precision/recall, unsafe exact decisions, top-1 accuracy, safe abstention/review rate, no-match/failure rate, P50/P95 latency, per-system breakdowns, risk-flag frequency and recurrent confusion pairs.
+- Superseded learning labels are excluded; unreviewed AI output is never evaluation truth.
+- Added a platform-admin, owner-scoped read-only endpoint at `/api/v1/recognition/learning/evaluation`.
+- The evaluator cannot mutate recognition, inventory, ownership, pricing, settlements or Shopify state and cannot auto-promote weights, thresholds or models.
+- Added regression tests and `docs/RECOGNITION_QUALITY_BENCHMARK.md`.
+- This is permitted recognition-quality refinement under the Phase 3 interpretation; it is not reference-corpus expansion.
+- Production deployment/benchmark read-back remains pending CI, review and merge.
+
+
+
 ## 2026-10-01 01:39 BST — 30 September → 1 October full catch-up reconciliation
 
 A detailed evidence-backed worklog for the full period is now recorded in `docs/WORKLOG_2026-09-30_TO_2026-10-01.md`. This checkpoint reconciles the main chat, Work/Codex work, GitHub PR history and live Supabase/Shopify/Railway state rather than treating discussion as completion.
