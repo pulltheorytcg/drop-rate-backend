@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence replay hardening
+
+- Production now has the five Competitive Intelligence tables from the base v1 migration; all are currently empty, so this hardening is forward-only with no data rewrite.
+- Observation idempotency now compares the complete immutable evidence contract rather than only source/type/subject/time.
+- New opportunity evaluation refuses competitor evidence whose source has since been BLOCKED or whose competitor has been REJECTED.
+- Opportunity records now persist the exact qualification threshold used, and duplicate opportunity keys must match the full normalized evidence + decision contract.
+- Added an additive migration only; no table rebuild/drop, no external monitoring activation and no commerce/finance/ownership mutation.
+- Production application remains pending CI, merge, Supabase migration verification and Railway readiness.
+
+
 ## 2026-10-01 — Competitive Intelligence persistence/API foundation
 
 - Reconciled onto current `main` after PR #437 landed; the newer production verification notes are preserved.
