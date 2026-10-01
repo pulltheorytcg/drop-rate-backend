@@ -15,6 +15,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from .access_control import require_platform_admin_request
+from .cardtrader_client import CardTraderClient
 from .auth import AuthenticatedUser, require_user
 from .reference_library import reference_candidates
 from .db import user_connection
@@ -1185,8 +1186,17 @@ async def recognize_card(
                 language=observation.language,
             )
 
+    cardtrader = (
+        CardTraderClient(api_token=settings.cardtrader_api_token)
+        if settings.cardtrader_api_token
+        else None
+    )
+
     provider_result, learning_hints, library_items, provider_visual_hints = await asyncio.gather(
-        _timed("provider_discovery", discover_provider_evidence(observation)),
+        _timed(
+            "provider_discovery",
+            discover_provider_evidence(observation, cardtrader=cardtrader),
+        ),
         _timed("learning_hints", _load_learning_hints()),
         _timed("reference_library", _load_library_candidates()),
         _timed("provider_reference_visual", _load_provider_reference_hints()),
