@@ -444,3 +444,16 @@ def test_inventory_ui_renders_sealed_state_identity_and_market_refresh_action() 
     assert '/refresh-market' in js
     assert '"No inventory linked yet"' in js
     assert '"Your latest cards and sealed products will appear here' in js
+
+
+def test_batch_sealed_intake_refreshes_market_after_inventory_commit_without_failing_item() -> None:
+    js = OWNER_JS.read_text()
+
+    intake_index = js.index('await apiRequest("/api/v1/owner/recognition-intake"')
+    refresh_index = js.index('/refresh-market', intake_index)
+    assert intake_index < refresh_index
+    assert "&& data.inventory?.identity_confirmed" in js
+    assert "marketPending += 1" in js
+    assert "item.marketValueError =" in js
+    assert 'item.status = "error"' not in js[refresh_index : refresh_index + 900]
+    assert "pending exact UK sold evidence" in js
