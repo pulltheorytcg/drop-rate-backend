@@ -1238,6 +1238,10 @@ async def load_catalogue_candidates(
             and (
                 float(item.get("identity_score") or 0.0) >= 0.82
                 or float(item.get("non_number_identity_score") or 0.0) >= 0.88
+                or (
+                    item.get("visual_similarity_source") == "provider_reference_index"
+                    and float(item.get("visual_similarity") or 0.0) >= 0.82
+                )
             )
         }
     )
