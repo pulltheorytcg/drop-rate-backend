@@ -71,13 +71,19 @@ def _choose_sealed_candidate(
 ) -> dict[str, Any] | None:
     observed_code = collector_key(observation.product_code)
     observed_type = str(observation.sealed_product_type or "UNKNOWN").upper()
-    viable = [
-        row
-        for row in rows
-        if collector_key(row.get("product_code")) == observed_code
-        and str(row.get("sealed_product_type") or "UNKNOWN").upper() == observed_type
-        and int(str(row.get("provider_id") or "0")) > 0
-    ]
+    viable: list[dict[str, Any]] = []
+    for row in rows:
+        if collector_key(row.get("product_code")) != observed_code:
+            continue
+        if str(row.get("sealed_product_type") or "UNKNOWN").upper() != observed_type:
+            continue
+        try:
+            provider_id = int(str(row.get("provider_id") or "0"))
+        except (TypeError, ValueError):
+            continue
+        if provider_id <= 0:
+            continue
+        viable.append(row)
     viable.sort(
         key=lambda row: (
             -float(row.get("retrieval_score") or 0.0),
