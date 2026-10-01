@@ -16,6 +16,13 @@ from .access_control import require_owner_portal_request
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
 from .db import user_connection
+from .grading_certificates import (
+    CertificateProviderConfigurationError,
+    CertificateProviderUpstreamError,
+    lookup_grading_certificate,
+    normalize_certificate_number,
+    normalize_grading_provider,
+)
 from .physical_state import validate_physical_state
 from .pricing import _recalculate_one
 from .settings import get_settings
@@ -25,6 +32,7 @@ router = APIRouter(prefix="/api/v1/owner", tags=["owner-portal"])
 BRAND_SQL = brand_sql("p")
 VISIBLE_STATUSES = ("DRAFT", "INSPECTION", "APPROVED", "RESERVED", "SOLD", "WITHDRAWN")
 OWNER_SCAN_SOURCE = "OWNER_SCAN"
+OWNER_GRADED_SCAN_SOURCE = "OWNER_GRADED_CERTIFICATE_SCAN"
 
 
 class OwnerProfileUpdate(BaseModel):
@@ -72,6 +80,39 @@ class OwnerRecognitionIntakeRequest(BaseModel):
         if self.condition is None and self.grading_company is None:
             raise ValueError("Choose a raw-card condition or provide grading company and grade")
         return self
+
+
+class OwnerGradedCertificateIntakeRequest(BaseModel):
+    selected_catalogue_id: UUID
+    grading_company: str = Field(min_length=2, max_length=40)
+    grade: str = Field(min_length=1, max_length=40)
+    certificate_number: str = Field(min_length=1, max_length=120)
+    language: str | None = Field(default=None, max_length=80)
+
+    @model_validator(mode="after")
+    def validate_graded_details(self) -> "OwnerGradedCertificateIntakeRequest":
+        self.grading_company = self.grading_company.strip()
+        self.grade = self.grade.strip()
+        self.certificate_number = self.certificate_number.strip()
+        self.language = self.language.strip() if self.language else None
+        provider = normalize_grading_provider(self.grading_company)
+        self.grading_company = provider.value
+        self.certificate_number = normalize_certificate_number(
+            provider,
+            self.certificate_number,
+        )
+        return self
+
+
+def _owner_graded_payload_hash(payload: OwnerGradedCertificateIntakeRequest) -> str:
+    canonical = payload.model_dump(mode="json")
+    return hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _normalized_card_number(value: object | None) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "", str(value or "")).casefold()
 
 
 def _owner_scan_payload_hash(payload: OwnerRecognitionIntakeRequest) -> str:
@@ -893,6 +934,213 @@ async def owner_inventory(
             "items": [dict(row) for row in rows],
         }
     )
+
+
+
+
+@router.post("/graded-certificate-intake", status_code=201)
+async def owner_graded_certificate_intake(
+    payload: OwnerGradedCertificateIntakeRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=96)],
+) -> dict:
+    """Create seller-owned DRAFT inventory from a human-confirmed slab/certificate flow."""
+
+    try:
+        request_key = UUID(idempotency_key.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Idempotency-Key must be a UUID") from exc
+
+    owner_id = UUID(str(access["owner_id"]))
+    payload_hash = _owner_graded_payload_hash(payload)
+
+    provider_result = None
+    provider_error = None
+    try:
+        provider_result = await lookup_grading_certificate(
+            payload.grading_company,
+            payload.certificate_number,
+        )
+    except CertificateProviderConfigurationError:
+        provider_error = "PROVIDER_NOT_CONFIGURED"
+    except CertificateProviderUpstreamError:
+        provider_error = "PROVIDER_UNAVAILABLE"
+
+    effective_grade = payload.grade
+    if provider_result is not None and provider_result.verified and provider_result.grade:
+        if provider_result.grade.strip().casefold() != payload.grade.strip().casefold():
+            raise HTTPException(
+                status_code=409,
+                detail="The slab label grade conflicts with the grading-provider certificate",
+            )
+        effective_grade = provider_result.grade.strip()
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        existing = await connection.fetchrow(
+            """
+            select i.*
+            from tcg.inventory_items i
+            where i.owner_id=$1 and i.intake_request_key=$2
+            """,
+            owner_id,
+            request_key,
+        )
+        if existing is not None:
+            source_record = existing["source_record"] or {}
+            if isinstance(source_record, str):
+                try:
+                    source_record = json.loads(source_record)
+                except json.JSONDecodeError:
+                    source_record = {}
+            if (
+                not isinstance(source_record, dict)
+                or source_record.get("source") != OWNER_GRADED_SCAN_SOURCE
+                or source_record.get("payload_hash") != payload_hash
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Idempotency-Key was already used for a different graded intake",
+                )
+            catalogue = await connection.fetchrow(
+                "select * from tcg.catalogue_products where id=$1",
+                existing["catalogue_id"],
+            )
+            if catalogue is None:
+                raise HTTPException(status_code=409, detail="Graded intake catalogue is missing")
+            return jsonable_encoder(
+                _owner_scan_inventory_payload(existing, catalogue, replayed=True)
+            )
+
+        catalogue = await connection.fetchrow(
+            "select * from tcg.catalogue_products where id=$1",
+            payload.selected_catalogue_id,
+        )
+        if catalogue is None:
+            raise HTTPException(status_code=404, detail="Catalogue product not found")
+        if catalogue["product_type"] != "CARD":
+            raise HTTPException(status_code=422, detail="Graded intake supports cards only")
+
+        if (
+            provider_result is not None
+            and provider_result.verified
+            and provider_result.card_number
+            and catalogue["card_number"]
+            and _normalized_card_number(provider_result.card_number)
+            != _normalized_card_number(catalogue["card_number"])
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="The selected card number conflicts with the grading-provider certificate",
+            )
+
+        try:
+            validate_physical_state(
+                product_type=catalogue["product_type"],
+                condition=None,
+                seal_status=None,
+                grading_company=payload.grading_company,
+                grade=effective_grade,
+                certificate_number=payload.certificate_number,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        inventory_id = uuid4()
+        inventory_code = f"INV-{inventory_id.hex.upper()}"
+        physical_language = payload.language or catalogue["language"]
+        provider_snapshot = (
+            provider_result.model_dump(mode="json") if provider_result is not None else None
+        )
+        source_record = {
+            "source": OWNER_GRADED_SCAN_SOURCE,
+            "selected_catalogue_id": str(payload.selected_catalogue_id),
+            "payload_hash": payload_hash,
+            "seller_confirmed": True,
+            "grading_provider": payload.grading_company,
+            "certificate_number": payload.certificate_number,
+            "provider_verification_status": (
+                provider_result.status.value if provider_result is not None else provider_error
+            ),
+            "provider_verified": bool(provider_result and provider_result.verified),
+            "provider_evidence": provider_snapshot,
+        }
+
+        try:
+            inventory = await connection.fetchrow(
+                """
+                insert into tcg.inventory_items(
+                    id,inventory_code,catalogue_id,owner_id,
+                    condition,grading_company,grade,certificate_number,language,
+                    identity_confirmed,status,intake_request_key,source_record,sale_intent
+                ) values(
+                    $1,$2,$3,$4,
+                    null,$5,$6,$7,$8,
+                    false,'DRAFT',$9,$10::jsonb,'FOR_SALE'
+                )
+                on conflict (intake_request_key) do nothing
+                returning *
+                """,
+                inventory_id,
+                inventory_code,
+                payload.selected_catalogue_id,
+                owner_id,
+                payload.grading_company,
+                effective_grade,
+                payload.certificate_number,
+                physical_language,
+                request_key,
+                json.dumps(source_record),
+            )
+        except asyncpg.UniqueViolationError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="This grading certificate is already linked to an inventory item",
+            ) from exc
+
+        if inventory is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Graded intake conflicted; refresh inventory before retrying",
+            )
+
+        valuation: dict | None = None
+        valuation_error: str | None = None
+        try:
+            valuation = await _recalculate_one(connection, owner_id, inventory_id)
+        except HTTPException as exc:
+            if exc.status_code != 422:
+                raise
+            valuation_error = str(exc.detail)
+
+        inventory = await connection.fetchrow(
+            "select * from tcg.inventory_items where id=$1 and owner_id=$2",
+            inventory_id,
+            owner_id,
+        )
+        if inventory is None:
+            raise HTTPException(status_code=409, detail="Graded inventory creation could not be verified")
+
+        response = _owner_scan_inventory_payload(
+            inventory,
+            catalogue,
+            replayed=False,
+            valuation=valuation,
+            valuation_error=valuation_error,
+        )
+        response["certificate_verification"] = {
+            "status": (
+                provider_result.status.value if provider_result is not None else provider_error
+            ),
+            "verified": bool(provider_result and provider_result.verified),
+            "requires_drop_rate_review": True,
+        }
+        return jsonable_encoder(response)
 
 
 @router.post("/recognition-intake", status_code=201)

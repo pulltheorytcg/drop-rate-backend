@@ -304,3 +304,46 @@ The bounded implementation permitted now is:
 - no scraping around provider controls.
 
 Scanner UI, OCR/QR capture, deterministic catalogue matching and inventory commit remain separate bounded slices and must retain their normal tests/review gates.
+
+
+## Implemented scanner slice — 1 October 2026
+
+Founder approval reopened the scanner integration after the provider gateway was deployed.
+
+### Seller Hub modes
+
+The scanner now separates:
+- **Raw Card** — existing recognition flow, unchanged.
+- **Graded Slab** — QR/certificate/label evidence flow.
+
+### Graded Slab evidence order
+
+1. Attempt native QR detection in the browser where supported.
+2. Accept only a supported official grader domain, or a numeric QR with an explicit grader hint.
+3. Normalise grader + certificate.
+4. Call the common grading-certificate gateway.
+5. If QR/provider lookup cannot establish card identity, capture the full slab and run label OCR.
+6. Compare visible grade/card-number evidence against verified provider data when available.
+7. Block on conflicts.
+8. Seed canonical catalogue search from provider card number first, then visible label card number/name.
+9. Require the user to confirm the exact catalogue card.
+10. Re-run provider verification server-side on graded inventory intake.
+11. Create only a seller-owned DRAFT item with `identity_confirmed=false`.
+
+### QR browser compatibility
+
+The browser QR path uses the platform Barcode Detection API only as progressive enhancement. It is not the sole scanner path because browser support is not universal. When unavailable, the same camera/upload workflow falls back to slab-label OCR and manual certificate entry.
+
+### Physical-slab uniqueness
+
+A grading certificate represents a single physical encapsulated item. The graded scanner slice introduces a unique database index on normalized grader + certificate number. Existing production read-back before the migration found 8 certificate-bearing graded items and no duplicates.
+
+### PSA credential requirement
+
+PSA's Public API requires an account-generated bearer token. The production application variable is `TCG_PSA_PUBLIC_API_TOKEN`. The application does not generate, scrape, infer or reuse a different provider secret for this value.
+
+Until that token is configured:
+- PSA QR/cert parsing still works;
+- slab-label OCR still works;
+- canonical catalogue confirmation still works;
+- automated PSA provider verification reports unavailable and the item remains review-gated.

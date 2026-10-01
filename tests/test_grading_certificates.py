@@ -11,9 +11,14 @@ from app.grading_certificates import (
     GradingProvider,
     lookup_grading_certificate,
     normalize_certificate_number,
+    GradingSlabObservation,
+    grading_catalogue_search_seed,
+    grading_provider_conflicts,
     normalize_grading_provider,
     normalize_psa_response,
+    parse_grading_qr_payload,
     provider_verification_url,
+    scan_graded_slab,
 )
 from app.settings import Settings
 
@@ -201,3 +206,134 @@ def test_certificate_routes_require_active_owner_membership() -> None:
     assert "await _require_active_owner(request, user)" in source
     assert "await _owner(connection)" in source
     assert "user_connection(" in source
+
+
+def test_official_grader_qr_payloads_resolve_without_trusting_dropdown_hint() -> None:
+    psa = parse_grading_qr_payload(
+        "https://www.psacard.com/cert/62398872/psa"
+    )
+    assert psa["provider"] == "PSA"
+    assert psa["certificate_number"] == "62398872"
+    assert psa["trusted_domain"] is True
+
+    cgc = parse_grading_qr_payload(
+        "https://www.cgccards.com/certlookup/1234567999/"
+    )
+    assert cgc["provider"] == "CGC"
+    assert cgc["certificate_number"] == "1234567999"
+    assert cgc["trusted_domain"] is True
+
+
+def test_qr_payload_rejects_untrusted_domain_and_provider_conflict() -> None:
+    with pytest.raises(ValueError):
+        parse_grading_qr_payload("https://example.com/cert/62398872")
+
+    with pytest.raises(ValueError):
+        parse_grading_qr_payload(
+            "https://www.cgccards.com/certlookup/1234567999/",
+            "PSA",
+        )
+
+
+def test_numeric_qr_requires_explicit_grader_hint() -> None:
+    with pytest.raises(ValueError):
+        parse_grading_qr_payload("590532")
+
+    parsed = parse_grading_qr_payload("590532", "ACE")
+    assert parsed["provider"] == "ACE"
+    assert parsed["certificate_number"] == "590532"
+    assert parsed["trusted_domain"] is False
+
+
+def test_provider_conflict_detection_blocks_grade_and_card_number_mismatch() -> None:
+    observation = GradingSlabObservation(
+        grader="PSA",
+        certificate_number="62398872",
+        grade="9",
+        card_name="Example",
+        card_number="OP01-001",
+        set_name="Example Set",
+        year="2024",
+        language="English",
+        label_lines=[],
+        confidence=0.98,
+    )
+    provider = normalize_psa_response(
+        "62398872",
+        {
+            "IsValidRequest": True,
+            "ServerMessage": "Request successful",
+            "PSACert": {
+                "CertNumber": "62398872",
+                "Subject": "Example",
+                "CardNumber": "OP01-002",
+                "CardGrade": "10",
+            },
+        },
+    )
+    assert grading_provider_conflicts(observation, provider) == [
+        "GRADE_CONFLICT",
+        "CARD_NUMBER_CONFLICT",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_slab_scan_keeps_psa_unconfigured_as_reviewable_evidence(monkeypatch) -> None:
+    async def fake_observe(*_args, **_kwargs):
+        return GradingSlabObservation(
+            grader="PSA",
+            certificate_number="62398872",
+            grade="9",
+            card_name="Monkey D. Luffy",
+            card_number="ST10-006",
+            set_name="Promotion Cards",
+            year="2024",
+            language="English",
+            label_lines=["PSA", "62398872"],
+            confidence=0.99,
+        )
+
+    monkeypatch.setattr(
+        "app.grading_certificates.observe_graded_slab",
+        fake_observe,
+    )
+    result = await scan_graded_slab(
+        "data:image/jpeg;base64,unused-by-mock",
+        settings=_settings(psa_public_api_token=None),
+    )
+
+    assert result["normalized_provider"] == "PSA"
+    assert result["normalized_certificate"] == "62398872"
+    assert result["provider_error"] == "PROVIDER_NOT_CONFIGURED"
+    assert result["catalogue_search_seed"] == "ST10-006"
+    assert result["requires_human_confirmation"] is True
+    assert result["auto_mutates_inventory"] is False
+
+
+def test_catalogue_search_seed_prefers_verified_provider_card_number() -> None:
+    observation = GradingSlabObservation(
+        grader="PSA",
+        certificate_number="62398872",
+        grade="10",
+        card_name="Visible Name",
+        card_number="OCR-001",
+        set_name="Visible Set",
+        year="2024",
+        language="English",
+        label_lines=[],
+        confidence=0.9,
+    )
+    provider = normalize_psa_response(
+        "62398872",
+        {
+            "IsValidRequest": True,
+            "ServerMessage": "Request successful",
+            "PSACert": {
+                "CertNumber": "62398872",
+                "CardNumber": "OP11-118",
+                "Subject": "Monkey D. Luffy",
+                "CardGrade": "10",
+            },
+        },
+    )
+    assert grading_catalogue_search_seed(observation, provider) == "OP11-118"

@@ -1,6 +1,25 @@
 # Drop Rate — Live Build Status
 
 
+## 2026-10-01 — Graded Slab scanner + QR/certificate intake in progress
+
+- Explicit founder approval reopened the bounded graded-slab scanner slice.
+- Seller Hub scanner now has separate **Raw Card** and **Graded Slab** modes; Raw Card keeps the existing recognition engine unchanged.
+- Graded Slab mode is **QR-first** where the browser exposes native QR detection, with slab-photo/label OCR as the fallback.
+- QR payloads are accepted only from supported official grader domains (PSA / ACE / CGC / Beckett) or as a clean numeric payload with an explicitly selected grader. Unknown domains fail closed.
+- The backend slab reader extracts grader, certificate, grade, card name/number, set, year and language as visible evidence only.
+- Provider evidence is compared against visible slab-label evidence; grade/card-number conflicts block intake for review.
+- PSA can perform automatic provider verification once `TCG_PSA_PUBLIC_API_TOKEN` is configured. PSA's current Public API requires an account-generated bearer token; no unrelated secret is reused.
+- ACE / CGC / Beckett remain routed to official verification/manual review until approved machine access exists.
+- Graded card confirmation searches the canonical Drop Rate catalogue and requires the seller to confirm the exact card before creating inventory.
+- Added a dedicated server-side graded-certificate intake path. It re-runs provider verification server-side, never trusts a client claim of verification, and creates only `DRAFT` / `identity_confirmed=false` inventory pending Drop Rate review.
+- Live pre-migration read-back found **8** graded inventory items with certificate numbers and **0 duplicate grader+certificate pairs**.
+- Added a database uniqueness migration so one grader+certificate cannot create duplicate physical Inventory IDs.
+- No automatic Shopify publication, pricing override, ownership change, settlement action or external payout is introduced.
+- Production remains pending green CI, migration application/read-back and Railway deployment verification.
+
+
+
 ## 2026-10-01 — Unified grading certificate lookup gateway deployed
 
 - ✅ PR #465 merged as `32c5e63913ac9297b316b873de9b3d7ec98703be`.
