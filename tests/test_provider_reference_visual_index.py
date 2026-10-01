@@ -80,7 +80,7 @@ async def test_provider_reference_visual_hint_is_retrieval_only() -> None:
     assert items[0]["visual_similarity"] == 0.965
     assert items[0]["visual_similarity_source"] == "provider_reference_index"
     assert items[0]["exact_printing_verified"] is False
-    assert FINGERPRINT_VERSION in INDEX.read_text()
+    assert "from .recognition_reference_index import FINGERPRINT_VERSION" in INDEX.read_text()
     assert "recognition_provider_reference_visual_hints" in connection.calls[0][0]
 
 
