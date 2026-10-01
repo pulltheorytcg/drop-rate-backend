@@ -1418,14 +1418,11 @@ async def owner_recognition_intake(
         )
         if catalogue is None:
             raise HTTPException(status_code=404, detail="Catalogue product not found")
-        if catalogue["product_type"] != "CARD":
-            raise HTTPException(status_code=422, detail="Seller scan intake currently supports cards only")
-
         try:
             validate_physical_state(
                 product_type=catalogue["product_type"],
                 condition=payload.condition,
-                seal_status=None,
+                seal_status=payload.seal_status,
                 grading_company=payload.grading_company,
                 grade=payload.grade,
                 certificate_number=payload.certificate_number,
