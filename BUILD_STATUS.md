@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Native iPhone Seller Hub in progress
+
+- Added a SwiftUI iOS 17 client, Xcode project, native camera, device-only Keychain sessions, portfolio grid, TCG browsing/search, profile editing and reviewed/idempotent card intake.
+- Added restricted read-only mobile catalogue/game routes with parameterized filters and existing media rights gates.
+- Card/slab flows connect to existing APIs; comic modes currently perform OCR only because comic catalogue/intake is not implemented. Certificate text extraction is not grader verification.
+- Release is not complete: see `ios/README.md` for device validation, comic support, provider verification, App Store icon/privacy, Apple signing and TestFlight prerequisites. No production deployment or signed iPhone release is claimed.
+
 ## 2026-10-01 — Seller Hub email-or-username login
 
 - Added real **email or username** password sign-in for Seller Hub while keeping Supabase Auth as the credential authority.
