@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Scan latency improvements (implementation; not deployed)
+
+- Measured production timings: AI vision dominates (19.90 seconds on average across 11 timed runs).
+- Overlap catalogue-image/learning enrichment with provider-image work; retain all recognition gates and await complete evidence. Add failure/cancellation regression tests.
+- Mobile photo preparation caps the longest edge at 1,500 pixels without upscaling. See `docs/RECOGNITION_VISION_LATENCY.md` for sample limits and outstanding real-device/model acceptance.
+
+
 
 ## 2026-10-01 — Shared Android / iPhone client (local preview, not deployed)
 

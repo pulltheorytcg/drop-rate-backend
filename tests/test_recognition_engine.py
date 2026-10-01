@@ -1468,7 +1468,7 @@ def test_v14_parallel_evidence_work_and_stage_timing_are_wired_without_gate_chan
     engine = ENGINE.read_text()
 
     assert "provider_result, learning_hints, library_items, provider_visual_hints = await asyncio.gather(" in api
-    assert "candidates, _ = await asyncio.gather(" in api
+    assert "candidates = await complete_visual_evidence(" in api
     assert '"provider_discovery"' in api
     assert '"learning_hints"' in api
     assert '"catalogue_lookup"' in api

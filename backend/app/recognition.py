@@ -31,6 +31,7 @@ from .recognition_engine import (
     resolve_candidates,
     visual_work_short_circuit_reason,
 )
+from .recognition_pipeline import complete_visual_evidence
 from .recognition_images import (
     RecognitionImageError,
     decode_image_data_url,
@@ -1308,45 +1309,44 @@ async def recognize_card(
                 ],
             )
 
-    # Provider-image hashing does not affect which catalogue rows are selected;
-    # it only enriches printing evidence. Run it beside catalogue I/O when exact
-    # resolution is still possible.
-    if visual_short_circuit:
-        timings_ms["provider_visual"] = 0.0
-        candidates = await _timed("catalogue_lookup", _load_candidates())
-    else:
-        candidates, _ = await asyncio.gather(
-            _timed("catalogue_lookup", _load_candidates()),
-            _timed(
-                "provider_visual",
-                attach_provider_visual_evidence(image.hashes, provider_items),
-            ),
-        )
+    async def _enrich_candidates(candidates):
+        attach_reference_candidate_hints(candidates, reference_hints)
 
-    attach_reference_candidate_hints(candidates, reference_hints)
+        async def _attach_learning_visual():
+            async with user_connection(
+                request.app.state.db_pool,
+                user.user_id,
+                request.state.request_id,
+            ) as connection:
+                await attach_learning_visual_evidence(
+                    connection, image.hashes, candidates,
+                )
 
-    # Prior human-verified TRAIN evidence remains active even when remote visual
-    # work is safely short-circuited. It is bounded and cannot clear hard gates.
-    async def _attach_learning_visual():
-        async with user_connection(
-            request.app.state.db_pool,
-            user.user_id,
-            request.state.request_id,
-        ) as connection:
-            await attach_learning_visual_evidence(
-                connection,
-                image.hashes,
-                candidates,
+        if visual_short_circuit:
+            timings_ms["catalogue_visual"] = 0.0
+            await _timed("learning_visual", _attach_learning_visual())
+        else:
+            await asyncio.gather(
+                _timed("catalogue_visual", attach_visual_evidence(image.hashes, candidates)),
+                _timed("learning_visual", _attach_learning_visual()),
             )
 
-    if visual_short_circuit:
-        timings_ms["catalogue_visual"] = 0.0
-        await _timed("learning_visual", _attach_learning_visual())
-    else:
-        await asyncio.gather(
-            _timed("catalogue_visual", attach_visual_evidence(image.hashes, candidates)),
-            _timed("learning_visual", _attach_learning_visual()),
-        )
+    async def _enrich_provider():
+        if visual_short_circuit:
+            timings_ms["provider_visual"] = 0.0
+        else:
+            await _timed(
+                "provider_visual", attach_provider_visual_evidence(image.hashes, provider_items),
+            )
+
+    # Catalogue image checks start as soon as catalogue lookup completes, without
+    # waiting for the independent provider-image branch. Resolve still waits for
+    # every evidence source; no exact-print checks or candidates are skipped.
+    candidates = await complete_visual_evidence(
+        lambda: _timed("catalogue_lookup", _load_candidates()),
+        _enrich_candidates,
+        _enrich_provider,
+    )
 
     resolve_started = time.perf_counter()
     resolved = resolve_candidates(

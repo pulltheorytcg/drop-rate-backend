@@ -6,6 +6,7 @@ import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { randomUUID } from "expo-crypto";
 import { useFocusEffect } from "expo-router";
 import { useSession } from "../../../lib/session";
+import { captureSize } from "../../../lib/capture";
 import { errorMessage } from "../../../lib/api";
 import {
   cataloguePath,
@@ -96,9 +97,10 @@ export default function Scan() {
     setCondition("");
     setSeal("");
   }
-  async function prepare(uri: string) {
+  async function prepare(uri: string, width: number, height: number) {
     const context = ImageManipulator.manipulate(uri);
-    context.resize({ width: 1500, height: null });
+    const size = captureSize(width, height);
+    if (size.width !== width || size.height !== height) context.resize(size);
     const rendered = await context.renderAsync();
     const image = await rendered.saveAsync({
       format: SaveFormat.JPEG,
@@ -138,7 +140,12 @@ export default function Scan() {
         quality: 1,
         allowsMultipleSelection: false,
       });
-      if (!pick.canceled) await prepare(pick.assets[0].uri);
+      if (!pick.canceled)
+        await prepare(
+          pick.assets[0].uri,
+          pick.assets[0].width,
+          pick.assets[0].height,
+        );
     });
   const capture = () =>
     run(async () => {
@@ -148,7 +155,7 @@ export default function Scan() {
       });
       if (!image)
         throw new Error("The camera did not return a photo. Please try again.");
-      await prepare(image.uri);
+      await prepare(image.uri, image.width, image.height);
     });
   const identify = () =>
     run(async () => {

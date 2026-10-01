@@ -33,7 +33,7 @@ The shared mobile theme follows the existing browser portals: pale backgrounds, 
 - Existing backend email/username/password sign-in and server-verified OWNER / PLATFORM_ADMIN access, single-flight token refresh and device-only session storage. No role is inferred from editable user metadata.
 - Seller home totals and paginated inventory, search/status filters, exact-copy item details, account name/username updates, financial summary, sales and payout history.
 - Founder home readiness counts, own-account inventory, version-checked cost/store-price/notes editing and paginated Action Required queue. This does not expand an administrator's existing owner scope.
-- Rear camera with torch and permission recovery, photo picker, JPEG normalization, explicit upload for recognition, human match review, catalogue correction and guarded materialization of previously unmapped provider card references.
+- Rear camera with torch and permission recovery, photo picker, JPEG normalization capped at 1,500 pixels on the longest edge without upscaling, explicit upload for recognition, human match review, catalogue correction and guarded materialization of previously unmapped provider card references.
 - Explicit physical condition / seal-state selection. Human feedback is recorded before draft intake. Founder intake remains `identity_confirmed=false`; seller intake uses the existing restricted endpoint.
 - Account-bound immutable pending intake, persisted before transmission, retrying the same request key and payload after uncertain failure. New scans are blocked while an uncertain save remains. Permanent validation/permission rejections clear the queue; conflicts/timeouts/server failures remain recoverable.
 - A backend change, migration, Supabase key, Shopify token, Stripe token or production deployment is not required for this client slice.
@@ -71,7 +71,7 @@ Native `ios/` and `android/` directories are generated and ignored. Change `app.
 ## Validation performed, 1 October 2026
 
 - TypeScript and Expo ESLint passed.
-- 24 automated tests passed: role routing, owner mismatch, secure-storage failure, token refresh concurrency, unauthorized retry, invalid refresh, logout during refresh, session changes during pending reads/save cleanup, concurrent save retries, uncertain save replay across restart, conflict/validation handling, duplicate submissions, provider materialization, physical-state contracts and minor-unit values.
+- 27 automated tests passed: role routing, owner mismatch, secure-storage failure, token refresh concurrency, unauthorized retry, invalid refresh, logout during refresh, session changes during pending reads/save cleanup, concurrent save retries, uncertain save replay across restart, conflict/validation handling, duplicate submissions, provider materialization, physical-state contracts and minor-unit values.
 - Production JS/Hermes bundles exported successfully for Android and iOS; web bundle exported successfully.
 - Both native projects generated with `expo prebuild --no-install`; camera/photo permission configuration inspected. Microphone recording permission is blocked.
 - Browser walkthrough at 390×844: seller demo, recognition selection, condition and human-confirmation gates, draft save, seller financials, logout, admin demo and Action Required. Demo execution never wrote to the live database.
