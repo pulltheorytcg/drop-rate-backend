@@ -1,6 +1,23 @@
 # Drop Rate — Live Build Status
 
 
+## 2026-10-01 — Unified grading certificate lookup gateway in progress
+
+- Explicit founder approval reopened this bounded graded-recognition slice.
+- Added one authenticated FastAPI certificate gateway for PSA, ACE, CGC, BGS, BVG and BCCG.
+- **PSA** uses the documented PSA Public API `GET cert/GetByCertNumber/{cert}` when a dedicated `TCG_PSA_PUBLIC_API_TOKEN` is configured.
+- PSA lookup never reuses `TCG_PARSE_API_KEY`; missing/invalid provider configuration fails closed.
+- **ACE / CGC / Beckett** are first-class provider adapters but currently return `MANUAL_VERIFICATION_REQUIRED` with official verification destinations because no approved/documented machine API has been established for Drop Rate.
+- The normalized result contains provider/cert, verification state, card identity evidence, grade, language/printing evidence and exact provider media URLs where returned.
+- The gateway is evidence-only: it cannot mutate canonical identity, inventory, pricing, ownership, settlements or Shopify publication.
+- Added regression tests for provider aliases, cert validation, PSA normalization, missing-token isolation, upstream failure handling and manual-provider fail-closed behavior.
+- Railway inspection clarified service roles:
+  - `psa-fetch-batch` is the actual PSA prototype;
+  - `psa-cert-lookup-temp` is currently a misnamed Dragon Ball/CardTrader media diagnostic, **not** a PSA cert service.
+- Production activation still requires green CI/merge/deploy and a dedicated PSA Public API token before PSA can report automated verification.
+
+
+
 ## 2026-10-01 — Grading certificate lookup infrastructure clarified
 
 - **PSA certificate lookup is required production recognition infrastructure, not disposable diagnostic tooling.**
