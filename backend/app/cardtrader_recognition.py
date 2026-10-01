@@ -422,6 +422,23 @@ async def discover_one_piece_cardtrader_sealed_candidates(
         game_id=game_id,
         max_expansions=max_expansions,
     )
+    observed_product_codes = _set_code_keys(observation.product_code)
+    if observed_product_codes and observation.product_code_confidence >= 0.80:
+        selected = [
+            (expansion, score)
+            for expansion, score in selected
+            if not (
+                _set_code_keys(expansion.get("code"))
+                | _set_code_keys(expansion.get("name"))
+            )
+            or bool(
+                observed_product_codes
+                & (
+                    _set_code_keys(expansion.get("code"))
+                    | _set_code_keys(expansion.get("name"))
+                )
+            )
+        ]
     if not selected:
         return []
 
