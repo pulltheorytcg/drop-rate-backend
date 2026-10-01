@@ -347,3 +347,17 @@ Until that token is configured:
 - slab-label OCR still works;
 - canonical catalogue confirmation still works;
 - automated PSA provider verification reports unavailable and the item remains review-gated.
+
+
+## Production verification — 1 October 2026
+
+The graded slab scanner slice is deployed.
+
+- PR #467: `63ebf616b890b5808435d08036196d35376ef71d`
+- migration-history alignment PR #468: `baf8c2ecd9fa7a44cbca7ce7e4fcb9a2f3762edd`
+- Supabase migration: `20261001034809_unique_graded_certificate`
+- Railway deployment: `c48b589b-a751-4bb8-8b96-8d8b5df52354` — SUCCESS
+- production pre-deploy: **2,236 tests passed**
+- readiness: `GET /health/ready` → **200 OK**
+
+Automated PSA provider verification remains fail-closed until an account-generated PSA Public API bearer token is configured as `TCG_PSA_PUBLIC_API_TOKEN`. QR parsing, slab-label OCR, canonical catalogue confirmation and review-gated graded intake remain usable without falsely claiming PSA verification.
