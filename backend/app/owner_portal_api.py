@@ -62,6 +62,7 @@ class OwnerRecognitionIntakeRequest(BaseModel):
     recognition_run_id: UUID
     selected_catalogue_id: UUID
     condition: str | None = Field(default=None, max_length=80)
+    seal_status: str | None = Field(default=None, max_length=20)
     grading_company: str | None = Field(default=None, max_length=40)
     grade: str | None = Field(default=None, max_length=40)
     certificate_number: str | None = Field(default=None, max_length=120)
@@ -70,6 +71,7 @@ class OwnerRecognitionIntakeRequest(BaseModel):
     @model_validator(mode="after")
     def validate_physical_details(self) -> "OwnerRecognitionIntakeRequest":
         self.condition = self.condition.strip() if self.condition else None
+        self.seal_status = self.seal_status.strip().upper() if self.seal_status else None
         self.grading_company = self.grading_company.strip() if self.grading_company else None
         self.grade = self.grade.strip() if self.grade else None
         self.certificate_number = self.certificate_number.strip() if self.certificate_number else None
@@ -79,8 +81,17 @@ class OwnerRecognitionIntakeRequest(BaseModel):
             raise ValueError("grading_company and grade must both be set or both cleared")
         if self.certificate_number and not self.grading_company:
             raise ValueError("certificate_number requires grading_company and grade")
-        if self.condition is None and self.grading_company is None:
-            raise ValueError("Choose a raw-card condition or provide grading company and grade")
+        if self.seal_status not in {None, "SEALED", "UNSEALED"}:
+            raise ValueError("seal_status must be SEALED or UNSEALED")
+        if self.seal_status and (
+            self.condition is not None
+            or self.grading_company is not None
+            or self.grade is not None
+            or self.certificate_number is not None
+        ):
+            raise ValueError("Sealed-product intake must not include card condition or grading fields")
+        if self.condition is None and self.grading_company is None and self.seal_status is None:
+            raise ValueError("Choose a raw-card condition, provide grading details, or provide seal status")
         return self
 
 
