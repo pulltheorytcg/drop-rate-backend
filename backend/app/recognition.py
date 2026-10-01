@@ -650,10 +650,13 @@ async def recognize_card(
         model=settings.recognition_model,
     )
     try:
-        observation, reference_hints = await asyncio.gather(
-            _timed("vision", vision.observe(payload.image_data_url)),
+        vision_result, reference_hints = await asyncio.gather(
+            _timed("vision", vision.observe_with_telemetry(payload.image_data_url)),
             _timed("reference_retrieval", _load_reference_hints()),
         )
+        observation = vision_result.observation
+        vision_telemetry = vision_result.telemetry.to_dict()
+        timings_ms["vision_provider_http"] = vision_result.telemetry.request_ms
     except RecognitionVisionError as exc:
         async with user_connection(
             request.app.state.db_pool,
@@ -910,6 +913,7 @@ async def recognize_card(
                         "items": provider_items,
                         "errors": provider_result.get("errors", []),
                         "reference_index_hints": reference_hints,
+                        "vision_telemetry": vision_telemetry,
                         "timings_ms": timings_ms,
                         "visual_short_circuit_reason": visual_short_circuit,
                         "reference_fingerprint_cache": "TTL_LRU_POSITIVE_ONLY",

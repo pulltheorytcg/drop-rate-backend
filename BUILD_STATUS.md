@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Recognition vision transport/telemetry refinement in progress
+
+- Started the next recognition-quality refinement from measured production timings rather than changing scoring heuristics.
+- Live evidence shows the external vision call dominates scan latency while deterministic resolution is already approximately millisecond-scale.
+- Recognition vision now reuses a bounded worker-level HTTP keep-alive client instead of creating a fresh client/connection for every scan.
+- Added provider request/token telemetry (request ms, response/model IDs, input/output/total/cached/reasoning token counts where supplied) to the existing recognition evidence/timing record.
+- Request semantics are intentionally unchanged: same model, prompt, structured schema, HIGH image detail, token ceiling, engine version, thresholds and hard gates.
+- No vision-result cache is introduced; transport reuse cannot cross-contaminate card observations.
+- Regression coverage verifies the outgoing request contract, transport reuse/shutdown and telemetry persistence.
+- Production deployment/measurement remains pending CI + review + merge.
+
+
 ## 2026-10-01 — eBay shipping fulfilment read-before-write foundation
 
 - Added strict pure helpers for tracked eBay shipping package identity and future retry idempotency.

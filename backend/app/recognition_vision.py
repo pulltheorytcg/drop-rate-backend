@@ -1,11 +1,114 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
+from dataclasses import dataclass
+from threading import Lock
 from typing import Any, Literal, Mapping
 
 import httpx
 from pydantic import BaseModel, Field, model_validator
 from .recognition_games import SYSTEM_BY_GAME
+
+
+logger = logging.getLogger(__name__)
+
+_SHARED_HTTP_CLIENT: httpx.AsyncClient | None = None
+_SHARED_HTTP_CLIENT_LOCK = Lock()
+
+
+def _shared_http_client() -> httpx.AsyncClient:
+    """Reuse keep-alive connections across recognition scans in one API worker."""
+    global _SHARED_HTTP_CLIENT
+    with _SHARED_HTTP_CLIENT_LOCK:
+        if _SHARED_HTTP_CLIENT is None or _SHARED_HTTP_CLIENT.is_closed:
+            _SHARED_HTTP_CLIENT = httpx.AsyncClient(
+                limits=httpx.Limits(
+                    max_connections=20,
+                    max_keepalive_connections=10,
+                    keepalive_expiry=60.0,
+                )
+            )
+        return _SHARED_HTTP_CLIENT
+
+
+async def close_shared_vision_http_client() -> None:
+    """Close the worker-level transport during FastAPI shutdown."""
+    global _SHARED_HTTP_CLIENT
+    with _SHARED_HTTP_CLIENT_LOCK:
+        client = _SHARED_HTTP_CLIENT
+        _SHARED_HTTP_CLIENT = None
+    if client is not None and not client.is_closed:
+        await client.aclose()
+
+
+def _optional_int(value: object) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+@dataclass(frozen=True, slots=True)
+class RecognitionVisionTelemetry:
+    request_ms: float
+    response_id: str | None
+    response_model: str | None
+    input_tokens: int | None
+    output_tokens: int | None
+    total_tokens: int | None
+    cached_input_tokens: int | None
+    reasoning_tokens: int | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "request_ms": self.request_ms,
+            "response_id": self.response_id,
+            "response_model": self.response_model,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "total_tokens": self.total_tokens,
+            "cached_input_tokens": self.cached_input_tokens,
+            "reasoning_tokens": self.reasoning_tokens,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class RecognitionVisionResult:
+    observation: "RecognitionObservation"
+    telemetry: RecognitionVisionTelemetry
+
+
+def _telemetry_from_response(
+    payload: Mapping[str, Any],
+    *,
+    request_ms: float,
+) -> RecognitionVisionTelemetry:
+    usage = payload.get("usage")
+    usage_map = usage if isinstance(usage, Mapping) else {}
+    input_details = usage_map.get("input_tokens_details")
+    input_details_map = input_details if isinstance(input_details, Mapping) else {}
+    output_details = usage_map.get("output_tokens_details")
+    output_details_map = output_details if isinstance(output_details, Mapping) else {}
+    return RecognitionVisionTelemetry(
+        request_ms=round(float(request_ms), 2),
+        response_id=(
+            str(payload.get("id")).strip()
+            if payload.get("id") is not None
+            else None
+        ),
+        response_model=(
+            str(payload.get("model")).strip()
+            if payload.get("model") is not None
+            else None
+        ),
+        input_tokens=_optional_int(usage_map.get("input_tokens")),
+        output_tokens=_optional_int(usage_map.get("output_tokens")),
+        total_tokens=_optional_int(usage_map.get("total_tokens")),
+        cached_input_tokens=_optional_int(input_details_map.get("cached_tokens")),
+        reasoning_tokens=_optional_int(output_details_map.get("reasoning_tokens")),
+    )
 
 
 class RecognitionVisionError(RuntimeError):
@@ -273,6 +376,7 @@ class OpenAIRecognitionVisionClient:
         model: str,
         timeout_seconds: float = 45.0,
         base_url: str = "https://api.openai.com/v1",
+        http_client: httpx.AsyncClient | None = None,
     ) -> None:
         if not api_key.strip():
             raise ValueError("OpenAI API key is required")
@@ -282,12 +386,20 @@ class OpenAIRecognitionVisionClient:
         self._model = model.strip()
         self._base_url = base_url.rstrip("/")
         self._timeout = httpx.Timeout(timeout_seconds)
+        self._http_client = http_client
 
     @property
     def model(self) -> str:
         return self._model
 
     async def observe(self, image_data_url: str) -> RecognitionObservation:
+        result = await self.observe_with_telemetry(image_data_url)
+        return result.observation
+
+    async def observe_with_telemetry(
+        self,
+        image_data_url: str,
+    ) -> RecognitionVisionResult:
         body = {
             "model": self._model,
             "store": False,
@@ -314,16 +426,18 @@ class OpenAIRecognitionVisionClient:
             },
             "max_output_tokens": 1800,
         }
+        request_started = time.perf_counter()
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.post(
-                    f"{self._base_url}/responses",
-                    json=body,
-                    headers={
-                        "Authorization": f"Bearer {self._api_key}",
-                        "Content-Type": "application/json",
-                    },
-                )
+            client = self._http_client or _shared_http_client()
+            response = await client.post(
+                f"{self._base_url}/responses",
+                json=body,
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                timeout=self._timeout,
+            )
         except httpx.TimeoutException as exc:
             raise RecognitionVisionError(
                 "Recognition vision request timed out",
@@ -353,10 +467,24 @@ class OpenAIRecognitionVisionClient:
                 retryable=True,
             )
 
+        request_ms = (time.perf_counter() - request_started) * 1000
         try:
             payload = response.json()
         except ValueError as exc:
             raise RecognitionVisionError("Recognition vision returned invalid JSON") from exc
+
+        telemetry = _telemetry_from_response(payload, request_ms=request_ms)
+        logger.info(
+            "Recognition vision provider request_ms=%s response_id=%s model=%s "
+            "input_tokens=%s output_tokens=%s cached_input_tokens=%s reasoning_tokens=%s",
+            telemetry.request_ms,
+            telemetry.response_id,
+            telemetry.response_model,
+            telemetry.input_tokens,
+            telemetry.output_tokens,
+            telemetry.cached_input_tokens,
+            telemetry.reasoning_tokens,
+        )
 
         text = _output_text(payload)
         if not text:
@@ -364,7 +492,10 @@ class OpenAIRecognitionVisionClient:
 
         try:
             parsed = json.loads(text)
-            return RecognitionObservation.model_validate(parsed)
+            return RecognitionVisionResult(
+                observation=RecognitionObservation.model_validate(parsed),
+                telemetry=telemetry,
+            )
         except (json.JSONDecodeError, ValueError) as exc:
             raise RecognitionVisionError(
                 "Recognition vision response failed schema validation"
