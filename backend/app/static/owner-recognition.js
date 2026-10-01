@@ -1955,10 +1955,13 @@ function ownerBatchRenderReview() {
   }
 
   const condition = byId("owner-batch-condition").value;
+  const needsCardCondition = items.some(
+    (item) => item.status !== "added" && !ownerBatchIsSealed(item)
+  );
   byId("owner-batch-add-all").disabled =
     !items.length
     || unresolved > 0
-    || !condition
+    || (needsCardCondition && !condition)
     || items.every((item) => item.status === "added");
 }
 
@@ -1982,7 +1985,7 @@ async function ownerBatchResume() {
 async function ownerBatchEnsureFeedback(item) {
   if (item.feedbackOutcome) return;
   if (!item.runId || !item.selected?.catalogue_id) {
-    throw new Error("This card still needs a confirmed identity.");
+    throw new Error("This item still needs a confirmed identity.");
   }
   const topCatalogueId = item.run?.top_catalogue_id;
   const outcome = item.selected.catalogue_id === topCatalogueId
@@ -2004,13 +2007,16 @@ async function ownerBatchAddAll() {
   const items = state.ownerRecognition.batch.items;
   const unresolved = ownerBatchUnresolvedCount();
   const message = byId("owner-batch-review-message");
-  if (!condition) {
-    message.textContent = "Choose the default condition for this batch.";
+  const needsCardCondition = items.some(
+    (item) => item.status !== "added" && !ownerBatchIsSealed(item)
+  );
+  if (needsCardCondition && !condition) {
+    message.textContent = "Choose the default condition for the raw cards in this batch.";
     message.className = "owner-card-message error";
     return;
   }
   if (unresolved) {
-    message.textContent = `Fix ${unresolved} unresolved ${unresolved === 1 ? "card" : "cards"} before adding the batch.`;
+    message.textContent = `Fix ${unresolved} unresolved ${unresolved === 1 ? "item" : "items"} before adding the batch.`;
     message.className = "owner-card-message error";
     return;
   }
@@ -2029,13 +2035,15 @@ async function ownerBatchAddAll() {
       const language = item.selected?.manual_search
         ? item.selected.language
         : ownerBatchCandidateSnapshot(item.selected).language;
+      const sealed = ownerBatchIsSealed(item);
       const data = await apiRequest("/api/v1/owner/recognition-intake", {
         method: "POST",
         headers: {"Idempotency-Key": item.intakeKey},
         body: JSON.stringify({
           recognition_run_id: item.runId,
           selected_catalogue_id: item.selected.catalogue_id,
-          condition,
+          condition: sealed ? null : condition,
+          seal_status: sealed ? "SEALED" : null,
           grading_company: null,
           grade: null,
           certificate_number: null,
