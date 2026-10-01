@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — DR-43 Competitive Intelligence workflow built inactive
+
+- Added source-controlled `DR43CompetitiveIntelligenceShadowV1` as the reusable n8n shadow-ingestion workflow for Competitive Intelligence.
+- Registry sequence 43 moves from PLANNED → **BUILT_INACTIVE**; authority remains OBSERVE.
+- DR-43 accepts only normalized observation JSON from future approved collectors, validates/reconstructs the payload, signs it with the existing automation command secret and calls the production provenance-hardened shadow-ingestion FastAPI contract.
+- Success requires an explicit SHADOW/no-external-action response plus exact result-count/dedupe-key verification.
+- Durable successes route through DR-91; workflow failures route through DR-90.
+- No external website/social/news source is collected by V1, no new secret is introduced and no hard-coded backend hostname is used.
+- The additive n8n startup provisioner may import the workflow by stable ID, but the JSON is `active:false`; activation remains blocked by founder-approved sources, source-specific terms review, controlled duplicate/retry proof and the Phase 3 stability gate.
+- Production import/read-back remains pending CI + merge + Railway n8n deployment verification.
+
 ## 2026-10-01 — Competitive Intelligence shadow-ingestion provenance hardening
 
 - Built on the production-verified #454/#458 signed shadow-ingestion baseline.
