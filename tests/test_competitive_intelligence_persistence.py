@@ -226,3 +226,26 @@ def test_hardening_migration_is_additive_and_non_destructive() -> None:
     assert "drop table" not in sql
     assert "delete from" not in sql
     assert "truncate" not in sql
+
+
+def test_metrics_are_normalized_to_database_precision_before_replay() -> None:
+    source = API.read_text()
+    assert "def _normalize_metric" in source
+    assert 'return round(float(value), 5)' in source
+    assert '@field_validator("confidence", "relevance")' in source
+    assert '@field_validator("qualification_threshold")' in source
+
+
+def test_qualification_contract_is_separate_from_lifecycle_state() -> None:
+    source = API.read_text()
+    sql = HARDENING_MIGRATION.read_text()
+    assert "qualification_state text not null" in sql
+    assert "competitive_opportunities_qualification_immutable" in sql
+    assert "Competitive intelligence qualification contract is immutable" in sql
+    assert 'existing["qualification_state"] == decision.state' in source
+    assert 'existing["state"] == decision.state' not in source
+
+
+def test_revoked_evidence_blocks_new_qualification_but_not_historical_replay() -> None:
+    source = API.read_text()
+    assert "if existing is None and any(" in source
