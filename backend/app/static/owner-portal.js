@@ -207,7 +207,6 @@ function renderInventoryCards(items) {
       [item.product_type === "SEALED" ? "Seal" : "Condition", conditionLabel(item)],
       ["Language", safeText(item.language)],
       ["Type", inventoryTypeLabel(item)],
-      ["Identity", item.identity_confirmed ? "Verified" : "Review"],
       ["Game", safeText(item.game)],
       ["Inventory", safeText(item.inventory_code)],
     ];
