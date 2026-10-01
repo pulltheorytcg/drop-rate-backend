@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence signed shadow ingestion
+
+- Building the safe n8n → FastAPI → Postgres ingress path for DR-43 before any external collector is activated.
+- Added a signed HMAC automation endpoint for bounded Competitive Intelligence observation batches; it uses the existing automation command secret and no browser/founder session.
+- Added a SECURITY DEFINER database primitive that re-checks APPROVED competitor, ACTIVE source, REVIEWED automated-source terms and canonical rights state before every SYSTEM observation insert.
+- MANUAL_REVIEW sources are explicitly barred from SYSTEM ingestion.
+- Observation rights/source identity are database-derived; n8n cannot override them.
+- Strict dedupe behavior treats identical replay as success and changed-content reuse of a dedupe key as a conflict.
+- Accepted rows remain immutable/audited and the response is explicitly SHADOW with no external action.
+- No external fetcher, n8n collector activation, Shopify/eBay mutation, price change, inventory change, purchase or finance action is included.
+- Production migration/deploy remains pending CI + merge + Supabase/Railway verification.
+
 ## 2026-10-01 — Competitive Intelligence hardening production verification
 
 - ✅ PR #445 merged and the forward-only replay/evidence hardening migration was applied successfully to Supabase.
