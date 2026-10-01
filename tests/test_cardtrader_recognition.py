@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from app.cardtrader_client import CardTraderApiError
 from app.cardtrader_recognition import discover_one_piece_cardtrader_candidates
 from app.recognition_engine import _provider_only_candidates, _provider_support
@@ -114,6 +116,7 @@ class FakeCardTrader:
         ]
 
 
+@pytest.mark.asyncio
 async def test_cardtrader_one_piece_retrieves_exact_number_single_without_booster() -> None:
     rows = await discover_one_piece_cardtrader_candidates(
         observation(),
@@ -130,6 +133,7 @@ async def test_cardtrader_one_piece_retrieves_exact_number_single_without_booste
     assert row["image_url"].endswith("/garp-op12-056.jpg")
 
 
+@pytest.mark.asyncio
 async def test_cardtrader_one_piece_fails_closed_without_relevant_expansion() -> None:
     rows = await discover_one_piece_cardtrader_candidates(
         observation(
