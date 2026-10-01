@@ -1,6 +1,27 @@
 # Drop Rate — Live Build Status
 
 
+## 2026-10-01 — New-card scanner regression repair in progress
+
+- Live production investigation of the owner's failed scans isolated **two distinct raw-card failures** rather than a camera/upload outage.
+- Two recognition runs failed at the vision boundary with `VISION_PROVIDER_ERROR: Recognition vision response failed schema validation`.
+- A later scan correctly identified Japanese **Trafalgar Law OP05-069** with a ~0.93 provider-backed score, but every provider candidate had `catalogue_id = NULL`. The Seller Hub UI then filtered those candidates out, so a genuinely recognised new card appeared unusable.
+- Live catalogue read-back confirmed **OP05-069** and **OP12-056** are absent from `tcg.catalogue_products` / provider mappings even though the persisted One Piece reference library already contains those printings in English/Japanese.
+- Recognition engine version is bumped from **v1.6.0 → v1.6.1** so the same card image does not replay a cached v1.6.0 failed run after deployment.
+- Vision structured-output constraints now mirror the local Pydantic bounds, with bounded repair for numeric/list/text overflow. The repair never invents or changes card identity fields.
+- Seller Hub now shows safe unmapped provider candidates instead of discarding every result with no catalogue ID.
+- A human-confirmed **New to Drop Rate** path is added only for provider candidates that pass the existing exact threshold plus exact card-number/language and strong provider-identity gates with no OCR-number conflict.
+- Canonical creation is **not** granted directly through table RLS. A narrowly-scoped `SECURITY DEFINER` Postgres function independently revalidates current user, owner membership, run/candidate ownership, provider/reference identity and duplicate mappings, then creates:
+  - a CARD catalogue row;
+  - a `NEEDS_REVIEW` canonical profile;
+  - a human-verified provider mapping;
+  - the recognition-candidate link.
+- The new canonical row cannot auto-publish or self-approve. The seller still confirms the card again and normal inventory intake creates only a **DRAFT / identity_confirmed=false** physical copy.
+- No pricing, Shopify publication, ownership allocation, settlement or n8n behaviour changes in this repair.
+- Production deployment remains pending green CI, migration review/application, Supabase security read-back and Railway health verification.
+
+
+
 ## 2026-10-01 — Graded Slab scanner + QR/certificate intake in progress
 
 - Explicit founder approval reopened the bounded graded-slab scanner slice.
