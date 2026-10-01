@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "backend" / "app" / "recognition.py"
 ENGINE = ROOT / "backend" / "app" / "recognition_engine.py"
 INDEX = ROOT / "backend" / "app" / "recognition_provider_reference_index.py"
+BACKFILL = ROOT / "backend" / "app" / "provider_reference_index_backfill.py"
 MIGRATION = (
     ROOT
     / "database"
@@ -167,3 +168,14 @@ def test_card_pipeline_uses_visual_provider_retrieval_after_object_routing() -> 
     assert provider_discovery_index < visual_timing_index
     assert "provider_visual_hints" in api
     assert 'current["visual_similarity_source"] = "provider_reference_index"' in api
+
+
+def test_backfill_command_is_admin_gated_and_bounded() -> None:
+    source = BACKFILL.read_text()
+
+    assert "shopify_catalogue_bootstrap_actor_user_id" in source
+    assert 'owner["role"] != "PLATFORM_ADMIN"' in source
+    assert "_eligible_provider_reference_rows" in source
+    assert "fingerprint_provider_reference_rows" in source
+    assert "rebuild_provider_reference_index" in source
+    assert "args.limit < 1 or args.limit > 1000" in source
