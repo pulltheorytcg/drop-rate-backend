@@ -141,7 +141,12 @@ struct ScanReview: View {
             }
             try await API.shared.saveIntake(payload: pendingPayload!, key: saveKey)
             saved = true; message = "Saved as a draft. Your portfolio will refresh when you close the scanner."
-        } catch { message = error.localizedDescription }
+        } catch {
+            message = error.localizedDescription
+            if let apiError = error as? APIError, apiError.intakeWasRejectedBeforeWriting {
+                pendingPayload = nil
+            }
+        }
     }
 }
 

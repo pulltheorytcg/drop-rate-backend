@@ -53,4 +53,13 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(restored.key, pending.key)
         XCTAssertEqual(restored.payload, pending.payload)
     }
+    func testUncertainSaveFailuresMustRetainRetryKey() {
+        for code in [408, 409, 429, 500, 502, 503] {
+            XCTAssertFalse(APIError.response(code, "test").intakeWasRejectedBeforeWriting)
+        }
+        XCTAssertTrue(APIError.response(422, "Invalid grade").intakeWasRejectedBeforeWriting)
+    }
+    func testConflictingGraderLabelsAreNotGuessed() {
+        XCTAssertNil(LabelReading.parse(lines: ["PSA CGC BECKETT", "12345678"]).company)
+    }
 }

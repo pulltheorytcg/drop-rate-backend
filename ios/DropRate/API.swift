@@ -3,6 +3,10 @@ import Security
 
 enum APIError: LocalizedError {
     case response(Int, String), signedOut, invalidConfiguration, storage
+    var intakeWasRejectedBeforeWriting: Bool {
+        if case .response(let code, _) = self { return [400, 403, 404, 422].contains(code) }
+        return false
+    }
     var errorDescription: String? {
         switch self {
         case .response(_, let message): return message
@@ -80,8 +84,15 @@ actor API {
         let account = try intakeAccount()
         guard let data = SessionVault.read(account: account) else { return }
         let pending = try JSONDecoder().decode(PendingIntake.self, from: data)
-        _ = try await request("/api/v1/owner/recognition-intake", method: "POST", body: pending.payload, key: pending.key)
-        SessionVault.clear(account: account)
+        do {
+            _ = try await request("/api/v1/owner/recognition-intake", method: "POST", body: pending.payload, key: pending.key)
+            SessionVault.clear(account: account)
+        } catch let error as APIError {
+            // These are pre-write rejections in owner_recognition_intake. Timeouts,
+            // conflicts and server failures retain the key until reconciled.
+            if error.intakeWasRejectedBeforeWriting { SessionVault.clear(account: account) }
+            throw error
+        }
     }
     private func store(_ value: Session) throws {
         try SessionVault.write(JSONEncoder().encode(value)); session = value

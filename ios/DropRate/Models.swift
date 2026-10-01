@@ -129,7 +129,7 @@ struct LabelReading: Equatable {
         let companies = ["PSA", "BGS", "ACE", "CGC"].filter {
             text.range(of: "\\b\($0)\\b", options: .regularExpression) != nil
         }
-        let company = companies.count == 1 ? companies[0] : (text.contains("BECKETT") ? "BGS" : nil)
+        let company = companies.count == 1 ? companies[0] : (companies.isEmpty && text.contains("BECKETT") ? "BGS" : nil)
         // Preserve leading zeroes. Do not turn a grade, year or arbitrary URL into a cert.
         let expression = try! NSRegularExpression(pattern: "(?<![A-Z0-9])[0-9]{6,12}(?![A-Z0-9])")
         let numbers = Set(upper.flatMap { line in
