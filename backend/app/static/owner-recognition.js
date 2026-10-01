@@ -1454,6 +1454,15 @@ function ownerBatchCandidateSnapshot(candidate) {
   return candidate?.candidate_snapshot || {};
 }
 
+function ownerBatchIsSealed(item) {
+  const selected = item?.selected;
+  const snapshot = ownerBatchCandidateSnapshot(selected);
+  return snapshot.collectible_type === "SEALED"
+    || snapshot.product_type === "SEALED"
+    || selected?.collectible_type === "SEALED"
+    || selected?.product_type === "SEALED";
+}
+
 function ownerBatchSelectedName(item) {
   const selected = item.selected;
   const snapshot = ownerBatchCandidateSnapshot(selected);
@@ -1475,8 +1484,8 @@ function ownerBatchSelectedMeta(item) {
   return [
     snapshot.game,
     snapshot.set_name,
-    snapshot.card_number || snapshot.base_card_id,
-    snapshot.variant,
+    snapshot.product_code || snapshot.card_number || snapshot.base_card_id,
+    snapshot.sealed_product_type || snapshot.variant,
     snapshot.language,
   ].filter(Boolean).join(" · ");
 }
@@ -1632,7 +1641,7 @@ function ownerBatchRenderLatest() {
 function ownerBatchRender() {
   const items = state.ownerRecognition.batch.items;
   const unresolved = ownerBatchUnresolvedCount();
-  byId("owner-batch-count").textContent = `${items.length} ${items.length === 1 ? "card" : "cards"}`;
+  byId("owner-batch-count").textContent = `${items.length} ${items.length === 1 ? "item" : "items"}`;
   byId("owner-batch-total").textContent = formatMoney(ownerBatchReferenceTotal());
   byId("owner-batch-unresolved").textContent = String(unresolved);
   byId("owner-batch-unresolved-wrap").classList.toggle("hidden", unresolved === 0);
@@ -1681,8 +1690,9 @@ async function ownerBatchRecognise(dataUrl) {
       selected: autoRecognised ? top : null,
       suggested: top,
       status: autoRecognised ? "recognised" : "unresolved",
-      guess: observation.name_guess || top?.candidate_snapshot?.name || "Unresolved card",
-      searchSeed: observation.card_number || top?.candidate_snapshot?.card_number || "",
+      guess: observation.name_guess || top?.candidate_snapshot?.name || "Unresolved item",
+      searchSeed: observation.product_code || observation.card_number
+        || top?.candidate_snapshot?.product_code || top?.candidate_snapshot?.card_number || "",
       feedbackOutcome: null,
       intakeKey: crypto.randomUUID(),
       inventoryCode: null,
