@@ -22,6 +22,7 @@ from .access_control import require_platform_admin_request
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ebay_sell_client import EbaySellApiError, EbaySellClient
+from .ebay_reconciliation import reconcile_ebay_link
 from .ebay_seller_connection import (
     EbayEffectiveSellerConfig,
     load_effective_seller_config,
@@ -577,6 +578,145 @@ async def seller_status(
     except (EbaySellApiError, RuntimeError, ValueError) as exc:
         result["warning"] = getattr(exc, "detail", str(exc))
     return result
+
+
+@router.get("/reconciliation", dependencies=[Depends(require_platform_admin_request)])
+async def ebay_reconciliation(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    limit: int = Query(default=50, ge=1, le=50),
+) -> dict[str, Any]:
+    settings = get_settings()
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _owner(connection)
+        rows = await connection.fetch(
+            """
+            select
+                eil.id as link_id,
+                eil.inventory_id,
+                eil.sku,
+                eil.marketplace_id,
+                eil.offer_id,
+                eil.listing_id,
+                eil.state,
+                eil.listed_price_minor,
+                eil.last_error_code,
+                eil.last_verified_at,
+                i.inventory_code,
+                i.status as inventory_status,
+                i.sale_intent,
+                i.version as inventory_version
+            from tcg.ebay_inventory_links eil
+            join tcg.inventory_items i on i.id=eil.inventory_id
+            where eil.owner_id=$1
+            order by eil.updated_at desc, eil.id
+            limit $2
+            """,
+            owner["id"],
+            limit,
+        )
+
+    local_rows = [dict(row) for row in rows]
+    if not local_rows:
+        return {
+            "marketplace_id": settings.ebay_marketplace_id,
+            "checked": 0,
+            "healthy": 0,
+            "discrepancies": 0,
+            "provider_errors": 0,
+            "items": [],
+            "read_only": True,
+        }
+
+    try:
+        client, _effective = await seller_client(
+            request.app.state.db_pool, settings, owner_id=owner["id"]
+        )
+        await client.user_access_token()
+    except (EbaySellApiError, RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=getattr(exc, "detail", str(exc)),
+        ) from exc
+
+    semaphore = asyncio.Semaphore(4)
+
+    async def _check(local: dict[str, Any]) -> dict[str, Any]:
+        async with semaphore:
+            try:
+                offer_id = str(local.get("offer_id") or "").strip()
+                offer: dict[str, Any] | None = None
+                if offer_id:
+                    offer = await client.get_offer(offer_id)
+                else:
+                    offers = await client.get_offers(sku=str(local["sku"]))
+                    marketplace_offers = [
+                        item for item in offers
+                        if str(item.get("marketplaceId") or "")
+                        == str(local.get("marketplace_id") or "")
+                    ]
+                    if len(marketplace_offers) == 1:
+                        offer = marketplace_offers[0]
+                    elif len(marketplace_offers) > 1:
+                        return {
+                            "link_id": str(local["link_id"]),
+                            "inventory_id": str(local["inventory_id"]),
+                            "inventory_code": local["inventory_code"],
+                            "state": local["state"],
+                            "healthy": False,
+                            "discrepancies": ["REMOTE_MULTIPLE_OFFERS"],
+                            "provider_error": None,
+                            "remote": None,
+                        }
+
+                remote_inventory = await client.get_inventory_item(str(local["sku"]))
+                comparison = reconcile_ebay_link(
+                    local,
+                    offer=offer,
+                    inventory_item=remote_inventory,
+                )
+                return {
+                    "link_id": str(local["link_id"]),
+                    "inventory_id": str(local["inventory_id"]),
+                    "inventory_code": local["inventory_code"],
+                    "state": local["state"],
+                    "inventory_status": local["inventory_status"],
+                    "sale_intent": local["sale_intent"],
+                    "healthy": comparison["healthy"],
+                    "discrepancies": comparison["discrepancies"],
+                    "provider_error": None,
+                    "remote": comparison["remote"],
+                }
+            except EbaySellApiError as exc:
+                return {
+                    "link_id": str(local["link_id"]),
+                    "inventory_id": str(local["inventory_id"]),
+                    "inventory_code": local["inventory_code"],
+                    "state": local["state"],
+                    "healthy": False,
+                    "discrepancies": ["PROVIDER_READ_FAILED"],
+                    "provider_error": {
+                        "detail": exc.detail,
+                        "status_code": exc.status_code,
+                        "retryable": exc.retryable,
+                    },
+                    "remote": None,
+                }
+
+    items = await asyncio.gather(*[_check(row) for row in local_rows])
+    healthy_count = sum(1 for item in items if item["healthy"])
+    provider_errors = sum(1 for item in items if item.get("provider_error"))
+    return {
+        "marketplace_id": settings.ebay_marketplace_id,
+        "checked": len(items),
+        "healthy": healthy_count,
+        "discrepancies": len(items) - healthy_count,
+        "provider_errors": provider_errors,
+        "items": items,
+        "read_only": True,
+    }
 
 
 @router.post("/listings/{inventory_id}", dependencies=[Depends(require_platform_admin_request)])
