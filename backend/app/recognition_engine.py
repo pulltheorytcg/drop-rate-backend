@@ -5,6 +5,8 @@ import re
 from difflib import SequenceMatcher
 from typing import Any, Mapping
 
+from .cardtrader_client import CardTraderApiError, CardTraderClient
+from .cardtrader_recognition import discover_one_piece_cardtrader_candidates
 from .language import clean_language
 from .punk_records_client import PunkRecordsClient, PunkRecordsError
 from .recognition_images import hash_similarity, reference_image_hashes
@@ -1397,6 +1399,7 @@ async def discover_provider_evidence(
     *,
     tcgdex: TcgDexClient | None = None,
     punk: PunkRecordsClient | None = None,
+    cardtrader: CardTraderClient | None = None,
 ) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
@@ -1456,7 +1459,6 @@ async def discover_provider_evidence(
         and observation.language in {"English", "Japanese"}
         and (observation.card_number or observation.name_guess)
     ):
-        client = punk or PunkRecordsClient()
         provider_number = observation.card_number or None
         if (
             observation.card_number_confidence < 0.55
@@ -1466,12 +1468,13 @@ async def discover_provider_evidence(
             )
         ):
             # Keep the uncertain OCR value in the evidence model, but do not let
-            # it bias the provider shortlist away from stronger name/gameplay
-            # fingerprints. Exact-number conflict remains a review gate later.
+            # it bias provider shortlists away from stronger visual/gameplay clues.
             provider_number = None
-        try:
-            items.extend(
-                await client.find_candidates(
+
+        async def _punk_candidates() -> list[dict[str, Any]]:
+            client = punk or PunkRecordsClient()
+            try:
+                return await client.find_candidates(
                     language=observation.language,
                     card_number=provider_number,
                     name=observation.name_guess or None,
@@ -1481,31 +1484,59 @@ async def discover_provider_evidence(
                     colors=observation.colors,
                     limit=24,
                 )
-            )
-            enriched: list[dict[str, Any]] = []
-            for item in items:
-                identity = _provider_identity_fingerprint(observation, item)
-                item.update(identity)
-                enriched.append(item)
-            enriched.sort(
-                key=lambda item: (
-                    -max(
-                        float(item.get("identity_score") or 0.0),
-                        float(item.get("non_number_identity_score") or 0.0),
-                    ),
-                    -float(item.get("non_number_evidence_weight") or 0.0),
-                    str(item.get("provider_id") or ""),
+            except PunkRecordsError as exc:
+                errors.append(
+                    {
+                        "provider": "Punk Records",
+                        "reason": exc.detail,
+                        "retryable": exc.retryable,
+                    }
                 )
+                return []
+
+        async def _cardtrader_candidates() -> list[dict[str, Any]]:
+            if cardtrader is None:
+                return []
+            try:
+                return await discover_one_piece_cardtrader_candidates(
+                    observation,
+                    cardtrader,
+                )
+            except CardTraderApiError as exc:
+                errors.append(
+                    {
+                        "provider": "CardTrader",
+                        "reason": exc.detail,
+                        "retryable": exc.retryable,
+                    }
+                )
+                return []
+
+        punk_items, cardtrader_items = await asyncio.gather(
+            _punk_candidates(),
+            _cardtrader_candidates(),
+        )
+        items.extend(punk_items)
+        items.extend(cardtrader_items)
+
+        enriched: list[dict[str, Any]] = []
+        for item in items:
+            identity = _provider_identity_fingerprint(observation, item)
+            item.update(identity)
+            enriched.append(item)
+        enriched.sort(
+            key=lambda item: (
+                -max(
+                    float(item.get("identity_score") or 0.0),
+                    float(item.get("non_number_identity_score") or 0.0),
+                    float(item.get("retrieval_score") or 0.0),
+                ),
+                -float(item.get("non_number_evidence_weight") or 0.0),
+                str(item.get("provider") or ""),
+                str(item.get("provider_id") or ""),
             )
-            items = enriched[:16]
-        except PunkRecordsError as exc:
-            errors.append(
-                {
-                    "provider": "Punk Records",
-                    "reason": exc.detail,
-                    "retryable": exc.retryable,
-                }
-            )
+        )
+        items = enriched[:24]
 
     return {"items": items, "errors": errors}
 
