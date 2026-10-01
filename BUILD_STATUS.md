@@ -11,7 +11,12 @@
 - Reference searches exclude future-dated releases and remain owner/run scoped. No reference selection auto-publishes inventory, approves canonical identity, changes pricing, or creates verified learning for normal owners.
 - Query-plan testing caught a performance issue before merge: the first reference-search SQL shape took about **4.0s** on production. It has been changed to filter candidate cards before joining release metadata; a representative same-game name lookup plans/runs in roughly **8ms**.
 - Exact collector-number correction across a wrongly detected game also gets a small global `reference_cards(number_key)` index so that cross-game human correction does not need to walk the composite per-game indexes.
-- CI, migration application and production verification are pending.
+- ✅ PR #478 merged as `7dd74fcf61e1efe4efdc00d33a2552ab437e39d2`; GitHub CI and Railway deployment both passed **2,253 tests**.
+- ✅ Supabase applied `reference_cards_global_number_key_index`; production query-plan verification now uses `reference_cards_number_key_global_idx`.
+- ✅ Representative exact-number correction search fell from about **4,010ms** on the pre-fix join shape to about **54ms** after candidate-first filtering + the global collector-number index.
+- ✅ Rollback-only generic smoke passed for an English Pokémon Base Set Charizard reference selected from a completed recognition run; the review-gated catalogue identity was created inside the transaction and **0 rows persisted** after rollback.
+- ✅ Railway deployment `26138d43-d230-49fb-bd2e-972fa6dd27cf` reached SUCCESS, application startup completed, and `/health/ready` returned HTTP 200.
+- **Result:** Seller Hub manual recognition correction can now reach the governed reference library across supported games/languages instead of being limited to cards already canonicalised in Drop Rate.
 
 
 ## 2026-10-01 — Recognition reference-search migration history alignment
