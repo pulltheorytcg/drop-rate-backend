@@ -407,6 +407,8 @@ def test_owner_inventory_exposes_sealed_state_verified_identity_and_refresh_capa
     assert "as can_refresh_market" in block
     assert "sd.attributes->>'display_name_en'" in block
     assert "sd.attributes->>'set_name_en'" in block
+    assert "left join tcg.sealed_product_details sd on sd.catalogue_id=p.id" in block
+    assert ") sealed_type on true" in block
 
 
 def test_verified_sealed_inventory_market_refresh_is_owner_scoped_and_exact_only() -> None:
@@ -444,6 +446,8 @@ def test_inventory_ui_renders_sealed_state_identity_and_market_refresh_action() 
     assert 'return "Sealed"' in js
     assert '["Identity", item.identity_confirmed ? "Verified" : "Review"]' in js
     assert 'refresh.textContent = "Refresh market value"' in js
+    assert 'item.market_value_minor == null' in js
+    assert '? "—"' in js
     assert '/refresh-market' in js
     assert '"No inventory linked yet"' in js
     assert '"Your latest cards and sealed products will appear here' in js
