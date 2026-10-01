@@ -298,7 +298,7 @@ def test_phase_one_runs_visual_retrieval_beside_vision_and_keeps_it_auditable() 
     engine = ENGINE.read_text()
     index = INDEX.read_text()
 
-    assert 'ENGINE_VERSION = "v1.7.0"' in api
+    assert 'ENGINE_VERSION = "v1.8.0"' in api
     assert '@router.get("/reference-index/status")' in api
     assert '@router.post("/reference-index/rebuild")' in api
     assert '"persistent_reference_index_enabled": True' in api

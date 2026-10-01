@@ -151,7 +151,7 @@ def test_visual_hint_function_ranks_hashes_in_database_and_respects_release_gate
 def test_card_pipeline_uses_visual_provider_retrieval_after_object_routing() -> None:
     api = API.read_text()
 
-    assert 'ENGINE_VERSION = "v1.7.0"' in api
+    assert 'ENGINE_VERSION = "v1.8.0"' in api
     assert '"provider_reference_visual_index_enabled": True' in api
     assert '"provider_reference_visual_index_is_retrieval_only": True' in api
     assert '@router.get("/provider-reference-index/status")' in api
@@ -160,7 +160,8 @@ def test_card_pipeline_uses_visual_provider_retrieval_after_object_routing() -> 
 
     sealed_index = api.index('if observation.object_type == "SEALED_PRODUCT"')
     visual_loader_index = api.index("async def _load_provider_reference_hints")
-    provider_discovery_index = api.index('_timed("provider_discovery", discover_provider_evidence(observation))')
+    provider_discovery_index = api.index('"provider_discovery",')
+    assert "discover_provider_evidence(observation, cardtrader=cardtrader)" in api
     visual_timing_index = api.index('_timed("provider_reference_visual", _load_provider_reference_hints())')
 
     assert sealed_index < visual_loader_index

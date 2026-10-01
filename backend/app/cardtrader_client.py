@@ -50,6 +50,21 @@ class CardTraderClient:
     async def list_games(self) -> list[dict[str, Any]]:
         return self._as_list(await self._request("/games"), "games")
 
+    async def list_categories(
+        self,
+        *,
+        game_id: int | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, str | int | bool] | None = None
+        if game_id is not None:
+            if game_id <= 0:
+                raise ValueError("game_id must be positive")
+            params = {"game_id": game_id}
+        return self._as_list(
+            await self._request("/categories", params=params),
+            "categories",
+        )
+
     async def list_expansions(self) -> list[dict[str, Any]]:
         return self._as_list(await self._request("/expansions"), "expansions")
 
