@@ -185,4 +185,38 @@ Learning may improve opportunity ranking, source weighting and future hypothesis
 - multi-origin opportunity qualification;
 - OBSERVE-only action preflight.
 
-This is intentionally persistence-agnostic in the first slice. Canonical Postgres tables/API contracts come next, through a reviewed migration, before any n8n collection workflow can become active.
+The persistence/API slice adds:
+
+- `tcg.competitors` — founder-approved market leaders, direct competitors and emerging competitors;
+- `tcg.competitor_sources` — source-specific collection method, rights state, terms review, cadence and activation state;
+- `tcg.competitive_observations` — immutable, deduplicated observations with facts/evidence and confidence/relevance;
+- `tcg.competitive_opportunities` — deterministic WATCH/QUALIFIED opportunity records;
+- `tcg.competitive_opportunity_evidence` — immutable multi-origin evidence behind each opportunity;
+- admin-only FastAPI endpoints under `/api/v1/competitive-intelligence`.
+
+The database is backend-only: forced RLS, no browser role access, no delete path, immutable evidence rows and audit events for every canonical change.
+
+### API contract
+
+Current admin operations are intentionally bounded to:
+
+- create/list competitors;
+- create/list sources;
+- activate/pause/block sources through version-checked status changes;
+- record/list normalized observations from already-approved active sources;
+- evaluate/store opportunities from stored competitor observations plus explicitly supplied internal/market/social/official corroboration;
+- list opportunities.
+
+There is **no external website/social fetcher in FastAPI** and no autonomous publisher in this API.
+
+For competitor evidence, the caller supplies only the stored observation ID. Source identity, confidence, relevance, rights state and competitor identity are loaded from canonical Postgres evidence. This prevents a caller from inventing extra "independent" competitor sources to force qualification.
+
+### Production activation sequence
+
+1. merge CI-green persistence/API PR;
+2. apply the exact version-controlled migration through Supabase;
+3. verify tables, RLS, grants, immutable triggers and audit behavior;
+4. verify Railway production deploy and `/health/ready`;
+5. create only founder-approved watchlist/source records;
+6. build source adapters/n8n collection in a later PR;
+7. keep collection in shadow mode until the Phase 3 launch-stability and source-specific permission gates are satisfied.

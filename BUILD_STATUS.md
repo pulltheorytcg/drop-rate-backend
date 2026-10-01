@@ -1,5 +1,18 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence persistence/API foundation
+
+- Reconciled onto current `main` after PR #437 landed; the newer production verification notes are preserved.
+- Added canonical Postgres state for founder-approved competitors, source contracts, immutable observations, deterministic opportunities and immutable opportunity-evidence links.
+- Source contracts store collection method, rights status, terms-review decision, review provenance, cadence/rate-limit notes and activation state.
+- Automated source activation fails closed until source-specific terms/rights review is complete; MANUAL_REVIEW remains the only path that can be marked NOT_REQUIRED.
+- Competitor evidence is loaded from immutable stored observations so callers cannot invent extra competitor source keys/confidence to force qualification.
+- Opportunity persistence de-duplicates evidence by stable source key before scoring; competitor evidence alone still cannot produce a QUALIFIED opportunity without non-competitor corroboration.
+- Added founder-admin FastAPI endpoints for watchlist/source review, immutable observation intake and shadow opportunity evaluation.
+- Tables use forced RLS and direct public/anon/authenticated/service-role access is revoked.
+- No external monitoring adapter, n8n activation, Shopify mutation, pricing action, content publishing or ownership/finance mutation is included.
+- Production migration/application verification remains pending CI + merge.
+
 ## 2026-10-01 — eBay parity: read-only reconciliation
 
 - Added a PLATFORM_ADMIN-only `GET /api/v1/ebay/reconciliation` diagnostic that compares owner-scoped canonical eBay links to live eBay offer + inventory-item read-back.
