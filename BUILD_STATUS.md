@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence shadow provenance production verification
+
+- ✅ PR #460 merged with green CI.
+- ✅ Supabase applied the forward-only provenance migration and recorded it as `20261001025504_competitive_intelligence_shadow_provenance`.
+- ✅ Live read-back confirms the three automation provenance columns, validated SYSTEM/HUMAN provenance constraint, both legacy and provenance-aware ingestion function overloads, and `tcg_api`-only execution grants.
+- ✅ The Competitive Intelligence audit function now prefers the explicit `automation:competitive-intelligence` actor for automated inserts.
+- ✅ Railway deployment `7bd79827-a340-4b1c-8dc2-18ef2e6903f5` reached SUCCESS; **2,213 tests passed** and `/health/ready` returned HTTP 200.
+- ✅ No Competitive Intelligence observations existed during migration/read-back, so no historical evidence was rewritten.
+- This PR only aligns the repository migration filename with the version Supabase actually recorded; it does not re-run SQL.
+
 ## 2026-10-01 — Competitive Intelligence shadow-ingestion provenance hardening
 
 - Built on the production-verified #454/#458 signed shadow-ingestion baseline.

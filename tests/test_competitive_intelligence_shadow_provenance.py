@@ -9,7 +9,7 @@ MIGRATION = (
     ROOT
     / "database"
     / "migrations"
-    / "20261001025500_competitive_intelligence_shadow_provenance.sql"
+    / "20261001025504_competitive_intelligence_shadow_provenance.sql"
 )
 
 
