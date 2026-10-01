@@ -239,11 +239,16 @@ def resolve_sealed_candidates(
 
     local_signatures = {
         (
-            code,
-            str(row.get("sealed_product_type") or "UNKNOWN").strip().upper(),
+            collector_key(item.get("candidate_snapshot", {}).get("product_code")),
+            str(
+                item.get("candidate_snapshot", {}).get("sealed_product_type")
+                or "UNKNOWN"
+            ).strip().upper(),
         )
-        for row in rows
-        for code in _candidate_code_keys(row)
+        for item in scored
+        if item.get("source_kind") == "CATALOGUE"
+        and not item.get("hard_rejected")
+        and collector_key(item.get("candidate_snapshot", {}).get("product_code"))
     }
 
     for row in provider_rows or []:
