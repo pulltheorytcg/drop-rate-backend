@@ -153,6 +153,7 @@ def _owner_scan_inventory_payload(row: object, catalogue: object, *, replayed: b
             "catalogue_id": inventory.get("catalogue_id"),
             "status": inventory.get("status"),
             "condition": inventory.get("condition"),
+            "seal_status": inventory.get("seal_status"),
             "grading_company": inventory.get("grading_company"),
             "grade": inventory.get("grade"),
             "certificate_number": inventory.get("certificate_number"),
