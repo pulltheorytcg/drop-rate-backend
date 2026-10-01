@@ -9,7 +9,9 @@
 - Selecting an unseen reference calls the owner-scoped `select_recognition_reference` function, creates/reuses a `NEEDS_REVIEW` canonical identity, then records `CORRECTED_BY_SEARCH` feedback against the original recognition run.
 - Failed vision runs may now be rescued by **manual search correction only**; failed runs still cannot be confirmed as AI top/candidate matches.
 - Reference searches exclude future-dated releases and remain owner/run scoped. No reference selection auto-publishes inventory, approves canonical identity, changes pricing, or creates verified learning for normal owners.
-- CI and production verification are pending.
+- Query-plan testing caught a performance issue before merge: the first reference-search SQL shape took about **4.0s** on production. It has been changed to filter candidate cards before joining release metadata; a representative same-game name lookup plans/runs in roughly **8ms**.
+- Exact collector-number correction across a wrongly detected game also gets a small global `reference_cards(number_key)` index so that cross-game human correction does not need to walk the composite per-game indexes.
+- CI, migration application and production verification are pending.
 
 
 ## 2026-10-01 — Recognition reference-search migration history alignment
