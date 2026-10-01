@@ -15,8 +15,8 @@ values(
     'Booster Pack 世界最強の戦士 [OP-17]',
     '世界最強の戦士 [OP-17]',
     null,
-    null,
-    null,
+    '',
+    '',
     'Japanese'
 )
 on conflict (identity_key) do nothing;
