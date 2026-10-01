@@ -21,7 +21,7 @@ def test_search_correction_is_a_first_class_audited_feedback_outcome() -> None:
 def test_search_correction_does_not_need_to_be_an_ai_candidate() -> None:
     api = RECOGNITION.read_text()
 
-    search_start = api.index('if payload.outcome == "CORRECTED_BY_SEARCH"')
+    search_start = api.index('if payload.outcome == "CORRECTED_BY_SEARCH":\n                searchable_card')
     search_block = api[search_start : search_start + 1500]
     assert "tcg.catalogue_products" in search_block
     assert "tcg.recognition_candidates" not in search_block
@@ -94,3 +94,92 @@ def test_verified_learning_can_include_search_corrections_only_after_materialisa
     assert "create or replace function tcg.recognition_learning_hint_rows" in sql
     assert "create or replace function tcg.recognition_learning_visual_rows" in sql
     assert "e.dataset_split='TRAIN'" in sql
+
+
+def test_batch_correction_can_search_governed_reference_library() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.get("/catalogue-search")')
+    end = api.index('@router.get("/inventory")', start)
+    block = api[start:end]
+
+    assert "include_reference: bool" in block
+    assert "run_id: UUID | None" in block
+    assert "tcg.reference_cards" in block
+    assert "tcg.reference_sets" in block
+    assert "s.release_date is null or s.release_date<=current_date" in block
+    assert "r.owner_id" not in block  # alias is run, scoped explicitly by owner_id parameter
+    assert "where id=$1 and owner_id=$2" in block
+    assert '"requires_materialization"' in block
+
+
+def test_reference_selection_is_human_gated_and_feedback_audited() -> None:
+    api = RECOGNITION.read_text()
+    start = api.index('@router.post("/runs/{run_id}/references/select")')
+    end = api.index('@router.post("/runs/{run_id}/candidates/{candidate_id}/materialize")', start)
+    block = api[start:end]
+
+    assert "tcg.select_recognition_reference" in block
+    assert 'where id=$1 and owner_id=$2' in block
+    assert "TERMINAL_STATUSES" in block
+    assert '"identity_status"' in block
+
+    feedback_start = api.index('@router.post("/runs/{run_id}/feedback")')
+    feedback_end = api.index('@router.post("/runs/{run_id}/references/select")', feedback_start)
+    feedback = api[feedback_start:feedback_end]
+    assert 'if payload.outcome == "CORRECTED_BY_SEARCH":' in feedback
+    assert 'feedback_statuses.add("FAILED")' in feedback
+
+
+def test_reference_correction_ui_materializes_before_feedback() -> None:
+    source = (ROOT / "backend" / "app" / "static" / "owner-recognition.js").read_text()
+
+    assert 'params.set("include_reference", "true")' in source
+    assert 'params.set("run_id", correctionItem.runId)' in source
+    assert "row.requires_materialization ? \"Add + choose\" : \"Choose\"" in source
+    assert '/references/select' in source
+    assert "Seller corrected batch scan using governed reference library" in source
+
+
+def test_reference_search_reserves_space_and_backfills_catalogue_results() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.get("/catalogue-search")')
+    end = api.index('@router.get("/inventory")', start)
+    block = api[start:end]
+
+    assert "reference_budget = min(max(5, limit // 2), limit)" in block
+    assert "canonical_budget = max(0, limit - reference_budget)" in block
+    assert "canonical_items[:canonical_budget]" in block
+    assert "canonical_items[canonical_budget:]" in block
+
+
+def test_exact_reference_number_outranks_detected_game_and_results_have_game_label() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.get("/catalogue-search")')
+    end = api.index('@router.get("/inventory")', start)
+    block = api[start:end]
+    reference_query = block[block.index("from tcg.reference_cards c"):]
+
+    exact_rank = reference_query.index("when $2<>'' and c.number_key=$2 then 0")
+    system_rank = reference_query.index("case when c.system_code=$3")
+    language_rank = reference_query.index("case when c.language=$4")
+    assert exact_rank < system_rank < language_rank
+    assert "reference_number_key = collector_key(query)" in block
+    assert "($2<>'' and c.number_key=$2)" in reference_query
+    assert "c.system_code=$3" in reference_query
+    assert "with matching_cards as materialized" in block
+    assert "from matching_cards c" in block
+    assert "s.name ilike" not in reference_query
+    assert 'GAME_BY_SYSTEM.get(item["system_code"], item["system_code"])' in block
+
+
+def test_cross_game_exact_reference_correction_has_global_number_index() -> None:
+    migration = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20261001145500_reference_cards_global_number_key_index.sql"
+    ).read_text().lower()
+
+    assert "create index if not exists reference_cards_number_key_global_idx" in migration
+    assert "on tcg.reference_cards(number_key)" in migration
+    assert "unique index" not in migration

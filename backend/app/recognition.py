@@ -78,6 +78,13 @@ class RecognitionFeedbackRequest(BaseModel):
     notes: str = Field(default="", max_length=2000)
 
 
+class RecognitionReferenceSelectionRequest(BaseModel):
+    provider: str = Field(min_length=1, max_length=80)
+    system_code: str = Field(min_length=1, max_length=80)
+    language: str = Field(min_length=1, max_length=40)
+    provider_id: str = Field(min_length=1, max_length=240)
+
+
 class RecognitionReferenceIndexRebuildRequest(BaseModel):
     limit: int = Field(default=200, ge=1, le=500)
     catalogue_ids: list[UUID] | None = Field(default=None, max_length=500)
@@ -470,7 +477,10 @@ async def record_recognition_feedback(
             )
             if run is None:
                 raise HTTPException(status_code=404, detail="Recognition run not found")
-            if run["status"] not in {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"}:
+            feedback_statuses = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"}
+            if payload.outcome == "CORRECTED_BY_SEARCH":
+                feedback_statuses.add("FAILED")
+            if run["status"] not in feedback_statuses:
                 raise HTTPException(
                     status_code=409,
                     detail="Recognition run is not ready for human feedback",
@@ -586,6 +596,94 @@ async def record_recognition_feedback(
         result["recorded_learning_example"] = learning_example
         return jsonable_encoder(result)
 
+
+
+@router.post("/runs/{run_id}/references/select")
+async def select_reference_printing(
+    run_id: UUID,
+    payload: RecognitionReferenceSelectionRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Human-select a provider reference printing that is not canonical yet."""
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        run = await connection.fetchrow(
+            """
+            select id,status
+            from tcg.recognition_runs
+            where id=$1 and owner_id=$2
+            """,
+            run_id,
+            owner["id"],
+        )
+        if run is None:
+            raise HTTPException(status_code=404, detail="Recognition run not found")
+        if run["status"] not in TERMINAL_STATUSES:
+            raise HTTPException(
+                status_code=409,
+                detail="Recognition run is not ready for reference correction",
+            )
+
+        try:
+            catalogue_id = await connection.fetchval(
+                """
+                select tcg.select_recognition_reference($1,$2,$3,$4,$5)
+                """,
+                run_id,
+                payload.provider.strip(),
+                payload.system_code.strip(),
+                payload.language.strip(),
+                payload.provider_id.strip(),
+            )
+        except asyncpg.InsufficientPrivilegeError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail="This owner cannot select that recognition reference",
+            ) from exc
+        except asyncpg.NoDataFoundError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail="Reference printing not found",
+            ) from exc
+        except asyncpg.CheckViolationError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        if catalogue_id is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Reference selection returned no catalogue identity",
+            )
+
+        selected = await connection.fetchrow(
+            """
+            select
+                p.id,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language,
+                pr.system_code,pr.identity_status
+            from tcg.catalogue_products p
+            join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
+            where p.id=$1 and p.product_type='CARD'
+            """,
+            catalogue_id,
+        )
+        if selected is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Reference selection did not create a recognised card identity",
+            )
+
+        return jsonable_encoder(
+            {
+                "catalogue_id": catalogue_id,
+                "identity_status": selected["identity_status"],
+                "selected": dict(selected),
+            }
+        )
 
 
 @router.post("/runs/{run_id}/candidates/{candidate_id}/materialize")
