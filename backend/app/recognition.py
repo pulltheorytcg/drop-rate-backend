@@ -5,6 +5,8 @@ import hashlib
 import json
 import re
 import time
+
+import asyncpg
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -914,7 +916,7 @@ async def materialize_provider_candidate(
                         }
                     ),
                 )
-            except Exception:
+            except asyncpg.UniqueViolationError:
                 mapped = await connection.fetchrow(
                     """
                     select catalogue_id
