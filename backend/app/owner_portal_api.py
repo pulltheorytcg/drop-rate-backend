@@ -1181,30 +1181,6 @@ async def owner_graded_certificate_intake(
         )
         if catalogue is None:
             raise HTTPException(status_code=404, detail="Catalogue product not found")
-        verified_exact_sealed_identity = False
-        if (
-            catalogue["product_type"] in {"SEALED", "COLLECTION"}
-            and run["decision"] == "EXACT_CANDIDATE"
-            and run["top_catalogue_id"] == payload.selected_catalogue_id
-            and feedback["outcome"] == "CONFIRMED_TOP"
-        ):
-            verified_exact_sealed_identity = bool(
-                await connection.fetchval(
-                    """
-                    select exists(
-                        select 1
-                        from tcg.catalogue_product_profiles pr
-                        join tcg.sealed_product_details sd
-                          on sd.catalogue_id=pr.catalogue_id
-                        where pr.catalogue_id=$1
-                          and pr.collectible_type='SEALED'
-                          and pr.identity_status='VERIFIED'
-                          and sd.identity_status='VERIFIED'
-                    )
-                    """,
-                    payload.selected_catalogue_id,
-                )
-            )
         if catalogue["product_type"] != "CARD":
             raise HTTPException(status_code=422, detail="Graded intake supports cards only")
 
@@ -1446,6 +1422,30 @@ async def owner_recognition_intake(
         )
         if catalogue is None:
             raise HTTPException(status_code=404, detail="Catalogue product not found")
+        verified_exact_sealed_identity = False
+        if (
+            catalogue["product_type"] in {"SEALED", "COLLECTION"}
+            and run["decision"] == "EXACT_CANDIDATE"
+            and run["top_catalogue_id"] == payload.selected_catalogue_id
+            and feedback["outcome"] == "CONFIRMED_TOP"
+        ):
+            verified_exact_sealed_identity = bool(
+                await connection.fetchval(
+                    """
+                    select exists(
+                        select 1
+                        from tcg.catalogue_product_profiles pr
+                        join tcg.sealed_product_details sd
+                          on sd.catalogue_id=pr.catalogue_id
+                        where pr.catalogue_id=$1
+                          and pr.collectible_type='SEALED'
+                          and pr.identity_status='VERIFIED'
+                          and sd.identity_status='VERIFIED'
+                    )
+                    """,
+                    payload.selected_catalogue_id,
+                )
+            )
         try:
             validate_physical_state(
                 product_type=catalogue["product_type"],
