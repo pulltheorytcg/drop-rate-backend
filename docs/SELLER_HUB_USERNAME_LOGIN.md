@@ -81,3 +81,19 @@ Regression coverage verifies:
 - username resolver permissions remain server-only;
 - the Seller Hub login UI sends `identifier` rather than assuming email;
 - the browser no longer calls Supabase's password-token endpoint directly for Seller Hub password login.
+
+
+## Production activation — 1 October 2026
+
+- PR #431 merged to `main`.
+- Supabase migration `owner_username_login` applied successfully.
+- Production database verification confirmed:
+  - `tcg.resolve_owner_login_email(text)` exists;
+  - `tcg_api` may execute the resolver;
+  - `anon` and browser `authenticated` may not execute the resolver;
+  - both login-throttle functions exist with the same server-only permission boundary;
+  - `tcg.owner_login_failures` has RLS enabled;
+  - at least one active Seller Hub account currently has a username and an active username resolves server-side.
+- Railway deployment `784f5b11-54d6-4381-b03b-5a7f74c64c0f` completed successfully.
+- Deployment preflight reported **2,138 passed** and the replacement container returned HTTP 200 from `/health/ready`.
+- No production password was requested, exposed or changed for smoke testing. The next genuine email-or-username Seller Hub sign-in exercises the final Supabase credential step with the user's own credentials.
