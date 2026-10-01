@@ -94,7 +94,7 @@ struct ScanReview: View {
                         Text("Creates one draft item for your account. Drop Rate verification is still required before sale.").font(.caption).foregroundStyle(.secondary)
                     }
                 }
-            }.navigationTitle(saved ? "Card added" : "Review scan").navigationBarTitleDisplayMode(.inline)
+            }.disabled(saving).navigationTitle(saved ? "Card added" : "Review scan").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button(saved ? "Scan next" : "Close") { dismiss() }.disabled(saving) } }
                 .interactiveDismissDisabled(saving)
                 .task { await recognize() }
@@ -138,7 +138,7 @@ struct ScanReview: View {
                 else { payload["condition"] = condition }
                 pendingPayload = payload
             }
-            try await API.shared.mutate("/api/v1/owner/recognition-intake", body: pendingPayload!, key: saveKey)
+            try await API.shared.saveIntake(payload: pendingPayload!, key: saveKey)
             saved = true; message = "Saved as a draft. Your portfolio will refresh when you close the scanner."
         } catch { message = error.localizedDescription }
     }

@@ -36,4 +36,21 @@ final class ModelTests: XCTestCase {
         let result = try API.decoder().decode(RecognitionResult.self, from: data)
         XCTAssertEqual(result.run.status, "NO_MATCH")
     }
+    func testSessionContractAndSecureStorageRoundTrip() throws {
+        let data = Data(#"{"access_token":"test-access","refresh_token":"test-refresh","expires_at":1234567890,"user":{"id":"owner-a"}}"#.utf8)
+        let session = try API.decoder().decode(Session.self, from: data)
+        XCTAssertEqual(session.user?.id, "owner-a")
+        let account = "unit-test-" + UUID().uuidString
+        defer { SessionVault.clear(account: account) }
+        try SessionVault.write(JSONEncoder().encode(session), account: account)
+        let restored = try JSONDecoder().decode(Session.self, from: XCTUnwrap(SessionVault.read(account: account)))
+        XCTAssertEqual(restored.refreshToken, "test-refresh")
+        XCTAssertNil(SessionVault.read(account: account + "-other-owner"))
+    }
+    func testInterruptedSavePreservesRequestIdentity() throws {
+        let pending = PendingIntake(key: UUID().uuidString, payload: ["selected_catalogue_id": "card-a", "certificate_number": "00123456"])
+        let restored = try JSONDecoder().decode(PendingIntake.self, from: JSONEncoder().encode(pending))
+        XCTAssertEqual(restored.key, pending.key)
+        XCTAssertEqual(restored.payload, pending.payload)
+    }
 }

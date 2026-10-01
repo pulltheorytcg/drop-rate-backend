@@ -14,7 +14,7 @@ The `iPhone app checks` GitHub workflow builds and runs XCTest on a Mac. Unsigne
 - Native full-screen rear camera opens from the Scan tab without an upload/open-camera screen. Portrait capture, torch, permission recovery, and background shutdown.
 - Raw card, slab, comic, graded comic modes. English/Japanese OCR on device; card photos go to the existing recognition API after capture.
 - PSA/BGS/ACE/CGC label-text extraction with editable certificate field; ambiguous readings require manual input. This does **not** verify certificates with graders.
-- Card candidates, manual catalogue correction, condition/language/grade entry, explicit confirmation, draft intake with an immutable request payload and idempotency key for retry.
+- Card candidates, manual catalogue correction, condition/language/grade entry, explicit confirmation, draft intake with an immutable request payload and idempotency key for retry. Interrupted saves survive app restarts in device-only Keychain records separated by authenticated user ID.
 - Image grid portfolio with real market/store totals, status/search filters, pagination, item details, and missing valuations kept visibly unknown.
 - Global card search, TCG browsing, exact language filters and pagination using new read-only `/api/v1/owner/mobile` routes.
 - Native profile name/username settings. Sales/payouts/security open the existing Seller Hub in the browser.
@@ -32,4 +32,4 @@ The `iPhone app checks` GitHub workflow builds and runs XCTest on a Mac. Unsigne
 
 Portfolio totals are the backend's active-stock totals, independent of grid filters; sold stock is excluded from those totals. Store value falls back to recommended retail where no explicit store price exists. Each tile remains a distinct physical inventory item. Catalogue values are reference values, not slab-specific valuations.
 
-No database migration, production data mutation, or Shopify publishing changes are included. OCR never approves an identity. Inventory saving remains on existing server-owned validation, audit and pricing paths. A timed-out save can be retried in the review screen with the same idempotency key; do not dismiss that screen until its result is known. Durable recovery after force-quitting the app remains a release requirement.
+No database migration, production data mutation, or Shopify publishing changes are included. OCR never approves an identity. Inventory saving remains on existing server-owned validation, audit and pricing paths. A timed-out save can be retried in the review screen with the same idempotency key. After restarting, a recovery prompt offers the same request; the Scan tab also reopens that prompt until the pending save succeeds. A permanently rejected pending request requires support/reconciliation before scanning another item; it is not silently discarded.

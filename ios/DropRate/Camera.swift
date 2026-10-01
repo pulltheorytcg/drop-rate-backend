@@ -16,7 +16,7 @@ final class Camera: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     @Published var torch = false
 
     func start() {
-        queue.sync { wantsCamera = true }
+        queue.async { self.wantsCamera = true }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: configureAndStart()
         case .notDetermined:

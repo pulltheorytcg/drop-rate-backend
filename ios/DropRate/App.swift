@@ -72,6 +72,8 @@ struct MainView: View {
     @State private var tab = 0
     @State private var scanner = false
     @State private var portfolioRevision = 0
+    @State private var pendingSave = false
+    @State private var recoveryError: String?
     var body: some View {
         TabView(selection: $tab) {
             PortfolioView().id(portfolioRevision).tabItem { Label("Portfolio", systemImage: "square.grid.2x2") }.tag(0)
@@ -79,8 +81,32 @@ struct MainView: View {
             Color.clear.tabItem { Label("Scan", systemImage: "camera.viewfinder") }.tag(2)
             AccountView(onSignOut: onSignOut).tabItem { Label("Account", systemImage: "person.crop.circle") }.tag(3)
         }
-        .onChange(of: tab) { old, new in if new == 2 { tab = old; scanner = true } }
-        .fullScreenCover(isPresented: $scanner, onDismiss: { portfolioRevision += 1 }) { ScannerView() }
+        .onChange(of: tab) { old, new in
+            if new == 2 {
+                tab = old
+                Task {
+                    if await API.shared.hasPendingIntake() { pendingSave = true }
+                    else { scanner = true }
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $scanner, onDismiss: {
+            portfolioRevision += 1
+            Task { pendingSave = await API.shared.hasPendingIntake() }
+        }) { ScannerView() }
+        .task { pendingSave = await API.shared.hasPendingIntake() }
+        .alert("Finish your card save", isPresented: $pendingSave) {
+            Button("Retry save") {
+                Task {
+                    do { try await API.shared.resumeIntake(); portfolioRevision += 1 }
+                    catch { recoveryError = error.localizedDescription }
+                }
+            }
+            Button("Later", role: .cancel) {}
+        } message: { Text("An earlier save was interrupted. Retry the same request to check or finish it without creating a duplicate.") }
+        .alert("Save needs attention", isPresented: Binding(get: { recoveryError != nil }, set: { if !$0 { recoveryError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(recoveryError ?? "") }
     }
 }
 

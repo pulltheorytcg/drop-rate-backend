@@ -16,13 +16,14 @@ enum APIError: LocalizedError {
 enum SessionVault {
     static let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
         kSecAttrService as String: "DropRate.SellerHub", kSecAttrAccount as String: "session"]
-    static func read() -> Data? {
-        var q = query; q[kSecReturnData as String] = true
+    static func read(account: String = "session") -> Data? {
+        var q = query; q[kSecAttrAccount as String] = account; q[kSecReturnData as String] = true
         var value: CFTypeRef?
         guard SecItemCopyMatching(q as CFDictionary, &value) == errSecSuccess else { return nil }
         return value as? Data
     }
-    static func write(_ data: Data) throws {
+    static func write(_ data: Data, account: String = "session") throws {
+        var query = self.query; query[kSecAttrAccount as String] = account
         let attrs = [kSecValueData as String: data]
         let status = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
         if status == errSecItemNotFound {
@@ -31,7 +32,9 @@ enum SessionVault {
             guard SecItemAdd(q as CFDictionary, nil) == errSecSuccess else { throw APIError.storage }
         } else if status != errSecSuccess { throw APIError.storage }
     }
-    static func clear() { SecItemDelete(query as CFDictionary) }
+    static func clear(account: String = "session") {
+        var q = query; q[kSecAttrAccount as String] = account; SecItemDelete(q as CFDictionary)
+    }
 }
 
 actor API {
@@ -53,6 +56,33 @@ actor API {
         if let data = SessionVault.read() { session = try? JSONDecoder().decode(Session.self, from: data) }
     }
     func hasSession() -> Bool { session != nil }
+    private func intakeAccount() throws -> String {
+        guard let id = session?.user?.id else { throw APIError.signedOut }
+        return "pending-intake:" + id
+    }
+    func hasPendingIntake() -> Bool {
+        guard let account = try? intakeAccount() else { return false }
+        return SessionVault.read(account: account) != nil
+    }
+    func saveIntake(payload: [String: String], key: String) async throws {
+        let account = try intakeAccount()
+        if let data = SessionVault.read(account: account) {
+            let pending = try JSONDecoder().decode(PendingIntake.self, from: data)
+            guard pending.key == key, pending.payload == payload else {
+                throw APIError.response(409, "Finish your previous card save from Portfolio before adding another card.")
+            }
+        } else {
+            try SessionVault.write(JSONEncoder().encode(PendingIntake(key: key, payload: payload)), account: account)
+        }
+        try await resumeIntake()
+    }
+    func resumeIntake() async throws {
+        let account = try intakeAccount()
+        guard let data = SessionVault.read(account: account) else { return }
+        let pending = try JSONDecoder().decode(PendingIntake.self, from: data)
+        _ = try await request("/api/v1/owner/recognition-intake", method: "POST", body: pending.payload, key: pending.key)
+        SessionVault.clear(account: account)
+    }
     private func store(_ value: Session) throws {
         try SessionVault.write(JSONEncoder().encode(value)); session = value
     }

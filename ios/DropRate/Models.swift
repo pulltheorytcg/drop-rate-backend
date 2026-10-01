@@ -99,6 +99,13 @@ struct Session: Codable {
     let accessToken: String
     let refreshToken: String
     let expiresAt: Double?
+    let user: User?
+    struct User: Codable { let id: String }
+}
+
+struct PendingIntake: Codable {
+    let key: String
+    let payload: [String: String]
 }
 
 /// OCR is evidence to review, never a certificate verification response.
