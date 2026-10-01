@@ -441,27 +441,27 @@ async def discover_one_piece_cardtrader_sealed_candidates(
     candidates: list[dict[str, Any]] = []
 
     for expansion, expansion_score, blueprints in expansion_rows:
-        provider_code = _display_set_code(
-            expansion.get("code"),
-            expansion.get("name"),
-            observation.product_code,
-        )
-        provider_code_key = _compact(provider_code)
-        code_match = bool(
-            observed_code
-            and provider_code_key
-            and observed_code == provider_code_key
-        )
-
-        if (
-            observed_code
-            and observation.product_code_confidence >= 0.80
-            and provider_code_key
-            and not code_match
-        ):
-            continue
-
         for blueprint in blueprints:
+            provider_code = _display_set_code(
+                expansion.get("code"),
+                expansion.get("name"),
+                blueprint.get("name"),
+                blueprint.get("version"),
+            )
+            provider_code_key = _compact(provider_code)
+            code_match = bool(
+                observed_code
+                and provider_code_key
+                and observed_code == provider_code_key
+            )
+            if (
+                observed_code
+                and observation.product_code_confidence >= 0.80
+                and provider_code_key
+                and not code_match
+            ):
+                continue
+
             raw_category = blueprint.get("category_id")
             if not str(raw_category or "").isdigit():
                 continue
