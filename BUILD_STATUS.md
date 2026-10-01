@@ -1,5 +1,20 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence persistence production verification complete
+
+- ✅ PR #440 merged at `88f78db86661c3d391d34d31f9688d2958a2392f`.
+- ✅ Supabase production migration `competitive_intelligence_v1` applied successfully as live migration version `20261001022146`.
+- ✅ Canonical tables are live: `tcg.competitors`, `tcg.competitor_sources`, `tcg.competitive_observations`, `tcg.competitive_opportunities`, `tcg.competitive_opportunity_evidence`.
+- ✅ All five tables have RLS enabled **and forced**.
+- ✅ Direct table privileges are restricted to `postgres` and the backend `tcg_api` role; `anon`, browser `authenticated` and `service_role` have no direct table privileges.
+- ✅ Observation and opportunity-evidence immutability triggers are installed; canonical change audit triggers are installed across all five tables.
+- ✅ Supabase security/performance advisors report no new Competitive Intelligence findings.
+- ✅ Railway production deployment `209157f1-cc61-45fb-bee6-8d880c2c39cc` deployed the exact #440 commit successfully.
+- ✅ Railway pre-deploy verification reported **2,176 tests passed**; Stripe sandbox safety checks passed/skipped as expected and production `GET /health/ready` returned **200**.
+- 🔒 No competitor/source records, external monitoring adapters, n8n activation, autonomous publishing, pricing changes or commerce/finance mutations were introduced by this deployment.
+- ➡️ Next Competitive Intelligence slice: build the source-adapter/shadow-ingestion interface for individually founder-approved sources, keeping all collection inactive until each source passes its own terms/rights/rate-limit review and the Phase 3 activation gate.
+
+
 ## 2026-10-01 — Competitive Intelligence persistence/API foundation
 
 - Reconciled onto current `main` after PR #437 landed; the newer production verification notes are preserved.
