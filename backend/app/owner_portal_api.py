@@ -1154,6 +1154,18 @@ async def owner_inventory(
                 ) as image_url
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id=i.catalogue_id
+            left join tcg.sealed_product_details sd on sd.catalogue_id=p.id
+            left join lateral (
+                select a.value_code
+                from tcg.catalogue_taxonomy_assignments a
+                where a.catalogue_id=p.id
+                  and a.scope_kind='SEALED'
+                  and a.dimension_code='SEALED_TYPE'
+                order by
+                  case when a.verification_status='VERIFIED' then 0 else 1 end,
+                  a.created_at desc
+                limit 1
+            ) sealed_type on true
             where {where}
             order by i.updated_at desc,i.inventory_code
             limit ${len(page_params)-1} offset ${len(page_params)}
