@@ -101,7 +101,7 @@ as $$
             rf.system_code,
             rf.language,
             rf.provider_id,
-            min(bit_count(reference_hash # source_hash.hash))::integer as hamming
+            min(bit_count(reference_hash.hash # source_hash.hash))::integer as hamming
         from tcg.recognition_provider_reference_fingerprints rf
         join tcg.reference_cards c
           on c.provider=rf.provider
@@ -113,7 +113,7 @@ as $$
          and s.system_code=c.system_code
          and s.language=c.language
          and s.set_id=c.set_id
-        cross join lateral unnest(rf.source_hashes) reference_hash
+        cross join lateral unnest(rf.source_hashes) as reference_hash(hash)
         cross join source_hashes source_hash
         where rf.fingerprint_version='dhash16-multicrop-rotate-v1'
           and rf.system_code=p_system_code
