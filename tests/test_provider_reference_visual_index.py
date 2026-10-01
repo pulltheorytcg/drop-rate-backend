@@ -160,7 +160,8 @@ def test_card_pipeline_uses_visual_provider_retrieval_after_object_routing() -> 
 
     sealed_index = api.index('if observation.object_type == "SEALED_PRODUCT"')
     visual_loader_index = api.index("async def _load_provider_reference_hints")
-    provider_discovery_index = api.index('_timed("provider_discovery", discover_provider_evidence(observation))')
+    provider_discovery_index = api.index('"provider_discovery",')
+    assert "discover_provider_evidence(observation, cardtrader=cardtrader)" in api
     visual_timing_index = api.index('_timed("provider_reference_visual", _load_provider_reference_hints())')
 
     assert sealed_index < visual_loader_index
