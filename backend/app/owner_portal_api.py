@@ -728,13 +728,16 @@ async def owner_catalogue_search(
     access: Annotated[dict, Depends(require_owner_portal_request)],
     q: str = Query(min_length=2, max_length=80),
     limit: int = Query(default=12, ge=1, le=30),
+    include_reference: bool = Query(default=False),
+    run_id: UUID | None = Query(default=None),
 ) -> dict:
-    """Search safe canonical card identity for seller recognition corrections."""
+    """Search canonical cards and, for scan correction, the governed reference library."""
 
     query = q.strip()
     if len(query) < 2:
         raise HTTPException(status_code=422, detail="Search needs at least 2 characters")
     normalised = "".join(character for character in query.upper() if character.isalnum())
+    owner_id = access["owner_id"]
 
     async with user_connection(
         request.app.state.db_pool,
@@ -802,7 +805,117 @@ async def owner_catalogue_search(
             normalised,
             limit,
         )
-    return jsonable_encoder({"items": [dict(row) for row in rows], "query": query})
+        items = [
+            {**dict(row), "source_kind": "CATALOGUE", "requires_materialization": False}
+            for row in rows
+        ]
+
+        if include_reference:
+            if run_id is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Recognition run is required for reference-library search",
+                )
+            run = await connection.fetchrow(
+                """
+                select id,status,system_code,ai_observation
+                from tcg.recognition_runs
+                where id=$1 and owner_id=$2
+                """,
+                run_id,
+                owner_id,
+            )
+            if run is None:
+                raise HTTPException(status_code=404, detail="Recognition run not found")
+            if run["status"] not in ('EXACT_CANDIDATE','NEEDS_REVIEW','NO_MATCH','FAILED'):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Recognition run is not ready for correction search",
+                )
+
+            observation = run["ai_observation"] or {}
+            preferred_language = str(observation.get("language") or "")
+            reference_rows = await connection.fetch(
+                """
+                select
+                    c.provider,c.system_code,c.language,c.provider_id,c.name,
+                    s.name as set_name,c.card_number,
+                    c.provider_id as variant,c.rarity,c.finish,c.image_url,
+                    mapped.catalogue_id as mapped_catalogue_id
+                from tcg.reference_cards c
+                join tcg.reference_sets s
+                  using(provider,system_code,language,set_id)
+                left join lateral (
+                    select m.catalogue_id
+                    from tcg.provider_catalogue_mappings m
+                    where m.source_provider=c.provider
+                      and m.provider_entity_type='CARD_PRINTING'
+                      and m.provider_id=c.provider_id
+                      and m.provider_variant_key=''
+                      and m.provider_language=c.language
+                      and m.system_code=c.system_code
+                      and m.match_status='VERIFIED'
+                    limit 1
+                ) mapped on true
+                where (s.release_date is null or s.release_date<=current_date)
+                  and (
+                    c.card_number ilike '%'||$1||'%'
+                    or c.name ilike '%'||$1||'%'
+                    or s.name ilike '%'||$1||'%'
+                    or upper(regexp_replace(coalesce(c.card_number,''),'[^A-Za-z0-9]','','g'))
+                       = $2
+                  )
+                order by
+                  case when c.system_code=$3 then 0 else 1 end,
+                  case when c.language=$4 then 0 when c.language='Unknown' then 1 else 2 end,
+                  case
+                    when $2 <> '' and upper(regexp_replace(coalesce(c.card_number,''),'[^A-Za-z0-9]','','g'))=$2 then 0
+                    when lower(coalesce(c.card_number,''))=lower($1) then 1
+                    when lower(coalesce(c.name,''))=lower($1) then 2
+                    when c.card_number ilike $1||'%' then 3
+                    else 4
+                  end,
+                  c.provider,c.system_code,c.language,c.provider_id
+                limit $5
+                """,
+                query,
+                normalised,
+                str(run["system_code"] or ""),
+                preferred_language,
+                max(limit * 3, 30),
+            )
+            seen_catalogue_ids = {str(item["id"]) for item in items if item.get("id")}
+            seen_reference_keys: set[tuple[str, str, str, str]] = set()
+            for row in reference_rows:
+                mapped_id = row["mapped_catalogue_id"]
+                if mapped_id is not None and str(mapped_id) in seen_catalogue_ids:
+                    continue
+                reference_key = (
+                    str(row["provider"]),
+                    str(row["system_code"]),
+                    str(row["language"]),
+                    str(row["provider_id"]),
+                )
+                if reference_key in seen_reference_keys:
+                    continue
+                seen_reference_keys.add(reference_key)
+                item = dict(row)
+                item["id"] = mapped_id
+                item["game"] = None
+                item["market_value_minor"] = None
+                item["recommended_retail_minor"] = None
+                item["pricing_updated_at"] = None
+                item["basis_condition"] = None
+                item["basis_language"] = item["language"]
+                item["source_kind"] = "REFERENCE"
+                item["requires_materialization"] = mapped_id is None
+                items.append(item)
+                if mapped_id is not None:
+                    seen_catalogue_ids.add(str(mapped_id))
+                if len(items) >= limit:
+                    break
+
+    return jsonable_encoder({"items": items[:limit], "query": query})
 
 
 @router.get("/inventory")
