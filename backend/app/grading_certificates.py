@@ -8,10 +8,12 @@ from typing import Annotated, Any
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from .auth import AuthenticatedUser, require_user
+from .db import user_connection
+from .ownership import current_owner as _owner
 from .settings import Settings, get_settings
 
 
@@ -336,10 +338,24 @@ async def lookup_grading_certificate(
     return manual_provider_result(provider, certificate)
 
 
+async def _require_active_owner(
+    request: Request,
+    user: AuthenticatedUser,
+) -> None:
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        await _owner(connection)
+
+
 @router.get("/status")
 async def grading_certificate_status(
-    _user: Annotated[AuthenticatedUser, Depends(require_user)],
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict[str, Any]:
+    await _require_active_owner(request, user)
     settings = get_settings()
     return {
         "providers": {
@@ -382,8 +398,10 @@ async def grading_certificate_status(
 @router.post("/lookup", response_model=GradingCertificateResult)
 async def grading_certificate_lookup(
     payload: GradingCertificateLookupRequest,
+    request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> GradingCertificateResult:
+    await _require_active_owner(request, user)
     try:
         result = await lookup_grading_certificate(
             payload.grader,
