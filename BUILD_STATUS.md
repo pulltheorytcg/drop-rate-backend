@@ -1,5 +1,69 @@
 # Drop Rate — Live Build Status
 
+
+## 2026-10-01 01:39 BST — 30 September → 1 October full catch-up reconciliation
+
+A detailed evidence-backed worklog for the full period is now recorded in `docs/WORKLOG_2026-09-30_TO_2026-10-01.md`. This checkpoint reconciles the main chat, Work/Codex work, GitHub PR history and live Supabase/Shopify/Railway state rather than treating discussion as completion.
+
+### Current production truth at the cutoff
+
+- Supabase has **509 physical inventory items**, **507 Shopify inventory links**, **73 base tables in `tcg`**, **67,989 reference-card records** across **734 reference sets/language records**, and **2 canonical sealed-product records**.
+- Exactly **2 FOR_SALE physical items remain unlinked**, both deliberately fail-closed One Piece raw-card evidence/media exceptions: `DON!! Card (Egghead)` and `Monkey.D.Luffy (Release Event Leader)`.
+- Dragon Ball is now **35 / 35 FOR_SALE physical items linked and PUBLISHED**. Earlier intermediate notes showing eight unlinked Dragon Ball cards are superseded.
+- Automation outbox health is clean at this checkpoint: **0 PENDING / DISPATCHING / DEAD_LETTER** events. The historical events have been deliberately SUPERSEDED rather than accidentally replayed.
+- Action Required has **0 OPEN CRITICAL** items and **2 OPEN HIGH** items. Both HIGH items are exact graded-slab media tasks: Charizard V 019/189 PSA 9 needs exact approved slab FRONT + BACK; ACE cert 590532 has approved exact front media but still lacks the exact back image for record completeness.
+- Railway still contains the documented seven-service production topology. `drop-rate-api-live`, the operations monitor, payout scheduler, n8n and reconciliation worker are healthy/SUCCESS at this cutoff; the two on-demand PSA/CardTrader prototype services remain sleeping rather than deleted.
+- n8n production is healthy on **2.32.6** and the provisioner sees the source-controlled DR-00/01/02/90/91/92 definitions, but the latest startup still reports **0 draft workflows / 0 published workflows**. The automation control plane is therefore present without silently activating customer-impacting workflows.
+- Shopify test orders #1003 and #1004 successfully proved the real checkout → webhook → exact physical Inventory ID → Sunny owner attribution → ledger path and were then intentionally cancelled/refunded. Canonical Postgres now records #1003 CANCELLED and #1004 REFUNDED with their exact physical items returned to inspection.
+- Shopify's connected order-summary surface still displays #1003/#1004 as PAID/unfulfilled at this checkpoint. This is being treated as a channel-projection/final-financial-status reconciliation item; it does **not** override canonical Postgres order/ownership truth.
+
+### Storefront and catalogue work completed on 30 September
+
+- The Brand Redesign machine-verifiable launch gate passed and its source-controlled theme matched Shopify. It remains **UNPUBLISHED** at this cutoff because making it MAIN is a manual Shopify Admin action plus final real-device/browser smoke.
+- Published raw duplicate pooling is complete for the identified backlog: **20 duplicate raw groups / 48 physical inventory links** were consolidated into correct customer-facing pooled products without deleting physical ownership/history.
+- One Piece raw publication was reconciled and the Japanese Nami Round 1 promotional identity/media was corrected.
+- Both founder-owned One Piece sealed products were published with sealed-specific metadata/shipping and surfaced through a top-level **Sealed** destination, One Piece submenu and a dedicated responsive homepage component.
+- Premium Card Collection storefront imagery was upgraded to a 1600×1600 source and sealed-product media sizing/whitespace handling was refined through PRs #406, #408–#411.
+- Storefront **Sell With Us** now reaches a real public Seller Hub self-registration path. It creates only a restricted CONSIGNOR/OWNER identity at the existing default commission and cannot grant Founder HQ/admin access.
+- Public Seller Hub stale-invite reuse was fixed; the mobile storefront Sell placement was moved into the drawer/footer rather than crowding the header.
+
+### Seller Hub work completed late 30 September / early 1 October
+
+- The Seller Hub uses the exact approved integrated transparent logo with explicit image rendering, desktop-left/mobile-centred positioning, corrected spacing and cache busting.
+- Profile/account settings are live: display name, optional unique username, read-only account context, verified email-change path and password change with current-password verification.
+- Seller Hub password login now supports **email or username** while keeping Supabase Auth as credential authority.
+- Username resolution is server-only, browser roles cannot call the resolver directly, invalid-login responses are generic, and database-backed throttling is 8 failures/identifier or 30/network identity per 15 minutes with only hashes stored.
+- PR #431 is merged/deployed; migration `owner_username_login` is live; Railway deployment `784f5b11-54d6-4381-b03b-5a7f74c64c0f` succeeded after the recorded 2,138-test preflight.
+- The earlier “Seller Hub header breathing-room refinement — production verification pending” line below is historical and superseded: PR #427 is merged.
+
+### Recognition and Dragon Ball work completed
+
+- PR #398 deployed the unseen-card reference library with **67,989 records** spanning Pokémon, One Piece, Dragon Ball Masters/Fusion World and Naruto sources.
+- This is a reference/candidate library, not a claim of universal measured scanner accuracy. Exact fingerprints, physical language/finish and human-confirmed learning remain governed separately.
+- Dragon Ball storefront media was upgraded away from tiny ~180×251 CardTrader preview derivatives to the largest exact original from the same trusted Blueprint where available.
+- Exact Winner/Tournament Pack matching was hardened and official-reference fallback rules were added without weakening exact-print safeguards.
+- **PR #394 remains OPEN** for the measured high-resolution/2160px replacement gate. Better originals are live; “true 4K” replacement coverage is **not yet complete** and AI upscaling is not accepted as canonical exact media.
+
+### Work/Codex mobile-app work before the cutoff
+
+- **PR #433 is DRAFT / OPEN**, branch `codex/seller-hub-ios`: native SwiftUI iPhone Seller Hub with full-screen rear-camera scanning, match review before draft inventory creation, portfolio images and Market Value/Store Price, TCG search/language filters, Keychain session storage, refresh, editable PSA/BGS/ACE/CGC label OCR, manual card correction and payload-bound save retries.
+- The PR reports 2,143 backend tests passing locally, but this is **not a released app**. Physical iPhone proof, native CI, real-account smoke, Apple signing/TestFlight, interrupted-save recovery and complete native sales/payout/security surfaces remain.
+- Android remains planned; no Android production implementation should be inferred from the iOS draft.
+
+### Retained roadmap / do not lose these items
+
+- Sealed scanner recognition and a much larger sealed catalogue/reference library.
+- Sealed market-data ingestion plus deterministic Market Value / Recommended Retail / Quick-Sale / Target Acquisition pricing.
+- Continue building the very large governed card reference corpus so cards can be recognised before they have ever existed in Drop Rate inventory.
+- Complete Dragon Ball genuinely high-resolution exact-print media work.
+- Finish iOS and build Android while keeping desktop Seller Hub first-class.
+- Shopify buyer → verified Seller Hub account → purchased-card portfolio handoff, without rewriting historical sale/owner records.
+- eBay expansion plus future Whatnot, Cardmarket and TCGplayer adapters with shared cross-channel stock protection/order reconciliation.
+- The source-controlled 42-workflow n8n programme: inventory/intake, recognition, sealed, pricing/market data, Shopify, orders/refunds, ownership/settlement, consignments, cross-channel, customer portfolio, marketing, listing copy, SEO/CRO, creative/social, email, customer service, recommendations, intelligence, briefings, analytics, image quality, errors and hardware.
+- Google Shopping should use Shopify's native Google & YouTube feed path first; n8n adds value around diagnostics/monitoring rather than duplicating the feed. Paid Shopping remains an explicit spend decision.
+- Draft PRs #215/#216 remain non-production CRO/SEO and Content Machine foundations until real storefront signal justifies activation.
+
+
 ## 2026-10-01 — Seller Hub email-or-username login
 
 - Added real **email or username** password sign-in for Seller Hub while keeping Supabase Auth as the credential authority.
