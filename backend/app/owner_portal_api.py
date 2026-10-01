@@ -178,7 +178,11 @@ def _owner_scan_inventory_payload(row: object, catalogue: object, *, replayed: b
             "rarity": catalogue_row.get("rarity"),
             "language": catalogue_row.get("language"),
         },
-        "identity_status": "SELLER_CONFIRMED_PENDING_DROP_RATE_VERIFICATION",
+        "identity_status": (
+            "VERIFIED_CANONICAL_IDENTITY"
+            if bool(inventory.get("identity_confirmed"))
+            else "SELLER_CONFIRMED_PENDING_DROP_RATE_VERIFICATION"
+        ),
         "valuation": {
             "status": "CALCULATED" if has_valuation else "UNAVAILABLE",
             "snapshot": valuation.get("snapshot") if valuation is not None else None,
@@ -1418,6 +1422,30 @@ async def owner_recognition_intake(
         )
         if catalogue is None:
             raise HTTPException(status_code=404, detail="Catalogue product not found")
+        verified_exact_sealed_identity = False
+        if (
+            catalogue["product_type"] in {"SEALED", "COLLECTION"}
+            and run["decision"] == "EXACT_CANDIDATE"
+            and run["top_catalogue_id"] == payload.selected_catalogue_id
+            and feedback["outcome"] == "CONFIRMED_TOP"
+        ):
+            verified_exact_sealed_identity = bool(
+                await connection.fetchval(
+                    """
+                    select exists(
+                        select 1
+                        from tcg.catalogue_product_profiles pr
+                        join tcg.sealed_product_details sd
+                          on sd.catalogue_id=pr.catalogue_id
+                        where pr.catalogue_id=$1
+                          and pr.collectible_type='SEALED'
+                          and pr.identity_status='VERIFIED'
+                          and sd.identity_status='VERIFIED'
+                    )
+                    """,
+                    payload.selected_catalogue_id,
+                )
+            )
         try:
             validate_physical_state(
                 product_type=catalogue["product_type"],
@@ -1440,6 +1468,12 @@ async def owner_recognition_intake(
             "payload_hash": payload_hash,
             "seller_confirmed": True,
             "confirmation_source": feedback["outcome"],
+            "canonical_identity_verified": verified_exact_sealed_identity,
+            "identity_confirmation_basis": (
+                "VERIFIED_EXACT_SEALED_MATCH"
+                if verified_exact_sealed_identity
+                else "SELLER_CONFIRMATION_PENDING_DROP_RATE_VERIFICATION"
+            ),
         }
 
         inventory = await connection.fetchrow(
@@ -1451,7 +1485,7 @@ async def owner_recognition_intake(
             ) values(
                 $1,$2,$3,$4,
                 $5,$6,$7,$8,$9,$10,
-                false,'DRAFT',$11,$12::jsonb,'FOR_SALE'
+                $11,'DRAFT',$12,$13::jsonb,'FOR_SALE'
             )
             on conflict (intake_request_key) do nothing
             returning *
@@ -1466,6 +1500,7 @@ async def owner_recognition_intake(
             payload.grade,
             payload.certificate_number,
             physical_language,
+            verified_exact_sealed_identity,
             request_key,
             json.dumps(source_record),
         )
