@@ -11,13 +11,13 @@ def _registry() -> dict:
     return json.loads(REGISTRY.read_text())
 
 
-def test_n8n_workflow_registry_covers_42_founder_workflows() -> None:
+def test_n8n_workflow_registry_covers_43_founder_workflows() -> None:
     registry = _registry()
     workflows = registry["workflows"]
     assert registry["schema_version"] == 1
-    assert len(workflows) == 42
-    assert [row["sequence"] for row in workflows] == list(range(1, 43))
-    assert len({row["key"] for row in workflows}) == 42
+    assert len(workflows) == 43
+    assert [row["sequence"] for row in workflows] == list(range(1, 44))
+    assert len({row["key"] for row in workflows}) == 43
 
 
 def test_every_workflow_has_safety_and_activation_contract() -> None:
