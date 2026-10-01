@@ -249,3 +249,9 @@ def test_qualification_contract_is_separate_from_lifecycle_state() -> None:
 def test_revoked_evidence_blocks_new_qualification_but_not_historical_replay() -> None:
     source = API.read_text()
     assert "if existing is None and any(" in source
+
+
+def test_hardening_covers_composite_observation_source_foreign_key() -> None:
+    sql = HARDENING_MIGRATION.read_text().lower()
+    assert "competitive_observations_source_competitor_idx" in sql
+    assert "on tcg.competitive_observations(source_id,competitor_id)" in sql
