@@ -141,7 +141,9 @@ function renderInventoryRows(items) {
     statusCell.append(status);
 
     const marketCell = document.createElement("td");
-    marketCell.textContent = formatMoney(item.market_value_minor);
+    marketCell.textContent = item.market_value_minor == null
+      ? "—"
+      : formatMoney(item.market_value_minor);
     const storeCell = document.createElement("td");
     const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
     storeCell.textContent = storeValue == null ? "—" : formatMoney(storeValue);
