@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field, model_validator
 from .access_control import require_owner_portal_request
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
+from .cardtrader_client import CardTraderApiError, CardTraderClient
+from .cardtrader_market import refresh_cardtrader_sealed_market
 from .db import user_connection
 from .grading_certificates import (
     CertificateProviderConfigurationError,
@@ -26,6 +28,7 @@ from .grading_certificates import (
 from .physical_state import validate_physical_state
 from .pricing import _recalculate_one
 from .recognition_games import SYSTEM_BY_GAME, collector_key
+from .recognition_vision import RecognitionObservation
 from .settings import get_settings
 
 
@@ -35,6 +38,56 @@ VISIBLE_STATUSES = ("DRAFT", "INSPECTION", "APPROVED", "RESERVED", "SOLD", "WITH
 OWNER_SCAN_SOURCE = "OWNER_SCAN"
 OWNER_GRADED_SCAN_SOURCE = "OWNER_GRADED_CERTIFICATE_SCAN"
 GAME_BY_SYSTEM = {system_code: game for game, system_code in SYSTEM_BY_GAME.items()}
+
+
+async def _hydrate_verified_sealed_market(
+    connection,
+    *,
+    catalogue_id: UUID,
+    physical_language: str,
+    ai_observation: object,
+) -> dict:
+    settings = get_settings()
+    if not settings.cardtrader_api_token:
+        return {
+            "status": "UNAVAILABLE",
+            "detail": "CardTrader market data is not configured",
+            "inserted": 0,
+        }
+    try:
+        observation = RecognitionObservation.model_validate(ai_observation or {})
+    except Exception:
+        return {
+            "status": "UNAVAILABLE",
+            "detail": "Recognition evidence is not sufficient to refresh sealed market data",
+            "inserted": 0,
+        }
+    if observation.object_type != "SEALED_PRODUCT":
+        return {
+            "status": "UNAVAILABLE",
+            "detail": "Recognition evidence is not a sealed product",
+            "inserted": 0,
+        }
+
+    client = CardTraderClient(
+        api_token=settings.cardtrader_api_token,
+        timeout_seconds=12.0,
+    )
+    try:
+        return await refresh_cardtrader_sealed_market(
+            connection,
+            catalogue_id=catalogue_id,
+            observation=observation,
+            physical_language=physical_language,
+            client=client,
+        )
+    except CardTraderApiError as exc:
+        return {
+            "status": "UNAVAILABLE",
+            "detail": exc.detail,
+            "inserted": 0,
+            "retryable": exc.retryable,
+        }
 
 
 class OwnerProfileUpdate(BaseModel):
@@ -1362,7 +1415,7 @@ async def owner_recognition_intake(
         run = await connection.fetchrow(
             """
             select
-                r.id,r.status,r.decision,r.top_catalogue_id,
+                r.id,r.status,r.decision,r.top_catalogue_id,r.ai_observation,
                 c.id as candidate_id,c.catalogue_id,c.hard_rejected
             from tcg.recognition_runs r
             left join tcg.recognition_candidates c
@@ -1510,6 +1563,15 @@ async def owner_recognition_intake(
                 detail="Seller intake conflicted; refresh inventory before retrying",
             )
 
+        market_refresh: dict | None = None
+        if verified_exact_sealed_identity:
+            market_refresh = await _hydrate_verified_sealed_market(
+                connection,
+                catalogue_id=payload.selected_catalogue_id,
+                physical_language=physical_language,
+                ai_observation=run["ai_observation"],
+            )
+
         valuation: dict | None = None
         valuation_error: str | None = None
         try:
@@ -1517,7 +1579,11 @@ async def owner_recognition_intake(
         except HTTPException as exc:
             if exc.status_code != 422:
                 raise
-            valuation_error = str(exc.detail)
+            valuation_error = (
+                str(market_refresh.get("detail"))
+                if market_refresh and market_refresh.get("detail")
+                else str(exc.detail)
+            )
 
         inventory = await connection.fetchrow(
             "select * from tcg.inventory_items where id=$1 and owner_id=$2",
@@ -1527,12 +1593,12 @@ async def owner_recognition_intake(
         if inventory is None:
             raise HTTPException(status_code=409, detail="Seller inventory creation could not be verified")
 
-        return jsonable_encoder(
-            _owner_scan_inventory_payload(
-                inventory,
-                catalogue,
-                replayed=False,
-                valuation=valuation,
-                valuation_error=valuation_error,
-            )
+        response = _owner_scan_inventory_payload(
+            inventory,
+            catalogue,
+            replayed=False,
+            valuation=valuation,
+            valuation_error=valuation_error,
         )
+        response["market_refresh"] = market_refresh
+        return jsonable_encoder(response)
