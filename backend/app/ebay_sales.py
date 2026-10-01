@@ -22,6 +22,10 @@ from .access_control import require_platform_admin_request
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ebay_sell_client import EbaySellApiError, EbaySellClient
+from .ebay_fulfillment import (
+    build_shipping_fulfillment_payload,
+    evaluate_shipping_fulfillment_preview,
+)
 from .ebay_reconciliation import reconcile_ebay_link
 from .ebay_seller_connection import (
     EbayEffectiveSellerConfig,
@@ -70,6 +74,12 @@ _GRADE_IDS = {
 
 class EbayListRequest(BaseModel):
     version: int = Field(ge=1)
+
+
+class EbayShippingFulfillmentPreviewRequest(BaseModel):
+    line_item_ids: list[str] = Field(min_length=1, max_length=50)
+    shipping_carrier_code: str = Field(min_length=1, max_length=100)
+    tracking_number: str = Field(min_length=1, max_length=200)
 
 
 class EbayChannelConflict(RuntimeError):
@@ -717,6 +727,115 @@ async def ebay_reconciliation(
         "items": items,
         "read_only": True,
     }
+
+
+@router.post(
+    "/orders/{ebay_order_id}/shipping-fulfillment/preview",
+    dependencies=[Depends(require_platform_admin_request)],
+)
+async def preview_ebay_shipping_fulfillment(
+    ebay_order_id: str,
+    payload: EbayShippingFulfillmentPreviewRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict[str, Any]:
+    order_id = ebay_order_id.strip()
+    if not order_id or len(order_id) > 255:
+        raise HTTPException(status_code=422, detail="Invalid eBay order ID")
+
+    try:
+        package = build_shipping_fulfillment_payload(
+            [(line_item_id, 1) for line_item_id in payload.line_item_ids],
+            shipping_carrier_code=payload.shipping_carrier_code,
+            tracking_number=payload.tracking_number,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    settings = get_settings()
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id
+    ) as connection:
+        owner = await _owner(connection)
+        rows = await connection.fetch(
+            """
+            select
+                eol.order_id,
+                eol.order_item_id,
+                eol.inventory_id,
+                eol.owner_id,
+                eol.ebay_order_id,
+                eol.ebay_line_item_id,
+                eol.ebay_listing_id,
+                o.source as order_source,
+                o.source_reference,
+                o.status as order_status,
+                oi.inventory_id as order_item_inventory_id,
+                oi.owner_id as order_item_owner_id,
+                i.owner_id as inventory_owner_id,
+                i.status as inventory_status,
+                i.inventory_code
+            from tcg.ebay_order_item_links eol
+            join tcg.orders o on o.id=eol.order_id
+            join tcg.order_items oi on oi.id=eol.order_item_id
+            join tcg.inventory_items i on i.id=eol.inventory_id
+            where eol.ebay_order_id=$1
+              and eol.owner_id=$2
+            order by eol.ebay_line_item_id,eol.id
+            """,
+            order_id,
+            owner["id"],
+        )
+
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail="No owner-scoped Drop Rate mapping exists for this eBay order",
+        )
+
+    try:
+        client, _effective = await seller_client(
+            request.app.state.db_pool,
+            settings,
+            owner_id=owner["id"],
+        )
+        remote_order, remote_fulfillments = await asyncio.gather(
+            client.get_order(order_id),
+            client.get_shipping_fulfillments(order_id),
+        )
+        evaluation = evaluate_shipping_fulfillment_preview(
+            ebay_order_id=order_id,
+            owner_id=str(owner["id"]),
+            payload=package,
+            local_rows=[dict(row) for row in rows],
+            remote_order=remote_order,
+            remote_fulfillments=remote_fulfillments,
+        )
+    except (EbaySellApiError, RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=502 if getattr(exc, "retryable", False) else 409,
+            detail=getattr(exc, "detail", str(exc)),
+        ) from exc
+
+    return jsonable_encoder(
+        {
+            "ebay_order_id": order_id,
+            "package": package,
+            "evaluation": evaluation,
+            "local_mappings": [
+                {
+                    "ebay_line_item_id": row["ebay_line_item_id"],
+                    "inventory_id": row["inventory_id"],
+                    "inventory_code": row["inventory_code"],
+                    "order_item_id": row["order_item_id"],
+                }
+                for row in rows
+            ],
+            "remote_fulfillments": remote_fulfillments,
+            "read_only": True,
+            "external_action_taken": False,
+        }
+    )
 
 
 @router.post("/listings/{inventory_id}", dependencies=[Depends(require_platform_admin_request)])
