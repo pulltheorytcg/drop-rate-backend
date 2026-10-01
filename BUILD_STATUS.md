@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — eBay shipping fulfilment read-before-write foundation
+
+- Added strict pure helpers for tracked eBay shipping package identity and future retry idempotency.
+- Tracking validation follows eBay's documented alphanumeric/no-space requirement.
+- Added official Fulfillment API read-back client methods for all fulfilments on an order and a single fulfilment.
+- Exact matching uses carrier + tracking number + line-item IDs/quantities; duplicate matching remote packages fail closed.
+- The current READY EBAY_GB seller connection already has both `sell.fulfillment` and `sell.fulfillment.readonly` OAuth scopes, so future controlled fulfilment writes do not require another consent expansion.
+- This slice deliberately adds **no** create-shipping-fulfilment provider write, admin route, UI button or n8n activation.
+- Next slice after production verification: deterministic internal order/Inventory mapping preflight + audited, disabled-by-default write contract.
+
+
 ## 2026-10-01 — Competitive Intelligence hardening production verification
 
 - ✅ PR #445 merged and the forward-only replay/evidence hardening migration was applied successfully to Supabase.
