@@ -585,6 +585,8 @@ def _provider_identity_for_candidate(
 
     eligible = []
     for item in provider_evidence:
+        if item.get("retrieval_only"):
+            continue
         if collector_key(item.get("base_card_id")) != candidate_number:
             continue
         score = float(item.get("identity_score") or 0.0)
@@ -618,9 +620,13 @@ def _provider_support(
     candidate: Mapping[str, Any],
     provider_evidence: list[Mapping[str, Any]],
 ) -> tuple[float, Mapping[str, Any] | None]:
-    exact = _provider_keys(provider_evidence) & _candidate_provider_keys(candidate)
+    acceptance_evidence = [
+        item for item in provider_evidence
+        if not item.get("retrieval_only")
+    ]
+    exact = _provider_keys(acceptance_evidence) & _candidate_provider_keys(candidate)
     if exact:
-        for item in provider_evidence:
+        for item in acceptance_evidence:
             key = (
                 str(item.get("provider") or "").casefold(),
                 str(item.get("provider_id") or "").casefold(),
@@ -629,12 +635,12 @@ def _provider_support(
                 return 1.0, item
         return 1.0, None
 
-    identity_item = _provider_identity_for_candidate(candidate, provider_evidence)
+    identity_item = _provider_identity_for_candidate(candidate, acceptance_evidence)
     candidate_art = _candidate_art(candidate)
     best = 0.0
     best_item: Mapping[str, Any] | None = None
 
-    for item in provider_evidence:
+    for item in acceptance_evidence:
         if collector_key(item.get("base_card_id")) != collector_key(candidate.get("card_number")):
             continue
         identity_score = float(item.get("identity_score") or 0.0)
