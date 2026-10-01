@@ -183,3 +183,23 @@ def test_cross_game_exact_reference_correction_has_global_number_index() -> None
     assert "create index if not exists reference_cards_number_key_global_idx" in migration
     assert "on tcg.reference_cards(number_key)" in migration
     assert "unique index" not in migration
+
+
+def test_batch_camera_requires_present_stable_item_and_waits_for_removal() -> None:
+    source = (ROOT / "backend" / "app" / "static" / "owner-recognition.js").read_text()
+
+    assert "function ownerBatchFrameAnalysis(video)" in source
+    assert "if (!analysis.present)" in source
+    assert 'ownerBatchSetCameraState("Place a card or sealed product inside the guide")' in source
+    assert "batch.awaitingRemoval = true" in source
+    assert 'ownerBatchSetCameraState("Item scanned · remove it before showing the next one")' in source
+    assert "batch.absenceFrames >= 2" in source
+
+
+def test_batch_recognised_results_use_reference_thumbnail_when_available() -> None:
+    source = (ROOT / "backend" / "app" / "static" / "owner-recognition.js").read_text()
+
+    assert "function ownerBatchPopulateThumb(image, item)" in source
+    assert "if (selected?.image_url)" in source
+    assert "ownerScanLoadCandidateImage(image, item.runId, selected.id)" in source
+    assert "ownerBatchPopulateThumb(image, item)" in source
