@@ -9,6 +9,16 @@ state.ownerRecognition = {
   result: null,
   selectedCandidate: null,
   intakeKey: null,
+  mode: "raw",
+  slab: {
+    lookup: null,
+    scan: null,
+    selectedCatalogue: null,
+    qrDetector: null,
+    qrTimer: null,
+    qrBusy: false,
+    lastQrValue: null,
+  },
   batch: {
     items: [],
     enabled: false,
@@ -28,6 +38,461 @@ state.ownerRecognition = {
     lastAutoCaptureAt: 0,
   },
 };
+
+function ownerScanMode() {
+  return document.querySelector('input[name="owner-scan-mode"]:checked')?.value || "raw";
+}
+
+function ownerSlabMessage(text = "", kind = "") {
+  const node = byId("owner-slab-lookup-message");
+  if (!node) return;
+  node.textContent = text;
+  node.className = `owner-card-message${kind ? ` ${kind}` : ""}`;
+}
+
+function ownerSlabReset({keepInputs = false} = {}) {
+  const slab = state.ownerRecognition.slab;
+  window.clearTimeout(slab.qrTimer);
+  slab.qrTimer = null;
+  slab.qrBusy = false;
+  slab.lastQrValue = null;
+  slab.lookup = null;
+  slab.scan = null;
+  slab.selectedCatalogue = null;
+  byId("owner-slab-evidence")?.classList.add("hidden");
+  byId("owner-slab-evidence")?.replaceChildren();
+  byId("owner-slab-search-results")?.replaceChildren();
+  if (byId("owner-slab-search-input")) byId("owner-slab-search-input").value = "";
+  ownerSlabMessage();
+  if (!keepInputs) {
+    if (byId("owner-slab-grader")) byId("owner-slab-grader").value = "PSA";
+    if (byId("owner-slab-certificate")) byId("owner-slab-certificate").value = "";
+  }
+}
+
+function ownerScanApplyMode() {
+  const mode = ownerScanMode();
+  state.ownerRecognition.mode = mode;
+  const graded = mode === "graded";
+  byId("owner-slab-tools")?.classList.toggle("hidden", !graded);
+  byId("owner-batch-sheet")?.classList.toggle("hidden", graded);
+  byId("owner-scan-camera-title").textContent = graded ? "Scan graded slab" : "Batch scan";
+  byId("owner-scan-camera-hint").textContent = graded
+    ? "Show the full slab · QR and label visible · avoid glare"
+    : "Fill the frame · keep card flat · avoid glare";
+  byId("owner-scan-upload-title").textContent = graded
+    ? "Choose slab photo"
+    : "Choose card photo";
+  byId("owner-scan-upload-help").textContent = graded
+    ? "Front label visible; back/QR can be scanned live"
+    : "JPEG, PNG or WebP";
+  byId("owner-scan-run-label").textContent = graded
+    ? "Read slab label"
+    : "Recognise card";
+  byId("owner-scan-result-title").textContent = graded
+    ? "Confirm the exact graded card"
+    : "Confirm the exact card";
+  byId("owner-scan-result-help").textContent = graded
+    ? "Certificate and slab-label evidence narrow the search; you still confirm the canonical card."
+    : "Compare the top match and alternatives before adding anything.";
+  byId("owner-scan-open-camera").querySelector("strong").textContent = graded
+    ? "Open slab / QR camera"
+    : "Open live camera";
+  byId("owner-scan-open-camera").querySelector("small").textContent = graded
+    ? "QR-first, label OCR fallback"
+    : "Recommended on mobile";
+
+  if (graded) {
+    state.ownerRecognition.batch.enabled = false;
+    ownerBatchStopLoop();
+  } else {
+    ownerSlabStopQrLoop();
+  }
+  ownerScanRenderEmpty();
+}
+
+async function ownerSlabEnsureQrDetector() {
+  const slab = state.ownerRecognition.slab;
+  if (slab.qrDetector) return slab.qrDetector;
+  if (!("BarcodeDetector" in globalThis)) return null;
+  try {
+    if (typeof BarcodeDetector.getSupportedFormats === "function") {
+      const formats = await BarcodeDetector.getSupportedFormats();
+      if (!formats.includes("qr_code")) return null;
+    }
+    slab.qrDetector = new BarcodeDetector({formats: ["qr_code"]});
+    return slab.qrDetector;
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function ownerSlabDetectQr(source) {
+  const detector = await ownerSlabEnsureQrDetector();
+  if (!detector || !source) return null;
+  try {
+    const codes = await detector.detect(source);
+    return codes.find((item) => item?.rawValue)?.rawValue || null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function ownerSlabStopQrLoop() {
+  const slab = state.ownerRecognition.slab;
+  window.clearTimeout(slab.qrTimer);
+  slab.qrTimer = null;
+  slab.qrBusy = false;
+}
+
+async function ownerSlabResolveQr(rawValue) {
+  const raw = String(rawValue || "").trim();
+  const slab = state.ownerRecognition.slab;
+  if (!raw || slab.qrBusy || raw === slab.lastQrValue) return false;
+  slab.qrBusy = true;
+  slab.lastQrValue = raw;
+  try {
+    const parsed = await apiRequest("/api/v1/grading-certificates/qr/resolve", {
+      method: "POST",
+      body: JSON.stringify({
+        qr_value: raw,
+        grader_hint: byId("owner-slab-grader").value || null,
+      }),
+    });
+    byId("owner-slab-grader").value = parsed.provider;
+    byId("owner-slab-certificate").value = parsed.certificate_number;
+    ownerSlabMessage(
+      `${parsed.provider} QR read · certificate ${parsed.certificate_number}. Verifying…`,
+      "success"
+    );
+    const verified = await ownerSlabLookupCertificate({fromQr: true});
+    return Boolean(verified);
+  } catch (error) {
+    ownerSlabMessage(error.message, "error");
+    return false;
+  } finally {
+    slab.qrBusy = false;
+  }
+}
+
+function ownerSlabStartQrLoop() {
+  ownerSlabStopQrLoop();
+  const slab = state.ownerRecognition.slab;
+  const tick = async () => {
+    if (
+      ownerScanMode() !== "graded"
+      || !state.ownerRecognition.cameraStream
+      || document.visibilityState === "hidden"
+    ) {
+      slab.qrTimer = null;
+      return;
+    }
+    const video = byId("owner-scan-video");
+    if (video?.readyState >= 2 && !slab.qrBusy) {
+      const raw = await ownerSlabDetectQr(video);
+      if (raw) {
+        const complete = await ownerSlabResolveQr(raw);
+        if (complete) {
+          ownerScanStopCamera();
+          return;
+        }
+        ownerBatchSetCameraState("QR read · capture full slab to read the label");
+      }
+    }
+    slab.qrTimer = window.setTimeout(tick, 450);
+  };
+  slab.qrTimer = window.setTimeout(tick, 250);
+}
+
+function ownerSlabEvidenceValues(data) {
+  const provider = data?.provider_result || data || {};
+  const observation = data?.observation || {};
+  return {
+    provider: data?.normalized_provider || provider.provider || observation.grader || byId("owner-slab-grader")?.value || "",
+    certificate: data?.normalized_certificate || provider.certificate_number || observation.certificate_number || byId("owner-slab-certificate")?.value || "",
+    status: provider.status || data?.provider_error || "LABEL_READ_ONLY",
+    grade: provider.grade || observation.grade || "",
+    name: provider.subject || observation.card_name || "",
+    number: provider.card_number || observation.card_number || "",
+    setName: provider.set_brand || observation.set_name || "",
+    language: provider.language_printing || observation.language || "",
+    searchSeed: data?.catalogue_search_seed || provider.card_number || observation.card_number || provider.subject || observation.card_name || "",
+    verified: Boolean(provider.verified),
+    conflicts: data?.conflicts || [],
+    verificationUrl: provider.verification_url || "",
+  };
+}
+
+function ownerSlabRenderEvidence(data) {
+  const values = ownerSlabEvidenceValues(data);
+  const node = byId("owner-slab-evidence");
+  node.replaceChildren();
+
+  const summary = document.createElement("div");
+  summary.className = "owner-slab-evidence-summary";
+  const status = document.createElement("strong");
+  status.textContent = values.verified ? "Provider verified" : "Verification / review required";
+  const meta = document.createElement("span");
+  meta.textContent = [
+    values.provider,
+    values.certificate ? `Cert ${values.certificate}` : null,
+    values.grade ? `Grade ${values.grade}` : null,
+  ].filter(Boolean).join(" · ");
+  summary.append(status, meta);
+
+  const details = document.createElement("div");
+  details.className = "owner-slab-evidence-grid";
+  [
+    ["Card", values.name],
+    ["Number", values.number],
+    ["Set", values.setName],
+    ["Language", values.language],
+    ["Status", String(values.status || "").replaceAll("_", " ")],
+  ].forEach(([labelText, valueText]) => {
+    const box = document.createElement("div");
+    const label = document.createElement("span");
+    label.textContent = labelText;
+    const value = document.createElement("strong");
+    value.textContent = valueText || "—";
+    box.append(label, value);
+    details.append(box);
+  });
+
+  node.append(summary, details);
+  if (values.conflicts.length) {
+    const warning = document.createElement("p");
+    warning.className = "owner-slab-conflict";
+    warning.textContent = `Provider/label conflict: ${values.conflicts.join(", ").replaceAll("_", " ")}. Do not add this slab until reviewed.`;
+    node.append(warning);
+  }
+  if (values.verificationUrl) {
+    const link = document.createElement("a");
+    link.href = values.verificationUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open official verification";
+    node.append(link);
+  }
+  node.classList.remove("hidden");
+
+  if (values.provider && ["PSA","ACE","CGC","BGS","BVG","BCCG"].includes(values.provider)) {
+    byId("owner-slab-grader").value = values.provider;
+  }
+  if (values.certificate) byId("owner-slab-certificate").value = values.certificate;
+  if (values.searchSeed) {
+    byId("owner-slab-search-input").value = values.searchSeed;
+  }
+  return values;
+}
+
+async function ownerSlabLookupCertificate({fromQr = false} = {}) {
+  const grader = byId("owner-slab-grader").value;
+  const certificate = byId("owner-slab-certificate").value.trim();
+  if (!certificate) {
+    ownerSlabMessage("Enter or scan a certificate number.", "error");
+    return false;
+  }
+  ownerSlabMessage(`Checking ${grader} certificate…`);
+  try {
+    const data = await apiRequest("/api/v1/grading-certificates/lookup", {
+      method: "POST",
+      body: JSON.stringify({grader, certificate_number: certificate}),
+    });
+    state.ownerRecognition.slab.lookup = data;
+    const values = ownerSlabRenderEvidence(data);
+    if (values.searchSeed.length >= 2) {
+      await ownerSlabSearchCards(values.searchSeed);
+      ownerSlabMessage(
+        data.verified
+          ? "Certificate verified. Confirm the exact Drop Rate catalogue card."
+          : "Certificate route found. Confirm the card manually before inventory.",
+        data.verified ? "success" : ""
+      );
+      return true;
+    }
+    ownerSlabMessage(
+      fromQr
+        ? "QR read successfully. Capture the full slab so Drop Rate can read the label and find the card."
+        : "Certificate route is ready. Search the exact card number/name to continue.",
+      ""
+    );
+    return false;
+  } catch (error) {
+    const missingPsa = grader === "PSA" && /not configured/i.test(error.message || "");
+    ownerSlabMessage(
+      missingPsa
+        ? "PSA QR/cert was read, but the PSA API token is not configured yet. Capture the full slab to read the label, or search the card manually."
+        : error.message,
+      missingPsa ? "" : "error"
+    );
+    return false;
+  }
+}
+
+function ownerSlabSearchResultCard(row) {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "owner-batch-search-result";
+  const imageWrap = document.createElement("div");
+  imageWrap.className = "owner-batch-search-image";
+  if (row.image_url) {
+    const image = document.createElement("img");
+    image.src = row.image_url;
+    image.alt = safeText(row.name, "Trading card");
+    image.loading = "lazy";
+    imageWrap.append(image);
+  } else {
+    imageWrap.textContent = safeText(row.game, "DR").slice(0, 3).toUpperCase();
+  }
+  const copy = document.createElement("div");
+  const name = document.createElement("strong");
+  name.textContent = safeText(row.name);
+  const meta = document.createElement("span");
+  meta.textContent = [
+    row.game,row.set_name,row.card_number,row.variant,row.rarity,row.language,
+  ].filter(Boolean).join(" · ");
+  const value = document.createElement("small");
+  value.textContent = row.market_value_minor == null
+    ? "Reference value unavailable"
+    : `Market ${formatMoney(row.market_value_minor)}`;
+  copy.append(name, meta, value);
+  const choose = document.createElement("em");
+  choose.textContent = "Confirm";
+  card.append(imageWrap, copy, choose);
+  card.addEventListener("click", () => ownerSlabChooseCatalogue(row));
+  return card;
+}
+
+async function ownerSlabSearchCards(query) {
+  const q = String(query || "").trim();
+  if (q.length < 2) {
+    ownerSlabMessage("Search needs at least 2 characters.", "error");
+    return;
+  }
+  const results = byId("owner-slab-search-results");
+  results.replaceChildren();
+  ownerSlabMessage("Searching Drop Rate catalogue…");
+  try {
+    const params = new URLSearchParams({q, limit: "20"});
+    const data = await apiRequest(`/api/v1/owner/catalogue-search?${params.toString()}`);
+    const items = data.items || [];
+    items.forEach((row) => results.append(ownerSlabSearchResultCard(row)));
+    ownerSlabMessage(
+      items.length
+        ? "Choose the exact card/printing that matches the slab."
+        : "No matching cards found. Try the exact collector/card number.",
+      items.length ? "" : "error"
+    );
+  } catch (error) {
+    ownerSlabMessage(error.message, "error");
+  }
+}
+
+function ownerSlabChooseCatalogue(row) {
+  const evidence = ownerSlabEvidenceValues(
+    state.ownerRecognition.slab.scan || state.ownerRecognition.slab.lookup || {}
+  );
+  if (evidence.conflicts.length) {
+    ownerSlabMessage("Resolve the provider/label conflict before adding this slab.", "error");
+    return;
+  }
+  state.ownerRecognition.slab.selectedCatalogue = row;
+  state.ownerRecognition.selectedCandidate = {
+    catalogue_id: row.id,
+    image_url: row.image_url,
+    score: null,
+    manual_search: true,
+    candidate_snapshot: {
+      game: row.game,
+      name: row.name,
+      set_name: row.set_name,
+      card_number: row.card_number,
+      variant: row.variant,
+      rarity: row.rarity,
+      language: row.language,
+    },
+  };
+  state.ownerRecognition.intakeKey = crypto.randomUUID();
+  ownerScanRenderSelected(state.ownerRecognition.selectedCandidate);
+
+  document.querySelector('input[name="owner-scan-state"][value="graded"]').checked = true;
+  byId("owner-scan-grading-company").value = evidence.provider || byId("owner-slab-grader").value;
+  byId("owner-scan-grade").value = evidence.grade || "";
+  byId("owner-scan-certificate").value = evidence.certificate || byId("owner-slab-certificate").value.trim();
+  byId("owner-scan-language").value = evidence.language || row.language || "";
+  ownerScanUpdatePhysicalState();
+
+  byId("owner-scan-intake-panel").classList.remove("hidden");
+  byId("owner-scan-success").classList.add("hidden");
+  ownerScanIntakeMessage(
+    evidence.verified
+      ? "Provider evidence verified. Confirm the physical details and add as DRAFT."
+      : "Card selected. Provider verification is incomplete, so this will remain pending Drop Rate review."
+  );
+  ownerScanMessage("Graded card selected. Review the slab details before adding it.", "success");
+  byId("owner-scan-intake-panel").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+async function ownerSlabScanPhoto() {
+  if (!state.ownerRecognition.imageDataUrl || state.ownerRecognition.busy) return;
+  state.ownerRecognition.busy = true;
+  byId("owner-scan-run").disabled = true;
+  byId("owner-scan-clear").disabled = true;
+  ownerScanMessage("Reading slab label and checking certificate evidence…");
+
+  const result = byId("owner-scan-result");
+  const loading = document.createElement("div");
+  loading.className = "owner-scan-empty";
+  loading.innerHTML = "<span>◌</span><strong>Reading graded slab…</strong><small>Looking for grader, certificate, grade and exact card identity on the label.</small>";
+  result.replaceChildren(loading);
+
+  try {
+    const data = await apiRequest("/api/v1/grading-certificates/scan", {
+      method: "POST",
+      body: JSON.stringify({image_data_url: state.ownerRecognition.imageDataUrl}),
+    });
+    state.ownerRecognition.slab.scan = data;
+    const values = ownerSlabRenderEvidence(data);
+    if (values.provider && values.provider !== "Unknown") byId("owner-slab-grader").value = values.provider;
+    if (values.certificate) byId("owner-slab-certificate").value = values.certificate;
+
+    const summary = document.createElement("div");
+    summary.className = `owner-scan-decision ${values.verified ? "exact_candidate" : "needs_review"}`;
+    const title = document.createElement("strong");
+    title.textContent = values.verified ? "Certificate verified" : "Slab label read · review required";
+    const detail = document.createElement("span");
+    detail.textContent = values.conflicts.length
+      ? "The slab label conflicts with provider evidence. Do not add until reviewed."
+      : "Use the certificate/label evidence below to confirm the exact canonical card.";
+    summary.append(title, detail);
+    result.replaceChildren(summary);
+
+    const evidenceClone = byId("owner-slab-evidence").cloneNode(true);
+    evidenceClone.removeAttribute("id");
+    evidenceClone.classList.remove("hidden");
+    result.append(evidenceClone);
+
+    if (values.searchSeed.length >= 2 && !values.conflicts.length) {
+      byId("owner-slab-search-input").value = values.searchSeed;
+      await ownerSlabSearchCards(values.searchSeed);
+    }
+    ownerScanMessage(
+      values.conflicts.length
+        ? "Slab evidence conflict detected. This scan is blocked for review."
+        : "Slab evidence read. Confirm the exact catalogue card before adding anything.",
+      values.conflicts.length ? "error" : (values.verified ? "success" : "")
+    );
+  } catch (error) {
+    ownerScanRenderEmpty();
+    ownerScanMessage(error.message, "error");
+  } finally {
+    state.ownerRecognition.busy = false;
+    byId("owner-scan-clear").disabled = !state.ownerRecognition.imageDataUrl;
+    byId("owner-scan-run").disabled =
+      !state.ownerRecognition.status?.configured || !state.ownerRecognition.imageDataUrl;
+  }
+}
+
 
 function ownerScanMessage(text = "", kind = "") {
   const node = byId("owner-scan-message");
@@ -86,6 +551,7 @@ async function ownerScanLoadCandidateImage(image, runId, candidateId) {
 
 function ownerScanStopCamera({hide = true} = {}) {
   ownerBatchStopLoop();
+  ownerSlabStopQrLoop();
   const batch = state.ownerRecognition.batch;
   window.clearTimeout(batch.statusTimer);
   window.clearTimeout(batch.flashTimer);
@@ -126,13 +592,17 @@ async function ownerScanStartCamera(facingMode = "environment") {
   await video.play();
   byId("owner-scan-camera-stage").classList.remove("hidden");
   byId("owner-scan-open-camera").classList.add("hidden");
-  if (ownerBatchIsMobile()) {
+  if (ownerScanMode() === "raw" && ownerBatchIsMobile()) {
     state.ownerRecognition.batch.enabled = true;
     state.ownerRecognition.batch.paused = false;
     document.body.classList.add("owner-batch-camera-open");
     ownerBatchStartLoop();
     ownerBatchRender();
     ownerBatchSetCameraState("Auto-scan on · tap Capture now any time");
+  } else if (ownerScanMode() === "graded") {
+    state.ownerRecognition.batch.enabled = false;
+    ownerBatchSetCameraState("QR scan ready · capture the slab if no QR is detected");
+    ownerSlabStartQrLoop();
   }
   ownerScanMessage(
     facingMode === "environment"
@@ -182,6 +652,12 @@ async function ownerScanCapture() {
   }
 
   try {
+    if (ownerScanMode() === "graded") {
+      const qrValue = await ownerSlabDetectQr(video);
+      if (qrValue) {
+        await ownerSlabResolveQr(qrValue);
+      }
+    }
     const crop = ownerScanCrop(video.videoWidth, video.videoHeight);
     const maxOutput = 1800;
     const scale = Math.min(1, maxOutput / Math.max(crop.sw, crop.sh));
@@ -233,12 +709,18 @@ function ownerScanHandleFile(event) {
     return;
   }
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     ownerScanSetImage(
       String(reader.result || ""),
-      file.name || "Card photo",
+      file.name || (ownerScanMode() === "graded" ? "Slab photo" : "Card photo"),
       `${file.type.replace("image/", "").toUpperCase()} · ${(file.size / 1_000_000).toFixed(2)} MB`
     );
+    if (ownerScanMode() === "graded") {
+      const preview = byId("owner-scan-preview");
+      try { if (typeof preview.decode === "function") await preview.decode(); } catch (_error) {}
+      const qrValue = await ownerSlabDetectQr(preview);
+      if (qrValue) await ownerSlabResolveQr(qrValue);
+    }
     ownerScanMessage();
   };
   reader.onerror = () => ownerScanMessage("The card photo could not be read.", "error");
@@ -247,6 +729,7 @@ function ownerScanHandleFile(event) {
 
 function ownerScanClear({keepMessage = false} = {}) {
   ownerScanStopCamera();
+  ownerSlabReset({keepInputs: ownerScanMode() === "graded"});
   state.ownerRecognition.imageDataUrl = null;
   state.ownerRecognition.result = null;
   state.ownerRecognition.selectedCandidate = null;
@@ -273,7 +756,9 @@ function ownerScanRenderEmpty() {
   const title = document.createElement("strong");
   title.textContent = "No scan yet";
   const copy = document.createElement("small");
-  copy.textContent = "Your recognition result and evidence will appear here.";
+  copy.textContent = ownerScanMode() === "graded"
+    ? "QR, certificate and slab-label evidence will appear here."
+    : "Your recognition result and evidence will appear here.";
   empty.append(icon, title, copy);
   result.replaceChildren(empty);
 }
@@ -397,6 +882,10 @@ function ownerScanRenderResult(data) {
 }
 
 async function ownerScanRun() {
+  if (ownerScanMode() === "graded") {
+    await ownerSlabScanPhoto();
+    return;
+  }
   if (!state.ownerRecognition.imageDataUrl || state.ownerRecognition.busy) return;
   state.ownerRecognition.busy = true;
   state.ownerRecognition.selectedCandidate = null;
@@ -467,7 +956,8 @@ function ownerScanRenderSelected(candidate) {
   image.loading = "lazy";
   imageWrap.append(image);
   const runId = state.ownerRecognition.result?.run?.id;
-  if (candidate.id && runId) ownerScanLoadCandidateImage(image, runId, candidate.id);
+  if (candidate.image_url) image.src = candidate.image_url;
+  else if (candidate.id && runId) ownerScanLoadCandidateImage(image, runId, candidate.id);
 
   const copy = document.createElement("div");
   copy.className = "owner-scan-selected-copy";
@@ -485,7 +975,9 @@ function ownerScanRenderSelected(candidate) {
     snapshot.language,
   ].filter(Boolean).join(" · ");
   const score = document.createElement("em");
-  score.textContent = `${ownerScanPercent(candidate.score)} identity confidence`;
+  score.textContent = candidate.score === null || candidate.score === undefined
+    ? "Human-confirmed slab catalogue match"
+    : `${ownerScanPercent(candidate.score)} identity confidence`;
   copy.append(kicker, title, meta, score);
   container.append(imageWrap, copy);
 }
@@ -542,7 +1034,10 @@ async function ownerScanSubmitIntake(event) {
   event.preventDefault();
   const candidate = state.ownerRecognition.selectedCandidate;
   const run = state.ownerRecognition.result?.run;
-  if (!candidate?.catalogue_id || !run?.id) {
+  const slabCatalogue = state.ownerRecognition.slab.selectedCatalogue;
+  const slabFlow = ownerScanMode() === "graded" && slabCatalogue;
+
+  if (!candidate?.catalogue_id || (!slabFlow && !run?.id)) {
     ownerScanIntakeMessage("Confirm a recognition candidate first.", "error");
     return;
   }
@@ -573,11 +1068,23 @@ async function ownerScanSubmitIntake(event) {
   state.ownerRecognition.intakeKey ||= crypto.randomUUID();
 
   try {
-    const data = await apiRequest("/api/v1/owner/recognition-intake", {
-      method: "POST",
-      headers: {"Idempotency-Key": state.ownerRecognition.intakeKey},
-      body: JSON.stringify(payload),
-    });
+    const data = slabFlow
+      ? await apiRequest("/api/v1/owner/graded-certificate-intake", {
+          method: "POST",
+          headers: {"Idempotency-Key": state.ownerRecognition.intakeKey},
+          body: JSON.stringify({
+            selected_catalogue_id: candidate.catalogue_id,
+            grading_company: payload.grading_company,
+            grade: payload.grade,
+            certificate_number: payload.certificate_number,
+            language: payload.language,
+          }),
+        })
+      : await apiRequest("/api/v1/owner/recognition-intake", {
+          method: "POST",
+          headers: {"Idempotency-Key": state.ownerRecognition.intakeKey},
+          body: JSON.stringify(payload),
+        });
     byId("owner-scan-market-value").textContent =
       data.inventory?.market_value_minor == null ? "—" : formatMoney(data.inventory.market_value_minor);
     byId("owner-scan-store-value").textContent =
@@ -1386,8 +1893,11 @@ async function ownerRecognitionEnter() {
   if (!state.session?.access_token || state.ownerRecognition.status) return;
   const badge = byId("owner-scan-engine-status");
   try {
-    const data = await apiRequest("/api/v1/recognition/status");
-    state.ownerRecognition.status = data;
+    const [data, grading] = await Promise.all([
+      apiRequest("/api/v1/recognition/status"),
+      apiRequest("/api/v1/grading-certificates/status"),
+    ]);
+    state.ownerRecognition.status = {...data, grading};
     badge.textContent = data.configured ? `${data.vision_model} · READY` : "UNAVAILABLE";
     badge.className = `owner-status-pill ${data.configured ? "approved" : "inspection"}`;
     byId("owner-scan-open-camera").disabled = !data.configured;
@@ -1402,6 +1912,30 @@ async function ownerRecognitionEnter() {
   }
 }
 window.ownerRecognitionEnter = ownerRecognitionEnter;
+
+document.querySelectorAll('input[name="owner-scan-mode"]').forEach((input) => {
+  input.addEventListener("change", () => {
+    ownerScanStopCamera();
+    ownerScanClear({keepMessage: true});
+    ownerScanApplyMode();
+    ownerScanMessage(
+      ownerScanMode() === "graded"
+        ? "Graded Slab mode ready. Scan a QR, enter a certificate, or photograph the full slab."
+        : "Raw Card mode ready."
+    );
+  });
+});
+byId("owner-slab-lookup").addEventListener("click", () => ownerSlabLookupCertificate());
+byId("owner-slab-search-button").addEventListener("click", () => {
+  ownerSlabSearchCards(byId("owner-slab-search-input").value);
+});
+byId("owner-slab-search-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    ownerSlabSearchCards(event.currentTarget.value);
+  }
+});
+ownerScanApplyMode();
 
 byId("owner-scan-open-camera").addEventListener("click", async () => {
   try {
