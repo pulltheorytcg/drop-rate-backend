@@ -213,45 +213,121 @@ class RecognitionObservation(BaseModel):
         return self
 
 
+
+_CONFIDENCE_FIELDS = (
+    "game_confidence",
+    "language_confidence",
+    "name_confidence",
+    "set_name_confidence",
+    "card_number_confidence",
+    "cost_confidence",
+    "power_confidence",
+    "colors_confidence",
+    "attributes_confidence",
+    "traits_confidence",
+    "effect_confidence",
+    "rarity_confidence",
+    "card_type_confidence",
+    "art_treatment_confidence",
+    "finish_confidence",
+)
+
+_STRING_LIMITS = {
+    "name_guess": 300,
+    "set_name_guess": 300,
+    "card_number": 100,
+    "effect_text": 1600,
+    "rarity_text": 120,
+    "card_type_text": 120,
+    "art_treatment_text": 160,
+    "finish_text": 160,
+}
+
+_LIST_LIMITS = {
+    "colors": 8,
+    "attributes": 12,
+    "traits": 20,
+    "visible_markers": 30,
+    "ocr_lines": 40,
+    "counterfeit_concerns": 20,
+    "notes": 20,
+}
+
+
+def _repair_observation_payload(parsed: Mapping[str, Any]) -> dict[str, Any]:
+    """Bound provider output to the same limits already enforced by our model.
+
+    The OpenAI structured-output schema historically omitted several Pydantic
+    max/min constraints. A response could therefore satisfy the provider schema
+    but still fail local validation because of a 1.00001 confidence, oversized
+    OCR list, or long free-text field. This helper only clamps/truncates those
+    representational overflows; it never invents identity fields.
+    """
+
+    repaired = dict(parsed)
+    for field_name in _CONFIDENCE_FIELDS:
+        value = repaired.get(field_name)
+        if isinstance(value, (int, float)):
+            repaired[field_name] = max(0.0, min(1.0, float(value)))
+
+    for field_name, max_length in _STRING_LIMITS.items():
+        value = repaired.get(field_name)
+        if isinstance(value, str):
+            repaired[field_name] = value[:max_length]
+
+    for field_name, max_items in _LIST_LIMITS.items():
+        value = repaired.get(field_name)
+        if isinstance(value, list):
+            repaired[field_name] = value[:max_items]
+
+    cost = repaired.get("cost")
+    if isinstance(cost, int):
+        repaired["cost"] = max(0, min(99, cost))
+    power = repaired.get("power")
+    if isinstance(power, int):
+        repaired["power"] = max(0, min(999999, power))
+    return repaired
+
+
 OBSERVATION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
         "game": {"type": "string", "enum": [*SYSTEM_BY_GAME, "Unknown"]},
-        "game_confidence": {"type": "number"},
+        "game_confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "language": {"type": "string", "enum": ["English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese", "Unknown"]},
-        "language_confidence": {"type": "number"},
-        "name_guess": {"type": "string"},
-        "name_confidence": {"type": "number"},
-        "set_name_guess": {"type": "string"},
-        "set_name_confidence": {"type": "number"},
-        "card_number": {"type": "string"},
-        "card_number_confidence": {"type": "number"},
-        "cost": {"type": ["integer", "null"]},
-        "cost_confidence": {"type": "number"},
-        "power": {"type": ["integer", "null"]},
-        "power_confidence": {"type": "number"},
-        "colors": {"type": "array", "items": {"type": "string"}},
-        "colors_confidence": {"type": "number"},
-        "attributes": {"type": "array", "items": {"type": "string"}},
-        "attributes_confidence": {"type": "number"},
-        "traits": {"type": "array", "items": {"type": "string"}},
-        "traits_confidence": {"type": "number"},
-        "effect_text": {"type": "string"},
-        "effect_confidence": {"type": "number"},
-        "rarity_text": {"type": "string"},
-        "rarity_confidence": {"type": "number"},
-        "card_type_text": {"type": "string"},
-        "card_type_confidence": {"type": "number"},
-        "art_treatment_text": {"type": "string"},
-        "art_treatment_confidence": {"type": "number"},
-        "finish_text": {"type": "string"},
-        "finish_confidence": {"type": "number"},
-        "visible_markers": {"type": "array", "items": {"type": "string"}},
-        "ocr_lines": {"type": "array", "items": {"type": "string"}},
+        "language_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "name_guess": {"type": "string", "maxLength": 300},
+        "name_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "set_name_guess": {"type": "string", "maxLength": 300},
+        "set_name_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "card_number": {"type": "string", "maxLength": 100},
+        "card_number_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "cost": {"type": ["integer", "null"], "minimum": 0, "maximum": 99},
+        "cost_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "power": {"type": ["integer", "null"], "minimum": 0, "maximum": 999999},
+        "power_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "colors": {"type": "array", "items": {"type": "string"}, "maxItems": 8},
+        "colors_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "attributes": {"type": "array", "items": {"type": "string"}, "maxItems": 12},
+        "attributes_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "traits": {"type": "array", "items": {"type": "string"}, "maxItems": 20},
+        "traits_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "effect_text": {"type": "string", "maxLength": 1600},
+        "effect_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "rarity_text": {"type": "string", "maxLength": 120},
+        "rarity_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "card_type_text": {"type": "string", "maxLength": 120},
+        "card_type_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "art_treatment_text": {"type": "string", "maxLength": 160},
+        "art_treatment_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "finish_text": {"type": "string", "maxLength": 160},
+        "finish_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "visible_markers": {"type": "array", "items": {"type": "string"}, "maxItems": 30},
+        "ocr_lines": {"type": "array", "items": {"type": "string"}, "maxItems": 40},
         "image_quality": {"type": "string", "enum": ["GOOD", "FAIR", "POOR"]},
-        "counterfeit_concerns": {"type": "array", "items": {"type": "string"}},
-        "notes": {"type": "array", "items": {"type": "string"}},
+        "counterfeit_concerns": {"type": "array", "items": {"type": "string"}, "maxItems": 20},
+        "notes": {"type": "array", "items": {"type": "string"}, "maxItems": 20},
     },
     "required": [
         "game",
@@ -492,11 +568,19 @@ class OpenAIRecognitionVisionClient:
 
         try:
             parsed = json.loads(text)
+            if not isinstance(parsed, Mapping):
+                raise ValueError("structured observation must be an object")
+            repaired = _repair_observation_payload(parsed)
             return RecognitionVisionResult(
-                observation=RecognitionObservation.model_validate(parsed),
+                observation=RecognitionObservation.model_validate(repaired),
                 telemetry=telemetry,
             )
         except (json.JSONDecodeError, ValueError) as exc:
+            logger.warning(
+                "Recognition vision schema validation failed response_id=%s error_type=%s",
+                telemetry.response_id,
+                exc.__class__.__name__,
+            )
             raise RecognitionVisionError(
                 "Recognition vision response failed schema validation"
             ) from exc
