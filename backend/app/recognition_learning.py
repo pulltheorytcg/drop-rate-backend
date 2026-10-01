@@ -79,6 +79,39 @@ async def register_runtime_model(
     )
 
 
+async def resolve_learning_system_code(
+    connection,
+    row: Mapping[str, Any],
+) -> str | None:
+    """Resolve human search corrections against canonical catalogue truth.
+
+    CORRECTED_BY_SEARCH means the human explicitly selected a canonical card.
+    The selected card's catalogue system is stronger truth than the run's
+    model-derived system_code, including when the model could not resolve a
+    supported game or resolved the wrong one.
+    """
+    run_system = str(row.get("system_code") or "").strip() or None
+    outcome = str(row.get("outcome") or "").strip().upper()
+    if outcome != "CORRECTED_BY_SEARCH":
+        return run_system
+
+    selected_catalogue_id = row.get("selected_catalogue_id")
+    if selected_catalogue_id is None:
+        return None
+
+    selected_system = await connection.fetchval(
+        """
+        select pr.system_code
+        from tcg.catalogue_products p
+        join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
+        where p.id=$1
+          and p.product_type='CARD'
+        """,
+        selected_catalogue_id,
+    )
+    return str(selected_system or "").strip() or None
+
+
 async def materialize_learning_example(
     connection,
     *,
@@ -107,12 +140,17 @@ async def materialize_learning_example(
         raise ValueError("Recognition feedback/run pair was not found")
     if not row["source_image_sha256"] or not row["ai_model"]:
         raise ValueError("Recognition run is missing learning provenance")
-    if not row["system_code"]:
-        # Feedback on an unsupported/unknown game remains valid audit truth, but it
-        # cannot enter a system-specific learning set until the game is resolved.
+    system_code = await resolve_learning_system_code(connection, row)
+    if not system_code:
+        # Feedback remains valid audit truth, but learning data must always have a
+        # deterministic canonical system. Never guess one from AI/provider text.
         return {
             "skipped": True,
-            "reason": "UNRESOLVED_SYSTEM",
+            "reason": (
+                "UNRESOLVED_SELECTED_SYSTEM"
+                if row["outcome"] == "CORRECTED_BY_SEARCH"
+                else "UNRESOLVED_SYSTEM"
+            ),
             "feedback_id": str(row["feedback_id"]),
         }
 
@@ -145,7 +183,7 @@ async def materialize_learning_example(
         run_id,
         row["feedback_id"],
         row["owner_id"],
-        row["system_code"],
+        system_code,
         row["selected_catalogue_id"],
         row["outcome"],
         engine_version,
