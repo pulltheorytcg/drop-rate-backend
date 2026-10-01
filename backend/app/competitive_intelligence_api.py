@@ -55,6 +55,11 @@ def _clean_https(value: str | None, *, field_name: str) -> str | None:
     return cleaned
 
 
+def _normalize_metric(value: float) -> float:
+    """Match NUMERIC(6,5) storage precision before scoring, persistence and replay."""
+    return round(float(value), 5)
+
+
 class CompetitorCreate(BaseModel):
     competitor_key: str = Field(
         min_length=2,
@@ -179,6 +184,12 @@ class ObservationCreate(BaseModel):
         return cleaned
 
 
+    @field_validator("confidence", "relevance")
+    @classmethod
+    def normalize_metrics(cls, value: float) -> float:
+        return _normalize_metric(value)
+
+
 class OpportunityEvidenceInput(BaseModel):
     origin: EvidenceOrigin
     source_key: str | None = Field(default=None, max_length=255)
@@ -203,6 +214,11 @@ class OpportunityEvidenceInput(BaseModel):
             return None
         cleaned = value.strip()
         return cleaned or None
+
+    @field_validator("confidence", "relevance")
+    @classmethod
+    def normalize_optional_metrics(cls, value: float | None) -> float | None:
+        return None if value is None else _normalize_metric(value)
 
     @model_validator(mode="after")
     def validate_origin_contract(self) -> "OpportunityEvidenceInput":
@@ -236,6 +252,12 @@ class OpportunityEvaluateRequest(BaseModel):
         if not cleaned:
             raise ValueError("Value cannot be blank")
         return cleaned
+
+
+    @field_validator("qualification_threshold")
+    @classmethod
+    def normalize_qualification_threshold(cls, value: float) -> float:
+        return _normalize_metric(value)
 
 
 async def _fetch_competitor(connection: asyncpg.Connection, competitor_id: UUID):
@@ -715,7 +737,7 @@ async def evaluate_and_store_opportunity(
                     status_code=404,
                     detail="One or more competitor observations were not found",
                 )
-            if any(
+            if existing is None and any(
                 row["source_status"] == "BLOCKED"
                 or row["competitor_status"] == "REJECTED"
                 for row in observation_rows.values()
@@ -806,7 +828,7 @@ async def evaluate_and_store_opportunity(
                 and existing["subject"] == payload.subject
                 and existing["hypothesis"] == payload.hypothesis
                 and float(existing["qualification_threshold"]) == payload.qualification_threshold
-                and existing["state"] == decision.state
+                and existing["qualification_state"] == decision.state
                 and float(existing["score"]) == decision.score
             )
             existing_evidence_contract = sorted(
@@ -854,11 +876,11 @@ async def evaluate_and_store_opportunity(
                 """
                 insert into tcg.competitive_opportunities(
                     opportunity_key,opportunity_type,subject,hypothesis,state,
-                    score,qualification_threshold,reasons,
+                    qualification_state,score,qualification_threshold,reasons,
                     independent_sources,independent_origins,
                     competitor_sources,non_competitor_sources,created_by_user_id
                 ) values(
-                    $1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13
+                    $1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14
                 )
                 returning *
                 """,
@@ -866,6 +888,7 @@ async def evaluate_and_store_opportunity(
                 payload.opportunity_type,
                 payload.subject,
                 payload.hypothesis,
+                decision.state,
                 decision.state,
                 decision.score,
                 payload.qualification_threshold,
