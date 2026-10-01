@@ -1054,7 +1054,6 @@ async def owner_inventory(
                 coalesce(i.language,p.language) as language,
                 i.condition,
                 i.seal_status,
-                i.identity_confirmed,
                 sealed_type.value_code as sealed_product_type,
                 i.grading_company,
                 i.grade,
@@ -1067,7 +1066,7 @@ async def owner_inventory(
                 i.updated_at,
                 (
                   p.product_type in ('SEALED','COLLECTION')
-                  and i.identity_confirmed
+                  and coalesce((i.source_record->>'canonical_identity_verified')::boolean,false)
                   and i.market_value_minor is null
                 ) as can_refresh_market,
                 (
