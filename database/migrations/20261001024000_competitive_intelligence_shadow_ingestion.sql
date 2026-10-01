@@ -230,7 +230,7 @@ revoke all on function tcg.ingest_competitive_observation_system(
     text,text,text,text,uuid,text,text,text,jsonb,jsonb,numeric,numeric,timestamptz,timestamptz
 ) from anon,authenticated,service_role,tcg_auditor;
 grant execute on function tcg.ingest_competitive_observation_system(
-    text,text,text,text,text,text,text,uuid,text,text,text,jsonb,jsonb,numeric,numeric,timestamptz,timestamptz
+    text,text,text,text,uuid,text,text,text,jsonb,jsonb,numeric,numeric,timestamptz,timestamptz
 ) to tcg_api;
 
 create or replace function tcg.audit_competitive_intelligence_change()
