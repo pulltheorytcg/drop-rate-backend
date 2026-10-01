@@ -166,8 +166,8 @@ def test_exact_reference_number_outranks_detected_game_and_results_have_game_lab
     assert "reference_number_key = collector_key(query)" in block
     assert "($2<>'' and c.number_key=$2)" in reference_query
     assert "c.system_code=$3" in reference_query
-    assert "with matching_cards as materialized" in reference_query
-    assert "from matching_cards c" in reference_query
+    assert "with matching_cards as materialized" in block
+    assert "from matching_cards c" in block
     assert "s.name ilike" not in reference_query
     assert 'GAME_BY_SYSTEM.get(item["system_code"], item["system_code"])' in block
 
