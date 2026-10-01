@@ -245,3 +245,9 @@ For every observation, Postgres independently re-checks that the source exists, 
 Accepted rows are immutable `SYSTEM` observations with no founder user ID. Identical replay returns the existing observation; changed-content reuse of a dedupe key fails closed. Replay comparison deliberately excludes mutable source URL/rights metadata, while new inserts still inherit the source contract current at insertion time.
 
 The endpoint returns `mode=SHADOW` and `external_action_taken=false`. It has no external fetcher, Shopify/eBay client, price mutation, inventory mutation, financial write or publishing capability.
+
+### Shadow-ingestion production verification
+
+The signed shadow-ingestion backend is deployed and healthy. Supabase recorded the applied migration as `20261001024803_competitive_intelligence_shadow_ingestion`; repository history is aligned to that version without SQL re-execution. The function is server-only (`tcg_api` execute; no anon/browser-authenticated/service-role execute), production still contains zero Competitive Intelligence observations, and Railway verified the merged application with 2,207 passing tests plus a 200 readiness check.
+
+Migration history: `20261001024803_competitive_intelligence_shadow_ingestion`.
