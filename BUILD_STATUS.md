@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence hardening production verification complete
+
+- ✅ PR #445 merged at `8a3a6fe1cec3aa8404e9c545e95d95c56bfdebbb`.
+- ✅ Production already recorded the additive hardening as Supabase migration `20261001022925 competitive_intelligence_replay_hardening`; a second apply attempt correctly failed closed because the columns already existed, so no duplicate schema change was forced.
+- ✅ Live `tcg.competitive_opportunities` contains `qualification_threshold NUMERIC(6,5)` and immutable `qualification_state`, with the `competitive_opportunities_qualification_immutable` BEFORE UPDATE trigger installed.
+- ✅ Full evidence/idempotency hardening is deployed: immutable observation replay contract, exact opportunity evaluation replay, blocked/rejected-source exclusion for new qualifications, and five-decimal score normalization.
+- ✅ Railway deployment `635dbed9-b8c2-4b08-91fc-ef534194d2cb` is SUCCESS on the exact #445 commit; **2,184 tests passed** and production `/health/ready` returned HTTP 200.
+- ✅ Supabase reported no Competitive Intelligence-specific security advisor finding after the hardening.
+- This PR aligns the repository filename to the exact live migration version `20261001022925`; the SQL body is unchanged and must **not** be re-applied.
+- 🔒 External competitor collection/n8n activation remains off; no pricing, ownership, finance, Shopify or autonomous publishing authority was introduced.
+
+
 ## 2026-10-01 — Competitive Intelligence replay/evidence hardening
 
 - The base Competitive Intelligence schema is live and empty, so this hardening remains forward-only with no production data rewrite.
