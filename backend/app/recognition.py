@@ -15,7 +15,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from .access_control import require_platform_admin_request
-from .cardtrader_client import CardTraderClient
+from .cardtrader_client import CardTraderApiError, CardTraderClient
 from .cardtrader_recognition import discover_one_piece_cardtrader_sealed_candidates
 from .auth import AuthenticatedUser, require_user
 from .reference_library import reference_candidates
@@ -1146,13 +1146,25 @@ async def recognize_card(
             ) as connection:
                 return await load_sealed_candidates(connection, observation)
 
+        sealed_provider_errors: list[dict[str, Any]] = []
+
         async def _load_sealed_provider_candidates():
             if cardtrader is None:
                 return []
-            return await discover_one_piece_cardtrader_sealed_candidates(
-                observation,
-                cardtrader,
-            )
+            try:
+                return await discover_one_piece_cardtrader_sealed_candidates(
+                    observation,
+                    cardtrader,
+                )
+            except CardTraderApiError as exc:
+                sealed_provider_errors.append(
+                    {
+                        "provider": "CardTrader",
+                        "reason": exc.detail,
+                        "retryable": exc.retryable,
+                    }
+                )
+                return []
 
         sealed_rows, sealed_provider_rows = await asyncio.gather(
             _timed("sealed_catalogue_lookup", _load_sealed_catalogue_candidates()),
@@ -1189,6 +1201,7 @@ async def recognize_card(
                 observation=observation,
                 resolved=resolved,
                 timings_ms=timings_ms,
+                provider_errors=sealed_provider_errors,
             )
             return jsonable_encoder(await _run_payload(connection, run_id))
 
