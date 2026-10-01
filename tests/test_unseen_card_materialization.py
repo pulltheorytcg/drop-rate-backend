@@ -1,15 +1,12 @@
 from pathlib import Path
 
-from app.recognition import (
-    _candidate_materialization_reason,
-    _provider_catalogue_identity_key,
-    _provider_variant,
-)
+from app.recognition import _candidate_materialization_reason
 
 
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "backend" / "app" / "recognition.py"
 SCANNER = ROOT / "backend" / "app" / "static" / "owner-recognition.js"
+MIGRATION = ROOT / "database" / "migrations" / "20261001133500_recognition_provider_materialization.sql"
 
 
 def _eligible_candidate() -> dict:
@@ -66,52 +63,42 @@ def test_unseen_candidate_materialization_fails_closed_on_weak_or_conflicting_ev
     )
 
 
-def test_provider_identity_key_is_stable_and_printing_specific() -> None:
-    base = _provider_catalogue_identity_key(
-        system_code="ONE_PIECE_CARD_GAME",
-        provider="Punk Records",
-        provider_id="OP05-069",
-        provider_language="Japanese",
-    )
-    same = _provider_catalogue_identity_key(
-        system_code="ONE_PIECE_CARD_GAME",
-        provider="punk records",
-        provider_id="op05-069",
-        provider_language="japanese",
-    )
-    parallel = _provider_catalogue_identity_key(
-        system_code="ONE_PIECE_CARD_GAME",
-        provider="Punk Records",
-        provider_id="OP05-069_p1",
-        provider_language="Japanese",
-    )
-
-    assert base == same
-    assert base != parallel
-
-
-def test_provider_variant_preserves_printing_evidence() -> None:
-    assert _provider_variant("OP05-069", {"art_treatment": "Base"}) == "Base"
-    assert _provider_variant("OP05-069_p1", {}) == "Parallel"
-    assert _provider_variant("OP05-069_r1", {}) == "Reprint"
-
-
-def test_materialization_endpoint_requires_persisted_reference_and_human_verified_mapping() -> None:
+def test_materialization_endpoint_routes_privileged_writes_through_db_function() -> None:
     source = API.read_text()
     start = source.index('@router.post("/runs/{run_id}/candidates/{candidate_id}/materialize")')
     end = source.index('@router.post("/resolve")', start)
     block = source[start:end]
 
     assert "r.owner_id=$3" in block
-    assert "tcg.reference_cards" in block
-    assert "tcg.reference_sets" in block
-    assert "Provider candidate is not backed by the persisted reference library" in block
-    assert "'NEEDS_REVIEW'" in block
-    assert "'VERIFIED','HUMAN'" in block
-    assert "verified_by_user_id" in block
-    assert "update tcg.recognition_candidates" in block
-    assert "top_catalogue_id" in block
-    assert "requires_canonical_review" in block
+    assert "tcg.materialize_recognition_provider_candidate($1,$2,$3)" in block
+    assert "insert into tcg.catalogue_products" not in block
+    assert "insert into tcg.catalogue_product_profiles" not in block
+    assert "insert into tcg.provider_catalogue_mappings" not in block
+    assert "update tcg.recognition_candidates" not in block
+
+
+def test_db_materialization_function_is_narrowly_scoped_and_revalidates_identity() -> None:
+    sql = MIGRATION.read_text()
+
+    assert "security definer" in sql.lower()
+    assert "set search_path=pg_catalog" in sql
+    assert "v_user_id := tcg.current_user_id()" in sql
+    assert "tcg.current_access_role()" in sql
+    assert "tcg.owner_memberships" in sql
+    assert "tcg.reference_cards" in sql
+    assert "tcg.reference_sets" in sql
+    assert "Provider candidate evidence is not exact enough" in sql
+    assert "'NEEDS_REVIEW'" in sql
+    assert "'VERIFIED'" in sql
+    assert "'HUMAN'" in sql
+    assert "verified_by_user_id" in sql
+    assert "update tcg.recognition_candidates" in sql
+    assert "top_catalogue_id" in sql
+    assert "requires_canonical_review" in sql
+    assert "revoke all on function tcg.materialize_recognition_provider_candidate" in sql
+    assert "from public,anon,authenticated,service_role" in sql
+    assert "grant execute on function tcg.materialize_recognition_provider_candidate" in sql
+    assert "to tcg_api" in sql
 
 
 def test_owner_scanner_displays_unmapped_provider_candidates_and_routes_confirmation() -> None:
