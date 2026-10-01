@@ -138,3 +138,28 @@ def test_reference_correction_ui_materializes_before_feedback() -> None:
     assert "row.requires_materialization ? \"Add + choose\" : \"Choose\"" in source
     assert '/references/select' in source
     assert "Seller corrected batch scan using governed reference library" in source
+
+
+def test_reference_search_reserves_space_and_backfills_catalogue_results() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.get("/catalogue-search")')
+    end = api.index('@router.get("/inventory")', start)
+    block = api[start:end]
+
+    assert "reference_budget = min(max(5, limit // 2), limit)" in block
+    assert "canonical_budget = max(0, limit - reference_budget)" in block
+    assert "canonical_items[:canonical_budget]" in block
+    assert "canonical_items[canonical_budget:]" in block
+
+
+def test_exact_reference_number_outranks_detected_game_and_results_have_game_label() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.get("/catalogue-search")')
+    end = api.index('@router.get("/inventory")', start)
+    block = api[start:end]
+
+    exact_rank = block.index("when $2 <> '' and upper(regexp_replace")
+    system_rank = block.index("case when c.system_code=$3")
+    language_rank = block.index("case when c.language=$4")
+    assert exact_rank < system_rank < language_rank
+    assert 'GAME_BY_SYSTEM.get(item["system_code"], item["system_code"])' in block
