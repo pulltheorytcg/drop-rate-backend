@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from backend.app.grading_certificates import (
+from app.grading_certificates import (
     CertificateLookupStatus,
     CertificateProviderConfigurationError,
     CertificateProviderUpstreamError,
@@ -15,7 +15,7 @@ from backend.app.grading_certificates import (
     normalize_psa_response,
     provider_verification_url,
 )
-from backend.app.settings import Settings
+from app.settings import Settings
 
 
 def _settings(**changes) -> Settings:
