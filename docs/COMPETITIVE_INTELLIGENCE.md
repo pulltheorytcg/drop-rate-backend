@@ -233,3 +233,20 @@ Opportunity and observation idempotency is strict rather than approximate:
 - confidence, relevance and qualification thresholds are normalized to the database's five-decimal precision before evaluation/persistence/replay.
 
 These checks do not rewrite historical evidence or activate any external collection.
+
+## Production verification
+
+PR #440 is merged and the version-controlled migration has been applied to production Supabase.
+
+Verified production state:
+
+- migration `competitive_intelligence_v1` is recorded in Supabase migration history;
+- all five Competitive Intelligence tables exist with forced RLS;
+- browser/client roles do not receive direct table access;
+- `tcg_api` has only the required backend privileges and no DELETE privilege;
+- observation/evidence immutability triggers are present;
+- audit triggers are present across the canonical tables;
+- Supabase advisors reported no new finding specific to these tables after migration;
+- Railway deployed the merged API successfully, ran 2,176 tests, and returned HTTP 200 from `/health/ready`.
+
+This verifies storage/API readiness only. It does not activate competitor collection, external crawling, autonomous publishing or any n8n production workflow.
