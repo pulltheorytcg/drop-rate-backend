@@ -1065,6 +1065,18 @@ async def owner_inventory(
             select count(*)::int
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id=i.catalogue_id
+            left join tcg.sealed_product_details sd on sd.catalogue_id=p.id
+            left join lateral (
+                select a.value_code
+                from tcg.catalogue_taxonomy_assignments a
+                where a.catalogue_id=p.id
+                  and a.scope_kind='SEALED'
+                  and a.dimension_code='SEALED_TYPE'
+                order by
+                  case when a.verification_status='VERIFIED' then 0 else 1 end,
+                  a.created_at desc
+                limit 1
+            ) sealed_type on true
             where {where}
             """,
             *params,
@@ -1078,13 +1090,24 @@ async def owner_inventory(
                 p.product_type,
                 p.game,
                 {BRAND_SQL} as brand,
-                p.name,
-                p.set_name,
+                case
+                  when p.product_type in ('SEALED','COLLECTION')
+                  then coalesce(nullif(sd.attributes->>'display_name_en',''),p.name)
+                  else p.name
+                end as name,
+                case
+                  when p.product_type in ('SEALED','COLLECTION')
+                  then coalesce(nullif(sd.attributes->>'set_name_en',''),p.set_name)
+                  else p.set_name
+                end as set_name,
                 p.card_number,
                 p.variant,
                 p.rarity,
                 coalesce(i.language,p.language) as language,
                 i.condition,
+                i.seal_status,
+                i.identity_confirmed,
+                sealed_type.value_code as sealed_product_type,
                 i.grading_company,
                 i.grade,
                 i.status,
@@ -1094,6 +1117,11 @@ async def owner_inventory(
                 i.pricing_updated_at,
                 i.created_at,
                 i.updated_at,
+                (
+                  p.product_type in ('SEALED','COLLECTION')
+                  and i.identity_confirmed
+                  and i.market_value_minor is null
+                ) as can_refresh_market,
                 (
                     select coalesce(m.shopify_cdn_url,m.public_source_url)
                     from tcg.media_assets m
@@ -1147,6 +1175,126 @@ async def owner_inventory(
     )
 
 
+
+
+@router.post("/inventory/{inventory_code}/refresh-market")
+async def owner_refresh_inventory_market(
+    inventory_code: str,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)],
+) -> dict:
+    owner_id = UUID(str(access["owner_id"]))
+    code = inventory_code.strip().upper()
+    if not code.startswith("INV-") or len(code) > 80:
+        raise HTTPException(status_code=422, detail="Invalid inventory code")
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        row = await connection.fetchrow(
+            """
+            select
+                i.*,p.product_type,p.game,p.name,p.set_name,p.language as catalogue_language,
+                pr.collectible_type,pr.identity_status as profile_identity_status,
+                sd.identity_status as sealed_identity_status
+            from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id=i.catalogue_id
+            left join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
+            left join tcg.sealed_product_details sd on sd.catalogue_id=p.id
+            where i.owner_id=$1 and i.inventory_code=$2
+            """,
+            owner_id,
+            code,
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail="Inventory item not found")
+        if row["product_type"] not in {"SEALED", "COLLECTION"}:
+            raise HTTPException(status_code=422, detail="Market refresh is only available for sealed inventory")
+        if (
+            not row["identity_confirmed"]
+            or row["collectible_type"] != "SEALED"
+            or row["profile_identity_status"] != "VERIFIED"
+            or row["sealed_identity_status"] != "VERIFIED"
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Sealed identity must be verified before market refresh",
+            )
+
+        source_record = row["source_record"] or {}
+        if isinstance(source_record, str):
+            try:
+                source_record = json.loads(source_record)
+            except json.JSONDecodeError:
+                source_record = {}
+        run_id = source_record.get("recognition_run_id") if isinstance(source_record, dict) else None
+        if not run_id:
+            raise HTTPException(
+                status_code=409,
+                detail="This sealed item does not have recognition evidence for market refresh",
+            )
+        run = await connection.fetchrow(
+            """
+            select ai_observation,decision,top_catalogue_id
+            from tcg.recognition_runs
+            where id=$1::uuid and owner_id=$2
+            """,
+            run_id,
+            owner_id,
+        )
+        if (
+            run is None
+            or run["decision"] != "EXACT_CANDIDATE"
+            or run["top_catalogue_id"] != row["catalogue_id"]
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Recognition evidence no longer supports this exact sealed identity",
+            )
+
+        physical_language = row["language"] or row["catalogue_language"]
+        market_refresh = await _hydrate_verified_sealed_market(
+            connection,
+            catalogue_id=row["catalogue_id"],
+            physical_language=physical_language,
+            ai_observation=run["ai_observation"],
+        )
+        if market_refresh.get("status") == "UNAVAILABLE":
+            raise HTTPException(
+                status_code=422,
+                detail=str(market_refresh.get("detail") or "Sealed market data is unavailable"),
+            )
+
+        try:
+            valuation = await _recalculate_one(connection, owner_id, row["id"])
+        except HTTPException as exc:
+            if exc.status_code != 422:
+                raise
+            raise HTTPException(
+                status_code=422,
+                detail=str(exc.detail),
+            ) from exc
+
+        refreshed = await connection.fetchrow(
+            "select * from tcg.inventory_items where id=$1 and owner_id=$2",
+            row["id"],
+            owner_id,
+        )
+        catalogue = await connection.fetchrow(
+            "select * from tcg.catalogue_products where id=$1",
+            row["catalogue_id"],
+        )
+        response = _owner_scan_inventory_payload(
+            refreshed,
+            catalogue,
+            replayed=False,
+            valuation=valuation,
+        )
+        response["market_refresh"] = market_refresh
+        return jsonable_encoder(response)
 
 
 @router.post("/graded-certificate-intake", status_code=201)
