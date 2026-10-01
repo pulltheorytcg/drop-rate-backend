@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence persistence/API slice
+
+- Added version-controlled canonical Postgres design for founder-approved competitors, source contracts, immutable competitor observations, deterministic opportunities and immutable multi-origin opportunity evidence.
+- All five tables are backend-only with RLS enabled + forced; browser roles and Supabase service-role Data API access are revoked. `tcg_api` is limited to the explicit backend CRUD surface.
+- Competitor/source changes, observations, opportunities and opportunity evidence all emit audit records. Observation/evidence history cannot be updated or deleted.
+- ACTIVE automated sources fail closed unless their source contract has passed the permitted collection/rights/terms preflight. Manual review sources are explicitly marked NOT_REQUIRED for automated-provider terms review.
+- Added admin-only FastAPI routes under `/api/v1/competitive-intelligence` for watchlist/source management, founder source-review/activation, normalized observation recording and deterministic opportunity evaluation.
+- Competitor evidence source identity and scores are loaded from stored immutable observations rather than caller-supplied values; duplicate source keys are collapsed to one independent source before persistence.
+- No external monitoring adapter, scraping, price mutation, content publishing, Shopify mutation, ownership/finance action or n8n activation is included in this slice.
+- Production schema/app activation remains pending GitHub CI, merge, exact Supabase migration application and Railway health verification.
+
+
 ## 2026-10-01 — eBay parity: read-only reconciliation
 
 - Added a PLATFORM_ADMIN-only `GET /api/v1/ebay/reconciliation` diagnostic that compares owner-scoped canonical eBay links to live eBay offer + inventory-item read-back.
