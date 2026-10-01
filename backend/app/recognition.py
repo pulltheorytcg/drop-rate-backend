@@ -148,7 +148,8 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
     candidates = await connection.fetch(
         """
         select
-            rc.id,rc.candidate_key,rc.source_kind,rc.system_code,rc.catalogue_id,
+            rc.id,rc.candidate_key,rc.source_kind,rc.system_code,
+            coalesce(rc.catalogue_id,provider_map.catalogue_id) as catalogue_id,
             rc.provider,rc.provider_id,rc.provider_language,rc.rank,rc.score,
             rc.hard_rejected,rc.rejection_reasons,rc.signals,
             rc.candidate_snapshot,rc.created_at,
@@ -162,6 +163,20 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
             price.pricing_algorithm_version
         from tcg.recognition_candidates rc
         left join lateral (
+            select m.catalogue_id
+            from tcg.provider_catalogue_mappings m
+            where rc.catalogue_id is null
+              and rc.source_kind='PROVIDER'
+              and m.source_provider=rc.provider
+              and m.provider_entity_type='CARD_PRINTING'
+              and m.provider_id=rc.provider_id
+              and m.provider_variant_key=''
+              and m.provider_language=rc.provider_language
+              and m.system_code=rc.system_code
+              and m.match_status='VERIFIED'
+            limit 1
+        ) provider_map on true
+        left join lateral (
             select
                 v.market_value_minor,
                 v.recommended_retail_minor,
@@ -172,10 +187,10 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
                 null::timestamptz as pricing_newest_observation_at,
                 'REFERENCE_SNAPSHOT'::text as pricing_algorithm_version
             from tcg.recognition_catalogue_reference_value(
-                rc.catalogue_id,
+                coalesce(rc.catalogue_id,provider_map.catalogue_id),
                 nullif(rc.candidate_snapshot->>'language','')
             ) v
-        ) price on rc.catalogue_id is not null
+        ) price on coalesce(rc.catalogue_id,provider_map.catalogue_id) is not null
         where rc.run_id=$1
         order by rc.rank
         """,
@@ -473,10 +488,28 @@ async def record_recognition_feedback(
                     """
                     select exists(
                         select 1
-                        from tcg.recognition_candidates
-                        where run_id=$1
-                          and catalogue_id=$2
-                          and not hard_rejected
+                        from tcg.recognition_candidates c
+                        where c.run_id=$1
+                          and not c.hard_rejected
+                          and (
+                              c.catalogue_id=$2
+                              or (
+                                  c.catalogue_id is null
+                                  and c.source_kind='PROVIDER'
+                                  and exists(
+                                      select 1
+                                      from tcg.provider_catalogue_mappings m
+                                      where m.catalogue_id=$2
+                                        and m.source_provider=c.provider
+                                        and m.provider_entity_type='CARD_PRINTING'
+                                        and m.provider_id=c.provider_id
+                                        and m.provider_variant_key=''
+                                        and m.provider_language=c.provider_language
+                                        and m.system_code=c.system_code
+                                        and m.match_status='VERIFIED'
+                                  )
+                              )
+                          )
                     )
                     """,
                     run_id,
