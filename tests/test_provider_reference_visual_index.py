@@ -151,7 +151,7 @@ def test_visual_hint_function_ranks_hashes_in_database_and_respects_release_gate
 def test_card_pipeline_uses_visual_provider_retrieval_after_object_routing() -> None:
     api = API.read_text()
 
-    assert 'ENGINE_VERSION = "v1.7.0"' in api
+    assert 'ENGINE_VERSION = "v1.8.0"' in api
     assert '"provider_reference_visual_index_enabled": True' in api
     assert '"provider_reference_visual_index_is_retrieval_only": True' in api
     assert '@router.get("/provider-reference-index/status")' in api
