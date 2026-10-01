@@ -844,12 +844,26 @@ async def owner_catalogue_search(
             preferred_language = str(observation.get("language") or "")
             reference_rows = await connection.fetch(
                 """
+                with matching_cards as materialized (
+                    select c.*
+                    from tcg.reference_cards c
+                    where
+                      ($2<>'' and c.number_key=$2)
+                      or (
+                        c.system_code=$3
+                        and (
+                          c.card_number ilike '%'||$1||'%'
+                          or c.name ilike '%'||$1||'%'
+                        )
+                      )
+                    limit $5
+                )
                 select
                     c.provider,c.system_code,c.language,c.provider_id,c.name,
                     s.name as set_name,c.card_number,
                     c.provider_id as variant,c.rarity,c.finish,c.image_url,
                     mapped.catalogue_id as mapped_catalogue_id
-                from tcg.reference_cards c
+                from matching_cards c
                 join tcg.reference_sets s
                   using(provider,system_code,language,set_id)
                 left join lateral (
@@ -865,17 +879,6 @@ async def owner_catalogue_search(
                     limit 1
                 ) mapped on true
                 where (s.release_date is null or s.release_date<=current_date)
-                  and (
-                    ($2<>'' and c.number_key=$2)
-                    or (
-                      c.system_code=$3
-                      and (
-                        c.card_number ilike '%'||$1||'%'
-                        or c.name ilike '%'||$1||'%'
-                        or s.name ilike '%'||$1||'%'
-                      )
-                    )
-                  )
                 order by
                   case
                     when $2<>'' and c.number_key=$2 then 0
