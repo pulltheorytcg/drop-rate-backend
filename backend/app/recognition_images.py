@@ -18,6 +18,7 @@ TRUSTED_REFERENCE_HOSTS = {
     "onepiece-cardgame.com",
     "www.onepiece-cardgame.com",
     "cards.tcggraph.io",
+    "cardtrader.com",
     "www.dbs-cardgame.com",
     "narutocardgame.gg",
 }
