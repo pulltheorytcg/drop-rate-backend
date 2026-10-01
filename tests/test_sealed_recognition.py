@@ -182,3 +182,15 @@ def test_op17_seed_uses_bandai_evidence_without_importing_box_price_as_pack_valu
     assert "https://cp.onepiece-cardgame.com/flame-flame-fruit/goods" in sql
     assert "not imported as a single-pack market value" in sql
     assert "market_value_minor" not in sql
+
+
+def test_batch_inventory_intake_preserves_sealed_physical_state() -> None:
+    api = OWNER_API.read_text()
+    js = OWNER_JS.read_text()
+
+    assert "seal_status: str | None" in api
+    assert "seal_status=payload.seal_status" in api
+    assert "condition,seal_status,grading_company" in api
+    assert "function ownerBatchIsSealed(item)" in js
+    assert 'seal_status: sealed ? "SEALED" : null' in js
+    assert "condition: sealed ? null : condition" in js
