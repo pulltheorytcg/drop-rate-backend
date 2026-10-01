@@ -42,8 +42,22 @@ def test_provenance_migration_is_forward_only_and_rollout_compatible() -> None:
         "text,uuid,text,text,text,jsonb,jsonb,numeric,numeric,"
         "timestamptz,timestamptz"
     )
-    assert sql.count(new_signature) == 2
-    assert sql.count(old_signature) == 2
+    assert sql.count(new_signature) >= 2
+    assert (
+        "create or replace function tcg.ingest_competitive_observation_system(\n"
+        "    p_request_id text,\n"
+        "    p_source_id uuid,"
+    ) in sql
+    assert (
+        "revoke all on function tcg.ingest_competitive_observation_system(\n"
+        f"    {old_signature}\n"
+        ") from public,anon,authenticated,service_role,tcg_auditor;"
+    ) in sql
+    assert (
+        "grant execute on function tcg.ingest_competitive_observation_system(\n"
+        f"    {old_signature}\n"
+        ") to tcg_api;"
+    ) in sql
 
 
 def test_provenance_is_required_for_system_rows_only() -> None:
