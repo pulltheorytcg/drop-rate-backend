@@ -138,10 +138,11 @@ def test_provider_visual_index_is_private_audited_and_reference_backed() -> None
 def test_visual_hint_function_ranks_hashes_in_database_and_respects_release_gate() -> None:
     sql = MIGRATION.read_text()
 
-    assert "bit_count(reference_hash # source_hash.hash)" in sql
+    assert "bit_count(reference_hash.hash # source_hash.hash)" in sql
     assert "('x' || lower(value))::bit(256)" in sql
     assert "s.release_date is null or s.release_date<=current_date" in sql
     assert "c.image_url=rf.image_url" in sql
+    assert "unnest(rf.source_hashes) as reference_hash(hash)" in sql
     assert "p_min_similarity" in sql
     assert "limit least(greatest(coalesce(p_max_candidates,24),1),50)" in sql
 
