@@ -28,6 +28,9 @@ state.ownerRecognition = {
     previousFingerprint: null,
     lastAcceptedFingerprint: null,
     stableFrames: 0,
+    presenceFrames: 0,
+    absenceFrames: 0,
+    awaitingRemoval: false,
     armed: true,
     currentCorrectionId: null,
     searchTimer: null,
@@ -1185,12 +1188,14 @@ function ownerBatchFingerprintDelta(left, right) {
   return total / left.length / 255;
 }
 
-function ownerBatchFrameFingerprint(video) {
+function ownerBatchFrameAnalysis(video) {
   if (!video?.videoWidth || !video?.videoHeight) return null;
   const crop = ownerScanCrop(video.videoWidth, video.videoHeight);
+  const width = 20;
+  const height = 28;
   const canvas = document.createElement("canvas");
-  canvas.width = 20;
-  canvas.height = 28;
+  canvas.width = width;
+  canvas.height = height;
   const context = canvas.getContext("2d", {willReadFrequently: true});
   if (!context) return null;
   context.drawImage(
@@ -1201,17 +1206,67 @@ function ownerBatchFrameFingerprint(video) {
     crop.sh,
     0,
     0,
-    canvas.width,
-    canvas.height
+    width,
+    height
   );
-  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-  const fingerprint = new Uint8Array(canvas.width * canvas.height);
+  const pixels = context.getImageData(0, 0, width, height).data;
+  const fingerprint = new Uint8Array(width * height);
+  let total = 0;
+  let totalSquared = 0;
+  let edgeTotal = 0;
+  let edgeCount = 0;
+  let borderTotal = 0;
+  let borderCount = 0;
+  let innerTotal = 0;
+  let innerCount = 0;
+
   for (let pixel = 0, output = 0; pixel < pixels.length; pixel += 4, output += 1) {
-    fingerprint[output] = Math.round(
+    const gray = Math.round(
       pixels[pixel] * 0.299 + pixels[pixel + 1] * 0.587 + pixels[pixel + 2] * 0.114
     );
+    fingerprint[output] = gray;
+    total += gray;
+    totalSquared += gray * gray;
+
+    const x = output % width;
+    const y = Math.floor(output / width);
+    const border = x < 2 || x >= width - 2 || y < 2 || y >= height - 2;
+    if (border) {
+      borderTotal += gray;
+      borderCount += 1;
+    } else {
+      innerTotal += gray;
+      innerCount += 1;
+    }
+    if (x > 0) {
+      edgeTotal += Math.abs(gray - fingerprint[output - 1]);
+      edgeCount += 1;
+    }
+    if (y > 0) {
+      edgeTotal += Math.abs(gray - fingerprint[output - width]);
+      edgeCount += 1;
+    }
   }
-  return fingerprint;
+
+  const count = fingerprint.length;
+  const mean = total / count;
+  const variance = Math.max(0, totalSquared / count - mean * mean);
+  const deviation = Math.sqrt(variance) / 255;
+  const edge = edgeCount ? edgeTotal / edgeCount / 255 : 0;
+  const borderMean = borderCount ? borderTotal / borderCount : mean;
+  const innerMean = innerCount ? innerTotal / innerCount : mean;
+  const borderContrast = Math.abs(innerMean - borderMean) / 255;
+  const present = (
+    (borderContrast >= 0.035 && deviation >= 0.055)
+    || (edge >= 0.065 && deviation >= 0.10)
+    || deviation >= 0.18
+  );
+
+  return {fingerprint, present, deviation, edge, borderContrast};
+}
+
+function ownerBatchFrameFingerprint(video) {
+  return ownerBatchFrameAnalysis(video)?.fingerprint || null;
 }
 
 function ownerBatchCaptureDataUrl(video) {
@@ -1246,6 +1301,9 @@ function ownerBatchStopLoop() {
   state.ownerRecognition.batch.timer = null;
   state.ownerRecognition.batch.previousFingerprint = null;
   state.ownerRecognition.batch.stableFrames = 0;
+  state.ownerRecognition.batch.presenceFrames = 0;
+  state.ownerRecognition.batch.absenceFrames = 0;
+  state.ownerRecognition.batch.awaitingRemoval = false;
 }
 
 function ownerBatchStartLoop() {
@@ -1335,47 +1393,63 @@ async function ownerBatchTick() {
     || batch.processing
     || !state.ownerRecognition.cameraStream
     || !video?.videoWidth
-  ) {
+  ) return;
+
+  const analysis = ownerBatchFrameAnalysis(video);
+  if (!analysis) return;
+  const fingerprint = analysis.fingerprint;
+
+  if (!analysis.present) {
+    batch.presenceFrames = 0;
+    batch.absenceFrames += 1;
+    batch.stableFrames = 0;
+    batch.previousFingerprint = fingerprint;
+    if (batch.awaitingRemoval && batch.absenceFrames >= 2) {
+      batch.awaitingRemoval = false;
+      batch.armed = true;
+      batch.lastAcceptedFingerprint = null;
+      ownerBatchSetCameraState("Ready · place the next item in the guide");
+    } else if (batch.awaitingRemoval) {
+      ownerBatchSetCameraState("Remove the scanned item to continue");
+    } else {
+      batch.armed = true;
+      ownerBatchSetCameraState("Place a card or sealed product inside the guide");
+    }
     return;
   }
 
-  const fingerprint = ownerBatchFrameFingerprint(video);
-  if (!fingerprint) return;
-
-  if (batch.lastAcceptedFingerprint) {
-    const changed = ownerBatchFingerprintDelta(fingerprint, batch.lastAcceptedFingerprint);
-    if (!batch.armed && changed >= 0.11) {
-      batch.armed = true;
-      batch.stableFrames = 0;
-      ownerBatchSetCameraState("New card detected · hold steady");
-    }
+  batch.absenceFrames = 0;
+  batch.presenceFrames += 1;
+  if (batch.awaitingRemoval) {
+    batch.stableFrames = 0;
+    batch.previousFingerprint = fingerprint;
+    ownerBatchSetCameraState("Item scanned · remove it before showing the next one");
+    return;
   }
 
   const movement = ownerBatchFingerprintDelta(fingerprint, batch.previousFingerprint);
   batch.previousFingerprint = fingerprint;
+  batch.stableFrames = movement <= 0.028 ? batch.stableFrames + 1 : 0;
 
-  if (movement <= 0.028) {
-    batch.stableFrames += 1;
-  } else {
-    batch.stableFrames = 0;
-    ownerBatchSetCameraState(batch.armed ? "Hold card steady" : "Move to the next card");
+  if (batch.presenceFrames < 2) {
+    ownerBatchSetCameraState("Item detected · hold steady");
+    return;
   }
+  if (batch.stableFrames < 3) {
+    ownerBatchSetCameraState("Hold item steady");
+    return;
+  }
+  if (!batch.armed) return;
 
-  if (batch.armed && batch.stableFrames >= 3) {
-    batch.stableFrames = 0;
-    batch.armed = false;
-    batch.lastAcceptedFingerprint = fingerprint;
-    if (ownerBatchShouldSuppressAutoCapture(fingerprint)) {
-      ownerBatchSetCameraState("Same card just scanned · move to the next card");
-      return;
-    }
-    batch.lastAutoCaptureFingerprint = fingerprint;
-    batch.lastAutoCaptureAt = Date.now();
-    const dataUrl = ownerBatchCaptureDataUrl(video);
-    await ownerBatchRecognise(dataUrl);
-  }
+  batch.stableFrames = 0;
+  batch.armed = false;
+  batch.awaitingRemoval = true;
+  batch.lastAcceptedFingerprint = fingerprint;
+  batch.lastAutoCaptureFingerprint = fingerprint;
+  batch.lastAutoCaptureAt = Date.now();
+  const dataUrl = ownerBatchCaptureDataUrl(video);
+  await ownerBatchRecognise(dataUrl);
 }
-
 function ownerBatchCandidateSnapshot(candidate) {
   return candidate?.candidate_snapshot || {};
 }
@@ -1424,11 +1498,23 @@ function ownerBatchUnresolvedCount() {
   ).length;
 }
 
+function ownerBatchPopulateThumb(image, item) {
+  const selected = item?.selected;
+  if (selected?.image_url) {
+    image.src = selected.image_url;
+    return;
+  }
+  image.src = item.captureDataUrl;
+  if (selected?.id && item.runId) {
+    ownerScanLoadCandidateImage(image, item.runId, selected.id);
+  }
+}
+
 function ownerBatchCreateThumb(item, className = "owner-batch-thumb") {
   const wrap = document.createElement("div");
   wrap.className = className;
   const image = document.createElement("img");
-  image.src = item.captureDataUrl;
+  ownerBatchPopulateThumb(image, item);
   image.alt = ownerBatchSelectedName(item);
   wrap.append(image);
   return wrap;
@@ -1512,7 +1598,7 @@ function ownerBatchRenderLatest() {
   const thumb = byId("owner-batch-latest-thumb");
   thumb.replaceChildren();
   const image = document.createElement("img");
-  image.src = item.captureDataUrl;
+  ownerBatchPopulateThumb(image, item);
   image.alt = ownerBatchSelectedName(item);
   thumb.append(image);
 
