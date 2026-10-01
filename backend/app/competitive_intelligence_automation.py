@@ -162,10 +162,14 @@ async def ingest_shadow_observations(
                     """
                     select *
                     from tcg.ingest_competitive_observation_system(
-                        $1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11
+                        $1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,
+                        $11,$12,$13,$14
                     )
                     """,
                     request.state.request_id,
+                    payload.workflow_key,
+                    payload.workflow_version,
+                    payload.execution_id,
                     item.source_id,
                     item.dedupe_key,
                     item.observation_type,
