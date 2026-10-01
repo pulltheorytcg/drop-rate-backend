@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 from datetime import datetime, timezone
@@ -12,6 +13,7 @@ from pydantic import BaseModel, Field
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ownership import current_owner as _owner
+from .recognition_images import RecognitionImageError, decode_image_data_url
 from .settings import Settings, get_settings
 
 
@@ -73,6 +75,23 @@ _PROVIDER_ALIASES = {
 class GradingCertificateLookupRequest(BaseModel):
     grader: str = Field(min_length=2, max_length=40)
     certificate_number: str = Field(min_length=1, max_length=40)
+
+
+class GradingSlabScanRequest(BaseModel):
+    image_data_url: str = Field(min_length=100, max_length=12_000_000)
+
+
+class GradingSlabObservation(BaseModel):
+    grader: str
+    certificate_number: str
+    grade: str
+    card_name: str
+    card_number: str
+    set_name: str
+    year: str
+    language: str
+    label_lines: list[str] = Field(default_factory=list)
+    confidence: float = Field(ge=0.0, le=1.0)
 
 
 class GradingCertificateResult(BaseModel):
@@ -339,6 +358,284 @@ async def lookup_grading_certificate(
     return manual_provider_result(provider, certificate)
 
 
+
+SLAB_OBSERVATION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "grader": {
+            "type": "string",
+            "enum": ["PSA", "ACE", "CGC", "BGS", "BVG", "BCCG", "Unknown"],
+        },
+        "certificate_number": {"type": "string"},
+        "grade": {"type": "string"},
+        "card_name": {"type": "string"},
+        "card_number": {"type": "string"},
+        "set_name": {"type": "string"},
+        "year": {"type": "string"},
+        "language": {"type": "string"},
+        "label_lines": {
+            "type": "array",
+            "items": {"type": "string"},
+            "maxItems": 20,
+        },
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    },
+    "required": [
+        "grader",
+        "certificate_number",
+        "grade",
+        "card_name",
+        "card_number",
+        "set_name",
+        "year",
+        "language",
+        "label_lines",
+        "confidence",
+    ],
+}
+
+SLAB_VISION_INSTRUCTIONS = """
+Read the grading label on this trading-card slab.
+
+This is OCR/evidence extraction only. Do not decide authenticity, market value,
+canonical Drop Rate identity, or whether the card should be listed.
+
+Return the grading company only when visible. Supported labels are PSA, ACE, CGC,
+BGS, BVG and BCCG; otherwise return Unknown. Copy the certificate/serial number
+literally from the slab label. Copy the displayed grade literally. Extract card
+name, collector/card number, set/product line, year and language only when they
+are printed or clearly established by label text. Do not infer missing values
+from the artwork or prior knowledge.
+
+If a field is unreadable, return an empty string. Confidence measures the quality
+of the visible slab-label evidence, not permission to auto-approve anything.
+""".strip()
+
+
+def _openai_output_text(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    direct = payload.get("output_text")
+    if isinstance(direct, str) and direct.strip():
+        return direct
+    output = payload.get("output")
+    if not isinstance(output, list):
+        return ""
+    for item in output:
+        if not isinstance(item, dict):
+            continue
+        content = item.get("content")
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            if (
+                isinstance(part, dict)
+                and part.get("type") == "output_text"
+                and isinstance(part.get("text"), str)
+                and part["text"].strip()
+            ):
+                return part["text"]
+    return ""
+
+
+def grading_catalogue_search_seed(
+    observation: GradingSlabObservation,
+    provider_result: GradingCertificateResult | None,
+) -> str | None:
+    if provider_result is not None:
+        for value in (provider_result.card_number, provider_result.subject):
+            if value and value.strip():
+                return value.strip()
+    for value in (
+        observation.card_number,
+        observation.card_name,
+        observation.set_name,
+    ):
+        if value and value.strip():
+            return value.strip()
+    return None
+
+
+def grading_provider_conflicts(
+    observation: GradingSlabObservation,
+    provider_result: GradingCertificateResult | None,
+) -> list[str]:
+    if provider_result is None or not provider_result.verified:
+        return []
+    conflicts: list[str] = []
+    if (
+        observation.grade.strip()
+        and provider_result.grade
+        and observation.grade.strip().casefold() != provider_result.grade.strip().casefold()
+    ):
+        conflicts.append("GRADE_CONFLICT")
+    if (
+        observation.card_number.strip()
+        and provider_result.card_number
+        and re.sub(r"[^A-Za-z0-9]", "", observation.card_number).casefold()
+        != re.sub(r"[^A-Za-z0-9]", "", provider_result.card_number).casefold()
+    ):
+        conflicts.append("CARD_NUMBER_CONFLICT")
+    return conflicts
+
+
+async def observe_graded_slab(
+    image_data_url: str,
+    *,
+    settings: Settings,
+    client: httpx.AsyncClient | None = None,
+) -> GradingSlabObservation:
+    if not settings.openai_api_key:
+        raise CertificateProviderConfigurationError(
+            "Graded slab vision is not configured"
+        )
+
+    try:
+        decode_image_data_url(
+            image_data_url,
+            max_bytes=settings.recognition_max_image_bytes,
+        )
+    except RecognitionImageError as exc:
+        raise ValueError(str(exc)) from exc
+
+    owns_client = client is None
+    if client is None:
+        client = httpx.AsyncClient(
+            timeout=httpx.Timeout(45.0),
+            limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
+        )
+    try:
+        try:
+            response = await client.post(
+                "https://api.openai.com/v1/responses",
+                headers={
+                    "Authorization": f"Bearer {settings.openai_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": settings.recognition_model,
+                    "store": False,
+                    "input": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "input_text", "text": SLAB_VISION_INSTRUCTIONS},
+                                {
+                                    "type": "input_image",
+                                    "image_url": image_data_url,
+                                    "detail": "high",
+                                },
+                            ],
+                        }
+                    ],
+                    "text": {
+                        "format": {
+                            "type": "json_schema",
+                            "name": "drop_rate_graded_slab_observation",
+                            "strict": True,
+                            "schema": SLAB_OBSERVATION_SCHEMA,
+                        }
+                    },
+                    "max_output_tokens": 900,
+                },
+            )
+        except (httpx.TimeoutException, httpx.RequestError) as exc:
+            raise CertificateProviderUpstreamError(
+                "Graded slab vision is unavailable"
+            ) from exc
+
+        if response.status_code == 429 or response.status_code >= 500:
+            raise CertificateProviderUpstreamError(
+                "Graded slab vision is unavailable"
+            )
+        if response.status_code >= 400:
+            raise CertificateProviderUpstreamError(
+                "Graded slab vision request was rejected"
+            )
+
+        try:
+            payload = response.json()
+            text = _openai_output_text(payload)
+            raw = json.loads(text)
+            return GradingSlabObservation.model_validate(raw)
+        except (ValueError, TypeError, json.JSONDecodeError) as exc:
+            raise CertificateProviderUpstreamError(
+                "Graded slab vision returned invalid evidence"
+            ) from exc
+    finally:
+        if owns_client:
+            await client.aclose()
+
+
+async def scan_graded_slab(
+    image_data_url: str,
+    *,
+    settings: Settings | None = None,
+    vision_client: httpx.AsyncClient | None = None,
+    provider_client: httpx.AsyncClient | None = None,
+) -> dict[str, Any]:
+    effective_settings = settings or get_settings()
+    observation = await observe_graded_slab(
+        image_data_url,
+        settings=effective_settings,
+        client=vision_client,
+    )
+
+    provider_result: GradingCertificateResult | None = None
+    provider_error: str | None = None
+    normalized_provider: GradingProvider | None = None
+    normalized_certificate: str | None = None
+
+    if observation.grader != "Unknown" and observation.certificate_number.strip():
+        try:
+            normalized_provider = normalize_grading_provider(observation.grader)
+            normalized_certificate = normalize_certificate_number(
+                normalized_provider,
+                observation.certificate_number,
+            )
+            provider_result = await lookup_grading_certificate(
+                normalized_provider.value,
+                normalized_certificate,
+                settings=effective_settings,
+                client=provider_client,
+            )
+        except CertificateProviderConfigurationError:
+            provider_error = "PROVIDER_NOT_CONFIGURED"
+        except CertificateProviderUpstreamError:
+            provider_error = "PROVIDER_UNAVAILABLE"
+        except ValueError:
+            provider_error = "CERTIFICATE_FORMAT_INVALID"
+    elif observation.grader == "Unknown":
+        provider_error = "GRADER_UNREADABLE"
+    else:
+        provider_error = "CERTIFICATE_UNREADABLE"
+
+    conflicts = grading_provider_conflicts(observation, provider_result)
+    if conflicts:
+        provider_error = "PROVIDER_LABEL_CONFLICT"
+
+    return {
+        "observation": observation.model_dump(),
+        "provider_result": (
+            provider_result.model_dump(mode="json") if provider_result else None
+        ),
+        "provider_error": provider_error,
+        "normalized_provider": (
+            normalized_provider.value if normalized_provider else None
+        ),
+        "normalized_certificate": normalized_certificate,
+        "catalogue_search_seed": grading_catalogue_search_seed(
+            observation,
+            provider_result,
+        ),
+        "conflicts": conflicts,
+        "requires_human_confirmation": True,
+        "auto_mutates_inventory": False,
+        "stores_source_image": False,
+    }
+
+
 async def _require_active_owner(
     request: Request,
     user: AuthenticatedUser,
@@ -394,6 +691,40 @@ async def grading_certificate_status(
         "auto_mutates_inventory": False,
         "canonical_identity_decided_here": False,
     }
+
+
+
+@router.post("/scan")
+async def grading_slab_scan(
+    payload: GradingSlabScanRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict[str, Any]:
+    await _require_active_owner(request, user)
+    try:
+        result = await scan_graded_slab(payload.image_data_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except CertificateProviderConfigurationError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Graded slab vision is not configured",
+        ) from exc
+    except CertificateProviderUpstreamError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Graded slab recognition provider is unavailable",
+        ) from exc
+
+    logger.info(
+        "grading_slab_scan grader=%s cert_present=%s provider_error=%s conflicts=%s user_id=%s",
+        result.get("normalized_provider") or result["observation"].get("grader"),
+        bool(result.get("normalized_certificate")),
+        result.get("provider_error"),
+        result.get("conflicts"),
+        user.user_id,
+    )
+    return result
 
 
 @router.post("/lookup", response_model=GradingCertificateResult)
