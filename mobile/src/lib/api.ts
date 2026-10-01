@@ -310,14 +310,18 @@ export class Api {
     return "pulltheory.intake." + this.access.user_id;
   }
   async pending(): Promise<PendingIntake | null> {
+    const epoch = this.epoch;
     const access = this.access;
     const key = this.pendingKey();
     const raw = await this.vault.get(key);
+    this.check(epoch);
     if (!raw) return null;
     const pending = JSON.parse(raw) as PendingIntake;
     if (
       !access ||
       this.access?.user_id !== access.user_id ||
+      this.access?.owner_id !== access.owner_id ||
+      this.access?.access_role !== access.access_role ||
       pending.userId !== access.user_id ||
       pending.ownerId !== access.owner_id ||
       pending.role !== access.access_role
@@ -365,11 +369,12 @@ export class Api {
     }
   }
 
-  private saving: Promise<IntakeResult> | null = null;
+  private saving: { epoch: number; operation: Promise<IntakeResult> } | null =
+    null;
   async resumeIntake(): Promise<IntakeResult> {
-    if (this.saving) return this.saving;
+    if (this.saving?.epoch === this.epoch) return this.saving.operation;
+    const epoch = this.epoch;
     const operation = (async () => {
-      const epoch = this.epoch;
       const key = this.pendingKey();
       const pending = await this.pending();
       this.check(epoch);
@@ -388,8 +393,10 @@ export class Api {
           pending.key,
         );
         await this.vault.remove(key);
+        this.check(epoch);
         return result;
       } catch (error) {
+        this.check(epoch);
         // Explicit pre-write validation/permission rejections can be corrected. Keep
         // timeouts, conflicts and server errors immutable until replay/reconciliation.
         if (
@@ -400,11 +407,12 @@ export class Api {
         throw error;
       }
     })();
-    this.saving = operation;
+    const saving = { epoch, operation };
+    this.saving = saving;
     try {
       return await operation;
     } finally {
-      if (this.saving === operation) this.saving = null;
+      if (this.saving === saving) this.saving = null;
     }
   }
 }

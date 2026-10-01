@@ -298,6 +298,94 @@ describe("session security", () => {
   });
 });
 describe("durable idempotent intake", () => {
+  it("does not expose a completed save to a session that signed in during cleanup", async () => {
+    const storage = memory();
+    const remove = storage.vault.remove;
+    let release!: () => void;
+    let reached!: () => void;
+    const cleaning = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    storage.vault.remove = async (key) => {
+      await remove(key);
+      if (key.startsWith("pulltheory.intake.")) {
+        reached();
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      }
+    };
+    const { api } = setup(
+      () => response({ inventory: { inventory_code: "OLD" } }),
+      storage.vault,
+    );
+    await api.login("a", "pw");
+    const saving = api.queueIntake({}, "old-key", "Old card");
+    const rejected = expect(saving).rejects.toThrow("session changed");
+    await cleaning;
+    await api.logout();
+    await api.login("a", "pw");
+    // The new session has no pending save; it must not inherit the old promise.
+    const retry = api.resumeIntake();
+    const noPending = expect(retry).rejects.toThrow("No pending save");
+    release();
+    await Promise.all([rejected, noPending]);
+  });
+  it("rejects a pending read that finishes after sign-out and re-login", async () => {
+    const storage = memory();
+    const get = storage.vault.get;
+    let release!: () => void;
+    let reached!: () => void;
+    const reading = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    storage.vault.get = async (key) => {
+      const value = await get(key);
+      if (key.startsWith("pulltheory.intake.")) {
+        reached();
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      }
+      return value;
+    };
+    const { api } = setup(undefined, storage.vault);
+    await api.login("a", "pw");
+    const pending = api.pending();
+    const rejected = expect(pending).rejects.toThrow("session changed");
+    await reading;
+    await api.logout();
+    await api.login("a", "pw");
+    release();
+    await rejected;
+  });
+  it("coalesces simultaneous retries within the same session", async () => {
+    let release!: (value: Response) => void;
+    let reached!: () => void;
+    const started = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const { api, transport } = setup(() => {
+      reached();
+      return new Promise<Response>((resolve) => {
+        release = resolve;
+      });
+    });
+    await api.login("a", "pw");
+    const saving = api.queueIntake({}, "stable", "Card");
+    await started;
+    const retries = [api.resumeIntake(), api.resumeIntake()];
+    release(response({ inventory: { inventory_code: "ONCE" } }));
+    const results = await Promise.all([saving, ...retries]);
+    expect(
+      results.every((result) => result.inventory?.inventory_code === "ONCE"),
+    ).toBe(true);
+    expect(
+      transport.mock.calls.filter(([url]) =>
+        String(url).endsWith("recognition-intake"),
+      ),
+    ).toHaveLength(1);
+  });
   it("persists before network, and replays exactly after uncertain failure and restart", async () => {
     const storage = memory();
     let first = true;

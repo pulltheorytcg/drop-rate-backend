@@ -6,7 +6,7 @@
 - Added `mobile/`, an Expo SDK 57 client for existing OWNER and PLATFORM_ADMIN accounts, with role-specific home/inventory/activity screens, camera/photo recognition, manual correction and review-gated draft intake.
 - Uses current main API contracts. No backend/schema/production configuration changes. Existing SwiftUI draft work is preserved separately.
 - Native sessions and immutable pending intake requests use device-only secure storage; browser demos use isolated sample data and memory-only storage. Uncertain saves retry the same key and payload.
-- Local TypeScript/lint and 21 session/workflow tests pass. Android/iOS Hermes and web bundles export; native projects generate. Browser demo intake and role navigation verified.
+- Local TypeScript/lint and 24 session/workflow tests pass. Pending reads and completed-save results are discarded across session changes; retries coalesce only within the same session. Android/iOS Hermes and web bundles export; native projects generate. Browser demo intake and role navigation verified.
 - Not an APK/IPA or store release. Real-device acceptance, full native tooling/signing, privacy/release work and upstream dependency advisories remain. Advanced grading/media/publishing/payout mutations continue in the existing web portals. See `mobile/README.md`.
 
 
