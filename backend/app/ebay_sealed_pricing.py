@@ -51,6 +51,10 @@ def _contains(text: str, term: str) -> bool:
     return f" {_TOKEN_RE.sub(' ', term.casefold()).strip()} " in text
 
 
+def _code_key(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
+
+
 def _sealed_query(target: dict[str, Any]) -> str:
     parts = [
         "One Piece",
@@ -68,7 +72,7 @@ def _sealed_comp_matches(row: dict[str, Any], target: dict[str, Any]) -> bool:
     title = _norm(title_raw)
 
     set_code = str(target["set_code"] or "").strip()
-    if not set_code or not _contains(title, set_code):
+    if not set_code or _code_key(set_code) not in _code_key(title_raw):
         return False
 
     if target["language"].strip().casefold() == "japanese":
