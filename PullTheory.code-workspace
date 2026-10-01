@@ -1,0 +1,50 @@
+{
+  "folders": [
+    {
+      "name": "PullTheory",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.expo": true
+    },
+    "typescript.tsdk": "mobile/node_modules/typescript/lib"
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "PullTheory: start mobile",
+        "type": "shell",
+        "command": "npm start",
+        "options": {
+          "cwd": "${workspaceFolder}/mobile"
+        },
+        "problemMatcher": [],
+        "isBackground": true
+      },
+      {
+        "label": "PullTheory: check app",
+        "type": "shell",
+        "command": "npm run check",
+        "options": {
+          "cwd": "${workspaceFolder}/mobile"
+        },
+        "problemMatcher": [],
+        "group": "test"
+      },
+      {
+        "label": "PullTheory: browser preview",
+        "type": "shell",
+        "command": "npm run export && npm run preview",
+        "options": {
+          "cwd": "${workspaceFolder}/mobile"
+        },
+        "problemMatcher": [],
+        "isBackground": true
+      }
+    ]
+  }
+}

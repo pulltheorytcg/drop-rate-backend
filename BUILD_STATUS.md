@@ -1,5 +1,30 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Corrected mobile scope: reuse existing hubs (local, not deployed)
+
+- Shopify stays the existing storefront. The single Android/iPhone shell loads the existing Seller Hub and Founder HQ, using server-verified role routing.
+- Replacement native dashboard/demo routes moved to `mobile/prototype-routes/`; not part of the active app.
+- Web hub session storage is shared; both entry points route authorized accounts to their existing hub. No API/RLS/financial permissions expanded. Founders do not yet gain seller-only API access or a hub-switch button.
+- Pending: backend deployment, live account acceptance, physical-device camera/OAuth/download testing, signing and distribution. No installer generated.
+
+
+## 2026-10-01 — Scan latency improvements (implementation; not deployed)
+
+- Measured production timings: AI vision dominates (19.90 seconds on average across 11 timed runs).
+- Overlap catalogue-image/learning enrichment with provider-image work; retain all recognition gates and await complete evidence. Add failure/cancellation regression tests.
+- Mobile photo preparation caps the longest edge at 1,500 pixels without upscaling. See `docs/RECOGNITION_VISION_LATENCY.md` for sample limits and outstanding real-device/model acceptance.
+
+
+
+## 2026-10-01 — Shared Android / iPhone client (local preview, not deployed)
+
+- Mobile theme now follows the browser portals: light surfaces, navy navigation and blue/cyan accents, including matching light system appearance.
+- Added `mobile/`, an Expo SDK 57 client for existing OWNER and PLATFORM_ADMIN accounts, with role-specific home/inventory/activity screens, camera/photo recognition, manual correction and review-gated draft intake.
+- Uses current main API contracts. No backend/schema/production configuration changes. Existing SwiftUI draft work is preserved separately.
+- Native sessions and immutable pending intake requests use device-only secure storage; browser demos use isolated sample data and memory-only storage. Uncertain saves retry the same key and payload.
+- Local TypeScript/lint and 24 session/workflow tests pass. Pending reads and completed-save results are discarded across session changes; retries coalesce only within the same session. Android/iOS Hermes and web bundles export; native projects generate. Browser demo intake and role navigation verified.
+- Not an APK/IPA or store release. Real-device acceptance, full native tooling/signing, privacy/release work and upstream dependency advisories remain. Advanced grading/media/publishing/payout mutations continue in the existing web portals. See `mobile/README.md`.
+
 
 ## 2026-10-01 — Scanner presence, sealed routing and provider visual retrieval
 

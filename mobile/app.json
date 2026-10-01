@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "PullTheory TCG",
+    "slug": "pulltheory-tcg",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "pulltheory",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F4F7FB",
+    "icon": "./assets/icon.png",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.pulltheory.tcg",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.pulltheory.tcg",
+      "permissions": ["CAMERA"],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow PullTheory to photograph your cards for recognition.",
+          "recordAudioAndroid": false,
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a card photo to identify in PullTheory.",
+          "cameraPermission": "Allow PullTheory to photograph your cards.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-font"
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

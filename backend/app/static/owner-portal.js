@@ -1,6 +1,6 @@
 "use strict";
 
-const OWNER_SESSION_KEY = "drop_rate_owner_session";
+
 
 const state = {
   config: null,
@@ -1201,12 +1201,12 @@ async function authRequest(path, options = {}) {
 
 function saveSession(session) {
   state.session = session;
-  sessionStorage.setItem(OWNER_SESSION_KEY, JSON.stringify(session));
+  window.PullTheoryHubSession.save(session);
 }
 
 function clearSession() {
   state.session = null;
-  sessionStorage.removeItem(OWNER_SESSION_KEY);
+  window.PullTheoryHubSession.clear();
 }
 
 async function refreshSession() {
@@ -1376,7 +1376,7 @@ async function initialise() {
   }
 
   try {
-    const stored = JSON.parse(sessionStorage.getItem(OWNER_SESSION_KEY));
+    const stored = window.PullTheoryHubSession.read();
     if (stored?.access_token) {
       state.session = stored;
       await openOwnerPortal();
