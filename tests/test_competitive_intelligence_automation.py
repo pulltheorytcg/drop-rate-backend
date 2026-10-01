@@ -166,3 +166,17 @@ def test_shadow_ingestion_persists_workflow_provenance_and_audit_actor() -> None
     assert "competitive_observations_automation_provenance_check" in sql
     assert "tcg.competitive_automation_actor" in sql
     assert "automation:competitive-intelligence" in sql
+
+
+def test_shadow_function_argument_and_plpgsql_contract_are_exact() -> None:
+    api = API.read_text()
+    sql = MIGRATION.read_text()
+
+    assert "$1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12,$13,$14" in api
+    signature = (
+        "text,text,text,text,uuid,text,text,text,"
+        "jsonb,jsonb,numeric,numeric,timestamptz,timestamptz"
+    )
+    assert sql.count(signature) == 3
+    assert "as $$" in sql
+    assert "end;\n$$;" in sql
