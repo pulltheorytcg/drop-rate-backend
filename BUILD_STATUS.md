@@ -1,6 +1,22 @@
 # Drop Rate — Live Build Status
 
 
+## 2026-10-01 — Grading certificate lookup infrastructure clarified
+
+- **PSA certificate lookup is required production recognition infrastructure, not disposable diagnostic tooling.**
+- The Railway PSA services support slab workflows where a scanned/input PSA certificate number is resolved immediately to the corresponding graded card identity and reference data.
+- Keep the PSA lookup capability available. Do **not** delete the PSA services merely because their current names include `temp` / `batch`; document or deliberately rename them only after checking dependencies.
+- Extend the same capability to the other major grading companies:
+  - **Beckett / BGS** certificate lookup
+  - **ACE Grading** certificate lookup
+  - **CGC Cards** certificate lookup
+- Target architecture: FastAPI owns a common deterministic grading-certificate lookup contract and provider-specific adapters; recognition/intake calls that contract. Provider responses are evidence and must not silently override canonical identity when evidence conflicts.
+- Certificate lookup should return provider, certificate number, identified card/printing where supported, grade/subgrades where available, language/variant evidence where available, and provider slab/reference media only when permitted.
+- Unknown, invalid, unavailable or conflicting certificates fail closed into human review rather than creating/publishing inventory automatically.
+- Provider terms, authentication, rate limits and permitted media use must be verified independently for PSA, Beckett, ACE and CGC before production activation.
+
+
+
 ## 2026-10-01 — Recognition benchmark truth recovery
 
 - Live read-only benchmark audit found **3 active human-labelled learning examples, all TRAIN**, so the new quality evaluator currently has **0 VALIDATION / 0 HOLDOUT** examples to measure.
