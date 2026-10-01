@@ -6,7 +6,7 @@ OWNER_API = ROOT / "backend" / "app" / "owner_portal_api.py"
 GRADING = ROOT / "backend" / "app" / "grading_certificates.py"
 SCANNER = ROOT / "backend" / "app" / "static" / "owner-recognition.js"
 OWNER_HTML = ROOT / "backend" / "app" / "static" / "owner.html"
-MIGRATION = ROOT / "database" / "migrations" / "20261001034000_unique_graded_certificate.sql"
+MIGRATION = ROOT / "database" / "migrations" / "20261001034809_unique_graded_certificate.sql"
 
 
 def test_graded_slab_scanner_is_qr_first_with_photo_fallback() -> None:
