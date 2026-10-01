@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence migration history reconciliation
+
+- Corrected repo migration history to match the migration version actually recorded by Supabase for Competitive Intelligence: `20261001022146_competitive_intelligence_v1.sql`.
+- The SQL body is unchanged; this is a filename/history reconciliation only.
+- The stale repo-only filename `20261001023000_competitive_intelligence_v1.sql` is removed.
+- No database migration is re-applied and no production data/schema is changed by this correction.
+
+
 ## 2026-10-01 — Competitive Intelligence persistence/API foundation
 
 - Reconciled onto current `main` after PR #437 landed; the newer production verification notes are preserved.

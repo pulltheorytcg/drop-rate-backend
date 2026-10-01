@@ -14,7 +14,7 @@ MIGRATION = (
     ROOT
     / "database"
     / "migrations"
-    / "20261001023000_competitive_intelligence_v1.sql"
+    / "20261001022146_competitive_intelligence_v1.sql"
 )
 API = ROOT / "backend" / "app" / "competitive_intelligence_api.py"
 MAIN = ROOT / "backend" / "app" / "main.py"
