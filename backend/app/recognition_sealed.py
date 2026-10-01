@@ -496,6 +496,7 @@ async def persist_sealed_resolution(
     observation: RecognitionObservation,
     resolved: Mapping[str, Any],
     timings_ms: Mapping[str, float],
+    provider_errors: list[Mapping[str, Any]] | None = None,
 ) -> None:
     candidates = list(resolved.get("candidates") or [])
     top = resolved.get("top")
@@ -542,7 +543,11 @@ async def persist_sealed_resolution(
             resolved["decision"],
             json.dumps(observation.model_dump(mode="json")),
             json.dumps(
-                {"route": "SEALED_PRODUCT", "timings_ms": dict(timings_ms)},
+                {
+                    "route": "SEALED_PRODUCT",
+                    "timings_ms": dict(timings_ms),
+                    "provider_errors": [dict(item) for item in (provider_errors or [])],
+                },
                 default=str,
             ),
             top.get("catalogue_id") if top else None,
