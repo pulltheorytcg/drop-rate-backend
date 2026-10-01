@@ -17,7 +17,10 @@
 - Added a database uniqueness migration so one grader+certificate cannot create duplicate physical Inventory IDs.
 - No automatic Shopify publication, pricing override, ownership change, settlement action or external payout is introduced.
 - ✅ Supabase applied the uniqueness migration as `20261001034809_unique_graded_certificate`; live read-back confirms the unique index exists and duplicate grader+certificate pairs remain at 0.
-- ✅ Railway deployment `2bf49641-450d-45dd-afb1-a9fc57c38f5c` reached SUCCESS for merge `63ebf616b890b5808435d08036196d35376ef71d`; production pre-deploy reported **2,236 tests passed** and `/health/ready` succeeded.
+- ✅ PR #467 merged as `63ebf616b890b5808435d08036196d35376ef71d`; PR #468 aligned repository migration history as `baf8c2ecd9fa7a44cbca7ce7e4fcb9a2f3762edd`.
+- ✅ Final aligned Railway deployment `c48b589b-a751-4bb8-8b96-8d8b5df52354` reached SUCCESS; production pre-deploy reported **2,236 tests passed**, application startup completed, and `/health/ready` returned **200 OK**.
+- ✅ Graded Slab / QR scanner is live in `drop-rate-api-live`.
+- 🔒 Full automated PSA provider verification still requires an account-generated PSA Public API bearer token as `TCG_PSA_PUBLIC_API_TOKEN`; the production Railway services currently do not contain a valid PSA token.
 
 
 
