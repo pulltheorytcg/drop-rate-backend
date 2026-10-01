@@ -771,6 +771,46 @@ function ownerScanRenderEmpty() {
   result.replaceChildren(empty);
 }
 
+
+function ownerScanCanMaterializeCandidate(candidate) {
+  if (!candidate || candidate.catalogue_id || candidate.hard_rejected) return false;
+  if (candidate.source_kind !== "PROVIDER") return false;
+  if (!candidate.provider || !candidate.provider_id || !candidate.provider_language) return false;
+  const signals = candidate.signals || {};
+  return Number(candidate.score || 0) >= Number(state.ownerRecognition.status?.exact_threshold || 0.82)
+    && Number(signals?.card_number?.match || 0) >= 0.99
+    && !signals?.card_number?.ocr_conflict
+    && Number(signals?.provider?.match || 0) >= 0.90
+    && Number(signals?.language?.match || 0) >= 0.99;
+}
+
+async function ownerScanMaterializeCandidate(run, candidate) {
+  if (!run?.id || !candidate?.id || !ownerScanCanMaterializeCandidate(candidate)) return;
+  ownerScanMessage("Adding this new printing to Drop Rate for review…");
+  const buttons = document.querySelectorAll(".owner-scan-confirm-button");
+  buttons.forEach((button) => { button.disabled = true; });
+  try {
+    const data = await apiRequest(
+      `/api/v1/recognition/runs/${run.id}/candidates/${candidate.id}/materialize`,
+      {method: "POST"}
+    );
+    state.ownerRecognition.result = data;
+    const updated = (data.candidates || []).find((item) => item.id === candidate.id);
+    if (!updated?.catalogue_id) {
+      throw new Error("The new card was not linked to the Drop Rate catalogue.");
+    }
+    ownerScanRenderResult(data);
+    ownerScanMessage(
+      "New card linked as review-gated catalogue data. Confirm it once more to add your physical copy.",
+      "success"
+    );
+    await ownerScanConfirmCandidate(data.run || run, updated);
+  } catch (error) {
+    ownerScanMessage(error.message || "This new card could not be linked safely.", "error");
+    ownerScanRenderResult(state.ownerRecognition.result || {run, candidates: [candidate]});
+  }
+}
+
 function ownerScanCandidateCard(candidate, run, index) {
   const snapshot = candidate.candidate_snapshot || {};
   const card = document.createElement("article");
@@ -820,12 +860,18 @@ function ownerScanCandidateCard(candidate, run, index) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "owner-scan-confirm-button";
-  button.disabled = !candidate.catalogue_id || candidate.hard_rejected;
-  button.textContent = candidate.catalogue_id
-    ? (candidate.hard_rejected ? "Rejected by evidence" : "This is my card")
-    : "Catalogue mapping required";
-  if (!button.disabled) {
-    button.addEventListener("click", () => ownerScanConfirmCandidate(run, candidate));
+  const canMaterialize = ownerScanCanMaterializeCandidate(candidate);
+  button.disabled = candidate.hard_rejected || (!candidate.catalogue_id && !canMaterialize);
+  if (candidate.catalogue_id) {
+    button.textContent = candidate.hard_rejected ? "Rejected by evidence" : "This is my card";
+    if (!button.disabled) {
+      button.addEventListener("click", () => ownerScanConfirmCandidate(run, candidate));
+    }
+  } else if (canMaterialize) {
+    button.textContent = "This is my card · add to Drop Rate";
+    button.addEventListener("click", () => ownerScanMaterializeCandidate(run, candidate));
+  } else {
+    button.textContent = "Needs Drop Rate review";
   }
 
   body.append(rank, title, meta, evidence, button);
@@ -853,8 +899,8 @@ function ownerScanRenderResult(data) {
   const candidates = (data.candidates || [])
     .filter((candidate) => !candidate.hard_rejected)
     .sort((a, b) => Number(a.rank || 9999) - Number(b.rank || 9999))
-    .filter((candidate) => candidate.catalogue_id)
-    .slice(0, 3);
+    .filter((candidate) => candidate.catalogue_id || candidate.source_kind === "PROVIDER")
+    .slice(0, 5);
 
   if (!candidates.length) {
     const empty = document.createElement("div");
@@ -862,7 +908,7 @@ function ownerScanRenderResult(data) {
     const title = document.createElement("strong");
     title.textContent = "No confirmable catalogue match";
     const copy = document.createElement("small");
-    copy.textContent = "This scan needs Drop Rate review before it can be added. Try another photo if the card is clear.";
+    copy.textContent = "No safe canonical or provider-backed candidate was found. Try another photo; if the card is new, Drop Rate will only onboard it when exact provider evidence is available.";
     empty.append(title, copy);
     result.append(empty);
   } else {
