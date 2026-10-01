@@ -90,3 +90,20 @@ Regression coverage verifies:
 - the API only exposes VALIDATION/HOLDOUT evaluation.
 
 This benchmark is the measurement foundation for the recognition-quality workstream. It is not permission to expand the reference corpus before the Phase 3 gate is met.
+
+
+## Canonical system truth for search corrections
+
+A `CORRECTED_BY_SEARCH` label is stronger identity truth than the model-derived
+`recognition_runs.system_code` because the founder explicitly selected a canonical
+catalogue card. Learning materialisation therefore resolves the system from that
+selected CARD profile and uses it as the learning example's `system_code`.
+
+This specifically covers scans where vision could not establish a supported game,
+or established the wrong game before the founder corrected the card by search.
+If the selected catalogue row is not a canonical CARD with a system profile,
+materialisation fails closed and does not create learning/evaluation truth.
+
+The deterministic image-hash split remains unchanged at 80% TRAIN, 10% VALIDATION
+and 10% HOLDOUT. This recovery does not move examples between splits and does not
+change production scoring.
