@@ -182,6 +182,7 @@ def test_op17_seed_uses_bandai_evidence_without_importing_box_price_as_pack_valu
     assert "https://cp.onepiece-cardgame.com/flame-flame-fruit/goods" in sql
     assert "not imported as a single-pack market value" in sql
     assert "market_value_minor" not in sql
+    assert "\n    null,\n    '',\n    '',\n    'Japanese'\n" in sql
 
 
 def test_batch_inventory_intake_preserves_sealed_physical_state() -> None:
