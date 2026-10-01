@@ -379,7 +379,7 @@ def resolve_sealed_candidates(
                     "product_type": "SEALED",
                     "collectible_type": "SEALED",
                     "sealed_product_type": candidate_type,
-                    "language": candidate_language or observation.language,
+                    "language": candidate_language or None,
                     "identity_status": "NEEDS_REVIEW",
                     "reference_image_url": row.get("image_url"),
                 },
