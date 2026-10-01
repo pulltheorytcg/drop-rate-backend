@@ -21,6 +21,9 @@ jobs:
         run: xcodebuild -project ios/DropRate.xcodeproj -scheme DropRate -destination "platform=iOS Simulator,id=$IOS_DEVICE" -derivedDataPath ios-build -resultBundlePath ios-results.xcresult CODE_SIGNING_ALLOWED=NO test
       - name: Capture launch screen
         run: |
+          xcrun simctl boot "$IOS_DEVICE" || true
+          xcrun simctl bootstatus "$IOS_DEVICE" -b
+          xcrun simctl install "$IOS_DEVICE" ios-build/Build/Products/Debug-iphonesimulator/DropRate.app
           xcrun simctl launch "$IOS_DEVICE" com.droprate.sellerhub
           sleep 3
           xcrun simctl io "$IOS_DEVICE" screenshot ios-launch.png
