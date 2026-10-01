@@ -1,5 +1,18 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Seller Hub email-or-username login
+
+- Added real **email or username** password sign-in for Seller Hub while keeping Supabase Auth as the credential authority.
+- The browser now sends `identifier + password` to a dedicated FastAPI public session endpoint instead of assuming the identifier is an email address.
+- Username-to-email resolution happens server-side through a SECURITY DEFINER PostgreSQL function that is executable only by `tcg_api`; browser `anon` / `authenticated` roles cannot call it.
+- Unknown usernames still exercise the normal Supabase password-auth path with a synthetic email so public failures remain generic and do not disclose whether a username exists.
+- Added shared PostgreSQL brute-force protection: 8 failed attempts per identifier or 30 per network identity inside 15 minutes; only SHA-256 hashes are stored, never raw usernames, emails, IPs or passwords.
+- Successful session responses are marked `no-store`; invalid credentials return the same generic response for email and username login.
+- Existing Google/Apple login, Supabase session refresh, Seller Hub owner-access checks and Founder HQ redirect behaviour remain unchanged.
+- Added runtime `httpx` dependency declaration, regression tests and `docs/SELLER_HUB_USERNAME_LOGIN.md`.
+- Production activation pending CI, merge, Supabase migration application, Railway deploy and live verification.
+
+
 ## 2026-09-30 — Seller Hub CSS cache-bust v12
 
 - Bumped the Seller Hub stylesheet asset version to `owner-v12` so browsers immediately receive the deployed header-spacing and Profile-page styles instead of reusing the previous `owner-v11` cache.
