@@ -19,6 +19,7 @@
 - The sealed path keeps pack-vs-box/type mismatches fail-closed, never copies the camera-observed product code into provider evidence, keeps physical language unproven unless independently established, fails soft if CardTrader is unavailable, and records provider errors in recognition evidence.
 - ✅ PR #487 merged as `26e708dbd976a6ab2e70c8168db321dc6e17eaf9`; CI passed **2,284 tests** plus the pinned n8n image check. Railway deployment `642ce68a-ad41-4dff-ac6d-eee2f2fa65a4` reached SUCCESS, application startup completed and `/health/ready` returned HTTP 200.
 - 🚧 Sealed intake polish: verified Japanese OP-17 now has an English-readable display identity while retaining `language=Japanese`; verified exact sealed matches confirmed by the seller become `identity_confirmed=true` instead of remaining artificially pending, while provider-only/unverified sealed products remain review-gated. Seller Hub batch copy now reports the real identity state and uses generic item/sealed wording rather than card-only wording.
+- 🚧 Sealed market-value follow-up: add official CardTrader as a first-class market source for exact VERIFIED mappings. The initial OP-17 JP pack bootstrap is fail-closed: it requires exactly one provider booster blueprint with Japanese, available, `bundle_size=1` listings; boxes/multipacks are excluded. Accepted listings become immutable `ACTIVE` observations and feed the existing robust pricing engine rather than a scanner-specific price shortcut.
 
 ## 2026-10-01 — Full-library recognition correction in progress
 

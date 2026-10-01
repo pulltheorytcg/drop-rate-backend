@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from .cardmarket_parse_adapter import CardmarketParseAdapter
+from .cardtrader_client import CardTraderClient
+from .cardtrader_market_adapter import CardTraderMarketAdapter
 from .collectr_parse_adapter import CollectrParseAdapter
 from .ebay_official_adapter import EbayOfficialBrowseAdapter
 from .ebay_official_client import EbayOfficialClient
@@ -29,6 +31,7 @@ def configure_market_adapters(
         "TCGPLAYER": False,
         "CARDMARKET": False,
         "COLLECTR": False,
+        "CARDTRADER": False,
     }
 
     if settings.ebay_client_id and settings.ebay_client_secret:
@@ -74,5 +77,15 @@ def configure_market_adapters(
             )
         )
         configured["COLLECTR"] = True
+
+    if settings.cardtrader_api_token:
+        provider = fx_provider or EcbHistoricalFxProvider()
+        register_adapter(
+            CardTraderMarketAdapter(
+                client=CardTraderClient(api_token=settings.cardtrader_api_token),
+                fx_provider=provider,
+            )
+        )
+        configured["CARDTRADER"] = True
 
     return configured

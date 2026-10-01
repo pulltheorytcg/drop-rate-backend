@@ -48,6 +48,6 @@ def test_market_observation_rejects_grade_without_company() -> None:
 
 def test_provider_availability_does_not_pretend_live_access() -> None:
     items = adapter_availability()
-    assert {item["source"] for item in items} == {"EBAY", "COLLECTR", "TCGPLAYER", "CARDMARKET"}
+    assert {item["source"] for item in items} == {"EBAY", "COLLECTR", "TCGPLAYER", "CARDMARKET", "CARDTRADER"}
     assert all(item["implemented"] is False for item in items)
     assert all(item["status"] == "ACCESS_REQUIRED" for item in items)

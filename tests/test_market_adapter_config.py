@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from app.cardmarket_parse_adapter import CardmarketParseAdapter
+from app.cardtrader_market_adapter import CardTraderMarketAdapter
 from app.collectr_parse_adapter import CollectrParseAdapter
 from app.ebay_official_adapter import EbayOfficialBrowseAdapter
 from app.ebay_uk_parse_adapter import EbayUkParseAdapter
@@ -36,6 +37,7 @@ def settings(
     parse_api_key: str | None,
     ebay_client_id: str | None = None,
     ebay_client_secret: str | None = None,
+    cardtrader_api_token: str | None = None,
 ) -> Settings:
     return Settings(
         database_url="postgresql://example",
@@ -51,6 +53,7 @@ def settings(
         ebay_client_id=ebay_client_id,
         ebay_client_secret=ebay_client_secret,
         ebay_marketplace_id="EBAY_GB",
+        cardtrader_api_token=cardtrader_api_token,
     )
 
 
@@ -68,6 +71,7 @@ def test_parse_key_absent_keeps_parse_adapters_unregistered(monkeypatch) -> None
         "TCGPLAYER": False,
         "CARDMARKET": False,
         "COLLECTR": False,
+        "CARDTRADER": False,
     }
     assert registered == []
 
@@ -89,6 +93,7 @@ def test_parse_key_and_fx_provider_register_market_adapters(monkeypatch) -> None
         "TCGPLAYER": True,
         "CARDMARKET": True,
         "COLLECTR": True,
+        "CARDTRADER": False,
     }
     assert len(registered) == 4
     assert isinstance(registered[0], EbayUkParseAdapter)
@@ -120,6 +125,7 @@ def test_default_ecb_provider_is_lazy_and_does_not_call_network_at_configuration
         "TCGPLAYER": True,
         "CARDMARKET": True,
         "COLLECTR": True,
+        "CARDTRADER": False,
     }
     assert len(registered) == 4
     assert isinstance(registered[0], EbayUkParseAdapter)
@@ -149,3 +155,26 @@ def test_official_ebay_credentials_take_precedence_over_parse_ebay(monkeypatch) 
     assert len(registered) == 4
     assert isinstance(registered[0], EbayOfficialBrowseAdapter)
     assert not any(isinstance(adapter, EbayUkParseAdapter) for adapter in registered)
+
+
+def test_cardtrader_token_registers_official_market_adapter(monkeypatch) -> None:
+    registered = []
+    monkeypatch.setattr(
+        "app.market_adapter_config.register_adapter",
+        lambda adapter: registered.append(adapter),
+    )
+
+    result = configure_market_adapters(
+        settings(parse_api_key=None, cardtrader_api_token="ct-test-token"),
+        fx_provider=FakeFxProvider(),
+    )
+
+    assert result == {
+        "EBAY": False,
+        "TCGPLAYER": False,
+        "CARDMARKET": False,
+        "COLLECTR": False,
+        "CARDTRADER": True,
+    }
+    assert len(registered) == 1
+    assert isinstance(registered[0], CardTraderMarketAdapter)
