@@ -40,6 +40,10 @@ from .recognition_learning import (
     materialize_learning_example,
     register_runtime_model,
 )
+from .recognition_evaluation import (
+    evaluate_recognition_examples,
+    load_recognition_evaluation_examples,
+)
 from .recognition_reference_index import (
     _eligible_reference_rows,
     fingerprint_reference_rows,
@@ -240,6 +244,34 @@ async def recognition_learning_status(
         owner = await _owner(connection)
         return jsonable_encoder(
             await learning_status(connection, owner_id=owner["id"])
+        )
+
+
+@router.get("/learning/evaluation")
+async def recognition_learning_evaluation(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    _access: Annotated[dict, Depends(require_platform_admin_request)],
+    dataset_split: Literal["VALIDATION", "HOLDOUT"] = Query(default="VALIDATION"),
+    limit: int = Query(default=2000, ge=1, le=5000),
+) -> dict:
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        rows = await load_recognition_evaluation_examples(
+            connection,
+            owner_id=owner["id"],
+            dataset_split=dataset_split,
+            limit=limit,
+        )
+        return jsonable_encoder(
+            evaluate_recognition_examples(
+                rows,
+                expected_split=dataset_split,
+            )
         )
 
 
