@@ -1454,8 +1454,12 @@ function ownerBatchCandidateSnapshot(candidate) {
   return candidate?.candidate_snapshot || {};
 }
 
+function ownerBatchDisplayCandidate(item) {
+  return item?.selected || item?.suggested || null;
+}
+
 function ownerBatchIsSealed(item) {
-  const selected = item?.selected;
+  const selected = ownerBatchDisplayCandidate(item);
   const snapshot = ownerBatchCandidateSnapshot(selected);
   return snapshot.collectible_type === "SEALED"
     || snapshot.product_type === "SEALED"
@@ -1464,13 +1468,13 @@ function ownerBatchIsSealed(item) {
 }
 
 function ownerBatchSelectedName(item) {
-  const selected = item.selected;
+  const selected = ownerBatchDisplayCandidate(item);
   const snapshot = ownerBatchCandidateSnapshot(selected);
-  return snapshot.name || selected?.name || item.guess || "Card needs review";
+  return snapshot.name || selected?.name || item.guess || "Item needs review";
 }
 
 function ownerBatchSelectedMeta(item) {
-  const selected = item.selected;
+  const selected = ownerBatchDisplayCandidate(item);
   const snapshot = ownerBatchCandidateSnapshot(selected);
   if (selected?.manual_search) {
     return [
@@ -1508,7 +1512,7 @@ function ownerBatchUnresolvedCount() {
 }
 
 function ownerBatchPopulateThumb(image, item) {
-  const selected = item?.selected;
+  const selected = ownerBatchDisplayCandidate(item);
   if (selected?.image_url) {
     image.src = selected.image_url;
     return;
@@ -1672,12 +1676,13 @@ async function ownerBatchRecognise(dataUrl) {
     }
 
     const candidates = (data.candidates || [])
-      .filter((candidate) => candidate.catalogue_id && !candidate.hard_rejected)
+      .filter((candidate) => !candidate.hard_rejected)
+      .filter((candidate) => candidate.catalogue_id || candidate.source_kind === "PROVIDER")
       .sort((left, right) => Number(left.rank || 9999) - Number(right.rank || 9999));
     const top = candidates[0] || null;
     const autoRecognised =
       data.run?.decision === "EXACT_CANDIDATE"
-      && top
+      && top?.catalogue_id
       && top.catalogue_id === data.run?.top_catalogue_id;
 
     const observation = data.run?.ai_observation || {};
@@ -1939,8 +1944,17 @@ function ownerBatchRenderReview() {
     if (item.status !== "added") {
       const fix = document.createElement("button");
       fix.type = "button";
-      fix.textContent = item.status === "unresolved" ? "Fix match" : "Change";
-      fix.addEventListener("click", () => ownerBatchOpenCorrection(item.id));
+      const providerOnlySealed =
+        item.status === "unresolved"
+        && item.suggested?.source_kind === "PROVIDER"
+        && ownerBatchIsSealed(item);
+      if (providerOnlySealed) {
+        fix.textContent = "Needs Drop Rate review";
+        fix.disabled = true;
+      } else {
+        fix.textContent = item.status === "unresolved" ? "Fix match" : "Change";
+        fix.addEventListener("click", () => ownerBatchOpenCorrection(item.id));
+      }
       actions.append(fix);
     }
     const remove = document.createElement("button");

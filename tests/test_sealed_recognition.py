@@ -93,6 +93,26 @@ def op17_row(**overrides) -> dict:
     return values
 
 
+def op17_provider_row(**overrides) -> dict:
+    values = {
+        "provider": "CardTrader",
+        "provider_id": "7003",
+        "name": "OP-17 Booster Pack",
+        "set_name": "OP-17",
+        "product_code": "OP-17",
+        "sealed_product_type": "BOOSTER_PACK",
+        "language": None,
+        "image_url": "https://cardtrader.com/uploads/blueprints/image/7003/op17.jpg",
+        "retrieval_score": 0.99,
+        "retrieval_only": True,
+        "exact_printing_verified": False,
+        "visual_similarity": 0.97,
+        "visual_similarity_source": "remote_provider_image",
+    }
+    values.update(overrides)
+    return values
+
+
 def test_op17_japanese_single_pack_resolves_as_exact_sealed_product() -> None:
     row = op17_row()
     result = resolve_sealed_candidates(observation(), [row])
@@ -121,6 +141,56 @@ def test_sealed_exact_match_requires_verified_identity() -> None:
 
     assert result["decision"] == "NEEDS_REVIEW"
     assert "SEALED_IDENTITY_UNVERIFIED" in result["risk_flags"]
+
+
+
+
+def test_provider_only_sealed_candidate_is_review_only_never_exact() -> None:
+    result = resolve_sealed_candidates(
+        observation(),
+        [],
+        provider_rows=[op17_provider_row()],
+    )
+
+    assert result["decision"] == "NEEDS_REVIEW"
+    assert result["top"]["source_kind"] == "PROVIDER"
+    assert result["top"]["catalogue_id"] is None
+    assert result["top"]["provider"] == "CardTrader"
+    assert "UNMAPPED_SEALED_PROVIDER_CANDIDATE" in result["risk_flags"]
+    assert result["top"]["signals"]["identity_verified"] is False
+
+
+def test_provider_duplicate_cannot_demote_verified_local_pack() -> None:
+    row = op17_row()
+    result = resolve_sealed_candidates(
+        observation(),
+        [row],
+        provider_rows=[op17_provider_row()],
+    )
+
+    assert result["decision"] == "EXACT_CANDIDATE"
+    assert result["top"]["catalogue_id"] == row["catalogue_id"]
+    assert [candidate["source_kind"] for candidate in result["candidates"]] == ["CATALOGUE"]
+
+
+def test_provider_booster_box_is_rejected_for_pack_scan() -> None:
+    result = resolve_sealed_candidates(
+        observation(),
+        [],
+        provider_rows=[
+            op17_provider_row(
+                provider_id="7004",
+                name="OP-17 Booster Box",
+                sealed_product_type="BOOSTER_BOX",
+            )
+        ],
+    )
+
+    assert result["decision"] == "NO_MATCH"
+    assert result["top"] is None
+    assert result["candidates"][0]["source_kind"] == "PROVIDER"
+    assert result["candidates"][0]["hard_rejected"] is True
+    assert "sealed product type mismatch" in result["candidates"][0]["rejection_reasons"]
 
 
 def test_vision_contract_classifies_object_before_identity() -> None:
@@ -154,7 +224,9 @@ def test_api_routes_empty_and_sealed_objects_before_card_provider_discovery() ->
     assert none_index < sealed_index < provider_index
     assert "NO_COLLECTIBLE_PRESENT" in source
     assert "load_sealed_candidates(connection, observation)" in source
-    assert "resolve_sealed_candidates(observation, sealed_rows)" in source
+    assert "discover_one_piece_cardtrader_sealed_candidates(" in source
+    assert "attach_provider_visual_evidence(" in source
+    assert "provider_rows=sealed_provider_rows" in source
     assert "persist_sealed_resolution(" in source
 
 
@@ -195,3 +267,26 @@ def test_batch_inventory_intake_preserves_sealed_physical_state() -> None:
     assert "function ownerBatchIsSealed(item)" in js
     assert 'seal_status: sealed ? "SEALED" : null' in js
     assert "condition: sealed ? null : condition" in js
+
+
+def test_batch_review_shows_provider_only_sealed_suggestion_without_allowing_intake() -> None:
+    js = OWNER_JS.read_text()
+
+    assert "function ownerBatchDisplayCandidate(item)" in js
+    assert "item?.selected || item?.suggested || null" in js
+    assert 'candidate.catalogue_id || candidate.source_kind === "PROVIDER"' in js
+    assert 'item.suggested?.source_kind === "PROVIDER"' in js
+    assert 'fix.textContent = "Needs Drop Rate review"' in js
+    assert "fix.disabled = true" in js
+    assert "ownerScanLoadCandidateImage(image, item.runId, selected.id)" in js
+
+
+def test_sealed_cardtrader_failure_is_non_fatal_and_audited() -> None:
+    api = API.read_text()
+    sealed = SEALED.read_text()
+
+    assert "except CardTraderApiError as exc:" in api
+    assert '"provider": "CardTrader"' in api
+    assert "sealed_provider_errors" in api
+    assert "provider_errors=sealed_provider_errors" in api
+    assert '"provider_errors": [dict(item) for item in (provider_errors or [])]' in sealed

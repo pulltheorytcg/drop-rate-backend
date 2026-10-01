@@ -15,7 +15,8 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from .access_control import require_platform_admin_request
-from .cardtrader_client import CardTraderClient
+from .cardtrader_client import CardTraderApiError, CardTraderClient
+from .cardtrader_recognition import discover_one_piece_cardtrader_sealed_candidates
 from .auth import AuthenticatedUser, require_user
 from .reference_library import reference_candidates
 from .db import user_connection
@@ -71,7 +72,7 @@ from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.8.0"
+ENGINE_VERSION = "v1.9.0"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
@@ -1130,21 +1131,69 @@ async def recognize_card(
             owner_id,
         )
 
+    cardtrader = (
+        CardTraderClient(api_token=settings.cardtrader_api_token)
+        if settings.cardtrader_api_token
+        else None
+    )
+
     if observation.object_type == "SEALED_PRODUCT":
+        async def _load_sealed_catalogue_candidates():
+            async with user_connection(
+                request.app.state.db_pool,
+                user.user_id,
+                request.state.request_id,
+            ) as connection:
+                return await load_sealed_candidates(connection, observation)
+
+        sealed_provider_errors: list[dict[str, Any]] = []
+
+        async def _load_sealed_provider_candidates():
+            if cardtrader is None:
+                return []
+            try:
+                return await discover_one_piece_cardtrader_sealed_candidates(
+                    observation,
+                    cardtrader,
+                )
+            except CardTraderApiError as exc:
+                sealed_provider_errors.append(
+                    {
+                        "provider": "CardTrader",
+                        "reason": exc.detail,
+                        "retryable": exc.retryable,
+                    }
+                )
+                return []
+
+        sealed_rows, sealed_provider_rows = await asyncio.gather(
+            _timed("sealed_catalogue_lookup", _load_sealed_catalogue_candidates()),
+            _timed("sealed_provider_discovery", _load_sealed_provider_candidates()),
+        )
+        if sealed_provider_rows:
+            await _timed(
+                "sealed_provider_visual",
+                attach_provider_visual_evidence(
+                    image.hashes,
+                    sealed_provider_rows,
+                    max_candidates=4,
+                ),
+            )
+
+        resolved = resolve_sealed_candidates(
+            observation,
+            sealed_rows,
+            provider_rows=sealed_provider_rows,
+        )
+        timings_ms["pipeline_before_persist"] = round(
+            (time.perf_counter() - pipeline_started) * 1000,
+            2,
+        )
         async with user_connection(
             request.app.state.db_pool,
             user.user_id,
             request.state.request_id,
         ) as connection:
-            sealed_rows = await _timed(
-                "sealed_catalogue_lookup",
-                load_sealed_candidates(connection, observation),
-            )
-            resolved = resolve_sealed_candidates(observation, sealed_rows)
-            timings_ms["pipeline_before_persist"] = round(
-                (time.perf_counter() - pipeline_started) * 1000,
-                2,
-            )
             await persist_sealed_resolution(
                 connection,
                 run_id=run_id,
@@ -1152,6 +1201,7 @@ async def recognize_card(
                 observation=observation,
                 resolved=resolved,
                 timings_ms=timings_ms,
+                provider_errors=sealed_provider_errors,
             )
             return jsonable_encoder(await _run_payload(connection, run_id))
 
@@ -1185,12 +1235,6 @@ async def recognize_card(
                 system_code=system_code,
                 language=observation.language,
             )
-
-    cardtrader = (
-        CardTraderClient(api_token=settings.cardtrader_api_token)
-        if settings.cardtrader_api_token
-        else None
-    )
 
     provider_result, learning_hints, library_items, provider_visual_hints = await asyncio.gather(
         _timed(
