@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — eBay parity: read-only reconciliation
+
+- Added a PLATFORM_ADMIN-only `GET /api/v1/ebay/reconciliation` diagnostic that compares owner-scoped canonical eBay links to live eBay offer + inventory-item read-back.
+- The reconciliation is intentionally read-only: no eBay publish/withdraw/update calls and no database mutation.
+- Explicit discrepancy codes cover remote offer/listing/SKU/marketplace/price drift, live quantity drift, withdrawn/sold offers still published, local unsellable inventory still live remotely, and cross-channel oversell risk.
+- Provider failures are surfaced per item; they never count as healthy.
+- Batch size is capped at 50 with concurrency 4.
+- Added deterministic reconciliation tests and `docs/EBAY_PARITY.md`.
+- This is safe pre-activation parity work; no real eBay listing or scheduled automation is activated by this slice.
+
+
 ## 2026-10-01 — Competitive Intelligence foundation in progress
 
 - Founder-prioritised Competitive Intelligence is now a formal fifth intelligence/growth pillar rather than an informal future idea.
