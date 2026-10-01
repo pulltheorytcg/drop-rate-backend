@@ -1,6 +1,15 @@
 # Drop Rate — Live Build Status
 
 
+## 2026-10-01 — Shared Android / iPhone client (local preview, not deployed)
+
+- Added `mobile/`, an Expo SDK 57 client for existing OWNER and PLATFORM_ADMIN accounts, with role-specific home/inventory/activity screens, camera/photo recognition, manual correction and review-gated draft intake.
+- Uses current main API contracts. No backend/schema/production configuration changes. Existing SwiftUI draft work is preserved separately.
+- Native sessions and immutable pending intake requests use device-only secure storage; browser demos use isolated sample data and memory-only storage. Uncertain saves retry the same key and payload.
+- Local TypeScript/lint and 21 session/workflow tests pass. Android/iOS Hermes and web bundles export; native projects generate. Browser demo intake and role navigation verified.
+- Not an APK/IPA or store release. Real-device acceptance, full native tooling/signing, privacy/release work and upstream dependency advisories remain. Advanced grading/media/publishing/payout mutations continue in the existing web portals. See `mobile/README.md`.
+
+
 ## 2026-10-01 — Scanner presence, sealed routing and provider visual retrieval
 
 - ✅ Seller Hub mobile auto-scan now requires a collectible-like foreground to be present and stable before capture, then waits for physical removal before re-arming; stable empty backgrounds no longer qualify as scans.
