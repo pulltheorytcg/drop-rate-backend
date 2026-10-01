@@ -1672,12 +1672,13 @@ async function ownerBatchRecognise(dataUrl) {
     }
 
     const candidates = (data.candidates || [])
-      .filter((candidate) => candidate.catalogue_id && !candidate.hard_rejected)
+      .filter((candidate) => !candidate.hard_rejected)
+      .filter((candidate) => candidate.catalogue_id || candidate.source_kind === "PROVIDER")
       .sort((left, right) => Number(left.rank || 9999) - Number(right.rank || 9999));
     const top = candidates[0] || null;
     const autoRecognised =
       data.run?.decision === "EXACT_CANDIDATE"
-      && top
+      && top?.catalogue_id
       && top.catalogue_id === data.run?.top_catalogue_id;
 
     const observation = data.run?.ai_observation || {};
