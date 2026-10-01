@@ -233,3 +233,25 @@ Opportunity and observation idempotency is strict rather than approximate:
 - confidence, relevance and qualification thresholds are normalized to the database's five-decimal precision before evaluation/persistence/replay.
 
 These checks do not rewrite historical evidence or activate any external collection.
+
+## Signed shadow ingestion
+
+The next automation boundary is deliberately one-way and shadow-only.
+
+`POST /api/v1/automation/competitive-intelligence/observations/shadow` accepts HMAC-signed batches from Drop Rate automation using the existing automation command secret. The endpoint does not use a founder/browser session and does not expose direct table credentials to n8n.
+
+For every observation, Postgres independently re-checks that:
+
+- the source exists;
+- the competitor remains APPROVED;
+- the source remains ACTIVE;
+- the source is an automated source rather than MANUAL_REVIEW;
+- provider/source terms are in REVIEWED state;
+- rights status comes from the canonical source contract, never the n8n payload;
+- the dedupe key is either a byte-equivalent logical replay or a hard collision.
+
+Accepted rows are stored as immutable `SYSTEM` observations with no founder user ID. A repeated identical delivery returns the existing observation ID; a reused dedupe key with changed content fails closed.
+
+The endpoint returns `mode=SHADOW` and `external_action_taken=false`. It has no website/social fetcher, no Shopify/eBay client, no price mutation, no inventory mutation, no financial write and no publishing capability.
+
+This ingress contract is the safe backend target for a later source-controlled DR-43 n8n workflow. Building the collector and activating any external source remain separate gated steps.
