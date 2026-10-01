@@ -1513,13 +1513,8 @@ function ownerBatchUnresolvedCount() {
 
 function ownerBatchPopulateThumb(image, item) {
   const selected = ownerBatchDisplayCandidate(item);
-  const snapshot = ownerBatchCandidateSnapshot(selected);
   if (selected?.image_url) {
     image.src = selected.image_url;
-    return;
-  }
-  if (snapshot.reference_image_url) {
-    image.src = snapshot.reference_image_url;
     return;
   }
   image.src = item.captureDataUrl;
