@@ -185,3 +185,18 @@ def test_verification_urls_are_official_and_no_scraping_endpoint_is_invented() -
     assert provider_verification_url(GradingProvider.BGS, "0018479833").startswith(
         "https://www.beckett.com/grading/card-lookup?"
     )
+
+
+def test_certificate_routes_require_active_owner_membership() -> None:
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "backend"
+        / "app"
+        / "grading_certificates.py"
+    ).read_text(encoding="utf-8")
+
+    assert "await _require_active_owner(request, user)" in source
+    assert "await _owner(connection)" in source
+    assert "user_connection(" in source
