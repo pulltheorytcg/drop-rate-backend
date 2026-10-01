@@ -17,7 +17,7 @@
 - Added a database uniqueness migration so one grader+certificate cannot create duplicate physical Inventory IDs.
 - No automatic Shopify publication, pricing override, ownership change, settlement action or external payout is introduced.
 - ✅ Supabase applied the uniqueness migration as `20261001034809_unique_graded_certificate`; live read-back confirms the unique index exists and duplicate grader+certificate pairs remain at 0.
-- Production application deployment verification remains pending Railway read-back.
+- ✅ Railway deployment `2bf49641-450d-45dd-afb1-a9fc57c38f5c` reached SUCCESS for merge `63ebf616b890b5808435d08036196d35376ef71d`; production pre-deploy reported **2,236 tests passed** and `/health/ready` succeeded.
 
 
 
