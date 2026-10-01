@@ -157,9 +157,13 @@ def test_exact_reference_number_outranks_detected_game_and_results_have_game_lab
     start = api.index('@router.get("/catalogue-search")')
     end = api.index('@router.get("/inventory")', start)
     block = api[start:end]
+    reference_query = block[block.index("from tcg.reference_cards c"):]
 
-    exact_rank = block.index("when $2 <> '' and upper(regexp_replace")
-    system_rank = block.index("case when c.system_code=$3")
-    language_rank = block.index("case when c.language=$4")
+    exact_rank = reference_query.index("when $2<>'' and c.number_key=$2 then 0")
+    system_rank = reference_query.index("case when c.system_code=$3")
+    language_rank = reference_query.index("case when c.language=$4")
     assert exact_rank < system_rank < language_rank
+    assert "reference_number_key = collector_key(query)" in block
+    assert "($2<>'' and c.number_key=$2)" in reference_query
+    assert "c.system_code=$3" in reference_query
     assert 'GAME_BY_SYSTEM.get(item["system_code"], item["system_code"])' in block
