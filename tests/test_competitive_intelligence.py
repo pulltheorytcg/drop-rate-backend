@@ -167,19 +167,25 @@ def test_unqualified_opportunity_cannot_be_handed_to_growth_engines() -> None:
     assert "qualified_opportunity_required" in result.failures
 
 
-def test_registry_adds_competitive_intelligence_as_planned_observe_only() -> None:
+def test_registry_adds_competitive_intelligence_as_built_inactive_observe_only() -> None:
     registry = json.loads(REGISTRY.read_text())
     row = next(item for item in registry["workflows"] if item["key"] == "competitive-intelligence")
 
     assert row["sequence"] == 43
     assert row["domain"] == "Intelligence"
     assert row["authority"] == "OBSERVE"
-    assert row["status"] == "PLANNED"
+    assert row["status"] == "BUILT_INACTIVE"
     assert row["ai_may_assist"] is True
     assert "founder-approved competitor watchlist" in row["activation_requires"]
     assert "source-specific terms/rights review" in row["activation_requires"]
     assert "shadow-mode opportunity scoring proof" in row["activation_requires"]
-    assert row.get("implementation_path") is None
+    assert row["implementation_id"] == "DR43CompetitiveIntelligenceShadowV1"
+    assert row["implementation_path"] == (
+        "automation/n8n/workflows/dr-43-competitive-intelligence-shadow-ingest.json"
+    )
+    assert row["control_contract"] == (
+        "/api/v1/automation/competitive-intelligence/observations/shadow"
+    )
 
 
 def test_foundation_contains_no_external_fetch_or_mutation_code() -> None:
