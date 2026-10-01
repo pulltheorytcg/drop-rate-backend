@@ -209,10 +209,11 @@ def test_mobile_batch_scanner_is_camera_first_and_locally_gated() -> None:
     ):
         assert f'id="{element_id}"' in html
 
-    assert "ownerBatchFrameFingerprint" in js
+    assert "ownerBatchFrameAnalysis" in js
     assert "ownerBatchFingerprintDelta" in js
-    assert "stableFrames >= 3" in js
-    assert "changed >= 0.11" in js
+    assert "batch.stableFrames < 3" in js
+    assert "if (!analysis.present)" in js
+    assert "batch.awaitingRemoval" in js
     assert "window.setInterval(ownerBatchTick, 420)" in js
     assert "MediaRecorder" not in js
     assert "RTCPeerConnection" not in js
@@ -292,15 +293,15 @@ def test_mobile_scanner_v2_keeps_latest_match_in_camera_flow() -> None:
     assert ".owner-batch-latest-status.unresolved" in css
 
 
-def test_mobile_scanner_v2_suppresses_only_immediate_auto_duplicates() -> None:
+def test_mobile_scanner_v2_requires_item_removal_before_rearming() -> None:
     js = RECOGNITION_JS.read_text()
 
-    assert "function ownerBatchShouldSuppressAutoCapture(fingerprint)" in js
-    assert "Date.now() - batch.lastAutoCaptureAt > 1800" in js
-    assert "ownerBatchFingerprintDelta(fingerprint, batch.lastAutoCaptureFingerprint) < 0.012" in js
-    assert "ownerBatchShouldSuppressAutoCapture(fingerprint)" in js
-    assert 'ownerBatchSetCameraState("Same card just scanned · move to the next card")' in js
-    assert "batch.lastAutoCaptureAt = Date.now();" in js
+    assert "batch.awaitingRemoval = true" in js
+    assert "batch.absenceFrames >= 2" in js
+    assert "batch.awaitingRemoval = false" in js
+    assert "batch.armed = true" in js
+    assert 'ownerBatchSetCameraState("Item scanned · remove it before showing the next one")' in js
+    assert 'ownerBatchSetCameraState("Ready · place the next item in the guide")' in js
 
 
 def test_mobile_scanner_v2_pauses_auto_scan_during_match_correction() -> None:
