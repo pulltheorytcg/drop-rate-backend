@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backend.scripts.bootstrap_cardtrader_sealed_market import _eligible_marketplace_rows
+from scripts.bootstrap_cardtrader_sealed_market import _eligible_marketplace_rows
 
 
 ROOT = Path(__file__).resolve().parents[1]
