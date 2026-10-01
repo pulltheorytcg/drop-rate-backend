@@ -1393,47 +1393,63 @@ async function ownerBatchTick() {
     || batch.processing
     || !state.ownerRecognition.cameraStream
     || !video?.videoWidth
-  ) {
+  ) return;
+
+  const analysis = ownerBatchFrameAnalysis(video);
+  if (!analysis) return;
+  const fingerprint = analysis.fingerprint;
+
+  if (!analysis.present) {
+    batch.presenceFrames = 0;
+    batch.absenceFrames += 1;
+    batch.stableFrames = 0;
+    batch.previousFingerprint = fingerprint;
+    if (batch.awaitingRemoval && batch.absenceFrames >= 2) {
+      batch.awaitingRemoval = false;
+      batch.armed = true;
+      batch.lastAcceptedFingerprint = null;
+      ownerBatchSetCameraState("Ready · place the next item in the guide");
+    } else if (batch.awaitingRemoval) {
+      ownerBatchSetCameraState("Remove the scanned item to continue");
+    } else {
+      batch.armed = true;
+      ownerBatchSetCameraState("Place a card or sealed product inside the guide");
+    }
     return;
   }
 
-  const fingerprint = ownerBatchFrameFingerprint(video);
-  if (!fingerprint) return;
-
-  if (batch.lastAcceptedFingerprint) {
-    const changed = ownerBatchFingerprintDelta(fingerprint, batch.lastAcceptedFingerprint);
-    if (!batch.armed && changed >= 0.11) {
-      batch.armed = true;
-      batch.stableFrames = 0;
-      ownerBatchSetCameraState("New card detected · hold steady");
-    }
+  batch.absenceFrames = 0;
+  batch.presenceFrames += 1;
+  if (batch.awaitingRemoval) {
+    batch.stableFrames = 0;
+    batch.previousFingerprint = fingerprint;
+    ownerBatchSetCameraState("Item scanned · remove it before showing the next one");
+    return;
   }
 
   const movement = ownerBatchFingerprintDelta(fingerprint, batch.previousFingerprint);
   batch.previousFingerprint = fingerprint;
+  batch.stableFrames = movement <= 0.028 ? batch.stableFrames + 1 : 0;
 
-  if (movement <= 0.028) {
-    batch.stableFrames += 1;
-  } else {
-    batch.stableFrames = 0;
-    ownerBatchSetCameraState(batch.armed ? "Hold card steady" : "Move to the next card");
+  if (batch.presenceFrames < 2) {
+    ownerBatchSetCameraState("Item detected · hold steady");
+    return;
   }
+  if (batch.stableFrames < 3) {
+    ownerBatchSetCameraState("Hold item steady");
+    return;
+  }
+  if (!batch.armed) return;
 
-  if (batch.armed && batch.stableFrames >= 3) {
-    batch.stableFrames = 0;
-    batch.armed = false;
-    batch.lastAcceptedFingerprint = fingerprint;
-    if (ownerBatchShouldSuppressAutoCapture(fingerprint)) {
-      ownerBatchSetCameraState("Same card just scanned · move to the next card");
-      return;
-    }
-    batch.lastAutoCaptureFingerprint = fingerprint;
-    batch.lastAutoCaptureAt = Date.now();
-    const dataUrl = ownerBatchCaptureDataUrl(video);
-    await ownerBatchRecognise(dataUrl);
-  }
+  batch.stableFrames = 0;
+  batch.armed = false;
+  batch.awaitingRemoval = true;
+  batch.lastAcceptedFingerprint = fingerprint;
+  batch.lastAutoCaptureFingerprint = fingerprint;
+  batch.lastAutoCaptureAt = Date.now();
+  const dataUrl = ownerBatchCaptureDataUrl(video);
+  await ownerBatchRecognise(dataUrl);
 }
-
 function ownerBatchCandidateSnapshot(candidate) {
   return candidate?.candidate_snapshot || {};
 }
