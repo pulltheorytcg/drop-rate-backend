@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — eBay shipping readiness preview
+
+- Added a PLATFORM_ADMIN-only read-only preview for a proposed eBay shipping package.
+- Preview joins the canonical eBay order-item link to the internal order item and physical Inventory ID, enforcing owner consistency, EBAY source/reference, PAID internal order state and SOLD physical inventory.
+- The live eBay order is read back and its complete line-item set must match the Drop Rate mapping; requested line quantities must match exactly.
+- Existing remote shipping fulfilments are read before any future write: an exact existing carrier/tracking/package is reported idempotently, while a requested line already assigned to a different package fails closed.
+- The preview takes **no external action** and makes no database mutation.
+- This provides the deterministic safety contract required before a disabled-by-default shipping write path can be introduced.
+
+
 ## 2026-10-01 — eBay shipping fulfilment read-before-write foundation
 
 - Added strict pure helpers for tracked eBay shipping package identity and future retry idempotency.
