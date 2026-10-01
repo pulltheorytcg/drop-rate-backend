@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+
+## 2026-10-01 — Recognition benchmark truth recovery
+
+- Live read-only benchmark audit found **3 active human-labelled learning examples, all TRAIN**, so the new quality evaluator currently has **0 VALIDATION / 0 HOLDOUT** examples to measure.
+- Two explicit human feedback records were not materialised. One is a `CORRECTED_BY_SEARCH` scan whose source-image hash deterministically maps to **HOLDOUT**, but its original recognition run has `system_code = NULL`.
+- Added bounded learning-truth hardening: for `CORRECTED_BY_SEARCH`, materialisation resolves the system from the human-selected canonical CARD profile. Canonical selected-card truth overrides an unresolved or wrongly model-classified run system.
+- The path fails closed when the selected catalogue row cannot establish a canonical card system. It never guesses from AI/provider text.
+- **No recognition scoring, thresholds, provider scope, corpus scope, pricing, inventory, ownership, settlement or Shopify behaviour changed.**
+- Added regression coverage and updated `docs/RECOGNITION_QUALITY_BENCHMARK.md`.
+- Production historical backfill of the eligible HOLDOUT correction remains pending CI/review/merge and a controlled application-level repair; do not direct-insert benchmark truth by hand.
+
+
 ## 2026-10-01 — Competitive Intelligence shadow provenance production verification
 
 - ✅ PR #460 merged with green CI.
