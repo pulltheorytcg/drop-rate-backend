@@ -961,6 +961,54 @@ async def recognize_card(
             result = await _run_payload(connection, run_id)
         return jsonable_encoder(result)
 
+    if observation.object_type == "NONE" and observation.object_type_confidence >= 0.80:
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            await connection.execute(
+                """
+                update tcg.recognition_runs
+                set status='NO_MATCH',decision='NO_MATCH',
+                    ai_observation=$1::jsonb,
+                    decision_reasons=$2::jsonb,risk_flags=$3::jsonb,
+                    completed_at=clock_timestamp(),updated_at=clock_timestamp(),
+                    version=version+1
+                where id=$4 and owner_id=$5
+                """,
+                json.dumps(observation.model_dump(mode="json")),
+                json.dumps(["No collectible is present in the scan frame."]),
+                json.dumps(["NO_COLLECTIBLE_PRESENT"]),
+                run_id,
+                owner_id,
+            )
+            return jsonable_encoder(await _run_payload(connection, run_id))
+
+    if observation.object_type == "UNKNOWN" and observation.object_type_confidence >= 0.70:
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            await connection.execute(
+                """
+                update tcg.recognition_runs
+                set status='NEEDS_REVIEW',decision='NEEDS_REVIEW',
+                    ai_observation=$1::jsonb,
+                    decision_reasons=$2::jsonb,risk_flags=$3::jsonb,
+                    completed_at=clock_timestamp(),updated_at=clock_timestamp(),
+                    version=version+1
+                where id=$4 and owner_id=$5
+                """,
+                json.dumps(observation.model_dump(mode="json")),
+                json.dumps(["Vision could not establish whether the object is a card or sealed product."]),
+                json.dumps(["OBJECT_TYPE_UNRESOLVED"]),
+                run_id,
+                owner_id,
+            )
+            return jsonable_encoder(await _run_payload(connection, run_id))
+
     system_code = SYSTEM_BY_GAME.get(observation.game)
     if system_code is None:
         async with user_connection(
