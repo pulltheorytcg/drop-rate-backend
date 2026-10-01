@@ -170,3 +170,16 @@ def test_exact_reference_number_outranks_detected_game_and_results_have_game_lab
     assert "from matching_cards c" in reference_query
     assert "s.name ilike" not in reference_query
     assert 'GAME_BY_SYSTEM.get(item["system_code"], item["system_code"])' in block
+
+
+def test_cross_game_exact_reference_correction_has_global_number_index() -> None:
+    migration = (
+        ROOT
+        / "database"
+        / "migrations"
+        / "20261001145500_reference_cards_global_number_key_index.sql"
+    ).read_text().lower()
+
+    assert "create index if not exists reference_cards_number_key_global_idx" in migration
+    assert "on tcg.reference_cards(number_key)" in migration
+    assert "unique index" not in migration
