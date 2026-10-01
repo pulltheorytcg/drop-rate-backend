@@ -5,7 +5,8 @@
 - Production now has the five Competitive Intelligence tables from the base v1 migration; all are currently empty, so this hardening is forward-only with no data rewrite.
 - Observation idempotency now compares the complete immutable evidence contract rather than only source/type/subject/time.
 - New opportunity evaluation refuses competitor evidence whose source has since been BLOCKED or whose competitor has been REJECTED.
-- Opportunity records now persist the exact qualification threshold used, and duplicate opportunity keys must match the full normalized evidence + decision contract.
+- Opportunity records now persist the exact qualification threshold and immutable original qualification state; later lifecycle state can change without rewriting the original decision. Duplicate opportunity keys must match the full normalized evidence + decision contract.
+- Confidence/relevance/threshold inputs are normalized to NUMERIC(6,5) precision before evaluation and replay comparison.
 - Added an additive migration only; no table rebuild/drop, no external monitoring activation and no commerce/finance/ownership mutation.
 - Production application remains pending CI, merge, Supabase migration verification and Railway readiness.
 
