@@ -81,6 +81,11 @@ class GradingSlabScanRequest(BaseModel):
     image_data_url: str = Field(min_length=100, max_length=12_000_000)
 
 
+class GradingQrResolveRequest(BaseModel):
+    qr_value: str = Field(min_length=1, max_length=2048)
+    grader_hint: str | None = Field(default=None, max_length=40)
+
+
 class GradingSlabObservation(BaseModel):
     grader: str
     certificate_number: str
@@ -116,6 +121,74 @@ class GradingCertificateResult(BaseModel):
     front_image_url: str | None = None
     back_image_url: str | None = None
     warnings: list[str] = Field(default_factory=list)
+
+
+_OFFICIAL_QR_HOSTS: dict[str, GradingProvider] = {
+    "psacard.com": GradingProvider.PSA,
+    "www.psacard.com": GradingProvider.PSA,
+    "acegrading.com": GradingProvider.ACE,
+    "www.acegrading.com": GradingProvider.ACE,
+    "cgccards.com": GradingProvider.CGC,
+    "www.cgccards.com": GradingProvider.CGC,
+    "beckett.com": GradingProvider.BGS,
+    "www.beckett.com": GradingProvider.BGS,
+    "marketplace.beckett.com": GradingProvider.BGS,
+}
+
+
+def parse_grading_qr_payload(
+    raw_value: str,
+    grader_hint: str | None = None,
+) -> dict[str, Any]:
+    from urllib.parse import parse_qsl, unquote, urlparse
+
+    raw = str(raw_value or "").strip()
+    if not raw:
+        raise ValueError("QR code is empty")
+
+    hint = normalize_grading_provider(grader_hint) if grader_hint else None
+
+    if re.fullmatch(r"[0-9\s-]{4,20}", raw):
+        if hint is None:
+            raise ValueError("Numeric QR payload requires a grading-company hint")
+        certificate = normalize_certificate_number(hint, raw)
+        return {
+            "provider": hint.value,
+            "certificate_number": certificate,
+            "trusted_domain": False,
+            "source": "NUMERIC_QR_WITH_GRADER_HINT",
+            "raw_value": raw,
+        }
+
+    parsed = urlparse(raw)
+    host = (parsed.hostname or "").casefold()
+    provider = _OFFICIAL_QR_HOSTS.get(host)
+    if provider is None:
+        raise ValueError("QR code does not point to a supported official grading domain")
+    if hint is not None and provider is not hint:
+        raise ValueError("QR grading domain conflicts with the selected grading company")
+
+    decoded = unquote(raw)
+    candidates: list[str] = []
+    candidates.extend(re.findall(r"(?<!\d)\d{4,14}(?!\d)", decoded))
+    for key, value in parse_qsl(parsed.query, keep_blank_values=False):
+        if any(token in key.casefold() for token in ("cert", "serial", "item", "id")):
+            candidates.insert(0, value)
+
+    for candidate in candidates:
+        try:
+            certificate = normalize_certificate_number(provider, candidate)
+            return {
+                "provider": provider.value,
+                "certificate_number": certificate,
+                "trusted_domain": True,
+                "source": "OFFICIAL_GRADER_QR",
+                "raw_value": raw,
+            }
+        except ValueError:
+            continue
+
+    raise ValueError("QR code did not contain a readable grading certificate number")
 
 
 def normalize_grading_provider(value: str) -> GradingProvider:
@@ -692,6 +765,25 @@ async def grading_certificate_status(
         "canonical_identity_decided_here": False,
     }
 
+
+
+
+@router.post("/qr/resolve")
+async def grading_qr_resolve(
+    payload: GradingQrResolveRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict[str, Any]:
+    await _require_active_owner(request, user)
+    try:
+        parsed = parse_grading_qr_payload(payload.qr_value, payload.grader_hint)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        **parsed,
+        "requires_provider_verification": True,
+        "requires_human_confirmation": True,
+    }
 
 
 @router.post("/scan")
