@@ -3,7 +3,10 @@ from __future__ import annotations
 import pytest
 
 from app.cardtrader_client import CardTraderApiError
-from app.cardtrader_recognition import discover_one_piece_cardtrader_candidates
+from app.cardtrader_recognition import (
+    discover_one_piece_cardtrader_candidates,
+    discover_one_piece_cardtrader_sealed_candidates,
+)
 from app.recognition_engine import _provider_only_candidates, _provider_support
 from app.recognition_images import _trusted_reference_url
 from app.recognition_vision import RecognitionObservation
@@ -66,6 +69,7 @@ class FakeCardTrader:
         return [
             {"id": 101, "game_id": 18, "name": "Single Cards"},
             {"id": 102, "game_id": 18, "name": "Boosters"},
+            {"id": 103, "game_id": 18, "name": "Booster Boxes"},
         ]
 
     async def list_expansions(self):
@@ -111,6 +115,17 @@ class FakeCardTrader:
                 "image_url": (
                     "https://cardtrader.com/uploads/blueprints/image/7003/"
                     "preview_booster.jpg"
+                ),
+            },
+            {
+                "id": 7004,
+                "game_id": 18,
+                "category_id": 103,
+                "expansion_id": 1700,
+                "name": "OP-17 Booster Box",
+                "image_url": (
+                    "https://cardtrader.com/uploads/blueprints/image/7004/"
+                    "preview_booster-box.jpg"
                 ),
             },
         ]
@@ -209,3 +224,103 @@ def test_cardtrader_images_are_trusted_only_on_cardtrader_https_hosts() -> None:
     assert not _trusted_reference_url(
         "https://example.com/uploads/blueprints/image/7001/garp.jpg"
     )
+
+
+@pytest.mark.asyncio
+async def test_cardtrader_sealed_pack_filters_same_set_booster_box() -> None:
+    rows = await discover_one_piece_cardtrader_sealed_candidates(
+        observation(
+            object_type="SEALED_PRODUCT",
+            sealed_product_type="BOOSTER_PACK",
+            sealed_product_type_confidence=0.98,
+            product_code="OP-17",
+            product_code_confidence=0.99,
+            name_guess="",
+            name_confidence=0.0,
+            set_name_guess="OP-17",
+            set_name_confidence=0.95,
+            card_number="",
+            card_number_confidence=0.0,
+        ),
+        FakeCardTrader(),
+    )
+
+    assert [row["provider_id"] for row in rows] == ["7003"]
+    assert rows[0]["sealed_product_type"] == "BOOSTER_PACK"
+    assert rows[0]["product_code"] == "OP-17"
+    assert rows[0]["retrieval_only"] is True
+    assert rows[0]["exact_printing_verified"] is False
+
+
+@pytest.mark.asyncio
+async def test_cardtrader_sealed_box_filters_same_set_single_pack() -> None:
+    rows = await discover_one_piece_cardtrader_sealed_candidates(
+        observation(
+            object_type="SEALED_PRODUCT",
+            sealed_product_type="BOOSTER_BOX",
+            sealed_product_type_confidence=0.98,
+            product_code="OP-17",
+            product_code_confidence=0.99,
+            name_guess="",
+            name_confidence=0.0,
+            set_name_guess="OP-17",
+            set_name_confidence=0.95,
+            card_number="",
+            card_number_confidence=0.0,
+        ),
+        FakeCardTrader(),
+    )
+
+    assert [row["provider_id"] for row in rows] == ["7004"]
+    assert rows[0]["sealed_product_type"] == "BOOSTER_BOX"
+
+
+class FakeCardTraderWithoutProviderCode(FakeCardTrader):
+    async def list_expansions(self):
+        return [
+            {
+                "id": 1700,
+                "game_id": 18,
+                "name": "World's Strongest Warriors",
+            }
+        ]
+
+    async def list_blueprints(self, *, expansion_id):
+        assert expansion_id == 1700
+        return [
+            {
+                "id": 7010,
+                "game_id": 18,
+                "category_id": 102,
+                "expansion_id": 1700,
+                "name": "World's Strongest Warriors Booster Pack",
+                "image_url": (
+                    "https://cardtrader.com/uploads/blueprints/image/7010/"
+                    "preview_worlds-strongest-warriors.jpg"
+                ),
+            }
+        ]
+
+
+@pytest.mark.asyncio
+async def test_cardtrader_sealed_never_copies_observed_code_into_provider_evidence() -> None:
+    rows = await discover_one_piece_cardtrader_sealed_candidates(
+        observation(
+            object_type="SEALED_PRODUCT",
+            sealed_product_type="BOOSTER_PACK",
+            sealed_product_type_confidence=0.98,
+            product_code="OP-17",
+            product_code_confidence=0.99,
+            name_guess="",
+            name_confidence=0.0,
+            set_name_guess="World's Strongest Warriors",
+            set_name_confidence=0.95,
+            card_number="",
+            card_number_confidence=0.0,
+        ),
+        FakeCardTraderWithoutProviderCode(),
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["product_code"] is None
+    assert rows[0]["retrieval_only"] is True
