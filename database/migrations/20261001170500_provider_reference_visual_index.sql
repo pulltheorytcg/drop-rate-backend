@@ -74,6 +74,7 @@ returns table(
     language text,
     provider_id text,
     set_id text,
+    set_name text,
     name text,
     card_number text,
     finish text,
@@ -142,6 +143,7 @@ as $$
         c.language,
         c.provider_id,
         c.set_id,
+        s.name as set_name,
         c.name,
         c.card_number,
         c.finish,
@@ -156,6 +158,11 @@ as $$
      and c.system_code=ranked.system_code
      and c.language=ranked.language
      and c.provider_id=ranked.provider_id
+    join tcg.reference_sets s
+      on s.provider=c.provider
+     and s.system_code=c.system_code
+     and s.language=c.language
+     and s.set_id=c.set_id
     order by ranked.hamming,c.provider,c.provider_id
 $$;
 
