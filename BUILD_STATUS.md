@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — eBay shipping fulfilment foundation
+
+- Added strict pure payload/idempotency helpers for tracked eBay shipping fulfilments.
+- Added official Fulfillment API read-back client methods for all/single shipping fulfilments.
+- Tracking numbers are now validated against eBay's documented ASCII alphanumeric/no-space constraint before any future provider write.
+- The foundation deliberately exposes **no create-shipping-fulfilment write method, route, UI control or automation** yet.
+- Exact matching uses carrier + tracking + line-item/quantity package identity so the later write path can read-before-write and survive retries/timeouts without blindly duplicating a shipment.
+- Duplicate identical remote fulfilments fail closed for human review.
+- Added regression tests and documented the activation boundary in `docs/EBAY_PARITY.md`.
+- Next step after this foundation: owner/order mapping preflight + audited write path, still inactive until the Phase 3 gate allows production eBay activation.
+
+
 ## 2026-10-01 — Competitive Intelligence hardening production verification
 
 - ✅ PR #445 merged and the forward-only replay/evidence hardening migration was applied successfully to Supabase.

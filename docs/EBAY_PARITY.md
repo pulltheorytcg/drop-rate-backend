@@ -62,3 +62,25 @@ After the Phase 3 launch-stability gate permits activation:
 6. governed price/listing updates;
 7. sealed-product channel support;
 8. broader multi-channel adapters built on the same stock-protection contract.
+
+
+## Shipping fulfilment foundation
+
+The Fulfillment API read path is now represented in the eBay client with:
+
+- `get_shipping_fulfillments(order_id)`;
+- `get_shipping_fulfillment(order_id, fulfillment_id)`.
+
+`backend/app/ebay_fulfillment.py` also defines the strict tracked-shipment payload and exact existing-fulfillment matching needed for read-before-write idempotency. Tracking numbers are validated against eBay's documented alphanumeric/no-space constraint before a future write path can use them.
+
+No `create_shipping_fulfillment` provider method, API route, admin control or automation is exposed by this foundation. Before the eventual write path is enabled it must:
+
+1. prove the eBay order maps to Drop Rate order-item / Inventory IDs;
+2. verify requested line-item quantities exactly;
+3. read existing eBay fulfillments first;
+4. return idempotently when the same carrier, tracking number and package already exist;
+5. fail closed if duplicate matching fulfillments exist;
+6. persist/audit the successful external fulfilment reference;
+7. surface ambiguous/provider failures to Action Required.
+
+This is intentionally preparation for shipping parity, not production shipment activation.

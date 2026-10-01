@@ -680,6 +680,36 @@ class EbaySellClient:
             raise EbaySellApiError("eBay order response was empty")
         return payload
 
+    async def get_shipping_fulfillments(
+        self, order_id: str
+    ) -> list[dict[str, Any]]:
+        payload = await self._request(
+            "GET",
+            f"/sell/fulfillment/v1/order/{quote(order_id, safe='')}/shipping_fulfillment",
+        )
+        rows = [] if payload is None else payload.get("fulfillments", [])
+        if rows is None:
+            return []
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise EbaySellApiError(
+                "eBay shipping fulfillments response has an invalid shape"
+            )
+        return rows
+
+    async def get_shipping_fulfillment(
+        self,
+        order_id: str,
+        fulfillment_id: str,
+    ) -> dict[str, Any]:
+        payload = await self._request(
+            "GET",
+            f"/sell/fulfillment/v1/order/{quote(order_id, safe='')}/"
+            f"shipping_fulfillment/{quote(fulfillment_id, safe='')}",
+        )
+        if payload is None:
+            raise EbaySellApiError("eBay shipping fulfillment response was empty")
+        return payload
+
     async def get_public_key(self, key_id: str) -> dict[str, Any]:
         token = await self._application_client.application_token()
         try:
