@@ -24,6 +24,7 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-web": "^0.21.2",
+    "react-native-webview": "13.16.1",
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
@@ -50,7 +51,9 @@
     "preview": "node scripts/preview.mjs",
     "format": "prettier --write src tests scripts *.json *.js",
     "native:android": "expo run:android",
-    "native:ios": "expo run:ios"
+    "native:ios": "expo run:ios",
+    "build:ios:testflight": "npx eas-cli@24.8.0 build --platform ios --profile production",
+    "submit:ios:testflight": "npx eas-cli@24.8.0 submit --platform ios --profile production"
   },
   "private": true,
   "engines": {

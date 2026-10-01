@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Corrected mobile scope: reuse existing hubs (local, not deployed)
+
+- Shopify stays the existing storefront. The single Android/iPhone shell loads the existing Seller Hub and Founder HQ, using server-verified role routing.
+- Replacement native dashboard/demo routes moved to `mobile/prototype-routes/`; not part of the active app.
+- Web hub session storage is shared; both entry points route authorized accounts to their existing hub. No API/RLS/financial permissions expanded. Founders do not yet gain seller-only API access or a hub-switch button.
+- Pending: backend deployment, live account acceptance, physical-device camera/OAuth/download testing, signing and distribution. No installer generated.
+
+
 ## 2026-10-01 — Scan latency improvements (implementation; not deployed)
 
 - Measured production timings: AI vision dominates (19.90 seconds on average across 11 timed runs).

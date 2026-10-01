@@ -9,3 +9,5 @@ coverage/
 expo-env.d.ts
 ios/
 android/
+
+dist-live/

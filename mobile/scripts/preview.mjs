@@ -1,7 +1,10 @@
 import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { resolve, extname, sep } from "node:path";
-const root = resolve("dist");
+import { liveProxy } from "./live-proxy.mjs";
+const live = process.argv.includes("--live");
+const port = live ? 8085 : 8084;
+const root = resolve(live ? "dist-live" : "dist");
 const types = {
   ".html": "text/html",
   ".js": "text/javascript",
@@ -14,6 +17,10 @@ const types = {
 http
   .createServer(async (req, res) => {
     try {
+      if (live && req.url.startsWith("/api/")) {
+        await liveProxy(req, res);
+        return;
+      }
       const path = decodeURIComponent(
         new URL(req.url, "http://localhost").pathname,
       );
@@ -40,6 +47,6 @@ http
       res.writeHead(400).end("Unable to load preview.");
     }
   })
-  .listen(8084, "127.0.0.1", () =>
-    console.log("PullTheory preview: http://127.0.0.1:8084"),
+  .listen(port, "127.0.0.1", () =>
+    console.log(`PullTheory preview: http://127.0.0.1:${port}`),
   );

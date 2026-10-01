@@ -28,7 +28,9 @@ export default function AppLayout() {
         >
           {demo
             ? "DEMO · Sample data · No changes to your business"
-            : "BROWSER PREVIEW · Session and pending saves last until this tab reloads"}
+            : process.env.EXPO_PUBLIC_LIVE_PREVIEW === "1"
+              ? "LIVE TEST · Viewing only · Changes blocked · Reload signs out"
+              : "BROWSER PREVIEW · Session and pending saves last until this tab reloads"}
         </Text>
       )}
       <Stack

@@ -1,6 +1,6 @@
 "use strict";
 
-const SESSION_KEY = "drop_rate_founder_session";
+
 const PAGE_SIZE = 25;
 const ISSUE_LABELS = {
   missing_cost: "Missing cost", missing_condition: "Missing raw condition",
@@ -109,11 +109,11 @@ async function hydrateSessionUser() {
 }
 function saveSession(session) {
   state.session = session;
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  window.PullTheoryHubSession.save(session);
 }
 function clearSession() {
   state.session = null;
-  sessionStorage.removeItem(SESSION_KEY);
+  window.PullTheoryHubSession.clear();
 }
 async function refreshSession() {
   if (!state.session?.refresh_token) throw new Error("Your session has expired.");
@@ -1109,6 +1109,10 @@ async function saveBulkAllocation(event) {
 async function openDashboard() {
   try {
     const access = await apiRequest("/api/v1/access/me");
+    if (access.access?.access_role === "OWNER" && access.access?.portal === "OWNER_PORTAL") {
+      window.location.replace("/owner");
+      return;
+    }
     if (!access.access?.founder_hq_allowed) {
       throw new Error("FOUNDER_HQ_ACCESS_DENIED");
     }
@@ -1164,7 +1168,7 @@ async function initialise() {
   }
 
   try {
-    const stored = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+    const stored = window.PullTheoryHubSession.read();
     if (stored?.access_token) { state.session = stored; await openDashboard(); }
   } catch (_error) { clearSession(); }
 }
