@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from decimal import Decimal
 from difflib import SequenceMatcher
 from typing import Any, Mapping
 
@@ -320,3 +322,77 @@ def resolve_sealed_candidates(
         "risk_flags": list(dict.fromkeys(risks)),
         "candidates": scored,
     }
+
+
+def _decimal(value: object | None) -> Decimal | None:
+    if value is None:
+        return None
+    return Decimal(str(value))
+
+
+async def persist_sealed_resolution(
+    connection,
+    *,
+    run_id,
+    owner_id,
+    observation: RecognitionObservation,
+    resolved: Mapping[str, Any],
+    timings_ms: Mapping[str, float],
+) -> None:
+    candidates = list(resolved.get("candidates") or [])
+    top = resolved.get("top")
+    runner = resolved.get("runner_up")
+    async with connection.transaction():
+        for index, candidate in enumerate(candidates[:25], start=1):
+            await connection.execute(
+                """
+                insert into tcg.recognition_candidates(
+                    run_id,candidate_key,source_kind,system_code,catalogue_id,
+                    provider,provider_id,provider_language,rank,score,
+                    hard_rejected,rejection_reasons,signals,candidate_snapshot
+                ) values(
+                    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+                    $12::jsonb,$13::jsonb,$14::jsonb
+                )
+                """,
+                run_id,
+                str(candidate["candidate_key"]),
+                str(candidate["source_kind"]),
+                str(candidate["system_code"]),
+                candidate.get("catalogue_id"),
+                candidate.get("provider"),
+                candidate.get("provider_id"),
+                candidate.get("provider_language"),
+                index,
+                _decimal(candidate.get("score")),
+                bool(candidate.get("hard_rejected")),
+                json.dumps(candidate.get("rejection_reasons") or []),
+                json.dumps(candidate.get("signals") or {}),
+                json.dumps(candidate.get("candidate_snapshot") or {}, default=str),
+            )
+
+        await connection.execute(
+            """
+            update tcg.recognition_runs
+            set status=$1,decision=$1,ai_observation=$2::jsonb,
+                provider_evidence=$3::jsonb,top_catalogue_id=$4,top_score=$5,
+                runner_up_score=$6,score_margin=$7,decision_reasons=$8::jsonb,
+                risk_flags=$9::jsonb,completed_at=clock_timestamp(),
+                updated_at=clock_timestamp(),version=version+1
+            where id=$10 and owner_id=$11
+            """,
+            resolved["decision"],
+            json.dumps(observation.model_dump(mode="json")),
+            json.dumps(
+                {"route": "SEALED_PRODUCT", "timings_ms": dict(timings_ms)},
+                default=str,
+            ),
+            top.get("catalogue_id") if top else None,
+            _decimal(top.get("score")) if top else None,
+            _decimal(runner.get("score")) if runner else None,
+            _decimal(resolved.get("margin")),
+            json.dumps(resolved.get("reasons") or []),
+            json.dumps(resolved.get("risk_flags") or []),
+            run_id,
+            owner_id,
+        )
