@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+
+import asyncpg
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -60,7 +62,7 @@ from .settings import get_settings
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.6.0"
+ENGINE_VERSION = "v1.6.1"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
@@ -79,6 +81,44 @@ class RecognitionFeedbackRequest(BaseModel):
 class RecognitionReferenceIndexRebuildRequest(BaseModel):
     limit: int = Field(default=200, ge=1, le=500)
     catalogue_ids: list[UUID] | None = Field(default=None, max_length=500)
+
+
+def _candidate_materialization_reason(candidate: dict[str, Any], *, exact_threshold: float) -> str | None:
+    if candidate.get("catalogue_id") is not None:
+        return "ALREADY_MAPPED"
+    if candidate.get("source_kind") != "PROVIDER":
+        return "PROVIDER_CANDIDATE_REQUIRED"
+    if bool(candidate.get("hard_rejected")):
+        return "HARD_REJECTED"
+    if not str(candidate.get("provider") or "").strip():
+        return "PROVIDER_REQUIRED"
+    if not str(candidate.get("provider_id") or "").strip():
+        return "PROVIDER_ID_REQUIRED"
+    if not str(candidate.get("provider_language") or "").strip():
+        return "PROVIDER_LANGUAGE_REQUIRED"
+    if float(candidate.get("score") or 0.0) < exact_threshold:
+        return "SCORE_BELOW_EXACT_THRESHOLD"
+
+    signals = candidate.get("signals")
+    signals = signals if isinstance(signals, dict) else {}
+    card_number = signals.get("card_number")
+    card_number = card_number if isinstance(card_number, dict) else {}
+    provider = signals.get("provider")
+    provider = provider if isinstance(provider, dict) else {}
+    language = signals.get("language")
+    language = language if isinstance(language, dict) else {}
+
+    if float(card_number.get("match") or 0.0) < 0.99:
+        return "CARD_NUMBER_NOT_EXACT"
+    if bool(card_number.get("ocr_conflict")):
+        return "OCR_CARD_NUMBER_CONFLICT"
+    if float(provider.get("match") or 0.0) < 0.90:
+        return "PROVIDER_IDENTITY_TOO_WEAK"
+    if float(language.get("match") or 0.0) < 0.99:
+        return "LANGUAGE_NOT_EXACT"
+    return None
+
+
 
 
 def _decimal(value: object | None) -> Decimal | None:
@@ -511,6 +551,114 @@ async def record_recognition_feedback(
         result = await _run_payload(connection, run_id)
         result["recorded_feedback"] = dict(feedback)
         result["recorded_learning_example"] = learning_example
+        return jsonable_encoder(result)
+
+
+
+@router.post("/runs/{run_id}/candidates/{candidate_id}/materialize")
+async def materialize_provider_candidate(
+    run_id: UUID,
+    candidate_id: UUID,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Human-confirm an unseen provider printing into review-gated canonical data."""
+
+    settings = get_settings()
+    exact_threshold = settings.recognition_exact_threshold_bps / 10_000
+
+    async with user_connection(
+        request.app.state.db_pool,
+        user.user_id,
+        request.state.request_id,
+    ) as connection:
+        owner = await _owner(connection)
+        row = await connection.fetchrow(
+            """
+            select
+                r.status,r.system_code,
+                c.catalogue_id,c.source_kind,c.system_code as candidate_system_code,
+                c.provider,c.provider_id,c.provider_language,c.score,
+                c.hard_rejected,c.signals
+            from tcg.recognition_runs r
+            join tcg.recognition_candidates c on c.run_id=r.id
+            where r.id=$1 and c.id=$2 and r.owner_id=$3
+            """,
+            run_id,
+            candidate_id,
+            owner["id"],
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail="Recognition candidate not found")
+        if row["status"] not in {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"}:
+            raise HTTPException(
+                status_code=409,
+                detail="Recognition run is not ready for provider confirmation",
+            )
+        if row["system_code"] != row["candidate_system_code"]:
+            raise HTTPException(
+                status_code=409,
+                detail="Candidate system conflicts with the recognition run",
+            )
+
+        candidate = {
+            "catalogue_id": row["catalogue_id"],
+            "source_kind": row["source_kind"],
+            "hard_rejected": row["hard_rejected"],
+            "provider": row["provider"],
+            "provider_id": row["provider_id"],
+            "provider_language": row["provider_language"],
+            "score": row["score"],
+            "signals": row["signals"] or {},
+        }
+        reason = _candidate_materialization_reason(
+            candidate,
+            exact_threshold=exact_threshold,
+        )
+        if reason == "ALREADY_MAPPED":
+            result = await _run_payload(connection, run_id)
+            result["materialized_catalogue_id"] = row["catalogue_id"]
+            result["materialization_replayed"] = True
+            return jsonable_encoder(result)
+        if reason is not None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Provider candidate cannot be materialized: {reason}",
+            )
+
+        try:
+            materialized = await connection.fetchrow(
+                """
+                select *
+                from tcg.materialize_recognition_provider_candidate($1,$2,$3)
+                """,
+                run_id,
+                candidate_id,
+                _decimal(exact_threshold),
+            )
+        except asyncpg.InsufficientPrivilegeError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail="This owner cannot materialize that recognition candidate",
+            ) from exc
+        except asyncpg.NoDataFoundError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail="Recognition candidate not found",
+            ) from exc
+        except asyncpg.CheckViolationError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        if materialized is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Provider candidate materialization returned no result",
+            )
+
+        result = await _run_payload(connection, run_id)
+        result["materialized_catalogue_id"] = materialized["catalogue_id"]
+        result["materialization_replayed"] = bool(materialized["replayed"])
+        result["materialized_identity_status"] = "NEEDS_REVIEW"
         return jsonable_encoder(result)
 
 

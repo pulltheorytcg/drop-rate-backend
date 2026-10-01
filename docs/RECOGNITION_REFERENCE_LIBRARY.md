@@ -40,9 +40,20 @@ symbols. Pokémon local-number-only retrieval is supported; the missing set or
 denominator remains uncertainty, not evidence of an exact match.
 
 Unmapped references participate as provider candidates. An unseen card can return
-`NEEDS_REVIEW` with its source identity rather than `NO_MATCH`. Confirmation still
-requires the existing canonical mapping and review flow. A bulk reference import
-cannot create owned inventory, certify a printing, approve media, or self-train.
+`NEEDS_REVIEW` with its source identity rather than `NO_MATCH`.
+
+For a provider candidate with no canonical row, Seller Hub may offer **New to Drop
+Rate** human confirmation only when the persisted evidence is already strong enough
+to satisfy the exact identity threshold, exact card-number/language checks, strong
+provider identity, and no OCR-number conflict. Confirmation calls the narrowly
+scoped database materialisation function; the database independently rechecks the
+current owner, run/candidate, provider reference and duplicate mapping before it
+creates review-gated canonical data. The resulting profile remains
+`NEEDS_REVIEW`; the physical item remains DRAFT / unverified.
+
+A bulk reference import still cannot create owned inventory, certify a printing,
+approve media, publish a product, or self-train. Provider/reference data cannot
+materialise itself without the explicit human confirmation path.
 Checklist evidence is excluded from local exact-printing score support. New game
 lines remain review-only until validated with a game-specific evaluation set.
 
@@ -89,3 +100,21 @@ unseen-card review candidates across all six game lines. Existing exact-printing
 owner access and recognition-learning tests remain required. Live verification
 must check row counts, RLS, indexed retrieval and scanner deployment separately.
 Real customer-photo recognition accuracy remains unmeasured for the new library.
+
+
+## 1 October 2026 live regression finding
+
+A production Seller Hub session exposed the difference between **reference coverage**
+and **canonical coverage**. The engine correctly read Japanese Trafalgar Law
+`OP05-069` and ranked the matching Punk Records provider printing at roughly 0.93,
+but `tcg.catalogue_products` had no OP05-069 row. All returned candidates therefore
+had `catalogue_id = NULL`, and the old Seller Hub UI filtered them out.
+
+The v1.6.1 repair keeps those safe provider candidates visible and adds the
+human-confirmed review-gated materialisation flow described above. It also aligns
+the OpenAI structured-output JSON schema with the local Pydantic limits so harmless
+provider overflows (for example a slightly-out-of-range confidence or an oversized
+OCR list/text field) do not discard an otherwise usable observation.
+
+This does not relax exact-printing gates and does not make reference-library
+coverage equivalent to verified catalogue coverage.
