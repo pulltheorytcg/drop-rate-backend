@@ -1446,12 +1446,12 @@ async def owner_recognition_intake(
             """
             insert into tcg.inventory_items(
                 id,inventory_code,catalogue_id,owner_id,
-                condition,grading_company,grade,certificate_number,language,
+                condition,seal_status,grading_company,grade,certificate_number,language,
                 identity_confirmed,status,intake_request_key,source_record,sale_intent
             ) values(
                 $1,$2,$3,$4,
-                $5,$6,$7,$8,$9,
-                false,'DRAFT',$10,$11::jsonb,'FOR_SALE'
+                $5,$6,$7,$8,$9,$10,
+                false,'DRAFT',$11,$12::jsonb,'FOR_SALE'
             )
             on conflict (intake_request_key) do nothing
             returning *
@@ -1461,6 +1461,7 @@ async def owner_recognition_intake(
             payload.selected_catalogue_id,
             owner_id,
             payload.condition,
+            payload.seal_status,
             payload.grading_company,
             payload.grade,
             payload.certificate_number,
