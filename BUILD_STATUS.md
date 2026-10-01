@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence shadow-ingestion provenance hardening
+
+- Built on the production-verified #454/#458 signed shadow-ingestion baseline.
+- Live read-back before this hardening showed **0 Competitive Intelligence observations**, so no historical evidence requires rewriting.
+- Adds workflow key/version/execution provenance to immutable SYSTEM observations and explicit `automation:competitive-intelligence` audit attribution.
+- Adds a provenance-aware ingestion function while retaining the original function as a compatibility wrapper for rolling deploy safety.
+- Existing APPROVED competitor / ACTIVE source / REVIEWED terms / non-MANUAL_REVIEW gates and strict dedupe collision handling remain unchanged.
+- No external collector is activated and no Shopify/eBay/pricing/inventory/ownership/settlement/finance path is touched.
+- Production application remains pending CI + merge + exact Supabase migration/read-back + Railway verification.
+
 ## 2026-10-01 — Competitive Intelligence shadow-ingestion production verification
 
 - ✅ PR #454 merged after rebasing onto the final current `main` and passing the full GitHub backend+n8n gate.
