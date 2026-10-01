@@ -16,7 +16,8 @@
 - Live pre-migration read-back found **8** graded inventory items with certificate numbers and **0 duplicate grader+certificate pairs**.
 - Added a database uniqueness migration so one grader+certificate cannot create duplicate physical Inventory IDs.
 - No automatic Shopify publication, pricing override, ownership change, settlement action or external payout is introduced.
-- Production remains pending green CI, migration application/read-back and Railway deployment verification.
+- Production verification complete: PR #467 merged as `63ebf616b890b5808435d08036196d35376ef71d`; Railway deployment succeeded with **2,236 tests passed** and `/health/ready` green; Supabase applied `unique_graded_certificate` as version `20261001034809` and the unique grader+certificate index was read back successfully.
+- `TCG_PSA_PUBLIC_API_TOKEN` is still absent from `drop-rate-api-live`, so automated PSA provider verification remains fail-closed. QR parsing, slab OCR, catalogue confirmation and DRAFT intake are live while the PSA credential is outstanding.
 
 
 
