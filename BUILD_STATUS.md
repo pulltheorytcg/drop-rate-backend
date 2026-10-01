@@ -1,6 +1,17 @@
 # Drop Rate — Live Build Status
 
 
+## 2026-10-01 — Full-library recognition correction in progress
+
+- Production reference coverage is now measured at **67,996** card records across **6** recognition systems, with **53,111** reference images.
+- The blocker was not only Japanese recognition: Seller Hub batch correction searched canonical catalogue rows only, so a card could exist in the governed reference library and still show as unavailable if Drop Rate had never materialised that printing before.
+- This change extends **human correction only** to the reference library. Canonical catalogue results stay first; governed reference rows are used as fallback/extra choices and are ranked toward the scan's detected system/language when available.
+- Selecting an unseen reference calls the owner-scoped `select_recognition_reference` function, creates/reuses a `NEEDS_REVIEW` canonical identity, then records `CORRECTED_BY_SEARCH` feedback against the original recognition run.
+- Failed vision runs may now be rescued by **manual search correction only**; failed runs still cannot be confirmed as AI top/candidate matches.
+- Reference searches exclude future-dated releases and remain owner/run scoped. No reference selection auto-publishes inventory, approves canonical identity, changes pricing, or creates verified learning for normal owners.
+- CI and production verification are pending.
+
+
 ## 2026-10-01 — Recognition reference-search migration history alignment
 
 - Production Supabase contains migration `20261001140820_reference_search_corrections`, applied during the interrupted recognition repair session, but the migration file was missing from Git.
