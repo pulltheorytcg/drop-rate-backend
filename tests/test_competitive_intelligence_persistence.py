@@ -182,3 +182,47 @@ def test_observation_dedupe_key_reuse_with_different_content_is_rejected() -> No
     source = API.read_text()
     assert "observation dedupe key already exists with different content" in source.lower()
     assert 'existing["observed_at"] == payload.observed_at' in source
+
+
+HARDENING_MIGRATION = (
+    ROOT
+    / "database"
+    / "migrations"
+    / "20261001024000_competitive_intelligence_replay_hardening.sql"
+)
+
+
+def test_observation_idempotency_compares_full_immutable_contract() -> None:
+    source = API.read_text()
+    assert 'existing["source_published_at"] == payload.source_published_at' in source
+    assert 'existing["facts"] == payload.facts' in source
+    assert 'existing["evidence"] == payload.evidence' in source
+    assert 'float(existing["confidence"]) == payload.confidence' in source
+    assert 'float(existing["relevance"]) == payload.relevance' in source
+
+
+def test_blocked_or_rejected_competitor_evidence_cannot_qualify_new_opportunity() -> None:
+    source = API.read_text()
+    assert 'row["source_status"] == "BLOCKED"' in source
+    assert 'row["competitor_status"] == "REJECTED"' in source
+    assert "Blocked or rejected competitive evidence cannot qualify" in source
+
+
+def test_opportunity_idempotency_includes_threshold_and_evidence_contract() -> None:
+    source = API.read_text()
+    sql = HARDENING_MIGRATION.read_text()
+    assert "qualification_threshold numeric(6,5)" in sql
+    assert 'float(existing["qualification_threshold"]) == payload.qualification_threshold' in source
+    assert "existing_evidence_contract" in source
+    assert "incoming_evidence_contract" in source
+    assert "different evaluation contract" in source
+    assert "payload.qualification_threshold" in source
+
+
+def test_hardening_migration_is_additive_and_non_destructive() -> None:
+    sql = HARDENING_MIGRATION.read_text().lower()
+    assert "alter table tcg.competitive_opportunities" in sql
+    assert "add column qualification_threshold" in sql
+    assert "drop table" not in sql
+    assert "delete from" not in sql
+    assert "truncate" not in sql
