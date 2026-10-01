@@ -10,6 +10,8 @@ from app.recognition_vision import OBSERVATION_SCHEMA, RecognitionObservation, V
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "backend" / "app" / "recognition.py"
 SEALED = ROOT / "backend" / "app" / "recognition_sealed.py"
+OWNER_API = ROOT / "backend" / "app" / "owner_portal_api.py"
+OWNER_JS = ROOT / "backend" / "app" / "static" / "owner-recognition.js"
 MIGRATION = (
     ROOT
     / "database"
