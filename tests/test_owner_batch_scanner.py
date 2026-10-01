@@ -83,7 +83,8 @@ def test_owner_intake_accepts_audited_search_correction_but_not_unconfirmed_cata
     assert "Confirm or correct the recognition result before adding it to inventory" in block
     assert '"confirmation_source": feedback["outcome"]' in block
     assert 'feedback["selected_catalogue_id"] != payload.selected_catalogue_id' in block
-    assert "false,'DRAFT'" in block
+    assert "verified_exact_sealed_identity" in block
+    assert "$11,'DRAFT',$12,$13::jsonb,'FOR_SALE'" in block
 
 
 def test_verified_learning_can_include_search_corrections_only_after_materialisation() -> None:
