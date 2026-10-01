@@ -1,6 +1,7 @@
 begin;
 
 create table tcg.recognition_provider_reference_fingerprints (
+    id uuid primary key default gen_random_uuid(),
     provider text not null,
     system_code text not null references tcg.collectible_systems(code),
     language text not null,
@@ -15,7 +16,7 @@ create table tcg.recognition_provider_reference_fingerprints (
     created_at timestamptz not null default clock_timestamp(),
     updated_at timestamptz not null default clock_timestamp(),
     version integer not null default 1 check (version >= 1),
-    primary key (
+    unique (
         provider,system_code,language,provider_id,fingerprint_version
     ),
     foreign key (provider,system_code,language,provider_id)
