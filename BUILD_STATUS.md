@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence signed shadow ingestion
+
+- Added the safe n8n → FastAPI → Postgres ingress path for DR-43 before any external collector is activated.
+- HMAC-signed bounded batches reuse the existing automation command secret and require no browser/founder session.
+- A SECURITY DEFINER database primitive re-checks APPROVED competitor, ACTIVE source and REVIEWED automated-source terms on every SYSTEM insert.
+- MANUAL_REVIEW sources cannot use automated ingestion; source identity/rights are database-derived.
+- Identical replay is idempotent; changed-content dedupe-key reuse fails closed. Replay is not broken by later edits to mutable source URL/rights metadata.
+- Automation timestamps must be timezone-aware and cannot be materially future-dated.
+- No external fetcher, n8n collector activation, Shopify/eBay mutation, pricing, inventory, purchase or finance action is included.
+- Production migration/deploy remains pending CI + merge + Supabase/Railway verification.
+
 ## 2026-10-01 — eBay shipping readiness preview
 
 - Added a PLATFORM_ADMIN-only read-only preview for a proposed eBay shipping package.
