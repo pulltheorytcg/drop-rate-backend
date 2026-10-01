@@ -1,6 +1,17 @@
 # Drop Rate — Live Build Status
 
 
+## 2026-10-01 — Scanner presence, sealed routing and provider visual retrieval
+
+- ✅ Seller Hub mobile auto-scan now requires a collectible-like foreground to be present and stable before capture, then waits for physical removal before re-arming; stable empty backgrounds no longer qualify as scans.
+- ✅ Recognised/corrected batch results now prefer the matched governed reference image for the compact thumbnail instead of reusing the camera capture.
+- ✅ Recognition now classifies the photographed object before card matching. `NONE` fails closed, `UNKNOWN` requires review, and `SEALED_PRODUCT` is routed to a separate deterministic sealed resolver rather than the raw-card candidate engine.
+- ✅ Japanese One Piece **OP-17 single booster pack** is now a verified canonical `SEALED / BOOSTER_PACK / Japanese / OP-17` identity backed by Bandai product evidence. Pack metadata records **6 cards per pack / 24 packs per box** and explicitly does not reuse the official box price as a single-pack value.
+- ✅ PR #480 fixed empty-frame repeat scanning + compact reference thumbnails. PRs #481–#482 added sealed routing, sealed inventory intake and the corrected OP-17 production migration.
+- 🚧 Recognition engine **v1.7.0** adds a private/audited visual fingerprint index over the governed provider reference-card library. Strong visual similarity can retrieve a plausible card identity even when OCR/name extraction is wrong, but provider-library visuals remain **retrieval-only** unless existing deterministic exact-printing gates independently pass.
+- The provider visual index uses the existing dHash-256 multi-crop fingerprints and server-side Postgres Hamming ranking. It does not add a new data provider and does not allow AI/provider images to silently self-verify a printing.
+- Current provider reference coverage available to this layer is **53,111 images** across the existing Pokémon, One Piece, Dragon Ball and Naruto reference sources. Population/backfill is performed through a platform-admin-only rebuild path and remains separately verifiable from canonical exact-print media.
+
 ## 2026-10-01 — Full-library recognition correction in progress
 
 - Production reference coverage is now measured at **67,996** card records across **6** recognition systems, with **53,111** reference images.
@@ -2820,7 +2831,7 @@ See `docs/STRIPE_CONNECT_PAYOUTS.md`.
 | 6.5 | RBAC / seller & consignor portal | 🚧 Dedicated OWNER onboarding and restricted `/owner` inventory/sales/balance/settlement/payout/Stripe self-service are deployed. Next: genuine two-account cross-owner isolation proof, then controlled first seller/consignor onboarding |
 | 7 | Market-data infrastructure | 🚧 Framework + multi-provider live access validated; production persistence intentionally gated |
 | 8 | Pricing engine | 🚧 Deterministic engine live; trusted live evidence + scheduled execution remain |
-| 9 | AI card identification | 🚧 Recognition v1.5 is deployed: mobile capture, multi-signal evidence, exact-print candidate logic and persistent visual-reference infrastructure are live. Remaining: finish exact reference corpus, harden exact-print confidence across promos/parallels/graded cards, complete Dragon Ball media coverage and expand evaluation dataset |
+| 9 | AI card identification | 🚧 Recognition v1.7 is in rollout: mobile presence-gated scanning, card/sealed object routing, OP-17 sealed recognition, multi-signal exact-print logic, full-library human correction and provider visual-retrieval infrastructure are implemented. Remaining: complete/backfill visual reference indexes, expand permitted provider coverage, harden promos/parallels/graded-card evaluation, and complete Dragon Ball media coverage |
 | 10 | Consignment | 🚧 Payout/commission foundation deployed: 10% consignor commission, Stripe Connect readiness and payout approval control exist; consignor onboarding/intake portal remains to build |
 | 11 | AI product listings | ⬜ Not started |
 | 12 | AI customer service | ⬜ Not started |
