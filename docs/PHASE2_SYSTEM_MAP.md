@@ -1,5 +1,93 @@
 # Drop Rate — Phase 2 System Map
 
+
+## Current-state overlay — 1 October 2026, 01:39 BST
+
+This overlay supersedes older point-in-time counts later in this document while preserving them as historical evidence of the 30 September audit.
+
+### Live topology
+
+- Railway still has **7 production services**. The topology described below remains structurally correct.
+- `drop-rate-api-live`: latest relevant production deploy is SUCCESS.
+- `drop-rate-api`: operations monitor remains on the 30-minute cron and healthy.
+- `drop-rate-payout-scheduler`: remains hourly and cannot independently move money.
+- `drop-rate-n8n-e840`: healthy on n8n **2.32.6** with persistent volume.
+- `shopify-reconciliation-worker`: remains available as the controlled reconciliation/recovery worker.
+- `psa-fetch-batch` and `psa-cert-lookup-temp`: remain SLEEPING/on-demand; no destructive cleanup was performed.
+
+### Supabase / Postgres
+
+The `tcg` schema now contains **73 base tables** after the 30 September / early-1-October additions.
+
+Key live counts:
+- physical inventory: **509**;
+- Shopify inventory links: **507**;
+- reference cards: **67,989**;
+- reference set/language records: **734**;
+- canonical sealed-product details: **2**;
+- unhealthy automation events (PENDING / DISPATCHING / DEAD_LETTER): **0**;
+- OPEN CRITICAL Action Required: **0**;
+- OPEN HIGH Action Required: **2**, both graded-slab-media requirements.
+
+Recent applied production migrations include:
+- `recognition_master_library`;
+- `action_required_automation_category`;
+- `public_owner_self_registration`;
+- `owner_profile_settings`;
+- `owner_username_login`.
+
+### Shopify / commerce projection
+
+The earlier **17 unlinked FOR_SALE** snapshot below is superseded.
+
+Current canonical state:
+- **2 FOR_SALE physical items remain unlinked**, both known One Piece raw-card evidence/media exceptions;
+- Dragon Ball is **35 / 35 FOR_SALE physical items linked and PUBLISHED**;
+- published duplicate raw-card pooling completed across **20 groups / 48 physical inventory links**;
+- two One Piece sealed products are published and surfaced through Sealed navigation/homepage merchandising;
+- Brand Redesign has passed the machine-verifiable launch gate but remains **UNPUBLISHED** pending final human smoke + the manual Shopify Admin MAIN-theme publish action.
+
+Real checkout proof:
+- #1003 exercised desktop grouped-copy checkout/allocation/ledger;
+- #1004 exercised mobile Apple Pay checkout/allocation/ledger;
+- both were deliberately reversed after testing, with canonical Postgres reflecting cancellation/refund and exact physical-item return.
+
+### Seller Hub
+
+Public Seller Hub is no longer invitation-only for the storefront Sell With Us path:
+- verified self-registration creates restricted CONSIGNOR + OWNER access only;
+- stale cached-invite reuse is fixed;
+- Profile/account settings are deployed;
+- optional unique usernames are deployed;
+- email-or-username password sign-in is deployed with server-only resolution and database-backed throttling.
+
+### Recognition
+
+PR #398 deployed the production reference library:
+- 67,989 reference-card rows;
+- 734 set/language rows;
+- Pokémon, One Piece, Dragon Ball Masters/Fusion World, Naruto Kayou and legacy Naruto/Bandai coverage.
+
+This is a candidate/reference layer. It does not bypass human review, exact-print evidence, physical language/finish verification or the governed learning loop.
+
+### n8n
+
+The source-controlled control plane is present, but activation remains intentionally gated.
+
+Latest Railway startup:
+- provisioner sees DR-00 ingress versions, DR-01, DR-02, DR-90, DR-91 and DR-92 definitions in persistent n8n state;
+- n8n reports **0 draft workflows / 0 published workflows**;
+- therefore no high-impact business workflow has silently gone live.
+
+The 42-workflow roadmap remains canonical in `automation/n8n/workflow-registry.json`.
+
+### Mobile app work
+
+A new **draft** PR #433 (`codex/seller-hub-ios`) now exists for the native iPhone Seller Hub. It is implementation-in-progress, not deployed production capability. Android remains planned.
+
+For the full cross-chat / Work / Codex reconciliation, see `docs/WORKLOG_2026-09-30_TO_2026-10-01.md`.
+
+
 _Last production review: 30 September 2026_
 
 This is the plain-English system map required by the Phase 2 Operating Manual. It is intentionally operational rather than aspirational: it describes what is actually deployed now, what each part is for, and what should not own business decisions.
