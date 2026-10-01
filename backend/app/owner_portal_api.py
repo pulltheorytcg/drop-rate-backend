@@ -62,6 +62,7 @@ class OwnerRecognitionIntakeRequest(BaseModel):
     recognition_run_id: UUID
     selected_catalogue_id: UUID
     condition: str | None = Field(default=None, max_length=80)
+    seal_status: str | None = Field(default=None, max_length=20)
     grading_company: str | None = Field(default=None, max_length=40)
     grade: str | None = Field(default=None, max_length=40)
     certificate_number: str | None = Field(default=None, max_length=120)
@@ -70,6 +71,7 @@ class OwnerRecognitionIntakeRequest(BaseModel):
     @model_validator(mode="after")
     def validate_physical_details(self) -> "OwnerRecognitionIntakeRequest":
         self.condition = self.condition.strip() if self.condition else None
+        self.seal_status = self.seal_status.strip().upper() if self.seal_status else None
         self.grading_company = self.grading_company.strip() if self.grading_company else None
         self.grade = self.grade.strip() if self.grade else None
         self.certificate_number = self.certificate_number.strip() if self.certificate_number else None
@@ -79,8 +81,17 @@ class OwnerRecognitionIntakeRequest(BaseModel):
             raise ValueError("grading_company and grade must both be set or both cleared")
         if self.certificate_number and not self.grading_company:
             raise ValueError("certificate_number requires grading_company and grade")
-        if self.condition is None and self.grading_company is None:
-            raise ValueError("Choose a raw-card condition or provide grading company and grade")
+        if self.seal_status not in {None, "SEALED", "UNSEALED"}:
+            raise ValueError("seal_status must be SEALED or UNSEALED")
+        if self.seal_status and (
+            self.condition is not None
+            or self.grading_company is not None
+            or self.grade is not None
+            or self.certificate_number is not None
+        ):
+            raise ValueError("Sealed-product intake must not include card condition or grading fields")
+        if self.condition is None and self.grading_company is None and self.seal_status is None:
+            raise ValueError("Choose a raw-card condition, provide grading details, or provide seal status")
         return self
 
 
@@ -142,6 +153,7 @@ def _owner_scan_inventory_payload(row: object, catalogue: object, *, replayed: b
             "catalogue_id": inventory.get("catalogue_id"),
             "status": inventory.get("status"),
             "condition": inventory.get("condition"),
+            "seal_status": inventory.get("seal_status"),
             "grading_company": inventory.get("grading_company"),
             "grade": inventory.get("grade"),
             "certificate_number": inventory.get("certificate_number"),
@@ -1406,14 +1418,11 @@ async def owner_recognition_intake(
         )
         if catalogue is None:
             raise HTTPException(status_code=404, detail="Catalogue product not found")
-        if catalogue["product_type"] != "CARD":
-            raise HTTPException(status_code=422, detail="Seller scan intake currently supports cards only")
-
         try:
             validate_physical_state(
                 product_type=catalogue["product_type"],
                 condition=payload.condition,
-                seal_status=None,
+                seal_status=payload.seal_status,
                 grading_company=payload.grading_company,
                 grade=payload.grade,
                 certificate_number=payload.certificate_number,
@@ -1437,12 +1446,12 @@ async def owner_recognition_intake(
             """
             insert into tcg.inventory_items(
                 id,inventory_code,catalogue_id,owner_id,
-                condition,grading_company,grade,certificate_number,language,
+                condition,seal_status,grading_company,grade,certificate_number,language,
                 identity_confirmed,status,intake_request_key,source_record,sale_intent
             ) values(
                 $1,$2,$3,$4,
-                $5,$6,$7,$8,$9,
-                false,'DRAFT',$10,$11::jsonb,'FOR_SALE'
+                $5,$6,$7,$8,$9,$10,
+                false,'DRAFT',$11,$12::jsonb,'FOR_SALE'
             )
             on conflict (intake_request_key) do nothing
             returning *
@@ -1452,6 +1461,7 @@ async def owner_recognition_intake(
             payload.selected_catalogue_id,
             owner_id,
             payload.condition,
+            payload.seal_status,
             payload.grading_company,
             payload.grade,
             payload.certificate_number,
