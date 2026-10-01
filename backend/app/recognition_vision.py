@@ -171,6 +171,7 @@ class RecognitionObservation(BaseModel):
     @model_validator(mode="after")
     def normalize(self) -> "RecognitionObservation":
         for field_name in (
+            "product_code",
             "name_guess",
             "set_name_guess",
             "card_number",
