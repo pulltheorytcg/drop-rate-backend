@@ -1,6 +1,6 @@
 # Graded Slab Scanner Architecture
 
-_Status: approved backlog design, deferred behind the Phase 2 storefront launch/stability gate._
+_Status: provider gateway implementation reopened by explicit founder approval on 1 October 2026. Scanner UI/canonical commit flow remains separately gated._
 
 ## Goal
 
@@ -126,7 +126,7 @@ Planned path:
 - attach exact official PSA slab media when supplied and permitted;
 - fail closed when cert is valid but PSA has no exact slab scan.
 
-The current Railway PSA prototypes prove the capability but should eventually be consolidated into a parameterised, source-controlled adapter rather than hardcoded one-off services.
+The source-controlled FastAPI gateway now owns the production adapter contract. The retained Railway `psa-fetch-batch` service remains a diagnostic/prototype path and must not be treated as canonical business logic. Its production deployment still requires a dedicated PSA token; unrelated provider credentials must never be reused.
 
 ### ACE
 
@@ -293,6 +293,14 @@ Never store provider account passwords in application data. Provider credentials
 
 ## Phase 2 gate
 
-This architecture is approved and recorded now so it is not forgotten.
+The founder explicitly reopened the grading-certificate provider gateway on 1 October 2026.
 
-Implementation remains deferred until Brand Redesign is live and the Phase 2 stability threshold explicitly reopens recognition/Seller Hub work. The only exception is a bug/security fix required for already-supported graded inventory.
+The bounded implementation permitted now is:
+- one authenticated FastAPI lookup contract;
+- PSA automation through the official Public API when its dedicated token is configured;
+- ACE / CGC / Beckett routed to official human-verification pages until permitted machine access exists;
+- no automatic canonical identity mutation;
+- no automatic inventory creation/publishing;
+- no scraping around provider controls.
+
+Scanner UI, OCR/QR capture, deterministic catalogue matching and inventory commit remain separate bounded slices and must retain their normal tests/review gates.
