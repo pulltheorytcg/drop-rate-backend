@@ -25,7 +25,7 @@ from .grading_certificates import (
 )
 from .physical_state import validate_physical_state
 from .pricing import _recalculate_one
-from .recognition_games import SYSTEM_BY_GAME
+from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .settings import get_settings
 
 
@@ -739,6 +739,7 @@ async def owner_catalogue_search(
     if len(query) < 2:
         raise HTTPException(status_code=422, detail="Search needs at least 2 characters")
     normalised = "".join(character for character in query.upper() if character.isalnum())
+    reference_number_key = collector_key(query)
     owner_id = access["owner_id"]
 
     async with user_connection(
@@ -865,15 +866,19 @@ async def owner_catalogue_search(
                 ) mapped on true
                 where (s.release_date is null or s.release_date<=current_date)
                   and (
-                    c.card_number ilike '%'||$1||'%'
-                    or c.name ilike '%'||$1||'%'
-                    or s.name ilike '%'||$1||'%'
-                    or upper(regexp_replace(coalesce(c.card_number,''),'[^A-Za-z0-9]','','g'))
-                       = $2
+                    ($2<>'' and c.number_key=$2)
+                    or (
+                      c.system_code=$3
+                      and (
+                        c.card_number ilike '%'||$1||'%'
+                        or c.name ilike '%'||$1||'%'
+                        or s.name ilike '%'||$1||'%'
+                      )
+                    )
                   )
                 order by
                   case
-                    when $2 <> '' and upper(regexp_replace(coalesce(c.card_number,''),'[^A-Za-z0-9]','','g'))=$2 then 0
+                    when $2<>'' and c.number_key=$2 then 0
                     when lower(coalesce(c.card_number,''))=lower($1) then 1
                     when lower(coalesce(c.name,''))=lower($1) then 2
                     when c.card_number ilike $1||'%' then 3
@@ -885,7 +890,7 @@ async def owner_catalogue_search(
                 limit $5
                 """,
                 query,
-                normalised,
+                reference_number_key,
                 str(run["system_code"] or ""),
                 preferred_language,
                 max(limit * 3, 30),
