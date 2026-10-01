@@ -9,6 +9,7 @@ import app.recognition_engine as recognition_engine
 from app.recognition_engine import attach_provider_visual_evidence, load_catalogue_candidates
 from app.recognition_provider_reference_index import (
     FINGERPRINT_VERSION,
+    _eligible_provider_reference_rows,
     _hash_hexes,
     discover_provider_reference_visual_hints,
 )
@@ -171,6 +172,42 @@ def test_card_pipeline_uses_visual_provider_retrieval_after_object_routing() -> 
     assert 'current["visual_similarity_source"] = "provider_reference_index"' in api
 
 
+
+
+@pytest.mark.asyncio
+async def test_provider_reference_eligibility_supports_bounded_offset() -> None:
+    connection = FetchConnection([])
+
+    rows = await _eligible_provider_reference_rows(
+        connection,
+        limit=250,
+        system_code="ONE_PIECE_CARD_GAME",
+        language="Japanese",
+        offset=17,
+    )
+
+    assert rows == []
+    query, args = connection.calls[0]
+    assert "limit $4" in query
+    assert "offset $5" in query
+    assert args[1:] == ("ONE_PIECE_CARD_GAME", "Japanese", 250, 17)
+
+
+def test_backfill_drain_is_lock_protected_bounded_and_skips_unavailable_progress() -> None:
+    source = BACKFILL.read_text()
+
+    assert "pg_try_advisory_lock" in source
+    assert "pg_advisory_unlock" in source
+    assert '"reason": "ALREADY_RUNNING"' in source
+    assert 'parser.add_argument("--max-batches", type=int, default=1)' in source
+    assert "args.max_batches < 1 or args.max_batches > 100" in source
+    assert "for batch_number in range(1, max_batches + 1)" in source
+    assert "offset=skipped_offset" in source
+    assert "skipped_offset += batch_skipped" in source
+    assert '"event": "provider_reference_index_batch"' in source
+    assert '"drained": drained' in source
+
+
 def test_backfill_command_is_admin_gated_and_bounded() -> None:
     source = BACKFILL.read_text()
 
@@ -180,3 +217,4 @@ def test_backfill_command_is_admin_gated_and_bounded() -> None:
     assert "fingerprint_provider_reference_rows" in source
     assert "rebuild_provider_reference_index" in source
     assert "args.limit < 1 or args.limit > 1000" in source
+    assert "args.max_batches < 1 or args.max_batches > 100" in source
