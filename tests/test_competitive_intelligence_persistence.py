@@ -188,7 +188,7 @@ HARDENING_MIGRATION = (
     ROOT
     / "database"
     / "migrations"
-    / "20261001024000_competitive_intelligence_replay_hardening.sql"
+    / "20261001022925_competitive_intelligence_replay_hardening.sql"
 )
 
 
