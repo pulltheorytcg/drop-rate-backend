@@ -21,7 +21,7 @@ def test_search_correction_is_a_first_class_audited_feedback_outcome() -> None:
 def test_search_correction_does_not_need_to_be_an_ai_candidate() -> None:
     api = RECOGNITION.read_text()
 
-    search_start = api.index('if payload.outcome == "CORRECTED_BY_SEARCH"')
+    search_start = api.index('if payload.outcome == "CORRECTED_BY_SEARCH":\n                searchable_card')
     search_block = api[search_start : search_start + 1500]
     assert "tcg.catalogue_products" in search_block
     assert "tcg.recognition_candidates" not in search_block
