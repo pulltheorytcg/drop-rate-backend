@@ -233,3 +233,16 @@ Opportunity and observation idempotency is strict rather than approximate:
 - confidence, relevance and qualification thresholds are normalized to the database's five-decimal precision before evaluation/persistence/replay.
 
 These checks do not rewrite historical evidence or activate any external collection.
+
+
+## Signed shadow ingestion
+
+The automation boundary is deliberately one-way and shadow-only.
+
+`POST /api/v1/automation/competitive-intelligence/observations/shadow` accepts bounded HMAC-signed batches using the existing automation command secret. n8n receives no database credentials and does not impersonate a founder/admin session.
+
+For every observation, Postgres independently re-checks that the competitor remains APPROVED, the source remains ACTIVE, the source is automated rather than MANUAL_REVIEW, and provider/source terms remain REVIEWED. Source identity, rights and canonical URL are database-derived.
+
+Accepted rows are immutable `SYSTEM` observations. The first accepted insert stores the originating workflow key/version/execution ID for forensic traceability. Identical replay is idempotent; changed-content reuse of a dedupe key fails closed. Retry execution metadata does not manufacture a second observation.
+
+The endpoint returns `mode=SHADOW` and `external_action_taken=false`. It has no collector/fetcher, Shopify/eBay client, price mutation, inventory mutation, finance write or publishing capability.
