@@ -54,6 +54,7 @@ from .recognition_reference_index import (
     rebuild_reference_index,
     reference_index_status,
 )
+from .recognition_sealed import load_sealed_candidates, resolve_sealed_candidates
 from .recognition_vision import (
     OpenAIRecognitionVisionClient,
     RecognitionVisionError,
