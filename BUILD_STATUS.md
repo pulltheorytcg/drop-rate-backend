@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — eBay shipping readiness preview
+
+- Added a PLATFORM_ADMIN-only read-only preview for a proposed eBay shipping package.
+- Preview joins canonical eBay order-item links to the internal order item and physical Inventory ID, enforcing owner consistency, EBAY source/reference, PAID internal order state and SOLD physical inventory.
+- Live eBay order read-back must match the complete Drop Rate line-item mapping; requested line quantities must match exactly.
+- Existing remote shipping fulfilments are read before any future write: an exact existing carrier/tracking/package is reported idempotently, while a requested line already assigned to another package fails closed.
+- The endpoint takes **no external action** and makes no database mutation.
+- PR #451 shipping read-back foundation is already live in Railway; deployment `0486ee6e-7498-43d8-9760-156e3c7ab659` passed **2,190 tests** and `/health/ready` returned 200.
+- This preview is the deterministic safety contract required before a disabled-by-default shipping write path can be introduced.
+
+
 ## 2026-10-01 — Recognition vision transport/telemetry refinement in progress
 
 - Started the next recognition-quality refinement from measured production timings rather than changing scoring heuristics.
