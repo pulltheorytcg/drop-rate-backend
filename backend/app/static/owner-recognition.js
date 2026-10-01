@@ -101,6 +101,12 @@ function ownerScanApplyMode() {
   byId("owner-scan-open-camera").querySelector("small").textContent = graded
     ? "QR-first, label OCR fallback"
     : "Recommended on mobile";
+  if (state.ownerRecognition.status) {
+    byId("owner-scan-open-camera").disabled =
+      graded ? false : !state.ownerRecognition.status.configured;
+    byId("owner-scan-run").disabled =
+      !state.ownerRecognition.status.configured || !state.ownerRecognition.imageDataUrl;
+  }
 
   if (graded) {
     state.ownerRecognition.batch.enabled = false;
@@ -156,7 +162,9 @@ async function ownerSlabResolveQr(rawValue) {
       method: "POST",
       body: JSON.stringify({
         qr_value: raw,
-        grader_hint: byId("owner-slab-grader").value || null,
+        grader_hint: /^https?:\/\//i.test(raw)
+          ? null
+          : (byId("owner-slab-grader").value || null),
       }),
     });
     byId("owner-slab-grader").value = parsed.provider;
@@ -1044,7 +1052,7 @@ async function ownerScanSubmitIntake(event) {
 
   const graded = document.querySelector('input[name="owner-scan-state"]:checked')?.value === "graded";
   const payload = {
-    recognition_run_id: run.id,
+    recognition_run_id: run?.id || null,
     selected_catalogue_id: candidate.catalogue_id,
     condition: graded ? null : byId("owner-scan-condition").value || null,
     grading_company: graded ? byId("owner-scan-grading-company").value.trim() || null : null,
@@ -1893,10 +1901,13 @@ async function ownerRecognitionEnter() {
   if (!state.session?.access_token || state.ownerRecognition.status) return;
   const badge = byId("owner-scan-engine-status");
   try {
-    const [data, grading] = await Promise.all([
-      apiRequest("/api/v1/recognition/status"),
-      apiRequest("/api/v1/grading-certificates/status"),
-    ]);
+    const data = await apiRequest("/api/v1/recognition/status");
+    let grading = null;
+    try {
+      grading = await apiRequest("/api/v1/grading-certificates/status");
+    } catch (_error) {
+      grading = null;
+    }
     state.ownerRecognition.status = {...data, grading};
     badge.textContent = data.configured ? `${data.vision_model} · READY` : "UNAVAILABLE";
     badge.className = `owner-status-pill ${data.configured ? "approved" : "inspection"}`;
