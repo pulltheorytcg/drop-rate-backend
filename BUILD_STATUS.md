@@ -1,20 +1,22 @@
 # Drop Rate — Live Build Status
 
 
-## 2026-10-01 — Unified grading certificate lookup gateway in progress
+## 2026-10-01 — Unified grading certificate lookup gateway deployed
 
-- Explicit founder approval reopened this bounded graded-recognition slice.
-- Added one authenticated FastAPI certificate gateway for PSA, ACE, CGC, BGS, BVG and BCCG.
+- ✅ PR #465 merged as `32c5e63913ac9297b316b873de9b3d7ec98703be`.
+- ✅ Added one source-controlled FastAPI certificate gateway for PSA, ACE, CGC, BGS, BVG and BCCG.
+- ✅ Access is restricted to authenticated users with exactly one active Drop Rate owner membership; ordinary authenticated customer accounts cannot consume provider lookups.
 - **PSA** uses the documented PSA Public API `GET cert/GetByCertNumber/{cert}` when a dedicated `TCG_PSA_PUBLIC_API_TOKEN` is configured.
 - PSA lookup never reuses `TCG_PARSE_API_KEY`; missing/invalid provider configuration fails closed.
 - **ACE / CGC / Beckett** are first-class provider adapters but currently return `MANUAL_VERIFICATION_REQUIRED` with official verification destinations because no approved/documented machine API has been established for Drop Rate.
 - The normalized result contains provider/cert, verification state, card identity evidence, grade, language/printing evidence and exact provider media URLs where returned.
 - The gateway is evidence-only: it cannot mutate canonical identity, inventory, pricing, ownership, settlements or Shopify publication.
-- Added regression tests for provider aliases, cert validation, PSA normalization, missing-token isolation, upstream failure handling and manual-provider fail-closed behavior.
-- Railway inspection clarified service roles:
-  - `psa-fetch-batch` is the actual PSA prototype;
+- ✅ GitHub backend CI and the required n8n-image check passed.
+- ✅ Railway deployment `1f129392-00a6-45ae-8e06-65afd98479c5` reached SUCCESS; production pre-deploy reported **2,225 tests passed**, Uvicorn started cleanly and Railway's configured `/health/ready` probe returned **200 OK**.
+- Railway service-role audit remains:
+  - `psa-fetch-batch` is the retained PSA prototype;
   - `psa-cert-lookup-temp` is currently a misnamed Dragon Ball/CardTrader media diagnostic, **not** a PSA cert service.
-- Production activation still requires green CI/merge/deploy and a dedicated PSA Public API token before PSA can report automated verification.
+- 🔒 Automated PSA lookup is deployed but intentionally reports unconfigured until a genuine PSA Public API bearer token is added as `TCG_PSA_PUBLIC_API_TOKEN` to `drop-rate-api-live`.
 
 
 
