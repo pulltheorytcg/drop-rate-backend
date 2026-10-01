@@ -152,6 +152,7 @@ class Settings:
     tcggraph_max_concurrency: int = 8
     cardtrader_api_token: str | None = None
     cardtrader_max_concurrency: int = 8
+    psa_public_api_token: str | None = None
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
     stripe_connect_country: str = "GB"
@@ -284,6 +285,7 @@ class Settings:
                 minimum=1,
                 maximum=20,
             ),
+            psa_public_api_token=_optional("TCG_PSA_PUBLIC_API_TOKEN"),
             stripe_secret_key=_optional("TCG_STRIPE_SECRET_KEY"),
             stripe_webhook_secret=_optional("TCG_STRIPE_WEBHOOK_SECRET"),
             stripe_connect_country=(
