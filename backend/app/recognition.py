@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
-import re
 import time
 
 import asyncpg
@@ -83,56 +81,6 @@ class RecognitionFeedbackRequest(BaseModel):
 class RecognitionReferenceIndexRebuildRequest(BaseModel):
     limit: int = Field(default=200, ge=1, le=500)
     catalogue_ids: list[UUID] | None = Field(default=None, max_length=500)
-
-
-def _compact_identity(value: object | None) -> str:
-    return re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
-
-
-def _provider_catalogue_identity_key(
-    *,
-    system_code: str,
-    provider: str,
-    provider_id: str,
-    provider_language: str,
-) -> str:
-    raw = "|".join(
-        [
-            system_code.strip().upper(),
-            provider.strip().casefold(),
-            provider_id.strip().casefold(),
-            provider_language.strip().casefold(),
-        ]
-    )
-    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-    return f"recognition-provider:v1:{digest}"
-
-
-def _provider_variant(provider_id: str, snapshot: dict[str, Any]) -> str:
-    art = str(snapshot.get("art_treatment") or "").strip()
-    if art:
-        return art[:120]
-    lowered = provider_id.casefold()
-    if re.search(r"_p\d+$", lowered):
-        return "Parallel"
-    if re.search(r"_r\d+$", lowered):
-        return "Reprint"
-    return "Base"
-
-
-def _rarity_label(value: object | None) -> str:
-    text = str(value or "").strip()
-    aliases = {
-        "superrare": "SR",
-        "secret rare": "SEC",
-        "secretrare": "SEC",
-        "rare": "R",
-        "uncommon": "UC",
-        "common": "C",
-        "leader": "L",
-        "promo": "P",
-    }
-    return aliases.get(text.casefold(), text[:120] or "Unknown")
 
 
 def _candidate_materialization_reason(candidate: dict[str, Any], *, exact_threshold: float) -> str | None:
@@ -625,340 +573,91 @@ async def materialize_provider_candidate(
         request.state.request_id,
     ) as connection:
         owner = await _owner(connection)
-        async with connection.transaction():
-            row = await connection.fetchrow(
+        row = await connection.fetchrow(
+            """
+            select
+                r.status,r.system_code,
+                c.catalogue_id,c.source_kind,c.system_code as candidate_system_code,
+                c.provider,c.provider_id,c.provider_language,c.score,
+                c.hard_rejected,c.signals
+            from tcg.recognition_runs r
+            join tcg.recognition_candidates c on c.run_id=r.id
+            where r.id=$1 and c.id=$2 and r.owner_id=$3
+            """,
+            run_id,
+            candidate_id,
+            owner["id"],
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail="Recognition candidate not found")
+        if row["status"] not in {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"}:
+            raise HTTPException(
+                status_code=409,
+                detail="Recognition run is not ready for provider confirmation",
+            )
+        if row["system_code"] != row["candidate_system_code"]:
+            raise HTTPException(
+                status_code=409,
+                detail="Candidate system conflicts with the recognition run",
+            )
+
+        candidate = {
+            "catalogue_id": row["catalogue_id"],
+            "source_kind": row["source_kind"],
+            "hard_rejected": row["hard_rejected"],
+            "provider": row["provider"],
+            "provider_id": row["provider_id"],
+            "provider_language": row["provider_language"],
+            "score": row["score"],
+            "signals": row["signals"] or {},
+        }
+        reason = _candidate_materialization_reason(
+            candidate,
+            exact_threshold=exact_threshold,
+        )
+        if reason == "ALREADY_MAPPED":
+            result = await _run_payload(connection, run_id)
+            result["materialized_catalogue_id"] = row["catalogue_id"]
+            result["materialization_replayed"] = True
+            return jsonable_encoder(result)
+        if reason is not None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Provider candidate cannot be materialized: {reason}",
+            )
+
+        try:
+            materialized = await connection.fetchrow(
                 """
-                select
-                    r.id as run_id,r.owner_id,r.status,r.decision,r.system_code,
-                    r.ai_observation,r.top_catalogue_id,
-                    c.id as candidate_id,c.source_kind,c.system_code as candidate_system_code,
-                    c.catalogue_id,c.provider,c.provider_id,c.provider_language,
-                    c.rank,c.score,c.hard_rejected,c.signals,c.candidate_snapshot
-                from tcg.recognition_runs r
-                join tcg.recognition_candidates c on c.run_id=r.id
-                where r.id=$1 and c.id=$2 and r.owner_id=$3
-                for update of r,c
+                select *
+                from tcg.materialize_recognition_provider_candidate($1,$2,$3)
                 """,
                 run_id,
                 candidate_id,
-                owner["id"],
+                _decimal(exact_threshold),
             )
-            if row is None:
-                raise HTTPException(status_code=404, detail="Recognition candidate not found")
-            if row["status"] not in {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"}:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Recognition run is not ready for provider confirmation",
-                )
-            if row["system_code"] != row["candidate_system_code"]:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Candidate system conflicts with the recognition run",
-                )
+        except asyncpg.InsufficientPrivilegeError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail="This owner cannot materialize that recognition candidate",
+            ) from exc
+        except asyncpg.NoDataFoundError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail="Recognition candidate not found",
+            ) from exc
+        except asyncpg.CheckViolationError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-            candidate = {
-                "catalogue_id": row["catalogue_id"],
-                "source_kind": row["source_kind"],
-                "hard_rejected": row["hard_rejected"],
-                "provider": row["provider"],
-                "provider_id": row["provider_id"],
-                "provider_language": row["provider_language"],
-                "score": row["score"],
-                "signals": row["signals"] or {},
-            }
-            reason = _candidate_materialization_reason(
-                candidate,
-                exact_threshold=exact_threshold,
+        if materialized is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Provider candidate materialization returned no result",
             )
-            if reason == "ALREADY_MAPPED":
-                result = await _run_payload(connection, run_id)
-                result["materialized_catalogue_id"] = row["catalogue_id"]
-                result["materialization_replayed"] = True
-                return jsonable_encoder(result)
-            if reason is not None:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"Provider candidate cannot be materialized: {reason}",
-                )
-
-            reference = await connection.fetchrow(
-                """
-                select
-                    rc.provider,rc.system_code,rc.language,rc.provider_id,
-                    rc.set_id,rc.name,rc.card_number,rc.finish,rc.rarity,
-                    rc.image_url,rc.source_url,rc.evidence,
-                    rs.name as reference_set_name
-                from tcg.reference_cards rc
-                join tcg.reference_sets rs
-                  on rs.provider=rc.provider
-                 and rs.system_code=rc.system_code
-                 and rs.language=rc.language
-                 and rs.set_id=rc.set_id
-                where rc.provider=$1
-                  and rc.system_code=$2
-                  and rc.language=$3
-                  and rc.provider_id=$4
-                """,
-                row["provider"],
-                row["candidate_system_code"],
-                row["provider_language"],
-                row["provider_id"],
-            )
-            if reference is None:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Provider candidate is not backed by the persisted reference library",
-                )
-
-            snapshot = row["candidate_snapshot"] or {}
-            if not isinstance(snapshot, dict):
-                snapshot = {}
-            signals = row["signals"] or {}
-            if not isinstance(signals, dict):
-                signals = {}
-            card_signal = signals.get("card_number")
-            card_signal = card_signal if isinstance(card_signal, dict) else {}
-
-            reference_number = str(reference["card_number"] or "").strip()
-            signal_number = str(card_signal.get("candidate") or "").strip()
-            snapshot_number = str(
-                snapshot.get("base_card_id") or snapshot.get("card_number") or ""
-            ).strip()
-            if not reference_number or (
-                signal_number
-                and _compact_identity(reference_number)
-                != _compact_identity(signal_number)
-            ):
-                raise HTTPException(
-                    status_code=409,
-                    detail="Reference card number conflicts with recognition evidence",
-                )
-            if snapshot_number and (
-                _compact_identity(reference_number)
-                != _compact_identity(snapshot_number)
-            ):
-                raise HTTPException(
-                    status_code=409,
-                    detail="Provider snapshot conflicts with the persisted reference card",
-                )
-
-            ai_observation = row["ai_observation"] or {}
-            if not isinstance(ai_observation, dict):
-                ai_observation = {}
-            observed_game = str(ai_observation.get("game") or "").strip()
-            observed_number = str(ai_observation.get("card_number") or "").strip()
-            observed_number_confidence = float(
-                ai_observation.get("card_number_confidence") or 0.0
-            )
-            if SYSTEM_BY_GAME.get(observed_game) != row["candidate_system_code"]:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Observed game conflicts with the provider candidate system",
-                )
-            if (
-                observed_number
-                and observed_number_confidence >= 0.70
-                and _compact_identity(observed_number)
-                != _compact_identity(reference_number)
-            ):
-                raise HTTPException(
-                    status_code=409,
-                    detail="Observed card number conflicts with the provider reference",
-                )
-
-            existing_mapping = await connection.fetchrow(
-                """
-                select catalogue_id
-                from tcg.provider_catalogue_mappings
-                where source_provider=$1
-                  and provider_entity_type='CARD_PRINTING'
-                  and provider_id=$2
-                  and provider_variant_key=''
-                  and provider_language=$3
-                """,
-                row["provider"],
-                row["provider_id"],
-                row["provider_language"],
-            )
-            if existing_mapping is not None:
-                catalogue_id = existing_mapping["catalogue_id"]
-                await connection.execute(
-                    """
-                    update tcg.recognition_candidates
-                    set catalogue_id=$1
-                    where id=$2 and run_id=$3
-                    """,
-                    catalogue_id,
-                    candidate_id,
-                    run_id,
-                )
-                if int(row["rank"] or 0) == 1 and row["top_catalogue_id"] is None:
-                    await connection.execute(
-                        """
-                        update tcg.recognition_runs
-                        set top_catalogue_id=$1,updated_at=clock_timestamp(),version=version+1
-                        where id=$2 and owner_id=$3
-                        """,
-                        catalogue_id,
-                        run_id,
-                        owner["id"],
-                    )
-                result = await _run_payload(connection, run_id)
-                result["materialized_catalogue_id"] = catalogue_id
-                result["materialization_replayed"] = True
-                return jsonable_encoder(result)
-
-            reference_set_name = str(reference["reference_set_name"] or "").strip()
-            set_name = (
-                str(snapshot.get("set_name") or "").strip()
-                or reference_set_name
-                or f"Reference set {reference['set_id']}"
-            )
-            name = str(reference["name"] or snapshot.get("name") or "").strip()
-            if not name:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Provider reference does not contain a card name",
-                )
-
-            identity_key = _provider_catalogue_identity_key(
-                system_code=row["candidate_system_code"],
-                provider=row["provider"],
-                provider_id=row["provider_id"],
-                provider_language=row["provider_language"],
-            )
-            variant = _provider_variant(str(row["provider_id"]), snapshot)
-            rarity = _rarity_label(reference["rarity"] or snapshot.get("rarity"))
-            catalogue = await connection.fetchrow(
-                """
-                insert into tcg.catalogue_products(
-                    identity_key,product_type,game,name,set_name,
-                    card_number,variant,rarity,language
-                ) values($1,'CARD',$2,$3,$4,$5,$6,$7,$8)
-                on conflict(identity_key) do nothing
-                returning *
-                """,
-                identity_key,
-                observed_game,
-                name,
-                set_name,
-                reference_number,
-                variant,
-                rarity,
-                row["provider_language"],
-            )
-            if catalogue is None:
-                catalogue = await connection.fetchrow(
-                    "select * from tcg.catalogue_products where identity_key=$1",
-                    identity_key,
-                )
-            if catalogue is None:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Provider-backed catalogue identity could not be created",
-                )
-            catalogue_id = catalogue["id"]
-
-            set_code = reference_number.split("-", 1)[0] if "-" in reference_number else None
-            profile_attributes = {
-                "source": "HUMAN_CONFIRMED_PROVIDER_CANDIDATE",
-                "recognition_run_id": str(run_id),
-                "recognition_candidate_id": str(candidate_id),
-                "provider": row["provider"],
-                "provider_id": row["provider_id"],
-                "provider_language": row["provider_language"],
-                "reference_set_id": reference["set_id"],
-                "reference_set_name": reference_set_name,
-                "reference_evidence": reference["evidence"] or {},
-                "requires_canonical_review": True,
-            }
-            await connection.execute(
-                """
-                insert into tcg.catalogue_product_profiles(
-                    catalogue_id,system_code,collectible_type,identity_status,
-                    set_code,printing_code,attributes
-                ) values($1,$2,'CARD','NEEDS_REVIEW',$3,$4,$5::jsonb)
-                on conflict(catalogue_id) do nothing
-                """,
-                catalogue_id,
-                row["candidate_system_code"],
-                set_code,
-                row["provider_id"],
-                json.dumps(profile_attributes, default=str),
-            )
-
-            try:
-                await connection.execute(
-                    """
-                    insert into tcg.provider_catalogue_mappings(
-                        catalogue_id,system_code,source_provider,provider_entity_type,
-                        provider_id,provider_variant_key,provider_language,
-                        source_reference,match_status,verification_basis,confidence,
-                        verified_by_user_id,verified_at,metadata
-                    ) values(
-                        $1,$2,$3,'CARD_PRINTING',$4,'',$5,$6,
-                        'VERIFIED','HUMAN',$7,$8,clock_timestamp(),$9::jsonb
-                    )
-                    """,
-                    catalogue_id,
-                    row["candidate_system_code"],
-                    row["provider"],
-                    row["provider_id"],
-                    row["provider_language"],
-                    reference["source_url"],
-                    _decimal(row["score"]) or Decimal("0"),
-                    user.user_id,
-                    json.dumps(
-                        {
-                            "recognition_run_id": str(run_id),
-                            "recognition_candidate_id": str(candidate_id),
-                            "human_confirmed_from_scanner": True,
-                        }
-                    ),
-                )
-            except asyncpg.UniqueViolationError:
-                mapped = await connection.fetchrow(
-                    """
-                    select catalogue_id
-                    from tcg.provider_catalogue_mappings
-                    where source_provider=$1
-                      and provider_entity_type='CARD_PRINTING'
-                      and provider_id=$2
-                      and provider_variant_key=''
-                      and provider_language=$3
-                    """,
-                    row["provider"],
-                    row["provider_id"],
-                    row["provider_language"],
-                )
-                if mapped is None or mapped["catalogue_id"] != catalogue_id:
-                    raise
-
-            await connection.execute(
-                """
-                update tcg.recognition_candidates
-                set catalogue_id=$1
-                where id=$2 and run_id=$3
-                """,
-                catalogue_id,
-                candidate_id,
-                run_id,
-            )
-            if int(row["rank"] or 0) == 1 and row["top_catalogue_id"] is None:
-                await connection.execute(
-                    """
-                    update tcg.recognition_runs
-                    set top_catalogue_id=$1,updated_at=clock_timestamp(),version=version+1
-                    where id=$2 and owner_id=$3
-                    """,
-                    catalogue_id,
-                    run_id,
-                    owner["id"],
-                )
 
         result = await _run_payload(connection, run_id)
-        result["materialized_catalogue_id"] = catalogue_id
-        result["materialization_replayed"] = False
+        result["materialized_catalogue_id"] = materialized["catalogue_id"]
+        result["materialization_replayed"] = bool(materialized["replayed"])
         result["materialized_identity_status"] = "NEEDS_REVIEW"
         return jsonable_encoder(result)
 
