@@ -1392,13 +1392,14 @@ byId("owner-login-form").addEventListener("submit", async (event) => {
   setBusy(form, true);
   showMessage();
   try {
-    const session = await authRequest("/token?grant_type=password", {
+    const session = await readJson(await fetch("/api/v1/public/owner-session", {
       method: "POST",
+      headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
-        email: byId("owner-email-input").value.trim().toLowerCase(),
+        identifier: byId("owner-email-input").value.trim(),
         password: byId("owner-password-input").value,
       }),
-    });
+    }));
     await finishSignIn(session);
   } catch (error) {
     denyAccess(

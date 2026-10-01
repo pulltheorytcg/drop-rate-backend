@@ -34,19 +34,19 @@
           </div>
           <p class="eyebrow">Welcome back</p>
           <h2>Sign in to your seller account</h2>
-          <p class="muted">Use the email address your Drop Rate invitation was sent to.</p>
+          <p class="muted">Use your email address or Drop Rate username.</p>
 
           <div id="owner-social-auth" class="social-auth hidden" aria-label="Social sign in">
             <button id="owner-google" class="oauth-button" type="button" data-provider="google">Continue with Google</button>
             <button id="owner-apple" class="oauth-button oauth-button-apple" type="button" data-provider="apple">Continue with Apple</button>
-            <div class="auth-divider"><span>or use email</span></div>
+            <div class="auth-divider"><span>or use email or username</span></div>
           </div>
 
-          <label>Email address<input id="owner-email-input" type="email" autocomplete="email" required></label>
+          <label>Email or username<input id="owner-email-input" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
           <label>Password<input id="owner-password-input" type="password" autocomplete="current-password" required></label>
           <div id="owner-login-message" class="message" role="status"></div>
           <button class="primary-button owner-auth-submit" type="submit">Sign in <span>→</span></button>
-          <p class="owner-auth-footnote">Invite-only access. Seller accounts cannot access Founder HQ or another owner's data.</p>
+          <p class="owner-auth-footnote">Seller accounts cannot access Founder HQ or another owner's data.</p>
         </form>
       </div>
     </section>
@@ -702,7 +702,7 @@
     </section>
   </main>
 
-  <script src="/assets/owner-portal.js?v=owner-v9" defer></script>
+  <script src="/assets/owner-portal.js?v=owner-v10" defer></script>
   <script src="/assets/owner-recognition.js?v=owner-v8" defer></script>
   <script src="/assets/reference-library.js?v=2" defer></script>
 </body>
