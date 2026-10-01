@@ -182,3 +182,76 @@ def test_observation_dedupe_key_reuse_with_different_content_is_rejected() -> No
     source = API.read_text()
     assert "observation dedupe key already exists with different content" in source.lower()
     assert 'existing["observed_at"] == payload.observed_at' in source
+
+
+HARDENING_MIGRATION = (
+    ROOT
+    / "database"
+    / "migrations"
+    / "20261001024000_competitive_intelligence_replay_hardening.sql"
+)
+
+
+def test_observation_idempotency_compares_full_immutable_contract() -> None:
+    source = API.read_text()
+    assert 'existing["source_published_at"] == payload.source_published_at' in source
+    assert 'existing["facts"] == payload.facts' in source
+    assert 'existing["evidence"] == payload.evidence' in source
+    assert 'float(existing["confidence"]) == payload.confidence' in source
+    assert 'float(existing["relevance"]) == payload.relevance' in source
+
+
+def test_blocked_or_rejected_competitor_evidence_cannot_qualify_new_opportunity() -> None:
+    source = API.read_text()
+    assert 'row["source_status"] == "BLOCKED"' in source
+    assert 'row["competitor_status"] == "REJECTED"' in source
+    assert "Blocked or rejected competitive evidence cannot qualify" in source
+
+
+def test_opportunity_idempotency_includes_threshold_and_evidence_contract() -> None:
+    source = API.read_text()
+    sql = HARDENING_MIGRATION.read_text()
+    assert "qualification_threshold numeric(6,5)" in sql
+    assert 'float(existing["qualification_threshold"]) == payload.qualification_threshold' in source
+    assert "existing_evidence_contract" in source
+    assert "incoming_evidence_contract" in source
+    assert "different evaluation contract" in source
+    assert "payload.qualification_threshold" in source
+
+
+def test_hardening_migration_is_additive_and_non_destructive() -> None:
+    sql = HARDENING_MIGRATION.read_text().lower()
+    assert "alter table tcg.competitive_opportunities" in sql
+    assert "add column qualification_threshold" in sql
+    assert "drop table" not in sql
+    assert "delete from" not in sql
+    assert "truncate" not in sql
+
+
+def test_metrics_are_normalized_to_database_precision_before_replay() -> None:
+    source = API.read_text()
+    assert "def _normalize_metric" in source
+    assert 'return round(float(value), 5)' in source
+    assert '@field_validator("confidence", "relevance")' in source
+    assert '@field_validator("qualification_threshold")' in source
+
+
+def test_qualification_contract_is_separate_from_lifecycle_state() -> None:
+    source = API.read_text()
+    sql = HARDENING_MIGRATION.read_text()
+    assert "qualification_state text not null" in sql
+    assert "competitive_opportunities_qualification_immutable" in sql
+    assert "Competitive intelligence qualification contract is immutable" in sql
+    assert 'existing["qualification_state"] == decision.state' in source
+    assert 'existing["state"] == decision.state' not in source
+
+
+def test_revoked_evidence_blocks_new_qualification_but_not_historical_replay() -> None:
+    source = API.read_text()
+    assert "if existing is None and any(" in source
+
+
+def test_hardening_covers_composite_observation_source_foreign_key() -> None:
+    sql = HARDENING_MIGRATION.read_text().lower()
+    assert "competitive_observations_source_competitor_idx" in sql
+    assert "on tcg.competitive_observations(source_id,competitor_id)" in sql

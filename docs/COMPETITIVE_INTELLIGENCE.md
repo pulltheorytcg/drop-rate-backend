@@ -220,3 +220,16 @@ For competitor evidence, the caller supplies only the stored observation ID. Sou
 5. create only founder-approved watchlist/source records;
 6. build source adapters/n8n collection in a later PR;
 7. keep collection in shadow mode until the Phase 3 launch-stability and source-specific permission gates are satisfied.
+
+
+## Replay and evidence hardening
+
+Opportunity and observation idempotency is strict rather than approximate:
+
+- an observation dedupe key is a duplicate only when the complete immutable payload matches, including facts, evidence, confidence/relevance and source publication time;
+- a reused opportunity key must match the same hypothesis, qualification threshold, resulting decision and normalized evidence contract;
+- evidence from a source later marked `BLOCKED`, or a competitor later marked `REJECTED`, cannot qualify a new opportunity;
+- the qualification threshold and original qualification state are persisted with the opportunity so replay/audit can reconstruct the decision contract even if the later lifecycle state becomes DISMISSED or HANDED_OFF;
+- confidence, relevance and qualification thresholds are normalized to the database's five-decimal precision before evaluation/persistence/replay.
+
+These checks do not rewrite historical evidence or activate any external collection.
