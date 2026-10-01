@@ -84,3 +84,20 @@ The package contract requires:
 No `create_shipping_fulfillment` provider write method, API route, UI control or n8n workflow activation is exposed by this foundation.
 
 Before the later write path can be enabled it must prove internal order/Inventory ID mapping, read existing eBay fulfilments first, persist/audit the resulting remote fulfilment ID, reconcile provider timeouts, and surface ambiguity through Action Required.
+
+
+## Shipping readiness preview
+
+`POST /api/v1/ebay/orders/{ebay_order_id}/shipping-fulfillment/preview` is PLATFORM_ADMIN-only and read-only.
+
+Given proposed eBay line-item IDs, carrier and tracking number, it verifies:
+
+- the owner-scoped `ebay_order_item_links` records exist;
+- every link agrees with the internal EBAY order, order item, physical Inventory ID and owner;
+- the internal order is PAID and the physical inventory is SOLD;
+- the complete live eBay order line set matches the Drop Rate mapping;
+- requested quantities match;
+- an exact existing remote package is treated as idempotent;
+- a line already assigned to another remote package fails closed.
+
+The endpoint returns `external_action_taken=false`. It is the deterministic preflight for a future gated write path, not a shipment mutation.
