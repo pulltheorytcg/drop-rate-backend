@@ -386,3 +386,64 @@ def test_batch_copy_treats_cards_and_sealed_products_as_items() -> None:
     assert "item.identityStatus = data.identity_status || null" in js
     assert 'item.identityStatus !== "VERIFIED_CANONICAL_IDENTITY"' in js
     assert "added with verified identity" in js
+
+
+def test_sealed_recognition_prefers_english_display_metadata() -> None:
+    source = SEALED.read_text()
+
+    assert "sd.attributes->>'display_name_en'" in source
+    assert "sd.attributes->>'set_name_en'" in source
+
+
+def test_owner_inventory_exposes_sealed_state_verified_identity_and_refresh_capability() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.get("/inventory")')
+    end = api.index('@router.post("/inventory/{inventory_code}/refresh-market")', start)
+    block = api[start:end]
+
+    assert "i.seal_status" in block
+    assert "i.identity_confirmed" in block
+    assert "sealed_type.value_code as sealed_product_type" in block
+    assert "as can_refresh_market" in block
+    assert "sd.attributes->>'display_name_en'" in block
+    assert "sd.attributes->>'set_name_en'" in block
+
+
+def test_verified_sealed_inventory_market_refresh_is_owner_scoped_and_exact_only() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.post("/inventory/{inventory_code}/refresh-market")')
+    end = api.index('@router.post("/graded-certificate-intake"', start)
+    block = api[start:end]
+
+    assert "where i.owner_id=$1 and i.inventory_code=$2" in block
+    assert 'row["identity_confirmed"]' in block
+    assert 'row["profile_identity_status"] != "VERIFIED"' in block
+    assert 'row["sealed_identity_status"] != "VERIFIED"' in block
+    assert 'run["decision"] != "EXACT_CANDIDATE"' in block
+    assert 'run["top_catalogue_id"] != row["catalogue_id"]' in block
+    assert "_hydrate_verified_sealed_market(" in block
+    assert "_recalculate_one(connection, owner_id, row["id"])" in block
+
+
+def test_verified_sealed_intake_hydrates_market_before_pricing() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.post("/recognition-intake"')
+    block = api[start:]
+
+    hydrate = block.index("_hydrate_verified_sealed_market(")
+    recalculate = block.index("_recalculate_one(connection, owner_id, inventory_id)")
+    assert hydrate < recalculate
+    assert 'if verified_exact_sealed_identity:' in block
+    assert 'ai_observation=run["ai_observation"]' in block
+    assert 'response["market_refresh"] = market_refresh' in block
+
+
+def test_inventory_ui_renders_sealed_state_identity_and_market_refresh_action() -> None:
+    js = (ROOT / "backend" / "app" / "static" / "owner-portal.js").read_text()
+
+    assert 'return "Sealed"' in js
+    assert '["Identity", item.identity_confirmed ? "Verified" : "Review"]' in js
+    assert 'refresh.textContent = "Refresh market value"' in js
+    assert '/refresh-market' in js
+    assert '"No inventory linked yet"' in js
+    assert '"Your latest cards and sealed products will appear here' in js
