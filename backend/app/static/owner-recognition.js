@@ -1301,6 +1301,9 @@ function ownerBatchStopLoop() {
   state.ownerRecognition.batch.timer = null;
   state.ownerRecognition.batch.previousFingerprint = null;
   state.ownerRecognition.batch.stableFrames = 0;
+  state.ownerRecognition.batch.presenceFrames = 0;
+  state.ownerRecognition.batch.absenceFrames = 0;
+  state.ownerRecognition.batch.awaitingRemoval = false;
 }
 
 function ownerBatchStartLoop() {
