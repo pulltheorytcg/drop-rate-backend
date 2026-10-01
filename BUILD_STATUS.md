@@ -1,5 +1,32 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Phase 3 intelligence + eBay parity audit
+
+### Recognition quality
+- ✅ PR #435 merged and deployed: read-only recognition quality benchmark for human-labelled VALIDATION/HOLDOUT evidence, with TRAIN explicitly excluded from quality claims.
+- ✅ Production deploy after PRs #435/#436 completed SUCCESS; Railway `/health/ready` returned 200 and the deployment test run reported **2,155 passed**.
+- Current learning evidence is still too small for safe accuracy tuning: **3 human-labelled learning examples, all TRAIN** (2 CONFIRMED_TOP, 1 REJECTED_ALL), with **0 VALIDATION / 0 HOLDOUT** examples.
+- Current recorded recognition-run outcomes: **15 total = 11 NEEDS_REVIEW + 4 NO_MATCH**. Do not claim exact-print accuracy from this sample.
+- Five historical runs contain full stage timing telemetry. In that sample, vision inference dominated at roughly **8.7–22.3s**; provider visual comparison was roughly **1.5–5.4s**; catalogue lookup roughly **65–148ms**; deterministic resolution roughly **~1ms**.
+- Next recognition optimisation should therefore target vision/image/provider latency first while preserving all exact-print hard gates. Threshold/weight changes remain blocked until enough VALIDATION/HOLDOUT human truth exists.
+
+### Competitive Intelligence
+- ✅ PR #436 merged and deployed: governed Competitive Intelligence foundation is live in code but **not activated for external collection**.
+- The n8n programme is now **43** source-controlled workflow families; sequence 43 `competitive-intelligence` is `PLANNED / OBSERVE`.
+- Competitor observations cannot qualify alone: deterministic corroboration requires independent evidence plus a non-competitor origin (internal, market, social or official).
+- Automated sources require source-specific terms/rights review; access-control bypass and direct copying are prohibited.
+- Competitive Intelligence can only hand off proposals to later content/CRO/SEO/merchandising/acquisition-review systems. It cannot publish, change price, ownership or finance.
+
+### eBay live readiness / parity
+- Live seller connection is **READY** on `EBAY_GB` with **6 granted scopes** and no recorded seller error.
+- Payment policy, fulfilment policy, return policy, merchant inventory location, ORDER_CONFIRMATION notification destination and subscription are all configured.
+- Railway has the expected eBay application configuration variable names present; values remain secret/redacted.
+- Current production evidence still has **0 eBay inventory links, 0 eBay webhook events and 0 eBay order-item links**. The real eBay list → buy → order → stock-withdrawal → owner-attribution path has therefore not yet been proven with a live listing/order.
+- Existing code already covers seller OAuth/setup, official Inventory API item/offer publication, signed ORDER_CONFIRMATION handling, physical-Inventory-ID ownership attribution, Shopify stock withdrawal/read-back and return-to-inspection protections.
+- Remaining Shopify-parity gaps are concrete: eBay shipping-fulfilment creation/tracking, eBay-originated refunds/cancellations/returns, eBay fee/finance ingestion into auditable settlement, scheduled listing/order reconciliation, and the controlled first live listing/sale proof.
+- eBay production activation remains subject to the Phase 3 launch-stability gate; parity code and shadow/read-only reconciliation can be built before activation.
+
+
 ## 2026-10-01 — Competitive Intelligence foundation in progress
 
 - Founder-prioritised Competitive Intelligence is now a formal fifth intelligence/growth pillar rather than an informal future idea.
