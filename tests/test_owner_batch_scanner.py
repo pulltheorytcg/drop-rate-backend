@@ -94,3 +94,47 @@ def test_verified_learning_can_include_search_corrections_only_after_materialisa
     assert "create or replace function tcg.recognition_learning_hint_rows" in sql
     assert "create or replace function tcg.recognition_learning_visual_rows" in sql
     assert "e.dataset_split='TRAIN'" in sql
+
+
+def test_batch_correction_can_search_governed_reference_library() -> None:
+    api = OWNER_API.read_text()
+    start = api.index('@router.get("/catalogue-search")')
+    end = api.index('@router.get("/inventory")', start)
+    block = api[start:end]
+
+    assert "include_reference: bool" in block
+    assert "run_id: UUID | None" in block
+    assert "tcg.reference_cards" in block
+    assert "tcg.reference_sets" in block
+    assert "s.release_date is null or s.release_date<=current_date" in block
+    assert "r.owner_id" not in block  # alias is run, scoped explicitly by owner_id parameter
+    assert "where id=$1 and owner_id=$2" in block
+    assert '"requires_materialization"' in block
+
+
+def test_reference_selection_is_human_gated_and_feedback_audited() -> None:
+    api = RECOGNITION.read_text()
+    start = api.index('@router.post("/runs/{run_id}/references/select")')
+    end = api.index('@router.post("/runs/{run_id}/candidates/{candidate_id}/materialize")', start)
+    block = api[start:end]
+
+    assert "tcg.select_recognition_reference" in block
+    assert 'where id=$1 and owner_id=$2' in block
+    assert "TERMINAL_STATUSES" in block
+    assert '"identity_status"' in block
+
+    feedback_start = api.index('@router.post("/runs/{run_id}/feedback")')
+    feedback_end = api.index('@router.post("/runs/{run_id}/references/select")', feedback_start)
+    feedback = api[feedback_start:feedback_end]
+    assert 'if payload.outcome == "CORRECTED_BY_SEARCH":' in feedback
+    assert 'feedback_statuses.add("FAILED")' in feedback
+
+
+def test_reference_correction_ui_materializes_before_feedback() -> None:
+    source = (ROOT / "backend" / "app" / "static" / "owner-recognition.js").read_text()
+
+    assert 'params.set("include_reference", "true")' in source
+    assert 'params.set("run_id", correctionItem.runId)' in source
+    assert "row.requires_materialization ? \"Add + choose\" : \"Choose\"" in source
+    assert '/references/select' in source
+    assert "Seller corrected batch scan using governed reference library" in source
