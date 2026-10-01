@@ -6,7 +6,7 @@ from hashlib import sha256
 from typing import Any, Protocol
 
 
-SUPPORTED_MARKET_SOURCES = {"EBAY", "COLLECTR", "TCGPLAYER", "CARDMARKET"}
+SUPPORTED_MARKET_SOURCES = {"EBAY", "COLLECTR", "TCGPLAYER", "CARDMARKET", "CARDTRADER"}
 SUPPORTED_OBSERVATION_TYPES = {"SOLD", "ACTIVE", "MARKET_AGGREGATE", "PRICE_GUIDE"}
 
 
@@ -81,6 +81,7 @@ _PROVIDER_NOTES = {
     "COLLECTR": "Adapter slot reserved for permitted Collectr export/API access.",
     "TCGPLAYER": "TCGplayer currently requires existing approved API access.",
     "CARDMARKET": "Cardmarket currently requires existing approved API access.",
+    "CARDTRADER": "Official CardTrader API active listings for verified exact product mappings.",
 }
 
 
@@ -104,7 +105,7 @@ def stable_source_record_key(*parts: object) -> str:
 def adapter_availability() -> list[dict[str, str | bool]]:
     """Describe live-adapter readiness without pretending credentials/access exist."""
     items: list[dict[str, str | bool]] = []
-    for source in ("EBAY", "COLLECTR", "TCGPLAYER", "CARDMARKET"):
+    for source in ("EBAY", "COLLECTR", "TCGPLAYER", "CARDMARKET", "CARDTRADER"):
         implemented = source in _ADAPTERS
         items.append(
             {
