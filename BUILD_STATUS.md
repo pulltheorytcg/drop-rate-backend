@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence hardening production verification
+
+- ✅ PR #445 merged and the forward-only replay/evidence hardening migration was applied successfully to Supabase.
+- Supabase recorded the migration as `20261001022925_competitive_intelligence_replay_hardening`; repo history is being aligned to that exact applied version with no SQL re-execution.
+- Live verification confirms both qualification columns, the immutable qualification trigger and the composite observation/source ownership index are present.
+- All five Competitive Intelligence tables remain empty; the hardening caused no production data rewrite.
+- Supabase security advisors report no Competitive Intelligence security finding. The earlier unindexed composite-FK performance finding is cleared; remaining Competitive Intelligence index notices are expected unused-index INFO findings on empty tables.
+- Railway deployment from PR #445 is still being verified before this slice is marked fully deployed.
+
+
 ## 2026-10-01 — Competitive Intelligence replay/evidence hardening
 
 - The base Competitive Intelligence schema is live and empty, so this hardening remains forward-only with no production data rewrite.
