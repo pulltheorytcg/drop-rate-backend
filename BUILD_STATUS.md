@@ -9,7 +9,12 @@
 - The materialisation function no longer changes `recognition_candidates` or rewrites `recognition_runs.top_catalogue_id`; it only creates/reuses review-gated canonical data and the human-verified provider mapping.
 - This preserves original machine evidence while allowing the Seller Hub to continue from “New to Drop Rate” → human confirmation → normal DRAFT physical intake.
 - Failure testing remains fail-closed for provider identity/language/card-number conflicts and duplicate mappings.
-- CI, migration application, rollback-only production smoke and Railway verification are pending.
+- ✅ PR #475 merged as `c9a1aa9a58038de0188e344136010d62013d8456`; GitHub and Railway both passed **2,245 tests**.
+- ✅ Supabase applied `fix_recognition_materialization_immutability` as migration version `20261001143426`.
+- ✅ Live function read-back confirms `SECURITY DEFINER`, `search_path=pg_catalog`, EXECUTE only for `tcg_api`, and no mutation of `recognition_candidates` or `recognition_runs.top_catalogue_id`.
+- ✅ The rollback-only production smoke against the real OP05-069 Japanese Trafalgar Law run now completes successfully and then rolls back cleanly: no catalogue row, provider mapping, candidate mutation or run-top rewrite persists.
+- ✅ Railway deployment `d3cf7582-f676-41cb-93c5-84c1ff4bc8fa` reached SUCCESS, application startup completed, and `/health/ready` returned HTTP 200.
+- **Result:** the unseen provider-backed card path is now production-safe across the generic recognition contract; it is not Japanese-specific.
 
 ## 2026-10-01 — New-card scanner regression repair in progress
 
