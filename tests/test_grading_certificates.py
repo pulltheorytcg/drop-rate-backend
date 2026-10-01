@@ -86,8 +86,9 @@ async def test_non_psa_providers_fail_closed_to_official_manual_verification() -
 
     assert ace.verification_url == "https://acegrading.com/cert/590532"
     assert cgc.verification_url == "https://www.cgccards.com/certlookup/"
-    assert "item_id=0018479833" in bgs.verification_url
-    assert "item_type=BGS" in bgs.verification_url
+    assert bgs.verification_url == (
+        "https://marketplace.beckett.com/grading/withoutLogin_card_lookup"
+    )
 
 
 @pytest.mark.asyncio
@@ -182,8 +183,8 @@ def test_verification_urls_are_official_and_no_scraping_endpoint_is_invented() -
     assert provider_verification_url(GradingProvider.CGC, "1234567999") == (
         "https://www.cgccards.com/certlookup/"
     )
-    assert provider_verification_url(GradingProvider.BGS, "0018479833").startswith(
-        "https://www.beckett.com/grading/card-lookup?"
+    assert provider_verification_url(GradingProvider.BGS, "0018479833") == (
+        "https://marketplace.beckett.com/grading/withoutLogin_card_lookup"
     )
 
 
