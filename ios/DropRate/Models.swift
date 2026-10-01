@@ -106,6 +106,16 @@ struct LabelReading: Equatable {
     let company: String?
     let certificate: String?
     let lines: [String]
+    static func certificateFromBarcode(_ payload: String) -> String? {
+        let clean = payload.trimmingCharacters(in: .whitespacesAndNewlines)
+        if clean.range(of: "^[0-9]{6,12}$", options: .regularExpression) != nil { return clean }
+        // Read only known grader URLs. Never navigate to or execute scanned content.
+        guard let url = URL(string: clean), url.scheme == "https", let host = url.host?.lowercased(),
+              ["psacard.com", "beckett.com", "acegrading.com", "cgccomics.com", "cgccards.com"].contains(where: { host == $0 || host.hasSuffix("." + $0) }) else { return nil }
+        let parts = url.pathComponents + (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.compactMap(\.value) ?? [])
+        let numbers = Set(parts.filter { $0.range(of: "^[0-9]{6,12}$", options: .regularExpression) != nil })
+        return numbers.count == 1 ? numbers.first : nil
+    }
     static func parse(lines: [String]) -> LabelReading {
         let upper = lines.map { $0.uppercased() }
         let text = upper.joined(separator: " ")

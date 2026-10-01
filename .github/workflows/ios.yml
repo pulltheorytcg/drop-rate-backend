@@ -18,10 +18,17 @@ jobs:
           DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for k,v in d["devices"].items() if "iOS" in k for x in v if "iPhone" in x["name"]))')
           echo "IOS_DEVICE=$DEVICE" >> "$GITHUB_ENV"
       - name: Build and test native app
-        run: xcodebuild -project ios/DropRate.xcodeproj -scheme DropRate -destination "platform=iOS Simulator,id=$IOS_DEVICE" -resultBundlePath ios-results.xcresult CODE_SIGNING_ALLOWED=NO test
+        run: xcodebuild -project ios/DropRate.xcodeproj -scheme DropRate -destination "platform=iOS Simulator,id=$IOS_DEVICE" -derivedDataPath ios-build -resultBundlePath ios-results.xcresult CODE_SIGNING_ALLOWED=NO test
+      - name: Capture launch screen
+        run: |
+          xcrun simctl launch "$IOS_DEVICE" com.droprate.sellerhub
+          sleep 3
+          xcrun simctl io "$IOS_DEVICE" screenshot ios-launch.png
       - name: Retain build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: iphone-test-results
-          path: ios-results.xcresult
+          path: |
+            ios-results.xcresult
+            ios-launch.png

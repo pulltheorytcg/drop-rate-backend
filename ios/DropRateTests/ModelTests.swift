@@ -19,6 +19,11 @@ final class ModelTests: XCTestCase {
     func testGraderMustBeWholeWord() {
         XCTAssertNil(LabelReading.parse(lines: ["SPACE", "12345678"]).company)
     }
+    func testBarcodeReadsCertificateWithoutOpeningURL() {
+        XCTAssertEqual(LabelReading.certificateFromBarcode("https://www.psacard.com/cert/00123456"), "00123456")
+        XCTAssertNil(LabelReading.certificateFromBarcode("https://psacard.com.evil.example/cert/00123456"))
+        XCTAssertNil(LabelReading.certificateFromBarcode("javascript:alert(12345678)"))
+    }
     func testMoneyDoesNotInventMissingValue() { XCTAssertEqual(Money.display(nil), "Not valued") }
     func testInventoryContractAndStoreFallback() throws {
         let data = Data(#"{"total":1,"items":[{"inventory_code":"INV-1","name":"Card","game":"Pokemon","status":"DRAFT","market_value_minor":null,"store_price_minor":null,"recommended_retail_minor":1234}]}"#.utf8)

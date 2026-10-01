@@ -8,6 +8,7 @@ final class Camera: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     private let output = AVCapturePhotoOutput()
     private var device: AVCaptureDevice?
     private var configured = false
+    private var wantsCamera = false
     private var completion: ((Data) -> Void)?
     @Published var message: String?
     @Published var ready = false
@@ -15,6 +16,7 @@ final class Camera: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     @Published var torch = false
 
     func start() {
+        queue.sync { wantsCamera = true }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: configureAndStart()
         case .notDetermined:
@@ -28,6 +30,7 @@ final class Camera: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     private func configureAndStart() {
         queue.async { [weak self] in
             guard let self else { return }
+            guard wantsCamera else { return }
             do {
                 if !configured {
                     session.beginConfiguration()
@@ -50,6 +53,7 @@ final class Camera: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     func stop() {
         queue.async { [weak self] in
             guard let self else { return }
+            wantsCamera = false
             if let device, device.hasTorch, (try? device.lockForConfiguration()) != nil {
                 device.torchMode = .off; device.unlockForConfiguration()
             }
@@ -92,7 +96,10 @@ final class Camera: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
         let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
         let format = UIGraphicsImageRendererFormat(); format.scale = 1
         let rendered = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
-        guard let data = rendered.jpegData(compressionQuality: 0.85) else { fail("Please retake this photo."); return }
+        guard let data = rendered.jpegData(compressionQuality: 0.85) else {
+            fail("Please retake this photo.")
+            DispatchQueue.main.async { self.capturing = false }; return
+        }
         DispatchQueue.main.async {
             self.capturing = false; self.completion?(data); self.completion = nil
         }
@@ -126,8 +133,11 @@ enum TextReader {
             request.usesLanguageCorrection = false
             let supported = try request.supportedRecognitionLanguages()
             request.recognitionLanguages = ["en-US", "ja-JP"].filter { supported.contains($0) }
-            try VNImageRequestHandler(data: data).perform([request])
-            return LabelReading.parse(lines: (request.results ?? []).compactMap { $0.topCandidates(1).first?.string })
+            let barcodes = VNDetectBarcodesRequest()
+            try VNImageRequestHandler(data: data).perform([request, barcodes])
+            let lines = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+            let codes = (barcodes.results ?? []).compactMap(\.payloadStringValue).compactMap(LabelReading.certificateFromBarcode)
+            return LabelReading.parse(lines: lines + codes)
         }.value
     }
 }
