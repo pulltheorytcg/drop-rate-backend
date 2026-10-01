@@ -1,5 +1,17 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-01 — Competitive Intelligence foundation in progress
+
+- Founder-prioritised Competitive Intelligence is now a formal fifth intelligence/growth pillar rather than an informal future idea.
+- Added deterministic source-policy, evidence-deduplication, corroboration and OBSERVE-only action primitives in `backend/app/competitive_intelligence.py`.
+- A competitor observation cannot qualify by itself: the engine requires independent source evidence plus at least one non-competitor corroborating origin (Drop Rate/internal, market, social or official).
+- Source preflight blocks unreviewed automated sources and any access-control bypass; competitor content is reference-only by default.
+- Competitive Intelligence can only hand off proposals (content, CRO/SEO experiment, merchandising, acquisition review); it cannot publish, copy creative, change price, ownership or finance.
+- Added `docs/COMPETITIVE_INTELLIGENCE.md` and regression coverage.
+- Expanded the source-controlled n8n roadmap from 42 to **43** workflows with `competitive-intelligence` as sequence 43, authority OBSERVE, status PLANNED.
+- No workflow JSON, external source adapter, database migration or production activation is included in this slice; the Phase 3 stability gate and per-source terms/rights review still apply.
+
+
 
 ## 2026-10-01 — Recognition quality benchmark foundation
 
