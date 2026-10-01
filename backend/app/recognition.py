@@ -1060,6 +1060,31 @@ async def recognize_card(
             owner_id,
         )
 
+    if observation.object_type == "SEALED_PRODUCT":
+        async with user_connection(
+            request.app.state.db_pool,
+            user.user_id,
+            request.state.request_id,
+        ) as connection:
+            sealed_rows = await _timed(
+                "sealed_catalogue_lookup",
+                load_sealed_candidates(connection, observation),
+            )
+            resolved = resolve_sealed_candidates(observation, sealed_rows)
+            timings_ms["pipeline_before_persist"] = round(
+                (time.perf_counter() - pipeline_started) * 1000,
+                2,
+            )
+            await persist_sealed_resolution(
+                connection,
+                run_id=run_id,
+                owner_id=owner_id,
+                observation=observation,
+                resolved=resolved,
+                timings_ms=timings_ms,
+            )
+            return jsonable_encoder(await _run_payload(connection, run_id))
+
     # v1.4 latency path: provider discovery and verified-learning hint lookup are
     # independent after vision, so run them concurrently.
     async def _load_learning_hints():
