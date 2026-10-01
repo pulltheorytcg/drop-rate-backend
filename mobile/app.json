@@ -5,8 +5,8 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "pulltheory",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B0E14",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F4F7FB",
     "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": false,

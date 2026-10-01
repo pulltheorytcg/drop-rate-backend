@@ -62,7 +62,7 @@ function AdminActivity() {
               color:
                 i.severity === "HIGH" || i.severity === "CRITICAL"
                   ? C.danger
-                  : C.lime,
+                  : C.accent,
             }}
           >
             {label(i.severity)} · {label(i.category)}
@@ -226,7 +226,7 @@ function SellerActivity() {
             <Text style={styles.text}>{p.payout_code}</Text>
             <Text style={styles.text}>{money(p.amount_minor, p.currency)}</Text>
           </View>
-          <Text style={{ ...styles.small, color: C.lime }}>
+          <Text style={{ ...styles.small, color: C.accent }}>
             {label(p.status)}
           </Text>
         </Panel>

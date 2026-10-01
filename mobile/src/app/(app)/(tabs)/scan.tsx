@@ -272,7 +272,7 @@ export default function Scan() {
                 width: "85%",
                 maxWidth: 310,
                 aspectRatio: 0.72,
-                borderColor: C.lime,
+                borderColor: C.accent,
                 borderWidth: 2,
                 borderRadius: 18,
               }}
@@ -358,7 +358,7 @@ export default function Scan() {
                   gap: 12,
                 }}
               >
-                <Text style={{ fontSize: 42, color: C.lime }}>⌗</Text>
+                <Text style={{ fontSize: 42, color: C.accent }}>⌗</Text>
                 <Text style={styles.text}>Every card has a story.</Text>
                 <Text style={styles.small}>Start with a clear photograph.</Text>
               </View>
@@ -487,7 +487,7 @@ export default function Scan() {
             </>
           )}
           {selected && (
-            <Panel style={{ borderColor: "#647A44" }}>
+            <Panel style={{ borderColor: C.accent }}>
               <Text style={styles.eyebrow}>YOUR SELECTED PRINTING</Text>
               <CardRow card={selected.card} />
               <Text style={styles.section}>
@@ -512,14 +512,14 @@ export default function Scan() {
                       padding: 14,
                       borderRadius: 12,
                       backgroundColor:
-                        (sealed ? seal : condition) === value ? C.lime : C.bg,
+                        (sealed ? seal : condition) === value ? C.accent : C.bg,
                     }}
                   >
                     <Text
                       style={{
                         color:
                           (sealed ? seal : condition) === value
-                            ? C.ink
+                            ? C.onAccent
                             : C.text,
                       }}
                     >
@@ -542,7 +542,7 @@ export default function Scan() {
                 onPress={() => setConfirmed(!confirmed)}
                 style={[styles.row, { paddingVertical: 12 }]}
               >
-                <Text style={{ fontSize: 24, color: C.lime }}>
+                <Text style={{ fontSize: 24, color: C.accent }}>
                   {confirmed ? "☑" : "☐"}
                 </Text>
                 <Text style={{ ...styles.text, flex: 1 }}>

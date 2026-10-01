@@ -24,6 +24,10 @@ Open http://127.0.0.1:8084 and choose **Seller demo** or **Admin demo**. Browser
 
 Node 22.13 or later is required; development was verified with Node 24.14.1. Commit and use `package-lock.json`. Expo SDK 57-compatible native dependencies are selected using `npx expo install`. On macOS, Metro may need Watchman if the OS reports `EMFILE`. The static preview above does not need it.
 
+## Visual theme
+
+The shared mobile theme follows the existing browser portals: pale backgrounds, white cards, navy navigation and cyan accents, with darker teal controls for readable text. Both roles share these tokens in `src/components/ui.tsx`.
+
 ## Implemented
 
 - Existing backend email/username/password sign-in and server-verified OWNER / PLATFORM_ADMIN access, single-flight token refresh and device-only session storage. No role is inferred from editable user metadata.

@@ -49,7 +49,7 @@ export default function Home() {
     <Page refreshing={loading} onRefresh={() => void reload()}>
       <View style={styles.spread}>
         <Text style={styles.eyebrow}>PULLTHEORY TCG</Text>
-        <Text style={{ ...styles.small, color: C.lime }}>
+        <Text style={{ ...styles.small, color: C.accent }}>
           {admin ? "FOUNDER HQ" : "SELLER HUB"}
         </Text>
       </View>
@@ -79,7 +79,7 @@ export default function Home() {
           />
         </Panel>
       )}
-      <Panel style={{ backgroundColor: "#1D2B23", borderColor: "#3B4B32" }}>
+      <Panel style={{ backgroundColor: C.info, borderColor: "#B9E1E9" }}>
         <Text style={styles.eyebrow}>
           {admin ? "ACTIVE STOCK" : "ACTIVE MARKET VALUE"}
         </Text>
@@ -133,7 +133,7 @@ export default function Home() {
         <Text
           onPress={() => router.push("/(app)/(tabs)/inventory")}
           accessibilityRole="link"
-          style={{ color: C.lime, padding: 10 }}
+          style={{ color: C.accent, padding: 10 }}
         >
           View all →
         </Text>

@@ -46,25 +46,49 @@ export default function SignIn() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Page>
-          <View style={{ paddingTop: 26, gap: 18 }}>
+          <View
+            style={{
+              padding: 24,
+              gap: 18,
+              backgroundColor: C.navy,
+              borderRadius: 16,
+            }}
+          >
             <View style={styles.row}>
               <View
                 style={{
-                  backgroundColor: C.lime,
+                  backgroundColor: C.cyan,
                   padding: 10,
                   borderRadius: 12,
                 }}
               >
-                <Ionicons name="layers" size={26} color={C.ink} />
+                <Ionicons name="layers" size={26} color={C.navy} />
               </View>
-              <Text style={{ ...styles.eyebrow, color: C.text, fontSize: 14 }}>
-                PULLTHEORY <Text style={{ color: C.lime }}>TCG</Text>
+              <Text
+                style={{ ...styles.eyebrow, color: "#FFFFFF", fontSize: 14 }}
+              >
+                PULLTHEORY <Text style={{ color: C.cyan }}>TCG</Text>
               </Text>
             </View>
-            <Text style={{ ...styles.title, fontSize: 43, marginTop: 28 }}>
+            <Text
+              style={{
+                ...styles.title,
+                fontSize: 34,
+                lineHeight: 39,
+                marginTop: 12,
+                color: "#FFFFFF",
+              }}
+            >
               Your collection.{"\n"}In your hands.
             </Text>
-            <Text style={{ ...styles.muted, fontSize: 16, lineHeight: 25 }}>
+            <Text
+              style={{
+                ...styles.muted,
+                fontSize: 16,
+                lineHeight: 25,
+                color: "#C8D6EC",
+              }}
+            >
               Scan, manage and follow every card.{"\n"}One place for sellers and
               your team.
             </Text>

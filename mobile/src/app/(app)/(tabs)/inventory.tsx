@@ -63,12 +63,12 @@ export default function InventoryScreen() {
             style={{
               padding: 11,
               borderRadius: 30,
-              backgroundColor: status === s ? C.lime : C.panel,
+              backgroundColor: status === s ? C.accent : C.panel,
             }}
           >
             <Text
               style={{
-                color: status === s ? C.ink : C.muted,
+                color: status === s ? C.onAccent : C.muted,
                 fontSize: 12,
                 fontWeight: "600",
               }}

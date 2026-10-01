@@ -94,7 +94,7 @@ export default function ItemScreen() {
               {item.name}
             </Text>
             <Text style={styles.muted}>{item.inventory_code}</Text>
-            <Text style={{ color: C.lime }}>{label(item.status)}</Text>
+            <Text style={{ color: C.accent }}>{label(item.status)}</Text>
           </View>
           <Panel>
             {[

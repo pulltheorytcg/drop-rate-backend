@@ -10,7 +10,7 @@ export default function AppLayout() {
       <View
         style={{ flex: 1, backgroundColor: C.bg, justifyContent: "center" }}
       >
-        <ActivityIndicator color={C.lime} />
+        <ActivityIndicator color={C.accent} />
       </View>
     );
   if (!access) return <Redirect href="/sign-in" />;
@@ -20,8 +20,8 @@ export default function AppLayout() {
         <Text
           style={{
             textAlign: "center",
-            backgroundColor: demo ? "#303A22" : "#252A35",
-            color: C.lime,
+            backgroundColor: C.info,
+            color: C.accent,
             fontSize: 11,
             padding: 7,
           }}

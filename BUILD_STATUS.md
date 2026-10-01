@@ -3,6 +3,7 @@
 
 ## 2026-10-01 — Shared Android / iPhone client (local preview, not deployed)
 
+- Mobile theme now follows the browser portals: light surfaces, navy navigation and blue/cyan accents, including matching light system appearance.
 - Added `mobile/`, an Expo SDK 57 client for existing OWNER and PLATFORM_ADMIN accounts, with role-specific home/inventory/activity screens, camera/photo recognition, manual correction and review-gated draft intake.
 - Uses current main API contracts. No backend/schema/production configuration changes. Existing SwiftUI draft work is preserved separately.
 - Native sessions and immutable pending intake requests use device-only secure storage; browser demos use isolated sample data and memory-only storage. Uncertain saves retry the same key and payload.

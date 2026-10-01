@@ -15,16 +15,21 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { Card } from "../lib/types";
+// Shared browser palette: owner-portal.css and founder-workspace.css.
 export const C = {
-  bg: "#0B0E14",
-  panel: "#151A23",
-  line: "#29313E",
-  text: "#F4F5F8",
-  muted: "#A0ABBB",
-  lime: "#D6F486",
-  ink: "#15230A",
-  violet: "#B8A0ED",
-  danger: "#FFB5AE",
+  bg: "#F4F7FB",
+  panel: "#FFFFFF",
+  line: "#E2E8F0",
+  text: "#13223B",
+  muted: "#5C6F87",
+  accent: "#0B7187",
+  onAccent: "#FFFFFF",
+  navy: "#071B3F",
+  cyan: "#28D7EB",
+  soft: "#EEF3F8",
+  info: "#EAF7FA",
+  danger: "#B52E37",
+  dangerSoft: "#FFF0F1",
 };
 export const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: C.bg },
@@ -51,7 +56,7 @@ export const styles = StyleSheet.create({
     backgroundColor: C.panel,
     borderWidth: 1,
     borderColor: C.line,
-    borderRadius: 18,
+    borderRadius: 12,
     padding: 18,
     gap: 12,
   },
@@ -59,10 +64,10 @@ export const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: C.line,
-    backgroundColor: C.bg,
+    backgroundColor: "#F8FAFC",
     color: C.text,
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 11,
     minHeight: 50,
     fontSize: 16,
   },
@@ -71,9 +76,14 @@ export const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 9,
     borderRadius: 7,
-    backgroundColor: "#242D25",
+    backgroundColor: C.info,
   },
-  eyebrow: { color: C.lime, fontSize: 11, fontWeight: "700", letterSpacing: 2 },
+  eyebrow: {
+    color: C.accent,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+  },
   divider: { height: 1, backgroundColor: C.line },
   button: {
     minHeight: 50,
@@ -111,7 +121,7 @@ export function Page({
           <RefreshControl
             refreshing={!!refreshing}
             onRefresh={onRefresh}
-            tintColor={C.lime}
+            tintColor={C.accent}
           />
         ) : undefined
       }
@@ -154,21 +164,27 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         {
-          backgroundColor: secondary ? "#252E3B" : C.lime,
+          backgroundColor: secondary ? C.panel : C.accent,
+          borderWidth: 1,
+          borderColor: secondary ? C.line : C.accent,
           opacity: disabled || busy ? 0.55 : pressed ? 0.8 : 1,
         },
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={secondary ? C.text : C.ink} />
+        <ActivityIndicator color={secondary ? C.text : C.onAccent} />
       ) : (
         icon && (
-          <Ionicons name={icon} size={19} color={secondary ? C.text : C.ink} />
+          <Ionicons
+            name={icon}
+            size={19}
+            color={secondary ? C.text : C.onAccent}
+          />
         )
       )}
       <Text
         style={{
-          color: secondary ? C.text : C.ink,
+          color: secondary ? C.text : C.onAccent,
           fontSize: 15,
           fontWeight: "700",
         }}
@@ -184,7 +200,7 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
       <Text style={styles.muted}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
-        placeholderTextColor="#6F7C8F"
+        placeholderTextColor={C.muted}
         style={styles.input}
         {...props}
       />
@@ -203,12 +219,12 @@ export function Notice({
     <View
       accessibilityRole={error ? "alert" : undefined}
       style={{
-        backgroundColor: error ? "#312126" : "#202B21",
+        backgroundColor: error ? C.dangerSoft : C.info,
         padding: 14,
         borderRadius: 12,
       }}
     >
-      <Text style={error ? styles.error : { ...styles.muted, color: C.lime }}>
+      <Text style={error ? styles.error : { ...styles.muted, color: C.accent }}>
         {children}
       </Text>
     </View>
@@ -231,11 +247,11 @@ export function CardArt({ card, size = 74 }: { card: Card; size?: number }) {
       style={{
         width: size,
         height: size * 1.36,
-        backgroundColor: "#252738",
+        backgroundColor: C.soft,
         borderRadius: 10,
         overflow: "hidden",
         borderWidth: 1,
-        borderColor: "#3C3C50",
+        borderColor: C.line,
         alignItems: "center",
         justifyContent: "center",
       }}
@@ -250,10 +266,10 @@ export function CardArt({ card, size = 74 }: { card: Card; size?: number }) {
         />
       ) : (
         <>
-          <Ionicons name="layers-outline" size={size * 0.32} color={C.violet} />
+          <Ionicons name="layers-outline" size={size * 0.32} color={C.accent} />
           <Text
             style={{
-              color: C.violet,
+              color: C.accent,
               fontSize: 9,
               marginTop: 8,
               textAlign: "center",
@@ -294,7 +310,7 @@ export function CardRow({
           {[card.language, card.variant].filter(Boolean).join(" · ")}
         </Text>
         {subtitle && (
-          <Text style={{ ...styles.small, color: C.lime }}>{subtitle}</Text>
+          <Text style={{ ...styles.small, color: C.accent }}>{subtitle}</Text>
         )}
         {trailing && (
           <Text style={{ ...styles.text, fontWeight: "600" }}>{trailing}</Text>
