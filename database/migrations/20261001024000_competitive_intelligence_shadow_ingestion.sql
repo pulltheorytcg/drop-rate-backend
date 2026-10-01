@@ -60,6 +60,10 @@ begin
     if p_observed_at is null or p_observed_at > clock_timestamp() + interval '5 minutes' then
         raise exception 'Competitive observation timestamp is invalid' using errcode='23514';
     end if;
+    if p_source_published_at is not null
+       and p_source_published_at > p_observed_at + interval '5 minutes' then
+        raise exception 'Competitive source publication timestamp is invalid' using errcode='23514';
+    end if;
 
     select
         s.id,
@@ -105,12 +109,10 @@ begin
            and v_existing.competitor_id = v_source.competitor_id
            and v_existing.observation_type = v_observation_type
            and v_existing.subject = v_subject
-           and v_existing.source_url is not distinct from v_source.source_url
            and v_existing.facts = p_facts
            and v_existing.evidence = p_evidence
            and v_existing.confidence = v_confidence
            and v_existing.relevance = v_relevance
-           and v_existing.rights_status = v_source.rights_status
            and v_existing.observed_at = p_observed_at
            and v_existing.source_published_at is not distinct from p_source_published_at
            and v_existing.actor_type = 'SYSTEM'
