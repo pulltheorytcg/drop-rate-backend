@@ -126,6 +126,12 @@ class RecognitionVisionError(RuntimeError):
 
 
 class RecognitionObservation(BaseModel):
+    object_type: Literal["CARD", "GRADED_CARD", "SEALED_PRODUCT", "NONE", "UNKNOWN"] = "CARD"
+    object_type_confidence: float = Field(default=1.0, ge=0, le=1)
+    sealed_product_type: Literal["BOOSTER_PACK", "BOOSTER_BOX", "STARTER_DECK", "COLLECTION", "TIN", "CASE", "OTHER", "UNKNOWN"] = "UNKNOWN"
+    sealed_product_type_confidence: float = Field(default=0.0, ge=0, le=1)
+    product_code: str = Field(default="", max_length=100)
+    product_code_confidence: float = Field(default=0.0, ge=0, le=1)
     game: Literal["Pokemon", "One Piece", "Dragon Ball Super Masters", "Dragon Ball Super Fusion World", "Naruto Kayou", "Naruto Bandai Legacy", "Naruto Bandai", "Yu-Gi-Oh!", "Riftbound", "Disney Lorcana", "Unknown"]
     game_confidence: float = Field(ge=0, le=1)
     language: Literal["English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese", "Unknown"]
@@ -215,6 +221,9 @@ class RecognitionObservation(BaseModel):
 
 
 _CONFIDENCE_FIELDS = (
+    "object_type_confidence",
+    "sealed_product_type_confidence",
+    "product_code_confidence",
     "game_confidence",
     "language_confidence",
     "name_confidence",
@@ -233,6 +242,7 @@ _CONFIDENCE_FIELDS = (
 )
 
 _STRING_LIMITS = {
+    "product_code": 100,
     "name_guess": 300,
     "set_name_guess": 300,
     "card_number": 100,
@@ -293,6 +303,12 @@ OBSERVATION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
+        "object_type": {"type": "string", "enum": ["CARD", "GRADED_CARD", "SEALED_PRODUCT", "NONE", "UNKNOWN"]},
+        "object_type_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "sealed_product_type": {"type": "string", "enum": ["BOOSTER_PACK", "BOOSTER_BOX", "STARTER_DECK", "COLLECTION", "TIN", "CASE", "OTHER", "UNKNOWN"]},
+        "sealed_product_type_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "product_code": {"type": "string", "maxLength": 100},
+        "product_code_confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "game": {"type": "string", "enum": [*SYSTEM_BY_GAME, "Unknown"]},
         "game_confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "language": {"type": "string", "enum": ["English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese", "Unknown"]},
@@ -330,6 +346,12 @@ OBSERVATION_SCHEMA: dict[str, Any] = {
         "notes": {"type": "array", "items": {"type": "string"}, "maxItems": 20},
     },
     "required": [
+        "object_type",
+        "object_type_confidence",
+        "sealed_product_type",
+        "sealed_product_type_confidence",
+        "product_code",
+        "product_code_confidence",
         "game",
         "game_confidence",
         "language",
@@ -370,9 +392,21 @@ OBSERVATION_SCHEMA: dict[str, Any] = {
 
 
 VISION_INSTRUCTIONS = """
-You are the evidence-extraction stage of Drop Rate's trading-card recognition system.
+You are the evidence-extraction stage of Drop Rate's collectible recognition system.
 
-Analyse only what is visible in the supplied card photograph. Do not decide whether
+First classify the photographed object itself. object_type must be CARD, GRADED_CARD,
+SEALED_PRODUCT, NONE or UNKNOWN. A booster wrapper, booster box, starter deck,
+collection box, tin or case is SEALED_PRODUCT and must never be interpreted as an
+individual card merely because card artwork or characters are printed on its packaging.
+Use NONE when no collectible is actually present in the scan guide.
+
+For SEALED_PRODUCT, identify the visible sealed_product_type and transcribe any
+manufacturer/set product code such as OP-17 into product_code. Keep card-only fields
+empty or low-confidence unless they are genuinely printed as packaging metadata.
+For CARD or GRADED_CARD, use product_code as an empty string and
+sealed_product_type=UNKNOWN.
+
+Analyse only what is visible in the supplied photograph. Do not decide whether
 the card is safe to publish, price, buy, sell, grade, or certify as authentic.
 Do not invent unreadable text. When a field cannot be established from the image,
 return an empty string or Unknown and lower the corresponding confidence.
