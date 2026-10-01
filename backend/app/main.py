@@ -35,6 +35,7 @@ from .inventory_sale_intent import router as inventory_sale_intent_router
 from .identity_review import router as identity_review_router
 from .condition_review import router as condition_review_router
 from .collectible_identity import router as collectible_identity_router
+from .competitive_intelligence_api import router as competitive_intelligence_router
 from .market_adapter_config import configure_market_adapters
 from .market_ingestion import router as market_ingestion_router
 from .market_discovery import router as market_discovery_router
@@ -340,6 +341,7 @@ def create_app() -> FastAPI:
     app.include_router(founder_onboarding_router)
     app.include_router(free_canonical_media_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(collectible_identity_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(competitive_intelligence_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(ebay_privacy_router)
     app.include_router(ebay_sales_router)
     app.include_router(ebay_oauth_router)
