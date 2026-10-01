@@ -11,6 +11,8 @@
 - 🚧 Recognition engine **v1.7.0** adds a private/audited visual fingerprint index over the governed provider reference-card library. Strong visual similarity can retrieve a plausible card identity even when OCR/name extraction is wrong, but provider-library visuals remain **retrieval-only** unless existing deterministic exact-printing gates independently pass.
 - The provider visual index uses the existing dHash-256 multi-crop fingerprints and server-side Postgres Hamming ranking. It does not add a new data provider and does not allow AI/provider images to silently self-verify a printing.
 - Current provider reference coverage available to this layer is **53,111 images** across the existing Pokémon, One Piece, Dragon Ball and Naruto reference sources. Population/backfill is performed through a platform-admin-only rebuild path and remains separately verifiable from canonical exact-print media.
+- ⚠️ Production verification found both persistent visual-fingerprint tables still at **0 indexed rows**. A guarded Japanese One Piece backfill ran without persisting hashes, so indexed visual retrieval must not be treated as active coverage yet; live recognition still falls back to runtime/provider/reference evidence until this is resolved.
+- 🚧 Recognition **v1.8.0** is being added as a focused One Piece accuracy path using the already-configured official CardTrader API. CardTrader single-card Blueprints are retrieval-only challengers with transient reference-image comparison: they may expose a wrong local match and force review, but they cannot independently satisfy exact-print acceptance or create canonical identity.
 
 ## 2026-10-01 — Full-library recognition correction in progress
 
