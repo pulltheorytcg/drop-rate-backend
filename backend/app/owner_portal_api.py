@@ -25,6 +25,7 @@ from .grading_certificates import (
 )
 from .physical_state import validate_physical_state
 from .pricing import _recalculate_one
+from .recognition_games import SYSTEM_BY_GAME
 from .settings import get_settings
 
 
@@ -33,6 +34,7 @@ BRAND_SQL = brand_sql("p")
 VISIBLE_STATUSES = ("DRAFT", "INSPECTION", "APPROVED", "RESERVED", "SOLD", "WITHDRAWN")
 OWNER_SCAN_SOURCE = "OWNER_SCAN"
 OWNER_GRADED_SCAN_SOURCE = "OWNER_GRADED_CERTIFICATE_SCAN"
+GAME_BY_SYSTEM = {system_code: game for game, system_code in SYSTEM_BY_GAME.items()}
 
 
 class OwnerProfileUpdate(BaseModel):
@@ -805,12 +807,16 @@ async def owner_catalogue_search(
             normalised,
             limit,
         )
-        items = [
+        canonical_items = [
             {**dict(row), "source_kind": "CATALOGUE", "requires_materialization": False}
             for row in rows
         ]
+        items = list(canonical_items)
 
         if include_reference:
+            reference_budget = min(max(5, limit // 2), limit)
+            canonical_budget = max(0, limit - reference_budget)
+            items = canonical_items[:canonical_budget]
             if run_id is None:
                 raise HTTPException(
                     status_code=422,
@@ -866,8 +872,6 @@ async def owner_catalogue_search(
                        = $2
                   )
                 order by
-                  case when c.system_code=$3 then 0 else 1 end,
-                  case when c.language=$4 then 0 when c.language='Unknown' then 1 else 2 end,
                   case
                     when $2 <> '' and upper(regexp_replace(coalesce(c.card_number,''),'[^A-Za-z0-9]','','g'))=$2 then 0
                     when lower(coalesce(c.card_number,''))=lower($1) then 1
@@ -875,6 +879,8 @@ async def owner_catalogue_search(
                     when c.card_number ilike $1||'%' then 3
                     else 4
                   end,
+                  case when c.system_code=$3 then 0 else 1 end,
+                  case when c.language=$4 then 0 when c.language='Unknown' then 1 else 2 end,
                   c.provider,c.system_code,c.language,c.provider_id
                 limit $5
                 """,
@@ -884,7 +890,9 @@ async def owner_catalogue_search(
                 preferred_language,
                 max(limit * 3, 30),
             )
-            seen_catalogue_ids = {str(item["id"]) for item in items if item.get("id")}
+            seen_catalogue_ids = {
+                str(item["id"]) for item in canonical_items if item.get("id")
+            }
             seen_reference_keys: set[tuple[str, str, str, str]] = set()
             for row in reference_rows:
                 mapped_id = row["mapped_catalogue_id"]
@@ -901,7 +909,7 @@ async def owner_catalogue_search(
                 seen_reference_keys.add(reference_key)
                 item = dict(row)
                 item["id"] = mapped_id
-                item["game"] = None
+                item["game"] = GAME_BY_SYSTEM.get(item["system_code"], item["system_code"])
                 item["market_value_minor"] = None
                 item["recommended_retail_minor"] = None
                 item["pricing_updated_at"] = None
@@ -914,6 +922,19 @@ async def owner_catalogue_search(
                     seen_catalogue_ids.add(str(mapped_id))
                 if len(items) >= limit:
                     break
+
+            if len(items) < limit:
+                selected_catalogue_ids = {
+                    str(item["id"]) for item in items if item.get("id")
+                }
+                for item in canonical_items[canonical_budget:]:
+                    if item.get("id") and str(item["id"]) in selected_catalogue_ids:
+                        continue
+                    items.append(item)
+                    if item.get("id"):
+                        selected_catalogue_ids.add(str(item["id"]))
+                    if len(items) >= limit:
+                        break
 
     return jsonable_encoder({"items": items[:limit], "query": query})
 
