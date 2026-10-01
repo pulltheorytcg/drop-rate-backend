@@ -233,3 +233,8 @@ Opportunity and observation idempotency is strict rather than approximate:
 - confidence, relevance and qualification thresholds are normalized to the database's five-decimal precision before evaluation/persistence/replay.
 
 These checks do not rewrite historical evidence or activate any external collection.
+
+
+### Hardening production verification
+
+The replay/evidence hardening is live in production. Supabase records it as migration `20261001022925 competitive_intelligence_replay_hardening`; the repository migration filename is aligned to that exact version. Railway deployed #445 successfully with 2,184 tests passing and `/health/ready` returning 200. The hardening does not activate external collection or downstream autonomous actions.
