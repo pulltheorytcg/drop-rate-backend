@@ -41,3 +41,17 @@ A successful cert lookup does not imply that PSA provides exact slab scans. If n
 ## Future
 
 After the storefront stability gate explicitly reopens graded-scanner work, move this provider logic into the common graded-certificate adapter contract documented in `docs/GRADED_SLAB_SCANNER_ARCHITECTURE.md` and retire the standalone Railway Function.
+
+
+## 1 October 2026 gateway update
+
+The source-controlled application now has a common grading-certificate lookup gateway at:
+
+- `GET /api/v1/grading-certificates/status`
+- `POST /api/v1/grading-certificates/lookup`
+
+PSA is the only automated provider in this first slice because PSA documents a Public API for single-cert lookup. The main API expects a dedicated `TCG_PSA_PUBLIC_API_TOKEN`; it never falls back to `TCG_PARSE_API_KEY`.
+
+Railway inspection also found that the service currently named `psa-cert-lookup-temp` is **not a PSA certificate service**: its deployed function is a Dragon Ball/CardTrader exact-media diagnostic. Do not delete it solely because of the name, but do not treat it as slab lookup infrastructure either. Rename/document it in a separate housekeeping slice after dependencies are checked.
+
+The deployed `psa-fetch-batch` Railway function is the actual PSA prototype. Its currently deployed inline function still contains an old fallback to `TCG_PARSE_API_KEY`, while the repository mirror has already removed that fallback. Until its deployment is reconciled and a dedicated PSA token exists, scanner traffic should use the source-controlled FastAPI gateway contract and PSA automation must report unconfigured rather than claim verification.

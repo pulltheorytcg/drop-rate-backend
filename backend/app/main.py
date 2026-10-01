@@ -21,6 +21,7 @@ from .automation_recovery import router as automation_recovery_router
 from .finance import router as finance_router
 from .founder_onboarding import router as founder_onboarding_router
 from .free_canonical_media import router as free_canonical_media_router
+from .grading_certificates import router as grading_certificates_router
 from .ebay_privacy import router as ebay_privacy_router
 from .ebay_sales import router as ebay_sales_router
 from .ebay_oauth import router as ebay_oauth_router
@@ -342,6 +343,7 @@ def create_app() -> FastAPI:
     app.include_router(automation_recovery_router)
     app.include_router(finance_router)
     app.include_router(founder_onboarding_router)
+    app.include_router(grading_certificates_router)
     app.include_router(free_canonical_media_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(collectible_identity_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(ebay_privacy_router)
