@@ -25,6 +25,7 @@ async def _eligible_provider_reference_rows(
     limit: int,
     system_code: str | None = None,
     language: str | None = None,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     rows = await connection.fetch(
         """
@@ -62,11 +63,13 @@ async def _eligible_provider_reference_rows(
             c.system_code,c.provider,c.language,
             c.refreshed_at desc,c.provider_id
         limit $4
+        offset $5
         """,
         FINGERPRINT_VERSION,
         system_code,
         language,
         limit,
+        max(0, offset),
     )
     return [dict(row) for row in rows]
 
