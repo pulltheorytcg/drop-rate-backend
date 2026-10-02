@@ -42,4 +42,6 @@
   document.addEventListener('hub-ready',()=>{if(!host.classList.contains('hidden'))launch();});
   window.addEventListener('hub-session-cleared',()=>{window.dropRateCatalogue?.destroy();window.dropRateCatalogue=null;});
   if(seller){const nav=document.querySelector('.owner-nav');['overview','search','scan','inventory','more'].forEach(view=>{const item=nav.querySelector(`[data-owner-view="${view}"]`);if(item)nav.append(item);});}
+  const workspace=document.getElementById(seller?"owner-portal-view":"dashboard-view");
+  if(state.session?.access_token && workspace && !workspace.classList.contains("hidden") && !host.classList.contains("hidden"))launch();
 })();
