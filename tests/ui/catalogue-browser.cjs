@@ -136,9 +136,12 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  // Spotlight resolves only the requested server identity; it never opens a similar variant.
  for(const outcome of ['exact','missing','navigate']){
   const pending=deferred(),f=fixture(()=>pending.promise);
+  f.browser.hasMore=true;f.browser.loading=false;f.browser.find('[data-action="more"]').hidden=false;
   const opened=f.browser.open(card.key);assert.match(f.calls[0].url,/keys=c%3A/);assert.equal(f.calls.length,1);
+  assert.equal(f.browser.hasMore,false);assert.equal(f.browser.loading,true);assert.equal(f.browser.find('[data-action="more"]').hidden,true);
   if(outcome==='navigate')f.browser.close();
   pending.resolve({items:outcome==='missing'?[{...card,key:'r:different-printing'}]:[card]});await opened;
+  assert.equal(f.browser.loading,false);
   assert.equal(f.browser.find('.dr-browse-backdrop').hidden,outcome!=='exact');
   if(outcome==='exact')assert.equal(f.browser.edit.row.key,card.key);
   if(outcome==='missing')assert.match(f.browser.find('.dr-browse-status').textContent,/currently unavailable/);

@@ -87,6 +87,7 @@ window.DropRateCatalogue = (() => {
     }
     async openReference(key) {
       const revision=++this.revision;this.controller?.abort();this.controller=new AbortController();
+      clearTimeout(this.timer);this.hasMore=false;this.loading=true;this.find('[data-action="more"]').hidden=true;
       const status=this.find('.dr-browse-status');status.textContent='Opening card…';
       try {
         const data=await this.client.request('/api/v1/catalogue-browser/products?'+new URLSearchParams({keys:key,limit:'1'}),{signal:this.controller.signal});
@@ -95,6 +96,7 @@ window.DropRateCatalogue = (() => {
         status.textContent=row?'':'This printing is currently unavailable. Search the catalogue to explore more cards.';
         if(row)this.openProduct(row);
       } catch(error) {if(this.active()&&revision===this.revision)status.textContent=error.message;}
+      finally {if(revision===this.revision)this.loading=false;}
     }
     close() {
       if(this.saving)return;
