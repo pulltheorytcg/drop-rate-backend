@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-02 — Unified sign-in and workspace navigation
+
+- Reviewed the two desktop recordings: separate login surfaces, a blank Search entry while metadata loaded, duplicate catalogue navigation, and ungrouped tools made the combined app feel fragmented.
+- `/app` and `/` now serve the same sign-in and authenticated entry. Email/username sign-in uses the existing rate-limited endpoint; verified permissions route owners to their workspace and restrict Founder HQ to the explicit roster. Legacy `/owner` visits restore the shared session or return to `/app`; password recovery, invite and OAuth callback handlers remain available.
+- Search is embedded in the existing workspace. Six known game tiles paint immediately while the server supplies current metadata. One primary navigation remains visible; filters, set/language browsing, watchlists, corrections and governed inventory additions retain their existing contracts.
+- Both roles share Home / Search / Scan / Inventory / More, responsive sidebar/bottom navigation, supplied Drop Rate artwork, grouped tools with descriptions, and back navigation. Existing forms are retained. Scanner implementation and v4 assets are unchanged.
+- Concurrent expired-token requests share one refresh. A transient dashboard-panel failure no longer clears founder login; owner startup failures offer Retry without erasing the session. Authentication/authorisation failures still deny access.
+- Validation: existing backend and dashboard suites, eight new session/routing/search failure cases, and isolated browser fixtures at 1360×900, 390×844 and 320×568 for both roles. Fixture screenshots use demo data. Real-account/device acceptance remains outstanding; no production inventory, money, permissions or schema changes. Release evidence is recorded on the accompanying PR.
+
+
 ## 2026-10-02 — Thumbnail grading, catalogue correction and overlapping scans
 
 - Applied the new Collectr recording to the shared Seller Hub / Founder HQ scanner. Thumbnail details offer Ungraded, PSA, Beckett, CGC, TAG, ACE, BVG and BCCG with grade menus, explicit certificate entry and cancellation without saving.

@@ -243,7 +243,7 @@ function activateSellerView(name, updateHash = false) {
     button.setAttribute("aria-selected", active ? "true" : "false");
     button.tabIndex = active ? 0 : -1;
   });
-  if (updateHash) history.replaceState(null, "", `#${valid}`);
+  if (updateHash && location.hash !== `#${valid}`) history.pushState(null, "", `#${valid}`);
   document.dispatchEvent(new CustomEvent("seller-view-changed", {detail: {view: valid}}));
   if (valid === "settings") {
     loadPricingAdapterStatus();

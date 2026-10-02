@@ -1200,9 +1200,10 @@ async function saveOwnerPayoutPreference() {
   }
 }
 
-function activateOwnerView(view) {
+function activateOwnerView(view, pushHistory = true) {
   const views = {
-    overview: ["Overview", "Everything you need to track your cards, sales and payouts."],
+    search: ["Search", "Discover cards and sets across the complete catalogue."],
+    overview: ["Home", "Everything you need to track your cards, sales and payouts."],
     inventory: ["Inventory", "Browse and search every physical card linked to your seller account."],
     scan: ["Scan cards", "Use Drop Rate recognition to identify a card, confirm it and add it safely to your inventory."],
     sales: ["Sales", "Understand every sale, deduction and penny allocated to you."],
@@ -1218,7 +1219,7 @@ function activateOwnerView(view) {
     panel.classList.toggle("hidden", panel.dataset.ownerViewPanel !== target);
   });
   document.querySelectorAll(".owner-nav-item[data-owner-view]").forEach((button) => {
-    const primary = ["overview", "inventory", "scan", "more"].includes(target) ? target : "more";
+    const primary = ["overview", "search", "inventory", "scan", "more"].includes(target) ? target : "more";
     button.classList.toggle("active", button.dataset.ownerView === primary);
     if (button.dataset.ownerView === primary) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
@@ -1226,8 +1227,10 @@ function activateOwnerView(view) {
 
   byId("owner-page-title").textContent = views[target][0];
   byId("owner-page-subtitle").textContent = views[target][1];
-  history.replaceState({}, document.title, target === "overview" ? "/owner" : `/owner#${target}`);
-  window.scrollTo({top: 0, behavior: "smooth"});
+  const destination=target === "overview" ? "/owner" : `/owner#${target}`;
+  if(location.pathname+location.hash!==destination) history[pushHistory?"pushState":"replaceState"]({}, document.title, destination);
+  document.dispatchEvent(new CustomEvent("owner-view-changed", {detail:{view:target}}));
+  window.scrollTo({top: 0, behavior: "instant"});
   if (target === "scan" && typeof window.ownerRecognitionEnter === "function") {
     window.ownerRecognitionEnter();
   }
@@ -1242,7 +1245,7 @@ function errorMessage(data) {
 
 async function readJson(response) {
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(errorMessage(data));
+  if (!response.ok) { const error=new Error(errorMessage(data));error.status=response.status;throw error; }
   return data;
 }
 
@@ -1286,15 +1289,15 @@ function clearSession() {
 }
 
 async function refreshSession() {
-  if (!state.session?.refresh_token) throw new Error("Your session has expired.");
-  const session = await authRequest("/token?grant_type=refresh_token", {
-    method: "POST",
-    body: JSON.stringify({refresh_token: state.session.refresh_token}),
+  return window.PullTheoryHubSession.refresh(async () => {
+    const previous = state.session;
+    if (!previous?.refresh_token) throw new Error("Your session has expired.");
+    const session = await authRequest("/token?grant_type=refresh_token", {method:"POST", body:JSON.stringify({refresh_token:previous.refresh_token})});
+    if (state.session !== previous) throw new Error("Your account changed. Please sign in again.");
+    saveSession(session);
+    return session.access_token;
   });
-  saveSession(session);
-  return session.access_token;
 }
-
 async function apiRequest(path, options = {}, retry = true) {
   const requestOptions = {
     ...options,
@@ -1391,8 +1394,8 @@ async function openOwnerPortal() {
   const result = await apiRequest("/api/v1/access/me");
   const access = result.access || {};
 
-  if (access.access_role === "PLATFORM_ADMIN" || access.founder_hq_allowed === true) {
-    window.location.replace("/");
+  if (access.founder_hq_allowed === true) {
+    window.location.replace("/app" + window.location.search + window.location.hash);
     return;
   }
   if (access.access_role !== "OWNER" || access.portal !== "OWNER_PORTAL") {
@@ -1408,7 +1411,9 @@ async function openOwnerPortal() {
   byId("owner-auth-view").classList.add("hidden");
   byId("owner-portal-view").classList.remove("hidden");
   const hashView = window.location.hash.replace("#", "");
-  activateOwnerView(["inventory", "scan", "sales", "balance", "channels", "settlements", "profile", "more"].includes(hashView) ? hashView : "overview");
+  activateOwnerView(["search", "inventory", "scan", "sales", "balance", "channels", "settlements", "profile", "more"].includes(hashView) ? hashView : "overview", false);
+  document.body.classList.remove("hub-restoring");
+  document.dispatchEvent(new Event("hub-ready"));
   await reloadOwnerDashboard();
   showOwnerOnboardingWelcome();
 }
@@ -1423,18 +1428,24 @@ function denyAccess(message) {
   clearSession();
   byId("owner-portal-view").classList.add("hidden");
   byId("owner-auth-view").classList.remove("hidden");
-  showMessage(message, "error");
+  sessionStorage.setItem("drop-rate-signin-notice", message);
+  window.location.replace("/app");
 }
 
 async function initialise() {
+  const existing = window.PullTheoryHubSession.read();
+  if (!existing?.access_token && !/access_token=/.test(window.location.hash)) {
+    window.location.replace("/app" + window.location.search + window.location.hash);
+    return;
+  }
   try {
     state.config = await readJson(await fetch("/api/v1/public-config"));
   } catch (_error) {
-    showMessage("Seller Hub is temporarily unavailable. Please refresh shortly.", "error");
+    window.PullTheoryHubSession.showFailure("Your workspace couldn’t load. Your session is kept; please retry.");
     return;
   }
 
-  await loadSocialProviders();
+  // This route only restores existing sessions; sign-in lives at /app.
 
   if (parseOAuthSession()) {
     try {
@@ -1457,8 +1468,9 @@ async function initialise() {
       state.session = stored;
       await openOwnerPortal();
     }
-  } catch (_error) {
-    clearSession();
+  } catch (error) {
+    if([401,403].includes(error.status)||error.message==="OWNER_PORTAL_ACCESS_DENIED"||error.message==="No active owner membership") denyAccess("Please sign in with an authorised Drop Rate account.");
+    else window.PullTheoryHubSession.showFailure("Your workspace couldn’t load. Your session is kept; please retry.");
   }
 }
 
@@ -1617,6 +1629,8 @@ byId("owner-logout-button").addEventListener("click", () => {
   byId("owner-auth-view").classList.remove("hidden");
   byId("owner-password-input").value = "";
   showMessage();
+  window.location.replace("/app");
 });
 
+window.addEventListener("hashchange",()=>{if(state.session && !byId("owner-portal-view").classList.contains("hidden"))activateOwnerView(location.hash.slice(1)||"overview",false);});
 initialise();

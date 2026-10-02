@@ -48,7 +48,7 @@ function setBusy(form, busy) {
 }
 async function readJson(response) {
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(errorMessage(data));
+  if (!response.ok) { const error = new Error(errorMessage(data)); error.status = response.status; throw error; }
   return data;
 }
 async function authRequest(path, options = {}) {
@@ -120,10 +120,14 @@ function clearSession() {
   window.PullTheoryHubSession.clear();
 }
 async function refreshSession() {
-  if (!state.session?.refresh_token) throw new Error("Your session has expired.");
-  const session = await authRequest("/token?grant_type=refresh_token", { method: "POST", body: JSON.stringify({ refresh_token: state.session.refresh_token }) });
-  saveSession(session);
-  return session.access_token;
+  return window.PullTheoryHubSession.refresh(async () => {
+    const previous = state.session;
+    if (!previous?.refresh_token) throw new Error("Your session has expired.");
+    const session = await authRequest("/token?grant_type=refresh_token", {method:"POST", body:JSON.stringify({refresh_token:previous.refresh_token})});
+    if (state.session !== previous) throw new Error("Your account changed. Please sign in again.");
+    saveSession(session);
+    return session.access_token;
+  });
 }
 async function apiRequest(path, options = {}, retry = true) {
   const requestOptions = {
@@ -1114,7 +1118,8 @@ async function openDashboard() {
   try {
     const access = await apiRequest("/api/v1/access/me");
     if (access.access?.access_role === "OWNER" && access.access?.portal === "OWNER_PORTAL") {
-      window.location.replace("/owner");
+      state.routing=true;
+      window.location.replace("/owner" + window.location.search + window.location.hash);
       return;
     }
     if (!access.access?.founder_hq_allowed) {
@@ -1125,12 +1130,17 @@ async function openDashboard() {
     byId("owner-name").textContent = me.owner.display_name;
     byId("auth-view").classList.add("hidden");
     byId("dashboard-view").classList.remove("hidden");
-    await reloadDashboard();
+    document.body.classList.remove("hub-restoring");
+    document.dispatchEvent(new Event("hub-ready"));
+    // A data-panel failure must not destroy an authenticated session.
+    try { await reloadDashboard(); }
+    catch (error) { showMessage("inventory-message", "Some data could not load. Use Refresh to try again. " + error.message, "error"); }
   } catch (error) {
     const denied = error.message === "FOUNDER_HQ_ACCESS_DENIED"
       || error.message === "No active owner membership"
       || error.message === "Platform administrator access required";
-    clearSession();
+    if (denied || [401,403].includes(error.status)) clearSession();
+    document.body.classList.remove("hub-restoring");
     byId("dashboard-view").classList.add("hidden");
     byId("auth-view").classList.remove("hidden");
     showForm("login-form");
@@ -1138,7 +1148,7 @@ async function openDashboard() {
       "login-message",
       denied
         ? "This account is not authorised for Founder HQ."
-        : "Please sign in to continue.",
+        : "We couldn’t open your workspace. Your session is kept; refresh to retry or sign in again.",
       "error"
     );
   }
@@ -1151,12 +1161,16 @@ function logout() {
   byId("auth-view").classList.remove("hidden");
   showForm("login-form");
   byId("login-password").value = "";
+  document.body.classList.remove("hub-restoring");
+  history.replaceState({}, "", "/app");
 }
-async function initialise() {
+async function initialiseSession() {
+  const notice=sessionStorage.getItem("drop-rate-signin-notice");if(notice){showMessage("login-message",notice,"error");sessionStorage.removeItem("drop-rate-signin-notice");}
+  if(!window.PullTheoryHubSession.read()?.access_token && !window.location.hash.includes("access_token=")) document.body.classList.remove("hub-restoring");
   try { state.config = await readJson(await fetch("/api/v1/public-config")); }
   catch (_error) { showMessage("login-message", "The dashboard is temporarily unavailable. Please refresh shortly.", "error"); return; }
 
-  await loadSocialProviders();
+  loadSocialProviders();
 
   if (redirectPendingFounderInviteCallback()) return;
   if (parseRecoverySession()) return;
@@ -1183,7 +1197,7 @@ byId("login-apple").addEventListener("click", () => startOAuth("apple"));
 byId("login-form").addEventListener("submit", async (event) => {
   event.preventDefault(); setBusy(event.currentTarget, true); showMessage("login-message");
   try {
-    const session = await authRequest("/token?grant_type=password", { method: "POST", body: JSON.stringify({ email: byId("login-email").value.trim(), password: byId("login-password").value }) });
+    const session = await readJson(await fetch("/api/v1/public/owner-session", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({identifier:byId("login-email").value.trim(), password:byId("login-password").value})}));
     saveSession(session); await openDashboard();
   } catch (error) { showMessage("login-message", error.message, "error"); }
   finally { setBusy(event.currentTarget, false); }
@@ -1233,4 +1247,8 @@ byId("select-page").addEventListener("change", (event) => {
 });
 document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => byId(button.dataset.close).close()));
 
+async function initialise() {
+  try { await initialiseSession(); }
+  finally { if(!state.routing)document.body.classList.remove("hub-restoring"); }
+}
 initialise();

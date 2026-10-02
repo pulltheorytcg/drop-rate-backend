@@ -4,43 +4,45 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#071b3f">
-  <title>Drop Rate — Founder Dashboard</title>
+  <title>Drop Rate</title>
   <link rel="stylesheet" href="/assets/styles.css?v=founder-v5">
   <link rel="stylesheet" href="/assets/founder-workspace.css?v=2">
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
   <link rel="stylesheet" href="/assets/scanner-flow.css?v=4">
   <link rel="stylesheet" href="/assets/catalogue-browser.css?v=2">
+  <link rel="stylesheet" href="/assets/workspace-shell.css?v=1">
 </head>
-<body>
+<body class="hub-restoring">
+  <div class="hub-loading" role="status"><span class="hub-loading-mark">D</span><strong>Opening Drop Rate…</strong></div>
   <div class="ambient ambient-one"></div>
   <div class="ambient ambient-two"></div>
 
   <main class="shell">
     <section id="auth-view" class="auth-layout">
       <div class="brand-panel">
-        <div class="brand-lockup brand-lockup-logo"><span class="dr-logo-image" role="img" aria-label="Drop Rate FOUNDER HQ"></span></div>
+        <div class="brand-lockup brand-lockup-logo"><span class="dr-logo-image" role="img" aria-label="Drop Rate"></span></div>
         <div class="brand-copy">
-          <p class="eyebrow">Founder operations</p>
+          <p class="eyebrow">Your collection starts here</p>
           <h1>Your collection.<br><em>Under control.</em></h1>
-          <p class="lead">A private workspace for inventory, ownership and pricing decisions.</p>
+          <p class="lead">Discover cards, build your collection and manage your sales — all in Drop Rate.</p>
         </div>
-        <div class="trust-row"><span>Private access</span><span>Owner scoped</span><span>Audit ready</span></div>
+        <div class="trust-row"><span>Discover</span><span>Collect</span><span>Sell</span></div>
       </div>
 
       <div class="auth-panel">
-        <div class="mobile-brand brand-lockup-logo"><span class="dr-logo-image" role="img" aria-label="Drop Rate FOUNDER HQ"></span></div>
+        <div class="mobile-brand brand-lockup-logo"><span class="dr-logo-image" role="img" aria-label="Drop Rate"></span></div>
 
         <form id="login-form" class="auth-card">
           <p class="eyebrow">Welcome back</p>
-          <h2>Founder sign in</h2>
-          <p class="muted">Use the email connected to your Drop Rate account.</p>
+          <h2>Sign in to Drop Rate</h2>
+          <p class="muted">Your collection, sales and payouts. One account, one workspace.</p>
           <div id="login-social-auth" class="social-auth hidden" aria-label="Social sign in">
             <button id="login-google" class="oauth-button" type="button" data-provider="google">Continue with Google</button>
             <button id="login-apple" class="oauth-button oauth-button-apple" type="button" data-provider="apple">Continue with Apple</button>
             <div class="auth-divider"><span>or use email</span></div>
           </div>
-          <label>Email address<input id="login-email" type="email" autocomplete="email" required></label>
+          <label>Email or username<input id="login-email" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
           <label>Password<input id="login-password" type="password" autocomplete="current-password" required></label>
           <div id="login-message" class="message" role="status"></div>
           <button class="primary-button" type="submit">Sign in <span>→</span></button>
@@ -71,7 +73,7 @@
 
     <section id="dashboard-view" class="dashboard hidden">
       <header class="topbar">
-        <div class="brand-lockup brand-lockup-logo"><span class="dr-logo-image" role="img" aria-label="Drop Rate FOUNDER HQ"></span></div>
+        <div class="brand-lockup brand-lockup-logo"><span class="dr-logo-image" role="img" aria-label="Drop Rate"></span></div>
         <div class="topbar-actions">
           <div class="user-chip"><span id="owner-initial">S</span><div><strong id="owner-name">Founder</strong><small id="owner-email"></small></div></div>
           <button id="logout-button" class="ghost-button" type="button">Sign out</button>
@@ -198,7 +200,7 @@
       <div class="modal-actions"><button class="ghost-button" type="button" data-close="purchase-lot-dialog">Cancel</button><button id="lot-save" class="primary-button compact" type="submit">Create purchase lot</button></div>
     </form>
   </dialog>
-  <script src="/assets/hub-session.js?v=1" defer></script>
+  <script src="/assets/hub-session.js?v=2" defer></script>
   <script src="/assets/app.js?v=2" defer></script>
   <script src="/assets/purchase-lots.js" defer></script>
   <script src="/assets/inventory-state.js" defer></script>
