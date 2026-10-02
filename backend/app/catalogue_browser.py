@@ -68,6 +68,50 @@ with reference_base as materialized (
 )
 """
 
+# Sets are catalogue records in their own right. Starting from card entries hid
+# known sets whose provider checklist is empty, even with ownership set to all.
+SET_CTE = SOURCE_CTE + """, entry_sets as (
+ select e.system_code,e.set_id,e.set_name,e.language,e.provider,min(e.game) as game,
+        max(e.release_date) as release_date,count(*)::int as indexed_count,
+        count(*) filter(where o.quantity>0)::int as owned_count,
+        sum(o.owned_value_minor) as owned_value_minor,
+        coalesce(sum(o.unknown_values),0)::int as unknown_values
+ from entries e left join owned o on o.catalogue_id=e.catalogue_id
+ group by e.system_code,e.set_id,e.set_name,e.language,e.provider
+), set_catalogue as (
+ select s.system_code,s.set_id,s.name as set_name,s.language,s.provider,
+        coalesce(e.game,s.system_code) as game,s.release_date,
+        coalesce(e.indexed_count,0) as indexed_count,
+        greatest(coalesce(s.declared_card_count,0),coalesce(e.indexed_count,0)) as card_count,
+        coalesce(e.owned_count,0) as owned_count,e.owned_value_minor,
+        coalesce(e.unknown_values,0) as unknown_values
+ from tcg.reference_sets s left join entry_sets e
+   using(system_code,set_id,language,provider)
+ where s.release_date is null or s.release_date<=current_date
+ union all
+ select e.system_code,e.set_id,e.set_name,e.language,e.provider,e.game,e.release_date,
+        e.indexed_count,e.indexed_count,e.owned_count,e.owned_value_minor,e.unknown_values
+ from entry_sets e where e.provider=''
+)
+"""
+
+GAMES_SQL = SET_CTE + """
+ select system_code,min(game) as game,array_agg(distinct language order by language) as languages,
+        sum(indexed_count)::int as products,count(*)::int as sets
+ from set_catalogue where system_code is not null group by system_code order by min(game),system_code
+"""
+
+SETS_SQL = SET_CTE + """
+ select *,count(*) over()::int as total_count,
+        case when indexed_count=0 then 'UNAVAILABLE'
+             when card_count>indexed_count then 'PARTIAL' else 'AVAILABLE' end as checklist_status
+ from set_catalogue
+ where system_code=$2 and ($3='' or language=$3)
+   and ($4='' or strpos(lower(set_name),lower($4))>0 or strpos(lower(set_id),lower($4))>0)
+ order by release_date desc nulls last,set_name,language,provider,set_id
+ limit $5 offset $6
+"""
+
 # Only approved canonical media appears in catalogue results. Reference artwork
 # remains clearly labelled and is never promoted into storefront media here.
 MEDIA_SQL = """
@@ -95,11 +139,7 @@ async def browser_access(request: Request, user: Annotated[AuthenticatedUser, De
 async def games(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
                 access: Annotated[dict, Depends(browser_access)]):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        rows = await connection.fetch(SOURCE_CTE + """
-          select e.system_code,min(e.game) as game,array_agg(distinct e.language order by e.language) as languages,
-                 count(*)::int as products,count(distinct e.set_name)::int as sets
-          from entries e where e.system_code is not null group by e.system_code order by min(e.game),e.system_code
-        """, access["owner_id"])
+        rows = await connection.fetch(GAMES_SQL, access["owner_id"])
     return jsonable_encoder({"items": [{**dict(row), "game": GAME_BY_SYSTEM.get(row["system_code"], row["game"])} for row in rows]})
 
 
@@ -109,19 +149,10 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
                language: str = Query(default="", max_length=80), q: str = Query(default="", max_length=160),
                limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        rows = await connection.fetch(SOURCE_CTE + """
-          select e.system_code,e.set_id,e.set_name,e.language,e.provider,max(e.release_date) as release_date,
-                 count(*)::int as indexed_count,count(*) filter(where o.quantity>0)::int as owned_count,
-                 sum(o.owned_value_minor) as owned_value_minor,coalesce(sum(o.unknown_values),0)::int as unknown_values
-          from entries e left join owned o on o.catalogue_id=e.catalogue_id
-          where e.system_code=$2 and ($3='' or e.language=$3)
-            and ($4='' or strpos(lower(e.set_name),lower($4))>0 or strpos(lower(e.set_id),lower($4))>0)
-          group by e.system_code,e.set_id,e.set_name,e.language,e.provider
-          order by max(e.release_date) desc nulls last,e.set_name,e.language,e.provider,e.set_id
-          limit $5 offset $6
-        """, access["owner_id"], system_code, language, q.strip(), limit + 1, offset)
+        rows = await connection.fetch(SETS_SQL, access["owner_id"], system_code, language, q.strip(), limit + 1, offset)
     return jsonable_encoder({"items": [dict(row) for row in rows[:limit]], "has_more": len(rows) > limit,
-                             "offset": offset, "coverage": "INDEXED_PRODUCTS"})
+                             "offset": offset, "total_count": rows[0]["total_count"] if rows else 0,
+                             "coverage": "MASTER_SET_CATALOGUE"})
 
 
 def product_query(*, owner_id, q="", system_code="", language="", set_id="", provider=None,

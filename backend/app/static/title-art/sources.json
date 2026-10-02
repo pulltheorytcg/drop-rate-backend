@@ -660,5 +660,27 @@
       "bytes": 90902,
       "retrieved": "2026-10-02"
     }
-  ]
+  ],
+  "provider_set_logos": {
+    "provider": "TCGdex",
+    "retrieved": "2026-10-02",
+    "indexes": [
+      {
+        "url": "https://api.tcgdex.net/v2/en/sets",
+        "language": "English",
+        "sets": 220,
+        "logos": 157,
+        "sha256": "5d1d49cc20ff35b5b93bd14226d80e9298b6ab33ce086ab128fbb6bd8cb5c79a"
+      },
+      {
+        "url": "https://api.tcgdex.net/v2/ja/sets",
+        "language": "Japanese",
+        "sets": 184,
+        "logos": 0,
+        "sha256": "7f6a4c31dfd3344523f9565796a39fe01f98033acfd5dfb1b7498255131b0770"
+      }
+    ],
+    "documentation": "https://tcgdex.dev/assets",
+    "delivery": "Original logos from assets.tcgdex.net; exact provider, language and set ID required."
+  }
 }

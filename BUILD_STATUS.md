@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-02 — Browse the master catalogue with zero ownership (PR #498 follow-up; not deployed)
+
+- User clarified that all sets/cards should be browsable regardless of portfolio ownership. Default product browsing already included unowned reference cards; set browsing incorrectly depended on loaded card entries. It now starts from the master set registry, with owner quantities/values added separately.
+- Read-only empty-owner verification returns all 810 current set/language/provider groups across six game systems: 739 reference records plus 71 canonical groups. All 72 previously hidden Pokémon set records are visible (4 English, 68 Japanese). Missing/partial checklists are labelled; no card records or prices are invented, and no stock is created by browsing.
+- Opening a set resets hidden ownership/watchlist/type filters. Owned-only remains optional. Added the existing TCGdex provider's 157 English set-logo URLs with exact provider/language/set-ID matching and a reproducible refresh script; Japanese source logos remain unavailable and use the game-mark fallback.
+- Verification: 23 browser backend tests and 9 browser UI scenarios pass, plus actual read-only SQL with every owned count zero. No schema, RLS, recognition, provider subscription, publishing or production data changes. PR #498 remains a draft stacked on #497.
+
 ## 2026-10-02 — Official game and set titles (PR #498 follow-up; not deployed)
 
 - Replaced the six game-title tiles with publisher artwork, including Pokémon TCG. Added 30 English Pokémon expansion logos and both English/Japanese One Piece OP13 titles, preserving Drop Rate's layout and colours around the original logos.

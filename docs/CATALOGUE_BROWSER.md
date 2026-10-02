@@ -15,9 +15,14 @@ default, not the initial filtered frame.
   accessible under More; existing account and founder tools are retained.
 - The unfiltered search screen shows game tiles. Selecting a game opens a
   two-column mobile product grid, with removable filter chips and Show Sets.
+- Search browses the master catalogue by default, including items the current
+  owner has never held. Ownership is an optional filter and a per-owner overlay;
+  it never decides which games or default set tiles exist.
 - Sets have a separate search, available language tabs, release dates when known,
-  owned/indexed progress and known inventory value. Selecting a set scopes the
-  product query by game, set, language and provider.
+  owned/known checklist progress and known inventory value. Sets without loaded
+  card records remain visible with zero ownership and a checklist-unavailable
+  note. Selecting a set scopes the product query by game, set, language and
+  provider, and resets hidden product/watchlist/ownership filters.
 - Product cards show artwork, identity, language/finish, available reference value,
   own quantity and an add button. Sort and Filter open sheets. Cards/Sealed and
   Owned/Not Owned are mutually exclusive choices; Clear filters returns to the
@@ -62,8 +67,9 @@ inventory/receipt transaction. No post-commit metadata write is required.
 The current catalogue has six game systems. Artwork, complete set names, release
 dates and market coverage vary; some One Piece sets still have provider pack
 labels. Game and set tiles use the publisher artwork described below. Unknown
-values remain pending, and progress means indexed products rather than a claim
-of complete master-set coverage. Collectr's prices, percentage changes and wider
+values remain pending. Set totals use the larger of the provider's declared
+checklist count and loaded entries; missing/partial checklists are labelled.
+This is not a claim of complete physical-printing coverage. Collectr's prices, percentage changes and wider
 catalogue are not imported or invented. Product cards display approved canonical
 images or labelled reference artwork. No storefront media is promoted here.
 
@@ -77,6 +83,13 @@ images or labelled reference artwork. No storefront media is promoted here.
   and Japanese One Piece OP13 titles. Matching requires the correct game and
   language, then an exact normalized name, set code or whitelisted provider ID.
   English Pokémon logos are not substituted for Japanese set titles.
+- The existing TCGdex provider contributes 157 English set-logo URLs, matched by
+  exact provider, language and set ID, with publisher-bundled artwork preferred.
+  Its current Japanese index supplies no logos; those titles use the game-mark
+  fallback. `backend/scripts/refresh_catalogue_logos.py` refreshes the checked-in
+  lookup and source hashes from the two public indexes. It makes no database or
+  inventory changes. These extra original logos load from the already permitted
+  `assets.tcgdex.net` host and restore text if unavailable.
 - Unmapped sets show the official game logo with the real set name and code.
   Failed image loads restore the text fallback. Unknown set values display
   Pending once; partially priced holdings retain the known sum plus pending.
@@ -93,6 +106,19 @@ other-account write authority.
 
 ## Verification and limits
 
+- Empty-portfolio verification on 2 October: read-only queries of the actual
+  database return all 810 current set/language/provider groups across six games,
+  with every owned count zero. This includes 739 reference set records and 71
+  additional canonical groups, not 810 distinct worldwide expansions. All 72
+  previously hidden Pokémon reference sets (4 English, 68 Japanese) are now
+  returned; their missing card checklists are explicitly unavailable, not
+  fabricated. Current reference data holds 67,996 card records; complete worldwide
+  catalogue coverage and every sealed release are still not established.
+- Follow-up verification: 23 existing browser backend tests pass; the browser UI
+  suite now has 9 scenarios, including empty ownership, empty set checklists,
+  pagination, filter reset and provider/language-safe logo lookup. The exact
+  paginated SQL also returns an empty known set and unowned Base Set cards.
+  No production data was written.
 - Full backend suite passed at 2,371 tests before the final incomplete-reference
   error check; the final browser-specific suite has 23 passing tests. It covers
   both roles, unauthorized founders/memberships, owner scoping, literal search,

@@ -32,7 +32,7 @@ window.DropRateCatalogue = (() => {
       this.dialog.innerHTML = `<header class="dr-browse-header"><div class="dr-browse-set-heading" hidden><button type="button" data-action="back" aria-label="Back to products">←</button><h2></h2></div>
         <div class="dr-browse-searchbar"><button type="button" data-action="camera" aria-label="Open scanner">◎</button><input type="search" maxlength="160" placeholder="Search for products" aria-label="Search for products"><button type="button" data-action="clear-query" aria-label="Clear search">×</button><button type="button" data-action="watch" aria-label="Watchlist">☆</button><button type="button" data-action="menu" aria-label="Sort and filter">☷</button></div>
         <div class="dr-browse-menu" hidden><button type="button" data-action="sort">Sort ↕</button><button type="button" data-action="filters">Filter ☷</button></div>
-        <div class="dr-browse-context"><span>Adding to: <strong>Your inventory</strong></span><button type="button" data-action="sets">Show Sets</button></div>
+        <div class="dr-browse-context"><span>Browse: <strong>All products</strong></span><button type="button" data-action="sets">Show Sets</button></div>
         <div class="dr-browse-chips"></div><nav class="dr-browse-languages" aria-label="Set language" hidden></nav><button type="button" class="dr-browse-pending" hidden></button></header>
         <div class="dr-browse-scroll"><p class="dr-browse-status" role="status"></p><div class="dr-browse-content"></div><button type="button" data-action="more" class="dr-browse-load" hidden>Load more</button><div class="dr-browse-sentinel"></div></div>
         <nav class="dr-browse-nav" aria-label="App navigation"><button type="button" data-action="home"><span>⌂</span>Home</button><button type="button" class="active" data-action="search"><span>⌕</span>Search</button><button type="button" data-action="camera"><span>◎</span>Scan</button><button type="button" data-action="inventory"><span>▣</span>Inventory</button><button type="button" data-action="tools"><span>•••</span>More</button></nav>
@@ -80,6 +80,7 @@ window.DropRateCatalogue = (() => {
     isHome() { const f=this.filters;return this.page!=="sets" && !f.q.trim()&&!f.system_code&&!f.language&&!f.product_type&&f.owned==="all"&&!f.watch; }
     pickGame(game) { this.filters.system_code=game.system_code;this.filters.language="";this.set=null;this.page="products";this.load(); }
     showSets() { if(!this.filters.system_code)return;this.page="sets";this.setQuery="";this.set=null;
+      this.filters.q="";this.filters.owned="all";this.filters.watch=false;this.filters.product_type="";
       const langs=this.game()?.languages||[];if(!this.filters.language)this.filters.language=langs.includes("English")?"English":langs[0]||"";this.load(); }
     back() { if(this.page==="sets"){this.page="products";this.setQuery="";this.load();}
       else if(this.set){this.set=null;this.showSets();}else this.reset(); }
@@ -90,6 +91,7 @@ window.DropRateCatalogue = (() => {
       this.input.value=sets?this.setQuery:this.filters.q; this.input.placeholder=sets?"Search by sets":"Search for products";
       this.input.setAttribute("aria-label",this.input.placeholder);
       this.find(".dr-browse-context").hidden=sets||home;
+      this.find(".dr-browse-context strong").textContent=this.filters.watch?"Watchlist":this.filters.owned==="owned"?"Products owned":this.filters.owned==="not_owned"?"Products not owned":"All products";
       this.find('[data-action="sets"]').hidden=!this.filters.system_code;
       this.find('[data-action="watch"]').textContent=this.filters.watch?"★":"☆";
       this.find('[data-action="watch"]').setAttribute("aria-pressed",String(this.filters.watch));
@@ -132,6 +134,8 @@ window.DropRateCatalogue = (() => {
         if(!this.active() || revision!==this.revision)return;
         this.rows=more?this.rows.concat(data.items||[]):data.items||[];this.hasMore=Boolean(data.has_more);this.offset=nextOffset;
         this.renderRows();status.textContent=this.rows.length?"":"No matches. Try another search or clear the filters.";
+        if(this.page==="sets" && this.rows.length && Number.isInteger(data.total_count))status.textContent=data.total_count.toLocaleString()+" sets · Includes sets you don’t own";
+        if(this.page!=="sets" && !this.rows.length && this.set?.checklist_status==="UNAVAILABLE" && !this.filters.q && this.filters.owned==="all" && !this.filters.watch && !this.filters.product_type)status.textContent="This set is in the catalogue. Its card checklist is currently unavailable.";
         if(this.filters.watch)status.textContent=this.rows.length?"Watchlist saved on this device.":"Your watchlist is empty for these filters. Star a product to save it on this device.";
         this.find('[data-action="more"]').hidden=!this.hasMore;
       } catch(error){if(this.active()&&revision===this.revision){status.textContent=error.message;this.hasMore=false;if(!more)this.find(".dr-browse-content").replaceChildren(button("Try again",()=>this.load()));}}
@@ -153,7 +157,8 @@ window.DropRateCatalogue = (() => {
       const image=node("img",cls);image.alt="";image.decoding="async";image.loading="eager";
       image.addEventListener("load",()=>host.classList.add(loadedClass));
       image.addEventListener("error",()=>{host.classList.remove(loadedClass);image.remove();});
-      image.src="/assets/title-art/"+artwork.file;return image;
+      image.referrerPolicy="no-referrer";
+      image.src=artwork.url||"/assets/title-art/"+artwork.file;return image;
     }
     productImage(row,cls="dr-browse-product-image") {
       const wrap=node("div",cls),url=row.display_image_url||row.image_url;
@@ -165,7 +170,7 @@ window.DropRateCatalogue = (() => {
       const grid=node("div",this.page==="sets"?"dr-browse-grid dr-browse-set-grid":"dr-browse-grid");
       for(const row of this.rows){
         if(this.page==="sets") {
-          const tile=button("",()=>{this.set=row;this.filters.language=row.language;this.filters.q="";this.page="products";this.load();},"dr-browse-set");
+          const tile=button("",()=>{this.set=row;Object.assign(this.filters,{language:row.language,q:"",owned:"all",watch:false,product_type:""});this.page="products";this.load();},"dr-browse-set");
           const art=node("div","dr-browse-set-art");
           if(row.release_date)art.append(node("small","dr-browse-release",new Date(row.release_date+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})));
           art.append(node("small","",this.game()?.game||""),node("strong","",decode(row.set_name)),node("span","",row.set_id));
@@ -173,8 +178,10 @@ window.DropRateCatalogue = (() => {
           const artwork=exactArt||window.DropRateTitleArt?.game(row.system_code);
           if(artwork)art.append(this.titleImage(artwork,"dr-browse-set-logo",art,exactArt?"has-set-logo":"has-game-logo"));
           if(exactArt)art.title=exactArt.title;
-          tile.append(art,node("span","","Progress: "+row.owned_count+"/"+row.indexed_count),
+          tile.append(art,node("span","","Progress: "+row.owned_count+"/"+(row.card_count||row.indexed_count||"—")),
             node("small","","Total Value: "+(row.owned_count===0?"£0":row.owned_value_minor==null?"Pending":money(row.owned_value_minor)+(row.unknown_values?" + pending":""))));
+          if(row.checklist_status==="UNAVAILABLE")tile.append(node("small","dr-browse-checklist-note","Card checklist unavailable"));
+          else if(row.checklist_status==="PARTIAL")tile.append(node("small","dr-browse-checklist-note",row.indexed_count+" cards available to browse"));
           tile.setAttribute("aria-label",decode(row.set_name)+" · "+row.language);grid.append(tile);continue;
         }
         const card=node("article","dr-browse-product");
@@ -212,7 +219,7 @@ window.DropRateCatalogue = (() => {
       this.openSheet("Filters");
       this.sheet.append(this.filterGroup("Watchlist","Saved products on this device.",[["watch","Watchlist"]],this.filters.watch?"watch":"",value=>{this.filters.watch=Boolean(value);}),
         this.filterGroup("Product Type","Filter by type of product.",[["CARD","Cards Only"],["SEALED","Sealed Only"]],this.filters.product_type,value=>{this.filters.product_type=value;}),
-        this.filterGroup("Product Status within Inventory","Filter within your own inventory.",[["owned","Products Owned"],["not_owned","Products Not Owned"]],this.filters.owned,value=>{this.filters.owned=value||"all";}));
+        this.filterGroup("Product Status within Inventory","All products are shown unless you select a filter.",[["owned","Products Owned"],["not_owned","Products Not Owned"]],this.filters.owned,value=>{this.filters.owned=value||"all";}));
       const footer=node("footer");footer.append(button("Clear filters",()=>{this.defaults();this.closeSheet();this.load();},"dr-browse-secondary"),button("Show results",()=>this.closeSheet(),"dr-browse-primary"));this.sheet.append(footer);
     }
     openSort() { this.openSheet("Sort");const list=node("div","dr-browse-sort-list");

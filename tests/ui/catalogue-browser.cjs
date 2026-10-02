@@ -3,6 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
+const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
 const card={key:'c:00000000-0000-0000-0000-000000000001',catalogue_id:'card-1',name:'Luffy',game:'One Piece',system_code:'ONE_PIECE_CARD_GAME',set_name:'A Fist of Divine Speed',set_id:'OP11',language:'English',product_type:'CARD',variant:'Foil',card_number:'OP11-118',owned_quantity:0,market_value_minor:null,source_kind:'CATALOGUE'};
@@ -11,7 +12,7 @@ let checks=0;
 function fixture(handler=async()=>({items:[card],has_more:false}),owner='account-a'){
  const dom=new JSDOM('',{runScripts:'outside-only',url:'https://example.test',pretendToBeVisual:true});const w=dom.window;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
- w.eval(source);let alive=true;const calls=[];
+ w.eval(titleArt);w.eval(source);let alive=true;const calls=[];
  const client={owner,active:()=>alive,request:async(url,options)=>{calls.push({url,...options});return url.endsWith('/games')?{items:games}:handler(url,options);}};
  const browser=new w.DropRateCatalogue.Browser({client,navigate:()=>{},scan:()=>{},graded:()=>{},afterSave:async()=>{}});
  return {browser,w,calls,logout:()=>{alive=false;browser.destroy();},finish:()=>{browser.destroy();w.close();}};
@@ -33,6 +34,43 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   f.browser.find('.dr-browse-set').click();await tick();
   assert.match(f.calls.at(-1).url,/set_id=OP11/);assert.match(f.calls.at(-1).url,/provider=Punk\+Records/);
   assert.match(f.browser.find('.dr-browse-content').textContent,/Value pending/);
+  f.finish();checks++;
+ }
+ {
+  const unownedSet={system_code:'ONE_PIECE_CARD_GAME',set_id:'empty',set_name:'Unowned set',language:'English',provider:'Checklist',indexed_count:0,card_count:160,owned_count:0,owned_value_minor:null,unknown_values:0,checklist_status:'UNAVAILABLE'};
+  const availableSet={...unownedSet,set_id:'available',set_name:'Available set',indexed_count:102,card_count:102,checklist_status:'AVAILABLE'};
+  const f=fixture(async url=>{
+   const query=new URL(url,'https://example.test').searchParams;
+   if(url.includes('/sets'))return {items:[query.get('offset')==='0'?unownedSet:availableSet],has_more:query.get('offset')==='0',total_count:2};
+   return {items:query.get('set_id')==='empty'||query.get('owned')==='owned'?[]:[card],has_more:false};
+  });
+  await f.browser.open();f.browser.pickGame(games[0]);await tick();
+  assert.equal(new URL(f.calls.at(-1).url,'https://example.test').searchParams.get('owned'),'all');
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Qty: 0/);
+  Object.assign(f.browser.filters,{owned:'owned',watch:true,product_type:'SEALED'});
+  f.browser.showSets();await tick();
+  assert.equal(f.browser.filters.owned,'all');assert.equal(f.browser.filters.watch,false);assert.equal(f.browser.filters.product_type,'');
+  assert.match(f.browser.find('.dr-browse-set').textContent,/Progress: 0\/160/);
+  assert.match(f.browser.find('.dr-browse-status').textContent,/2 sets/);
+  assert.equal(f.browser.find('[data-action="more"]').hidden,false);
+  await f.browser.load(true);assert.equal(f.browser.dialog.querySelectorAll('.dr-browse-set').length,2);
+  f.browser.find('.dr-browse-set').click();await tick();
+  assert.match(f.browser.find('.dr-browse-status').textContent,/checklist is currently unavailable/);
+  assert.equal(new URL(f.calls.at(-1).url,'https://example.test').searchParams.get('owned'),'all');
+  f.browser.showSets();await tick();await f.browser.load(true);
+  f.browser.dialog.querySelectorAll('.dr-browse-set')[1].click();await tick();
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
+  f.browser.filters.owned='owned';await f.browser.load();assert.doesNotMatch(f.browser.find('.dr-browse-content').textContent,/Luffy/);
+  f.browser.filters.owned='all';await f.browser.load();assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
+  f.finish();checks++;
+ }
+ {
+  const f=fixture(),row={system_code:'POKEMON_TCG',provider:'TCGdex',language:'English',set_id:'base1',set_name:'Base Set'};
+  assert.match(f.w.DropRateTitleArt.set(row).url,/^https:\/\/assets\.tcgdex\.net\/en\/base\/base1\/logo\.webp$/);
+  assert.equal(f.w.DropRateTitleArt.set({...row,language:'Japanese'}),null);
+  assert.equal(f.w.DropRateTitleArt.set({...row,provider:'Another provider'}),null);
+  assert.equal(f.w.DropRateTitleArt.set({...row,set_id:'__proto__'}),null);
   f.finish();checks++;
  }
  {
