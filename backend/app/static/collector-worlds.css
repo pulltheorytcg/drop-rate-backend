@@ -96,6 +96,7 @@ body.collector-workspace .collector-hero .collector-intro{font-size:13px!importa
 body:has(#auth-view:not(.hidden)){background:#f8f6ef}.shell:has(>#auth-view:not(.hidden)){width:100%;max-width:none;margin:0;padding:0;min-height:100dvh}
 #auth-view .brand-panel{position:relative;isolation:isolate;overflow:hidden;padding:46px 52px!important;background:#081f39 url('/assets/brand-assets/collector-worlds.webp') 67% center/cover no-repeat!important;justify-content:space-between;min-height:100dvh;border-radius:0}
 #auth-view .brand-panel:before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,#061c35f5 3%,#061c35d4 34%,#061c3540 70%);z-index:-1}
+#auth-view .mobile-brand{display:none!important}
 #auth-view .collector-auth-logo{width:260px;height:90px;object-fit:contain;object-position:left center}
 #auth-view .brand-copy{margin-top:auto;padding-top:100px;max-width:450px}
 #auth-view .brand-copy h1{font-family:Impact,'Arial Narrow',system-ui,sans-serif;font-size:clamp(40px,4.8vw,68px)!important;line-height:1.05;font-weight:900;letter-spacing:-.03em;color:#fff!important}
