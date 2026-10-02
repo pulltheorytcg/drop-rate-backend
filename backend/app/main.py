@@ -96,7 +96,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/inventory-intake.js" defer></script>',
         '<script src="/assets/inventory-imports.js" defer></script>',
         '<script src="/assets/founder-finance.js" defer></script>',
-        '<script src="/assets/dashboard-shell.js?v=2" defer></script>',
+        '<script src="/assets/dashboard-shell.js?v=3" defer></script>',
         '<script src="/assets/seller-invites.js" defer></script>',
         '<script src="/assets/identity-review.js" defer></script>',
         '<script src="/assets/scanner-flow.js?v=4" defer></script>',
@@ -110,8 +110,9 @@ def _dashboard_html() -> str:
         '<script src="/assets/founder-workspace.js" defer></script>',
         '<script src="/assets/founder-accounts.js" defer></script>',
         '<script src="/assets/catalogue-title-art.js?v=2" defer></script>',
-        '<script src="/assets/catalogue-browser.js?v=3" defer></script>',
-        '<script src="/assets/catalogue-browser-entry.js?v=1" defer></script>',
+        '<script src="/assets/catalogue-browser.js?v=4" defer></script>',
+        '<script src="/assets/catalogue-browser-entry.js?v=2" defer></script>',
+        '<script src="/assets/workspace-shell.js?v=1" defer></script>',
     )
     for script in scripts:
         if script not in html:
@@ -304,6 +305,7 @@ def create_app() -> FastAPI:
         )
         return response
 
+    @app.get("/app", include_in_schema=False)
     @app.get("/", include_in_schema=False)
     async def dashboard() -> HTMLResponse:
         return HTMLResponse(_dashboard_html())
@@ -312,7 +314,6 @@ def create_app() -> FastAPI:
     async def founder_join() -> HTMLResponse:
         return HTMLResponse((STATIC_DIR / "join.html").read_text(encoding="utf-8"))
 
-    @app.get("/app", include_in_schema=False)
     @app.get("/owner", include_in_schema=False)
     async def owner_portal() -> HTMLResponse:
         return HTMLResponse((STATIC_DIR / "owner.html").read_text(encoding="utf-8"))

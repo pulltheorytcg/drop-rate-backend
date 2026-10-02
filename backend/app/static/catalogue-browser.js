@@ -15,7 +15,7 @@ window.DropRateCatalogue = (() => {
   class Browser {
     constructor(options) {
       this.options = options; this.client = options.client;
-      this.revision = 0; this.pending = new Map(); this.watchlist = new Set(); this.games = [];
+      this.revision = 0; this.pending = new Map(); this.watchlist = new Set(); this.games = Object.entries(gameTitles).slice(0,6).map(([system_code,[game]]) => ({system_code,game,languages:[]})); this.gamesLoaded = false;
       this.defaults();
       this.storageKey = "drop-rate-watchlist:" + this.client.owner;
       try {
@@ -28,7 +28,8 @@ window.DropRateCatalogue = (() => {
     defaults() { this.filters = {q:"",system_code:"",language:"",product_type:"",owned:"all",sort:"newest",watch:false}; this.set = null; this.page = "products"; this.setQuery = ""; this.rows = []; this.offset = 0; }
     find(selector) { return this.dialog.querySelector(selector); }
     build() {
-      this.dialog = node("dialog", "dr-browser"); this.dialog.setAttribute("aria-label", "Search Drop Rate products");
+      this.embedded = Boolean(this.options.host);
+      this.dialog = node(this.embedded ? "section" : "dialog", "dr-browser" + (this.embedded ? " dr-browser-embedded" : "")); this.dialog.setAttribute("aria-label", "Search Drop Rate products");
       this.dialog.innerHTML = `<header class="dr-browse-header"><div class="dr-browse-set-heading" hidden><button type="button" data-action="back" aria-label="Back to products">←</button><h2></h2></div>
         <div class="dr-browse-searchbar"><button type="button" data-action="camera" aria-label="Open scanner">◎</button><input type="search" maxlength="160" placeholder="Search for products" aria-label="Search for products"><button type="button" data-action="clear-query" aria-label="Clear search">×</button><button type="button" data-action="watch" aria-label="Watchlist">☆</button><button type="button" data-action="menu" aria-label="Sort and filter">☷</button></div>
         <div class="dr-browse-menu" hidden><button type="button" data-action="sort">Sort ↕</button><button type="button" data-action="filters">Filter ☷</button></div>
@@ -37,7 +38,7 @@ window.DropRateCatalogue = (() => {
         <div class="dr-browse-scroll"><p class="dr-browse-status" role="status"></p><div class="dr-browse-content"></div><button type="button" data-action="more" class="dr-browse-load" hidden>Load more</button><div class="dr-browse-sentinel"></div></div>
         <nav class="dr-browse-nav" aria-label="App navigation"><button type="button" data-action="home"><span>⌂</span>Home</button><button type="button" class="active" data-action="search"><span>⌕</span>Search</button><button type="button" data-action="camera"><span>◎</span>Scan</button><button type="button" data-action="inventory"><span>▣</span>Inventory</button><button type="button" data-action="tools"><span>•••</span>More</button></nav>
         <div class="dr-browse-backdrop" hidden><section class="dr-browse-sheet" role="dialog" aria-modal="true"></section></div>`;
-      document.body.append(this.dialog);
+      (this.options.host || document.body).append(this.dialog);
       this.input = this.find("input[type=search]"); this.scroll = this.find(".dr-browse-scroll"); this.sheet = this.find(".dr-browse-sheet");
       const actions = {back:()=>this.back(), camera:()=>this.scan(), home:()=>this.navigate("home"), inventory:()=>this.navigate("inventory"), tools:()=>this.navigate("more"),
         search:()=>this.reset(), "clear-query":()=>{ if(this.page === "sets") this.setQuery=""; else this.filters.q=""; this.input.value=""; this.load(); },
@@ -52,6 +53,7 @@ window.DropRateCatalogue = (() => {
       });
       this.dialog.addEventListener("cancel",event=>{event.preventDefault();if(!this.find(".dr-browse-backdrop").hidden)this.closeSheet();else this.close();});
       this.dialog.addEventListener("keydown",event=>{
+        if(event.key==="Escape"&&!this.find(".dr-browse-backdrop").hidden){event.preventDefault();this.closeSheet();return;}
         if(event.key!=="Tab" || this.find(".dr-browse-backdrop").hidden)return;
         const controls=[...this.sheet.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled)')];
         const first=controls[0],last=controls.at(-1);
@@ -62,17 +64,33 @@ window.DropRateCatalogue = (() => {
     }
     async open() {
       if(!this.active())throw new Error("Sign in again to search products.");
-      this.returnFocus=document.activeElement;this.dialog.showModal();document.body.classList.add("dr-browser-open");
-      if(!this.games.length) {
-        try { const data=await this.client.request("/api/v1/catalogue-browser/games"); if(!this.active())return;
+      this.returnFocus=document.activeElement;
+      if(this.embedded) this.dialog.hidden=false;
+      else {this.dialog.showModal();document.body.classList.add("dr-browser-open");}
+      // Show known game artwork immediately, before any network round trip.
+      if(this.isHome()){this.header();this.renderGames();}
+      const revision=this.revision;
+      if(!this.gamesLoaded) {
+        if(!this.gamesRequest) this.gamesRequest=this.client.request("/api/v1/catalogue-browser/games").then(data=>{
+          if(!this.active())return;
           const order=Object.keys(gameTitles),rank=game=>order.includes(game.system_code)?order.indexOf(game.system_code):order.length;
-          this.games=(data.items||[]).sort((a,b)=>rank(a)-rank(b)||a.game.localeCompare(b.game)); }
-        catch(error){ if(this.active())this.find(".dr-browse-status").textContent=error.message;return; }
+          this.games=(data.items||[]).sort((a,b)=>rank(a)-rank(b)||a.game.localeCompare(b.game));
+          this.gamesLoaded=true;
+        }).finally(()=>{this.gamesRequest=null;});
+        try {await this.gamesRequest;}
+        catch(error){if(this.active()&&this.isHome())this.find(".dr-browse-status").textContent="Catalogue details couldn’t refresh. Choose a game to browse, or reopen Search to retry.";return;}
       }
+      if(!this.active() || revision!==this.revision)return;
       await this.load();
     }
-    close() { if(this.saving)return; this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.loading=false;this.dialog.close();document.body.classList.remove("dr-browser-open");this.returnFocus?.focus(); }
-    destroy() { this.destroyed=true;this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.observer?.disconnect();this.pending.clear();this.dialog.remove();document.body.classList.remove("dr-browser-open"); }
+    close() {
+      if(this.saving)return;
+      this.restoreOuter();this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.loading=false;
+      if(this.embedded)this.dialog.hidden=true;else this.dialog.close();
+      document.body.classList.remove("dr-browser-open");if(!this.embedded)this.returnFocus?.focus();
+    }
+    restoreOuter() { (this.outerInert||[]).forEach(([el,was])=>{el.inert=was;});this.outerInert=[]; }
+    destroy() { this.restoreOuter();this.destroyed=true;this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.observer?.disconnect();this.pending.clear();this.dialog.remove();document.body.classList.remove("dr-browser-open"); }
     navigate(view) { if(this.saving)return;this.close();this.options.navigate(view); }
     scan(mode="RAW") { if(this.saving)return;this.close();this.options.scan(typeof mode === "string" ? mode : "RAW"); }
     reset() { if(this.saving)return;this.defaults();this.input.value="";this.load(); }
@@ -150,7 +168,7 @@ window.DropRateCatalogue = (() => {
         if(artwork){tile.prepend(this.titleImage(artwork,"dr-browse-game-logo",tile,"has-title-art"));
           if(artwork.caption)tile.append(node("small","dr-browse-publisher",artwork.caption));}
         tile.setAttribute("aria-label",game.game);grid.append(tile);}
-      content.replaceChildren(node("h2","dr-browse-quick-heading","Quick Filters"),grid);
+      content.replaceChildren(node("h2","dr-browse-quick-heading","Browse card games"),grid);
       if(!this.games.length)content.append(node("p","dr-browse-empty","The catalogue is being prepared. Try scanning an item."));
     }
     titleImage(artwork,cls,host,loadedClass) {
@@ -203,10 +221,14 @@ window.DropRateCatalogue = (() => {
       const close=button("×",()=>this.closeSheet());close.setAttribute("aria-label","Close "+title);
       header.append(heading,close);this.sheet.append(header);this.sheet.setAttribute("aria-labelledby",heading.id);
       this.find(".dr-browse-backdrop").hidden=false;
+      if(this.embedded){
+        this.outerInert=[...document.querySelectorAll(".topbar,.seller-nav,.owner-sidebar,.owner-page-header")].map(el=>[el,el.inert]);
+        this.outerInert.forEach(([el])=>{el.inert=true;});
+      }
       for(const cls of [".dr-browse-header",".dr-browse-scroll",".dr-browse-nav"])this.find(cls).inert=true;
       close.focus();this.find(".dr-browse-menu").hidden=true;
     }
-    closeSheet() { if(this.saving)return;this.find(".dr-browse-backdrop").hidden=true;
+    closeSheet() { if(this.saving)return;this.restoreOuter();this.find(".dr-browse-backdrop").hidden=true;
       for(const cls of [".dr-browse-header",".dr-browse-scroll",".dr-browse-nav"])this.find(cls).inert=false;
       if(this.sheetReturn?.isConnected)this.sheetReturn.focus();else this.input.focus();this.header(); }
     filterGroup(title,hint,choices,current,onChange) {

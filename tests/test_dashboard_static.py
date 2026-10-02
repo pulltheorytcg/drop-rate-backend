@@ -80,7 +80,7 @@ def test_dashboard_shell_has_expected_seller_views() -> None:
         assert f'["{view}",' in js
     assert 'apiRequest("/api/v1/market/status")' in js
     assert 'apiRequest("/api/v1/pricing/inventory?limit=8&offset=0")' in js
-    assert "history.replaceState" in js
+    assert "history.pushState" in js
 
 
 def test_dashboard_shell_preserves_working_component_ids() -> None:

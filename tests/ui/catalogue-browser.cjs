@@ -19,10 +19,10 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
 }
 (async()=>{
  {
-  const f=fixture();await f.browser.open();assert.match(f.browser.find('.dr-browse-content').textContent,/Quick Filters/);
+  const f=fixture();await f.browser.open();assert.match(f.browser.find('.dr-browse-content').textContent,/Browse card games/);
   assert.equal(f.calls.length,1);f.browser.filters.product_type='SEALED';await f.browser.load();
   assert.match(f.calls.at(-1).url,/product_type=SEALED/);assert.match(f.browser.find('.dr-browse-chips').textContent,/Sealed Only/);
-  f.browser.reset();assert.equal(f.browser.filters.product_type,'');assert.match(f.browser.find('.dr-browse-content').textContent,/Quick Filters/);
+  f.browser.reset();assert.equal(f.browser.filters.product_type,'');assert.match(f.browser.find('.dr-browse-content').textContent,/Browse card games/);
   f.finish();checks++;
  }
  {
