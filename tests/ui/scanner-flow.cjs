@@ -147,7 +147,8 @@ async function matched(scanner, quantity = 1) {
     latest.resolve({items:[row]}); await latestPromise;
     old.resolve({items:[{id:'wrong',name:'Stale choice'}]}); await oldPromise;
     assert.match(f.scanner.details.textContent, /Correct printing/); assert.doesNotMatch(f.scanner.details.textContent, /Stale choice/);
-    assert.ok(f.calls.find(call => call.url.includes('q=new')).url.includes('run_id=run-1'));
+    assert.ok(f.calls.find(call => call.url.includes('q=new')).url.startsWith('/api/v1/catalogue-browser/products?'));
+    assert.ok(f.calls.find(call => call.url.includes('q=new')).url.includes('owned=all'));
     await f.scanner.chooseSearch(row); await f.scanner.confirmDetails(); f.scanner.showReview(); await f.scanner.saveAll();
     const feedback = f.calls.find(call => call.url.endsWith('/feedback'));
     assert.equal(JSON.parse(feedback.body).outcome, 'CORRECTED_BY_SEARCH');
@@ -272,7 +273,7 @@ async function matched(scanner, quantity = 1) {
     f.scanner.setMode('GRADED'); await f.scanner.recognise('photo');
     const item = f.scanner.items[0]; assert.equal(item.selected, null);
     f.scanner.openDetails(item); assert.equal(f.scanner.edit.grade, '9.5');
-    assert.equal(f.scanner.edit.selected.market_value_minor, null);
+    assert.doesNotMatch(f.scanner.details.querySelector('.dr-scan-detail-identity').textContent, /£15/);
     await f.scanner.confirmDetails(); assert.equal(f.scanner.ready(item), true);
     f.scanner.showReview(); await f.scanner.saveAll();
     const save = f.calls.find(call => call.headers?.['Idempotency-Key']);
@@ -344,6 +345,121 @@ async function matched(scanner, quantity = 1) {
     [...f.scanner.details.querySelectorAll('button')].find(b=>b.textContent==='Show other suggestions').click();
     assert.equal(f.scanner.details.querySelectorAll('.dr-scan-alternative').length,6);
     f.finish(); checks+=1;
+  }
+  // Each thumbnail can switch raw/graded without saving until explicit confirmation.
+  for (const role of ['seller', 'founder']) {
+    const f=fixture(role,async url => url.endsWith('/resolve') ? result() : {inventory:{inventory_code:'INV-GRADED'}});
+    const item=await matched(f.scanner,2); f.scanner.openDetails(item);
+    const press=company=>f.scanner.details.querySelector('[data-grader="'+company+'"]').click();
+    press('PSA');
+    assert.equal(item.mode,'RAW','The unfinished grading choice is local');
+    assert.equal(f.scanner.edit.quantity,1);
+    assert.doesNotMatch(f.scanner.details.querySelector('.dr-scan-detail-identity').textContent,/£15/);
+    assert.ok(f.scanner.details.querySelector('[data-details-save]').disabled);
+    const grade=f.scanner.details.querySelector('[aria-label="Grade"]');
+    assert.ok(![...grade.options].some(option=>option.value==='9.5'));
+    grade.value='10';grade.dispatchEvent(new f.w.Event('change'));
+    const certificate=f.scanner.details.querySelector('[aria-label="Certificate number"]');
+    certificate.value='12345678';certificate.dispatchEvent(new f.w.Event('input'));
+    press('BGS');
+    assert.equal(f.scanner.edit.certificate_number,'','Never transfer a certificate to another grader');
+    assert.equal(f.scanner.edit.grade,'');
+    assert.ok([...f.scanner.details.querySelector('[aria-label="Grade"]').options].some(option=>option.value==='10 BLACK LABEL'));
+    press(''); assert.equal(f.scanner.edit.quantity,2); assert.equal(f.scanner.edit.condition,'Near Mint');
+    press('TAG');
+    const tagGrade=f.scanner.details.querySelector('[aria-label="Grade"]');tagGrade.value='Pristine 10';tagGrade.dispatchEvent(new f.w.Event('change'));
+    const tagCert=f.scanner.details.querySelector('[aria-label="Certificate number"]');tagCert.value='A1234567';tagCert.dispatchEvent(new f.w.Event('input'));
+    await f.scanner.confirmDetails();
+    assert.equal(item.mode,'GRADED');assert.equal(item.condition,null);assert.equal(item.quantity,1);
+    assert.equal(f.scanner.totals().value,null,'Raw market value must not inflate slab total');
+    f.scanner.showReview();await f.scanner.saveAll();
+    const saved=f.calls.find(call=>call.headers?.['Idempotency-Key']);
+    assert.deepEqual(JSON.parse(saved.body),{selected_catalogue_id:'card-1',grading_company:'TAG',grade:'Pristine 10',certificate_number:'A1234567',language:'English'});
+    assert.equal(f.calls.some(call=>call.url.endsWith('/feedback')),false);
+    assert.equal(saved.url,role==='seller'?'/api/v1/owner/graded-certificate-intake':'/api/v1/inventory/graded-intake');
+    f.finish();checks+=1;
+  }
+  // A second photo starts before the first completes; results stay on their own thumbnails.
+  {
+    const first=deferred(),second=deferred();let count=0;
+    const f=fixture('seller',()=>++count===1?first.promise:second.promise);
+    const p1=f.scanner.recognise('photo-one');await tick();
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,false);
+    const p2=f.scanner.recognise('photo-two');await tick();
+    await f.scanner.recognise('over-capacity');
+    assert.equal(f.scanner.items.length,2);assert.equal(count,2);
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,true);
+    second.resolve(result({run:{id:'run-two',decision:'EXACT_CANDIDATE',top_catalogue_id:'card-1'}}));await p2;
+    assert.equal(f.scanner.items[1].run.id,'run-two');assert.equal(f.scanner.items[0].status,'processing');
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,false);
+    f.scanner.openDetails(f.scanner.items[1]);assert.ok(f.scanner.edit);
+    first.reject(new Error('First photo failed'));await p1;
+    assert.equal(f.scanner.items[0].status,'unresolved');assert.equal(f.scanner.items[1].run.id,'run-two');
+    assert.equal(f.scanner.inFlight,0);f.finish();checks+=1;
+  }
+  // Failed retries discard old evidence; a previous successful run cannot be confirmed again.
+  {
+    let fail=false;const f=fixture('seller',async()=>{if(fail)throw new Error('Offline');return result();});
+    const item=await matched(f.scanner);fail=true;await f.scanner.recognise('photo',item);
+    f.scanner.openDetails(item);assert.equal(item.run,null);assert.equal(item.selected,null);
+    assert.equal(f.scanner.details.querySelector('[data-details-save]').disabled,true);
+    f.finish();checks+=1;
+  }
+  // Both roles search the complete released catalogue, with independent language/game filters.
+  for(const role of ['seller','founder']) {
+    const rows=[{key:'r:first',source_kind:'REFERENCE',provider:'Bandai Official',provider_id:'OP16-041_p1',
+      name:'Buggy',card_number:'OP16-041',language:'English',system_code:'ONE_PIECE_CARD_GAME',product_type:'CARD',image_url:'https://example.test/buggy.png'}];
+    const f=fixture(role,async url=>url.endsWith('/resolve')?result():url.endsWith('/games')?{items:[
+      {system_code:'POKEMON_TCG',game:'Pokémon',languages:['English','Japanese']},
+      {system_code:'ONE_PIECE_CARD_GAME',game:'One Piece',languages:['English','Japanese']}]}:
+      url.includes('/products?')?{items:rows,has_more:!url.includes('offset=1')}:
+      url.endsWith('/references/select')?{catalogue_id:'buggy'}:{});
+    const item=await matched(f.scanner);f.scanner.openDetails(item);f.scanner.openSearch();await tick();
+    assert.equal(f.scanner.details.querySelectorAll('.dr-scan-game').length,2);
+    const game=f.scanner.details.querySelector('[aria-label="Game"]');game.value='ONE_PIECE_CARD_GAME';game.dispatchEvent(new f.w.Event('change'));await tick();
+    const language=f.scanner.details.querySelector('[aria-label="Language"]');language.value='Japanese';language.dispatchEvent(new f.w.Event('change'));await tick();
+    const search=f.calls.filter(call=>call.url.includes('/products?')).at(-1);
+    assert.ok(search.url.includes('owned=all'));assert.ok(search.url.includes('language=Japanese'));assert.ok(search.url.includes('system_code=ONE_PIECE_CARD_GAME'));
+    assert.equal(f.scanner.details.querySelectorAll('.dr-scan-search-result').length,1);
+    f.scanner.details.querySelector('.dr-scan-search-more').click();await tick();
+    assert.ok(f.calls.some(call=>call.url.includes('offset=1')));
+    f.scanner.details.querySelector('.dr-scan-search-result').click();await tick();
+    assert.equal(f.scanner.edit.selected.reference_selection.provider_id,'OP16-041_p1');
+    assert.equal(f.calls.some(call=>call.method==='POST'&&!call.url.endsWith('/resolve')),false,'Choosing a result does not yet write');
+    await f.scanner.confirmDetails();assert.equal(item.selected.catalogue_id,'buggy');
+    assert.ok(f.calls.some(call=>call.url.endsWith('/references/select')));
+    f.finish();checks+=1;
+  }
+  // Slabs without a raw recognition run can select a released reference before certificate intake.
+  for (const role of ['seller','founder']) {
+    const f=fixture(role,async url=>url.endsWith('/select')?{catalogue_id:'new-slab-card'}:{inventory:{inventory_code:'INV-NEW-SLAB'}});
+    f.scanner.manualSlab();f.scanner.edit.grade='9';f.scanner.edit.certificate_number='12345678';
+    await f.scanner.chooseSearch({key:'r:slab',name:'Slab card',source_kind:'REFERENCE',provider:'Bandai Official',
+      provider_id:'OP16-041_p1',system_code:'ONE_PIECE_CARD_GAME',language:'English'});
+    await f.scanner.confirmDetails();f.scanner.showReview();await f.scanner.saveAll();
+    const link=f.calls.find(call=>call.url==='/api/v1/catalogue-browser/select');assert.deepEqual(JSON.parse(link.body),{key:'r:slab',confirmed:true});
+    const save=f.calls.find(call=>call.headers?.['Idempotency-Key']);assert.equal(JSON.parse(save.body).selected_catalogue_id,'new-slab-card');
+    f.finish();checks+=1;
+  }
+  // Closing grading details cancels the local change; sealed products never expose graders.
+  {
+    const f=fixture('seller',async()=>result());const item=await matched(f.scanner,3);
+    f.scanner.openDetails(item);f.scanner.chooseGrader('CGC');f.scanner.closeDetails();
+    assert.equal(item.mode,'RAW');assert.equal(item.quantity,3);assert.equal(item.grading_company,undefined);
+    f.scanner.openDetails(item);assert.equal(f.scanner.edit.mode,'RAW');
+    item.selected.candidate_snapshot.product_type='SEALED';f.scanner.renderDetails();
+    assert.equal(f.scanner.details.querySelector('.dr-scan-graders'),null);
+    f.finish();checks+=1;
+  }
+  // Manual provider lookup preserves the grade entered and leaves the draft uncommitted.
+  {
+    const f=fixture('seller',async()=>({provider:'TAG',certificate_number:'A1234567',verified:false,status:'MANUAL_VERIFICATION_REQUIRED'}));
+    f.scanner.manualSlab();f.scanner.chooseGrader('TAG');
+    Object.assign(f.scanner.edit,{grade:'Pristine 10',certificate_number:'A1234567',selected:{catalogue_id:'card'}});
+    await f.scanner.lookupSlab();
+    assert.equal(f.scanner.edit.grade,'Pristine 10');assert.equal(f.scanner.edit.slab.verified,false);
+    assert.equal(f.scanner.edit.item.grading_company,'PSA','Lookup must not commit the draft choice');
+    f.finish();checks+=1;
   }
   await tick();
   console.log('Scanner flow: ' + checks + ' interaction, permission and retry scenarios passed.');

@@ -125,6 +125,8 @@
 .dr-scan-detail-identity { display: grid; grid-template-columns: 1fr max-content; align-items: center; gap: 6px 12px; margin: 9px 0 17px; }
 .dr-scan-detail-identity h3 { font-size: 18px; font-weight: 600; line-height: 1.35; }
 .dr-scan-detail-identity strong { font-size: 18px; font-weight: 500; }
+.dr-scan-detail-identity { grid-template-columns: minmax(0, 1fr) minmax(75px, 32%); }
+.dr-scan-detail-identity strong { font-size: 14px; text-align: right; overflow-wrap: anywhere; }
 .dr-scan-detail-identity p { grid-column: 1 / -1; color: var(--scan-muted); font-size: 12px; line-height: 1.4; }
 .dr-scan-type-chip { display: inline-block; padding: 8px 14px; border: 1px solid var(--scan-accent); border-radius: 5px; color: var(--scan-accent); font-size: 13px; }
 .dr-scan-detail-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; margin: 20px 0 10px; }
@@ -142,6 +144,29 @@
 .dr-scanner .dr-scan-search-result { width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; background: var(--scan-background); padding: 12px; margin-bottom: 8px; border-radius: 8px; }
 .dr-scan-search-result > span { display: grid; gap: 5px; }
 .dr-scan-search-result small { color: var(--scan-muted); font-size: 11px; line-height: 1.4; }
+.dr-scan-graders { display: flex; gap: 7px; overflow-x: auto; padding: 8px 0; scrollbar-width: thin; }
+.dr-scanner .dr-scan-graders button { flex: 0 0 auto; padding: 10px 12px; min-height: 44px; border: 1px solid var(--scan-line); border-radius: 7px; background: var(--scan-background); font-weight: 650; font-size: 12px; }
+.dr-scanner .dr-scan-graders button[aria-pressed="true"] { border-color: var(--scan-blue); background: var(--scan-navy); color: #fff; box-shadow: inset 0 -2px var(--scan-cyan); }
+.dr-scan-details.is-search { height: calc(100% - 90px); }
+.dr-scan-searchbar { display: flex; align-items: center; padding: 12px 14px; gap: 8px; flex-shrink: 0; }
+.dr-scanner .dr-scan-searchbar .dr-scan-search-input { margin: 0; min-width: 0; flex: 1; width: 100%; }
+.dr-scan-searchbar input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.dr-scanner .dr-scan-searchbar button { width: 40px; min-height: 44px; background: var(--scan-soft); border-radius: 8px; font-size: 22px; }
+.dr-scan-search-scroll { overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+.dr-scan-search-filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 14px 12px; }
+.dr-scan-search-filters label { display: grid; gap: 4px; flex: 1 1 90px; min-width: 0; font-size: 10px; color: var(--scan-muted); }
+.dr-scan-search-filters select { width: 100%; min-height: 40px; min-width: 0; padding: 7px; border: 1px solid var(--scan-line); border-radius: 7px; background: var(--scan-background); color: var(--scan-ink); font-size: 12px; }
+.dr-scan-search-games, .dr-scan-search-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0 14px 16px; overflow: visible; }
+.dr-scanner .dr-scan-game { min-height: 92px; display: grid; place-items: center; padding: 12px; border-radius: 10px; background: var(--scan-navy); color: #fff; }
+.dr-scan-game img { width: 100%; max-height: 70px; object-fit: contain; background: transparent; }
+.dr-scan-game.has-logo span { display: none; }
+.dr-scanner .dr-scan-search-result { display: flex; flex-direction: column; align-items: stretch; gap: 9px; min-width: 0; margin: 0; border: 1px solid var(--scan-line); padding: 10px; background: var(--scan-surface); }
+.dr-scan-search-result strong { font-size: 12px; }
+.dr-scan-search-result > span { min-width: 0; overflow-wrap: anywhere; }
+.dr-scan-search-art { position: relative; width: 100%; aspect-ratio: 5 / 7; overflow: hidden; background: var(--scan-background); }
+.dr-scan-search-art img { position: relative; }
+.dr-scanner .dr-scan-search-more { grid-column: 1 / -1; padding: 14px; border-radius: 8px; background: var(--scan-soft); color: var(--scan-accent); }
+.dr-scan-search-skeleton { min-height: 245px; border-radius: 9px; background: linear-gradient(var(--scan-soft) 70%, var(--scan-background) 70%); }
 @media (max-height: 650px) and (orientation: portrait) {
   .dr-scan-status { font-size: 11px; bottom: calc(env(safe-area-inset-bottom, 0px) + 230px); }
 }

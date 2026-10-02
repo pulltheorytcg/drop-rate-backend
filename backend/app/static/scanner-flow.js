@@ -29,10 +29,22 @@ window.DropRateScanner = (() => {
   };
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const graded = item => item.mode === "GRADED";
-  const graders = ["PSA", "ACE", "CGC", "BGS", "BVG", "BCCG"];
-  const gradeValid = item => graders.includes(item.grading_company) && /^(?:10(?:\s*BLACK\s*LABEL)?|BL10|[1-9](?:\.5)?)$/i.test(item.grade || "")
-    && (item.grading_company === "PSA" ? /^\d{7,10}$/ : /^\d{4,14}$/).test(item.certificate_number || "")
+  const graders = ["PSA", "BGS", "CGC", "TAG", "ACE", "BVG", "BCCG"];
+  const gradeOptions = company => {
+    const whole = Array.from({length: company === "BCCG" ? 6 : 10}, (_, index) => String(10 - index));
+    const values = ["ACE", "TAG", "BCCG"].includes(company) ? whole
+      : Array.from({length: 19}, (_, index) => String(10 - index / 2)).filter(value => company !== "PSA" || value !== "9.5");
+    if (company === "BGS") values.unshift("10 BLACK LABEL");
+    if (["CGC", "TAG"].includes(company)) values.unshift("Pristine 10");
+    return values;
+  };
+  const certificateValid = item => (item.grading_company === "TAG" ? /^[A-Z0-9]{8}$/
+    : item.grading_company === "PSA" ? /^\d{7,10}$/ : /^\d{4,14}$/).test(item.certificate_number || "");
+  const gradeValid = item => graders.includes(item.grading_company) && gradeOptions(item.grading_company).includes(item.grade)
+    && certificateValid(item)
     && !item.slab?.conflicts?.length;
+  // A raw reference valuation is never a quote for a different grader/grade.
+  const valueOf = item => graded(item) ? item.savedGradedValue ?? null : selected(item)?.market_value_minor ?? null;
   const usableRun = item => item.run?.id && ["EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"].includes(item.run.decision || item.run.status);
   const icons = {
     photo: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="currentColor"/><circle cx="8" cy="8" r="2" fill="#465050"/><path d="m4 18 5-6 3 3 4-6 5 9" fill="#465050"/></svg>',
@@ -53,6 +65,8 @@ window.DropRateScanner = (() => {
       this.options = options;
       this.owner = sessionId(options.session());
       this.items = [];
+      this.inFlight = 0;
+      this.captureBusy = false;
       this.epoch = 0;
       this.cameraRevision = 0;
       this.searchRevision = 0;
@@ -168,6 +182,8 @@ window.DropRateScanner = (() => {
 
     find(selector) { return this.dialog.querySelector(selector); }
     status(text) { this.find(".dr-scan-status").textContent = text; }
+    get processing() { return this.captureBusy || this.inFlight > 0; }
+    atCapacity() { return this.captureBusy || this.inFlight >= 2; }
 
     guideMessage() {
       return this.mode === "GRADED" ? "Show the full slab · keep the label and QR readable"
@@ -186,7 +202,8 @@ window.DropRateScanner = (() => {
     }
 
     async captureSlabQr() {
-      if (this.qrBusy || this.processing || this.awaitingRemoval) return;
+      if (this.qrBusy || this.atCapacity() || this.awaitingRemoval) return;
+      if (this.inFlight) { this.capture(); return; }
       this.qrBusy = true;
       const revision = this.cameraRevision;
       let raw;
@@ -200,18 +217,18 @@ window.DropRateScanner = (() => {
       finally { this.qrBusy = false; }
       if (revision !== this.cameraRevision || !this.active() || this.mode !== "GRADED" || this.processing || this.edit) return;
       if (!raw || raw === this.lastQr) { this.capture(); return; }
-      this.processing = true; this.render();
+      this.captureBusy = true; this.render();
       try {
         const parsed = await this.request("/api/v1/grading-certificates/qr/resolve", {method: "POST",
           body: JSON.stringify({qr_value: raw, grader_hint: /^https?:\/\//i.test(raw) ? null : "PSA"})});
         if (revision !== this.cameraRevision || this.mode !== "GRADED") return;
         this.lastQr = raw; this.awaitingRemoval = true;
-        this.processing = false;
+        this.captureBusy = false;
         this.manualSlab(parsed);
         await this.lookupSlab();
       } catch (_) {
-        if (this.active() && revision === this.cameraRevision) { this.processing = false; this.capture(); }
-      } finally { if (this.active() && !this.items.some(item => item.status === "processing")) { this.processing = false; this.render(); } }
+        if (this.active() && revision === this.cameraRevision) { this.captureBusy = false; this.capture(); }
+      } finally { this.captureBusy = false; if (this.active()) this.render(); }
     }
 
     manualSlab(parsed = {}) {
@@ -235,10 +252,10 @@ window.DropRateScanner = (() => {
 
     async slabCandidates(item) {
       if (!item.searchSeed || item.searchSeed.length < 2) return;
-      const params = new URLSearchParams({q: item.searchSeed.slice(0, 80), limit: "20"});
-      const data = await this.request((this.options.role === "seller" ? "/api/v1/owner/catalogue-search?" : "/api/v1/catalogue/search?") + params);
+      const params = new URLSearchParams({q: item.searchSeed.slice(0, 160), limit: "30", product_type: "CARD", owned: "all"});
+      const data = await this.request("/api/v1/catalogue-browser/products?" + params);
       item.candidates = (data.items || []).filter(row => row.product_type !== "SEALED")
-        .map(row => ({...row, catalogue_id: row.id, candidate_snapshot: row, market_value_minor: null}));
+        .map(row => this.searchCandidate(row));
       item.suggested = item.candidates[0] || null;
     }
 
@@ -246,7 +263,7 @@ window.DropRateScanner = (() => {
       const epoch = this.epoch;
       item.status = "processing"; item.guess = "Reading slab…"; item.error = null;
       if (isNew) this.items.push(item);
-      this.processing = true; this.status("Reading slab label and certificate…"); this.render();
+      this.inFlight += 1; this.status("Reading slab · you can capture the next item"); this.render();
       const controller = new AbortController(); this.controllers.add(controller);
       const timeout = setTimeout(() => controller.abort(), 70000);
       try {
@@ -262,68 +279,31 @@ window.DropRateScanner = (() => {
         this.status("Check slab details · certificate entry is available");
       } finally {
         clearTimeout(timeout); this.controllers.delete(controller);
-        if (this.active(epoch)) { item.status = "unresolved"; this.processing = false; this.render(); }
+        this.inFlight -= 1;
+        if (this.active(epoch)) { item.status = "unresolved"; this.render(); }
       }
     }
 
     async lookupSlab() {
-      const edit = this.edit; if (!edit || this.editBusy || !graded(edit.item)) return;
+      const edit = this.edit; if (!edit || this.editBusy || !graded(edit)) return;
       this.editBusy = true;
       this.details.querySelectorAll("button,input,select").forEach(control => { control.disabled = true; });
       try {
         const data = await this.request("/api/v1/grading-certificates/lookup", {method: "POST",
           body: JSON.stringify({grader: edit.grading_company, certificate_number: edit.certificate_number})});
         // A manual lookup cannot erase a conflict observed in the original slab photo.
-        const conflicts = edit.item.slab?.conflicts || [];
-        Object.assign(edit.item, {grading_company: edit.grading_company, certificate_number: edit.certificate_number});
-        this.applySlabEvidence(edit.item, {...data, conflicts});
-        await this.slabCandidates(edit.item);
-        Object.assign(edit, {grading_company: edit.item.grading_company, certificate_number: edit.item.certificate_number,
-          grade: edit.item.grade, selected: edit.item.suggested || edit.selected});
-      } catch (error) { if (this.active()) edit.item.lookupMessage = error.message + " You can read the label and confirm the card manually."; }
-      finally { if (this.active()) { this.editBusy = false; this.renderSlabDetails(); } }
-    }
-
-    renderSlabDetails() {
-      const edit = this.edit, item = edit.item;
-      this.details.replaceChildren(node("div", "dr-scan-drag-handle"));
-      const header = node("header", "dr-scan-details-header"), title = node("h2", "", "Graded Slab Details");
-      title.id = "dr-scan-details-title";
-      header.append(title, button("×", () => this.closeDetails())); this.details.append(header);
-      const content = node("div", "dr-scan-details-content");
-      if (item.photo) content.append(this.thumb(item, "dr-scan-slab-photo", null, true));
-      const fields = node("div", "dr-scan-detail-fields");
-      for (const [key, label] of [["grading_company", "Grader"], ["grade", "Grade"], ["certificate_number", "Certificate number"]]) {
-        const wrap = node("label", "", label), input = node(key === "grading_company" ? "select" : "input");
-        if (key === "grading_company") graders.forEach(value => { const option = node("option", "", value); option.value = value; input.append(option); });
-        else { input.maxLength = key === "grade" ? 40 : 14; if (key === "certificate_number") input.inputMode = "numeric"; }
-        input.value = edit[key]; input.setAttribute("aria-label", label);
-        input.addEventListener("input", () => { edit[key] = input.value.trim(); this.updateDetailsSave(); });
-        wrap.append(input); fields.append(wrap);
-      }
-      content.append(fields, button("Lookup certificate", () => this.lookupSlab()));
-      const evidence = item.slab?.provider_result || item.slab || {};
-      content.append(node("p", "dr-scan-review-note", item.lookupMessage || (evidence.verified
-        ? "Provider evidence found. Confirm that the card, grade and certificate match your slab."
-        : "Confirm the slab label. Certificate verification and Drop Rate identity review may still be required.")));
-      if (item.error) content.append(node("p", "dr-scan-item-error", item.error));
-      if (item.photo) content.append(button("Read slab photo again", () => { this.closeDetails(); this.recognise(item.photo, item); }));
-      content.append(node("p", "dr-scan-results-label", "Choose the exact card:"));
-      const candidates = node("div", "dr-scan-alternatives");
-      for (const candidate of item.candidates || []) {
-        const choice = button("", () => { edit.selected = candidate; this.renderSlabDetails(); }, "dr-scan-alternative");
-        choice.setAttribute("aria-pressed", String(edit.selected?.catalogue_id === candidate.catalogue_id));
-        choice.setAttribute("aria-label", name({selected:candidate}) + " · " + meta({selected:candidate}));
-        choice.append(this.thumb(item, "dr-scan-alternative-thumb", candidate)); candidates.append(choice);
-      }
-      content.append(candidates, button("Search for the exact card", () => this.openSearch()));
-      if (edit.selected) content.append(node("h3", "", name({selected: edit.selected})), node("p", "dr-scan-card-meta", meta({selected: edit.selected})));
-      content.append(node("p", "dr-scan-review-note", "One slab per certificate. Grade-specific value is calculated after saving."), node("p", "dr-scan-detail-message"));
-      this.details.append(content);
-      const footer = node("footer", "dr-scan-details-footer"), save = button("Looks Good", () => this.confirmDetails(), "dr-scan-primary");
-      save.dataset.detailsSave = "true";
-      footer.append(button("Remove", () => this.remove(item), "dr-scan-delete"), save); this.details.append(footer);
-      this.updateDetailsSave();
+        const conflicts = edit.slab?.conflicts || edit.item.slab?.conflicts || [];
+        const draft = {...edit.item, grading_company: edit.grading_company, certificate_number: edit.certificate_number, grade: edit.grade};
+        this.applySlabEvidence(draft, {...data, conflicts});
+        await this.slabCandidates(draft);
+        Object.assign(edit, {grading_company: draft.grading_company, certificate_number: draft.certificate_number,
+          grade: draft.grade, slab: draft.slab, selected: edit.selected || draft.suggested});
+        edit.item.candidates = draft.candidates;
+        edit.lookupMessage = data.verified || data.provider_result?.verified
+          ? "Certificate evidence found. Check the printing and label before confirming."
+          : "Confirm the label manually. Certificate verification is still required.";
+      } catch (error) { if (this.active()) edit.lookupMessage = error.message + " You can read the label and confirm the card manually."; }
+      finally { if (this.active()) { this.editBusy = false; this.renderDetails(); } }
     }
 
     async open(mode) {
@@ -406,7 +386,7 @@ window.DropRateScanner = (() => {
         this.find('[data-action="torch"]').hidden = !supportsTorch;
         this.find('[data-action="torch"]').textContent = "Torch off";
         this.find(".dr-scan-camera-resume").hidden = true;
-        this.find('[data-action="capture"]').disabled = this.processing;
+        this.find('[data-action="capture"]').disabled = this.atCapacity();
         this.previous = null;
         this.stableFrames = 0;
         this.presenceFrames = 0;
@@ -477,7 +457,7 @@ window.DropRateScanner = (() => {
     }
 
     tick() {
-      if (!this.auto || this.processing || this.edit || this.view !== "camera" || !this.stream || !this.video.videoWidth) return;
+      if (!this.auto || this.edit || this.view !== "camera" || !this.stream || !this.video.videoWidth) return;
       const analysis = this.frame();
       if (!analysis) return;
       if (!analysis.present) {
@@ -489,6 +469,7 @@ window.DropRateScanner = (() => {
       }
       this.absenceFrames = 0; this.presenceFrames += 1;
       if (this.awaitingRemoval) { this.status("Card scanned · show the next card after removing this one"); return; }
+      if (this.atCapacity()) { this.status("Two scans are recognising · keep the next card ready"); return; }
       const movement = fingerprintDelta(analysis.fingerprint, this.previous);
       this.previous = analysis.fingerprint;
       this.stableFrames = movement <= 0.028 ? this.stableFrames + 1 : 0;
@@ -498,7 +479,7 @@ window.DropRateScanner = (() => {
     }
 
     capture() {
-      if (this.processing || this.edit || !this.stream || !this.video.videoWidth) return;
+      if (this.atCapacity() || this.edit || !this.stream || !this.video.videoWidth) return;
       try {
         const crop = this.crop(), canvas = document.createElement("canvas");
         const scale = Math.min(1, 1500 / Math.max(crop.sw, crop.sh));
@@ -513,10 +494,10 @@ window.DropRateScanner = (() => {
 
     async upload(event) {
       const file = event.target.files?.[0]; event.target.value = "";
-      if (!file || this.processing || this.editBusy) return;
+      if (!file || this.atCapacity() || this.editBusy) return;
       const epoch = this.epoch;
-      let url;
-      this.processing = true; this.render();
+      let url, prepared;
+      this.captureBusy = true; this.render();
       try {
         if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 20 * 1024 * 1024) {
           throw new Error("Choose a JPEG, PNG or WebP photo under 20 MB.");
@@ -528,24 +509,26 @@ window.DropRateScanner = (() => {
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(image.width * scale); canvas.height = Math.round(image.height * scale);
         canvas.getContext("2d", {alpha: false}).drawImage(image, 0, 0, canvas.width, canvas.height);
-        this.processing = false;
-        await this.recognise(canvas.toDataURL("image/jpeg", 0.88));
+        prepared = canvas.toDataURL("image/jpeg", 0.88);
       } catch (error) { if (this.active(epoch)) this.status(error.message); }
       finally {
         if (url) URL.revokeObjectURL(url);
-        if (this.active(epoch)) { this.processing = false; this.render(); }
+        this.captureBusy = false;
+        if (this.active(epoch)) this.render();
       }
+      if (prepared && this.active(epoch)) await this.recognise(prepared);
     }
 
     async recognise(photo, retryItem = null) {
-      if (this.processing || !this.active()) return;
+      if (this.atCapacity() || !this.active() || retryItem?.status === "processing" || this.saving) return;
       const epoch = this.epoch;
       const item = retryItem || {id: crypto.randomUUID(), photo, mode: this.mode, quantity: 1, condition: "", selected: null};
       if (graded(item)) { await this.recogniseSlab(photo, item, !retryItem); return; }
+      item.run = null; item.selected = null; item.suggested = null; item.candidates = [];
       item.status = "processing"; item.error = null; item.guess = "Loading…";
       if (!retryItem) this.items.push(item);
-      this.processing = true;
-      this.status("Recognising…"); this.render();
+      this.inFlight += 1;
+      this.status(this.inFlight === 1 ? "Recognising · you can capture the next card" : "Recognising two cards…"); this.render();
       const controller = new AbortController(); this.controllers.add(controller);
       const timeout = setTimeout(() => controller.abort(), 70000);
       try {
@@ -573,7 +556,8 @@ window.DropRateScanner = (() => {
         this.status("Couldn’t recognise this card · tap its thumbnail to retry");
       } finally {
         clearTimeout(timeout); this.controllers.delete(controller);
-        if (this.active(epoch)) { this.processing = false; this.render(); }
+        this.inFlight -= 1;
+        if (this.active(epoch)) this.render();
       }
     }
 
@@ -616,8 +600,8 @@ window.DropRateScanner = (() => {
       let value = 0, unknown = 0, copies = 0;
       for (const item of this.items) {
         copies += item.quantity;
-        if (item.selected?.market_value_minor == null) unknown += item.quantity;
-        else value += Number(item.selected.market_value_minor) * item.quantity;
+        if (!item.selected || valueOf(item) == null) unknown += item.quantity;
+        else value += Number(valueOf(item)) * item.quantity;
       }
       return {value: unknown === copies && copies > 0 ? null : value, unknown, copies};
     }
@@ -639,13 +623,13 @@ window.DropRateScanner = (() => {
         copy.append(node("strong", "", item.status === "processing" ? "Loading…" : name(item)));
         const card = snapshot(selected(item));
         if (item.status !== "processing") copy.append(node("span", "", card.card_number || card.product_code || ""),
-          node("span", "", item.status === "unresolved" ? "Check match" : money(item.selected?.market_value_minor)));
+          node("span", "", item.status === "unresolved" ? "Check match" : money(valueOf(item))));
         tile.append(copy); strip.append(tile);
       }
       this.find(".dr-scan-total").textContent = "Total: " + money(totals.value) + (totals.unknown ? " · " + totals.unknown + " pending" : "");
       this.find('[data-action="next"]').disabled = !this.items.length;
-      this.find('[data-action="capture"]').disabled = this.processing || !this.stream;
-      this.find('[data-action="gallery"]').disabled = this.processing;
+      this.find('[data-action="capture"]').disabled = this.atCapacity() || !this.stream;
+      this.find('[data-action="gallery"]').disabled = this.atCapacity();
       this.dialog.querySelectorAll('[data-mode]').forEach(control => { control.disabled = this.processing || this.saving; });
       this.find('[data-action="certificate"]').disabled = this.processing || this.saving;
       if (this.view === "review") this.renderReview();
@@ -667,7 +651,7 @@ window.DropRateScanner = (() => {
         row.append(node("h3", "", item.status === "processing" ? "Recognising…" : name(item)), node("p", "dr-scan-card-meta", meta(item)));
         const body = node("div", "dr-scan-review-body"); body.append(this.thumb(item, "dr-scan-review-thumb"));
         const copy = node("div", "dr-scan-review-copy");
-        copy.append(node("strong", "dr-scan-card-value", item.selected?.market_value_minor == null ? "Market value unavailable" : money(item.selected.market_value_minor)));
+        copy.append(node("strong", "dr-scan-card-value", valueOf(item) == null ? "Market value unavailable" : money(valueOf(item))));
         const fields = node("dl");
         const card = snapshot(selected(item));
         for (const [label, value] of [["Variant", card.variant || card.art_treatment || card.sealed_product_type || "—"],
@@ -701,9 +685,10 @@ window.DropRateScanner = (() => {
 
     openDetails(item) {
       if (!this.editable(item)) return;
-      this.edit = {item, selected: item.selected || item.suggested, condition: item.condition,
+      this.edit = {item, mode: item.mode, selected: item.selected || item.suggested, condition: item.condition,
         quantity: item.quantity, searchSelected: item.searchSelected || false,
-        grading_company: item.grading_company || "PSA", grade: item.grade || "", certificate_number: item.certificate_number || ""};
+        grading_company: item.grading_company || "PSA", grade: item.grade || "", certificate_number: item.certificate_number || "",
+        slab: item.slab};
       this.sheet.hidden = false; this.camera.inert = true; this.review.inert = true;
       this.renderDetails();
     }
@@ -711,15 +696,47 @@ window.DropRateScanner = (() => {
     closeDetails() {
       if (this.editBusy) return;
       this.edit = null; this.searchRevision += 1; clearTimeout(this.searchTimer);
+      this.searchController?.abort();
       this.sheet.hidden = true; this.camera.inert = false; this.review.inert = false;
       this.previous = null; this.stableFrames = 0;
       (this.view === "review" ? this.find('[data-action="back"]') : this.find('[data-action="next"]')).focus();
     }
 
+    chooseGrader(company) {
+      const edit = this.edit;
+      if (!edit || this.editBusy || sealed({selected: edit.selected}) || edit.item.mode === "SEALED") return;
+      if (!company) {
+        if (!usableRun(edit.item)) return;
+        edit.mode = "RAW"; edit.quantity = edit.rawQuantity || edit.item.quantity;
+      } else {
+        if (!graders.includes(company)) return;
+        if (!graded(edit)) edit.rawQuantity = edit.quantity;
+        if (company !== edit.grading_company) { edit.grade = ""; edit.certificate_number = ""; edit.lookupMessage = ""; }
+        edit.mode = "GRADED"; edit.grading_company = company; edit.quantity = 1;
+      }
+      this.renderDetails();
+      this.details.querySelector('[data-grader][aria-pressed="true"]')?.focus();
+    }
+
+    graderChoices() {
+      const edit = this.edit, list = node("nav", "dr-scan-graders");
+      list.setAttribute("aria-label", "Grading system");
+      for (const company of ["", ...graders]) {
+        const choice = button(company === "BGS" ? "Beckett" : company || "Ungraded", () => this.chooseGrader(company));
+        choice.dataset.grader = company;
+        choice.setAttribute("aria-pressed", String(company ? graded(edit) && edit.grading_company === company : !graded(edit)));
+        choice.disabled = !company && !usableRun(edit.item);
+        if (choice.disabled) choice.title = "Use RAW mode to scan an ungraded card";
+        list.append(choice);
+      }
+      return list;
+    }
+
     renderDetails() {
       const edit = this.edit; if (!edit) return;
+      edit.detailScroll = this.details.querySelector('.dr-scan-details-content')?.scrollTop ?? edit.detailScroll ?? 0;
+      this.details.classList.remove("is-search");
       const item = edit.item;
-      if (graded(item)) { this.renderSlabDetails(); return; }
       this.details.replaceChildren();
       this.details.append(node("div", "dr-scan-drag-handle"));
       const heading = node("header", "dr-scan-details-header");
@@ -751,39 +768,55 @@ window.DropRateScanner = (() => {
       if (allCandidates.length > shortlist.length) content.append(button(edit.showAllCandidates ? "Show closest matches" : "Show other suggestions", () => {
         edit.showAllCandidates = !edit.showAllCandidates; this.renderDetails();
       }));
-      const candidateItem = {...item, selected: edit.selected};
+      const isGraded = graded(edit);
+      const candidateItem = {...item, ...edit, selected: edit.selected, savedGradedValue: null};
+      const marketValue = valueOf(candidateItem);
       const info = node("div", "dr-scan-detail-identity");
-      info.append(node("h3", "", name(candidateItem)), node("strong", "", edit.selected?.market_value_minor == null ? "Market value unavailable" : money(edit.selected.market_value_minor)),
+      info.append(node("h3", "", name(candidateItem)), node("strong", "", marketValue == null ? "Market value unavailable" : money(marketValue)),
         node("p", "", meta(candidateItem)));
       content.append(info);
-      if (edit.selected?.market_value_minor == null) content.append(node("p", "dr-scan-review-note",
-        "No verified market valuation is stored for this printing yet. You can still confirm it and add it to inventory."));
+      if (marketValue == null) content.append(node("p", "dr-scan-review-note", isGraded
+        ? "No verified value is available here for this grader and grade. You can still add the slab."
+        : "No verified market valuation is stored for this printing yet. You can still confirm it and add it to inventory."));
       else if (edit.selected.recommended_retail_minor != null) content.append(node("p", "dr-scan-review-note",
         "Suggested retail: " + money(edit.selected.recommended_retail_minor) + " · reference value, not a live quote"));
       if (item.error) content.append(node("p", "dr-scan-item-error", item.error));
-      if (!usableRun(item)) {
+      if (!usableRun(item) && !isGraded) {
         const retry = button("Retry this photo", () => { this.closeDetails(); this.recognise(item.photo, item); });
-        retry.disabled = this.processing; content.append(retry);
+        retry.disabled = this.atCapacity(); content.append(retry);
       }
       const isSealed = sealed(candidateItem);
-      content.append(node("span", "dr-scan-type-chip", isSealed ? "Sealed product" : "Ungraded"));
+      content.append(isSealed ? node("span", "dr-scan-type-chip", "Sealed product") : this.graderChoices());
       const fields = node("div", "dr-scan-detail-fields");
-      const conditionLabel = node("label", "", "Condition");
-      const condition = node("select"); condition.setAttribute("aria-label", "Condition");
-      (isSealed ? ["Sealed"] : ["Choose condition", ...conditions]).forEach((value, index) => {
-        const option = node("option", "", value); option.value = !isSealed && index === 0 ? "" : value; condition.append(option);
+      const conditionLabel = node("label", "", isGraded ? "Grade" : "Condition");
+      const condition = node("select"); condition.setAttribute("aria-label", isGraded ? "Grade" : "Condition");
+      (isSealed ? ["Sealed"] : isGraded ? ["Choose grade", ...gradeOptions(edit.grading_company)] : ["Choose condition", ...conditions]).forEach((value, index) => {
+        const label = isGraded && value === "10" ? (edit.grading_company === "BGS" ? "Pristine · 10" : "10") : value;
+        const option = node("option", "", label); option.value = !isSealed && index === 0 ? "" : value; condition.append(option);
       });
-      condition.value = isSealed ? "Sealed" : edit.condition;
+      condition.value = isSealed ? "Sealed" : isGraded ? edit.grade : edit.condition;
       condition.disabled = isSealed;
-      condition.addEventListener("change", () => { edit.condition = condition.value; this.updateDetailsSave(); });
+      condition.addEventListener("change", () => { edit[isGraded ? "grade" : "condition"] = condition.value; this.updateDetailsSave(); });
       conditionLabel.append(condition);
       const variant = node("label", "", "Variant");
       variant.append(node("span", "dr-scan-readonly-field", snapshot(edit.selected).variant || snapshot(edit.selected).art_treatment || snapshot(edit.selected).sealed_product_type || "—"));
       const quantityLabel = node("label", "", "Quantity");
       const quantity = node("input"); quantity.type = "number"; quantity.min = "1"; quantity.max = "50"; quantity.step = "1";
       quantity.value = edit.quantity; quantity.inputMode = "numeric"; quantity.setAttribute("aria-label", "Quantity");
+      quantity.disabled = isGraded;
       quantity.addEventListener("input", () => { edit.quantity = Number(quantity.value); this.updateDetailsSave(); });
       quantityLabel.append(quantity); fields.append(conditionLabel, variant, quantityLabel); content.append(fields);
+      if (isGraded) {
+        const certificateLabel = node("label", "", "Certificate number"), certificate = node("input");
+        certificate.value = edit.certificate_number; certificate.maxLength = edit.grading_company === "TAG" ? 8 : 14;
+        certificate.inputMode = edit.grading_company === "TAG" ? "text" : "numeric";
+        certificate.autocomplete = "off"; certificate.setAttribute("aria-label", "Certificate number");
+        certificate.addEventListener("input", () => { edit.certificate_number = certificate.value.trim().toUpperCase(); this.updateDetailsSave(); });
+        certificateLabel.append(certificate); fields.append(certificateLabel);
+        content.append(button("Lookup certificate", () => this.lookupSlab()),
+          node("p", "dr-scan-review-note", edit.lookupMessage || "Enter the grade and certificate printed on your slab. One certificate adds one slab; Drop Rate review still applies."));
+        if (item.photo && item.mode === "GRADED") content.append(button("Read slab photo again", () => { this.closeDetails(); this.recognise(item.photo, item); }));
+      }
       if (edit.selected && !edit.selected.catalogue_id) content.append(node("p", "dr-scan-review-note",
         isSealed ? "This sealed product needs Drop Rate identity review before inventory." : "This printing will be linked to Drop Rate for review when you confirm it."));
       content.append(node("p", "dr-scan-detail-message"));
@@ -792,7 +825,7 @@ window.DropRateScanner = (() => {
       const remove = button("⌫", () => this.remove(item), "dr-scan-delete"); remove.setAttribute("aria-label", "Remove this scan");
       remove.innerHTML = icons.trash;
       const save = button("Looks Good", () => {
-        if (!isSealed && !conditions.includes(edit.condition)) {
+        if (!isGraded && !isSealed && !conditions.includes(edit.condition)) {
           condition.focus();
           try { condition.showPicker?.(); } catch (_) { /* Focus still exposes the required field. */ }
           return;
@@ -800,14 +833,22 @@ window.DropRateScanner = (() => {
         this.confirmDetails();
       }, "dr-scan-primary"); save.dataset.detailsSave = "true";
       footer.append(remove, save); this.details.append(footer); this.updateDetailsSave();
+      content.scrollTop = edit.detailScroll;
       close.focus();
     }
 
     updateDetailsSave() {
       const edit = this.edit; if (!edit) return;
-      if (graded(edit.item)) {
-        this.details.querySelector('[data-details-save]').disabled = this.editBusy || !edit.selected?.catalogue_id
+      if (graded(edit)) {
+        const canLink = edit.selected?.catalogue_id || edit.selected?.browser_key
+          || (usableRun(edit.item) && edit.selected?.reference_selection);
+        this.details.querySelector('[data-details-save]').disabled = this.editBusy || !canLink
           || !gradeValid({...edit.item, ...edit}) || edit.quantity !== 1;
+        this.details.querySelector('.dr-scan-detail-message').textContent = (edit.slab || edit.item.slab)?.conflicts?.length
+          ? "The certificate and label disagree. Resolve this before adding the slab."
+          : !canLink ? "Choose the exact card or search for its printing."
+          : !gradeOptions(edit.grading_company).includes(edit.grade) ? "Choose the grade printed on the slab."
+          : !certificateValid(edit) ? "Enter a valid certificate number for " + edit.grading_company + "." : "";
         return;
       }
       const isSealed = sealed({...edit.item, selected: edit.selected});
@@ -828,11 +869,16 @@ window.DropRateScanner = (() => {
 
     async confirmDetails() {
       const edit = this.edit; if (!edit || this.editBusy || this.details.querySelector("[data-details-save]").disabled) return;
-      if (!graded(edit.item) && !sealed({...edit.item, selected: edit.selected}) && !conditions.includes(edit.condition)) return;
+      if (!graded(edit) && !sealed({...edit.item, selected: edit.selected}) && !conditions.includes(edit.condition)) return;
       this.editBusy = true;
       this.details.querySelectorAll("button, input, select").forEach(control => { control.disabled = true; });
       try {
-        if (!edit.selected.catalogue_id && edit.selected.reference_selection) {
+        if (!edit.selected.catalogue_id && graded(edit) && !usableRun(edit.item) && edit.selected.browser_key) {
+          const data = await this.request("/api/v1/catalogue-browser/select", {method: "POST",
+            body: JSON.stringify({key: edit.selected.browser_key, confirmed: true})});
+          if (!data.catalogue_id) throw new Error("This printing could not be confirmed. Please retry.");
+          edit.selected = {...edit.selected, catalogue_id: data.catalogue_id};
+        } else if (!edit.selected.catalogue_id && edit.selected.reference_selection) {
           const data = await this.request("/api/v1/recognition/runs/" + edit.item.run.id + "/references/select", {
             method: "POST", body: JSON.stringify(edit.selected.reference_selection),
           });
@@ -847,9 +893,10 @@ window.DropRateScanner = (() => {
           edit.selected = candidate; edit.item.candidates = data.candidates; edit.item.run = data.run || edit.item.run;
         }
         if (!this.active()) return;
-        Object.assign(edit.item, {selected: edit.selected, quantity: edit.quantity, condition: edit.condition,
+        Object.assign(edit.item, {selected: edit.selected, mode: edit.mode, quantity: edit.quantity, condition: graded(edit) ? null : edit.condition,
           searchSelected: edit.searchSelected, status: "matched", error: null,
-          ...(graded(edit.item) ? {grading_company: edit.grading_company, grade: edit.grade, certificate_number: edit.certificate_number} : {})});
+          grading_company: graded(edit) ? edit.grading_company : null, grade: graded(edit) ? edit.grade : null,
+          certificate_number: graded(edit) ? edit.certificate_number : null, slab: edit.slab, savedGradedValue: null});
         this.editBusy = false; this.closeDetails(); this.render();
       } catch (error) {
         if (!this.active()) return;
@@ -865,70 +912,149 @@ window.DropRateScanner = (() => {
       this.closeDetails(); this.render();
     }
 
-    openSearch() {
-      if (!this.edit || this.editBusy) return;
-      this.searchRevision += 1;
-      this.details.replaceChildren();
-      const header = node("header", "dr-scan-details-header");
-      const title = node("h2", "", "Find your card"); title.id = "dr-scan-details-title";
-      header.append(title, button("Back", () => { this.searchRevision += 1; clearTimeout(this.searchTimer); this.renderDetails(); }));
-      const input = node("input", "dr-scan-search-input"); input.type = "search"; input.placeholder = "Card name or number";
-      input.setAttribute("aria-label", "Search card name or number"); input.maxLength = 160;
-      input.addEventListener("input", () => {
-        clearTimeout(this.searchTimer); this.searchRevision += 1;
-        const revision = this.searchRevision, query = input.value.trim();
-        this.details.querySelector(".dr-scan-search-results").replaceChildren();
-        this.details.querySelector(".dr-scan-search-message").textContent = query.length >= 2 ? "Searching…" : "Enter at least two characters.";
-        if (query.length >= 2) this.searchTimer = setTimeout(() => this.search(query, revision), 260);
-      });
-      this.details.append(header, input, node("p", "dr-scan-search-message", "Search the exact card number to compare printings."), node("div", "dr-scan-search-results"));
-      input.focus();
+    searchCandidate(row) {
+      const reference = row.source_kind === "REFERENCE" || row.requires_materialization;
+      return {...row, id: null, catalogue_id: row.catalogue_id || row.id || null,
+        image_url: row.display_image_url || row.image_url, candidate_snapshot: {...row}, browser_key: row.key,
+        ...(reference ? {reference_selection: {provider: row.provider, system_code: row.system_code,
+          language: row.language, provider_id: row.provider_id}} : {})};
     }
 
-    async search(query, revision) {
+    openSearch() {
+      if (!this.edit || this.editBusy) return;
+      this.searchRevision += 1; this.searchController?.abort(); clearTimeout(this.searchTimer);
       const edit = this.edit;
-      if (!edit || (!graded(edit.item) && !usableRun(edit.item))) { this.details.querySelector(".dr-scan-search-message").textContent = "Retry the scan first so the correction has completed recognition evidence."; return; }
+      edit.detailScroll = this.details.querySelector('.dr-scan-details-content')?.scrollTop ?? edit.detailScroll ?? 0;
+      edit.searchState ||= {query: "", system: "", language: "", sort: "newest", rows: [], cache: new Map()};
+      const state = edit.searchState;
+      this.details.replaceChildren(); this.details.classList.add("is-search");
+      const header = node("header", "dr-scan-details-header");
+      const title = node("h2", "", "Search"); title.id = "dr-scan-details-title";
+      header.append(title, button("Back", () => { this.searchRevision += 1; this.searchController?.abort(); clearTimeout(this.searchTimer); this.renderDetails(); }));
+      const bar = node("div", "dr-scan-searchbar"), input = node("input", "dr-scan-search-input");
+      input.type = "search"; input.placeholder = "Search by card name or number"; input.value = state.query;
+      input.setAttribute("aria-label", "Search card name or number"); input.maxLength = 160;
+      const refresh = (immediate = false) => {
+        clearTimeout(this.searchTimer); this.searchRevision += 1; this.searchController?.abort();
+        state.query = input.value.trim(); state.rows = [];
+        const revision = this.searchRevision;
+        this.searchFilters();
+        this.details.querySelector(".dr-scan-search-results").replaceChildren();
+        if (state.query.length < 2 && !state.system) {
+          this.details.querySelector(".dr-scan-search-message").textContent = state.query ? "Enter at least two characters." : "Quick Filters · browse every card, including cards you don’t own";
+          return;
+        }
+        this.details.querySelector(".dr-scan-search-message").textContent = "Searching…";
+        if (immediate) this.search(state.query, revision);
+        else this.searchTimer = setTimeout(() => this.search(state.query, revision), 180);
+      };
+      input.addEventListener("input", () => refresh());
+      input.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); refresh(true); input.blur(); } });
+      const clear = button("×", () => { input.value = ""; refresh(true); input.focus(); }); clear.setAttribute("aria-label", "Clear search");
+      bar.append(input, clear);
+      const scroll = node("div", "dr-scan-search-scroll");
+      scroll.append(node("div", "dr-scan-search-filters"), node("p", "dr-scan-search-message"), node("div", "dr-scan-search-games"), node("div", "dr-scan-search-results"));
+      this.details.append(header, bar, scroll);
+      this.refreshSearch = refresh;
+      this.searchFilters(); refresh(true); input.focus();
+      if (!this.searchGames) {
+        this.request("/api/v1/catalogue-browser/games").then(data => {
+          if (!this.active()) return;
+          this.searchGames = data.items || [];
+          if (this.edit === edit && this.details.classList.contains("is-search")) this.searchFilters();
+        }).catch(() => { /* Name/number search remains usable when quick filters are unavailable. */ });
+      }
+    }
+
+    searchFilters() {
+      const edit = this.edit, state = edit?.searchState;
+      if (!state || !this.details.classList.contains("is-search")) return;
+      const filters = this.details.querySelector(".dr-scan-search-filters"); filters.replaceChildren();
+      const rank = game => ({POKEMON_TCG: 0, ONE_PIECE_CARD_GAME: 1}[game.system_code] ?? 2);
+      const games = [...(this.searchGames || [])].sort((a, b) => rank(a) - rank(b) || a.game.localeCompare(b.game));
+      const select = (label, values, value, onChange) => {
+        const wrap = node("label", "", label), control = node("select"); control.setAttribute("aria-label", label);
+        values.forEach(([id, text]) => { const option = node("option", "", text); option.value = id; control.append(option); });
+        control.value = value; control.addEventListener("change", () => { onChange(control.value); this.refreshSearch(true); });
+        wrap.append(control); filters.append(wrap);
+      };
+      select("Game", [["", "All games"], ...games.map(game => [game.system_code, game.game])], state.system, value => { state.system = value; state.language = ""; });
+      const languages = [...new Set(games.filter(game => !state.system || game.system_code === state.system).flatMap(game => game.languages || []))].sort();
+      select("Language", [["", "All languages"], ...languages.map(language => [language, language])], state.language, value => { state.language = value; });
+      select("Sort", [["newest", "Newest first"], ["name", "Name A–Z"], ["number", "Card number"]], state.sort, value => { state.sort = value; });
+      if (state.system || state.language) filters.append(button("Clear filters", () => { state.system = ""; state.language = ""; this.refreshSearch(true); }));
+      const quick = this.details.querySelector(".dr-scan-search-games"); quick.replaceChildren(); quick.hidden = Boolean(state.query || state.system);
+      for (const game of games) {
+        const tile = button("", () => { state.system = game.system_code; state.language = ""; this.refreshSearch(true); }, "dr-scan-game");
+        tile.setAttribute("aria-label", "Browse " + game.game);
+        tile.append(node("span", "", game.game));
+        const art = window.DropRateTitleArt?.game(game.system_code);
+        if (art) {
+          const logo = node("img"); logo.alt = ""; logo.src = art.url || "/assets/title-art/" + art.file;
+          logo.addEventListener("load", () => tile.classList.add("has-logo")); logo.addEventListener("error", () => logo.remove()); tile.append(logo);
+        }
+        quick.append(tile);
+      }
+    }
+
+    async search(query, revision, more = false) {
+      const edit = this.edit, state = edit?.searchState;
+      if (!edit || !state || (!graded(edit) && !usableRun(edit.item))) {
+        const message = this.details.querySelector(".dr-scan-search-message");
+        if (message) message.textContent = "Retry the scan first so the correction has completed recognition evidence.";
+        return;
+      }
+      this.searchController?.abort();
+      const controller = new AbortController(); this.searchController = controller; this.controllers.add(controller);
+      const params = new URLSearchParams({q: query, limit: "30", offset: String(more ? state.rows.length : 0),
+        product_type: "CARD", owned: "all", sort: state.sort});
+      if (state.system) params.set("system_code", state.system);
+      if (state.language) params.set("language", state.language);
+      const results = this.details.querySelector(".dr-scan-search-results");
+      if (!more) {
+        results.replaceChildren();
+        for (let index = 0; index < 4; index += 1) results.append(node("div", "dr-scan-search-skeleton"));
+      }
+      const message = this.details.querySelector(".dr-scan-search-message"); message.textContent = "Searching…";
       try {
-        const params = new URLSearchParams({q: query, limit: "20"});
-        if (this.options.role === "seller" && !graded(edit.item)) { params.set("include_reference", "true"); params.set("run_id", edit.item.run.id); }
-        const data = await this.request((this.options.role === "seller" ? "/api/v1/owner/catalogue-search?" : "/api/v1/catalogue/search?") + params);
-        if (this.edit !== edit || revision !== this.searchRevision) return;
-        const results = this.details.querySelector(".dr-scan-search-results"); results.replaceChildren();
+        const cached = state.cache.get(params.toString());
+        const data = cached && Date.now() - cached.time < 60000 ? cached.data
+          : await this.request("/api/v1/catalogue-browser/products?" + params, {signal: controller.signal});
+        if (!this.active() || this.edit !== edit || revision !== this.searchRevision) return;
+        if (state.cache.size >= 20) state.cache.delete(state.cache.keys().next().value);
+        state.cache.set(params.toString(), {data, time: Date.now()});
         const rows = (data.items || []).filter(row => row.product_type !== "SEALED");
-        this.details.querySelector(".dr-scan-search-message").textContent = rows.length ? "" : "No results. Try the exact card number.";
-        for (const row of rows) {
-          const choice = button("", () => this.chooseSearch(row), "dr-scan-search-result");
-          choice.append(this.thumb({selected: row}, "dr-scan-thumb", row));
-          const copy = node("span"); copy.append(node("strong", "", row.name), node("small", "", meta({selected: row})));
+        state.rows = more ? state.rows.concat(rows) : rows;
+        results.replaceChildren();
+        message.textContent = state.rows.length ? state.rows.length + " matches · compare artwork, number and language" : "No results. Try the exact card number or clear filters.";
+        for (const row of state.rows) {
+          const candidate = this.searchCandidate(row), choice = button("", () => this.chooseSearch(row), "dr-scan-search-result");
+          choice.append(this.thumb({selected: candidate}, "dr-scan-search-art", candidate));
+          const copy = node("span"); copy.append(node("strong", "", row.name), node("small", "", meta({selected: candidate})),
+            node("small", "", graded(edit) ? "Choose grader in details" : row.market_value_minor == null ? "Market value unavailable" : money(row.market_value_minor)));
           choice.append(copy); results.append(choice);
         }
+        if (data.has_more) {
+          const load = button("Load more", () => { load.disabled = true; this.search(query, revision, true); }, "dr-scan-search-more");
+          results.append(load);
+        }
       } catch (error) {
-        if (this.active() && this.edit === edit && revision === this.searchRevision) this.details.querySelector(".dr-scan-search-message").textContent = error.message;
-      }
+        if (error.name !== "AbortError" && this.active() && this.edit === edit && revision === this.searchRevision) {
+          message.textContent = error.message;
+          results.querySelectorAll(".dr-scan-search-skeleton").forEach(element => element.remove());
+          results.querySelectorAll("button").forEach(element => { element.disabled = false; });
+        }
+      } finally { this.controllers.delete(controller); }
     }
 
     async chooseSearch(row) {
       const edit = this.edit; if (!edit || this.editBusy) return;
-      this.editBusy = true;
-      this.details.querySelectorAll("button, input").forEach(control => { control.disabled = true; });
-      try {
-        let catalogueId = row.id;
-        if (row.requires_materialization) {
-          const data = await this.request("/api/v1/recognition/runs/" + edit.item.run.id + "/references/select", {
-            method: "POST", body: JSON.stringify({provider: row.provider, system_code: row.system_code,
-              language: row.language, provider_id: row.provider_id}),
-          });
-          catalogueId = data.catalogue_id;
-        }
-        if (!catalogueId) throw new Error("That reference could not be linked. Please choose another match.");
-        if (!this.active()) return;
-        edit.selected = {...row, catalogue_id: catalogueId, candidate_snapshot: {...row}, id: null,
-          ...(graded(edit.item) ? {market_value_minor: null} : {})};
-        edit.searchSelected = true; this.searchRevision += 1; this.editBusy = false; this.renderDetails();
-      } catch (error) {
-        if (!this.active()) return;
-        this.editBusy = false; this.openSearch(); this.details.querySelector(".dr-scan-search-message").textContent = error.message;
-      } finally { this.editBusy = false; }
+      const candidate = this.searchCandidate(row);
+      if (!candidate.catalogue_id && !candidate.reference_selection) return;
+      // Selection remains a local draft; the explicit confirmation links the reference.
+      edit.selected = candidate; edit.searchSelected = true;
+      this.searchRevision += 1; this.searchController?.abort(); clearTimeout(this.searchTimer);
+      document.activeElement?.blur(); this.renderDetails();
     }
 
     freeze(item) {
@@ -978,6 +1104,7 @@ window.DropRateScanner = (() => {
             });
             if (!data.inventory?.inventory_code) throw new Error("Save confirmation was incomplete. Retry to check this same request.");
             pending.result = data; added += 1;
+            if (graded(item)) item.savedGradedValue = data.valuation?.market_value_minor ?? data.inventory.market_value_minor ?? null;
             if (this.options.role === "seller" && sealed(item) && data.inventory.identity_confirmed && data.inventory.market_value_minor == null) {
               try {
                 const market = await this.request("/api/v1/owner/inventory/" + encodeURIComponent(data.inventory.inventory_code) + "/refresh-market", {method: "POST", body: "{}"});

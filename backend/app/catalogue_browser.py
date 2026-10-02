@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 
 from typing import Annotated, Literal
 from uuid import UUID
@@ -13,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from .access_control import current_access_context
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
-from .inventory_intake import create_inventory_intake
+from .inventory_intake import create_inventory_intake, _find_exact_catalogue, _manual_identity_key
 from .physical_state import CARD_CONDITIONS
 from .recognition_games import SYSTEM_BY_GAME
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
@@ -173,12 +174,21 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
         where.append("coalesce(o.quantity,0)>0")
     elif owned == "not_owned":
         where.append("coalesce(o.quantity,0)=0")
+    order = SORTS[sort]
     if q.strip():
         # Every term is literal; apostrophes, % and _ never become SQL or wildcards.
         terms = bind(q.strip().split())
-        where.append(f"""not exists (
+        number_key = re.sub(r"[^a-z0-9]", "", q.strip().lower())
+        number_match = "false"
+        if number_key and any(character.isdigit() for character in number_key):
+            key = bind(number_key)
+            number_match = f"lower(regexp_replace(coalesce(e.card_number,''),'[^A-Za-z0-9]','','g'))={key}"
+        where.append(f"""({number_match} or not exists (
             select 1 from unnest({terms}::text[]) term where strpos(lower(concat_ws(' ',
-            e.name,e.set_name,e.card_number,e.game,e.variant,e.language)),lower(term))=0)""")
+            e.name,e.set_name,e.card_number,e.game,e.variant,e.language)),lower(term))=0))""")
+        if sort in ("newest", "name", "number"):
+            exact_query = bind(q.strip().lower())
+            order = f"case when {number_match} then 0 when lower(e.name)={exact_query} then 1 else 2 end," + order
     clause = " and ".join(where) or "true"
     page_limit, page_offset = bind(limit + 1), bind(offset)
     query = SOURCE_CTE + f""", reference_values as materialized (
@@ -186,10 +196,10 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
       left join lateral tcg.recognition_catalogue_reference_value(p.id,nullif(p.language,'')) v on true
     ), page as (
       select e.*,coalesce(o.quantity,0) as owned_quantity,v.market_value_minor,v.basis_condition,v.pricing_updated_at,
-             row_number() over(order by {SORTS[sort]}) as ordinal
+             row_number() over(order by {order}) as ordinal
       from entries e left join owned o on o.catalogue_id=e.catalogue_id
       left join reference_values v on v.id=e.catalogue_id
-      where {clause} order by {SORTS[sort]} limit {page_limit} offset {page_offset}
+      where {clause} order by {order} limit {page_limit} offset {page_offset}
     ) select page.*,coalesce(page.image_url,media.url) as display_image_url
       from page left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null order by page.ordinal
     """
@@ -245,14 +255,56 @@ def intake_payload(item: dict, payload: BrowseIntake) -> ManualInventoryCreate:
               "notes": browse_note(payload)}
     if item.get("catalogue_id"):
         return ManualInventoryCreate(catalogue_id=item["catalogue_id"], **fields)
-    # Only fields re-read from the released provider record can create an identity;
-    # no browser-supplied product facts, ownership, prices or approval flags.
+    return ManualInventoryCreate(new_catalogue=reference_product(item), **fields)
+
+
+def reference_product(item: dict) -> ManualCatalogueCreate:
+    # Only facts re-read from a released provider record can create an identity.
     try:
-        return ManualInventoryCreate(new_catalogue=ManualCatalogueCreate(product_type="CARD", game=item["game"],
+        return ManualCatalogueCreate(product_type="CARD", game=item["game"],
             name=item["name"], set_name=item["set_name"], card_number=item["card_number"], variant=item["provider_id"],
-            rarity=item.get("rarity") or "Unknown", language=item["language"]), **fields)
+            rarity=item.get("rarity") or "Unknown", language=item["language"])
     except ValidationError as exc:
         raise HTTPException(422, "This reference printing needs catalogue review before it can be added") from exc
+
+
+class CatalogueSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    key: str = Field(min_length=3, max_length=80)
+    confirmed: Literal[True]
+
+
+@router.post("/select")
+async def select_product(payload: CatalogueSelection, request: Request,
+                         user: Annotated[AuthenticatedUser, Depends(require_user)],
+                         access: Annotated[dict, Depends(browser_access)]):
+    """Link a human-selected printing for slab intake; never create inventory."""
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        row = await connection.fetchrow(SOURCE_CTE + "select * from entries where key=$2", access["owner_id"], payload.key)
+        if row is None:
+            raise HTTPException(404, "Product is not available in the released catalogue")
+        item = dict(row)
+        if item["product_type"] != "CARD":
+            raise HTTPException(422, "Graded selection supports cards only")
+        if item.get("catalogue_id"):
+            return {"catalogue_id": str(item["catalogue_id"])}
+        if item["system_code"] not in GAME_BY_SYSTEM:
+            raise HTTPException(422, "This card system needs catalogue review")
+        product = reference_product(item)
+        catalogue = await _find_exact_catalogue(connection, product)
+        if catalogue is None:
+            catalogue = await connection.fetchrow("""
+                insert into tcg.catalogue_products(identity_key,product_type,game,name,set_name,card_number,variant,rarity,language)
+                values($1,$2,$3,$4,$5,$6,$7,$8,$9) on conflict(identity_key) do nothing returning *
+                """, _manual_identity_key(product), product.product_type, product.game, product.name,
+                product.set_name, product.card_number, product.variant, product.rarity, product.language)
+            if catalogue is None:
+                catalogue = await _find_exact_catalogue(connection, product)
+        if catalogue is None:
+            raise HTTPException(409, "This printing was changed concurrently. Search again.")
+        # Match existing manual browse intake: profile/identity approval remains
+        # founder-only. Do not create or alter a profile through seller access.
+        return {"catalogue_id": str(catalogue["id"])}
 
 
 @router.post("/intake", status_code=201)

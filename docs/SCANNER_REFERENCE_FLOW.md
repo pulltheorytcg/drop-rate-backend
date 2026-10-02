@@ -1,5 +1,55 @@
 # Collectr reference scanner flow
 
+## Thumbnail grading, live search and overlapping captures — 2 October 2026
+
+Reviewed the user's new 171-second Collectr recording. The thumbnail details
+now contain a horizontal **Ungraded / PSA / Beckett / CGC / TAG / ACE / BVG / BCCG**
+selector in both hubs, followed by the appropriate condition or grade menu.
+Beckett Black Label and CGC/TAG Pristine remain distinct values. PSA excludes
+9.5; ACE/TAG use whole grades. Choosing another grader clears the grade and
+certificate. The selection is a local draft until **Looks Good**; closing cancels
+it. Graded inventory still requires the actual slab certificate, one physical
+copy per certificate and existing server verification/Draft intake. TAG is an
+explicit manual-verification adapter, not an automated certificate integration.
+TAG QR/label auto-detection has not been added in this change.
+
+Search inside the scanner is now a two-column artwork grid with live name/number
+search, quick game tiles (including Pokémon), game/language filters, sort, clear
+controls and pagination. Both roles use the complete released catalogue via
+`/catalogue-browser/products`, regardless of ownership. Exact collector numbers
+also work without punctuation and rank ahead of incidental matches. Query changes
+abort obsolete requests; delayed responses cannot replace a newer query. Up to
+20 result pages are cached in the current detail session for 60 seconds. Selecting
+a result does not write until confirmation. Raw corrections retain the existing
+owner-scoped recognition reference/feedback path. A slab without a raw run can
+link server-read reference facts through `/catalogue-browser/select`; this does
+not add inventory, approve a profile or alter seller/founder access.
+
+The camera accepts a second capture while the first recognises, bounded at two
+in-flight requests. Immediate thumbnails, per-photo results/errors, the physical
+removal gate and required review remain. This improves batch interaction; it
+**does not reduce the AI service's per-photo recognition time** or establish
+Collectr latency parity. Model, prompt, resolution and exact-match gates are
+unchanged. A failed retry cannot reuse an earlier successful run's evidence.
+
+Raw prices are hidden when choosing a grader. Missing grade/printing valuations
+remain unavailable; they do not block correctly completed intake. This release
+does not resolve missing market coverage for the user's Buggy and Law printings.
+
+Validation: 2,391 backend tests; all dashboard suites including 33 scanner
+interaction/failure cases; isolated browser fixtures for both roles at 390×844,
+320×568 and 844×390 (visible actions, two-column grid, no horizontal overflow or
+page errors). A read-only production query for Japanese `op12106` returned two
+exact printings in 671 ms database execution time. No inventory was created by
+testing. Physical phone/camera acceptance remains required. Asset version: v4.
+Deployment evidence is recorded on the accompanying pull request.
+
+Grade references reviewed: [PSA](https://www.psacard.com/gradingstandards),
+[CGC](https://www.cgccards.com/card-grading/grading-scale/),
+[ACE](https://acegrading.com/grading-scale),
+[TAG scale](https://taggrading.com/pages/scale) and
+[TAG verification](https://taggrading.com/pages/cert-search).
+
 ## First physical-device acceptance repair — 2 October 2026
 
 The user's Buggy scan was OP16-041 parallel English, absent from the existing
@@ -83,7 +133,7 @@ the live URL; physical-device compatibility still requires acceptance testing.
 - The live camera stays full screen, with a thin guide, translucent toolbar,
   compact newest-first thumbnail tray, total, gallery, shutter and Next button.
   A captured thumbnail appears immediately as Loading while the real recognition
-  request completes. Only one recognition request runs at a time.
+  request completes. At most two recognition requests run at a time.
 - The settings menu retains camera switching and a torch when the hardware
   supports it, and lets the user turn automatic capture off.
 - A thumbnail opens Scan Details: the captured photo and reference artwork,
@@ -98,8 +148,8 @@ the live URL; physical-device compatibility still requires acceptance testing.
   in memory and are cleared when the item is saved, removed or the session ends.
 
 Drop Rate keeps its inventory terminology and approval rules. Collectr portfolio
-selection, sold-listing links, optional price-paid controls and free grader
-selection are not invented. The existing dedicated graded-slab/certificate flow,
+selection, sold-listing links and optional price-paid controls are not implemented.
+Grader selection retains the real certificate requirement. The dedicated slab flow,
 desktop scanner and standalone photo-upload workflow remain available. The new
 gallery control inside the mobile camera uses this new thumbnail/review flow.
 
@@ -111,7 +161,7 @@ adapters use existing endpoints:
 | Operation | Seller Hub | Founder HQ |
 | --- | --- | --- |
 | Recognition and feedback | Existing `/api/v1/recognition/*` | Same authenticated endpoints |
-| Search correction | Existing owner-scoped catalogue and governed-reference search | Existing canonical catalogue search |
+| Search correction | Shared released catalogue browser; owner-scoped reference confirmation | Same shared search and reference confirmation |
 | Inventory save | `/api/v1/owner/recognition-intake` | `/api/v1/inventory/intake` |
 | Destination | Signed-in seller's inventory | Signed-in founder's inventory |
 
