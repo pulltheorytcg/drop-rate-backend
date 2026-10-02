@@ -2,8 +2,9 @@
 
 ## Status — 2 October 2026
 
-Implemented on `feat/collectr-product-browser`, stacked on the scanner PR #497.
-Not merged or deployed. The user requested the product-list/search structure in
+Released to both hubs at 15:03 BST through PR #498, after scanner PR #497.
+The deployed main commit is `725fb745d5857a9a5ed51b2e46ad638091b2f8d2`.
+The user requested the product-list/search structure in
 their 77-second Collectr recording, in Drop Rate colours. The recording starts
 with Sealed Only already selected; the cleared Quick Filters screen is the
 default, not the initial filtered frame.
@@ -106,6 +107,11 @@ other-account write authority.
 
 ## Verification and limits
 
+- Live release: Railway deployment `46762407-3faf-4198-919a-b1f99a5c3c10`
+  succeeded, including 2,372 backend tests and the readiness health check. Public
+  HTTPS checks confirm both health endpoints and all three entry pages return
+  200, the new scanner/catalogue assets match the release, and unauthenticated
+  catalogue access returns 401. Existing open tabs need a reload.
 - Empty-portfolio verification on 2 October: read-only queries of the actual
   database return all 810 current set/language/provider groups across six games,
   with every owned count zero. This includes 739 reference set records and 71
@@ -143,6 +149,8 @@ other-account write authority.
   No production inventory was added. No physical camera, real certificate lookup,
   production API latency or recognition accuracy claim is made.
 
-Before rollout: review both draft PRs, incorporate the user's baseline scanner
-test, and complete physical-device/account/API acceptance. Keep production on
-the existing scanner during that baseline test.
+The user clarified that they expected to test the changes in the actual hubs;
+the previous baseline hold ended and both reviewed PRs were merged and deployed.
+Complete physical-device/account/API acceptance on the live app. The rollback
+target is API deployment `c408306f-8aef-4ec2-87d8-6bbf51e7c44d`; no migration or
+production inventory write accompanied the release.

@@ -2,7 +2,16 @@
 
 ## Status — 2 October 2026
 
-Implemented on `feat/collectr-scanner-flow` for review.
+Released to Seller Hub and Founder HQ on 2 October at 15:03 BST. PR #497
+merged, followed by catalogue PR #498. The deployed main commit is
+`725fb745d5857a9a5ed51b2e46ad638091b2f8d2`; Railway deployment
+`46762407-3faf-4198-919a-b1f99a5c3c10` is successful.
+
+Both health endpoints return 200. The live `/`, `/owner` and `/app` pages
+load the reviewed scanner and catalogue scripts/styles; all eight checked
+assets match the release byte-for-byte. Anonymous catalogue requests remain
+401. Railway's pre-deploy suite passed 2,372 tests. Reload existing open tabs
+to receive the new UI. Physical camera/card/provider acceptance is still pending.
 
 The follow-up requested at 06:03 BST adds visible **RAW | GRADED | SEALED**
 controls both before and inside the shared camera. Each scan retains its mode;
@@ -20,11 +29,11 @@ older standalone photo workflows remain available.
 Targeted verification: 20 scanner scenarios and 58 existing slab/intake/shell
 checks pass. The baseline camera/review browser fixture passes for both hubs.
 No live card recognition, certificate provider acceptance or production write was
-performed. Product browsing is being built as a separate follow-up concern.
- Production remains on the
-existing scanner while the user tests its recognition. No deployment, database
-migration, provider configuration, recognition scoring or native installer is
-part of this change.
+performed during implementation. Product browsing shipped through separate PR
+#498. The user clarified that testing meant the new UI in the actual hubs, so the
+earlier baseline hold ended and both changes were deployed. No database migration,
+provider configuration, recognition scoring or native installer is part of this
+change.
 
 The reference is the user's 110-second Collectr screen recording supplied on
 2 October. This change follows its camera → thumbnails → details → review → add
@@ -33,8 +42,8 @@ Following the user's review, the same structure now uses Drop Rate's established
 navy, blue and cyan palette, with white/pale-grey detail and review surfaces.
 This follow-up changes colours only: component geometry, copy and scanner behaviour
 are preserved. Both hub entry points load the updated stylesheet version.
-The active native app's WebView will receive the same web presentation after a
-future deployment; this does not demonstrate physical-device compatibility.
+The active native app's WebView receives this web presentation when it reloads
+the live URL; physical-device compatibility still requires acceptance testing.
 
 ## Interaction
 
@@ -127,7 +136,9 @@ upscaling. Recognition latency and accuracy are not changed or benchmarked here.
   fixture recognition/value responses and simulated saves. They are UI previews,
   not recognition evidence or production inventory writes.
 
-Outstanding before rollout: user's baseline findings, real rear-camera permission
+Outstanding live acceptance: user's baseline findings, real rear-camera permission
 and gallery behavior on iPhone/Android, accurate guide framing with actual cards,
-glare/parallel/promo correction and real network-interruption acceptance. Review
-the branch before merging; do not replace the live scanner during baseline tests.
+glare/parallel/promo correction and real network-interruption acceptance. If the
+new flow regresses, restore Railway API deployment
+`c408306f-8aef-4ec2-87d8-6bbf51e7c44d` (commit `a7ba4be9603e838d2631a6d83c564ecd43482867`),
+then check health and both hub pages. No database rollback is required.
