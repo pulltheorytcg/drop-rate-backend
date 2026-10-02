@@ -1277,6 +1277,8 @@ function saveSession(session) {
 }
 
 function clearSession() {
+  window.dropRateScanner?.destroy();
+  window.dropRateScanner = null;
   state.session = null;
   window.PullTheoryHubSession.clear();
 }

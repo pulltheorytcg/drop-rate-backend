@@ -584,6 +584,24 @@ function ownerScanStopCamera({hide = true} = {}) {
 }
 
 async function ownerScanStartCamera(facingMode = "environment") {
+  if (window.DropRateScanner) {
+    ownerScanStopCamera();
+    if (!window.dropRateScanner || window.dropRateScanner.destroyed) {
+      window.dropRateScanner = new window.DropRateScanner.Scanner({
+        role: "seller", session: () => state.session,
+        // Scanner owns account-bound refresh; do not retry a stale request using a new login.
+        request: (path, options) => apiRequest(path, options, false),
+        refreshSession: token => authRequest("/token?grant_type=refresh_token", {
+          method: "POST", body: JSON.stringify({refresh_token: token}),
+        }),
+        saveSession: session => saveSession(session),
+        afterSave: () => Promise.all([loadOwnerOverview(), loadOwnerInventory()]),
+        viewInventory: () => activateOwnerView("inventory"),
+      });
+    }
+    await window.dropRateScanner.open(ownerScanMode().toUpperCase());
+    return;
+  }
   if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
     throw new Error("Live camera is not supported in this browser. Upload a photo instead.");
   }

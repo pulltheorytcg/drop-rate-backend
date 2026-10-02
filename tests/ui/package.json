@@ -2,7 +2,7 @@
   "name": "drop-rate-dashboard-tests",
   "private": true,
   "scripts": {
-    "test": "node founder-workspace.cjs && node founder-accounts.cjs"
+    "test": "node founder-workspace.cjs && node founder-accounts.cjs && node scanner-flow.cjs"
   },
   "devDependencies": {
     "jsdom": "26.1.0"
