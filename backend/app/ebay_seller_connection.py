@@ -110,7 +110,7 @@ async def load_effective_seller_config(
     if shared_owner and (not row or row["status"] not in {"CONNECTED", "READY"}):
         raise RuntimeError("Drop Rate's shared eBay store is not connected")
 
-    refresh_token = settings.ebay_user_refresh_token
+    refresh_token = None if shared_owner else settings.ebay_user_refresh_token
     if not refresh_token and row:
         refresh_token = decrypt_refresh_token(
             settings, str(row["refresh_token_ciphertext"])
@@ -119,11 +119,11 @@ async def load_effective_seller_config(
     return EbayEffectiveSellerConfig(
         refresh_token=refresh_token,
         payment_policy_id=(
-            settings.ebay_payment_policy_id
+            (None if shared_owner else settings.ebay_payment_policy_id)
             or (str(row["payment_policy_id"]) if row and row["payment_policy_id"] else None)
         ),
         fulfillment_policy_id=(
-            settings.ebay_fulfillment_policy_id
+            (None if shared_owner else settings.ebay_fulfillment_policy_id)
             or (
                 str(row["fulfillment_policy_id"])
                 if row and row["fulfillment_policy_id"]
@@ -131,11 +131,11 @@ async def load_effective_seller_config(
             )
         ),
         return_policy_id=(
-            settings.ebay_return_policy_id
+            (None if shared_owner else settings.ebay_return_policy_id)
             or (str(row["return_policy_id"]) if row and row["return_policy_id"] else None)
         ),
         merchant_location_key=(
-            settings.ebay_merchant_location_key
+            (None if shared_owner else settings.ebay_merchant_location_key)
             or (
                 str(row["merchant_location_key"])
                 if row and row["merchant_location_key"]

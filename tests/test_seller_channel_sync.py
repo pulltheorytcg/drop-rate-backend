@@ -57,6 +57,26 @@ async def test_shared_ebay_uses_store_binding_instead_of_inventory_owner(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_shared_store_ignores_legacy_global_token_and_policies(monkeypatch):
+    store = uuid4()
+    row = {"id": uuid4(), "owner_id": store, "status": "READY", "refresh_token_ciphertext": "encrypted",
+           "granted_scopes": [], "payment_policy_id": "shared-payment", "fulfillment_policy_id": "shared-shipping",
+           "return_policy_id": "shared-returns", "merchant_location_key": "shared-location",
+           "notification_destination_id": None, "notification_subscription_id": None}
+    monkeypatch.setattr(ebay_seller_connection, "_load_connection_row", AsyncMock(return_value=row))
+    monkeypatch.setattr(ebay_seller_connection, "decrypt_refresh_token", lambda *_: "shared-token")
+    settings = SimpleNamespace(ebay_shared_store_owner_id=str(store), ebay_user_refresh_token="other-store-token",
+        ebay_payment_policy_id="other-payment", ebay_fulfillment_policy_id="other-shipping",
+        ebay_return_policy_id="other-returns", ebay_merchant_location_key="other-location")
+    config = await ebay_seller_connection.load_effective_seller_config(object(), settings, owner_id=uuid4())
+    assert config.refresh_token == "shared-token"
+    assert config.payment_policy_id == "shared-payment"
+    assert config.fulfillment_policy_id == "shared-shipping"
+    assert config.return_policy_id == "shared-returns"
+    assert config.merchant_location_key == "shared-location"
+
+
+@pytest.mark.asyncio
 async def test_shared_order_passes_exact_allocations_to_atomic_database_handler(monkeypatch):
     import json
     monkeypatch.setattr(ebay_sales, "get_settings", lambda: SimpleNamespace(ebay_shared_store_owner_id=str(uuid4())))
