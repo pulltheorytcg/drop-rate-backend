@@ -98,6 +98,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/dashboard-shell.js" defer></script>',
         '<script src="/assets/seller-invites.js" defer></script>',
         '<script src="/assets/identity-review.js" defer></script>',
+        '<script src="/assets/scanner-flow.js?v=1" defer></script>',
         '<script src="/assets/recognition-scanner.js" defer></script>',
         '<script src="/assets/reference-library.js?v=2" defer></script>',
         '<script src="/assets/shopify-settings.js" defer></script>',

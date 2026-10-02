@@ -268,6 +268,24 @@ async function startRecognitionCamera(facingMode = "environment") {
 }
 
 async function openRecognitionCamera() {
+  if (window.DropRateScanner?.isMobile()) {
+    stopRecognitionCamera();
+    if (!window.dropRateScanner || window.dropRateScanner.destroyed) {
+      window.dropRateScanner = new window.DropRateScanner.Scanner({
+        role: "founder", session: () => state.session,
+        request: (path, options) => apiRequest(path, options, false),
+        refreshSession: token => authRequest("/token?grant_type=refresh_token", {
+          method: "POST", body: JSON.stringify({refresh_token: token}),
+        }),
+        saveSession: session => saveSession(session),
+        afterSave: () => reloadDashboard(),
+        viewInventory: () => activateSellerView("inventory", true),
+      });
+    }
+    try { await window.dropRateScanner.open(); }
+    catch (error) { showMessage("recognition-message", error.message, "error"); }
+    return;
+  }
   const button = byId("recognition-open-camera");
   button.disabled = true;
   showMessage("recognition-message", "Opening camera…");

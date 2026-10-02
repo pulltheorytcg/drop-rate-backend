@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-02 — Collectr reference scanner UI (branch; not deployed)
+
+- User supplied the Collectr scanner recording and requested the same camera, thumbnail, detail and final-review flow. Implemented as a shared mobile presentation for Seller Hub and Founder HQ on `feat/collectr-scanner-flow`.
+- Live production is unchanged while the user tests the existing scanner. No recognition model/scoring, Supabase schema, Railway configuration, publishing or roster changes.
+- Pending thumbnails appear immediately. Match correction, per-item condition and quantity, full-screen review and Add to Inventory use the existing authenticated APIs for each role. Unknown values, review gates, physical removal checks and graded-slab verification are preserved.
+- Each inventory copy has an immutable request/key; interrupted batches retry remaining requests without recreating confirmed copies. Session changes discard pending results and release the camera.
+- Local checks: 2,349 backend tests pass, all dashboard scripts pass syntax checks, and the existing workspace/account suites plus 15 scanner interaction/failure scenarios pass. Browser fixture checks pass at 390×844, 320×568 and landscape 844×390 with no page errors or horizontal overflow. These are simulated UI checks, not real recognition or production inventory acceptance.
+- See `docs/SCANNER_REFERENCE_FLOW.md` for scope, verification and physical-device acceptance still required before rollout.
+
 ## 2026-10-02 — Unified Drop Rate app (PR #496)
 
 - User explicitly reopened this bounded Phase 3 work: one app for Seller Hub and Founder HQ. The common entry is `/app`, with five primary destinations and existing tools retained under More.
