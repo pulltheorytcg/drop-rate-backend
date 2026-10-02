@@ -337,3 +337,15 @@ def test_catalogue_search_seed_prefers_verified_provider_card_number() -> None:
         },
     )
     assert grading_catalogue_search_seed(observation, provider) == "OP11-118"
+
+
+@pytest.mark.asyncio
+async def test_tag_certificate_is_normalized_and_always_requires_manual_verification():
+    result=await lookup_grading_certificate('TAG Grading','a1234567',settings=_settings())
+    assert result.provider is GradingProvider.TAG
+    assert result.certificate_number=='A1234567'
+    assert result.verified is False and result.automated is False
+    assert result.status is CertificateLookupStatus.MANUAL_VERIFICATION_REQUIRED
+    assert result.verification_url=='https://taggrading.com/pages/cert-search'
+    for invalid in ('123','123456789','/1234567','abc<script>'):
+        with pytest.raises(ValueError): normalize_certificate_number(GradingProvider.TAG,invalid)

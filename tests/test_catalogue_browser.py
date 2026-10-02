@@ -11,11 +11,13 @@ from app.auth import require_user
 
 
 @pytest.mark.parametrize('role,roster,status', [('OWNER',False,200),('PLATFORM_ADMIN',True,200),('PLATFORM_ADMIN',False,403),(None,False,403)])
-@pytest.mark.parametrize('path', ['/games','/sets?system_code=ONE_PIECE_CARD_GAME','/products?q=Luffy'])
+@pytest.mark.parametrize('path', ['/games','/sets?system_code=ONE_PIECE_CARD_GAME','/products?q=Luffy','/select'])
 @pytest.mark.asyncio
 async def test_browse_access_and_own_counts(monkeypatch, role, roster, status, path):
     owner_id=uuid4(); user_id=uuid4(); queries=[]
     class Connection:
+        async def fetchrow(self, sql, *args):
+            queries.append((sql,args)); return {"product_type":"CARD","catalogue_id":uuid4()}
         async def fetch(self, sql, *args):
             if 'from tcg.owner_memberships m' in sql:
                 return [] if role is None else [{'user_id':user_id,'owner_id':owner_id,'role':role,'founder_authorized':roster,
@@ -29,7 +31,7 @@ async def test_browse_access_and_own_counts(monkeypatch, role, roster, status, p
     @app.middleware('http')
     async def request_id(request,call_next): request.state.request_id='test';return await call_next(request)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://test') as client:
-        response=await client.get('/api/v1/catalogue-browser'+path)
+        response=await client.post('/api/v1/catalogue-browser/select',json={'key':'r:card','confirmed':True}) if path=='/select' else await client.get('/api/v1/catalogue-browser'+path)
         assert response.status_code==status
     if status==403: assert not queries
     else:
@@ -117,3 +119,54 @@ async def test_committed_intake_replays_before_reading_changed_reference(monkeyp
     with pytest.raises(HTTPException) as error:
         await browser.intake(changed,request,SimpleNamespace(user_id=uuid4()),{'owner_id':owner_id},str(request_key))
     assert error.value.status_code==409
+
+
+@pytest.mark.parametrize('extra', [{'owner_id':str(uuid4())},{'identity_confirmed':True},{'name':'Forged name'},{'price':100}])
+def test_slab_selection_accepts_only_a_key_and_explicit_confirmation(extra):
+    with pytest.raises(ValidationError): browser.CatalogueSelection(key='r:123',confirmed=True,**extra)
+    with pytest.raises(ValidationError): browser.CatalogueSelection(key='r:123',confirmed=False)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('existing', [False,True])
+async def test_slab_reference_selection_creates_no_inventory_or_approved_profile(monkeypatch,existing):
+    catalogue_id=uuid4(); owner_id=uuid4(); calls=[]
+    record={'catalogue_id':None,'product_type':'CARD','game':'One Piece','name':'Buggy','set_name':'OP16',
+      'card_number':'OP16-041','provider_id':'OP16-041_p1','rarity':'Leader','language':'English',
+      'system_code':'ONE_PIECE_CARD_GAME','set_id':'569116','provider':'Bandai Official'}
+    class Connection:
+        async def fetchrow(self,sql,*args):
+            calls.append((sql,args))
+            if 'from entries where key=$2' in sql:
+                assert args==(owner_id,'r:123');assert 's.release_date<=current_date' in sql
+                return record
+            assert 'insert into tcg.catalogue_products' in sql
+            assert args[2:] == ('One Piece','Buggy','OP16','OP16-041','OP16-041_p1','Leader','English')
+            return {'id':catalogue_id}
+        async def fetch(self,sql,*args):
+            calls.append((sql,args));assert 'from tcg.catalogue_products' in sql
+            return [{'id':catalogue_id}] if existing else []
+    @asynccontextmanager
+    async def connection(*args): yield Connection()
+    monkeypatch.setattr(browser,'user_connection',connection)
+    request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),state=SimpleNamespace(request_id='test'))
+    selected=await browser.select_product(browser.CatalogueSelection(key='r:123',confirmed=True),request,
+        SimpleNamespace(user_id=uuid4()),{'owner_id':owner_id})
+    assert selected=={'catalogue_id':str(catalogue_id)}
+    assert len(calls)==(2 if existing else 3)
+    assert all('insert into tcg.inventory' not in sql and 'insert into tcg.catalogue_product_profiles' not in sql for sql,_ in calls)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('record,status', [(None,404),({'product_type':'SEALED'},422)])
+async def test_slab_selection_rejects_missing_future_and_sealed_cards(monkeypatch,record,status):
+    class Connection:
+        async def fetchrow(self,sql,*args): return record
+    @asynccontextmanager
+    async def connection(*args): yield Connection()
+    monkeypatch.setattr(browser,'user_connection',connection)
+    request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),state=SimpleNamespace(request_id='test'))
+    with pytest.raises(HTTPException) as error:
+        await browser.select_product(browser.CatalogueSelection(key='r:123',confirmed=True),request,
+            SimpleNamespace(user_id=uuid4()),{'owner_id':uuid4()})
+    assert error.value.status_code==status

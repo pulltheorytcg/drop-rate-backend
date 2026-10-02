@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-02 — Thumbnail grading, catalogue correction and overlapping scans
+
+- Applied the new Collectr recording to the shared Seller Hub / Founder HQ scanner. Thumbnail details offer Ungraded, PSA, Beckett, CGC, TAG, ACE, BVG and BCCG with grade menus, explicit certificate entry and cancellation without saving.
+- Search now uses a two-column artwork grid over all released references for both roles, with Pokémon/other game quick filters, language, sort, pagination, punctuation-tolerant exact collector numbers and stale-response protection. Slab reference selection writes only an unapproved catalogue identity before existing certificate intake; no profile permission or inventory approval is expanded.
+- Two captures may recognise concurrently. The same physical-removal and match-review gates remain; this does not claim Collectr per-photo speed or alter the vision model/prompt.
+- Raw prices cannot appear as graded values. TAG lookup is manual verification. Missing exact-printing/grade prices remain unavailable; no values or user inventory were fabricated.
+- Validation: 2,391 backend tests, all dashboard suites and 33 scanner cases; browser fixtures for both roles at 390×844, 320×568 and landscape 844×390. A production read-only OP12-106 Japanese search returned two exact printings in 671 ms database time. No inventory test writes. Physical-device acceptance and missing pricing coverage remain open.
+- Implementation and rollout evidence are tracked in the accompanying PR; scanner JS/CSS v4. See `docs/SCANNER_REFERENCE_FLOW.md` and `docs/RECOGNITION_VISION_LATENCY.md`.
+
+
 ## 2026-10-02 — Repair the first live scanner acceptance failures
 
 - The user's recording exposed an OP-16 coverage gap and a confirmation-path mismatch, not a failure to deploy the new UI. Buggy was being compared against older printings; Law OP12-106_p2 Japanese was the top artwork but had an unreadable number. The condition selector also silently disabled Looks Good.

@@ -29,6 +29,7 @@ PSA_CERT_URL = "https://www.psacard.com/cert"
 ACE_CERT_URL = "https://acegrading.com/cert"
 CGC_CERT_URL = "https://www.cgccards.com/certlookup/"
 BECKETT_CERT_URL = "https://marketplace.beckett.com/grading/withoutLogin_card_lookup"
+TAG_CERT_URL = "https://taggrading.com/pages/cert-search"
 
 PSA_CERT_PATTERN = re.compile(r"^\d{7,10}$")
 GENERIC_CERT_PATTERN = re.compile(r"^\d{4,14}$")
@@ -41,6 +42,7 @@ class GradingProvider(str, Enum):
     BGS = "BGS"
     BVG = "BVG"
     BCCG = "BCCG"
+    TAG = "TAG"
 
 
 class CertificateLookupStatus(str, Enum):
@@ -69,6 +71,8 @@ _PROVIDER_ALIASES = {
     "BECKETT BGS": GradingProvider.BGS,
     "BVG": GradingProvider.BVG,
     "BCCG": GradingProvider.BCCG,
+    "TAG": GradingProvider.TAG,
+    "TAG GRADING": GradingProvider.TAG,
 }
 
 
@@ -201,6 +205,11 @@ def normalize_grading_provider(value: str) -> GradingProvider:
 
 def normalize_certificate_number(provider: GradingProvider, value: str) -> str:
     certificate = re.sub(r"[\s-]+", "", str(value or "")).strip()
+    if provider is GradingProvider.TAG:
+        certificate = certificate.upper()
+        if not re.fullmatch(r"[A-Z0-9]{8}", certificate):
+            raise ValueError("TAG certificate number must contain 8 letters or digits")
+        return certificate
     pattern = PSA_CERT_PATTERN if provider is GradingProvider.PSA else GENERIC_CERT_PATTERN
     if not pattern.fullmatch(certificate):
         if provider is GradingProvider.PSA:
@@ -210,6 +219,8 @@ def normalize_certificate_number(provider: GradingProvider, value: str) -> str:
 
 
 def provider_verification_url(provider: GradingProvider, certificate: str) -> str:
+    if provider is GradingProvider.TAG:
+        return TAG_CERT_URL
     if provider is GradingProvider.PSA:
         return f"{PSA_CERT_URL}/{certificate}/psa"
     if provider is GradingProvider.ACE:
@@ -756,6 +767,11 @@ async def grading_certificate_status(
                 "source": "OFFICIAL_VERIFICATION_PAGE",
             },
             "BCCG": {
+                "mode": "MANUAL_VERIFICATION",
+                "configured": True,
+                "source": "OFFICIAL_VERIFICATION_PAGE",
+            },
+            "TAG": {
                 "mode": "MANUAL_VERIFICATION",
                 "configured": True,
                 "source": "OFFICIAL_VERIFICATION_PAGE",
