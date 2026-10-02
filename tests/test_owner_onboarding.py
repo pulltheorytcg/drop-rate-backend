@@ -107,7 +107,7 @@ def test_owner_join_route_and_router_are_wired() -> None:
 
     assert '@app.get("/owner/join", include_in_schema=False)' in main
     assert "app.include_router(owner_onboarding_router)" in main
-    assert '<script src="/assets/owner-join.js?v=public-join-2" defer></script>' in html
+    assert '<script src="/assets/owner-join.js?v=public-join-3" defer></script>' in html
 
 
 def test_owner_invite_ui_discloses_commission_before_signup() -> None:

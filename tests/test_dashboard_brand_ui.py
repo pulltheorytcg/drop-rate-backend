@@ -14,9 +14,9 @@ def test_drop_rate_brand_shell_uses_real_visual_identity_not_generic_dr_tile() -
     css = STYLES.read_text()
     logo = STATIC / "brand-assets" / "drop-rate-founder-hq.png"
     assert "brand-lockup-logo" in html
-    assert "dr-logo-image" in html
+    assert 'class="collector-auth-logo"' in html
     assert "dr-founder-label" not in html
-    assert 'role="img" aria-label="Drop Rate"' in html
+    assert 'src="/assets/brand-assets/seller-hub-approved.webp" alt="Drop Rate Seller Hub"' in html
     assert "Sign in to Drop Rate" in html
     assert "styles.css?v=founder-v5" in html
     assert logo.is_file()

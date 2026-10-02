@@ -1,6 +1,5 @@
 "use strict";
 
-const SESSION_KEY = "drop_rate_founder_session";
 const PENDING_INVITE_KEY = "drop_rate_pending_founder_invite";
 
 const state = {
@@ -120,7 +119,7 @@ async function redeem(session, displayName, email) {
     }),
   });
   const data = await readJson(response);
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({...session, user: {email}}));
+  window.PullTheoryHubSession.save({...session, user: {...session.user, email}});
   localStorage.removeItem(PENDING_INVITE_KEY);
   return data;
 }

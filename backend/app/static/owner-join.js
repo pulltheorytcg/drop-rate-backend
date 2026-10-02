@@ -1,6 +1,5 @@
 "use strict";
 
-const OWNER_SESSION_KEY = "drop_rate_owner_session";
 const PENDING_OWNER_INVITE_KEY = "drop_rate_pending_owner_invite";
 const PENDING_OWNER_ACK_KEY = "drop_rate_pending_owner_ack";
 
@@ -173,10 +172,7 @@ async function completeSellerRegistration(session, displayName) {
   });
   const data = await readJson(response);
   const user = await authenticatedUser(session);
-  sessionStorage.setItem(
-    OWNER_SESSION_KEY,
-    JSON.stringify({...session, user: {email: user.email}})
-  );
+  window.PullTheoryHubSession.save({...session, user: {id: user.id, email: user.email}});
   localStorage.removeItem(PENDING_OWNER_INVITE_KEY);
   localStorage.removeItem(PENDING_OWNER_ACK_KEY);
   return data;
@@ -373,6 +369,7 @@ byId("owner-join-form").addEventListener("submit", async (event) => {
 });
 
 byId("owner-show-existing-login").addEventListener("click", () => {
+  if (!state.token) { window.location.assign("/app"); return; }
   byId("owner-existing-email").value = byId("owner-join-email").value;
   byId("owner-existing-ack").checked = byId("owner-join-ack").checked;
   byId("owner-join-form").classList.add("hidden");
