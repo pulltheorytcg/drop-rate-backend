@@ -9,8 +9,12 @@ const SELLER_VIEWS = [
   ["sales", "Sales", "↗"],
   ["reports", "Reports", "≋"],
   ["balance", "Payouts", "£"],
-  ["settings", "Settings", "⚙"],
+  ["settings", "Settings & channels", "⚙"],
+  ["accounts", "Accounts", "◎"],
+  ["more", "More", "•••"],
 ];
+
+const PRIMARY_VIEWS = ["dashboard", "intake", "inventory", "sales", "more"];
 
 function sellerView(name) {
   return document.querySelector(`[data-seller-view="${name}"]`);
@@ -108,7 +112,7 @@ function buildSellerViews(content) {
     section.dataset.sellerView = key;
     section.setAttribute("role", "tabpanel");
     section.tabIndex = 0;
-    section.setAttribute("aria-labelledby", `seller-tab-${key}`);
+    section.setAttribute("aria-label", SELLER_VIEWS.find(([view]) => view === key)[1]);
     views.append(section);
   });
   content.append(views);
@@ -182,7 +186,7 @@ function buildSellerNav() {
   const setOrientation = () => nav.setAttribute("aria-orientation", window.innerWidth > 1000 ? "vertical" : "horizontal");
   setOrientation();
   window.addEventListener("resize", setOrientation);
-  SELLER_VIEWS.forEach(([key, label, icon]) => {
+  SELLER_VIEWS.filter(([key]) => PRIMARY_VIEWS.includes(key)).forEach(([key, label, icon]) => {
     const button = document.createElement("button");
     button.id = `seller-tab-${key}`;
     button.type = "button";
@@ -209,6 +213,20 @@ function buildSellerNav() {
     tabs[next].click();
   });
   topbar.insertAdjacentElement("afterend", nav);
+  const more = sellerView("more");
+  more.append(makeSellerHeading("Founder workspace", "More", "Finance, account oversight and tools for running Drop Rate."));
+  const grid = document.createElement("div");
+  grid.className = "app-more-grid";
+  SELLER_VIEWS.filter(([key]) => !PRIMARY_VIEWS.includes(key)).forEach(([key, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "app-more-link";
+    button.dataset.moreView = key;
+    button.textContent = label + " →";
+    button.addEventListener("click", () => activateSellerView(key, true));
+    grid.append(button);
+  });
+  more.append(grid);
 }
 
 function activateSellerView(name, updateHash = false) {
@@ -219,7 +237,7 @@ function activateSellerView(name, updateHash = false) {
     section.setAttribute("aria-hidden", active ? "false" : "true");
   });
   document.querySelectorAll(".seller-nav-tab").forEach((button) => {
-    const active = button.dataset.targetView === valid;
+    const active = button.dataset.targetView === (PRIMARY_VIEWS.includes(valid) ? valid : "more");
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", active ? "true" : "false");
     button.tabIndex = active ? 0 : -1;
@@ -1215,8 +1233,8 @@ async function loadPricingAdapterStatus() {
 
 function ensureSellerDashboardShell() {
   if (!byId("dashboard-view") || byId("seller-nav")) return;
-  buildSellerNav();
   populateSellerViews();
+  buildSellerNav();
   const requested = location.hash.replace(/^#/, "");
   activateSellerView(requested || "dashboard");
 }

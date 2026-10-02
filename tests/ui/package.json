@@ -1,6 +1,10 @@
 {
   "name": "drop-rate-dashboard-tests",
   "private": true,
-  "scripts": {"test": "node founder-workspace.cjs"},
-  "devDependencies": {"jsdom": "26.1.0"}
+  "scripts": {
+    "test": "node founder-workspace.cjs && node founder-accounts.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
 }

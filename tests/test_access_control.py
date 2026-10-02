@@ -38,6 +38,7 @@ async def test_platform_admin_context_allows_founder_hq() -> None:
             "owner_type": "FOUNDER",
             "owner_active": True,
             "founder_slot": 1,
+            "founder_authorized": True,
         }
     )
 
@@ -191,6 +192,7 @@ async def test_platform_admin_cannot_use_owner_portal_api_guard() -> None:
             "owner_type": "FOUNDER",
             "owner_active": True,
             "founder_slot": 1,
+            "founder_authorized": True,
         }
     )
 

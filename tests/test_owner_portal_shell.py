@@ -335,10 +335,10 @@ def test_seller_hub_branding_is_neutral_and_not_founder_hq() -> None:
     html = HTML.read_text()
     css = CSS.read_text()
 
-    assert "<title>Drop Rate — Seller Hub</title>" in html
+    assert "<title>Drop Rate</title>" in html
     assert "Drop Rate Seller Hub" in html
     assert "Private workspace" not in html
-    assert "Seller account" in html
+    assert "Sign in to Drop Rate" in html
     assert 'https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031' in html
     assert 'drop-rate-logo.png?v=seller-hub-1' not in css
     assert 'drop-rate-founder-hq.png' not in css

@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#071b3f">
-  <title>Drop Rate — Seller Hub</title>
+  <title>Drop Rate</title>
   <link rel="stylesheet" href="/assets/styles.css?v=owner-v2-base">
   <link rel="stylesheet" href="/assets/owner-portal.css?v=owner-v12">
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
+  <link rel="stylesheet" href="/assets/unified-app.css?v=1">
 </head>
 <body class="owner-portal-page">
   <div class="ambient ambient-one"></div>
@@ -20,11 +21,11 @@
           <img class="dr-logo-image owner-auth-logo" src="https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031" alt="Drop Rate Seller Hub">
         </div>
         <div class="brand-copy">
-          <p class="eyebrow">Drop Rate Seller Hub</p>
+          <p class="eyebrow">Drop Rate</p>
           <h1>Your cards.<br><em>Your business.</em></h1>
           <p class="lead">Scan and manage inventory, follow sales, track market value and see exactly what you’re due — all in one place.</p>
         </div>
-        <div class="trust-row"><span>Your inventory only</span><span>Transparent sales</span><span>Clear payouts</span></div>
+        <div class="trust-row"><span>One workspace</span><span>Transparent sales</span><span>Clear payouts</span></div>
       </div>
 
       <div class="auth-panel owner-auth-panel">
@@ -33,7 +34,7 @@
             <img class="dr-logo-image" src="https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031" alt="Drop Rate Seller Hub">
           </div>
           <p class="eyebrow">Welcome back</p>
-          <h2>Sign in to your seller account</h2>
+          <h2>Sign in to Drop Rate</h2>
           <p class="muted">Use your email address or Drop Rate username.</p>
 
           <div id="owner-social-auth" class="social-auth hidden" aria-label="Social sign in">
@@ -46,7 +47,7 @@
           <label>Password<input id="owner-password-input" type="password" autocomplete="current-password" required></label>
           <div id="owner-login-message" class="message" role="status"></div>
           <button class="primary-button owner-auth-submit" type="submit">Sign in <span>→</span></button>
-          <p class="owner-auth-footnote">Seller accounts cannot access Founder HQ or another owner's data.</p>
+          <p class="owner-auth-footnote">Your account opens your workspace automatically.</p>
         </form>
       </div>
     </section>
@@ -74,7 +75,7 @@
           <nav class="owner-nav">
             <button class="owner-nav-item active" type="button" data-owner-view="overview" aria-label="Overview">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4Zm9 0h7v4h-7V4ZM4 13h7v7H4v-7Zm9-3h7v10h-7V10Z"/></svg>
-              <span>Overview</span>
+              <span>Home</span>
             </button>
             <button class="owner-nav-item" type="button" data-owner-view="inventory" aria-label="Inventory">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5.5 3.5 13 0a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Zm1.5 4h10M7 12h10M7 16.5h6"/></svg>
@@ -82,28 +83,13 @@
             </button>
             <button class="owner-nav-item" type="button" data-owner-view="scan" aria-label="Scan and add cards">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3m8 0h3a1 1 0 0 1 1 1v3M4 16v3a1 1 0 0 0 1 1h3m8 0h3a1 1 0 0 0 1-1v-3M8 12h8"/></svg>
-              <span>Scan cards</span>
+              <span>Scan</span>
             </button>
             <button class="owner-nav-item" type="button" data-owner-view="sales" aria-label="Sales">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m5 10V5m6 14v-7m5 7V3"/></svg>
               <span>Sales</span>
             </button>
-            <button class="owner-nav-item" type="button" data-owner-view="balance" aria-label="Balance and payouts">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5h17v11h-17v-11Zm3-3h11m-9 8h3m5 0h1"/></svg>
-              <span>Payouts</span>
-            </button>
-            <button class="owner-nav-item" type="button" data-owner-view="channels" aria-label="Sales channels">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h5v5H5V5Zm9 0h5v5h-5V5ZM5 14h5v5H5v-5Zm9 0h5v5h-5v-5ZM10 7.5h4M7.5 10v4m9-4v4M10 16.5h4"/></svg>
-              <span>Channels</span>
-            </button>
-            <button class="owner-nav-item" type="button" data-owner-view="settlements" aria-label="Settlements">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2v-17Zm3 5h6m-6 4h6"/></svg>
-              <span>Settlements</span>
-            </button>
-            <button class="owner-nav-item" type="button" data-owner-view="profile" aria-label="Profile and account settings">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0"/></svg>
-              <span>Profile</span>
-            </button>
+            <button class="owner-nav-item" type="button" data-owner-view="more" aria-label="More tools"><span aria-hidden="true">•••</span><span>More</span></button>
           </nav>
 
           <div class="owner-sidebar-footer">
@@ -126,6 +112,14 @@
             </div>
           </header>
 
+          <section id="owner-view-more" class="owner-view hidden" data-owner-view-panel="more">
+            <div class="app-more-grid">
+              <button class="app-more-link" type="button" data-owner-jump="balance" data-owner-view="balance">Payouts →</button>
+              <button class="app-more-link" type="button" data-owner-jump="channels" data-owner-view="channels">Channels →</button>
+              <button class="app-more-link" type="button" data-owner-jump="settlements" data-owner-view="settlements">Settlements →</button>
+              <button class="app-more-link" type="button" data-owner-jump="profile" data-owner-view="profile">Profile & account →</button>
+            </div>
+          </section>
           <section id="owner-view-overview" class="owner-view" data-owner-view-panel="overview">
             <section id="owner-onboarding-welcome" class="owner-onboarding-banner hidden" aria-label="Onboarding complete">
               <div class="owner-onboarding-check">✓</div>
@@ -151,7 +145,7 @@
                 <span id="owner-next-payout-status">—</span>
                 <strong id="owner-next-payout-amount">—</strong>
               </div>
-              <button type="button" data-owner-jump="balance">Payout details <span>→</span></button>
+              <button type="button" data-owner-jump="balance" data-owner-view="balance">Payout details <span>→</span></button>
             </section>
 
             <section class="owner-hero">
@@ -168,7 +162,7 @@
                 <span>Available to withdraw</span>
                 <strong id="owner-overview-balance">—</strong>
                 <small>Cleared owner proceeds</small>
-                <button type="button" data-owner-jump="balance">Payout settings <span>→</span></button>
+                <button type="button" data-owner-jump="balance" data-owner-view="balance">Payout settings <span>→</span></button>
               </div>
             </section>
 
@@ -216,7 +210,7 @@
               <section class="owner-panel owner-finance-snapshot">
                 <div class="owner-panel-heading">
                   <div><span class="owner-section-kicker">Account snapshot</span><h3>Your proceeds</h3></div>
-                  <button type="button" class="owner-link-button" data-owner-jump="balance">Payouts →</button>
+                  <button type="button" class="owner-link-button" data-owner-jump="balance" data-owner-view="balance">Payouts →</button>
                 </div>
                 <div class="owner-finance-stack">
                   <div><span>Lifetime proceeds</span><strong id="owner-overview-proceeds">—</strong></div>

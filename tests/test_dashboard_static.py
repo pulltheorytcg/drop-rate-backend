@@ -232,6 +232,6 @@ def test_workspace_search_and_clear_filters_include_personal_collection() -> Non
         in workspace
     )
     assert (
-        "state.search = state.brand = state.status = state.saleIntent = state.issue ="
+        "state.search = state.brand = state.status = state.saleIntent = state.storageLocationFilter = state.issue ="
         in workspace
     )
