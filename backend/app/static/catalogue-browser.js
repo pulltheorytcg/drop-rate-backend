@@ -9,13 +9,13 @@ window.DropRateCatalogue = (() => {
   const sorts = {newest:"Newest first", name:"Name A–Z", number:"Card number", value_desc:"Value: high to low", value_asc:"Value: low to high"};
   const gameTitles = {POKEMON_TCG:["Pokémon","TRADING CARD GAME"], ONE_PIECE_CARD_GAME:["ONE PIECE","CARD GAME"],
     DRAGON_BALL_SUPER_MASTERS:["DRAGON BALL","SUPER · MASTERS"], DRAGON_BALL_SUPER_FUSION_WORLD:["DRAGON BALL","FUSION WORLD"],
-    NARUTO_KAYOU:["NARUTO","KAYOU"], NARUTO_BANDAI_LEGACY:["NARUTO","BANDAI LEGACY"],
+    NARUTO:["NARUTO","TRADING CARD GAME"],
     RIFTBOUND:["RIFTBOUND","LEAGUE OF LEGENDS"], YUGIOH:["Yu-Gi-Oh!","TRADING CARD GAME"], DISNEY_LORCANA:["LORCANA","TRADING CARD GAME"]};
 
   class Browser {
     constructor(options) {
       this.options = options; this.client = options.client;
-      this.revision = 0; this.pending = new Map(); this.watchlist = new Set(); this.games = Object.entries(gameTitles).slice(0,6).map(([system_code,[game]]) => ({system_code,game,languages:[]})); this.gamesLoaded = false;
+      this.revision = 0; this.pending = new Map(); this.watchlist = new Set(); this.games = Object.entries(gameTitles).slice(0,5).map(([system_code,[game]]) => ({system_code,game,languages:[]})); this.gamesLoaded = false;
       this.defaults();
       this.storageKey = "drop-rate-watchlist:" + this.client.owner;
       try {
@@ -62,7 +62,7 @@ window.DropRateCatalogue = (() => {
       });
       if("IntersectionObserver" in window){ this.observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&this.hasMore&&!this.loading)this.load(true);},{root:this.scroll,rootMargin:"160px"}); this.observer.observe(this.find(".dr-browse-sentinel")); }
     }
-    async open() {
+    async open(productKey = "") {
       if(!this.active())throw new Error("Sign in again to search products.");
       this.returnFocus=document.activeElement;
       if(this.embedded) this.dialog.hidden=false;
@@ -70,6 +70,7 @@ window.DropRateCatalogue = (() => {
       // Show known game artwork immediately, before any network round trip.
       if(this.isHome()){this.header();this.renderGames();}
       else {this.header();this.skeleton();}
+      if(productKey){await this.openReference(productKey);return;}
       const revision=this.revision;
       if(!this.gamesLoaded) {
         if(!this.gamesRequest) this.gamesRequest=this.client.request("/api/v1/catalogue-browser/games").then(data=>{
@@ -83,6 +84,17 @@ window.DropRateCatalogue = (() => {
       }
       if(!this.active() || revision!==this.revision)return;
       await this.load();
+    }
+    async openReference(key) {
+      const revision=++this.revision;this.controller?.abort();this.controller=new AbortController();
+      const status=this.find('.dr-browse-status');status.textContent='Opening card…';
+      try {
+        const data=await this.client.request('/api/v1/catalogue-browser/products?'+new URLSearchParams({keys:key,limit:'1'}),{signal:this.controller.signal});
+        if(!this.active()||revision!==this.revision)return;
+        const row=(data.items||[]).find(item=>item.key===key);
+        status.textContent=row?'':'This printing is currently unavailable. Search the catalogue to explore more cards.';
+        if(row)this.openProduct(row);
+      } catch(error) {if(this.active()&&revision===this.revision)status.textContent=error.message;}
     }
     close() {
       if(this.saving)return;
@@ -145,7 +157,7 @@ window.DropRateCatalogue = (() => {
         params.set("system_code",this.filters.system_code);params.set("language",this.filters.language);params.set("q",this.setQuery.trim());
       } else {
         for(const key of ["q","system_code","language","product_type","owned","sort"])if(this.filters[key])params.set(key,this.filters[key]);
-        if(this.set){params.set("set_id",this.set.set_id);params.set("provider",this.set.provider);}
+        if(this.set){params.set("system_code",this.set.system_code);params.set("set_id",this.set.set_id);params.set("provider",this.set.provider);}
         if(this.filters.watch)params.set("keys",[...this.watchlist].join(","));
       }
       try {

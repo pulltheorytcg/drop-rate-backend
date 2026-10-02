@@ -120,5 +120,29 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal([...f.browser.sheet.querySelectorAll('input')].find(i=>i.getAttribute('aria-label')==='Sealed Only').checked,false);
   assert.match(f.calls.at(-1).url,/product_type=CARD/);f.finish();checks++;
  }
+ {
+  const f=fixture(async url=>url.includes('/sets')?{items:[{system_code:'NARUTO_BANDAI_LEGACY',set_id:'same-id',set_name:'Legacy set',provider:'Bandai',language:'English',indexed_count:1,owned_count:0}]}:{items:[]});
+  assert.equal(f.browser.games.filter(g=>g.system_code.startsWith('NARUTO')).length,1);
+  f.browser.games=[{system_code:'NARUTO',game:'Naruto',languages:['Chinese','English']}];f.browser.gamesLoaded=true;
+  await f.browser.open();assert.equal(f.browser.dialog.querySelectorAll('[data-system="NARUTO"]').length,1);
+  f.browser.pickGame(f.browser.games[0]);await tick();assert.match(f.calls.at(-1).url,/system_code=NARUTO&/);
+  f.browser.showSets();await tick();assert.match(f.calls.at(-1).url,/system_code=NARUTO&/);
+  f.browser.find('.dr-browse-set').click();await tick();
+  const params=new URL(f.calls.at(-1).url,'https://example.test').searchParams;
+  assert.equal(params.get('system_code'),'NARUTO_BANDAI_LEGACY');assert.equal(params.get('provider'),'Bandai');assert.equal(params.get('set_id'),'same-id');
+  assert.equal(f.browser.filters.system_code,'NARUTO');
+  f.finish();checks++;
+ }
+ // Spotlight resolves only the requested server identity; it never opens a similar variant.
+ for(const outcome of ['exact','missing','navigate']){
+  const pending=deferred(),f=fixture(()=>pending.promise);
+  const opened=f.browser.open(card.key);assert.match(f.calls[0].url,/keys=c%3A/);assert.equal(f.calls.length,1);
+  if(outcome==='navigate')f.browser.close();
+  pending.resolve({items:outcome==='missing'?[{...card,key:'r:different-printing'}]:[card]});await opened;
+  assert.equal(f.browser.find('.dr-browse-backdrop').hidden,outcome!=='exact');
+  if(outcome==='exact')assert.equal(f.browser.edit.row.key,card.key);
+  if(outcome==='missing')assert.match(f.browser.find('.dr-browse-status').textContent,/currently unavailable/);
+  f.finish();checks++;
+ }
  console.log('Catalogue browser: '+checks+' search, navigation, filter, ownership, session and retry scenarios passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

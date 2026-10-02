@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-02 — One Naruto catalogue and real grail spotlight
+
+- Combined Kayou and Bandai Legacy into one Naruto browse destination, including immediate Search tiles and home shortcuts. Counts/languages aggregate while every card and set retains its actual system/provider identity. No production records are merged.
+- Replaced the home illustration with exact English Moonbreon, manga Luffy and Goku super alternate reference artwork. Each opens its exact catalogue details, with stale-response protection and unavailable-reference feedback. Images retain their original bytes and watermarks; no price or ownership claims.
+- Simplified the headline to “Find your next grail.” and replaced the condensed Impact lettering with readable system typography on home/sign-in. Responsive card layout verified for both roles at 1440/1024/768/390/320px. Approved logo and scanner unchanged.
+- Validation: 2,396 backend tests, all dashboard suites, 13 catalogue interaction cases and isolated browser fixtures. Production read-only check confirms 43 Kayou + 38 Bandai Legacy released sets. Fixtures use mocked authentication; no inventory/financial/schema mutations. Source provenance and limitations: `docs/COLLECTOR_HUB_DESIGN.md`. Release evidence is recorded on the accompanying PR.
+
 ## 2026-10-02 — Collector identity and registration session repair
 
 - Confirmed the previous one-entry change missed onboarding: successful registration wrote `drop_rate_owner_session`, which the new session reader removed. Founder invitations had the same mismatch. Both now use the shared helper, with safe migration of a single legacy session and no guessing between conflicting accounts.

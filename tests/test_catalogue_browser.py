@@ -56,6 +56,48 @@ def test_watchlist_empty_does_not_return_whole_catalogue():
     assert [] in params and 'e.key=any(' in sql
 
 
+def test_naruto_browse_family_combines_counts_and_languages_without_changing_rows():
+    rows = [
+        {'system_code':'NARUTO_KAYOU','game':'Naruto Kayou','languages':['Chinese','English'],'products':120,'sets':3},
+        {'system_code':'POKEMON_TCG','game':'Pokémon','languages':['English'],'products':400,'sets':6},
+        {'system_code':'NARUTO_BANDAI_LEGACY','game':'Naruto Bandai','languages':['English'],'products':80,'sets':2},
+    ]
+    result = browser.browse_games(rows)
+    assert len(result) == 2
+    assert result[0] == {'system_code':'NARUTO','game':'Naruto','languages':['Chinese','English'],'products':200,'sets':5}
+    assert result[1]['system_code'] == 'POKEMON_TCG'
+    assert rows[0]['system_code'] == 'NARUTO_KAYOU'
+
+
+@pytest.mark.parametrize('system,members', [('NARUTO',['NARUTO_KAYOU','NARUTO_BANDAI_LEGACY']),
+    ('NARUTO_KAYOU',['NARUTO_KAYOU']),('NARUTO_BANDAI_LEGACY',['NARUTO_BANDAI_LEGACY'])])
+def test_browse_family_filters_keep_exact_printing_and_owner_scope(system,members):
+    owner_id = uuid4()
+    sql,params = browser.product_query(owner_id=owner_id,system_code=system,provider='Exact provider',set_id='Shared set id')
+    assert params[:4] == [owner_id,members,'Shared set id','Exact provider']
+    assert 'e.system_code=any($2::text[])' in sql
+    assert 'e.set_id=$3' in sql and 'e.provider=$4' in sql
+    assert 'i.owner_id=$1' in sql
+
+
+@pytest.mark.asyncio
+async def test_naruto_set_browsing_expands_family_but_returns_original_system(monkeypatch):
+    owner_id=uuid4()
+    class Connection:
+        async def fetch(self,sql,*args):
+            assert 'system_code=any($2::text[])' in sql
+            assert args == (owner_id,['NARUTO_KAYOU','NARUTO_BANDAI_LEGACY'],'','',41,0)
+            return [{'system_code':'NARUTO_KAYOU','set_id':'1','total_count':2},
+                    {'system_code':'NARUTO_BANDAI_LEGACY','set_id':'1','total_count':2}]
+    @asynccontextmanager
+    async def connection(*args): yield Connection()
+    monkeypatch.setattr(browser,'user_connection',connection)
+    request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),state=SimpleNamespace(request_id='test'))
+    result=await browser.sets(request,SimpleNamespace(user_id=uuid4()),{'owner_id':owner_id},'NARUTO','','',40,0)
+    assert result['total_count']==2
+    assert [row['system_code'] for row in result['items']]==['NARUTO_KAYOU','NARUTO_BANDAI_LEGACY']
+
+
 @pytest.mark.parametrize('extra', [{'owner_id':str(uuid4())},{'identity_confirmed':True},{'price':100},{'grading_company':'PSA'}])
 def test_browse_intake_rejects_authority_and_price_fields(extra):
     with pytest.raises(ValidationError):
