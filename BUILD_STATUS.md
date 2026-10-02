@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-02 — Repair the first live scanner acceptance failures
+
+- The user's recording exposed an OP-16 coverage gap and a confirmation-path mismatch, not a failure to deploy the new UI. Buggy was being compared against older printings; Law OP12-106_p2 Japanese was the top artwork but had an unreadable number. The condition selector also silently disabled Looks Good.
+- Imported all 155 official English OP-16 reference printings, including distinct OP16-041 base/parallel images, from Bandai's checklist. Audit sync `8f4aaeb6-4e9b-4fea-8939-0637b02a9918` is COMPLETE. This only adds reference data; it does not create or approve inventory. The bounded importer is reproducible with `sync_reference_library.py --source one_piece_official`.
+- Replaying the original Buggy observation and image fingerprints ranks OP16-041_p1 first (0.86421), followed by its base artwork (0.85971), ahead of the older OP09 guesses. It remains a human-reviewed suggestion, not an automatic exact identity.
+- Scanner confirmation now uses the existing owner-scoped reference selection for governed, unmapped candidates even when OCR cannot read the number. It creates/reuses a NEEDS_REVIEW identity and records human correction before Draft inventory intake. Existing exact-OCR materialization rules remain unchanged.
+- The main action now says Choose condition to continue and focuses/opens the condition selector. Closest candidates are shown first with other suggestions accessible separately. Variant/art-treatment information is visible.
+- Pricing limitation confirmed: neither scanned exact printing had a canonical valuation. The UI now says Market value unavailable and explains that saving remains possible. Existing reference market/retail values are shown where available. This repair does not claim new price coverage, invent quotes, or enable live source discovery.
+- Validation: 2,378 backend tests and all dashboard suites pass, including 23 scanner scenarios and both role adapters. The actual Law reference-selection transaction passed and rolled back with no persistent canonical/inventory rows. Production candidate-query read-back exposes its exact reference selection. Physical-device acceptance remains necessary.
+- Release uses the existing `drop-rate-api-live` deployment pipeline. Scanner asset version is v3; reload the app for this repair. Retain the additive official reference data on application rollback; no schema migration or production inventory/financial changes are involved.
+
 ## 2026-10-02 15:03 BST — Scanner and catalogue released to both hubs
 
 - User clarified that they expected to test the approved changes in the actual Seller Hub and Founder HQ. The earlier baseline hold ended. PR #497 merged as `0fbdbb083916cc2d11bc640a2932190e9a4825d0`; PR #498 was retargeted to main and merged as `725fb745d5857a9a5ed51b2e46ad638091b2f8d2`.

@@ -117,3 +117,8 @@ class ReferenceFeeds:
                 yield {"provider":"Punk Records","system_code":"ONE_PIECE_CARD_GAME","language":language,
                     "set_id":sid,"name":names.get(sid) or f"Provider pack {sid}",
                     "source_url":f"{root}/{folder}/packs.json"},cards
+
+    async def one_piece_official(self):
+        from .reference_one_piece import official_feed
+        async for record, cards in official_feed(self):
+            yield record, cards

@@ -25,7 +25,7 @@ window.DropRateScanner = (() => {
   const meta = item => {
     const card = snapshot(selected(item));
     return [card.game, card.set_name, card.product_code || card.card_number || card.base_card_id,
-      card.language].filter(Boolean).join(" · ");
+      card.language, card.variant || card.art_treatment].filter(Boolean).join(" · ");
   };
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const graded = item => item.mode === "GRADED";
@@ -667,16 +667,16 @@ window.DropRateScanner = (() => {
         row.append(node("h3", "", item.status === "processing" ? "Recognising…" : name(item)), node("p", "dr-scan-card-meta", meta(item)));
         const body = node("div", "dr-scan-review-body"); body.append(this.thumb(item, "dr-scan-review-thumb"));
         const copy = node("div", "dr-scan-review-copy");
-        copy.append(node("strong", "dr-scan-card-value", money(item.selected?.market_value_minor)));
+        copy.append(node("strong", "dr-scan-card-value", item.selected?.market_value_minor == null ? "Market value unavailable" : money(item.selected.market_value_minor)));
         const fields = node("dl");
         const card = snapshot(selected(item));
-        for (const [label, value] of [["Variant", card.variant || card.sealed_product_type || "—"],
+        for (const [label, value] of [["Variant", card.variant || card.art_treatment || card.sealed_product_type || "—"],
           ["Type", graded(item) ? item.grading_company + " " + item.grade : sealed(item) ? "Sealed product" : "Raw card"],
           [graded(item) ? "Certificate" : "Condition", graded(item) ? item.certificate_number : sealed(item) ? "Sealed" : item.condition || "Choose condition"], ["Quantity", item.quantity]]) {
           fields.append(node("dt", "", label), node("dd", "", value));
         }
         copy.append(fields);
-        const edit = button(item.status === "unresolved" ? "Fix match" : "Edit details", () => this.openDetails(item));
+        const edit = button(!graded(item) && !sealed(item) && !item.condition ? "Choose condition & confirm" : item.status === "unresolved" ? "Confirm match" : "Edit details", () => this.openDetails(item));
         edit.disabled = !this.editable(item); copy.append(edit);
         if (item.status === "added") copy.append(node("span", "dr-scan-added", "Added to inventory"));
         if (item.error) copy.append(node("p", "dr-scan-item-error", item.error));
@@ -689,7 +689,7 @@ window.DropRateScanner = (() => {
       const matched = this.items.length - unresolved;
       this.find(".dr-scan-review-count").textContent = matched + " matched " + (matched === 1 ? "scan" : "scans") +
         (unresolved ? " · " + unresolved + " to review" : "") + (missingCondition ? " · check conditions" : "") +
-        (totals.unknown ? " · " + totals.unknown + " values pending" : "") + ".";
+        (totals.unknown ? " · " + totals.unknown + " without a market value" : "") + ".";
       const done = this.items.length && this.items.every(item => item.status === "added");
       const retry = this.items.some(item => item.requests && item.status !== "added");
       const save = this.find('[data-action="save"]');
@@ -731,12 +731,15 @@ window.DropRateScanner = (() => {
       for (const [label, captured] of [["Your Picture", true], ["Your Match", false]]) {
         const figure = node("figure"); figure.append(this.thumb(item, "dr-scan-detail-thumb", edit.selected, captured), node("figcaption", "", label)); pair.append(figure);
       }
-      content.append(pair, node("p", "dr-scan-results-label", "Matched Results:"));
+      content.append(pair, node("p", "dr-scan-results-label", "Suggested matches · check the artwork"));
       const matches = node("div", "dr-scan-alternatives");
       const search = button("⌕", () => this.openSearch(), "dr-scan-search-tile");
       search.setAttribute("aria-label", "Search manually for the correct card");
       search.append(node("small", "", "Not quite right? Search manually.")); matches.append(search);
-      for (const candidate of item.candidates || []) {
+      const allCandidates = item.candidates || [];
+      const bestScore = Number(allCandidates[0]?.score || 0);
+      const shortlist = allCandidates.filter(candidate => candidate === edit.selected || Number(candidate.score || 0) >= bestScore - 0.10).slice(0, 5);
+      for (const candidate of edit.showAllCandidates ? allCandidates : shortlist) {
         const choice = button("", () => {
           edit.selected = candidate; edit.searchSelected = false; this.renderDetails();
         }, "dr-scan-alternative");
@@ -745,11 +748,18 @@ window.DropRateScanner = (() => {
         choice.append(this.thumb(item, "dr-scan-alternative-thumb", candidate)); matches.append(choice);
       }
       content.append(matches);
+      if (allCandidates.length > shortlist.length) content.append(button(edit.showAllCandidates ? "Show closest matches" : "Show other suggestions", () => {
+        edit.showAllCandidates = !edit.showAllCandidates; this.renderDetails();
+      }));
       const candidateItem = {...item, selected: edit.selected};
       const info = node("div", "dr-scan-detail-identity");
-      info.append(node("h3", "", name(candidateItem)), node("strong", "", money(edit.selected?.market_value_minor)),
+      info.append(node("h3", "", name(candidateItem)), node("strong", "", edit.selected?.market_value_minor == null ? "Market value unavailable" : money(edit.selected.market_value_minor)),
         node("p", "", meta(candidateItem)));
       content.append(info);
+      if (edit.selected?.market_value_minor == null) content.append(node("p", "dr-scan-review-note",
+        "No verified market valuation is stored for this printing yet. You can still confirm it and add it to inventory."));
+      else if (edit.selected.recommended_retail_minor != null) content.append(node("p", "dr-scan-review-note",
+        "Suggested retail: " + money(edit.selected.recommended_retail_minor) + " · reference value, not a live quote"));
       if (item.error) content.append(node("p", "dr-scan-item-error", item.error));
       if (!usableRun(item)) {
         const retry = button("Retry this photo", () => { this.closeDetails(); this.recognise(item.photo, item); });
@@ -768,7 +778,7 @@ window.DropRateScanner = (() => {
       condition.addEventListener("change", () => { edit.condition = condition.value; this.updateDetailsSave(); });
       conditionLabel.append(condition);
       const variant = node("label", "", "Variant");
-      variant.append(node("span", "dr-scan-readonly-field", snapshot(edit.selected).variant || snapshot(edit.selected).sealed_product_type || "—"));
+      variant.append(node("span", "dr-scan-readonly-field", snapshot(edit.selected).variant || snapshot(edit.selected).art_treatment || snapshot(edit.selected).sealed_product_type || "—"));
       const quantityLabel = node("label", "", "Quantity");
       const quantity = node("input"); quantity.type = "number"; quantity.min = "1"; quantity.max = "50"; quantity.step = "1";
       quantity.value = edit.quantity; quantity.inputMode = "numeric"; quantity.setAttribute("aria-label", "Quantity");
@@ -781,7 +791,14 @@ window.DropRateScanner = (() => {
       const footer = node("footer", "dr-scan-details-footer");
       const remove = button("⌫", () => this.remove(item), "dr-scan-delete"); remove.setAttribute("aria-label", "Remove this scan");
       remove.innerHTML = icons.trash;
-      const save = button("Looks Good", () => this.confirmDetails(), "dr-scan-primary"); save.dataset.detailsSave = "true";
+      const save = button("Looks Good", () => {
+        if (!isSealed && !conditions.includes(edit.condition)) {
+          condition.focus();
+          try { condition.showPicker?.(); } catch (_) { /* Focus still exposes the required field. */ }
+          return;
+        }
+        this.confirmDetails();
+      }, "dr-scan-primary"); save.dataset.detailsSave = "true";
       footer.append(remove, save); this.details.append(footer); this.updateDetailsSave();
       close.focus();
     }
@@ -797,16 +814,33 @@ window.DropRateScanner = (() => {
       const allowedSealed = !isSealed || (edit.item.run?.decision === "EXACT_CANDIDATE"
         && edit.selected?.catalogue_id === edit.item.run?.top_catalogue_id);
       const valid = usableRun(edit.item) && edit.selected && allowedSealed
-        && (isSealed || conditions.includes(edit.condition)) && Number.isInteger(edit.quantity) && edit.quantity >= 1 && edit.quantity <= 50;
-      this.details.querySelector("[data-details-save]").disabled = this.editBusy || !valid;
+        && Number.isInteger(edit.quantity) && edit.quantity >= 1 && edit.quantity <= 50;
+      const missingCondition = !isSealed && !conditions.includes(edit.condition);
+      const save = this.details.querySelector("[data-details-save]");
+      save.disabled = this.editBusy || !valid;
+      save.textContent = missingCondition ? "Choose condition to continue" : "Looks Good";
+      this.details.querySelector(".dr-scan-detail-message").textContent = !usableRun(edit.item)
+        ? "Retry this photo before confirming a match." : !allowedSealed ? "This sealed product needs identity review."
+        : !edit.selected ? "Choose a match or search for the correct card."
+        : !valid ? "Quantity must be a whole number from 1 to 50."
+        : missingCondition ? "Select the card’s condition above, then confirm the match." : "";
     }
 
     async confirmDetails() {
       const edit = this.edit; if (!edit || this.editBusy || this.details.querySelector("[data-details-save]").disabled) return;
+      if (!graded(edit.item) && !sealed({...edit.item, selected: edit.selected}) && !conditions.includes(edit.condition)) return;
       this.editBusy = true;
       this.details.querySelectorAll("button, input, select").forEach(control => { control.disabled = true; });
       try {
-        if (!edit.selected.catalogue_id) {
+        if (!edit.selected.catalogue_id && edit.selected.reference_selection) {
+          const data = await this.request("/api/v1/recognition/runs/" + edit.item.run.id + "/references/select", {
+            method: "POST", body: JSON.stringify(edit.selected.reference_selection),
+          });
+          if (!data.catalogue_id) throw new Error("This reference could not be confirmed. Please retry.");
+          edit.selected = {...edit.selected, catalogue_id: data.catalogue_id,
+            candidate_snapshot: {...snapshot(edit.selected), ...data.selected}};
+          edit.searchSelected = true;
+        } else if (!edit.selected.catalogue_id) {
           const data = await this.request("/api/v1/recognition/runs/" + edit.item.run.id + "/candidates/" + edit.selected.id + "/materialize", {method: "POST"});
           const candidate = (data.candidates || []).find(row => row.id === edit.selected.id);
           if (!candidate?.catalogue_id) throw new Error("This printing still needs Drop Rate review. Choose a catalogue match or search manually.");

@@ -1,5 +1,38 @@
 # Collectr reference scanner flow
 
+## First physical-device acceptance repair — 2 October 2026
+
+The user's Buggy scan was OP16-041 parallel English, absent from the existing
+community feed. The official English OP-16 checklist has now been imported as
+155 unverified reference printings. The original observation/fingerprint replay
+ranks OP16-041_p1 first, with the base artwork second. This is a suggestion that
+still needs the user's artwork/condition confirmation.
+
+Law OP12-106_p2 Japanese was retrieved correctly. The UI required a condition
+without explaining its disabled button; after condition selection the old exact
+OCR materialization route would still reject the unreadable collector number.
+The shared scanner now offers explicit, owner-scoped human reference selection
+using the existing `/references/select` route. The server revalidates the stored
+provider/system/language/printing and release date. No exact-match threshold,
+canonical approval, learning verification or financial authorization is relaxed.
+Both role adapters record correction and keep normal idempotent Draft intake.
+
+The confirmation button says **Choose condition to continue** until a condition
+is chosen. Tapping focuses/opens that selector. Closest suggestions are initially
+limited to five within 0.10 of the leading score; other candidates remain reachable.
+Artwork/variant labels distinguish printings. A missing valuation is explicitly
+**Market value unavailable**, with an explanation that it does not block saving.
+Market/retail reference values appear only when stored evidence exists.
+
+There is still no verified valuation for these two exact printings. Broad live
+pricing discovery/backfill remains separate work; this patch does not silently
+price a parallel from the base version or turn a reference price into a sale price.
+
+Validation: 2,378 backend tests, 23 scanner interaction cases plus all existing
+dashboard suites, original Buggy evidence replay, read-only production payload
+query, and a rolled-back Law reference-selection transaction. No user inventory
+was added. Reload scanner-flow.js v3; real phone acceptance is still required.
+
 ## Status — 2 October 2026
 
 Released to Seller Hub and Founder HQ on 2 October at 15:03 BST. PR #497
