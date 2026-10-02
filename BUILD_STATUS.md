@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-02 15:03 BST — Scanner and catalogue released to both hubs
+
+- User clarified that they expected to test the approved changes in the actual Seller Hub and Founder HQ. The earlier baseline hold ended. PR #497 merged as `0fbdbb083916cc2d11bc640a2932190e9a4825d0`; PR #498 was retargeted to main and merged as `725fb745d5857a9a5ed51b2e46ad638091b2f8d2`.
+- Existing Railway service `drop-rate-api-live` deployed that final commit successfully: deployment `46762407-3faf-4198-919a-b1f99a5c3c10`, healthy at 14:03:27 UTC. Its pre-deploy suite passed **2,372 tests**. No new service or infrastructure configuration was introduced.
+- Live HTTPS checks pass: `/health/live` and `/health/ready` return 200; `/`, `/owner` and `/app` include the new scanner/style, catalogue and title-art scripts. Eight deployed JS/CSS assets match the reviewed release byte-for-byte. The anonymous catalogue API correctly returns 401. All tested responses use `Cache-Control: no-store`.
+- Both roles now receive RAW | GRADED | SEALED, the camera/thumbnail/detail/review flow, Drop Rate colours and full-known-catalogue browsing. Existing open tabs need a reload. Real physical-card/certificate/camera accuracy and latency acceptance remains for the user's iPhone/Android test; deployment verification did not create inventory.
+- Rollback target: prior successful API deployment `c408306f-8aef-4ec2-87d8-6bbf51e7c44d`, commit `a7ba4be9603e838d2631a6d83c564ecd43482867`. Railway reports rollback available; restore that deployment if the new web flow regresses, then verify both health endpoints and hub pages. No database migration accompanied this release.
+- Earlier “draft / not deployed” entries below are historical checkpoints and are superseded by this release. See `docs/SCANNER_REFERENCE_FLOW.md` and `docs/CATALOGUE_BROWSER.md`.
+
 ## 2026-10-02 — Browse the master catalogue with zero ownership (PR #498 follow-up; not deployed)
 
 - User clarified that all sets/cards should be browsable regardless of portfolio ownership. Default product browsing already included unowned reference cards; set browsing incorrectly depended on loaded card entries. It now starts from the master set registry, with owner quantities/values added separately.
