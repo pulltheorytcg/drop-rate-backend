@@ -583,10 +583,9 @@ function ownerScanStopCamera({hide = true} = {}) {
   }
 }
 
-async function ownerScanStartCamera(facingMode = "environment") {
-  if (window.DropRateScanner) {
-    ownerScanStopCamera();
-    if (!window.dropRateScanner || window.dropRateScanner.destroyed) {
+function ownerSharedScanner() {
+  if (!window.dropRateScanner || !window.dropRateScanner.active()) {
+      window.dropRateScanner?.destroy();
       window.dropRateScanner = new window.DropRateScanner.Scanner({
         role: "seller", session: () => state.session,
         // Scanner owns account-bound refresh; do not retry a stale request using a new login.
@@ -599,6 +598,13 @@ async function ownerScanStartCamera(facingMode = "environment") {
         viewInventory: () => activateOwnerView("inventory"),
       });
     }
+  return window.dropRateScanner;
+}
+
+async function ownerScanStartCamera(facingMode = "environment") {
+  if (window.DropRateScanner) {
+    ownerScanStopCamera();
+    ownerSharedScanner();
     await window.dropRateScanner.open(ownerScanMode().toUpperCase());
     return;
   }

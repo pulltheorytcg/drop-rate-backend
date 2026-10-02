@@ -1218,7 +1218,7 @@ function activateOwnerView(view) {
     panel.classList.toggle("hidden", panel.dataset.ownerViewPanel !== target);
   });
   document.querySelectorAll(".owner-nav-item[data-owner-view]").forEach((button) => {
-    const primary = ["overview", "inventory", "scan", "sales", "more"].includes(target) ? target : "more";
+    const primary = ["overview", "inventory", "scan", "more"].includes(target) ? target : "more";
     button.classList.toggle("active", button.dataset.ownerView === primary);
     if (button.dataset.ownerView === primary) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
@@ -1277,6 +1277,8 @@ function saveSession(session) {
 }
 
 function clearSession() {
+  window.dropRateCatalogue?.destroy();
+  window.dropRateCatalogue = null;
   window.dropRateScanner?.destroy();
   window.dropRateScanner = null;
   state.session = null;

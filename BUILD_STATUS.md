@@ -1,5 +1,15 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-02 — Product search and set browser (draft; not deployed)
+
+- User requested Collectr's product-list/search flow in Drop Rate colours. The cleared Quick Filters screen is the default: the supplied recording starts with pre-existing filters.
+- Added a shared Search destination for both hubs: game tiles, product grids, Show Sets, available-language tabs, scoped set search, filter chips, sort/filter sheets, owned/not-owned choices and per-account device watchlists. Sales remains under More.
+- RAW | GRADED | SEALED remains in scanner PR #497. Sealed browsing includes existing packs, tins and sealed COLLECTION records; a read-only database check verified all three current sealed entries.
+- Confirmed product additions use the existing own-inventory manual Draft/review transaction. Server-resolved owner, re-read product identity and immutable per-copy requests prevent browser authority fields or retry duplicates. No schema, roster, provider or publishing changes.
+- Full backend suite passed at 2,371 tests; final browser-specific suite has 23 passing tests. Workspace/account, 20 scanner and 7 browser interaction scenarios pass. Chromium fixtures exercised both hubs at small-phone and desktop widths, plus the 390px mobile flow, with no page errors/overflow and no production writes.
+- Current data has incomplete prices, set names and artwork. Progress is indexed coverage; watchlists are device-local. Screenshots use example responses. Physical-device/live API acceptance remains outstanding.
+- This is a separate review concern stacked on #497. See `docs/CATALOGUE_BROWSER.md`. Do not replace the live scanner during the user's baseline test.
+
 ## 2026-10-02 — Visible scanner types (PR #497 follow-up; not deployed)
 
 - User requested **RAW | GRADED | SEALED**. All three now appear before and inside the shared camera in Seller Hub and Founder HQ, including desktop.

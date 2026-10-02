@@ -1,0 +1,249 @@
+"""Account-scoped catalogue browsing. Reference facts never approve physical stock."""
+from __future__ import annotations
+
+import hashlib
+
+from typing import Annotated, Literal
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.encoders import jsonable_encoder
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+
+from .access_control import current_access_context
+from .auth import AuthenticatedUser, require_user
+from .db import user_connection
+from .inventory_intake import create_inventory_intake
+from .physical_state import CARD_CONDITIONS
+from .recognition_games import SYSTEM_BY_GAME
+from .schemas import ManualCatalogueCreate, ManualInventoryCreate
+
+router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"])
+GAME_BY_SYSTEM = {system: game for game, system in SYSTEM_BY_GAME.items()}
+GAME_CASE = "case r.system_code " + " ".join(
+    "when '" + system + "' then '" + game.replace("'", "''") + "'"
+    for system, game in GAME_BY_SYSTEM.items()
+) + " else r.system_code end"
+
+# Exact provider links or a previously human-selected provider printing can share
+# an owned count. Card number/name alone never merges parallels or languages.
+SOURCE_CTE = f"""
+with reference_base as materialized (
+ select r.*,s.name as set_name,s.release_date,{GAME_CASE} as game
+ from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
+ where (s.release_date is null or s.release_date<=current_date)
+), links as (
+ select r.provider,r.system_code,r.language,r.provider_id,m.catalogue_id
+ from reference_base r join tcg.provider_catalogue_mappings m
+ on m.source_provider=r.provider and m.system_code=r.system_code
+ and m.provider_language=r.language and m.provider_id=r.provider_id
+ and m.provider_entity_type='CARD_PRINTING' and m.provider_variant_key='' and m.match_status='VERIFIED'
+ union
+ select r.provider,r.system_code,r.language,r.provider_id,p.id
+ from reference_base r join tcg.catalogue_products p
+ on p.product_type='CARD' and p.game=r.game and p.name=r.name
+ and p.set_name=r.set_name and p.card_number=r.card_number and p.language=r.language
+ and p.variant=r.provider_id and p.rarity=coalesce(nullif(r.rarity,''),'Unknown')
+), exact_links as (
+ select provider,system_code,language,provider_id,(array_agg(catalogue_id))[1] as catalogue_id
+ from links group by provider,system_code,language,provider_id having count(distinct catalogue_id)=1
+), entries as (
+ select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key,
+        l.catalogue_id,'CARD'::text as product_type,r.system_code,r.game,r.name,r.set_name,
+        r.set_id,r.card_number,r.provider_id as variant,r.rarity,r.language,r.image_url,
+        r.release_date,r.provider,r.provider_id,r.source_url,'REFERENCE'::text as source_kind
+ from reference_base r left join exact_links l using(provider,system_code,language,provider_id)
+ union all
+ select 'c:'||p.id::text,p.id,case when pr.collectible_type='SEALED' then 'SEALED' else p.product_type end,pr.system_code,p.game,p.name,p.set_name,
+        coalesce(nullif(pr.set_code,''),p.set_name),p.card_number,p.variant,p.rarity,
+        coalesce(p.language,'Unknown'),null::text,pr.release_date,''::text,''::text,null::text,'CATALOGUE'::text
+ from tcg.catalogue_products p left join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
+ where (p.product_type in ('CARD','SEALED') or (p.product_type='COLLECTION' and pr.collectible_type='SEALED')) and (pr.release_date is null or pr.release_date<=current_date)
+   and not exists(select 1 from exact_links l where l.catalogue_id=p.id)
+), owned as (
+ select i.catalogue_id,count(*)::int as quantity,sum(i.market_value_minor) as owned_value_minor,
+        count(*) filter(where i.market_value_minor is null)::int as unknown_values
+ from tcg.inventory_items i where i.owner_id=$1 and i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+ group by i.catalogue_id
+)
+"""
+
+# Only approved canonical media appears in catalogue results. Reference artwork
+# remains clearly labelled and is never promoted into storefront media here.
+MEDIA_SQL = """
+ select coalesce(m.shopify_cdn_url,m.public_source_url) as url
+ from tcg.media_assets m where m.catalogue_id=page.catalogue_id
+ and m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT') and m.side='FRONT' and m.media_kind='IMAGE'
+ and m.approval_status='APPROVED' and m.rights_status='VERIFIED'
+ and m.rights_tier='STOREFRONT_ALLOWED' and m.source_status='ACTIVE' and m.revoked_at is null
+ order by m.approved_at desc nulls last,m.created_at desc,m.id limit 1
+"""
+SORTS = {
+    "name": "lower(e.name),e.key", "newest": "e.release_date desc nulls last,lower(e.name),e.key",
+    "number": "e.card_number nulls last,lower(e.name),e.key",
+    "value_desc": "v.market_value_minor desc nulls last,lower(e.name),e.key",
+    "value_asc": "v.market_value_minor asc nulls last,lower(e.name),e.key",
+}
+
+
+async def browser_access(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)]) -> dict:
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        return await current_access_context(connection)
+
+
+@router.get("/games")
+async def games(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
+                access: Annotated[dict, Depends(browser_access)]):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        rows = await connection.fetch(SOURCE_CTE + """
+          select e.system_code,min(e.game) as game,array_agg(distinct e.language order by e.language) as languages,
+                 count(*)::int as products,count(distinct e.set_name)::int as sets
+          from entries e where e.system_code is not null group by e.system_code order by min(e.game),e.system_code
+        """, access["owner_id"])
+    return jsonable_encoder({"items": [{**dict(row), "game": GAME_BY_SYSTEM.get(row["system_code"], row["game"])} for row in rows]})
+
+
+@router.get("/sets")
+async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
+               access: Annotated[dict, Depends(browser_access)], system_code: str = Query(max_length=80),
+               language: str = Query(default="", max_length=80), q: str = Query(default="", max_length=160),
+               limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        rows = await connection.fetch(SOURCE_CTE + """
+          select e.system_code,e.set_id,e.set_name,e.language,e.provider,max(e.release_date) as release_date,
+                 count(*)::int as indexed_count,count(*) filter(where o.quantity>0)::int as owned_count,
+                 sum(o.owned_value_minor) as owned_value_minor,coalesce(sum(o.unknown_values),0)::int as unknown_values
+          from entries e left join owned o on o.catalogue_id=e.catalogue_id
+          where e.system_code=$2 and ($3='' or e.language=$3)
+            and ($4='' or strpos(lower(e.set_name),lower($4))>0 or strpos(lower(e.set_id),lower($4))>0)
+          group by e.system_code,e.set_id,e.set_name,e.language,e.provider
+          order by max(e.release_date) desc nulls last,e.set_name,e.language,e.provider,e.set_id
+          limit $5 offset $6
+        """, access["owner_id"], system_code, language, q.strip(), limit + 1, offset)
+    return jsonable_encoder({"items": [dict(row) for row in rows[:limit]], "has_more": len(rows) > limit,
+                             "offset": offset, "coverage": "INDEXED_PRODUCTS"})
+
+
+def product_query(*, owner_id, q="", system_code="", language="", set_id="", provider=None,
+                  product_type="", owned="all", sort="newest", keys=None, limit=40, offset=0):
+    params = [owner_id]
+    where = []
+    def bind(value):
+        params.append(value)
+        return f"${len(params)}"
+    for column, value in (("system_code", system_code), ("language", language), ("set_id", set_id), ("product_type", product_type)):
+        if value:
+            where.append(f"e.{column}={bind(value)}")
+    if provider is not None:
+        where.append(f"e.provider={bind(provider)}")
+    if keys is not None:
+        where.append(f"e.key=any({bind(keys)}::text[])")
+    if owned == "owned":
+        where.append("coalesce(o.quantity,0)>0")
+    elif owned == "not_owned":
+        where.append("coalesce(o.quantity,0)=0")
+    if q.strip():
+        # Every term is literal; apostrophes, % and _ never become SQL or wildcards.
+        terms = bind(q.strip().split())
+        where.append(f"""not exists (
+            select 1 from unnest({terms}::text[]) term where strpos(lower(concat_ws(' ',
+            e.name,e.set_name,e.card_number,e.game,e.variant,e.language)),lower(term))=0)""")
+    clause = " and ".join(where) or "true"
+    page_limit, page_offset = bind(limit + 1), bind(offset)
+    query = SOURCE_CTE + f""", reference_values as materialized (
+      select p.id,v.* from tcg.catalogue_products p
+      left join lateral tcg.recognition_catalogue_reference_value(p.id,nullif(p.language,'')) v on true
+    ), page as (
+      select e.*,coalesce(o.quantity,0) as owned_quantity,v.market_value_minor,v.basis_condition,v.pricing_updated_at,
+             row_number() over(order by {SORTS[sort]}) as ordinal
+      from entries e left join owned o on o.catalogue_id=e.catalogue_id
+      left join reference_values v on v.id=e.catalogue_id
+      where {clause} order by {SORTS[sort]} limit {page_limit} offset {page_offset}
+    ) select page.*,coalesce(page.image_url,media.url) as display_image_url
+      from page left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null order by page.ordinal
+    """
+    return query, params
+
+
+@router.get("/products")
+async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
+                   access: Annotated[dict, Depends(browser_access)], q: str = Query(default="", max_length=160),
+                   system_code: str = Query(default="", max_length=80), language: str = Query(default="", max_length=80),
+                   set_id: str = Query(default="", max_length=200), provider: str | None = Query(default=None, max_length=80),
+                   product_type: Literal["", "CARD", "SEALED"] = "", owned: Literal["all", "owned", "not_owned"] = "all",
+                   sort: Literal["name", "newest", "number", "value_desc", "value_asc"] = "newest",
+                   keys: str | None = Query(default=None, max_length=5000),
+                   limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
+    key_list = keys.split(",") if keys else ([] if keys is not None else None)
+    if key_list is not None and len(key_list) > 100:
+        raise HTTPException(422, "Watchlist is limited to 100 products")
+    query, params = product_query(owner_id=access["owner_id"], q=q, system_code=system_code, language=language,
+        set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list, limit=limit, offset=offset)
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        rows = await connection.fetch(query, *params)
+    return jsonable_encoder({"items": [dict(row) for row in rows[:limit]], "has_more": len(rows) > limit, "offset": offset})
+
+
+class BrowseIntake(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    key: str = Field(min_length=3, max_length=80)
+    condition: str | None = Field(default=None, max_length=80)
+    seal_status: Literal["SEALED"] | None = None
+    confirmed: Literal[True]
+
+    @model_validator(mode="after")
+    def physical(self):
+        if self.condition not in CARD_CONDITIONS and self.seal_status != "SEALED":
+            raise ValueError("Choose the card condition or confirm the sealed state")
+        if self.condition and self.seal_status:
+            raise ValueError("A sealed product cannot have a raw card condition")
+        return self
+
+
+def browse_note(payload: BrowseIntake) -> str:
+    digest = hashlib.sha256(payload.model_dump_json().encode()).hexdigest()
+    return "Human-confirmed browse " + digest + " · " + payload.key + ". Physical printing requires Drop Rate review."
+
+
+def intake_payload(item: dict, payload: BrowseIntake) -> ManualInventoryCreate:
+    if item["product_type"] == "CARD" and payload.condition not in CARD_CONDITIONS:
+        raise HTTPException(422, "Choose a raw card condition")
+    if item["product_type"] == "SEALED" and payload.seal_status != "SEALED":
+        raise HTTPException(422, "Confirm that the product is sealed")
+    fields = {"condition": payload.condition, "seal_status": payload.seal_status, "identity_confirmed": False,
+              "notes": browse_note(payload)}
+    if item.get("catalogue_id"):
+        return ManualInventoryCreate(catalogue_id=item["catalogue_id"], **fields)
+    # Only fields re-read from the released provider record can create an identity;
+    # no browser-supplied product facts, ownership, prices or approval flags.
+    try:
+        return ManualInventoryCreate(new_catalogue=ManualCatalogueCreate(product_type="CARD", game=item["game"],
+            name=item["name"], set_name=item["set_name"], card_number=item["card_number"], variant=item["provider_id"],
+            rarity=item.get("rarity") or "Unknown", language=item["language"]), **fields)
+    except ValidationError as exc:
+        raise HTTPException(422, "This reference printing needs catalogue review before it can be added") from exc
+
+
+@router.post("/intake", status_code=201)
+async def intake(payload: BrowseIntake, request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
+                 access: Annotated[dict, Depends(browser_access)],
+                 idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=96)]):
+    # Replays retain exactly the same payload even if reference data changes later.
+    from .inventory_intake import _existing_receipt
+    import json
+    try:
+        request_key = UUID(idempotency_key)
+    except ValueError as exc:
+        raise HTTPException(422, "Idempotency-Key must be a UUID") from exc
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        receipt = await _existing_receipt(connection, access["owner_id"], request_key)
+        if receipt:
+            response = receipt["response"]
+            if isinstance(response, str): response = json.loads(response)
+            if response.get("inventory", {}).get("notes") != browse_note(payload):
+                raise HTTPException(409, "Idempotency-Key was already used with different details")
+            return {**response, "replayed": True}
+        row = await connection.fetchrow(SOURCE_CTE + "select * from entries where key=$2", access["owner_id"], payload.key)
+        if row is None:
+            raise HTTPException(404, "Product is not available in the released catalogue")
+    return await create_inventory_intake(intake_payload(dict(row), payload), request, user, idempotency_key)

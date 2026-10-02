@@ -2,7 +2,8 @@
 
 const SELLER_VIEWS = [
   ["dashboard", "Today", "◈"],
-  ["intake", "Add cards", "+"],
+  ["search", "Search", "⌕"],
+  ["intake", "Scan", "◎"],
   ["inventory", "Inventory", "▣"],
   ["verification", "Review", "✓"],
   ["media", "Photos & condition", "◉"],
@@ -14,7 +15,7 @@ const SELLER_VIEWS = [
   ["more", "More", "•••"],
 ];
 
-const PRIMARY_VIEWS = ["dashboard", "intake", "inventory", "sales", "more"];
+const PRIMARY_VIEWS = ["dashboard", "search", "intake", "inventory", "more"];
 
 function sellerView(name) {
   return document.querySelector(`[data-seller-view="${name}"]`);

@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
   <link rel="stylesheet" href="/assets/scanner-flow.css?v=3">
+  <link rel="stylesheet" href="/assets/catalogue-browser.css?v=1">
 </head>
 <body class="owner-portal-page">
   <div class="ambient ambient-one"></div>
@@ -86,9 +87,8 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3m8 0h3a1 1 0 0 1 1 1v3M4 16v3a1 1 0 0 0 1 1h3m8 0h3a1 1 0 0 0 1-1v-3M8 12h8"/></svg>
               <span>Scan</span>
             </button>
-            <button class="owner-nav-item" type="button" data-owner-view="sales" aria-label="Sales">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9m5 10V5m6 14v-7m5 7V3"/></svg>
-              <span>Sales</span>
+            <button class="owner-nav-item" type="button" data-browse-products aria-label="Search products">
+              <span aria-hidden="true">⌕</span><span>Search</span>
             </button>
             <button class="owner-nav-item" type="button" data-owner-view="more" aria-label="More tools"><span aria-hidden="true">•••</span><span>More</span></button>
           </nav>
@@ -115,6 +115,7 @@
 
           <section id="owner-view-more" class="owner-view hidden" data-owner-view-panel="more">
             <div class="app-more-grid">
+              <button class="app-more-link" type="button" data-owner-jump="sales" data-owner-view="sales">Sales →</button>
               <button class="app-more-link" type="button" data-owner-jump="balance" data-owner-view="balance">Payouts →</button>
               <button class="app-more-link" type="button" data-owner-jump="channels" data-owner-view="channels">Channels →</button>
               <button class="app-more-link" type="button" data-owner-jump="settlements" data-owner-view="settlements">Settlements →</button>
@@ -733,9 +734,11 @@
   </main>
 
   <script src="/assets/hub-session.js?v=1" defer></script>
-  <script src="/assets/owner-portal.js?v=owner-v10" defer></script>
+  <script src="/assets/owner-portal.js?v=owner-v11" defer></script>
   <script src="/assets/scanner-flow.js?v=2" defer></script>
-  <script src="/assets/owner-recognition.js?v=owner-v10" defer></script>
+  <script src="/assets/owner-recognition.js?v=owner-v11" defer></script>
   <script src="/assets/reference-library.js?v=2" defer></script>
+  <script src="/assets/catalogue-browser.js?v=1" defer></script>
+  <script src="/assets/catalogue-browser-entry.js?v=1" defer></script>
 </body>
 </html>
