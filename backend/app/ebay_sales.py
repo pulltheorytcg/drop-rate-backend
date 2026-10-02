@@ -840,6 +840,20 @@ async def preview_ebay_shipping_fulfillment(
 
 @router.post("/listings/{inventory_id}", dependencies=[Depends(require_platform_admin_request)])
 async def publish_inventory_to_ebay(
+    inventory_id: UUID, payload: EbayListRequest, request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict[str, Any]:
+    async with request.app.state.db_pool.acquire() as lock_connection:
+        key = f"ebay-publish:{inventory_id}"
+        if not await lock_connection.fetchval("select pg_try_advisory_lock(hashtextextended($1,0))", key):
+            raise HTTPException(409, "eBay sync is already in progress; refresh shortly")
+        try:
+            return await _publish_inventory_to_ebay(inventory_id, payload, request, user)
+        finally:
+            await lock_connection.fetchval("select pg_advisory_unlock(hashtextextended($1,0))", key)
+
+
+async def _publish_inventory_to_ebay(
     inventory_id: UUID,
     payload: EbayListRequest,
     request: Request,
@@ -1313,6 +1327,20 @@ async def _record_ebay_order(pool: Any, order: dict[str, Any]) -> dict[str, Any]
         placed_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
     except ValueError:
         placed_at = datetime.now(timezone.utc)
+
+    # Shared-store orders may contain inventory belonging to several sellers.
+    # A backend-only database function resolves ownership and commits all lines
+    # atomically, preserving the existing commission triggers and replay guard.
+    if get_settings().ebay_shared_store_owner_id:
+        shared_lines = [{**line, "shipping_minor": shipping_allocations[index]} for index, line in enumerate(lines)]
+        async with pool.acquire() as connection:
+            result = await connection.fetchval(
+                "select tcg.record_shared_ebay_order($1,$2,$3::jsonb)",
+                order_id, placed_at, json.dumps(shared_lines),
+            )
+        if result["action"] == "CHANNEL_CONFLICT":
+            raise EbayChannelConflict(UUID(result["link_id"]), result["state"])
+        return result
 
     async with pool.acquire() as connection:
         async with connection.transaction():

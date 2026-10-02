@@ -1,0 +1,47 @@
+const {JSDOM} = require('jsdom');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const dom = new JSDOM('<section data-seller-view="accounts"></section>', {runScripts:'outside-only',url:'https://example.test/'});
+const ctx = dom.getInternalVMContext();
+const run = code => vm.runInContext(code, ctx);
+const tick = () => new Promise(resolve => setImmediate(resolve));
+run(`
+  const state = {session:{access_token:'test',user:{id:'founder'}}};
+  const byId = id => document.getElementById(id);
+  const sellerView = () => document.querySelector('section');
+  const makeSellerHeading = () => document.createElement('h1');
+  const activateSellerView = () => {};
+  let reloadDashboard = async () => {};
+  const requests = [];
+  let apiRequest = async url => {
+    if (url === '/api/v1/founder/accounts') return {accounts:[{id:'a',display_name:'First'},{id:'b',display_name:'Second'}]};
+    return new Promise(resolve => requests.push({url,resolve}));
+  };
+`);
+run(fs.readFileSync('../../backend/app/static/founder-accounts.js','utf8'));
+(async () => {
+  run(`document.dispatchEvent(new CustomEvent('seller-view-changed',{detail:{view:'accounts'}}))`);
+  await tick();
+  assert.equal(run('requests.length'),1);
+  const select = dom.window.document.getElementById('accounts-owner');
+  select.value = 'b';
+  select.dispatchEvent(new dom.window.Event('change'));
+  await tick();
+  assert.match(run('requests[1].url'),/owner_id=b/);
+  run(`requests[1].resolve({items:[{owner_name:'Second',name:'Current item'}],total:1})`);
+  await tick();
+  run(`requests[0].resolve({items:[{owner_name:'First',name:'Stale item'}],total:1})`);
+  await tick();
+  assert.match(dom.window.document.getElementById('accounts-results').textContent,/Current item/);
+  assert.doesNotMatch(dom.window.document.getElementById('accounts-results').textContent,/Stale item/);
+  select.value='a'; select.dispatchEvent(new dom.window.Event('change'));
+  await tick();
+  run(`state.session=null; window.dispatchEvent(new Event('hub-session-cleared')); requests[2].resolve({items:[{name:'After logout'}],total:1})`);
+  await tick();
+  assert.equal(dom.window.document.getElementById('accounts-results').textContent,'');
+  assert.equal(dom.window.document.getElementById('accounts-summary').textContent,'');
+  assert.equal(select.options.length,1);
+  console.log('PASS: account filters, stale-response isolation and immediate logout cleanup.');
+  dom.window.close();
+})().catch(error=>{console.error(error);process.exitCode=1;dom.window.close();});

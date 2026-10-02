@@ -1,0 +1,18 @@
+.app-more-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin:24px 0; }
+.app-more-link { min-height:84px; padding:20px; border:1px solid #cbd5e1; border-radius:16px; background:#fff; color:#102348; text-align:left; font:inherit; font-weight:700; cursor:pointer; box-shadow:0 3px 12px #10234808; }
+.app-more-link:hover { border-color:#2563eb; background:#f4f8ff; }
+.app-more-link:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }
+.app-account-filters { display:flex; flex-wrap:wrap; align-items:end; gap:16px; margin:24px 0 12px; }
+.app-account-filters label { flex:1 1 180px; }
+.app-account-filters [hidden] { display:none; }
+.app-account-filters input,.app-account-filters select { width:100%; }
+.app-account-section { margin:20px 0; padding:20px; }
+.app-account-pages { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:20px 0; }
+@media(max-width:1000px) {
+  .owner-nav,.seller-nav { display:grid !important; grid-template-columns:repeat(5,minmax(0,1fr)); width:100%; overflow:visible; gap:4px; }
+  .owner-nav .owner-nav-item,.seller-nav .seller-nav-tab { min-width:0; justify-content:center; padding:10px 3px; font-size:11px; gap:5px; }
+  .owner-nav .owner-nav-item { flex-direction:column; }
+  .owner-nav .owner-nav-item svg { width:20px; height:20px; }
+  .seller-nav-icon { display:none; }
+  .app-account-section { padding:12px; }
+}

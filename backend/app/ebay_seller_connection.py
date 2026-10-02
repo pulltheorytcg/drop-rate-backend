@@ -102,7 +102,13 @@ async def load_effective_seller_config(
     *,
     owner_id: UUID | None = None,
 ) -> EbayEffectiveSellerConfig:
-    row = await _load_connection_row(pool, owner_id=owner_id)
+    # Store authorization is independent of the inventory's beneficial owner.
+    # An explicit binding preserves legacy deployments and avoids guessing between accounts.
+    shared_owner = getattr(settings, "ebay_shared_store_owner_id", None)
+    connection_owner = UUID(shared_owner) if shared_owner else owner_id
+    row = await _load_connection_row(pool, owner_id=connection_owner)
+    if shared_owner and (not row or row["status"] not in {"CONNECTED", "READY"}):
+        raise RuntimeError("Drop Rate's shared eBay store is not connected")
 
     refresh_token = settings.ebay_user_refresh_token
     if not refresh_token and row:
@@ -147,7 +153,7 @@ async def load_effective_seller_config(
             else None
         ),
         connection_id=UUID(str(row["id"])) if row else None,
-        owner_id=UUID(str(row["owner_id"])) if row else owner_id,
+        owner_id=UUID(str(row["owner_id"])) if row else connection_owner,
         status=str(row["status"]) if row else None,
         granted_scopes=tuple(row["granted_scopes"] or ()) if row else (),
     )

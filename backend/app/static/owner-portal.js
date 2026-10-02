@@ -464,12 +464,12 @@ function renderOwnerChannelSummary(data) {
     ownerChannelCount(ebay, "ERROR").toLocaleString("en-GB");
 }
 
-function renderOwnerChannelsRows(items) {
+function renderOwnerChannelsRows(items, channels = []) {
   const body = byId("owner-channels-body");
   body.replaceChildren();
 
   if (!items.length) {
-    renderEmptyRow("owner-channels-body", 6, "No channel-linked inventory matches these filters.");
+    renderEmptyRow("owner-channels-body", 6, "No inventory matches these filters.");
     return;
   }
 
@@ -531,6 +531,33 @@ function renderOwnerChannelsRows(items) {
       ebayCell.append(error);
     }
 
+    for (const [code, cell, linked] of [["SHOPIFY", shopifyCell, item.shopify_state === "PUBLISHED"], ["EBAY", ebayCell, item.ebay_state === "LIVE"]]) {
+      if (linked) continue;
+      const channel = channels.find(value => value.code === code);
+      const eligible = item.inventory_status === "APPROVED" && item.sale_intent === "FOR_SALE";
+      if (eligible && channel?.sync_enabled) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "ghost-button compact";
+        button.textContent = "Sync to " + channel.label;
+        button.addEventListener("click", async () => {
+          if (!window.confirm(`List ${item.inventory_code} for sale on ${channel.label}?`)) return;
+          button.disabled = true;
+          try {
+            const result = await apiRequest(`/api/v1/owner/inventory/${encodeURIComponent(item.inventory_id)}/channels/${code.toLowerCase()}/sync`, {method: "POST", body: JSON.stringify({version: item.version})});
+            showOwnerChannelsMessage(`${item.inventory_code}: ${result.status.replaceAll("_", " ")}`, "success");
+            await loadOwnerChannels();
+          } catch (error) { showOwnerChannelsMessage(error.message, "error"); button.disabled = false; }
+        });
+        cell.append(button);
+      } else {
+        const note = document.createElement("small");
+        note.className = "owner-channel-price";
+        note.textContent = !eligible ? (item.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "Awaiting approval") : "Seller sync not enabled yet";
+        cell.append(note);
+      }
+    }
+
     const marketCell = document.createElement("td");
     marketCell.textContent =
       item.market_value_minor == null ? "—" : formatMoney(item.market_value_minor);
@@ -583,7 +610,7 @@ async function loadOwnerChannels() {
     byId("owner-channels-total").textContent =
       state.channels.total.toLocaleString("en-GB");
     renderOwnerChannelSummary(data);
-    renderOwnerChannelsRows(data.items || []);
+    renderOwnerChannelsRows(data.items || [], data.channels || []);
     renderOwnerChannelsPagination();
     showOwnerChannelsMessage();
   } catch (error) {
@@ -1182,6 +1209,7 @@ function activateOwnerView(view) {
     balance: ["Payouts", "Manage your payout account, balance and preferred payout schedule."],
     channels: ["Channels", "See exactly where your inventory is synced and whether each channel is healthy."],
     settlements: ["Settlements", "Follow order-by-order allocation and reconciliation."],
+    more: ["More", "Payouts, channels, settlements and your account."],
     profile: ["Profile", "Manage your Seller Hub identity, login email and password securely."],
   };
   const target = Object.hasOwn(views, view) ? view : "overview";
@@ -1190,7 +1218,10 @@ function activateOwnerView(view) {
     panel.classList.toggle("hidden", panel.dataset.ownerViewPanel !== target);
   });
   document.querySelectorAll(".owner-nav-item[data-owner-view]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.ownerView === target);
+    const primary = ["overview", "inventory", "scan", "sales", "more"].includes(target) ? target : "more";
+    button.classList.toggle("active", button.dataset.ownerView === primary);
+    if (button.dataset.ownerView === primary) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
   });
 
   byId("owner-page-title").textContent = views[target][0];
@@ -1373,7 +1404,7 @@ async function openOwnerPortal() {
   byId("owner-auth-view").classList.add("hidden");
   byId("owner-portal-view").classList.remove("hidden");
   const hashView = window.location.hash.replace("#", "");
-  activateOwnerView(["inventory", "scan", "sales", "balance", "channels", "settlements", "profile"].includes(hashView) ? hashView : "overview");
+  activateOwnerView(["inventory", "scan", "sales", "balance", "channels", "settlements", "profile", "more"].includes(hashView) ? hashView : "overview");
   await reloadOwnerDashboard();
   showOwnerOnboardingWelcome();
 }

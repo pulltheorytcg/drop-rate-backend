@@ -25,6 +25,7 @@
     clear() {
       sessionStorage.removeItem(key);
       removeLegacy();
+      window.dispatchEvent(new Event("hub-session-cleared"));
     },
   });
 })();

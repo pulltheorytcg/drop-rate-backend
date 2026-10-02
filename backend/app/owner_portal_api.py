@@ -571,7 +571,7 @@ async def owner_channels(
             order by connected_at desc,id desc
             limit 1
             """,
-            owner_id,
+            UUID(settings.ebay_shared_store_owner_id) if settings.ebay_shared_store_owner_id else owner_id,
         )
         total = await connection.fetchval(
             f"""
@@ -593,7 +593,6 @@ async def owner_channels(
                 limit 1
             ) ebay on true
             where {where}
-              and (shopify.sync_state is not null or ebay.state is not null)
             """,
             *params,
         )
@@ -603,7 +602,7 @@ async def owner_channels(
             select
                 i.id as inventory_id,
                 i.inventory_code,
-                i.status as inventory_status,
+                i.status as inventory_status,i.sale_intent,i.version,
                 i.market_value_minor,
                 coalesce(i.store_price_minor,i.recommended_retail_minor)
                     as store_value_minor,
@@ -670,7 +669,6 @@ async def owner_channels(
                 limit 1
             ) ebay on true
             where {where}
-              and (shopify.sync_state is not null or ebay.state is not null)
             order by greatest(
                 coalesce(shopify.last_synced_at,'epoch'::timestamptz),
                 coalesce(ebay.last_verified_at,'epoch'::timestamptz)
@@ -692,7 +690,8 @@ async def owner_channels(
             "channels": [
                 {
                     "code": "SHOPIFY",
-                    "label": "Shopify",
+                    "label": "Drop Rate Shopify",
+                    "sync_enabled": settings.shopify_seller_sync_enabled and settings.shopify_publish_enabled,
                     "available": True,
                     "connected": shopify_configured,
                     "connection_status": (
@@ -702,7 +701,8 @@ async def owner_channels(
                 },
                 {
                     "code": "EBAY",
-                    "label": "eBay",
+                    "label": "Drop Rate eBay",
+                    "sync_enabled": bool(settings.ebay_seller_sync_enabled and settings.ebay_publish_enabled and settings.ebay_shared_store_owner_id),
                     "available": True,
                     "connected": bool(
                         ebay_data

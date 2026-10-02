@@ -13,6 +13,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .db import create_pool
+from .seller_channel_sync import router as seller_channel_sync_router
+from .founder_accounts import router as founder_accounts_router
 from .access_control import require_platform_admin_request, router as access_control_router
 from .action_required import router as action_required_router
 from .automation_control import router as automation_control_router
@@ -104,6 +106,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
         '<script src="/assets/market-value-column.js" defer></script>',
         '<script src="/assets/founder-workspace.js" defer></script>',
+        '<script src="/assets/founder-accounts.js" defer></script>',
     )
     for script in scripts:
         if script not in html:
@@ -304,6 +307,7 @@ def create_app() -> FastAPI:
     async def founder_join() -> HTMLResponse:
         return HTMLResponse((STATIC_DIR / "join.html").read_text(encoding="utf-8"))
 
+    @app.get("/app", include_in_schema=False)
     @app.get("/owner", include_in_schema=False)
     async def owner_portal() -> HTMLResponse:
         return HTMLResponse((STATIC_DIR / "owner.html").read_text(encoding="utf-8"))
@@ -337,6 +341,8 @@ def create_app() -> FastAPI:
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(router)
     app.include_router(access_control_router)
+    app.include_router(founder_accounts_router)
+    app.include_router(seller_channel_sync_router)
     app.include_router(action_required_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(automation_control_router)
     app.include_router(automation_commands_router)

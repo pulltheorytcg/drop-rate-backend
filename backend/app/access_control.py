@@ -24,7 +24,8 @@ async def current_access_context(connection: asyncpg.Connection) -> dict:
             o.display_name,
             o.owner_type,
             o.active as owner_active,
-            o.founder_slot
+            o.founder_slot,
+            tcg.is_platform_admin() as founder_authorized
         from tcg.owner_memberships m
         join tcg.owners o on o.id=m.owner_id
         where m.user_id=tcg.current_user_id()
@@ -46,6 +47,8 @@ async def current_access_context(connection: asyncpg.Connection) -> dict:
     role = str(row["role"])
     if role not in {"PLATFORM_ADMIN", "OWNER"}:
         raise HTTPException(status_code=403, detail="Unsupported access role")
+    if role == "PLATFORM_ADMIN" and not row["founder_authorized"]:
+        raise HTTPException(status_code=403, detail="Founder account is not authorized")
 
     return {
         "user_id": row["user_id"],

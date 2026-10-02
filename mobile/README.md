@@ -1,4 +1,4 @@
-# PullTheory — one app, existing hubs
+# Drop Rate — one app, two account roles
 
 The iPhone and Android app displays the existing Seller Hub and Founder HQ from
 `https://drop-rate-api-live-production.up.railway.app`. Shopify remains the separate existing storefront.
@@ -6,10 +6,10 @@ There are no replacement native dashboards or demo accounts in the active app ro
 
 ## How it works
 
-- One embedded browser starts at `/owner`, using the real Seller Hub login and UI.
+- One embedded browser starts at `/app`, using one Drop Rate login.
 - The server-verified account role selects Seller Hub (`OWNER`) or Founder HQ (`PLATFORM_ADMIN`).
 - Both web hubs use one tab-scoped session. A founder redirect no longer requires a second login after the backend assets are deployed.
-- Founder accounts still cannot use seller-only APIs; switching a founder into the restricted Seller Hub is not implemented. No membership, API guard, RLS or financial permission was expanded.
+- Only the three explicitly enrolled founders can enter Founder HQ. Founders retain their own inventory tools and have read-only Accounts oversight of all sellers. Seller APIs remain restricted to the authenticated seller.
 - Tokens stay in the existing website's browser session, never native messages or URLs added by the wrapper.
 - Non-hub HTTPS links open in the device browser. Other schemes are blocked. Social login return from an external browser still needs native integration and device testing; use the existing email/password flow for initial acceptance.
 - Camera capture uses the existing hub scanner. Native camera permissions are configured, but camera, file upload, downloads, reconnect and background behaviour require physical-device testing.
@@ -24,7 +24,7 @@ Run `npm ci`, `npm run check`, and `npm start` from this directory in VS Code.
 Use `npm run build:ios:testflight` after linking an Expo project and Apple Developer
 signing account. Android internal build: `npm run build:android`.
 No signed build, TestFlight invitation, or store release has been created.
-Backend shared-session changes must be deployed before the unified login handoff works.
+The `/app` route and founder roster migration must be deployed before installing this build.
 Legacy hub sessions require a fresh sign-in once after that deployment.
 
 The earlier replacement screens are preserved under `prototype-routes/` and are not

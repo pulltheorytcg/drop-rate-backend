@@ -121,6 +121,9 @@ class Settings:
     ebay_merchant_location_key: str | None = None
     ebay_notification_endpoint: str | None = None
     ebay_notification_verification_token: str | None = None
+    ebay_shared_store_owner_id: str | None = None
+    shopify_seller_sync_enabled: bool = False
+    ebay_seller_sync_enabled: bool = False
     ebay_publish_enabled: bool = False
     ebay_price_markup_bps: int = 0
     ebay_origin_postcode: str | None = None
@@ -210,6 +213,9 @@ class Settings:
             ebay_notification_verification_token=_optional(
                 "TCG_EBAY_NOTIFICATION_VERIFICATION_TOKEN"
             ),
+            ebay_shared_store_owner_id=_optional("TCG_EBAY_SHARED_STORE_OWNER_ID"),
+            shopify_seller_sync_enabled=_boolean("TCG_SHOPIFY_SELLER_SYNC_ENABLED", False),
+            ebay_seller_sync_enabled=_boolean("TCG_EBAY_SELLER_SYNC_ENABLED", False),
             ebay_publish_enabled=_boolean("TCG_EBAY_PUBLISH_ENABLED", False),
             ebay_price_markup_bps=_bounded_int(
                 "TCG_EBAY_PRICE_MARKUP_BPS", 0, minimum=0, maximum=10000

@@ -27,7 +27,7 @@ for(const file of scripts){
 run(`window.inventoryRequests=[]; apiRequest = async (url) => {window.inventoryRequests.push(url); return {items:[],total:0, owner:{display_name:'Demo founder',email:'preview@example.test'}};};`);
 const doc=dom.window.document;
 assert.equal(errors.length,0);
-assert.equal(doc.querySelectorAll('.seller-nav-tab').length,9);
+assert.equal(doc.querySelectorAll('.seller-nav-tab').length,5);
 assert.equal(doc.querySelector('#recognition-scanner-panel').closest('[data-seller-view]').dataset.sellerView,'intake');
 for(const id of ['new-inventory-button','import-inventory-button']){
   assert.equal(doc.getElementById(id).closest('[data-seller-view]').dataset.sellerView,'intake');
@@ -91,6 +91,6 @@ assert.equal(new Set(ids).size,ids.length,'No duplicate controls');
 run(`activateSellerView('dashboard',true)`);
 setTimeout(()=>{
   assert.equal(errors.length,0,errors.map(String).join('\n'));
-  console.log('PASS: nine routes, intake dialogs, issue navigation, filter reset, global search, keyboard navigation, unsaved form preservation, saved layout, camera cleanup, empty state, settings and unique controls.');
+  console.log('PASS: all routes through five primary destinations, intake dialogs, issue navigation, filter reset, global search, keyboard navigation, unsaved form preservation, saved layout, camera cleanup, empty state, settings and unique controls.');
   dom.window.close();
 },100);
