@@ -69,6 +69,7 @@ window.DropRateCatalogue = (() => {
       else {this.dialog.showModal();document.body.classList.add("dr-browser-open");}
       // Show known game artwork immediately, before any network round trip.
       if(this.isHome()){this.header();this.renderGames();}
+      else {this.header();this.skeleton();}
       const revision=this.revision;
       if(!this.gamesLoaded) {
         if(!this.gamesRequest) this.gamesRequest=this.client.request("/api/v1/catalogue-browser/games").then(data=>{

@@ -93,7 +93,7 @@ def test_clean_public_join_ignores_stale_invite_storage() -> None:
     html = JOIN_HTML.read_text()
     source = JOIN_JS.read_text()
 
-    assert 'src="/assets/owner-join.js?v=public-join-2"' in html
+    assert 'src="/assets/owner-join.js?v=public-join-3"' in html
     assert 'const explicitToken = params.get("invite");' in source
     assert "if (explicitToken) return explicitToken;" in source
     assert 'const callback = new URLSearchParams(window.location.hash.slice(1));' in source

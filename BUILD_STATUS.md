@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-02 — Collector identity and registration session repair
+
+- Confirmed the previous one-entry change missed onboarding: successful registration wrote `drop_rate_owner_session`, which the new session reader removed. Founder invitations had the same mismatch. Both now use the shared helper, with safe migration of a single legacy session and no guessing between conflicting accounts.
+- Existing sellers on public registration go to the canonical sign-in. Invitation acknowledgements remain intact. Added Create account to the shared entry.
+- Restored the approved Seller Hub lockup; removed the old-logo/added-wordmark replacement. Rebuilt both homes with original manga artwork, navy/cream/turquoise/gold styling, One Piece/Pokémon/Naruto/Dragon Ball catalogue destinations, local colour themes, clearer collection and payout sections, and responsive navigation.
+- Game tiles open the complete matching catalogue, with immediate loading feedback and ownership filters cleared. Scanner implementation, role isolation, financial contracts and production data are unchanged.
+- Validation includes six registration/session regressions, existing backend/UI release gates, and 1440px/390px/320px browser fixtures for both roles. Fixtures use demo data, not a real signed-in account. Deployment/production evidence belongs to the accompanying PR. See `docs/COLLECTOR_HUB_DESIGN.md`.
+
 ## 2026-10-02 — Unified sign-in and workspace navigation
 
 - Reviewed the two desktop recordings: separate login surfaces, a blank Search entry while metadata loaded, duplicate catalogue navigation, and ungrouped tools made the combined app feel fragmented.

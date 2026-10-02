@@ -41,6 +41,6 @@
   if(home){const label=home.querySelector('.seller-nav-label');if(label)label.textContent='Home';else home.lastChild.textContent='Home';}
   const area=seller?document.querySelector('.owner-page-header .eyebrow'):null;if(area)area.textContent='Drop Rate';
   const brand=document.querySelector(seller?'.owner-topbar-brand':'.topbar .brand-lockup');
-  if(brand){const label=document.createElement('span');label.className='workspace-brand-label';label.textContent='DROP RATE';const logo=document.createElement('img');logo.src='/assets/brand-assets/drop-rate-logo.png';logo.alt='Drop Rate';logo.className='workspace-logo';brand.replaceChildren(logo,label);}
+  if(brand){const logo=document.createElement('img');logo.src=seller?'/assets/brand-assets/seller-hub-approved.webp':'/assets/brand-assets/drop-rate-founder-hq.png';logo.alt=seller?'Drop Rate Seller Hub':'Drop Rate Founder HQ';logo.className='workspace-approved-logo';brand.replaceChildren(logo);}
   const oldSearch=document.querySelector('.workspace-search');if(oldSearch){oldSearch.classList.add('workspace-inventory-search');oldSearch.querySelector('input').placeholder='Search your inventory…';}
 })();

@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/assets/scanner-flow.css?v=4">
   <link rel="stylesheet" href="/assets/catalogue-browser.css?v=2">
   <link rel="stylesheet" href="/assets/workspace-shell.css?v=1">
+  <link rel="stylesheet" href="/assets/collector-worlds.css?v=1">
 </head>
 <body class="hub-restoring">
   <div class="hub-loading" role="status"><span class="hub-loading-mark">D</span><strong>Opening Drop Rate…</strong></div>
@@ -21,17 +22,17 @@
   <main class="shell">
     <section id="auth-view" class="auth-layout">
       <div class="brand-panel">
-        <div class="brand-lockup brand-lockup-logo"><span class="dr-logo-image" role="img" aria-label="Drop Rate"></span></div>
+        <div class="brand-lockup brand-lockup-logo"><img class="collector-auth-logo" src="/assets/brand-assets/seller-hub-approved.webp" alt="Drop Rate Seller Hub"></div>
         <div class="brand-copy">
           <p class="eyebrow">Your collection starts here</p>
-          <h1>Your collection.<br><em>Under control.</em></h1>
-          <p class="lead">Discover cards, build your collection and manage your sales — all in Drop Rate.</p>
+          <h1>Every card.<br><em>A new adventure.</em></h1>
+          <p class="lead">From your first pull to your next grail. Discover, collect and sell across your favourite worlds.</p>
         </div>
-        <div class="trust-row"><span>Discover</span><span>Collect</span><span>Sell</span></div>
+        <div class="collector-auth-games"><span>ONE PIECE</span><span>POKÉMON</span><span>NARUTO</span><span>DRAGON BALL</span></div>
       </div>
 
       <div class="auth-panel">
-        <div class="mobile-brand brand-lockup-logo"><span class="dr-logo-image" role="img" aria-label="Drop Rate"></span></div>
+        <div class="mobile-brand brand-lockup-logo"><img class="collector-auth-logo" src="/assets/brand-assets/seller-hub-approved.webp" alt="Drop Rate Seller Hub"></div>
 
         <form id="login-form" class="auth-card">
           <p class="eyebrow">Welcome back</p>
@@ -47,6 +48,7 @@
           <div id="login-message" class="message" role="status"></div>
           <button class="primary-button" type="submit">Sign in <span>→</span></button>
           <button id="show-reset" class="text-button" type="button">Forgot your password?</button>
+          <p class="collector-create">New to the crew? <a href="/owner/join">Create your account →</a></p>
         </form>
 
         <form id="request-reset-form" class="auth-card hidden">
@@ -73,7 +75,7 @@
 
     <section id="dashboard-view" class="dashboard hidden">
       <header class="topbar">
-        <div class="brand-lockup brand-lockup-logo"><span class="dr-logo-image" role="img" aria-label="Drop Rate"></span></div>
+        <div class="brand-lockup brand-lockup-logo"><img class="collector-auth-logo" src="/assets/brand-assets/seller-hub-approved.webp" alt="Drop Rate Seller Hub"></div>
         <div class="topbar-actions">
           <div class="user-chip"><span id="owner-initial">S</span><div><strong id="owner-name">Founder</strong><small id="owner-email"></small></div></div>
           <button id="logout-button" class="ghost-button" type="button">Sign out</button>
@@ -200,7 +202,7 @@
       <div class="modal-actions"><button class="ghost-button" type="button" data-close="purchase-lot-dialog">Cancel</button><button id="lot-save" class="primary-button compact" type="submit">Create purchase lot</button></div>
     </form>
   </dialog>
-  <script src="/assets/hub-session.js?v=2" defer></script>
+  <script src="/assets/hub-session.js?v=3" defer></script>
   <script src="/assets/app.js?v=2" defer></script>
   <script src="/assets/purchase-lots.js" defer></script>
   <script src="/assets/inventory-state.js" defer></script>
