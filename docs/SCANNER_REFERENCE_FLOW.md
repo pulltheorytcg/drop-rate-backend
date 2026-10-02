@@ -10,6 +10,10 @@ part of this change.
 The reference is the user's 110-second Collectr screen recording supplied on
 2 October. This change follows its camera → thumbnails → details → review → add
 sequence in the existing mobile web app, shared by Seller Hub and Founder HQ.
+Following the user's review, the same structure now uses Drop Rate's established
+navy, blue and cyan palette, with white/pale-grey detail and review surfaces.
+This follow-up changes colours only: component geometry, copy and scanner behaviour
+are preserved. Both hub entry points load the updated stylesheet version.
 The active native app's WebView will receive the same web presentation after a
 future deployment; this does not demonstrate physical-device compatibility.
 
@@ -97,6 +101,9 @@ upscaling. Recognition latency and accuracy are not changed or benchmarked here.
   844×390, and Founder HQ at 390×844. Camera guide/tray geometry and review were
   checked for horizontal overflow; both intake adapters completed their fixture
   flow with no page errors.
+- The brand-colour follow-up was checked against the approved layout: every
+  non-colour CSS declaration is identical, as are the measured camera guide/tray
+  positions at all three screen sizes. Refreshed previews cover both hub themes.
 - Screenshots use a local simulated camera, official SAMPLE reference artwork,
   fixture recognition/value responses and simulated saves. They are UI previews,
   not recognition evidence or production inventory writes.

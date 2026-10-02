@@ -2,6 +2,7 @@
 
 ## 2026-10-02 — Collectr reference scanner UI (branch; not deployed)
 
+- User approved the scanner structure and requested Drop Rate brand colours. PR #497 now uses the existing navy/blue/cyan palette with white and pale-grey detail/review surfaces; this follow-up preserves the layouts and behaviour.
 - User supplied the Collectr scanner recording and requested the same camera, thumbnail, detail and final-review flow. Implemented as a shared mobile presentation for Seller Hub and Founder HQ on `feat/collectr-scanner-flow`.
 - Live production is unchanged while the user tests the existing scanner. No recognition model/scoring, Supabase schema, Railway configuration, publishing or roster changes.
 - Pending thumbnails appear immediately. Match correction, per-item condition and quantity, full-screen review and Add to Inventory use the existing authenticated APIs for each role. Unknown values, review gates, physical removal checks and graded-slab verification are preserved.
