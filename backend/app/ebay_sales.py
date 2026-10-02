@@ -838,20 +838,26 @@ async def preview_ebay_shipping_fulfillment(
     )
 
 
+# Reserve capacity for the publisher's short queries while its advisory lock is held.
+_ebay_publish_slots = asyncio.Semaphore(1)
+
+
 @router.post("/listings/{inventory_id}", dependencies=[Depends(require_platform_admin_request)])
 async def publish_inventory_to_ebay(
     inventory_id: UUID, payload: EbayListRequest, request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict[str, Any]:
-    async with request.app.state.db_pool.acquire() as lock_connection:
-        key = f"ebay-publish:{inventory_id}"
-        if not await lock_connection.fetchval("select pg_try_advisory_lock(hashtextextended($1,0))", key):
-            raise HTTPException(409, "eBay sync is already in progress; refresh shortly")
-        try:
-            return await _publish_inventory_to_ebay(inventory_id, payload, request, user)
-        finally:
-            await lock_connection.fetchval("select pg_advisory_unlock(hashtextextended($1,0))", key)
-
+    if request.app.state.db_pool.get_max_size() < 2:
+        raise HTTPException(503, "eBay publishing requires a database pool of at least two connections")
+    async with _ebay_publish_slots:
+        async with request.app.state.db_pool.acquire() as lock_connection:
+            key = f"ebay-publish:{inventory_id}"
+            if not await lock_connection.fetchval("select pg_try_advisory_lock(hashtextextended($1,0))", key):
+                raise HTTPException(409, "eBay sync is already in progress; refresh shortly")
+            try:
+                return await _publish_inventory_to_ebay(inventory_id, payload, request, user)
+            finally:
+                await lock_connection.fetchval("select pg_advisory_unlock(hashtextextended($1,0))", key)
 
 async def _publish_inventory_to_ebay(
     inventory_id: UUID,

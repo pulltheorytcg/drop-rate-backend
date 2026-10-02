@@ -3,16 +3,32 @@
 .app-more-link:hover { border-color:#2563eb; background:#f4f8ff; }
 .app-more-link:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }
 .app-account-filters { display:flex; flex-wrap:wrap; align-items:end; gap:16px; margin:24px 0 12px; }
-.app-account-filters label { flex:1 1 180px; }
+.app-account-filters label { display:flex; flex-direction:column; gap:6px; flex:1 1 180px; font-size:14px; font-weight:600; color:#163354; }
 .app-account-filters [hidden] { display:none; }
-.app-account-filters input,.app-account-filters select { width:100%; }
+.app-account-filters input,.app-account-filters select { width:100%; min-height:44px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#163354; font:inherit; }
+.app-account-filters input::placeholder { color:#63768e; }
+.app-account-section .table-wrap,.app-account-section tr { background:#fff; border-color:#d8e2ef; }
+.app-account-section th { background:#edf4fc; color:#29476b; }
+.app-account-section td { color:#163354; }
+#seller-view-accounts table { min-width:760px; width:100%; }
+#seller-view-accounts td:nth-child(2) { white-space:normal; max-width:280px; }
+.app-account-section td::before { color:#5c718b; }
 .app-account-section { margin:20px 0; padding:20px; }
 .app-account-pages { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:20px 0; }
 @media(max-width:1000px) {
   .owner-nav,.seller-nav { display:grid !important; grid-template-columns:repeat(5,minmax(0,1fr)); width:100%; overflow:visible; gap:4px; }
   .owner-nav .owner-nav-item,.seller-nav .seller-nav-tab { min-width:0; justify-content:center; padding:10px 3px; font-size:11px; gap:5px; }
-  .owner-nav .owner-nav-item { flex-direction:column; }
+  .owner-nav .owner-nav-item { flex-direction:column; width:100%; max-width:100%; box-sizing:border-box; }
   .owner-nav .owner-nav-item svg { width:20px; height:20px; }
   .seller-nav-icon { display:none; }
   .app-account-section { padding:12px; }
+}
+
+@media(max-width:560px) {
+  #seller-view-accounts .table-wrap { overflow:visible; }
+  #seller-view-accounts table { min-width:0; width:100%; }
+  #seller-view-accounts tbody { display:grid; padding:0; }
+  #seller-view-accounts tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; box-sizing:border-box; }
+  #seller-view-accounts td { min-width:0; white-space:normal; overflow-wrap:anywhere; }
+  #seller-view-accounts td:nth-child(2) { grid-column:1/-1; max-width:none; }
 }

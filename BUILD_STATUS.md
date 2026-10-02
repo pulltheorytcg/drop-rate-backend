@@ -5,8 +5,9 @@
 - User explicitly reopened this bounded Phase 3 work: one app for Seller Hub and Founder HQ. The common entry is `/app`, with five primary destinations and existing tools retained under More.
 - Founder access is limited by an explicit roster to Sunny, Riaz and Eamon. Eamon's existing verified account now occupies slot 3. Sellers retain access only to their own records. Founders gain read-only Accounts oversight while keeping their own inventory mutations.
 - Both additive migrations are applied. The shared eBay order rollback test passed mixed-owner allocations, exact shipping, commissions, stock changes, replay and conflict handling; all fixtures and outbox events were rolled back.
-- Local checks: 2,348 backend tests, UI routes/unsaved forms/stale-response/logout isolation, mobile typecheck/lint/35 tests and Android/iOS/web bundle exports. GitHub backend and mobile checks passed on implementation head `5a6c3fe85644e5f560f6386cce6db8ccbba0ff97`.
+- Local checks: 2,349 backend tests, UI routes/unsaved forms/stale-response/logout isolation, mobile typecheck/lint/35 tests and Android/iOS/web bundle exports. GitHub backend and mobile checks passed on implementation head `5a6c3fe85644e5f560f6386cce6db8ccbba0ff97`.
 - Railway's existing live API is configured for the company eBay connection. New seller publishing flags remain disabled pending live approved-stock, cross-channel sale/refund/payout acceptance. Whatnot remains planned. No new service or automatic listing was introduced.
+- Mobile browser preview verified at 390px with no page errors or horizontal overflow; all account data uses labeled cards at small widths.
 - Web rollout is tracked in PR #496. Physical-device acceptance, Expo/signing setup and native installers remain outstanding. See `docs/UNIFIED_DROP_RATE_APP.md` for rollout evidence and limits.
 - The older October 1 “not deployed” notes below describe historical checkpoints: Eamon's #491 web/backend changes were subsequently merged and present in the successful production deployment audited at `eaa14411c5d80e669720d9265927ac227535e5ec`. They did not produce a signed mobile installer.
 

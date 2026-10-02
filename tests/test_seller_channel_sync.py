@@ -94,3 +94,34 @@ async def test_shared_order_passes_exact_allocations_to_atomic_database_handler(
     assert sum(line["shipping_minor"] for line in lines) == 499
     assert sum(line["sale_price_minor"] for line in lines) == 3000
     assert all("owner_id" not in line for line in lines)
+
+
+@pytest.mark.asyncio
+async def test_parallel_ebay_publishes_leave_capacity_for_their_own_queries(monkeypatch):
+    import asyncio
+    slots = asyncio.Semaphore(2)
+    class Connection:
+        async def fetchval(self, *args):
+            await asyncio.sleep(0)
+            return True
+    class Pool:
+        def get_max_size(self):
+            return 2
+        @asynccontextmanager
+        async def acquire(self):
+            async with slots:
+                yield Connection()
+    pool = Pool()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=pool)))
+    async def publish(*args):
+        async with pool.acquire():
+            await asyncio.sleep(0)
+            return {"status": "LIVE"}
+    monkeypatch.setattr(ebay_sales, "_ebay_publish_slots", asyncio.Semaphore(1))
+    monkeypatch.setattr(ebay_sales, "_publish_inventory_to_ebay", publish)
+    results = await asyncio.wait_for(asyncio.gather(*[
+        ebay_sales.publish_inventory_to_ebay(uuid4(), ebay_sales.EbayListRequest(version=1), request, object())
+        for _ in range(5)
+    ]), timeout=1)
+    assert len(results) == 5
+    assert all(result["status"] == "LIVE" for result in results)

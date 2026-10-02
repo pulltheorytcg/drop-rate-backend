@@ -23,7 +23,7 @@
     headings.forEach(label => { const cell = node("th", label); cell.scope = "col"; labels.append(cell); });
     head.append(labels);
     const body = node("tbody");
-    records.forEach(values => { const row = node("tr"); values.forEach(value => row.append(node("td", value ?? "—"))); body.append(row); });
+    records.forEach(values => { const row = node("tr"); values.forEach((value, index) => { const cell = node("td", value ?? "—"); cell.dataset.label = headings[index]; row.append(cell); }); body.append(row); });
     grid.append(head, body); wrap.append(grid); section.append(wrap);
     return section;
   }
