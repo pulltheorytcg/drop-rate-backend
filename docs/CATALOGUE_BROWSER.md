@@ -61,11 +61,30 @@ inventory/receipt transaction. No post-commit metadata write is required.
 
 The current catalogue has six game systems. Artwork, complete set names, release
 dates and market coverage vary; some One Piece sets still have provider pack
-labels. Game and set tiles use typography where artwork is unavailable. Unknown
+labels. Game and set tiles use the publisher artwork described below. Unknown
 values remain pending, and progress means indexed products rather than a claim
 of complete master-set coverage. Collectr's prices, percentage changes and wider
-catalogue are not imported or invented. Only approved canonical images and
-labelled reference artwork are displayed. No storefront media is promoted here.
+catalogue are not imported or invented. Product cards display approved canonical
+images or labelled reference artwork. No storefront media is promoted here.
+
+## Official title artwork
+
+- All six game tiles now use official artwork, including Pokémon TCG. The two
+  Naruto systems share the franchise logo with distinct Kayou/Bandai Legacy
+  captions. Drop Rate's navy/blue/cyan surfaces and existing layouts are preserved;
+  logos retain their original colours and proportions.
+- Exact set-title artwork covers 30 English Pokémon expansions plus the English
+  and Japanese One Piece OP13 titles. Matching requires the correct game and
+  language, then an exact normalized name, set code or whitelisted provider ID.
+  English Pokémon logos are not substituted for Japanese set titles.
+- Unmapped sets show the official game logo with the real set name and code.
+  Failed image loads restore the text fallback. Unknown set values display
+  Pending once; partially priced holdings retain the known sum plus pending.
+- The 37 original publisher assets are bundled locally (about 1.5 MB in total),
+  so browsing does not depend on publisher hotlinks. `catalogue-title-art.js`
+  provides the small lookup. `backend/app/static/title-art/sources.json` records
+  the source pages, original URLs, retrieval date, byte counts and SHA-256 hashes.
+  This navigation artwork does not change product-media approval rules.
 
 No database migration, permission policy, founder roster, pricing/provider setup,
 recognition model, paid service or publishing flag was changed. This adds an
@@ -86,10 +105,15 @@ other-account write authority.
   Seller Hub at 390×844 and both hubs at 320×568 and 1366×900. Search, sets,
   Japanese tab, filters, clear, own addition/re-add, scanner entry and graded
   manual details completed with no page errors or horizontal overflow.
+- The artwork follow-up passed the existing UI suites and Chromium checks for
+  both hubs at 320px/1366px and the 390px seller flow. All six game marks loaded;
+  Pokémon and OP13 language matching, exact provider IDs and broken-image text
+  fallback were checked. No page errors or horizontal overflow were observed.
 - Read-only SQL checks against the existing database returned live games, sets,
   products and all three current sealed catalogue entries, including the two
   COLLECTION records. These checks were not authenticated live API acceptance.
-- Preview screenshots contain public SAMPLE card artwork and example responses.
+- Preview screenshots contain official navigation logos, public SAMPLE card
+  artwork where products are shown, and example responses/counts.
   No production inventory was added. No physical camera, real certificate lookup,
   production API latency or recognition accuracy claim is made.
 

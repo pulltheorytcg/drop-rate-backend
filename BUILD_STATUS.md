@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-02 — Official game and set titles (PR #498 follow-up; not deployed)
+
+- Replaced the six game-title tiles with publisher artwork, including Pokémon TCG. Added 30 English Pokémon expansion logos and both English/Japanese One Piece OP13 titles, preserving Drop Rate's layout and colours around the original logos.
+- Exact artwork matching requires the correct game/language and an exact name, code or whitelisted provider ID. Other sets use the official game mark with their real name; failed images restore text. All 37 assets are bundled locally with source URLs and hashes in `title-art/sources.json`.
+- Existing workspace/account, 20 scanner and 7 browser scenarios pass. Chromium verified both hubs at 320px/1366px and the 390px seller preview, language/provider mapping and image-failure fallback, with no page errors or overflow. Preview counts are examples.
+- No schema, provider, recognition, permissions or production changes. PR #498 remains a draft stacked on #497 while the user tests the original live scanner. See `docs/CATALOGUE_BROWSER.md`.
+
 ## 2026-10-02 — Product search and set browser (draft; not deployed)
 
 - User requested Collectr's product-list/search flow in Drop Rate colours. The cleared Quick Filters screen is the default: the supplied recording starts with pre-existing filters.

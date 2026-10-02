@@ -45,6 +45,13 @@ body.dr-browser-open { overflow: hidden; }
 .dr-browser .dr-browse-game { display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:112px; padding:16px 9px; border:1px solid #153a6d; border-radius:8px; background:radial-gradient(ellipse at top right,#1b538066,transparent 65%),var(--browse-navy); color:white; overflow:hidden; }
 .dr-browse-game strong { font-size:23px; font-family:Georgia,serif; font-weight:800; text-align:center; line-height:1.15; }
 .dr-browse-game small { margin-top:8px; font-size:8px; text-align:center; letter-spacing:.12em; color:#9fddf5; }
+.dr-browse-game-fallback { display:flex; flex-direction:column; align-items:center; }
+.dr-browse-game-logo { display:none; width:100%; height:78px; object-fit:contain; }
+.dr-browse-game.has-title-art .dr-browse-game-logo { display:block; }
+.dr-browse-game.has-title-art .dr-browse-game-fallback { display:none; }
+.dr-browse-game .dr-browse-publisher { display:none; }
+.dr-browse-game.has-title-art .dr-browse-publisher { display:block; margin-top:3px; }
+.dr-browse-game.has-title-art:has(.dr-browse-publisher) .dr-browse-game-logo { height:70px; }
 .dr-browse-game[data-system="POKEMON_TCG"] strong { color:#ffe078; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; letter-spacing:-.05em; }
 .dr-browse-game[data-system^="DRAGON_BALL"] strong { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:22px; letter-spacing:-.05em; color:#f0c963; }
 .dr-browse-game[data-system^="NARUTO"] strong { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; letter-spacing:.04em; color:#ffbd87; }
@@ -67,6 +74,15 @@ body.dr-browser-open { overflow: hidden; }
 .dr-browse-set-art > small { color:var(--browse-muted); font-size:9px; }
 .dr-browse-set-art > span { font-size:9px; color:var(--browse-blue); }
 .dr-browse-set-art .dr-browse-release { position:absolute; top:6px; right:6px; padding:3px 5px; border:1px solid var(--browse-line); border-radius:12px; font-size:8px; }
+.dr-browse-set-logo { display:none; width:100%; height:92px; object-fit:contain; }
+.dr-browse-set-art.has-set-logo .dr-browse-set-logo { display:block; }
+.dr-browse-set-art.has-set-logo > :is(strong,span,small:not(.dr-browse-release)) { display:none; }
+.dr-browse-set-art.has-game-logo { background:var(--browse-navy); color:white; }
+.dr-browse-set-art.has-game-logo .dr-browse-set-logo { display:block; order:-1; height:49px; }
+.dr-browse-set-art.has-game-logo > small:not(.dr-browse-release) { display:none; }
+.dr-browse-set-art.has-game-logo > strong { font-family:inherit; font-size:13px; }
+.dr-browse-set-art.has-game-logo > span { color:#9fddf5; }
+.dr-browse-set-art.has-game-logo .dr-browse-release { background:white; color:var(--browse-muted); }
 .dr-browse-set > small { font-size:10px; color:var(--browse-muted); }
 .dr-browse-skeleton { border:1px solid var(--browse-line); border-radius:6px; padding:18px; min-height:300px; }
 .dr-browse-skeleton span,.dr-browse-skeleton i { display:block; background:#edf1f7; border-radius:5px; }
