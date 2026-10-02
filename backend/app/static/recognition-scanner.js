@@ -272,10 +272,9 @@ async function startRecognitionCamera(facingMode = "environment") {
   );
 }
 
-async function openRecognitionCamera() {
-  if (window.DropRateScanner) {
-    stopRecognitionCamera();
-    if (!window.dropRateScanner || window.dropRateScanner.destroyed) {
+function founderSharedScanner() {
+  if (!window.dropRateScanner || !window.dropRateScanner.active()) {
+      window.dropRateScanner?.destroy();
       window.dropRateScanner = new window.DropRateScanner.Scanner({
         role: "founder", session: () => state.session,
         request: (path, options) => apiRequest(path, options, false),
@@ -287,6 +286,13 @@ async function openRecognitionCamera() {
         viewInventory: () => activateSellerView("inventory", true),
       });
     }
+  return window.dropRateScanner;
+}
+
+async function openRecognitionCamera() {
+  if (window.DropRateScanner) {
+    stopRecognitionCamera();
+    founderSharedScanner();
     try { await window.dropRateScanner.open(document.querySelector('input[name="recognition-scan-mode"]:checked')?.value || "RAW"); }
     catch (error) { showMessage("recognition-message", error.message, "error"); }
     return;

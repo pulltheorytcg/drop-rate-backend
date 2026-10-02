@@ -31,6 +31,7 @@ from .imports import router as imports_router
 from .import_enrichment import router as import_enrichment_router
 from .import_review import router as import_review_router
 from .inventory_intake import router as inventory_intake_router
+from .catalogue_browser import router as catalogue_browser_router
 from .inventory_intelligence import router as inventory_intelligence_router
 from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
@@ -95,11 +96,11 @@ def _dashboard_html() -> str:
         '<script src="/assets/inventory-intake.js" defer></script>',
         '<script src="/assets/inventory-imports.js" defer></script>',
         '<script src="/assets/founder-finance.js" defer></script>',
-        '<script src="/assets/dashboard-shell.js" defer></script>',
+        '<script src="/assets/dashboard-shell.js?v=2" defer></script>',
         '<script src="/assets/seller-invites.js" defer></script>',
         '<script src="/assets/identity-review.js" defer></script>',
         '<script src="/assets/scanner-flow.js?v=2" defer></script>',
-        '<script src="/assets/recognition-scanner.js?v=2" defer></script>',
+        '<script src="/assets/recognition-scanner.js?v=3" defer></script>',
         '<script src="/assets/reference-library.js?v=2" defer></script>',
         '<script src="/assets/shopify-settings.js" defer></script>',
         '<script src="/assets/media-condition.js" defer></script>',
@@ -108,6 +109,9 @@ def _dashboard_html() -> str:
         '<script src="/assets/market-value-column.js" defer></script>',
         '<script src="/assets/founder-workspace.js" defer></script>',
         '<script src="/assets/founder-accounts.js" defer></script>',
+        '<script src="/assets/catalogue-title-art.js?v=2" defer></script>',
+        '<script src="/assets/catalogue-browser.js?v=3" defer></script>',
+        '<script src="/assets/catalogue-browser-entry.js?v=1" defer></script>',
     )
     for script in scripts:
         if script not in html:
@@ -383,6 +387,7 @@ def create_app() -> FastAPI:
     app.include_router(identity_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(recognition_router)
     app.include_router(reference_library_router)
+    app.include_router(catalogue_browser_router)
     app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(competitive_intelligence_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(competitive_intelligence_automation_router)

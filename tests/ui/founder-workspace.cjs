@@ -64,6 +64,9 @@ assert.equal(run('state.brand + state.status + state.saleIntent + state.issue'),
 assert.equal(doc.getElementById('search-input').value,'Luffy');
 doc.getElementById('seller-tab-dashboard').focus();
 doc.getElementById('seller-tab-dashboard').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
+assert.equal(doc.activeElement.id,'seller-tab-search');
+assert.equal(dom.window.location.hash,'#search');
+doc.getElementById('seller-tab-search').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
 assert.equal(doc.activeElement.id,'seller-tab-intake');
 assert.equal(dom.window.location.hash,'#intake');
 doc.getElementById('intake-notes').value='Keep this unsaved note';

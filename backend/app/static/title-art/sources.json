@@ -1,0 +1,686 @@
+{
+  "retrieved": "2026-10-02",
+  "purpose": "Catalogue navigation artwork only; official provenance is not a storefront-media approval or licence grant. Original bytes and colours preserved.",
+  "games": {
+    "POKEMON_TCG": {
+      "file": "pokemon.webp",
+      "caption": ""
+    },
+    "ONE_PIECE_CARD_GAME": {
+      "file": "one-piece-white.png",
+      "caption": ""
+    },
+    "DRAGON_BALL_SUPER_MASTERS": {
+      "file": "masters.png",
+      "caption": ""
+    },
+    "DRAGON_BALL_SUPER_FUSION_WORLD": {
+      "file": "fusion-world.png",
+      "caption": ""
+    },
+    "NARUTO_KAYOU": {
+      "file": "naruto.svg",
+      "caption": "KAYOU"
+    },
+    "NARUTO_BANDAI_LEGACY": {
+      "file": "naruto.svg",
+      "caption": "BANDAI LEGACY"
+    }
+  },
+  "sets": [
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "30th Celebration"
+      ],
+      "title": "30th Celebration",
+      "file": "pokemon-30th-celebration.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Mega Evolution—Pitch Black",
+        "Pitch Black"
+      ],
+      "title": "Mega Evolution—Pitch Black",
+      "file": "pokemon-mega-evolution-pitch-black.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Mega Evolution—Chaos Rising",
+        "Chaos Rising"
+      ],
+      "title": "Mega Evolution—Chaos Rising",
+      "file": "pokemon-mega-evolution-chaos-rising.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Mega Evolution—Perfect Order",
+        "Perfect Order"
+      ],
+      "title": "Mega Evolution—Perfect Order",
+      "file": "pokemon-mega-evolution-perfect-order.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Mega Evolution—Ascended Heroes",
+        "Ascended Heroes"
+      ],
+      "title": "Mega Evolution—Ascended Heroes",
+      "file": "pokemon-mega-evolution-ascended-heroes.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Mega Evolution—Phantasmal Flames",
+        "Phantasmal Flames"
+      ],
+      "title": "Mega Evolution—Phantasmal Flames",
+      "file": "pokemon-mega-evolution-phantasmal-flames.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Mega Evolution"
+      ],
+      "title": "Mega Evolution",
+      "file": "pokemon-mega-evolution.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—Journey Together",
+        "Journey Together"
+      ],
+      "title": "Scarlet & Violet—Journey Together",
+      "file": "pokemon-scarlet-violet-journey-together.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—Prismatic Evolutions",
+        "Prismatic Evolutions"
+      ],
+      "title": "Scarlet & Violet—Prismatic Evolutions",
+      "file": "pokemon-scarlet-violet-prismatic-evolutions.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—Surging Sparks",
+        "Surging Sparks"
+      ],
+      "title": "Scarlet & Violet—Surging Sparks",
+      "file": "pokemon-scarlet-violet-surging-sparks.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—Stellar Crown",
+        "Stellar Crown"
+      ],
+      "title": "Scarlet & Violet—Stellar Crown",
+      "file": "pokemon-scarlet-violet-stellar-crown.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—Shrouded Fable",
+        "Shrouded Fable"
+      ],
+      "title": "Scarlet & Violet—Shrouded Fable",
+      "file": "pokemon-scarlet-violet-shrouded-fable.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—Twilight Masquerade",
+        "Twilight Masquerade"
+      ],
+      "title": "Scarlet & Violet—Twilight Masquerade",
+      "file": "pokemon-scarlet-violet-twilight-masquerade.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—Temporal Forces",
+        "Temporal Forces"
+      ],
+      "title": "Scarlet & Violet—Temporal Forces",
+      "file": "pokemon-scarlet-violet-temporal-forces.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—Paldean Fates",
+        "Paldean Fates"
+      ],
+      "title": "Scarlet & Violet—Paldean Fates",
+      "file": "pokemon-scarlet-violet-paldean-fates.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—Paradox Rift",
+        "Paradox Rift"
+      ],
+      "title": "Scarlet & Violet—Paradox Rift",
+      "file": "pokemon-scarlet-violet-paradox-rift.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—151",
+        "151"
+      ],
+      "title": "Scarlet & Violet—151",
+      "file": "pokemon-scarlet-violet-151.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—Obsidian Flames",
+        "Obsidian Flames"
+      ],
+      "title": "Scarlet & Violet—Obsidian Flames",
+      "file": "pokemon-scarlet-violet-obsidian-flames.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet—Paldea Evolved",
+        "Paldea Evolved"
+      ],
+      "title": "Scarlet & Violet—Paldea Evolved",
+      "file": "pokemon-scarlet-violet-paldea-evolved.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Scarlet & Violet"
+      ],
+      "title": "Scarlet & Violet",
+      "file": "pokemon-scarlet-violet.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Crown Zenith"
+      ],
+      "title": "Crown Zenith",
+      "file": "pokemon-crown-zenith.jpg"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Sword & Shield—Silver Tempest",
+        "Silver Tempest"
+      ],
+      "title": "Sword & Shield—Silver Tempest",
+      "file": "pokemon-sword-shield-silver-tempest.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Sword & Shield—Lost Origin",
+        "Lost Origin"
+      ],
+      "title": "Sword & Shield—Lost Origin",
+      "file": "pokemon-sword-shield-lost-origin.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Pokémon GO",
+        "Pokemon GO"
+      ],
+      "title": "Pokémon GO",
+      "file": "pokemon-pok-mon-go.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Sword & Shield—Astral Radiance",
+        "Astral Radiance"
+      ],
+      "title": "Sword & Shield—Astral Radiance",
+      "file": "pokemon-sword-shield-astral-radiance.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Sword & Shield—Brilliant Stars",
+        "Brilliant Stars"
+      ],
+      "title": "Sword & Shield—Brilliant Stars",
+      "file": "pokemon-sword-shield-brilliant-stars.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Sword & Shield—Fusion Strike",
+        "Fusion Strike"
+      ],
+      "title": "Sword & Shield—Fusion Strike",
+      "file": "pokemon-sword-shield-fusion-strike.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Celebrations"
+      ],
+      "title": "Celebrations",
+      "file": "pokemon-celebrations.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Sword & Shield—Evolving Skies",
+        "Evolving Skies"
+      ],
+      "title": "Sword & Shield—Evolving Skies",
+      "file": "pokemon-sword-shield-evolving-skies.png"
+    },
+    {
+      "system": "POKEMON_TCG",
+      "language": "English",
+      "names": [
+        "Sword & Shield—Chilling Reign",
+        "Chilling Reign"
+      ],
+      "title": "Sword & Shield—Chilling Reign",
+      "file": "pokemon-sword-shield-chilling-reign.png"
+    },
+    {
+      "system": "ONE_PIECE_CARD_GAME",
+      "language": "English",
+      "names": [
+        "Carrying on His Will",
+        "CARRYING ON HIS WILL [OP-13]",
+        "BOOSTER PACK -CARRYING ON HIS WILL- [OP-13]"
+      ],
+      "title": "Carrying on His Will",
+      "file": "op13-en.webp",
+      "codes": [
+        "OP13",
+        "OP-13"
+      ],
+      "provider_ids": {
+        "Punk Records": [
+          "569113"
+        ]
+      }
+    },
+    {
+      "system": "ONE_PIECE_CARD_GAME",
+      "language": "Japanese",
+      "names": [
+        "受け継がれる意志",
+        "受け継がれる意志【OP-13】"
+      ],
+      "title": "受け継がれる意志",
+      "file": "op13-ja.webp",
+      "codes": [
+        "OP13",
+        "OP-13"
+      ],
+      "provider_ids": {
+        "Punk Records": [
+          "550113"
+        ]
+      }
+    }
+  ],
+  "assets": [
+    {
+      "file": "pokemon.webp",
+      "source_page": "https://worlds.2023.pokemon.com/en-us/",
+      "source_url": "https://worlds.2023.pokemon.com/images/footer/pokemon-tcg-logo-2x.webp",
+      "sha256": "030df26e08f409027d3b25752f5459f07f92ca4b442ee4d768f7f1febf4a2c72",
+      "bytes": 13340,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "one-piece-white.png",
+      "source_page": "https://en.onepiece-cardgame.com/",
+      "source_url": "https://en.onepiece-cardgame.com/renewal/images/common/logo_op_white.png",
+      "sha256": "eda7d006229d5bb648fef4cd05709ed26c70cd978731784e017f0166dc2238da",
+      "bytes": 18537,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "masters.png",
+      "source_page": "https://www.dbs-cardgame.com/ms/",
+      "source_url": "https://www.dbs-cardgame.com/images/entrance/logo.png",
+      "sha256": "653564971d6a3aec7a5d311e357ee6496dc106c5098f3258f054af78985bbc17",
+      "bytes": 19888,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "fusion-world.png",
+      "source_page": "https://www.dbs-cardgame.com/fw/en/",
+      "source_url": "https://www.dbs-cardgame.com/fw/renewal01/images/common/logo_fw_w.png",
+      "sha256": "62d3684e1c35848a42dba71872485045c111ea0d288f98ec3368c0e007374127",
+      "bytes": 59765,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "naruto.svg",
+      "source_page": "https://www.kayouofficial.com/en-US/ip-collections?ipId=ip-rtqgm0xa",
+      "source_url": "https://static-sg.kayouofficial.com/overseas/website/2026/06/17/6a7f399edc2d525ce162294e460fe1ca-240-150.svg",
+      "sha256": "25ce7952ca9009a3424b4ee5bb71f2541e72f0fbb4bdb6b3c5b131ba96e0ce84",
+      "bytes": 45206,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-30th-celebration.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-30th-Celebration",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2026/06/011305-9bfee682/Pokemon_TCG_30th_Celebration_Horizontal_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=471ba59cb6a34d50503bf0511894f432a376dbe548f259e934f77059e82a31c0",
+      "sha256": "96c01e7279f171025bbc4a4693cd76569d2d8356fc3de79e8d98d06bda7ec5c0",
+      "bytes": 26671,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-mega-evolution-pitch-black.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Mega-EvolutionPitch-Black",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2026/04/291511-59492eca/Pokemon_TCG_Mega_Evolution—Pitch_Black_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=38b95761c05a44da4bf11ef69caff1c28e8087337b4960389dd1d3d9eb2c454b",
+      "sha256": "b4374acdbcece7831078cc4898d8fb3b8c471714238cfe136d4029824b91cc26",
+      "bytes": 26946,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-mega-evolution-chaos-rising.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Mega-EvolutionChaos-Rising",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2026/03/111305-fed0f393/Pokemon_TCG_Mega_Evolution—Chaos_Rising_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=8b170ca65ed48114eca2396ec7cad63da80fabd73f909ad2173d9e5d09bedec2",
+      "sha256": "a0c9b1fcb342a960fad2bf3e6c049e8d8c00742dd6c7b81b5304c4d2d06562e6",
+      "bytes": 35434,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-mega-evolution-perfect-order.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokkemon-TCG-Mega-EvolutionPerfect-Order",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2026/01/071400-3c567918/Pokemon_TCG_Mega_Evolution—Perfect_Order_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=02cb6d289341aefbd246835aa06ceace790e6b40e70aec17e7a1d96a7bb9189e",
+      "sha256": "2ff0e8bfb1bb04bf4dd372ac98c540df7f436800eb4b50057d4473c3e5fa2577",
+      "bytes": 34883,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-mega-evolution-ascended-heroes.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Mega-EvolutionAscended-Heroes",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2025/11/201427-0305b8c4/Pokemon_TCG_Mega_Evolution—Ascended_Heroes_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=05bf43329d71f12c52a155afbf648fb5badf099b7d19638b408e8a3cb8f4fc32",
+      "sha256": "9e216f6a4a205cf72725e5606c756c1dd2e20a66903522cce2256247d398c340",
+      "bytes": 45426,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-mega-evolution-phantasmal-flames.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Mega-EvolutionPhantasmal-Flames",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2025/09/021419-488b5f28/Pokemon_TCG_Mega_Evolution—Phantasmal_Flames_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=cdd81532a06eadceae574e423f4a43053fe6b6488d0eaa9730963cf021ff044d",
+      "sha256": "2a4ca18c9eae6aed9b18672574ed7434dae86d390ff0be969b85cb9a04bf3b9d",
+      "bytes": 52479,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-mega-evolution.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Mega-Evolution-49281",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2025/07/091346-f72b4ac1/Pokemon_TCG_Mega_Evolution_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=3666556e2398fdb9b6d45b431629f4a61241b2a5a3d78b3fe22b30e585c0eea6",
+      "sha256": "a36abeb79d86537be1cd84a0e4689bbc48d7b0cd62d0c0048c6e416ab3948dcf",
+      "bytes": 21507,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-journey-together.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-Violet-Journey-Together",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2025/01/081415-92b85fcd/Pokemon_TCG_Scarlet_Violet—Journey_Together_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=ce4d8d351448718975fb2d5273588b3bcc6372d9737a3d406e5669c720454c1a",
+      "sha256": "4a7113d5dcc400c5f0d7dfda50df223f80be898df199edab64a9673232f75cef",
+      "bytes": 30979,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-prismatic-evolutions.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-VioletPrismatic-Evolutions",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2024/10/311502-cb277144/Pokemon_TCG_Scarlet_Violet—Prismatic_Evolutions_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=335807268ac2213a2bd00b4d9d859641bd23dc555b842c00aa044ddeb0fc512f",
+      "sha256": "135fb5aab3987de7f25a875ff586fb9368e8f115e740212d79121717e8fbe619",
+      "bytes": 47689,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-surging-sparks.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-VioletSurging-Sparks",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2024/08/211808-35ec87bd/Pokemon_TCG_Scarlet_Violet—Surging_Sparks_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=8a0f410b749a308382c6e691a88cd07d5d9b9547130f7268e05f666172bd64e8",
+      "sha256": "cb21deec8f4626dc1cb760b22112373426f945093d9e1b7cb31b65f7ef3e175e",
+      "bytes": 50818,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-stellar-crown.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-VioletStellar-Crown",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2024/06/261423-a18ae91e/Pokemon_TCG_Scarlet_Violet—Stellar_Crown_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=5fdb6abf07e4783305790ec60382938963f841617be08cfce6de1f07c3b60559",
+      "sha256": "6b717de6f5dddd56ada7e7c572b70bc27ac8b6657004eff3eb5dfcd6e95334f7",
+      "bytes": 38541,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-shrouded-fable.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-VioletShrouded-Fable",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2024/05/151422-a7f55a92/Pokemon_TCG_Scarlet_Violet—Shrouded_Fable_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=a986a280929f05044cb0bae248ce6cee245e370e5708927dfb7e8865883c45a9",
+      "sha256": "8a9fe47ba130238c12036559618b272bf48a4cc49482b97cbadc27021917c23b",
+      "bytes": 49563,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-twilight-masquerade.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-VioletTwilight-Masquerade",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2024/03/131320-e1e1081c/Pokemon_TCG_Scarlet_Violet—Twilight_Masquerade_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=693811c2dbc4aa599204d3ef8c77d7b055006712c220bf6b3d2d29052fe23684",
+      "sha256": "ab146a803cf1522f9f8678d7af07d6ea28ab3e96edd39befa9e2b61bad3814c3",
+      "bytes": 49582,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-temporal-forces.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-VioletTemporal-Forces",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2024/01/091413-7d7a9e88/Pokemon_TCG_Scarlet_Violet—Temporal_Forces_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=e87ff023269f0ba53cc289135cc6dc245ebb2e2ef7c9832eb9361bb447e4f8a0",
+      "sha256": "7fcb9c8def08f5b0882c416bdd8f46677fcbeb1efa64ab77d5ef0837463d6cff",
+      "bytes": 36233,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-paldean-fates.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-VioletPaldean-Fates",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2023/11/151328-21dccf15/Pokemon_TCG_Scarlet_Violet—Paldean_Fates_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=7fe6e70a1c28bb4ce3113d5c3ca171d98616584c1e811eada0e1695d9961edf8",
+      "sha256": "864009020f2bd6b4605534945cda853104eeab48f82a60d7147343cb743168cf",
+      "bytes": 58221,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-paradox-rift.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-VioletParadox-Rift-36510",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2023/08/161744-fe51c6e6/Pokemon_TCG_Scarlet_Violet—Paradox_Rift_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=64ff7eea87920150c35524b85386c477c004f689d61818cd1087fa2bbe62a189",
+      "sha256": "224e16987b272cbd71964063d0173781ec29c0182c2663ac169a2c6dc384c47d",
+      "bytes": 36579,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-151.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-Violet151",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2023/06/151419-8a1bb05f/Pokemon_TCG_Scarlet_Violet—151_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=4f37dd2c264c3c2ae0f78c8d3e928576e90a2fa51a8db84516a871074963a999",
+      "sha256": "3bbebd03e5a3665c83555fcdb77b7fd8fd5903f7ae69f0cccd04f45d8753bf1b",
+      "bytes": 45496,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-obsidian-flames.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-VioletObsidian-Flames",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2023/05/231353-c5d94bb0/Pokemon_TCG_Scarlet_Violet—Obsidian_Flames_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=a14ba93c52d363a96e217b24170205571c357d849bc0ed159b96ff3a3012c7d0",
+      "sha256": "2c5fc60563a87f7f00888345aa01e392b2d2dda55746eed5d8e2dca87327a0eb",
+      "bytes": 39409,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet-paldea-evolved.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-VioletPaldea-Evolved",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2023/03/211240-9bcd3758/Pokemon_TCG_Scarlet_Violet—Paldea_Evolved_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=afc28732753329e62c60f8c4aea51d3cf204a356a8aedb480e2f1a473a2c5c7f",
+      "sha256": "14dd24b1e2dfe26f183e692fb1654455c5e7786a0d877b1bf103049f0c1cb0e6",
+      "bytes": 39036,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-scarlet-violet.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Scarlet-Violet",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2022/12/081804-015b3c8d/Pokemon_TCG_Scarlet_Violet_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=a2586e11042e547e246ec178a5a8b8d56b7824aa6db701691bed3d11ac20e83f",
+      "sha256": "3a62a3974a6ee490f171db7e51fe31e0f61c3672136fb3ae9c06073fbf96a65c",
+      "bytes": 33489,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-crown-zenith.jpg",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Crown-Zenith",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2022/11/022209-7b0a255a/Pokemon_TCG_Crown_Zenith_Logo.jpg?w=240&mode=max&otf=y&quality=90&format=jpg&bgcolor=white&sky=8ac8132d154c9d39c13c31dd403776f27bbf4d108c7c8e470cbacc327b3b170c",
+      "sha256": "9444088a861e334b6faf1296b12da66cb9d8ff8c88c9d6d0a6ce2647b27302b6",
+      "bytes": 10375,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-sword-shield-silver-tempest.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Sword-Shield-Silver-Tempest",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2022/08/242144-bbeaa343/Pokemon_TCG_Sword_Shield—Silver_Tempest_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=310ac9b25afd2cb4f00fc94c0623a9dd161f31677e7ff440247dbff244f76cae",
+      "sha256": "3dbed9878cbe8c2ec8ba8945e4aa12e0943b963b675e4252dcd0cf5990c3b68d",
+      "bytes": 47558,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-sword-shield-lost-origin.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Sword-ShieldLost-Origin",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2022/06/212355-ec1b986f/Pokemon_TCG_Sword_Shield—Lost_Origin_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=4eecc5439522bb68f97115fd015fe8c330a0fe4395bbc5fd9bc1f90a669c969b",
+      "sha256": "2c0b5bc4ea036bd9e582dd0c81501aa026c2870729885a7b9080a9ceab584379",
+      "bytes": 38980,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-pok-mon-go.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Pokemon-GO",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2022/03/092150-13c6a5bf/Pokemon_TCG_Pokemon_GO_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=eaf5a9218484642fd10512036e44b64fcc7331133194098dd909b4943607a930",
+      "sha256": "b4e32dde81dfdbe0a2d92c9429be4f890566f8ea72f2e34e838efe2fcf6a1969",
+      "bytes": 25442,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-sword-shield-astral-radiance.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-Trading-Card-Game-Sword-ShieldAstral-Radiance",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2022/03/072117-0e3be5d0/Pokemon_TCG_Sword_Shield—Astral_Radiance_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=660a641d7c3a4eb60d4a4ae5bcd936f1724d65f1dab92f6fb36dacb1d55c2545",
+      "sha256": "af1882d19127ac5a39bebc873b4c27ea6aac1e5276f193861cfb07e7853cbac9",
+      "bytes": 34778,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-sword-shield-brilliant-stars.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Sword-ShieldBrilliant-Stars",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2021/11/022238-35111fc5/Pokemon_TCG_Sword_Shield—Brilliant_Stars_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=e82d2e4505217c5c28829d6494bd38d7a7a90351eb80c683d0500c2e241dba86",
+      "sha256": "d5c254531dd6d958e70c18b4c809df4bf89e4b30d0e127cafccb7fc2b111b482",
+      "bytes": 43877,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-sword-shield-fusion-strike.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Sword-ShieldFusion-Strike",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2021/08/25212758-b638ca59-6d5f-4244-b848-6eddab8471c6/Pokemon_TCG_Sword_Shield—Fusion_Strike_Logo-2.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=e31f7a7ae0e49c0c8e3f3f7550f6c306755fa9e27d8392b5b1499b415ba1cfe6",
+      "sha256": "34acd8e1447654a535f89f928cb4400a95516d490647c553fd87df6ab05b69a3",
+      "bytes": 44819,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-celebrations.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-25th-Anniversary",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2021/06/23212540-7480cc5f-0039-4f44-81ab-5a5b8d0e737e/Pokemon_TCG_Celebrations_Vertical_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=5127ce8b09ddab5af1541a5b822eae4449cbdbe08b512b5d075aa17bd52ae564",
+      "sha256": "a3e338e89c967de7d37fdb1176315f6d4e530c1eb51d828007d58a12593935c0",
+      "bytes": 34151,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-sword-shield-evolving-skies.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Sword-ShieldEvolving-Skies",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2021/06/09205852-c455cb69-2875-443e-a4c0-175a4f1bc58d/Pokemon_TCG_Sword_Shield—Evolving_Skies_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=ae89001d9b6644735091f421f1fd2689b92c48494d7a810eaf60ecfe909e9b26",
+      "sha256": "8689e0da779a00b26af25809f6548de687424c4be582c804430c74246e341319",
+      "bytes": 43443,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "pokemon-sword-shield-chilling-reign.png",
+      "source_page": "https://press.pokemon.com/en/products/Pokemon-TCG-Sword-ShieldChilling-Reign",
+      "source_url": "https://imguscdn.gamespress.com/cdn/files/PokemonAmerica/2021/03/30200509-04869146-714a-41ec-a009-ea0ef9f533ff/Pokemon_TCG_Sword_Shield—Chilling_Reign_Logo.png?w=240&mode=max&otf=y&quality=90&format=png&bgcolor=transparent&sky=98885b9247ddca41d55c35f3f91eb37145fb83100897aeb8a8eb6035965ce3d8",
+      "sha256": "d87784dc89078e27f0a37a9a9f09719be11f6f8c30e53a54b60438c43dfdfe1c",
+      "bytes": 61625,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "op13-en.webp",
+      "source_page": "https://en.onepiece-cardgame.com/products/boosters/op13/",
+      "source_url": "https://en.onepiece-cardgame.com/products/boosters/op13/images/mv/logo.webp",
+      "sha256": "a2016b477bb679e76ab193700e3c25e485c8488f66cdc3a7a3e888377b4019b3",
+      "bytes": 66120,
+      "retrieved": "2026-10-02"
+    },
+    {
+      "file": "op13-ja.webp",
+      "source_page": "https://www.onepiece-cardgame.com/products/boosters/op13/",
+      "source_url": "https://www.onepiece-cardgame.com/products/boosters/op13/images/mv/logo.webp",
+      "sha256": "fab412aae85db73bfc7e873ae5c36a43c092c168565b6dfacd414185729eff7e",
+      "bytes": 90902,
+      "retrieved": "2026-10-02"
+    }
+  ],
+  "provider_set_logos": {
+    "provider": "TCGdex",
+    "retrieved": "2026-10-02",
+    "indexes": [
+      {
+        "url": "https://api.tcgdex.net/v2/en/sets",
+        "language": "English",
+        "sets": 220,
+        "logos": 157,
+        "sha256": "5d1d49cc20ff35b5b93bd14226d80e9298b6ab33ce086ab128fbb6bd8cb5c79a"
+      },
+      {
+        "url": "https://api.tcgdex.net/v2/ja/sets",
+        "language": "Japanese",
+        "sets": 184,
+        "logos": 0,
+        "sha256": "7f6a4c31dfd3344523f9565796a39fe01f98033acfd5dfb1b7498255131b0770"
+      }
+    ],
+    "documentation": "https://tcgdex.dev/assets",
+    "delivery": "Original logos from assets.tcgdex.net; exact provider, language and set ID required."
+  }
+}

@@ -112,6 +112,8 @@ function saveSession(session) {
   window.PullTheoryHubSession.save(session);
 }
 function clearSession() {
+  window.dropRateCatalogue?.destroy();
+  window.dropRateCatalogue = null;
   window.dropRateScanner?.destroy();
   window.dropRateScanner = null;
   state.session = null;
