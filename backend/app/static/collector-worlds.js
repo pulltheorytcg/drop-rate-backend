@@ -10,7 +10,7 @@
   const worlds = [
     ['ocean', 'One Piece', 'ONE_PIECE_CARD_GAME', 'one-piece-white.png', 'Set sail for your next grail'],
     ['electric', 'Pokémon', 'POKEMON_TCG', 'pokemon.webp', 'Gotta find your favourites'],
-    ['ninja', 'Naruto', 'NARUTO_KAYOU', 'naruto.svg', 'Build your shinobi collection'],
+    ['ninja', 'Naruto', 'NARUTO', 'naruto.svg', 'Build your shinobi collection'],
     ['energy', 'Dragon Ball', 'DRAGON_BALL_SUPER_MASTERS', 'masters.png', 'Power up your collection'],
   ];
   const el = (tag, cls, text) => { const n=document.createElement(tag); n.className=cls; if(text)n.textContent=text; return n; };
@@ -20,15 +20,30 @@
   const copy = hero.querySelector(seller ? '.owner-hero-copy' : '.founder-hero-copy');
   hero.classList.add('collector-hero');
   const greeting=el('p','collector-greeting','WELCOME TO YOUR COLLECTOR HQ');
-  const title=el('h1','collector-headline');title.append('Big pulls.',el('br',''),el('em','','Bigger adventures.'));
-  const intro=el('p','collector-intro','Your cards. Your worlds. One place to scan, collect and turn your next pull into something more.');
+  const title=el('h1','collector-headline');title.append('Find your',el('br',''),el('em','','next grail.'));
+  const intro=el('p','collector-intro','From your first pull to your dream collection. Discover the cards you love.');
   const buttons=el('div','collector-hero-actions');
-  buttons.append(action('Scan a card  ↗',()=>navigate('scan'),'collector-button collector-primary'),action('Explore the catalogue  →',()=>window.openDropRateCatalogue(),'collector-button collector-secondary'));
+  buttons.append(action('Scan a card  ↗',()=>navigate('scan'),'collector-button collector-primary'),action('Explore cards  →',()=>window.openDropRateCatalogue(),'collector-button collector-secondary'));
   const name=hero.querySelector('#owner-overview-name');
   if(name){const hello=el('span','collector-hello','Hey, ');hello.append(name,document.createTextNode(' ✦'));greeting.replaceChildren(hello);}
   copy.replaceChildren(greeting,title,intro,buttons);
   if(!seller)hero.querySelector('.founder-hero-art')?.remove();
-  hero.append(el('span','collector-hero-badge','THE NEXT GREAT FIND IS YOURS'));
+  const spotlight=el('section','collector-grails');spotlight.setAttribute('aria-label','Grail spotlight');
+  const cards=el('div','collector-grail-grid');
+  const grails=[
+    ['Umbreon VMAX','215/203 · Evolving Skies','umbreon-vmax-215.webp','r:f44ea051229d320c9c7b413368ab7955'],
+    ['Monkey.D.Luffy','OP05-119 · Manga','luffy-op05-119-p2.png','r:f4e35a3f027185c5e85b343828cbc26a'],
+    ['Son Goku','FB01-139 · Super alt art','goku-fb01-139-p2.webp','r:604f17c87635175c6422e00915eb568b'],
+  ];
+  for(const [name,printing,file,key] of grails){
+    const card=action('',()=>window.openDropRateCatalogue('',key),'collector-grail');
+    card.setAttribute('aria-label','View '+name+' · '+printing);card.dataset.productKey=key;
+    const img=el('img','');img.src='/assets/grail-art/'+file;img.alt=name+' · '+printing;img.decoding='async';
+    img.addEventListener('error',()=>{img.hidden=true;card.classList.add('art-unavailable');});
+    card.append(img,el('strong','',name),el('span','',printing));cards.append(card);
+  }
+  spotlight.append(el('p','collector-grail-heading','GRAIL SPOTLIGHT'),cards,el('p','collector-grail-hint','Reference artwork · Tap a card to explore ↗'));
+  hero.append(spotlight);
   hero.querySelectorAll('[data-hero-view]').forEach(b=>b.remove());
 
   const explore=el('section','collector-explore');explore.setAttribute('aria-labelledby','collector-worlds-title');

@@ -21,6 +21,30 @@ from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 
 router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"])
 GAME_BY_SYSTEM = {system: game for game, system in SYSTEM_BY_GAME.items()}
+# A browse family only: printing identities retain their original system.
+BROWSE_FAMILIES = {"NARUTO": ("NARUTO_KAYOU", "NARUTO_BANDAI_LEGACY")}
+
+
+def browse_systems(system_code: str) -> list[str]:
+    return list(BROWSE_FAMILIES.get(system_code, (system_code,)))
+
+
+def browse_games(rows) -> list[dict]:
+    groups = {}
+    for row in rows:
+        item = dict(row)
+        system = item["system_code"]
+        family = next((key for key, members in BROWSE_FAMILIES.items() if system in members), system)
+        if family not in groups:
+            groups[family] = {"system_code": family, "game": "Naruto" if family == "NARUTO" else GAME_BY_SYSTEM.get(system, item["game"]),
+                              "languages": set(), "products": 0, "sets": 0}
+        group = groups[family]
+        group["languages"].update(item["languages"])
+        group["products"] += item["products"]
+        group["sets"] += item["sets"]
+    return [{**group, "languages": sorted(group["languages"])} for group in groups.values()]
+
+
 GAME_CASE = "case r.system_code " + " ".join(
     "when '" + system + "' then '" + game.replace("'", "''") + "'"
     for system, game in GAME_BY_SYSTEM.items()
@@ -107,7 +131,7 @@ SETS_SQL = SET_CTE + """
         case when indexed_count=0 then 'UNAVAILABLE'
              when card_count>indexed_count then 'PARTIAL' else 'AVAILABLE' end as checklist_status
  from set_catalogue
- where system_code=$2 and ($3='' or language=$3)
+ where system_code=any($2::text[]) and ($3='' or language=$3)
    and ($4='' or strpos(lower(set_name),lower($4))>0 or strpos(lower(set_id),lower($4))>0)
  order by release_date desc nulls last,set_name,language,provider,set_id
  limit $5 offset $6
@@ -141,7 +165,7 @@ async def games(request: Request, user: Annotated[AuthenticatedUser, Depends(req
                 access: Annotated[dict, Depends(browser_access)]):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         rows = await connection.fetch(GAMES_SQL, access["owner_id"])
-    return jsonable_encoder({"items": [{**dict(row), "game": GAME_BY_SYSTEM.get(row["system_code"], row["game"])} for row in rows]})
+    return jsonable_encoder({"items": browse_games(rows)})
 
 
 @router.get("/sets")
@@ -150,7 +174,7 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
                language: str = Query(default="", max_length=80), q: str = Query(default="", max_length=160),
                limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        rows = await connection.fetch(SETS_SQL, access["owner_id"], system_code, language, q.strip(), limit + 1, offset)
+        rows = await connection.fetch(SETS_SQL, access["owner_id"], browse_systems(system_code), language, q.strip(), limit + 1, offset)
     return jsonable_encoder({"items": [dict(row) for row in rows[:limit]], "has_more": len(rows) > limit,
                              "offset": offset, "total_count": rows[0]["total_count"] if rows else 0,
                              "coverage": "MASTER_SET_CATALOGUE"})
@@ -163,7 +187,9 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
     def bind(value):
         params.append(value)
         return f"${len(params)}"
-    for column, value in (("system_code", system_code), ("language", language), ("set_id", set_id), ("product_type", product_type)):
+    if system_code:
+        where.append(f"e.system_code=any({bind(browse_systems(system_code))}::text[])")
+    for column, value in (("language", language), ("set_id", set_id), ("product_type", product_type)):
         if value:
             where.append(f"e.{column}={bind(value)}")
     if provider is not None:

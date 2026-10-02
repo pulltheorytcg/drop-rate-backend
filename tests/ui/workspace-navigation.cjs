@@ -45,7 +45,7 @@ function fixture(role){
   const dom=new JSDOM('<header class="topbar"></header><section id="host"></section>',{url:'https://example.test/app',runScripts:'outside-only'}),w=dom.window;
   w.eval(fs.readFileSync(path.join(base,'catalogue-browser.js'),'utf8'));let release,requests=0;
   const browser=new w.DropRateCatalogue.Browser({host:w.document.getElementById('host'),client:{owner:'a',active:()=>true,request:async()=>{requests++;return new Promise(r=>release=r);}}});
-  const first=browser.open();assert.equal(browser.dialog.tagName,'SECTION');assert.equal(browser.dialog.querySelectorAll('.dr-browse-game').length,6);
+  const first=browser.open();assert.equal(browser.dialog.tagName,'SECTION');assert.equal(browser.dialog.querySelectorAll('.dr-browse-game').length,5);
   browser.close();const again=browser.open();assert.equal(browser.dialog.hidden,false);assert.equal(requests,1);
   release({items:[{system_code:'POKEMON_TCG',game:'Pokémon',languages:['English']}]});await Promise.all([first,again]);
   assert.equal(browser.dialog.hidden,false);assert.match(browser.dialog.textContent,/Pokémon/);

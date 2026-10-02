@@ -19,6 +19,10 @@ window.DropRateTitleArt = (() => {
       "file": "fusion-world.png",
       "caption": ""
     },
+    "NARUTO": {
+      "file": "naruto.svg",
+      "caption": ""
+    },
     "NARUTO_KAYOU": {
       "file": "naruto.svg",
       "caption": "KAYOU"

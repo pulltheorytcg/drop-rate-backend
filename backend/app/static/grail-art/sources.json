@@ -1,0 +1,35 @@
+{
+  "usage": "Authenticated collector reference spotlight. Not inventory, storefront approval or a price/stock claim. Original bytes and official SAMPLE watermarks preserved.",
+  "cards": [
+    {
+      "file": "umbreon-vmax-215.webp",
+      "name": "Umbreon VMAX",
+      "printing": "215/203",
+      "language": "English",
+      "provider": "TCGdex",
+      "source_url": "https://assets.tcgdex.net/en/swsh/swsh7/215/high.webp",
+      "catalogue_key": "r:f44ea051229d320c9c7b413368ab7955",
+      "sha256": "29deb2deed66aba61b0162ab35890856da05cce80b5e8d1fafc27e6e0c3a63d4"
+    },
+    {
+      "file": "luffy-op05-119-p2.png",
+      "name": "Monkey.D.Luffy",
+      "printing": "OP05-119_p2",
+      "language": "English",
+      "provider": "Punk Records / Bandai official",
+      "source_url": "https://en.onepiece-cardgame.com/images/cardlist/card/OP05-119_p2.png?251017",
+      "catalogue_key": "r:f4e35a3f027185c5e85b343828cbc26a",
+      "sha256": "6b396da2a9d725e3981076ba68b28d0fb90aefdc0923a031c815a79bbda0e524"
+    },
+    {
+      "file": "goku-fb01-139-p2.webp",
+      "name": "Son Goku",
+      "printing": "FB01-139_p2",
+      "language": "English",
+      "provider": "Bandai Official",
+      "source_url": "https://www.dbs-cardgame.com/fw/images/cards/card/en/FB01-139_p2.webp",
+      "catalogue_key": "r:604f17c87635175c6422e00915eb568b",
+      "sha256": "40c8f9d8fb83e17b7af2c5a6fa13845f4e884e6366af06bea62e9500094b9cad"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-/* Drop Rate collector identity. Decorative art never represents an inventory item. */
+/* Drop Rate collector identity. Grail reference artwork is separate from owned inventory. */
 :root{--collector-ink:#102442;--collector-aqua:#13b8c6;--collector-gold:#ffd056;--collector-paper:#f8f6ef}
 .collector-workspace{--world-tint:#e1f5f3;--world-accent:#057b8b;--world-deep:#092944;background:var(--collector-paper)!important}
 .collector-workspace[data-collector-vibe="ocean"]{--world-tint:#ddf3fc;--world-accent:#137caf;--world-deep:#0b3457}
@@ -28,21 +28,30 @@
 .collector-vibes>span{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#5c6879;margin-right:8px}
 .collector-vibe{font:inherit;font-size:11px;font-weight:650;padding:8px 12px;background:#fff8;border:1px solid #cbd9d9;border-radius:30px;color:#495a6a;cursor:pointer;min-height:34px}
 .collector-vibe[aria-pressed="true"]{background:#132c45;border-color:#132c45;color:white}
-body.collector-workspace .collector-hero{position:relative!important;isolation:isolate;min-height:354px!important;padding:38px 40px!important;display:flex!important;align-items:center!important;border:0!important;border-radius:22px!important;overflow:hidden;background:linear-gradient(90deg,#071d35f5 0%,#071d35d9 32%,#071d350d 75%),url('/assets/brand-assets/collector-worlds.webp') center 47%/cover no-repeat #081f39!important;box-shadow:0 8px 0 #0a2a4010!important;margin:0 0 32px!important}
-body.collector-workspace .collector-hero:before{content:"";position:absolute;inset:0;z-index:-2;background:url('/assets/brand-assets/collector-worlds.webp') center 47%/cover no-repeat;opacity:1}
-body.collector-workspace .collector-hero:after{content:""!important;position:absolute!important;inset:0!important;z-index:-1!important;border-radius:0!important;transform:none!important;width:auto!important;height:auto!important;background:linear-gradient(90deg,#071d35fa 0%,#071d35e8 30%,#071d35a8 47%,#071d3510 72%)!important;opacity:1!important}
-body.collector-workspace .collector-hero :is(.owner-hero-copy,.founder-hero-copy){position:relative!important;z-index:1!important;max-width:535px!important;width:57%!important}
-body.collector-workspace .collector-hero .collector-greeting{font-size:11px!important;font-weight:750;letter-spacing:.13em!important;margin:0 0 16px!important;color:#8ee3e3!important;text-transform:uppercase}
+body.collector-workspace .collector-hero{position:relative!important;isolation:isolate;min-height:360px!important;padding:36px!important;display:grid!important;grid-template-columns:minmax(0,.9fr) minmax(0,1.25fr);align-items:center!important;gap:32px;border:1px solid #24475b!important;border-radius:22px!important;overflow:hidden;background:radial-gradient(ellipse at 85% 30%,#195769 0%,transparent 58%),#0b243c!important;box-shadow:0 8px 0 #0a2a4010!important;margin:0 0 32px!important}
+body.collector-workspace .collector-hero:before,body.collector-workspace .collector-hero:after{display:none!important}
+body.collector-workspace .collector-hero :is(.owner-hero-copy,.founder-hero-copy){position:relative!important;z-index:1!important;max-width:none!important;width:100%!important;min-width:0}
+body.collector-workspace .collector-hero .collector-greeting{font-size:11px!important;font-weight:650;letter-spacing:.08em!important;margin:0 0 18px!important;color:#8ee3e3!important;text-transform:uppercase}
 body.collector-workspace .collector-hero .collector-hello{letter-spacing:0;text-transform:none;font-size:14px;color:#e6f8ff}
-body.collector-workspace .collector-hero .collector-headline{font-family:Impact,'Arial Narrow',system-ui,sans-serif!important;font-size:clamp(38px,4.1vw,60px)!important;line-height:1.03!important;font-weight:900!important;letter-spacing:-.025em!important;color:#fffaf0!important;margin:0 0 17px!important;text-shadow:2px 3px #051525}
+body.collector-workspace .collector-hero .collector-headline{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important;font-size:clamp(36px,3.7vw,54px)!important;line-height:1.1!important;font-weight:750!important;letter-spacing:-.035em!important;color:#fffaf0!important;margin:0 0 18px!important;text-shadow:none}
 .collector-headline em{font-style:normal!important;color:#ffd056!important}
-body.collector-workspace .collector-hero .collector-intro{font-size:13px!important;line-height:1.7!important;max-width:350px!important;color:#d0e0eb!important;margin:0!important}
-.collector-hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:23px}
-.collector-button{min-height:44px;border-radius:8px;padding:11px 17px;font:inherit;font-size:12px;font-weight:750;cursor:pointer;border:1px solid transparent;transition:transform .16s,box-shadow .16s}
+body.collector-workspace .collector-hero .collector-intro{font-size:14px!important;line-height:1.65!important;max-width:310px!important;color:#c5d8e6!important;margin:0!important}
+.collector-hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+.collector-button{min-height:44px;border-radius:8px;padding:11px 15px;font:inherit;font-size:12px;font-weight:650;cursor:pointer;border:1px solid transparent;transition:transform .16s,box-shadow .16s}
 .collector-button:hover{transform:translateY(-2px)}
-.collector-primary{color:#102442!important;background:#ffd056!important;border-color:#ffd056!important;box-shadow:3px 4px 0 #020c1c}
-.collector-secondary{color:white!important;background:#0b2745d9!important;border-color:#698399!important}
-.collector-hero-badge{position:absolute;right:23px;bottom:20px;color:#fff6d8;font-size:8px;font-weight:800;letter-spacing:.16em;transform:rotate(-3deg);padding:7px 10px;background:#0a2135bf;border:1px solid #bdac71;border-radius:3px}
+.collector-primary{color:#102442!important;background:#ffd056!important;border-color:#ffd056!important;box-shadow:0 3px 0 #020c1c}
+.collector-secondary{color:white!important;background:#0b274580!important;border-color:#698399!important}
+.collector-grails{min-width:0;align-self:center;text-align:center}
+body.collector-workspace .collector-grail-heading{color:#a8d9df!important;font-size:10px!important;letter-spacing:.16em;font-weight:650;margin:0 0 20px!important}
+.collector-grail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+.collector-grail{min-width:0;display:flex;align-items:center;flex-direction:column;background:none!important;border:0!important;box-shadow:none!important;padding:0!important;color:#fff;font:inherit;cursor:pointer;transition:transform .18s}
+.collector-grail img{display:block;width:100%;height:auto;aspect-ratio:63/88;object-fit:contain;border-radius:6px;filter:drop-shadow(0 8px 7px #020c1c80);margin-bottom:14px;transition:transform .18s}
+.collector-grail:first-child img{transform:rotate(-5deg)}.collector-grail:last-child img{transform:rotate(5deg)}
+.collector-grail:hover img{transform:translateY(-5px)}
+.collector-grail strong{font-size:12px;line-height:1.4;font-weight:650;color:#fff}
+.collector-grail>span{font-size:10px;line-height:1.5;color:#adc6d5;margin-top:3px}
+.collector-grail.art-unavailable{min-height:180px;justify-content:center;border:1px solid #638394!important;border-radius:8px}
+body.collector-workspace .collector-grail-hint{font-size:10px!important;line-height:1.5;color:#a8c4d0!important;margin:18px 0 0!important}
 .collector-explore{margin-bottom:28px}
 .collector-section-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:14px}
 .collector-kicker{display:block;font-size:9px;color:var(--world-accent);font-weight:850;letter-spacing:.15em;margin-bottom:7px}
@@ -99,7 +108,7 @@ body:has(#auth-view:not(.hidden)){background:#f8f6ef}.shell:has(>#auth-view:not(
 #auth-view .mobile-brand{display:none!important}
 #auth-view .collector-auth-logo{width:260px;height:90px;object-fit:contain;object-position:left center}
 #auth-view .brand-copy{margin-top:auto;padding-top:100px;max-width:450px}
-#auth-view .brand-copy h1{font-family:Impact,'Arial Narrow',system-ui,sans-serif;font-size:clamp(40px,4.8vw,68px)!important;line-height:1.05;font-weight:900;letter-spacing:-.03em;color:#fff!important}
+#auth-view .brand-copy h1{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(36px,4.3vw,60px)!important;line-height:1.12;font-weight:750;letter-spacing:-.03em;color:#fff!important}
 #auth-view .brand-copy h1 em{color:#ffd056!important;font-style:normal}
 #auth-view .brand-copy .lead{color:#d6e5ec!important;font-size:15px;line-height:1.7;max-width:350px}
 #auth-view .brand-copy .eyebrow{color:#89e9eb!important;font-size:10px;letter-spacing:.14em}
@@ -120,14 +129,13 @@ body:has(#auth-view:not(.hidden)){background:#f8f6ef}.shell:has(>#auth-view:not(
  .collector-workspace .owner-sidebar .owner-nav{flex:0 0 auto}
  .collector-workspace .owner-nav-item,.collector-workspace .seller-nav-tab{margin-bottom:4px!important}
 }
-@media(max-width:1150px) and (min-width:1001px){body.collector-workspace .collector-hero{padding:30px!important}body.collector-workspace .collector-hero .collector-headline{font-size:43px!important}.collector-world-caption{font-size:9px}body.collector-workspace .collector-hero .collector-intro{font-size:12px!important}.collector-finance-row{grid-template-columns:1fr 1.4fr}}
+@media(max-width:1150px) and (min-width:1001px){body.collector-workspace .collector-hero{padding:28px!important;gap:24px}.collector-world-caption{font-size:9px}.collector-finance-row{grid-template-columns:1fr 1.4fr}}
 @media(max-width:1000px){
  .collector-workspace .collector-nav-note{display:none}
  .collector-workspace :is(.owner-topbar,.founder-workspace .topbar){height:78px!important;padding:5px 20px!important}
  .workspace-approved-logo{width:196px!important;height:65px!important}.collector-workspace :is(.owner-topbar-brand,.founder-workspace .brand-lockup){min-width:196px!important}
  .collector-workspace .owner-sidebar,.collector-workspace .founder-workspace .seller-nav{background:#091e36!important}
  .collector-workspace .owner-dashboard-content,.collector-workspace .founder-workspace .dashboard-content{padding:22px 22px 95px!important}
- body.collector-workspace .collector-hero{min-height:325px!important}body.collector-workspace .collector-hero .collector-headline{font-size:48px!important}body.collector-workspace .collector-hero .collector-intro{font-size:12px!important}
  .collector-workspace .owner-nav-item.active,.collector-workspace .seller-nav-tab.active{box-shadow:none!important}
  #auth-view .brand-panel{padding:36px!important}#auth-view .auth-panel{padding:32px!important}
 }
@@ -138,14 +146,6 @@ body:has(#auth-view:not(.hidden)){background:#f8f6ef}.shell:has(>#auth-view:not(
  .collector-workspace .topbar-actions{gap:8px!important}.collector-workspace :is(.owner-signout,#logout-button){font-size:10px!important;padding:7px!important;min-height:32px!important}
  .collector-workspace .owner-dashboard-content,.collector-workspace .founder-workspace .dashboard-content{padding:17px 16px 94px!important}
  .collector-vibes{flex-wrap:nowrap;overflow-x:auto;gap:5px;margin-bottom:15px;scrollbar-width:none;padding-bottom:3px}.collector-vibes>span{display:none}.collector-vibe{white-space:nowrap;font-size:10px;padding:7px 10px;flex-shrink:0;min-height:32px}
- body.collector-workspace .collector-hero{min-height:365px!important;padding:27px 24px!important;margin-bottom:25px!important;border-radius:18px!important;align-items:flex-start!important}
- body.collector-workspace .collector-hero:before{background-position:69% center;background-size:auto 100%;opacity:.88}
- body.collector-workspace .collector-hero:after{background:linear-gradient(90deg,#071d35f5,#071d35c7 46%,#071d3522),linear-gradient(0deg,#071d35c7,transparent 50%)!important}
- body.collector-workspace .collector-hero :is(.owner-hero-copy,.founder-hero-copy){width:100%!important;max-width:330px!important}
- body.collector-workspace .collector-hero .collector-headline{font-size:43px!important;max-width:320px;margin-bottom:16px!important}
- body.collector-workspace .collector-hero .collector-greeting{margin-bottom:18px!important}body.collector-workspace .collector-hero .collector-intro{font-size:12px!important;max-width:255px;line-height:1.6!important}
- .collector-hero-actions{gap:8px;margin-top:22px;max-width:280px}.collector-button{font-size:11px;min-height:42px;padding:10px 12px}
- .collector-hero-badge{font-size:6px;bottom:14px;right:15px}
  .collector-section-heading{gap:8px}.collector-section-heading h2{font-size:21px!important}.collector-kicker{font-size:8px;letter-spacing:.12em}.collector-text-button{font-size:10px!important}
  .collector-world-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.collector-world-art{height:99px;padding:14px}.collector-world-art img{height:68px;width:135px}.collector-world-caption{padding:10px;font-size:9px;min-height:44px}
  .collector-stats-heading h2{font-size:18px!important}.collector-workspace .owner-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.collector-workspace .owner-kpi-card{padding:15px!important;min-height:141px!important}
@@ -157,9 +157,25 @@ body:has(#auth-view:not(.hidden)){background:#f8f6ef}.shell:has(>#auth-view:not(
  #auth-view .brand-panel .brand-lockup{margin:0!important}#auth-view .collector-auth-logo{width:190px;height:66px}#auth-view .brand-copy{margin:0;padding-top:0}#auth-view .brand-copy .eyebrow,#auth-view .brand-copy .lead,.collector-auth-games{display:none}#auth-view .brand-copy h1{font-size:38px!important;margin:0}
  #auth-view .auth-panel{padding:29px 25px 40px!important;min-height:0!important;align-items:flex-start!important}#auth-view .mobile-brand{display:none!important}#auth-view .auth-card h2{font-size:27px}#auth-view .auth-card .eyebrow{margin-top:0}
 }
-@media(max-width:360px){.workspace-approved-logo{width:138px!important}.collector-workspace :is(.owner-topbar-brand,.founder-workspace .brand-lockup){min-width:138px!important}.collector-workspace :is(.owner-topbar,.founder-workspace .topbar){padding:5px 12px!important}body.collector-workspace .collector-hero{padding:24px 19px!important;min-height:375px!important}body.collector-workspace .collector-hero .collector-headline{font-size:36px!important}.collector-hero-actions{flex-direction:column;align-items:flex-start}.collector-world-caption{font-size:8px}.collector-workspace .dr-browser-embedded .dr-browse-game-logo{max-width:108px}.collector-stats-heading h2{font-size:16px!important}}
+@media(max-width:360px){.workspace-approved-logo{width:138px!important}.collector-workspace :is(.owner-topbar-brand,.founder-workspace .brand-lockup){min-width:138px!important}.collector-workspace :is(.owner-topbar,.founder-workspace .topbar){padding:5px 12px!important}.collector-world-caption{font-size:8px}.collector-workspace .dr-browser-embedded .dr-browse-game-logo{max-width:108px}.collector-stats-heading h2{font-size:16px!important}}
 @media(prefers-reduced-motion:reduce){.collector-workspace *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
-body.collector-workspace .collector-hero:before,body.collector-workspace .collector-hero:after{display:none!important}
 .collector-workspace .collector-finance-row .owner-hero-money button{background:none!important;color:#ffe49a!important;width:auto!important;padding:0!important;gap:12px!important;min-height:30px!important}.collector-workspace .collector-finance-row .owner-hero-money small{display:block!important}
-@media(max-width:700px){body.collector-workspace .collector-hero{background:linear-gradient(90deg,#071d35ef,#071d35b3 56%,#071d3552),url('/assets/brand-assets/collector-worlds.webp') 65% center/cover no-repeat #081f39!important;min-height:398px!important}body.collector-workspace .collector-hero .collector-headline{font-size:39px!important}body.collector-workspace .collector-hero .collector-intro{max-width:255px!important}.collector-hero-actions{max-width:none}.collector-button{font-size:12px!important}}
+
+@media(max-width:700px){
+ body.collector-workspace .collector-hero{grid-template-columns:1fr;gap:30px;min-height:0!important;padding:26px 22px!important;margin-bottom:25px!important;border-radius:18px!important}
+ body.collector-workspace .collector-hero .collector-headline{font-size:38px!important;line-height:1.1!important;margin-bottom:14px!important}
+ body.collector-workspace .collector-hero .collector-greeting{margin-bottom:15px!important}
+ body.collector-workspace .collector-hero .collector-intro{font-size:13px!important;max-width:320px!important}
+ .collector-hero-actions{gap:8px;margin-top:20px}.collector-button{font-size:11px;padding:10px 12px}
+ .collector-grails{width:100%;max-width:420px;justify-self:center}
+ .collector-grail-grid{gap:12px}.collector-grail strong{font-size:10px}.collector-grail>span{font-size:9px}
+ body.collector-workspace .collector-grail-heading{margin-bottom:15px!important;font-size:9px!important}
+ body.collector-workspace .collector-grail-hint{margin-top:14px!important;font-size:9px!important}
+}
+@media(max-width:360px){
+ body.collector-workspace .collector-hero{padding:24px 18px!important}
+ body.collector-workspace .collector-hero .collector-headline{font-size:34px!important}
+ .collector-hero-actions .collector-button{padding:10px;font-size:10px}
+ .collector-grail-grid{gap:9px}.collector-grail>span{font-size:8px}
+}
