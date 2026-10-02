@@ -151,6 +151,19 @@ def _decimal(value: object | None) -> Decimal | None:
     return Decimal(str(value))
 
 
+def _candidate_review_payload(candidate: dict[str, Any]) -> dict[str, Any]:
+    """Offer the existing explicit reference correction, never auto-confirm it."""
+    reference = candidate.get("reference_selection")
+    if isinstance(reference, str):
+        reference = json.loads(reference)
+    candidate["reference_selection"] = reference
+    candidate["pricing_status"] = (
+        "AVAILABLE" if candidate.get("market_value_minor") is not None
+        else "NO_VERIFIED_VALUATION"
+    )
+    return candidate
+
+
 async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
     run = await connection.fetchrow(
         """
@@ -177,6 +190,10 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
             rc.provider,rc.provider_id,rc.provider_language,rc.rank,rc.score,
             rc.hard_rejected,rc.rejection_reasons,rc.signals,
             rc.candidate_snapshot,rc.created_at,
+            case when reference.provider_id is not null then jsonb_build_object(
+                'provider',reference.provider,'system_code',reference.system_code,
+                'language',reference.language,'provider_id',reference.provider_id
+            ) end as reference_selection,
             price.market_value_minor,
             price.recommended_retail_minor,
             price.pricing_updated_at,
@@ -200,6 +217,16 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
               and m.match_status='VERIFIED'
             limit 1
         ) provider_map on true
+        left join lateral (
+            select c.provider,c.system_code,c.language,c.provider_id
+            from tcg.reference_cards c
+            join tcg.reference_sets s using(provider,system_code,language,set_id)
+            where c.provider=rc.provider and c.provider_id=rc.provider_id
+              and c.system_code=rc.system_code and c.language=rc.provider_language
+              and not rc.hard_rejected and rc.source_kind='PROVIDER'
+              and (s.release_date is null or s.release_date<=current_date)
+            limit 1
+        ) reference on true
         left join lateral (
             select
                 v.market_value_minor,
@@ -233,7 +260,7 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
     )
     return {
         "run": dict(run),
-        "candidates": [dict(row) for row in candidates],
+        "candidates": [_candidate_review_payload(dict(row)) for row in candidates],
         "feedback": [dict(row) for row in feedback],
         "engine_version": ENGINE_VERSION,
         "auto_applied": False,

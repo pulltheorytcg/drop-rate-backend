@@ -298,6 +298,53 @@ async function matched(scanner, quantity = 1) {
     assert.equal(f.scanner.items[0].mode,'RAW');
     f.finish(); checks += 1;
   }
+  // An unreadable number can be human-confirmed against the governed reference.
+  // Missing prices do not block this path; condition remains an explicit choice.
+  for (const role of ['seller', 'founder']) {
+    const reference = {provider:'Punk Records', system_code:'ONE_PIECE_CARD_GAME', language:'Japanese', provider_id:'OP12-106_p2'};
+    const data = result({run:{id:'run-law', decision:'NEEDS_REVIEW', top_catalogue_id:null}, candidates:[{
+      id:'law-candidate', rank:1, score:.98125, source_kind:'PROVIDER', catalogue_id:null,
+      market_value_minor:null, reference_selection:reference,
+      candidate_snapshot:{name:'Trafalgar Law',base_card_id:'OP12-106',language:'Japanese',art_treatment:'Parallel'}
+    }]});
+    const f = fixture(role, async (url, options) => {
+      if (url.endsWith('/resolve')) return data;
+      if (url.endsWith('/references/select')) return {catalogue_id:'law-printing',selected:{card_number:'OP12-106'}};
+      if (url.endsWith('/recognition-intake') || url.endsWith('/inventory/intake')) return {inventory:{inventory_code:'INV-LAW'}};
+      if (url.endsWith('/materialize')) throw new Error('Must not use exact-OCR materialization');
+      return {};
+    });
+    await f.scanner.recognise('law-photo'); const item=f.scanner.items[0]; f.scanner.openDetails(item);
+    const confirm=f.scanner.details.querySelector('[data-details-save]');
+    assert.equal(confirm.textContent,'Choose condition to continue');
+    confirm.click(); await tick();
+    assert.equal(f.dom.window.document.activeElement.getAttribute('aria-label'),'Condition');
+    assert.equal(f.calls.length,1,'No write before condition is chosen');
+    assert.match(f.scanner.details.textContent,/Market value unavailable/);
+    const condition=f.scanner.details.querySelector('select'); condition.value='Near Mint';
+    condition.dispatchEvent(new f.w.Event('change'));
+    assert.equal(confirm.textContent,'Looks Good');
+    await f.scanner.confirmDetails(); f.scanner.showReview();
+    assert.equal(f.scanner.find('[data-action="save"]').disabled,false);
+    await f.scanner.saveAll();
+    assert.equal(item.status,'added');
+    const selected=f.calls.find(call=>call.url.endsWith('/references/select'));
+    assert.deepEqual(JSON.parse(selected.body),reference);
+    const feedback=f.calls.find(call=>call.url.endsWith('/feedback'));
+    assert.equal(JSON.parse(feedback.body).outcome,'CORRECTED_BY_SEARCH');
+    assert.equal(item.selected.market_value_minor,null);
+    f.finish(); checks+=1;
+  }
+  // Closest printings are shown first; low-scoring alternatives remain reachable.
+  {
+    const data=result(); data.candidates=[.86421,.85971,.74595,.62,.55,.2].map((score,index)=>({
+      ...data.candidates[0],id:'candidate-'+index,rank:index+1,score,candidate_snapshot:{name:'Choice '+index}}));
+    const f=fixture('seller',async()=>data); await f.scanner.recognise('photo'); f.scanner.openDetails(f.scanner.items[0]);
+    assert.equal(f.scanner.details.querySelectorAll('.dr-scan-alternative').length,2);
+    [...f.scanner.details.querySelectorAll('button')].find(b=>b.textContent==='Show other suggestions').click();
+    assert.equal(f.scanner.details.querySelectorAll('.dr-scan-alternative').length,6);
+    f.finish(); checks+=1;
+  }
   await tick();
   console.log('Scanner flow: ' + checks + ' interaction, permission and retry scenarios passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
