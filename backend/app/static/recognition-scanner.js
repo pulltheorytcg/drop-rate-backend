@@ -34,6 +34,11 @@ function ensureRecognitionScannerUI() {
     <div class="recognition-scan-grid">
       <div class="recognition-upload-card">
         <div class="recognition-camera-launch">
+          <div class="dr-scan-entry-modes" role="radiogroup" aria-label="Scan type">
+            <label><input type="radio" name="recognition-scan-mode" value="RAW" checked>RAW</label>
+            <label><input type="radio" name="recognition-scan-mode" value="GRADED">GRADED</label>
+            <label><input type="radio" name="recognition-scan-mode" value="SEALED">SEALED</label>
+          </div>
           <button id="recognition-open-camera" class="primary-button recognition-camera-primary" type="button">
             <span aria-hidden="true">◉</span>
             <span><strong>Open live camera</strong><small>Recommended on mobile</small></span>
@@ -268,7 +273,7 @@ async function startRecognitionCamera(facingMode = "environment") {
 }
 
 async function openRecognitionCamera() {
-  if (window.DropRateScanner?.isMobile()) {
+  if (window.DropRateScanner) {
     stopRecognitionCamera();
     if (!window.dropRateScanner || window.dropRateScanner.destroyed) {
       window.dropRateScanner = new window.DropRateScanner.Scanner({
@@ -282,7 +287,7 @@ async function openRecognitionCamera() {
         viewInventory: () => activateSellerView("inventory", true),
       });
     }
-    try { await window.dropRateScanner.open(); }
+    try { await window.dropRateScanner.open(document.querySelector('input[name="recognition-scan-mode"]:checked')?.value || "RAW"); }
     catch (error) { showMessage("recognition-message", error.message, "error"); }
     return;
   }

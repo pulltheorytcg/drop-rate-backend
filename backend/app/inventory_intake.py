@@ -14,9 +14,23 @@ from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 from .physical_state import validate_physical_state
+from .access_control import require_platform_admin_request
+from .owner_portal_api import OwnerGradedCertificateIntakeRequest, owner_graded_certificate_intake
 
 
 router = APIRouter(prefix="/api/v1")
+
+
+@router.post("/inventory/graded-intake", status_code=201)
+async def founder_graded_intake(
+    payload: OwnerGradedCertificateIntakeRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_platform_admin_request)],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=96)],
+) -> dict:
+    """Use the same certificate checks and owner-bound Draft intake for founders."""
+    return await owner_graded_certificate_intake(payload, request, user, access, idempotency_key)
 
 
 def _catalogue_search_terms(query: str) -> list[str]:

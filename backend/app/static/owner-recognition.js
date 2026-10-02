@@ -584,7 +584,7 @@ function ownerScanStopCamera({hide = true} = {}) {
 }
 
 async function ownerScanStartCamera(facingMode = "environment") {
-  if (ownerScanMode() === "raw" && window.DropRateScanner?.isMobile()) {
+  if (window.DropRateScanner) {
     ownerScanStopCamera();
     if (!window.dropRateScanner || window.dropRateScanner.destroyed) {
       window.dropRateScanner = new window.DropRateScanner.Scanner({
@@ -599,7 +599,7 @@ async function ownerScanStartCamera(facingMode = "environment") {
         viewInventory: () => activateOwnerView("inventory"),
       });
     }
-    await window.dropRateScanner.open();
+    await window.dropRateScanner.open(ownerScanMode().toUpperCase());
     return;
   }
   if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {

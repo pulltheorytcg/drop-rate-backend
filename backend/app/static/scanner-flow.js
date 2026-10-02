@@ -28,6 +28,11 @@ window.DropRateScanner = (() => {
       card.language].filter(Boolean).join(" · ");
   };
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
+  const graded = item => item.mode === "GRADED";
+  const graders = ["PSA", "ACE", "CGC", "BGS", "BVG", "BCCG"];
+  const gradeValid = item => graders.includes(item.grading_company) && /^(?:10(?:\s*BLACK\s*LABEL)?|BL10|[1-9](?:\.5)?)$/i.test(item.grade || "")
+    && (item.grading_company === "PSA" ? /^\d{7,10}$/ : /^\d{4,14}$/).test(item.certificate_number || "")
+    && !item.slab?.conflicts?.length;
   const usableRun = item => item.run?.id && ["EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"].includes(item.run.decision || item.run.status);
   const icons = {
     photo: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="currentColor"/><circle cx="8" cy="8" r="2" fill="#465050"/><path d="m4 18 5-6 3 3 4-6 5 9" fill="#465050"/></svg>',
@@ -51,12 +56,14 @@ window.DropRateScanner = (() => {
       this.epoch = 0;
       this.cameraRevision = 0;
       this.searchRevision = 0;
+      this.mode = ["RAW", "GRADED", "SEALED"].includes(options.mode) ? options.mode : "RAW";
       this.auto = true;
       this.facing = "environment";
       this.controllers = new Set();
       this.images = new Map();
       this.objectUrls = new Set();
       this.build();
+      this.setMode(this.mode);
       this.onVisibility = () => {
         if (document.visibilityState === "hidden") this.stopCamera();
       };
@@ -104,6 +111,9 @@ window.DropRateScanner = (() => {
         '<video autoplay muted playsinline aria-label="Live camera"></video>' +
         '<header class="dr-scan-topbar"><button type="button" data-action="close" aria-label="Close scanner">←</button>' +
         '<strong>Trading Card Games</strong><button type="button" data-action="settings" aria-label="Scanner settings">⚙</button></header>' +
+        '<nav class="dr-scan-modes" aria-label="Scan type">' +
+        ['RAW', 'GRADED', 'SEALED'].map(mode => '<button type="button" data-mode="' + mode + '" aria-pressed="false">' + mode + '</button>').join('') + '</nav>' +
+        '<button type="button" class="dr-scan-certificate" data-action="certificate" hidden>Enter certificate</button>' +
         '<div class="dr-scan-guide" aria-hidden="true"></div><p class="dr-scan-status" role="status">Place a card inside the guide</p>' +
         '<button type="button" class="dr-scan-camera-resume" data-action="resume">Start camera</button>' +
         '<div class="dr-scan-settings" hidden><label><input type="checkbox" checked> Auto-scan</label>' +
@@ -133,12 +143,13 @@ window.DropRateScanner = (() => {
         const actions = {
           close: () => this.close(), settings: () => { this.find(".dr-scan-settings").hidden = !this.find(".dr-scan-settings").hidden; },
           resume: () => this.startCamera(), switch: () => { this.facing = this.facing === "environment" ? "user" : "environment"; this.startCamera(); },
-          torch: () => this.toggleTorch(),
+          torch: () => this.toggleTorch(), certificate: () => this.manualSlab(),
           gallery: () => this.find(".dr-scan-file").click(), capture: () => this.capture(),
           next: () => this.showReview(), back: () => this.startCamera(), save: () => this.saveAll(),
         };
         actions[control.dataset.action]();
       }));
+      this.dialog.querySelectorAll("[data-mode]").forEach(control => control.addEventListener("click", () => this.setMode(control.dataset.mode)));
       this.find(".dr-scan-settings input").addEventListener("change", event => { this.auto = event.target.checked; });
       this.find(".dr-scan-file").addEventListener("change", event => this.upload(event));
       this.dialog.addEventListener("cancel", event => {
@@ -158,7 +169,165 @@ window.DropRateScanner = (() => {
     find(selector) { return this.dialog.querySelector(selector); }
     status(text) { this.find(".dr-scan-status").textContent = text; }
 
-    async open() {
+    guideMessage() {
+      return this.mode === "GRADED" ? "Show the full slab · keep the label and QR readable"
+        : this.mode === "SEALED" ? "Frame the whole pack, box or sealed set" : "Place a card inside the guide";
+    }
+
+    setMode(mode) {
+      if (!["RAW", "GRADED", "SEALED"].includes(mode) || this.processing || this.edit || this.saving) return;
+      this.mode = mode; this.dialog.dataset.mode = mode;
+      this.dialog.querySelectorAll("[data-mode]").forEach(control => control.setAttribute("aria-pressed", String(control.dataset.mode === mode)));
+      this.find('[data-action="certificate"]').hidden = mode !== "GRADED";
+      this.find('[data-action="capture"]').setAttribute("aria-label", "Scan " + (mode === "GRADED" ? "graded slab" : mode === "SEALED" ? "sealed product" : "raw card"));
+      this.find('[data-action="gallery"]').setAttribute("aria-label", "Choose an item photo");
+      this.previous = null; this.stableFrames = 0; this.presenceFrames = 0;
+      this.status(this.guideMessage());
+    }
+
+    async captureSlabQr() {
+      if (this.qrBusy || this.processing || this.awaitingRemoval) return;
+      this.qrBusy = true;
+      const revision = this.cameraRevision;
+      let raw;
+      try {
+        if (!this.qrDetector && "BarcodeDetector" in globalThis) {
+          const formats = await BarcodeDetector.getSupportedFormats();
+          if (formats.includes("qr_code")) this.qrDetector = new BarcodeDetector({formats: ["qr_code"]});
+        }
+        if (this.qrDetector) raw = (await this.qrDetector.detect(this.video)).find(code => code.rawValue)?.rawValue;
+      } catch (_) { /* Label capture remains available when QR is unsupported. */ }
+      finally { this.qrBusy = false; }
+      if (revision !== this.cameraRevision || !this.active() || this.mode !== "GRADED" || this.processing || this.edit) return;
+      if (!raw || raw === this.lastQr) { this.capture(); return; }
+      this.processing = true; this.render();
+      try {
+        const parsed = await this.request("/api/v1/grading-certificates/qr/resolve", {method: "POST",
+          body: JSON.stringify({qr_value: raw, grader_hint: /^https?:\/\//i.test(raw) ? null : "PSA"})});
+        if (revision !== this.cameraRevision || this.mode !== "GRADED") return;
+        this.lastQr = raw; this.awaitingRemoval = true;
+        this.processing = false;
+        this.manualSlab(parsed);
+        await this.lookupSlab();
+      } catch (_) {
+        if (this.active() && revision === this.cameraRevision) { this.processing = false; this.capture(); }
+      } finally { if (this.active() && !this.items.some(item => item.status === "processing")) { this.processing = false; this.render(); } }
+    }
+
+    manualSlab(parsed = {}) {
+      if (this.processing || this.saving) return;
+      const item = {id: crypto.randomUUID(), mode: "GRADED", quantity: 1, photo: null,
+        grading_company: parsed.provider || "PSA", certificate_number: parsed.certificate_number || "",
+        grade: "", condition: "", selected: null, candidates: [], status: "unresolved", guess: "Choose the graded card"};
+      this.items.push(item); this.openDetails(item); this.render();
+    }
+
+    applySlabEvidence(item, data) {
+      const provider = data.provider_result || data, observation = data.observation || {};
+      item.slab = data;
+      item.grading_company = data.normalized_provider || provider.provider || observation.grader || item.grading_company || "PSA";
+      item.certificate_number = data.normalized_certificate || provider.certificate_number || observation.certificate_number || item.certificate_number || "";
+      item.grade = provider.grade || observation.grade || item.grade || "";
+      item.guess = provider.subject || observation.card_name || "Choose the graded card";
+      item.searchSeed = data.catalogue_search_seed || provider.card_number || observation.card_number || provider.subject || observation.card_name || "";
+      item.error = data.conflicts?.length ? "Certificate and label disagree. Resolve this before adding the slab." : null;
+    }
+
+    async slabCandidates(item) {
+      if (!item.searchSeed || item.searchSeed.length < 2) return;
+      const params = new URLSearchParams({q: item.searchSeed.slice(0, 80), limit: "20"});
+      const data = await this.request((this.options.role === "seller" ? "/api/v1/owner/catalogue-search?" : "/api/v1/catalogue/search?") + params);
+      item.candidates = (data.items || []).filter(row => row.product_type !== "SEALED")
+        .map(row => ({...row, catalogue_id: row.id, candidate_snapshot: row, market_value_minor: null}));
+      item.suggested = item.candidates[0] || null;
+    }
+
+    async recogniseSlab(photo, item, isNew) {
+      const epoch = this.epoch;
+      item.status = "processing"; item.guess = "Reading slab…"; item.error = null;
+      if (isNew) this.items.push(item);
+      this.processing = true; this.status("Reading slab label and certificate…"); this.render();
+      const controller = new AbortController(); this.controllers.add(controller);
+      const timeout = setTimeout(() => controller.abort(), 70000);
+      try {
+        const data = await this.request("/api/v1/grading-certificates/scan", {method: "POST", signal: controller.signal,
+          body: JSON.stringify({image_data_url: photo})});
+        this.applySlabEvidence(item, data);
+        await this.slabCandidates(item);
+        item.selected = null;
+        this.status("Slab read · tap its thumbnail to confirm the card and grade");
+      } catch (error) {
+        if (!this.active(epoch)) return;
+        item.error = error.name === "AbortError" ? "Slab reading timed out. Retry the photo or enter the certificate." : error.message;
+        this.status("Check slab details · certificate entry is available");
+      } finally {
+        clearTimeout(timeout); this.controllers.delete(controller);
+        if (this.active(epoch)) { item.status = "unresolved"; this.processing = false; this.render(); }
+      }
+    }
+
+    async lookupSlab() {
+      const edit = this.edit; if (!edit || this.editBusy || !graded(edit.item)) return;
+      this.editBusy = true;
+      this.details.querySelectorAll("button,input,select").forEach(control => { control.disabled = true; });
+      try {
+        const data = await this.request("/api/v1/grading-certificates/lookup", {method: "POST",
+          body: JSON.stringify({grader: edit.grading_company, certificate_number: edit.certificate_number})});
+        // A manual lookup cannot erase a conflict observed in the original slab photo.
+        const conflicts = edit.item.slab?.conflicts || [];
+        Object.assign(edit.item, {grading_company: edit.grading_company, certificate_number: edit.certificate_number});
+        this.applySlabEvidence(edit.item, {...data, conflicts});
+        await this.slabCandidates(edit.item);
+        Object.assign(edit, {grading_company: edit.item.grading_company, certificate_number: edit.item.certificate_number,
+          grade: edit.item.grade, selected: edit.item.suggested || edit.selected});
+      } catch (error) { if (this.active()) edit.item.lookupMessage = error.message + " You can read the label and confirm the card manually."; }
+      finally { if (this.active()) { this.editBusy = false; this.renderSlabDetails(); } }
+    }
+
+    renderSlabDetails() {
+      const edit = this.edit, item = edit.item;
+      this.details.replaceChildren(node("div", "dr-scan-drag-handle"));
+      const header = node("header", "dr-scan-details-header"), title = node("h2", "", "Graded Slab Details");
+      title.id = "dr-scan-details-title";
+      header.append(title, button("×", () => this.closeDetails())); this.details.append(header);
+      const content = node("div", "dr-scan-details-content");
+      if (item.photo) content.append(this.thumb(item, "dr-scan-slab-photo", null, true));
+      const fields = node("div", "dr-scan-detail-fields");
+      for (const [key, label] of [["grading_company", "Grader"], ["grade", "Grade"], ["certificate_number", "Certificate number"]]) {
+        const wrap = node("label", "", label), input = node(key === "grading_company" ? "select" : "input");
+        if (key === "grading_company") graders.forEach(value => { const option = node("option", "", value); option.value = value; input.append(option); });
+        else { input.maxLength = key === "grade" ? 40 : 14; if (key === "certificate_number") input.inputMode = "numeric"; }
+        input.value = edit[key]; input.setAttribute("aria-label", label);
+        input.addEventListener("input", () => { edit[key] = input.value.trim(); this.updateDetailsSave(); });
+        wrap.append(input); fields.append(wrap);
+      }
+      content.append(fields, button("Lookup certificate", () => this.lookupSlab()));
+      const evidence = item.slab?.provider_result || item.slab || {};
+      content.append(node("p", "dr-scan-review-note", item.lookupMessage || (evidence.verified
+        ? "Provider evidence found. Confirm that the card, grade and certificate match your slab."
+        : "Confirm the slab label. Certificate verification and Drop Rate identity review may still be required.")));
+      if (item.error) content.append(node("p", "dr-scan-item-error", item.error));
+      if (item.photo) content.append(button("Read slab photo again", () => { this.closeDetails(); this.recognise(item.photo, item); }));
+      content.append(node("p", "dr-scan-results-label", "Choose the exact card:"));
+      const candidates = node("div", "dr-scan-alternatives");
+      for (const candidate of item.candidates || []) {
+        const choice = button("", () => { edit.selected = candidate; this.renderSlabDetails(); }, "dr-scan-alternative");
+        choice.setAttribute("aria-pressed", String(edit.selected?.catalogue_id === candidate.catalogue_id));
+        choice.setAttribute("aria-label", name({selected:candidate}) + " · " + meta({selected:candidate}));
+        choice.append(this.thumb(item, "dr-scan-alternative-thumb", candidate)); candidates.append(choice);
+      }
+      content.append(candidates, button("Search for the exact card", () => this.openSearch()));
+      if (edit.selected) content.append(node("h3", "", name({selected: edit.selected})), node("p", "dr-scan-card-meta", meta({selected: edit.selected})));
+      content.append(node("p", "dr-scan-review-note", "One slab per certificate. Grade-specific value is calculated after saving."), node("p", "dr-scan-detail-message"));
+      this.details.append(content);
+      const footer = node("footer", "dr-scan-details-footer"), save = button("Looks Good", () => this.confirmDetails(), "dr-scan-primary");
+      save.dataset.detailsSave = "true";
+      footer.append(button("Remove", () => this.remove(item), "dr-scan-delete"), save); this.details.append(footer);
+      this.updateDetailsSave();
+    }
+
+    async open(mode) {
+      if (mode) this.setMode(mode);
       if (!this.active()) throw new Error("Please sign in again before scanning.");
       this.returnFocus = document.activeElement;
       this.dialog.showModal();
@@ -243,7 +412,7 @@ window.DropRateScanner = (() => {
         this.presenceFrames = 0;
         this.absenceFrames = 0;
         // Preserve the removal gate when returning from details/review.
-        this.status(this.awaitingRemoval ? "Remove the scanned card before continuing" : "Place a card inside the guide");
+        this.status(this.awaitingRemoval ? "Remove the scanned card before continuing" : this.guideMessage());
         this.timer = setInterval(() => this.tick(), 420);
       } catch (error) {
         if (revision !== this.cameraRevision || !this.active()) return;
@@ -315,7 +484,7 @@ window.DropRateScanner = (() => {
         this.presenceFrames = 0; this.stableFrames = 0; this.absenceFrames += 1;
         this.previous = analysis.fingerprint;
         if (this.absenceFrames >= 2) this.awaitingRemoval = false;
-        this.status(this.awaitingRemoval ? "Remove the scanned card to continue" : "Place a card inside the guide");
+        this.status(this.awaitingRemoval ? "Remove the scanned card to continue" : this.guideMessage());
         return;
       }
       this.absenceFrames = 0; this.presenceFrames += 1;
@@ -323,8 +492,9 @@ window.DropRateScanner = (() => {
       const movement = fingerprintDelta(analysis.fingerprint, this.previous);
       this.previous = analysis.fingerprint;
       this.stableFrames = movement <= 0.028 ? this.stableFrames + 1 : 0;
-      if (this.presenceFrames < 2 || this.stableFrames < 3) { this.status("Hold the card steady"); return; }
-      this.capture();
+      if (this.presenceFrames < 2 || this.stableFrames < 3) { this.status("Hold the item steady"); return; }
+      if (this.mode === "GRADED" && !this.qrBusy) this.captureSlabQr();
+      else if (this.mode !== "GRADED") this.capture();
     }
 
     capture() {
@@ -370,7 +540,8 @@ window.DropRateScanner = (() => {
     async recognise(photo, retryItem = null) {
       if (this.processing || !this.active()) return;
       const epoch = this.epoch;
-      const item = retryItem || {id: crypto.randomUUID(), photo, quantity: 1, condition: "", selected: null};
+      const item = retryItem || {id: crypto.randomUUID(), photo, mode: this.mode, quantity: 1, condition: "", selected: null};
+      if (graded(item)) { await this.recogniseSlab(photo, item, !retryItem); return; }
       item.status = "processing"; item.error = null; item.guess = "Loading…";
       if (!retryItem) this.items.push(item);
       this.processing = true;
@@ -384,12 +555,15 @@ window.DropRateScanner = (() => {
         item.candidates = (data.candidates || []).filter(candidate => !candidate.hard_rejected
           && (candidate.catalogue_id || candidate.source_kind === "PROVIDER"))
           .sort((a, b) => Number(a.rank || 9999) - Number(b.rank || 9999));
+        item.candidates = item.candidates.filter(candidate => item.mode === "SEALED"
+          ? sealed({selected: candidate}) : !sealed({selected: candidate}));
         const top = item.candidates[0] || null;
         item.suggested = top;
         item.selected = item.run.decision === "EXACT_CANDIDATE" && top?.catalogue_id === item.run.top_catalogue_id
           && top?.catalogue_id ? top : null;
         item.status = item.selected ? "matched" : "unresolved";
         item.guess = item.run.ai_observation?.name_guess || "No match found";
+        if (!top && data.candidates?.length) item.error = "This item does not match " + item.mode + ". Choose the correct scan type and scan it again.";
         if (!usableRun(item)) item.error = "Recognition could not complete. Retry this photo before choosing a match.";
         this.status(item.selected ? "Match found · tap its thumbnail to check details" : "Check the match · tap its thumbnail");
       } catch (error) {
@@ -449,8 +623,8 @@ window.DropRateScanner = (() => {
     }
 
     editable(item) { return !this.saving && !this.editBusy && !item.requests && item.status !== "processing"; }
-    ready(item) { return Boolean(item.requests || (item.selected?.catalogue_id && usableRun(item)
-      && item.status === "matched" && (sealed(item) || conditions.includes(item.condition)))); }
+    ready(item) { return Boolean(item.requests || (item.selected?.catalogue_id && item.status === "matched"
+      && (graded(item) ? gradeValid(item) && item.quantity === 1 : usableRun(item) && (sealed(item) || conditions.includes(item.condition))))); }
 
     render() {
       const totals = this.totals();
@@ -472,6 +646,8 @@ window.DropRateScanner = (() => {
       this.find('[data-action="next"]').disabled = !this.items.length;
       this.find('[data-action="capture"]').disabled = this.processing || !this.stream;
       this.find('[data-action="gallery"]').disabled = this.processing;
+      this.dialog.querySelectorAll('[data-mode]').forEach(control => { control.disabled = this.processing || this.saving; });
+      this.find('[data-action="certificate"]').disabled = this.processing || this.saving;
       if (this.view === "review") this.renderReview();
     }
 
@@ -495,8 +671,8 @@ window.DropRateScanner = (() => {
         const fields = node("dl");
         const card = snapshot(selected(item));
         for (const [label, value] of [["Variant", card.variant || card.sealed_product_type || "—"],
-          ["Type", sealed(item) ? "Sealed product" : "Ungraded"],
-          ["Condition", sealed(item) ? "Sealed" : item.condition || "Choose condition"], ["Quantity", item.quantity]]) {
+          ["Type", graded(item) ? item.grading_company + " " + item.grade : sealed(item) ? "Sealed product" : "Raw card"],
+          [graded(item) ? "Certificate" : "Condition", graded(item) ? item.certificate_number : sealed(item) ? "Sealed" : item.condition || "Choose condition"], ["Quantity", item.quantity]]) {
           fields.append(node("dt", "", label), node("dd", "", value));
         }
         copy.append(fields);
@@ -509,7 +685,7 @@ window.DropRateScanner = (() => {
       const totals = this.totals();
       this.find(".dr-scan-review-total").textContent = "Total: " + money(totals.value);
       const unresolved = this.items.filter(item => !item.selected).length;
-      const missingCondition = this.items.filter(item => item.selected && !sealed(item) && !item.condition).length;
+      const missingCondition = this.items.filter(item => item.selected && !graded(item) && !sealed(item) && !item.condition).length;
       const matched = this.items.length - unresolved;
       this.find(".dr-scan-review-count").textContent = matched + " matched " + (matched === 1 ? "scan" : "scans") +
         (unresolved ? " · " + unresolved + " to review" : "") + (missingCondition ? " · check conditions" : "") +
@@ -526,7 +702,8 @@ window.DropRateScanner = (() => {
     openDetails(item) {
       if (!this.editable(item)) return;
       this.edit = {item, selected: item.selected || item.suggested, condition: item.condition,
-        quantity: item.quantity, searchSelected: item.searchSelected || false};
+        quantity: item.quantity, searchSelected: item.searchSelected || false,
+        grading_company: item.grading_company || "PSA", grade: item.grade || "", certificate_number: item.certificate_number || ""};
       this.sheet.hidden = false; this.camera.inert = true; this.review.inert = true;
       this.renderDetails();
     }
@@ -542,6 +719,7 @@ window.DropRateScanner = (() => {
     renderDetails() {
       const edit = this.edit; if (!edit) return;
       const item = edit.item;
+      if (graded(item)) { this.renderSlabDetails(); return; }
       this.details.replaceChildren();
       this.details.append(node("div", "dr-scan-drag-handle"));
       const heading = node("header", "dr-scan-details-header");
@@ -610,6 +788,11 @@ window.DropRateScanner = (() => {
 
     updateDetailsSave() {
       const edit = this.edit; if (!edit) return;
+      if (graded(edit.item)) {
+        this.details.querySelector('[data-details-save]').disabled = this.editBusy || !edit.selected?.catalogue_id
+          || !gradeValid({...edit.item, ...edit}) || edit.quantity !== 1;
+        return;
+      }
       const isSealed = sealed({...edit.item, selected: edit.selected});
       const allowedSealed = !isSealed || (edit.item.run?.decision === "EXACT_CANDIDATE"
         && edit.selected?.catalogue_id === edit.item.run?.top_catalogue_id);
@@ -631,7 +814,8 @@ window.DropRateScanner = (() => {
         }
         if (!this.active()) return;
         Object.assign(edit.item, {selected: edit.selected, quantity: edit.quantity, condition: edit.condition,
-          searchSelected: edit.searchSelected, status: "matched", error: null});
+          searchSelected: edit.searchSelected, status: "matched", error: null,
+          ...(graded(edit.item) ? {grading_company: edit.grading_company, grade: edit.grade, certificate_number: edit.certificate_number} : {})});
         this.editBusy = false; this.closeDetails(); this.render();
       } catch (error) {
         if (!this.active()) return;
@@ -669,10 +853,10 @@ window.DropRateScanner = (() => {
 
     async search(query, revision) {
       const edit = this.edit;
-      if (!edit || !usableRun(edit.item)) { this.details.querySelector(".dr-scan-search-message").textContent = "Retry the scan first so the correction has completed recognition evidence."; return; }
+      if (!edit || (!graded(edit.item) && !usableRun(edit.item))) { this.details.querySelector(".dr-scan-search-message").textContent = "Retry the scan first so the correction has completed recognition evidence."; return; }
       try {
         const params = new URLSearchParams({q: query, limit: "20"});
-        if (this.options.role === "seller") { params.set("include_reference", "true"); params.set("run_id", edit.item.run.id); }
+        if (this.options.role === "seller" && !graded(edit.item)) { params.set("include_reference", "true"); params.set("run_id", edit.item.run.id); }
         const data = await this.request((this.options.role === "seller" ? "/api/v1/owner/catalogue-search?" : "/api/v1/catalogue/search?") + params);
         if (this.edit !== edit || revision !== this.searchRevision) return;
         const results = this.details.querySelector(".dr-scan-search-results"); results.replaceChildren();
@@ -704,7 +888,8 @@ window.DropRateScanner = (() => {
         }
         if (!catalogueId) throw new Error("That reference could not be linked. Please choose another match.");
         if (!this.active()) return;
-        edit.selected = {...row, catalogue_id: catalogueId, candidate_snapshot: {...row}, id: null};
+        edit.selected = {...row, catalogue_id: catalogueId, candidate_snapshot: {...row}, id: null,
+          ...(graded(edit.item) ? {market_value_minor: null} : {})};
         edit.searchSelected = true; this.searchRevision += 1; this.editBusy = false; this.renderDetails();
       } catch (error) {
         if (!this.active()) return;
@@ -715,6 +900,13 @@ window.DropRateScanner = (() => {
     freeze(item) {
       if (item.requests) return;
       const isSealed = sealed(item), card = snapshot(item.selected);
+      if (graded(item)) {
+        item.feedbackSaved = true;
+        item.requests = [{key: crypto.randomUUID(), body: JSON.stringify({selected_catalogue_id: item.selected.catalogue_id,
+          grading_company: item.grading_company, grade: item.grade, certificate_number: item.certificate_number,
+          language: card.language || null}), result: null}];
+        return;
+      }
       item.feedback = JSON.stringify({outcome: item.searchSelected ? "CORRECTED_BY_SEARCH"
         : item.selected.catalogue_id === item.run.top_catalogue_id ? "CONFIRMED_TOP" : "CORRECTED_TO_CANDIDATE",
       selected_catalogue_id: item.selected.catalogue_id, notes: "Confirmed in Drop Rate scanner review"});
@@ -746,7 +938,8 @@ window.DropRateScanner = (() => {
           }
           for (const pending of item.requests) {
             if (pending.result) continue;
-            const data = await this.request(this.options.role === "seller" ? "/api/v1/owner/recognition-intake" : "/api/v1/inventory/intake", {
+            const data = await this.request(graded(item) ? (this.options.role === "seller" ? "/api/v1/owner/graded-certificate-intake" : "/api/v1/inventory/graded-intake")
+              : this.options.role === "seller" ? "/api/v1/owner/recognition-intake" : "/api/v1/inventory/intake", {
               method: "POST", headers: {"Idempotency-Key": pending.key}, body: pending.body,
             });
             if (!data.inventory?.inventory_code) throw new Error("Save confirmation was incomplete. Retry to check this same request.");

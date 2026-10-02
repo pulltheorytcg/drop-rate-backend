@@ -2,7 +2,26 @@
 
 ## Status — 2 October 2026
 
-Implemented on `feat/collectr-scanner-flow` for review. Production remains on the
+Implemented on `feat/collectr-scanner-flow` for review.
+
+The follow-up requested at 06:03 BST adds visible **RAW | GRADED | SEALED**
+controls both before and inside the shared camera. Each scan retains its mode;
+a mode change cannot reinterpret an in-flight image or an existing batch item.
+RAW and SEALED keep the current recognition service and matching gates. SEALED
+uses a square guide to include packs, boxes and sets. GRADED uses the existing
+QR parser, certificate lookup and slab-label reader, then requires a human card,
+grade and certificate confirmation. One certificate creates at most one slab;
+raw-card prices never appear as graded values. Conflicts remain blocked.
+Founders use a founder-authorized adapter to the same certificate intake checks;
+sellers retain their restricted endpoint. Both start as Draft with identity review.
+The shared camera now opens from both hubs on desktop as well as mobile; the
+older standalone photo workflows remain available.
+
+Targeted verification: 20 scanner scenarios and 58 existing slab/intake/shell
+checks pass. The baseline camera/review browser fixture passes for both hubs.
+No live card recognition, certificate provider acceptance or production write was
+performed. Product browsing is being built as a separate follow-up concern.
+ Production remains on the
 existing scanner while the user tests its recognition. No deployment, database
 migration, provider configuration, recognition scoring or native installer is
 part of this change.

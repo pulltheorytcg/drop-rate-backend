@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/assets/owner-portal.css?v=owner-v12">
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
-  <link rel="stylesheet" href="/assets/scanner-flow.css?v=2">
+  <link rel="stylesheet" href="/assets/scanner-flow.css?v=3">
 </head>
 <body class="owner-portal-page">
   <div class="ambient ambient-one"></div>
@@ -275,8 +275,9 @@
 
                 <div class="owner-scan-body">
                   <div class="owner-scan-state-toggle owner-scan-mode-toggle" role="radiogroup" aria-label="Scan type">
-                    <label><input type="radio" name="owner-scan-mode" value="raw" checked><span>Raw card</span></label>
-                    <label><input type="radio" name="owner-scan-mode" value="graded"><span>Graded slab</span></label>
+                    <label><input type="radio" name="owner-scan-mode" value="raw" checked><span>RAW</span></label>
+                    <label><input type="radio" name="owner-scan-mode" value="graded"><span>GRADED</span></label>
+                    <label><input type="radio" name="owner-scan-mode" value="sealed"><span>SEALED</span></label>
                   </div>
 
                   <div id="owner-slab-tools" class="owner-slab-tools hidden">
@@ -733,8 +734,8 @@
 
   <script src="/assets/hub-session.js?v=1" defer></script>
   <script src="/assets/owner-portal.js?v=owner-v10" defer></script>
-  <script src="/assets/scanner-flow.js?v=1" defer></script>
-  <script src="/assets/owner-recognition.js?v=owner-v9" defer></script>
+  <script src="/assets/scanner-flow.js?v=2" defer></script>
+  <script src="/assets/owner-recognition.js?v=owner-v10" defer></script>
   <script src="/assets/reference-library.js?v=2" defer></script>
 </body>
 </html>

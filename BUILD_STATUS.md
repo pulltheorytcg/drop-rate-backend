@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-02 — Visible scanner types (PR #497 follow-up; not deployed)
+
+- User requested **RAW | GRADED | SEALED**. All three now appear before and inside the shared camera in Seller Hub and Founder HQ, including desktop.
+- GRADED reuses QR parsing, certificate lookup and slab-label reading, followed by exact-card/grade/certificate confirmation. Founder intake uses the same server certificate checks under the founder authorization gate. One certificate remains one physical slab.
+- SEALED frames the complete pack/box/set and keeps existing exact-sealed review gates. Captures preserve their mode; wrong-type matches cannot enter inventory. No model, schema, roster or production settings changed.
+- Targeted verification: 20 scanner interaction/failure cases and 58 existing backend/slab/shell checks pass. Browser fixtures check both hubs; real-device acceptance remains outstanding.
+- Collectr product-list/search recording supplied separately and being implemented as the next reviewable change. The recording starts with filters active; the intended default is the cleared Quick Filters screen.
+
 ## 2026-10-02 — Collectr reference scanner UI (branch; not deployed)
 
 - User approved the scanner structure and requested Drop Rate brand colours. PR #497 now uses the existing navy/blue/cyan palette with white and pale-grey detail/review surfaces; this follow-up preserves the layouts and behaviour.

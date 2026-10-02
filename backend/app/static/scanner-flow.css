@@ -154,3 +154,28 @@
   .dr-scan-detail-thumb { max-height: 160px; }
 }
 @media (prefers-reduced-motion: reduce) { .dr-scanner * { scroll-behavior: auto !important; } }
+
+/* The same mode choices stay visible inside the camera in both account roles. */
+.dr-scan-modes { position: absolute; z-index: 2; top: calc(env(safe-area-inset-top, 0px) + 65px); left: 15%; right: 15%; display: flex; padding: 3px; border: 1px solid #28d7eb66; border-radius: 22px; background: #071b3fed; }
+.dr-scan-modes button { flex: 1; min-height: 38px; padding: 6px 8px; border-radius: 19px; background: transparent; color: #fff; font-size: 11px; letter-spacing: .06em; font-weight: 650; }
+.dr-scan-modes button[aria-pressed="true"] { background: var(--scan-accent); box-shadow: inset 0 -2px 0 var(--scan-cyan); }
+.dr-scan-guide { top: calc(env(safe-area-inset-top, 0px) + 127px); width: min(81%, calc((100dvh - 380px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) * .7142857)); }
+.dr-scanner[data-mode="SEALED"] .dr-scan-guide { aspect-ratio: 1; width: min(86%, calc(100dvh - 390px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); }
+.dr-scanner .dr-scan-certificate { position: absolute; z-index: 2; bottom: calc(env(safe-area-inset-bottom, 0px) + 256px); left: 50%; transform: translateX(-50%); padding: 10px 18px; white-space: nowrap; border-radius: 20px; background: #071b3fe8; border: 1px solid #28d7eb88; font-size: 12px; }
+.dr-scan-slab-photo { position: relative; width: 110px; height: 165px; margin: 0 auto; }
+.dr-scan-slab-photo img { position: absolute; inset: 0; height: 100%; width: 100%; object-fit: contain; }
+.dr-scan-details-footer .dr-scan-delete { font-size: 13px; flex-basis: 52px; }
+.dr-scan-entry-modes { display: flex; gap: 8px; margin-bottom: 14px; }
+.dr-scan-entry-modes label { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 10px 4px; border-radius: 20px; border: 1px solid #e2e8f0; font-size: 11px; }
+.dr-scan-entry-modes input { width: auto; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .dr-scan-modes { top: 66px; left: 8%; right: 46%; }
+  .dr-scan-guide { top: 118px; width: calc((100dvh - 136px) * .7142857); }
+  .dr-scanner[data-mode="SEALED"] .dr-scan-guide { width: calc(100dvh - 136px); }
+  .dr-scanner .dr-scan-certificate { bottom: 260px; left: 80%; }
+}
+@media (min-width: 901px) {
+  .dr-scan-details { max-width: 600px; margin: 0 auto; }
+  .dr-scan-modes { left: calc(50% - 150px); right: auto; width: 300px; }
+  .dr-scan-tray { left: calc(50% - 300px); right: auto; width: 600px; }
+}

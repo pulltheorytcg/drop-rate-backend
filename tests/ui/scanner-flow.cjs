@@ -252,6 +252,52 @@ async function matched(scanner, quantity = 1) {
     f.scanner.close(); assert.equal(stopped, 1); assert.equal(f.scanner.torchOn, false);
     f.finish(); checks += 1;
   }
+  // Modes are visible, and a completed capture keeps its original type.
+  {
+    const f = fixture('seller', async () => result({candidates:[{...result().candidates[0],
+      candidate_snapshot:{...result().candidates[0].candidate_snapshot, product_type:'SEALED'}}]}));
+    assert.deepEqual([...f.scanner.dialog.querySelectorAll('[data-mode]')].map(n => n.textContent), ['RAW','GRADED','SEALED']);
+    await f.scanner.recognise('photo'); assert.equal(f.scanner.items[0].selected, null);
+    f.scanner.setMode('SEALED'); await f.scanner.recognise('photo');
+    assert.equal(f.scanner.ready(f.scanner.items[1]), true);
+    f.scanner.setMode('RAW'); assert.equal(f.scanner.items[1].mode, 'SEALED');
+    f.finish(); checks += 1;
+  }
+  for (const role of ['seller','founder']) {
+    const f = fixture(role, async url => url.endsWith('/scan') ? {
+      observation:{grader:'BGS',certificate_number:'123456789',grade:'9.5',card_name:'Card one',card_number:'OP11-118'},
+      conflicts:[],catalogue_search_seed:'OP11-118',provider_error:'PROVIDER_NOT_CONFIGURED',
+    } : url.includes('catalogue') ? {items:[{id:'card-1',name:'Card one',product_type:'CARD',market_value_minor:1500}]}
+      : {inventory:{inventory_code:'INV-SLAB',identity_confirmed:false}});
+    f.scanner.setMode('GRADED'); await f.scanner.recognise('photo');
+    const item = f.scanner.items[0]; assert.equal(item.selected, null);
+    f.scanner.openDetails(item); assert.equal(f.scanner.edit.grade, '9.5');
+    assert.equal(f.scanner.edit.selected.market_value_minor, null);
+    await f.scanner.confirmDetails(); assert.equal(f.scanner.ready(item), true);
+    f.scanner.showReview(); await f.scanner.saveAll();
+    const save = f.calls.find(call => call.headers?.['Idempotency-Key']);
+    assert.equal(save.url, role === 'seller' ? '/api/v1/owner/graded-certificate-intake' : '/api/v1/inventory/graded-intake');
+    assert.deepEqual(JSON.parse(save.body), {selected_catalogue_id:'card-1',grading_company:'BGS',grade:'9.5',certificate_number:'123456789',language:null});
+    assert.equal(f.calls.some(call => call.url.endsWith('/feedback')), false);
+    f.finish(); checks += 1;
+  }
+  {
+    const f = fixture('seller', async () => ({provider:'PSA',certificate_number:'12345678',grade:'10',verified:true}));
+    f.scanner.manualSlab(); const item=f.scanner.items[0];
+    item.slab={conflicts:['grade']}; f.scanner.edit.selected={catalogue_id:'card-1'};
+    f.scanner.edit.grade='10'; f.scanner.edit.certificate_number='12345678';
+    await f.scanner.lookupSlab();
+    assert.ok(f.scanner.details.querySelector('[data-details-save]').disabled);
+    assert.deepEqual(item.slab.conflicts,['grade']);
+    f.finish(); checks += 1;
+  }
+  {
+    const pending=deferred(); const f=fixture('seller', () => pending.promise);
+    const resolving=f.scanner.recognise('photo'); f.scanner.setMode('GRADED');
+    assert.equal(f.scanner.mode,'RAW'); pending.resolve(result()); await resolving;
+    assert.equal(f.scanner.items[0].mode,'RAW');
+    f.finish(); checks += 1;
+  }
   await tick();
   console.log('Scanner flow: ' + checks + ' interaction, permission and retry scenarios passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
