@@ -27,7 +27,7 @@ struct SessionStore {
         var output: CFTypeRef?
         let status = SecItemCopyMatching(request as CFDictionary, &output)
         if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess else { throw StoreError.unavailable }
+        guard status == errSecSuccess else { throw StoreError.keychain(status) }
         guard let data = output as? Data, let value = String(data: data, encoding: .utf8),
               let session = HubPolicy.session(value) else {
             try clear()
@@ -48,15 +48,15 @@ struct SessionStore {
         if status == errSecItemNotFound {
             status = SecItemAdd(query.merging(attributes) { _, new in new } as CFDictionary, nil)
         }
-        guard status == errSecSuccess else { throw StoreError.unavailable }
+        guard status == errSecSuccess else { throw StoreError.keychain(status) }
         defaults.set(false, forKey: signedOutKey)
     }
 
     func clear() throws {
         defaults.set(true, forKey: signedOutKey)
         let status = SecItemDelete(query as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else { throw StoreError.unavailable }
+        guard status == errSecSuccess || status == errSecItemNotFound else { throw StoreError.keychain(status) }
     }
 
-    enum StoreError: Error { case unavailable, invalidSession }
+    enum StoreError: Error { case unavailable, invalidSession, keychain(OSStatus) }
 }
