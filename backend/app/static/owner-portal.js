@@ -1245,7 +1245,7 @@ function errorMessage(data) {
 
 async function readJson(response) {
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) { const error=new Error(errorMessage(data));error.status=response.status;throw error; }
+  if (!response.ok) { const error=new Error(errorMessage(data));error.status=response.status;error.code=data.code||data.error_code;throw error; }
   return data;
 }
 
@@ -1291,11 +1291,21 @@ function clearSession() {
 async function refreshSession() {
   return window.PullTheoryHubSession.refresh(async () => {
     const previous = state.session;
-    if (!previous?.refresh_token) throw new Error("Your session has expired.");
-    const session = await authRequest("/token?grant_type=refresh_token", {method:"POST", body:JSON.stringify({refresh_token:previous.refresh_token})});
-    if (state.session !== previous) throw new Error("Your account changed. Please sign in again.");
-    saveSession(session);
-    return session.access_token;
+    try {
+      if (!previous?.refresh_token) {
+        const error = new Error("Your session has expired.");
+        error.sessionExpired = true;
+        throw error;
+      }
+      const session = await authRequest("/token?grant_type=refresh_token", {method:"POST", body:JSON.stringify({refresh_token:previous.refresh_token})});
+      if (state.session !== previous) throw new Error("Your account changed. Please sign in again.");
+      saveSession(session);
+      return session.access_token;
+    } catch (error) {
+      error.refreshSession = previous;
+      error.sessionExpired ||= window.PullTheoryHubSession.isExpiredRefresh(error);
+      throw error;
+    }
   });
 }
 async function apiRequest(path, options = {}, retry = true) {
@@ -1429,7 +1439,9 @@ function denyAccess(message) {
   byId("owner-portal-view").classList.add("hidden");
   byId("owner-auth-view").classList.remove("hidden");
   sessionStorage.setItem("drop-rate-signin-notice", message);
-  window.location.replace("/app");
+  const view = window.location.hash.slice(1);
+  const returnHash = ["overview", "search", "inventory", "scan", "sales", "balance", "channels", "settlements", "profile", "more"].includes(view) ? `#${view}` : "";
+  window.location.replace("/app" + returnHash);
 }
 
 async function initialise() {
@@ -1469,7 +1481,9 @@ async function initialise() {
       await openOwnerPortal();
     }
   } catch (error) {
-    if([401,403].includes(error.status)||error.message==="OWNER_PORTAL_ACCESS_DENIED"||error.message==="No active owner membership") denyAccess("Please sign in with an authorised Drop Rate account.");
+    if ("refreshSession" in error && state.session !== error.refreshSession) return;
+    if(error.sessionExpired||[401,403].includes(error.status)) denyAccess("Your session has expired. Please sign in again.");
+    else if(error.message==="OWNER_PORTAL_ACCESS_DENIED"||error.message==="No active owner membership") denyAccess("Please sign in with an authorised Drop Rate account.");
     else window.PullTheoryHubSession.showFailure("Your workspace couldn’t load. Your session is kept; please retry.");
   }
 }

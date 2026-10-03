@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-03 — Workspace filter recovery and expired-session handling
+
+- Fixed Search sheets leaving the surrounding workspace inert after multiple filter changes. Closing, applying or escaping a sheet restores the original navigation state. Leaving Search dismisses its sheet while retaining filters and pending product edits.
+- Both hub entry points distinguish missing/revoked refresh sessions from retryable failures. Expired sessions return to sign-in; network errors, rate limits, conflicts, unknown refresh errors and server failures retain the existing session. A late refresh failure cannot clear a replacement account's session. Seller sign-in preserves an allowlisted destination such as Inventory.
+- Added catalogue and session regressions, including actual mocked fetch/readJson/refresh restoration for both roles. Local browser verification confirms Home remains clickable after multiple filter changes. Authentication tests use fixtures; real-account and physical-device acceptance remain outstanding.
+- No schema, inventory, financial, permission or scanner changes. Deployment and complete CI evidence are recorded on the accompanying PR; rollback is the prior application release `f58f2f0f680a466569ad92ee360626ca2e12f952`.
+
 ## 2026-10-02 — One Naruto catalogue and real grail spotlight
 
 - Combined Kayou and Bandai Legacy into one Naruto browse destination, including immediate Search tiles and home shortcuts. Counts/languages aggregate while every card and set retains its actual system/provider identity. No production records are merged.

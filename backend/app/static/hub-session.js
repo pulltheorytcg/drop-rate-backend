@@ -4,6 +4,9 @@
   const key = "drop_rate_hub_session";
   let refreshPromise = null;
   const legacyKeys = ["drop_rate_owner_session", "drop_rate_founder_session"];
+  const expiredRefreshCodes = new Set([
+    "refresh_token_not_found", "refresh_token_already_used", "session_not_found", "session_expired",
+  ]);
   function removeLegacy() {
     legacyKeys.forEach(legacy => sessionStorage.removeItem(legacy));
   }
@@ -17,6 +20,10 @@
     refresh(task) {
       if (!refreshPromise) refreshPromise = Promise.resolve().then(task).finally(() => { refreshPromise = null; });
       return refreshPromise;
+    },
+    isExpiredRefresh(error) {
+      return [401, 403].includes(error.status)
+        || (error.status === 400 && expiredRefreshCodes.has(error.code));
     },
     read() {
       try {

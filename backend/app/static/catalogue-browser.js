@@ -100,11 +100,12 @@ window.DropRateCatalogue = (() => {
     }
     close() {
       if(this.saving)return;
+      if(!this.find(".dr-browse-backdrop").hidden)this.closeSheet(false);
       this.restoreOuter();this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.loading=false;
       if(this.embedded)this.dialog.hidden=true;else this.dialog.close();
       document.body.classList.remove("dr-browser-open");if(!this.embedded)this.returnFocus?.focus();
     }
-    restoreOuter() { (this.outerInert||[]).forEach(([el,was])=>{el.inert=was;});this.outerInert=[]; }
+    restoreOuter() { (this.outerInert||[]).forEach(([el,was])=>{el.inert=was;});this.outerInert=null; }
     destroy() { this.restoreOuter();this.destroyed=true;this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.observer?.disconnect();this.pending.clear();this.dialog.remove();document.body.classList.remove("dr-browser-open"); }
     navigate(view) { if(this.saving)return;this.close();this.options.navigate(view); }
     scan(mode="RAW") { if(this.saving)return;this.close();this.options.scan(typeof mode === "string" ? mode : "RAW"); }
@@ -236,16 +237,17 @@ window.DropRateCatalogue = (() => {
       const close=button("×",()=>this.closeSheet());close.setAttribute("aria-label","Close "+title);
       header.append(heading,close);this.sheet.append(header);this.sheet.setAttribute("aria-labelledby",heading.id);
       this.find(".dr-browse-backdrop").hidden=false;
-      if(this.embedded){
+      // Re-rendering filters or save feedback must retain the original workspace state.
+      if(this.embedded && !this.outerInert){
         this.outerInert=[...document.querySelectorAll(".topbar,.seller-nav,.owner-sidebar,.owner-page-header")].map(el=>[el,el.inert]);
         this.outerInert.forEach(([el])=>{el.inert=true;});
       }
       for(const cls of [".dr-browse-header",".dr-browse-scroll",".dr-browse-nav"])this.find(cls).inert=true;
       close.focus();this.find(".dr-browse-menu").hidden=true;
     }
-    closeSheet() { if(this.saving)return;this.restoreOuter();this.find(".dr-browse-backdrop").hidden=true;
+    closeSheet(restoreFocus=true) { if(this.saving)return;this.restoreOuter();this.find(".dr-browse-backdrop").hidden=true;
       for(const cls of [".dr-browse-header",".dr-browse-scroll",".dr-browse-nav"])this.find(cls).inert=false;
-      if(this.sheetReturn?.isConnected)this.sheetReturn.focus();else this.input.focus();this.header(); }
+      if(restoreFocus){if(this.sheetReturn?.isConnected)this.sheetReturn.focus();else this.input.focus();}this.header(); }
     filterGroup(title,hint,choices,current,onChange) {
       const group=node("fieldset","dr-browse-filter-group");group.append(node("legend","",title),node("p","",hint));
       for(const [value,label] of choices){const wrap=node("label","",label),input=node("input");input.type="checkbox";input.checked=current===value;input.setAttribute("aria-label",label);
