@@ -2,6 +2,17 @@
 
 This repository powers the Drop Rate production TCG marketplace.
 
+## Current iPhone handoff - 3 October 2026
+
+The current Seller Hub iPhone work is in draft PR #511 on
+`feat/current-seller-hub-iphone`, not main. Start with
+[`docs/SELLER_HUB_IPHONE_HANDOFF_2026-10-03.md`](docs/SELLER_HUB_IPHONE_HANDOFF_2026-10-03.md)
+and the latest `BUILD_STATUS.md` entry. The user has a Windows PC and iPhone 16 Pro
+Max, no MacBook or paid Apple Developer membership, and limited funds. Installation
+is paused until the user resumes on/after 4 October. Native build/unit checks pass;
+no signed installation or physical-device acceptance is claimed. The Windows
+personal-testing route remains to be prepared. Preserve Eamon's separate app.
+
 Claude may assist with architecture, code, tests, documentation and diagnostics, but must follow these rules.
 
 ## 1. Read before writing
