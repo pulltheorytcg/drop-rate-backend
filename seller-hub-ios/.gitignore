@@ -1,0 +1,9 @@
+.DS_Store
+*.xcodeproj/
+DerivedData/
+build/
+*.xcresult/
+*.ipa
+*.p12
+*.mobileprovision
+Assets.xcassets/AppIcon.appiconset/icon.png

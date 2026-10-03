@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-03 — Current Seller Hub packaged for iPhone (not released)
+
+- User explicitly requested the **current live Seller Hub** on iPhone, leaving Eamon's separate app alone and deferring redesign/new features. Added independent `seller-hub-ios/` Swift/WKWebView app. `mobile/`, backend, live web assets, database, Shopify and Railway configurations are unchanged.
+- Opens the real `/app` entry and preserves server-verified workspace routing and all current hub screens. Adds iOS camera/photo/Files integration, native confirmation dialogs, secure device-only Keychain session restoration/refresh/logout, trusted downloads/share sheet and retry UI. No copied dashboards, demo inventory, client-side role grants, offline mutations or new money movement.
+- Read-only verification: Railway API ready/database connected; Supabase active with existing RLS on inspected tables; connected Shopify products returned. Live Supabase Google/Apple social providers are disabled, so the existing email/username login is the acceptance path. Enabling social providers later needs native auth-return integration.
+- Six JavaScript bridge tests pass locally; plist/YAML and release-shell syntax checks pass. Added real macOS cloud compilation, iPhone simulator tests and unsigned device Release build in **Seller Hub iPhone** CI. Native compile/CI evidence will be recorded on this PR; physical-device checks remain open.
+- Added an explicitly invoked TestFlight signing/upload workflow and iPhone acceptance checklist. Apple Developer enrollment/team, app record, signing certificate/profile and upload key are not available yet. **No signed IPA, TestFlight invitation, App Store release or physical iPhone verification is claimed.** Setup and boundaries: `seller-hub-ios/README.md`.
+
 ## 2026-10-03 — Refine the illustrated slab labels
 
 - Refined the approved two-card sign-in illustration with clearer PSA and Beckett-style labels: year/set/card details, prominent grade 10s, and four Beckett subgrades. Preserved the illustrated Charizard/Umbreon composition, transparent background and existing page layout.
