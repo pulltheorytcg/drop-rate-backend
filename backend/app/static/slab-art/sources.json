@@ -1,0 +1,44 @@
+[
+  {
+    "file": "charizard-psa10.webp",
+    "name": "Charizard first-edition Base Set #4",
+    "game": "Pokemon",
+    "grade": "PSA GEM MT 10",
+    "certificate": "16426238",
+    "source_url": "https://www.fanaticscollect.com/premier/234a5122-6f25-11ed-9e54-0a58a9feac02",
+    "image_url": "https://dilxwvfkfup17.cloudfront.net/eyJ0YWciOiIiLCJ2YWx1ZSI6Ik5DVm1xRnVGYWt1NEc3WEQ3T3M3Vy8vTHIyaEtWRVBZUFpkV1ZaV0VyRlEyanJUWEEyMTN5OTRPSkRnWkZDYXdPZ3dNeGpyb0svNFUwRmJKaHZFYzd3PT0iLCJtYWMiOiI5MWMwZDUxZmIzOWRhNmM5OTAyZGNhM2MwOWEwNmM1Yzk4MDliY2M5ZTUwZGMzZTVlOTJmMjYxMjBjZjY1YzAwIiwiaXYiOiJGdjVNeXQzQ3dzckNFNFdUcS92Z3pRPT0ifQ==",
+    "conversion": "WebP quality 92, original dimensions",
+    "source_sha256": "d04f9af58d260df570a772eb7275c530b10a89f6d0371f8db3fcabfae45ac0db",
+    "asset_sha256": "d106bf0a0b3c57fcded184713bee1971f9c717d52319bf234e401e5cd5fa1696",
+    "retrieved_at": "2026-10-03",
+    "usage": "Decorative sign-in reference; no inventory, ownership, price or availability claim"
+  },
+  {
+    "file": "luffy-manga-psa10.webp",
+    "name": "Monkey D. Luffy OP05-119 Japanese manga alternate art",
+    "game": "One Piece",
+    "grade": "PSA GEM MT 10",
+    "certificate": "123649883",
+    "source_url": "https://www.fanaticscollect.com/buy-now/18fe679d-53c0-4ccc-b1de-a53480e81b28/2023-one-piece-japanese-awakening-of-new-era-manga-art-monkey-d-luffy-op05-119-psa-10-gem",
+    "image_url": "https://s3-us-west-2.amazonaws.com/pwcc-vault/2025/12/16/rm2/large/v2109452_2020121506584454R_61.jpg",
+    "conversion": "Resized proportionally to width 780px; WebP quality 92",
+    "source_sha256": "221893f3088369d49d1f7d5ee4a71cc3815d100532c9b60db7804f5f15ba8457",
+    "asset_sha256": "fa6de114444388eac4cb8c4476348e53799fcc3a0e803b822cc85b8c3c9066d3",
+    "retrieved_at": "2026-10-03",
+    "usage": "Decorative sign-in reference; no inventory, ownership, price or availability claim"
+  },
+  {
+    "file": "goku-awakened-bl10.webp",
+    "name": "Son Goku, The Awakened Power TB1-097",
+    "game": "Dragon Ball Super",
+    "grade": "Beckett Black Label Pristine 10",
+    "certificate": "0016574034",
+    "source_url": "https://www.ebay.com/itm/187999245124",
+    "image_url": "https://i.ebayimg.com/images/g/fQ0AAeSwJ2dpeUlb/s-l1600.jpg",
+    "conversion": "WebP quality 92, original dimensions; CSS clips plain surrounding scene outside holder",
+    "source_sha256": "54096e2d12ba9122bb70e01ceaadf59ff2b025ea5d72bfd0cc8879ca7792d25f",
+    "asset_sha256": "7f56c22e26a8b350603e907e4e5d9f446b08ff13cc11b107f390c5d49832168e",
+    "retrieved_at": "2026-10-03",
+    "usage": "Decorative sign-in reference; no inventory, ownership, price or availability claim"
+  }
+]

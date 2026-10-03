@@ -103,11 +103,19 @@ body.collector-workspace .collector-grail-hint{font-size:10px!important;line-hei
 /* One recognisable sign-in, including the public registration journey. */
 #auth-view{min-height:100dvh;border-radius:0;box-shadow:none;grid-template-columns:1.05fr 1fr}
 body:has(#auth-view:not(.hidden)){background:#f8f6ef}.shell:has(>#auth-view:not(.hidden)){width:100%;max-width:none;margin:0;padding:0;min-height:100dvh}
-#auth-view .brand-panel{position:relative;isolation:isolate;overflow:hidden;padding:46px 52px!important;background:#081f39 url('/assets/brand-assets/collector-worlds.webp') 67% center/cover no-repeat!important;justify-content:space-between;min-height:100dvh;border-radius:0}
-#auth-view .brand-panel:before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,#061c35f5 3%,#061c35d4 34%,#061c3540 70%);z-index:-1}
+#auth-view .brand-panel{position:relative;isolation:isolate;overflow:hidden;display:flex!important;padding:38px 52px!important;background:#081f39 url('/assets/brand-assets/collector-worlds-slabs.webp') center/cover no-repeat!important;justify-content:space-between;min-height:100dvh;border-radius:0}
+#auth-view .brand-panel:before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,#061c35f5 3%,#061c35db 29%,#061c350d 66%,#061c3555);z-index:-1}
 #auth-view .mobile-brand{display:none!important}
 #auth-view .collector-auth-logo{width:260px;height:90px;object-fit:contain;object-position:left center}
-#auth-view .brand-copy{margin-top:auto;padding-top:100px;max-width:450px}
+#auth-view .brand-copy{margin-top:auto;padding-top:0;max-width:450px}
+/* Source card faces and grading labels are retained; the surrounding scene is illustrated. */
+.collector-auth-grails{position:relative;width:min(100%,540px);aspect-ratio:1.5;min-height:230px;align-self:center;flex:0 0 auto;margin:24px 0 32px;isolation:isolate;pointer-events:none}
+.collector-auth-slab{position:absolute;width:34%;border-radius:8px;overflow:hidden;box-shadow:0 0 0 2px #8de4e766,0 0 0 5px #071e37,0 0 26px #37d6f15c,10px 20px 20px #010f2880;background:#0a2034}
+.collector-auth-slab img{display:block;width:100%;height:auto}
+.collector-auth-charizard{left:1%;top:9%;transform:rotate(-12deg);z-index:1}
+.collector-auth-luffy{left:33%;top:0;transform:rotate(-2deg);z-index:3;box-shadow:0 0 0 2px #fadd8c88,0 0 0 5px #071e37,0 0 30px #ffcd4c5c,10px 20px 20px #010f2880}
+.collector-auth-goku{left:65%;top:10%;transform:rotate(12deg);z-index:2;aspect-ratio:461/720}
+.collector-auth-goku img{position:absolute;height:100%;width:auto;max-width:none;left:-26.7%}
 #auth-view .brand-copy h1{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(36px,4.3vw,60px)!important;line-height:1.12;font-weight:750;letter-spacing:-.03em;color:#fff!important}
 #auth-view .brand-copy h1 em{color:#ffd056!important;font-style:normal}
 #auth-view .brand-copy .lead{color:#d6e5ec!important;font-size:15px;line-height:1.7;max-width:350px}
@@ -155,6 +163,8 @@ body:has(#auth-view:not(.hidden)){background:#f8f6ef}.shell:has(>#auth-view:not(
  .collector-workspace .dr-browser-embedded .dr-browse-game-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.collector-workspace .dr-browser-embedded .dr-browse-game{min-height:135px}.collector-workspace .dr-browser-embedded .dr-browse-game-logo{max-width:130px;height:72px}
  #auth-view{display:flex;flex-direction:column;min-height:100dvh}#auth-view .brand-panel{display:flex!important;min-height:270px!important;padding:22px 25px!important;gap:15px;background-position:75% 50%!important;border-radius:0 0 22px 22px}
  #auth-view .brand-panel .brand-lockup{margin:0!important}#auth-view .collector-auth-logo{width:190px;height:66px}#auth-view .brand-copy{margin:0;padding-top:0}#auth-view .brand-copy .eyebrow,#auth-view .brand-copy .lead,.collector-auth-games{display:none}#auth-view .brand-copy h1{font-size:38px!important;margin:0}
+ .collector-auth-grails{width:min(100%,350px);min-height:0;margin:8px 0 10px;aspect-ratio:1.5}
+ #auth-view .auth-card{margin-top:0}
  #auth-view .auth-panel{padding:29px 25px 40px!important;min-height:0!important;align-items:flex-start!important}#auth-view .mobile-brand{display:none!important}#auth-view .auth-card h2{font-size:27px}#auth-view .auth-card .eyebrow{margin-top:0}
 }
 @media(max-width:360px){.workspace-approved-logo{width:138px!important}.collector-workspace :is(.owner-topbar-brand,.founder-workspace .brand-lockup){min-width:138px!important}.collector-workspace :is(.owner-topbar,.founder-workspace .topbar){padding:5px 12px!important}.collector-world-caption{font-size:8px}.collector-workspace .dr-browser-embedded .dr-browse-game-logo{max-width:108px}.collector-stats-heading h2{font-size:16px!important}}
