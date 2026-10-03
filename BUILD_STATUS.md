@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-03 — Restore the illustrated two-card style
+
+- Applied the user's correction after the three-game photo composition: the shared sign-in now uses the previously liked anime illustration of Charizard PSA 10 and Black Label Umbreon. Both cards are part of one transparent generated asset, matching the navy/cyan/gold background.
+- Removed the three photographic slab assets, source manifest and associated positioning CSS. The decorative illustration makes no actual certificate, inventory or ownership claim. CSS v5; responsive sizing uses an in-flow image with `object-fit: contain` to keep both slabs visible.
+- Existing release checks and live asset/render verification are recorded on the correction PR. Prompt, asset details, limits and rollback: `docs/SIGNIN_GRAIL_ARTWORK.md`. No application behaviour or production data changes.
+
 ## 2026-10-03 — Three-game sign-in grail artwork
 
 - Replaced the shared sign-in fantasy card backs with first-edition Charizard PSA 10, manga Luffy OP05-119 PSA 10 and Son Goku The Awakened Power Black Label 10 source imagery. Card faces and grading labels retain their actual reference details; the surrounding anime scene, angled composition and rim lighting provide the requested style.
