@@ -1,19 +1,27 @@
 // Build-time fitting of the existing Drop Rate logo, without redesigning it.
-import AppKit
 import Foundation
+import CoreGraphics
+import ImageIO
 
 let source = URL(fileURLWithPath: "../backend/app/static/brand-assets/drop-rate-logo.png")
-guard let logo = NSImage(contentsOf: source),
-      let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1024, pixelsHigh: 1024,
-          bitsPerSample: 8, samplesPerPixel: 3, hasAlpha: false, isPlanar: false,
-          colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
-      let context = NSGraphicsContext(bitmapImageRep: bitmap) else { fatalError("The existing logo is missing") }
-NSGraphicsContext.saveGraphicsState()
-NSGraphicsContext.current = context
-NSColor.white.setFill()
-NSBezierPath(rect: NSRect(x: 0, y: 0, width: 1024, height: 1024)).fill()
-let height = 960 * logo.size.height / logo.size.width
-logo.draw(in: NSRect(x: 32, y: (1024 - height) / 2, width: 960, height: height))
-NSGraphicsContext.restoreGraphicsState()
-guard let data = bitmap.representation(using: .png, properties: [:]) else { fatalError("Cannot prepare app icon") }
-try data.write(to: URL(fileURLWithPath: "Assets.xcassets/AppIcon.appiconset/icon.png"))
+guard let input = CGImageSourceCreateWithURL(source as CFURL, nil),
+      let logo = CGImageSourceCreateImageAtIndex(input, 0, nil) else {
+    fatalError("Cannot read the existing Drop Rate logo")
+}
+guard let context = CGContext(data: nil, width: 1024, height: 1024, bitsPerComponent: 8,
+                              bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                              bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
+    fatalError("Cannot create app icon canvas")
+}
+context.setFillColor(CGColor(gray: 1, alpha: 1))
+context.fill(CGRect(x: 0, y: 0, width: 1024, height: 1024))
+context.interpolationQuality = .high
+let height = 960.0 * Double(logo.height) / Double(logo.width)
+context.draw(logo, in: CGRect(x: 32, y: (1024 - height) / 2, width: 960, height: height))
+let output = URL(fileURLWithPath: "Assets.xcassets/AppIcon.appiconset/icon.png")
+guard let image = context.makeImage(),
+      let destination = CGImageDestinationCreateWithURL(output as CFURL, "public.png" as CFString, 1, nil) else {
+    fatalError("Cannot prepare app icon output")
+}
+CGImageDestinationAddImage(destination, image, nil)
+guard CGImageDestinationFinalize(destination) else { fatalError("Cannot save app icon") }
