@@ -11,6 +11,30 @@ Inventory, scanning, search, pricing, sales, payouts, ownership and permissions
 continue to use the existing FastAPI/Supabase/Shopify system. No backend deployment,
 database migration, new Railway service or Expo subscription is needed.
 
+## Latest decision - 3 October 2026
+
+The user has an iPhone 16 Pro Max and a Windows PC, no MacBook or paid Apple
+Developer membership, and limited funds. Installation is paused until the user
+resumes on/after **4 October 2026**. The complete architecture, evidence and next
+steps are in [the Claude handoff](../docs/SELLER_HUB_IPHONE_HANDOFF_2026-10-03.md).
+
+The native app baseline `bae0f9e` passed cloud verification (seven bridge tests,
+six iPhone simulator tests and unsigned device Release compilation) and Backend
+checks. PR #511 is still a draft, not merged. No physical iPhone installation or
+workflow acceptance has occurred.
+
+The next option to evaluate is free personal installation using Windows and a
+tool such as Sideloadly. This still needs an unsigned IPA packaging/export step,
+verification of free-account signing/Keychain entitlements and actual device
+testing. Free-account profiles expire after seven days and need refresh using
+the computer. This route is not implemented or proven by the existing TestFlight
+script; the workflow currently exports test results, not a Windows-ready IPA.
+See [Apple's free Personal Team limits](https://developer.apple.com/help/account/basics/about-your-developer-account)
+and [Sideloadly's FAQ](https://sideloadly.io/faq.html).
+
+Paid TestFlight setup below is deferred. A Safari Home Screen web app is a separate
+fallback; it does not install or verify this native package.
+
 ## iPhone integration
 
 - The existing full-screen scanner uses WebKit camera capture with an iOS camera
@@ -107,4 +131,6 @@ Use the real iPhone and account. Record each result; a compile is not device pro
 
 Online connectivity is required for live inventory and recognition. A public
 App Store release needs its own metadata, privacy disclosures and Apple review.
-This work targets the requested current-hub TestFlight build first.
+The first usable native test build still needs signing and physical-device
+acceptance. TestFlight is a future option; the user's current budget makes free
+Windows personal testing the next route to evaluate.
