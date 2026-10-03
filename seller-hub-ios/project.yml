@@ -1,0 +1,47 @@
+name: SellerHub
+options:
+  minimumXcodeGenVersion: 2.44.1
+  deploymentTarget:
+    iOS: '16.4'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    TARGETED_DEVICE_FAMILY: '1'
+    MARKETING_VERSION: '1.0.0'
+    CURRENT_PROJECT_VERSION: '1'
+    CODE_SIGN_STYLE: Manual
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  SellerHub:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: Resources
+      - path: Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pulltheory.sellerhub
+        INFOPLIST_FILE: Info.plist
+        CODE_SIGN_ENTITLEMENTS: SellerHub.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+  SellerHubTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: SellerHub
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pulltheory.sellerhub.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  SellerHub:
+    build:
+      targets:
+        SellerHub: all
+        SellerHubTests: [test]
+    test:
+      targets: [SellerHubTests]

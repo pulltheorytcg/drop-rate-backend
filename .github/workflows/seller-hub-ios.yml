@@ -1,0 +1,99 @@
+name: Seller Hub iPhone
+on:
+  pull_request:
+    paths: ['seller-hub-ios/**', '.github/workflows/seller-hub-ios.yml']
+  push:
+    branches: [main]
+    paths: ['seller-hub-ios/**', '.github/workflows/seller-hub-ios.yml']
+  workflow_dispatch:
+    inputs:
+      upload_testflight:
+        description: 'Sign and upload to TestFlight (requires configured Apple credentials)'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: seller-hub-ios-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: seller-hub-ios
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test session bridge
+        run: node --test scripts/session-bridge.test.mjs
+      - name: Generate native project and app icon
+        run: |
+          brew install xcodegen
+          swift scripts/prepare-assets.swift
+          xcodegen generate
+      - name: Choose an available iPhone simulator
+        run: |
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/seller-hub-simulators.json"
+          python3 - <<'PY'
+          import json, os
+          with open(os.path.join(os.environ['RUNNER_TEMP'], 'seller-hub-simulators.json')) as f:
+              data = json.load(f)
+          devices = [d for runtime, values in data['devices'].items() if 'iOS' in runtime for d in values if 'iPhone' in d['name']]
+          if not devices:
+              raise SystemExit('No iPhone simulator is installed on this runner')
+          chosen = next((d for d in devices if d['name'] == 'iPhone 16 Pro Max'), devices[0])
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('SELLER_HUB_SIMULATOR=' + chosen['udid'] + '\n')
+          print('Testing on ' + chosen['name'])
+          PY
+      - name: Compile and run iPhone tests
+        run: |
+          xcodebuild test -project SellerHub.xcodeproj -scheme SellerHub \
+            -destination "platform=iOS Simulator,id=$SELLER_HUB_SIMULATOR" \
+            -derivedDataPath build/DerivedData -resultBundlePath build/SellerHubTests.xcresult \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-
+      - name: Compile unsigned iPhone release
+        run: |
+          xcodebuild build -project SellerHub.xcodeproj -scheme SellerHub \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath build/Device CODE_SIGNING_ALLOWED=NO
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seller-hub-ios-test-results
+          path: seller-hub-ios/build/SellerHubTests.xcresult
+          retention-days: 7
+  testflight:
+    if: github.event_name == 'workflow_dispatch' && inputs.upload_testflight && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    timeout-minutes: 30
+    environment: seller-hub-testflight
+    defaults:
+      run:
+        working-directory: seller-hub-ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate project
+        run: |
+          brew install xcodegen
+          swift scripts/prepare-assets.swift
+          xcodegen generate
+      - name: Sign and upload the existing Seller Hub to TestFlight
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY_BASE64: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+        run: bash scripts/testflight.sh
