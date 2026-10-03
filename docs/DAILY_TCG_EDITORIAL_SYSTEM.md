@@ -21,6 +21,36 @@ is a machine-readable specification, **not an importable n8n workflow**. No runt
 reads it yet. There are no new endpoints, migrations, live schedules or publishers
 in this change.
 
+## Founder correction — 4 October 2026, 00:40 BST
+
+The founder rejected the first three decorative image previews as too obviously
+AI-generated and requested cleaner, more deliberate graphic design and content.
+Use restrained branding, a small unchanged logo, generous white space, clear type,
+straight real card imagery and a consistent layout. Remove manga bursts, waves,
+lightning, glow, oversized logos and ornamental clutter from social templates.
+The underlying Drop Rate identity remains; the previous illustrated social
+art direction is superseded. The first previews are not approved templates.
+
+For Raw to Graded, lead with the actual comparison in the founder's requested
+format: **Raw card: £20 / PSA 10: £200**. These are the founder's illustrative
+numbers, not verified prices for any named card. Populate real posts only with
+source-backed values for the exact same printing and language. This series must
+select **low-cost raw cards with a substantial PSA 10 value relative to raw cost**;
+expensive grails and generic grading advice do not satisfy the content brief.
+
+Qualify both affordability and relative premium, and reject apparent spreads
+created by a damaged raw copy, wrong printing/language, stale guide, mixed grading
+company or an isolated exceptional sale. A high ratio alone is insufficient when
+grading, postage and selling fees consume the spread or the graded evidence is
+not repeatable. Explicit raw-price/ratio thresholds are implementation settings
+still to calibrate against available market evidence, not numbers inferred from
+one example. Keep dates and sources visible. Explain material costs and lower-grade
+outcomes in the caption/supporting slide so the first image remains focused.
+
+Production templates should bind original logo/card assets and deterministic text
+layers rather than regenerate branding, card printing and numbers for every post.
+Image-generated concepts remain visual studies, not the final publishing renderer.
+
 ## Current evidence and integration boundaries
 
 Read-only checks during this session:
@@ -58,7 +88,7 @@ carousels should follow evidence of value and a measured rendering/API budget.
 | Sold Spotlight | A traceable completed sale for an exact printing and grade | Sale date, marketplace, realised amount and useful comparable context |
 | Market Movers | Comparable observations across two stated time windows | Up/down movement, sample size, currency and whether the metric is sold prices, asking prices or an index |
 | Release Radar | Official set/product announcement | Correct language, region, release date, product type and confirmed highlights |
-| Raw to Graded | Matched raw-condition and graded comparables plus cost scenarios | Explain the price spread and several grading outcomes; never promise profit or a grade |
+| Raw to Graded | Affordable raw cards with a substantial, repeatable PSA 10 premium for the same printing/language; material costs checked | Lead with raw price versus PSA 10 price; explain evidence, costs and lower-grade outcomes in supporting copy |
 | Collector Questions | A recurring question in permitted public discussion | Original explanation, independently checked facts and useful collecting context |
 | In the Drop | Verified, available Drop Rate stock | Relevant seller inventory with accurate condition, grade, dispatch and shipping information |
 
@@ -137,9 +167,10 @@ deterministic backend code computes every amount, difference and percentage.
 
 ## Raw-to-graded comparisons
 
-The editorial question is "what does the spread look like after costs and less
-favourable outcomes?" A cheap raw listing and one exceptional PSA 10 result cannot
-prove an opportunity.
+Feature affordable raw cards whose evidenced PSA 10 price is substantially higher
+relative to raw cost. Lead with the two prices, then explain what the spread looks
+like after costs and less favourable outcomes. A cheap raw listing and one
+exceptional PSA 10 result cannot prove an opportunity.
 
 Require exact-print matches and separate the raw condition from graded sales.
 Calculate scenarios for relevant grades (for example PSA 8, 9 and 10) using:
@@ -161,10 +192,12 @@ Seller Hub lockup is not automatically the public social logo. Confirm the exist
 storefront master asset and checksum when wiring the renderer; do not regenerate
 lettering or invent a replacement logo.
 
-Use the established navy, cyan/turquoise, warm gold, cream and restrained red
-palette, with manga-inspired lines/halftone and clear mobile typography. Avoid
-lime/acid green. Keep evidence captions and price labels legible. No music. The
-default is animated cards/charts with captions; optional narration requires its
+Use white or cream as the main canvas with navy typography, small cyan accents
+and limited gold from the existing logo. Use a consistent editorial grid and clear
+mobile typography. The founder rejected manga-inspired decorative backgrounds
+for these social templates. Avoid lime/acid green. Keep evidence captions and price
+labels legible. No music. The default is animated cards/charts with captions;
+optional narration requires its
 own approved voice configuration and budget.
 
 Target master: 1080 x 1920, approximately 25-45 seconds. An optional 1080 x 1350

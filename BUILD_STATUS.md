@@ -2,6 +2,7 @@
 
 ## 2026-10-04 — Daily four-platform TCG editorial system specified (not activated)
 
+- **00:40 BST founder correction:** first decorative previews rejected as too AI-generated. Updated the design/configuration to clean editorial layouts with restrained branding, real undistorted card imagery and simple price-led content. Raw to Graded must focus on affordable raw cards with a large verified PSA 10 premium; the example `Raw card: £20 / PSA 10: £200` is illustrative, not a quoted card valuation. Costs/downside belong in supporting copy rather than overwhelming the hero. No publishing activation.
 - Founder requires original Drop Rate branded posts every day on Instagram, Facebook, TikTok and YouTube. Coverage includes news, permitted public social topics, notable completed sales, price drops/rises, set releases, raw-to-graded comparisons and relevant inventory. This supersedes the earlier one-social-channel recommendation.
 - Added `docs/DAILY_TCG_EDITORIAL_SYSTEM.md` and `automation/n8n/plans/daily-tcg-editorial.json`: daily research/selection/rendering/publication/reconciliation/measurement design, seven editorial series, one core story with four platform variants, no music, exact evidence/media rules, grading cost/downside scenarios, evergreen fallback, budget controls and implementation acceptance criteria. The JSON is a design specification, not an importable n8n workflow.
 - Marked the existing creative-generation/social-publishing registry families DESIGNED with the design pointer. No new workflow family or event type was introduced.

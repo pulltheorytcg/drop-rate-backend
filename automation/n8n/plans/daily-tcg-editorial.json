@@ -16,9 +16,17 @@
   "daily_target": {
     "core_stories": 1,
     "publications_per_platform": 1,
-    "platforms": ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE"],
+    "platforms": [
+      "INSTAGRAM",
+      "FACEBOOK",
+      "TIKTOK",
+      "YOUTUBE"
+    ],
     "youtube_format": "SHORTS",
-    "research_local_times_proposed": ["06:00", "12:00"],
+    "research_local_times_proposed": [
+      "06:00",
+      "12:00"
+    ],
     "selection_local_time_proposed": "13:00",
     "publication_local_time_proposed": "18:00",
     "schedule_activated": false
@@ -61,23 +69,69 @@
     "expected_value_requires_defensible_grade_probabilities": true,
     "population_report_is_personal_grade_probability": false,
     "guaranteed_profit_or_grade_claims": false,
-    "automatic_purchase_or_grading_submission": false
+    "automatic_purchase_or_grading_submission": false,
+    "selection_focus": "LOW_RAW_COST_WITH_SUBSTANTIAL_VERIFIED_PSA10_PREMIUM",
+    "low_raw_cost_required": true,
+    "large_psa10_to_raw_relative_value_required": true,
+    "ratio_alone_is_sufficient": false,
+    "single_exceptional_sale_is_sufficient": false,
+    "hero_display": [
+      "Raw card: £20",
+      "PSA 10: £200"
+    ],
+    "hero_display_values_are": "FOUNDER_ILLUSTRATIVE_EXAMPLE_NOT_LIVE_PRICES",
+    "headline_is_price_comparison_not_profit_promise": true,
+    "downside_and_cost_detail_placement": "CAPTION_OR_SUPPORTING_CAROUSEL_SLIDE"
   },
   "creative": {
     "logo": "EXISTING_APPROVED_PUBLIC_DROP_RATE_MASTER_TO_BE_BOUND",
     "logo_bound": false,
-    "palette": ["navy", "cyan/turquoise", "warm gold", "cream", "restrained red"],
+    "palette": [
+      "navy",
+      "cyan/turquoise",
+      "warm gold",
+      "cream",
+      "restrained red"
+    ],
     "music": false,
     "default_audio": "SILENT_CAPTIONED",
     "male_voiceover": "OPTIONAL_UNCONFIGURED",
     "video_width_target": 1080,
     "video_height_target": 1920,
-    "duration_seconds_target": [25, 45],
-    "carousel_dimensions_optional": [1080, 1350],
+    "duration_seconds_target": [
+      25,
+      45
+    ],
+    "carousel_dimensions_optional": [
+      1080,
+      1350
+    ],
     "social_media_rights_required": true,
     "reference_only_assets_allowed_in_published_media": false,
     "fake_card_or_slab_evidence_allowed": false,
-    "daily_template_regeneration_required": false
+    "daily_template_regeneration_required": false,
+    "direction": "CLEAN_EDITORIAL",
+    "layout_rules": [
+      "small approved logo",
+      "generous white space",
+      "clear type hierarchy",
+      "straight undistorted card photography",
+      "one focal point",
+      "consistent grid",
+      "restrained navy/cyan accents"
+    ],
+    "avoid": [
+      "manga explosions",
+      "decorative waves",
+      "lightning",
+      "glow effects",
+      "oversized logo",
+      "fake slab renderings",
+      "distorted card art",
+      "busy textures",
+      "generic grading checklist as the hero"
+    ],
+    "initial_decorative_previews_approved": false
   },
   "fallback": {
     "validated_evergreen_target_count": 7,
@@ -90,7 +144,12 @@
     "account_connections_verified": false,
     "notification_only_mode_acceptable": false,
     "private_upload_counts_as_publication": false,
-    "idempotency_scope": ["job_id", "variant_version", "platform", "account_id"],
+    "idempotency_scope": [
+      "job_id",
+      "variant_version",
+      "platform",
+      "account_id"
+    ],
     "atomic_claim_required": true,
     "reconcile_before_retry_after_ambiguous_create": true,
     "per_platform_status_and_stop_switch": true,
@@ -98,9 +157,22 @@
     "external_post_id_and_visibility_readback_required": true
   },
   "measurement": {
-    "post_age_hours": [24, 168],
-    "primary": ["qualified_visits", "opt_ins", "orders", "net_contribution"],
-    "diagnostic": ["views", "retention", "saves", "shares"],
+    "post_age_hours": [
+      24,
+      168
+    ],
+    "primary": [
+      "qualified_visits",
+      "opt_ins",
+      "orders",
+      "net_contribution"
+    ],
+    "diagnostic": [
+      "views",
+      "retention",
+      "saves",
+      "shares"
+    ],
     "financial_authority": "BACKEND",
     "unknown_attribution_is_zero": false
   },
