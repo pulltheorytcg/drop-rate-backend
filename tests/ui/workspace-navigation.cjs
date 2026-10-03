@@ -10,6 +10,18 @@ function fixture(role){
  run(text);run(`state.session={access_token:'current',refresh_token:'refresh',user:{id:'account'}};window.PullTheoryHubSession.save(state.session);`);
  return {w,run,finish:()=>w.close()};
 }
+function expiredSessionFixture(role,refreshResponse){
+ const f=fixture(role);f.w.history.replaceState({},'',`/${role==='founder'?'app':'owner'}#inventory`);
+ f.refreshCalls=0;
+ f.w.fetch=async url=>{
+  if(url==='/api/v1/public-config')return {ok:true,json:async()=>({supabase_url:'https://auth.example.test',publishable_key:'test'})};
+  if(url==='https://auth.example.test/auth/v1/settings')return {ok:true,json:async()=>({external:{}})};
+  if(url==='/api/v1/access/me')return {ok:false,status:401,json:async()=>({detail:'Token expired'})};
+  if(url==='https://auth.example.test/auth/v1/token?grant_type=refresh_token'){f.refreshCalls++;return refreshResponse();}
+  throw Error(`Unexpected request: ${url}`);
+ };
+ return f;
+}
 (async()=>{
  let checks=0;
  // One refresh request for simultaneous API failures; logout during refresh cannot resurrect a session.
@@ -19,6 +31,42 @@ function fixture(role){
   f.w.finishRefresh({access_token:'new',refresh_token:'next',user:{id:'account'}});assert.deepEqual(await Promise.all([one,two]),['new','new']);
   const pending=f.run('refreshSession()');await tick();f.run('clearSession()');f.w.finishRefresh({access_token:'late',refresh_token:'late'});
   await assert.rejects(pending,/account changed/);assert.equal(f.run('state.session'),null);f.finish();checks++;
+ }
+ // Restore through real fetch/readJson/authRequest handling: terminal refresh failures return to sign-in.
+ for(const role of ['founder','seller'])for(const [index,code] of ['refresh_token_not_found','refresh_token_already_used','session_not_found','session_expired',null].entries()){
+  const f=expiredSessionFixture(role,async()=>({ok:false,status:400,json:async()=>({[index%2?'error_code':'code']:code,message:'Refresh rejected'})}));
+  if(!code)f.run(`delete state.session.refresh_token;window.PullTheoryHubSession.save(state.session);`);
+  await f.run('initialise()');
+  assert.equal(f.run('state.session'),null);assert.equal(f.w.PullTheoryHubSession.read(),null);assert.equal(f.refreshCalls,code?1:0);
+  if(role==='seller')assert.equal(f.w.lastRoute,'/app#inventory');
+  else {assert.match(f.w.document.getElementById('login-message').textContent,/session has expired/i);assert.doesNotMatch(f.w.document.getElementById('login-message').textContent,/session is kept/i);}
+  f.finish();checks++;
+ }
+ // Retryable refresh failures retain the session, even if a nonterminal HTTP status carries a known code.
+ for(const role of ['founder','seller'])for(const status of [400,409,429,500,503,null]){
+  const f=expiredSessionFixture(role,async()=>{
+   if(status===null)throw new TypeError('Network interrupted');
+   return {ok:false,status,json:async()=>({code:status===400?'unrecognised_error':'session_expired',message:'Try again'})};
+  });
+  await f.run('initialise()');
+  assert.equal(f.run('state.session.access_token'),'current');assert.equal(f.w.PullTheoryHubSession.read().access_token,'current');assert.equal(f.w.lastRoute,undefined);
+  if(role==='seller')assert.equal(f.w.document.querySelector('.hub-loading button').textContent,'Retry');
+  else assert.match(f.w.document.getElementById('login-message').textContent,/session is kept/i);
+  f.finish();checks++;
+ }
+ // A late rejected refresh belongs to its original account and cannot log out a replacement session.
+ for(const role of ['founder','seller'])for(const status of [400,401,403]){
+  let release;
+  const f=expiredSessionFixture(role,()=>new Promise(resolve=>{release=resolve;}));
+  const restore=f.run('initialise()');await tick();assert.equal(typeof release,'function');
+  f.run(`saveSession({access_token:'replacement',refresh_token:'replacement-refresh',user:{id:'other-account'}});`);
+  release({ok:false,status,json:async()=>({code:'refresh_token_not_found',message:'Refresh rejected'})});
+  await restore;assert.equal(f.run('state.session.access_token'),'replacement');assert.equal(f.w.PullTheoryHubSession.read().access_token,'replacement');assert.equal(f.w.lastRoute,undefined);
+  f.finish();checks++;
+ }
+ // Expiry navigation carries only a known workspace view, never arbitrary callback fragments.
+ {
+  const f=fixture('seller');f.w.history.replaceState({},'','/owner#access_token=private');f.run(`denyAccess('Please sign in again.')`);assert.equal(f.w.lastRoute,'/app');f.finish();checks++;
  }
  // A verified founder opens the workspace; panel errors retain login and show a retryable message.
  {

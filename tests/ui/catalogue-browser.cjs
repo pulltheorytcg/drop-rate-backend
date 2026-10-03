@@ -9,12 +9,14 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {
 const card={key:'c:00000000-0000-0000-0000-000000000001',catalogue_id:'card-1',name:'Luffy',game:'One Piece',system_code:'ONE_PIECE_CARD_GAME',set_name:'A Fist of Divine Speed',set_id:'OP11',language:'English',product_type:'CARD',variant:'Foil',card_number:'OP11-118',owned_quantity:0,market_value_minor:null,source_kind:'CATALOGUE'};
 const games=[{game:'One Piece',system_code:'ONE_PIECE_CARD_GAME',languages:['English','Japanese']}];
 let checks=0;
-function fixture(handler=async()=>({items:[card],has_more:false}),owner='account-a'){
+function fixture(handler=async()=>({items:[card],has_more:false}),owner='account-a',embedded=false){
  const dom=new JSDOM('',{runScripts:'outside-only',url:'https://example.test',pretendToBeVisual:true});const w=dom.window;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
  w.eval(titleArt);w.eval(source);let alive=true;const calls=[];
  const client={owner,active:()=>alive,request:async(url,options)=>{calls.push({url,...options});return url.endsWith('/games')?{items:games}:handler(url,options);}};
- const browser=new w.DropRateCatalogue.Browser({client,navigate:()=>{},scan:()=>{},graded:()=>{},afterSave:async()=>{}});
+ let host;
+ if(embedded){w.document.body.innerHTML='<header class="topbar"></header><nav class="seller-nav"></nav><aside class="owner-sidebar"></aside><header class="owner-page-header"></header><main id="catalogue-host"></main>';host=w.document.getElementById('catalogue-host');}
+ const browser=new w.DropRateCatalogue.Browser({host,client,navigate:()=>{},scan:()=>{},graded:()=>{},afterSave:async()=>{}});
  return {browser,w,calls,logout:()=>{alive=false;browser.destroy();},finish:()=>{browser.destroy();w.close();}};
 }
 (async()=>{
@@ -63,6 +65,20 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
   f.browser.filters.owned='owned';await f.browser.load();assert.doesNotMatch(f.browser.find('.dr-browse-content').textContent,/Luffy/);
   f.browser.filters.owned='all';await f.browser.load();assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
+  f.finish();checks++;
+ }
+ // Leaving Search with a sheet open dismisses it without stealing destination focus.
+ {
+  const f=fixture(undefined,undefined,true);await f.browser.open();f.browser.filters.q='Luffy';
+  const outside=f.w.document.querySelector('.topbar');outside.inert=false;
+  f.browser.openProduct(card);const pending=f.browser.edit;pending.condition='Near Mint';
+  const destination=f.w.document.createElement('button');f.w.document.body.append(destination);destination.focus();
+  f.browser.close();assert.equal(f.browser.dialog.hidden,true);assert.equal(f.browser.find('.dr-browse-backdrop').hidden,true);
+  assert.equal(outside.inert,false);assert.equal(f.w.document.activeElement,destination);
+  await f.browser.open();assert.equal(f.browser.dialog.hidden,false);assert.equal(f.browser.find('.dr-browse-backdrop').hidden,true);
+  for(const selector of ['.dr-browse-header','.dr-browse-scroll','.dr-browse-nav'])assert.equal(f.browser.find(selector).inert,false);
+  assert.equal(f.browser.filters.q,'Luffy');f.browser.openProduct(card);assert.equal(f.browser.edit,pending);assert.equal(f.browser.edit.condition,'Near Mint');
+  assert.equal(outside.inert,true);f.browser.closeSheet();assert.equal(outside.inert,false);
   f.finish();checks++;
  }
  {
@@ -119,6 +135,24 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(f.browser.filters.product_type,'CARD');
   assert.equal([...f.browser.sheet.querySelectorAll('input')].find(i=>i.getAttribute('aria-label')==='Sealed Only').checked,false);
   assert.match(f.calls.at(-1).url,/product_type=CARD/);f.finish();checks++;
+ }
+ // Updating an embedded sheet must not leave the surrounding workspace disabled.
+ for(const exit of ['Show results','Close Filters','Escape']){
+  const f=fixture(undefined,undefined,true);await f.browser.open();
+  const outside=[...f.w.document.querySelectorAll('.topbar,.seller-nav,.owner-sidebar,.owner-page-header')];
+  outside.forEach((el,index)=>{el.inert=index===2;});
+  f.browser.openFilters();
+  for(const label of ['Cards Only','Products Owned','Watchlist']){
+   [...f.browser.sheet.querySelectorAll('input')].find(input=>input.getAttribute('aria-label')===label).click();await tick();
+   assert.ok(outside.every(el=>el.inert===true));
+  }
+  if(exit==='Escape')f.browser.sheet.dispatchEvent(new f.w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  else [...f.browser.sheet.querySelectorAll('button')].find(control=>control.textContent===exit||control.getAttribute('aria-label')===exit).click();
+  assert.equal(f.browser.find('.dr-browse-backdrop').hidden,true);
+  outside.forEach((el,index)=>assert.equal(el.inert,index===2));
+  // A later sheet takes a fresh snapshot and still preserves pre-existing inert state.
+  f.browser.openFilters();f.browser.closeSheet();outside.forEach((el,index)=>assert.equal(el.inert,index===2));
+  f.finish();checks++;
  }
  {
   const f=fixture(async url=>url.includes('/sets')?{items:[{system_code:'NARUTO_BANDAI_LEGACY',set_id:'same-id',set_name:'Legacy set',provider:'Bandai',language:'English',indexed_count:1,owned_count:0}]}:{items:[]});

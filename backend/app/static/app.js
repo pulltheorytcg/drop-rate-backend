@@ -48,7 +48,7 @@ function setBusy(form, busy) {
 }
 async function readJson(response) {
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) { const error = new Error(errorMessage(data)); error.status = response.status; throw error; }
+  if (!response.ok) { const error = new Error(errorMessage(data)); error.status = response.status; error.code = data.code || data.error_code; throw error; }
   return data;
 }
 async function authRequest(path, options = {}) {
@@ -122,11 +122,21 @@ function clearSession() {
 async function refreshSession() {
   return window.PullTheoryHubSession.refresh(async () => {
     const previous = state.session;
-    if (!previous?.refresh_token) throw new Error("Your session has expired.");
-    const session = await authRequest("/token?grant_type=refresh_token", {method:"POST", body:JSON.stringify({refresh_token:previous.refresh_token})});
-    if (state.session !== previous) throw new Error("Your account changed. Please sign in again.");
-    saveSession(session);
-    return session.access_token;
+    try {
+      if (!previous?.refresh_token) {
+        const error = new Error("Your session has expired.");
+        error.sessionExpired = true;
+        throw error;
+      }
+      const session = await authRequest("/token?grant_type=refresh_token", {method:"POST", body:JSON.stringify({refresh_token:previous.refresh_token})});
+      if (state.session !== previous) throw new Error("Your account changed. Please sign in again.");
+      saveSession(session);
+      return session.access_token;
+    } catch (error) {
+      error.refreshSession = previous;
+      error.sessionExpired ||= window.PullTheoryHubSession.isExpiredRefresh(error);
+      throw error;
+    }
   });
 }
 async function apiRequest(path, options = {}, retry = true) {
@@ -1136,10 +1146,12 @@ async function openDashboard() {
     try { await reloadDashboard(); }
     catch (error) { showMessage("inventory-message", "Some data could not load. Use Refresh to try again. " + error.message, "error"); }
   } catch (error) {
+    if ("refreshSession" in error && state.session !== error.refreshSession) return;
     const denied = error.message === "FOUNDER_HQ_ACCESS_DENIED"
       || error.message === "No active owner membership"
       || error.message === "Platform administrator access required";
-    if (denied || [401,403].includes(error.status)) clearSession();
+    const expired = error.sessionExpired || [401,403].includes(error.status);
+    if (denied || expired) clearSession();
     document.body.classList.remove("hub-restoring");
     byId("dashboard-view").classList.add("hidden");
     byId("auth-view").classList.remove("hidden");
@@ -1148,7 +1160,8 @@ async function openDashboard() {
       "login-message",
       denied
         ? "This account is not authorised for Founder HQ."
-        : "We couldn’t open your workspace. Your session is kept; refresh to retry or sign in again.",
+        : expired ? "Your session has expired. Please sign in again."
+          : "We couldn’t open your workspace. Your session is kept; refresh to retry or sign in again.",
       "error"
     );
   }
