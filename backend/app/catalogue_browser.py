@@ -53,8 +53,10 @@ GAME_CASE = "case r.system_code " + " ".join(
 # Exact provider links or a previously human-selected provider printing can share
 # an owned count. Card number/name alone never merges parallels or languages.
 SOURCE_CTE = f"""
-with reference_base as materialized (
- select r.*,s.name as set_name,s.release_date,{GAME_CASE} as game
+with reference_base as not materialized (
+ select r.provider,r.system_code,r.language,r.provider_id,r.set_id,r.name,
+        r.card_number,r.rarity,r.image_url,r.source_url,
+        s.name as set_name,s.release_date,{GAME_CASE} as game
  from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
  where (s.release_date is null or s.release_date<=current_date)
 ), links as (
@@ -217,7 +219,10 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
             order = f"case when {number_match} then 0 when lower(e.name)={exact_query} then 1 else 2 end," + order
     clause = " and ".join(where) or "true"
     page_limit, page_offset = bind(limit + 1), bind(offset)
-    query = SOURCE_CTE + f""", reference_values as materialized (
+    # Value sorts must price the matching population before pagination. All
+    # other sorts can select a page first and price only those canonical rows.
+    if sort in ("value_desc", "value_asc"):
+        query = SOURCE_CTE + f""", reference_values as materialized (
       select p.id,v.* from tcg.catalogue_products p
       left join lateral tcg.recognition_catalogue_reference_value(p.id,nullif(p.language,'')) v on true
     ), page as (
@@ -228,7 +233,23 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
       where {clause} order by {order} limit {page_limit} offset {page_offset}
     ) select page.*,coalesce(page.image_url,media.url) as display_image_url
       from page left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null order by page.ordinal
-    """
+        """
+    else:
+        query = SOURCE_CTE + f""", selected_page as materialized (
+          select e.*,coalesce(o.quantity,0) as owned_quantity
+          from entries e left join owned o on o.catalogue_id=e.catalogue_id
+          where {clause} order by {order} limit {page_limit} offset {page_offset}
+        ), page as (
+          select e.*,row_number() over(order by {order})+{page_offset} as ordinal from selected_page e
+        ) select page.*,v.market_value_minor,v.basis_condition,v.pricing_updated_at,
+                 coalesce(page.image_url,media.url) as display_image_url
+          from page left join lateral (
+            select value.* from tcg.catalogue_products p
+            cross join lateral tcg.recognition_catalogue_reference_value(p.id,nullif(p.language,'')) value
+            where p.id=page.catalogue_id
+          ) v on page.catalogue_id is not null
+          left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null order by page.ordinal
+        """
     return query, params
 
 

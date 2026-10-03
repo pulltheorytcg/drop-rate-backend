@@ -72,6 +72,7 @@ window.DropRateCatalogue = (() => {
       else {this.header();this.skeleton();}
       if(productKey){await this.openReference(productKey);return;}
       const revision=this.revision;
+      const home=this.isHome();
       if(!this.gamesLoaded) {
         if(!this.gamesRequest) this.gamesRequest=this.client.request("/api/v1/catalogue-browser/games").then(data=>{
           if(!this.active())return;
@@ -79,8 +80,14 @@ window.DropRateCatalogue = (() => {
           this.games=(data.items||[]).sort((a,b)=>rank(a)-rank(b)||a.game.localeCompare(b.game));
           this.gamesLoaded=true;
         }).finally(()=>{this.gamesRequest=null;});
+        // A known game/search can load independently of the game directory.
+        // Metadata failure must not block a working product endpoint.
+        if(!home){
+          this.gamesRequest.then(()=>{if(this.active()&&!this.dialog.hidden)this.header();}).catch(()=>{});
+          await this.load();return;
+        }
         try {await this.gamesRequest;}
-        catch(error){if(this.active()&&this.isHome())this.find(".dr-browse-status").textContent="Catalogue details couldn’t refresh. Choose a game to browse, or reopen Search to retry.";return;}
+        catch(error){if(this.active()&&revision===this.revision&&this.isHome())this.find(".dr-browse-status").textContent="Catalogue details couldn’t refresh. Choose a game to browse, or reopen Search to retry.";return;}
       }
       if(!this.active() || revision!==this.revision)return;
       await this.load();
