@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-03 — Measured catalogue search performance improvement
+
+- Continued the approved hub usability work with read-only measurements. Removed wide full-library materialization and moved ordinary search pricing after page selection. Value sorting retains pre-pagination pricing, and all exact-link/owner/media/release rules remain intact.
+- Known-game/search results load independently of the game directory; slow or failed metadata cannot block them or replace a newer query.
+- Fresh three-run warm database medians against current production: Luffy search 500→86 ms and Pokémon browse 733→224 ms (83% and 69% lower). Earlier measurements also improved game/set directories and exact-print detail lookup. These are SQL execution timings, not end-to-end phone timings.
+- Nineteen production read-only full-row/order comparisons match, including an existing owner's quantities and price sorts. 2,401 backend tests and all dashboard suites pass, with 20 catalogue scenarios. No production inventory/data/schema/config writes, new services or subscriptions.
+- Reconciled with deployed PR #506, preserving its navigation/session fixes. Frontend asset v7 in both hubs. Detailed evidence and rollback: `docs/CATALOGUE_BROWSER_PERFORMANCE.md`; release/production asset verification belongs to the accompanying PR. Physical-device efficiency acceptance remains open.
+
 ## 2026-10-03 — Workspace filter recovery and expired-session handling
 
 - Fixed Search sheets leaving the surrounding workspace inert after multiple filter changes. Closing, applying or escaping a sheet restores the original navigation state. Leaving Search dismisses its sheet while retaining filters and pending product edits.

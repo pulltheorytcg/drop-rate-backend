@@ -9,11 +9,11 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {
 const card={key:'c:00000000-0000-0000-0000-000000000001',catalogue_id:'card-1',name:'Luffy',game:'One Piece',system_code:'ONE_PIECE_CARD_GAME',set_name:'A Fist of Divine Speed',set_id:'OP11',language:'English',product_type:'CARD',variant:'Foil',card_number:'OP11-118',owned_quantity:0,market_value_minor:null,source_kind:'CATALOGUE'};
 const games=[{game:'One Piece',system_code:'ONE_PIECE_CARD_GAME',languages:['English','Japanese']}];
 let checks=0;
-function fixture(handler=async()=>({items:[card],has_more:false}),owner='account-a',embedded=false){
+function fixture(handler=async()=>({items:[card],has_more:false}),owner='account-a',embedded=false,gameHandler=async()=>({items:games})){
  const dom=new JSDOM('',{runScripts:'outside-only',url:'https://example.test',pretendToBeVisual:true});const w=dom.window;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
  w.eval(titleArt);w.eval(source);let alive=true;const calls=[];
- const client={owner,active:()=>alive,request:async(url,options)=>{calls.push({url,...options});return url.endsWith('/games')?{items:games}:handler(url,options);}};
+ const client={owner,active:()=>alive,request:async(url,options)=>{calls.push({url,...options});return url.endsWith('/games')?gameHandler():handler(url,options);}};
  let host;
  if(embedded){w.document.body.innerHTML='<header class="topbar"></header><nav class="seller-nav"></nav><aside class="owner-sidebar"></aside><header class="owner-page-header"></header><main id="catalogue-host"></main>';host=w.document.getElementById('catalogue-host');}
  const browser=new w.DropRateCatalogue.Browser({host,client,navigate:()=>{},scan:()=>{},graded:()=>{},afterSave:async()=>{}});
@@ -179,6 +179,31 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(f.browser.find('.dr-browse-backdrop').hidden,outcome!=='exact');
   if(outcome==='exact')assert.equal(f.browser.edit.row.key,card.key);
   if(outcome==='missing')assert.match(f.browser.find('.dr-browse-status').textContent,/currently unavailable/);
+  f.finish();checks++;
+ }
+ // Direct game entry must show products without waiting for slow/failed game metadata.
+ for(const failure of [false,true]){
+  const metadata=deferred(),f=fixture(async()=>({items:[card]}),'account-a',true,()=>metadata.promise);
+  f.browser.filters.system_code=card.system_code;
+  await f.browser.open();
+  assert.equal(f.browser.gamesLoaded,false);assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
+  assert.equal(f.calls.filter(c=>c.url.includes('/products?')).length,1);
+  if(failure)metadata.resolve(Promise.reject(Error('Directory unavailable')));else metadata.resolve({items:games});
+  await tick();await tick();
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
+  assert.equal(f.calls.filter(c=>c.url.includes('/products?')).length,1);
+  f.finish();checks++;
+ }
+ // Late metadata must not repeat a search or revive an older result.
+ {
+  const metadata=deferred(),old=deferred();
+  const f=fixture(url=>url.includes('q=old')?old.promise:Promise.resolve({items:[{...card,name:'New result'}]}),'account-a',true,()=>metadata.promise);
+  f.browser.filters.q='old';const opening=f.browser.open();
+  f.browser.filters.q='new';await f.browser.load();
+  metadata.resolve({items:games});old.resolve({items:[{...card,name:'Old result'}]});await opening;await tick();
+  assert.match(f.browser.find('.dr-browse-content').textContent,/New result/);
+  assert.doesNotMatch(f.browser.find('.dr-browse-content').textContent,/Old result/);
+  assert.equal(f.calls.filter(c=>c.url.includes('/products?')).length,2);
   f.finish();checks++;
  }
  console.log('Catalogue browser: '+checks+' search, navigation, filter, ownership, session and retry scenarios passed.');

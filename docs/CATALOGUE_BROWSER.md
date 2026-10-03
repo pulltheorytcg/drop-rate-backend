@@ -65,7 +65,7 @@ checked before the reference is re-read, so later source updates cannot change
 an already committed retry. The confirmation digest lives in the same atomic
 inventory/receipt transaction. No post-commit metadata write is required.
 
-The current catalogue has six game systems. Artwork, complete set names, release
+The catalogue exposes five primary browse destinations, with Naruto combining its two underlying systems. Artwork, complete set names, release
 dates and market coverage vary; some One Piece sets still have provider pack
 labels. Game and set tiles use the publisher artwork described below. Unknown
 values remain pending. Set totals use the larger of the provider's declared
@@ -154,3 +154,7 @@ the previous baseline hold ended and both reviewed PRs were merged and deployed.
 Complete physical-device/account/API acceptance on the live app. The rollback
 target is API deployment `c408306f-8aef-4ec2-87d8-6bbf51e7c44d`; no migration or
 production inventory write accompanied the release.
+
+## Performance follow-up — 2–3 October 2026
+
+Known-game/search entry no longer waits for the game directory. The product query allows early reference filtering and calculates prices only for the selected page unless sorting by value. Global exact-link deduplication, per-owner counts and full before/after result parity are preserved. Measured database medians and validation limits are in `docs/CATALOGUE_BROWSER_PERFORMANCE.md`.
