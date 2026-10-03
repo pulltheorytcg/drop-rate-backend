@@ -3,13 +3,19 @@
   'use strict';
   if (location.origin !== 'https://drop-rate-api-live-production.up.railway.app' || window.top !== window) return;
   const key = 'drop_rate_hub_session';
+  const bootstrapped = 'drop_rate_native_session_bootstrapped';
   const proto = Storage.prototype;
   const get = proto.getItem;
   const set = proto.setItem;
   const remove = proto.removeItem;
   const clear = proto.clear;
-  if (bootstrap && !get.call(sessionStorage, key)) {
-    set.call(sessionStorage, key, JSON.stringify(bootstrap));
+  // postMessage is asynchronous. A logout followed by immediate navigation must
+  // not re-seed an older native snapshot while its clear message is in flight.
+  if (!get.call(sessionStorage, bootstrapped)) {
+    if (bootstrap && !get.call(sessionStorage, key)) {
+      set.call(sessionStorage, key, JSON.stringify(bootstrap));
+    }
+    set.call(sessionStorage, bootstrapped, '1');
   }
   function publish() {
     window.webkit.messageHandlers.hubSession.postMessage({
@@ -26,7 +32,10 @@
   };
   proto.clear = function () {
     clear.call(this);
-    if (this === sessionStorage) publish();
+    if (this === sessionStorage) {
+      set.call(sessionStorage, bootstrapped, '1');
+      publish();
+    }
   };
   window.addEventListener('hub-session-cleared', publish);
 })(__DROP_RATE_BOOTSTRAP__);

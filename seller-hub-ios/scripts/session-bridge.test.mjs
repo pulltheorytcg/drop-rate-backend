@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 
 const source = readFileSync(new URL('../Resources/session-bridge.js', import.meta.url), 'utf8');
 const key = 'drop_rate_hub_session';
-function fixture({bootstrap = null, existing = null, origin = 'https://drop-rate-api-live-production.up.railway.app', main = true} = {}) {
+function fixture({bootstrap = null, existing = null, initial = {}, origin = 'https://drop-rate-api-live-production.up.railway.app', main = true} = {}) {
   class Storage {
     data = new Map();
     getItem(k) { return this.data.get(String(k)) ?? null; }
@@ -14,6 +14,7 @@ function fixture({bootstrap = null, existing = null, origin = 'https://drop-rate
     clear() { this.data.clear(); }
   }
   const sessionStorage = new Storage(), localStorage = new Storage(), messages = [], listeners = {};
+  for (const [k, value] of Object.entries(initial)) sessionStorage.setItem(k, value);
   if (existing) sessionStorage.setItem(key, JSON.stringify(existing));
   const window = {webkit: {messageHandlers: {hubSession: {postMessage: m => messages.push(JSON.parse(JSON.stringify(m)))}}},
     addEventListener: (event, callback) => { listeners[event] = callback; }};
@@ -60,4 +61,13 @@ test('the actual shared hub logout removes the native session', () => {
   f.sessionStorage.removeItem(key);
   f.listeners['hub-session-cleared']();
   assert.deepEqual(f.messages.at(-1), {type: 'session', value: null});
+});
+test('logout immediately followed by navigation cannot restore a stale native snapshot', () => {
+  const bootstrap = {access_token: 'old-account', refresh_token: 'old-refresh'};
+  for (const logout of [s => s.removeItem(key), s => s.clear()]) {
+    const first = fixture({bootstrap});
+    logout(first.sessionStorage);
+    const nextPage = fixture({bootstrap, initial: Object.fromEntries(first.sessionStorage.data)});
+    assert.equal(nextPage.sessionStorage.getItem(key), null);
+  }
 });
