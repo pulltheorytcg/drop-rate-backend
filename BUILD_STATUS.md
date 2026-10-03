@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-03 — Refine the illustrated slab labels
+
+- Refined the approved two-card sign-in illustration with clearer PSA and Beckett-style labels: year/set/card details, prominent grade 10s, and four Beckett subgrades. Preserved the illustrated Charizard/Umbreon composition, transparent background and existing page layout.
+- The sign-in now references a sibling WebP asset with a fresh URL; the previous illustration remains available for rollback. This is decorative generated art, without real certificate numbers or barcodes.
+- Release checks and live verification are recorded on the accompanying PR. The exact built-in imagegen edit prompt, label references and rollback are in `docs/SIGNIN_GRAIL_ARTWORK.md`. No application behaviour or production data changes.
+
 ## 2026-10-03 — Restore the illustrated two-card style
 
 - Applied the user's correction after the three-game photo composition: the shared sign-in now uses the previously liked anime illustration of Charizard PSA 10 and Black Label Umbreon. Both cards are part of one transparent generated asset, matching the navy/cyan/gold background.
