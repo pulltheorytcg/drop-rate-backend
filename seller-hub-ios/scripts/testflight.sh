@@ -51,8 +51,10 @@ options = {'method': 'app-store-connect', 'teamID': team, 'signingStyle': 'manua
 (p / 'ExportOptions.plist').write_bytes(plistlib.dumps(options))
 PY
 profile_uuid="$(cat "$signing_dir/profile-uuid")"
-mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-profile_path="$HOME/Library/MobileDevice/Provisioning Profiles/$profile_uuid.mobileprovision"
+# Xcode 16+ uses this directory (the workflow selects Xcode 26.3).
+profile_directory="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+mkdir -p "$profile_directory"
+profile_path="$profile_directory/$profile_uuid.mobileprovision"
 cp "$signing_dir/profile.mobileprovision" "$profile_path"
 build_number="$(python3 - <<'PY'
 import os
