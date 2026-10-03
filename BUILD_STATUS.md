@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-03 — Three-game sign-in grail artwork
+
+- Replaced the shared sign-in fantasy card backs with first-edition Charizard PSA 10, manga Luffy OP05-119 PSA 10 and Son Goku The Awakened Power Black Label 10 source imagery. Card faces and grading labels retain their actual reference details; the surrounding anime scene, angled composition and rim lighting provide the requested style.
+- Added an imagegen background retaining the established navy/cyan/gold/red palette. Foreground images use local WebP assets, with no runtime third-party image requests. CSS v4 includes an in-flow phone layout and keeps the sign-in artwork visible at tablet widths.
+- Existing dashboard suites pass locally. Sources, generation prompt, boundaries, verification limits and application rollback are in `docs/SIGNIN_GRAIL_ARTWORK.md`; CI and live verification are recorded on the release PR. No authentication, production data, schema, financial or infrastructure changes.
+
 ## 2026-10-03 — Measured catalogue search performance improvement
 
 - Continued the approved hub usability work with read-only measurements. Removed wide full-library materialization and moved ordinary search pricing after page selection. Value sorting retains pre-pagination pricing, and all exact-link/owner/media/release rules remain intact.
