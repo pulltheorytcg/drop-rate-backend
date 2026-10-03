@@ -2,6 +2,17 @@
 
 This directory makes production n8n workflows version-controlled and reproducible without exposing the n8n editor publicly.
 
+## Daily TCG editorial requirement — 4 October 2026
+
+The founder requires daily branded publication on **Instagram, Facebook, TikTok
+and YouTube**, researching TCG news, social discussion, notable completed sales,
+price changes, releases and raw-to-graded comparisons. The full design and current
+connection/implementation limits are in
+[`docs/DAILY_TCG_EDITORIAL_SYSTEM.md`](../../docs/DAILY_TCG_EDITORIAL_SYSTEM.md).
+[`plans/daily-tcg-editorial.json`](plans/daily-tcg-editorial.json) is a design
+specification, not an importable workflow or an active schedule. Existing Content
+Machine PR #216 remains an unmerged draft requiring repair.
+
 ## Rules
 
 - Base image is pinned in `Dockerfile.n8n`.
@@ -205,4 +216,3 @@ Scope is deliberately narrow:
 Title, description, SEO, media and arbitrary metafield rewrites are **not** included in DR-02 v1. They require their own deterministic readiness/update contracts rather than being bundled into a generic n8n mutation.
 
 The workflow is imported inactive. Its migration must be applied through the normal manual production migration gate before any controlled activation test.
-

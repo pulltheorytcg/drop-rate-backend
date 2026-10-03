@@ -683,7 +683,7 @@
       "sequence": 31,
       "domain": "Marketing",
       "authority": "ORCHESTRATE",
-      "status": "PLANNED",
+      "status": "DESIGNED",
       "source_of_truth": "PostgreSQL/Supabase",
       "decision_engine": "FastAPI",
       "orchestrator": "n8n",
@@ -698,14 +698,17 @@
         "failure/retry test",
         "observability/error routing",
         "provider terms/rate-limit review where applicable"
-      ]
+      ],
+      "design_document": "docs/DAILY_TCG_EDITORIAL_SYSTEM.md",
+      "design_configuration": "automation/n8n/plans/daily-tcg-editorial.json",
+      "live_publishing_verified": false
     },
     {
       "key": "social-publishing",
       "sequence": 32,
       "domain": "Marketing",
       "authority": "PUBLISH",
-      "status": "PLANNED",
+      "status": "DESIGNED",
       "source_of_truth": "PostgreSQL/Supabase",
       "decision_engine": "FastAPI",
       "orchestrator": "n8n",
@@ -720,7 +723,10 @@
         "failure/retry test",
         "observability/error routing",
         "provider terms/rate-limit review where applicable"
-      ]
+      ],
+      "design_document": "docs/DAILY_TCG_EDITORIAL_SYSTEM.md",
+      "design_configuration": "automation/n8n/plans/daily-tcg-editorial.json",
+      "live_publishing_verified": false
     },
     {
       "key": "customer-email-lifecycle",

@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "kind": "DESIGN_SPECIFICATION_NOT_N8N_EXPORT",
+  "key": "daily-tcg-editorial",
+  "status": "DESIGNED",
+  "runtime_consumer_implemented": false,
+  "live_publishing_verified": false,
+  "recorded_date": "2026-10-04",
+  "timezone": "Europe/London",
+  "design_document": "docs/DAILY_TCG_EDITORIAL_SYSTEM.md",
+  "registry_families": [
+    "ai-creative-generation",
+    "social-publishing",
+    "competitive-intelligence"
+  ],
+  "daily_target": {
+    "core_stories": 1,
+    "publications_per_platform": 1,
+    "platforms": ["INSTAGRAM", "FACEBOOK", "TIKTOK", "YOUTUBE"],
+    "youtube_format": "SHORTS",
+    "research_local_times_proposed": ["06:00", "12:00"],
+    "selection_local_time_proposed": "13:00",
+    "publication_local_time_proposed": "18:00",
+    "schedule_activated": false
+  },
+  "series": [
+    "DROP_RATE_DAILY",
+    "SOLD_SPOTLIGHT",
+    "MARKET_MOVERS",
+    "RELEASE_RADAR",
+    "RAW_TO_GRADED",
+    "COLLECTOR_QUESTIONS",
+    "IN_THE_DROP"
+  ],
+  "coverage": [
+    "POKEMON",
+    "ONE_PIECE",
+    "DRAGON_BALL_MASTERS",
+    "DRAGON_BALL_FUSION_WORLD",
+    "NARUTO_KAYOU",
+    "NARUTO_BANDAI_LEGACY",
+    "RIFTBOUND"
+  ],
+  "evidence": {
+    "source_contract_required": true,
+    "exact_print_and_language_required": true,
+    "sold_asking_and_index_kept_separate": true,
+    "social_only_rumours_auto_publish": false,
+    "unknown_best_offer_amount_is_sale_price": false,
+    "sold_trend_minimum_independent_transactions_per_window_proposed": 5,
+    "sold_trend_window_days_proposed": 7,
+    "sold_trend_comparison_windows": 2,
+    "numeric_claims_computed_by": "BACKEND",
+    "external_content_is_untrusted_data": true
+  },
+  "raw_to_graded": {
+    "exact_print_match_required": true,
+    "raw_condition_required": true,
+    "multiple_grade_scenarios_required": true,
+    "current_material_costs_required_for_net_claim": true,
+    "expected_value_requires_defensible_grade_probabilities": true,
+    "population_report_is_personal_grade_probability": false,
+    "guaranteed_profit_or_grade_claims": false,
+    "automatic_purchase_or_grading_submission": false
+  },
+  "creative": {
+    "logo": "EXISTING_APPROVED_PUBLIC_DROP_RATE_MASTER_TO_BE_BOUND",
+    "logo_bound": false,
+    "palette": ["navy", "cyan/turquoise", "warm gold", "cream", "restrained red"],
+    "music": false,
+    "default_audio": "SILENT_CAPTIONED",
+    "male_voiceover": "OPTIONAL_UNCONFIGURED",
+    "video_width_target": 1080,
+    "video_height_target": 1920,
+    "duration_seconds_target": [25, 45],
+    "carousel_dimensions_optional": [1080, 1350],
+    "social_media_rights_required": true,
+    "reference_only_assets_allowed_in_published_media": false,
+    "fake_card_or_slab_evidence_allowed": false,
+    "daily_template_regeneration_required": false
+  },
+  "fallback": {
+    "validated_evergreen_target_count": 7,
+    "actual_validated_count": 0,
+    "selection": "UNUSED_AND_STILL_VALID",
+    "on_exhaustion": "SKIP_SLOT_AND_CREATE_DEDUPLICATED_EXCEPTION"
+  },
+  "publishing": {
+    "publisher_selected": false,
+    "account_connections_verified": false,
+    "notification_only_mode_acceptable": false,
+    "private_upload_counts_as_publication": false,
+    "idempotency_scope": ["job_id", "variant_version", "platform", "account_id"],
+    "atomic_claim_required": true,
+    "reconcile_before_retry_after_ambiguous_create": true,
+    "per_platform_status_and_stop_switch": true,
+    "queued_acknowledgement_counts_as_publication": false,
+    "external_post_id_and_visibility_readback_required": true
+  },
+  "measurement": {
+    "post_age_hours": [24, 168],
+    "primary": ["qualified_visits", "opt_ins", "orders", "net_contribution"],
+    "diagnostic": ["views", "retention", "saves", "shares"],
+    "financial_authority": "BACKEND",
+    "unknown_attribution_is_zero": false
+  },
+  "activation_dependencies": [
+    "Repair and reconcile Content Machine PR 216 against current main",
+    "Implement governed persistence, APIs and exact-evidence qualification",
+    "Configure permitted research and verified sold-price sources",
+    "Bind approved public brand assets and render validated templates",
+    "Verify four actual channel identities and authorised automatic publishing",
+    "Configure provider budgets and bounded source/rendering calls",
+    "Build and test inactive n8n workflows against implemented APIs",
+    "Prove four-platform delivery, retries, metrics and evergreen fallback"
+  ]
+}

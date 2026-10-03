@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Daily four-platform TCG editorial system specified (not activated)
+
+- Founder requires original Drop Rate branded posts every day on Instagram, Facebook, TikTok and YouTube. Coverage includes news, permitted public social topics, notable completed sales, price drops/rises, set releases, raw-to-graded comparisons and relevant inventory. This supersedes the earlier one-social-channel recommendation.
+- Added `docs/DAILY_TCG_EDITORIAL_SYSTEM.md` and `automation/n8n/plans/daily-tcg-editorial.json`: daily research/selection/rendering/publication/reconciliation/measurement design, seven editorial series, one core story with four platform variants, no music, exact evidence/media rules, grading cost/downside scenarios, evergreen fallback, budget controls and implementation acceptance criteria. The JSON is a design specification, not an importable n8n workflow.
+- Marked the existing creative-generation/social-publishing registry families DESIGNED with the design pointer. No new workflow family or event type was introduced.
+- Read-only Railway inspection confirms the existing n8n service is live with its persistent volume and no staged changes. It does not verify stored social credentials or active workflows. Content Machine PR #216 is still a conflicting, unmerged draft requiring repair; it is not a working production publisher.
+- Publishing identities/connections, permitted sold-price feeds, renderer/templates, backend content contracts and end-to-end four-platform delivery remain open. Buffer's three-channel Free/API route plus a separately verified Facebook adapter is only a cost candidate; all-four-channel paid scheduling remains an alternative. No paid subscription, secret, live schedule, public post, schema, inventory or financial change was made.
+- Documentation/configuration validation: JSON parsing, registry tests and diff checks; no runtime, authenticated social-account or posting test is claimed. Current iPhone work remains separately paused in PR #511.
+
 ## 2026-10-03 — Refine the illustrated slab labels
 
 - Refined the approved two-card sign-in illustration with clearer PSA and Beckett-style labels: year/set/card details, prominent grade 10s, and four Beckett subgrades. Preserved the illustrated Charizard/Umbreon composition, transparent background and existing page layout.
