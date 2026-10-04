@@ -1,10 +1,12 @@
 import asyncio
 import hashlib
+import io
 import json
 from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from PIL import Image
 from fastapi import HTTPException
 from app import social_pilot as p
 
@@ -86,7 +88,7 @@ async def test_check_is_read_only(manifest):
 async def test_blocked_paths_do_not_send(manifest,case):
     store=Store(); provider=AsyncMock()
     if case=='expired': manifest['expires_at']='2020-01-01T00:00:00+00:00'
-    if case=='preflight': provider.preflight.side_effect=p.PilotError('PILOT_MEDIA_CHANGED')
+    if case=='preflight': provider.preflight.side_effect=p.PilotError('PILOT_MEDIA_PIXELS_CHANGED')
     if case=='already_claimed': store.won=True
     result=await p.execute_pilot(manifest,command(manifest),store,provider,enabled=case!='disabled')
     assert result['state'] in {'BLOCKED','UNKNOWN'}
@@ -135,7 +137,7 @@ def test_exact_approval_binding(manifest,monkeypatch,tmp_path):
 
 
 def test_committed_manifest_hash():
-    assert p.digest(json.loads(p.MANIFEST_PATH.read_text()))=='2b056042371fbb245ff26dd5582a46f6bcc4ff8463362cb50e31932e67dc7fde'
+    assert p.digest(json.loads(p.MANIFEST_PATH.read_text()))=='880123ba424f5a109a023be5f385b160208e53b51897957e2811cf9da2aac94d'
 
 
 @pytest.mark.asyncio
@@ -155,12 +157,17 @@ async def test_transport_errors_are_sanitised(failure):
 @pytest.mark.asyncio
 @pytest.mark.parametrize('changed',[False,True])
 async def test_media_hash_preflight(manifest,changed):
-    body=b'test jpeg fixture'; e=manifest['channels']['instagram']
-    e['asset']['bytes']=len(body); e['asset']['sha256']=hashlib.sha256(body).hexdigest()
+    image=Image.new('RGB',(2,2),(10,20,30))
+    e=manifest['channels']['instagram']
+    e['asset'].update(width=2,height=2,rgb_sha256=hashlib.sha256(image.tobytes()).hexdigest())
+    if changed: image.putpixel((0,0),(11,20,30))
+    out=io.BytesIO(); image.save(out,format='PNG'); body=out.getvalue()
     def respond(req):
-        if req.method=='GET': return httpx.Response(200,content=(b'changed' if changed else body),headers={'content-type':'image/jpeg'})
+        if req.method=='GET':
+            assert req.headers['accept']=='image/png'
+            return httpx.Response(200,content=body,headers={'content-type':'image/png'})
         return httpx.Response(200,json={'data':{'channel':{'id':e['channel_id'],'organizationId':manifest['organization_id'],'name':'dropratetcg','service':'instagram','allowedActions':['scheduleUpdates'],'isDisconnected':False,'isLocked':False,'isQueuePaused':False}}})
     client=p.BufferClient('fixture-key',transport=httpx.MockTransport(respond))
     if changed:
-        with pytest.raises(p.PilotError,match='PILOT_MEDIA_CHANGED'): await client.preflight(manifest,'instagram')
+        with pytest.raises(p.PilotError,match='PILOT_MEDIA_PIXELS_CHANGED'): await client.preflight(manifest,'instagram')
     else: await client.preflight(manifest,'instagram')

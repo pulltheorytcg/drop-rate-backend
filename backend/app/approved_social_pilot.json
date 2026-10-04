@@ -12,18 +12,22 @@
     "https://www.shonentcg.com/blog/op-18-leaders-confirmed-and-reported"
   ],
   "expires_at": "2026-10-05T23:59:00+00:00",
+  "format_note": "Lossless PNG publication copies of the selected original and prepared Instagram canvas. Exact RGB pixel hashes bind visible approval; encoded metadata/compression differences are permitted, but any pixel or dimension change is rejected. Captions, accounts, story and pilot identity are unchanged.",
   "channels": {
     "instagram": {
       "channel_id": "6ac1a5deea19ca0bde6c81b7",
       "title": "Your OP-18 chase? 👀",
       "text": "Is Saint Gunko your OP-18 chase? 👀🔥\n\nOP18-065 is our early chase pick for The Dominance of God. Which card is on your watchlist?\n\nThe poster shows planned release dates of 20 November 2026 (English) and 21 November 2026 (Japanese), subject to change. “Likely chase” is our collecting opinion—not a confirmed value or pull rate.\n\nAI-assisted fan illustration featuring a Japanese card preview. This is not a stock or pre-order announcement.\n\nFollow @dropratetcg for cards, community and culture.\nVisit droprate.co.uk through the link in our profile.\n\n#DropRate #OnePieceCardGame #OP18 #TCGCommunity #CardCollectors",
       "asset": {
-        "url": "https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-approved-gunko-pilot-instagram-68276fec.jpg?v=1791131713",
-        "sha256": "68276fecbca8206f972e697f9b446041a59b629862b5d46869c0334a95c7e748",
-        "bytes": 1227824,
+        "url": "https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-gunko-instagram-pixel-184856ef.png?v=1791135907",
+        "sha256": "f79ee360d5539850da2ce7ad97e07c47628d135c488195c488674397180ef8cb",
+        "bytes": 2113818,
         "width": 1080,
         "height": 1350,
-        "mime_type": "image/jpeg"
+        "mime_type": "image/png",
+        "integrity": "rgb8-sha256-v1",
+        "rgb_sha256": "184856efc33e384b0cc3d878a6c0d724e0ba8573d27ba077c9f8bfc2115733d6",
+        "source_sha256": "dd50fa082ebec63502735d8ddd04fbf798e9278f2fbb59adad73a0616886c574"
       }
     },
     "tiktok": {
@@ -31,12 +35,15 @@
       "title": "Your OP-18 chase? 👀",
       "text": "Is Saint Gunko your OP-18 chase? 👀🔥\n\nOP18-065 is our early chase pick for The Dominance of God. Which card is on your watchlist?\n\nThe poster shows planned release dates of 20 November 2026 (English) and 21 November 2026 (Japanese), subject to change. “Likely chase” is our collecting opinion—not a confirmed value or pull rate.\n\nAI-assisted fan illustration featuring a Japanese card preview. This is not a stock or pre-order announcement.\n\nFollow @dropratetcg for cards, community and culture.\nVisit droprate.co.uk through the link in our profile.\n\n#DropRate #OnePieceCardGame #OP18 #TCGCommunity #CardCollectors",
       "asset": {
-        "url": "https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-approved-gunko-pilot-tiktok-0206e48d.jpg?v=1791131735",
-        "sha256": "0206e48d16dfa84d994560d289d30394d9437bc003eef2f8ba19fabd6b208998",
-        "bytes": 1639894,
+        "url": "https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-gunko-tiktok-pixel-5cb56b61.png?v=1791135937",
+        "sha256": "c44270e561ae5da38c9d1078f7d8534ee9f446ec6f7bca7f9c4ef3404480a936",
+        "bytes": 2753353,
         "width": 948,
         "height": 1659,
-        "mime_type": "image/jpeg"
+        "mime_type": "image/png",
+        "integrity": "rgb8-sha256-v1",
+        "rgb_sha256": "5cb56b61b635a55463def50d4d65c889eb2b4a573355c898824b92c14660cb2f",
+        "source_sha256": "4781fb9bfa37084421e7854cf5004df592dd113858a18b2ec235d67cebfa78a1"
       }
     }
   }

@@ -4,7 +4,7 @@ const fs=require('node:fs'), os=require('node:os'), path=require('node:path');
 const crypto=require('node:crypto'), {promisify}=require('node:util');
 const execFile=promisify(require('node:child_process').execFile);
 const {classify}=require('./safe-diagnostics.cjs');
-const HASH='2b056042371fbb245ff26dd5582a46f6bcc4ff8463362cb50e31932e67dc7fde';
+const HASH='880123ba424f5a109a023be5f385b160208e53b51897957e2811cf9da2aac94d';
 let phase='CONFIG';
 async function run(){
  const op=process.env.DROP_RATE_APPROVED_PILOT_OPERATION;

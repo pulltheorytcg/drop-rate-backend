@@ -5,7 +5,7 @@ on:
     paths:
       - 'backend/app/marketing_specialist*'
       - 'backend/app/automation_commands.py'
-      - 'backend/app/social_pilot.py'
+      - 'backend/app/social_pilot*'
       - 'backend/app/approved_social_pilot.json'
       - 'automation/n8n/marketing/**'
       - 'automation/n8n/pilot/**'
@@ -47,7 +47,7 @@ jobs:
           PYTHONPATH=backend python tests/marketing_postgres_smoke.py
           PYTHONPATH=backend python tests/social_pilot_postgres.py
       - name: Targeted contracts with machine-readable test counts
-        run: PYTHONPATH=backend pytest -o addopts='' -q tests/test_marketing_specialists.py tests/test_marketing_specialist_api.py tests/test_social_pilot.py tests/test_social_pilot_api.py --junitxml=/tmp/marketing-tests.xml
+        run: PYTHONPATH=backend pytest -o addopts='' -q tests/test_marketing_specialists.py tests/test_marketing_specialist_api.py tests/test_social_pilot.py tests/test_social_pilot_api.py tests/test_social_pilot_media.py tests/test_social_pilot_diagnostics.py --junitxml=/tmp/marketing-tests.xml
 
   n8n-import:
     runs-on: ubuntu-latest
@@ -85,7 +85,7 @@ jobs:
             --add-host drop-rate-api-live.railway.internal:127.0.0.1 \
             -e N8N_BLOCK_ENV_ACCESS_IN_NODE=false \
             -e NODE_FUNCTION_ALLOW_BUILTIN=crypto \
-            -e DROP_RATE_APPROVED_PILOT_HASH=2b056042371fbb245ff26dd5582a46f6bcc4ff8463362cb50e31932e67dc7fde \
+            -e DROP_RATE_APPROVED_PILOT_HASH=880123ba424f5a109a023be5f385b160208e53b51897957e2811cf9da2aac94d \
             -e DROP_RATE_AUTOMATION_COMMAND_SECRET=ci-only-approved-pilot-signature-123456789012345 \
             -e DROP_RATE_API_AUTOMATION_CONTROL_URL=http://drop-rate-api-live.railway.internal:8765/api/v1/automation/control/receipt \
             -v "$PWD/tests/social_pilot_n8n.cjs:/test/pilot.cjs:ro" \
