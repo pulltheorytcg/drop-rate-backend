@@ -1,0 +1,142 @@
+{
+  "id": "DR31StaticEditorialPreparationV1",
+  "name": "DR-31 Static Editorial Preparation V1",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "DR90GlobalErrorV1"
+  },
+  "nodes": [
+    {
+      "id": "dr31-trigger",
+      "name": "Prepare Supplied Brief",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        0
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "brief_json",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dr31-sign",
+      "name": "Sign Preparation Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -350,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst raw = $input.first().json.brief_json;\nif (typeof raw !== 'string' || Buffer.byteLength(raw, 'utf8') > 65536) throw new Error('invalid_brief_size');\nconst brief = JSON.parse(raw);\nif (!brief || Array.isArray(brief) || typeof brief !== 'object') throw new Error('invalid_brief');\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst receiptUrl = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nif (secret.length < 32) throw new Error('automation_command_secret_not_configured');\nif (!/\\/automation\\/control\\/receipt$/.test(receiptUrl)) throw new Error('automation_control_receipt_url_invalid');\nconst body = JSON.stringify(brief);\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body, 'utf8').digest('hex');\nreturn [{json:{command_url:receiptUrl.replace(/\\/automation\\/control\\/receipt$/, '/automation/commands/editorial/prepare'),command_body:body,command_timestamp:timestamp,command_signature:signature}}];"
+      }
+    },
+    {
+      "id": "dr31-http",
+      "name": "Prepare via FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.command_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.command_timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.command_signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.command_body }}",
+        "options": {
+          "timeout": 90000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr31-check",
+      "name": "Return Unpublished Preparation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        190,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const response = $json;\nconst body = typeof response.body === 'string' ? JSON.parse(response.body) : response.body;\nif (response.statusCode !== 200 || !body || body.schema_version !== 1 || body.publishable !== false || body.stored !== false) throw new Error('editorial_preparation_contract_failed');\nif (!['PREPARED_FOR_REVIEW', 'NEEDS_EVIDENCE'].includes(body.status) || !Array.isArray(body.publication_blockers) || body.publication_blockers.length === 0) throw new Error('editorial_preparation_gate_missing');\nreturn [{json:body}];"
+      }
+    }
+  ],
+  "connections": {
+    "Prepare Supplied Brief": {
+      "main": [
+        [
+          {
+            "node": "Sign Preparation Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Preparation Command": {
+      "main": [
+        [
+          {
+            "node": "Prepare via FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare via FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Return Unpublished Preparation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-31",
+      "version": 1,
+      "role": "stateless-editorial-preparation-only",
+      "activationGate": "Requires deployed signed preparation endpoint, trusted caller and DR-90. No scheduler, fetch, durable success receipt or publisher. Evidence, rendering, persistence and account adapters remain unimplemented."
+    }
+  }
+}

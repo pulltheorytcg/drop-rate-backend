@@ -1,0 +1,273 @@
+{
+  "schema_version": 1,
+  "kind": "DESIGN_SPECIFICATION_NOT_N8N_EXPORT",
+  "key": "daily-tcg-editorial",
+  "status": "DESIGNED",
+  "runtime_consumer_implemented": false,
+  "live_publishing_verified": false,
+  "recorded_date": "2026-10-04",
+  "timezone": "Europe/London",
+  "design_document": "docs/DAILY_TCG_EDITORIAL_SYSTEM.md",
+  "registry_families": [
+    "ai-creative-generation",
+    "social-publishing",
+    "competitive-intelligence"
+  ],
+  "daily_target": {
+    "core_stories": 3,
+    "publications_per_platform": 3,
+    "platforms": [
+      "INSTAGRAM",
+      "FACEBOOK",
+      "YOUTUBE",
+      "TIKTOK",
+      "X"
+    ],
+    "youtube_format": "COMMUNITY_IMAGE_PUBLISHING_BLOCKED",
+    "research_local_times_proposed": [
+      "06:00",
+      "09:00",
+      "13:00",
+      "18:00"
+    ],
+    "schedule_activated": false,
+    "static_candidate_platforms": [
+      "INSTAGRAM",
+      "FACEBOOK",
+      "TIKTOK",
+      "X"
+    ],
+    "publication_local_times_proposed": [
+      "10:00",
+      "14:00",
+      "19:00"
+    ],
+    "selection": "BEFORE_EACH_PUBLICATION_SLOT",
+    "cadence_is_initial_test_not_user_fixed_number": false,
+    "five_platform_static_delivery_possible_verified": false,
+    "total_platform_publications_target": 15,
+    "founder_confirmed_three_distinct_posts_across_five_platforms": true
+  },
+  "series": [
+    "ARTIST_CONNECTIONS",
+    "BUDGET_BINDER",
+    "RANKED_GUIDE",
+    "RAW_TO_GRADED",
+    "MARKET_MOVERS",
+    "RELEASE_RADAR",
+    "STORY_SPOTLIGHT",
+    "SCREEN_RADAR",
+    "COMMUNITY_PICKS"
+  ],
+  "coverage": [
+    "ONE_PIECE",
+    "POKEMON",
+    "DRAGON_BALL",
+    "NARUTO",
+    "COMICS",
+    "MANGA",
+    "RIFTBOUND",
+    "LORCANA",
+    "ANIME",
+    "LIVE_ACTION_FILMS",
+    "COMIC_BOOK_FILMS"
+  ],
+  "evidence": {
+    "source_contract_required": true,
+    "exact_print_and_language_required": true,
+    "sold_asking_and_index_kept_separate": true,
+    "social_only_rumours_auto_publish": false,
+    "unknown_best_offer_amount_is_sale_price": false,
+    "sold_trend_minimum_independent_transactions_per_window_proposed": 5,
+    "sold_trend_window_days_proposed": 7,
+    "sold_trend_comparison_windows": 2,
+    "numeric_claims_computed_by": "BACKEND",
+    "external_content_is_untrusted_data": true
+  },
+  "raw_to_graded": {
+    "exact_print_match_required": true,
+    "raw_condition_required": true,
+    "multiple_grade_scenarios_required": true,
+    "current_material_costs_required_for_net_claim": true,
+    "expected_value_requires_defensible_grade_probabilities": true,
+    "population_report_is_personal_grade_probability": false,
+    "guaranteed_profit_or_grade_claims": false,
+    "automatic_purchase_or_grading_submission": false,
+    "selection_focus": "LOW_RAW_COST_WITH_SUBSTANTIAL_VERIFIED_PSA10_PREMIUM",
+    "low_raw_cost_required": true,
+    "large_psa10_to_raw_relative_value_required": true,
+    "ratio_alone_is_sufficient": false,
+    "single_exceptional_sale_is_sufficient": false,
+    "hero_display": [
+      "Raw card: \u00a320",
+      "PSA 10: \u00a3200"
+    ],
+    "hero_display_values_are": "FOUNDER_ILLUSTRATIVE_EXAMPLE_NOT_LIVE_PRICES",
+    "headline_is_price_comparison_not_profit_promise": true,
+    "downside_and_cost_detail_placement": "CAPTION_OR_SUPPORTING_CAROUSEL_SLIDE",
+    "prototype_screen": {
+      "max_raw_gbp": 30,
+      "min_psa10_raw_multiple": 4,
+      "min_sales_per_state": 5,
+      "states": [
+        "RAW_NM",
+        "PSA_9",
+        "PSA_10"
+      ],
+      "window_days": 30,
+      "configurable_policy_not_market_standard": true,
+      "net_profit_implemented": false
+    }
+  },
+  "creative": {
+    "logo": "EXISTING_APPROVED_PUBLIC_DROP_RATE_MASTER_TO_BE_BOUND",
+    "logo_bound": false,
+    "palette": [
+      "navy",
+      "cyan/turquoise",
+      "warm gold",
+      "cream",
+      "restrained red"
+    ],
+    "music": false,
+    "default_audio": "NONE_STATIC",
+    "social_media_rights_required": true,
+    "reference_only_assets_allowed_in_published_media": false,
+    "fake_card_or_slab_evidence_allowed": false,
+    "daily_template_regeneration_required": false,
+    "direction": "BALANCED_EDITORIAL_WITH_RESTRAINED_CHARACTER",
+    "layout_rules": [
+      "small existing logo",
+      "strong type hierarchy",
+      "generous space",
+      "real exact undistorted assets",
+      "occasional angled framing",
+      "subtle texture accents",
+      "mobile readable sources and prices"
+    ],
+    "avoid": [
+      "lime accents",
+      "fake slabs",
+      "AI-invented card art",
+      "distorted cards",
+      "excessive glow",
+      "oversized logos",
+      "busy explosions",
+      "generic checklist hero"
+    ],
+    "initial_decorative_previews_approved": false,
+    "master_dimensions": [
+      1080,
+      1350
+    ],
+    "tiktok_dimensions": [
+      1080,
+      1920
+    ],
+    "carousel_slides_target": [
+      6,
+      8
+    ],
+    "single_image_news_allowed": true,
+    "video_deferred": true,
+    "final_templates_approved": false
+  },
+  "fallback": {
+    "validated_evergreen_target_count": 9,
+    "actual_validated_count": 0,
+    "selection": "UNUSED_AND_STILL_VALID",
+    "on_exhaustion": "SKIP_SLOT_AND_CREATE_DEDUPLICATED_EXCEPTION"
+  },
+  "publishing": {
+    "publisher_selected": false,
+    "account_connections_verified": false,
+    "notification_only_mode_acceptable": false,
+    "private_upload_counts_as_publication": false,
+    "idempotency_scope": [
+      "job_id",
+      "variant_version",
+      "platform",
+      "account_id"
+    ],
+    "atomic_claim_required": true,
+    "reconcile_before_retry_after_ambiguous_create": true,
+    "per_platform_status_and_stop_switch": true,
+    "queued_acknowledgement_counts_as_publication": false,
+    "external_post_id_and_visibility_readback_required": true
+  },
+  "measurement": {
+    "post_age_hours": [
+      24,
+      168
+    ],
+    "primary": [
+      "qualified_visits",
+      "opt_ins",
+      "orders",
+      "net_contribution"
+    ],
+    "diagnostic": [
+      "reach_where_available",
+      "likes",
+      "comments",
+      "saves_where_available",
+      "shares_where_available",
+      "profile_visits_where_available"
+    ],
+    "financial_authority": "BACKEND",
+    "unknown_attribution_is_zero": false,
+    "competitor_public_missing_metrics": "NULL_NOT_ZERO"
+  },
+  "activation_dependencies": [
+    "Reconcile unmerged Content Machine PR 216 schema and grants against current main",
+    "Implement authoritative evidence records, source adapters and durable job/revision/publication claims",
+    "Configure permitted research and completed-sale sources across expanded coverage",
+    "Render and validate licensed assets with fixed branded static templates",
+    "Build relevant storefront destinations and conversion attribution",
+    "Verify actual Instagram/Facebook/TikTok/X account identities and unattended static capabilities",
+    "Resolve YouTube static publishing gap without silently substituting video or manual work",
+    "Configure budgets and prove retries, public read-back, metrics and evergreen fallback"
+  ],
+  "scope": "COLLECTING_AND_ENTERTAINMENT_STATIC_FIRST",
+  "preparation_component": {
+    "implemented_in_branch": true,
+    "live_deployment_verified": false,
+    "endpoint": "/api/v1/automation/commands/editorial/prepare",
+    "workflow": "automation/n8n/workflows/dr-31-static-editorial-preparation.json",
+    "publishes": false,
+    "persists": false
+  },
+  "research_document": "docs/STATIC_SOCIAL_RESEARCH_AND_PLAYBOOK.md",
+  "taxonomy": {
+    "franchise_medium_and_format_are_separate": true,
+    "card_systems_remain_distinct": [
+      "DRAGON_BALL_MASTERS",
+      "DRAGON_BALL_FUSION_WORLD",
+      "NARUTO_KAYOU",
+      "NARUTO_BANDAI_LEGACY"
+    ],
+    "release_territory_language_and_distribution_required": true,
+    "spoiler_free_default": true
+  },
+  "content_mix_proposed_per_week": {
+    "news_releases": 6,
+    "collecting_reading_guides": 6,
+    "market": 3,
+    "art_history_character": 3,
+    "community_choice": 3
+  },
+  "artist_posts_proposed_per_28_days": 6,
+  "goal": "AUTONOMOUS_ORGANIC_MARKETING_RESEARCH_CREATE_MANAGE_PUBLISH_TEST_LEARN",
+  "closed_loop": {
+    "research": "BOUNDED_APPROVED_SOURCES_PLUS_PERMITTED_CREATOR_OBSERVATIONS",
+    "selection": "SOURCE_QUALITY_FRESHNESS_AUDIENCE_DIVERSITY_AND_RELEVANT_DESTINATION",
+    "creation": "STRUCTURED_ORIGINAL_COPY_AND_FIXED_BRAND_RENDERER",
+    "management": "QUEUE_CHANNEL_HEALTH_CAPTIONS_LINKS_RETRIES_AND_CORRECTIONS",
+    "measurement": "24H_AND_7D_SOCIAL_AND_STORE_RESULTS",
+    "adaptation": "WEEKLY_BOUNDED_FORMAT_TOPIC_HOOK_AND_SLOT_WEIGHTS",
+    "automatic_purchases_or_price_changes": false,
+    "routine_founder_approval_required": false,
+    "human_attention": "UNRESOLVABLE_ACCESS_OR_CONSEQUENTIAL_EXCEPTIONS",
+    "complete_loop_implemented": false
+  }
+}
