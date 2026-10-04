@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .access_control import require_platform_admin
 from .db import user_connection
+from .social_pilot_media import MediaIntegrityError, verify_png_pixels
 
 router = APIRouter(prefix='/approved-social-pilot', tags=['approved-social-pilot'])
 MANIFEST_PATH = Path(__file__).with_name('approved_social_pilot.json')
@@ -153,16 +154,18 @@ class BufferClient:
             raise PilotError('PILOT_MEDIA_URL_NOT_APPROVED')
         try:
             async with httpx.AsyncClient(timeout=20,follow_redirects=False,transport=self.transport) as client:
-                async with client.stream('GET',asset['url']) as response:
-                    if response.status_code != 200 or response.headers.get('content-type','').split(';')[0] != 'image/jpeg':
+                async with client.stream('GET',asset['url'],headers={'Accept':'image/png'}) as response:
+                    if response.status_code != 200 or response.headers.get('content-type','').split(';')[0] != 'image/png':
                         raise PilotError('PILOT_MEDIA_NOT_AVAILABLE')
                     body = bytearray()
                     async for chunk in response.aiter_bytes():
                         body.extend(chunk)
                         if len(body)>8*1024*1024:
                             raise PilotError('PILOT_MEDIA_TOO_LARGE')
-            if len(body) != asset['bytes'] or hashlib.sha256(body).hexdigest() != asset['sha256']:
-                raise PilotError('PILOT_MEDIA_CHANGED')
+            # No tolerance: every decoded RGB pixel and both dimensions are approved.
+            verify_png_pixels(body,asset)
+        except MediaIntegrityError as error:
+            raise PilotError(str(error)) from None
         except PilotError:
             raise
         except httpx.HTTPError:
