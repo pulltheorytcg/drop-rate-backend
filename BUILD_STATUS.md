@@ -6,6 +6,15 @@ The complete build log through the marketing installation checkpoint is preserve
 
 This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
 
+## 4 October 2026 — Gunko social publishing pilot completed
+
+- PR #519 merged as `5191cba757382618ae8ed2335a1997f371f2625d`. The subsequent bounded live Gunko pilot completed through the real n8n → signed FastAPI → Buffer path for Instagram and TikTok. This is execution evidence for the explicitly approved one-off pilot, not activation of the general six-agent or recurring marketing system.
+- API deployment `e79cb45d-ed35-420f-8667-caf81fa60102` reached SUCCESS after **2,539 tests** and readiness 200. Read-only n8n deployment `4fc66826-3262-4c92-87a0-6211e71c5372` then returned `READY` for both intended Buffer accounts, including the hosted-image validation that had previously blocked publication.
+- Real publish deployment `4a4d523b-6e37-442a-8bf5-273614363eb3` submitted the approved manifest `880123ba424f5a109a023be5f385b160208e53b51897957e2811cf9da2aac94d`. Instagram @dropratetcg produced Buffer post `6ac29d1f6ae9cbb01a564d9f`; TikTok @dropratetcg produced Buffer post `6ac29d1ffe1389e4133cde22`. A separate real status read-back on n8n deployment `603f2c64-2164-41cf-b1b2-deaa4b9fe004` returned `DELIVERED` for both with platform URLs.
+- Idempotency is live-verified for this pilot. Intentional repeat publish deployment `85abd755-81d2-4355-9a4e-8a907c4e2f4f` returned `DELIVERED`, `replayed: true` and the **same post IDs/URLs**. PostgreSQL then still contained exactly **2 intents, 2 claims, 2 submissions and 2 observations**—one per channel—with **0 Action Required** items for this pilot. No duplicate provider submissions or journal records were created.
+- Cleanup is complete. n8n's temporary pre-deploy command was removed and its timeout restored; `TCG_APPROVED_SOCIAL_PILOT` was cleared after the replay. Cleanup API deployment `4bc47f07-0379-49b0-b6fd-ddf2bccc32b3` reached SUCCESS, again passed 2,539 tests and returned readiness 200. Daily/recurring publishing and the generic preparation specialists remain off.
+- Verification boundary: delivery was re-read from Buffer and recorded in PostgreSQL, but independent public visual/audio inspection of the returned social URLs was not completed, so `public_visibility_verified` remains false. The Umbreon/Goku price posters remain pending source/FX checks, and YouTube still requires the approved narrated/captioned video. This pilot does **not** prove general campaign intake, autonomous content production, arbitrary-post approval or daily scheduling.
+
 ## 4 October 2026 — Colour metadata compatibility (live-test repair)
 
 - PR #518 merged as `d21706869daff13e5974fd29127ccb61b5e563d8`; Backend `37222469633` and Marketing integration `37222469535` passed. API deployment `08fe2c4e-b248-412f-9c38-ce2e36839223` reached SUCCESS after 2,533 tests and readiness 200.
