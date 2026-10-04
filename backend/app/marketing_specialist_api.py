@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from .access_control import require_platform_admin
 from .db import user_connection
+from .marketing_run_attention import record_marketing_attention
 from .marketing_specialists import (
     Command, JobInput, MODEL, PROMPT_VERSION, OpenAIModel, StrictModel,
     digest, registry, run_specialist,
@@ -110,10 +111,12 @@ class PostgresStore:
         async with self.connection() as connection:
             await connection.execute("select pg_advisory_xact_lock(hashtextextended('marketing:' || $1, 0))", str(self.actor))
             # Worker loss is not permission to reissue a paid call. Retain UNKNOWN.
-            await connection.execute(
-                "update tcg.marketing_specialist_runs set state='UNKNOWN',output_sha256=$2,output='{\"error_code\":\"WORKER_RESULT_UNKNOWN\"}'::jsonb,finished_at=now() where created_by=$1 and state='RUNNING' and started_at < now()-interval '5 minutes'",
+            expired = await connection.fetch(
+                "update tcg.marketing_specialist_runs set state='UNKNOWN',output_sha256=$2,output='{\"error_code\":\"WORKER_RESULT_UNKNOWN\"}'::jsonb,finished_at=now() where created_by=$1 and state='RUNNING' and started_at < now()-interval '5 minutes' returning *",
                 self.actor, digest({'error_code': 'WORKER_RESULT_UNKNOWN'}),
             )
+            for record in expired:
+                await record_marketing_attention(connection, record)
             existing = await connection.fetchrow(
                 'select * from tcg.marketing_specialist_runs where job_id=$1 and revision=$2 and stage=$3 and created_by=$4',
                 command.job_id, command.revision, command.stage, self.actor,
@@ -141,6 +144,8 @@ class PostgresStore:
                 state, output, digest(output), usage, command.job_id, command.revision, command.stage, self.actor,
             )
             if row:
+                # The result and its attention item commit together under actor RLS.
+                await record_marketing_attention(connection, row)
                 return dict(row)
             row = await connection.fetchrow(
                 'select * from tcg.marketing_specialist_runs where job_id=$1 and revision=$2 and stage=$3 and created_by=$4',
