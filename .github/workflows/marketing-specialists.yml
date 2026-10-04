@@ -1,0 +1,75 @@
+name: Marketing specialist integration
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app/marketing_specialist*'
+      - 'backend/app/automation_commands.py'
+      - 'automation/n8n/marketing/**'
+      - 'database/migrations/*_marketing_specialists_v1.sql'
+      - 'tests/*marketing*'
+      - '.github/workflows/marketing-specialists.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: marketing_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --requirement requirements-dev.txt
+      - name: Real PostgreSQL migration, RLS and concurrent claim checks
+        env:
+          MARKETING_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/marketing_test
+        run: PYTHONPATH=backend python tests/marketing_postgres_smoke.py
+      - name: Targeted contracts with machine-readable test counts
+        run: PYTHONPATH=backend pytest -o addopts='' -q tests/test_marketing_specialists.py tests/test_marketing_specialist_api.py --junitxml=/tmp/marketing-tests.xml
+
+  n8n-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the existing pinned image without adding services
+        run: docker build --file Dockerfile.n8n --tag drop-rate-n8n:marketing-ci .
+      - name: Import and exercise exact committed exports in a network-isolated disposable database
+        run: |
+          docker run --rm --network none --user root --entrypoint sh \
+            --add-host drop-rate-api-live.railway.internal:127.0.0.1 \
+            -e N8N_USER_FOLDER=/tmp/drop-rate-marketing-ci \
+            -e N8N_ENCRYPTION_KEY=disposable-ci-fixture-not-a-production-key \
+            -e N8N_DIAGNOSTICS_ENABLED=false \
+            -e N8N_VERSION_NOTIFICATIONS_ENABLED=false \
+            -e N8N_BLOCK_ENV_ACCESS_IN_NODE=false \
+            -e NODE_FUNCTION_ALLOW_BUILTIN=crypto \
+            -e DROP_RATE_MARKETING_SPECIALISTS_ENABLED=true \
+            -e DROP_RATE_AUTOMATION_COMMAND_SECRET=disposable-marketing-smoke-signature-123456789 \
+            -e DROP_RATE_API_AUTOMATION_CONTROL_URL=http://drop-rate-api-live.railway.internal:8765/api/v1/automation/control/receipt \
+            -v "$PWD/automation/n8n/marketing:/input:ro" \
+            -v "$PWD/tests/marketing_n8n_smoke.cjs:/test/smoke.cjs:ro" \
+            drop-rate-n8n:marketing-ci -c '
+              set -eu
+              n8n --version | grep -Fx "2.32.6"
+              n8n import:workflow --input=/input/workflows.json >/tmp/import.log 2>&1 || { cat /tmp/import.log; exit 1; }
+              n8n export:workflow --all --output=/tmp/export.json >/tmp/export.log 2>&1 || { cat /tmp/export.log; exit 1; }
+              node -e '\''const fs=require("fs"),assert=require("assert/strict"); const expected=JSON.parse(fs.readFileSync("/input/workflows.json","utf8")); const actual=JSON.parse(fs.readFileSync("/tmp/export.json","utf8")); assert.equal(actual.length,7); for(const w of expected){const a=actual.find(x=>x.id===w.id); assert(a); assert.equal(a.active,false); assert.deepEqual(a.nodes,w.nodes); assert.deepEqual(a.connections,w.connections); for(const k of Object.keys(w.settings)) assert.deepEqual(a.settings[k],w.settings[k]);} console.log("PASS: all seven exact specialist exports imported and read back inactive on n8n 2.32.6; no external network or production state used");'\''
+              node /test/smoke.cjs
+            '

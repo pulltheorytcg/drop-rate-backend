@@ -1,0 +1,1105 @@
+[
+  {
+    "id": "DRMktResearchV1",
+    "name": "Drop Rate Marketing | Research V1",
+    "active": false,
+    "settings": {
+      "executionOrder": "v1",
+      "errorWorkflow": "DR90GlobalErrorV1",
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none",
+      "saveManualExecutions": false,
+      "saveExecutionProgress": false,
+      "executionTimeout": 180
+    },
+    "nodes": [
+      {
+        "id": "specialist-input",
+        "name": "Specialist Input",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [
+          -240,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "sign-command",
+        "name": "Sign Command",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const crypto = require('crypto');\nif (String($env.DROP_RATE_MARKETING_SPECIALISTS_ENABLED || '').toLowerCase() !== 'true') throw new Error('marketing_specialists_disabled');\nif ($input.all().length !== 1) throw new Error('marketing_single_job_required');\nconst input = $input.first().json;\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (!uuid.test(String(input.job_id || '')) || !uuid.test(String(input.actor_user_id || '')) || input.revision !== 1 || !/^[0-9a-f]{64}$/.test(String(input.expected_input_sha256 || ''))) throw new Error('marketing_input_invalid');\nconst command = {job_id: input.job_id, actor_user_id: input.actor_user_id, revision: 1, stage: 'research', expected_input_sha256: input.expected_input_sha256};\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst receipt = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nconst publicUrl = 'https://drop-rate-api-live-production.up.railway.app/api/v1/automation/control/receipt';\nconst privateUrl = /^http:\\/\\/drop-rate-api-live\\.railway\\.internal:[0-9]{1,5}\\/api\\/v1\\/automation\\/control\\/receipt$/;\nif (secret.length < 32) throw new Error('marketing_signature_not_configured');\nif (receipt !== publicUrl && !privateUrl.test(receipt)) throw new Error('marketing_backend_url_invalid');\nconst body = JSON.stringify(command);\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body, 'utf8').digest('hex');\nreturn [{json:{command_url:receipt.replace('/automation/control/receipt','/automation/commands/marketing/run'),command_body:body,command_timestamp:timestamp,command_signature:signature,command}}];"
+        }
+      },
+      {
+        "id": "run-via-fastapi",
+        "name": "Run via FastAPI",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.command_url }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Drop-Rate-Timestamp",
+                "value": "={{ $json.command_timestamp }}"
+              },
+              {
+                "name": "X-Drop-Rate-Signature",
+                "value": "={{ $json.command_signature }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
+          "options": {
+            "timeout": 120000,
+            "redirect": {
+              "redirect": {
+                "followRedirects": false
+              }
+            },
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "retryOnFail": false
+      },
+      {
+        "id": "verify-result",
+        "name": "Verify Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const r = $input.first().json || {};\nconst status = Number(r.statusCode || 0);\nif (status !== 200) throw new Error('marketing_backend_http_' + status);\nconst b = r.body || {};\nconst c = $('Sign Command').first().json.command;\nfor (const key of ['job_id','actor_user_id','revision','stage','expected_input_sha256']) {\n  if (b[key] !== c[key]) throw new Error('marketing_response_identity_mismatch');\n}\nif (!['PREPARED','NEEDS_REVIEW','AWAITING_MEDIA','BLOCKED','RUNNING','FAILED','UNKNOWN'].includes(b.state) || b.publishable !== false || b.published !== false) throw new Error('marketing_response_contract_invalid');\nreturn [{json:b}];"
+        }
+      }
+    ],
+    "connections": {
+      "Specialist Input": {
+        "main": [
+          [
+            {
+              "node": "Sign Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sign Command": {
+        "main": [
+          [
+            {
+              "node": "Run via FastAPI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run via FastAPI": {
+        "main": [
+          [
+            {
+              "node": "Verify Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "dropRate": {
+        "version": 1,
+        "status": "BUILT_INACTIVE_UNVERIFIED_RUNTIME",
+        "publishable": false,
+        "higgsfield": false
+      }
+    }
+  },
+  {
+    "id": "DRMktBriefV1",
+    "name": "Drop Rate Marketing | Brief V1",
+    "active": false,
+    "settings": {
+      "executionOrder": "v1",
+      "errorWorkflow": "DR90GlobalErrorV1",
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none",
+      "saveManualExecutions": false,
+      "saveExecutionProgress": false,
+      "executionTimeout": 180
+    },
+    "nodes": [
+      {
+        "id": "specialist-input",
+        "name": "Specialist Input",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [
+          -240,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "sign-command",
+        "name": "Sign Command",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const crypto = require('crypto');\nif (String($env.DROP_RATE_MARKETING_SPECIALISTS_ENABLED || '').toLowerCase() !== 'true') throw new Error('marketing_specialists_disabled');\nif ($input.all().length !== 1) throw new Error('marketing_single_job_required');\nconst input = $input.first().json;\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (!uuid.test(String(input.job_id || '')) || !uuid.test(String(input.actor_user_id || '')) || input.revision !== 1 || !/^[0-9a-f]{64}$/.test(String(input.expected_input_sha256 || ''))) throw new Error('marketing_input_invalid');\nconst command = {job_id: input.job_id, actor_user_id: input.actor_user_id, revision: 1, stage: 'brief', expected_input_sha256: input.expected_input_sha256};\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst receipt = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nconst publicUrl = 'https://drop-rate-api-live-production.up.railway.app/api/v1/automation/control/receipt';\nconst privateUrl = /^http:\\/\\/drop-rate-api-live\\.railway\\.internal:[0-9]{1,5}\\/api\\/v1\\/automation\\/control\\/receipt$/;\nif (secret.length < 32) throw new Error('marketing_signature_not_configured');\nif (receipt !== publicUrl && !privateUrl.test(receipt)) throw new Error('marketing_backend_url_invalid');\nconst body = JSON.stringify(command);\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body, 'utf8').digest('hex');\nreturn [{json:{command_url:receipt.replace('/automation/control/receipt','/automation/commands/marketing/run'),command_body:body,command_timestamp:timestamp,command_signature:signature,command}}];"
+        }
+      },
+      {
+        "id": "run-via-fastapi",
+        "name": "Run via FastAPI",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.command_url }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Drop-Rate-Timestamp",
+                "value": "={{ $json.command_timestamp }}"
+              },
+              {
+                "name": "X-Drop-Rate-Signature",
+                "value": "={{ $json.command_signature }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
+          "options": {
+            "timeout": 120000,
+            "redirect": {
+              "redirect": {
+                "followRedirects": false
+              }
+            },
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "retryOnFail": false
+      },
+      {
+        "id": "verify-result",
+        "name": "Verify Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const r = $input.first().json || {};\nconst status = Number(r.statusCode || 0);\nif (status !== 200) throw new Error('marketing_backend_http_' + status);\nconst b = r.body || {};\nconst c = $('Sign Command').first().json.command;\nfor (const key of ['job_id','actor_user_id','revision','stage','expected_input_sha256']) {\n  if (b[key] !== c[key]) throw new Error('marketing_response_identity_mismatch');\n}\nif (!['PREPARED','NEEDS_REVIEW','AWAITING_MEDIA','BLOCKED','RUNNING','FAILED','UNKNOWN'].includes(b.state) || b.publishable !== false || b.published !== false) throw new Error('marketing_response_contract_invalid');\nreturn [{json:b}];"
+        }
+      }
+    ],
+    "connections": {
+      "Specialist Input": {
+        "main": [
+          [
+            {
+              "node": "Sign Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sign Command": {
+        "main": [
+          [
+            {
+              "node": "Run via FastAPI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run via FastAPI": {
+        "main": [
+          [
+            {
+              "node": "Verify Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "dropRate": {
+        "version": 1,
+        "status": "BUILT_INACTIVE_UNVERIFIED_RUNTIME",
+        "publishable": false,
+        "higgsfield": false
+      }
+    }
+  },
+  {
+    "id": "DRMktCopyV1",
+    "name": "Drop Rate Marketing | Copywriting V1",
+    "active": false,
+    "settings": {
+      "executionOrder": "v1",
+      "errorWorkflow": "DR90GlobalErrorV1",
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none",
+      "saveManualExecutions": false,
+      "saveExecutionProgress": false,
+      "executionTimeout": 180
+    },
+    "nodes": [
+      {
+        "id": "specialist-input",
+        "name": "Specialist Input",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [
+          -240,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "sign-command",
+        "name": "Sign Command",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const crypto = require('crypto');\nif (String($env.DROP_RATE_MARKETING_SPECIALISTS_ENABLED || '').toLowerCase() !== 'true') throw new Error('marketing_specialists_disabled');\nif ($input.all().length !== 1) throw new Error('marketing_single_job_required');\nconst input = $input.first().json;\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (!uuid.test(String(input.job_id || '')) || !uuid.test(String(input.actor_user_id || '')) || input.revision !== 1 || !/^[0-9a-f]{64}$/.test(String(input.expected_input_sha256 || ''))) throw new Error('marketing_input_invalid');\nconst command = {job_id: input.job_id, actor_user_id: input.actor_user_id, revision: 1, stage: 'copywriting', expected_input_sha256: input.expected_input_sha256};\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst receipt = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nconst publicUrl = 'https://drop-rate-api-live-production.up.railway.app/api/v1/automation/control/receipt';\nconst privateUrl = /^http:\\/\\/drop-rate-api-live\\.railway\\.internal:[0-9]{1,5}\\/api\\/v1\\/automation\\/control\\/receipt$/;\nif (secret.length < 32) throw new Error('marketing_signature_not_configured');\nif (receipt !== publicUrl && !privateUrl.test(receipt)) throw new Error('marketing_backend_url_invalid');\nconst body = JSON.stringify(command);\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body, 'utf8').digest('hex');\nreturn [{json:{command_url:receipt.replace('/automation/control/receipt','/automation/commands/marketing/run'),command_body:body,command_timestamp:timestamp,command_signature:signature,command}}];"
+        }
+      },
+      {
+        "id": "run-via-fastapi",
+        "name": "Run via FastAPI",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.command_url }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Drop-Rate-Timestamp",
+                "value": "={{ $json.command_timestamp }}"
+              },
+              {
+                "name": "X-Drop-Rate-Signature",
+                "value": "={{ $json.command_signature }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
+          "options": {
+            "timeout": 120000,
+            "redirect": {
+              "redirect": {
+                "followRedirects": false
+              }
+            },
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "retryOnFail": false
+      },
+      {
+        "id": "verify-result",
+        "name": "Verify Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const r = $input.first().json || {};\nconst status = Number(r.statusCode || 0);\nif (status !== 200) throw new Error('marketing_backend_http_' + status);\nconst b = r.body || {};\nconst c = $('Sign Command').first().json.command;\nfor (const key of ['job_id','actor_user_id','revision','stage','expected_input_sha256']) {\n  if (b[key] !== c[key]) throw new Error('marketing_response_identity_mismatch');\n}\nif (!['PREPARED','NEEDS_REVIEW','AWAITING_MEDIA','BLOCKED','RUNNING','FAILED','UNKNOWN'].includes(b.state) || b.publishable !== false || b.published !== false) throw new Error('marketing_response_contract_invalid');\nreturn [{json:b}];"
+        }
+      }
+    ],
+    "connections": {
+      "Specialist Input": {
+        "main": [
+          [
+            {
+              "node": "Sign Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sign Command": {
+        "main": [
+          [
+            {
+              "node": "Run via FastAPI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run via FastAPI": {
+        "main": [
+          [
+            {
+              "node": "Verify Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "dropRate": {
+        "version": 1,
+        "status": "BUILT_INACTIVE_UNVERIFIED_RUNTIME",
+        "publishable": false,
+        "higgsfield": false
+      }
+    }
+  },
+  {
+    "id": "DRMktDesignV1",
+    "name": "Drop Rate Marketing | Design V1",
+    "active": false,
+    "settings": {
+      "executionOrder": "v1",
+      "errorWorkflow": "DR90GlobalErrorV1",
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none",
+      "saveManualExecutions": false,
+      "saveExecutionProgress": false,
+      "executionTimeout": 180
+    },
+    "nodes": [
+      {
+        "id": "specialist-input",
+        "name": "Specialist Input",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [
+          -240,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "sign-command",
+        "name": "Sign Command",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const crypto = require('crypto');\nif (String($env.DROP_RATE_MARKETING_SPECIALISTS_ENABLED || '').toLowerCase() !== 'true') throw new Error('marketing_specialists_disabled');\nif ($input.all().length !== 1) throw new Error('marketing_single_job_required');\nconst input = $input.first().json;\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (!uuid.test(String(input.job_id || '')) || !uuid.test(String(input.actor_user_id || '')) || input.revision !== 1 || !/^[0-9a-f]{64}$/.test(String(input.expected_input_sha256 || ''))) throw new Error('marketing_input_invalid');\nconst command = {job_id: input.job_id, actor_user_id: input.actor_user_id, revision: 1, stage: 'design', expected_input_sha256: input.expected_input_sha256};\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst receipt = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nconst publicUrl = 'https://drop-rate-api-live-production.up.railway.app/api/v1/automation/control/receipt';\nconst privateUrl = /^http:\\/\\/drop-rate-api-live\\.railway\\.internal:[0-9]{1,5}\\/api\\/v1\\/automation\\/control\\/receipt$/;\nif (secret.length < 32) throw new Error('marketing_signature_not_configured');\nif (receipt !== publicUrl && !privateUrl.test(receipt)) throw new Error('marketing_backend_url_invalid');\nconst body = JSON.stringify(command);\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body, 'utf8').digest('hex');\nreturn [{json:{command_url:receipt.replace('/automation/control/receipt','/automation/commands/marketing/run'),command_body:body,command_timestamp:timestamp,command_signature:signature,command}}];"
+        }
+      },
+      {
+        "id": "run-via-fastapi",
+        "name": "Run via FastAPI",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.command_url }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Drop-Rate-Timestamp",
+                "value": "={{ $json.command_timestamp }}"
+              },
+              {
+                "name": "X-Drop-Rate-Signature",
+                "value": "={{ $json.command_signature }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
+          "options": {
+            "timeout": 120000,
+            "redirect": {
+              "redirect": {
+                "followRedirects": false
+              }
+            },
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "retryOnFail": false
+      },
+      {
+        "id": "verify-result",
+        "name": "Verify Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const r = $input.first().json || {};\nconst status = Number(r.statusCode || 0);\nif (status !== 200) throw new Error('marketing_backend_http_' + status);\nconst b = r.body || {};\nconst c = $('Sign Command').first().json.command;\nfor (const key of ['job_id','actor_user_id','revision','stage','expected_input_sha256']) {\n  if (b[key] !== c[key]) throw new Error('marketing_response_identity_mismatch');\n}\nif (!['PREPARED','NEEDS_REVIEW','AWAITING_MEDIA','BLOCKED','RUNNING','FAILED','UNKNOWN'].includes(b.state) || b.publishable !== false || b.published !== false) throw new Error('marketing_response_contract_invalid');\nreturn [{json:b}];"
+        }
+      }
+    ],
+    "connections": {
+      "Specialist Input": {
+        "main": [
+          [
+            {
+              "node": "Sign Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sign Command": {
+        "main": [
+          [
+            {
+              "node": "Run via FastAPI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run via FastAPI": {
+        "main": [
+          [
+            {
+              "node": "Verify Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "dropRate": {
+        "version": 1,
+        "status": "BUILT_INACTIVE_UNVERIFIED_RUNTIME",
+        "publishable": false,
+        "higgsfield": false
+      }
+    }
+  },
+  {
+    "id": "DRMktPublishV1",
+    "name": "Drop Rate Marketing | Publishing V1",
+    "active": false,
+    "settings": {
+      "executionOrder": "v1",
+      "errorWorkflow": "DR90GlobalErrorV1",
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none",
+      "saveManualExecutions": false,
+      "saveExecutionProgress": false,
+      "executionTimeout": 180
+    },
+    "nodes": [
+      {
+        "id": "specialist-input",
+        "name": "Specialist Input",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [
+          -240,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "sign-command",
+        "name": "Sign Command",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const crypto = require('crypto');\nif (String($env.DROP_RATE_MARKETING_SPECIALISTS_ENABLED || '').toLowerCase() !== 'true') throw new Error('marketing_specialists_disabled');\nif ($input.all().length !== 1) throw new Error('marketing_single_job_required');\nconst input = $input.first().json;\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (!uuid.test(String(input.job_id || '')) || !uuid.test(String(input.actor_user_id || '')) || input.revision !== 1 || !/^[0-9a-f]{64}$/.test(String(input.expected_input_sha256 || ''))) throw new Error('marketing_input_invalid');\nconst command = {job_id: input.job_id, actor_user_id: input.actor_user_id, revision: 1, stage: 'publishing', expected_input_sha256: input.expected_input_sha256};\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst receipt = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nconst publicUrl = 'https://drop-rate-api-live-production.up.railway.app/api/v1/automation/control/receipt';\nconst privateUrl = /^http:\\/\\/drop-rate-api-live\\.railway\\.internal:[0-9]{1,5}\\/api\\/v1\\/automation\\/control\\/receipt$/;\nif (secret.length < 32) throw new Error('marketing_signature_not_configured');\nif (receipt !== publicUrl && !privateUrl.test(receipt)) throw new Error('marketing_backend_url_invalid');\nconst body = JSON.stringify(command);\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body, 'utf8').digest('hex');\nreturn [{json:{command_url:receipt.replace('/automation/control/receipt','/automation/commands/marketing/run'),command_body:body,command_timestamp:timestamp,command_signature:signature,command}}];"
+        }
+      },
+      {
+        "id": "run-via-fastapi",
+        "name": "Run via FastAPI",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.command_url }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Drop-Rate-Timestamp",
+                "value": "={{ $json.command_timestamp }}"
+              },
+              {
+                "name": "X-Drop-Rate-Signature",
+                "value": "={{ $json.command_signature }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
+          "options": {
+            "timeout": 120000,
+            "redirect": {
+              "redirect": {
+                "followRedirects": false
+              }
+            },
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "retryOnFail": false
+      },
+      {
+        "id": "verify-result",
+        "name": "Verify Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const r = $input.first().json || {};\nconst status = Number(r.statusCode || 0);\nif (status !== 200) throw new Error('marketing_backend_http_' + status);\nconst b = r.body || {};\nconst c = $('Sign Command').first().json.command;\nfor (const key of ['job_id','actor_user_id','revision','stage','expected_input_sha256']) {\n  if (b[key] !== c[key]) throw new Error('marketing_response_identity_mismatch');\n}\nif (!['PREPARED','NEEDS_REVIEW','AWAITING_MEDIA','BLOCKED','RUNNING','FAILED','UNKNOWN'].includes(b.state) || b.publishable !== false || b.published !== false) throw new Error('marketing_response_contract_invalid');\nreturn [{json:b}];"
+        }
+      }
+    ],
+    "connections": {
+      "Specialist Input": {
+        "main": [
+          [
+            {
+              "node": "Sign Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sign Command": {
+        "main": [
+          [
+            {
+              "node": "Run via FastAPI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run via FastAPI": {
+        "main": [
+          [
+            {
+              "node": "Verify Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "dropRate": {
+        "version": 1,
+        "status": "BUILT_INACTIVE_UNVERIFIED_RUNTIME",
+        "publishable": false,
+        "higgsfield": false
+      }
+    }
+  },
+  {
+    "id": "DRMktManageV1",
+    "name": "Drop Rate Marketing | Social Management V1",
+    "active": false,
+    "settings": {
+      "executionOrder": "v1",
+      "errorWorkflow": "DR90GlobalErrorV1",
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none",
+      "saveManualExecutions": false,
+      "saveExecutionProgress": false,
+      "executionTimeout": 180
+    },
+    "nodes": [
+      {
+        "id": "specialist-input",
+        "name": "Specialist Input",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [
+          -240,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "sign-command",
+        "name": "Sign Command",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const crypto = require('crypto');\nif (String($env.DROP_RATE_MARKETING_SPECIALISTS_ENABLED || '').toLowerCase() !== 'true') throw new Error('marketing_specialists_disabled');\nif ($input.all().length !== 1) throw new Error('marketing_single_job_required');\nconst input = $input.first().json;\nconst uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (!uuid.test(String(input.job_id || '')) || !uuid.test(String(input.actor_user_id || '')) || input.revision !== 1 || !/^[0-9a-f]{64}$/.test(String(input.expected_input_sha256 || ''))) throw new Error('marketing_input_invalid');\nconst command = {job_id: input.job_id, actor_user_id: input.actor_user_id, revision: 1, stage: 'social_management', expected_input_sha256: input.expected_input_sha256};\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst receipt = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nconst publicUrl = 'https://drop-rate-api-live-production.up.railway.app/api/v1/automation/control/receipt';\nconst privateUrl = /^http:\\/\\/drop-rate-api-live\\.railway\\.internal:[0-9]{1,5}\\/api\\/v1\\/automation\\/control\\/receipt$/;\nif (secret.length < 32) throw new Error('marketing_signature_not_configured');\nif (receipt !== publicUrl && !privateUrl.test(receipt)) throw new Error('marketing_backend_url_invalid');\nconst body = JSON.stringify(command);\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256', secret).update(timestamp + '.' + body, 'utf8').digest('hex');\nreturn [{json:{command_url:receipt.replace('/automation/control/receipt','/automation/commands/marketing/run'),command_body:body,command_timestamp:timestamp,command_signature:signature,command}}];"
+        }
+      },
+      {
+        "id": "run-via-fastapi",
+        "name": "Run via FastAPI",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.command_url }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Drop-Rate-Timestamp",
+                "value": "={{ $json.command_timestamp }}"
+              },
+              {
+                "name": "X-Drop-Rate-Signature",
+                "value": "={{ $json.command_signature }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
+          "options": {
+            "timeout": 120000,
+            "redirect": {
+              "redirect": {
+                "followRedirects": false
+              }
+            },
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "retryOnFail": false
+      },
+      {
+        "id": "verify-result",
+        "name": "Verify Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const r = $input.first().json || {};\nconst status = Number(r.statusCode || 0);\nif (status !== 200) throw new Error('marketing_backend_http_' + status);\nconst b = r.body || {};\nconst c = $('Sign Command').first().json.command;\nfor (const key of ['job_id','actor_user_id','revision','stage','expected_input_sha256']) {\n  if (b[key] !== c[key]) throw new Error('marketing_response_identity_mismatch');\n}\nif (!['PREPARED','NEEDS_REVIEW','AWAITING_MEDIA','BLOCKED','RUNNING','FAILED','UNKNOWN'].includes(b.state) || b.publishable !== false || b.published !== false) throw new Error('marketing_response_contract_invalid');\nreturn [{json:b}];"
+        }
+      }
+    ],
+    "connections": {
+      "Specialist Input": {
+        "main": [
+          [
+            {
+              "node": "Sign Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sign Command": {
+        "main": [
+          [
+            {
+              "node": "Run via FastAPI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run via FastAPI": {
+        "main": [
+          [
+            {
+              "node": "Verify Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "dropRate": {
+        "version": 1,
+        "status": "BUILT_INACTIVE_UNVERIFIED_RUNTIME",
+        "publishable": false,
+        "higgsfield": false
+      }
+    }
+  },
+  {
+    "id": "DRMktPrepareV1",
+    "name": "Drop Rate Marketing | Preparation Coordinator V1",
+    "active": false,
+    "settings": {
+      "executionOrder": "v1",
+      "errorWorkflow": "DR90GlobalErrorV1",
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none",
+      "saveManualExecutions": false,
+      "saveExecutionProgress": false,
+      "executionTimeout": 180
+    },
+    "nodes": [
+      {
+        "id": "existing-job-input",
+        "name": "Existing Job Input",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [
+          -240,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "run-research",
+        "name": "Run Research",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "DRMktResearchV1",
+            "mode": "id"
+          },
+          "mode": "each",
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        }
+      },
+      {
+        "id": "research-prepared",
+        "name": "Research Prepared",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const b = $input.first().json; if (b.state !== 'PREPARED') throw new Error('marketing_handoff_stopped_' + String(b.state)); return [{json:b}];"
+        }
+      },
+      {
+        "id": "run-brief",
+        "name": "Run Brief",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          480,
+          0
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "DRMktBriefV1",
+            "mode": "id"
+          },
+          "mode": "each",
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        }
+      },
+      {
+        "id": "brief-prepared",
+        "name": "Brief Prepared",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          720,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const b = $input.first().json; if (b.state !== 'PREPARED') throw new Error('marketing_handoff_stopped_' + String(b.state)); return [{json:b}];"
+        }
+      },
+      {
+        "id": "run-copywriting",
+        "name": "Run Copywriting",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          960,
+          0
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "DRMktCopyV1",
+            "mode": "id"
+          },
+          "mode": "each",
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        }
+      },
+      {
+        "id": "copywriting-prepared",
+        "name": "Copywriting Prepared",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1200,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const b = $input.first().json; if (b.state !== 'PREPARED') throw new Error('marketing_handoff_stopped_' + String(b.state)); return [{json:b}];"
+        }
+      },
+      {
+        "id": "run-design",
+        "name": "Run Design",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          1440,
+          0
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "DRMktDesignV1",
+            "mode": "id"
+          },
+          "mode": "each",
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Existing Job Input": {
+        "main": [
+          [
+            {
+              "node": "Run Research",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run Research": {
+        "main": [
+          [
+            {
+              "node": "Research Prepared",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Research Prepared": {
+        "main": [
+          [
+            {
+              "node": "Run Brief",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run Brief": {
+        "main": [
+          [
+            {
+              "node": "Brief Prepared",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Brief Prepared": {
+        "main": [
+          [
+            {
+              "node": "Run Copywriting",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Run Copywriting": {
+        "main": [
+          [
+            {
+              "node": "Copywriting Prepared",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Copywriting Prepared": {
+        "main": [
+          [
+            {
+              "node": "Run Design",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {},
+    "meta": {
+      "dropRate": {
+        "version": 1,
+        "status": "BUILT_INACTIVE_UNVERIFIED_RUNTIME",
+        "publishable": false,
+        "higgsfield": false,
+        "stopsAt": "AWAITING_MEDIA_OR_NEEDS_REVIEW"
+      }
+    }
+  }
+]

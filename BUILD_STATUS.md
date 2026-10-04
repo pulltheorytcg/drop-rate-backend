@@ -1,5 +1,20 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Marketing preparation production migration applied
+
+- Applied only the reviewed additive marketing-specialist migration via Supabase; actual production version is `20261004133308`. Canonical filename is aligned with that recorded version without editing production migration history.
+- Read-back confirms both marketing tables exist with forced RLS, no anon/authenticated SELECT, no tcg_api DELETE or unrestricted UPDATE, and zero jobs/runs. Existing stock, ownership and financial tables were not modified.
+- Existing founder-auth functions and non-bypass tcg_api role were inspected. The connector cannot SET ROLE tcg_api, so an attempted rollback-only role test was rejected before writing; live actor/RLS validation remains for the authenticated backend probe. No permissions were broadened.
+- API/n8n deployment and real-model verification are the next gates. Daily scheduling and the unimplemented Buffer publisher remain off. See docs/MARKETING_SPECIALISTS_VALIDATION.md; retain historical checkpoints below.
+
+## 2026-10-04 — Marketing specialist runtime v1 (draft; not deployed)
+
+- Added separate research, brief, copywriting, design, publishing and social-management roles with versioned prompts and bounded structured model calls. The publisher is hard-blocked and makes no provider writes.
+- Added signed internal backend commands and an additive actor-scoped PostgreSQL jobs/runs migration with RLS, immutable snapshots, unique stage claims and no automatic retry of unknown outcomes. No migration has been applied.
+- Exported six inactive child workflows and a preparation coordinator outside automatic provisioning. Existing production n8n data/startup are unchanged. Research uses supplied evidence, design produces layout instructions awaiting approved media, and management uses supplied metric snapshots.
+- Local first-pass evidence: 41 core Python tests and 15 actual Code-node checks passed using mocks; full CI and database/runtime verification remain separate release gates. No production deployment, live model call, Higgsfield request, Buffer post, new service or schedule was made.
+- Immediate shareNow remains the later approved pilot instruction. Media approval, real publisher and delivery reconciliation are still required. Details and rollback: docs/MARKETING_SPECIALISTS_V1.md.
+
 ## 2026-10-03 — Refine the illustrated slab labels
 
 - Refined the approved two-card sign-in illustration with clearer PSA and Beckett-style labels: year/set/card details, prominent grade 10s, and four Beckett subgrades. Preserved the illustrated Charizard/Umbreon composition, transparent background and existing page layout.
