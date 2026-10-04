@@ -30,8 +30,10 @@ const workflow = {
           name: 'Authorization',
           value: "={{ (() => { const key = $env.BUFFER_API_KEY; if (typeof key !== 'string' || !key || /\\s/.test(key)) throw new Error('buffer_key_missing_or_invalid'); return 'Bearer ' + key; })() }}",
         }] },
-        sendBody: true, contentType: 'raw', rawContentType: 'application/json',
-        body: JSON.stringify({ query: BUFFER_CONNECTION_QUERY }),
+        // n8n 2.32.6 streams responses to raw-body requests even when the
+        // response format is JSON. JSON request mode yields a parsed body.
+        sendBody: true, contentType: 'json', specifyBody: 'json',
+        jsonBody: JSON.stringify({ query: BUFFER_CONNECTION_QUERY }),
         options: {
           timeout: 15000,
           redirect: { redirect: { followRedirects: false } },
@@ -42,7 +44,7 @@ const workflow = {
     {
       id: 'dr32-buffer-verify', name: 'Summarize Connection Only',
       type: 'n8n-nodes-base.code', typeVersion: 2, position: [40, 0],
-      parameters: { jsCode: `${summarizeBufferConnection.toString()}\nconst response = $input.first().json || {};\nreturn [{json:summarizeBufferConnection(Number(response.statusCode), response.body, ${JSON.stringify(BUFFER_ORGANIZATION_ID)}, ${JSON.stringify(BUFFER_CHANNELS)})}];` },
+      parameters: { jsCode: `${summarizeBufferConnection.toString().replace(/\r\n/g, '\n')}\nconst response = $input.first().json || {};\nreturn [{json:summarizeBufferConnection(Number(response.statusCode), response.body, ${JSON.stringify(BUFFER_ORGANIZATION_ID)}, ${JSON.stringify(BUFFER_CHANNELS)})}];` },
     },
   ],
   connections: {

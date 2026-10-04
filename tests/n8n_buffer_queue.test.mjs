@@ -231,7 +231,13 @@ test('actual n8n validator matches the shared first-page function and rejects tr
   const request = workflow.nodes.find(node => node.type === 'n8n-nodes-base.httpRequest').parameters;
   assert.equal(request.url, BUFFER_ENDPOINT);
   assert.equal(request.options.redirect.redirect.followRedirects, false);
-  assert.deepEqual(JSON.parse(request.body), { query: BUFFER_QUEUE_QUERY, variables: { after: null } });
+  assert.equal(request.contentType, 'json', 'raw mode leaves the n8n 2.32.6 response body as a stream');
+  assert.equal(request.specifyBody, 'json');
+  assert.equal(request.body, undefined);
+  assert.equal(request.rawContentType, undefined);
+  assert.deepEqual(JSON.parse(request.jsonBody), { query: BUFFER_QUEUE_QUERY, variables: { after: null } });
+  assert.equal(request.options.response.response.responseFormat, 'json');
+  assert.equal(request.options.response.response.fullResponse, true);
   const execute = new Function('$input', 'Date', workflow.nodes.find(node => node.type === 'n8n-nodes-base.code').parameters.jsCode);
   const observedAt = '2026-10-04T08:00:00.000Z';
   class FixedDate extends Date { constructor(value = observedAt) { super(value); } }

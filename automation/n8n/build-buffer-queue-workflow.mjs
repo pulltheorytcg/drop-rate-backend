@@ -14,7 +14,7 @@ workflow.nodes[0].id = 'dr32-queue-trigger';
 workflow.nodes[1].id = 'dr32-queue-request';
 workflow.nodes[2].id = 'dr32-queue-summary';
 // Reuse fixed-endpoint/auth/timeout settings, with no dynamic input or pagination URL.
-workflow.nodes[1].parameters.body = JSON.stringify({ query: BUFFER_QUEUE_QUERY, variables: { after: null } });
+workflow.nodes[1].parameters.jsonBody = JSON.stringify({ query: BUFFER_QUEUE_QUERY, variables: { after: null } });
 workflow.nodes[2].parameters.jsCode = [
   summarizeBufferConnection, queueFailure, validateQueuePage, summarizeQueue, summarizeQueueFirstPage,
 ].map(fn => fn.toString().replace(/\r\n/g, '\n')).join('\n') + `

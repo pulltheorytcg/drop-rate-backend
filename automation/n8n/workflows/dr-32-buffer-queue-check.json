@@ -48,9 +48,9 @@
           ]
         },
         "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "{\"query\":\"query DropRateBufferQueue($after: String) {\\n  channels(input: {organizationId: \\\"6ac1a59ca59739d7c3e08601\\\"}) {\\n    id service organizationId isDisconnected isLocked isQueuePaused timezone\\n    allowedActions\\n    metadata {\\n      ... on TiktokMetadata { defaultToReminders }\\n      ... on YoutubeMetadata { defaultToReminders }\\n    }\\n  }\\n  posts(first: 100, after: $after, input: {\\n    organizationId: \\\"6ac1a59ca59739d7c3e08601\\\"\\n    filter: {\\n      channelIds: [\\\"6ac1a5deea19ca0bde6c81b7\\\",\\\"6ac1a66eea19ca0bde6c89ac\\\",\\\"6ac1a694ea19ca0bde6c8ba3\\\"]\\n      status: [scheduled, sending, error, needs_approval, draft]\\n    }\\n    sort: [{field: dueAt, direction: asc}, {field: createdAt, direction: asc}]\\n  }) {\\n    edges { node {\\n      id status dueAt schedulingType\\n      channel { id service organizationId }\\n    } }\\n    pageInfo { hasNextPage endCursor }\\n  }\\n}\",\"variables\":{\"after\":null}}",
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"query\":\"query DropRateBufferQueue($after: String) {\\n  channels(input: {organizationId: \\\"6ac1a59ca59739d7c3e08601\\\"}) {\\n    id service organizationId isDisconnected isLocked isQueuePaused timezone\\n    allowedActions\\n    metadata {\\n      ... on TiktokMetadata { defaultToReminders }\\n      ... on YoutubeMetadata { defaultToReminders }\\n    }\\n  }\\n  posts(first: 100, after: $after, input: {\\n    organizationId: \\\"6ac1a59ca59739d7c3e08601\\\"\\n    filter: {\\n      channelIds: [\\\"6ac1a5deea19ca0bde6c81b7\\\",\\\"6ac1a66eea19ca0bde6c89ac\\\",\\\"6ac1a694ea19ca0bde6c8ba3\\\"]\\n      status: [scheduled, sending, error, needs_approval, draft]\\n    }\\n    sort: [{field: dueAt, direction: asc}, {field: createdAt, direction: asc}]\\n  }) {\\n    edges { node {\\n      id status dueAt schedulingType\\n      channel { id service organizationId }\\n    } }\\n    pageInfo { hasNextPage endCursor }\\n  }\\n}\",\"variables\":{\"after\":null}}",
         "options": {
           "timeout": 15000,
           "redirect": {

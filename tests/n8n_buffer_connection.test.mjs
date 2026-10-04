@@ -113,7 +113,13 @@ test('n8n invokes the same validator, does not accept arbitrary requests, and st
   assert.equal(workflow.settings.saveDataSuccessExecution, 'none');
   const request = workflow.nodes.find(node => node.type === 'n8n-nodes-base.httpRequest').parameters;
   assert.equal(request.url, BUFFER_ENDPOINT);
-  assert.deepEqual(JSON.parse(request.body), { query: BUFFER_CONNECTION_QUERY });
+  assert.equal(request.contentType, 'json', 'raw mode leaves the n8n 2.32.6 response body as a stream');
+  assert.equal(request.specifyBody, 'json');
+  assert.equal(request.body, undefined);
+  assert.equal(request.rawContentType, undefined);
+  assert.deepEqual(JSON.parse(request.jsonBody), { query: BUFFER_CONNECTION_QUERY });
+  assert.equal(request.options.response.response.responseFormat, 'json');
+  assert.equal(request.options.response.response.fullResponse, true);
   assert.equal(request.options.redirect.redirect.followRedirects, false);
   const code = workflow.nodes.find(node => node.type === 'n8n-nodes-base.code').parameters.jsCode;
   assert.ok(code.replace(/\r\n/g, '\n').startsWith(summarizeBufferConnection.toString().replace(/\r\n/g, '\n')));

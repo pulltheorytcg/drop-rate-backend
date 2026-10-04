@@ -48,9 +48,9 @@
           ]
         },
         "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "{\"query\":\"query DropRateBufferConnection {\\n  channels(input: {organizationId: \\\"6ac1a59ca59739d7c3e08601\\\"}) {\\n    id service organizationId isDisconnected isLocked isQueuePaused timezone\\n    allowedActions\\n    metadata {\\n      ... on TiktokMetadata { defaultToReminders }\\n      ... on YoutubeMetadata { defaultToReminders }\\n    }\\n  }\\n}\"}",
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"query\":\"query DropRateBufferConnection {\\n  channels(input: {organizationId: \\\"6ac1a59ca59739d7c3e08601\\\"}) {\\n    id service organizationId isDisconnected isLocked isQueuePaused timezone\\n    allowedActions\\n    metadata {\\n      ... on TiktokMetadata { defaultToReminders }\\n      ... on YoutubeMetadata { defaultToReminders }\\n    }\\n  }\\n}\"}",
         "options": {
           "timeout": 15000,
           "redirect": {

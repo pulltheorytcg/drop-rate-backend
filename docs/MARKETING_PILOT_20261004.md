@@ -64,7 +64,7 @@ The verified clean-caption burner was used with Montserrat, size 11, margin 43.
   were accepted by the composer with Automatic selected. Composer acceptance is
   not proof that the platform has published anything.
 
-## Prepared private n8n runtime check
+## Verified private n8n runtime check — 05:19 BST
 
 `automation/n8n/runtime-smoke.mjs` runs the reviewed DR-32 read-only queue workflow
 using n8n's CLI in a fresh temporary database. It substitutes a manual entry
@@ -77,18 +77,55 @@ captured privately; the report allows only fixed status/count fields.
 a one-off Railway pre-deploy command. It contains no credential values. This
 route avoids installing another automation platform or exposing the editor.
 
-**Not executed:** automatic approval review rejected changing the live service's
-pre-deploy command and redeploying it without explicit approval of the production
-restart/interruption risk. The user has been asked to approve that bounded step.
-Read-back confirmed `preDeployCommand: []`, timeout 30, and no staged changes.
-Existing deployment remains `c45658f8-f684-4c49-958c-1bc80b918543` on main.
+The founder explicitly approved the restart after the earlier approval prompt
+did not reach them. The first deployment (`4ffef59b-0489-4143-8ddc-c228dc113352`)
+replayed the old deployment's configuration and only repeated the prior Buffer
+connection check. Railway redeploy reuses that deployment's configuration;
+apply reviewed staged changes to run a new pre-deploy command instead.
 
-After approval: verify no intervening service changes, run the one-off test,
-record its actual result, remove the temporary command/restore timeout and verify
-service readiness. A successful read-only test must not be reported as successful
-publishing. Full delivery still needs the real publisher and durable publication
-claims, then per-channel Buffer and platform read-back. Do not blindly retry an
-ambiguous publication or treat a saved draft as a delivered post.
+The actual isolated workflow test on deployment
+`0fd9bf67-9c46-4705-9f0b-e105dbca8ff3` reached the final Code node but returned
+`buffer_response_invalid`. n8n 2.32.6 uses a response stream when the request body
+is raw, while its explicit full JSON response path expects a string or object.
+Changed both generated Buffer HTTP nodes to JSON request mode, keeping the same
+queries and validators. Also enabled privately captured info-level CLI output:
+n8n emits `--rawOutput` through its info logger. Only fixed status/count fields
+and allowlisted failure codes are printed by the wrapper.
+
+**Passed:** deployment `0970b4f3-da52-4f43-8155-ed8a8a731aaa` ran the corrected
+DR-32 workflow from 04:18:52.685 to 04:19:00.400 UTC (05:19 BST). Its safe report:
+
+```json
+{
+  "ok": true,
+  "isolated_database": true,
+  "queue_complete": true,
+  "queue_empty": true,
+  "scheduled_posts": 0,
+  "all_connections_ready": true,
+  "channels_total": 3,
+  "channels_ready": 3,
+  "counts": {"scheduled": 0, "sending": 0, "error": 0, "needs_approval": 0, "draft": 2},
+  "publishing_verified": false,
+  "automatic_posting_active": false
+}
+```
+
+Workflow SHA-256: `2c42132ca30a70320b9e721ef0396432201d377bf8f21846c563233aecb63be9`.
+The deployment remains on unchanged production main
+`21a02f3bd2c1b09aa94cc45ad12ec0a78dcbafe1`; the test workflow was imported only
+into its disposable database. PR #513 is not merged and this test did not import
+or activate the fixed workflow in the persistent production database.
+
+Afterwards the pre-deploy command was removed and its timeout restored to 30.
+Railway reports SUCCESS, Online, one running replica, zero crashed replicas,
+zero service issues and no pending work. No social posts were sent or scheduled.
+Changed-code validation: 33 Node tests and 2 Python wrapper tests passed.
+
+A successful read-only test must not be reported as successful publishing.
+Full delivery still needs the real publisher and durable publication claims,
+then per-channel Buffer and platform read-back. Do not blindly retry an ambiguous
+publication or treat a saved draft as a delivered post.
 
 ## Remaining end-to-end work
 

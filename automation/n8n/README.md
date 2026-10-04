@@ -27,6 +27,14 @@ and has no schedule or public webhook. Regenerate its JSON after validator chang
 with `node automation/n8n/build-buffer-connection-workflow.mjs`.
 The existing additive provisioner will import it only after this change is deployed.
 
+Both Buffer HTTP nodes use JSON request mode (`contentType: json`,
+`specifyBody: json`, `jsonBody`) as well as JSON response mode. In n8n 2.32.6,
+raw request mode enables a response stream which the explicit full JSON response
+path does not consume. The live runtime test caught that mismatch; keep JSON
+request mode when regenerating either workflow. The smoke runner privately
+captures info-level CLI output because n8n emits `--rawOutput` at that level,
+then logs only allowlisted status/count fields.
+
 See `docs/BUFFER_CONNECTION_HANDOFF.md` for live evidence, the direct ChatGPT OAuth
 route, and the remaining publishing work. This component does not activate DR-32.
 

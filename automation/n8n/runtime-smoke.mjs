@@ -6,6 +6,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes, createHash } from 'node:crypto';
 
+const queueFailureReasons = new Set([
+  'buffer_auth_rejected', 'buffer_rate_limited', 'buffer_http_failed',
+  'buffer_graphql_failed', 'buffer_response_invalid',
+  'buffer_expected_channel_missing_or_duplicate', 'buffer_channel_identity_mismatch',
+  'buffer_channel_state_invalid', 'buffer_queue_page_invalid',
+  'buffer_queue_channel_mismatch', 'buffer_queue_post_invalid',
+  'buffer_queue_duplicate_post', 'buffer_queue_date_invalid',
+  'buffer_queue_scheduled_date_missing', 'buffer_queue_pagination_required',
+]);
+
 export function extractSummary(output, finalNode) {
   const text = String(output);
   // n8n startup messages can precede --rawOutput. Parse only a JSON document
@@ -21,7 +31,7 @@ export function extractSummary(output, finalNode) {
   }
   const result = data.runData?.[finalNode]?.at(-1)?.data?.main?.[0]?.[0]?.json;
   if (!result || typeof result.ok !== 'boolean') throw Error('summary_missing');
-  return {
+  const summary = {
     ok: result.ok,
     queue_complete: result.queue_complete === true,
     queue_empty: typeof result.queue_empty === 'boolean' ? result.queue_empty : null,
@@ -29,6 +39,21 @@ export function extractSummary(output, finalNode) {
     publishing_verified: false,
     automatic_posting_active: false,
   };
+  if (!result.ok) {
+    summary.reason = queueFailureReasons.has(result.reason) ? result.reason : 'queue_check_failed';
+  }
+  if (typeof result.all_connections_ready === 'boolean') {
+    summary.all_connections_ready = result.all_connections_ready;
+  }
+  if (Array.isArray(result.channels)) {
+    summary.channels_total = result.channels.length;
+    summary.channels_ready = result.channels.filter(channel => channel?.connection_ready === true).length;
+  }
+  const statuses = ['scheduled', 'sending', 'error', 'needs_approval', 'draft'];
+  if (statuses.every(status => Number.isSafeInteger(result.counts?.[status]) && result.counts[status] >= 0)) {
+    summary.counts = Object.fromEntries(statuses.map(status => [status, result.counts[status]]));
+  }
+  return summary;
 }
 
 export function isolatedEnv(root, source=process.env) {
@@ -39,7 +64,9 @@ export function isolatedEnv(root, source=process.env) {
     N8N_DIAGNOSTICS_ENABLED:'false', N8N_VERSION_NOTIFICATIONS_ENABLED:'false',
     N8N_RUNNERS_MODE:'internal', N8N_RUNNERS_BROKER_PORT:'15679',
     EXECUTIONS_DATA_SAVE_ON_SUCCESS:'none', EXECUTIONS_DATA_SAVE_ON_ERROR:'none',
-    EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS:'false', N8N_LOG_LEVEL:'error',
+    // n8n 2.32.6 emits --rawOutput through logger.info. Child output remains
+    // privately captured; only extractSummary's allowlisted fields are logged.
+    EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS:'false', N8N_LOG_LEVEL:'info',
     BUFFER_API_KEY:source.BUFFER_API_KEY, NODE_ENV:'production', TZ:'Europe/London',
   };
 }
@@ -49,8 +76,10 @@ export function runSmoke(workflow, expectedHash) {
   if(createHash('sha256').update(serialized).digest('hex')!==expectedHash) throw Error('workflow_hash_mismatch');
   if(workflow.id!=='DR32BufferQueueCheckV1' || workflow.active!==false || workflow.nodes.length!==3) throw Error('unexpected_workflow');
   const http=workflow.nodes.find(n=>n.type==='n8n-nodes-base.httpRequest');
-  const query=JSON.parse(http?.parameters?.body || '{}').query;
-  if(http?.parameters?.url!=='https://api.buffer.com' || !/^query DropRateBufferQueue\b/.test(query) || /\bmutation\b/.test(query)) throw Error('unexpected_request');
+  const query=JSON.parse(http?.parameters?.jsonBody || '{}').query;
+  if(http?.parameters?.url!=='https://api.buffer.com' || http.parameters.contentType!=='json'
+    || http.parameters.specifyBody!=='json' || !/^query DropRateBufferQueue\b/.test(query)
+    || /\bmutation\b/.test(query)) throw Error('unexpected_request');
   const root=mkdtempSync(join(tmpdir(),'drop-rate-n8n-smoke-'));
   const started=new Date().toISOString();
   let stage='import';

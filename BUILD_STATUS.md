@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Approved live n8n queue test passed at 05:19 BST
+
+- Founder explicitly approved the bounded production restart. The isolated n8n workflow ran successfully against Buffer: all three channels ready, complete queue read, zero scheduled/sending/error/approval posts and two drafts. Publishing remains unverified and automatic posting is off.
+- Live testing exposed n8n 2.32.6's raw-request response-stream mismatch. Fixed both Buffer workflow builders to use JSON request mode; the corrected queue workflow passed on Railway deployment `0970b4f3-da52-4f43-8155-ed8a8a731aaa`. Added safe diagnostic output and regression checks: 33 Node tests and 2 Python wrapper tests passed.
+- Temporary test settings removed, timeout restored to 30, and Railway verified Online/SUCCESS with one running replica, no failures/issues/pending work. Production source remains main `21a02f3`; the diagnostic used a disposable database and did not install or activate the PR's workflows persistently. Prior blocked/not-run entries below are historical. See `docs/MARKETING_PILOT_20261004.md` for exact evidence and the remaining full-publishing work.
+
 ## 2026-10-04 — First finished marketing pilot and bounded runtime test
 
 - **Latest founder correction:** reject the new intro renders; use the previous conversation's designs for posting tests and improve Higgsfield separately. The two upload-validation drafts are tagged `Rejected — do not publish`; Queue/Sent both remain zero. Earlier image records exist but their durable-host files are currently unavailable, so exact reuse still needs access to those images.
