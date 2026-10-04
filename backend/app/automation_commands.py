@@ -198,3 +198,9 @@ async def publish_inventory_approved_to_shopify(
 from .marketing_specialist_api import router as marketing_specialist_router
 
 router.include_router(marketing_specialist_router)
+
+# An independent, exactly approved manual image pilot. It neither enables the
+# preparation agents nor grants arbitrary publishing authority.
+from .social_pilot import router as approved_social_pilot_router
+
+router.include_router(approved_social_pilot_router)
