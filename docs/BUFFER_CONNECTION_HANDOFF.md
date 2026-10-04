@@ -1,5 +1,47 @@
 # Buffer connection handoff — 4 October 2026
 
+## Recovered prior design and workflow work — reuse, do not restart
+
+The founder correctly recalled the earlier screenshot and template work. Read
+back the conversation titled **Convert Seller Hub App** (ChatGPT conversation
+`6ac1734a-8050-83ed-bc9a-9c3815ca2923`, backing task
+`01a103aa-716c-73b4-9d25-d171d914304e`) and inspected PR #512 at commit
+`958368a22acec711ef2c1dd17060e1878bbb1e86`.
+
+Existing reusable work:
+
+- Seven completed image-generation previews: Market Watch/Moonbreon, Raw to
+  Graded/Goku and Release Radar/Luffy; two cleaner Cleffa comparisons; then two
+  balanced cream/navy Cleffa revisions. These are rendered concept previews,
+  not a coded renderer or verified current prices. The founder rejected the
+  original excessive decoration, then found the clean revisions too plain and
+  requested a balance. The later feedback was "better, but could still use
+  improvement", not final template approval.
+- The founder's twelve inspiration screenshots were analysed as four distinct
+  posts: TCG Viking artist connections and upcoming pickups, Collectors.Italia
+  OP17 Top 50, and OPABC ranked sales. Preserve the analysis and its limits.
+- PR #512's `docs/STATIC_SOCIAL_RESEARCH_AND_PLAYBOOK.md` records nine content
+  series, six reusable layout structures (hero, discovery, comparison, evidence,
+  guide and close), a 6-8-slide carousel sequence and the broader franchise mix.
+- Its `backend/app/editorial_preparation.py` and inactive
+  `DR31StaticEditorialPreparationV1` are real implementation. They prepare
+  supplied facts into slide text, template labels, evidence checks and a tracked
+  destination. The template map selects labels; it does not render images.
+- The actual workflow accepts `brief_json`, signs the preparation request and
+  returns the backend result. It has no research/model/render/publish nodes.
+  The backend deliberately returns `publishable:false` and `stored:false`.
+
+Continue from these designs, research and preparation components. The missing
+engineering is conversion to fixed renderable templates plus background research,
+durable state, rendering, publishing and verification—not recreation of the
+earlier design work. Preserve the latest three-platform scope and approved
+voiceover Shorts; old five-platform/static-only text is historical.
+
+Verified source links:
+- https://github.com/pulltheorytcg/drop-rate-backend/pull/512
+- https://github.com/pulltheorytcg/drop-rate-backend/blob/958368a22acec711ef2c1dd17060e1878bbb1e86/docs/STATIC_SOCIAL_RESEARCH_AND_PLAYBOOK.md
+- https://github.com/pulltheorytcg/drop-rate-backend/blob/958368a22acec711ef2c1dd17060e1878bbb1e86/automation/n8n/workflows/dr-31-static-editorial-preparation.json
+
 ## Latest: voice approved; requested live pilot blocked before execution
 
 The founder approved the custom-voice narration after returning to Seed Audio
@@ -86,7 +128,7 @@ A ChatGPT plugin connection alone does not establish the background renderer.
 | --- | --- | --- |
 | Content/creator research | Editorial study in draft PR #512; not a continuous feed or representative performance dataset | Permitted source adapters, stored references/timestamps/rights and recurring collection |
 | Topic selection and briefs | Tested stateless preparation in draft PR #512 | Durable daily selection, diversity, deduplication, freshness and stock/destination checks |
-| Finished creative | Layout/brief direction exists; voiceover Shorts requested | Original/licensed images, narration, captions, Shorts rendering, stored assets and format validation |
+| Finished creative | Seven rendered design previews and six layout structures in the earlier conversation/PR #512; custom voice sample approved | Fixed template renderer, original/licensed images, background narration/captions/Shorts rendering, stored assets and format validation |
 | Durable approval and publication | Foundation schema/design in draft PR #216 | Reviewed schema, backend repositories, revision approvals, publication claims, audit and recovery |
 | Connected channels | Live UI: Instagram, TikTok and YouTube connected; zero scheduled posts | A real automatically delivered pilot on each platform |
 | Cadence and reconciliation | Read-only checks in draft PR #513 | Recurring preparation, capacity-aware scheduling, remote IDs/read-back, missed-slot alerts and ambiguous-write reconciliation |

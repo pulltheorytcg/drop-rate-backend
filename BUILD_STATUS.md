@@ -1,5 +1,10 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Earlier social template work recovered and linked
+
+- Read back **Convert Seller Hub App** and inspected the actual PR #512 code. Recovered seven completed visual previews across Market Watch, Raw to Graded, Release Radar and the clean/balanced Cleffa revisions; the user's screenshot analysis; nine series; six layout structures; and the implemented DR-31 preparation component.
+- Clarified that design previews and brief preparation already exist and must be reused. The unresolved gap is a fixed renderer and the complete background research/render/publish/verify chain. DR-31 returns slide text and checks from supplied facts, not finished media. The handoff now points to the exact prior conversation and source commit. No new production action occurred.
+
 ## 2026-10-04 — Approved founder voice; three-channel pilot not runnable yet
 
 - Higgsfield is connected in chat; the founder's custom voice was created and a conservative Seed Audio narration sample was approved. The more expressive Qwen take was rejected for voice similarity. Background speech/rendering integration remains unimplemented.
