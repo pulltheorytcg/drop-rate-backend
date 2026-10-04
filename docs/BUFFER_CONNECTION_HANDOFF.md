@@ -1,5 +1,55 @@
 # Buffer connection handoff — 4 October 2026
 
+## Latest: voice approved; requested live pilot blocked before execution
+
+The founder approved the custom-voice narration after returning to Seed Audio
+with a small pace increase and unchanged pitch. Higgsfield is connected to this
+chat, a reusable founder voice exists, and a generated sample completed. The more
+expressive Qwen take was rejected because it did not sound like the founder.
+Keep the accepted voice and delivery; do not use the rejected variation. Raw
+voice samples, voice identifiers and result URLs remain outside this repository.
+
+The founder requested one test of content creation and publishing to Instagram,
+TikTok and YouTube together. Treat this as authorization for that bounded pilot,
+not evidence that a workflow exists or approval to start the daily schedule.
+
+Fresh readiness inspection found:
+
+- Railway's n8n service is still SUCCESS on deployment
+  `c45658f8-f684-4c49-958c-1bc80b918543`, main commit `21a02f3`, with no staged
+  changes. Its editor remains private; no domain or TCP proxy was created.
+- PRs #512 and #513 are still open, unmerged drafts. #512 prepares briefs and
+  reports `publishable:false` / `stored:false`. #513 only reads connection/queue
+  state. Neither implements finished creative plus publishing.
+- The source-controlled registry still marks `ai-creative-generation`,
+  `social-publishing`, and `analytics-automation` PLANNED. No implemented
+  create-and-publish workflow or corresponding backend command was found in
+  the deployed source. This audit did not directly enumerate the private runtime
+  workflow database and does not claim that it did.
+- A chat-connected Higgsfield plugin and successful voice sample do not configure
+  unattended n8n generation. A governed background creative adapter, finished
+  assets, durable revision/publication records, Buffer writes and delivery
+  reconciliation remain missing.
+
+**Pilot result: NOT RUN / BLOCKED BEFORE EXECUTION.** No creative was generated
+by n8n, no social write was submitted, and there are no platform delivery URLs
+from this test. Do not describe this as a failed publishing attempt: the publisher
+was not present to execute. Do not route a manual Buffer post around this gap and
+report it as proof of n8n.
+
+The next bounded implementation is one original, evidence-backed story with
+approved assets, a stored pilot/revision ID, three platform jobs, one shared
+scheduled timestamp, per-platform status/remote IDs, and recovery that avoids
+duplicate posts after ambiguous timeouts. Buffer's API creates a post for a
+specific channel; the three jobs can use the same `dueAt` value. Actual delivery
+must be verified separately on each platform rather than promised as one atomic
+simultaneous operation. Keep recurring scheduling disabled during the pilot.
+
+Provider scheduling references checked for this inspection:
+- https://developers.buffer.com/examples/create-scheduled-post.html
+- https://developers.buffer.com/guides/posts-and-scheduling.html
+- https://developers.buffer.com/guides/rest-migration.html
+
 ## Current founder target and end-to-end acceptance — 4 October 2026
 
 This section supersedes the earlier five-platform target and static-only YouTube
@@ -19,18 +69,16 @@ the format decision; it does not prove that a renderer or automatic delivery wor
 A separate format decision is still needed if TikTok image/no-music automatic
 publishing fails.
 
-The narration stage should use an ordinary synthetic narrator with the approved
-script; voice, pacing and pronunciation of card/anime names need a sample check.
+The narration stage should use the founder's approved custom voice with the
+approved script; pronunciation of new card/anime names still needs checking.
 Compose the voice track and synchronized captions into the final video before
 Buffer receives it. Include speech availability, generation failures, timing,
 pronunciation and audio-level checks in the creative pipeline. A changed script
 or voice track changes the approved asset revision.
 
-Plugin discovery found Higgsfield available but not installed; its declared
-capabilities include narration and subtitles, matching the project's creative
-provider direction. A connection suggestion was shown. No provider was connected,
-credits purchased, voiceover generated or unattended speech API configured. A
-ChatGPT plugin connection alone would not establish the background n8n renderer.
+Higgsfield is now connected to this chat and the founder has approved a custom
+voice sample. No unattended speech adapter or n8n renderer has been configured.
+A ChatGPT plugin connection alone does not establish the background renderer.
 
 ### Audited state
 

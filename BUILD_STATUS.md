@@ -1,8 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Approved founder voice; three-channel pilot not runnable yet
+
+- Higgsfield is connected in chat; the founder's custom voice was created and a conservative Seed Audio narration sample was approved. The more expressive Qwen take was rejected for voice similarity. Background speech/rendering integration remains unimplemented.
+- Founder requested a bounded create-and-publish test on Instagram, TikTok and YouTube together. Fresh Railway inspection still shows n8n on main `21a02f3`, deployment `c45658f8-f684-4c49-958c-1bc80b918543`, SUCCESS, no staged changes. PRs #512/#513 remain unmerged drafts; creative generation and social publishing remain PLANNED.
+- Test status: **not run, blocked before execution**. There is no implemented full-flow publisher to invoke; no n8n creative or social post was produced. Detailed evidence and the one-story/three-platform pilot requirements are in `docs/BUFFER_CONNECTION_HANDOFF.md`. No activation, redeployment, public n8n access, credential change or subscription purchase occurred.
+
 ## 2026-10-04 — Full marketing-loop audit and founder scope confirmed
 
-- Current target: three distinct stories adapted across Instagram, TikTok and YouTube, producing nine daily posts. Founder approved YouTube Shorts and then requested voiceovers: narration plus captions, no background music. Facebook/X are outside the first release. Speech/rendering remains unimplemented; a Higgsfield connection was suggested, not established.
+- Current target: three distinct stories adapted across Instagram, TikTok and YouTube, producing nine daily posts. Founder approved YouTube Shorts and then requested voiceovers: narration plus captions, no background music. Facebook/X are outside the first release. Background speech/rendering remains unimplemented; the later voice setup is recorded above.
 - The full research/create/publish/measure loop is not operational. Source collection, finished creative, durable approvals/publications, recurring delivery and attribution/learning remain unfinished. Existing draft foundations and green isolated tests are not live delivery proof.
 - Verified the n8n service still runs main `21a02f3` successfully; no staged changes. Defined end-to-end acceptance including one real pilot per channel, seven days of verified cadence, duplicate/failure recovery, capacity-aware queue refill, metric snapshots and a verified store-attribution path in `docs/BUFFER_CONNECTION_HANDOFF.md`. No production changes were made during the audit.
 
