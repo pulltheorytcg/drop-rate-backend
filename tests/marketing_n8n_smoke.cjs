@@ -7,6 +7,8 @@ const {promisify} = require('node:util');
 const exec = promisify(require('node:child_process').execFile);
 const secret = process.env.DROP_RATE_AUTOMATION_COMMAND_SECRET;
 assert.equal(secret, 'disposable-marketing-smoke-signature-123456789');
+assert.equal(process.env.N8N_USER_FOLDER, '/tmp/drop-rate-marketing-ci');
+assert.equal(process.env.DROP_RATE_API_AUTOMATION_CONTROL_URL, 'http://drop-rate-api-live.railway.internal:8765/api/v1/automation/control/receipt');
 let requests = [], mode = 'happy';
 const input = {job_id:'00000000-0000-4000-8000-000000000001',actor_user_id:'00000000-0000-4000-8000-000000000002',revision:1,expected_input_sha256:'a'.repeat(64)};
 const server = http.createServer((req,res)=>{
@@ -45,6 +47,14 @@ async function command(args){return await exec('n8n',args,{timeout:90000,maxBuff
   try {
     fs.writeFileSync('/tmp/marketing-fixtures.json',JSON.stringify([wrapper('DRMarketingFixturePrep','DRMktPrepareV1'),wrapper('DRMarketingFixturePublish','DRMktPublishV1')]));
     await command(['import:workflow','--input=/tmp/marketing-fixtures.json']);
+    // n8n 2.32.6 CLI mode resolves published child versions, unlike an editor
+    // manual run. Publish the imported versions ONLY in this disposable,
+    // network-isolated CI database. Source exports and production stay inactive.
+    const ids=['DRMktResearchV1','DRMktBriefV1','DRMktCopyV1','DRMktDesignV1','DRMktPublishV1','DRMktManageV1','DRMktPrepareV1'];
+    for(const id of ids) await command(['publish:workflow','--id='+id]);
+    await command(['export:workflow','--all','--output=/tmp/published-fixture.json']);
+    const saved=JSON.parse(fs.readFileSync('/tmp/published-fixture.json','utf8'));
+    for(const id of ids){const item=saved.find(w=>w.id===id);assert(item);assert.equal(item.active,true);}
     const happy=await command(['execute','--id=DRMarketingFixturePrep','--rawOutput']);
     assert.deepEqual(requests,['research','brief','copywriting','design']);
     assert(happy.stdout.includes('AWAITING_MEDIA'));
