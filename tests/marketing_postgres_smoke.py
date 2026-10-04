@@ -13,6 +13,7 @@ from fastapi import HTTPException
 from app.db import _init_connection
 from app.marketing_specialist_api import CreateCommand, PostgresStore
 from app.marketing_specialists import Command, JobInput, digest
+from marketing_attention_postgres import install_fixture, verify_attention
 
 ROOT = Path(__file__).resolve().parents[1]
 F1 = UUID('00000000-0000-4000-8000-000000000001')
@@ -49,6 +50,7 @@ async def main():
         await admin.execute('insert into auth.users values($1)', actor)
         await admin.execute('insert into tcg.owners values($1,$2,$3,$4,true)', actor, 'Fixture', 'FOUNDER' if index < 3 else 'CONSIGNOR', index if index < 3 else None)
         await admin.execute('insert into tcg.owner_memberships(id,user_id,owner_id,role,active) values($1,$1,$1,$2,true)', actor, 'PLATFORM_ADMIN' if index < 3 else 'OWNER')
+    await install_fixture(admin)
     migration = ROOT / 'database/migrations/20261004133308_marketing_specialists_v1.sql'
     await admin.execute(migration.read_text())
     assert await admin.fetchval("select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='tcg' and c.relname in ('marketing_specialist_jobs','marketing_specialist_runs') and c.relrowsecurity and c.relforcerowsecurity") == 2
@@ -109,7 +111,7 @@ async def main():
                 pass
         try:
             async with other.connection() as conn:
-                await conn.execute('insert into tcg.marketing_specialist_jobs(id,revision,created_by,input,input_sha256) values($1,1,$2,$3::jsonb,$4)', uuid4(),F1,{},'c'*64)
+                await conn.execute('insert into tcg.marketing_specialist_jobs(id,revision,created_by,input,input_sha256) values($1,1,$2,$3,$4::jsonb,$5)', uuid4(),F1,{},'c'*64)
             raise AssertionError('Forged actor insert accepted')
         except asyncpg.InsufficientPrivilegeError:
             pass
@@ -120,6 +122,7 @@ async def main():
         assert not claimed and result['state'] == 'UNKNOWN'
         assert result['output_sha256'] == digest({'error_code':'WORKER_RESULT_UNKNOWN'})
         assert (await store.finish(old,'PREPARED',{'summary':'too late'},{}))['state'] == 'UNKNOWN'
+        await verify_attention(admin,pool,F1,F2,result)
         print('PASS: migration, forced RLS, denied public grants, actor isolation, immutable jobs/results, eight-way claim race, replay, unknown recovery and late-result protection')
     finally:
         await pool.close()
