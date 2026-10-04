@@ -61,4 +61,14 @@ async function command(args){return await exec('n8n',args,{timeout:90000,maxBuff
     assert(published.stdout.includes('BLOCKED'));
     console.log('PASS: publishing boundary returned BLOCKED, no external network or platform calls');
   } finally {server.close();}
-})().catch(error=>{console.error('Marketing n8n CI smoke failed:',error.message);if(error.stdout)console.error(String(error.stdout).slice(-6000));if(error.stderr)console.error(String(error.stderr).slice(-2000));process.exitCode=1;});
+})().catch(error=>{
+  console.error('Marketing n8n CI smoke failed:',error.message);
+  console.error('Fixture stages reached:', JSON.stringify(requests));
+  if(error.stdout){
+    const text=String(error.stdout);
+    console.error('Nested diagnostics:',text.split('\n').filter(line=>/"message"|"description"|"cause"|Error|error:|Problem/.test(line)).slice(0,80).join('\n'));
+    console.error('Execution prefix:',text.slice(0,4500));
+  }
+  if(error.stderr)console.error(String(error.stderr).slice(-2000));
+  process.exitCode=1;
+});
