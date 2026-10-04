@@ -1,5 +1,113 @@
 # Buffer connection handoff — 4 October 2026
 
+## Current founder target and end-to-end acceptance — 4 October 2026
+
+This section supersedes the earlier five-platform target and static-only YouTube
+direction below. The founder confirmed the immediate operating target as research
+of content and creators, topic selection, original post creation, three posts per
+day on each of the three connected platforms, then performance analysis to grow
+traffic, conversions and followers. Interpret the cadence as three distinct daily
+stories adapted to Instagram, TikTok and YouTube: nine platform posts per London
+calendar day. Facebook/X are outside this first release.
+
+The founder explicitly approved YouTube Shorts, initially silent and captioned,
+then requested adding voiceovers. The desired YouTube output is now **narration
+plus readable captions, with no background music**. Static-first/no-music remains
+the direction for Instagram/TikTok where their verified automatic routes support
+it. YouTube receives a rendered video, not a Community image post. This resolves
+the format decision; it does not prove that a renderer or automatic delivery works.
+A separate format decision is still needed if TikTok image/no-music automatic
+publishing fails.
+
+The narration stage should use an ordinary synthetic narrator with the approved
+script; voice, pacing and pronunciation of card/anime names need a sample check.
+Compose the voice track and synchronized captions into the final video before
+Buffer receives it. Include speech availability, generation failures, timing,
+pronunciation and audio-level checks in the creative pipeline. A changed script
+or voice track changes the approved asset revision.
+
+Plugin discovery found Higgsfield available but not installed; its declared
+capabilities include narration and subtitles, matching the project's creative
+provider direction. A connection suggestion was shown. No provider was connected,
+credits purchased, voiceover generated or unattended speech API configured. A
+ChatGPT plugin connection alone would not establish the background n8n renderer.
+
+### Audited state
+
+| Stage | Current evidence | Still needed |
+| --- | --- | --- |
+| Content/creator research | Editorial study in draft PR #512; not a continuous feed or representative performance dataset | Permitted source adapters, stored references/timestamps/rights and recurring collection |
+| Topic selection and briefs | Tested stateless preparation in draft PR #512 | Durable daily selection, diversity, deduplication, freshness and stock/destination checks |
+| Finished creative | Layout/brief direction exists; voiceover Shorts requested | Original/licensed images, narration, captions, Shorts rendering, stored assets and format validation |
+| Durable approval and publication | Foundation schema/design in draft PR #216 | Reviewed schema, backend repositories, revision approvals, publication claims, audit and recovery |
+| Connected channels | Live UI: Instagram, TikTok and YouTube connected; zero scheduled posts | A real automatically delivered pilot on each platform |
+| Cadence and reconciliation | Read-only checks in draft PR #513 | Recurring preparation, capacity-aware scheduling, remote IDs/read-back, missed-slot alerts and ambiguous-write reconciliation |
+| Performance and conversion learning | Measurement design only | Metric ingestion, follower snapshots where permitted, verified store attribution and evidence-based experiments |
+
+Production n8n was checked again during this audit. Railway reports SUCCESS on
+deployment `c45658f8-f684-4c49-958c-1bc80b918543`, running main commit
+`21a02f3bd2c1b09aa94cc45ad12ec0a78dcbafe1`, with the Buffer key name present and no
+staged changes. This is service/configuration evidence, not inspection of the
+private runtime's workflow database or proof of a marketing execution. PRs #216,
+#512 and #513 remain unmerged drafts. The main workflow registry labels creative
+generation, social publishing and analytics PLANNED.
+
+**Conclusion: the research/create/publish/measure loop is not operational yet.**
+Green tests for isolated components do not certify an end-to-end marketing system.
+
+### Completion contract
+
+1. Research creates an evidence-backed candidate set. Creator content informs
+   hooks, formats and topics; it is not copied. Unknown creator reach, sales or
+   missing metrics are not invented. Every factual claim and reusable asset keeps
+   its source and rights/provenance record.
+2. Three distinct stories are selected per London day. Each has a purpose,
+   audience, verified facts, relevant store destination/CTA and three platform
+   variants. Approval binds to the exact text and media revision. Changed assets
+   invalidate approval. Freshness, unsupported claims and rights failures enter
+   Action Required; a vetted evergreen reserve covers ordinary feed gaps.
+3. One approved pilot per platform publishes automatically and yields its provider
+   ID, platform URL and confirmed delivery state. A reminder, accepted API request
+   or occupied queue slot is not delivery proof. Test timeout-after-write and
+   duplicate-trigger recovery without blind retries or duplicate public posts.
+4. Sustain three confirmed posts on each of the three channels per London day for
+   seven consecutive days: 63 posts, zero duplicates, and an auditable record of
+   scheduling/delivery times. Failed slots alert rather than publishing unchecked
+   filler. Once this pilot passes, ongoing monitoring continues to detect drift.
+5. Respect Buffer's current Free queue capacity of ten posts per channel. Target
+   a rolling three-day horizon (nine per channel), subtract existing user/provider
+   posts, and refill only after capacity is verified. A capacity limit is not a
+   reason to buy a plan or overwrite existing content automatically.
+6. Store metric snapshots with source, post, observation time, provider update time
+   and coverage. Track supported views/reach, comments, saves/shares, engagement
+   rates, watch/completion measures and followers/subscribers. Missing or delayed
+   metrics remain unknown; unavailable follower attribution is not reported as zero.
+7. Verify the real clickable path to the store on each platform. Use campaign/post
+   identifiers and tracked destinations where supported; do not assume caption
+   URLs are clickable. Connect observable sessions, product views, add-to-cart,
+   checkout and orders/revenue to campaign evidence. Test the full attribution path
+   with an isolated test event/order excluded from production growth reports.
+   Report unattributed and channel-level traffic separately; do not invent exact
+   per-post conversions for link-in-bio, cross-device or unobservable journeys.
+8. Compare topics, formats, hooks, CTAs and posting windows using sufficiently
+   mature observations. Prioritize attributable conversions/qualified traffic,
+   then follower growth and meaningful engagement. Log bounded experiments and
+   keep an exploration allocation; one viral post is not proof of a better policy.
+
+The next implementation phase is durable content/evidence/revision/publication
+state and its backend tests, integrating the existing draft foundations before
+source collection and rendering. n8n remains orchestration; deterministic rules
+remain in FastAPI, and PostgreSQL remains the source of truth. No new deployment,
+production migration, automatic publisher or marketing schedule was enabled by
+this audit. Business growth is an outcome to measure and improve, not guaranteed
+by achieving the posting cadence.
+
+Provider references checked for this audit:
+- https://support.buffer.com/en-us/articles/using-youtube-shorts-with-buffer-Jl8iR6jIck
+- https://support.buffer.com/en-us/articles/how-many-posts-can-i-schedule-in-advance-Kmy2IEecqm
+- https://developers.buffer.com/examples/get-post-metrics.html
+- https://support.buffer.com/en-us/articles/supported-channels-LM3P7Y4zsp
+
 ## Follow-up: live browser queue check and prepared queue audit
 
 On 4 October 2026, after the founder signed in during the continuation chat,

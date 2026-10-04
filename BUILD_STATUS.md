@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Full marketing-loop audit and founder scope confirmed
+
+- Current target: three distinct stories adapted across Instagram, TikTok and YouTube, producing nine daily posts. Founder approved YouTube Shorts and then requested voiceovers: narration plus captions, no background music. Facebook/X are outside the first release. Speech/rendering remains unimplemented; a Higgsfield connection was suggested, not established.
+- The full research/create/publish/measure loop is not operational. Source collection, finished creative, durable approvals/publications, recurring delivery and attribution/learning remain unfinished. Existing draft foundations and green isolated tests are not live delivery proof.
+- Verified the n8n service still runs main `21a02f3` successfully; no staged changes. Defined end-to-end acceptance including one real pilot per channel, seven days of verified cadence, duplicate/failure recovery, capacity-aware queue refill, metric snapshots and a verified store-attribution path in `docs/BUFFER_CONNECTION_HANDOFF.md`. No production changes were made during the audit.
+
 ## 2026-10-04 — Live Buffer queues checked; reusable queue audit prepared
 
 - Following founder sign-in, Buffer's live Home and Publish views showed zero scheduled posts overall and zero on each of the three expected channels. Channel settings showed 3/3 connected on the Free plan: Instagram/TikTok `dropratetcg` and YouTube `Drop Rate`. Facebook/X were unconnected. Empty recommended posting slots are not scheduled content.
