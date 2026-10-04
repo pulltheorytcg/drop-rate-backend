@@ -1,4 +1,3 @@
--- DRAFT MIGRATION: generate a canonical timestamped filename before release.
 -- Additive backend-only state. Nothing here changes inventory or financial data.
 create table tcg.marketing_specialist_jobs (
     id uuid not null,

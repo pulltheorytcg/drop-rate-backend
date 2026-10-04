@@ -284,7 +284,7 @@ async def run_specialist(store: Store, model: Model, command: Command) -> dict:
         value, usage = await model.generate(command.stage, context)
         proposal = validate_proposal(command.stage, source, value, upstream)
         state = 'NEEDS_REVIEW' if proposal.needs_review else 'PREPARED'
-        if command.stage == 'design':
+        if command.stage == 'design' and not proposal.needs_review:
             state = 'AWAITING_MEDIA'
         output = proposal.model_dump(mode='json')
     except ProviderFailure as exc:

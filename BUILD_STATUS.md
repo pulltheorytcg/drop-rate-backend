@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Marketing specialist runtime v1 (draft; not deployed)
+
+- Added separate research, brief, copywriting, design, publishing and social-management roles with versioned prompts and bounded structured model calls. The publisher is hard-blocked and makes no provider writes.
+- Added signed internal backend commands and an additive actor-scoped PostgreSQL jobs/runs migration with RLS, immutable snapshots, unique stage claims and no automatic retry of unknown outcomes. No migration has been applied.
+- Exported six inactive child workflows and a preparation coordinator outside automatic provisioning. Existing production n8n data/startup are unchanged. Research uses supplied evidence, design produces layout instructions awaiting approved media, and management uses supplied metric snapshots.
+- Local first-pass evidence: 41 core Python tests and 15 actual Code-node checks passed using mocks; full CI and database/runtime verification remain separate release gates. No production deployment, live model call, Higgsfield request, Buffer post, new service or schedule was made.
+- Immediate shareNow remains the later approved pilot instruction. Media approval, real publisher and delivery reconciliation are still required. Details and rollback: docs/MARKETING_SPECIALISTS_V1.md.
+
 ## 2026-10-03 — Refine the illustrated slab labels
 
 - Refined the approved two-card sign-in illustration with clearer PSA and Beckett-style labels: year/set/card details, prominent grade 10s, and four Beckett subgrades. Preserved the illustrated Charizard/Umbreon composition, transparent background and existing page layout.

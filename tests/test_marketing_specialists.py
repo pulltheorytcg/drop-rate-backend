@@ -290,3 +290,14 @@ async def test_publisher_adapter_cannot_issue_any_http_call():
         pytest.fail('Publisher must never call a model/provider')
     with pytest.raises(ProviderFailure):
         await OpenAIModel('test',transport=httpx.MockTransport(forbidden)).generate('publishing', {})
+
+
+@pytest.mark.asyncio
+async def test_design_review_state_is_not_hidden_by_media_wait():
+    store, model = MemoryStore(), FakeModel()
+    for stage in ['research', 'brief', 'copywriting']:
+        await run_specialist(store, model, command(store, stage))
+    model.review = True
+    result = await run_specialist(store, model, command(store, 'design'))
+    assert result['state'] == 'NEEDS_REVIEW'
+    assert result['output']['review_reasons']
