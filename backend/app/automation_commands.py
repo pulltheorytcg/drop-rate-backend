@@ -191,3 +191,10 @@ async def publish_inventory_approved_to_shopify(
             request_id=request.state.request_id,
             test_mode=False,
         )
+
+
+# The marketing router reuses the raw-body HMAC verifier above. Its feature gate
+# defaults off and its v1 publishing worker is hard-blocked independently.
+from .marketing_specialist_api import router as marketing_specialist_router
+
+router.include_router(marketing_specialist_router)
