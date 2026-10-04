@@ -1,0 +1,79 @@
+# Drop Rate marketing specialists v1
+
+## Scope and status
+
+This is a nonpublishing first implementation of the founder's requested specialist split. It is not a claim that the daily content machine is live. Use the existing FastAPI API service and private n8n service; do not create six new Railway services. Higgsfield is excluded from this run. Approved media is being recovered separately. The eventual bounded pilot is immediate (`shareNow`), not a future queue slot. No recurring marketing schedule is enabled here.
+
+Five roles make AI proposals using isolated instructions; the sixth is a deterministic, hard-blocked publishing boundary. The parent coordinates research, brief, copy and design, and stops at media/review. Social management is a separate supplied-metrics analysis, not a forced step with invented results before anything is published.
+
+| Role | Implemented behaviour | Not implemented in v1 |
+| --- | --- | --- |
+| Research | Analyse supplied evidence excerpts with source IDs and timestamps | Automatic source collection, live verification, licensed research feeds |
+| Brief | Prepare one angle/objective/outline from saved research | Autonomous daily topic selection |
+| Copywriting | Produce three channel variants plus slide text | Final factual/media approval |
+| Design | Prepare a layout/storyboard from saved copy; stop awaiting media | Image/video/voice rendering or approved asset ingestion |
+| Publishing | Deterministic BLOCKED result; no model and no Buffer write | Actual publisher, approval ledger, media validation, delivery reconciliation |
+| Social management | Analyse supplied metric snapshots; propose experiments | Automatic metric ingestion, replies, DMs, moderation or policy changes |
+
+`PREPARED` means ready for the next internal drafting stage, never approved for public publication. `AWAITING_MEDIA` is not a rendered asset. Structured schemas and valid source references do not establish that a claim is true, fresh, lawful to reuse, or supported in meaning. All proposals remain unapproved, and the publisher cannot be enabled by supplying a flag, caption or model output.
+
+## Runtime
+
+- `backend/app/marketing_specialists.py`: versioned role instructions, strict input/output contracts, stage-specific context, model adapter and replay-aware runner.
+- `backend/app/marketing_specialist_api.py`: existing raw-body HMAC authentication, active platform-admin rechecks, actor-scoped job/run access and PostgreSQL repository.
+- Existing `automation_commands.py` includes the marketing router; existing commerce commands are unchanged.
+- Signed POST endpoints under `/api/v1/automation/commands/marketing`: `catalog`, `create`, `read`, `run`.
+- All require the existing automation command signature. The signed actor must remain an active platform admin, and may access only their own jobs. Do not expose the command secret to a browser or a model.
+- Backend flag `TCG_MARKETING_SPECIALISTS_ENABLED` defaults off. n8n flag `DROP_RATE_MARKETING_SPECIALISTS_ENABLED` also defaults off. Changing these flags cannot enable the missing publisher.
+- Uses the existing backend `TCG_OPENAI_API_KEY` through Settings. It is not copied into n8n. The pinned first-slice model is `gpt-4.1-mini-2025-04-14`; account/model availability still needs a bounded live smoke test.
+- One request per claimed stage, 45-second HTTP timeout, at most 2,400 output tokens, 128 KiB response cap, no redirects, no tools and no automatic model retries. `store:false` is set. This flag does not mean zero provider retention; apply the account's data controls.
+- Per actor: at most 10 new jobs and 30 claimed model stages per UTC day, with at most two RUNNING claims. These are execution bounds, not a guaranteed monetary cap. No paid calls were made during local tests.
+
+## Durable state and recovery
+
+The additive SQL defines `tcg.marketing_specialist_jobs` and `tcg.marketing_specialist_runs`. Generate a canonical timestamped migration from the SQL draft before release. Do not apply the draft by hand or change existing schema/history to make a test pass.
+
+Jobs are immutable snapshots with a content hash. Version 1 accepts revision 1 only; editing or resetting a job is intentionally absent. Changed inputs need a new job, and that is not a route to retry public posts: there is no public publisher in v1. Future editorial revisions and approved asset revisions require their own reviewed schema/API extension.
+
+A run is unique by job/revision/stage. PostgreSQL claims it under a per-actor advisory lock before any external call. The database transaction is released before the model request. Completed records are returned on replay. Conflicting input/prompt hashes block reuse. Failed/unknown runs are not blindly retried. On a subsequent claim, RUNNING records older than five minutes become UNKNOWN with a fixed error code; no background recovery scheduler is added here. A late completion cannot overwrite a terminal state.
+
+Inputs and outputs, prompt hashes/version, model, token usage and timestamps are saved. Job rows cannot be updated/deleted through the application; run updates may only finalise a RUNNING record once. RLS is enabled/forced, backend grants are narrow, and anon/authenticated roles have no table grants. The new trigger is SECURITY INVOKER. No ownership, inventory, price, settlement or existing history tables are mutated.
+
+Precondition rejections (missing evidence/metrics, upstream not ready, stale input, publisher unavailable) do not consume a model claim. They return explicit BLOCKED reasons; they are not durable executions and are not misreported as successful jobs. Full Action Required integration, watchdog alert delivery and operator recovery UI remain release work.
+
+## n8n exports
+
+Run `python automation/n8n/marketing/build_workflows.py` to reproduce `workflows.json`. The aggregate export contains seven workflows:
+
+- DRMktResearchV1
+- DRMktBriefV1
+- DRMktCopyV1
+- DRMktDesignV1
+- DRMktPublishV1
+- DRMktManageV1
+- DRMktPrepareV1
+
+The export is intentionally outside the existing automatic provisioning directory. Its JSON must be committed and reviewed before an explicit inactive import. The existing start.sh and production persistent database are unchanged. Do not assume deploying the backend installs these workflows.
+
+Children accept one job ID, actor ID, revision and immutable input hash; they select a fixed role, sign the exact JSON body and call the fixed backend command. They do not receive model/provider keys or accept arbitrary destinations. The response verifier matches all identifiers and refuses unexpected states or public-authority flags. Error/success/manual execution-data saving is disabled. DR90GlobalErrorV1 is referenced; runtime error delivery has not been verified for these new IDs. No public webhook or schedule trigger is included.
+
+Parent output stops on review/failure/unknown/in-progress. Design ends awaiting media; publishing and management remain separately callable boundaries. These are exported n8n workflows, not ChatGPT sessions or persistent conversation memories.
+
+## Validation and release gates
+
+Local first pass: 41 Python core/adapter tests and 15 Node checks passed. Node checks execute the actual generated signers, response verifier and handoff guards. Models and repositories in local core tests are test doubles; no actual provider or PostgreSQL concurrency test is claimed from those results. The local environment uses Pydantic 2.13.4; CI must also verify the repository's pinned 2.11.4. Full backend CI, signed-route tests, live PostgreSQL RLS/concurrency/immutability tests, exact n8n import/runtime and real model access are separate gates.
+
+Before deploying/enabling: finish canonical migration generation and BUILD_STATUS entry; review migration/grants and execute rollback-contained database tests; pass the full existing test suite; apply the reviewed additive migration; deploy only the existing API service and observe SUCCESS plus healthy endpoints. Import the committed workflows inactive under the existing private setup and verify their IDs/content without overwriting existing copies. Then run one bounded nonpublishing proposal with existing credentials. Do not turn on a daily schedule.
+
+Approved media alone will not finish the later pilot. The immutable asset approval, per-channel publication claim, Buffer write and separate delivery reconciliation still need implementation and failure tests. Keep rejected drafts untouched. Never describe a manual Buffer post as an n8n execution.
+
+Rollback: disable both specialist flags, revert the application release and retain job/run history and persistent n8n data. Do not delete tables, workflows, prior drafts or provider content as a rollback shortcut.
+
+## References checked 4 October 2026
+
+- OpenAI structured output: https://developers.openai.com/api/docs/guides/structured-outputs
+- Model: https://developers.openai.com/api/docs/models/gpt-4.1-mini
+- n8n sub-workflows: https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.executeworkflow/
+- Buffer immediate mode: https://developers.buffer.com/types/ShareMode.html
+
+These references inform the adapter/interface. They do not prove account access or live delivery. Preserve #512/#513's design/research/read-only Buffer work; this first slice does not merge or replace those drafts.
