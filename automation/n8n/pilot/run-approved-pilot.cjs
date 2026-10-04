@@ -3,7 +3,9 @@
 const fs=require('node:fs'), os=require('node:os'), path=require('node:path');
 const crypto=require('node:crypto'), {promisify}=require('node:util');
 const execFile=promisify(require('node:child_process').execFile);
+const {classify}=require('./safe-diagnostics.cjs');
 const HASH='2b056042371fbb245ff26dd5582a46f6bcc4ff8463362cb50e31932e67dc7fde';
+let phase='CONFIG';
 async function run(){
  const op=process.env.DROP_RATE_APPROVED_PILOT_OPERATION;
  if(process.env.DROP_RATE_APPROVED_PILOT_HASH!==HASH||!['check','publish','status'].includes(op)) throw new Error('pilot_operator_configuration_missing');
@@ -18,8 +20,11 @@ async function run(){
  if(w.id!=='DRApprovedSocialPilotV1'||w.active!==false||w.nodes.some(n=>/webhook|scheduleTrigger/.test(n.type))) throw new Error('pilot_workflow_contract_invalid');
  const cli=args=>execFile('n8n',args,{env,timeout:260000,maxBuffer:4*1024*1024});
  try{
+  phase='IMPORT';
   await cli(['import:workflow','--input='+workflow]);
+  phase='EXECUTE';
   const result=await cli(['execute','--id='+w.id,'--rawOutput']);
+  phase='SUMMARY';
   const pattern=/"pilot_summary_json"\s*:\s*("(?:[^"\\]|\\.)*")/g;
   const matches=[...result.stdout.matchAll(pattern)];
   if(!matches.length) throw new Error('pilot_summary_missing');
@@ -32,4 +37,4 @@ async function run(){
   if(temp.startsWith(path.join(os.tmpdir(),'drop-rate-approved-pilot-'))) fs.rmSync(temp,{recursive:true,force:true});
  }
 }
-run().catch(()=>{console.error('DROP_RATE_APPROVED_PILOT_RESULT '+JSON.stringify({state:'RUN_UNVERIFIED',reason:'Review the backend journal before any retry. No raw execution payload is logged.'}));process.exitCode=1;});
+run().catch(error=>{console.error('DROP_RATE_APPROVED_PILOT_RESULT '+JSON.stringify(classify(error,phase)));process.exitCode=1;});
