@@ -6,6 +6,8 @@ COPY automation/n8n/marketing/workflows.json /opt/drop-rate/marketing-workflows.
 # Split the reviewed aggregate at build time. Existing startup only imports
 # absent inactive IDs and never replaces persistent production workflows.
 RUN node -e 'const fs=require("fs"),assert=require("assert/strict"); const expected=["DRMktResearchV1","DRMktBriefV1","DRMktCopyV1","DRMktDesignV1","DRMktPublishV1","DRMktManageV1","DRMktPrepareV1"]; const items=JSON.parse(fs.readFileSync("/opt/drop-rate/marketing-workflows.json","utf8")); assert.equal(items.length,expected.length); assert.deepEqual(items.map(w=>w.id).sort(),expected.sort()); for(const w of items){assert.equal(w.active,false); const path="/opt/drop-rate/workflows/marketing-"+w.id+".json"; assert(!fs.existsSync(path)); fs.writeFileSync(path,JSON.stringify(w,null,2)+"\n");}'
+# This manual, bounded pilot is not part of automatic persistent provisioning.
+COPY automation/n8n/pilot /opt/drop-rate/pilot
 COPY automation/n8n/start.sh /opt/drop-rate/start.sh
 RUN chmod 0555 /opt/drop-rate/start.sh \
     && find /opt/drop-rate/workflows -type f -name '*.json' -exec chmod 0444 {} \;
