@@ -52,6 +52,24 @@ approval, idempotency or reconciliation before future scheduling.
 The 4 October browser observation and remaining release work are recorded in
 `docs/BUFFER_CONNECTION_HANDOFF.md`. The new query/export has not been run against
 production Buffer or imported into production n8n. No deployment is implied.
+## Daily static editorial direction - 4 October 2026
+
+Drop Rate covers cards, comics, manga, anime and screen releases across the
+founder's requested franchises. See
+[`docs/STATIC_SOCIAL_RESEARCH_AND_PLAYBOOK.md`](../../docs/STATIC_SOCIAL_RESEARCH_AND_PLAYBOOK.md)
+for research, the varied carousel programme and measured traffic/sales experiments.
+Artist stories are one recurring format, not the entire feed. Static-first, no music.
+The goal is automated research, creation, channel management, multiple daily
+posts and performance learning. Initial test target: three distinct daily stories;
+confirmed across Instagram, Facebook, YouTube, TikTok and X (15 platform slots).
+This end-to-end system is not yet implemented or active.
+
+[`plans/daily-tcg-editorial.json`](plans/daily-tcg-editorial.json) remains a design
+specification, not a runtime consumer or importable workflow. A separate real
+inactive DR-31 preparation workflow now exists; no publisher is connected.
+Instagram/Facebook/TikTok/X static routes need account/provider proof. YouTube
+Community image posting has no documented public Data API creation route found;
+do not silently substitute Shorts or daily manual posting.
 
 ## Rules
 
@@ -256,3 +274,19 @@ Scope is deliberately narrow:
 Title, description, SEO, media and arbitrary metafield rewrites are **not** included in DR-02 v1. They require their own deterministic readiness/update contracts rather than being bundled into a generic n8n mutation.
 
 The workflow is imported inactive. Its migration must be applied through the normal manual production migration gate before any controlled activation test.
+
+## DR-31 static editorial preparation v1
+
+`DR31StaticEditorialPreparationV1` accepts a `brief_json` string, signs it with
+the existing automation command secret and calls
+`/api/v1/automation/commands/editorial/prepare`. The backend validates supplied
+observations and returns a six-to-eight-slide brief and explicit blockers.
+Every response has `publishable:false` and `stored:false`; no URL is fetched.
+
+This workflow contains no scheduler, live source collection, rendering or
+publisher. It must not call DR-91 because no durable action was completed.
+It is imported inactive only after normal deployment; no live import is claimed.
+The API must be deployed and DR-90 proven before a controlled execution.
+`TCG_EDITORIAL_STOREFRONT_ORIGIN` is optional backend configuration; no configured
+origin means no commerce link. Source text, dates and relevance still require
+independent authoritative verification before any later publishing workflow.
