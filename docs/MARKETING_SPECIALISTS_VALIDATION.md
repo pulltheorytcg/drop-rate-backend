@@ -50,3 +50,7 @@ The publishing role is a hard-blocked boundary, not a finished Buffer publisher.
 No new Railway services, paid-plan purchase, credential rotation, production inventory/ownership/price/finance change or usage-limit increase occurred. The Railway coding agent exhausted its existing allowance; direct GitHub implementation continued without raising that limit.
 
 Rollback after a later release means disabling the specialist flags and reverting code while retaining durable history and existing n8n data—not deleting tables, workflows, drafts or social posts.
+
+## Production migration checkpoint — 4 October 2026, 13:33 UTC
+
+The reviewed migration is now applied as `20261004133308_marketing_specialists_v1`. Read-back verifies forced RLS and narrow grants; both new tables are empty. Earlier unapplied statements above are historical. Runtime deployment and an actual authenticated backend/model probe are still pending. A connector SET ROLE test was refused before any test insertion; do not claim it passed or broaden role membership to bypass it.

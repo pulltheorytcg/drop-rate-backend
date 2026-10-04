@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Marketing preparation production migration applied
+
+- Applied only the reviewed additive marketing-specialist migration via Supabase; actual production version is `20261004133308`. Canonical filename is aligned with that recorded version without editing production migration history.
+- Read-back confirms both marketing tables exist with forced RLS, no anon/authenticated SELECT, no tcg_api DELETE or unrestricted UPDATE, and zero jobs/runs. Existing stock, ownership and financial tables were not modified.
+- Existing founder-auth functions and non-bypass tcg_api role were inspected. The connector cannot SET ROLE tcg_api, so an attempted rollback-only role test was rejected before writing; live actor/RLS validation remains for the authenticated backend probe. No permissions were broadened.
+- API/n8n deployment and real-model verification are the next gates. Daily scheduling and the unimplemented Buffer publisher remain off. See docs/MARKETING_SPECIALISTS_VALIDATION.md; retain historical checkpoints below.
+
 ## 2026-10-04 — Marketing specialist runtime v1 (draft; not deployed)
 
 - Added separate research, brief, copywriting, design, publishing and social-management roles with versioned prompts and bounded structured model calls. The publisher is hard-blocked and makes no provider writes.

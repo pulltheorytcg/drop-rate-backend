@@ -29,7 +29,7 @@ The pinned first-slice model is `gpt-4.1-mini-2025-04-14` through the fixed Open
 
 Per actor: at most ten new jobs and thirty claimed model stages per UTC day, with at most two RUNNING claims. These are execution limits, not a monetary spending guarantee. No real model calls were made during the implementation tests.
 
-Canonical migration: `database/migrations/20261004051810_marketing_specialists_v1.sql`, generated with Supabase CLI. It creates only `tcg.marketing_specialist_jobs`, `tcg.marketing_specialist_runs`, associated indexes, policies and an immutability trigger. It has **not** been applied to production.
+Canonical migration: `database/migrations/20261004133308_marketing_specialists_v1.sql`, generated with Supabase CLI. It creates only `tcg.marketing_specialist_jobs`, `tcg.marketing_specialist_runs`, associated indexes, policies and an immutability trigger. It has **not** been applied to production.
 
 Jobs preserve immutable input snapshots and hashes. V1 permits revision 1 only; job editing/reset is absent. Future editorial/media revisions need a separately reviewed extension. Runs are unique by job/revision/stage. A per-actor transaction/advisory lock claims the run before external I/O; the transaction ends before the model request. Replays return existing results, while changed input/prompt hashes block reuse. Failed/unknown runs are not blindly retried.
 
@@ -80,3 +80,7 @@ Rollback: disable both specialist flags and revert application code while retain
 ## Provider references
 
 Checked 4 October 2026: official OpenAI structured-output and GPT-4.1 mini documentation; n8n Execute Sub-workflow documentation and exact 2.32.6 source for HttpRequestV3, workflow-execute-additional-data and publish:workflow; Buffer ShareMode reference. These define interfaces, not proof of account access or live delivery.
+
+## Production migration checkpoint — 4 October 2026, 13:33 UTC
+
+The reviewed migration is now applied as `20261004133308_marketing_specialists_v1`. Read-back verifies forced RLS and narrow grants; both new tables are empty. Earlier unapplied statements above are historical. Runtime deployment and an actual authenticated backend/model probe are still pending. A connector SET ROLE test was refused before any test insertion; do not claim it passed or broaden role membership to bypass it.
