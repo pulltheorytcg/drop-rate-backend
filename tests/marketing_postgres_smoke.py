@@ -111,7 +111,7 @@ async def main():
                 pass
         try:
             async with other.connection() as conn:
-                await conn.execute('insert into tcg.marketing_specialist_jobs(id,revision,created_by,input,input_sha256) values($1,1,$2,$3,$4::jsonb,$5)', uuid4(),F1,{},'c'*64)
+                await conn.execute('insert into tcg.marketing_specialist_jobs(id,revision,created_by,input,input_sha256) values($1,1,$2,$3::jsonb,$4)', uuid4(),F1,{},'c'*64)
             raise AssertionError('Forged actor insert accepted')
         except asyncpg.InsufficientPrivilegeError:
             pass
