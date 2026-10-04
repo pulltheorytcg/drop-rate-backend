@@ -701,7 +701,10 @@
       ],
       "design_document": "docs/DAILY_TCG_EDITORIAL_SYSTEM.md",
       "design_configuration": "automation/n8n/plans/daily-tcg-editorial.json",
-      "live_publishing_verified": false
+      "live_publishing_verified": false,
+      "preparation_component_path": "automation/n8n/workflows/dr-31-static-editorial-preparation.json",
+      "research_document": "docs/STATIC_SOCIAL_RESEARCH_AND_PLAYBOOK.md",
+      "implementation_scope": "STATELESS_PREPARATION_ONLY_NOT_FULL_FAMILY"
     },
     {
       "key": "social-publishing",
@@ -726,7 +729,8 @@
       ],
       "design_document": "docs/DAILY_TCG_EDITORIAL_SYSTEM.md",
       "design_configuration": "automation/n8n/plans/daily-tcg-editorial.json",
-      "live_publishing_verified": false
+      "live_publishing_verified": false,
+      "static_youtube_api_gap": true
     },
     {
       "key": "customer-email-lifecycle",

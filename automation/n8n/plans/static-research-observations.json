@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "kind": "RESEARCH_OBSERVATIONS_NOT_LIVE_ANALYTICS",
+  "recorded_date": "2026-10-04",
+  "distinct_posts": 4,
+  "screenshot_count": 12,
+  "unknown_is_zero": false,
+  "observations": [
+    {
+      "post_key": "tcgviking-artists",
+      "creator": "TCG Viking",
+      "platform": "TIKTOK",
+      "format": "PHOTO_CAROUSEL",
+      "series": "ARTIST_CONNECTIONS",
+      "likes": 39300,
+      "likes_rounded": true,
+      "comments": 257,
+      "saves": 6065,
+      "shares": 5016,
+      "views": null,
+      "reach": null,
+      "followers_at_post": null,
+      "post_permalink": null,
+      "paid_distribution": null,
+      "captured_at": null,
+      "source_images": [
+        "IMG_4768.jpeg",
+        "IMG_4769.jpeg",
+        "IMG_4770.jpeg",
+        "IMG_4771.jpeg",
+        "IMG_4772.jpeg"
+      ]
+    },
+    {
+      "post_key": "collectors-italia-op17",
+      "creator": "Collectors.Italia",
+      "platform": "TIKTOK",
+      "format": "PHOTO_CAROUSEL",
+      "series": "RANKED_GUIDE",
+      "likes": 7962,
+      "likes_rounded": false,
+      "comments": 72,
+      "saves": 2258,
+      "shares": 1417,
+      "views": null,
+      "reach": null,
+      "followers_at_post": null,
+      "post_permalink": null,
+      "paid_distribution": null,
+      "captured_at": null,
+      "source_images": [
+        "IMG_4761.jpeg"
+      ]
+    },
+    {
+      "post_key": "tcgviking-pickups",
+      "creator": "TCG Viking",
+      "platform": "TIKTOK",
+      "format": "PHOTO_CAROUSEL",
+      "series": "COMMUNITY_PICKS",
+      "likes": 54,
+      "likes_rounded": false,
+      "comments": 3,
+      "saves": 16,
+      "shares": 6,
+      "views": null,
+      "reach": null,
+      "followers_at_post": null,
+      "post_permalink": null,
+      "paid_distribution": null,
+      "captured_at": null,
+      "source_images": [
+        "IMG_4765.jpeg",
+        "IMG_4766.jpeg",
+        "IMG_4767.jpeg"
+      ]
+    },
+    {
+      "post_key": "opabc-record-sales",
+      "creator": "OPABC",
+      "platform": "TIKTOK",
+      "format": "PHOTO_CAROUSEL",
+      "series": "RANKED_GUIDE",
+      "likes": 29,
+      "likes_rounded": false,
+      "comments": 2,
+      "saves": 4,
+      "shares": 1,
+      "views": null,
+      "reach": null,
+      "followers_at_post": null,
+      "post_permalink": null,
+      "paid_distribution": null,
+      "captured_at": null,
+      "source_images": [
+        "IMG_4762.jpeg",
+        "IMG_4763.jpeg",
+        "IMG_4764.jpeg"
+      ]
+    }
+  ]
+}

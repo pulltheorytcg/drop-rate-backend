@@ -1,5 +1,16 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Static editorial research, wider coverage and preparation component
+
+- **01:44 BST confirmation:** three distinct daily stories across Instagram, Facebook, YouTube, TikTok and X; target 15 platform publication slots. X account/adapter/costs and YouTube static capability remain unverified.
+- **01:42 BST clarification:** end goal is the complete organic marketing n8n machine: research, create, manage channels, post multiple times daily, measure and adapt. Proposed initial target is three distinct daily stories, not the superseded one-per-day plan. Preparation alone is not completion.
+- Founder expanded scope to One Piece, Pokemon, Dragon Ball, Naruto, comics, manga, Riftbound, Lorcana, anime, live-action releases and comic-book films. Artist stories are occasional; static-first/no music supersedes the earlier video-first plan. Added a varied 14-slot rotation and balanced visual direction.
+- Added `docs/STATIC_SOCIAL_RESEARCH_AND_PLAYBOOK.md`: four distinct screenshot posts (not twelve), creator shortlist with dated/qualified evidence, honest small-creator research gaps, nine series/six layout structures, source rules, UK/JP release distinctions, traffic destinations and a 28-day measurement pilot.
+- Implemented stateless `editorial_preparation.py`, signed `/api/v1/automation/commands/editorial/prepare`, optional storefront-origin configuration and inactive DR-31 subworkflow. Checks evidence references/freshness, exact-print raw/PSA9/PSA10 comparisons, duplicate transactions and destination scope. Outputs always `publishable:false`, `stored:false`; no profit, source verification or stock truth is claimed.
+- The working component prepares supplied facts only. Source adapters, durable content records/claims, renderer, licensed media, actual account connections, attribution and live delivery remain open. Registry families remain DESIGNED. YouTube Community static auto-posting has no documented public Data API route found; five-platform static delivery remains unresolved.
+- Content Machine PR #216 remains an unmerged draft. Latest GitHub metadata reports mergeable, superseding the older conflict note below; schema/grants still need review. No production migration, deployment, import, schedule, social post, subscription or spend occurred. iPhone work remains paused separately.
+- Local validation results and release limits are recorded in `docs/STATIC_SOCIAL_VALIDATION.md`. GitHub CI and actual n8n/provider execution remain separate gates.
+
 ## 2026-10-04 — Daily four-platform TCG editorial system specified (not activated)
 
 - **00:40 BST founder correction:** first decorative previews rejected as too AI-generated. Updated the design/configuration to clean editorial layouts with restrained branding, real undistorted card imagery and simple price-led content. Raw to Graded must focus on affordable raw cards with a large verified PSA 10 premium; the example `Raw card: £20 / PSA 10: £200` is illustrative, not a quoted card valuation. Costs/downside belong in supporting copy rather than overwhelming the hero. No publishing activation.
