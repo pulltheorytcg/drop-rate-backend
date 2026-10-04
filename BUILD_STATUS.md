@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Live Buffer queues checked; reusable queue audit prepared
+
+- Following founder sign-in, Buffer's live Home and Publish views showed zero scheduled posts overall and zero on each of the three expected channels. Channel settings showed 3/3 connected on the Free plan: Instagram/TikTok `dropratetcg` and YouTube `Drop Rate`. Facebook/X were unconnected. Empty recommended posting slots are not scheduled content.
+- Added a read-only paginated queue diagnostic and inactive bounded n8n companion. Counts distinguish scheduled/sending/draft/approval/error states, with attention flags for overdue and reminder posts. Invalid, truncated, duplicated or failed reads return unverified/null counts. The observation is advisory, not a publication lock.
+- No production deploy, workflow import/activation, social post, subscription or secret change. The new API query and n8n export still require live validation. Browser evidence does not prove API execution. Handoff and continuation gates: `docs/BUFFER_CONNECTION_HANDOFF.md`.
+
 ## 2026-10-04 — Buffer API connection verified; publishing remains inactive
 
 - Founder-installed `BUFFER_API_KEY` authenticated from the existing private n8n Railway service. Read-only Buffer GraphQL verification confirmed the expected Instagram/TikTok `@dropratetcg` and YouTube `Drop Rate` channels, the same organisation, London timezones, unlocked/unpaused connections and scheduling permission. No key value was retrieved or committed.

@@ -24,6 +24,35 @@ The existing additive provisioner will import it only after this change is deplo
 See `docs/BUFFER_CONNECTION_HANDOFF.md` for live evidence, the direct ChatGPT OAuth
 route, and the remaining publishing work. This component does not activate DR-32.
 
+## Buffer queue audit
+
+Run `node /opt/drop-rate/buffer-queue.mjs` in the derived image with the existing
+`BUFFER_API_KEY`. It queries the expected three channels and their non-sent posts,
+follows at most ten pages of 100 posts, uses a 15-second timeout per request and a
+45-second overall deadline, and never retries or mutates Buffer. Output separates
+scheduled, sending, error, needs-approval and draft counts; overdue posts,
+notification/reminder delivery and unknown delivery modes receive attention counts.
+Captions, media URLs and raw provider errors are neither requested nor printed.
+
+`DR32BufferQueueCheckV1` is an inactive, single-request n8n check. Regenerate with
+`node automation/n8n/build-buffer-queue-workflow.mjs`. It reports
+`buffer_queue_pagination_required` with null counts if another page exists. Use
+the paginated CLI for larger queues; do not accept the first page as a total.
+Transport errors can still fail an n8n execution and must be treated as unverified.
+The workflow saves no execution data and has no trigger that runs on a schedule.
+
+`ok` means the observation was parsed and completed, not that channels are ready
+or posting is authorized. Inspect connection flags and attention counts separately.
+Any incomplete result has `queue_complete:false`, `queue_empty:null` and
+`scheduled_posts:null`. Complete results cover only the three configured channels,
+exclude sent posts and channel-less ideas, and have no snapshot isolation: a post
+can change while pages are read. They cannot replace PostgreSQL publication claims,
+approval, idempotency or reconciliation before future scheduling.
+
+The 4 October browser observation and remaining release work are recorded in
+`docs/BUFFER_CONNECTION_HANDOFF.md`. The new query/export has not been run against
+production Buffer or imported into production n8n. No deployment is implied.
+
 ## Rules
 
 - Base image is pinned in `Dockerfile.n8n`.

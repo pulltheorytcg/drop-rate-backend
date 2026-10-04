@@ -1,5 +1,61 @@
 # Buffer connection handoff — 4 October 2026
 
+## Follow-up: live browser queue check and prepared queue audit
+
+On 4 October 2026, after the founder signed in during the continuation chat,
+the authenticated Buffer UI was read without modifying account or content state:
+
+| Surface | Observed result |
+| --- | --- |
+| Home, `https://publish.buffer.com/home` | 0 posts scheduled; no upcoming posts |
+| Publish sidebar, `https://publish.buffer.com/schedule` | Instagram, TikTok and YouTube each showed 0 scheduled posts |
+| Channels, `https://publish.buffer.com/settings/channels` | 3/3 connected on Free: Instagram Professional `dropratetcg`, TikTok `dropratetcg`, YouTube `Drop Rate` |
+| Publish sidebar | Facebook and Twitter/X offered as unconnected channels |
+| Publish queue | Empty suggested slots labelled Europe/London; no scheduled content |
+
+This is fresh browser evidence. No live API post query was executed in this chat,
+and no draft/failed/sent counts were inferred from the empty scheduled queue.
+Buffer OAuth tools are still not exposed here. Browser sign-in is not an MCP
+connection. Do not remove the existing Railway API key.
+
+Prepared continuation component:
+
+- `automation/n8n/buffer-queue.mjs`: fixed organization/channel scope; read-only
+  channel and non-sent post query; bounded cursor pagination; exact identity and
+  shape validation; sanitized errors; no captions or media retrieval; no retries.
+- `DR32BufferQueueCheckV1`: separate inactive n8n export generated from the same
+  validators. One page only; a continuation cursor yields an explicit incomplete
+  result, never a false empty queue. The paginated CLI supports ten pages.
+- Queue observations distinguish drafts, approvals, failures, sending and scheduled
+  posts, plus overdue/notification/unknown delivery attention counts. Every failure
+  returns null queue counts, and all paths leave publishing authority false.
+- `Dockerfile.n8n` packages the CLI; the existing additive provisioner would import
+  the new inactive workflow on a future deployment. Startup logic is unchanged.
+- The existing connection parity test now normalizes CRLF/LF when comparing embedded
+  JavaScript; this fixes Windows checkouts without changing runtime behavior.
+
+Validation: 26 Node tests passed across connection and queue suites, including
+the generated n8n Code node. Covers pagination, repeated cursor/post, page limit,
+later-page failure, wrong identity, malformed dates/status, partial GraphQL errors,
+401/403/429/503, transport/parse failure, secret-safe output and inactive workflow.
+Fifteen targeted pytest tests passed across Buffer, provisioning, workflow registry
+and orphan registry contracts. JavaScript syntax and `git diff --check` passed.
+The new query/export has not been exercised against live Buffer or production n8n.
+
+Next release gates, in sequence:
+
+1. Run the read-only queue query using the existing service credential and compare
+   the result with the browser. Do not redeploy merely to obtain a read-only result
+   without a release decision. Keep raw keys and provider errors out of logs.
+2. Import/execute the inactive n8n companion under the existing private setup and
+   confirm incomplete/error routing. The generic workflow family remains DESIGNED.
+3. Continue the durable backend publication ledger and approval flow before any
+   Buffer write adapter. Queue reads have no atomic snapshot or deduplication lock.
+4. Implement evidence storage and licensed static rendering from the editorial
+   plan, then test approved per-channel drafts and delivery reconciliation.
+5. Resolve Facebook/X capacity and YouTube static delivery explicitly; preserve
+   static-first/no-music direction and do not substitute Shorts or buy upgrades.
+
 ## Verified live
 
 The founder created a Buffer personal key, added it as `BUFFER_API_KEY` on

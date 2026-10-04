@@ -116,7 +116,7 @@ test('n8n invokes the same validator, does not accept arbitrary requests, and st
   assert.deepEqual(JSON.parse(request.body), { query: BUFFER_CONNECTION_QUERY });
   assert.equal(request.options.redirect.redirect.followRedirects, false);
   const code = workflow.nodes.find(node => node.type === 'n8n-nodes-base.code').parameters.jsCode;
-  assert.ok(code.startsWith(summarizeBufferConnection.toString()));
+  assert.ok(code.replace(/\r\n/g, '\n').startsWith(summarizeBufferConnection.toString().replace(/\r\n/g, '\n')));
   const execute = new Function('$input', code);
   for (const [statusCode, body] of [[200, fixture()], [401, {}], [200, {}]]) {
     assert.deepEqual(execute({ first: () => ({ json: { statusCode, body } }) }), [{ json: summarize(statusCode, body) }]);
