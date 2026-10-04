@@ -49,7 +49,7 @@ async def main():
         await admin.execute('insert into auth.users values($1)', actor)
         await admin.execute('insert into tcg.owners values($1,$2,$3,$4,true)', actor, 'Fixture', 'FOUNDER' if index < 3 else 'CONSIGNOR', index if index < 3 else None)
         await admin.execute('insert into tcg.owner_memberships(id,user_id,owner_id,role,active) values($1,$1,$1,$2,true)', actor, 'PLATFORM_ADMIN' if index < 3 else 'OWNER')
-    migration = ROOT / 'database/migrations/20261004051810_marketing_specialists_v1.sql'
+    migration = ROOT / 'database/migrations/20261004133308_marketing_specialists_v1.sql'
     await admin.execute(migration.read_text())
     assert await admin.fetchval("select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='tcg' and c.relname in ('marketing_specialist_jobs','marketing_specialist_runs') and c.relrowsecurity and c.relforcerowsecurity") == 2
     for role in ('anon', 'authenticated'):
