@@ -1,6 +1,89 @@
 # Drop Rate n8n provisioning
 
+**Current marketing scope:** three connected channels (Instagram, TikTok,
+YouTube), ultimately three stories/nine adapted posts daily. YouTube uses narrated,
+captioned Shorts without music. Historical five-platform/static-YouTube notes
+below describe earlier design decisions. See the current
+[pilot record](../../docs/MARKETING_PILOT_20261004.md).
+
 This directory makes production n8n workflows version-controlled and reproducible without exposing the n8n editor publicly.
+
+## Buffer connection — 4 October 2026
+
+The founder added `BUFFER_API_KEY` to the existing n8n Railway service. A live,
+read-only API check authenticated successfully and verified Drop Rate's Instagram,
+TikTok and YouTube channels. This proves access, not automatic posting.
+
+`buffer-connection.mjs` provides a repeatable read-only check using that environment
+variable. In the derived image, run `node /opt/drop-rate/buffer-connection.mjs`.
+It only contacts `https://api.buffer.com`, disables redirects, times out after
+15 seconds, and prints a fixed summary without credentials or raw provider errors.
+It exits nonzero for invalid credentials, mismatched/missing channels or an
+unusable connection. It does not retry, write posts or run automatically at startup.
+
+`DR32BufferConnectionCheckV1` is the equivalent inactive n8n sub-workflow. The
+workflow uses the same response validator, disables execution-data persistence,
+and has no schedule or public webhook. Regenerate its JSON after validator changes
+with `node automation/n8n/build-buffer-connection-workflow.mjs`.
+The existing additive provisioner will import it only after this change is deployed.
+
+Both Buffer HTTP nodes use JSON request mode (`contentType: json`,
+`specifyBody: json`, `jsonBody`) as well as JSON response mode. In n8n 2.32.6,
+raw request mode enables a response stream which the explicit full JSON response
+path does not consume. The live runtime test caught that mismatch; keep JSON
+request mode when regenerating either workflow. The smoke runner privately
+captures info-level CLI output because n8n emits `--rawOutput` at that level,
+then logs only allowlisted status/count fields.
+
+See `docs/BUFFER_CONNECTION_HANDOFF.md` for live evidence, the direct ChatGPT OAuth
+route, and the remaining publishing work. This component does not activate DR-32.
+
+## Buffer queue audit
+
+Run `node /opt/drop-rate/buffer-queue.mjs` in the derived image with the existing
+`BUFFER_API_KEY`. It queries the expected three channels and their non-sent posts,
+follows at most ten pages of 100 posts, uses a 15-second timeout per request and a
+45-second overall deadline, and never retries or mutates Buffer. Output separates
+scheduled, sending, error, needs-approval and draft counts; overdue posts,
+notification/reminder delivery and unknown delivery modes receive attention counts.
+Captions, media URLs and raw provider errors are neither requested nor printed.
+
+`DR32BufferQueueCheckV1` is an inactive, single-request n8n check. Regenerate with
+`node automation/n8n/build-buffer-queue-workflow.mjs`. It reports
+`buffer_queue_pagination_required` with null counts if another page exists. Use
+the paginated CLI for larger queues; do not accept the first page as a total.
+Transport errors can still fail an n8n execution and must be treated as unverified.
+The workflow saves no execution data and has no trigger that runs on a schedule.
+
+`ok` means the observation was parsed and completed, not that channels are ready
+or posting is authorized. Inspect connection flags and attention counts separately.
+Any incomplete result has `queue_complete:false`, `queue_empty:null` and
+`scheduled_posts:null`. Complete results cover only the three configured channels,
+exclude sent posts and channel-less ideas, and have no snapshot isolation: a post
+can change while pages are read. They cannot replace PostgreSQL publication claims,
+approval, idempotency or reconciliation before future scheduling.
+
+The 4 October browser observation and remaining release work are recorded in
+`docs/BUFFER_CONNECTION_HANDOFF.md`. The new query/export has not been run against
+production Buffer or imported into production n8n. No deployment is implied.
+## Daily static editorial direction - 4 October 2026
+
+Drop Rate covers cards, comics, manga, anime and screen releases across the
+founder's requested franchises. See
+[`docs/STATIC_SOCIAL_RESEARCH_AND_PLAYBOOK.md`](../../docs/STATIC_SOCIAL_RESEARCH_AND_PLAYBOOK.md)
+for research, the varied carousel programme and measured traffic/sales experiments.
+Artist stories are one recurring format, not the entire feed. Static-first, no music.
+The goal is automated research, creation, channel management, multiple daily
+posts and performance learning. Initial test target: three distinct daily stories;
+confirmed across Instagram, Facebook, YouTube, TikTok and X (15 platform slots).
+This end-to-end system is not yet implemented or active.
+
+[`plans/daily-tcg-editorial.json`](plans/daily-tcg-editorial.json) remains a design
+specification, not a runtime consumer or importable workflow. A separate real
+inactive DR-31 preparation workflow now exists; no publisher is connected.
+Instagram/Facebook/TikTok/X static routes need account/provider proof. YouTube
+Community image posting has no documented public Data API creation route found;
+do not silently substitute Shorts or daily manual posting.
 
 ## Rules
 
@@ -206,3 +289,18 @@ Title, description, SEO, media and arbitrary metafield rewrites are **not** incl
 
 The workflow is imported inactive. Its migration must be applied through the normal manual production migration gate before any controlled activation test.
 
+## DR-31 static editorial preparation v1
+
+`DR31StaticEditorialPreparationV1` accepts a `brief_json` string, signs it with
+the existing automation command secret and calls
+`/api/v1/automation/commands/editorial/prepare`. The backend validates supplied
+observations and returns a six-to-eight-slide brief and explicit blockers.
+Every response has `publishable:false` and `stored:false`; no URL is fetched.
+
+This workflow contains no scheduler, live source collection, rendering or
+publisher. It must not call DR-91 because no durable action was completed.
+It is imported inactive only after normal deployment; no live import is claimed.
+The API must be deployed and DR-90 proven before a controlled execution.
+`TCG_EDITORIAL_STOREFRONT_ORIGIN` is optional backend configuration; no configured
+origin means no commerce link. Source text, dates and relevance still require
+independent authoritative verification before any later publishing workflow.

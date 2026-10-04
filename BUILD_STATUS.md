@@ -1,5 +1,68 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Approved live n8n queue test passed at 05:19 BST
+
+- Founder explicitly approved the bounded production restart. The isolated n8n workflow ran successfully against Buffer: all three channels ready, complete queue read, zero scheduled/sending/error/approval posts and two drafts. Publishing remains unverified and automatic posting is off.
+- Live testing exposed n8n 2.32.6's raw-request response-stream mismatch. Fixed both Buffer workflow builders to use JSON request mode; the corrected queue workflow passed on Railway deployment `0970b4f3-da52-4f43-8155-ed8a8a731aaa`. Added safe diagnostic output and regression checks: 33 Node tests and 2 Python wrapper tests passed.
+- Temporary test settings removed, timeout restored to 30, and Railway verified Online/SUCCESS with one running replica, no failures/issues/pending work. Production source remains main `21a02f3`; the diagnostic used a disposable database and did not install or activate the PR's workflows persistently. Prior blocked/not-run entries below are historical. See `docs/MARKETING_PILOT_20261004.md` for exact evidence and the remaining full-publishing work.
+
+## 2026-10-04 — First finished marketing pilot and bounded runtime test
+
+- **Latest founder correction:** reject the new intro renders; use the previous conversation's designs for posting tests and improve Higgsfield separately. The two upload-validation drafts are tagged `Rejected — do not publish`; Queue/Sent both remain zero. Earlier image records exist but their durable-host files are currently unavailable, so exact reuse still needs access to those images.
+- Combined PR #512's existing editorial preparation and research/template material with PR #513's Buffer diagnostics. Added a reusable native creative renderer, four static slides in two sizes and a 14.783-second Short with the approved founder voice and verified captions.
+- Targeted validation: 36 Python checks and 30 Node checks passed. Full backend/dashboard/n8n-image CI passed at `38ff817`. The new runner uses a temporary n8n database and read-only Buffer requests; it cannot publish.
+- Automatic approval review blocked the proposed production restart without explicit approval of interruption risk. No Railway configuration changed and no runtime execution is claimed. See `docs/MARKETING_PILOT_20261004.md` for proof, media identifiers and remaining delivery work.
+
+## 2026-10-04 — Earlier social template work recovered and linked
+
+- Read back **Convert Seller Hub App** and inspected the actual PR #512 code. Recovered seven completed visual previews across Market Watch, Raw to Graded, Release Radar and the clean/balanced Cleffa revisions; the user's screenshot analysis; nine series; six layout structures; and the implemented DR-31 preparation component.
+- Clarified that design previews and brief preparation already exist and must be reused. The unresolved gap is a fixed renderer and the complete background research/render/publish/verify chain. DR-31 returns slide text and checks from supplied facts, not finished media. The handoff now points to the exact prior conversation and source commit. No new production action occurred.
+
+## 2026-10-04 — Approved founder voice; three-channel pilot not runnable yet
+
+- Higgsfield is connected in chat; the founder's custom voice was created and a conservative Seed Audio narration sample was approved. The more expressive Qwen take was rejected for voice similarity. Background speech/rendering integration remains unimplemented.
+- Founder requested a bounded create-and-publish test on Instagram, TikTok and YouTube together. Fresh Railway inspection still shows n8n on main `21a02f3`, deployment `c45658f8-f684-4c49-958c-1bc80b918543`, SUCCESS, no staged changes. PRs #512/#513 remain unmerged drafts; creative generation and social publishing remain PLANNED.
+- Test status: **not run, blocked before execution**. There is no implemented full-flow publisher to invoke; no n8n creative or social post was produced. Detailed evidence and the one-story/three-platform pilot requirements are in `docs/BUFFER_CONNECTION_HANDOFF.md`. No activation, redeployment, public n8n access, credential change or subscription purchase occurred.
+
+## 2026-10-04 — Full marketing-loop audit and founder scope confirmed
+
+- Current target: three distinct stories adapted across Instagram, TikTok and YouTube, producing nine daily posts. Founder approved YouTube Shorts and then requested voiceovers: narration plus captions, no background music. Facebook/X are outside the first release. Background speech/rendering remains unimplemented; the later voice setup is recorded above.
+- The full research/create/publish/measure loop is not operational. Source collection, finished creative, durable approvals/publications, recurring delivery and attribution/learning remain unfinished. Existing draft foundations and green isolated tests are not live delivery proof.
+- Verified the n8n service still runs main `21a02f3` successfully; no staged changes. Defined end-to-end acceptance including one real pilot per channel, seven days of verified cadence, duplicate/failure recovery, capacity-aware queue refill, metric snapshots and a verified store-attribution path in `docs/BUFFER_CONNECTION_HANDOFF.md`. No production changes were made during the audit.
+
+## 2026-10-04 — Live Buffer queues checked; reusable queue audit prepared
+
+- Following founder sign-in, Buffer's live Home and Publish views showed zero scheduled posts overall and zero on each of the three expected channels. Channel settings showed 3/3 connected on the Free plan: Instagram/TikTok `dropratetcg` and YouTube `Drop Rate`. Facebook/X were unconnected. Empty recommended posting slots are not scheduled content.
+- Added a read-only paginated queue diagnostic and inactive bounded n8n companion. Counts distinguish scheduled/sending/draft/approval/error states, with attention flags for overdue and reminder posts. Invalid, truncated, duplicated or failed reads return unverified/null counts. The observation is advisory, not a publication lock.
+- No production deploy, workflow import/activation, social post, subscription or secret change. The new API query and n8n export still require live validation. Browser evidence does not prove API execution. Handoff and continuation gates: `docs/BUFFER_CONNECTION_HANDOFF.md`.
+
+## 2026-10-04 — Buffer API connection verified; publishing remains inactive
+
+- Founder-installed `BUFFER_API_KEY` authenticated from the existing private n8n Railway service. Read-only Buffer GraphQL verification confirmed the expected Instagram/TikTok `@dropratetcg` and YouTube `Drop Rate` channels, the same organisation, London timezones, unlocked/unpaused connections and scheduling permission. No key value was retrieved or committed.
+- Live proof: deployment `c45658f8-f684-4c49-958c-1bc80b918543` succeeded, with `DROP_RATE_BUFFER_CHECK` reporting `ok:true`. Removed the temporary pre-deploy diagnostic afterwards. No posts, paid services, public n8n endpoint or database changes.
+- Added a reusable secret-safe diagnostic and equivalent inactive DR-32 n8n sub-workflow with a shared validator. This code is a reviewable component, not proof of production import/execution. The live probe was read-only; no publishing path has been tested.
+- Buffer's official ChatGPT integration supports OAuth at `https://mcp.buffer.com/mcp`; no personal API key is needed for the direct chat connection. The Railway key remains for unattended n8n. Direct OAuth approval is still pending. Full research/render/persist/publish/measure automation remains unfinished; YouTube static delivery and the unconnected Facebook/X channels remain separate gaps. See `docs/BUFFER_CONNECTION_HANDOFF.md`.
+## 2026-10-04 — Static editorial research, wider coverage and preparation component
+
+- **01:44 BST confirmation:** three distinct daily stories across Instagram, Facebook, YouTube, TikTok and X; target 15 platform publication slots. X account/adapter/costs and YouTube static capability remain unverified.
+- **01:42 BST clarification:** end goal is the complete organic marketing n8n machine: research, create, manage channels, post multiple times daily, measure and adapt. Proposed initial target is three distinct daily stories, not the superseded one-per-day plan. Preparation alone is not completion.
+- Founder expanded scope to One Piece, Pokemon, Dragon Ball, Naruto, comics, manga, Riftbound, Lorcana, anime, live-action releases and comic-book films. Artist stories are occasional; static-first/no music supersedes the earlier video-first plan. Added a varied 14-slot rotation and balanced visual direction.
+- Added `docs/STATIC_SOCIAL_RESEARCH_AND_PLAYBOOK.md`: four distinct screenshot posts (not twelve), creator shortlist with dated/qualified evidence, honest small-creator research gaps, nine series/six layout structures, source rules, UK/JP release distinctions, traffic destinations and a 28-day measurement pilot.
+- Implemented stateless `editorial_preparation.py`, signed `/api/v1/automation/commands/editorial/prepare`, optional storefront-origin configuration and inactive DR-31 subworkflow. Checks evidence references/freshness, exact-print raw/PSA9/PSA10 comparisons, duplicate transactions and destination scope. Outputs always `publishable:false`, `stored:false`; no profit, source verification or stock truth is claimed.
+- The working component prepares supplied facts only. Source adapters, durable content records/claims, renderer, licensed media, actual account connections, attribution and live delivery remain open. Registry families remain DESIGNED. YouTube Community static auto-posting has no documented public Data API route found; five-platform static delivery remains unresolved.
+- Content Machine PR #216 remains an unmerged draft. Latest GitHub metadata reports mergeable, superseding the older conflict note below; schema/grants still need review. No production migration, deployment, import, schedule, social post, subscription or spend occurred. iPhone work remains paused separately.
+- Local validation results and release limits are recorded in `docs/STATIC_SOCIAL_VALIDATION.md`. GitHub CI and actual n8n/provider execution remain separate gates.
+
+## 2026-10-04 — Daily four-platform TCG editorial system specified (not activated)
+
+- **00:40 BST founder correction:** first decorative previews rejected as too AI-generated. Updated the design/configuration to clean editorial layouts with restrained branding, real undistorted card imagery and simple price-led content. Raw to Graded must focus on affordable raw cards with a large verified PSA 10 premium; the example `Raw card: £20 / PSA 10: £200` is illustrative, not a quoted card valuation. Costs/downside belong in supporting copy rather than overwhelming the hero. No publishing activation.
+- Founder requires original Drop Rate branded posts every day on Instagram, Facebook, TikTok and YouTube. Coverage includes news, permitted public social topics, notable completed sales, price drops/rises, set releases, raw-to-graded comparisons and relevant inventory. This supersedes the earlier one-social-channel recommendation.
+- Added `docs/DAILY_TCG_EDITORIAL_SYSTEM.md` and `automation/n8n/plans/daily-tcg-editorial.json`: daily research/selection/rendering/publication/reconciliation/measurement design, seven editorial series, one core story with four platform variants, no music, exact evidence/media rules, grading cost/downside scenarios, evergreen fallback, budget controls and implementation acceptance criteria. The JSON is a design specification, not an importable n8n workflow.
+- Marked the existing creative-generation/social-publishing registry families DESIGNED with the design pointer. No new workflow family or event type was introduced.
+- Read-only Railway inspection confirms the existing n8n service is live with its persistent volume and no staged changes. It does not verify stored social credentials or active workflows. Content Machine PR #216 is still a conflicting, unmerged draft requiring repair; it is not a working production publisher.
+- Publishing identities/connections, permitted sold-price feeds, renderer/templates, backend content contracts and end-to-end four-platform delivery remain open. Buffer's three-channel Free/API route plus a separately verified Facebook adapter is only a cost candidate; all-four-channel paid scheduling remains an alternative. No paid subscription, secret, live schedule, public post, schema, inventory or financial change was made.
+- Documentation/configuration validation: JSON parsing, registry tests and diff checks; no runtime, authenticated social-account or posting test is claimed. Current iPhone work remains separately paused in PR #511.
+
 ## 2026-10-03 — Refine the illustrated slab labels
 
 - Refined the approved two-card sign-in illustration with clearer PSA and Beckett-style labels: year/set/card details, prominent grade 10s, and four Beckett subgrades. Preserved the illustrated Charizard/Umbreon composition, transparent background and existing page layout.

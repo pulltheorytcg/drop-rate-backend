@@ -1,0 +1,119 @@
+{
+  "id": "DR32BufferQueueCheckV1",
+  "name": "DR-32 Buffer Queue Check (read-only, bounded)",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 30,
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
+  },
+  "nodes": [
+    {
+      "id": "dr32-queue-trigger",
+      "name": "Check Buffer Queue",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -520,
+        0
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": []
+        }
+      }
+    },
+    {
+      "id": "dr32-queue-request",
+      "name": "Read Drop Rate Buffer Queue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.buffer.com",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ (() => { const key = $env.BUFFER_API_KEY; if (typeof key !== 'string' || !key || /\\s/.test(key)) throw new Error('buffer_key_missing_or_invalid'); return 'Bearer ' + key; })() }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"query\":\"query DropRateBufferQueue($after: String) {\\n  channels(input: {organizationId: \\\"6ac1a59ca59739d7c3e08601\\\"}) {\\n    id service organizationId isDisconnected isLocked isQueuePaused timezone\\n    allowedActions\\n    metadata {\\n      ... on TiktokMetadata { defaultToReminders }\\n      ... on YoutubeMetadata { defaultToReminders }\\n    }\\n  }\\n  posts(first: 100, after: $after, input: {\\n    organizationId: \\\"6ac1a59ca59739d7c3e08601\\\"\\n    filter: {\\n      channelIds: [\\\"6ac1a5deea19ca0bde6c81b7\\\",\\\"6ac1a66eea19ca0bde6c89ac\\\",\\\"6ac1a694ea19ca0bde6c8ba3\\\"]\\n      status: [scheduled, sending, error, needs_approval, draft]\\n    }\\n    sort: [{field: dueAt, direction: asc}, {field: createdAt, direction: asc}]\\n  }) {\\n    edges { node {\\n      id status dueAt schedulingType\\n      channel { id service organizationId }\\n    } }\\n    pageInfo { hasNextPage endCursor }\\n  }\\n}\",\"variables\":{\"after\":null}}",
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr32-queue-summary",
+      "name": "Summarize Queue Observation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        40,
+        0
+      ],
+      "parameters": {
+        "jsCode": "function summarizeBufferConnection(status, body, organizationId, expectedChannels) {\n  const base = { publishing_verified: false, automatic_posting_active: false };\n  const fail = reason => ({ ...base, ok: false, reason });\n  if (!Number.isInteger(status) || status < 200 || status >= 300) {\n    return fail(status === 401 || status === 403 ? 'buffer_auth_rejected'\n      : status === 429 ? 'buffer_rate_limited' : 'buffer_http_failed');\n  }\n  if (!body || typeof body !== 'object' || Array.isArray(body)\n      || (body.errors !== undefined && (!Array.isArray(body.errors) || body.errors.length))) {\n    return fail('buffer_graphql_failed');\n  }\n  const channels = body.data?.channels;\n  if (!Array.isArray(channels)) return fail('buffer_response_invalid');\n  const summaries = [];\n  for (const expected of expectedChannels) {\n    const matches = channels.filter(channel => channel?.id === expected.id);\n    if (matches.length !== 1) return fail('buffer_expected_channel_missing_or_duplicate');\n    const channel = matches[0];\n    if (channel.organizationId !== organizationId || channel.service !== expected.service) {\n      return fail('buffer_channel_identity_mismatch');\n    }\n    if (['isDisconnected', 'isLocked', 'isQueuePaused'].some(field => typeof channel[field] !== 'boolean')\n        || !Array.isArray(channel.allowedActions) || typeof channel.timezone !== 'string') {\n      return fail('buffer_channel_state_invalid');\n    }\n    const schedulingAllowed = channel.allowedActions.includes('scheduleUpdates');\n    const connected = !channel.isDisconnected && !channel.isLocked;\n    const reminders = channel.metadata?.defaultToReminders;\n    summaries.push({\n      ...expected,\n      connected,\n      locked: channel.isLocked,\n      queue_paused: channel.isQueuePaused,\n      scheduling_allowed: schedulingAllowed,\n      expected_timezone: channel.timezone === 'Europe/London',\n      // Connection/permission is not proof of successful automatic media delivery.\n      connection_ready: connected && !channel.isQueuePaused && schedulingAllowed,\n      reminder_default: typeof reminders === 'boolean' ? reminders : null,\n      media_route: expected.service === 'youtube' ? 'video_required_static_route_unavailable' : 'static_delivery_unverified',\n    });\n  }\n  return {\n    ...base,\n    ok: true,\n    api_access_verified: true,\n    organization_id: organizationId,\n    all_connections_ready: summaries.every(channel => channel.connection_ready),\n    channels: summaries,\n  };\n}\nfunction queueFailure(reason) {\n  return {\n    ok: false, reason, queue_complete: false, queue_empty: null,\n    scheduled_posts: null, publishing_verified: false, automatic_posting_active: false,\n  };\n}\nfunction validateQueuePage(status, body, organizationId, expectedChannels, pageSize) {\n  const connection = summarizeBufferConnection(status, body, organizationId, expectedChannels);\n  if (!connection.ok) return queueFailure(connection.reason);\n  const result = body.data.posts;\n  const pageInfo = result?.pageInfo;\n  if (!Array.isArray(result?.edges) || result.edges.length > pageSize\n      || typeof pageInfo?.hasNextPage !== 'boolean'\n      || !(pageInfo.endCursor === null || (typeof pageInfo.endCursor === 'string'\n        && pageInfo.endCursor.length > 0 && pageInfo.endCursor.length <= 2048))\n      || (pageInfo.hasNextPage && (!pageInfo.endCursor || !result.edges.length))) {\n    return queueFailure('buffer_queue_page_invalid');\n  }\n  const ids = new Set();\n  const posts = [];\n  for (const edge of result.edges) {\n    const post = edge?.node;\n    const expected = expectedChannels.find(channel => channel.id === post?.channel?.id);\n    if (!expected || post.channel.organizationId !== organizationId\n        || post.channel.service !== expected.service) {\n      return queueFailure('buffer_queue_channel_mismatch');\n    }\n    if (typeof post.id !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(post.id)\n        || !['scheduled', 'sending', 'error', 'needs_approval', 'draft'].includes(post.status)\n        || ![null, 'automatic', 'notification'].includes(post.schedulingType)) {\n      return queueFailure('buffer_queue_post_invalid');\n    }\n    if (ids.has(post.id)) return queueFailure('buffer_queue_duplicate_post');\n    ids.add(post.id);\n    const dueAt = post.dueAt;\n    if (dueAt !== null && (typeof dueAt !== 'string'\n        || !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?(?:Z|[+-]\\d{2}:\\d{2})$/.test(dueAt)\n        || !Number.isFinite(Date.parse(dueAt))\n        || new Date(`${dueAt.slice(0, 10)}T00:00:00Z`).toISOString().slice(0, 10) !== dueAt.slice(0, 10))) {\n      return queueFailure('buffer_queue_date_invalid');\n    }\n    if (post.status === 'scheduled' && dueAt === null) {\n      return queueFailure('buffer_queue_scheduled_date_missing');\n    }\n    posts.push({\n      id: post.id, channel_id: expected.id, status: post.status,\n      due_at: dueAt === null ? null : new Date(dueAt).toISOString(),\n      scheduling_type: post.schedulingType,\n    });\n  }\n  return { ok: true, connection, posts, has_next_page: pageInfo.hasNextPage, cursor: pageInfo.endCursor };\n}\nfunction summarizeQueue(connection, posts, pagesRead, startedAt, finishedAt) {\n  const counts = rows => Object.fromEntries(\n    ['scheduled', 'sending', 'error', 'needs_approval', 'draft']\n      .map(status => [status, rows.filter(post => post.status === status).length]),\n  );\n  const totals = counts(posts);\n  const scheduled = posts.filter(post => post.status === 'scheduled');\n  return {\n    ...connection,\n    queue_complete: true,\n    // Drafts/failed posts are reported separately from the publishing queue.\n    queue_empty: totals.scheduled + totals.sending === 0,\n    scheduled_posts: totals.scheduled,\n    counts: totals,\n    pages_read: pagesRead,\n    observed_from: startedAt,\n    observed_to: finishedAt,\n    scope: 'expected_three_channels_non_sent_posts',\n    snapshot_isolation: false,\n    scheduling_authorized: false,\n    attention: {\n      overdue_scheduled: scheduled.filter(post => Date.parse(post.due_at) < Date.parse(finishedAt)).length,\n      reminder_scheduled: scheduled.filter(post => post.scheduling_type === 'notification').length,\n      unknown_delivery_scheduled: scheduled.filter(post => post.scheduling_type === null).length,\n      failed_posts: totals.error,\n    },\n    channels: connection.channels.map(channel => ({\n      ...channel, counts: counts(posts.filter(post => post.channel_id === channel.id)),\n    })),\n    posts: [...posts].sort((a, b) => (a.due_at ?? 'z').localeCompare(b.due_at ?? 'z') || a.id.localeCompare(b.id)),\n  };\n}\nfunction summarizeQueueFirstPage(status, body, organizationId, expectedChannels, pageSize, observedAt) {\n  const page = validateQueuePage(status, body, organizationId, expectedChannels, pageSize);\n  if (!page.ok) return page;\n  if (page.has_next_page) return queueFailure('buffer_queue_pagination_required');\n  return summarizeQueue(page.connection, page.posts, 1, observedAt, observedAt);\n}\nconst response = $input.first().json || {};\nreturn [{json:summarizeQueueFirstPage(Number(response.statusCode), response.body,\n  \"6ac1a59ca59739d7c3e08601\", [{\"id\":\"6ac1a5deea19ca0bde6c81b7\",\"service\":\"instagram\",\"name\":\"@dropratetcg\"},{\"id\":\"6ac1a66eea19ca0bde6c89ac\",\"service\":\"tiktok\",\"name\":\"@dropratetcg\"},{\"id\":\"6ac1a694ea19ca0bde6c8ba3\",\"service\":\"youtube\",\"name\":\"Drop Rate\"}],\n  100, new Date().toISOString())}];"
+      }
+    }
+  ],
+  "connections": {
+    "Check Buffer Queue": {
+      "main": [
+        [
+          {
+            "node": "Read Drop Rate Buffer Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Drop Rate Buffer Queue": {
+      "main": [
+        [
+          {
+            "node": "Summarize Queue Observation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-32",
+      "version": 1,
+      "role": "buffer-read-only-queue-check",
+      "publishingEnabled": false,
+      "scope": "Expected three channels and non-sent posts only; more than one page is unverified. No posting or scheduling authority."
+    }
+  }
+}

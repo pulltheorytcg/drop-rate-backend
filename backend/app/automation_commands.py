@@ -8,6 +8,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from .automation_dispatcher import verify_signed_body
+from .editorial_preparation import EditorialBrief, prepare_editorial
 from .settings import get_settings
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
@@ -88,6 +89,27 @@ async def _verified_command_body(
     ):
         raise HTTPException(status_code=401, detail="Invalid automation command signature")
     return raw_body
+
+
+@router.post("/editorial/prepare")
+async def prepare_static_editorial(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(default=None, alias="X-Drop-Rate-Timestamp"),
+    x_drop_rate_signature: str | None = Header(default=None, alias="X-Drop-Rate-Signature"),
+) -> dict:
+    """Prepare supplied evidence only; no fetch, persistence or publishing."""
+    raw_body = await _verified_command_body(
+        request,
+        timestamp_header=x_drop_rate_timestamp,
+        signature_header=x_drop_rate_signature,
+    )
+    try:
+        brief = EditorialBrief.model_validate_json(raw_body)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail="Invalid editorial preparation brief") from exc
+    return prepare_editorial(
+        brief, storefront_origin=get_settings().editorial_storefront_origin
+    )
 
 
 @router.post("/shopify/product-updates")
