@@ -5,9 +5,13 @@ on:
     paths:
       - 'backend/app/marketing_specialist*'
       - 'backend/app/automation_commands.py'
+      - 'backend/app/social_pilot.py'
+      - 'backend/app/approved_social_pilot.json'
       - 'automation/n8n/marketing/**'
+      - 'automation/n8n/pilot/**'
       - 'database/migrations/*_marketing_specialists_v1.sql'
       - 'tests/*marketing*'
+      - 'tests/*social_pilot*'
       - '.github/workflows/marketing-specialists.yml'
 
 permissions:
@@ -39,9 +43,11 @@ jobs:
       - name: Real PostgreSQL migration, RLS and concurrent claim checks
         env:
           MARKETING_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/marketing_test
-        run: PYTHONPATH=backend python tests/marketing_postgres_smoke.py
+        run: |
+          PYTHONPATH=backend python tests/marketing_postgres_smoke.py
+          PYTHONPATH=backend python tests/social_pilot_postgres.py
       - name: Targeted contracts with machine-readable test counts
-        run: PYTHONPATH=backend pytest -o addopts='' -q tests/test_marketing_specialists.py tests/test_marketing_specialist_api.py --junitxml=/tmp/marketing-tests.xml
+        run: PYTHONPATH=backend pytest -o addopts='' -q tests/test_marketing_specialists.py tests/test_marketing_specialist_api.py tests/test_social_pilot.py tests/test_social_pilot_api.py --junitxml=/tmp/marketing-tests.xml
 
   n8n-import:
     runs-on: ubuntu-latest
@@ -73,3 +79,14 @@ jobs:
               node -e '\''const fs=require("fs"),assert=require("assert/strict"); const expected=JSON.parse(fs.readFileSync("/input/workflows.json","utf8")); const actual=JSON.parse(fs.readFileSync("/tmp/export.json","utf8")); assert.equal(actual.length,7); for(const w of expected){const a=actual.find(x=>x.id===w.id); assert(a); assert.equal(a.active,false); assert.deepEqual(a.nodes,w.nodes); assert.deepEqual(a.connections,w.connections); for(const k of Object.keys(w.settings)) assert.deepEqual(a.settings[k],w.settings[k]);} console.log("PASS: all seven exact specialist exports imported and read back inactive on n8n 2.32.6; no external network or production state used");'\''
               node /test/smoke.cjs
             '
+      - name: Actual one-off pilot check, submit and status against local fixture only
+        run: |
+          docker run --rm --network none --user root --entrypoint node \
+            --add-host drop-rate-api-live.railway.internal:127.0.0.1 \
+            -e N8N_BLOCK_ENV_ACCESS_IN_NODE=false \
+            -e NODE_FUNCTION_ALLOW_BUILTIN=crypto \
+            -e DROP_RATE_APPROVED_PILOT_HASH=2b056042371fbb245ff26dd5582a46f6bcc4ff8463362cb50e31932e67dc7fde \
+            -e DROP_RATE_AUTOMATION_COMMAND_SECRET=ci-only-approved-pilot-signature-123456789012345 \
+            -e DROP_RATE_API_AUTOMATION_CONTROL_URL=http://drop-rate-api-live.railway.internal:8765/api/v1/automation/control/receipt \
+            -v "$PWD/tests/social_pilot_n8n.cjs:/test/pilot.cjs:ro" \
+            drop-rate-n8n:marketing-ci /test/pilot.cjs
