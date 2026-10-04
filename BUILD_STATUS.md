@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — First finished marketing pilot and bounded runtime test
+
+- **Latest founder correction:** reject the new intro renders; use the previous conversation's designs for posting tests and improve Higgsfield separately. The two upload-validation drafts are tagged `Rejected — do not publish`; Queue/Sent both remain zero. Earlier image records exist but their durable-host files are currently unavailable, so exact reuse still needs access to those images.
+- Combined PR #512's existing editorial preparation and research/template material with PR #513's Buffer diagnostics. Added a reusable native creative renderer, four static slides in two sizes and a 14.783-second Short with the approved founder voice and verified captions.
+- Targeted validation: 36 Python checks and 30 Node checks passed. Full backend/dashboard/n8n-image CI passed at `38ff817`. The new runner uses a temporary n8n database and read-only Buffer requests; it cannot publish.
+- Automatic approval review blocked the proposed production restart without explicit approval of interruption risk. No Railway configuration changed and no runtime execution is claimed. See `docs/MARKETING_PILOT_20261004.md` for proof, media identifiers and remaining delivery work.
+
 ## 2026-10-04 — Earlier social template work recovered and linked
 
 - Read back **Convert Seller Hub App** and inspected the actual PR #512 code. Recovered seven completed visual previews across Market Watch, Raw to Graded, Release Radar and the clean/balanced Cleffa revisions; the user's screenshot analysis; nine series; six layout structures; and the implemented DR-31 preparation component.

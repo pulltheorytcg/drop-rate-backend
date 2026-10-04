@@ -1,5 +1,11 @@
 # Drop Rate n8n provisioning
 
+**Current marketing scope:** three connected channels (Instagram, TikTok,
+YouTube), ultimately three stories/nine adapted posts daily. YouTube uses narrated,
+captioned Shorts without music. Historical five-platform/static-YouTube notes
+below describe earlier design decisions. See the current
+[pilot record](../../docs/MARKETING_PILOT_20261004.md).
+
 This directory makes production n8n workflows version-controlled and reproducible without exposing the n8n editor publicly.
 
 ## Buffer connection — 4 October 2026
