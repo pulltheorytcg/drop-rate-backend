@@ -63,9 +63,9 @@
             ]
           },
           "sendBody": true,
-          "contentType": "raw",
-          "rawContentType": "application/json",
-          "body": "={{ $json.command_body }}",
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
           "options": {
             "timeout": 120000,
             "redirect": {
@@ -207,9 +207,9 @@
             ]
           },
           "sendBody": true,
-          "contentType": "raw",
-          "rawContentType": "application/json",
-          "body": "={{ $json.command_body }}",
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
           "options": {
             "timeout": 120000,
             "redirect": {
@@ -351,9 +351,9 @@
             ]
           },
           "sendBody": true,
-          "contentType": "raw",
-          "rawContentType": "application/json",
-          "body": "={{ $json.command_body }}",
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
           "options": {
             "timeout": 120000,
             "redirect": {
@@ -495,9 +495,9 @@
             ]
           },
           "sendBody": true,
-          "contentType": "raw",
-          "rawContentType": "application/json",
-          "body": "={{ $json.command_body }}",
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
           "options": {
             "timeout": 120000,
             "redirect": {
@@ -639,9 +639,9 @@
             ]
           },
           "sendBody": true,
-          "contentType": "raw",
-          "rawContentType": "application/json",
-          "body": "={{ $json.command_body }}",
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
           "options": {
             "timeout": 120000,
             "redirect": {
@@ -783,9 +783,9 @@
             ]
           },
           "sendBody": true,
-          "contentType": "raw",
-          "rawContentType": "application/json",
-          "body": "={{ $json.command_body }}",
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.command_body }}",
           "options": {
             "timeout": 120000,
             "redirect": {

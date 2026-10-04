@@ -66,3 +66,14 @@ test('parent routes only prepared outputs and stops on failures/review',()=>{
       assert.throws(()=>execute(gate.parameters.jsCode,{state}));
   }
 });
+
+test('JSON request mode preserves parsed JSON responses for signed handoffs',()=>{
+  for(const w of workflows.slice(0,6)){
+    const p=w.nodes.find(n=>n.type.endsWith('.httpRequest')).parameters;
+    assert.equal(p.contentType,'json');
+    assert.equal(p.specifyBody,'json');
+    assert.equal(p.jsonBody,'={{ $json.command_body }}');
+    assert.equal(p.body,undefined);
+    assert.equal(p.rawContentType,undefined);
+  }
+});

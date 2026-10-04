@@ -68,8 +68,8 @@ def exports():
             'headerParameters': {'parameters': [
                 {'name': 'X-Drop-Rate-Timestamp', 'value': '={{ $json.command_timestamp }}'},
                 {'name': 'X-Drop-Rate-Signature', 'value': '={{ $json.command_signature }}'},
-            ]}, 'sendBody': True, 'contentType': 'raw', 'rawContentType': 'application/json',
-            'body': '={{ $json.command_body }}', 'options': {
+            ]}, 'sendBody': True, 'contentType': 'json', 'specifyBody': 'json',
+            'jsonBody': '={{ $json.command_body }}', 'options': {
                 'timeout': 120000, 'redirect': {'redirect': {'followRedirects': False}},
                 'response': {'response': {'fullResponse': True, 'neverError': True, 'responseFormat': 'json'}},
             },
