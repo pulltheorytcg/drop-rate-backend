@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 2026-10-04 — Buffer API connection verified; publishing remains inactive
+
+- Founder-installed `BUFFER_API_KEY` authenticated from the existing private n8n Railway service. Read-only Buffer GraphQL verification confirmed the expected Instagram/TikTok `@dropratetcg` and YouTube `Drop Rate` channels, the same organisation, London timezones, unlocked/unpaused connections and scheduling permission. No key value was retrieved or committed.
+- Live proof: deployment `c45658f8-f684-4c49-958c-1bc80b918543` succeeded, with `DROP_RATE_BUFFER_CHECK` reporting `ok:true`. Removed the temporary pre-deploy diagnostic afterwards. No posts, paid services, public n8n endpoint or database changes.
+- Added a reusable secret-safe diagnostic and equivalent inactive DR-32 n8n sub-workflow with a shared validator. This code is a reviewable component, not proof of production import/execution. The live probe was read-only; no publishing path has been tested.
+- Buffer's official ChatGPT integration supports OAuth at `https://mcp.buffer.com/mcp`; no personal API key is needed for the direct chat connection. The Railway key remains for unattended n8n. Direct OAuth approval is still pending. Full research/render/persist/publish/measure automation remains unfinished; YouTube static delivery and the unconnected Facebook/X channels remain separate gaps. See `docs/BUFFER_CONNECTION_HANDOFF.md`.
+
 ## 2026-10-03 — Refine the illustrated slab labels
 
 - Refined the approved two-card sign-in illustration with clearer PSA and Beckett-style labels: year/set/card details, prominent grade 10s, and four Beckett subgrades. Preserved the illustrated Charizard/Umbreon composition, transparent background and existing page layout.

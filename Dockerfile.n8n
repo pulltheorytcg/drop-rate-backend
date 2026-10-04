@@ -3,6 +3,7 @@ FROM ghcr.io/n8n-io/n8n:2.32.6
 USER root
 COPY automation/n8n/workflows /opt/drop-rate/workflows
 COPY automation/n8n/start.sh /opt/drop-rate/start.sh
+COPY automation/n8n/buffer-connection.mjs /opt/drop-rate/buffer-connection.mjs
 RUN chmod 0555 /opt/drop-rate/start.sh \
     && find /opt/drop-rate/workflows -type f -name '*.json' -exec chmod 0444 {} \;
 USER node

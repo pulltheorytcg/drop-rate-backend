@@ -2,6 +2,28 @@
 
 This directory makes production n8n workflows version-controlled and reproducible without exposing the n8n editor publicly.
 
+## Buffer connection — 4 October 2026
+
+The founder added `BUFFER_API_KEY` to the existing n8n Railway service. A live,
+read-only API check authenticated successfully and verified Drop Rate's Instagram,
+TikTok and YouTube channels. This proves access, not automatic posting.
+
+`buffer-connection.mjs` provides a repeatable read-only check using that environment
+variable. In the derived image, run `node /opt/drop-rate/buffer-connection.mjs`.
+It only contacts `https://api.buffer.com`, disables redirects, times out after
+15 seconds, and prints a fixed summary without credentials or raw provider errors.
+It exits nonzero for invalid credentials, mismatched/missing channels or an
+unusable connection. It does not retry, write posts or run automatically at startup.
+
+`DR32BufferConnectionCheckV1` is the equivalent inactive n8n sub-workflow. The
+workflow uses the same response validator, disables execution-data persistence,
+and has no schedule or public webhook. Regenerate its JSON after validator changes
+with `node automation/n8n/build-buffer-connection-workflow.mjs`.
+The existing additive provisioner will import it only after this change is deployed.
+
+See `docs/BUFFER_CONNECTION_HANDOFF.md` for live evidence, the direct ChatGPT OAuth
+route, and the remaining publishing work. This component does not activate DR-32.
+
 ## Rules
 
 - Base image is pinned in `Dockerfile.n8n`.
@@ -205,4 +227,3 @@ Scope is deliberately narrow:
 Title, description, SEO, media and arbitrary metafield rewrites are **not** included in DR-02 v1. They require their own deterministic readiness/update contracts rather than being bundled into a generic n8n mutation.
 
 The workflow is imported inactive. Its migration must be applied through the normal manual production migration gate before any controlled activation test.
-
