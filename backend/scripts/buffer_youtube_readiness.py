@@ -43,4 +43,4 @@ async def run() -> dict:
 
 if __name__ == "__main__":
     # Do not print environment values, provider bodies, request headers or stack traces.
-    print(PREFIX + json.dumps(asyncio.run(run()), sort_keys=True, separators=(",", ":")))
+    print(PREFIX + json.dumps(asyncio.run(run()), sort_keys=True, separators=(",", ":")), flush=True)
