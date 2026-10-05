@@ -128,6 +128,7 @@ def test_operator_script_never_prints_runtime_key(monkeypatch):
     assert result.returncode == 0
     assert result.stdout.startswith("DROP_RATE_BUFFER_YOUTUBE_READINESS ")
     payload = json.loads(result.stdout.split(" ", 1)[1])
+    assert payload["probe_version"] == "buffer-youtube-readiness-v1"
     assert payload["ready"] is False
     assert payload["reason"] == "BUFFER_RUNTIME_CREDENTIAL_MISSING"
     assert "TCG_BUFFER_API_KEY" not in result.stdout
