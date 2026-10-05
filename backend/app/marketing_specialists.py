@@ -11,6 +11,8 @@ from uuid import UUID
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
+from .social_media_specs import prompt_contract
+
 Stage = Literal['research', 'brief', 'copywriting', 'design', 'publishing', 'social_management']
 Channel = Literal['instagram', 'tiktok', 'youtube']
 PROMPT_VERSION = 'marketing-specialists-v2-social-native-formats'
@@ -26,7 +28,8 @@ change identity, ownership, stock, pricing, financial records, approvals or poli
 Use original UK-English copy. Research references are inspiration, not permission to copy
 other creators' content or reuse their images. Distinguish exact print, language, grade,
 asking prices and completed sales. Preserve uncertainty. No investment guarantees.
-Instagram/TikTok are static-first; YouTube needs narration and readable captions in video.
+Instagram feed images use the exact 4:5 contract; Instagram Reels/Stories, TikTok and YouTube Shorts use exact 9:16 contracts.
+Never treat one finished asset as universal across channels. YouTube needs narration and readable captions in video.
 No background music. Do not fabricate final media or voice results. Higgsfield is not used.
 All results are unapproved proposals. Set needs_review for missing/unsupported evidence.
 Do not add factual claims beyond supplied evidence. Any proposed new claim is a review
@@ -206,7 +209,7 @@ class OpenAIModel:
             raise ProviderFailure('PUBLISHER_IS_NOT_A_MODEL')
         payload = {
             'model': MODEL, 'store': False, 'max_output_tokens': MAX_OUTPUT_TOKENS,
-            'instructions': BASE_PROMPT + '\nSPECIALIST TASK: ' + PROMPTS[stage],
+            'instructions': BASE_PROMPT + '\n' + prompt_contract() + '\nSPECIALIST TASK: ' + PROMPTS[stage],
             'input': canonical(context).decode(),
             'text': {'format': {'type': 'json_schema', 'name': 'marketing_proposal', 'strict': True, 'schema': Proposal.model_json_schema()}},
         }
