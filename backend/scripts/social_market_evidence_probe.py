@@ -38,8 +38,25 @@ async def run() -> dict:
     )
     quote.validate()
 
+    requested = {
+        item.strip()
+        for item in os.environ.get("DROP_RATE_SOCIAL_MARKET_TARGETS", "").split(",")
+        if item.strip()
+    }
+    selected_targets = [
+        target for target in TARGETS if not requested or target.key in requested
+    ]
+    unknown = requested.difference({target.key for target in TARGETS})
+    if unknown:
+        return {
+            "probe_version": "social-market-evidence-v1",
+            "status": "BLOCKED",
+            "reason": "UNKNOWN_TARGET_FILTER",
+            "results": [],
+        }
+
     results = []
-    for target in TARGETS:
+    for target in selected_targets:
         try:
             raw = await client.sold(query=target.query, max_pages=1)
             comps = select_newest_exact_comps(raw, target=target, limit=5)
@@ -78,6 +95,7 @@ async def run() -> dict:
         "status": "COMPLETE",
         "evidence_only": True,
         "persisted": False,
+        "requested_targets": [target.key for target in selected_targets],
         "results": results,
     }
 
@@ -94,6 +112,7 @@ if __name__ == "__main__":
                 "evidence_only": result.get("evidence_only"),
                 "persisted": result.get("persisted"),
                 "result_count": len(result.get("results") or []),
+                "requested_targets": result.get("requested_targets"),
             },
             sort_keys=True,
             separators=(",", ":"),
