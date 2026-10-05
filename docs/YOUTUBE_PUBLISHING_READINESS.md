@@ -51,3 +51,27 @@ The one-off YouTube pilot must then prove, in order:
 A timeout or ambiguous create result is UNKNOWN and must never be blindly reposted. Reconcile the provider first. Existing PostgreSQL journal and Action Required patterns remain authoritative.
 
 No new Railway service, database schema, paid plan, inventory, ownership, pricing, settlement or recurring marketing schedule is introduced by this readiness step.
+
+
+## Live readiness evidence — 5 October 2026
+
+PR #521 introduced the read-only probe and merged as `29a089b61d123888bdd4097b32fdc93800484f2d`. A normal source deployment `f25b668f-3bbd-46b7-b937-688475273b1f` completed with 2,550 tests and readiness 200 before any live Buffer diagnostic.
+
+A first Railway redeploy after changing the pre-deploy configuration did not provide evidence that the new diagnostic command had executed, so no Buffer conclusion was drawn from it. PR #522 added explicit output flushing and merged as `2ff4689e4d97070d9b37997593d7037c6470cdaf`. The resulting fresh GitHub-source deployment `2132c13b-d699-4afa-ad87-1d449f668146` then ran the diagnostic and completed with 2,550 tests and readiness 200.
+
+Buffer returned exactly one YouTube channel in organization `6ac1a59ca59739d7c3e08601`:
+
+- channel ID: `6ac1a694ea19ca0bde6c8ba3`
+- service: `youtube`
+- returned name/display name: `Drop Rate ` (including the provider-returned trailing space)
+- timezone: `Europe/London`
+- `isDisconnected=false`
+- `isLocked=false`
+- `isQueuePaused=false`
+- `scheduleUpdates` is present in `allowedActions`
+
+The readiness result was therefore `ready=true` with no blockers. Identity for any later pilot must bind to the immutable channel ID and organization ID, not a trimmed or human-edited display string.
+
+No post was created, edited, queued, scheduled or deleted. The probe made only the channels read. Immediately after recording the sanitised result, the API service's original pre-deploy command was restored, its temporary timeout was cleared back to the default, and Railway reported no staged changes.
+
+YouTube publication remains blocked on an explicitly approved narrated/captioned video plus a separate immutable video-pilot manifest and duplicate-delivery proof.
