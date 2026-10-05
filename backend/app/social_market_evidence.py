@@ -16,7 +16,16 @@ _NON_ENGLISH = (
     "japanese", "jpn", "jp", "korean", "kr", "chinese", "cn",
     "german", "french", "italian", "spanish", "portuguese",
 )
-_GRADING_TERMS = ("psa", "bgs", "beckett", "cgc", "sgc", "ace", "graded", "slab")
+_GRADING_TERMS = (
+    "psa", "bgs", "beckett", "cgc", "sgc", "ace", "tag", "gsg",
+    "ags", "hga", "isa", "ksa", "mnt", "graded", "slab", "black label",
+)
+_RAW_GRADE_PHRASES = (
+    "black 10",
+    "black label 10",
+    "gem mint 10",
+    "pristine 10",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,7 +109,9 @@ def _grade_matches(title: str, target: SocialMarketTarget) -> bool:
         if not _contains_term(normalised, str(target.grade or "")):
             return False
         return True
-    return not any(_contains_term(normalised, term) for term in _GRADING_TERMS)
+    if any(_contains_term(normalised, term) for term in _GRADING_TERMS):
+        return False
+    return not any(_contains_term(normalised, phrase) for phrase in _RAW_GRADE_PHRASES)
 
 
 def matches_target(row: dict[str, Any], target: SocialMarketTarget) -> bool:
