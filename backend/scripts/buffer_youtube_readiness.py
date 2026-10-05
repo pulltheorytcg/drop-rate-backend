@@ -28,11 +28,13 @@ async def run() -> dict:
             organization_id=organization_id,
         )
         return {
+            "probe_version": "buffer-youtube-readiness-v1",
             "organization_id": organization_id,
             **result,
         }
     except BufferReadinessError as exc:
         return {
+            "probe_version": "buffer-youtube-readiness-v1",
             "organization_id": organization_id,
             "ready": False,
             "reason": exc.code,

@@ -6,6 +6,15 @@ The complete build log through the marketing installation checkpoint is preserve
 
 This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
 
+## 5 October 2026 — Buffer YouTube channel readiness verified
+
+- PR #521 merged as `29a089b61d123888bdd4097b32fdc93800484f2d` with a read-only Buffer YouTube readiness probe. Clean API deployment `f25b668f-3bbd-46b7-b937-688475273b1f` passed **2,550 tests** and readiness 200 before the live diagnostic.
+- The first config-only redeploy did not prove that the newly configured probe executed, so no readiness claim was made from it. PR #522 merged as `2ff4689e4d97070d9b37997593d7037c6470cdaf` to flush operator evidence; fresh source deployment `2132c13b-d699-4afa-ad87-1d449f668146` then passed **2,550 tests**, ran the read-only Buffer channels query and returned readiness 200.
+- Buffer returned exactly one YouTube channel for organization `6ac1a59ca59739d7c3e08601`: channel `6ac1a694ea19ca0bde6c8ba3`, service `youtube`, provider-returned name/display name `Drop Rate ` (trailing space preserved), timezone `Europe/London`. It is not disconnected, locked or queue-paused, and `scheduleUpdates` is allowed. The readiness result is **READY** with no blockers.
+- No Buffer mutation occurred: no post was created, edited, queued, scheduled or deleted, and no database write or recurring n8n schedule was introduced. Future YouTube identity must bind to the exact channel ID/organization ID rather than the mutable display name.
+- Immediately after evidence capture, the temporary diagnostic was removed from Railway: the original API pre-deploy command was restored, the temporary timeout was cleared to the default, and no staged changes remain.
+- YouTube delivery is **not** yet proven. Publishing remains blocked until an explicitly approved narrated/captioned video is bound to a separate immutable YouTube pilot manifest and the live path passes provider delivery read-back plus intentional duplicate-trigger replay without a second upload. See [YouTube publishing readiness](docs/YOUTUBE_PUBLISHING_READINESS.md).
+
 ## 4 October 2026 — Gunko social publishing pilot completed
 
 - PR #519 merged as `5191cba757382618ae8ed2335a1997f371f2625d`. The subsequent bounded live Gunko pilot completed through the real n8n → signed FastAPI → Buffer path for Instagram and TikTok. This is execution evidence for the explicitly approved one-off pilot, not activation of the general six-agent or recurring marketing system.
