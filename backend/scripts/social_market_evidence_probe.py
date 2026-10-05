@@ -83,7 +83,47 @@ async def run() -> dict:
 
 
 if __name__ == "__main__":
+    result = asyncio.run(run())
+    # Railway may elide a very large single log line. Emit one bounded target line
+    # so every evidence bucket remains independently readable/auditable.
     print(
-        PREFIX + json.dumps(asyncio.run(run()), sort_keys=True, separators=(",", ":")),
+        PREFIX + json.dumps(
+            {
+                "probe_version": result.get("probe_version"),
+                "status": result.get("status"),
+                "evidence_only": result.get("evidence_only"),
+                "persisted": result.get("persisted"),
+                "result_count": len(result.get("results") or []),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
         flush=True,
     )
+    for item in result.get("results") or []:
+        compact = {
+            "target": item.get("target"),
+            "display_name": item.get("display_name"),
+            "status": item.get("status"),
+            "reason": item.get("reason"),
+            "query": item.get("query"),
+            "comparable_count": item.get("comparable_count"),
+            "market_value_gbp_minor": item.get("market_value_gbp_minor"),
+            "market_value_usd_minor": item.get("market_value_usd_minor"),
+            "fx": item.get("fx"),
+            "comps": [
+                {
+                    "item_id": comp.get("item_id"),
+                    "sold_at": comp.get("sold_at"),
+                    "price_gbp_minor": comp.get("price_gbp_minor"),
+                    "shipping_gbp_minor": comp.get("shipping_gbp_minor"),
+                    "title": comp.get("title"),
+                }
+                for comp in (item.get("comps") or [])
+            ],
+        }
+        print(
+            "DROP_RATE_SOCIAL_MARKET_TARGET "
+            + json.dumps(compact, sort_keys=True, separators=(",", ":")),
+            flush=True,
+        )
