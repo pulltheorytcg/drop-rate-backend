@@ -39,6 +39,18 @@ def test_umbreon_raw_rejects_graded_and_non_english():
         row("3", "Umbreon VMAX 215/203 Evolving Skies Korean"),
         raw,
     )
+    assert not matches_target(
+        row("4", "Umbreon VMAX 215/203 Evolving Skies GSG 9 English"),
+        raw,
+    )
+    assert not matches_target(
+        row("5", "Umbreon VMAX 215/203 Evolving Skies English BLACK 10"),
+        raw,
+    )
+    assert not matches_target(
+        row("6", "Umbreon VMAX 215/203 Evolving Skies English GEM MINT 10"),
+        raw,
+    )
 
 
 def test_umbreon_psa10_requires_psa_and_10():
