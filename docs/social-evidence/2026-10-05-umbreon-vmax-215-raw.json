@@ -1,0 +1,74 @@
+{
+  "evidence_version": 1,
+  "observed_run_at": "2026-10-05T10:25:00.212304+00:00",
+  "target": "umbreon_vmax_215_raw",
+  "card": {
+    "game": "Pokemon TCG",
+    "name": "Umbreon VMAX",
+    "card_number": "215/203",
+    "set": "Evolving Skies",
+    "language": "English",
+    "state": "RAW_UNGRADED",
+    "raw_condition_policy": "EXCLUDE_EXPLICIT_PLAYED_OR_DAMAGED"
+  },
+  "provider": {
+    "market": "EBAY_GB",
+    "access": "TRAWL_API",
+    "method": "MEDIAN_OF_FIVE_NEWEST_EXACT_EBAY_GB_SALES",
+    "query": "Umbreon VMAX 215/203 Evolving Skies English"
+  },
+  "result": {
+    "status": "READY",
+    "comparable_count": 5,
+    "market_value_gbp_minor": 112870,
+    "market_value_usd_minor": 148997
+  },
+  "fx": {
+    "source": "ECB_EURO_REFERENCE_RATES",
+    "usd_to_gbp_rate": "0.7575322939866369710467706013",
+    "effective_at": "2026-10-02T16:00:00+02:00",
+    "retrieved_at": "2026-10-05T10:24:59.820899+00:00"
+  },
+  "comparables": [
+    {
+      "item_id": "227535575386",
+      "sold_at": "2026-09-29T13:10:00+00:00",
+      "price_gbp_minor": 102669,
+      "shipping_gbp_minor": 0,
+      "title": "Umbreon VMAX 215/203 Alt Art Evolving Skies Moonbreon English Pokémon TCG"
+    },
+    {
+      "item_id": "147578058900",
+      "sold_at": "2026-09-19T20:33:00+00:00",
+      "price_gbp_minor": 147550,
+      "shipping_gbp_minor": 1999,
+      "title": "Umbreon VMAX 215/203 Alt Art Evolving Skies Moonbreon English Pokémon TCG"
+    },
+    {
+      "item_id": "287588644256",
+      "sold_at": "2026-09-15T20:11:00+00:00",
+      "price_gbp_minor": 112870,
+      "shipping_gbp_minor": 995,
+      "title": "Umbreon VMAX 215/203 Evolving Skies Secret Rare Full Art Holo English"
+    },
+    {
+      "item_id": "147566452179",
+      "sold_at": "2026-09-14T20:30:00+00:00",
+      "price_gbp_minor": 168970,
+      "shipping_gbp_minor": 1999,
+      "title": "Umbreon VMAX 215/203 Alt Art Evolving Skies Moonbreon English Pokémon TCG"
+    },
+    {
+      "item_id": "366649420882",
+      "sold_at": "2026-09-04T21:26:00+00:00",
+      "price_gbp_minor": 92470,
+      "shipping_gbp_minor": 995,
+      "title": "Umbreon VMAX 215/203 Evolving Skies Secret Rare Full Art Holo English 2021"
+    }
+  ],
+  "publication_notes": [
+    "GBP is the eBay UK sold-market median; shipping is excluded from the median and recorded separately.",
+    "USD is the ECB-converted equivalent of the GBP median, not an independent USD market quote.",
+    "This evidence supports a raw/ungraded market-watch figure only; it does not supply a PSA 10 value."
+  ]
+}
