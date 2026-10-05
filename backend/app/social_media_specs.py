@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 
-MediaKind = Literal["image", "video"]
+MediaKind = Literal["image", "video", "image_or_video"]
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,15 @@ FORMATS: dict[str, SocialFormat] = {
         height=1350,
         aspect_ratio="4:5",
     ),
+    "instagram_carousel_slide": SocialFormat(
+        key="instagram_carousel_slide",
+        channel="instagram",
+        surface="carousel_slide",
+        media_kind="image",
+        width=1080,
+        height=1350,
+        aspect_ratio="4:5",
+    ),
     "instagram_reel": SocialFormat(
         key="instagram_reel",
         channel="instagram",
@@ -52,7 +61,7 @@ FORMATS: dict[str, SocialFormat] = {
         key="instagram_story",
         channel="instagram",
         surface="story",
-        media_kind="video",
+        media_kind="image_or_video",
         width=1080,
         height=1920,
         aspect_ratio="9:16",
@@ -105,6 +114,7 @@ def validate_exact_dimensions(key: str, *, width: int, height: int) -> None:
 def prompt_contract() -> str:
     ordered = [
         FORMATS["instagram_feed_image"],
+        FORMATS["instagram_carousel_slide"],
         FORMATS["instagram_reel"],
         FORMATS["instagram_story"],
         FORMATS["tiktok_photo"],
