@@ -6,6 +6,15 @@ The complete build log through the marketing installation checkpoint is preserve
 
 This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
 
+## 5 October 2026 — YouTube video pilot contract prepared (not live)
+
+- Added a separate fail-closed contract for the future YouTube Shorts pilot after channel readiness was verified. It is intentionally **not** a FastAPI route and contains no Buffer credential or GraphQL mutation, so it cannot publish.
+- The future approved asset must be one HTTPS Shopify Files `video/mp4`, exact 9:16, at most three minutes, with exact SHA-256/byte count plus affirmative approved-audio/narration/caption declarations. The contract binds the verified Buffer organization/channel IDs and founder approval metadata.
+- Added pure construction of the future immediate/automatic Buffer YouTube input and deterministic channel/post validation. Subscriber notifications are disabled for the bounded pilot; public/not-for-kids and AI-disclosure fields are explicit rather than provider defaults.
+- Media preflight streams the file without redirects, caps the pilot at 512 MiB, requires exact MIME/length/hash and an MP4 `ftyp` marker. It does not pretend to infer narration/caption quality from bytes; the exact hash binds runtime bytes to the human-approved media revision.
+- Tests cover strict manifest parsing, approval/URL/aspect/duration/audio/caption gates, exact provider input, channel binding, media integrity and YouTube delivery URLs, plus an explicit no-route/no-Buffer-mutation assertion. See [YouTube video pilot contract](docs/YOUTUBE_VIDEO_PILOT_CONTRACT.md).
+- Still blocked: no approved narrated/captioned MP4 has been supplied. Do not add/activate the live route or n8n YouTube publishing workflow until that exact asset and its title/description/category are approved.
+
 ## 5 October 2026 — Buffer YouTube channel readiness verified
 
 - PR #521 merged as `29a089b61d123888bdd4097b32fdc93800484f2d` with a read-only Buffer YouTube readiness probe. Clean API deployment `f25b668f-3bbd-46b7-b937-688475273b1f` passed **2,550 tests** and readiness 200 before the live diagnostic.
