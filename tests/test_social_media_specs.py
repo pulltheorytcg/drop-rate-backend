@@ -7,6 +7,7 @@ from app.social_media_specs import FORMATS, get_format, prompt_contract, validat
     ("key", "width", "height", "ratio"),
     [
         ("instagram_feed_image", 1080, 1350, "4:5"),
+        ("instagram_carousel_slide", 1080, 1350, "4:5"),
         ("instagram_reel", 1080, 1920, "9:16"),
         ("instagram_story", 1080, 1920, "9:16"),
         ("tiktok_photo", 1080, 1920, "9:16"),
