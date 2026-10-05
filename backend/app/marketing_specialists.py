@@ -11,9 +11,11 @@ from uuid import UUID
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
+from .social_media_specs import prompt_contract
+
 Stage = Literal['research', 'brief', 'copywriting', 'design', 'publishing', 'social_management']
 Channel = Literal['instagram', 'tiktok', 'youtube']
-PROMPT_VERSION = 'marketing-specialists-v1'
+PROMPT_VERSION = 'marketing-specialists-v2-social-native-formats'
 MODEL = 'gpt-4.1-mini-2025-04-14'
 MAX_INPUT_BYTES = 48 * 1024
 MAX_RESPONSE_BYTES = 128 * 1024
@@ -26,7 +28,8 @@ change identity, ownership, stock, pricing, financial records, approvals or poli
 Use original UK-English copy. Research references are inspiration, not permission to copy
 other creators' content or reuse their images. Distinguish exact print, language, grade,
 asking prices and completed sales. Preserve uncertainty. No investment guarantees.
-Instagram/TikTok are static-first; YouTube needs narration and readable captions in video.
+Instagram feed images use the exact 4:5 contract; Instagram Reels/Stories, TikTok and YouTube Shorts use exact 9:16 contracts.
+Never treat one finished asset as universal across channels. For organic discovery briefs, default the primary Instagram and TikTok concept to short 9:16 video; use static feed/carousel/photo content as a supporting format unless the brief specifically requires static creative. YouTube needs narration and readable captions in video.
 No background music. Do not fabricate final media or voice results. Higgsfield is not used.
 All results are unapproved proposals. Set needs_review for missing/unsupported evidence.
 Do not add factual claims beyond supplied evidence. Any proposed new claim is a review
@@ -139,7 +142,7 @@ def digest(value: Any) -> str:
 def registry() -> list[dict]:
     return [{
         'stage': stage, 'prompt_version': PROMPT_VERSION,
-        'prompt_sha256': digest(BASE_PROMPT + prompt),
+        'prompt_sha256': digest(BASE_PROMPT + '\\n' + prompt_contract() + '\\n' + prompt),
         'kind': 'deterministic_blocked' if stage == 'publishing' else 'model_proposal',
         'upstream': list(UPSTREAM[stage]), 'publishable': False,
         'scope': 'layout_only' if stage == 'design' else ('supplied_evidence_only' if stage == 'research' else 'proposals_only'),
@@ -206,7 +209,7 @@ class OpenAIModel:
             raise ProviderFailure('PUBLISHER_IS_NOT_A_MODEL')
         payload = {
             'model': MODEL, 'store': False, 'max_output_tokens': MAX_OUTPUT_TOKENS,
-            'instructions': BASE_PROMPT + '\nSPECIALIST TASK: ' + PROMPTS[stage],
+            'instructions': BASE_PROMPT + '\n' + prompt_contract() + '\nSPECIALIST TASK: ' + PROMPTS[stage],
             'input': canonical(context).decode(),
             'text': {'format': {'type': 'json_schema', 'name': 'marketing_proposal', 'strict': True, 'schema': Proposal.model_json_schema()}},
         }
@@ -274,7 +277,7 @@ async def run_specialist(store: Store, model: Model, command: Command) -> dict:
         upstream[stage] = previous['output']
     context = build_context(command.stage, source, upstream)
     input_hash = digest(context)
-    prompt_hash = digest(BASE_PROMPT + PROMPTS[command.stage])
+    prompt_hash = digest(BASE_PROMPT + '\\n' + prompt_contract() + '\\n' + PROMPTS[command.stage])
     claimed, record = await store.claim(command, context, input_hash, prompt_hash)
     if not claimed:
         if record['input_sha256'] != input_hash or record['prompt_sha256'] != prompt_hash:
