@@ -29,7 +29,7 @@ Use original UK-English copy. Research references are inspiration, not permissio
 other creators' content or reuse their images. Distinguish exact print, language, grade,
 asking prices and completed sales. Preserve uncertainty. No investment guarantees.
 Instagram feed images use the exact 4:5 contract; Instagram Reels/Stories, TikTok and YouTube Shorts use exact 9:16 contracts.
-Never treat one finished asset as universal across channels. YouTube needs narration and readable captions in video.
+Never treat one finished asset as universal across channels. For organic discovery briefs, default the primary Instagram and TikTok concept to short 9:16 video; use static feed/carousel/photo content as a supporting format unless the brief specifically requires static creative. YouTube needs narration and readable captions in video.
 No background music. Do not fabricate final media or voice results. Higgsfield is not used.
 All results are unapproved proposals. Set needs_review for missing/unsupported evidence.
 Do not add factual claims beyond supplied evidence. Any proposed new claim is a review
