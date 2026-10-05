@@ -301,3 +301,15 @@ async def test_design_review_state_is_not_hidden_by_media_wait():
     result = await run_specialist(store, model, command(store, 'design'))
     assert result['state'] == 'NEEDS_REVIEW'
     assert result['output']['review_reasons']
+
+
+def test_marketing_prompt_is_bound_to_platform_native_formats():
+    from app import marketing_specialists as m
+    from app.social_media_specs import prompt_contract
+
+    assert "marketing-specialists-v2-social-native-formats" == m.PROMPT_VERSION
+    contract = prompt_contract()
+    assert "instagram_feed_image: 1080x1350 px (4:5)" in contract
+    assert "tiktok_video: 1080x1920 px (9:16)" in contract
+    assert "youtube_short: 1080x1920 px (9:16)" in contract
+    assert "Never treat one finished asset as universal across channels" in m.BASE_PROMPT
