@@ -26,6 +26,18 @@ _RAW_GRADE_PHRASES = (
     "gem mint 10",
     "pristine 10",
 )
+_RAW_PLAYED_TERMS = (
+    "damaged",
+    "dmg",
+    "heavily played",
+    "hp",
+    "moderately played",
+    "mp",
+    "lightly played",
+    "lp",
+    "poor",
+    "played",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +126,15 @@ def _grade_matches(title: str, target: SocialMarketTarget) -> bool:
     return not any(_contains_term(normalised, phrase) for phrase in _RAW_GRADE_PHRASES)
 
 
+def _raw_condition_acceptable(row: dict[str, Any], target: SocialMarketTarget) -> bool:
+    if target.grading_company:
+        return True
+    title = str(row.get("title") or "")
+    condition = str(row.get("condition_raw") or row.get("condition") or "")
+    combined = _normalise_text(" ".join(part for part in (title, condition) if part))
+    return not any(_contains_term(combined, term) for term in _RAW_PLAYED_TERMS)
+
+
 def matches_target(row: dict[str, Any], target: SocialMarketTarget) -> bool:
     title = row.get("title")
     if not isinstance(title, str) or not title.strip():
@@ -131,6 +152,8 @@ def matches_target(row: dict[str, Any], target: SocialMarketTarget) -> bool:
     if target.print_family == "goku_super_alt" and not _goku_super_alt(title):
         return False
     if not _grade_matches(title, target):
+        return False
+    if not _raw_condition_acceptable(row, target):
         return False
     return True
 
@@ -201,6 +224,11 @@ def summarise_exact_market(
         "query": target.query,
         "comparable_count": len(comps),
         "method": "MEDIAN_OF_FIVE_NEWEST_EXACT_EBAY_GB_SALES",
+        "raw_condition_policy": (
+            "EXCLUDE_EXPLICIT_PLAYED_OR_DAMAGED"
+            if target.grading_company is None
+            else None
+        ),
         "currency": "GBP",
         "market_value_gbp_minor": None,
         "market_value_usd_minor": None,

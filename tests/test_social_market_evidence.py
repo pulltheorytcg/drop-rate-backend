@@ -53,6 +53,20 @@ def test_umbreon_raw_rejects_graded_and_non_english():
     )
 
 
+def test_raw_rejects_explicit_played_or_damaged_condition():
+    raw = target("umbreon_vmax_215_raw")
+    base = "Umbreon VMAX 215/203 Evolving Skies English"
+    for suffix in ("DMG", "Damaged", "HP", "Heavily Played", "MP", "Moderately Played", "LP", "Lightly Played"):
+        assert not matches_target(row("x", f"{base} {suffix}"), raw)
+
+    condition_row = row("y", base)
+    condition_row["condition_raw"] = "Damaged"
+    assert not matches_target(condition_row, raw)
+
+    assert matches_target(row("z", base), raw)
+    assert matches_target(row("n", base + " NM"), raw)
+
+
 def test_umbreon_psa10_requires_psa_and_10():
     psa = target("umbreon_vmax_215_psa10")
     assert matches_target(
