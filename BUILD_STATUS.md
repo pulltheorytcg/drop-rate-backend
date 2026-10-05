@@ -6,9 +6,17 @@ The complete build log through the marketing installation checkpoint is preserve
 
 This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
 
+## 5 October 2026 — Gunko post metrics baseline (read-only)
+
+- PR #525 merged as `14722ade1f93667a1730275206087b07e168c4f7` and added a strictly read-only Buffer metrics reader for the two already-delivered Gunko pilot posts. It has no post mutation, schedule, database write or recurring analytics job.
+- Fresh API deployment `505da5fb-2ae6-4594-902a-d5ad059ead2b` passed **2,560 tests** and readiness 200. Its bounded live probe read the exact Instagram/TikTok post IDs and channel identities already recorded by the publishing pilot.
+- Instagram metrics were available with `metricsUpdatedAt=2026-10-05T00:03:34.559Z`; Buffer reported Reactions 0, Comments 0, Engagement Rate 0, Views 0, Shares 0, Saves 0, Follows 0 and Reach 0.
+- TikTok metrics were available with `metricsUpdatedAt=2026-10-05T00:06:35.657Z`; Buffer reported Reactions 0, Comments 0, Engagement Rate 0, Video Views 0, Shares 0 and Reach 0, plus provider values **Watch Time (min) 0.02** and **Avg. Watch Time (sec) 1.89**. Preserve those provider labels/units as returned; do not derive extra conclusions from the early baseline.
+- The temporary metrics diagnostic was removed after the read. The live API pre-deploy command is back to the normal compile/test/Stripe self-test chain, with no staged Railway changes. Recurring metrics collection/analysis remains off.
+
 ## 5 October 2026 — YouTube video pilot contract prepared (not live)
 
-- Added a separate fail-closed contract for the future YouTube Shorts pilot after channel readiness was verified. It is intentionally **not** a FastAPI route and contains no Buffer credential or GraphQL mutation, so it cannot publish.
+- PR #526 merged as `06886af5bb812619d5c818bd5417484fd95d2f38`; API deployment `03005678-d39f-4b6c-9a58-29d655d5e12b` reached SUCCESS after **2,589 tests** and readiness 200. The release emitted no Buffer readiness/metrics/publish diagnostic lines; the contract is inactive validation code only.\n- Added a separate fail-closed contract for the future YouTube Shorts pilot after channel readiness was verified. It is intentionally **not** a FastAPI route and contains no Buffer credential or GraphQL mutation, so it cannot publish.
 - The future approved asset must be one HTTPS Shopify Files `video/mp4`, exact 9:16, at most three minutes, with exact SHA-256/byte count plus affirmative approved-audio/narration/caption declarations. The contract binds the verified Buffer organization/channel IDs and founder approval metadata.
 - Added pure construction of the future immediate/automatic Buffer YouTube input and deterministic channel/post validation. Subscriber notifications are disabled for the bounded pilot; public/not-for-kids and AI-disclosure fields are explicit rather than provider defaults.
 - Media preflight streams the file without redirects, caps the pilot at 512 MiB, requires exact MIME/length/hash and an MP4 `ftyp` marker. It does not pretend to infer narration/caption quality from bytes; the exact hash binds runtime bytes to the human-approved media revision.
