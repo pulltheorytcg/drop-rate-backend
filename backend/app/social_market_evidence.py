@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from statistics import median
 from typing import Any
+import re
 
 from .ebay_official_adapter import _looks_like_multi_item_listing
 from .ebay_sold_pricing import SoldComparable, _money_minor, _sold_at
@@ -16,7 +17,15 @@ _NON_ENGLISH = (
     "japanese", "jpn", "jp", "korean", "kr", "chinese", "cn",
     "german", "french", "italian", "spanish", "portuguese",
 )
-_GRADING_TERMS = ("psa", "bgs", "beckett", "cgc", "sgc", "ace", "graded", "slab")
+_GRADING_TERMS = (
+    "psa", "bgs", "beckett", "cgc", "sgc", "ace", "tag", "gsg",
+    "ags", "hga", "isa", "ksa", "mnt", "graded", "slab", "black label",
+)
+_RAW_GRADE_PATTERNS = (
+    re.compile(r"\\bblack\\s+(?:label\\s+)?10\\b"),
+    re.compile(r"\\bgem\\s+mint\\s+10\\b"),
+    re.compile(r"\\bpristine\\s+10\\b"),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,7 +109,9 @@ def _grade_matches(title: str, target: SocialMarketTarget) -> bool:
         if not _contains_term(normalised, str(target.grade or "")):
             return False
         return True
-    return not any(_contains_term(normalised, term) for term in _GRADING_TERMS)
+    if any(_contains_term(normalised, term) for term in _GRADING_TERMS):
+        return False
+    return not any(pattern.search(normalised) for pattern in _RAW_GRADE_PATTERNS)
 
 
 def matches_target(row: dict[str, Any], target: SocialMarketTarget) -> bool:
