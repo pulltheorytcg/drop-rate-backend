@@ -6,6 +6,15 @@ The complete build log through the marketing installation checkpoint is preserve
 
 This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
 
+## 5 October 2026 — Gunko pilot performance snapshot (read-only)
+
+- PR #525 merged as `14722ade1f93667a1730275206087b07e168c4f7` and deployed successfully after 2,560 production pre-deploy tests. A one-time read-only Buffer metrics probe queried only the two already-delivered Gunko pilot post IDs; it performed no post mutation, scheduling, deletion or database write.
+- Instagram Buffer post `6ac29d1f6ae9cbb01a564d9f`: metrics were available and last refreshed at `2026-10-05T00:03:34.559Z`; reactions 0, comments 0, engagement rate 0, views 0, shares 0, saves 0, follows 0 and reach 0.
+- TikTok Buffer post `6ac29d1ffe1389e4133cde22`: metrics were available and last refreshed at `2026-10-05T00:06:35.657Z`; reactions 0, comments 0, engagement rate 0, counted views 0, shares 0 and reach 0. Buffer also reported total watch time 0.02 minutes and average watch time 1.89 seconds; do not reinterpret those two values as a counted view.
+- This is an early provider snapshot, not a 24–48 hour final performance verdict. It does prove that the first successful publishing pilot should not be described as an engagement success. Keep the posts/history; do not delete/repost as a shortcut.
+- The temporary Railway metrics diagnostic was removed immediately after read-back; the original production pre-deploy command and 30-second timeout are restored with no staged changes.
+- Follow-up content work must use platform-native canvases and treat short-form vertical video as the primary discovery format for Instagram/TikTok, subject to the separately reviewed format-contract PR. No recurring publishing was enabled by this checkpoint.
+
 ## 5 October 2026 — YouTube video pilot contract prepared (not live)
 
 - Added a separate fail-closed contract for the future YouTube Shorts pilot after channel readiness was verified. It is intentionally **not** a FastAPI route and contains no Buffer credential or GraphQL mutation, so it cannot publish.
