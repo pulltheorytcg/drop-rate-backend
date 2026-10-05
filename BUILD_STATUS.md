@@ -6,6 +6,16 @@ The complete build log through the marketing installation checkpoint is preserve
 
 This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
 
+## 5 October 2026 — Native social formats + first performance read-back
+
+- PR #528 merged as `df62784b59cfb5e237a58725faaa3f292d878566`. Drop Rate now has a deterministic platform-native media contract: Instagram feed/carousel `1080×1350` (4:5); Instagram Reels/Stories `1080×1920` (9:16); TikTok photo/video `1080×1920` (9:16); YouTube Shorts `1080×1920` (9:16).
+- The prior TikTok pilot canvas `948×1659` is now explicitly rejected. The marketing prompt version was advanced and forbids taking one finished composition and approximately resizing/padding/cropping it for other channels. Discovery-focused Instagram/TikTok briefs default their primary concept to short-form 9:16 video, with static feed/carousel/photo as supporting creative unless the brief specifically requires static.
+- PR #525 merged as `14722ade1f93667a1730275206087b07e168c4f7` and its one-time read-only Buffer metrics probe ran against only the two already-delivered Gunko pilot post IDs. The deployment passed 2,560 pre-deploy tests; the probe performed no post mutation, scheduling, deletion or database write.
+- Instagram post `6ac29d1f6ae9cbb01a564d9f`: Buffer metrics were available and refreshed at `2026-10-05T00:03:34.559Z`; reactions 0, comments 0, engagement rate 0, views 0, shares 0, saves 0, follows 0 and reach 0.
+- TikTok post `6ac29d1ffe1389e4133cde22`: Buffer metrics were available and refreshed at `2026-10-05T00:06:35.657Z`; reactions 0, comments 0, engagement rate 0, counted views 0, shares 0 and reach 0. Buffer additionally reported total watch time 0.02 minutes and average watch time 1.89 seconds; do not reinterpret those as a counted view.
+- These are early provider snapshots, not a final 24–48 hour verdict. They do establish that the successful publication pilot was a transport/idempotency success, **not an engagement success**. Keep the public posts and journal/history; do not delete/repost as a shortcut.
+- The temporary Railway metrics diagnostic was removed immediately after read-back. The original production pre-deploy command and 30-second timeout are restored with no staged changes. Recurring publishing remains off.
+
 ## 5 October 2026 — YouTube video pilot contract prepared (not live)
 
 - Added a separate fail-closed contract for the future YouTube Shorts pilot after channel readiness was verified. It is intentionally **not** a FastAPI route and contains no Buffer credential or GraphQL mutation, so it cannot publish.
