@@ -1,0 +1,11 @@
+# Sealed single-pack market repair — 8 October 2026
+
+The live read-only OP-17 probe returned five supposedly exact comparisons, but two were a ten-pack lot and a 41-pack mixed-set lot. None of this diagnostic evidence was persisted. A hardcoded list of quantities excluded 12/24 packs but missed other counts, and substring set matching admitted other or mixed product codes.
+
+The matcher now requires one exact OP set number, an explicit target language, and a single unit. It rejects arbitrary numeric quantities, mixed sets/languages, boxes/cases/lots, sleeved or tournament variants, empty/opened/repacked/weighed products and worded multi-pack quantities. The provider request reads two pages to improve exact-single-pack coverage while retaining the existing five-comparable minimum. It still fails closed if fewer than five exact matches remain, and the existing owner/version/identity transaction checks are unchanged.
+
+Tests include both live false-positive title shapes and single-pack/multipack/code/language/physical-state regressions. The read-only CardTrader probe found marketplace rows without the required explicit bundle-size field; those remain rejected. They must not become unit-price evidence by assuming a missing quantity means one. CardTrader also does not satisfy the existing engine's UK/EU anchor rule, which this repair leaves intact.
+
+The separate catalogue release (PR #541) is live, with Cardmarket-based raw Pokémon reference values. One confirmed Seel Normal item missing its market value was repaired from the exact reference quote after checking owner, identity, language, finish and expected version. The existing v4 engine calculated market value 3p, recommended retail £1 and confidence 0.5012 with automatic publication blocked. An immutable observation and snapshot retain the source/variant ID, original EUR amount, historical ECB rate and correction request ID. Store Price remains £1. This narrow correction does not make the reference cache an automatic inventory repricing source.
+
+Current-head CI and live sealed-provider results are remaining release gates for the matcher repair. Reverting this code restores prior matching behaviour; no schema change or historical-evidence rewrite is involved.

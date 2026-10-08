@@ -39,7 +39,14 @@ _MULTI_TERMS = (
 )
 _PACK_TERMS = ("booster pack", "single pack", "1 pack", "one pack")
 _JAPANESE_TERMS = ("japanese", "japan", "jpn", " jp ")
+_ENGLISH_TERMS = ("english", " eng ", " en ")
 _TOKEN_RE = re.compile(r"[^a-z0-9]+")
+_SET_CODE_RE = re.compile(r"(?<![a-z0-9])op[\s-]*(\d{1,3})(?![a-z0-9])", re.I)
+_UNIT_COUNTS = (
+    re.compile(r"\b(\d+)\s*(?:x\s*)?(?:booster\s+)?packs?\b", re.I),
+    re.compile(r"\bpacks?\s*(?:x\s*)?(\d+)\b", re.I),
+    re.compile(r"\bx\s*(\d+)\b|\b(\d+)\s*x\b", re.I),
+)
 
 
 def _norm(value: object) -> str:
@@ -71,13 +78,17 @@ def _sealed_comp_matches(row: dict[str, Any], target: dict[str, Any]) -> bool:
         return False
     title = _norm(title_raw)
 
-    set_code = str(target["set_code"] or "").strip()
-    if not set_code or _code_key(set_code) not in _code_key(title_raw):
+    set_code = _SET_CODE_RE.fullmatch(str(target["set_code"] or "").strip())
+    codes = {int(code) for code in _SET_CODE_RE.findall(title_raw)}
+    if set_code is None or codes != {int(set_code.group(1))}:
         return False
 
-    if target["language"].strip().casefold() == "japanese":
-        if not any(_contains(title, term) for term in _JAPANESE_TERMS):
-            return False
+    language = target["language"].strip().casefold()
+    expected, other = (_JAPANESE_TERMS, _ENGLISH_TERMS) if language == "japanese" else (_ENGLISH_TERMS, _JAPANESE_TERMS)
+    if language not in {"japanese", "english"} or not any(_contains(title, term) for term in expected):
+        return False
+    if any(_contains(title, term) for term in other):
+        return False
 
     sealed_type = str(target["sealed_product_type"] or "").upper()
     if sealed_type != "BOOSTER_PACK":
@@ -86,6 +97,14 @@ def _sealed_comp_matches(row: dict[str, Any], target: dict[str, Any]) -> bool:
         return False
     if any(_contains(title, term) for term in _MULTI_TERMS):
         return False
+    if re.search(r"\b(lots?|bundles?|boxes|box|cases?|display|sleeved|tournament|empty|wrappers?|opened|unsealed|weighed|repacked|resealed|repacks?|heavy|light)\b", title):
+        return False
+    if re.search(r"\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty)\s+(?:booster\s+)?packs?\b", title):
+        return False
+    for pattern in _UNIT_COUNTS:
+        for match in pattern.finditer(title_raw):
+            if any(int(value) != 1 for value in match.groups() if value is not None):
+                return False
 
     return True
 
@@ -203,7 +222,9 @@ async def _fetch_uk_sold(target: dict[str, Any]) -> dict[str, Any]:
     client = TrawlEbaySoldClient(api_key=api_key, timeout_seconds=20.0)
     query = _sealed_query(target)
     try:
-        payload = await client.sold(query=query, max_pages=1)
+        # The first page may be dominated by boxes/lots. Fetch a bounded two
+        # pages while keeping the five exact single-pack minimum unchanged.
+        payload = await client.sold(query=query, max_pages=2)
     except TrawlApiError as exc:
         raise HTTPException(
             status_code=429 if exc.status_code == 429 else 502,
