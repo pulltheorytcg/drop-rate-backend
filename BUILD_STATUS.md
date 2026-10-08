@@ -6,6 +6,12 @@ The complete build log through the marketing installation checkpoint is preserve
 
 This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
 
+## 8 October 2026 — Catalogue market release and sealed-comparable repair
+
+- PR #541 is live as `ade06f8` on API deployment `ae2816c0-564a-4618-bca0-dc72f8c5545d`, which passed 2,647 backend tests and readiness. Its final reference basis is Cardmarket EUR via TCGdex, with historical GBP conversion and explicit finish mapping.
+- Recovered one previously unvalued, confirmed Seel Normal inventory item from its exact Cardmarket reference using `drop-rate-market-v4`. Added immutable observation/snapshot evidence and checked the inventory version/owner/identity. Market value is 3p; Store Price remains £1 and automatic publication is blocked. No ownership, ledger or media changes occurred.
+- The read-only sealed probe found actual multi-pack lots passing the single-pack matcher. Tightened set-code, quantity, language and sealed-state exclusions and expanded the bounded query to two pages. The five exact sold-comparable minimum and owner/version guards remain intact. Diagnostic results were not written as prices. See [sealed market repair](docs/SEALED_MARKET_REPAIR.md).
+
 ## 8 October 2026 — Seller Hub catalogue market data repair
 
 - Connected the existing TCGdex card-detail prices omitted by checklist imports. English Pokémon raw references now use explicit finish/product IDs, dated ECB conversion and a PostgreSQL cache; product details show finish prices and their source/date. Broad references show a range where finishes differ.

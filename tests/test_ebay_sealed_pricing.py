@@ -33,6 +33,8 @@ def target(**overrides) -> dict:
         "One Piece Card Game OP-17 Japanese Booster Pack New Sealed",
         "ONE PIECE OP17 JP Single Booster Pack Sealed",
         "One Piece OP 17 Japanese 1 Pack New",
+        "Bandai One Piece Card Game OP-17 Japanese Booster Pack x 1",
+        "ONE PIECE OP17 OP-17 Japanese Single Booster Pack",
     ],
 )
 def test_japanese_op17_single_pack_titles_match(title: str) -> None:
@@ -48,6 +50,19 @@ def test_japanese_op17_single_pack_titles_match(title: str) -> None:
         "One Piece OP-17 Japanese Booster Pack Bundle x12",
         "One Piece OP-17 English Booster Pack",
         "One Piece OP-16 Japanese Booster Pack",
+        "10 Packs ONE PIECE OP-17 Japanese Booster Pack World's Strongest Warrior",
+        "ONE PIECE Card Game Japanese Booster Pack Lot x41 OP-15 OP-16 OP-17 Sealed",
+        "One Piece OP-17 Japanese Booster Pack x 2",
+        "One Piece OP-17 Japanese 2x Booster Pack",
+        "One Piece OP-17 Japanese Two Booster Packs",
+        "One Piece OP-170 Japanese Booster Pack",
+        "One Piece OP-17 OP-16 Japanese Booster Pack Sealed",
+        "One Piece OP-17 Japanese Booster Pack Empty Wrapper",
+        "One Piece OP-17 Japanese Booster Pack Weighed Heavy",
+        "One Piece OP-17 Japanese Booster Pack Repacked",
+        "One Piece OP-17 Japanese / English Booster Pack Choose Language",
+        "One Piece OP-17 Japanese Sleeved Booster Pack",
+        "One Piece OP-17 Japanese 4th Anniversary Tournament Booster Pack",
     ],
 )
 def test_box_multipack_language_and_wrong_set_titles_fail_closed(title: str) -> None:
@@ -60,6 +75,30 @@ def test_sealed_query_is_specific_to_game_code_language_and_unit() -> None:
     assert "OP-17" in query
     assert "Japanese" in query
     assert "booster pack" in query
+
+
+def test_english_target_cannot_accept_japanese_or_unspecified_language():
+    assert _sealed_comp_matches({'title':'One Piece OP17 English Booster Pack Sealed'}, target(language='English'))
+    assert not _sealed_comp_matches({'title':'One Piece OP17 Japanese Booster Pack Sealed'}, target(language='English'))
+    assert not _sealed_comp_matches({'title':'One Piece OP17 Booster Pack Sealed'}, target(language='English'))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('count,status', [(3,'BLOCKED'),(5,'READY')])
+async def test_two_page_request_retains_five_exact_sale_minimum(monkeypatch,count,status):
+    from types import SimpleNamespace
+    from app import ebay_sealed_pricing as pricing
+    class Client:
+        def __init__(self,**kwargs): assert kwargs['timeout_seconds']==20.0
+        async def sold(self,*,query,max_pages):
+            assert max_pages==2 and query=='One Piece OP-17 Japanese booster pack'
+            return {'currency':'GBP','results':[{'item_id':str(i),'title':'One Piece OP17 Japanese Booster Pack Sealed',
+                'date_sold':'2026-09-30T12:00:00Z','sale_price':'4.00'} for i in range(count)] +
+                [{'item_id':'bad','title':'10 Packs One Piece OP17 Japanese Booster Pack','date_sold':'2026-10-01T12:00:00Z','sale_price':'50.00'}]}
+    monkeypatch.setattr(pricing,'get_settings',lambda:SimpleNamespace(trawl_api_key='test'))
+    monkeypatch.setattr(pricing,'TrawlEbaySoldClient',Client)
+    result=await pricing._fetch_uk_sold(target())
+    assert result['status']==status and result['comparable_count']==count
 
 
 def test_select_five_sold_requires_gbp_and_returns_five_newest_exact_packs() -> None:
