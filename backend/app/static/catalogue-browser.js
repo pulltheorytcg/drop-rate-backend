@@ -209,9 +209,9 @@ window.DropRateCatalogue = (() => {
       content.replaceChildren(node("strong","dr-browse-detail-value",marketPrice(row)));
       if(row.market_value_minor==null)content.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
       if(row.basis_condition)content.append(node("small","","Reference value: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
-      if(row.market_value_source==="TCGDEX_TCGPLAYER"){
+      if(row.market_value_source==="TCGDEX_CARDMARKET"){
         for(const quote of row.market_quotes||[])content.append(node("p","dr-browse-reference-note",quote.finish+": "+money(quote.price_gbp_minor)));
-        content.append(node("p","dr-browse-reference-note","Raw market reference via TCGdex, converted from USD. Your copy’s condition and any grading can change its value."));
+        content.append(node("p","dr-browse-reference-note","Raw market reference via TCGdex, converted from EUR. Your copy’s condition and any grading can change its value."));
       }
     }
     renderGames() {

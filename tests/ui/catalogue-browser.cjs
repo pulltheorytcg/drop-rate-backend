@@ -26,12 +26,12 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   f.browser.filters.q='Seel';await f.browser.open();
   assert.match(f.browser.find('.dr-browse-content').textContent,/Value pending/);
   f.browser.openProduct(ref);const select=f.browser.sheet.querySelector('select');select.value='Near Mint';select.dispatchEvent(new f.w.Event('change'));
-  waiting.resolve({items:[{key:ref.key,market_value_minor:7,market_value_high_minor:19,market_value_source:'TCGDEX_TCGPLAYER',market_refresh_needed:false,
-    basis_condition:'Raw · TCGplayer',pricing_updated_at:'2026-10-08T12:00:00Z',market_quotes:[{finish:'Normal',price_gbp_minor:7},{finish:'Reverse Holofoil',price_gbp_minor:19}]}]});
+  waiting.resolve({items:[{key:ref.key,market_value_minor:7,market_value_high_minor:19,market_value_source:'TCGDEX_CARDMARKET',market_refresh_needed:false,
+    basis_condition:'Raw · Cardmarket',pricing_updated_at:'2026-10-08T12:00:00Z',market_quotes:[{finish:'Normal',price_gbp_minor:7},{finish:'Reverse Holofoil',price_gbp_minor:19}]}]});
   await tick();
   assert.match(f.browser.find('.dr-browse-content').textContent,/£0.07–£0.19/);
   assert.match(f.browser.sheet.textContent,/Reverse Holofoil: £0.19/);
-  assert.match(f.browser.sheet.textContent,/converted from USD/);
+  assert.match(f.browser.sheet.textContent,/converted from EUR/);
   assert.equal(f.browser.sheet.querySelector('select'),select);assert.equal(select.value,'Near Mint');
   const request=f.calls.find(call=>call.url.endsWith('/market-values'));
   assert.equal(request.method,'POST');assert.deepEqual(request.body.keys,[ref.key]);

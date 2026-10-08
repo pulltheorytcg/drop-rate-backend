@@ -20,7 +20,7 @@ from .db import user_connection
 from .fx import EcbHistoricalFxProvider
 
 
-SOURCE = "TCGDEX_TCGPLAYER"
+SOURCE = "TCGDEX_CARDMARKET"
 MAX_AGE = timedelta(days=7)
 FINISHES = {"normal": ("normal", "Normal"), "holo": ("holofoil", "Holofoil"),
             "reverse": ("reverse-holofoil", "Reverse Holofoil")}
@@ -99,23 +99,40 @@ async def tcgdex_quotes(payload: dict, reference: dict, fx, *, now: datetime) ->
             continue
         finish_key, finish_label = FINISHES[variant["type"]]
         try:
-            marketplace_id = (variant.get("thirdParty") or {}).get("tcgplayer")
+            marketplace_id = (variant.get("thirdParty") or {}).get("cardmarket")
             variant_id = variant.get("variantId")
-            market = (variant.get("pricing") or {}).get("tcgplayer") or {}
-            price = market.get(finish_key) or {}
+            market = (variant.get("pricing") or {}).get("cardmarket") or {}
+            finishes = payload.get("variants") or {}
+            # Cardmarket's base field is the base SKU (which can itself be
+            # holo); its -holo field prices the alternative foil treatment.
+            # Require declared finish availability before choosing either.
+            if finishes.get(variant["type"]) is not True:
+                continue
+            field = "trend"
+            if variant["type"] == "reverse":
+                if finishes.get("normal") is True and finishes.get("holo") is True:
+                    continue  # Two foil treatments share the aggregate.
+                field = "trend-holo"
+            elif variant["type"] == "holo":
+                if finishes.get("normal") is True:
+                    if finishes.get("reverse") is not False:
+                        continue
+                    field = "trend-holo"
+                elif finishes.get("normal") is not False:
+                    continue
             if (not variant_id or not str(marketplace_id).isdigit() or int(marketplace_id) <= 0
-                    or str(price.get("productId")) != str(marketplace_id) or market.get("unit") != "USD"):
+                    or str(market.get("idProduct")) != str(marketplace_id) or market.get("unit") != "EUR"):
                 continue
             observed = _time(market.get("updated"))
             if not now - MAX_AGE <= observed <= now + timedelta(hours=1):
                 continue
-            original = _minor(price.get("marketPrice"))
-            conversion = await fx.quote(base_currency="USD", quote_currency="GBP", at=observed)
+            original = _minor(market.get(field))
+            conversion = await fx.quote(base_currency="EUR", quote_currency="GBP", at=observed)
             gbp = int((Decimal(original) * conversion.rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
             if gbp <= 0:
                 continue
             row = {"finish": finish_label, "variant_id": str(variant_id), "product_id": str(marketplace_id),
-                   "source": SOURCE, "original_currency": "USD", "original_minor": original,
+                   "source": SOURCE, "original_currency": "EUR", "source_field": field, "original_minor": original,
                    "price_gbp_minor": gbp, "observed_at": observed.isoformat(),
                    "fx_rate_to_gbp": str(conversion.rate), "fx_source": conversion.source,
                    "fx_effective_at": conversion.effective_at.isoformat(),
@@ -131,11 +148,11 @@ async def tcgdex_quotes(payload: dict, reference: dict, fx, *, now: datetime) ->
 
 
 def price_view(key: str, quotes: list[dict], *, now: datetime) -> dict:
-    current = [row for row in quotes if now - MAX_AGE <= _time(row["observed_at"]) <= now + timedelta(hours=1)]
+    current = [row for row in quotes if row.get("source") == SOURCE and now - MAX_AGE <= _time(row["observed_at"]) <= now + timedelta(hours=1)]
     values = [row["price_gbp_minor"] for row in current]
     return {"key": key, "market_value_minor": min(values) if values else None,
             "market_value_high_minor": max(values) if values else None,
-            "basis_condition": "Raw · TCGplayer" if values else None,
+            "basis_condition": "Raw · Cardmarket" if values else None,
             "pricing_updated_at": min((_time(row["observed_at"]) for row in current), default=None),
             "market_value_source": SOURCE if values else None,
             "market_quotes": current, "market_refresh_needed": False}

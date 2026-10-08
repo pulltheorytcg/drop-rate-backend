@@ -169,10 +169,10 @@ SORTS = {
 def price_columns(entry: str) -> str:
     return f"""coalesce(v.market_value_minor,{entry}.reference_value_minor) as market_value_minor,
         case when v.market_value_minor is null then {entry}.reference_value_high_minor end as market_value_high_minor,
-        coalesce(v.basis_condition,case when {entry}.reference_value_minor is not null then 'Raw · TCGplayer' end) as basis_condition,
+        coalesce(v.basis_condition,case when {entry}.reference_value_minor is not null then 'Raw · Cardmarket' end) as basis_condition,
         coalesce(v.pricing_updated_at,{entry}.reference_pricing_updated_at) as pricing_updated_at,
         case when v.market_value_minor is not null then 'STORED_SNAPSHOT'
-             when {entry}.reference_value_minor is not null then 'TCGDEX_TCGPLAYER' end as market_value_source"""
+             when {entry}.reference_value_minor is not null then 'TCGDEX_CARDMARKET' end as market_value_source"""
 
 
 async def browser_access(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)]) -> dict:
