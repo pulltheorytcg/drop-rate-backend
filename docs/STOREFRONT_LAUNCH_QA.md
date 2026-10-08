@@ -437,3 +437,34 @@ QA on at least:
 Because the theme is unpublished, this visual gate requires an authenticated Shopify
 theme-preview browser session. Do not publish before that preview is approved.
 
+
+## 8 October 2026 — Mobile diagonal arrows
+
+The founder's iPhone screenshots showed emoji tiles where desktop rendered plain
+north-east arrows. Six literal U+2197 occurrences in the custom homepage sections
+were subject to platform font/emoji fallback, affecting the hero CTA and featured
+caption, discovery search and game links, editorial CTA and set links.
+
+These now render the shared `dr-arrow-up-right` snippet: an inline SVG with an
+inherited `currentColor` stroke and 1em dimensions. Existing wrappers, font sizes,
+padding/gaps, media queries, URLs and accessible button labels remain intact. The
+SVG is decorative (`aria-hidden="true"`, `focusable="false"`) and needs no script,
+font download or emoji variation-selector support. Horizontal arrows and the rest
+of the desktop design are unchanged.
+
+Verification:
+- All four source sections matched Shopify before editing; checked again before
+  the write to avoid overwriting concurrent merchant edits.
+- Nine existing homepage/brand checks passed; `git diff --check` passed.
+- Shopify Liquid validation passed all five changed files. Existing cross-section
+  CSS warnings remain; full-theme settings are outside this partial overlay.
+- Shopify accepted the five-file batch with zero user errors and no async job.
+- A separate read-back matched all five file bodies exactly; no literal U+2197
+  remains in those sections. Brand Redesign remains UNPUBLISHED.
+- The cloud preview reached the storefront password screen, so an authenticated
+  desktop/mobile visual comparison and real-iPhone verification are not claimed.
+
+Rollback: restore only the four `dr-brand-*` section files changed by this fix from
+parent commit `25c4dbadd659693453b706fefe2bb536c5cd1b51` to this same unpublished
+theme. The unused new snippet may remain. Do not republish or modify Horizon for
+this visual-only change.

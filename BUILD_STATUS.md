@@ -6,6 +6,14 @@ The complete build log through the marketing installation checkpoint is preserve
 
 This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
 
+## 8 October 2026 — Storefront mobile arrow rendering
+
+- Updated the unpublished **Drop Rate — Brand Redesign** theme (`202073866587`) to render the homepage diagonal arrows as a shared decorative SVG. This prevents iPhone emoji substitution while preserving the diagonal direction, inherited link colours, relative icon size and existing spacing.
+- Covered hero CTA/featured caption, discovery search/game links, editorial CTA and set links. No changes to link destinations, settings, merchandising, products, checkout or backend services; Horizon remains the live theme.
+- Shopify accepted all five files with no user errors. A separate read-back matched every deployed file byte-for-byte to the implementation. The nine existing homepage/brand tests passed, as did Shopify Liquid validation for all five changed files (existing cross-section CSS warnings only; the repository is a partial theme overlay).
+- Browser visual verification was blocked by the storefront password screen. No real-device or authenticated desktop visual pass is claimed. This icon repair does not satisfy or reopen the broader publication gate.
+- Implementation and rollback notes: [Storefront launch QA](docs/STOREFRONT_LAUNCH_QA.md#8-october-2026--mobile-diagonal-arrows).
+
 ## 5 October 2026 — Gunko post metrics baseline (read-only)
 
 - PR #525 merged as `14722ade1f93667a1730275206087b07e168c4f7` and added a strictly read-only Buffer metrics reader for the two already-delivered Gunko pilot posts. It has no post mutation, schedule, database write or recurring analytics job.
