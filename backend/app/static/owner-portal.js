@@ -1219,6 +1219,7 @@ function activateOwnerView(view, pushHistory = true) {
     settlements: ["Settlements", "Follow order-by-order allocation and reconciliation."],
     more: ["More", "Payouts, channels, settlements and your account."],
     profile: ["Profile", "Manage your Seller Hub identity, login email and password securely."],
+    settings: ["Settings", "Make your workspace feel like yours."],
   };
   const target = Object.hasOwn(views, view) ? view : "overview";
 
@@ -1428,7 +1429,7 @@ async function openOwnerPortal() {
   byId("owner-auth-view").classList.add("hidden");
   byId("owner-portal-view").classList.remove("hidden");
   const hashView = window.location.hash.replace("#", "");
-  activateOwnerView(["search", "inventory", "scan", "sales", "balance", "channels", "settlements", "profile", "more"].includes(hashView) ? hashView : "overview", false);
+  activateOwnerView(["search", "inventory", "scan", "sales", "balance", "channels", "settlements", "profile", "settings", "more"].includes(hashView) ? hashView : "overview", false);
   document.body.classList.remove("hub-restoring");
   document.dispatchEvent(new Event("hub-ready"));
   await reloadOwnerDashboard();
@@ -1447,7 +1448,7 @@ function denyAccess(message) {
   byId("owner-auth-view").classList.remove("hidden");
   sessionStorage.setItem("drop-rate-signin-notice", message);
   const view = window.location.hash.slice(1);
-  const returnHash = ["overview", "search", "inventory", "scan", "sales", "balance", "channels", "settlements", "profile", "more"].includes(view) ? `#${view}` : "";
+  const returnHash = ["overview", "search", "inventory", "scan", "sales", "balance", "channels", "settlements", "profile", "settings", "more"].includes(view) ? `#${view}` : "";
   window.location.replace("/app" + returnHash);
 }
 

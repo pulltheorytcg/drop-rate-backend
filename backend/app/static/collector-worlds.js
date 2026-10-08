@@ -15,6 +15,7 @@
   ];
   const el = (tag, cls, text) => { const n=document.createElement(tag); n.className=cls; if(text)n.textContent=text; return n; };
   const action = (label, callback, cls='collector-button') => { const b=el('button',cls,label);b.type='button';b.addEventListener('click',callback);return b; };
+  const browseGame = (system='') => window.openDropRateCatalogue(system, '', {reset:true});
 
   const hero = home.querySelector(seller ? '.owner-hero' : '.founder-hero');
   const copy = hero.querySelector(seller ? '.owner-hero-copy' : '.founder-hero-copy');
@@ -23,7 +24,7 @@
   const title=el('h1','collector-headline');title.append('Find your',el('br',''),el('em','','next grail.'));
   const intro=el('p','collector-intro','From your first pull to your dream collection. Discover the cards you love.');
   const buttons=el('div','collector-hero-actions');
-  buttons.append(action('Scan a card  ↗',()=>navigate('scan'),'collector-button collector-primary'),action('Explore cards  →',()=>window.openDropRateCatalogue(),'collector-button collector-secondary'));
+  buttons.append(action('Scan a card  ↗',()=>navigate('scan'),'collector-button collector-primary'),action('Explore cards  →',()=>browseGame(),'collector-button collector-secondary'));
   const name=hero.querySelector('#owner-overview-name');
   if(name){const hello=el('span','collector-hello','Hey, ');hello.append(name,document.createTextNode(' ✦'));greeting.replaceChildren(hello);}
   copy.replaceChildren(greeting,title,intro,buttons);
@@ -50,10 +51,10 @@
   const heading=el('div','collector-section-heading');const headingCopy=el('div','');
   headingCopy.append(el('span','collector-kicker','CHOOSE YOUR NEXT ADVENTURE'));
   const h=el('h2','','Explore your worlds');h.id='collector-worlds-title';headingCopy.append(h);
-  heading.append(headingCopy,action('All games  →',()=>window.openDropRateCatalogue(),'collector-text-button'));
+  heading.append(headingCopy,action('All games  →',()=>browseGame(),'collector-text-button'));
   const grid=el('div','collector-world-grid');
   for(const [world,label,system,file,tagline] of worlds){
-    const tile=action('',()=>window.openDropRateCatalogue(system),'collector-world');
+    const tile=action('',()=>browseGame(system),'collector-world');
     tile.dataset.world=world;tile.setAttribute('aria-label','Explore '+label);
     const art=el('div','collector-world-art'),img=el('img','');img.src='/assets/title-art/'+file;img.alt=label;img.decoding='async';
     img.addEventListener('error',()=>{img.remove();art.append(el('strong','',label));});art.append(img);
@@ -61,11 +62,24 @@
   }
   explore.append(heading,grid);hero.after(explore);
 
-  const vibe=el('div','collector-vibes');vibe.setAttribute('aria-label','Workspace colour theme');vibe.append(el('span','','Your vibe'));
+  const games=el('nav','collector-games');games.setAttribute('aria-label','Browse games');games.append(el('span','','Browse games'));
+  for(const [system,label] of [['','All games'],...worlds.map(([,label,system])=>[system,label])]){
+    const b=action(label,()=>browseGame(system),'collector-game');b.dataset.systemCode=system;games.append(b);
+  }
+  home.prepend(games);
+
+  const appearance=el('section','collector-appearance');appearance.setAttribute('aria-labelledby','collector-appearance-title');
+  const appearanceTitle=el('h2','','Appearance');appearanceTitle.id='collector-appearance-title';
+  appearance.append(appearanceTitle,el('p','','Choose your workspace colour theme. Saved on this device.'));
+  const vibe=el('div','collector-vibes');vibe.setAttribute('role','group');vibe.setAttribute('aria-label','Workspace colour theme');
   const choices=[['all','All worlds'],...worlds.map(([key,label])=>[key,label])];
   const setVibe=(key,persist=false)=>{document.body.dataset.collectorVibe=key;vibe.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.vibe===key)));if(persist){try{localStorage.setItem('drop-rate-collector-vibe',key);}catch(_){}}};
   for(const [key,label] of choices){const b=action(label,()=>setVibe(key,true),'collector-vibe');b.dataset.vibe=key;vibe.append(b);}
-  home.prepend(vibe);let saved='all';try{saved=localStorage.getItem('drop-rate-collector-vibe')||'all';}catch(_){}setVibe(choices.some(([k])=>k===saved)?saved:'all');
+  appearance.append(vibe);
+  const settings=document.getElementById(seller?'owner-view-settings':'seller-view-settings');
+  const settingsHeading=settings.querySelector('.seller-view-heading') || settings.querySelector('.workspace-back');
+  if(settingsHeading)settingsHeading.after(appearance);else settings.prepend(appearance);
+  let saved='all';try{saved=localStorage.getItem('drop-rate-collector-vibe')||'all';}catch(_){}setVibe(choices.some(([k])=>k===saved)?saved:'all');
 
   if(seller){
     const kpis=home.querySelector('.owner-kpi-grid');explore.after(kpis);

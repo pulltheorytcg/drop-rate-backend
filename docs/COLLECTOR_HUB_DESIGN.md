@@ -39,3 +39,14 @@ The hero headline is now “Find your next grail.” System sans-serif typograph
 `NARUTO` is a browse alias spanning `NARUTO_KAYOU` and `NARUTO_BANDAI_LEGACY`. Games aggregate counts and distinct languages; sets and products expand the alias through parameterized arrays. Set selection passes the original system, provider, language and set ID, preserving exact identities even when providers reuse a set ID. No database records are merged or renamed. A read-only production check found 43 Kayou and 38 Bandai Legacy released sets.
 
 Validation: 2,396 backend tests and all dashboard suites pass, including 13 catalogue scenarios. New regressions cover aggregate counts, explicit-system compatibility, set identity boundaries, exact spotlight resolution, missing references and navigation away during loading. Browser fixtures cover both roles at 1440, 1024, 768, 390 and 320px with loaded artwork, no horizontal overflow, working spotlight links and a single Naruto tile. Authentication and fixture product responses are mocked; no production inventory writes. Application rollback target for this follow-up: `9883e06c873c6bed5be1e9b568680cf49eec8ccd`.
+
+
+## 8 October 2026 — Separate game navigation from appearance
+
+The dashboard's former “Your vibe” row used game names to change colours. It now says “Browse games” and opens the existing game-specific catalogue routes. All games and Explore cards reset prior search, set, language, ownership and watchlist filters. Reopening Search from the main navigation still preserves deliberate filters.
+
+Colour themes live in More → Settings → Appearance in both workspaces. Seller Hub now has its own Settings view, accessible from More and the `#settings` deep link; the five main destinations and existing account/finance permissions are unchanged. Existing device-local theme choices are preserved. Theme buttons wrap on mobile and both themes and game shortcuts have 44px minimum touch targets.
+
+The UI integration test loads the real seller and founder script bundles. It verifies each game destination's actual catalogue request, theme persistence, unchanged colours during browsing, the Settings route, all-game reset, retained Search filters and invalid saved-theme fallback. The full UI suite and focused Python checks pass locally; CI and live release are separate gates.
+
+Rollback is a code revert with no migration or stored-data change. The existing `drop-rate-collector-vibe` device preference remains compatible.
