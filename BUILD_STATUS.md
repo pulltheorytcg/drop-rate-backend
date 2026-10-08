@@ -6,6 +6,12 @@ The complete build log through the marketing installation checkpoint is preserve
 
 This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
 
+## 8 October 2026 — Seller Hub image and valuation display
+
+- Fixed the image policy for the existing Dragon Ball, Naruto and CardTrader hosts, including CardTrader's observed `www` redirect. Added same-product approved artwork fallback and cache-version updates.
+- Diagnosed missing valuation coverage separately: stored prices still return, but unlinked catalogue references and the inspected unvalued seller item have no verified market value. Owner totals now expose coverage and show “Value pending” when all active items are unvalued; no prices or ownership were changed.
+- Targeted backend checks and the full browser interaction suite passed. Current-head CI, deployment and live-header verification are remaining release gates at this checkpoint. See [Seller Hub display repair](docs/SELLER_HUB_DISPLAY_REPAIR.md).
+
 ## 8 October 2026 — Storefront mobile arrow rendering
 
 - Updated the unpublished **Drop Rate — Brand Redesign** theme (`202073866587`) to render the homepage diagonal arrows as a shared decorative SVG. This prevents iPhone emoji substitution while preserving the diagonal direction, inherited link colours, relative icon size and existing spacing.

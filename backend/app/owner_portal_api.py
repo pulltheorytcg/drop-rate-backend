@@ -292,6 +292,14 @@ async def owner_overview(
                 count(*) filter (where status='RESERVED')::int as reserved_count,
                 count(*) filter (where status='SOLD')::int as sold_count,
                 count(*) filter (where status='WITHDRAWN')::int as withdrawn_count,
+                count(*) filter (
+                    where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+                    and market_value_minor is not null
+                )::int as active_valued_count,
+                count(*) filter (
+                    where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+                    and market_value_minor is null
+                )::int as active_unvalued_count,
                 coalesce(sum(market_value_minor) filter (
                     where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
                 ),0)::bigint as active_market_value_minor,

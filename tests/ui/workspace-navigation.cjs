@@ -24,6 +24,18 @@ function expiredSessionFixture(role,refreshResponse){
 }
 (async()=>{
  let checks=0;
+ // An unvalued collection must not be presented as worth zero; partial totals retain their coverage.
+ for(const [valued,unvalued,amount,label,note] of [[0,1,0,'Value pending','0 valued · 1 awaiting market data'],[2,1,1234,'£12.34','2 valued · 1 awaiting market data'],[0,0,0,'£0.00','Latest available market prices']]){
+  const f=fixture('seller');
+  f.run(`apiRequest=async()=>({summary:{total_inventory_count:${valued+unvalued},active_valued_count:${valued},active_unvalued_count:${unvalued},active_market_value_minor:${amount}}});`);
+  await f.run('loadOwnerOverview()');
+  assert.equal(f.w.document.getElementById('owner-market-value').textContent,label);
+  assert.equal(f.w.document.getElementById('owner-market-value-note').textContent,note);
+  f.run(`renderInventoryCards([{inventory_code:'OWN-1',name:'Test',market_value_minor:null}]);`);
+  assert.match(f.w.document.getElementById('owner-inventory-grid').textContent,/Value pending/);
+  f.finish();checks++;
+ }
+
  // One refresh request for simultaneous API failures; logout during refresh cannot resurrect a session.
  for(const role of ['founder','seller']){
   const f=fixture(role);f.run(`window.refreshCalls=0;authRequest=()=>{window.refreshCalls++;return new Promise(resolve=>{window.finishRefresh=resolve;});};`);
