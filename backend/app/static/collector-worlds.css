@@ -24,10 +24,13 @@
 .collector-nav-note strong{color:#e0eff8!important;white-space:pre-line;font-size:17px;line-height:1.5;font-weight:600}
 .collector-nav-star{font-size:36px;color:#ffd056}
 .collector-at-home .owner-page-header{display:none!important}
-.collector-vibes{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 20px}
-.collector-vibes>span{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#5c6879;margin-right:8px}
-.collector-vibe{font:inherit;font-size:11px;font-weight:650;padding:8px 12px;background:#fff8;border:1px solid #cbd9d9;border-radius:30px;color:#495a6a;cursor:pointer;min-height:34px}
+.collector-vibes,.collector-games{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 20px}
+.collector-games>span{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#5c6879;margin-right:8px}
+.collector-vibe,.collector-game{font:inherit;font-size:12px;font-weight:650;padding:10px 14px;background:#fff8;border:1px solid #cbd9d9;border-radius:30px;color:#495a6a;cursor:pointer;min-height:44px}
 .collector-vibe[aria-pressed="true"]{background:#132c45;border-color:#132c45;color:white}
+.collector-vibe:focus-visible,.collector-game:focus-visible{outline:3px solid var(--world-accent);outline-offset:3px}
+.collector-appearance{padding:24px;margin:0 0 24px;border:1px solid #cbd9d9;border-radius:18px;background:#fff}
+.collector-appearance h2{margin:0 0 8px}.collector-appearance p{margin:0 0 16px;color:#5c6879}.collector-appearance .collector-vibes{margin:0}
 body.collector-workspace .collector-hero{position:relative!important;isolation:isolate;min-height:360px!important;padding:36px!important;display:grid!important;grid-template-columns:minmax(0,.9fr) minmax(0,1.25fr);align-items:center!important;gap:32px;border:1px solid #24475b!important;border-radius:22px!important;overflow:hidden;background:radial-gradient(ellipse at 85% 30%,#195769 0%,transparent 58%),#0b243c!important;box-shadow:0 8px 0 #0a2a4010!important;margin:0 0 32px!important}
 body.collector-workspace .collector-hero:before,body.collector-workspace .collector-hero:after{display:none!important}
 body.collector-workspace .collector-hero :is(.owner-hero-copy,.founder-hero-copy){position:relative!important;z-index:1!important;max-width:none!important;width:100%!important;min-width:0}
@@ -148,7 +151,7 @@ body:has(#auth-view:not(.hidden)){background:#f8f6ef}.shell:has(>#auth-view:not(
  .collector-workspace .owner-topbar .user-chip{padding:5px!important;border:0!important;background:transparent!important}.collector-workspace .owner-topbar .user-chip>div{display:none}.collector-workspace .owner-topbar .user-chip>span{width:32px;height:32px;font-size:12px}
  .collector-workspace .topbar-actions{gap:8px!important}.collector-workspace :is(.owner-signout,#logout-button){font-size:10px!important;padding:7px!important;min-height:32px!important}
  .collector-workspace .owner-dashboard-content,.collector-workspace .founder-workspace .dashboard-content{padding:17px 16px 94px!important}
- .collector-vibes{flex-wrap:nowrap;overflow-x:auto;gap:5px;margin-bottom:15px;scrollbar-width:none;padding-bottom:3px}.collector-vibes>span{display:none}.collector-vibe{white-space:nowrap;font-size:10px;padding:7px 10px;flex-shrink:0;min-height:32px}
+ .collector-games{flex-wrap:nowrap;overflow-x:auto;gap:5px;margin-bottom:15px;scrollbar-width:none;padding:3px 3px 6px}.collector-games>span{display:none}.collector-game{white-space:nowrap;font-size:12px;padding:10px 12px;flex-shrink:0}
  .collector-section-heading{gap:8px}.collector-section-heading h2{font-size:21px!important}.collector-kicker{font-size:8px;letter-spacing:.12em}.collector-text-button{font-size:10px!important}
  .collector-world-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.collector-world-art{height:99px;padding:14px}.collector-world-art img{height:68px;width:135px}.collector-world-caption{padding:10px;font-size:9px;min-height:44px}
  .collector-stats-heading h2{font-size:18px!important}.collector-workspace .owner-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.collector-workspace .owner-kpi-card{padding:15px!important;min-height:141px!important}

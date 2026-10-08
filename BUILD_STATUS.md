@@ -6,6 +6,12 @@ The complete build log through the marketing installation checkpoint is preserve
 
 This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
 
+## 8 October 2026 — Game navigation and appearance settings
+
+- Replaced the dashboard colour-selector row with real game catalogue shortcuts. All games resets previous filters; normal Search navigation retains them.
+- Moved colour themes into More → Settings → Appearance for sellers and founders, preserving the saved device preference. Added seller Settings routing and mobile touch targets; no changes to inventory, finance, identity or permissions.
+- The new integration test loads both real script bundles and verifies catalogue requests, Settings navigation, theme persistence and filter reset. Local UI and focused backend checks pass. CI/deployment/device validation remain distinct release gates. Details: [Collector Hub design](docs/COLLECTOR_HUB_DESIGN.md#8-october-2026--separate-game-navigation-from-appearance).
+
 ## 8 October 2026 — Seller Hub image and valuation display
 
 - Fixed the image policy for the existing Dragon Ball, Naruto and CardTrader hosts, including CardTrader's observed `www` redirect. Added same-product approved artwork fallback and cache-version updates.

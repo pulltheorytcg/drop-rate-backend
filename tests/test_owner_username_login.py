@@ -210,4 +210,4 @@ def test_seller_hub_login_shell_uses_email_or_username_contract() -> None:
     assert 'fetch("/api/v1/public/owner-session"' in js
     assert 'identifier: byId("owner-email-input").value.trim()' in js
     assert 'authRequest("/token?grant_type=password"' not in js[js.index('byId("owner-login-form")'):js.index('byId("owner-google")')]
-    assert '<script src="/assets/owner-portal.js?v=owner-v13" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=owner-v14" defer></script>' in html

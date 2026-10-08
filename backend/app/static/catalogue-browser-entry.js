@@ -8,7 +8,7 @@
   if(!host)return;
   if(!seller)host.append(makeSellerHeading("Discover", "Search", "Explore every game, set and printing. Your collection starts here."));
   let opening=false;
-  window.openDropRateCatalogue = async (systemCode = "", productKey = "") => {
+  window.openDropRateCatalogue = async (systemCode = "", productKey = "", {reset = false} = {}) => {
     if (!state.session?.access_token || opening) return;
     opening=true;
     try {
@@ -23,7 +23,7 @@
           afterSave:()=>seller?Promise.all([loadOwnerOverview(),loadOwnerInventory()]):reloadDashboard(),
         });
       }
-      if(systemCode || productKey){
+      if(reset || systemCode || productKey){
         window.dropRateCatalogue.defaults();
         window.dropRateCatalogue.filters.system_code=systemCode;
       }

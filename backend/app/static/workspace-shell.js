@@ -11,7 +11,7 @@
     settlements:['Settlements','Order allocations and reconciliation','≋'],
     reports:['Reports','Track performance and inventory value','▥'],
     channels:['Sales channels','Shopify, eBay and channel status','⇄'],
-    settings:['Settings & channels','Store connections and workspace settings','⚙'],
+    settings:[seller?'Settings':'Settings & channels',seller?'Appearance and workspace settings':'Appearance, store connections and workspace settings','⚙'],
     accounts:['Accounts','Founder oversight of inventory and balances','◎'],
     profile:['Your account','Profile, contact details and sign-in settings','○']
   };

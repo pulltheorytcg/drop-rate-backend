@@ -111,9 +111,9 @@ def _dashboard_html() -> str:
         '<script src="/assets/founder-accounts.js" defer></script>',
         '<script src="/assets/catalogue-title-art.js?v=3" defer></script>',
         '<script src="/assets/catalogue-browser.js?v=8" defer></script>',
-        '<script src="/assets/catalogue-browser-entry.js?v=4" defer></script>',
-        '<script src="/assets/workspace-shell.js?v=2" defer></script>',
-        '<script src="/assets/collector-worlds.js?v=2" defer></script>',
+        '<script src="/assets/catalogue-browser-entry.js?v=5" defer></script>',
+        '<script src="/assets/workspace-shell.js?v=3" defer></script>',
+        '<script src="/assets/collector-worlds.js?v=3" defer></script>',
     )
     for script in scripts:
         if script not in html:
