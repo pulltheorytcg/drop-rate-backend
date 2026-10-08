@@ -6,6 +6,12 @@ The complete build log through the marketing installation checkpoint is preserve
 
 This page records current continuation checkpoints, not a replacement for the full backlog, CLAUDE.md, the master project instructions, or either operating manual. Read the historical log and relevant docs before resuming another area. Old unresolved work is not implicitly complete.
 
+## 8 October 2026 — Seller Hub catalogue market data repair
+
+- Connected the existing TCGdex card-detail prices omitted by checklist imports. English Pokémon raw references now use explicit finish/product IDs, dated ECB conversion and a PostgreSQL cache; product details show finish prices and their source/date. Broad references show a range where finishes differ.
+- Price requests run after card rendering, retain recent values during provider outages, reject stale search/session responses and leave open intake forms intact. Forced RLS and existing browser access checks remain in place. This display cache does not write inventory prices, approve mappings/media, change ownership or publish stock.
+- Added a bounded read-only sealed-provider diagnostic. Full backend and UI suites pass; live public-provider checks returned real Seel and Umbreon quotes. The additive cache migration, RLS/role checks and normal/value-sorted database read-back are verified. Other games, Japanese/graded cards and missing sealed evidence remain separate coverage work. Current-head CI, deployment and HTTP read-back remain release gates at this checkpoint. See [market reference repair](docs/SELLER_HUB_MARKET_REFERENCES.md).
+
 ## 8 October 2026 — Game navigation and appearance settings
 
 - Replaced the dashboard colour-selector row with real game catalogue shortcuts. All games resets previous filters; normal Search navigation retains them.
