@@ -159,6 +159,8 @@ def test_csp_allows_only_trusted_canonical_card_image_hosts() -> None:
     assert "https://cdn.shopify.com" in main
     assert "https://*.shopifycdn.com" in main
     assert "https://*.shopifycdn.net" in main
+    for host in ("www.dbs-cardgame.com", "narutocardgame.gg", "cardtrader.com", "www.cardtrader.com"):
+        assert f"https://{host}" in main
     assert "img-src 'self' data: blob:" in main
     assert "img-src *" not in main
 

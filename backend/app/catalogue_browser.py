@@ -231,7 +231,8 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
       from entries e left join owned o on o.catalogue_id=e.catalogue_id
       left join reference_values v on v.id=e.catalogue_id
       where {clause} order by {order} limit {page_limit} offset {page_offset}
-    ) select page.*,coalesce(page.image_url,media.url) as display_image_url
+    ) select page.*,coalesce(nullif(btrim(page.image_url),''),media.url) as display_image_url,
+             media.url as fallback_image_url
       from page left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null order by page.ordinal
         """
     else:
@@ -242,7 +243,8 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
         ), page as (
           select e.*,row_number() over(order by {order})+{page_offset} as ordinal from selected_page e
         ) select page.*,v.market_value_minor,v.basis_condition,v.pricing_updated_at,
-                 coalesce(page.image_url,media.url) as display_image_url
+                 coalesce(nullif(btrim(page.image_url),''),media.url) as display_image_url,
+                 media.url as fallback_image_url
           from page left join lateral (
             select value.* from tcg.catalogue_products p
             cross join lateral tcg.recognition_catalogue_reference_value(p.id,nullif(p.language,'')) value

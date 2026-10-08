@@ -202,9 +202,16 @@ window.DropRateCatalogue = (() => {
       image.src=artwork.url||"/assets/title-art/"+artwork.file;return image;
     }
     productImage(row,cls="dr-browse-product-image") {
-      const wrap=node("div",cls),url=row.display_image_url||row.image_url;
+      const wrap=node("div",cls);
+      const urls=[...new Set([row.display_image_url,row.image_url,row.fallback_image_url]
+        .filter(url=>typeof url==="string").map(url=>url.trim())
+        .filter(url=>/^https:\/\//.test(url)||/^\/(?!\/)/.test(url)))];
       wrap.append(node("span","dr-browse-image-placeholder","Image pending"));
-      if(url && (/^https:\/\//.test(url)||url.startsWith("/"))){const image=node("img");image.src=url;image.alt=decode(row.name);image.loading="lazy";image.referrerPolicy="no-referrer";image.addEventListener("error",()=>image.remove());wrap.append(image);}
+      if(urls.length){
+        const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.referrerPolicy="no-referrer";
+        image.addEventListener("error",()=>{if(urls.length)image.src=urls.shift();else image.remove();});
+        image.src=urls.shift();wrap.append(image);
+      }
       return wrap;
     }
     renderRows() {
@@ -284,6 +291,7 @@ window.DropRateCatalogue = (() => {
       const content=node("div","dr-browse-product-details");
       content.append(this.productImage(row,"dr-browse-detail-image"),node("h3","",decode(row.name)),node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
       content.append(node("strong","dr-browse-detail-value",money(row.market_value_minor)));
+      if(row.market_value_minor==null)content.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
       if(row.basis_condition)content.append(node("small","","Reference value: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
       const watch=button(this.watchlist.has(row.key)?"★ Saved":"☆ Watchlist",()=>this.toggleWatch(row,watch),"dr-browse-watch-product");watch.setAttribute("aria-pressed",String(this.watchlist.has(row.key)));content.append(watch);
       if(row.source_kind==="REFERENCE")content.append(node("p","dr-browse-reference-note","Reference artwork · check the exact printing and finish against your copy. New inventory remains pending identity review."));
