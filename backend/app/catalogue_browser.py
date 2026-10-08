@@ -17,6 +17,7 @@ from .db import user_connection
 from .inventory_intake import create_inventory_intake, _find_exact_catalogue, _manual_identity_key
 from .physical_state import CARD_CONDITIONS
 from .recognition_games import SYSTEM_BY_GAME
+from .reference_market import refresh_reference_prices
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 
 router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"])
@@ -78,12 +79,20 @@ with reference_base as not materialized (
  select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key,
         l.catalogue_id,'CARD'::text as product_type,r.system_code,r.game,r.name,r.set_name,
         r.set_id,r.card_number,r.provider_id as variant,r.rarity,r.language,r.image_url,
-        r.release_date,r.provider,r.provider_id,r.source_url,'REFERENCE'::text as source_kind
+        r.release_date,r.provider,r.provider_id,r.source_url,'REFERENCE'::text as source_kind,
+        case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_minor end as reference_value_minor,
+        case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_high_minor end as reference_value_high_minor,
+        m.pricing_updated_at as reference_pricing_updated_at,
+        case when m.pricing_updated_at>=now()-interval '7 days' then m.quotes else '[]'::jsonb end as market_quotes,
+        (r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language='English'
+          and (m.expires_at is null or m.expires_at<=now())) as market_refresh_needed
  from reference_base r left join exact_links l using(provider,system_code,language,provider_id)
+ left join tcg.reference_market_prices m using(provider,system_code,language,provider_id)
  union all
  select 'c:'||p.id::text,p.id,case when pr.collectible_type='SEALED' then 'SEALED' else p.product_type end,pr.system_code,p.game,p.name,p.set_name,
         coalesce(nullif(pr.set_code,''),p.set_name),p.card_number,p.variant,p.rarity,
-        coalesce(p.language,'Unknown'),null::text,pr.release_date,''::text,''::text,null::text,'CATALOGUE'::text
+        coalesce(p.language,'Unknown'),null::text,pr.release_date,''::text,''::text,null::text,'CATALOGUE'::text,
+        null::bigint,null::bigint,null::timestamptz,'[]'::jsonb,false
  from tcg.catalogue_products p left join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
  where (p.product_type in ('CARD','SEALED') or (p.product_type='COLLECTION' and pr.collectible_type='SEALED')) and (pr.release_date is null or pr.release_date<=current_date)
    and not exists(select 1 from exact_links l where l.catalogue_id=p.id)
@@ -152,9 +161,18 @@ MEDIA_SQL = """
 SORTS = {
     "name": "lower(e.name),e.key", "newest": "e.release_date desc nulls last,lower(e.name),e.key",
     "number": "e.card_number nulls last,lower(e.name),e.key",
-    "value_desc": "v.market_value_minor desc nulls last,lower(e.name),e.key",
-    "value_asc": "v.market_value_minor asc nulls last,lower(e.name),e.key",
+    "value_desc": "coalesce(v.market_value_minor,e.reference_value_minor) desc nulls last,lower(e.name),e.key",
+    "value_asc": "coalesce(v.market_value_minor,e.reference_value_minor) asc nulls last,lower(e.name),e.key",
 }
+
+
+def price_columns(entry: str) -> str:
+    return f"""coalesce(v.market_value_minor,{entry}.reference_value_minor) as market_value_minor,
+        case when v.market_value_minor is null then {entry}.reference_value_high_minor end as market_value_high_minor,
+        coalesce(v.basis_condition,case when {entry}.reference_value_minor is not null then 'Raw · TCGplayer' end) as basis_condition,
+        coalesce(v.pricing_updated_at,{entry}.reference_pricing_updated_at) as pricing_updated_at,
+        case when v.market_value_minor is not null then 'STORED_SNAPSHOT'
+             when {entry}.reference_value_minor is not null then 'TCGDEX_TCGPLAYER' end as market_value_source"""
 
 
 async def browser_access(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)]) -> dict:
@@ -226,7 +244,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
       select p.id,v.* from tcg.catalogue_products p
       left join lateral tcg.recognition_catalogue_reference_value(p.id,nullif(p.language,'')) v on true
     ), page as (
-      select e.*,coalesce(o.quantity,0) as owned_quantity,v.market_value_minor,v.basis_condition,v.pricing_updated_at,
+      select e.*,coalesce(o.quantity,0) as owned_quantity,{price_columns('e')},
              row_number() over(order by {order}) as ordinal
       from entries e left join owned o on o.catalogue_id=e.catalogue_id
       left join reference_values v on v.id=e.catalogue_id
@@ -242,7 +260,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
           where {clause} order by {order} limit {page_limit} offset {page_offset}
         ), page as (
           select e.*,row_number() over(order by {order})+{page_offset} as ordinal from selected_page e
-        ) select page.*,v.market_value_minor,v.basis_condition,v.pricing_updated_at,
+        ) select page.*,{price_columns('page')},
                  coalesce(nullif(btrim(page.image_url),''),media.url) as display_image_url,
                  media.url as fallback_image_url
           from page left join lateral (
@@ -272,6 +290,20 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         rows = await connection.fetch(query, *params)
     return jsonable_encoder({"items": [dict(row) for row in rows[:limit]], "has_more": len(rows) > limit, "offset": offset})
+
+
+class ReferencePriceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    keys: list[Annotated[str, Field(pattern=r"^r:[a-f0-9]{32}$")]] = Field(min_length=1, max_length=40)
+
+
+@router.post("/market-values")
+async def market_values(payload: ReferencePriceRequest, request: Request,
+                        user: Annotated[AuthenticatedUser, Depends(require_user)],
+                        access: Annotated[dict, Depends(browser_access)]):
+    items = await refresh_reference_prices(request.app.state.db_pool, user.user_id, request.state.request_id,
+                                           list(dict.fromkeys(payload.keys)))
+    return jsonable_encoder({"items": items})
 
 
 class BrowseIntake(BaseModel):

@@ -4,6 +4,7 @@ window.DropRateCatalogue = (() => {
   const node = (tag, cls = "", text) => { const el = document.createElement(tag); el.className = cls; if (text != null) el.textContent = text; return el; };
   const button = (text, action, cls = "") => { const el = node("button", cls, text); el.type = "button"; el.addEventListener("click", action); return el; };
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
+  const marketPrice = row => money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
   const sorts = {newest:"Newest first", name:"Name A–Z", number:"Card number", value_desc:"Value: high to low", value_asc:"Value: low to high"};
@@ -101,7 +102,7 @@ window.DropRateCatalogue = (() => {
         if(!this.active()||revision!==this.revision)return;
         const row=(data.items||[]).find(item=>item.key===key);
         status.textContent=row?'':'This printing is currently unavailable. Search the catalogue to explore more cards.';
-        if(row)this.openProduct(row);
+        if(row){this.openProduct(row);this.refreshPrices([row],revision);}
       } catch(error) {if(this.active()&&revision===this.revision)status.textContent=error.message;}
       finally {if(revision===this.revision)this.loading=false;}
     }
@@ -179,8 +180,39 @@ window.DropRateCatalogue = (() => {
         if(this.page!=="sets" && !this.rows.length && this.set?.checklist_status==="UNAVAILABLE" && !this.filters.q && this.filters.owned==="all" && !this.filters.watch && !this.filters.product_type)status.textContent="This set is in the catalogue. Its card checklist is currently unavailable.";
         if(this.filters.watch)status.textContent=this.rows.length?"Watchlist saved on this device.":"Your watchlist is empty for these filters. Star a product to save it on this device.";
         this.find('[data-action="more"]').hidden=!this.hasMore;
+        if(this.page!=="sets")this.refreshPrices(this.rows,revision);
       } catch(error){if(this.active()&&revision===this.revision){status.textContent=error.message;this.hasMore=false;if(!more)this.find(".dr-browse-content").replaceChildren(button("Try again",()=>this.load()));}}
       finally{if(revision===this.revision)this.loading=false;}
+    }
+    async refreshPrices(rows,revision) {
+      const pending=rows.filter(row=>row.market_refresh_needed && row.market_value_source!=="STORED_SNAPSHOT");
+      if(!pending.length)return;
+      try {
+        const data=await this.client.request("/api/v1/catalogue-browser/market-values",{method:"POST",body:{keys:pending.slice(0,40).map(row=>row.key)},signal:this.controller?.signal});
+        if(!this.active()||revision!==this.revision)return;
+        const updates=new Map((data.items||[]).map(row=>[row.key,row]));let changed=false;
+        for(const row of pending.slice(0,40)){
+          const update=updates.get(row.key);if(!update)continue;
+          changed=changed||row.market_value_minor!==update.market_value_minor;
+          Object.assign(row,update);
+          this.dialog.querySelectorAll('[data-price-key]').forEach(el=>{if(el.dataset.priceKey===row.key)el.textContent=marketPrice(row);});
+          const detail=this.sheet.querySelector('[data-market-details]');
+          if(detail?.dataset.marketDetails===row.key)this.renderMarketDetails(detail,row);
+        }
+        // Requery value sorts after new quotes are cached, preserving server-side
+        // ordering before pagination. Other sorts keep focus/scroll untouched.
+        if(changed&&this.filters.sort.startsWith("value_")&&this.rows.length){this.load();return;}
+        if(pending.length>40)this.refreshPrices(pending.slice(40),revision);
+      } catch(_) { /* Keep displayed cards and any previous prices usable. */ }
+    }
+    renderMarketDetails(content,row) {
+      content.replaceChildren(node("strong","dr-browse-detail-value",marketPrice(row)));
+      if(row.market_value_minor==null)content.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
+      if(row.basis_condition)content.append(node("small","","Reference value: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
+      if(row.market_value_source==="TCGDEX_TCGPLAYER"){
+        for(const quote of row.market_quotes||[])content.append(node("p","dr-browse-reference-note",quote.finish+": "+money(quote.price_gbp_minor)));
+        content.append(node("p","dr-browse-reference-note","Raw market reference via TCGdex, converted from USD. Your copy’s condition and any grading can change its value."));
+      }
     }
     renderGames() {
       const content=this.find(".dr-browse-content"),grid=node("div","dr-browse-game-grid");
@@ -238,7 +270,8 @@ window.DropRateCatalogue = (() => {
         const meta=[row.rarity,row.card_number].filter(Boolean).join(" · ");
         open.append(node("small","",decode(row.set_name)),node("small","",meta),node("small","",row.language+" · "+(row.product_type==="SEALED"?"Sealed":decode(row.variant))));
         card.append(open);
-        const footer=node("div","dr-browse-product-footer"),copy=node("div");copy.append(node("strong","",money(row.market_value_minor)),node("small","","Qty: "+row.owned_quantity));
+        const footer=node("div","dr-browse-product-footer"),copy=node("div"),price=node("strong","",marketPrice(row));price.dataset.priceKey=row.key;
+        copy.append(price,node("small","","Qty: "+row.owned_quantity));
         const plus=button("+",()=>this.openProduct(row),"dr-browse-plus");plus.setAttribute("aria-label","Add "+decode(row.name));footer.append(copy,plus);card.append(footer);
         if(row.owned_quantity>0)card.append(node("span","dr-browse-owned","✓"));
         grid.append(card);
@@ -290,9 +323,7 @@ window.DropRateCatalogue = (() => {
       this.edit=edit;
       const content=node("div","dr-browse-product-details");
       content.append(this.productImage(row,"dr-browse-detail-image"),node("h3","",decode(row.name)),node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
-      content.append(node("strong","dr-browse-detail-value",money(row.market_value_minor)));
-      if(row.market_value_minor==null)content.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
-      if(row.basis_condition)content.append(node("small","","Reference value: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
+      const pricing=node("div");pricing.dataset.marketDetails=row.key;this.renderMarketDetails(pricing,row);content.append(pricing);
       const watch=button(this.watchlist.has(row.key)?"★ Saved":"☆ Watchlist",()=>this.toggleWatch(row,watch),"dr-browse-watch-product");watch.setAttribute("aria-pressed",String(this.watchlist.has(row.key)));content.append(watch);
       if(row.source_kind==="REFERENCE")content.append(node("p","dr-browse-reference-note","Reference artwork · check the exact printing and finish against your copy. New inventory remains pending identity review."));
       const fields=node("div","dr-browse-physical");

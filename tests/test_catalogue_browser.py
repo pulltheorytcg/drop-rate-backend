@@ -45,7 +45,7 @@ def test_query_is_parameterized_and_unknown_values_sort_last():
     assert attack not in sql
     assert attack.split() in params
     assert 'coalesce(o.quantity,0)>0' in sql
-    assert 'v.market_value_minor desc nulls last' in sql
+    assert 'coalesce(v.market_value_minor,e.reference_value_minor) desc nulls last' in sql
     assert 'order by page.ordinal' in sql
     assert 'strpos' in sql
     assert 'i.owner_id=$1' in sql
@@ -71,7 +71,7 @@ def test_ordinary_search_bounds_pricing_to_the_selected_page(sort):
 def test_value_sort_prices_before_pagination_and_keeps_unknown_values_last(sort,direction):
     sql,params=browser.product_query(owner_id=uuid4(),sort=sort,limit=20,offset=20)
     assert sql.index('tcg.recognition_catalogue_reference_value') < sql.index('limit $')
-    assert f'v.market_value_minor {direction} nulls last' in sql
+    assert f'coalesce(v.market_value_minor,e.reference_value_minor) {direction} nulls last' in sql
     assert params[-2:]==[21,20]
 
 

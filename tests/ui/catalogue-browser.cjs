@@ -21,6 +21,39 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
 }
 (async()=>{
  {
+  const waiting=deferred(),ref={...card,key:'r:'+'a'.repeat(32),provider:'TCGdex',source_kind:'REFERENCE',market_refresh_needed:true};
+  const f=fixture(async(url,options)=>url.endsWith('/market-values')?waiting.promise:{items:[ref]});
+  f.browser.filters.q='Seel';await f.browser.open();
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Value pending/);
+  f.browser.openProduct(ref);const select=f.browser.sheet.querySelector('select');select.value='Near Mint';select.dispatchEvent(new f.w.Event('change'));
+  waiting.resolve({items:[{key:ref.key,market_value_minor:7,market_value_high_minor:19,market_value_source:'TCGDEX_TCGPLAYER',market_refresh_needed:false,
+    basis_condition:'Raw · TCGplayer',pricing_updated_at:'2026-10-08T12:00:00Z',market_quotes:[{finish:'Normal',price_gbp_minor:7},{finish:'Reverse Holofoil',price_gbp_minor:19}]}]});
+  await tick();
+  assert.match(f.browser.find('.dr-browse-content').textContent,/£0.07–£0.19/);
+  assert.match(f.browser.sheet.textContent,/Reverse Holofoil: £0.19/);
+  assert.match(f.browser.sheet.textContent,/converted from USD/);
+  assert.equal(f.browser.sheet.querySelector('select'),select);assert.equal(select.value,'Near Mint');
+  const request=f.calls.find(call=>call.url.endsWith('/market-values'));
+  assert.equal(request.method,'POST');assert.deepEqual(request.body.keys,[ref.key]);
+  f.finish();checks++;
+ }
+ {
+  const waiting=deferred(),ref={...card,key:'r:'+'b'.repeat(32),market_refresh_needed:true};
+  const f=fixture(async(url)=>url.endsWith('/market-values')?waiting.promise:{items:[ref]});
+  f.browser.filters.q='Old search';await f.browser.open();f.browser.reset();
+  waiting.resolve({items:[{key:ref.key,market_value_minor:900,market_refresh_needed:false}]});await tick();
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Browse card games/);
+  assert.equal(ref.market_value_minor,null);f.finish();checks++;
+ }
+ {
+  const ref={...card,key:'r:'+'c'.repeat(32),market_refresh_needed:true};
+  const f=fixture(async(url)=>{if(url.endsWith('/market-values'))throw new Error('Provider down');return {items:[ref]};});
+  f.browser.filters.q='Card';await f.browser.open();await tick();
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Value pending/);
+  f.finish();checks++;
+ }
+ {
   const f=fixture();
   const picture=f.browser.productImage({...card,display_image_url:'https://www.dbs-cardgame.com/missing.webp',image_url:'https://www.dbs-cardgame.com/missing.webp',fallback_image_url:'https://cdn.shopify.com/approved.webp'});
   const img=picture.querySelector('img');
