@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Catalogue speed and price-request repair
+
+- Fixed the unencoded browser market-price POST body, which the real hub transport forwarded directly to fetch. Existing source/finish/freshness rules and eBay valuation gates remain intact.
+- Added bounded account-lifetime artwork reuse, direct delivery for known restricted official artwork, nearby-image loading, and immediate recent catalogue rendering with background revalidation. First-load phone latency is not claimed to be zero.
+- Added visible Cards / Sealed products controls and exact-set, language-safe card previews when set logos are unavailable. Only three sealed products currently exist; worldwide sealed coverage remains incomplete.
+- Focused backend tests and 31 catalogue UI scenarios pass; the paginated preview query ran read-only against production. Full suites, current-head CI and live deployment verification remain release gates. See [catalogue loading repair](docs/CATALOGUE_LOADING_REPAIR.md).
+- Previous artwork release is complete: PR #546 / `1a914fa`, production deployment `9945c126-3e5b-42e2-aab8-f462858aa08c` SUCCESS after 2,704 tests. The audited repair restored all 3,981 targeted Japanese links, the original pre-deploy configuration was restored, and signed-in English/Japanese One Piece images loaded. Inventory identities, ownership, Store Prices and media registry fingerprints were unchanged.
+
 ## 9 October 2026 — Catalogue artwork import repair
 
 - Traced 3,981 missing Japanese One Piece images to the lightweight provider index. All 26 affected full pack records passed source validation. Future imports now read exact-print artwork; sparse imports retain existing artwork and provenance only for unchanged identities.

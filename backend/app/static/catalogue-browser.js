@@ -17,6 +17,7 @@ window.DropRateCatalogue = (() => {
     constructor(options) {
       this.options = options; this.client = options.client;
       this.artworkQueue=[];this.artworkActive=0;this.artworkEpoch=0;this.artworkControllers=new Set();this.artworkUrls=new Map();
+      this.artworkCache=new Map();this.artworkBytes=0;this.pageCache=new Map();this.artworkWaiting=new Map();
       this.revision = 0; this.pending = new Map(); this.watchlist = new Set(); this.games = Object.entries(gameTitles).slice(0,5).map(([system_code,[game]]) => ({system_code,game,languages:[]})); this.gamesLoaded = false;
       this.defaults();
       this.storageKey = "drop-rate-watchlist:" + this.client.owner;
@@ -36,6 +37,7 @@ window.DropRateCatalogue = (() => {
         <div class="dr-browse-searchbar"><button type="button" data-action="camera" aria-label="Open scanner">◎</button><input type="search" maxlength="160" placeholder="Search for products" aria-label="Search for products"><button type="button" data-action="clear-query" aria-label="Clear search">×</button><button type="button" data-action="watch" aria-label="Watchlist">☆</button><button type="button" data-action="menu" aria-label="Sort and filter">☷</button></div>
         <div class="dr-browse-menu" hidden><button type="button" data-action="sort">Sort ↕</button><button type="button" data-action="filters">Filter ☷</button></div>
         <div class="dr-browse-context"><span>Browse: <strong>All products</strong></span><button type="button" data-action="sets">Show Sets</button></div>
+        <nav class="dr-browse-types" aria-label="Product type"><button type="button" data-type="">All products</button><button type="button" data-type="CARD">Cards</button><button type="button" data-type="SEALED">Sealed products</button></nav>
         <div class="dr-browse-chips"></div><nav class="dr-browse-languages" aria-label="Set language" hidden></nav><button type="button" class="dr-browse-pending" hidden></button></header>
         <div class="dr-browse-scroll"><p class="dr-browse-status" role="status"></p><div class="dr-browse-content"></div><button type="button" data-action="more" class="dr-browse-load" hidden>Load more</button><div class="dr-browse-sentinel"></div></div>
         <nav class="dr-browse-nav" aria-label="App navigation"><button type="button" data-action="home"><span>⌂</span>Home</button><button type="button" class="active" data-action="search"><span>⌕</span>Search</button><button type="button" data-action="camera"><span>◎</span>Scan</button><button type="button" data-action="inventory"><span>▣</span>Inventory</button><button type="button" data-action="tools"><span>•••</span>More</button></nav>
@@ -47,6 +49,9 @@ window.DropRateCatalogue = (() => {
         sets:()=>this.showSets(), more:()=>this.load(true), filters:()=>this.openFilters(), sort:()=>this.openSort(),
         menu:()=>{ this.find(".dr-browse-menu").hidden = !this.find(".dr-browse-menu").hidden; }, watch:()=>{ this.filters.watch=!this.filters.watch; this.page="products"; this.load(); }};
       this.dialog.querySelectorAll("[data-action]").forEach(control=>control.addEventListener("click",()=>actions[control.dataset.action]()));
+      this.dialog.querySelectorAll('[data-type]').forEach(control=>control.addEventListener('click',()=>{
+        this.filters.product_type=control.dataset.type;this.set=null;this.page='products';this.load();
+      }));
       this.input.addEventListener("input",()=>{
         clearTimeout(this.timer); this.revision += 1; this.controller?.abort(); this.loading=false;
         if (this.page === "sets") this.setQuery=this.input.value; else this.filters.q=this.input.value;
@@ -63,6 +68,12 @@ window.DropRateCatalogue = (() => {
         else if(!event.shiftKey && document.activeElement===last){event.preventDefault();first?.focus();}
       });
       if("IntersectionObserver" in window){ this.observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&this.hasMore&&!this.loading)this.load(true);},{root:this.scroll,rootMargin:"160px"}); this.observer.observe(this.find(".dr-browse-sentinel")); }
+      if('IntersectionObserver' in window)this.artworkObserver=new IntersectionObserver(entries=>{
+        for(const entry of entries){if(!entry.isIntersecting)continue;
+          const job=this.artworkWaiting.get(entry.target);this.artworkWaiting.delete(entry.target);this.artworkObserver.unobserve(entry.target);
+          if(job)this.artworkQueue.push(job);
+        }this.drainArtwork();
+      },{root:this.scroll,rootMargin:'240px'});
     }
     async open(productKey = "") {
       if(!this.active())throw new Error("Sign in again to search products.");
@@ -71,7 +82,7 @@ window.DropRateCatalogue = (() => {
       else {this.dialog.showModal();document.body.classList.add("dr-browser-open");}
       // Show known game artwork immediately, before any network round trip.
       if(this.isHome()){this.header();this.renderGames();}
-      else {this.header();this.skeleton();}
+      else {this.header();if(!this.rows.length)this.skeleton();}
       if(productKey){await this.openReference(productKey);return;}
       const revision=this.revision;
       const home=this.isHome();
@@ -116,7 +127,7 @@ window.DropRateCatalogue = (() => {
       document.body.classList.remove("dr-browser-open");if(!this.embedded)this.returnFocus?.focus();
     }
     restoreOuter() { (this.outerInert||[]).forEach(([el,was])=>{el.inert=was;});this.outerInert=null; }
-    destroy() { this.restoreOuter();this.destroyed=true;this.clearArtwork();this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.observer?.disconnect();this.pending.clear();this.dialog.remove();document.body.classList.remove("dr-browser-open"); }
+    destroy() { this.restoreOuter();this.destroyed=true;this.clearArtwork();this.artworkCache.clear();this.artworkBytes=0;this.pageCache.clear();this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.observer?.disconnect();this.pending.clear();this.dialog.remove();document.body.classList.remove("dr-browser-open"); }
     navigate(view) { if(this.saving)return;this.close();this.options.navigate(view); }
     scan(mode="RAW") { if(this.saving)return;this.close();this.options.scan(typeof mode === "string" ? mode : "RAW"); }
     reset() { if(this.saving)return;this.defaults();this.input.value="";this.load(); }
@@ -135,6 +146,8 @@ window.DropRateCatalogue = (() => {
       this.input.value=sets?this.setQuery:this.filters.q; this.input.placeholder=sets?"Search by sets":"Search for products";
       this.input.setAttribute("aria-label",this.input.placeholder);
       this.find(".dr-browse-context").hidden=sets||home;
+      this.find('.dr-browse-types').hidden=sets;
+      this.dialog.querySelectorAll('[data-type]').forEach(control=>control.setAttribute('aria-pressed',String(control.dataset.type===this.filters.product_type)));
       this.find(".dr-browse-context strong").textContent=this.filters.watch?"Watchlist":this.filters.owned==="owned"?"Products owned":this.filters.owned==="not_owned"?"Products not owned":"All products";
       this.find('[data-action="sets"]').hidden=!this.filters.system_code;
       this.find('[data-action="watch"]').textContent=this.filters.watch?"★":"☆";
@@ -174,8 +187,15 @@ window.DropRateCatalogue = (() => {
         if(this.filters.watch)params.set("keys",[...this.watchlist].join(","));
       }
       try {
-        const data=await this.client.request("/api/v1/catalogue-browser/"+(this.page==="sets"?"sets":"products")+"?"+params,{signal:this.controller.signal});
+        const path="/api/v1/catalogue-browser/"+(this.page==="sets"?"sets":"products")+"?"+params;
+        const cached=this.pageCache.get(path);
+        if(!more && cached && Date.now()-cached.at<60000){
+          this.rows=cached.data.items||[];this.hasMore=Boolean(cached.data.has_more);this.renderRows();
+        }
+        const data=await this.client.request(path,{signal:this.controller.signal});
         if(!this.active() || revision!==this.revision)return;
+        this.pageCache.delete(path);this.pageCache.set(path,{at:Date.now(),data});
+        while(this.pageCache.size>12)this.pageCache.delete(this.pageCache.keys().next().value);
         this.rows=more?this.rows.concat(data.items||[]):data.items||[];this.hasMore=Boolean(data.has_more);this.offset=nextOffset;
         this.renderRows();status.textContent=this.rows.length?"":"No matches. Try another search or clear the filters.";
         if(this.page==="sets" && this.rows.length && Number.isInteger(data.total_count))status.textContent=data.total_count.toLocaleString()+" sets · Includes sets you don’t own";
@@ -183,14 +203,14 @@ window.DropRateCatalogue = (() => {
         if(this.filters.watch)status.textContent=this.rows.length?"Watchlist saved on this device.":"Your watchlist is empty for these filters. Star a product to save it on this device.";
         this.find('[data-action="more"]').hidden=!this.hasMore;
         if(this.page!=="sets")this.refreshPrices(this.rows,revision);
-      } catch(error){if(this.active()&&revision===this.revision){status.textContent=error.message;this.hasMore=false;if(!more)this.find(".dr-browse-content").replaceChildren(button("Try again",()=>this.load()));}}
+      } catch(error){if(this.active()&&revision===this.revision){status.textContent=this.rows.length?'Showing recently loaded results. Refresh failed; try again shortly.':error.message;this.hasMore=false;if(!more&&!this.rows.length)this.find(".dr-browse-content").replaceChildren(button("Try again",()=>this.load()));}}
       finally{if(revision===this.revision)this.loading=false;}
     }
     async refreshPrices(rows,revision) {
       const pending=rows.filter(row=>row.market_refresh_needed && row.market_value_source!=="STORED_SNAPSHOT");
       if(!pending.length)return;
       try {
-        const data=await this.client.request("/api/v1/catalogue-browser/market-values",{method:"POST",body:{keys:pending.slice(0,40).map(row=>row.key)},signal:this.controller?.signal});
+        const data=await this.client.request("/api/v1/catalogue-browser/market-values",{method:"POST",body:JSON.stringify({keys:pending.slice(0,40).map(row=>row.key)}),signal:this.controller?.signal});
         if(!this.active()||revision!==this.revision)return;
         const updates=new Map((data.items||[]).map(row=>[row.key,row]));let changed=false;
         for(const row of pending.slice(0,40)){
@@ -228,21 +248,32 @@ window.DropRateCatalogue = (() => {
       content.replaceChildren(node("h2","dr-browse-quick-heading","Browse card games"),grid);
       if(!this.games.length)content.append(node("p","dr-browse-empty","The catalogue is being prepared. Try scanning an item."));
     }
-    titleImage(artwork,cls,host,loadedClass) {
+    titleImage(artwork,cls,host,loadedClass,onError) {
       const image=node("img",cls);image.alt="";image.decoding="async";image.loading="eager";
       image.addEventListener("load",()=>host.classList.add(loadedClass));
-      image.addEventListener("error",()=>{host.classList.remove(loadedClass);image.remove();});
+      image.addEventListener("error",()=>{host.classList.remove(loadedClass);image.remove();onError?.();});
       image.referrerPolicy="no-referrer";
       image.src=artwork.url||"/assets/title-art/"+artwork.file;return image;
     }
     clearArtwork() {
       this.artworkEpoch++;this.artworkQueue=[];
+      this.artworkObserver?.disconnect();this.artworkWaiting.clear();
       for(const controller of this.artworkControllers)controller.abort();
       for(const url of this.artworkUrls.values())URL.revokeObjectURL(url);
       this.artworkUrls.clear();
     }
     loadReferenceImage(image,path,fallback) {
-      this.artworkQueue.push({image,path,fallback,epoch:this.artworkEpoch});this.drainArtwork();
+      const job={image,path,fallback,epoch:this.artworkEpoch};
+      if(this.artworkObserver && image.loading==='lazy' && !this.artworkCache.has(path)){
+        this.artworkWaiting.set(image,job);this.artworkObserver.observe(image);
+      }else {this.artworkQueue.push(job);queueMicrotask(()=>this.drainArtwork());}
+    }
+    cacheArtwork(path,blob) {
+      const previous=this.artworkCache.get(path);if(previous)this.artworkBytes-=previous.blob.size;
+      this.artworkCache.delete(path);this.artworkCache.set(path,{blob,at:Date.now()});this.artworkBytes+=blob.size;
+      while(this.artworkCache.size>128 || this.artworkBytes>16000000){
+        const key=this.artworkCache.keys().next().value;this.artworkBytes-=this.artworkCache.get(key).blob.size;this.artworkCache.delete(key);
+      }
     }
     drainArtwork() {
       while(this.active() && this.artworkActive<4 && this.artworkQueue.length){
@@ -250,8 +281,10 @@ window.DropRateCatalogue = (() => {
         const controller=new AbortController();this.artworkControllers.add(controller);this.artworkActive++;
         (async()=>{
           try {
-            const blob=await this.client.requestImage(job.path,{signal:controller.signal});
+            const cached=this.artworkCache.get(job.path);
+            const blob=cached && Date.now()-cached.at<3600000?cached.blob:await this.client.requestImage(job.path,{signal:controller.signal});
             if(!this.active() || job.epoch!==this.artworkEpoch || !job.image.isConnected)return;
+            this.cacheArtwork(job.path,blob);
             for(const [image,url]of this.artworkUrls){if(!image.isConnected){URL.revokeObjectURL(url);this.artworkUrls.delete(image);}}
             const url=URL.createObjectURL(blob);this.artworkUrls.set(job.image,url);job.image.src=url;
           } catch(_) {if(this.active() && job.epoch===this.artworkEpoch && job.image.isConnected)job.fallback();}
@@ -270,14 +303,18 @@ window.DropRateCatalogue = (() => {
         const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.referrerPolicy="no-referrer";
         if(cls==="dr-browse-detail-image")image.loading="eager";
         image.addEventListener("load",()=>{placeholder.hidden=true;});
-        let proxyTried=false;
+        const referencePath=row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')?row.reference_image_path:null;
+        let proxyTried=Boolean(referencePath);
         const fallback=()=>{if(urls.length)image.src=urls.shift();else {image.remove();placeholder.textContent="Image unavailable";placeholder.hidden=false;}};
         image.addEventListener("error",()=>{
           if(!proxyTried && row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')){
             proxyTried=true;this.loadReferenceImage(image,row.reference_image_path,fallback);
           } else fallback();
         });
-        image.src=urls.shift();wrap.append(image);
+        // These official hosts reject cross-site <img> loads. Use the exact,
+        // authenticated reference route first instead of waiting for a failure.
+        if(referencePath){const source=urls.indexOf(row.image_url);if(source>=0)urls.splice(source,1);this.loadReferenceImage(image,referencePath,fallback);}
+        else image.src=urls.shift();wrap.append(image);
       }
       return wrap;
     }
@@ -291,7 +328,12 @@ window.DropRateCatalogue = (() => {
           art.append(node("small","",this.game()?.game||""),node("strong","",decode(row.set_name)),node("span","",row.set_id));
           const exactArt=window.DropRateTitleArt?.set({...row,set_name:decode(row.set_name)});
           const artwork=exactArt||window.DropRateTitleArt?.game(row.system_code);
-          if(artwork)art.append(this.titleImage(artwork,"dr-browse-set-logo",art,exactArt?"has-set-logo":"has-game-logo"));
+          const preview=()=>{if(!row.image_url)return;
+            art.append(this.productImage({...row,name:'Card preview from '+decode(row.set_name)},'dr-browse-set-preview'));
+            art.append(node('small','','Card preview'));
+          };
+          if(!exactArt && row.image_url)preview();
+          else if(artwork)art.append(this.titleImage(artwork,"dr-browse-set-logo",art,exactArt?"has-set-logo":"has-game-logo",preview));
           if(exactArt)art.title=exactArt.title;
           tile.append(art,node("span","","Progress: "+row.owned_count+"/"+(row.card_count||row.indexed_count||"—")),
             node("small","","Total Value: "+(row.owned_count===0?"£0":row.owned_value_minor==null?"Pending":money(row.owned_value_minor)+(row.unknown_values?" + pending":""))));
@@ -387,7 +429,7 @@ window.DropRateCatalogue = (() => {
       try {
         for(const request of edit.requests){if(request.result)continue;
           const result=await this.client.request("/api/v1/catalogue-browser/intake",{method:"POST",headers:{"Idempotency-Key":request.key},body:request.body});
-          if(!result.inventory?.inventory_code)throw new Error("Save confirmation was incomplete. Retry this same addition.");request.result=result;}
+          if(!result.inventory?.inventory_code)throw new Error("Save confirmation was incomplete. Retry this same addition.");request.result=result;this.pageCache.clear();}
         edit.error=edit.quantity+" added to your inventory. Identity review is still required before approval.";
         try{await this.options.afterSave();}catch(_){edit.error+=" Refresh inventory to update totals.";}
       }catch(error){if(this.active())edit.error=error.message+" Retry uses the same requests to avoid duplicate copies.";}
