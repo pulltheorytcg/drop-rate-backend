@@ -17,6 +17,8 @@ from .db import user_connection
 from .live_market_refresh import identity_key,select_comps,value_comps
 
 DIMENSIONS=('condition','grading_company','grade','language','seal_status')
+REVISION=2
+SELECTION_RULES={'FIVE_NEWEST_EXACT_COMPARABLE_SALES','FIVE_NEWEST_EXACT_SEALED_PACK_SALES'}
 IDENTITY_SQL="md5(concat_ws(chr(31),p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language))"
 TARGET_SQL=f'''select p.id as catalogue_id,p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language,
  {IDENTITY_SQL} as identity_digest,pr.set_code,pr.identity_status as profile_identity_status,
@@ -33,7 +35,7 @@ OBSERVATIONS_SQL='''select * from (
  from tcg.market_observations o where catalogue_id=any($1::uuid[]) and source='EBAY'
   and observation_type='SOLD' and source_country='GB' and currency='GBP'
   and observed_at>=$2 and observed_at<=$3 and ingested_at<=$3
-  and metadata->>'selection_rule'='FIVE_NEWEST_EXACT_COMPARABLE_SALES'
+  and metadata->>'selection_rule' in ('FIVE_NEWEST_EXACT_COMPARABLE_SALES','FIVE_NEWEST_EXACT_SEALED_PACK_SALES')
   and metadata->>'marketplace'='EBAY_GB'
  ) eligible where position<=100'''
 PROVIDER_CHECK_SQL='''select distinct on(metadata->>'identity_key') metadata->>'identity_key' as identity_key,completed_at
@@ -58,7 +60,7 @@ def catalogue_values(product,observations,*,now,provider_checks=None):
                 or row.get('observation_type')!='SOLD' or row.get('source_country')!='GB' or row.get('currency')!='GBP'
                 or not now-timedelta(days=90)<=row['observed_at']<=now
                 or row['ingested_at']>now
-                or row.get('metadata',{}).get('selection_rule')!='FIVE_NEWEST_EXACT_COMPARABLE_SALES'
+                or row.get('metadata',{}).get('selection_rule') not in SELECTION_RULES
                 or row.get('metadata',{}).get('marketplace')!='EBAY_GB'):
             continue
         dimensions=tuple(row.get(field) for field in DIMENSIONS)
@@ -66,7 +68,9 @@ def catalogue_values(product,observations,*,now,provider_checks=None):
     values=[]
     for dimensions,rows in groups.items():
         physical=dict(zip(DIMENSIONS,dimensions))
-        if physical['language'] not in {'English','Japanese'} or physical['language']!=product['language']:
+        catalogue_language=str(product.get('language') or '').strip().casefold()
+        if (physical['language'] not in {'English','Japanese'}
+                or (catalogue_language not in {'','unknown'} and catalogue_language!=physical['language'].casefold())):
             continue
         target={**product,**physical,'store_price_minor':None}
         if product['product_type']=='CARD':
@@ -113,7 +117,7 @@ async def refresh_catalogue_values(pool,actor):
     from .catalogue_maintenance import receipt
     run_id=await receipt(pool,actor,'CATALOGUE_VALUES','RUNNING',{})
     report={'catalogue_products_checked':0,'valued_products':0,'value_bases':0,'snapshots_inserted':0,
-            'missing_exact_evidence':0,'inventory_rows_read':0,'provider_calls':0}
+            'missing_exact_evidence':0,'inventory_rows_read':0,'provider_calls':0,'importer_revision':REVISION}
     now=datetime.now(timezone.utc);cursor=None;status='INCOMPLETE'
     try:
         async with user_connection(pool,actor,str(uuid4())) as connection:

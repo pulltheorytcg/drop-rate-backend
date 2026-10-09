@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Legacy catalogue evidence-basis compatibility
+
+- PR #554 deployed successfully as `9777749` on `de7415b5-1687-4704-9b8d-063b05177faa`. All three current-head checks passed; the additive snapshot migration is applied. The reference-helper activation is deliberately held until coverage read-back is satisfactory.
+- The first shared pass checked all 463 canonical products but only produced three values: 330 legacy products have no canonical language although their exact sold evidence has one. Keep canonical identity unchanged and use the independently verified observation language as an explicit valuation basis; conflicting known languages still fail. Also recognize the existing exact sealed-pack ingestion rule. Revision 2 rechecks the prior pass.
+- The corrected sealed import completed 703 sets / 3,878 products. Its price pass checked 3,414 supported packaging references and priced 2,403 (2,134 Pokémon, 269 One Piece), with zero provider failures; unmatched/unsupported references remain unknown.
+- The real PostgreSQL fixture now has an unspecified canonical language and no inventory table, verifies the English quote basis, and proves the canonical language stays null. No bulk identity correction is performed.
+
 ## 9 October 2026 — Inventory-independent catalogue valuations
 
 - Daily canonical valuation now reads public exact eBay observations and successful provider-check receipts, not physical inventory or owner pricing policies. Every canonical product is checked; five matching recent sales feed the existing v4 engine, with separate physical bases and immutable catalogue snapshots.

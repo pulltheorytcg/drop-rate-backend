@@ -5,7 +5,7 @@ create or replace function tcg.recognition_catalogue_reference_value(p_catalogue
 returns table(market_value_minor bigint,recommended_retail_minor bigint,pricing_updated_at timestamptz,basis_condition text,basis_language text)
 language sql stable security definer set search_path=pg_catalog as $function$
  select s.market_value_minor,s.recommended_retail_minor,s.evidence_checked_at,
-        coalesce(s.basis_condition,case when s.seal_status='SEALED' then 'Sealed' end),s.basis_language
+        coalesce(s.basis_condition,case when s.seal_status='SEALED' then 'Sealed' end)||' · '||s.basis_language,s.basis_language
  from tcg.catalogue_market_snapshots s join tcg.catalogue_products p on p.id=s.catalogue_id
  where tcg.current_user_id() is not null and s.catalogue_id=p_catalogue_id
    and s.identity_digest=md5(concat_ws(chr(31),p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language))
