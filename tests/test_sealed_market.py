@@ -7,7 +7,7 @@ import pytest
 
 from app import sealed_market as market
 from app.fx import FxQuote
-from app.reference_sealed import sealed_reference
+from app.reference_sealed import sealed_reference,cardmarket_product_id
 
 NOW=datetime(2026,10,9,12,tzinfo=timezone.utc)
 REFERENCE={'product_type':'BOOSTER_BOX','evidence':{'cardmarket_product_id':'12'}}
@@ -41,6 +41,15 @@ async def test_bulk_feed_rejects_stale_duplicate_and_wrong_wrapper():
 
 
 def test_blueprint_retains_explicit_cross_provider_id_without_approving_language():
-    row=sealed_reference({'id':12,'category_id':9,'name':'Box','cardmarket_id':271440},{'id':10},'POKEMON_TCG',{'9':'BOOSTER_BOX'})
+    row=sealed_reference({'id':12,'category_id':9,'name':'Box','card_market_ids':[271440]},{'id':10},'POKEMON_TCG',{'9':'BOOSTER_BOX'})
     assert row['evidence']['cardmarket_product_id']=='271440' and row['language']=='Unknown'
     assert row['evidence']['exact_product_verified'] is False
+
+
+def test_current_and_legacy_cross_ids_reject_ambiguous_or_malformed_mappings():
+    assert cardmarket_product_id({'cardmarket_id':271440})=='271440'
+    assert cardmarket_product_id({'card_market_ids':[271440,'271440']})=='271440'
+    for blueprint in ({'card_market_ids':[1,2]}, {'card_market_ids':[1],'cardmarket_id':2},
+                      {'card_market_ids':True}, {'card_market_ids':[True]}, {'card_market_ids':[0]},
+                      {'card_market_ids':['wrong']}, {'card_market_ids':[]}, {}):
+        assert cardmarket_product_id(blueprint) is None
