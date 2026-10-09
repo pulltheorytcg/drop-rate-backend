@@ -60,7 +60,7 @@ async def main():
     await db.execute("insert into tcg.catalogue_products values($1,'CARD','Pokemon','Seel','Phantasmal Flames','021/094','Normal','Common')",cat)
     for ident,owner in ((a,actor),(b,other)):
         await db.execute("""insert into tcg.inventory_items(id,owner_id,inventory_code,catalogue_id,version,status,identity_confirmed,condition,language,store_price_minor)
-         values($1,$2,$1::text,$3,1,'APPROVED',true,'Near Mint','English',9000)""",ident,owner,cat)
+         values($1::uuid,$2,$1::uuid::text,$3,1,'APPROVED',true,'Near Mint','English',9000)""",ident,owner,cat)
     async def setup(conn): await conn.execute('set role tcg_api')
     pool=await asyncpg.create_pool(dsn,min_size=1,max_size=5,init=_init_connection,setup=setup)
     calls=[]

@@ -250,6 +250,8 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
         """
         select
             source,
+            source_record_key,
+            metadata,
             observation_type,
             observed_at,
             price_gbp_minor,
@@ -263,13 +265,22 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
             source_country
         from tcg.market_observations
         where catalogue_id = $1
+          and source='EBAY' and source_country='GB' and observation_type='SOLD'
+          and observed_at between now()-interval '90 days' and now()
         order by observed_at desc
         limit 500
         """,
         item["catalogue_id"],
     )
-    if not rows:
-        raise HTTPException(status_code=422, detail="No market observations available for this catalogue product")
+    # Every inventory calculation uses the same five latest exact UK sold
+    # identities. Reference price guides must not silently replace that policy.
+    exact = {}
+    for row in rows:
+        if _same_pricing_identity(dict(row),dict(item)):
+            exact.setdefault(_sold_identity_key(dict(row)),row)
+    rows = list(exact.values())[:5]
+    if len(rows)<5:
+        raise HTTPException(status_code=422, detail="Five exact recent eBay UK sold observations are required")
 
     observations = [
         MarketObservation(
@@ -305,6 +316,8 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
     )
 
     evidence = {
+        "method": "LIVE_EBAY_MARKET_V1",
+        "source_record_keys": [row["source_record_key"] for row in rows],
         "sources": [
             {
                 "source": estimate.source,

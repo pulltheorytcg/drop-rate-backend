@@ -176,7 +176,7 @@ def value_comps(comps, target, policy=None, now=None):
                            current_store_price_minor=target.get("store_price_minor"), as_of=now)
 
 
-async def save_value(connection, item, comps, query, now):
+async def save_snapshot(connection, item, comps, query, now):
     policy_row = await connection.fetchrow("select * from tcg.pricing_policies where owner_id=$1", item["owner_id"])
     result = value_comps(comps, item, _policy_from_row(policy_row) if policy_row else None, now)
     evidence = {"method": JOB, "marketplace": "EBAY_GB", "query":query, "sale_price_excludes_shipping":True,
@@ -191,6 +191,11 @@ async def save_value(connection, item, comps, query, now):
       result.quick_sale_minor,result.target_acquisition_minor,result.confidence,result.source_count,
       result.observation_count,result.sold_observation_count,result.volatility_pct,result.newest_observation_at,
       result.algorithm_version,json.dumps(evidence),json.dumps(list(result.block_reasons)))
+    return snapshot,result
+
+
+async def save_value(connection, item, comps, query, now):
+    snapshot,result = await save_snapshot(connection,item,comps,query,now)
     updated = await connection.fetchval("""update tcg.inventory_items set market_value_minor=$1,
       recommended_retail_minor=$2,latest_pricing_snapshot_id=$3,pricing_updated_at=now(),updated_at=now(),version=version+1
       where id=$4 and owner_id=$5 and version=$6 and status in ('DRAFT','INSPECTION','APPROVED') returning id""",

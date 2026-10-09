@@ -30,6 +30,8 @@ Protected routes require a valid Supabase bearer token. The verified user ID is 
 
 ## Market data
 
+Current inventory refresh: [Live eBay UK market refresh](docs/LIVE_EBAY_MARKET_REFRESH.md) documents the explicitly approved October 2026 sold-price repair. It uses the existing Trawl UK sold-data access and v4 algorithm; the historical integration notes below describe the earlier foundation.
+
 Market integrations are modular. Production pricing remains disabled until provider evidence has been validated.
 
 Official eBay UK active-listing access uses the eBay Browse API with an Application access token (OAuth client-credentials grant). Configure these server-side variables:
