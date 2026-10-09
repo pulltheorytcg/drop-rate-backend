@@ -39,7 +39,7 @@ not prove a working ingestion feed. No eBay inventory links existed.
   name, set, number, variant and product-ID checks. TCGplayer USD market prices
   are retained as US context only, never converted into a UK sold valuation.
 - Cardmarket's public daily non-singles catalogue and price-guide exports cover
-  Pokémon and One Piece in this release. CardTrader's explicit `cardmarket_id`
+  Pokémon and One Piece in this release. CardTrader's explicit singleton `card_market_ids` (legacy `cardmarket_id`)
   joins the packaging reference to the guide; category/type must also agree.
   No name-only matching is used. These mixed-language, mixed-condition guides
   are labelled separately from physical sealed-product valuations.
@@ -59,7 +59,7 @@ never fetched. Provider/FX failures retain recent known data with original dates
 ## Daily operation and full-database accountability
 
 Existing source imports update all supported card, set and packaging catalogues
-at 03:00 Europe/London, independent of inventory. Revision 3 preserves the
+at 03:00 Europe/London, independent of inventory. Revision 4 handles the current ID-array contract and preserves the
 explicit Cardmarket cross-ID from CardTrader. Pokémon price work now covers
 all English and Japanese references. Revision 2 refreshes old caches once;
 subsequent passes select by the daily slot rather than repeatedly refreshing

@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Live provider cross-ID contract correction
+
+- PR #552 deployed successfully as `1a42ef8` on `ab9869e7-585d-4de2-9a61-1045f4e8cddc`; full backend/UI and PostgreSQL persistence CI passed and the evidence migration is applied. Existing 11,910 public quotes were retained in immutable history.
+- The live sealed pass exposed zero cross-IDs from the older scalar example. Current CardTrader documentation specifies `card_market_ids` arrays. Revision 4 accepts one unambiguous positive ID, supports the old scalar form and rejects multiple/conflicting/malformed IDs. The earlier revision remains journalled.
+- Added current-contract fixtures and ambiguity checks. Actual sealed price coverage still requires post-deploy read-back; no catalogue or inventory identity is inferred from a name.
+
 ## 9 October 2026 — Catalogue-wide price evidence extension
 
 - Audited v4, actual provider evidence, catalogue scope and channel behavior; see [valuation review](docs/CATALOGUE_VALUATION_REVIEW.md). Daily reference work now includes Japanese Pokémon, exact-variant TCGplayer US context and ID-matched Cardmarket packaging guides. These remain separate from physical five-sale eBay UK values and seller Store Price.

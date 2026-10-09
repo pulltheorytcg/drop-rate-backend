@@ -13,8 +13,9 @@ receipt; a complete source is skipped until the next day. Interrupted/incomplete
 sources wait one hour before retrying. Session advisory locks prevent overlap
 between replicas/deployments. External calls are outside database transactions.
 An explicit importer revision change starts a new attempt, preserving previous
-receipts; revision 2 corrects CardTrader's live game-prefixed category labels; revision 3
-preserves explicit Cardmarket product IDs for daily packaging guides.
+receipts; revision 2 corrects CardTrader's live game-prefixed category labels; revision 4
+handles current `card_market_ids` arrays. Only a single unambiguous product ID
+is accepted for daily packaging guides; multiple regional/edition IDs stay pending.
 
 The existing TCGdex, Punk Records, Bandai and Naruto importers upsert reference
 sets/cards. One Piece imports now hydrate exact images from full packs. The

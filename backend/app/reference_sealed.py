@@ -53,6 +53,19 @@ def expansion_system(system,expansion):
     return system
 
 
+def cardmarket_product_id(blueprint):
+    # Current exports expose an array, while older examples used a scalar.
+    # A multi-ID blueprint cannot silently choose one regional/edition price.
+    values=blueprint.get('card_market_ids')
+    if values is None:values=[]
+    if not isinstance(values,list) or len(values)>40:return None
+    legacy=blueprint.get('cardmarket_id')
+    if legacy is not None:values=[*values,legacy]
+    if any(isinstance(value,bool) or not str(value).isdigit() or int(value)<=0 for value in values):return None
+    ids={str(int(value)) for value in values}
+    return next(iter(ids)) if len(ids)==1 else None
+
+
 def sealed_reference(blueprint, expansion, system, categories):
     category=categories.get(str(blueprint.get('category_id')))
     if not category or str(blueprint.get('expansion_id',expansion['id']))!=str(expansion['id']):
@@ -75,7 +88,7 @@ def sealed_reference(blueprint, expansion, system, categories):
             'source_url':f'https://api.cardtrader.com/api/v2/blueprints/export?expansion_id={expansion["id"]}',
             'evidence':{'category_id':blueprint['category_id'],'expansion_id':expansion['id'],
                         'provider_version':version,'physical_language_unresolved':language=='Unknown',
-                        'cardmarket_product_id': str(blueprint['cardmarket_id']) if str(blueprint.get('cardmarket_id','')).isdigit() and int(blueprint['cardmarket_id'])>0 else None,
+                        'cardmarket_product_id':cardmarket_product_id(blueprint),
                         'exact_product_verified':False,'retrieval_only':True}}
 
 

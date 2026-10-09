@@ -29,7 +29,7 @@ from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_pr
 
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
-SOURCE_REVISIONS={'cardtrader_sealed':3}
+SOURCE_REVISIONS={'cardtrader_sealed':4}
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
