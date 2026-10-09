@@ -21,6 +21,8 @@ The global multi-provider ingestion switch stays off. This task is narrowly enab
 
 Provider contract checked against https://trawl.dev/docs on 9 October: successful responses include public credit headers; empty results are free, pages are charged against the existing account allowance, and `429` covers rate/credit limits. No credentials or raw responses are logged.
 
+The first production pass confirmed the current account has a **250-credit monthly allowance**, with 228 remaining after ten identities (three updated, seven pending). Identical search requests across different finishes are now reused within one bounded pass; each finish still requires its own five matching sales. Cache hits record zero new credits. This cache expires at the end of the pass and never changes product matching or freshness.
+
 ## Validation and rollback
 
 Unit tests exercise exact printing/grade/language/bundle exclusions, future/stale records, use of v4 rather than an average, immutable provenance, copy deduplication and changed-inventory exclusion. Existing pricing tests and full backend suite must pass; release evidence belongs on the PR. Live verification must include persisted observations/snapshots and counts, not merely a healthy deployment.

@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Live refresh release and provider capacity
+
+- PR #543 merged as `ea36320601b6cc5f5a0990368be2e163ec4f24eb`; production deployment `350b2453-d2dd-4d9f-9171-46e1aaca2d57` reached SUCCESS after 2,683 tests. The real PostgreSQL integration and full UI suite passed. Migration/read-back confirmed current-snapshot lookup and server-only function access; readiness returned 200 and deployed catalogue JavaScript matched Git.
+- The bounded ten-identity live pass updated three graded copies through v4, retaining their exact five sold records. Seven identities remained pending, including two unverified sealed types. The provider reports Free-tier capacity of 250 monthly credits, with 228 remaining. Full-inventory coverage is not yet complete.
+- The follow-up reuses identical searches across finishes within a pass while validating each finish separately. It reduces credit use without changing the algorithm, identity gates or source. No provider upgrade or additional purchase was made. Full-pass results remain to be verified.
+
 ## 9 October 2026 — Live eBay UK inventory valuation repair
 
 - The founder explicitly requested all market values use our sold-market algorithm. Found the old batch only selected missing Store Price; 506 copies were still on imported/floor snapshots, two had v4 values and two had no value.

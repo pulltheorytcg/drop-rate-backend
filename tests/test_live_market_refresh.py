@@ -99,6 +99,28 @@ def test_unverified_and_unsupported_products_remain_pending():
 
 
 @pytest.mark.asyncio
+async def test_same_search_is_reused_but_finish_matching_remains_separate():
+    calls=[]
+    class Client:
+        async def sold(self,**kwargs):
+            calls.append(kwargs)
+            return dict(payload([sold(n) for n in range(1,6)]+[sold(30+n,title='Seel 021/094 Phantasmal Flames Reverse Holo NM',sale_price=20+n) for n in range(1,6)]),
+                        _usage={'charged':1,'remaining':228})
+    client=market.PassSoldClient(Client())
+    normal=target(); reverse=target(variant='Reverse Holofoil')
+    query=market.query_for(normal)
+    assert query==market.query_for(reverse)
+    first=await client.sold(query=query,max_pages=1)
+    second=await client.sold(query=query,max_pages=1)
+    assert len(calls)==1 and first['_usage']['charged']==1 and second['_usage']['charged']==0
+    assert len(market.select_comps(first,normal,NOW))==5
+    reverse_comps=market.select_comps(second,reverse,NOW)
+    assert len(reverse_comps)==5 and all(c['price_minor']>2000 for c in reverse_comps)
+    await client.sold(query=query,max_pages=2)
+    assert len(calls)==2, 'Different request depth must not reuse incomplete data'
+
+
+@pytest.mark.asyncio
 async def test_save_value_preserves_selling_price_and_records_source(monkeypatch):
     calls=[]
     class DB:

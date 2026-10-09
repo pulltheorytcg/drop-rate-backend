@@ -49,6 +49,25 @@ left join tcg.sealed_product_details sd on sd.catalogue_id=p.id
 """
 
 
+class PassSoldClient:
+    """Share one public search across finishes within a single bounded pass.
+
+    Each identity still runs its own exact matching. Never cache between passes
+    or report that a cache hit consumed another provider credit.
+    """
+    def __init__(self,client):
+        self.client=client
+        self.responses={}
+
+    async def sold(self,*,query,max_pages):
+        key=(query,max_pages)
+        if key not in self.responses:
+            self.responses[key]=await self.client.sold(query=query,max_pages=max_pages)
+            return self.responses[key]
+        payload=self.responses[key]
+        return {**payload,"_usage":{**payload.get("_usage",{}),"charged":0,"cache_hit":True}}
+
+
 def identity_key(target):
     return hashlib.sha256(json.dumps([str(target.get(k) or "") for k in IDENTITY_FIELDS]).encode()).hexdigest()
 
@@ -291,9 +310,15 @@ async def refresh_pass(pool, settings):
             groups = defaultdict(list)
             for row in rows:
                 groups[identity_key(row)].append(dict(row))
+            # Keep all finishes sharing a search adjacent, so a later quota stop
+            # cannot strand free, already-fetched comparisons at the end of a pass.
+            queries={k:query_for(v[0]) if eligibility(v[0]) is None else k for k,v in groups.items()}
+            priority={}
+            for key in groups:
+                priority.setdefault(queries[key],len(priority))
             total = {"status":"COMPLETE","groups":0,"updated":0,"pending":0}
-            client = TrawlEbaySoldClient(api_key=settings.trawl_api_key)
-            for key, items in groups.items():
+            client = PassSoldClient(TrawlEbaySoldClient(api_key=settings.trawl_api_key))
+            for key, items in sorted(groups.items(),key=lambda pair:priority[queries[pair[0]]]):
                 previous = last.get(key, {})
                 if previous.get("next_check_at") and datetime.fromisoformat(previous["next_check_at"])>now:
                     continue
