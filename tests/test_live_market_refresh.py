@@ -57,7 +57,7 @@ def test_grade_must_follow_its_grading_company():
 
 
 def test_one_piece_base_parallel_and_promo_are_distinct():
-    t=target(game='One Piece',name='Sabo',card_number='OP07-118',set_name='500 Years in the Future',variant='Foil')
+    t=target(game='One Piece',name='Sabo',card_number='OP07-118',set_name='500 Years in the Future',variant='Foil',rarity='SEC')
     base='Sabo OP07-118 English NM'
     assert market.exact_card_match(sold(title=base),t)
     assert not market.exact_card_match(sold(title=base+' Parallel'),t)

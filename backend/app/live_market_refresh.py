@@ -121,6 +121,11 @@ def exact_card_match(row, target):
         present = any(_contains_term(text, x) for x in markers)
         if wanted != present:
             return False
+    if (target["game"]=="One Piece" and target["variant"]=="Foil"
+            and target.get("rarity") not in {"R","SR","SEC","SCR","SER"}
+            and not any(_contains_term(name,m) for group in special_groups for m in group)
+            and not any(_contains_term(text,m) for m in ("foil","holo","holofoil"))):
+        return False
     for annotation in re.findall(r"[([]([^\])]+)[\])]", target["name"]):
         clean = _normalise_text(annotation)
         if re.fullmatch(r"[\d\s/]+", clean) or clean in {"parallel", "alt art", "alternate art", "sp", "manga"}:
@@ -129,6 +134,12 @@ def exact_card_match(row, target):
             return False
     if target["game"] == "Pokemon" and not _contains_term(text, target["set_name"]):
         return False
+    if not company:
+        combined=_normalise_text(title+' '+str(row.get('condition_raw') or ''))
+        for condition,terms in {"Near Mint":("near mint","nm"),"Lightly Played":("lightly played","lp"),
+             "Moderately Played":("moderately played","mp"),"Heavily Played":("heavily played","hp"),"Damaged":("damaged","dmg")}.items():
+            if condition!=target["condition"] and any(_contains_term(combined,term) for term in terms):
+                return False
     return _matches_comp(row, copy)
 
 
