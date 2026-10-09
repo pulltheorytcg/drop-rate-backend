@@ -26,6 +26,10 @@ The first production pass confirmed the current account has a **250-credit month
 
 The full production pass is enabled at a 500-group limit. Railway app sleeping is disabled on the existing API service so its hourly check loop can run between browser visits; no additional service or provider plan was purchased. Refreshes remain subject to the sold-data allowance and exact-comparable gates.
 
+At 08:01 UTC on 9 October, the provider reported zero credits and then HTTP 429. The journal durably paused further calls. Both passes checked 380 identities / 427 copies and saved 155 new values. With the earlier OP17 value retained, coverage is 156 of 510 copies. Of the remaining 354, 269 have fewer than five exact sold matches, one lacks exact print data, two lack a verified sealed product type and 82 remain unchecked. More credits address the last group and recurring refreshes; they do not automatically resolve sparse evidence or ambiguous identities. Current Free-tier reset is 1 November 2026.
+
+Live read-back confirmed unchanged inventory count and owner/Store Price/status fingerprint, with 1,026 immutable snapshots and 646 observations after the pass. The 81,209p total covers the 156 valued copies only and must not be presented as the full collection value.
+
 ## Validation and rollback
 
 Unit tests exercise exact printing/grade/language/bundle exclusions, future/stale records, use of v4 rather than an average, immutable provenance, copy deduplication and changed-inventory exclusion. Existing pricing tests and full backend suite must pass; release evidence belongs on the PR. Live verification must include persisted observations/snapshots and counts, not merely a healthy deployment.
