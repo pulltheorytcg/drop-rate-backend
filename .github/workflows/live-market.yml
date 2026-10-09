@@ -4,6 +4,7 @@ on:
     paths:
       - 'backend/app/live_market_refresh.py'
       - 'backend/app/ebay_sold_pricing.py'
+      - 'backend/app/inventory_intelligence.py'
       - 'database/migrations/*_current_ebay_reference_values.sql'
       - 'tests/*live_market*'
       - '.github/workflows/live-market.yml'

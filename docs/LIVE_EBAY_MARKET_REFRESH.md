@@ -8,6 +8,7 @@ The founder requested every inventory market value be refreshed through the exis
 - Uses the existing Trawl `EBAY_GB`/GBP sold endpoint, at most one page for cards and two for an already verified booster pack. Five distinct exact sales in the past 90 days are required. The existing `drop-rate-market-v4` engine computes the value from those five observations, with its recency weighting, outlier checks and confidence rules. Shipping is recorded separately.
 - Name, contiguous collector number, physical language, finish, condition, grade/company and special-print markers are checked. Unknown product types, unverified sealed types, ambiguous/missing print details and fewer than five sales remain pending. No new source mappings or identity approvals are made.
 - Manual eBay pricing and stored-observation recalculation also use the same five-sale v4 policy; Cardmarket/reference imports cannot silently take over a current inventory valuation.
+- Weekly movers require both the current and historical value to have a v4 eBay-backed snapshot with at least five sales, belonging to the same owner and catalogue product. Imported/floor/reference baselines cannot produce apparent gains or losses during the backfill. Until comparable history exists, weekly movement stays unavailable.
 - Provider calls occur outside transactions. A session advisory lock prevents concurrent passes; writes recheck owner, version, physical identity and status. Sold/withdrawn/reserved items are not repriced. Current selling prices, Shopify listings, publication, ownership and finance are untouched.
 - Imported/price-floor reference values are retired from the live market fields only when a historical snapshot exists to preserve them. No snapshot or observation is deleted. A successful exact-sold value updates market value and recommendation, never Store Price. The catalogue helper only exposes the current eBay-backed snapshot, preventing old imported prices from reappearing. Cardmarket browse-only values are explicitly labelled `Reference`.
 
@@ -22,6 +23,8 @@ The global multi-provider ingestion switch stays off. This task is narrowly enab
 Provider contract checked against https://trawl.dev/docs on 9 October: successful responses include public credit headers; empty results are free, pages are charged against the existing account allowance, and `429` covers rate/credit limits. No credentials or raw responses are logged.
 
 The first production pass confirmed the current account has a **250-credit monthly allowance**, with 228 remaining after ten identities (three updated, seven pending). Identical search requests across different finishes are now reused within one bounded pass; each finish still requires its own five matching sales. Cache hits record zero new credits. This cache expires at the end of the pass and never changes product matching or freshness.
+
+The full production pass is enabled at a 500-group limit. Railway app sleeping is disabled on the existing API service so its hourly check loop can run between browser visits; no additional service or provider plan was purchased. Refreshes remain subject to the sold-data allowance and exact-comparable gates.
 
 ## Validation and rollback
 

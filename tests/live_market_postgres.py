@@ -12,6 +12,7 @@ import asyncpg
 from app.db import _init_connection,user_connection
 from app import live_market_refresh as market
 from app.ebay_sold_pricing import TrawlApiError
+from app.inventory_intelligence import inventory_intelligence
 
 
 async def main():
@@ -25,7 +26,7 @@ async def main():
       create schema tcg;
       create function tcg.current_user_id() returns uuid language sql stable as
        $$ select nullif(current_setting('tcg.user_id',true),'')::uuid $$;
-      create table tcg.owners(id uuid primary key,display_name text,owner_type text,founder_slot int,active boolean);
+      create table tcg.owners(id uuid primary key,display_name text,owner_type text,founder_slot int,active boolean,commission_bps int default 0);
       create table tcg.owner_memberships(id uuid,user_id uuid,owner_id uuid,role text,active boolean,created_at timestamptz default now());
       create function tcg.is_platform_admin() returns boolean language sql stable as
        $$select exists(select 1 from tcg.owner_memberships where user_id=tcg.current_user_id() and active and role='PLATFORM_ADMIN')$$;
@@ -55,7 +56,7 @@ async def main():
     await db.execute((root/'database/migrations/20261009073244_current_ebay_reference_values.sql').read_text())
     actor,other,cat,a,b= [uuid4() for _ in range(5)]
     for owner in (actor,other):
-        await db.execute("insert into tcg.owners values($1,'Fixture','FOUNDER',1,true)",owner)
+        await db.execute("insert into tcg.owners(id,display_name,owner_type,founder_slot,active) values($1,'Fixture','FOUNDER',1,true)",owner)
     await db.execute("insert into tcg.owner_memberships(id,user_id,owner_id,role,active) values($1,$1,$1,'PLATFORM_ADMIN',true)",actor)
     await db.execute("insert into tcg.catalogue_products values($1,'CARD','Pokemon','Seel','Phantasmal Flames','021/094','Normal','Common')",cat)
     for ident,owner in ((a,actor),(b,other)):
@@ -84,6 +85,31 @@ async def main():
         await market.refresh_pass(pool,settings)
         assert len(calls)==1, 'Durable retry clock failed'
         assert await db.fetchval('select count(*) from tcg.pricing_snapshots')==2
+        # Refreshing imported benchmarks must not manufacture weekly movement.
+        request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=pool)),state=SimpleNamespace(request_id='fixture-intelligence'))
+        user=SimpleNamespace(user_id=actor)
+        async def history(owner,algorithm,source,sold,days,value):
+            return await db.fetchval("""insert into tcg.pricing_snapshots(inventory_id,catalogue_id,owner_id,algorithm_version,
+             evidence,sold_observation_count,market_value_minor,calculated_at)
+             values($1,$2,$3,$4,jsonb_build_object('sources',jsonb_build_array(jsonb_build_object('source',$5::text))),$6,$7,
+              clock_timestamp()-make_interval(days=>$8)) returning id""",a,cat,owner,algorithm,source,sold,value,days)
+        floor=await history(actor,'store-price-floor-v1','EBAY',5,8,9999)
+        await history(actor,'collectr-import-provisional-v2-usd-gbp','EBAY',5,8,9999)
+        await history(actor,'drop-rate-market-v4','CARDMARKET',5,8,9999)
+        await history(actor,'drop-rate-market-v4','EBAY',4,8,9999)
+        await history(other,'drop-rate-market-v4','EBAY',5,8,9999)
+        report=await inventory_intelligence(request,user,top_limit=5,window_days=7)
+        assert report['totals']['active_inventory_count']==1 and report['totals']['market_valued_item_count']==1
+        assert not report['weekly_movers']['history_ready']
+        assert not report['weekly_movers']['gainers'] and not report['weekly_movers']['decliners']
+        await history(actor,'drop-rate-market-v4','EBAY',5,10,100)
+        report=await inventory_intelligence(request,user,top_limit=5,window_days=7)
+        assert report['weekly_movers']['history_ready']
+        assert report['weekly_movers']['gainers'][0]['prior_market_value_minor']==100
+        assert not report['weekly_movers']['decliners']
+        await db.execute('update tcg.inventory_items set latest_pricing_snapshot_id=$1 where id=$2',floor,a)
+        report=await inventory_intelligence(request,user,top_limit=5,window_days=7)
+        assert not report['weekly_movers']['history_ready'], 'Non-eBay current snapshot became a weekly mover'
         # History survives while clearing the current price; the helper must not resurrect it.
         await db.execute('update tcg.inventory_items set market_value_minor=null')
         async with user_connection(pool,actor,'fixture') as conn:

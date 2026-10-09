@@ -194,6 +194,16 @@ async def inventory_intelligence(
                   and i.status in ('DRAFT','INSPECTION','APPROVED')
                   and i.market_value_minor is not null
                   and i.market_value_minor > 0
+                  and exists (
+                      select 1 from tcg.pricing_snapshots current_snapshot
+                      where current_snapshot.id=i.latest_pricing_snapshot_id
+                        and current_snapshot.inventory_id=i.id
+                        and current_snapshot.owner_id=i.owner_id
+                        and current_snapshot.catalogue_id=i.catalogue_id
+                        and current_snapshot.algorithm_version='drop-rate-market-v4'
+                        and current_snapshot.sold_observation_count>=5
+                        and current_snapshot.evidence->'sources' @> '[{"source":"EBAY"}]'::jsonb
+                  )
                 group by
                     i.catalogue_id,i.condition,i.grading_company,i.grade,
                     i.language,i.seal_status,
@@ -208,6 +218,11 @@ async def inventory_intelligence(
                 select ps.market_value_minor,ps.calculated_at
                 from tcg.pricing_snapshots ps
                 where ps.inventory_id = any(cg.inventory_ids)
+                  and ps.owner_id=$1
+                  and ps.catalogue_id=cg.catalogue_id
+                  and ps.algorithm_version='drop-rate-market-v4'
+                  and ps.sold_observation_count>=5
+                  and ps.evidence->'sources' @> '[{"source":"EBAY"}]'::jsonb
                   and ps.calculated_at <= clock_timestamp() - make_interval(days => $2)
                   and ps.market_value_minor > 0
                 order by ps.calculated_at desc,ps.id desc

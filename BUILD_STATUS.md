@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Comparable weekly history
+
+- The full eBay refresh exposed a reporting error: weekly movers could compare new sold values with old import/floor snapshots. Restrict both ends to v4 eBay-backed evidence with five sales, matching snapshot owner and catalogue. Historical rows remain untouched; insufficient comparable history shows no movement.
+- Expanded the real PostgreSQL integration to prove imported, floor, Cardmarket, insufficient-sale and wrong-owner baselines are excluded while a valid older eBay snapshot produces a mover. It also checks the current-snapshot gate and owner-scoped portfolio totals.
+- PR #544 is live as `604cc461f7d4e06562ff5f65f0984309227e55f3` on deployment `536193f3-a8e3-4c65-ab32-abed35b60c5f`. The full 500-group pass is running. The existing API no longer sleeps between visits so the refresh loop can continue; provider capacity still bounds coverage. Final counts and release evidence must be recorded before claiming every price is updated.
+
 ## 9 October 2026 — Live refresh release and provider capacity
 
 - PR #543 merged as `ea36320601b6cc5f5a0990368be2e163ec4f24eb`; production deployment `350b2453-d2dd-4d9f-9171-46e1aaca2d57` reached SUCCESS after 2,683 tests. The real PostgreSQL integration and full UI suite passed. Migration/read-back confirmed current-snapshot lookup and server-only function access; readiness returned 200 and deployed catalogue JavaScript matched Git.
