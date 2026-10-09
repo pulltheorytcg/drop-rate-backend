@@ -100,3 +100,12 @@ pipeline; a zero-candidate production pass is not evidence of a new live sale.
 Disable the two new switches to stop recurring work. Application rollback leaves
 additive reference/journal tables intact. Do not delete historical receipts,
 inventory, ownership, observations, Shopify links or financial records.
+
+## Shared canonical eBay valuations
+
+The daily pass also calculates all canonical catalogue products directly from
+immutable exact UK sold observations and successful source-check receipts. It
+uses the existing five-sale v4 engine and saves public catalogue snapshots with
+no inventory/owner linkage. A stale provider date is not advanced by this
+calculation. The job reports checked, priced and insufficient-evidence counts;
+it makes no provider requests and cannot remove the existing quota limit.
