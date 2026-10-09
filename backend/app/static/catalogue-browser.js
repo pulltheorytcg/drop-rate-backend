@@ -4,7 +4,7 @@ window.DropRateCatalogue = (() => {
   const node = (tag, cls = "", text) => { const el = document.createElement(tag); el.className = cls; if (text != null) el.textContent = text; return el; };
   const button = (text, action, cls = "") => { const el = node("button", cls, text); el.type = "button"; el.addEventListener("click", action); return el; };
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
-  const marketPrice = row => money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
+  const marketPrice = row => (row.market_value_source==="TCGDEX_CARDMARKET"?"Reference: ":"")+money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
   const sorts = {newest:"Newest first", name:"Name A–Z", number:"Card number", value_desc:"Value: high to low", value_asc:"Value: low to high"};
@@ -211,7 +211,7 @@ window.DropRateCatalogue = (() => {
       if(row.basis_condition)content.append(node("small","","Reference value: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
       if(row.market_value_source==="TCGDEX_CARDMARKET"){
         for(const quote of row.market_quotes||[])content.append(node("p","dr-browse-reference-note",quote.finish+": "+money(quote.price_gbp_minor)));
-        content.append(node("p","dr-browse-reference-note","Raw market reference via TCGdex, converted from EUR. Your copy’s condition and any grading can change its value."));
+        content.append(node("p","dr-browse-reference-note","Cardmarket reference via TCGdex, converted from EUR. This is separate from your collection’s eBay UK sold-market valuation."));
       }
     }
     renderGames() {

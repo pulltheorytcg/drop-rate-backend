@@ -1,0 +1,107 @@
+"""Network-isolated pricing persistence check; refuses nonlocal/nonempty DBs."""
+import asyncio
+import os
+from datetime import datetime,timedelta,timezone
+from pathlib import Path
+from types import SimpleNamespace
+from urllib.parse import urlsplit
+from uuid import uuid4
+
+import asyncpg
+
+from app.db import _init_connection,user_connection
+from app import live_market_refresh as market
+from app.ebay_sold_pricing import TrawlApiError
+
+
+async def main():
+    dsn=os.environ['LIVE_MARKET_TEST_DSN']
+    url=urlsplit(dsn)
+    assert url.hostname in {'localhost','127.0.0.1'} and url.path=='/live_market_test'
+    db=await asyncpg.connect(dsn)
+    assert not await db.fetchval("select exists(select 1 from pg_namespace where nspname='tcg')")
+    await db.execute('''
+      create role tcg_api nologin nobypassrls; create role anon; create role authenticated; create role service_role;
+      create schema tcg;
+      create function tcg.current_user_id() returns uuid language sql stable as
+       $$ select nullif(current_setting('tcg.user_id',true),'')::uuid $$;
+      create table tcg.owners(id uuid primary key,display_name text,owner_type text,founder_slot int,active boolean);
+      create table tcg.owner_memberships(id uuid,user_id uuid,owner_id uuid,role text,active boolean,created_at timestamptz default now());
+      create function tcg.is_platform_admin() returns boolean language sql stable as
+       $$select exists(select 1 from tcg.owner_memberships where user_id=tcg.current_user_id() and active and role='PLATFORM_ADMIN')$$;
+      create table tcg.catalogue_products(id uuid primary key,product_type text,game text,name text,set_name text,card_number text,variant text,rarity text);
+      create table tcg.catalogue_product_profiles(catalogue_id uuid,set_code text,identity_status text);
+      create table tcg.sealed_product_details(catalogue_id uuid,identity_status text);
+      create table tcg.catalogue_taxonomy_assignments(catalogue_id uuid,value_code text,scope_kind text,dimension_code text,verification_status text,created_at timestamptz);
+      create table tcg.inventory_items(id uuid primary key,owner_id uuid,inventory_code text,catalogue_id uuid,version int,status text,identity_confirmed boolean,
+       condition text,grading_company text,grade text,language text,seal_status text,store_price_minor bigint,market_value_minor bigint,
+       recommended_retail_minor bigint,latest_pricing_snapshot_id uuid,pricing_updated_at timestamptz,updated_at timestamptz);
+      create table tcg.pricing_policies(owner_id uuid);
+      create table tcg.pricing_snapshots(id uuid primary key default gen_random_uuid(),inventory_id uuid,catalogue_id uuid,owner_id uuid,
+       market_value_minor bigint,recommended_retail_minor bigint,quick_sale_minor bigint,target_acquisition_minor bigint,confidence numeric,
+       source_count int,observation_count int,sold_observation_count int,volatility_pct numeric,newest_observation_at timestamptz,algorithm_version text,
+       evidence jsonb,auto_publish_eligible boolean,block_reasons jsonb,calculated_at timestamptz default now());
+      create table tcg.market_observations(id uuid primary key default gen_random_uuid(),catalogue_id uuid,source text,source_record_key text,
+       observation_type text,observed_at timestamptz,price_minor bigint,shipping_minor bigint,currency text,price_gbp_minor bigint,shipping_gbp_minor bigint,
+       fx_rate_to_gbp numeric,condition text,grading_company text,grade text,language text,seal_status text,source_country text,sample_size int,evidence_quality numeric,
+       metadata jsonb,unique(source,source_record_key));
+      create function tcg.audit_market_change() returns trigger language plpgsql as $$begin return new; end$$;
+      grant usage on schema tcg to tcg_api; grant select,insert,update on all tables in schema tcg to tcg_api;
+      alter table tcg.inventory_items enable row level security;
+      create policy owner_access on tcg.inventory_items to tcg_api using(tcg.is_platform_admin() or owner_id=tcg.current_user_id());
+    ''')
+    root=Path(__file__).parents[1]
+    await db.execute((root/'database/migrations/202609230014_market_ingestion_runs.sql').read_text())
+    await db.execute((root/'database/migrations/20261009073244_current_ebay_reference_values.sql').read_text())
+    actor,other,cat,a,b= [uuid4() for _ in range(5)]
+    for owner in (actor,other):
+        await db.execute("insert into tcg.owners values($1,'Fixture','FOUNDER',1,true)",owner)
+    await db.execute("insert into tcg.owner_memberships(id,user_id,owner_id,role,active) values($1,$1,$1,'PLATFORM_ADMIN',true)",actor)
+    await db.execute("insert into tcg.catalogue_products values($1,'CARD','Pokemon','Seel','Phantasmal Flames','021/094','Normal','Common')",cat)
+    for ident,owner in ((a,actor),(b,other)):
+        await db.execute("""insert into tcg.inventory_items(id,owner_id,inventory_code,catalogue_id,version,status,identity_confirmed,condition,language,store_price_minor)
+         values($1::uuid,$2,$1::uuid::text,$3,1,'APPROVED',true,'Near Mint','English',9000)""",ident,owner,cat)
+    async def setup(conn): await conn.execute('set role tcg_api')
+    pool=await asyncpg.create_pool(dsn,min_size=1,max_size=5,init=_init_connection,setup=setup)
+    calls=[]
+    class Client:
+        def __init__(self,**kwargs): pass
+        async def sold(self,**kwargs):
+            calls.append(kwargs)
+            now=datetime.now(timezone.utc)
+            return {'site':'EBAY_GB','currency':'GBP','results':[{'item_id':str(i),'title':'Seel 021/094 Phantasmal Flames NM',
+             'sale_price':i+2,'currency':'GBP','condition_raw':'Near Mint','date_sold':(now-timedelta(days=i)).isoformat()} for i in range(1,6)]}
+    market.TrawlEbaySoldClient=Client
+    settings=SimpleNamespace(ebay_market_refresh_actor_user_id=str(actor),ebay_market_refresh_max_groups=10,trawl_api_key='isolated-fixture')
+    try:
+        result=await market.refresh_pass(pool,settings)
+        assert result['updated']==2 and len(calls)==1
+        assert await db.fetchval('select count(*) from tcg.market_observations')==5
+        assert await db.fetchval('select count(*) from tcg.pricing_snapshots')==2
+        assert await db.fetchval('select bool_and(store_price_minor=9000 and market_value_minor>0) from tcg.inventory_items')
+        async with user_connection(pool,actor,'fixture') as conn:
+            assert await conn.fetchval('select market_value_minor from tcg.recognition_catalogue_reference_value($1,$2)',cat,'English')>0
+        await market.refresh_pass(pool,settings)
+        assert len(calls)==1, 'Durable retry clock failed'
+        assert await db.fetchval('select count(*) from tcg.pricing_snapshots')==2
+        # History survives while clearing the current price; the helper must not resurrect it.
+        await db.execute('update tcg.inventory_items set market_value_minor=null')
+        async with user_connection(pool,actor,'fixture') as conn:
+            assert await conn.fetchval('select market_value_minor from tcg.recognition_catalogue_reference_value($1,$2)',cat,'English') is None
+        # Wrong actor cannot invoke the task even though it knows an inventory id.
+        settings.ebay_market_refresh_actor_user_id=str(other)
+        try:
+            await market.refresh_pass(pool,settings)
+            raise AssertionError('Unauthorized actor accepted')
+        except Exception as exc:
+            assert getattr(exc,'status_code',None)==403
+        # A concurrent task cannot take the same session lock.
+        assert await db.fetchval('select pg_try_advisory_lock($1)',market.LOCK)
+        assert (await market.refresh_pass(pool,settings))['status']=='ALREADY_RUNNING'
+        await db.execute('select pg_advisory_unlock($1)',market.LOCK)
+    finally:
+        await pool.close(); await db.close()
+    print('PASS: real PostgreSQL refresh, provenance, copy sharing, retry idempotency, owner authorization, session lock and historical isolation')
+
+
+asyncio.run(main())
