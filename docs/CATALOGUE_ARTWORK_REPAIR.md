@@ -8,18 +8,21 @@ Read-only production inspection found 3,981 missing Japanese One Piece image lin
 
 Signed-in desktop inspection loaded Pokémon and Dragon Ball artwork successfully. It did not reproduce every image failing on iPhone. The old placeholder remained in the accessibility tree even after successful image loading. Some Pokémon references genuinely have no provider artwork: card-detail responses for `30th-c-001` and `30th-c-027` returned no image. Missing source artwork must not be substituted from another printing or language.
 
+The subsequent signed-in One Piece check reproduced an empty English OP16 grid. Its image URLs returned valid PNG files but included `Cross-Origin-Resource-Policy: same-site`, preventing direct embedding on Drop Rate. This separate transport failure affects existing image links and must be repaired alongside the import gap.
+
 ## Changes
 
 - Hydrate future One Piece imports from the existing provider's full pack records. Accept only official language-specific HTTPS artwork hosts and exact printing/name matches within the same pack.
 - Keep known image URLs and their provenance when a later sparse import has the same identity. A changed name or pack cannot inherit the previous artwork.
 - Supply a bounded, admin-only, dry-run-by-default repair script. `--apply` fills only currently empty reference image URLs, leaving identities, existing images, physical inventory and media approvals intact. Each update retains pack source, SHA-256, actor, check time and a reference-sync run ID. Replays cannot overwrite an existing image.
 - Hide the loading placeholder after success, report unavailable artwork accurately, load the opened detail image eagerly, and advance the catalogue script cache version in both app shells.
+- On a direct image failure, use authenticated same-origin image transport for exact One Piece references. The server resolves the provider/system/language/printing primary key from existing released records; it does not accept a client URL. Reuse the scanner's trusted-host, raster-validation, 2 MB size limit and bounded byte cache. Limit fetches to four, release database transactions before HTTP, retain catalogue access checks and fall back to an existing approved same-product image on failure. Discard stale/account-changed responses, abort work on navigation and revoke browser object URLs on cleanup. Both shells load the updated scanner transport.
 
 This is reference display repair, not verified recognition evidence or approval of customer-facing inventory photos. It has no new provider, recurring job, public write route or schema migration.
 
 ## Release and verification
 
-Focused Python tests cover identity, language, parallel, invalid source and future-import behaviour. UI checks cover loaded, failed, unavailable and fallback states. A disposable PostgreSQL CI job exercises the actual repair and upsert SQL, including replay protection and provenance retention. The full existing backend/UI gates remain required.
+Focused Python tests cover identity, language, parallel, invalid source, future-import behaviour and authenticated exact-reference image delivery. UI checks cover loaded, failed, unavailable and fallback states, bounded fetching and account-change cleanup. A disposable PostgreSQL CI job exercises the actual repair and upsert SQL, including replay protection and provenance retention. The full existing backend/UI gates remain required.
 
 After current-head CI succeeds, run the script once in the existing API deployment environment using the authorised platform-admin actor:
 

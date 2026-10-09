@@ -43,6 +43,23 @@ async function matched(scanner, quantity = 1) {
 }
 
 (async () => {
+  {
+    const f=fixture();const imagePath='/api/v1/catalogue-browser/reference-image?provider_id=OP16-077';
+    const blob=new f.w.Blob(['image'],{type:'image/png'});const calls=[];
+    f.w.fetch=async(path,options)=>{calls.push({path,...options});return {ok:true,blob:async()=>blob};};
+    assert.equal(await f.scanner.requestImage(imagePath),blob);
+    assert.equal(calls[0].headers.Authorization,'Bearer test-token');
+    await assert.rejects(f.scanner.requestImage('https://evil.test/image'),/Invalid artwork/);assert.equal(calls.length,1);
+    f.w.fetch=async()=>({ok:true,blob:async()=>new f.w.Blob(['html'],{type:'text/html'})});
+    await assert.rejects(f.scanner.requestImage(imagePath),/Invalid artwork/);f.finish();checks++;
+  }
+  {
+    const f=fixture(),pending=deferred();f.w.fetch=()=>pending.promise;
+    const result=f.scanner.requestImage('/api/v1/catalogue-browser/reference-image?provider_id=OP16-077');await tick();
+    f.session.value={access_token:'other-token',user:{id:'account-b'}};
+    pending.resolve({ok:true,blob:async()=>new f.w.Blob(['image'],{type:'image/png'})});
+    await assert.rejects(result,/account changed/);f.finish();checks++;
+  }
   // A real pending state is visible immediately; unresolved responses cannot enter inventory.
   {
     const pending = deferred(); const f = fixture('seller', () => pending.promise);

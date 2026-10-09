@@ -16,6 +16,7 @@ window.DropRateCatalogue = (() => {
   class Browser {
     constructor(options) {
       this.options = options; this.client = options.client;
+      this.artworkQueue=[];this.artworkActive=0;this.artworkEpoch=0;this.artworkControllers=new Set();this.artworkUrls=new Map();
       this.revision = 0; this.pending = new Map(); this.watchlist = new Set(); this.games = Object.entries(gameTitles).slice(0,5).map(([system_code,[game]]) => ({system_code,game,languages:[]})); this.gamesLoaded = false;
       this.defaults();
       this.storageKey = "drop-rate-watchlist:" + this.client.owner;
@@ -110,11 +111,12 @@ window.DropRateCatalogue = (() => {
       if(this.saving)return;
       if(!this.find(".dr-browse-backdrop").hidden)this.closeSheet(false);
       this.restoreOuter();this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.loading=false;
+      this.clearArtwork();
       if(this.embedded)this.dialog.hidden=true;else this.dialog.close();
       document.body.classList.remove("dr-browser-open");if(!this.embedded)this.returnFocus?.focus();
     }
     restoreOuter() { (this.outerInert||[]).forEach(([el,was])=>{el.inert=was;});this.outerInert=null; }
-    destroy() { this.restoreOuter();this.destroyed=true;this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.observer?.disconnect();this.pending.clear();this.dialog.remove();document.body.classList.remove("dr-browser-open"); }
+    destroy() { this.restoreOuter();this.destroyed=true;this.clearArtwork();this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.observer?.disconnect();this.pending.clear();this.dialog.remove();document.body.classList.remove("dr-browser-open"); }
     navigate(view) { if(this.saving)return;this.close();this.options.navigate(view); }
     scan(mode="RAW") { if(this.saving)return;this.close();this.options.scan(typeof mode === "string" ? mode : "RAW"); }
     reset() { if(this.saving)return;this.defaults();this.input.value="";this.load(); }
@@ -157,7 +159,7 @@ window.DropRateCatalogue = (() => {
     async load(more=false) {
       if(!this.active() || (more&&this.loading))return;
       clearTimeout(this.timer);const revision=++this.revision;this.controller?.abort();this.controller=new AbortController();this.loading=true;
-      if(!more){this.rows=[];this.offset=0;this.hasMore=false;this.scroll.scrollTop=0;}
+      if(!more){this.clearArtwork();this.rows=[];this.offset=0;this.hasMore=false;this.scroll.scrollTop=0;}
       this.header();
       const status=this.find(".dr-browse-status");status.textContent="";
       if(this.isHome()){this.loading=false;this.renderGames();this.find('[data-action="more"]').hidden=true;return;}
@@ -233,6 +235,30 @@ window.DropRateCatalogue = (() => {
       image.referrerPolicy="no-referrer";
       image.src=artwork.url||"/assets/title-art/"+artwork.file;return image;
     }
+    clearArtwork() {
+      this.artworkEpoch++;this.artworkQueue=[];
+      for(const controller of this.artworkControllers)controller.abort();
+      for(const url of this.artworkUrls.values())URL.revokeObjectURL(url);
+      this.artworkUrls.clear();
+    }
+    loadReferenceImage(image,path,fallback) {
+      this.artworkQueue.push({image,path,fallback,epoch:this.artworkEpoch});this.drainArtwork();
+    }
+    drainArtwork() {
+      while(this.active() && this.artworkActive<4 && this.artworkQueue.length){
+        const job=this.artworkQueue.shift();if(!job.image.isConnected || job.epoch!==this.artworkEpoch)continue;
+        const controller=new AbortController();this.artworkControllers.add(controller);this.artworkActive++;
+        (async()=>{
+          try {
+            const blob=await this.client.requestImage(job.path,{signal:controller.signal});
+            if(!this.active() || job.epoch!==this.artworkEpoch || !job.image.isConnected)return;
+            for(const [image,url]of this.artworkUrls){if(!image.isConnected){URL.revokeObjectURL(url);this.artworkUrls.delete(image);}}
+            const url=URL.createObjectURL(blob);this.artworkUrls.set(job.image,url);job.image.src=url;
+          } catch(_) {if(this.active() && job.epoch===this.artworkEpoch && job.image.isConnected)job.fallback();}
+          finally {this.artworkControllers.delete(controller);this.artworkActive--;this.drainArtwork();}
+        })();
+      }
+    }
     productImage(row,cls="dr-browse-product-image") {
       const wrap=node("div",cls);
       const urls=[...new Set([row.display_image_url,row.image_url,row.fallback_image_url]
@@ -244,7 +270,13 @@ window.DropRateCatalogue = (() => {
         const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.referrerPolicy="no-referrer";
         if(cls==="dr-browse-detail-image")image.loading="eager";
         image.addEventListener("load",()=>{placeholder.hidden=true;});
-        image.addEventListener("error",()=>{if(urls.length)image.src=urls.shift();else {image.remove();placeholder.textContent="Image unavailable";placeholder.hidden=false;}});
+        let proxyTried=false;
+        const fallback=()=>{if(urls.length)image.src=urls.shift();else {image.remove();placeholder.textContent="Image unavailable";placeholder.hidden=false;}};
+        image.addEventListener("error",()=>{
+          if(!proxyTried && row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')){
+            proxyTried=true;this.loadReferenceImage(image,row.reference_image_path,fallback);
+          } else fallback();
+        });
         image.src=urls.shift();wrap.append(image);
       }
       return wrap;

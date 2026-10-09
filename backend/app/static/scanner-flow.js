@@ -101,6 +101,22 @@ window.DropRateScanner = (() => {
       return result;
     }
 
+    async requestImage(path, {signal} = {}) {
+      const epoch = this.epoch;
+      if (!this.active(epoch)) throw new Error("Your account changed.");
+      // Image transport stays on our authenticated API, never an arbitrary URL.
+      if (!path.startsWith('/api/v1/catalogue-browser/reference-image?')) throw new Error("Invalid artwork request.");
+      await this.ensureSession(epoch);
+      if (!this.active(epoch)) throw new Error("Your account changed.");
+      const response = await fetch(path, {signal, cache:"no-store",
+        headers:{Authorization:"Bearer " + this.options.session().access_token}});
+      if (!response.ok) throw new Error("Image unavailable.");
+      const blob = await response.blob();
+      if (!this.active(epoch)) throw new Error("Your account changed.");
+      if (!/^image\/(png|jpeg|webp|avif)$/.test(blob.type) || blob.size > 2000000) throw new Error("Invalid artwork response.");
+      return blob;
+    }
+
     async ensureSession(epoch) {
       const session = this.options.session();
       const expires = tokenClaims(session).exp;
