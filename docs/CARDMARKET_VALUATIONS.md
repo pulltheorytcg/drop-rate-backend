@@ -123,3 +123,37 @@ the value update. No production privilege is expanded. The PostgreSQL fixture
 now mirrors read-only canonical identity, column-scoped inventory writes and
 append-only pricing evidence, and checks a printing changed after selection.
 The revision schedules a retry without rewriting the failed receipt.
+
+PR [#558](https://github.com/pulltheorytcg/drop-rate-backend/pull/558) passed
+current-head Backend checks and Live market persistence, then deployed as
+`2d3d519e6624195581a56d191e5f15d1eb73e25a` on Railway deployment
+`526cd73a-947d-4aaa-a06a-c9b4153c8e8c` (SUCCESS, readiness 200). Its pre-deploy
+run passed 2,759 tests and preserved all original financial/social checks.
+The revision-2 calculation completed at **20:10:23 UTC**:
+
+| Production result | Count |
+| --- | ---: |
+| Canonical products checked | 463 |
+| Cardmarket guide bases and catalogue snapshots | 164 |
+| Previously pending inventory copies filled | 95 |
+| Current valued inventory copies | 251 / 510 |
+| Distinct catalogue products with either source | 224 |
+| Provider calls made by the calculation | 0 |
+| Seller Store Prices changed | 0 |
+
+All 156 prior values and their snapshot IDs are unchanged, verified by the
+before/after fingerprint `0f4f76adfd4a711cd0e1735c8ab66e4b`. The owner/Store
+Price/status fingerprint for all 510 copies remains
+`ab62e1122c7e51df7a2288288a3c3005`. The 95 new guide snapshots have confidence
+0.4904, zero sold observations and automatic publication disabled. Every one
+matches its current canonical identity digest and linked public snapshot.
+Their actual guide timestamps remain 09:52 UTC on 9 October. None of the 164
+new PRICE_GUIDE observations invents a source condition or language.
+
+The remaining 259 pending copies comprise 199 One Piece, 29 Dragon Ball Super,
+25 Pokémon and six Fusion World copies. This is measured partial coverage:
+other-game mappings, grades, unsupported finishes and missing exact guides
+remain unknown. Existing reference caches separately contain 11,910 English
+and 4,590 Japanese Pokémon guides and 2,403 sealed packaging guides. The
+expanded reference fill was interrupted during deployment and continues
+through the existing hourly retry; a completed full backfill is not claimed.
