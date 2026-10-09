@@ -23,7 +23,7 @@ window.DropRateCatalogue = (() => {
       this.storageKey = "drop-rate-watchlist:" + this.client.owner;
       try {
         const saved = JSON.parse(localStorage.getItem(this.storageKey) || "[]");
-        if (Array.isArray(saved)) this.watchlist = new Set(saved.filter(x => typeof x === "string" && /^[cr]:[a-f0-9-]+$/.test(x)).slice(0,100));
+        if (Array.isArray(saved)) this.watchlist = new Set(saved.filter(x => typeof x === "string" && /^[crs]:[a-f0-9-]+$/.test(x)).slice(0,100));
       } catch (_) { /* Private browsing may disable storage. */ }
       this.build();
     }
@@ -329,8 +329,9 @@ window.DropRateCatalogue = (() => {
           const exactArt=window.DropRateTitleArt?.set({...row,set_name:decode(row.set_name)});
           const artwork=exactArt||window.DropRateTitleArt?.game(row.system_code);
           const preview=()=>{if(!row.image_url)return;
-            art.append(this.productImage({...row,name:'Card preview from '+decode(row.set_name)},'dr-browse-set-preview'));
-            art.append(node('small','','Card preview'));
+            const label=row.source_kind==='SEALED_REFERENCE'?'Product preview':'Card preview';
+            art.append(this.productImage({...row,name:label+' from '+decode(row.set_name)},'dr-browse-set-preview'));
+            art.append(node('small','',label));
           };
           if(!exactArt && row.image_url)preview();
           else if(artwork)art.append(this.titleImage(artwork,"dr-browse-set-logo",art,exactArt?"has-set-logo":"has-game-logo",preview));
@@ -396,14 +397,21 @@ window.DropRateCatalogue = (() => {
     openProduct(row) {
       this.openSheet("Product Details");
       let edit=this.pending.get(row.key);
-      if(!edit){edit={row,condition:"",quantity:1,confirmed:false,requests:null};this.pending.set(row.key,edit);}
+      if(!edit){edit={row,condition:"",language:"",quantity:1,confirmed:false,requests:null};this.pending.set(row.key,edit);}
       this.edit=edit;
       const content=node("div","dr-browse-product-details");
       content.append(this.productImage(row,"dr-browse-detail-image"),node("h3","",decode(row.name)),node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
       const pricing=node("div");pricing.dataset.marketDetails=row.key;this.renderMarketDetails(pricing,row);content.append(pricing);
       const watch=button(this.watchlist.has(row.key)?"★ Saved":"☆ Watchlist",()=>this.toggleWatch(row,watch),"dr-browse-watch-product");watch.setAttribute("aria-pressed",String(this.watchlist.has(row.key)));content.append(watch);
       if(row.source_kind==="REFERENCE")content.append(node("p","dr-browse-reference-note","Reference artwork · check the exact printing and finish against your copy. New inventory remains pending identity review."));
+      if(row.source_kind==='SEALED_REFERENCE')content.append(node('p','dr-browse-reference-note','Packaging reference · confirm the exact product, language, edition and pack count. Your item stays in review before it can be listed.'));
       const fields=node("div","dr-browse-physical");
+      if(row.product_type==='SEALED' && row.language==='Unknown'){
+        const label=node('label','','Product language'),select=node('select');select.setAttribute('aria-label','Product language');
+        for(const language of ['','English','Japanese','Chinese','Korean','French','German','Italian','Spanish']){const option=node('option','',language||'Choose language');option.value=language;select.append(option);}
+        select.value=edit.language;select.disabled=Boolean(edit.requests);
+        select.addEventListener('change',()=>{edit.language=select.value;this.validateAdd();});label.append(select);fields.append(label);
+      }
       const conditionLabel=node("label","",row.product_type==="SEALED"?"Seal status":"Condition"),condition=node("select");
       for(const label of row.product_type==="SEALED"?["Sealed"]:["Choose condition",...conditions]){const option=node("option","",label);option.value=label==="Choose condition"?"":label;condition.append(option);}
       condition.value=row.product_type==="SEALED"?"Sealed":edit.condition;condition.setAttribute("aria-label","Condition");condition.disabled=Boolean(edit.requests)||row.product_type==="SEALED";
@@ -419,11 +427,11 @@ window.DropRateCatalogue = (() => {
     validateAdd() { const edit=this.edit;if(!edit)return;const done=edit.requests?.every(request=>request.result);
       const save=this.sheet.querySelector("[data-add]");if(!save)return;
       save.textContent=this.saving?"Adding…":done?"Added · Done":edit.requests?"Retry remaining saves":"Add to Inventory";
-      save.disabled=this.saving||(!edit.requests&&(!edit.confirmed||!Number.isInteger(edit.quantity)||edit.quantity<1||edit.quantity>50||(edit.row.product_type!=="SEALED"&&!conditions.includes(edit.condition)))); }
+      save.disabled=this.saving||(!edit.requests&&(!edit.confirmed||!Number.isInteger(edit.quantity)||edit.quantity<1||edit.quantity>50||(edit.row.product_type!=="SEALED"&&!conditions.includes(edit.condition))||(edit.row.product_type==='SEALED'&&edit.row.language==='Unknown'&&!edit.language))); }
     async save() {
       const edit=this.edit;if(!edit||this.saving||this.sheet.querySelector("[data-add]").disabled||!this.active())return;
       if(edit.requests?.every(request=>request.result)){this.pending.delete(edit.row.key);this.edit=null;this.closeSheet();this.load();return;}
-      if(!edit.requests){const body=JSON.stringify({key:edit.row.key,condition:edit.row.product_type==="SEALED"?null:edit.condition,seal_status:edit.row.product_type==="SEALED"?"SEALED":null,confirmed:true});
+      if(!edit.requests){const body=JSON.stringify({key:edit.row.key,condition:edit.row.product_type==="SEALED"?null:edit.condition,seal_status:edit.row.product_type==="SEALED"?"SEALED":null,confirmed:true,...(edit.row.product_type==='SEALED'&&edit.row.language==='Unknown'?{language:edit.language}:{})});
         edit.requests=Array.from({length:edit.quantity},()=>({key:crypto.randomUUID(),body,result:null}));}
       this.saving=true;this.sheet.querySelectorAll("button,input,select").forEach(control=>{control.disabled=true;});this.validateAdd();
       try {

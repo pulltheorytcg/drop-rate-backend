@@ -181,6 +181,18 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(f.calls.at(-1).url,/product_type=SEALED/);assert.doesNotMatch(f.calls.at(-1).url,/provider=|set_id=/);
   assert.equal(f.browser.find('[data-type="SEALED"]').getAttribute('aria-pressed'),'true');f.finish();checks++;
  }
+ // Sealed references require an explicit physical language and keep replay bodies stable.
+ {
+  const f=fixture(async(url,opts)=>url.endsWith('/intake')?{inventory:{inventory_code:'INV-SEALED'}}:{items:[]});
+  const row={...card,key:'s:'+'a'.repeat(32),catalogue_id:null,product_type:'SEALED',source_kind:'SEALED_REFERENCE',language:'Unknown'};
+  f.browser.openProduct(row);Object.assign(f.browser.edit,{confirmed:true});f.browser.validateAdd();
+  assert.equal(f.browser.sheet.querySelector('[data-add]').disabled,true);
+  const select=f.browser.sheet.querySelector('[aria-label="Product language"]');select.value='Japanese';select.dispatchEvent(new f.w.Event('change'));
+  assert.equal(f.browser.sheet.querySelector('[data-add]').disabled,false);await f.browser.save();
+  const body=JSON.parse(f.calls.find(c=>c.url.endsWith('/intake')).body);
+  assert.equal(body.language,'Japanese');assert.equal(body.seal_status,'SEALED');assert.equal(body.condition,null);
+  assert.equal(f.browser.sheet.querySelector('[aria-label="Product language"]').disabled,true);f.finish();checks++;
+ }
  // Leaving Search with a sheet open dismisses it without stealing destination focus.
  {
   const f=fixture(undefined,undefined,true);await f.browser.open();f.browser.filters.q='Luffy';

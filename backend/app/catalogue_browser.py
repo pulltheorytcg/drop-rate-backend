@@ -22,6 +22,7 @@ from .physical_state import CARD_CONDITIONS
 from .recognition_games import SYSTEM_BY_GAME
 from .reference_market import refresh_reference_prices
 from .recognition_images import reference_image_bytes
+from .cardtrader_recognition import _cardtrader_image_url
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 
 router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"])
@@ -44,9 +45,12 @@ def one_piece_artwork_url(value):
 
 def with_artwork_path(row):
     item = dict(row)
-    if item.get('source_kind') == 'REFERENCE' and one_piece_artwork_url(item.get('image_url')):
+    sealed=item.get('source_kind')=='SEALED_REFERENCE'
+    if ((item.get('source_kind') == 'REFERENCE' and one_piece_artwork_url(item.get('image_url')))
+            or (sealed and _cardtrader_image_url(item.get('image_url')))):
         item['reference_image_path'] = '/api/v1/catalogue-browser/reference-image?' + urlencode({
             field:item[field] for field in ('provider','system_code','language','provider_id')})
+        if sealed:item['reference_image_path']+='&reference_kind=sealed'
     return item
 
 
@@ -113,6 +117,14 @@ with reference_base as not materialized (
  from reference_base r left join exact_links l using(provider,system_code,language,provider_id)
  left join tcg.reference_market_prices m using(provider,system_code,language,provider_id)
  union all
+ select 's:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)),
+        null::uuid,'SEALED'::text,r.system_code,{GAME_CASE},r.name,s.name,r.set_id,
+        null::text,'CardTrader sealed '||r.provider_id,r.product_type,r.language,r.image_url,
+        s.release_date,r.provider,r.provider_id,r.source_url,'SEALED_REFERENCE'::text,
+        null::bigint,null::bigint,null::timestamptz,'[]'::jsonb,false
+ from tcg.reference_sealed_products r join tcg.reference_sets s using(provider,system_code,language,set_id)
+ where s.release_date is null or s.release_date<=current_date
+ union all
  select 'c:'||p.id::text,p.id,case when pr.collectible_type='SEALED' then 'SEALED' else p.product_type end,pr.system_code,p.game,p.name,p.set_name,
         coalesce(nullif(pr.set_code,''),p.set_name),p.card_number,p.variant,p.rarity,
         coalesce(p.language,'Unknown'),null::text,pr.release_date,''::text,''::text,null::text,'CATALOGUE'::text,
@@ -172,12 +184,16 @@ SETS_SQL = SET_CTE + """
  order by release_date desc nulls last,set_name,language,provider,set_id
  limit $5 offset $6
  )
- select page.*,preview.image_url,preview.provider_id,'REFERENCE'::text as source_kind
+ select page.*,preview.image_url,preview.provider_id,preview.source_kind
  from set_page page left join lateral (
-   select r.image_url,r.provider_id from tcg.reference_cards r
+   select r.image_url,r.provider_id,'REFERENCE'::text as source_kind from tcg.reference_cards r
    where r.provider=page.provider and r.system_code=page.system_code
      and r.language=page.language and r.set_id=page.set_id and r.image_url is not null
-   order by r.provider_id limit 1
+   union all
+   select r.image_url,r.provider_id,'SEALED_REFERENCE'::text from tcg.reference_sealed_products r
+   where r.provider=page.provider and r.system_code=page.system_code
+     and r.language=page.language and r.set_id=page.set_id and r.image_url is not null
+   order by provider_id limit 1
  ) preview on true
  order by page.release_date desc nulls last,page.set_name,page.language,page.provider,page.set_id
 """
@@ -330,15 +346,17 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
 async def reference_image(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
                           access: Annotated[dict, Depends(browser_access)],
                           provider: str = Query(max_length=80), system_code: str = Query(max_length=80),
-                          language: str = Query(max_length=80), provider_id: str = Query(max_length=200)):
+                          language: str = Query(max_length=80), provider_id: str = Query(max_length=200),
+                          reference_kind: Literal['card','sealed'] = 'card'):
     # Resolve the existing exact reference on the server. Never accept a URL
     # from the client or turn reference artwork into approved inventory media.
     async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
-        url = await connection.fetchval('''select r.image_url from tcg.reference_cards r
+        table='reference_sealed_products' if reference_kind=='sealed' else 'reference_cards'
+        url = await connection.fetchval(f'''select r.image_url from tcg.{table} r
           join tcg.reference_sets s using(provider,system_code,language,set_id)
           where r.provider=$1 and r.system_code=$2 and r.language=$3 and r.provider_id=$4
           and (s.release_date is null or s.release_date<=current_date)''',provider,system_code,language,provider_id)
-    if not one_piece_artwork_url(url):
+    if not (_cardtrader_image_url(url) if reference_kind=='sealed' else one_piece_artwork_url(url)):
         raise HTTPException(404,'Reference artwork not available')
     async with _ARTWORK_FETCHES:
         payload = await reference_image_bytes(url)
@@ -366,6 +384,7 @@ class BrowseIntake(BaseModel):
     key: str = Field(min_length=3, max_length=80)
     condition: str | None = Field(default=None, max_length=80)
     seal_status: Literal["SEALED"] | None = None
+    language: Literal['English','Japanese','Chinese','Korean','French','German','Italian','Spanish'] | None = None
     confirmed: Literal[True]
 
     @model_validator(mode="after")
@@ -378,11 +397,20 @@ class BrowseIntake(BaseModel):
 
 
 def browse_note(payload: BrowseIntake) -> str:
-    digest = hashlib.sha256(payload.model_dump_json().encode()).hexdigest()
+    # Existing in-flight card additions did not contain the new optional field.
+    body=payload.model_dump_json(exclude={'language'} if payload.language is None else None)
+    digest = hashlib.sha256(body.encode()).hexdigest()
     return "Human-confirmed browse " + digest + " · " + payload.key + ". Physical printing requires Drop Rate review."
 
 
 def intake_payload(item: dict, payload: BrowseIntake) -> ManualInventoryCreate:
+    if payload.language and item['product_type']!='SEALED':
+        raise HTTPException(422,'Card language comes from its exact reference')
+    if item['product_type']=='SEALED' and item.get('language')=='Unknown':
+        if not payload.language:raise HTTPException(422,'Choose the physical product language')
+        item={**item,'language':payload.language}
+    elif payload.language and item.get('language')!=payload.language:
+        raise HTTPException(422,'Product language does not match this reference')
     if item["product_type"] == "CARD" and payload.condition not in CARD_CONDITIONS:
         raise HTTPException(422, "Choose a raw card condition")
     if item["product_type"] == "SEALED" and payload.seal_status != "SEALED":
@@ -397,7 +425,7 @@ def intake_payload(item: dict, payload: BrowseIntake) -> ManualInventoryCreate:
 def reference_product(item: dict) -> ManualCatalogueCreate:
     # Only facts re-read from a released provider record can create an identity.
     try:
-        return ManualCatalogueCreate(product_type="CARD", game=item["game"],
+        return ManualCatalogueCreate(product_type=item['product_type'], game=item["game"],
             name=item["name"], set_name=item["set_name"], card_number=item["card_number"], variant=item["provider_id"],
             rarity=item.get("rarity") or "Unknown", language=item["language"])
     except ValidationError as exc:
