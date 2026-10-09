@@ -642,7 +642,8 @@ async function loadPortfolioIntelligence() {
     byId("portfolio-market-value").textContent = money(totals.inventory_market_value_minor || 0);
     byId("portfolio-store-value").textContent = money(totals.inventory_store_value_minor || 0);
     byId("portfolio-market-coverage").textContent =
-      `${Number(totals.market_valued_item_count || 0).toLocaleString("en-GB")} of ${Number(totals.active_inventory_count || 0).toLocaleString("en-GB")} active items valued`;
+      `${Number(totals.market_valued_item_count || 0).toLocaleString("en-GB")} of ${Number(totals.active_inventory_count || 0).toLocaleString("en-GB")} active items valued`+
+      (totals.guide_estimate_count?` · ${totals.guide_estimate_count} Cardmarket estimates`:"");
     byId("portfolio-store-coverage").textContent =
       `${Number(totals.store_priced_item_count || 0).toLocaleString("en-GB")} active items priced`;
     renderTopValuable(data.top_valuable || []);

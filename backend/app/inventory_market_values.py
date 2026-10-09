@@ -43,6 +43,8 @@ async def inventory_market_values(
                 i.recommended_retail_minor,
                 i.pricing_updated_at,
                 s.confidence,
+                s.evidence->>'method' as pricing_method,
+                s.evidence->>'limitation' as pricing_limitation,
                 s.source_count,
                 s.observation_count,
                 s.newest_observation_at

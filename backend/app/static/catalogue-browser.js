@@ -4,7 +4,7 @@ window.DropRateCatalogue = (() => {
   const node = (tag, cls = "", text) => { const el = document.createElement(tag); el.className = cls; if (text != null) el.textContent = text; return el; };
   const button = (text, action, cls = "") => { const el = node("button", cls, text); el.type = "button"; el.addEventListener("click", action); return el; };
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
-  const marketPrice = row => (["TCGDEX_CARDMARKET","CARDMARKET_BULK"].includes(row.market_value_source)?"Reference: ":"")+money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
+  const marketPrice = row => (row.market_value_source==="CARDMARKET_ESTIMATE"?"Estimate: ":["TCGDEX_CARDMARKET","CARDMARKET_BULK"].includes(row.market_value_source)?"Reference: ":"")+money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
   const sorts = {newest:"Newest first", name:"Name A–Z", number:"Card number", value_desc:"Value: high to low", value_asc:"Value: low to high"};
@@ -207,7 +207,7 @@ window.DropRateCatalogue = (() => {
       finally{if(revision===this.revision)this.loading=false;}
     }
     async refreshPrices(rows,revision) {
-      const pending=rows.filter(row=>row.market_refresh_needed && row.market_value_source!=="STORED_SNAPSHOT");
+      const pending=rows.filter(row=>row.market_refresh_needed && !["STORED_SNAPSHOT","CARDMARKET_ESTIMATE"].includes(row.market_value_source));
       if(!pending.length)return;
       try {
         const data=await this.client.request("/api/v1/catalogue-browser/market-values",{method:"POST",body:JSON.stringify({keys:pending.slice(0,40).map(row=>row.key)}),signal:this.controller?.signal});
@@ -240,6 +240,7 @@ window.DropRateCatalogue = (() => {
       }
       if((row.market_quotes||[]).some(q=>q.source==="TCGDEX_TCGPLAYER"))content.append(node("p","dr-browse-reference-note","TCGplayer is supporting US market context. Its dollar price is not used as a UK sold-market valuation."));
       if(row.market_value_source==="CARDMARKET_BULK")content.append(node("p","dr-browse-reference-note","Cardmarket daily packaging guide, converted from EUR. This aggregate spans languages and conditions; confirm your exact package before valuing a physical item."));
+      if(row.market_value_source==="CARDMARKET_ESTIMATE")content.append(node("p","dr-browse-reference-note","Cardmarket estimate for this printing and finish, converted from EUR. The guide combines languages and conditions; it is not a condition-adjusted UK sold value. Fresh exact eBay UK evidence takes priority."));
     }
     renderGames() {
       const content=this.find(".dr-browse-content"),grid=node("div","dr-browse-game-grid");

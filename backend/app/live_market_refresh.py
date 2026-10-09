@@ -289,15 +289,33 @@ async def refresh_pass(pool, settings):
             async with user_connection(pool, actor, str(uuid4())) as connection:
                 access = await require_platform_admin(connection)
                 # Retain every historical snapshot and store price. Imported benchmarks
-                # cannot remain the active 'live' market value under the eBay-only policy.
+                # cannot remain active. Explicit Cardmarket guide estimates are
+                # now authorized, with original identity and freshness checks.
                 await connection.execute("""update tcg.inventory_items i set market_value_minor=null,
                   recommended_retail_minor=null,pricing_updated_at=null,updated_at=now(),version=version+1
                   where i.status in ('DRAFT','INSPECTION','APPROVED') and i.market_value_minor is not null
                     and exists(select 1 from tcg.pricing_snapshots s where s.id=i.latest_pricing_snapshot_id)
                     and not exists(select 1 from tcg.pricing_snapshots s where s.id=i.latest_pricing_snapshot_id
                       and s.algorithm_version='drop-rate-market-v4'
-                      and (s.evidence->>'method'='LIVE_EBAY_MARKET_V1' or s.sold_observation_count>=5)
-                      and s.evidence->'sources' @> '[{"source":"EBAY"}]'::jsonb)""")
+                      and s.inventory_id=i.id and s.owner_id=i.owner_id and s.catalogue_id=i.catalogue_id
+                      and (((s.evidence->>'method'='LIVE_EBAY_MARKET_V1' or s.sold_observation_count>=5)
+                        and s.evidence->'sources' @> '[{"source":"EBAY"}]'::jsonb)
+                      or (s.evidence->>'method'='CARDMARKET_GUIDE_V1' and s.sold_observation_count=0
+                        and s.confidence<=0.60 and not s.auto_publish_eligible
+                        and i.identity_confirmed and i.grading_company is null and i.grade is null
+                        and i.condition in ('Near Mint','NM') and i.seal_status is null
+                        and exists(select 1 from tcg.catalogue_market_snapshots cm
+                          join tcg.catalogue_products p on p.id=cm.catalogue_id
+                          where cm.id::text=s.evidence->>'catalogue_snapshot_id' and cm.catalogue_id=i.catalogue_id
+                          and cm.evidence->>'method'='CATALOGUE_CARDMARKET_V1'
+                          and cm.basis_language=i.language
+                          and not exists(select 1 from tcg.market_source_mappings m where m.catalogue_id=p.id
+                            and m.source='CARDMARKET' and m.match_status in ('REVIEW','REJECTED'))
+                          and not exists(select 1 from tcg.provider_catalogue_mappings m where m.catalogue_id=p.id
+                            and m.source_provider='TCGdex' and m.provider_language=i.language
+                            and m.match_status in ('REVIEW','REJECTED'))
+                          and cm.identity_digest=md5(concat_ws(chr(31),p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language))
+                          and cm.evidence_checked_at between now()-interval '7 days' and now()))))""")
                 rows = await connection.fetch(TARGET_SQL + " where i.status in ('DRAFT','INSPECTION','APPROVED') order by i.store_price_minor desc nulls last,i.id limit 2000")
                 checks = await connection.fetch("""select distinct on (metadata->>'identity_key') metadata,completed_at
                   from tcg.market_ingestion_runs where source='EBAY' and metadata->>'job'=$1

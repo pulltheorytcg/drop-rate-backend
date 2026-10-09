@@ -46,8 +46,8 @@ async def main():
           create table tcg.audit_events(actor text,request_id text,action text,entity_type text,entity_id uuid,old_values jsonb,new_values jsonb);
           create table tcg.media_assets(catalogue_id uuid,shopify_cdn_url text,public_source_url text,scope text,side text,media_kind text,
             approval_status text,rights_status text,rights_tier text,source_status text,revoked_at timestamptz,approved_at timestamptz,created_at timestamptz,id uuid);
-          create function tcg.recognition_catalogue_reference_value(uuid,text) returns table(market_value_minor bigint,basis_condition text,pricing_updated_at timestamptz)
-            language sql stable as $$select null::bigint,null::text,null::timestamptz where false$$;
+          create function tcg.catalogue_reference_value_v2(uuid,text) returns table(market_value_minor bigint,basis_condition text,pricing_updated_at timestamptz,valuation_source text)
+            language sql stable as $$select null::bigint,null::text,null::timestamptz,null::text where false$$;
           grant usage on schema tcg to tcg_api;grant select,insert,update on all tables in schema tcg to tcg_api;
         ''')
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261008182234_reference_market_prices.sql').read_text())

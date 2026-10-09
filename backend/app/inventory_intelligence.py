@@ -88,6 +88,10 @@ async def inventory_intelligence(
                 count(*)::int as active_inventory_count,
                 count(*) filter(where i.market_value_minor is not null)::int
                     as market_valued_item_count,
+                count(*) filter(where i.market_value_minor is not null and exists(
+                    select 1 from tcg.pricing_snapshots ps where ps.id=i.latest_pricing_snapshot_id
+                    and ps.owner_id=i.owner_id and ps.inventory_id=i.id
+                    and ps.evidence->>'method'='CARDMARKET_GUIDE_V1'))::int as guide_estimate_count,
                 count(*) filter(where i.store_price_minor is not null)::int
                     as store_priced_item_count,
                 coalesce(sum(i.market_value_minor),0)::bigint

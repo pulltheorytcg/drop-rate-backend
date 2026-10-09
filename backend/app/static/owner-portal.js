@@ -144,7 +144,7 @@ function renderInventoryRows(items) {
     const marketCell = document.createElement("td");
     marketCell.textContent = item.market_value_minor == null
       ? "Value pending"
-      : formatMoney(item.market_value_minor);
+      : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"");
     const storeCell = document.createElement("td");
     const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
     storeCell.textContent = storeValue == null ? "—" : formatMoney(storeValue);
@@ -228,7 +228,7 @@ function renderInventoryCards(items) {
       ? "Recommended retail"
       : "Store price";
     for (const [labelText, valueText] of [
-      ["Market value", item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)],
+      ["Market value", item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"")],
       [storeLabel, storeValue == null ? "—" : formatMoney(storeValue)],
     ]) {
       const box = document.createElement("div");
@@ -561,7 +561,7 @@ function renderOwnerChannelsRows(items, channels = []) {
 
     const marketCell = document.createElement("td");
     marketCell.textContent =
-      item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor);
+      item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"");
 
     const storeCell = document.createElement("td");
     storeCell.textContent =
@@ -643,6 +643,7 @@ async function loadOwnerOverview() {
   byId("owner-market-value-note").textContent = unvalued
     ? `${valued} valued · ${unvalued} awaiting market data`
     : "Latest available market prices";
+  if(summary.guide_estimate_count)byId("owner-market-value-note").textContent+=` · ${summary.guide_estimate_count} Cardmarket estimates`;
   byId("owner-store-value").textContent = formatMoney(
     summary.active_store_value_minor ?? summary.active_store_price_minor
   );

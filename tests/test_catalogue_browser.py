@@ -60,7 +60,7 @@ def test_watchlist_empty_does_not_return_whole_catalogue():
 def test_ordinary_search_bounds_pricing_to_the_selected_page(sort):
     sql,params=browser.product_query(owner_id=uuid4(),q='Luffy',sort=sort,limit=40,offset=80)
     # Price lookups must not run for the full catalogue on an ordinary search.
-    assert sql.index('limit $') < sql.index('tcg.recognition_catalogue_reference_value')
+    assert sql.index('limit $') < sql.index('tcg.catalogue_reference_value_v2')
     assert 'where p.id=page.catalogue_id' in sql
     assert 'nullif(p.language,\'\')' in sql
     assert params[-2:]==[41,80]
@@ -70,7 +70,7 @@ def test_ordinary_search_bounds_pricing_to_the_selected_page(sort):
 @pytest.mark.parametrize('sort,direction', [('value_desc','desc'),('value_asc','asc')])
 def test_value_sort_prices_before_pagination_and_keeps_unknown_values_last(sort,direction):
     sql,params=browser.product_query(owner_id=uuid4(),sort=sort,limit=20,offset=20)
-    assert sql.index('tcg.recognition_catalogue_reference_value') < sql.index('limit $')
+    assert sql.index('tcg.catalogue_reference_value_v2') < sql.index('limit $')
     assert f'coalesce(v.market_value_minor,e.reference_value_minor) {direction} nulls last' in sql
     assert params[-2:]==[21,20]
 

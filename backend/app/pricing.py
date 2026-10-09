@@ -272,15 +272,20 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
         """,
         item["catalogue_id"],
     )
-    # Every inventory calculation uses the same five latest exact UK sold
-    # identities. Reference price guides must not silently replace that policy.
+    # Prefer five exact UK sales. A matched Cardmarket guide is an explicitly
+    # labelled, non-publishable fallback when that evidence is unavailable.
     exact = {}
     for row in rows:
         if _same_pricing_identity(dict(row),dict(item)):
             exact.setdefault(_sold_identity_key(dict(row)),row)
     rows = list(exact.values())[:5]
     if len(rows)<5:
-        raise HTTPException(status_code=422, detail="Five exact recent eBay UK sold observations are required")
+        from .cardmarket_valuations import apply_cached_inventory_guide
+        snapshot=await apply_cached_inventory_guide(connection,item['id'],owner_id,item['catalogue_id'])
+        if snapshot is not None:
+            return {'inventory_id':item['id'],'name':item['name'],'set_name':item['set_name'],
+                'card_number':item['card_number'],'snapshot':dict(snapshot),'auto_reprice_enabled':False}
+        raise HTTPException(status_code=422, detail="Five exact recent eBay UK sold observations or an eligible matched Cardmarket guide are required")
 
     observations = [
         MarketObservation(
