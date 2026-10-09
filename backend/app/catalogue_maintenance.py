@@ -27,6 +27,7 @@ from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_pr
 
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
+SOURCE_REVISIONS={'cardtrader_sealed':2}
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
@@ -48,8 +49,9 @@ def daily_slot(now):
     return slot.astimezone(timezone.utc)
 
 
-def due(run,now):
+def due(run,now,*,revision=None):
     if run is None:return True
+    if revision is not None and (run.get('report') or {}).get('importer_revision',1)!=revision:return True
     if run['status']=='COMPLETE':return run['started_at']<daily_slot(now)
     return run['started_at']<now-timedelta(hours=1)
 
@@ -110,7 +112,7 @@ async def sync_source(pool,actor,source,settings):
         async with user_connection(pool,actor,str(uuid4())) as connection:
             await connection.execute('''update tcg.reference_sync_runs set status=$2,finished_at=now(),
               sets_loaded=$3,cards_loaded=$4,report=$5::jsonb where id=$1''',run_id,status,sets,cards,
-              json.dumps({'scheduled':True,'failures':feed.failures[:30]}))
+              json.dumps({'scheduled':True,'importer_revision':SOURCE_REVISIONS.get(source,1),'failures':feed.failures[:30]}))
         log.warning('Daily catalogue source=%s status=%s sets=%s records=%s',source,status,sets,cards)
     return {'status':status,'sets':sets,'records':cards}
 
@@ -155,11 +157,11 @@ async def daily_pass(pool,settings):
         try:
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await require_platform_admin(connection)
-                runs=await connection.fetch('select distinct on(source) source,started_at,status from tcg.reference_sync_runs order by source,started_at desc')
+                runs=await connection.fetch('select distinct on(source) source,started_at,status,report from tcg.reference_sync_runs order by source,started_at desc')
                 prices=await connection.fetchrow("select started_at,status from tcg.catalogue_job_runs where job='REFERENCE_PRICES' order by started_at desc limit 1")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
             for source in SOURCES:
-                if due(last.get(source),now):
+                if due(last.get(source),now,revision=SOURCE_REVISIONS.get(source,1)):
                     await sync_source(pool,actor,source,settings)
             if due(prices,now):
                 await warm_prices(pool,actor,settings.catalogue_price_refresh_limit)

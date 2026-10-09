@@ -12,6 +12,8 @@ The API checks the durable receipts every five minutes. Each source has its own
 receipt; a complete source is skipped until the next day. Interrupted/incomplete
 sources wait one hour before retrying. Session advisory locks prevent overlap
 between replicas/deployments. External calls are outside database transactions.
+An explicit importer revision change starts a new attempt, preserving previous
+receipts; revision 2 corrects CardTrader's live game-prefixed category labels.
 
 The existing TCGdex, Punk Records, Bandai and Naruto importers upsert reference
 sets/cards. One Piece imports now hydrate exact images from full packs. The
@@ -69,7 +71,9 @@ same signed-in read/admin-write boundary as card references. Anonymous and
 authenticated Supabase roles receive no table privileges.
 
 Apply `20261009144903_catalogue_daily_maintenance.sql` after the real PostgreSQL
-integration passes, deploy, then enable the two switches on the existing live
+integration passes. The existing price-sync dependency
+`20260930124000_shopify_price_reconciliation.sql` must also be present; the same
+PostgreSQL job exercises its exact-version finalization and audit. Deploy, then enable the two switches on the existing live
 API. Verify source receipts, price counts, sealed rows, signed-in rendering and
 Shopify heartbeat. Publication acceptance uses the already-tested exact-item
 pipeline; a zero-candidate production pass is not evidence of a new live sale.

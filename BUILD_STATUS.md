@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Live refresh activation corrections
+
+- PR #548 is deployed as `9079848` (deployment `5eaab097-e5d8-4de4-a441-afdf0de7751e`, SUCCESS); 2,711 backend tests, all UI suites and actual PostgreSQL/RLS CI passed. The additive daily-maintenance migration is applied and the two new jobs are enabled. Reference imports began on production; these are live observations, not a claim of full source completion.
+- The first live pass exposed prefixed CardTrader category names (for example `Pokémon Booster Box`) missing from older fixtures. Importer revision 2 normalizes only the matching game prefix, retains exact category matching, excludes accessories and separates shared-game Fusion World expansions from Masters. Revisioned receipts permit this corrected importer to run without rewriting the prior failed attempt.
+- Existing Shopify publication/seller-sync switches are now enabled for the requested automatic pipeline. The first check identified an unapplied existing dependency, `20260930124000_shopify_price_reconciliation.sql`. No new copies or price candidates were eligible. Added real PostgreSQL coverage of that dependency's selection, stale-version rejection, finalization and audit before applying it live.
+- A bounded read-only provider taxonomy probe ran alongside all original pre-deploy checks; the original pre-deploy configuration has been restored. No credentials were logged. Remaining gates are current-head CI, dependency migration, corrected sealed import and durable Shopify heartbeat.
+
 ## 9 October 2026 — Daily catalogue and eligible Shopify sync
 
 - User explicitly requested daily cards/sets/values and automatic customer-inventory Shopify updates. Added opt-in tasks to the existing API: reference imports/price cache due at 03:00 Europe/London and eligible Shopify checks each minute. No new service, n8n workflow or paid subscription.

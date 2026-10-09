@@ -6,6 +6,7 @@ on:
       - 'backend/app/reference_sealed.py'
       - 'backend/app/catalogue_browser.py'
       - 'database/migrations/*catalogue_daily_maintenance.sql'
+      - 'database/migrations/*shopify_price_reconciliation.sql'
       - 'tests/*catalogue_maintenance*'
       - '.github/workflows/catalogue-maintenance.yml'
 permissions:

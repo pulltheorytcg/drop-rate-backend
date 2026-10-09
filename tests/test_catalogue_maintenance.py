@@ -9,7 +9,7 @@ from fastapi import HTTPException
 
 from app import catalogue_maintenance as jobs
 from app import catalogue_browser as browser
-from app.reference_sealed import sealed_reference,sealed_feed
+from app.reference_sealed import sealed_reference,sealed_feed,category_type,expansion_system
 
 
 NOW=datetime(2026,10,9,14,tzinfo=timezone.utc)
@@ -24,6 +24,23 @@ def test_daily_schedule_uses_london_time_and_recovers_without_restart_storm():
     assert jobs.due({'status':'COMPLETE','started_at':NOW-timedelta(days=1)},NOW)
     assert jobs.due({'status':'INCOMPLETE','started_at':NOW-timedelta(hours=2)},NOW)
     assert not jobs.due({'status':'RUNNING','started_at':NOW-timedelta(minutes=10)},NOW)
+    recent={'status':'INCOMPLETE','started_at':NOW,'report':{'importer_revision':1}}
+    assert jobs.due(recent,NOW,revision=2)
+    assert not jobs.due(dict(recent,report={'importer_revision':2}),NOW,revision=2)
+
+
+def test_live_prefixed_categories_exclude_accessories_and_separate_fusion_world():
+    game={'name':'Pokémon','id':5}
+    assert category_type('Pokémon Booster Box',game)=='BOOSTER_BOX'
+    assert category_type('Pokémon Booster',game)=='BOOSTER_PACK'
+    assert category_type('Pokémon Box Set',game)=='COLLECTION'
+    for label in ('Pokémon Deck Boxes','Pokémon Complete Set','Pokémon Singles','Pokémon Empty Boxes & Storage'):
+        assert category_type(label,game) is None
+    assert category_type('One Piece Bundles & Sets',{'name':'One Piece'})=='COLLECTION'
+    masters='DRAGON_BALL_SUPER_MASTERS'
+    assert expansion_system(masters,{'name':'Fusion World: Awakened Pulse'})=='DRAGON_BALL_SUPER_FUSION_WORLD'
+    assert expansion_system(masters,{'name':'Awakened Pulse','code':'FB01'})=='DRAGON_BALL_SUPER_FUSION_WORLD'
+    assert expansion_system(masters,{'name':'Galactic Battle','code':'BT01'})==masters
 
 
 def test_sealed_references_do_not_assume_language_price_or_canonical_approval():
@@ -61,7 +78,7 @@ async def test_cardtrader_feed_preserves_game_scope_and_excludes_single_cards(mo
     monkeypatch.setattr(jobs.asyncio,'sleep',no_sleep)
     class Client:
         async def list_games(self):return [{'id':1,'name':'Pokémon'},{'id':2,'name':'Other'}]
-        async def list_categories(self,game_id):return [{'id':9,'game_id':1,'name':'Booster Boxes'},{'id':8,'game_id':1,'name':'Single Cards'}]
+        async def list_categories(self,game_id):return [{'id':9,'game_id':1,'name':'Pokémon Booster Box'},{'id':8,'game_id':1,'name':'Pokémon Singles'}]
         async def list_expansions(self):return [{'id':10,'game_id':1,'name':'Set','released_at':'2025-01-01'},{'id':11,'game_id':2,'name':'Wrong'}]
         async def list_blueprints(self,expansion_id):
             assert expansion_id==10
