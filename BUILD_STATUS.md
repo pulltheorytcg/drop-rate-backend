@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Live eBay UK inventory valuation repair
+
+- The founder explicitly requested all market values use our sold-market algorithm. Found the old batch only selected missing Store Price; 506 copies were still on imported/floor snapshots, two had v4 values and two had no value.
+- Added a bounded task in the existing API: exact physical grouping, five recent eBay UK sales, existing v4 calculation, immutable observations/snapshots and durable refresh attempts. It preserves Store Price, ownership, publication and history. Old benchmark values cease to count as live market values.
+- Current-snapshot catalogue lookup and visible Cardmarket reference labels prevent source confusion. No new providers, services, n8n workflows or automatic selling-price changes.
+- Focused matching/transaction tests and the full backend suite pass locally. Current-head CI, production release, refresh coverage and provider quota evidence are still required before claiming completion. See [Live eBay market refresh](docs/LIVE_EBAY_MARKET_REFRESH.md).
+
+
 ## Read this with the full history
 
 The complete build log through the marketing installation checkpoint is preserved unchanged in [BUILD_STATUS.history-through-20261004.md](BUILD_STATUS.history-through-20261004.md). Its Git blob is `bf3fa9436687cae18357ca2b124bbc9dff35174e`, identical to BUILD_STATUS.md at production commit `a0432bb82694868026c804d5b0af57cda9c128bd`. No historical entry was deleted or rewritten; the archive remains at repository root so its relative links keep their original meaning.

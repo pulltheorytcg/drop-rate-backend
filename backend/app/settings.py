@@ -109,6 +109,9 @@ class Settings:
     seller_invite_reply_to: str | None = None
     resend_webhook_secret: str | None = None
     trawl_api_key: str | None = None
+    ebay_market_refresh_enabled: bool = False
+    ebay_market_refresh_actor_user_id: str | None = None
+    ebay_market_refresh_max_groups: int = 500
     ebay_deletion_verification_token: str | None = None
     ebay_deletion_endpoint: str | None = None
     ebay_user_refresh_token: str | None = None
@@ -199,6 +202,9 @@ class Settings:
             ebay_client_secret=_optional("TCG_EBAY_CLIENT_SECRET"),
             ebay_marketplace_id=os.getenv("TCG_EBAY_MARKETPLACE_ID", "EBAY_GB").strip() or "EBAY_GB",
             trawl_api_key=_optional("TCG_TRAWL_API_KEY"),
+            ebay_market_refresh_enabled=_boolean("TCG_EBAY_MARKET_REFRESH_ENABLED", False),
+            ebay_market_refresh_actor_user_id=_optional("TCG_EBAY_MARKET_REFRESH_ACTOR_USER_ID"),
+            ebay_market_refresh_max_groups=_bounded_int("TCG_EBAY_MARKET_REFRESH_MAX_GROUPS", 500, minimum=1, maximum=1000),
             ebay_deletion_verification_token=_optional("TCG_EBAY_DELETION_VERIFICATION_TOKEN"),
             ebay_deletion_endpoint=_optional("TCG_EBAY_DELETION_ENDPOINT"),
             ebay_user_refresh_token=_optional("TCG_EBAY_USER_REFRESH_TOKEN"),

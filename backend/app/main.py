@@ -49,6 +49,7 @@ from .marketplace_listings import router as marketplace_listings_router
 from .market_provider_probe import router as market_provider_probe_router
 from .market_smoke import router as market_smoke_router
 from .pricing import router as pricing_router
+from .live_market_refresh import run_live_market_refresh
 from .payout_preferences import router as payout_preferences_router
 from .owner_login import router as owner_login_router
 from .owner_portal_api import router as owner_portal_api_router
@@ -171,6 +172,12 @@ def create_app() -> FastAPI:
         app.state.db_pool = await create_pool(settings)
         bootstrap_task: asyncio.Task | None = None
         linked_draft_task: asyncio.Task | None = None
+        market_task: asyncio.Task | None = None
+        if settings.ebay_market_refresh_enabled:
+            if not settings.trawl_api_key or not settings.ebay_market_refresh_actor_user_id:
+                logger.error("Live eBay market refresh enabled without required provider/actor configuration")
+            else:
+                market_task = asyncio.create_task(run_live_market_refresh(app.state.db_pool, settings))
         shopify_config_complete = all(
             (
                 settings.shopify_shop_domain,
@@ -232,7 +239,7 @@ def create_app() -> FastAPI:
         try:
             yield
         finally:
-            for task in (bootstrap_task, linked_draft_task):
+            for task in (bootstrap_task, linked_draft_task, market_task):
                 if task is not None and not task.done():
                     task.cancel()
                     try:

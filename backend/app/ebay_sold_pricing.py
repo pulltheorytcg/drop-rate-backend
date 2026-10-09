@@ -103,6 +103,14 @@ class TrawlEbaySoldClient:
             raise TrawlApiError("eBay sold-data provider returned invalid JSON") from exc
         if not isinstance(payload, dict):
             raise TrawlApiError("eBay sold-data provider returned an invalid response shape")
+        # Public quota metadata only; never persist headers containing credentials.
+        usage = {}
+        for field, header in (("limit", "X-RateLimit-Limit"), ("remaining", "X-RateLimit-Remaining"),
+                              ("reset", "X-RateLimit-Reset"), ("charged", "X-Credits-Charged")):
+            value = response.headers.get(header, "")
+            if value.isdigit():
+                usage[field] = int(value)
+        payload["_usage"] = usage
         return payload
 
 
@@ -430,6 +438,8 @@ async def _fetch_comp_result(target: dict[str, Any]) -> dict[str, Any]:
 
 async def _persist_comp(connection, target: dict[str, Any], comp: SoldComparable, *, query: str) -> bool:
     key = stable_source_record_key("EBAY", "TRAWL", comp.item_id, comp.sold_at.isoformat())
+    if target.get("seal_status"):
+        key = stable_source_record_key("EBAY", "TRAWL", "SEALED", str(target["catalogue_id"]), comp.item_id, comp.sold_at.isoformat())
     observation = NormalizedMarketObservation(
         source="EBAY",
         source_record_key=key,
@@ -446,6 +456,7 @@ async def _persist_comp(connection, target: dict[str, Any], comp: SoldComparable
         grading_company=target["grading_company"],
         grade=target["grade"],
         language=target["language"],
+        seal_status=target.get("seal_status"),
         source_country="GB",
         sample_size=1,
         evidence_quality=1.0,

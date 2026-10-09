@@ -2,7 +2,7 @@
 
 (function attachMarketValueColumn() {
   function formatGBP(value) {
-    if (value === null || value === undefined) return "—";
+    if (value === null || value === undefined) return "Value pending";
     return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value / 100);
   }
 
@@ -17,7 +17,7 @@
     const marketValueHeader = document.createElement("th");
     marketValueHeader.dataset.marketValueColumn = "true";
     marketValueHeader.textContent = "Market value";
-    marketValueHeader.title = "Current backend market estimate based on available pricing observations";
+    marketValueHeader.title = "Drop Rate valuation from exact eBay UK sold comparisons";
     headerRow.insertBefore(marketValueHeader, storePriceHeader);
   }
 
