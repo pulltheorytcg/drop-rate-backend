@@ -167,3 +167,37 @@ async def test_price_route_deduplicates_and_keeps_authenticated_context(monkeypa
     result=await browser.market_values(browser.ReferencePriceRequest(keys=[KEY,KEY]),request,
         SimpleNamespace(user_id=user_id),{'owner_id':owner_id})
     assert result['items'][0]['market_value_minor'] is None
+
+
+@pytest.mark.asyncio
+async def test_japanese_quotes_require_matching_request_locale_and_use_japanese_endpoint():
+    reference={**REFERENCE,'language':'Japanese','name':'パウワウ','set_name':'インフェルノX'}
+    payload=deepcopy(PAYLOAD);payload['name']=reference['name'];payload['set']['name']=reference['set_name']
+    assert await market.tcgdex_quotes(payload,reference,FX(),now=NOW)==[]
+    quotes=await market.tcgdex_quotes(payload,reference,FX(),now=NOW,language='Japanese')
+    assert quotes[0]['reference_language']=='Japanese'
+    async def handler(request):
+        assert request.url.path=='/v2/ja/cards/me02-021'
+        return httpx.Response(200,json=payload)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        assert await market.fetch_quotes(client,reference,FX(),now=NOW)
+
+
+@pytest.mark.asyncio
+async def test_tcgplayer_is_exact_finish_support_without_usd_to_gbp_fallback():
+    payload=deepcopy(PAYLOAD);variant=payload['variants_detailed'][0]
+    variant['thirdParty']['tcgplayer']=123
+    variant['pricing']['tcgplayer']={'unit':'USD','updated':NOW.isoformat(),
+        'normal':{'productId':123,'marketPrice':.42},'reverse-holofoil':{'productId':123,'marketPrice':99}}
+    quotes=await market.tcgdex_quotes(payload,REFERENCE,FX(),now=NOW)
+    assert len(quotes)==2 and market.price_view(KEY,quotes,now=NOW)['market_value_minor']==7
+    assert quotes[1]['original_minor']==42 and 'price_gbp_minor' not in quotes[1]
+    variant['pricing']['cardmarket']=None
+    quotes=await market.tcgdex_quotes(payload,REFERENCE,FX(),now=NOW)
+    view=market.price_view(KEY,quotes,now=NOW)
+    assert view['market_value_minor'] is None and view['market_value_source']=='TCGDEX_TCGPLAYER'
+    variant['pricing']['tcgplayer']['normal']['productId']=456
+    assert await market.tcgdex_quotes(payload,REFERENCE,FX(),now=NOW)==[]
+    variant['pricing']['tcgplayer']['normal']['productId']=123
+    variant['pricing']['tcgplayer']['updated']=(NOW-timedelta(days=8)).isoformat()
+    assert await market.tcgdex_quotes(payload,REFERENCE,FX(),now=NOW)==[]

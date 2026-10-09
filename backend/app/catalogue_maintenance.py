@@ -21,13 +21,15 @@ from .db import user_connection
 from .fx import EcbHistoricalFxProvider
 from .reference_feeds import ReferenceFeeds
 from .reference_library import save_reference_set
-from .reference_market import refresh_reference_prices
+from .reference_market import REVISION, refresh_reference_prices
 from .reference_sealed import save_sealed_set, sealed_feed
+from .sealed_market import refresh_sealed_prices
+from .catalogue_coverage import record_coverage
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
-SOURCE_REVISIONS={'cardtrader_sealed':2}
+SOURCE_REVISIONS={'cardtrader_sealed':3}
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
@@ -119,22 +121,25 @@ async def sync_source(pool,actor,source,settings):
 
 async def warm_prices(pool,actor,limit):
     run_id=await receipt(pool,actor,'REFERENCE_PRICES','RUNNING',{})
-    checked=priced=failed=0;status='INCOMPLETE';report={}
+    checked=priced=failed=us_only=0;status='INCOMPLETE';report={'importer_revision':REVISION}
     fx=EcbHistoricalFxProvider(timeout_seconds=6)
     try:
         async with user_connection(pool,actor,str(uuid4())) as connection:
             rows=await connection.fetch('''select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key
               from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
               left join tcg.reference_market_prices p using(provider,system_code,language,provider_id)
-              where r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language='English'
+              where r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language in ('English','Japanese')
                 and (s.release_date is null or s.release_date<=current_date)
-                and (p.expires_at is null or p.expires_at<=now())
-              order by p.checked_at nulls first,s.release_date desc nulls last,r.provider_id limit $1''',limit+1)
+                and (p.checked_at is null or p.checked_at<$2 or p.refresh_revision<$3
+                     or (p.expires_at<=now() and p.expires_at<=p.checked_at+interval '5 minutes'))
+              order by p.checked_at nulls first,s.release_date desc nulls last,r.provider_id limit $1''',
+              limit+1,daily_slot(datetime.now(timezone.utc)),REVISION)
         for start in range(0,min(len(rows),limit),40):
             keys=[r['key'] for r in rows[start:min(start+40,limit)]]
-            views=await refresh_reference_prices(pool,actor,str(uuid4()),keys,fx_provider=fx)
+            views=await refresh_reference_prices(pool,actor,str(uuid4()),keys,fx_provider=fx,force=True)
             checked+=len(views);priced+=sum(v['market_value_minor'] is not None for v in views)
             failed+=sum(v.get('provider_refresh_failed',False) for v in views)
+            us_only+=sum(v['market_value_minor'] is None and bool(v.get('market_quotes')) for v in views)
             if views and all(v.get('provider_refresh_failed') for v in views):
                 report['reason']='PROVIDER_UNAVAILABLE';break
             await asyncio.sleep(.5)
@@ -145,7 +150,8 @@ async def warm_prices(pool,actor,limit):
     except Exception as exc:
         report['reason']=type(exc).__name__
     finally:
-        report.update(checked=checked,priced=priced,provider_failures=failed,scope='English Pokemon Cardmarket references; not inventory eBay values')
+        report.update(checked=checked,priced=priced,us_context_only=us_only,provider_failures=failed,
+                      scope='All English/Japanese Pokemon references, independent of inventory; Cardmarket GBP and TCGplayer USD context')
         await receipt(pool,actor,'REFERENCE_PRICES',status,report,run_id)
         log.warning('Daily reference prices status=%s checked=%s priced=%s',status,checked,priced)
 
@@ -158,13 +164,22 @@ async def daily_pass(pool,settings):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await require_platform_admin(connection)
                 runs=await connection.fetch('select distinct on(source) source,started_at,status,report from tcg.reference_sync_runs order by source,started_at desc')
-                prices=await connection.fetchrow("select started_at,status from tcg.catalogue_job_runs where job='REFERENCE_PRICES' order by started_at desc limit 1")
+                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE') order by job,started_at desc")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
+            latest={r['job']:r for r in jobs}
             for source in SOURCES:
                 if due(last.get(source),now,revision=SOURCE_REVISIONS.get(source,1)):
                     await sync_source(pool,actor,source,settings)
-            if due(prices,now):
+            if due(latest.get('SEALED_REFERENCE_PRICES'),now):
+                await refresh_sealed_prices(pool,actor)
+            if due(latest.get('REFERENCE_PRICES'),now,revision=REVISION):
+                # Record the complete database scope before a potentially long
+                # first fill; the final receipt then reflects its progress.
+                await record_coverage(pool,actor)
                 await warm_prices(pool,actor,settings.catalogue_price_refresh_limit)
+                await record_coverage(pool,actor)
+            elif due(latest.get('CATALOGUE_COVERAGE'),now):
+                await record_coverage(pool,actor)
         finally:await lock.execute('select pg_advisory_unlock($1)',847220092)
 
 
