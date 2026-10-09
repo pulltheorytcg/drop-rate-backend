@@ -132,3 +132,11 @@ deploy and verify the first CATALOGUE_VALUES receipt, then activate the versione
 `20261009185130_activate_catalogue_reference_values.sql` helper migration. This prevents an empty cache from briefly hiding
 existing catalogue values during deployment. Rollback can restore the preceding
 reference helper definition while retaining every new snapshot.
+
+Legacy canonical language can be unspecified. The quote then carries the exact
+language already present in validated sold evidence; it does not populate or
+approve the canonical language. A conflicting known canonical language is still
+rejected. The reference label includes condition and evidence language. Both
+existing exact-card and exact-sealed-pack ingestion rules are recognized, with
+the same current-identity, five-sale and freshness checks. Revisioned receipts
+allow a corrected calculation to run without changing the earlier audit.

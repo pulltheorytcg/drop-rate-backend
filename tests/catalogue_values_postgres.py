@@ -38,7 +38,7 @@ async def main():
         now=datetime.now(timezone.utc)
         await db.execute("set role tcg_api")
         await db.execute("select set_config('tcg.user_id',$1,false)",str(actor))
-        await db.execute("insert into tcg.catalogue_products values($1,'CARD','Pokemon','Seel','Phantasmal Flames','021/094','Normal','Common','English')",cat)
+        await db.execute("insert into tcg.catalogue_products values($1,'CARD','Pokemon','Seel','Phantasmal Flames','021/094','Normal','Common',null)",cat)
         for n in range(1,6):
             await db.execute('''insert into tcg.market_observations(catalogue_id,source,observation_type,source_country,currency,
               observed_at,ingested_at,condition,language,price_gbp_minor,metadata)
@@ -56,6 +56,8 @@ async def main():
         assert await db.fetchval("select to_regclass('tcg.inventory_items')") is None,'Test must have no inventory table'
         query='select market_value_minor from tcg.recognition_catalogue_reference_value($1,$2)'
         assert await db.fetchval(query,cat,'English')==result.market_value_minor
+        assert await db.fetchval('select basis_condition from tcg.recognition_catalogue_reference_value($1,$2)',cat,'English')=='Near Mint · English'
+        assert await db.fetchval('select language from tcg.catalogue_products where id=$1',cat) is None
         assert await db.fetchval(query,cat,'Japanese') is None
         await db.execute("update tcg.catalogue_products set name='Dewgong' where id=$1",cat)
         assert await db.fetchval(query,cat,'English') is None

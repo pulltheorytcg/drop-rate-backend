@@ -25,7 +25,7 @@ from .reference_market import REVISION, refresh_reference_prices
 from .reference_sealed import save_sealed_set, sealed_feed
 from .sealed_market import REVISION as SEALED_MARKET_REVISION, refresh_sealed_prices
 from .catalogue_coverage import record_coverage
-from .catalogue_valuations import refresh_catalogue_values
+from .catalogue_valuations import REVISION as CATALOGUE_VALUE_REVISION, refresh_catalogue_values
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
 log=logging.getLogger(__name__)
@@ -168,7 +168,7 @@ async def daily_pass(pool,settings):
                 jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES') order by job,started_at desc")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
             latest={r['job']:r for r in jobs}
-            if due(latest.get('CATALOGUE_VALUES'),now):
+            if due(latest.get('CATALOGUE_VALUES'),now,revision=CATALOGUE_VALUE_REVISION):
                 await refresh_catalogue_values(pool,actor)
             for source in SOURCES:
                 if due(last.get(source),now,revision=SOURCE_REVISIONS.get(source,1)):
