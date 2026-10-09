@@ -97,7 +97,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/inventory-intake.js" defer></script>',
         '<script src="/assets/inventory-imports.js" defer></script>',
         '<script src="/assets/founder-finance.js" defer></script>',
-        '<script src="/assets/dashboard-shell.js?v=3" defer></script>',
+        '<script src="/assets/dashboard-shell.js?v=4" defer></script>',
         '<script src="/assets/seller-invites.js" defer></script>',
         '<script src="/assets/identity-review.js" defer></script>',
         '<script src="/assets/scanner-flow.js?v=5" defer></script>',
