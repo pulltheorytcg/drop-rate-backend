@@ -60,10 +60,21 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(img.referrerPolicy,'no-referrer');
   img.dispatchEvent(new f.w.Event('error'));assert.equal(img.src,'https://cdn.shopify.com/approved.webp');
   img.dispatchEvent(new f.w.Event('error'));assert.equal(picture.querySelector('img'),null);
-  assert.match(picture.textContent,/Image pending/);
+  assert.match(picture.textContent,/Image unavailable/);
   assert.equal(f.browser.productImage({...card,image_url:'//untrusted.example/card.png'}).querySelector('img'),null);
   f.browser.openProduct(card);assert.match(f.browser.sheet.textContent,/No verified market value/);
   f.browser.openProduct({...card,key:'c:priced',market_value_minor:1250});assert.match(f.browser.sheet.textContent,/£12.50/);assert.doesNotMatch(f.browser.sheet.textContent,/No verified market value/);
+  f.finish();checks++;
+ }
+
+ {
+  const f=fixture();
+  const picture=f.browser.productImage({...card,image_url:'https://www.onepiece-cardgame.com/images/cardlist/card/OP12-058.png'});
+  const placeholder=picture.querySelector('.dr-browse-image-placeholder'),img=picture.querySelector('img');
+  assert.equal(placeholder.textContent,'Loading image…');assert.equal(placeholder.hidden,false);
+  img.dispatchEvent(new f.w.Event('load'));assert.equal(placeholder.hidden,true);
+  assert.equal(f.browser.productImage(card).textContent,'Artwork unavailable');
+  assert.equal(f.browser.productImage({...card,image_url:img.src},'dr-browse-detail-image').querySelector('img').loading,'eager');
   f.finish();checks++;
  }
 

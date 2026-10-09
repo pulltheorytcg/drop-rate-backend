@@ -50,8 +50,14 @@ async def save_reference_set(connection, record, cards):
             on conflict(provider,system_code,language,provider_id) do update set
                 set_id=excluded.set_id,name=excluded.name,card_number=excluded.card_number,
                 number_key=excluded.number_key,finish=excluded.finish,rarity=excluded.rarity,
-                image_url=excluded.image_url,source_url=excluded.source_url,
-                evidence=excluded.evidence,refreshed_at=clock_timestamp()
+                image_url=case when tcg.reference_cards.set_id=excluded.set_id and tcg.reference_cards.name=excluded.name
+                  then coalesce(excluded.image_url,tcg.reference_cards.image_url) else excluded.image_url end,
+                source_url=excluded.source_url,
+                evidence=case when excluded.image_url is null
+                  and tcg.reference_cards.set_id=excluded.set_id and tcg.reference_cards.name=excluded.name
+                  and tcg.reference_cards.image_url is not null and tcg.reference_cards.evidence ? 'image_reference'
+                  then excluded.evidence || jsonb_build_object('image_reference',tcg.reference_cards.evidence->'image_reference')
+                  else excluded.evidence end,refreshed_at=clock_timestamp()
         """, [(record['provider'],record['system_code'],record['language'],card['provider_id'],
                 record['set_id'],card['name'],str(card['card_number']),number_key(card['card_number']),
                 card.get('finish'),card.get('rarity'),card.get('image_url'),card['source_url'],

@@ -90,6 +90,7 @@ class ReferenceFeeds:
                 yield record,cards
 
     async def punk(self):
+        from .reference_artwork import match_existing_artwork, punk_pack_artwork, punk_pack_url
         root="https://raw.githubusercontent.com/Kuroro1990/OPTCG/main"
         for folder,language in (("english","English"),("japanese","Japanese")):
             index=await self.get(f"{root}/{folder}/index/cards_by_id.json")
@@ -114,6 +115,14 @@ class ReferenceFeeds:
                         "colors":card.get('colors') or [],"card_type":card.get('category'),
                         "detail_level":"PROVIDER_INDEX","printing_id":pid}})
             for sid,cards in groups.items():
+                # The lightweight index has no images; full pack data binds art
+                # to an exact language and printing, including parallel suffixes.
+                artwork, evidence = punk_pack_artwork(await self.get(punk_pack_url(language,sid)),language=language,set_id=sid)
+                matched = {c['provider_id']:c for c in match_existing_artwork(cards,artwork)}
+                for card in cards:
+                    if card['provider_id'] in matched:
+                        card['image_url'] = matched[card['provider_id']]['image_url']
+                        card['evidence']['image_reference'] = evidence
                 yield {"provider":"Punk Records","system_code":"ONE_PIECE_CARD_GAME","language":language,
                     "set_id":sid,"name":names.get(sid) or f"Provider pack {sid}",
                     "source_url":f"{root}/{folder}/packs.json"},cards

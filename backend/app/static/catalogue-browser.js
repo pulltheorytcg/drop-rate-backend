@@ -238,10 +238,13 @@ window.DropRateCatalogue = (() => {
       const urls=[...new Set([row.display_image_url,row.image_url,row.fallback_image_url]
         .filter(url=>typeof url==="string").map(url=>url.trim())
         .filter(url=>/^https:\/\//.test(url)||/^\/(?!\/)/.test(url)))];
-      wrap.append(node("span","dr-browse-image-placeholder","Image pending"));
+      const placeholder=node("span","dr-browse-image-placeholder",urls.length?"Loading image…":"Artwork unavailable");
+      wrap.append(placeholder);
       if(urls.length){
         const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.referrerPolicy="no-referrer";
-        image.addEventListener("error",()=>{if(urls.length)image.src=urls.shift();else image.remove();});
+        if(cls==="dr-browse-detail-image")image.loading="eager";
+        image.addEventListener("load",()=>{placeholder.hidden=true;});
+        image.addEventListener("error",()=>{if(urls.length)image.src=urls.shift();else {image.remove();placeholder.textContent="Image unavailable";placeholder.hidden=false;}});
         image.src=urls.shift();wrap.append(image);
       }
       return wrap;
