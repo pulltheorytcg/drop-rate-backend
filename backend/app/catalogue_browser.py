@@ -1,14 +1,17 @@
 """Account-scoped catalogue browsing. Reference facts never approve physical stock."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
+from urllib.parse import urlencode, urlsplit
 
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from .access_control import current_access_context
@@ -18,12 +21,33 @@ from .inventory_intake import create_inventory_intake, _find_exact_catalogue, _m
 from .physical_state import CARD_CONDITIONS
 from .recognition_games import SYSTEM_BY_GAME
 from .reference_market import refresh_reference_prices
+from .recognition_images import reference_image_bytes
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 
 router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"])
 GAME_BY_SYSTEM = {system: game for game, system in SYSTEM_BY_GAME.items()}
 # A browse family only: printing identities retain their original system.
 BROWSE_FAMILIES = {"NARUTO": ("NARUTO_KAYOU", "NARUTO_BANDAI_LEGACY")}
+_ARTWORK_FETCHES = asyncio.Semaphore(4)
+
+
+def one_piece_artwork_url(value):
+    if not isinstance(value, str):
+        return False
+    try:
+        url = urlsplit(value)
+    except ValueError:
+        return False
+    return (url.scheme == 'https' and url.netloc in {'en.onepiece-cardgame.com','www.onepiece-cardgame.com','onepiece-cardgame.com'}
+            and not url.fragment and re.fullmatch(r'/images/cardlist/card/[A-Za-z0-9_-]+\.(png|webp|jpg|jpeg)',url.path) is not None)
+
+
+def with_artwork_path(row):
+    item = dict(row)
+    if item.get('source_kind') == 'REFERENCE' and one_piece_artwork_url(item.get('image_url')):
+        item['reference_image_path'] = '/api/v1/catalogue-browser/reference-image?' + urlencode({
+            field:item[field] for field in ('provider','system_code','language','provider_id')})
+    return item
 
 
 def browse_systems(system_code: str) -> list[str]:
@@ -289,7 +313,28 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list, limit=limit, offset=offset)
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         rows = await connection.fetch(query, *params)
-    return jsonable_encoder({"items": [dict(row) for row in rows[:limit]], "has_more": len(rows) > limit, "offset": offset})
+    return jsonable_encoder({"items": [with_artwork_path(row) for row in rows[:limit]], "has_more": len(rows) > limit, "offset": offset})
+
+
+@router.get('/reference-image')
+async def reference_image(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
+                          access: Annotated[dict, Depends(browser_access)],
+                          provider: str = Query(max_length=80), system_code: str = Query(max_length=80),
+                          language: str = Query(max_length=80), provider_id: str = Query(max_length=200)):
+    # Resolve the existing exact reference on the server. Never accept a URL
+    # from the client or turn reference artwork into approved inventory media.
+    async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
+        url = await connection.fetchval('''select r.image_url from tcg.reference_cards r
+          join tcg.reference_sets s using(provider,system_code,language,set_id)
+          where r.provider=$1 and r.system_code=$2 and r.language=$3 and r.provider_id=$4
+          and (s.release_date is null or s.release_date<=current_date)''',provider,system_code,language,provider_id)
+    if not one_piece_artwork_url(url):
+        raise HTTPException(404,'Reference artwork not available')
+    async with _ARTWORK_FETCHES:
+        payload = await reference_image_bytes(url)
+    if payload is None:
+        raise HTTPException(502,'Reference artwork could not load')
+    return Response(payload.data,media_type=payload.content_type,headers={'Content-Disposition':'inline'})
 
 
 class ReferencePriceRequest(BaseModel):

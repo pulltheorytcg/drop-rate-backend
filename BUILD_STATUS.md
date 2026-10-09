@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Catalogue artwork import repair
+
+- Traced 3,981 missing Japanese One Piece images to the lightweight provider index. All 26 affected full pack records passed source validation. Future imports now read exact-print artwork; sparse imports retain existing artwork and provenance only for unchanged identities.
+- Added a bounded, explicit, admin-only reference artwork backfill and disposable PostgreSQL persistence checks. The repair has no inventory, valuation, canonical media approval or publication writes.
+- Corrected misleading image placeholders and bumped both app shells' catalogue script version. Signed-in desktop inspection confirmed existing Pokémon and Dragon Ball images load; some Pokémon records have no source artwork. No iPhone-wide reproduction is claimed.
+- Reproduced the blank English One Piece grid: official images send `Cross-Origin-Resource-Policy: same-site`. Added authenticated exact-reference image delivery using the existing scanner image loader, bounded fetching, normal catalogue access checks and cleanup on account/navigation changes. No arbitrary client URLs are fetched.
+- The full backend and UI suites pass locally. Current-head CI, the one-off live backfill, configuration restoration and post-deploy read-back remain release gates at this checkpoint. See [catalogue artwork repair](docs/CATALOGUE_ARTWORK_REPAIR.md).
+
 ## 9 October 2026 — Comparable weekly history
 
 - The full eBay refresh exposed a reporting error: weekly movers could compare new sold values with old import/floor snapshots. Restrict both ends to v4 eBay-backed evidence with five sales, matching snapshot owner and catalogue. Historical rows remain untouched; insufficient comparable history shows no movement.

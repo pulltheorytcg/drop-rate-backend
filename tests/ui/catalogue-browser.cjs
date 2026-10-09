@@ -21,6 +21,35 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
 }
 (async()=>{
  {
+  const f=fixture(),waiting=deferred(),calls=[],revoked=[];
+  f.w.URL.createObjectURL=()=> 'blob:catalogue-art';f.w.URL.revokeObjectURL=url=>revoked.push(url);
+  f.browser.client.requestImage=async(path,options)=>{calls.push({path,...options});return waiting.promise;};
+  const row={...card,image_url:'https://en.onepiece-cardgame.com/images/cardlist/card/OP16-077.png',reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=OP16-077'};
+  const pictures=Array.from({length:6},()=>f.browser.productImage(row));pictures.forEach(p=>f.w.document.body.append(p));
+  pictures.forEach(p=>p.querySelector('img').dispatchEvent(new f.w.Event('error')));
+  assert.equal(calls.length,4,'Artwork requests must be bounded');
+  waiting.resolve(new f.w.Blob(['image'],{type:'image/png'}));await tick();await tick();
+  assert.equal(calls.length,6);
+  const img=pictures[0].querySelector('img');assert.equal(img.src,'blob:catalogue-art');
+  img.dispatchEvent(new f.w.Event('load'));assert.equal(pictures[0].querySelector('span').hidden,true);
+  f.browser.clearArtwork();assert.equal(revoked.length,6);f.finish();checks++;
+ }
+ {
+  const f=fixture(),waiting=deferred();let created=0;
+  f.w.URL.createObjectURL=()=>{created++;return 'blob:stale';};f.w.URL.revokeObjectURL=()=>{};
+  f.browser.client.requestImage=()=>waiting.promise;
+  const picture=f.browser.productImage({...card,image_url:'https://en.onepiece-cardgame.com/images/cardlist/card/OP16-077.png',reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=OP16-077'});
+  f.w.document.body.append(picture);picture.querySelector('img').dispatchEvent(new f.w.Event('error'));
+  f.logout();waiting.resolve(new f.w.Blob(['image'],{type:'image/png'}));await tick();assert.equal(created,0);f.finish();checks++;
+ }
+ {
+  const f=fixture();f.browser.client.requestImage=async()=>{throw new Error('Unavailable');};
+  const picture=f.browser.productImage({...card,image_url:'https://en.onepiece-cardgame.com/images/cardlist/card/OP16-077.png',fallback_image_url:'https://cdn.shopify.com/exact-approved.png',reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=OP16-077'});
+  f.w.document.body.append(picture);const img=picture.querySelector('img');img.dispatchEvent(new f.w.Event('error'));await tick();
+  assert.equal(img.src,'https://cdn.shopify.com/exact-approved.png');img.dispatchEvent(new f.w.Event('error'));
+  assert.equal(picture.textContent,'Image unavailable');f.finish();checks++;
+ }
+ {
   const waiting=deferred(),ref={...card,key:'r:'+'a'.repeat(32),provider:'TCGdex',source_kind:'REFERENCE',market_refresh_needed:true};
   const f=fixture(async(url,options)=>url.endsWith('/market-values')?waiting.promise:{items:[ref]});
   f.browser.filters.q='Seel';await f.browser.open();
@@ -60,10 +89,21 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(img.referrerPolicy,'no-referrer');
   img.dispatchEvent(new f.w.Event('error'));assert.equal(img.src,'https://cdn.shopify.com/approved.webp');
   img.dispatchEvent(new f.w.Event('error'));assert.equal(picture.querySelector('img'),null);
-  assert.match(picture.textContent,/Image pending/);
+  assert.match(picture.textContent,/Image unavailable/);
   assert.equal(f.browser.productImage({...card,image_url:'//untrusted.example/card.png'}).querySelector('img'),null);
   f.browser.openProduct(card);assert.match(f.browser.sheet.textContent,/No verified market value/);
   f.browser.openProduct({...card,key:'c:priced',market_value_minor:1250});assert.match(f.browser.sheet.textContent,/£12.50/);assert.doesNotMatch(f.browser.sheet.textContent,/No verified market value/);
+  f.finish();checks++;
+ }
+
+ {
+  const f=fixture();
+  const picture=f.browser.productImage({...card,image_url:'https://www.onepiece-cardgame.com/images/cardlist/card/OP12-058.png'});
+  const placeholder=picture.querySelector('.dr-browse-image-placeholder'),img=picture.querySelector('img');
+  assert.equal(placeholder.textContent,'Loading image…');assert.equal(placeholder.hidden,false);
+  img.dispatchEvent(new f.w.Event('load'));assert.equal(placeholder.hidden,true);
+  assert.equal(f.browser.productImage(card).textContent,'Artwork unavailable');
+  assert.equal(f.browser.productImage({...card,image_url:img.src},'dr-browse-detail-image').querySelector('img').loading,'eager');
   f.finish();checks++;
  }
 
