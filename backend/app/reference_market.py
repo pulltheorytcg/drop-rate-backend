@@ -176,11 +176,11 @@ async def fetch_quotes(client, reference, fx, *, now):
     return await tcgdex_quotes(payload, reference, fx, now=now)
 
 
-async def refresh_reference_prices(pool, user_id, request_id, keys: list[str]) -> list[dict]:
+async def refresh_reference_prices(pool, user_id, request_id, keys: list[str], *, fx_provider=None) -> list[dict]:
     async with user_connection(pool, user_id, request_id) as connection:
         references = [dict(row) for row in await connection.fetch(READ_SQL, keys)]
     now = datetime.now(timezone.utc)
-    fx = EcbHistoricalFxProvider(timeout_seconds=6)
+    fx = fx_provider or EcbHistoricalFxProvider(timeout_seconds=6)
     async with httpx.AsyncClient(timeout=6, follow_redirects=False) as client:
         async def refresh(reference):
             previous = reference.get("quotes") or []
@@ -189,12 +189,15 @@ async def refresh_reference_prices(pool, user_id, request_id, keys: list[str]) -
             try:
                 quotes = await asyncio.wait_for(fetch_quotes(client, reference, fx, now=now), timeout=15)
                 expires = now + timedelta(hours=12 if quotes else 6)
+                failed = False
             except (httpx.HTTPError, ValueError, RuntimeError, TypeError, AttributeError, asyncio.TimeoutError):
                 # A provider outage doesn't erase a recent known quote. Retry
                 # after five minutes, and always keep the source's original date.
                 quotes = previous
                 expires = now + timedelta(minutes=5)
+                failed = True
             view = price_view(reference["key"], quotes, now=now)
+            view['provider_refresh_failed'] = failed
             return reference, view, expires
         results = await asyncio.gather(*(refresh(reference) for reference in references))
     async with user_connection(pool, user_id, request_id) as connection:

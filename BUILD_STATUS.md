@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Daily catalogue and eligible Shopify sync
+
+- User explicitly requested daily cards/sets/values and automatic customer-inventory Shopify updates. Added opt-in tasks to the existing API: reference imports/price cache due at 03:00 Europe/London and eligible Shopify checks each minute. No new service, n8n workflow or paid subscription.
+- Added CardTrader sealed packaging references, separate from canonical inventory, with explicit game/category scope, required physical language during draft intake, exact-reference image delivery and no auto-approval. Real migration/query/RLS and publication-selection integration is included.
+- Source and job receipts, restart checks, advisory locks, bounded batches and retry backoff make results observable. Daily Cardmarket references stay separate from the existing eBay UK inventory algorithm; its exhausted sold-data quota remains a limitation.
+- Shopify reuses exact Inventory ID/owner/version publication and price-sync rules. All 505 currently approved For-sale copies are already linked/published; three drafts and two inspection copies remain outside automatic publication. Market refresh never sets an asking price.
+- PR #547 is live as `cae67e3` on deployment `6e450418-5d8b-4614-8edf-0ccd4ed03d06` SUCCESS. Signed-in browsing now shows Seel reference prices across multiple sets and all 23 available Seel images; the visible sealed tab returns the three existing products, including OP17 at £8.66. Wider sealed imports and recurring jobs require this release's migration, CI and activation/read-back. See [daily maintenance](docs/DAILY_CATALOGUE_MAINTENANCE.md).
+
 ## 9 October 2026 — Catalogue speed and price-request repair
 
 - Fixed the unencoded browser market-price POST body, which the real hub transport forwarded directly to fetch. Existing source/finish/freshness rules and eBay valuation gates remain intact.

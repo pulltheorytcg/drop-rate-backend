@@ -111,7 +111,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/founder-workspace.js" defer></script>',
         '<script src="/assets/founder-accounts.js" defer></script>',
         '<script src="/assets/catalogue-title-art.js?v=3" defer></script>',
-        '<script src="/assets/catalogue-browser.js?v=11" defer></script>',
+        '<script src="/assets/catalogue-browser.js?v=12" defer></script>',
         '<script src="/assets/catalogue-browser-entry.js?v=5" defer></script>',
         '<script src="/assets/workspace-shell.js?v=3" defer></script>',
         '<script src="/assets/collector-worlds.js?v=3" defer></script>',
@@ -173,6 +173,13 @@ def create_app() -> FastAPI:
         bootstrap_task: asyncio.Task | None = None
         linked_draft_task: asyncio.Task | None = None
         market_task: asyncio.Task | None = None
+        maintenance_tasks=[]
+        from .catalogue_maintenance import run_loop
+        for enabled,shopify in ((settings.catalogue_daily_refresh_enabled,False),(settings.shopify_auto_sync_enabled,True)):
+            if enabled and settings.catalogue_maintenance_actor_user_id:
+                maintenance_tasks.append(asyncio.create_task(run_loop(app.state.db_pool,settings,shopify=shopify)))
+            elif enabled:
+                logger.error('Catalogue maintenance requires an authorised actor')
         if settings.ebay_market_refresh_enabled:
             if not settings.trawl_api_key or not settings.ebay_market_refresh_actor_user_id:
                 logger.error("Live eBay market refresh enabled without required provider/actor configuration")
@@ -239,7 +246,7 @@ def create_app() -> FastAPI:
         try:
             yield
         finally:
-            for task in (bootstrap_task, linked_draft_task, market_task):
+            for task in (bootstrap_task, linked_draft_task, market_task,*maintenance_tasks):
                 if task is not None and not task.done():
                     task.cancel()
                     try:
