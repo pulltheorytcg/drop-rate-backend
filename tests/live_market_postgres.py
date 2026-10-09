@@ -45,6 +45,7 @@ async def main():
       create table tcg.reference_sets(provider text,system_code text,language text,set_id text,name text,release_date date);
       create table tcg.reference_market_prices(provider text,system_code text,language text,provider_id text,quotes jsonb);
       create table tcg.provider_catalogue_mappings(catalogue_id uuid,source_provider text,provider_language text,match_status text);
+      create table tcg.market_source_mappings(catalogue_id uuid,source text,match_status text);
       create table tcg.pricing_snapshots(id uuid primary key default gen_random_uuid(),inventory_id uuid,catalogue_id uuid,owner_id uuid,
        market_value_minor bigint,recommended_retail_minor bigint,quick_sale_minor bigint,target_acquisition_minor bigint,confidence numeric,
        source_count int,observation_count int,sold_observation_count int,volatility_pct numeric,newest_observation_at timestamptz,algorithm_version text,
@@ -196,6 +197,11 @@ async def main():
         async with user_connection(pool,actor,'guide-fixture') as conn:
             assert await conn.fetchval('select valuation_source from tcg.catalogue_reference_value_v2($1,$2)',unowned,'English')=='CARDMARKET_ESTIMATE'
             assert await conn.fetchval('select market_value_minor from tcg.catalogue_reference_value_v2($1,$2)',unowned,'Japanese') is None
+        await db.execute("insert into tcg.market_source_mappings values($1,'CARDMARKET','REVIEW')",unowned)
+        async with user_connection(pool,actor,'reviewed-guide') as conn:
+            assert await conn.fetchval('select market_value_minor from tcg.catalogue_reference_value_v2($1,$2)',unowned,'English') is None
+        assert (await cardmarket.refresh_cardmarket_values(pool,actor))['guide_bases']==1
+        await db.execute("update tcg.market_source_mappings set match_status='VERIFIED' where catalogue_id=$1",unowned)
         settings.ebay_market_refresh_actor_user_id=str(actor)
         await market.refresh_pass(pool,settings)
         assert await db.fetchval('select market_value_minor from tcg.inventory_items where id=$1',a)==170,'eBay cleanup erased the authorized guide'
@@ -205,7 +211,10 @@ async def main():
         except Exception as exc:assert getattr(exc,'status_code',None)==403
         async with user_connection(pool,other,'wrong-owner') as conn:
             assert await conn.fetchval('select count(*) from tcg.inventory_items where id=$1',a)==0
-            assert await conn.fetchval('select count(*) from tcg.pricing_snapshots where inventory_id=$1',a)==0
+            # Earlier weekly-history fixtures deliberately include an old row
+            # owned by this actor against another copy. New guide rows must
+            # remain isolated; do not confuse that historical fixture with a leak.
+            assert await conn.fetchval("select count(*) from tcg.pricing_snapshots where inventory_id=$1 and evidence->>'method'='CARDMARKET_GUIDE_V1'",a)==0
             assert await cardmarket.apply_cached_inventory_guide(conn,a,other,cat) is None
             try:
                 async with conn.transaction():await conn.execute('delete from tcg.catalogue_market_snapshots')

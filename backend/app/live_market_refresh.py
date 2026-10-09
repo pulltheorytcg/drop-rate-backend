@@ -309,6 +309,11 @@ async def refresh_pass(pool, settings):
                           where cm.id::text=s.evidence->>'catalogue_snapshot_id' and cm.catalogue_id=i.catalogue_id
                           and cm.evidence->>'method'='CATALOGUE_CARDMARKET_V1'
                           and cm.basis_language=i.language
+                          and not exists(select 1 from tcg.market_source_mappings m where m.catalogue_id=p.id
+                            and m.source='CARDMARKET' and m.match_status in ('REVIEW','REJECTED'))
+                          and not exists(select 1 from tcg.provider_catalogue_mappings m where m.catalogue_id=p.id
+                            and m.source_provider='TCGdex' and m.provider_language=i.language
+                            and m.match_status in ('REVIEW','REJECTED'))
                           and cm.identity_digest=md5(concat_ws(chr(31),p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language))
                           and cm.evidence_checked_at between now()-interval '7 days' and now()))))""")
                 rows = await connection.fetch(TARGET_SQL + " where i.status in ('DRAFT','INSPECTION','APPROVED') order by i.store_price_minor desc nulls last,i.id limit 2000")

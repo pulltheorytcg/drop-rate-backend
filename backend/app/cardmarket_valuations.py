@@ -41,7 +41,9 @@ REFERENCES_SQL = '''select p.id as catalogue_id,r.provider,r.system_code,r.provi
  and (s.release_date is null or s.release_date<=current_date)
  and not exists(select 1 from tcg.provider_catalogue_mappings link
    where link.catalogue_id=p.id and link.source_provider=r.provider
-   and link.provider_language=r.language and link.match_status in ('REVIEW','REJECTED'))'''
+   and link.provider_language=r.language and link.match_status in ('REVIEW','REJECTED'))
+ and not exists(select 1 from tcg.market_source_mappings link
+   where link.catalogue_id=p.id and link.source='CARDMARKET' and link.match_status in ('REVIEW','REJECTED'))'''
 
 INVENTORY_SQL = f'''select i.*,p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,
  {IDENTITY_SQL} as current_identity_digest,ps.evidence as current_evidence,
@@ -52,7 +54,14 @@ INVENTORY_SQL = f'''select i.*,p.product_type,p.game,p.name,p.set_name,p.card_nu
  left join tcg.pricing_snapshots ps on ps.id=i.latest_pricing_snapshot_id
    and ps.inventory_id=i.id and ps.catalogue_id=i.catalogue_id and ps.owner_id=i.owner_id
  where i.catalogue_id=$1 and i.status in ('DRAFT','INSPECTION','APPROVED')
+ and not exists(select 1 from tcg.market_source_mappings link
+   where link.catalogue_id=p.id and link.source='CARDMARKET' and link.match_status in ('REVIEW','REJECTED'))
+ and not exists(select 1 from tcg.provider_catalogue_mappings link
+   where link.catalogue_id=p.id and link.source_provider='TCGdex' and link.provider_language=i.language
+   and link.match_status in ('REVIEW','REJECTED'))
  order by i.id for update of i for share of p'''
+INVENTORY_ITEM_SQL = INVENTORY_SQL.replace('where i.catalogue_id=$1',
+    'where i.catalogue_id=$1 and i.id=$2 and i.owner_id=$3')
 
 
 def guide_values(product, references, *, now):
@@ -199,7 +208,9 @@ async def apply_cached_inventory_guide(connection, inventory_id, owner_id, catal
     """Use already saved public evidence during intake/manual recalculation."""
     from types import SimpleNamespace
     now=datetime.now(timezone.utc)
-    rows=await connection.fetch(INVENTORY_SQL,catalogue_id)
+    # The caller already locks this item. Do not also lock another owner's copy
+    # here: simultaneous recalculations would acquire row locks out of order.
+    rows=await connection.fetch(INVENTORY_ITEM_SQL,catalogue_id,inventory_id,owner_id)
     item=next((dict(row) for row in rows if row['id']==inventory_id and row['owner_id']==owner_id),None)
     if item is None:return None
     guide=await connection.fetchrow('''select * from tcg.catalogue_market_snapshots

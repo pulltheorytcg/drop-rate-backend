@@ -29,7 +29,12 @@ language sql stable security invoker set search_path=pg_catalog as $function$
  and s.grading_company is null and s.grade is null
  and s.evidence_checked_at between now()-interval '7 days' and now()
  and ((s.evidence->>'method'='CATALOGUE_EBAY_V4' and s.oldest_sale_at>=now()-interval '90 days')
-      or s.evidence->>'method'='CATALOGUE_CARDMARKET_V1')
+      or (s.evidence->>'method'='CATALOGUE_CARDMARKET_V1'
+        and not exists(select 1 from tcg.market_source_mappings m where m.catalogue_id=p.id
+          and m.source='CARDMARKET' and m.match_status in ('REVIEW','REJECTED'))
+        and not exists(select 1 from tcg.provider_catalogue_mappings m where m.catalogue_id=p.id
+          and m.source_provider='TCGdex' and m.provider_language=s.basis_language
+          and m.match_status in ('REVIEW','REJECTED'))))
  and (nullif(btrim(coalesce(p_language,'')),'') is null or lower(s.basis_language)=lower(btrim(p_language)))
  order by (s.evidence->>'method'='CATALOGUE_EBAY_V4') desc,
   case lower(coalesce(s.basis_condition,'')) when 'near mint' then 0 when 'nm' then 0 else 1 end,
