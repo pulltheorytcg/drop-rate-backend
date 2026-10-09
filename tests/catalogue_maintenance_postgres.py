@@ -23,6 +23,7 @@ async def main():
     try:
         assert not await db.fetchval("select exists(select 1 from pg_namespace where nspname='tcg')")
         await db.execute('''create schema tcg;create role tcg_api nologin nobypassrls;create role anon;create role authenticated;
+          create role service_role;create role tcg_auditor;
           create function tcg.current_user_id() returns uuid language sql stable as $$select nullif(current_setting('tcg.user_id',true),'')::uuid$$;
           create function tcg.is_platform_admin() returns boolean language sql stable as $$select tcg.current_user_id()='00000000-0000-0000-0000-000000000001'::uuid$$;
           create table tcg.collectible_systems(code text primary key);
@@ -36,9 +37,13 @@ async def main():
             catalogue_id uuid,provider_entity_type text,provider_variant_key text,match_status text);
           create table tcg.catalogue_products(id uuid,product_type text,game text,name text,set_name text,card_number text,variant text,rarity text,language text);
           create table tcg.catalogue_product_profiles(catalogue_id uuid,system_code text,set_code text,release_date date,collectible_type text);
-          create table tcg.inventory_items(id uuid,owner_id uuid,catalogue_id uuid,status text,sale_intent text,version int,market_value_minor bigint,updated_at timestamptz default now());
+          create table tcg.inventory_items(id uuid,owner_id uuid,catalogue_id uuid,status text,sale_intent text,version int,market_value_minor bigint,
+            inventory_code text,store_price_minor bigint,updated_at timestamptz default now());
           create table tcg.owners(id uuid,active boolean);
-          create table tcg.shopify_inventory_links(id uuid,inventory_id uuid,test_mode boolean,sync_state text);
+          create table tcg.shopify_inventory_links(id uuid,inventory_id uuid,test_mode boolean,sync_state text,owner_id uuid,
+            version int,listing_key text,shopify_product_gid text,shopify_variant_gid text,synced_price_minor bigint,
+            last_synced_at timestamptz,reserved_order_reference text,reserved_line_reference text);
+          create table tcg.audit_events(actor text,request_id text,action text,entity_type text,entity_id uuid,old_values jsonb,new_values jsonb);
           create table tcg.reference_market_prices(provider text,system_code text,language text,provider_id text,market_value_minor bigint,
             market_value_high_minor bigint,pricing_updated_at timestamptz,quotes jsonb,expires_at timestamptz);
           create table tcg.media_assets(catalogue_id uuid,shopify_cdn_url text,public_source_url text,scope text,side text,media_kind text,
@@ -48,6 +53,7 @@ async def main():
           grant usage on schema tcg to tcg_api;grant select,insert,update on all tables in schema tcg to tcg_api;
         ''')
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261009144903_catalogue_daily_maintenance.sql').read_text())
+        await db.execute((Path(__file__).parents[1]/'database/migrations/20260930124000_shopify_price_reconciliation.sql').read_text())
         actor=UUID('00000000-0000-0000-0000-000000000001');owner=uuid4()
         await db.execute("set role tcg_api")
         await db.execute("select set_config('tcg.user_id',$1,false)",str(actor))
@@ -69,12 +75,24 @@ async def main():
         ids=[uuid4() for _ in range(6)]
         for i,(status,intent) in enumerate([('APPROVED','FOR_SALE'),('DRAFT','FOR_SALE'),('APPROVED','PERSONAL_COLLECTION'),('SOLD','FOR_SALE'),('APPROVED','FOR_SALE'),('APPROVED','FOR_SALE')]):
             await db.execute('insert into tcg.inventory_items(id,owner_id,status,sale_intent,version) values($1,$2,$3,$4,1)',ids[i],owner,status,intent)
-        await db.execute("insert into tcg.shopify_inventory_links values($1,$2,false,'PUBLISHED'),($3,$4,true,'DRAFT')",uuid4(),ids[4],uuid4(),ids[5])
+        await db.execute("insert into tcg.shopify_inventory_links(id,inventory_id,test_mode,sync_state) values($1,$2,false,'PUBLISHED'),($3,$4,true,'DRAFT')",uuid4(),ids[4],uuid4(),ids[5])
         assert [r['id'] for r in await db.fetch(SHOPIFY_CANDIDATES)]==[ids[0]]
         await db.execute("insert into tcg.catalogue_job_runs(job,actor_user_id,status,report) values('SHOPIFY_SYNC',$1,'INCOMPLETE',$2::jsonb)",actor,{'inventory_id':str(ids[0]),'version':1})
         assert not await db.fetch(SHOPIFY_CANDIDATES),'Blocked version did not back off'
         await db.execute('update tcg.inventory_items set version=2 where id=$1',ids[0])
         assert len(await db.fetch(SHOPIFY_CANDIDATES))==1,'Corrected inventory was not retried'
+        await db.execute("update tcg.inventory_items set store_price_minor=1500,inventory_code='fixture' where id=$1",ids[4])
+        link=await db.fetchval("update tcg.shopify_inventory_links set owner_id=$2,version=1,listing_key='single:fixture',synced_price_minor=1000 where inventory_id=$1 returning id",ids[4],owner)
+        candidates=await db.fetchval('select tcg.shopify_price_sync_candidates(25)')
+        assert len(candidates)==1 and candidates[0]['inventory_id']==str(ids[4])
+        args=(link,owner,1,ids[4],2,1500,'fixture')
+        assert (await db.fetchval('select tcg.finalize_shopify_price_sync($1,$2,$3,$4,$5,$6,$7)',*args))['status']=='RETRY_REQUIRED'
+        assert await db.fetchval('select count(*) from tcg.audit_events')==0
+        args=(link,owner,1,ids[4],1,1500,'fixture')
+        assert (await db.fetchval('select tcg.finalize_shopify_price_sync($1,$2,$3,$4,$5,$6,$7)',*args))['status']=='SYNCED'
+        assert not await db.fetchval('select tcg.shopify_price_sync_candidates(25)')
+        assert await db.fetchval("select count(*) from tcg.audit_events where action='SHOPIFY_PRICE_SYNCED'")==1
+        assert await db.fetchval('select store_price_minor from tcg.inventory_items where id=$1',ids[4])==1500
         await db.execute("select set_config('tcg.user_id',$1,false)",str(owner))
         assert await db.fetchval('select count(*) from tcg.reference_sealed_products')==1
         assert await db.fetchval('select count(*) from tcg.catalogue_job_runs')==0
@@ -85,7 +103,7 @@ async def main():
         await db.execute("select set_config('tcg.user_id','',false)")
         assert await db.fetchval('select count(*) from tcg.reference_sealed_products')==0
     finally:await db.close()
-    print('PASS: real sealed query, replay, set previews, publication gating/backoff, migration and RLS')
+    print('PASS: real sealed query, replay, set previews, publication gating/backoff, price finalization/audit, migrations and RLS')
 
 
 asyncio.run(main())

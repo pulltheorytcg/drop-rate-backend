@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import unicodedata
 from collections import defaultdict
 from datetime import date
@@ -24,11 +25,32 @@ TYPES = {'booster boxes':'BOOSTER_BOX','booster box':'BOOSTER_BOX','boosters':'B
          'booster packs':'BOOSTER_PACK','booster pack':'BOOSTER_PACK','elite trainer boxes':'ELITE_TRAINER_BOX',
          'elite trainer box':'ELITE_TRAINER_BOX','starter decks':'STARTER_DECK','decks':'STARTER_DECK',
          'theme decks':'STARTER_DECK','tins':'TIN','collection boxes':'COLLECTION','collections':'COLLECTION',
-         'bundles':'BUNDLE','booster bundles':'BUNDLE','blisters':'BLISTER','sealed products':'SEALED_PRODUCT'}
+         'bundles':'BUNDLE','booster bundles':'BUNDLE','blisters':'BLISTER','sealed products':'SEALED_PRODUCT',
+         'booster':'BOOSTER_PACK','bundle':'BUNDLE','box set':'COLLECTION','box sets':'COLLECTION',
+         'preconstructed deck':'STARTER_DECK','starter deck':'STARTER_DECK','draft boxes':'COLLECTION',
+         'bundles & sets':'COLLECTION','extra - box sets':'COLLECTION','cases & displays':'SEALED_PRODUCT'}
 
 
 def normalized(value):
     return ' '.join(''.join(c for c in unicodedata.normalize('NFKD',str(value or '')) if not unicodedata.combining(c)).casefold().split())
+
+
+def category_type(name,game):
+    text=normalized(name)
+    # The live export prefixes labels with the game, unlike older fixtures.
+    for label in (game.get('name'),game.get('display_name')):
+        prefix=normalized(label)+' '
+        if prefix.strip() and text.startswith(prefix):
+            text=text[len(prefix):];break
+    return TYPES.get(text)
+
+
+def expansion_system(system,expansion):
+    text=normalized(str(expansion.get('name',''))+' '+str(expansion.get('code','')))
+    # CardTrader shares one game ID between Masters and Fusion World.
+    if system=='DRAGON_BALL_SUPER_MASTERS' and ('fusion world' in text or re.search(r'\bf[bs][- ]?\d{1,3}\b',text)):
+        return 'DRAGON_BALL_SUPER_FUSION_WORLD'
+    return system
 
 
 def sealed_reference(blueprint, expansion, system, categories):
@@ -58,6 +80,7 @@ def sealed_reference(blueprint, expansion, system, categories):
 
 async def sealed_feed(client):
     games=await client.list_games()
+    game_records={str(g['id']):g for g in games}
     systems={str(g['id']):GAME_NAMES[normalized(g.get('name'))] for g in games
              if normalized(g.get('name')) in GAME_NAMES and str(g.get('id','')).isdecimal()}
     expansions=await client.list_expansions()
@@ -69,10 +92,11 @@ async def sealed_feed(client):
     categories={}
     for game_id in systems:
         rows=await client.list_categories(game_id=int(game_id))
-        categories[game_id]={str(r['id']):TYPES[normalized(r.get('name'))] for r in rows
-                            if str(r.get('game_id'))==game_id and normalized(r.get('name')) in TYPES}
+        categories[game_id]={str(r['id']):category_type(r.get('name'),game_records[game_id]) for r in rows
+                            if str(r.get('game_id'))==game_id and category_type(r.get('name'),game_records[game_id])}
     for expansion in sorted(selected,key=lambda e:int(e['id']),reverse=True):
         game_id=str(expansion['game_id'])
+        system=expansion_system(systems[game_id],expansion)
         if not categories[game_id]:
             continue
         await asyncio.sleep(.25)
@@ -81,13 +105,13 @@ async def sealed_feed(client):
             raise ValueError('Sealed blueprint feed exceeds limit')
         groups=defaultdict(list)
         for blueprint in blueprints:
-            row=sealed_reference(blueprint,expansion,systems[game_id],categories[game_id])
+            row=sealed_reference(blueprint,expansion,system,categories[game_id])
             if row:groups[row['language']].append(row)
         for language,rows in groups.items():
             released=expansion.get('released_at') or expansion.get('release_date')
             try:released=date.fromisoformat(str(released)[:10]).isoformat() if released else None
             except ValueError:released=None
-            yield {'provider':'CardTrader','system_code':systems[game_id],'language':language,
+            yield {'provider':'CardTrader','system_code':system,'language':language,
                    'set_id':str(expansion['id']),'name':str(expansion['name']),
                    'release_date':released,'source_url':rows[0]['source_url']},rows
 
