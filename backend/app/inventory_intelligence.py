@@ -201,7 +201,10 @@ async def inventory_intelligence(
                         and current_snapshot.owner_id=i.owner_id
                         and current_snapshot.catalogue_id=i.catalogue_id
                         and current_snapshot.algorithm_version='drop-rate-market-v4'
-                        and current_snapshot.sold_observation_count>=5
+                        and (current_snapshot.sold_observation_count>=5 or (
+                            current_snapshot.evidence->>'method'='LIVE_EBAY_MARKET_V1'
+                            and jsonb_array_length(current_snapshot.evidence->'comps')=5
+                        ))
                         and current_snapshot.evidence->'sources' @> '[{"source":"EBAY"}]'::jsonb
                   )
                 group by
@@ -221,7 +224,10 @@ async def inventory_intelligence(
                   and ps.owner_id=$1
                   and ps.catalogue_id=cg.catalogue_id
                   and ps.algorithm_version='drop-rate-market-v4'
-                  and ps.sold_observation_count>=5
+                  and (ps.sold_observation_count>=5 or (
+                      ps.evidence->>'method'='LIVE_EBAY_MARKET_V1'
+                      and jsonb_array_length(ps.evidence->'comps')=5
+                  ))
                   and ps.evidence->'sources' @> '[{"source":"EBAY"}]'::jsonb
                   and ps.calculated_at <= clock_timestamp() - make_interval(days => $2)
                   and ps.market_value_minor > 0

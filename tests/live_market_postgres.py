@@ -107,6 +107,12 @@ async def main():
         assert report['weekly_movers']['history_ready']
         assert report['weekly_movers']['gainers'][0]['prior_market_value_minor']==100
         assert not report['weekly_movers']['decliners']
+        # Five input sales remain a valid baseline when v4 removes one outlier.
+        filtered=await history(actor,'drop-rate-market-v4','EBAY',4,9,200)
+        await db.execute("""update tcg.pricing_snapshots set evidence=evidence ||
+          '{"method":"LIVE_EBAY_MARKET_V1","comps":[{},{},{},{},{}]}'::jsonb where id=$1""",filtered)
+        report=await inventory_intelligence(request,user,top_limit=5,window_days=7)
+        assert report['weekly_movers']['gainers'][0]['prior_market_value_minor']==200
         await db.execute('update tcg.inventory_items set latest_pricing_snapshot_id=$1 where id=$2',floor,a)
         report=await inventory_intelligence(request,user,top_limit=5,window_days=7)
         assert not report['weekly_movers']['history_ready'], 'Non-eBay current snapshot became a weekly mover'
