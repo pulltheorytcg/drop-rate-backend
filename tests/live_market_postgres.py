@@ -56,6 +56,12 @@ async def main():
        metadata jsonb,unique(source,source_record_key));
       create function tcg.audit_market_change() returns trigger language plpgsql as $$begin return new; end$$;
       grant usage on schema tcg to tcg_api; grant select,insert,update on all tables in schema tcg to tcg_api;
+      -- Match production: canonical identity has no API UPDATE grant, and
+      -- inventory only exposes explicit mutable columns, not table UPDATE.
+      revoke update on tcg.catalogue_products,tcg.inventory_items,
+        tcg.market_observations,tcg.pricing_snapshots from tcg_api;
+      grant update(market_value_minor,recommended_retail_minor,latest_pricing_snapshot_id,
+        pricing_updated_at,updated_at,version) on tcg.inventory_items to tcg_api;
       alter table tcg.inventory_items enable row level security;
       create policy owner_access on tcg.inventory_items to tcg_api using(tcg.is_platform_admin() or owner_id=tcg.current_user_id());
       alter table tcg.pricing_snapshots enable row level security;
@@ -194,6 +200,18 @@ async def main():
                 raise AssertionError('Stale inventory version accepted')
             except ValueError:pass
             assert await conn.fetchval('select count(*) from tcg.pricing_snapshots')==count,'Failed update left an orphan snapshot'
+            assert not await conn.fetchval("select has_any_column_privilege('tcg_api','tcg.catalogue_products','UPDATE')")
+            assert not await conn.fetchval("select has_table_privilege('tcg_api','tcg.inventory_items','UPDATE')")
+            # A printing change after selection must roll back the new snapshot
+            # and leave the current copy untouched, without broadening grants.
+            item['version']+=1
+            await db.execute("update tcg.catalogue_products set name='Changed print' where id=$1",cat)
+            try:
+                async with conn.transaction():await cardmarket.apply_inventory_guide(conn,item,value,now=now)
+                raise AssertionError('Changed catalogue identity accepted')
+            except ValueError:pass
+            finally:await db.execute("update tcg.catalogue_products set name='Seel' where id=$1",cat)
+            assert await conn.fetchval('select count(*) from tcg.pricing_snapshots')==count,'Changed printing left an orphan snapshot'
         async with user_connection(pool,actor,'guide-fixture') as conn:
             assert await conn.fetchval('select valuation_source from tcg.catalogue_reference_value_v2($1,$2)',unowned,'English')=='CARDMARKET_ESTIMATE'
             assert await conn.fetchval('select market_value_minor from tcg.catalogue_reference_value_v2($1,$2)',unowned,'Japanese') is None
