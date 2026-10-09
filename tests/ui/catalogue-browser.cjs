@@ -25,8 +25,8 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   f.w.URL.createObjectURL=()=> 'blob:catalogue-art';f.w.URL.revokeObjectURL=url=>revoked.push(url);
   f.browser.client.requestImage=async(path,options)=>{calls.push({path,...options});return waiting.promise;};
   const row={...card,image_url:'https://en.onepiece-cardgame.com/images/cardlist/card/OP16-077.png',reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=OP16-077'};
-  const pictures=Array.from({length:6},()=>f.browser.productImage(row));pictures.forEach(p=>f.w.document.body.append(p));
-  pictures.forEach(p=>p.querySelector('img').dispatchEvent(new f.w.Event('error')));
+  const pictures=Array.from({length:6},(_,i)=>f.browser.productImage({...row,reference_image_path:row.reference_image_path+'&copy='+i}));pictures.forEach(p=>f.w.document.body.append(p));
+  await tick();
   assert.equal(calls.length,4,'Artwork requests must be bounded');
   waiting.resolve(new f.w.Blob(['image'],{type:'image/png'}));await tick();await tick();
   assert.equal(calls.length,6);
@@ -39,13 +39,13 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   f.w.URL.createObjectURL=()=>{created++;return 'blob:stale';};f.w.URL.revokeObjectURL=()=>{};
   f.browser.client.requestImage=()=>waiting.promise;
   const picture=f.browser.productImage({...card,image_url:'https://en.onepiece-cardgame.com/images/cardlist/card/OP16-077.png',reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=OP16-077'});
-  f.w.document.body.append(picture);picture.querySelector('img').dispatchEvent(new f.w.Event('error'));
+  f.w.document.body.append(picture);await tick();
   f.logout();waiting.resolve(new f.w.Blob(['image'],{type:'image/png'}));await tick();assert.equal(created,0);f.finish();checks++;
  }
  {
   const f=fixture();f.browser.client.requestImage=async()=>{throw new Error('Unavailable');};
   const picture=f.browser.productImage({...card,image_url:'https://en.onepiece-cardgame.com/images/cardlist/card/OP16-077.png',fallback_image_url:'https://cdn.shopify.com/exact-approved.png',reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=OP16-077'});
-  f.w.document.body.append(picture);const img=picture.querySelector('img');img.dispatchEvent(new f.w.Event('error'));await tick();
+  f.w.document.body.append(picture);const img=picture.querySelector('img');await tick();
   assert.equal(img.src,'https://cdn.shopify.com/exact-approved.png');img.dispatchEvent(new f.w.Event('error'));
   assert.equal(picture.textContent,'Image unavailable');f.finish();checks++;
  }
@@ -63,7 +63,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(f.browser.sheet.textContent,/converted from EUR/);
   assert.equal(f.browser.sheet.querySelector('select'),select);assert.equal(select.value,'Near Mint');
   const request=f.calls.find(call=>call.url.endsWith('/market-values'));
-  assert.equal(request.method,'POST');assert.deepEqual(request.body.keys,[ref.key]);
+  assert.equal(request.method,'POST');assert.deepEqual(JSON.parse(request.body).keys,[ref.key]);
   f.finish();checks++;
  }
  {
@@ -153,6 +153,33 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   f.browser.filters.owned='owned';await f.browser.load();assert.doesNotMatch(f.browser.find('.dr-browse-content').textContent,/Luffy/);
   f.browser.filters.owned='all';await f.browser.load();assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
   f.finish();checks++;
+ }
+ // Cached navigation renders before revalidation, with isolation and bounded state.
+ {
+  let next=null;const f=fixture(()=>next?next.promise:Promise.resolve({items:[card]}));
+  f.browser.filters.q='Luffy';await f.browser.load();next=deferred();
+  const refresh=f.browser.load();assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
+  next.resolve({items:[{...card,name:'Updated card'}]});await refresh;
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Updated card/);
+  assert.equal(f.browser.pageCache.size,1);f.logout();assert.equal(f.browser.pageCache.size,0);f.finish();checks++;
+ }
+ // A return visit uses the session image cache, while logout destroys its bytes.
+ {
+  const f=fixture();let fetched=0;f.w.URL.createObjectURL=()=> 'blob:cached';f.w.URL.revokeObjectURL=()=>{};
+  f.browser.client.requestImage=async()=>{fetched++;return new f.w.Blob(['image'],{type:'image/png'});};
+  const row={...card,image_url:'https://en.onepiece-cardgame.com/images/cardlist/card/OP16-077.png',reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=OP16-077'};
+  let picture=f.browser.productImage(row);f.w.document.body.append(picture);await tick();await tick();
+  assert.equal(fetched,1);assert.equal(picture.querySelector('img').src,'blob:cached');
+  picture.remove();f.browser.clearArtwork();picture=f.browser.productImage(row);f.w.document.body.append(picture);await tick();
+  assert.equal(fetched,1);assert.equal(picture.querySelector('img').src,'blob:cached');
+  f.logout();assert.equal(f.browser.artworkCache.size,0);assert.equal(f.browser.artworkBytes,0);f.finish();checks++;
+ }
+ // Visible sealed navigation cannot inherit a card-checklist provider scope.
+ {
+  const f=fixture();f.browser.set={set_id:'OP11',provider:'Punk Records',system_code:'ONE_PIECE_CARD_GAME'};
+  f.browser.find('[data-type="SEALED"]').click();await tick();
+  assert.match(f.calls.at(-1).url,/product_type=SEALED/);assert.doesNotMatch(f.calls.at(-1).url,/provider=|set_id=/);
+  assert.equal(f.browser.find('[data-type="SEALED"]').getAttribute('aria-pressed'),'true');f.finish();checks++;
  }
  // Leaving Search with a sheet open dismisses it without stealing destination focus.
  {

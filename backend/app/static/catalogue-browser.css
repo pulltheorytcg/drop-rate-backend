@@ -24,6 +24,11 @@ body.dr-browser-open { overflow: hidden; }
 .dr-browse-context { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; font-size:13px; }
 .dr-browse-context strong { color:var(--browse-blue); }
 .dr-browse-context button { border:1px solid var(--browse-line); padding:7px 12px; border-radius:18px; font-size:11px; white-space:nowrap; }
+.dr-browse-types { display:flex; gap:6px; padding:6px 0 12px; }
+.dr-browse-types button { border:1px solid var(--browse-line); border-radius:18px; padding:8px 12px; font-size:12px; }
+.dr-browse-types button[aria-pressed="true"] { background:var(--browse-navy); color:white; border-color:var(--browse-navy); }
+.dr-browse-set-preview { width:100%; height:140px; position:relative; display:grid; place-items:center; order:-1; }
+.dr-browse-set-preview img { width:100%; height:140px; object-fit:contain; }
 .dr-browse-chips { display:flex; gap:6px; flex-wrap:wrap; padding:2px 0 12px; }
 .dr-browser .dr-browse-chip { padding:7px 10px; border:1px solid var(--browse-line); border-radius:18px; font-size:10px; max-width:100%; overflow-wrap:anywhere; }
 .dr-browser .dr-browse-clear { color:var(--browse-blue); font-size:11px; min-height:30px; margin-left:auto; }

@@ -162,6 +162,7 @@ GAMES_SQL = SET_CTE + """
 """
 
 SETS_SQL = SET_CTE + """
+ , set_page as (
  select *,count(*) over()::int as total_count,
         case when indexed_count=0 then 'UNAVAILABLE'
              when card_count>indexed_count then 'PARTIAL' else 'AVAILABLE' end as checklist_status
@@ -170,6 +171,15 @@ SETS_SQL = SET_CTE + """
    and ($4='' or strpos(lower(set_name),lower($4))>0 or strpos(lower(set_id),lower($4))>0)
  order by release_date desc nulls last,set_name,language,provider,set_id
  limit $5 offset $6
+ )
+ select page.*,preview.image_url,preview.provider_id,'REFERENCE'::text as source_kind
+ from set_page page left join lateral (
+   select r.image_url,r.provider_id from tcg.reference_cards r
+   where r.provider=page.provider and r.system_code=page.system_code
+     and r.language=page.language and r.set_id=page.set_id and r.image_url is not null
+   order by r.provider_id limit 1
+ ) preview on true
+ order by page.release_date desc nulls last,page.set_name,page.language,page.provider,page.set_id
 """
 
 # Only approved canonical media appears in catalogue results. Reference artwork
@@ -219,7 +229,7 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
                limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         rows = await connection.fetch(SETS_SQL, access["owner_id"], browse_systems(system_code), language, q.strip(), limit + 1, offset)
-    return jsonable_encoder({"items": [dict(row) for row in rows[:limit]], "has_more": len(rows) > limit,
+    return jsonable_encoder({"items": [with_artwork_path(row) for row in rows[:limit]], "has_more": len(rows) > limit,
                              "offset": offset, "total_count": rows[0]["total_count"] if rows else 0,
                              "coverage": "MASTER_SET_CATALOGUE"})
 
