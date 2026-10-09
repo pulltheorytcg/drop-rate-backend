@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Cardmarket fallback released and verified
+
+- PRs #557 and #558 are merged. Final application commit `2d3d519e6624195581a56d191e5f15d1eb73e25a` is live on Railway deployment `526cd73a-947d-4aaa-a06a-c9b4153c8e8c` with SUCCESS status and readiness 200. Current-head backend/UI and real PostgreSQL checks passed, as did all 2,759 pre-deploy tests and the original financial checks. Original infrastructure configuration remains intact and nothing is staged.
+- Revision 2's CARDMARKET_VALUES receipt completed at 20:10:23 UTC: all 463 canonical products checked, 164 exact guide bases/snapshots saved, 95 inventory copies updated, zero provider calls and zero Store Price updates. Current inventory coverage is **251/510**, up from 156/510. Shared catalogue evidence now covers 224 distinct products across both sources; guides remain independent of ownership.
+- All 156 previously valued copies retained the same amounts and snapshot IDs (fingerprint `0f4f76adfd4a711cd0e1735c8ab66e4b`). All 510 copies retain owner/Store Price/status fingerprint `ab62e1122c7e51df7a2288288a3c3005`. The 95 new estimates have zero sold observations, no automatic publication, confidence 0.4904, matching current catalogue digests and valid shared-snapshot links. Their original source times remain 09:52 UTC, not the calculation time. The 164 new public observations retain unspecified source language/condition and are PRICE_GUIDE evidence.
+- Pending physical copies remain **259**: One Piece 199, Dragon Ball Super 29, Pokémon 25 and Fusion World 6. Other-game mappings, grades, unsupported finishes and missing exact guides remain explicit gaps. The cache contains Cardmarket guides for 11,910 English and 4,590 Japanese Pokémon references plus 2,403 sealed references. The expanded reference fill is still incomplete after deployment interruption; its existing hourly continuation remains scheduled.
+- Daily maintenance remains due at 03:00 Europe/London; approved For-sale Shopify processing retains its immediate wake-up and minute recovery pass. Cardmarket changes did not change seller asking prices or trigger price publication. Shopify read-back confirms Brand Redesign UNPUBLISHED and Horizon MAIN. No fresh signed-in/iPhone acceptance is claimed. See [Cardmarket release evidence](docs/CARDMARKET_VALUATIONS.md).
+
 ## 9 October 2026 — Cardmarket production permission correction
 
 - PR #557 deployed successfully as `b0e9668` on `999d9e89-b8fd-4c45-be4c-8b172531a5bd` after all four current-head workflows, 2,759 backend tests and UI suites passed. The migration is applied, readiness is 200 and Brand Redesign remains UNPUBLISHED.
