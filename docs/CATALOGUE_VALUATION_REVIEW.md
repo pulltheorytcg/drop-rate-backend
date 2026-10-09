@@ -140,3 +140,52 @@ rejected. The reference label includes condition and evidence language. Both
 existing exact-card and exact-sealed-pack ingestion rules are recognized, with
 the same current-identity, five-sale and freshness checks. Revisioned receipts
 allow a corrected calculation to run without changing the earlier audit.
+
+## Verified release and remaining coverage — 9 October, 19:19 UTC
+
+PRs #551–#555 are merged. Deployment `4280c6a4-87b7-4a6a-9ea3-ba59c2fa159b`
+is SUCCESS at application commit `18c5a4e2272f948962840581337335037aa753de`.
+All three current-head CI workflows passed; Railway pre-deploy passed 2,728
+tests and its readiness probe returned 200. The additive evidence/snapshot
+migrations and the final reference-helper activation are applied.
+
+The revision-2 calculation checked all 463 canonical products, produced 129
+distinct product/basis valuations and reported 334 missing exact evidence. It
+read no inventory rows and made no provider requests. Before activating the
+reader, all 125 existing raw/sealed reference identities matched its results,
+with zero missing identities. Four additional bases are graded and are not
+displayed as raw-card reference values. Live checks confirm immutable API
+access, forced RLS and the absence of an inventory lookup in the helper.
+
+| Current reference evidence | Priced | Checked |
+| --- | ---: | ---: |
+| English card guides | 11,910 | 23,770 |
+| Japanese card guides | 2,510 | 3,560 |
+| Supported sealed packaging guides | 2,403 | 3,414 |
+
+All eight scheduled source imports have COMPLETE latest receipts. The full
+reference library contains 69,173 cards, 1,447 provider sets and 3,878 sealed
+products; all sealed references have artwork URLs. Completed imports and a
+completed coverage audit do not mean complete pricing. The expanded Pokémon
+price fill was interrupted by deployment and resumes after one-hour backoff.
+At this checkpoint there are zero TCGplayer quotes in the production cache;
+the exact-variant adapter passed live read-only and automated checks, but its
+English daily fill has not yet established stored coverage.
+
+The outstanding work for universal daily eBay algorithm values includes an
+external acquisition path for unowned catalogue references: the existing eBay
+request worker still targets inventory, whereas the new catalogue calculation
+is independent of inventory. A licensed/bulk sold feed or approved provider
+capacity must be selected alongside exact product/language/finish mappings;
+merely enabling more daily requests cannot resolve an exhausted quota or sparse
+sold evidence. No paid capacity has been purchased. Cards without five valid
+sales remain unknown, and the daily calculation never relabels old evidence as
+fresh. Current physical inventory coverage remains 156 of 510 copies.
+
+Brand Redesign is UNPUBLISHED. No listing was created for verification; the
+latest Shopify heartbeat had zero candidates and failures. eBay seller
+connection readiness and zero linked listings still leave live listing/order
+acceptance for the later launch. The current browser is signed out; this final
+release is verified through CI, deployment and database evidence, not a new
+signed-in/mobile visual pass. Inventory owners, status and seller Store Prices
+are unchanged.
