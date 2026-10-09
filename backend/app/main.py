@@ -174,10 +174,13 @@ def create_app() -> FastAPI:
         linked_draft_task: asyncio.Task | None = None
         market_task: asyncio.Task | None = None
         maintenance_tasks=[]
+        app.state.shopify_sync_wakeup = None
         from .catalogue_maintenance import run_loop
         for enabled,shopify in ((settings.catalogue_daily_refresh_enabled,False),(settings.shopify_auto_sync_enabled,True)):
             if enabled and settings.catalogue_maintenance_actor_user_id:
-                maintenance_tasks.append(asyncio.create_task(run_loop(app.state.db_pool,settings,shopify=shopify)))
+                wakeup = asyncio.Event() if shopify else None
+                if shopify:app.state.shopify_sync_wakeup = wakeup
+                maintenance_tasks.append(asyncio.create_task(run_loop(app.state.db_pool,settings,shopify=shopify,wakeup=wakeup)))
             elif enabled:
                 logger.error('Catalogue maintenance requires an authorised actor')
         if settings.ebay_market_refresh_enabled:

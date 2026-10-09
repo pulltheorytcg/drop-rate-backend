@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Immediate approved-stock Shopify trigger
+
+- The founder requested prompt Shopify sync when a seller approves stock for sale, while keeping Brand Redesign unpublished. Successful approval/edit/For-sale transactions now wake the existing sync worker after commit; it re-reads exact inventory/owner/version through the existing publication gates. No new service, queue type, schema change or eBay publication is introduced.
+- Coalesced signals preserve approvals arriving during a pass. The existing minute sweep recovers after restarts or other-replica writes. Draft, personal, sold, unapproved and archived stock retain their existing boundaries; provider processing is asynchronous, not instant.
+- Focused tests cover committed versus failed transactions, idle wake-up, in-flight wake-up, duplicate signals and disabled workers. Current-head CI, deployment and live read-back remain release gates.
+
 ## 9 October 2026 — Recurring refresh deployed and checked
 
 - PRs #548 and #549 are merged. Live API commit `c269f6d`, deployment `4a3e46b4-dc01-4c12-b0df-466f12c404c3`, reached SUCCESS at 15:23 UTC after 2,712 tests and all original financial/social pre-deploy checks. Current-head GitHub backend/UI and PostgreSQL integration passed. The original pre-deploy command is restored; no staged infrastructure changes remain.

@@ -15,6 +15,7 @@ from .access_control import require_platform_admin_request
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
+from .channel_sync_wakeup import request_shopify_sync
 from .db import user_connection
 from .physical_state import validate_physical_state
 from .schemas import (
@@ -659,7 +660,9 @@ async def update_inventory(
             raise HTTPException(status_code=409, detail={
                 "message": "Inventory item changed", "current_version": visible,
             })
-        return jsonable_encoder(dict(row))
+        result = jsonable_encoder(dict(row))
+    request_shopify_sync(request)
+    return result
 
 
 @router.post("/inventory/{inventory_id}/approve", dependencies=[Depends(require_platform_admin_request)])
@@ -728,7 +731,9 @@ async def approve_inventory(
             where id = $1 and owner_id = $2 and version = $3 returning *""",
             inventory_id, owner["id"], payload.version,
         )
-        return jsonable_encoder(dict(row))
+        result = jsonable_encoder(dict(row))
+    request_shopify_sync(request)
+    return result
 
 
 @router.post("/inventory/bulk-cost", dependencies=[Depends(require_platform_admin_request)])

@@ -205,9 +205,16 @@ async def shopify_pass(pool,settings):
         finally:await lock.execute('select pg_advisory_unlock($1)',847220093)
 
 
-async def run_loop(pool,settings,*,shopify=False):
+async def run_loop(pool,settings,*,shopify=False,wakeup=None):
     while True:
+        # Clear BEFORE scanning: an approval during a pass must cause another
+        # pass, not disappear into a subsequent clear/sleep race.
+        if wakeup is not None:wakeup.clear()
         try:await (shopify_pass if shopify else daily_pass)(pool,settings)
         except asyncio.CancelledError:raise
         except Exception as exc:log.error('Catalogue maintenance job=%s failed type=%s','SHOPIFY' if shopify else 'DAILY',type(exc).__name__)
-        await asyncio.sleep(60 if shopify else 300)
+        if wakeup is None:
+            await asyncio.sleep(60 if shopify else 300)
+        else:
+            try:await asyncio.wait_for(wakeup.wait(),timeout=60 if shopify else 300)
+            except asyncio.TimeoutError:pass

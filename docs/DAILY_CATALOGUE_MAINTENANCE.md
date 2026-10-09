@@ -50,6 +50,15 @@ existing publication and seller-sync switches. It selects at most ten active
 owners' APPROVED, FOR_SALE items that are unlinked or have a non-test DRAFT/ERROR
 link. Published, sold, personal, draft and inspection stock are not selected.
 
+Successful inventory approval, edits and For-sale preference transactions also
+wake the existing worker immediately after commit. Repeated signals coalesce;
+an approval during a running pass causes another pass. A failed/rolled-back
+transaction never triggers a wake-up. This is prompt asynchronous processing,
+not a promise of instantaneous external publication. The minute sweep remains
+the durable recovery path after a restart or a write on another replica.
+Archived/withdrawn products still require explicit relisting. No approval,
+identity, owner, media or publication gate is removed.
+
 Each item uses the existing exact Inventory ID/owner/version publication service,
 including deterministic handles, media, identity, price, shipping and remote
 read-back gates. The current source-of-truth Store Price is used. A reference or

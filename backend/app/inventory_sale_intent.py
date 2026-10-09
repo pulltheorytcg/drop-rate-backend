@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 
 from .auth import AuthenticatedUser, require_user
+from .channel_sync_wakeup import request_shopify_sync
 from .db import user_connection
 from .ebay_sales import withdraw_ebay_for_inventory
 from .ebay_sell_client import EbaySellApiError
@@ -181,15 +182,19 @@ async def change_inventory_sale_intent(
             inventory = dict(item)
 
     if payload.sale_intent == "FOR_SALE":
+        sync_requested = request_shopify_sync(request)
         return jsonable_encoder(
             {
                 "inventory": inventory,
                 "changed": changed,
                 "idempotent": not changed,
                 "requires_listing": True,
+                "shopify_sync_requested": sync_requested,
                 "message": (
-                    "Inventory is eligible to be listed again. "
-                    "No marketplace listing was reactivated automatically."
+                    "For-sale preference saved. Eligible approved stock is queued for Shopify; "
+                    "withdrawn listings and items awaiting review still need action."
+                    if sync_requested else
+                    "Inventory is eligible to be listed again. No marketplace listing was reactivated automatically."
                 ),
             }
         )
