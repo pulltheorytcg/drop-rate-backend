@@ -21,6 +21,17 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
 }
 (async()=>{
  {
+  const f=fixture();
+  f.browser.openProduct({...card,market_value_source:'TCGDEX_TCGPLAYER',market_quotes:[{source:'TCGDEX_TCGPLAYER',finish:'Normal',original_minor:42}]});
+  assert.match(f.browser.sheet.textContent,/TCGplayer US context · \$0.42/);
+  assert.match(f.browser.sheet.textContent,/Value pending/);
+  assert.doesNotMatch(f.browser.sheet.textContent,/£0.42/);
+  f.browser.openProduct({...card,key:'s:guide',product_type:'SEALED',market_value_source:'CARDMARKET_BULK',market_value_minor:8000,market_quotes:[]});
+  assert.match(f.browser.sheet.textContent,/Reference: £80.00/);
+  assert.match(f.browser.sheet.textContent,/spans languages and conditions/);
+  f.finish();checks++;
+ }
+ {
   const f=fixture(),waiting=deferred(),calls=[],revoked=[];
   f.w.URL.createObjectURL=()=> 'blob:catalogue-art';f.w.URL.revokeObjectURL=url=>revoked.push(url);
   f.browser.client.requestImage=async(path,options)=>{calls.push({path,...options});return waiting.promise;};

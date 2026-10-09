@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Catalogue-wide price evidence extension
+
+- Audited v4, actual provider evidence, catalogue scope and channel behavior; see [valuation review](docs/CATALOGUE_VALUATION_REVIEW.md). Daily reference work now includes Japanese Pokémon, exact-variant TCGplayer US context and ID-matched Cardmarket packaging guides. These remain separate from physical five-sale eBay UK values and seller Store Price.
+- Full-reference coverage receipts make unmapped/unsupported/stale evidence visible; append-only quote history preserves provenance and deduplicates retries. Bounded daily-slot continuation avoids reprocessing completed parts of the first fill. No paid plan or new service is added.
+- PR #551 is deployed as `bb7dabf`, Railway deployment `299992fa-c3a6-46ea-9748-b830c9200c0c` SUCCESS. Its immediate approval trigger passed full backend/UI and PostgreSQL CI. Brand Redesign remains unpublished.
+- This extension still requires current-head CI, migration, deployment and live coverage read-back before release completion. eBay capacity and exact mappings remain real coverage gaps, not zero values.
+
 ## 9 October 2026 — Immediate approved-stock Shopify trigger
 
 - The founder requested prompt Shopify sync when a seller approves stock for sale, while keeping Brand Redesign unpublished. Successful approval/edit/For-sale transactions now wake the existing sync worker after commit; it re-reads exact inventory/owner/version through the existing publication gates. No new service, queue type, schema change or eBay publication is introduced.

@@ -13,7 +13,8 @@ receipt; a complete source is skipped until the next day. Interrupted/incomplete
 sources wait one hour before retrying. Session advisory locks prevent overlap
 between replicas/deployments. External calls are outside database transactions.
 An explicit importer revision change starts a new attempt, preserving previous
-receipts; revision 2 corrects CardTrader's live game-prefixed category labels.
+receipts; revision 2 corrects CardTrader's live game-prefixed category labels; revision 3
+preserves explicit Cardmarket product IDs for daily packaging guides.
 
 The existing TCGdex, Punk Records, Bandai and Naruto importers upsert reference
 sets/cards. One Piece imports now hydrate exact images from full packs. The
@@ -30,12 +31,20 @@ never inherit a loose-card valuation. Unknown-language references do not match
 an English/Japanese filter. Known provider release dates remain enforced.
 
 The daily price pass fills/refreshes up to
-`TCG_CATALOGUE_PRICE_REFRESH_LIMIT` (default 20,000) due English Pokémon references
-through the existing exact-variant TCGdex/Cardmarket adapter. Batches contain 40
+`TCG_CATALOGUE_PRICE_REFRESH_LIMIT` (default 20,000) due English/Japanese Pokémon references
+through exact-variant TCGdex/Cardmarket prices and TCGplayer US supporting data. Batches contain 40
 keys; the existing six-request bound applies and a pass reuses one historical FX
 download. Whole-batch provider failure stops the pass rather than making a storm
 of requests. Receipts report checked, priced and failed counts separately; no
 quote or exhausted capacity is not a zero valuation.
+
+The daily selection uses the London daily slot and importer revision so a
+large first fill continues without repeatedly processing the same finished rows.
+Daily Cardmarket bulk packaging guides use exact cross-provider IDs for Pokémon
+and One Piece. Separate coverage receipts account for every card/sealed reference,
+including missing mappings/feed coverage. New quotes are retained in append-only
+history; duplicate retries do not duplicate evidence. See the
+[catalogue valuation review](CATALOGUE_VALUATION_REVIEW.md).
 
 These are labelled Cardmarket reference values. Physical inventory remains on
 the existing eBay UK sold-market v4 worker, which already refreshes supported

@@ -75,6 +75,7 @@ def sealed_reference(blueprint, expansion, system, categories):
             'source_url':f'https://api.cardtrader.com/api/v2/blueprints/export?expansion_id={expansion["id"]}',
             'evidence':{'category_id':blueprint['category_id'],'expansion_id':expansion['id'],
                         'provider_version':version,'physical_language_unresolved':language=='Unknown',
+                        'cardmarket_product_id': str(blueprint['cardmarket_id']) if str(blueprint.get('cardmarket_id','')).isdigit() and int(blueprint['cardmarket_id'])>0 else None,
                         'exact_product_verified':False,'retrieval_only':True}}
 
 

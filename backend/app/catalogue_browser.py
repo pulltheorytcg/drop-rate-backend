@@ -112,8 +112,8 @@ with reference_base as not materialized (
         case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_high_minor end as reference_value_high_minor,
         m.pricing_updated_at as reference_pricing_updated_at,
         case when m.pricing_updated_at>=now()-interval '7 days' then m.quotes else '[]'::jsonb end as market_quotes,
-        (r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language='English'
-          and (m.expires_at is null or m.expires_at<=now())) as market_refresh_needed
+        (r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language in ('English','Japanese')
+          and (m.expires_at is null or m.expires_at<=now() or m.refresh_revision<2)) as market_refresh_needed
  from reference_base r left join exact_links l using(provider,system_code,language,provider_id)
  left join tcg.reference_market_prices m using(provider,system_code,language,provider_id)
  union all
@@ -121,8 +121,11 @@ with reference_base as not materialized (
         null::uuid,'SEALED'::text,r.system_code,{GAME_CASE},r.name,s.name,r.set_id,
         null::text,'CardTrader sealed '||r.provider_id,r.product_type,r.language,r.image_url,
         s.release_date,r.provider,r.provider_id,r.source_url,'SEALED_REFERENCE'::text,
-        null::bigint,null::bigint,null::timestamptz,'[]'::jsonb,false
+        case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_minor end,
+        case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_high_minor end,
+        m.pricing_updated_at,case when m.pricing_updated_at>=now()-interval '7 days' then m.quotes else '[]'::jsonb end,false
  from tcg.reference_sealed_products r join tcg.reference_sets s using(provider,system_code,language,set_id)
+ left join tcg.reference_sealed_market_prices m using(provider,system_code,language,provider_id)
  where s.release_date is null or s.release_date<=current_date
  union all
  select 'c:'||p.id::text,p.id,case when pr.collectible_type='SEALED' then 'SEALED' else p.product_type end,pr.system_code,p.game,p.name,p.set_name,
@@ -219,10 +222,12 @@ SORTS = {
 def price_columns(entry: str) -> str:
     return f"""coalesce(v.market_value_minor,{entry}.reference_value_minor) as market_value_minor,
         case when v.market_value_minor is null then {entry}.reference_value_high_minor end as market_value_high_minor,
-        coalesce(v.basis_condition,case when {entry}.reference_value_minor is not null then 'Raw · Cardmarket' end) as basis_condition,
+        coalesce(v.basis_condition,case when {entry}.reference_value_minor is not null
+          then case when {entry}.source_kind='SEALED_REFERENCE' then 'Sealed · Cardmarket mixed-language guide' else 'Raw · Cardmarket' end end) as basis_condition,
         coalesce(v.pricing_updated_at,{entry}.reference_pricing_updated_at) as pricing_updated_at,
         case when v.market_value_minor is not null then 'STORED_SNAPSHOT'
-             when {entry}.reference_value_minor is not null then 'TCGDEX_CARDMARKET' end as market_value_source"""
+             when {entry}.reference_value_minor is not null then case when {entry}.source_kind='SEALED_REFERENCE' then 'CARDMARKET_BULK' else 'TCGDEX_CARDMARKET' end
+             when {entry}.market_quotes<>'[]'::jsonb then 'TCGDEX_TCGPLAYER' end as market_value_source"""
 
 
 async def browser_access(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)]) -> dict:

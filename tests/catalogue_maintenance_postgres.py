@@ -44,15 +44,15 @@ async def main():
             version int,listing_key text,shopify_product_gid text,shopify_variant_gid text,synced_price_minor bigint,
             last_synced_at timestamptz,reserved_order_reference text,reserved_line_reference text);
           create table tcg.audit_events(actor text,request_id text,action text,entity_type text,entity_id uuid,old_values jsonb,new_values jsonb);
-          create table tcg.reference_market_prices(provider text,system_code text,language text,provider_id text,market_value_minor bigint,
-            market_value_high_minor bigint,pricing_updated_at timestamptz,quotes jsonb,expires_at timestamptz);
           create table tcg.media_assets(catalogue_id uuid,shopify_cdn_url text,public_source_url text,scope text,side text,media_kind text,
             approval_status text,rights_status text,rights_tier text,source_status text,revoked_at timestamptz,approved_at timestamptz,created_at timestamptz,id uuid);
           create function tcg.recognition_catalogue_reference_value(uuid,text) returns table(market_value_minor bigint,basis_condition text,pricing_updated_at timestamptz)
             language sql stable as $$select null::bigint,null::text,null::timestamptz where false$$;
           grant usage on schema tcg to tcg_api;grant select,insert,update on all tables in schema tcg to tcg_api;
         ''')
+        await db.execute((Path(__file__).parents[1]/'database/migrations/20261008182234_reference_market_prices.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261009144903_catalogue_daily_maintenance.sql').read_text())
+        await db.execute((Path(__file__).parents[1]/'database/migrations/20261009183154_catalogue_market_evidence.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20260930124000_shopify_price_reconciliation.sql').read_text())
         actor=UUID('00000000-0000-0000-0000-000000000001');owner=uuid4()
         await db.execute("set role tcg_api")
@@ -71,6 +71,34 @@ async def main():
         sets=await db.fetch(SETS_SQL,owner,['POKEMON_TCG'],'Unknown','',41,0)
         assert len(sets)==1 and sets[0]['image_url']==product['image_url'] and sets[0]['indexed_count']==1
         assert (await db.fetch(GAMES_SQL,owner))[0]['products']==1
+        from app.sealed_market import WRITE_SQL
+        from app.catalogue_coverage import COVERAGE_SQL
+        from datetime import datetime,timedelta,timezone
+        now=datetime.now(timezone.utc)
+        quote={'source':'CARDMARKET_BULK','price_gbp_minor':1000,'observed_at':now.isoformat()}
+        args=('CardTrader','POKEMON_TCG','Unknown','12',[quote],1000,1000,now,now,now+timedelta(days=1))
+        sealed_args=args
+        await db.execute(WRITE_SQL,*args);await db.execute(WRITE_SQL,*args)
+        assert await db.fetchval('select count(*) from tcg.reference_market_history')==1,'Identical retry duplicated history'
+        sql,params=product_query(owner_id=owner,product_type='SEALED')
+        priced=(await db.fetch(sql,*params))[0]
+        assert priced['market_value_minor']==1000 and priced['market_value_source']=='CARDMARKET_BULK'
+        assert 'mixed-language' in priced['basis_condition']
+        assert (await db.fetch(COVERAGE_SQL))[0]['status']=='MIXED_LANGUAGE_GUIDE'
+        older=list(args);older[5]=older[6]=500;older[8]=now-timedelta(days=1)
+        await db.execute(WRITE_SQL,*older)
+        assert await db.fetchval('select market_value_minor from tcg.reference_sealed_market_prices')==1000
+        assert await db.fetchval('select count(*) from tcg.reference_market_history')==1
+        try:
+            await db.execute('delete from tcg.reference_market_history')
+            raise AssertionError('API deleted immutable public price history')
+        except asyncpg.InsufficientPrivilegeError:pass
+        await db.execute("insert into tcg.reference_cards(provider,system_code,language,provider_id) values('TCGdex','POKEMON_TCG','Japanese','fixture')")
+        from app.reference_market import WRITE_SQL as CARD_PRICE_SQL
+        support=[{'source':'TCGDEX_TCGPLAYER','original_minor':42,'original_currency':'USD','observed_at':now.isoformat()}]
+        await db.execute(CARD_PRICE_SQL,'TCGdex','POKEMON_TCG','Japanese','fixture',support,None,None,now,now,now+timedelta(days=1))
+        assert await db.fetchval('select market_value_minor from tcg.reference_market_prices') is None
+        assert await db.fetchval('select count(*) from tcg.reference_market_history')==2
         await db.execute("insert into tcg.owners values($1,true)",owner)
         ids=[uuid4() for _ in range(6)]
         for i,(status,intent) in enumerate([('APPROVED','FOR_SALE'),('DRAFT','FOR_SALE'),('APPROVED','PERSONAL_COLLECTION'),('SOLD','FOR_SALE'),('APPROVED','FOR_SALE'),('APPROVED','FOR_SALE')]):
@@ -95,6 +123,11 @@ async def main():
         assert await db.fetchval('select store_price_minor from tcg.inventory_items where id=$1',ids[4])==1500
         await db.execute("select set_config('tcg.user_id',$1,false)",str(owner))
         assert await db.fetchval('select count(*) from tcg.reference_sealed_products')==1
+        assert await db.fetchval('select count(*) from tcg.reference_market_history')==2
+        try:
+            await db.execute(WRITE_SQL,*sealed_args)
+            raise AssertionError('Non-admin replaced sealed price evidence')
+        except asyncpg.InsufficientPrivilegeError:pass
         assert await db.fetchval('select count(*) from tcg.catalogue_job_runs')==0
         try:
             await db.execute("insert into tcg.catalogue_job_runs(job,actor_user_id,status) values('SHOPIFY_SYNC',$1,'RUNNING')",owner)

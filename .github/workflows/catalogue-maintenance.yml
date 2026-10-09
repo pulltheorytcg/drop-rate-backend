@@ -4,8 +4,12 @@ on:
     paths:
       - 'backend/app/catalogue_maintenance.py'
       - 'backend/app/reference_sealed.py'
+      - 'backend/app/reference_market.py'
+      - 'backend/app/sealed_market.py'
+      - 'backend/app/catalogue_coverage.py'
       - 'backend/app/catalogue_browser.py'
       - 'database/migrations/*catalogue_daily_maintenance.sql'
+      - 'database/migrations/*catalogue_market_evidence.sql'
       - 'database/migrations/*shopify_price_reconciliation.sql'
       - 'tests/*catalogue_maintenance*'
       - '.github/workflows/catalogue-maintenance.yml'
