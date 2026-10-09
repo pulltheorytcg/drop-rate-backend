@@ -225,7 +225,7 @@ def price_columns(entry: str) -> str:
         coalesce(v.basis_condition,case when {entry}.reference_value_minor is not null
           then case when {entry}.source_kind='SEALED_REFERENCE' then 'Sealed · Cardmarket mixed-language guide' else 'Raw · Cardmarket' end end) as basis_condition,
         coalesce(v.pricing_updated_at,{entry}.reference_pricing_updated_at) as pricing_updated_at,
-        case when v.market_value_minor is not null then 'STORED_SNAPSHOT'
+        case when v.market_value_minor is not null then v.valuation_source
              when {entry}.reference_value_minor is not null then case when {entry}.source_kind='SEALED_REFERENCE' then 'CARDMARKET_BULK' else 'TCGDEX_CARDMARKET' end
              when {entry}.market_quotes<>'[]'::jsonb then 'TCGDEX_TCGPLAYER' end as market_value_source"""
 
@@ -297,7 +297,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
     if sort in ("value_desc", "value_asc"):
         query = SOURCE_CTE + f""", reference_values as materialized (
       select p.id,v.* from tcg.catalogue_products p
-      left join lateral tcg.recognition_catalogue_reference_value(p.id,nullif(p.language,'')) v on true
+      left join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) v on true
     ), page as (
       select e.*,coalesce(o.quantity,0) as owned_quantity,{price_columns('e')},
              row_number() over(order by {order}) as ordinal
@@ -320,7 +320,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
                  media.url as fallback_image_url
           from page left join lateral (
             select value.* from tcg.catalogue_products p
-            cross join lateral tcg.recognition_catalogue_reference_value(p.id,nullif(p.language,'')) value
+            cross join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) value
             where p.id=page.catalogue_id
           ) v on page.catalogue_id is not null
           left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null order by page.ordinal

@@ -17,7 +17,7 @@
     const marketValueHeader = document.createElement("th");
     marketValueHeader.dataset.marketValueColumn = "true";
     marketValueHeader.textContent = "Market value";
-    marketValueHeader.title = "Drop Rate valuation from exact eBay UK sold comparisons";
+    marketValueHeader.title = "Drop Rate valuation; Cardmarket guide estimates are labelled separately";
     headerRow.insertBefore(marketValueHeader, storePriceHeader);
   }
 
@@ -56,10 +56,13 @@
         const value = values.get(cell.dataset.inventoryId);
         if (!value) return;
         cell.textContent = formatGBP(value.market_value_minor);
+        if(value.market_value_minor!=null && value.pricing_method==="CARDMARKET_GUIDE_V1"){
+          const note=document.createElement("small");note.style.display="block";note.textContent="Cardmarket estimate";cell.append(note);
+        }
         if (value.pricing_updated_at) {
           const updated = new Date(value.pricing_updated_at);
           if (!Number.isNaN(updated.getTime())) {
-            cell.title = `Market value updated ${updated.toLocaleString("en-GB")}`;
+            cell.title = `${value.pricing_method==="CARDMARKET_GUIDE_V1"?"Cardmarket guide":"Market value"} updated ${updated.toLocaleString("en-GB")}${value.pricing_limitation?" · "+value.pricing_limitation:""}`;
           }
         }
       });

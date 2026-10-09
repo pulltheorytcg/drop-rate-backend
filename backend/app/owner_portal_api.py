@@ -286,6 +286,10 @@ async def owner_overview(
             """
             select
                 count(*)::int as total_inventory_count,
+                count(*) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+                    and market_value_minor is not null and exists(select 1 from tcg.pricing_snapshots ps
+                    where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id and ps.inventory_id=i.id
+                    and ps.evidence->>'method'='CARDMARKET_GUIDE_V1'))::int as guide_estimate_count,
                 count(*) filter (where status='DRAFT')::int as draft_count,
                 count(*) filter (where status='INSPECTION')::int as inspection_count,
                 count(*) filter (where status='APPROVED')::int as approved_count,
@@ -309,7 +313,7 @@ async def owner_overview(
                 coalesce(sum(coalesce(store_price_minor,recommended_retail_minor)) filter (
                     where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
                 ),0)::bigint as active_store_value_minor
-            from tcg.inventory_items
+            from tcg.inventory_items i
             where owner_id=$1
             """,
             owner_id,
@@ -351,6 +355,9 @@ async def owner_insights(
                 i.grade,
                 coalesce(i.language,p.language) as language,
                 i.market_value_minor,
+                (select ps.evidence->>'method' from tcg.pricing_snapshots ps
+                 where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id
+                   and ps.inventory_id=i.id and ps.catalogue_id=i.catalogue_id) as pricing_method,
                 coalesce(i.store_price_minor,i.recommended_retail_minor)
                     as store_value_minor,
                 i.pricing_updated_at,
@@ -402,12 +409,14 @@ async def owner_insights(
             """
             with latest as (
                 select distinct on (ps.inventory_id)
-                    ps.inventory_id,
+                    ps.inventory_id,ps.catalogue_id,ps.evidence->>'method' as pricing_method,
                     ps.market_value_minor as current_value_minor,
                     ps.calculated_at as current_at
                 from tcg.pricing_snapshots ps
                 join tcg.inventory_items i on i.id=ps.inventory_id
-                where ps.owner_id=$1
+                where ps.owner_id=$1 and ps.id=i.latest_pricing_snapshot_id
+                  and ps.catalogue_id=i.catalogue_id and ps.algorithm_version='drop-rate-market-v4'
+                  and ps.evidence->>'method'='LIVE_EBAY_MARKET_V1'
                   and i.owner_id=$1
                   and i.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
                 order by ps.inventory_id,ps.calculated_at desc,ps.id desc
@@ -425,6 +434,8 @@ async def owner_insights(
                     from tcg.pricing_snapshots ps
                     where ps.owner_id=$1
                       and ps.inventory_id=latest.inventory_id
+                      and ps.catalogue_id=latest.catalogue_id and ps.algorithm_version='drop-rate-market-v4'
+                      and ps.evidence->>'method'=latest.pricing_method
                       and ps.calculated_at <= latest.current_at - interval '6 days'
                       and ps.calculated_at >= latest.current_at - interval '14 days'
                     order by ps.calculated_at desc,ps.id desc
@@ -612,6 +623,9 @@ async def owner_channels(
                 i.inventory_code,
                 i.status as inventory_status,i.sale_intent,i.version,
                 i.market_value_minor,
+                (select ps.evidence->>'method' from tcg.pricing_snapshots ps
+                 where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id
+                   and ps.inventory_id=i.id and ps.catalogue_id=i.catalogue_id) as pricing_method,
                 coalesce(i.store_price_minor,i.recommended_retail_minor)
                     as store_value_minor,
                 p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,
@@ -1067,6 +1081,9 @@ async def owner_inventory(
                 i.grade,
                 i.status,
                 i.market_value_minor,
+                (select ps.evidence->>'method' from tcg.pricing_snapshots ps
+                 where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id
+                   and ps.inventory_id=i.id and ps.catalogue_id=i.catalogue_id) as pricing_method,
                 i.store_price_minor,
                 i.recommended_retail_minor,
                 i.pricing_updated_at,

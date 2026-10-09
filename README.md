@@ -30,6 +30,10 @@ Protected routes require a valid Supabase bearer token. The verified user ID is 
 
 ## Market data
 
+Current Cardmarket extension: [Cardmarket valuations](docs/CARDMARKET_VALUATIONS.md)
+documents the explicitly requested, labelled guide fallback alongside exact eBay
+UK sold valuations. See BUILD_STATUS.md for measured deployment/coverage evidence.
+
 Current inventory refresh: [Live eBay UK market refresh](docs/LIVE_EBAY_MARKET_REFRESH.md) documents the explicitly approved October 2026 sold-price repair. It uses the existing Trawl UK sold-data access and v4 algorithm; the historical integration notes below describe the earlier foundation.
 
 Market integrations are modular. Production pricing remains disabled until provider evidence has been validated.

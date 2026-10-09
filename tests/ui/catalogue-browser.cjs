@@ -343,5 +343,14 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(f.calls.filter(c=>c.url.includes('/products?')).length,2);
   f.finish();checks++;
  }
+ {
+  const estimate={...card,market_value_minor:170,market_value_source:'CARDMARKET_ESTIMATE',market_refresh_needed:true,
+    basis_condition:'Cardmarket guide · mixed languages and conditions',pricing_updated_at:'2026-10-09T10:00:00Z'};
+  const f=fixture(async()=>({items:[estimate]}));f.browser.games=games;f.browser.filters.q='card';await f.browser.open();
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Estimate: £1.70/);
+  f.browser.openProduct(estimate);assert.match(f.browser.sheet.textContent,/not a condition-adjusted UK sold value/);
+  assert.equal(f.calls.filter(c=>c.url.includes('/market-values')).length,0);
+  f.finish();checks++;
+ }
  console.log('Catalogue browser: '+checks+' search, navigation, filter, ownership, session and retry scenarios passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

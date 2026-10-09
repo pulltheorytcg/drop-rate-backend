@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Cardmarket valuation fallback implementation
+
+- The founder requested Cardmarket as an additional valuation source. The existing v4 engine now receives exact cached Cardmarket printing/finish guides through a catalogue-wide calculation and a labelled physical-inventory fallback. Fresh exact eBay values take priority; slabs, worn/unknown-condition copies, mismatched languages, ambiguous references and pending provider mappings are excluded. No new paid API, canonical approval or Store Price change.
+- Cardmarket guides retain EUR/ECB provenance, mixed-language/condition limitations and original dates. They have zero sold transactions, confidence capped at 0.60 and automatic publication disabled. Public catalogue snapshots remain independent of inventory. Cached intake/manual recalculation works without another provider request, and daily receipts make coverage explicit.
+- Inventory rows and portfolio totals label/count Cardmarket estimates. The source-labelled catalogue reader is security-invoker; the prior eBay helper remains intact. A pre-release read-only match check found 165 candidate catalogue guides before the final rarity check; actual post-deploy inventory coverage must be measured separately.
+- Focused and full backend tests plus 34 catalogue UI scenarios pass locally. Expanded real PostgreSQL CI covers both workers, unowned products, stale updates, owner isolation, retry deduplication and immutable history. Current-head CI, migration, deployment and live read-back remain release gates. See [Cardmarket valuations](docs/CARDMARKET_VALUATIONS.md).
+
 ## 9 October 2026 — Catalogue refresh release verified
 
 - PRs #551–#555 are merged. Final application commit `18c5a4e2272f948962840581337335037aa753de` deployed successfully as `4280c6a4-87b7-4a6a-9ea3-ba59c2fa159b`. Current-head Backend checks, Catalogue maintenance persistence and Independent catalogue valuations passed. Railway pre-deploy passed 2,728 tests; readiness returned 200 in deployment logs. Original financial/social checks and infrastructure configuration remain intact, with no staged changes.

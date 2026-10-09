@@ -13,6 +13,7 @@ from app.db import _init_connection,user_connection
 from app import live_market_refresh as market
 from app.ebay_sold_pricing import TrawlApiError
 from app.inventory_intelligence import inventory_intelligence
+from app import cardmarket_valuations as cardmarket
 
 
 async def main():
@@ -30,7 +31,7 @@ async def main():
       create table tcg.owner_memberships(id uuid,user_id uuid,owner_id uuid,role text,active boolean,created_at timestamptz default now());
       create function tcg.is_platform_admin() returns boolean language sql stable as
        $$select exists(select 1 from tcg.owner_memberships where user_id=tcg.current_user_id() and active and role='PLATFORM_ADMIN')$$;
-      create table tcg.catalogue_products(id uuid primary key,product_type text,game text,name text,set_name text,card_number text,variant text,rarity text);
+      create table tcg.catalogue_products(id uuid primary key,product_type text,game text,name text,set_name text,card_number text,variant text,rarity text,language text);
       create table tcg.catalogue_product_profiles(catalogue_id uuid,set_code text,identity_status text);
       create table tcg.sealed_product_details(catalogue_id uuid,identity_status text);
       create table tcg.catalogue_taxonomy_assignments(catalogue_id uuid,value_code text,scope_kind text,dimension_code text,verification_status text,created_at timestamptz);
@@ -38,6 +39,12 @@ async def main():
        condition text,grading_company text,grade text,language text,seal_status text,store_price_minor bigint,market_value_minor bigint,
        recommended_retail_minor bigint,latest_pricing_snapshot_id uuid,pricing_updated_at timestamptz,updated_at timestamptz);
       create table tcg.pricing_policies(owner_id uuid);
+      create table tcg.catalogue_job_runs(id uuid primary key default gen_random_uuid(),job text constraint catalogue_job_runs_job_check
+       check(job in ('REFERENCE_PRICES')),actor_user_id uuid,status text,report jsonb,started_at timestamptz default now(),finished_at timestamptz);
+      create table tcg.reference_cards(provider text,system_code text,language text,provider_id text,set_id text,name text,card_number text,rarity text);
+      create table tcg.reference_sets(provider text,system_code text,language text,set_id text,name text,release_date date);
+      create table tcg.reference_market_prices(provider text,system_code text,language text,provider_id text,quotes jsonb);
+      create table tcg.provider_catalogue_mappings(catalogue_id uuid,source_provider text,provider_language text,match_status text);
       create table tcg.pricing_snapshots(id uuid primary key default gen_random_uuid(),inventory_id uuid,catalogue_id uuid,owner_id uuid,
        market_value_minor bigint,recommended_retail_minor bigint,quick_sale_minor bigint,target_acquisition_minor bigint,confidence numeric,
        source_count int,observation_count int,sold_observation_count int,volatility_pct numeric,newest_observation_at timestamptz,algorithm_version text,
@@ -50,15 +57,19 @@ async def main():
       grant usage on schema tcg to tcg_api; grant select,insert,update on all tables in schema tcg to tcg_api;
       alter table tcg.inventory_items enable row level security;
       create policy owner_access on tcg.inventory_items to tcg_api using(tcg.is_platform_admin() or owner_id=tcg.current_user_id());
+      alter table tcg.pricing_snapshots enable row level security;
+      create policy owner_access on tcg.pricing_snapshots to tcg_api using(tcg.is_platform_admin() or owner_id=tcg.current_user_id());
     ''')
     root=Path(__file__).parents[1]
     await db.execute((root/'database/migrations/202609230014_market_ingestion_runs.sql').read_text())
     await db.execute((root/'database/migrations/20261009073244_current_ebay_reference_values.sql').read_text())
+    await db.execute((root/'database/migrations/20261009184349_independent_catalogue_valuations.sql').read_text())
+    await db.execute((root/'database/migrations/20261009193333_cardmarket_valuation_fallback.sql').read_text())
     actor,other,cat,a,b= [uuid4() for _ in range(5)]
     for owner in (actor,other):
         await db.execute("insert into tcg.owners(id,display_name,owner_type,founder_slot,active) values($1,'Fixture','FOUNDER',1,true)",owner)
     await db.execute("insert into tcg.owner_memberships(id,user_id,owner_id,role,active) values($1,$1,$1,'PLATFORM_ADMIN',true)",actor)
-    await db.execute("insert into tcg.catalogue_products values($1,'CARD','Pokemon','Seel','Phantasmal Flames','021/094','Normal','Common')",cat)
+    await db.execute("insert into tcg.catalogue_products values($1,'CARD','Pokemon','Seel','Phantasmal Flames','021/094','Normal','Common',null)",cat)
     for ident,owner in ((a,actor),(b,other)):
         await db.execute("""insert into tcg.inventory_items(id,owner_id,inventory_code,catalogue_id,version,status,identity_confirmed,condition,language,store_price_minor)
          values($1::uuid,$2,$1::uuid::text,$3,1,'APPROVED',true,'Near Mint','English',9000)""",ident,owner,cat)
@@ -131,9 +142,82 @@ async def main():
         assert await db.fetchval('select pg_try_advisory_lock($1)',market.LOCK)
         assert (await market.refresh_pass(pool,settings))['status']=='ALREADY_RUNNING'
         await db.execute('select pg_advisory_unlock($1)',market.LOCK)
+
+        # Exact public Cardmarket guides cover an unowned product and the same
+        # raw printing, without overwriting a current owner's eBay value.
+        await _init_connection(db)
+        unowned=uuid4()
+        await db.execute("insert into tcg.catalogue_products values($1,'CARD','Pokemon','Absol','Phantasmal Flames','063/094','Normal','Common',null)",unowned)
+        await db.execute("insert into tcg.reference_sets values('TCGdex','POKEMON_TCG','English','me02','Phantasmal Flames',current_date-1)")
+        now=datetime.now(timezone.utc);observed=now-timedelta(hours=3)
+        quote={'source':'TCGDEX_CARDMARKET','finish':'Normal','variant_id':'exact-normal','product_id':'857638',
+            'original_currency':'EUR','original_minor':200,'price_gbp_minor':170,'fx_rate_to_gbp':'0.85',
+            'source_field':'trend','fx_source':'ECB_EURO_REFERENCE_RATES','observed_at':observed.isoformat(),
+            'fx_effective_at':observed.isoformat(),'fx_retrieved_at':now.isoformat()}
+        for ident,name,number in [('me02-021','Seel','021/94'),('me02-063','Absol','063/94')]:
+            await db.execute("insert into tcg.reference_cards values('TCGdex','POKEMON_TCG','English',$1,'me02',$2,$3,'Common')",ident,name,number)
+            await db.execute("insert into tcg.reference_market_prices values('TCGdex','POKEMON_TCG','English',$1,$2::jsonb)",ident,[quote])
+        await db.execute('''update tcg.inventory_items i set latest_pricing_snapshot_id=s.id,
+          market_value_minor=s.market_value_minor,pricing_updated_at=s.calculated_at from tcg.pricing_snapshots s
+          where i.id=$1 and s.inventory_id=i.id and s.algorithm_version='drop-rate-market-v4' and s.sold_observation_count=5''',b)
+        b_before=await db.fetchrow('select market_value_minor,latest_pricing_snapshot_id from tcg.inventory_items where id=$1',b)
+        result=await cardmarket.refresh_cardmarket_values(pool,actor)
+        assert result['catalogue_products_checked']==2 and result['guide_bases']==2
+        assert result['inventory_updated']==1 and result['provider_calls']==0
+        assert await db.fetchval('select market_value_minor from tcg.inventory_items where id=$1',a)==170
+        assert await db.fetchrow('select market_value_minor,latest_pricing_snapshot_id from tcg.inventory_items where id=$1',b)==b_before
+        assert await db.fetchval('select bool_and(store_price_minor=9000) from tcg.inventory_items')
+        assert await db.fetchval("select count(*) from tcg.market_observations where source='CARDMARKET' and observation_type='PRICE_GUIDE' and language is null and condition is null")==2
+        snapshots=await db.fetchval('select count(*) from tcg.pricing_snapshots')
+        assert (await cardmarket.refresh_cardmarket_values(pool,actor))['inventory_updated']==0
+        assert await db.fetchval('select count(*) from tcg.pricing_snapshots')==snapshots
+        assert await db.fetchval('select count(*) from tcg.catalogue_market_snapshots')==2
+        # Intake/manual recalculation reuses the saved quote without any request.
+        await db.execute('update tcg.inventory_items set market_value_minor=null where id=$1',a)
+        async with user_connection(pool,actor,'cached-guide') as conn:
+            applied=await cardmarket.apply_cached_inventory_guide(conn,a,actor,cat)
+            assert applied['evidence']['method']=='CARDMARKET_GUIDE_V1' and applied['market_value_minor']==170
+            count=await conn.fetchval('select count(*) from tcg.pricing_snapshots')
+            assert await cardmarket.apply_cached_inventory_guide(conn,a,actor,cat)
+            assert await conn.fetchval('select count(*) from tcg.pricing_snapshots')==count
+            item=dict((await conn.fetch(cardmarket.INVENTORY_SQL,cat))[0])
+            # Select the intended owner copy regardless of random UUID ordering.
+            item=next(dict(r) for r in await conn.fetch(cardmarket.INVENTORY_SQL,cat) if r['id']==a)
+            guide=await conn.fetchrow("select * from tcg.catalogue_market_snapshots where catalogue_id=$1",cat)
+            value={'language':'English','identity_digest':guide['identity_digest'],'snapshot_id':guide['id'],
+                'evidence':guide['evidence'],'evidence_checked_at':guide['evidence_checked_at'],
+                'result':SimpleNamespace(market_value_minor=170)}
+            item.update(version=item['version']-1,current_evidence={})
+            try:
+                async with conn.transaction():await cardmarket.apply_inventory_guide(conn,item,value,now=now)
+                raise AssertionError('Stale inventory version accepted')
+            except ValueError:pass
+            assert await conn.fetchval('select count(*) from tcg.pricing_snapshots')==count,'Failed update left an orphan snapshot'
+        async with user_connection(pool,actor,'guide-fixture') as conn:
+            assert await conn.fetchval('select valuation_source from tcg.catalogue_reference_value_v2($1,$2)',unowned,'English')=='CARDMARKET_ESTIMATE'
+            assert await conn.fetchval('select market_value_minor from tcg.catalogue_reference_value_v2($1,$2)',unowned,'Japanese') is None
+        settings.ebay_market_refresh_actor_user_id=str(actor)
+        await market.refresh_pass(pool,settings)
+        assert await db.fetchval('select market_value_minor from tcg.inventory_items where id=$1',a)==170,'eBay cleanup erased the authorized guide'
+        try:
+            await cardmarket.refresh_cardmarket_values(pool,other)
+            raise AssertionError('Non-founder ran catalogue/owner writes')
+        except Exception as exc:assert getattr(exc,'status_code',None)==403
+        async with user_connection(pool,other,'wrong-owner') as conn:
+            assert await conn.fetchval('select count(*) from tcg.inventory_items where id=$1',a)==0
+            assert await conn.fetchval('select count(*) from tcg.pricing_snapshots where inventory_id=$1',a)==0
+            assert await cardmarket.apply_cached_inventory_guide(conn,a,other,cat) is None
+            try:
+                async with conn.transaction():await conn.execute('delete from tcg.catalogue_market_snapshots')
+                raise AssertionError('API could delete guide history')
+            except asyncpg.InsufficientPrivilegeError:pass
+        await db.execute("update tcg.catalogue_products set name='Wrong print' where id=$1",unowned)
+        async with user_connection(pool,actor,'changed-print') as conn:
+            assert await conn.fetchval('select market_value_minor from tcg.catalogue_reference_value_v2($1,$2)',unowned,'English') is None
+        assert not await db.fetchval("select has_function_privilege('anon','tcg.catalogue_reference_value_v2(uuid,text)','execute')")
     finally:
         await pool.close(); await db.close()
-    print('PASS: real PostgreSQL refresh, provenance, copy sharing, retry idempotency, owner authorization, session lock and historical isolation')
+    print('PASS: eBay and Cardmarket persistence, unowned catalogue guides, source priority, immutable evidence, retries, owner isolation and unchanged Store Prices')
 
 
 asyncio.run(main())

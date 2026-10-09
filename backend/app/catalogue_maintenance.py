@@ -25,6 +25,7 @@ from .reference_market import REVISION, refresh_reference_prices
 from .reference_sealed import save_sealed_set, sealed_feed
 from .sealed_market import REVISION as SEALED_MARKET_REVISION, refresh_sealed_prices
 from .catalogue_coverage import record_coverage
+from .cardmarket_valuations import refresh_cardmarket_values, REVISION as CARDMARKET_VALUE_REVISION
 from .catalogue_valuations import REVISION as CATALOGUE_VALUE_REVISION, refresh_catalogue_values
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
@@ -165,11 +166,13 @@ async def daily_pass(pool,settings):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await require_platform_admin(connection)
                 runs=await connection.fetch('select distinct on(source) source,started_at,status,report from tcg.reference_sync_runs order by source,started_at desc')
-                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES') order by job,started_at desc")
+                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES') order by job,started_at desc")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
             latest={r['job']:r for r in jobs}
             if due(latest.get('CATALOGUE_VALUES'),now,revision=CATALOGUE_VALUE_REVISION):
                 await refresh_catalogue_values(pool,actor)
+            if due(latest.get('CARDMARKET_VALUES'),now,revision=CARDMARKET_VALUE_REVISION):
+                await refresh_cardmarket_values(pool,actor)
             for source in SOURCES:
                 if due(last.get(source),now,revision=SOURCE_REVISIONS.get(source,1)):
                     await sync_source(pool,actor,source,settings)
@@ -180,6 +183,7 @@ async def daily_pass(pool,settings):
                 # first fill; the final receipt then reflects its progress.
                 await record_coverage(pool,actor)
                 await warm_prices(pool,actor,settings.catalogue_price_refresh_limit)
+                await refresh_cardmarket_values(pool,actor)
                 await record_coverage(pool,actor)
             elif due(latest.get('CATALOGUE_COVERAGE'),now):
                 await record_coverage(pool,actor)

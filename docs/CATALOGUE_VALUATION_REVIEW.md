@@ -1,5 +1,11 @@
 # Catalogue valuation review — 9 October 2026
 
+Later on 9 October the founder explicitly authorized Cardmarket as an additional
+valuation source. [Cardmarket valuations](CARDMARKET_VALUATIONS.md) records that
+extension and its estimate/identity limitations. The earlier eBay-only policy
+described in this audit remains the historical baseline, not a restriction on
+the new labelled fallback.
+
 The owner requires valuations for the whole database, daily cards/sets/sealed
 refreshes and immediate Shopify processing of approved For-sale inventory.
 Brand Redesign remains unpublished. No paid provider upgrade is authorized.
