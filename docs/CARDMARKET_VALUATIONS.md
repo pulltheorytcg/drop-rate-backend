@@ -87,3 +87,39 @@ or identity reset is part of rollback.
 Sources: [TCGdex market data](https://tcgdex.dev/markets-prices),
 [Cardmarket public datasets](https://insight.cardmarket.com/en/Articles/the-state-of-cardmarket-2024),
 [Cardmarket API availability](https://help.cardmarket.com/en/cardmarket-api).
+
+## Verified release — 9 October 2026
+
+PR [#557](https://github.com/pulltheorytcg/drop-rate-backend/pull/557) merged as
+`b0e9668d9faf190bde0bd209079a9bae010b3f07`. Its final head `7558704` passed all
+four workflows: Backend checks, Live market persistence, Catalogue maintenance
+persistence and Independent catalogue valuations. The backend passed 2,759
+tests, and the catalogue UI passed 34 scenarios alongside the other UI suites.
+
+The versioned migration was applied as `cardmarket_valuation_fallback` at
+19:56:35 UTC. Railway deployment `999d9e89-b8fd-4c45-be4c-8b172531a5bd` reached
+SUCCESS at 19:57:57 UTC; readiness returned 200. All original pre-deploy checks
+remain configured, including financial checks and the social evidence probe.
+The probe still reports the existing eBay provider limit; a successful deploy
+does not imply that the sold-data quota has recovered.
+
+Production read-back confirms the new helper is SECURITY INVOKER with a fixed
+`pg_catalog` search path. Anonymous/authenticated Supabase roles cannot execute
+it; the API role can. Catalogue snapshots retain forced RLS and denied API
+UPDATE/DELETE privileges. Security advisors show no additional findings from
+this migration. Shopify confirms Brand Redesign is UNPUBLISHED and Horizon is
+MAIN. No new service or provider subscription was created. This release has
+automated UI evidence; fresh signed-in browser and iPhone acceptance are not
+claimed.
+
+The first production calculation at 20:02:55 UTC stopped with
+`InsufficientPrivilegeError`: `FOR SHARE` on canonical products requires an
+UPDATE privilege that the API role deliberately does not have. Its first
+transaction rolled back; no guide observations/snapshots or inventory values
+were committed. The INCOMPLETE receipt records attempted work, not coverage.
+Revision 2 removes that catalogue lock while retaining the inventory row lock,
+and atomically rechecks catalogue ID/digest together with owner/version during
+the value update. No production privilege is expanded. The PostgreSQL fixture
+now mirrors read-only canonical identity, column-scoped inventory writes and
+append-only pricing evidence, and checks a printing changed after selection.
+The revision schedules a retry without rewriting the failed receipt.

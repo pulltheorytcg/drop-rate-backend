@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Cardmarket production permission correction
+
+- PR #557 deployed successfully as `b0e9668` on `999d9e89-b8fd-4c45-be4c-8b172531a5bd` after all four current-head workflows, 2,759 backend tests and UI suites passed. The migration is applied, readiness is 200 and Brand Redesign remains UNPUBLISHED.
+- The first calculation exposed a fixture/production grant mismatch: a catalogue `FOR SHARE` requires UPDATE, while canonical products are read-only to the API. The first product transaction rolled back; inventory remains 156/510 valued and there are zero committed Cardmarket catalogue snapshots. The failed receipt is retained.
+- Revision 2 retains inventory locking and adds a catalogue ID/digest condition to the final owner/version-checked update, without expanding permissions. The real PostgreSQL fixture now uses production-style limited grants and checks a printing changed between selection and saving. The corrected head still requires CI, deployment and actual coverage read-back.
+
 ## 9 October 2026 — Cardmarket valuation fallback implementation
 
 - The founder requested Cardmarket as an additional valuation source. The existing v4 engine now receives exact cached Cardmarket printing/finish guides through a catalogue-wide calculation and a labelled physical-inventory fallback. Fresh exact eBay values take priority; slabs, worn/unknown-condition copies, mismatched languages, ambiguous references and pending provider mappings are excluded. No new paid API, canonical approval or Store Price change.

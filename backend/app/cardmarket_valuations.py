@@ -23,7 +23,7 @@ from .reference_market import SOURCE, _text, _time
 
 CATALOGUE_METHOD = 'CATALOGUE_CARDMARKET_V1'
 INVENTORY_METHOD = 'CARDMARKET_GUIDE_V1'
-REVISION = 1
+REVISION = 2
 MAX_AGE = timedelta(days=7)
 LIMITATION = 'EU price guide across languages and conditions; not a condition-adjusted UK sold value.'
 
@@ -59,7 +59,7 @@ INVENTORY_SQL = f'''select i.*,p.product_type,p.game,p.name,p.set_name,p.card_nu
  and not exists(select 1 from tcg.provider_catalogue_mappings link
    where link.catalogue_id=p.id and link.source_provider='TCGdex' and link.provider_language=i.language
    and link.match_status in ('REVIEW','REJECTED'))
- order by i.id for update of i for share of p'''
+ order by i.id for update of i'''
 INVENTORY_ITEM_SQL = INVENTORY_SQL.replace('where i.catalogue_id=$1',
     'where i.catalogue_id=$1 and i.id=$2 and i.owner_id=$3')
 
@@ -194,11 +194,15 @@ async def apply_inventory_guide(connection, item, value, *, now):
       item['id'],item['catalogue_id'],item['owner_id'],result.market_value_minor,result.recommended_retail_minor,
       result.quick_sale_minor,result.target_acquisition_minor,min(result.confidence,.60),value['evidence_checked_at'],
       result.algorithm_version,json.dumps(evidence),json.dumps(list(dict.fromkeys((*result.block_reasons,'REFERENCE_ESTIMATE')))))
-    updated = await connection.fetchval('''update tcg.inventory_items set market_value_minor=$1,
+    # Catalogue identity is read-only for the API role. Recheck its digest in
+    # the guarded write instead of requesting an UPDATE-requiring row lock.
+    updated = await connection.fetchval(f'''update tcg.inventory_items i set market_value_minor=$1,
       recommended_retail_minor=$2,latest_pricing_snapshot_id=$3,pricing_updated_at=$4,
-      updated_at=now(),version=version+1 where id=$5 and owner_id=$6 and version=$7 returning id''',
+      updated_at=now(),version=i.version+1 where i.id=$5 and i.owner_id=$6 and i.version=$7
+      and i.catalogue_id=$8 and exists(select 1 from tcg.catalogue_products p
+        where p.id=i.catalogue_id and {IDENTITY_SQL}=$9) returning i.id''',
       result.market_value_minor,result.recommended_retail_minor,snapshot,value['evidence_checked_at'],
-      item['id'],item['owner_id'],item['version'])
+      item['id'],item['owner_id'],item['version'],item['catalogue_id'],value['identity_digest'])
     if updated is None:
         raise ValueError('Inventory changed during guide application')
     return True
