@@ -11,7 +11,7 @@ from app.reference_sealed import sealed_reference,cardmarket_product_id
 
 NOW=datetime(2026,10,9,12,tzinfo=timezone.utc)
 REFERENCE={'product_type':'BOOSTER_BOX','evidence':{'cardmarket_product_id':'12'}}
-PRODUCTS={'12':{'idProduct':12,'idCategory':53,'categoryName':'Pokémon Booster Boxes'}}
+PRODUCTS={'12':{'idProduct':12,'idCategory':53,'categoryName':'Pokémon Display'}}
 PRICES={'12':{'idProduct':12,'idCategory':53,'trend':100}}
 
 
@@ -24,6 +24,9 @@ async def test_bulk_guide_requires_explicit_mapping_and_same_packaging_category(
     quote=await market.quote_for(REFERENCE,PRODUCTS,PRICES,NOW,FX(),game_name='Pokémon')
     assert quote['price_gbp_minor']==8000 and quote['physical_language_confirmed'] is False
     assert quote['valuation_role']=='MIXED_LANGUAGE_REFERENCE'
+    deck=await market.quote_for(dict(REFERENCE,product_type='STARTER_DECK'),
+       {'12':{'idProduct':12,'idCategory':53,'categoryName':'One Piece Preconstructed Decks'}},PRICES,NOW,FX(),game_name='One Piece')
+    assert deck['price_gbp_minor']==8000
     for reference in ({**REFERENCE,'evidence':{}},{**REFERENCE,'product_type':'BOOSTER_PACK'}):
         assert await market.quote_for(reference,PRODUCTS,PRICES,NOW,FX(),game_name='Pokémon') is None
     for price in ({**PRICES['12'],'idCategory':52},{**PRICES['12'],'trend':0},{**PRICES['12'],'trend':'NaN'}):

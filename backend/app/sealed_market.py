@@ -19,6 +19,7 @@ from .reference_market import MAX_AGE, _minor, _time
 from .reference_sealed import category_type
 
 SOURCE = 'CARDMARKET_BULK'
+REVISION = 2
 # Confirmed public first-party game exports. Unsupported games stay explicit.
 GAMES = {'POKEMON_TCG': (6, 'Pokémon'), 'ONE_PIECE_CARD_GAME': (18, 'One Piece')}
 BASE = 'https://downloads.s3.cardmarket.com/productCatalog/'
@@ -60,8 +61,12 @@ async def quote_for(reference, products, prices, observed, fx, *, game_name):
     product_id=str((reference.get('evidence') or {}).get('cardmarket_product_id') or '')
     product=products.get(product_id);price=prices.get(product_id)
     if not product or not price:return None
-    if (str(price.get('idCategory'))!=str(product.get('idCategory'))
-            or category_type(product.get('categoryName'), {'name':game_name})!=reference['product_type']):
+    # These are the exact labels in Cardmarket's public non-singles export;
+    # CardTrader calls a Pokémon display a booster box.
+    packaging_type={('Pokémon','Pokémon Display'):'BOOSTER_BOX',
+                    ('One Piece','One Piece Preconstructed Decks'):'STARTER_DECK'}.get(
+        (game_name,product.get('categoryName')),category_type(product.get('categoryName'), {'name':game_name}))
+    if (str(price.get('idCategory'))!=str(product.get('idCategory')) or packaging_type!=reference['product_type']):
         return None
     try:
         original=_minor(price.get('trend'))
@@ -81,7 +86,7 @@ async def refresh_sealed_prices(pool, actor):
     from .catalogue_maintenance import receipt
     now=datetime.now(timezone.utc)
     run_id=await receipt(pool,actor,'SEALED_REFERENCE_PRICES','RUNNING',{})
-    report={'checked':0,'priced':0,'unmatched':0,'provider_failures':0,'sources':{}}
+    report={'checked':0,'priced':0,'unmatched':0,'provider_failures':0,'sources':{},'importer_revision':REVISION}
     status='INCOMPLETE'
     fx=EcbHistoricalFxProvider(timeout_seconds=10)
     try:

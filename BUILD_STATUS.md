@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 9 October 2026 — Inventory-independent catalogue valuations
+
+- Daily canonical valuation now reads public exact eBay observations and successful provider-check receipts, not physical inventory or owner pricing policies. Every canonical product is checked; five matching recent sales feed the existing v4 engine, with separate physical bases and immutable catalogue snapshots.
+- The reference helper uses the shared catalogue snapshot and checks current printing identity, language and original provider freshness. Selling/removing the last held copy no longer removes a valid catalogue value. Recalculation does not refresh the provider timestamp.
+- Public Cardmarket feed fixtures also confirm its Pokémon Display and One Piece Preconstructed Decks labels; explicit packaging equivalents avoid guessing categories. The guide revision triggers a corrected pass after the cross-ID repair.
+- Release uses additive schema first, deployment and verified CATALOGUE_VALUES receipt second, then the reference-helper migration. Actual PostgreSQL checks prove valuation with no inventory table, retry/identity/language/freshness guards and forced RLS. Current-head CI and live read-back remain gates.
+
 ## 9 October 2026 — Live provider cross-ID contract correction
 
 - PR #552 deployed successfully as `1a42ef8` on `ab9869e7-585d-4de2-9a61-1045f4e8cddc`; full backend/UI and PostgreSQL persistence CI passed and the evidence migration is applied. Existing 11,910 public quotes were retained in immutable history.

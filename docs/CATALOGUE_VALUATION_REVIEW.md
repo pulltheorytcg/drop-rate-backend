@@ -41,7 +41,9 @@ not prove a working ingestion feed. No eBay inventory links existed.
 - Cardmarket's public daily non-singles catalogue and price-guide exports cover
   Pokémon and One Piece in this release. CardTrader's explicit singleton `card_market_ids` (legacy `cardmarket_id`)
   joins the packaging reference to the guide; category/type must also agree.
-  No name-only matching is used. These mixed-language, mixed-condition guides
+  No name-only product matching is used. Exact Cardmarket category labels
+  `Pokémon Display` and `One Piece Preconstructed Decks` map to their packaging
+  equivalents; lots/accessories cannot inherit box/deck prices. These mixed-language, mixed-condition guides
   are labelled separately from physical sealed-product valuations.
 - CardTrader imports packaging identity/artwork, not sold-market prices. The
   existing marketplace adapter returns active listings and cannot become sold
@@ -106,3 +108,27 @@ Apply `20261009183154_catalogue_market_evidence.sql` only after current-head CI.
 Then deploy through normal pre-deploy checks and verify source receipts, price
 coverage and history growth. Application rollback leaves additive evidence in
 place; do not delete observations or relax publication/ownership boundaries.
+
+## Independent eBay catalogue values
+
+A separate daily calculation scans every canonical product, whether owned or
+not. It reads immutable eBay UK sold observations and successful exact-identity
+ingestion receipts, rechecks current printing/language/condition/grade against
+the saved titles, and passes the five newest distinct matching sales to the
+same v4 engine. This process makes no provider calls and reads no inventory
+rows or seller policies. It cannot substitute US prices, guides or asking prices.
+
+Each resulting catalogue snapshot has its own exact physical basis and source
+evidence. Its identity digest is checked again during insertion and display;
+a renamed/reassigned printing cannot inherit the prior value. Source timestamps
+come from the original ingestion or an actual successful provider recheck. Daily
+recalculation alone never makes an old quote appear fresh. Evidence older than
+seven days, sales older than 90 days and fewer than five matches stay unavailable.
+Immutable history survives the last copy being sold or removed from inventory.
+
+Release `20261009184349_independent_catalogue_valuations.sql` first to create
+the additive snapshot table and job type,
+deploy and verify the first CATALOGUE_VALUES receipt, then activate the versioned
+`20261009185130_activate_catalogue_reference_values.sql` helper migration. This prevents an empty cache from briefly hiding
+existing catalogue values during deployment. Rollback can restore the preceding
+reference helper definition while retaining every new snapshot.
