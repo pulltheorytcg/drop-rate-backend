@@ -557,7 +557,9 @@ def verify_remote_product(
         for node in media_nodes or []
         if isinstance(node, Mapping) and _text(node.get("id"))
     }
-    if not expected_media_file_ids.issubset(actual_media_ids):
+    # The approved selection is the entire storefront gallery. An extra file
+    # may be stale, unrelated or off-brand even when the correct image is there.
+    if actual_media_ids != expected_media_file_ids:
         blockers.append("remote media")
 
     if _text(snapshot.get("status")) != expected_status:

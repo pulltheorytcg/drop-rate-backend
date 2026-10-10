@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from app.shopify_completeness import (
     CARD_CATEGORY_GID,
     build_shopify_product_plan,
@@ -359,7 +361,28 @@ def test_launch_completeness_passes_when_every_required_surface_is_ready() -> No
     assert result["blockers"] == []
 
 
-def test_remote_product_verification_checks_every_launch_surface() -> None:
+@pytest.mark.parametrize(
+    ("path", "replacement", "blocker"),
+    [
+        (("variants", "nodes", 0, "inventoryQuantity"), 0, "remote inventory quantity"),
+        (("title",), "Amazing card!!!", "remote title"),
+        (("descriptionHtml",), "<p>Guaranteed rare pulls!</p>", "remote description"),
+        (("seo", "title"), "Best investment", "remote SEO title"),
+        (("seo", "description"), "Guaranteed returns", "remote SEO description"),
+        (("media", "nodes"), [], "remote media"),
+        (
+            ("media", "nodes"),
+            [
+                {"id": "gid://shopify/MediaImage/1"},
+                {"id": "gid://shopify/MediaImage/unapproved"},
+            ],
+            "remote media",
+        ),
+    ],
+)
+def test_remote_product_verification_checks_every_launch_surface(
+    path, replacement, blocker
+) -> None:
     plan = build_shopify_product_plan(_card())
     expected_metafields = {
         row["key"]: row["value"]
@@ -373,7 +396,7 @@ def test_remote_product_verification_checks_every_launch_surface() -> None:
         "productType": plan["productType"],
         "tags": plan["tags"],
         "templateSuffix": None,
-        "seo": plan["seo"],
+        "seo": dict(plan["seo"]),
         "category": {"id": plan["category"]},
         "metafields": {
             "nodes": [
@@ -427,7 +450,10 @@ def test_remote_product_verification_checks_every_launch_surface() -> None:
     )
     assert result == {"complete": True, "blockers": []}
 
-    snapshot["variants"]["nodes"][0]["inventoryQuantity"] = 0
+    target = snapshot
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = replacement
     broken = verify_remote_product(
         plan,
         snapshot,
@@ -442,7 +468,7 @@ def test_remote_product_verification_checks_every_launch_surface() -> None:
         },
     )
     assert broken["complete"] is False
-    assert "remote inventory quantity" in broken["blockers"]
+    assert blocker in broken["blockers"]
 
 
 def test_product_create_input_contains_complete_deterministic_shopify_fields() -> None:
