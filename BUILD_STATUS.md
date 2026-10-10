@@ -1,5 +1,10 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Fresh Phase 2 system audit and shipping API boundary
+
+- Updated the existing [Phase 2 production system map](docs/PHASE2_SYSTEM_MAP.md) rather than creating a duplicate: seven Railway services; 90 `tcg` Supabase base tables; 511 tracked physical items, 327 stored valuations and 507 PUBLISHED physical Shopify links. Both PSA-labelled prototype services remain retained per the founder's previous decision; diagnostics are not silently deleted.
+- Independently verified the OP17 Shopify quantity-two listing at £10 with distinct preserved owner/inventory IDs and historic variant aliases. Reconfirmed UK delivery at £4.99 Standard, £6.99 Express, and free Standard at **£50 (not yet £10)**. The connected Shopify API is not suitable for a safe legacy-condition in-place change; documented a UK-only settings/API gate with £9.99/£10.00 checkout acceptance. No production state, customer orders, delivery zones, payouts or storefront publication changed.
+
 ## 10 October 2026 — Customer-paid delivery and actual seller postage allocation
 
 - Founder confirmed: Shopify sets the customer's delivery charge; under £10 orders pay delivery, and when shipping is free the **actual carrier label price** is deducted from the responsible seller's proceeds. Customer-paid shipping contributes `SHIPPING_REVENUE` and actual label costs `SHIPPING_COST`, never a duplicate flat £4.99 debit. Existing deterministic finance functions already support this model; new pure regression tests cover free, paid, multiple-owner, shared-vs-separate parcels and still-unreconciled postage.

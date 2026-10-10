@@ -27,6 +27,12 @@ The founder clarified the **shipping-financing model**, so no seller courier bil
 
 **Shopify Shipping labels are now technically possible:** Shopify released GraphQL `shippingLabelPurchase` in stable API **2026-07**, which purchases carrier-issued labels asynchronously for eligible fulfilment orders; see https://shopify.dev/docs/apps/build/orders-fulfillment/order-management-apps/purchase-shipping-labels. However, the GraphQL schema currently exposed by Drop Rate's connected Shopify integration **does not expose that mutation**. Version upgrade and feature/terms/permissions, protected customer-data and shipping-rate preview checks are required before purchasing labels; no live purchases have been attempted. The purchase API by itself does not guarantee an exact previewable carrier invoice before buying, so a proper quoted-cost/approval strategy must be validated.
 
+### 10 October continuation: legacy shipping API compatibility
+
+Live UK free Standard currently appears as a **legacy rate-range pseudo-method**, while the same underlying paid Standard method has ID `gid://shopify/DeliveryMethodDefinition/1379774038363`. The desired £10 threshold is not live. The previously attempted narrow condition-ID update failed; a fresh connected Admin schema inspection shows only `rateProvider`/`methodConditions`, without Shopify's [new tiered-rate fields](https://shopify.dev/changelog/posts/new-apis-to-read-and-write-shipping-options-in-delivery-profile) `rateGroups`/`freeConditions`. Deleting the shared Standard method could remove £4.99 paid delivery; adding a second overlapping free method could duplicate checkout options. Neither workaround is acceptable.
+
+Implement via the supported Shopify Admin shipping settings or a verified API version that exposes tiered-rate controls. Change **only UK Standard** from free above £50 to free from **£10 inclusive**; keep £4.99 Standard below £10, £6.99 Express and both international zones intact. Re-read the full profile and test shipping totals in UK checkouts at £9.99 and £10.00 before announcing live. Document revert to the original £50 threshold. This investigation has not purchased labels, modified shipping, created fulfilments or posted seller debits.
+
 ## 2. Shipping in Seller Hub — operator choice required
 
 Goal: seller opens a **paid, allocated order**, obtains a real carrier-accepted label with a visible cost, prints **4x6 thermal or A4 PDF**, packs/dispatches their own items, and Drop Rate updates only their Shopify fulfilment-order line quantities with validated tracking.
