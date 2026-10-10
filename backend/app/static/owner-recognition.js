@@ -1384,14 +1384,17 @@ async function ownerBatchTick() {
     batch.stableFrames = 0;
     batch.previousFingerprint = fingerprint;
     batch.previousBox = null;
-    if (batch.absenceFrames >= 3) {
+    if (batch.awaitingRemoval && batch.absenceFrames >= 3) {
       batch.awaitingRemoval = false;
       batch.armed = true;
       batch.lastAcceptedFingerprint = null;
+      ownerBatchSetCameraState("Ready · place the next item in the guide");
+    } else if (batch.awaitingRemoval) {
+      ownerBatchSetCameraState("Remove the scanned item to continue");
+    } else {
+      if (batch.absenceFrames >= 3) batch.armed = true;
+      ownerBatchSetCameraState("Place a card or sealed product inside the guide");
     }
-    ownerBatchSetCameraState(batch.awaitingRemoval
-      ? "Remove the scanned item to continue"
-      : "Place a card or sealed product inside the guide");
     return;
   }
 
