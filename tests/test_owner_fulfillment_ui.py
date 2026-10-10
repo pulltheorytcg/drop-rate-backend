@@ -14,12 +14,14 @@ def test_dispatch_is_inside_existing_sales_tab():
     sales = html.split('id="owner-view-sales"', 1)[1].split('id="owner-view-balance"', 1)[0]
     assert 'id="owner-dispatch-review"' in sales
     assert 'id="owner-dispatch-list"' in sales
+    assert 'id="owner-dispatch-shopify-check"' in sales
+    assert 'id="owner-dispatch-shopify-status"' in sales
     assert 'id="owner-sales-body"' in sales
     assert sales.index('id="owner-dispatch-review"') < sales.index('id="owner-sales-body"')
     assert '<h3 id="owner-dispatch-heading">To ship' in sales
     assert '<h2>Your sold cards</h2>' in sales
-    assert '<script src="/assets/owner-fulfillment.js?v=1" defer></script>' in html
-    assert '<link rel="stylesheet" href="/assets/owner-fulfillment.css?v=1">' in html
+    assert '<script src="/assets/owner-fulfillment.js?v=2" defer></script>' in html
+    assert '<link rel="stylesheet" href="/assets/owner-fulfillment.css?v=2">' in html
     assert 'data-owner-view="fulfilment"' not in html
 
 
@@ -35,6 +37,9 @@ def test_dispatch_frontend_has_no_buyer_address_or_fake_provider_actions():
         assert string not in js
     assert "carrier_label_purchase" in js
     assert "shopify_tracking_sync" in js
+    assert "/api/v1/fulfilment/shopify-status" in js
+    assert "/shopify" in js
+    assert "Check Shopify" in js
 
 
 def test_dispatch_layout_is_mobile_friendly_and_not_bright_lime():
