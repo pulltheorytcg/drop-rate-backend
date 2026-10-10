@@ -305,6 +305,11 @@
 }
 .owner-portal-page .owner-global-message.error{color:#b33131;border-color:#f0caca;background:#fff7f7}
 
+/* Prefer the existing section-level title when a tab already owns a heading. */
+.owner-portal-page .owner-page-header[hidden]{display:none!important}
+.owner-portal-page .owner-channel-main-title{
+  margin:0 0 -4px;color:var(--op-ink)!important;font-size:1.45rem;letter-spacing:-.035em
+}
 .owner-portal-page .owner-page-header{
   display:flex;
   align-items:flex-end;
