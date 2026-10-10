@@ -2239,7 +2239,7 @@ async def sync_shopify_prices(
                     join tcg.inventory_items i on i.id=sil.inventory_id
                     where sil.id=$1
                       and sil.owner_id=$2
-                    for update of sil,i
+                    for update of sil, i
                     """,
                     candidate["link_id"],
                     owner_id,
@@ -2941,7 +2941,7 @@ async def _select_order_units(
                   and (sil.reserved_order_reference is null
                        or sil.reserved_order_reference=$3)
                 order by sil.allocation_priority,sil.linked_at,sil.inventory_id
-                for update of sil,i
+                for update of sil, i
                 """,
                 spec["variant_gid"],sku,order_reference,
             )
@@ -2969,7 +2969,7 @@ async def _select_order_units(
                 where sil.shopify_variant_gid=$1
                   and sil.sync_state='PUBLISHED'
                 order by sil.allocation_priority, sil.linked_at, sil.inventory_id
-                for update of sil,i
+                for update of sil, i
                 """,
                 spec["variant_gid"],
             )
@@ -3111,7 +3111,7 @@ async def _process_created_order(
         join tcg.inventory_items i on i.id=sil.inventory_id
         where sil.reserved_order_reference=$1
         order by sil.allocation_priority,sil.inventory_id
-        for update of sil,i
+        for update of sil, i
         """,
         order_reference,
     )
@@ -3421,7 +3421,7 @@ async def _process_cancelled_order(
         join tcg.inventory_items i on i.id=sil.inventory_id
         where sil.reserved_order_reference=$1
         order by sil.allocation_priority,sil.inventory_id
-        for update of sil,i
+        for update of sil, i
         """,
         order_reference,
     )
