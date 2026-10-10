@@ -68,7 +68,8 @@ function fixture(handler=async()=>result()){
     const f=fixture();
     await tick();await tick();
     assert.equal(f.requests.length,1);
-    assert.match(f.status(),/No paid Shopify order items/);
+    assert.match(f.list().textContent,/No paid Shopify order items/);
+    assert.match(f.status(),/Carrier labels are not yet connected/);
     assert.equal(f.list().querySelectorAll(".owner-dispatch-item").length,0);
     assert.equal(f.w.document.querySelectorAll(".owner-dispatch-item button").length,0);
     f.finish();checks++;
