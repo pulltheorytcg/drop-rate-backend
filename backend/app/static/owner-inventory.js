@@ -271,36 +271,79 @@ window.DropRateInventory = (() => {
     content.append(sellerChannels);
 
     const stock = el("section", "owner-item-section"); stock.append(el("h3", "", "Quantity"));
-    stock.append(el("p", "", `${copies.length} ${copies.length === 1 ? "copy" : "copies"} in your active inventory`));
+    const savedQuantity = copies.length;
+    stock.append(el("p", "", `${savedQuantity} ${savedQuantity === 1 ? "copy" : "copies"} in your active inventory`));
+    const awaitingApproval = copies.filter(copy => ["DRAFT", "INSPECTION"].includes(copy.status)).length;
+    const approvedForSale = copies.filter(copy => copy.status === "APPROVED" && copy.sale_intent === "FOR_SALE").length;
+    if (awaitingApproval) stock.append(el("p", "owner-item-quantity-breakdown",
+      `${approvedForSale} approved for sale · ${awaitingApproval} awaiting approval. Pending copies are not live on Shopify.`));
     if (copies.length > 1) {
       const label = el("label", "", "Choose the copy to manage"), select = el("select");
       select.setAttribute("aria-label", "Choose inventory copy");
       copies.forEach(copy => { const option = el("option", "", `${copy.inventory_code} · ${copy.status}`); option.value = copy.id; select.append(option); });
       select.value = item.id; select.addEventListener("change", () => open({id: select.value})); label.append(select); stock.append(label);
     }
+    // A tap changes the VISIBLE proposed number; only explicit confirmation
+    // changes physical inventory. Never display a draft copy as Shopify stock.
     const controls = el("div", "owner-item-quantity"), confirmation = el("div", "owner-item-confirmation");
-    const add = button("+", () => {
-      confirmation.replaceChildren(el("p", "", `Add one more ${item.language} copy in the same condition?`),
-        button("Confirm additional copy", () => {
+    const quantity = el("strong", "owner-item-quantity-value", String(savedQuantity));
+    quantity.setAttribute("role", "status"); quantity.setAttribute("aria-live", "polite");
+    const feedback = el("p", "owner-item-quantity-feedback");
+    let delta = 0, add, remove;
+    const resetQuantity = () => { delta = 0; updateQuantity(); };
+    const updateQuantity = () => {
+      const proposed = savedQuantity + delta;
+      quantity.textContent = String(proposed);
+      quantity.classList.toggle("unsaved", delta !== 0);
+      quantity.setAttribute("aria-label", delta
+        ? `Proposed quantity ${proposed}, not saved`
+        : `Saved quantity ${proposed}`);
+      feedback.textContent = delta
+        ? `Not saved: ${savedQuantity} → ${proposed}. Confirm or cancel below.`
+        : "";
+      add.disabled = !active(item) || Boolean(item.grading_company || item.grade || item.certificate_number) || delta === 1;
+      remove.disabled = !active(item) || delta === -1;
+      confirmation.replaceChildren();
+      if (!delta) return;
+      const actions = el("div", "owner-item-confirmation-actions");
+      if (delta > 0) {
+        confirmation.append(el("p", "", `Add one more ${item.language} copy in the same condition? It will be a separate draft until you approve it for sale.`));
+        actions.append(button("Confirm additional copy", () => {
           const storageKey = `drop_rate_copy:${account()}:${item.id}`;
           let pending; try { pending = JSON.parse(sessionStorage.getItem(storageKey)); } catch (_) { /* replace corrupt pending data */ }
           pending ||= {key: crypto.randomUUID(), version: item.version};
-          sessionStorage.setItem(storageKey, JSON.stringify(pending));
+          try { sessionStorage.setItem(storageKey, JSON.stringify(pending)); }
+          catch (_) { status("Could not save a safe retry token. Please enable session storage before adding stock.", true); return; }
           run(async () => {
-            const result = await apiRequest(`/api/v1/owner/inventory/${item.id}/copies`, {method: "POST", headers: {"Idempotency-Key": pending.key}, body: JSON.stringify({version: pending.version, confirmed: true})});
-            sessionStorage.removeItem(storageKey); return result;
+            const result = await apiRequest(`/api/v1/owner/inventory/${item.id}/copies`, {
+              method: "POST", headers: {"Idempotency-Key": pending.key},
+              body: JSON.stringify({version: pending.version, confirmed: true})
+            });
+            sessionStorage.removeItem(storageKey);
+            return {...result, message: `${result.message || "One copy added."} Shopify stock changes only after the new copy is approved and synced.`};
           });
         }, "primary"));
-    });
+      } else {
+        confirmation.append(el("p", "", `Withdraw ${item.inventory_code} from your physical stock and its selling channels? The exact copy's history will be kept.`));
+        actions.append(button("Withdraw this copy", () => run(() =>
+          apiRequest(`/api/v1/owner/inventory/${item.id}/withdraw`, {
+            method: "POST", body: JSON.stringify({version: item.version})
+          })), "danger"));
+      }
+      actions.append(button("Cancel change", resetQuantity));
+      confirmation.append(actions);
+    };
+    add = button("+", () => { if (delta < 1) { delta++; updateQuantity(); } });
     add.setAttribute("aria-label", "Increase quantity by one");
-    add.disabled = !active(item) || Boolean(item.grading_company || item.grade || item.certificate_number);
-    const remove = button("−", () => {
-      confirmation.replaceChildren(el("p", "", `Withdraw ${item.inventory_code} from active inventory and any sales channels?`),
-        button("Withdraw this copy", () => run(() => apiRequest(`/api/v1/owner/inventory/${item.id}/withdraw`, {method: "POST", body: JSON.stringify({version: item.version})})), "danger"));
-    });
-    remove.setAttribute("aria-label", "Decrease quantity by withdrawing this copy"); remove.disabled = !active(item);
-    controls.append(remove, el("strong", "", String(copies.length)), add); stock.append(controls, confirmation);
-    stock.append(el("p", "owner-item-note", item.grading_company ? "Add graded slabs through Scan using each slab’s own certificate." : "Additional copies need their own sale approval. Withdrawing a copy keeps its history."));
+    remove = button("−", () => { if (delta > -1) { delta--; updateQuantity(); } });
+    remove.setAttribute("aria-label", "Decrease quantity by withdrawing this copy");
+    controls.append(remove, quantity, add);
+    stock.append(controls, feedback, confirmation);
+    updateQuantity();
+    stock.append(el("p", "owner-item-note",
+      item.grading_company
+        ? "Add each graded slab through Scan with its own certificate. Withdrawing a copy keeps its history."
+        : "Adjust one physical copy at a time, then confirm. New copies need their own sale approval; Shopify quantities update only after verified syncing."));
     content.append(stock);
   }
   return {image, open, close, reset: () => close(true)};
