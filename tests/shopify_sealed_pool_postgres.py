@@ -18,6 +18,10 @@ async def main():
         assert not await db.fetchval("select exists(select 1 from pg_namespace where nspname='tcg')")
         await db.execute("""create schema tcg;
           create role tcg_api nologin nobypassrls;
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin;
+          create role tcg_auditor nologin;
           create table tcg.owners(id uuid primary key,owner_type text);
           create table tcg.inventory_items(id uuid primary key,owner_id uuid not null references tcg.owners(id),inventory_code text);
           create function tcg.current_user_id() returns uuid language sql stable as
