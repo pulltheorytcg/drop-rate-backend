@@ -356,7 +356,7 @@ def test_mobile_scanner_v2_requires_item_removal_before_rearming() -> None:
     js = RECOGNITION_JS.read_text()
 
     assert "batch.awaitingRemoval = true" in js
-    assert "batch.absenceFrames >= 2" in js
+    assert "batch.absenceFrames >= 3" in js
     assert "batch.awaitingRemoval = false" in js
     assert "batch.armed = true" in js
     assert 'ownerBatchSetCameraState("Item scanned · remove it before showing the next one")' in js
