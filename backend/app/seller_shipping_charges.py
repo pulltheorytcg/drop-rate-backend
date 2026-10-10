@@ -10,6 +10,21 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping
 
 
+SHIPPING_CHARGES_QUERY = """
+query DropRateOwnerShippingChargePreview($orderId: ID!) {
+  order(id: $orderId) {
+    id cancelledAt fullyPaid displayFinancialStatus
+    totalShippingPriceSet { shopMoney { amount currencyCode } }
+    totalRefundedShippingSet { shopMoney { amount currencyCode } }
+    shippingLines(first: 30) {
+      nodes { title }
+      pageInfo { hasNextPage }
+    }
+  }
+}
+"""
+
+
 class ShippingCostReviewRequired(ValueError):
     """An unverified or inconsistent order must never display an agreed debit."""
 
