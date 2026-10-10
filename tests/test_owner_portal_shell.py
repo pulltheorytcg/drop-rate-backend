@@ -266,7 +266,7 @@ def test_scanner_autocapture_rejects_texture_only_card_presence() -> None:
     legacy = RECOGNITION_JS.read_text()
     html = HTML.read_text()
 
-    assert "const analyzeCardPresence = (pixels, width, height) =>" in shared
+    assert "const analyzeCardPresence = (pixels, width, height, mode = \"RAW\") =>" in shared
     assert "centered && rectangular && fourEdges" in shared
     assert "this.autoArmed = false;" in shared
     assert "this.absenceFrames >= 3" in shared
@@ -277,7 +277,7 @@ def test_scanner_autocapture_rejects_texture_only_card_presence() -> None:
 
     # The existing mobile fallback must never retain the old 'busy
     # background means card' heuristic when the shared module is missing.
-    assert "window.DropRateScanner?.analyzeCardPresence?.(pixels, width, height)" in legacy
+    assert "window.DropRateScanner?.analyzeCardPresence?.(pixels, width, height, ownerScanMode().toUpperCase())" in legacy
     assert "present: detected?.present === true" in legacy
     assert "batch.absenceFrames >= 3" in legacy
     assert "|| deviation >= 0.18" not in legacy
