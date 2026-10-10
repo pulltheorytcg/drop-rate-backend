@@ -34,9 +34,10 @@ async def main():
         sql=(Path(__file__).parents[1]/"database/migrations/20261010195000_shopify_variant_pool_aliases.sql").read_text()
         await db.execute(sql)
         await db.execute(sql) # migration is idempotent on retry
-        owner,inventory=uuid4(),uuid4()
+        owner,inventory,anchor=uuid4(),uuid4(),uuid4()
         await db.execute("insert into tcg.owners values($1,'CONSIGNOR')",owner)
         await db.execute("insert into tcg.inventory_items values($1,$2,'INV-OLD')",inventory,owner)
+        await db.execute("insert into tcg.inventory_items values($1,$2,'INV-ANCHOR')",anchor,owner)
         record=(
           "gid://shopify/ProductVariant/101","gid://shopify/Product/201","INV-OLD",
           inventory,owner,uuid4(),"fqu56y-hm.myshopify.com",
@@ -60,6 +61,18 @@ async def main():
         assert found["inventory_id"]==inventory
         assert found["owner_id"]==owner
         assert found["legacy_sku"]=="INV-OLD"
+        anchor_alias=(
+          "gid://shopify/ProductVariant/102","gid://shopify/Product/202","INV-ANCHOR",
+          anchor,owner,uuid4(),"fqu56y-hm.myshopify.com",
+          "gid://shopify/ProductVariant/102","gid://shopify/Product/202",
+          "shopify-pool:sealed:fixture"
+        )
+        # The anchor keeps its variant ID but must retain its ORIGINAL SKU
+        # for an order placed before the product was pooled.
+        await db.execute(insert,*anchor_alias)
+        anchor_row=await db.fetchrow("select * from tcg.shopify_variant_pool_aliases where legacy_variant_gid=$1",anchor_alias[0])
+        assert anchor_row["inventory_id"]==anchor
+        assert anchor_row["legacy_variant_gid"]==anchor_row["pooled_variant_gid"]
         try:
             await db.execute("update tcg.shopify_variant_pool_aliases set legacy_sku='TAMPERED'")
             raise AssertionError("Immutable alias is writable")
@@ -68,8 +81,8 @@ async def main():
             await db.execute(insert,*record)
             raise AssertionError("Duplicate legacy variant was accepted")
         except asyncpg.UniqueViolationError:pass
-        assert await db.fetchval("select count(*) from tcg.shopify_variant_pool_aliases")==1
-        assert await db.fetchval("select count(*) from tcg.inventory_items")==1
+        assert await db.fetchval("select count(*) from tcg.shopify_variant_pool_aliases")==2
+        assert await db.fetchval("select count(*) from tcg.inventory_items")==2
         print("Sealed Shopify alias PostgreSQL: RLS, immutable alias, exact owner, unique legacy ID and migration replay passed")
     finally:
         await db.close()
