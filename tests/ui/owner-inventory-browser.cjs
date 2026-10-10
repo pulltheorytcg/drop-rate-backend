@@ -36,7 +36,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',inventory_code:'INV-D715B0
    const tile=page.locator('.owner-inventory-card');
    assert.equal(await tile.locator('.owner-card-meta').count(),0,'Inventory grid still shows redundant specifications');
    const tileText=await tile.innerText();
-   assert.doesNotMatch(tileText,/INV-D715B0E9|\\bLANGUAGE\\b|\\bSEAL\\b|\\bTYPE\\b|\\bGAME\\b/i);
+   assert.doesNotMatch(tileText,/INV-D715B0E9|\bLANGUAGE\b|\bSEAL\b|\bTYPE\b|\bGAME\b/i);
    assert.match(tileText,/Market value/);assert.match(tileText,/£8.66/);
    assert.match(tileText,/View details & manage/);
    const cardBox=await tile.boundingBox();
