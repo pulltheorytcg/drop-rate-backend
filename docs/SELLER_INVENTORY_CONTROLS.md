@@ -1,0 +1,27 @@
+# Seller inventory repair — 10 October 2026
+
+## Report and cause
+
+The reported iPhone Inventory screen used the old read-only seller renderer. It had no item-opening action, editing, quantity controls or inline Shopify actions. Its image query selected approved media only; reference artwork visible in Search was not available there. The displayed Japanese OP-17 single pack has no media row at all.
+
+The exact reported item is `INV-D715B0E9B3C4451BA9095FA233F8A0E5`. Read-only production inspection found a verified canonical identity and a market value, but no selling price, acquisition cost, registered location or approved listing photo. Those publication prerequisites must remain visible rather than being manufactured during a UI repair.
+
+## Repair
+
+Both grid images and list titles open an accessible item dialog. It shows full identity, physical condition/seal/grade, the user's certificate where applicable, market guide, seller price, selected Inventory ID, Shopify state and readiness blockers. The mobile dialog fills the available screen; titles and actions wrap instead of being clipped. Old inventory responses cannot overwrite a newer search or signed-out account.
+
+The seller can save their own Store Price (minimum £1), approve their selling intent and request Drop Rate review, and run the existing Shopify sync for eligible approved For Sale stock. Review requests move Draft to Inspection; they never perform the existing founder-only identity/intake/media approval. Existing automatic Shopify wake-up and publication checks remain authoritative. Market values are not copied into selling prices.
+
+Quantity controls operate on separately tracked physical copies. Increasing quantity requires confirmation and creates one new Draft/Personal Collection copy with no inherited certificate, approval, cost, sale price or valuation snapshot. A persisted idempotency key and database receipt prevent duplicate retries, including concurrent requests. Graded slabs must use their own certificate intake. Decreasing quantity names the exact selected copy, protects it from allocation, uses the existing Shopify/eBay withdrawal logic, then marks it Withdrawn. It never deletes inventory or history. Sold/reserved copies and stale versions are rejected; partial channel failures remain visible and retryable.
+
+Artwork falls back only through exact human-selected reference identities, verified provider mappings or a verified profile's identity-bound reference image. Conflicting artwork is not guessed. The authenticated thumbnail route rechecks ownership, uses the existing bounded trusted-image fetcher and returns a private response. Reference artwork does not become approved storefront media.
+
+The targeted migration adds only an identity-bound reference-image attribute to the already verified Japanese OP-17 single-pack profile. Its official source is [Bandai's Japanese OP-17 product page](https://www.onepiece-cardgame.com/products/boosters/op17/); the inspected `images/others/product_pack.webp` is the Japanese pack, separately linked from the booster box. The migration is idempotent, preserves all existing attributes and changes no physical inventory or media approvals. A later identity change invalidates the display reference.
+
+## Verification gates
+
+Twenty executable UI scenarios cover image/detail opening, price validation, approval/sync eligibility, locked inventory, graded exclusions, exact-copy withdrawal, retry keys and account/session cleanup. Thirty-five backend scenarios cover owner access, stale versions, physical state restrictions, safe response fields, retry receipts, remote failure and ambiguous/unsafe artwork.
+
+The new PostgreSQL CI gate runs the actual detail/artwork queries and mutations with a restricted role and forced owner RLS. It tests the targeted migration twice, concurrent duplicate additions, cross-owner reads/writes, unchanged foreign stock, price/approval guards and audited withdrawal. The existing full backend/UI and financial pre-deploy gates remain required. Production migration, exact-head CI, deployment SUCCESS and live readback must be recorded before reporting this repair released.
+
+No production stock quantities, selling prices or approval statuses are changed merely to test these controls. No new provider, service, outbox type, external seller activation or Brand Redesign publication is part of this repair.

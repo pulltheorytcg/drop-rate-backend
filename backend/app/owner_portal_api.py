@@ -28,6 +28,7 @@ from .physical_state import validate_physical_state
 from .pricing import _recalculate_one
 from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .settings import get_settings
+from .owner_inventory import add_reference_artwork
 
 
 router = APIRouter(prefix="/api/v1/owner", tags=["owner-portal"])
@@ -1057,6 +1058,7 @@ async def owner_inventory(
             f"""
             select
                 i.inventory_code,
+                i.id,i.catalogue_id,i.version,i.sale_intent,
                 p.product_type,
                 p.game,
                 {BRAND_SQL} as brand,
@@ -1145,6 +1147,8 @@ async def owner_inventory(
             *page_params,
         )
 
+        items = await add_reference_artwork(connection, [dict(row) for row in rows])
+
     return jsonable_encoder(
         {
             "owner": {
@@ -1154,7 +1158,7 @@ async def owner_inventory(
             "total": int(total or 0),
             "limit": limit,
             "offset": offset,
-            "items": [dict(row) for row in rows],
+            "items": items,
         }
     )
 

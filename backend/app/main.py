@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import router
 from .db import create_pool
 from .seller_channel_sync import router as seller_channel_sync_router
+from .owner_inventory import router as owner_inventory_router
 from .founder_accounts import router as founder_accounts_router
 from .access_control import require_platform_admin_request, router as access_control_router
 from .action_required import router as action_required_router
@@ -371,6 +372,7 @@ def create_app() -> FastAPI:
     app.include_router(access_control_router)
     app.include_router(founder_accounts_router)
     app.include_router(seller_channel_sync_router)
+    app.include_router(owner_inventory_router)
     app.include_router(action_required_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(automation_control_router)
     app.include_router(automation_commands_router)
