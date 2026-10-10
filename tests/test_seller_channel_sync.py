@@ -125,3 +125,35 @@ async def test_parallel_ebay_publishes_leave_capacity_for_their_own_queries(monk
     ]), timeout=1)
     assert len(results) == 5
     assert all(result["status"] == "LIVE" for result in results)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("product_type,owner_type", [
+    ("SEALED","CONSIGNOR"),("CARD","CONSIGNOR"),("SEALED","FOUNDER")
+])
+async def test_ebay_route_fails_closed_for_consignment_and_sealed_items(monkeypatch, product_type, owner_type):
+    owner,user_id,inventory_id=uuid4(),uuid4(),uuid4()
+    @asynccontextmanager
+    async def connection(*args):
+        class Connection:
+            async def fetchrow(self,sql,*params):
+                assert "i.owner_id=$2" in sql and params==(inventory_id,owner)
+                return {"id":inventory_id,"status":"APPROVED","sale_intent":"FOR_SALE",
+                        "version":4,"product_type":product_type}
+        yield Connection()
+    monkeypatch.setattr(sync,"user_connection",connection)
+    async def access(connection):
+        return {"owner_id":owner,"owner_type":owner_type}
+    monkeypatch.setattr(sync,"require_owner_portal",access)
+    monkeypatch.setattr(sync,"get_settings",lambda:SimpleNamespace(
+        ebay_seller_sync_enabled=True,ebay_publish_enabled=True,ebay_shared_store_owner_id=str(owner)))
+    publish=AsyncMock(return_value={"status":"LIVE"})
+    monkeypatch.setattr(sync,"publish_inventory_to_ebay",publish)
+    request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),
+                            state=SimpleNamespace(request_id="channel-test"))
+    with pytest.raises(HTTPException) as exc:
+        await sync.sync_inventory(inventory_id,"ebay",sync.SyncRequest(version=4),
+            request,SimpleNamespace(user_id=user_id))
+    assert exc.value.status_code==409
+    assert "eBay" in str(exc.value.detail)
+    publish.assert_not_called()
