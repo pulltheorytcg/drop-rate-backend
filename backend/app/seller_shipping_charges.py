@@ -36,7 +36,7 @@ def _money_minor(value: Any, *, label: str) -> int:
         amount = Decimal(str(value.get("amount")))
     except (InvalidOperation, ValueError, TypeError) as exc:
         raise ShippingCostReviewRequired(f"{label} is invalid") from exc
-    if not amount.is_finite() or amount < 0 or amount.as_tuple().exponent < -2:
+    if not amount.is_finite() or amount < 0:
         raise ShippingCostReviewRequired(f"{label} must be a valid non-negative GBP amount")
     pennies = amount * 100
     if pennies != pennies.to_integral_value():
