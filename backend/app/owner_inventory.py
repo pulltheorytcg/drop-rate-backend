@@ -153,6 +153,7 @@ async def details(inventory_id: UUID, request: Request,
         copies = await connection.fetch(COPIES_SQL, inventory_id, access["owner_id"])
     item["approval_blockers"] = approval_blockers(item)
     item["seller_approval_available"] = sealed_seller_candidate(item)
+    item["is_consignment"] = access["owner_type"] == "CONSIGNOR"
     for key in ("owner_type", "catalogue_language", "catalogue_identity_status"):
         item.pop(key, None)
     item.pop("identity_ready", None)
