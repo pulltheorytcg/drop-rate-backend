@@ -39,6 +39,31 @@ async def test_browse_access_and_own_counts(monkeypatch, role, roster, status, p
         assert all('i.owner_id=$1' in sql for sql,_ in queries)
 
 
+def test_set_tiles_receive_metadata_not_arbitrary_card_images():
+    # A set logo is a distinct, verified title-art identity. Even if a future
+    # caller supplies legacy preview fields, the set API must discard them.
+    assert "preview.image_url" not in browser.SETS_SQL
+    assert "'CARD_PREVIEW'" not in browser.SETS_SQL
+    assert "select page.*" in browser.SETS_SQL
+    original = {
+        "system_code": "POKEMON_TCG", "set_id": "B1a",
+        "set_name": "Crimson Blaze", "language": "English",
+        "provider": "TCGdex", "image_url": "https://example.test/bulbasaur.png",
+        "fallback_image_url": "https://example.test/wrong-pack.png",
+        "reference_image_path": "/api/v1/catalogue-browser/reference-image?provider_id=bad",
+        "source_kind": "REFERENCE", "provider_id": "B1a-001",
+        "card_count": 103, "owned_count": 0,
+    }
+    cleaned = browser.set_metadata_only(original)
+    assert cleaned["set_name"] == original["set_name"]
+    assert cleaned["provider"] == "TCGdex"
+    assert cleaned["card_count"] == 103
+    for forbidden in ("image_url", "fallback_image_url",
+                      "reference_image_path", "source_kind", "provider_id"):
+        assert forbidden not in cleaned
+    assert "image_url" in original
+
+
 def test_query_is_parameterized_and_unknown_values_sort_last():
     attack="%' OR true --"
     sql,params=browser.product_query(owner_id=uuid4(),q=attack,system_code='ONE_PIECE_CARD_GAME',owned='owned',sort='value_desc')
