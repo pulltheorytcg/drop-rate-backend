@@ -97,3 +97,14 @@ The UI therefore displays **Personal seller connection awaiting Whatnot API acce
 Official sources:
 - https://developers.whatnot.com/docs/getting-started/introduction
 - https://developers.whatnot.com/docs/getting-started/authentication
+
+
+## 10 October — Quantity control clarity after signed-in phone recording
+
+**Symptom and root cause:** On the two-pack Japanese OP17 inventory detail page, + and − previously displayed *only* the next confirmation card. The counter itself was hardcoded to the latest `copies.length` readback, so it remained 2 even after a tap. The user perceived a broken control.
+
+**UI repair:** A tap previews the **proposed quantity** with a visible amber unsaved state and live announcement (2→3 on +; 2→1 on −). Only one unit may be pending at a time: tap the opposite arrow or **Cancel change** to undo it, or use the clear confirm action to create/withdraw that exact physical unit. On success/failure, refresh detail and grid from the server; never permanently set a quantity optimistically. Confirming an increase retains the existing idempotency key and makes a separate DRAFT physical Inventory ID with no inherited certificate, published status, listing media or cost. The message explicitly explains that Shopify remains unchanged until that copy is approved and verified synced. The details view highlights counts needing approval; the existing approved/for-sale grouped tile is not silently inflated.
+
+**Backend and ownership:** Existing `POST /api/v1/owner/inventory/{id}/copies` and `/withdraw` remain the only write paths, version/owner checked and audited. Withdraw protects remote channels before deleting eligibility; history is retained, not deleted. Increasing one approved pooled copy is not permission to skip per-copy review or to create a new public Shopify product automatically. No new schema, money rule, n8n workflow, marketplace provider, owner activation or Shopify checkout/theme change.
+
+**Tests:** JSDOM reproduces exactly 2→3/2→1 pending, cancel and opposite-arrow undo, no write until confirm, exact POST/version, durable re-read, new DRAFT status and replay after ambiguous network failure. Chromium validates 1→2/1→0 on mobile and desktop without invoking a live write. Release requires exact-head CI, successful production API deployment and signed-in handset acceptance. A separate pooled-publication change must be reviewed if the desired next step is **auto-increasing the same Shopify listing upon approving extra units**.
