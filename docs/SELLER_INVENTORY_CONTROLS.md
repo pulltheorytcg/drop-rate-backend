@@ -35,3 +35,18 @@ The new PostgreSQL CI gate runs the actual detail/artwork queries and mutations 
 The browser test used the actual page/assets with isolated API fixtures and the official image. It verifies image loading, mobile/desktop widths, detail opening, disabled ineligible sync, quantity confirmation and list opening. It is not a fresh signed-in iPhone acceptance test. No real stock was added, withdrawn or published to test the release.
 
 No production stock quantities, selling prices or approval statuses are changed merely to test these controls. No new provider, service, outbox type, external seller activation or Brand Redesign publication is part of this repair.
+
+
+## 10 October 2026 — Compact inventory presentation (follow-up)
+
+**What:** Keep the Seller Hub Inventory grid and list focused on artwork, verified product name, status, known market value, Store Price/recommended retail and the existing details action. Move Seal/Condition, Language, Type, Game, full physical Inventory ID, grading and certificate metadata into a structured **Item information** section inside the authenticated item-details modal. Show the full ID without truncation. List view likewise has four columns: Product, Status, Market value and Store/recommended price.
+
+**Why:** The original cards expanded to display multiple tiny duplicated metadata rows even at two columns on mobile. The extra rows made inventory difficult to scan and mixed record details with quick-comparison metrics.
+
+**Connections:** The grid/list still render the same server-authorized owner inventory response; item details fetch the existing owner-scoped `GET /api/v1/owner/inventory/{id}`. No new data fields, endpoint, permission, pricing policy, stock command, Shopify integration or n8n workflow is introduced. Image opening, status search/filter, market refresh, approval, sale price changes, Shopify sync and separate physical-copy controls continue to work as before. The Seller Hub visual change does not affect Founder HQ or Shopify storefront.
+
+**Failure points:** Small-screen overflow, long product names/Inventory IDs, missing values, inaccessible detail buttons, list-mode regressions, graded certificate loss, stale or cross-account item requests. These are handled by the existing detail-scoped access checks, touch-sized actions, responsive value columns, wrapping IDs and unchanged session isolation.
+
+**Tests:** JSDOM asserts card/list metadata is absent but status, market/store value and detail actions remain; opening the item displays labelled Game, Language, Seal/Condition, Type, exact Inventory ID and grading details. Existing seller price/approval/sync/quantity/withdrawal tests remain. The Chromium 430px and 1440px browser gate asserts compact-height cards, four-column list, complete details, no horizontal overflow and working edit/quantity entry. Baseline backend, real PostgreSQL owner-isolation and CI remain release requirements.
+
+**Deployment:** Versioned asset URLs ensure the simplified grid and detail styles refresh together. Deploy only through reviewed exact-head CI and Railway pre-deploy gates. The actual signed-in seller-device visual check is separate and must not be claimed from fixtures.

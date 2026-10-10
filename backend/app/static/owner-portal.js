@@ -105,7 +105,7 @@ function renderInventoryRows(items) {
   if (!items.length) {
     const row = document.createElement("tr");
     const cell = document.createElement("td");
-    cell.colSpan = 6;
+    cell.colSpan = 4;
     cell.className = "muted";
     cell.textContent = "No inventory matches these filters.";
     row.append(cell);
@@ -125,7 +125,7 @@ function renderInventoryRows(items) {
     const cardName = document.createElement("strong");
     cardName.textContent = safeText(item.name);
     const cardCode = document.createElement("small");
-    cardCode.textContent = `${safeText(item.inventory_code)} · ${inventoryCardSubtitle(item)}`;
+    cardCode.textContent = inventoryCardSubtitle(item);
     cardCopy.append(cardName, cardCode);
     if (item.id && window.DropRateInventory) {
       const open = document.createElement("button");
@@ -136,12 +136,6 @@ function renderInventoryRows(items) {
     }
     cardWrap.append(cardCopy);
     cardCell.append(cardWrap);
-
-    const gameCell = document.createElement("td");
-    gameCell.textContent = [safeText(item.game, ""), safeText(item.set_name, "")].filter(Boolean).join(" · ") || "—";
-
-    const conditionCell = document.createElement("td");
-    conditionCell.textContent = `${conditionLabel(item)} · ${safeText(item.language)}`;
 
     const statusCell = document.createElement("td");
     const status = document.createElement("span");
@@ -157,7 +151,7 @@ function renderInventoryRows(items) {
     const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
     storeCell.textContent = storeValue == null ? "—" : formatMoney(storeValue);
 
-    row.append(cardCell, gameCell, conditionCell, statusCell, marketCell, storeCell);
+    row.append(cardCell, statusCell, marketCell, storeCell);
     body.append(row);
   }
 }
@@ -213,25 +207,6 @@ function renderInventoryCards(items) {
     status.textContent = safeText(item.status);
     heading.append(title, status);
 
-    const meta = document.createElement("div");
-    meta.className = "owner-card-meta";
-    const metaValues = [
-      [item.product_type === "SEALED" ? "Seal" : "Condition", conditionLabel(item)],
-      ["Language", safeText(item.language)],
-      ["Type", inventoryTypeLabel(item)],
-      ["Game", safeText(item.game)],
-      ["Inventory", safeText(item.inventory_code)],
-    ];
-    for (const [labelText, valueText] of metaValues) {
-      const box = document.createElement("div");
-      const label = document.createElement("span");
-      label.textContent = labelText;
-      const value = document.createElement("strong");
-      value.textContent = valueText;
-      box.append(label, value);
-      meta.append(box);
-    }
-
     const prices = document.createElement("div");
     prices.className = "owner-card-prices";
     const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
@@ -251,7 +226,7 @@ function renderInventoryCards(items) {
       prices.append(box);
     }
 
-    body.append(heading, meta, prices);
+    body.append(heading, prices);
     const details = document.createElement("button");
     details.type = "button"; details.className = "owner-secondary-button owner-inventory-details";
     details.textContent = "View details & manage";

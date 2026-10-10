@@ -104,11 +104,33 @@ window.DropRateInventory = (() => {
     figure.append(image(item, "owner-item-art"), el("figcaption", "", item.image_url ? "Inventory / approved catalogue image" : "Catalogue reference · not a photo of your copy"));
     const identity = el("div");
     identity.append(el("h3", "", item.name), el("p", "", inventoryCardSubtitle(item)),
-      el("p", "", [item.game, item.language, conditionLabel(item)].filter(Boolean).join(" · ")),
-      el("p", "owner-item-code", item.inventory_code),
       el("span", `owner-status-pill ${statusClass(item.status)}`, item.status));
-    if (item.certificate_number) identity.append(el("p", "", `Certificate: ${item.certificate_number}`));
     hero.append(figure, identity); content.append(hero);
+
+    // The inventory grid shows only essentials. Exact copy metadata remains
+    // available here, including untruncated IDs and grading certificates.
+    const facts = el("section", "owner-item-facts");
+    facts.append(el("h3", "", "Item information"));
+    const list = el("dl", "owner-item-facts-grid");
+    const rows = [
+      ["Game", item.game],
+      ["Set", item.set_name],
+      ["Card number", item.card_number],
+      ["Language", item.language],
+      [item.product_type === "SEALED" ? "Seal" : "Condition", conditionLabel(item)],
+      ["Type", inventoryTypeLabel(item)],
+      ["Grading company", item.grading_company],
+      ["Grade", item.grade],
+      ["Certificate", item.certificate_number],
+      ["Inventory ID", item.inventory_code],
+    ];
+    for (const [labelText, valueText] of rows) {
+      if (valueText == null || String(valueText).trim() === "") continue;
+      const pair = el("div", "owner-item-fact");
+      pair.append(el("dt", "", labelText), el("dd", "", String(valueText)));
+      list.append(pair);
+    }
+    facts.append(list); content.append(facts);
 
     const values = el("section", "owner-item-values");
     values.append(el("div", "", "Market value"), el("strong", "", price(item.market_value_minor)));
