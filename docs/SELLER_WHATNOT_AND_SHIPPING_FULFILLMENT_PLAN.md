@@ -14,6 +14,19 @@ Official:
 - https://developers.whatnot.com/docs/getting-started/introduction
 - https://developers.whatnot.com/docs/getting-started/authentication
 
+## 2. Checkout shipping funding policy — confirmed 10 October 2026
+
+The founder clarified the **shipping-financing model**, so no seller courier billing integration is required merely to decide who bears postage:
+
+- **Shopify checkout** is the one source of truth for the delivery rate that the customer sees and pays. In the live General shipping profile, the current **United Kingdom** options are Standard **£4.99**, Express **£6.99**, and free Standard on a `TOTAL_PRICE >= £50` condition. The requested replacement threshold is **£10**, with orders below £10 paying delivery. **International rates remain £14.99 (EU) and £23.99 (other listed countries)**. Whether the £10 threshold applies only to the UK must be explicitly verified before a live rate write; international free postage must not be inferred.
+- The attempted `deliveryProfileUpdate` to change the free-rate price condition from £50 to £10 was rejected by Shopify with `The condition with id {condition_id: 448537821531} could not be found`. **Checkout has NOT been altered.** Never report £10 as live until Shopify shipping-rate readback and test checkout confirm it.
+- **Free shipping:** the customer contributes **0p** postage revenue; the **actual purchased label charge** (not the hypothetical £4.99 rate) reduces the physically responsible seller's eventual net proceeds as a deterministic `SHIPPING_COST` ledger entry.
+- **Customer-paid shipping:** the exact Shopify-paid delivery amount is an auditable `SHIPPING_REVENUE` entry; each actual label invoice is `SHIPPING_COST`. The customer's payment offsets label charges. Never debit `£4.99` from a seller *on top of* the actual postage cost; never claim postage has been covered unless the recorded customer payment is sufficient.
+- **Multiple sellers:** one Shopify shipping charge is allocated **once**, using the existing `allocate_minor` weighted distribution across owner items. Each independently purchased physical label is charged only once against its own eligible dispatched items; a jointly packed parcel's cost is divided by the item net values using deterministic rounding. If the collected shipping charge is less than the total of multiple actual labels, the platform-versus-seller **shortfall policy requires a separate sign-off** before settlement is marked verified.
+- Financial rules must use GBP minor units and existing `financial_ledger_entries` /`order_item_reconciliations`; the seller's acquisition cost remains independent, and no ledger should be posted from a predicted rate or fake PDF. Existing tests in `tests/test_customer_shipping_seller_postage_policy.py` cover free, paid, multiple-seller and unknown-cost cases.
+
+**Shopify Shipping labels are now technically possible:** Shopify released GraphQL `shippingLabelPurchase` in stable API **2026-07**, which purchases carrier-issued labels asynchronously for eligible fulfilment orders; see https://shopify.dev/docs/apps/build/orders-fulfillment/order-management-apps/purchase-shipping-labels. However, the GraphQL schema currently exposed by Drop Rate's connected Shopify integration **does not expose that mutation**. Version upgrade and feature/terms/permissions, protected customer-data and shipping-rate preview checks are required before purchasing labels; no live purchases have been attempted. The purchase API by itself does not guarantee an exact previewable carrier invoice before buying, so a proper quoted-cost/approval strategy must be validated.
+
 ## 2. Shipping in Seller Hub — operator choice required
 
 Goal: seller opens a **paid, allocated order**, obtains a real carrier-accepted label with a visible cost, prints **4x6 thermal or A4 PDF**, packs/dispatches their own items, and Drop Rate updates only their Shopify fulfilment-order line quantities with validated tracking.
