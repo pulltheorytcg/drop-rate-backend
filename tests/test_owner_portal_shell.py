@@ -60,7 +60,7 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
     assert ".owner-item-facts" in css
     assert ".owner-item-fact dd" in css
     assert 'href="/assets/owner-inventory.css?v=4"' in html
-    assert 'src="/assets/owner-inventory.js?v=5"' in html
+    assert 'src="/assets/owner-inventory.js?v=6"' in html
 
 
 def test_owner_portal_requires_owner_role_and_redirects_platform_admin() -> None:
