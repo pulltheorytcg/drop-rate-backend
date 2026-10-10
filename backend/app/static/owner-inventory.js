@@ -66,12 +66,12 @@ window.DropRateInventory = (() => {
     const rev = ++revision, owner = account(); selected = item;
     content.replaceChildren(); status("Loading item details…");
     try {
-      const [data, channelSummary] = await Promise.all([
-        apiRequest(`/api/v1/owner/inventory/${encodeURIComponent(item.id)}`),
-        apiRequest("/api/v1/owner/channels?limit=1").catch(() => ({channels: []}))
-      ]);
+      const data = await apiRequest(`/api/v1/owner/inventory/${encodeURIComponent(item.id)}`);
       if (!alive(rev, owner)) return;
-      channels=Array.isArray(channelSummary.channels)?channelSummary.channels:[];
+      // Reuse the owner-scoped channel dashboard snapshot; never block item
+      // details on an unrelated provider connection or a slow external API.
+      channels=state.ownerChannelAccount===owner && Array.isArray(state.ownerChannelSummaries)
+        ?state.ownerChannelSummaries:[];
       selected = data.item; render(data); status("");
     } catch (error) { if (alive(rev, owner)) status(error.message, true); }
   }
