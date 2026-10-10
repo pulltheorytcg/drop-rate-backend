@@ -18,6 +18,7 @@ from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .settings import get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
+from .shopify_packing_slip import PackingSlipNotReady, build_shopify_owner_packing_slip
 from .shopify_shipping_labels import (
     ORDER_SHIPPING_QUERY, canonical_shopify_order_gid,
     canonical_shopify_line_gid, ensure_label_api_version,
@@ -301,3 +302,80 @@ async def owner_shopify_preflight(
         **remote,
         "source": "DIRECT_SHOPIFY_ADMIN_API",
     })
+
+
+@router.get("/to-ship/{order_item_id}/packing-slip")
+async def owner_shopify_packing_slip(
+    order_item_id: UUID,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Authenticated seller's exact Shopify-derived packing slip, no buyer PII.
+
+    The actual Shopify Admin packing-slip PDF template is not available through
+    the official API. The browser renders this Shopify-sourced, owner-only
+    pick/packing slip with no customer shipping address. The official carrier
+    label must be bought separately and contains the destination address.
+    """
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id,
+    ) as connection:
+        access = await current_access_context(connection)
+        owner_id = access["owner_id"]
+        selected = await connection.fetchrow(
+            """
+            select o.id as local_order_id, o.source_reference,
+                   o.status as order_status
+            from tcg.order_items oi
+            join tcg.orders o on o.id=oi.order_id
+            join tcg.inventory_items i on i.id=oi.inventory_id and i.owner_id=$1
+            join tcg.shopify_order_item_links sol
+              on sol.order_item_id=oi.id and sol.owner_id=$1
+            where oi.id=$2 and oi.owner_id=$1 and o.source='SHOPIFY'
+            """,
+            owner_id, order_item_id,
+        )
+        if selected is None:
+            raise HTTPException(status_code=404, detail="Your Shopify order item was not found")
+        if selected["order_status"] != "PAID":
+            raise HTTPException(status_code=409, detail="Order is no longer paid")
+        rows = await connection.fetch(
+            """
+            select oi.id as order_item_id, o.status as order_status,
+                   i.status as physical_status, i.inventory_code,
+                   sol.shopify_order_id, sol.shopify_line_item_id
+            from tcg.order_items oi
+            join tcg.orders o on o.id=oi.order_id
+            join tcg.inventory_items i on i.id=oi.inventory_id and i.owner_id=$1
+            join tcg.shopify_order_item_links sol
+              on sol.order_item_id=oi.id and sol.owner_id=$1
+            where oi.owner_id=$1 and oi.order_id=$2
+              and o.source='SHOPIFY'
+            order by oi.id
+            """,
+            owner_id, selected["local_order_id"],
+        )
+    try:
+        source_gid = canonical_shopify_order_gid(selected["source_reference"])
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail="Shopify order identity is missing") from exc
+
+    client = _shipping_admin_client()
+    try:
+        remote = await client.graphql(
+            query=ORDER_SHIPPING_QUERY, variables={"orderId": source_gid},
+        )
+    except ShopifyApiError as exc:
+        raise HTTPException(
+            status_code=503 if exc.retryable else 502,
+            detail="Shopify packing slip could not be verified",
+        ) from exc
+    try:
+        prepared = build_shopify_owner_packing_slip(
+            remote_order=remote.get("order"),
+            source_reference=str(selected["source_reference"]),
+            owner_allocations=[dict(row) for row in rows],
+        )
+    except PackingSlipNotReady as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return jsonable_encoder(prepared)
