@@ -20,8 +20,14 @@ def test_dispatch_is_inside_existing_sales_tab():
     assert sales.index('id="owner-dispatch-review"') < sales.index('id="owner-sales-body"')
     assert '<h3 id="owner-dispatch-heading">To ship' in sales
     assert '<h2>Your sold cards</h2>' in sales
-    assert '<script src="/assets/owner-fulfillment.js?v=2" defer></script>' in html
-    assert '<link rel="stylesheet" href="/assets/owner-fulfillment.css?v=2">' in html
+    assert '<script src="/assets/owner-fulfill-wizard.js?v=1" defer></script>' in html
+    assert 'id="owner-fulfill-dialog"' in html
+    assert 'id="owner-fulfill-print-packing"' in html
+    assert 'id="owner-fulfill-print-label"' in html
+    assert 'id="owner-fulfill-confirm"' in html
+
+    assert '<script src="/assets/owner-fulfillment.js?v=3" defer></script>' in html
+    assert '<link rel="stylesheet" href="/assets/owner-fulfillment.css?v=3">' in html
     assert 'data-owner-view="fulfilment"' not in html
 
 
@@ -48,3 +54,20 @@ def test_dispatch_layout_is_mobile_friendly_and_not_bright_lime():
     assert "grid-template-columns:1fr" in css
     assert "neon" not in css.lower()
     assert "#ccff00" not in css.lower()
+
+
+def test_fulfill_button_has_live_shopify_review_and_no_fake_shipping_label():
+    portal = JS.read_text()
+    wizard = (ROOT / "backend/app/static/owner-fulfill-wizard.js").read_text()
+    assert 'owner-dispatch-fulfill' in portal
+    assert '"seller-fulfillment-open"' in portal
+    assert "Print packing slip" in (ROOT / "backend/app/static/owner.html").read_text()
+    assert "shopify-status" in portal
+    assert '"/packing-slip"' not in wizard  # exact owner path is assembled
+    assert "/packing-slip" in wizard
+    assert "shippingLabelPurchase" not in wizard
+    assert "Confirm dispatched" in (ROOT / "backend/app/static/owner.html").read_text()
+    assert "innerHTML" not in wizard
+    assert "buyer_shipping_address" not in wizard
+    assert "printLabel.disabled = true" in wizard
+    assert "confirm.disabled = true" in wizard
