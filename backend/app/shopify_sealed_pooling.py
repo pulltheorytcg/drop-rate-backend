@@ -124,8 +124,13 @@ def evaluate_published_sealed_group(rows: list[dict[str, Any]]) -> dict[str, Any
         values={str(r.get(field) or "") for r in rows}
         if len(values)!=1 or not next(iter(values)):
             blocks.append(field+" mismatch")
-    if any(sealed_pool_identity(r)["listing_key"] != identity["listing_key"] for r in rows):
-        blocks.append("pooled sealed identity mismatch")
+    for member in rows:
+        try:
+            member_key=sealed_pool_identity(member)["listing_key"]
+        except ValueError:
+            member_key=None
+        if member_key != identity["listing_key"]:
+            blocks.append("pooled sealed identity mismatch")
     # Retain the oldest physical product URL as the customer-facing anchor.
     ordered=sorted(rows,key=lambda r:(str(r.get("inventory_created_at") or ""),
                                     str(r.get("inventory_code") or "")))
