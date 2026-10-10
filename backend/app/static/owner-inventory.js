@@ -274,9 +274,9 @@ window.DropRateInventory = (() => {
     const savedQuantity = copies.length;
     stock.append(el("p", "", `${savedQuantity} ${savedQuantity === 1 ? "copy" : "copies"} in your active inventory`));
     const awaitingApproval = copies.filter(copy => ["DRAFT", "INSPECTION"].includes(copy.status)).length;
-    const approvedForSale = copies.filter(copy => copy.status === "APPROVED" && copy.sale_intent === "FOR_SALE").length;
+    const approvedPhysicalCopies = copies.filter(copy => copy.status === "APPROVED" && copy.sale_intent === "FOR_SALE").length;
     if (awaitingApproval) stock.append(el("p", "owner-item-quantity-breakdown",
-      `${approvedForSale} approved for sale · ${awaitingApproval} awaiting approval. Pending copies are not live on Shopify.`));
+      `${approvedPhysicalCopies} approved for sale · ${awaitingApproval} awaiting approval. Pending copies are not live on Shopify.`));
     if (copies.length > 1) {
       const label = el("label", "", "Choose the copy to manage"), select = el("select");
       select.setAttribute("aria-label", "Choose inventory copy");
