@@ -34,10 +34,44 @@ Every prior match retains its marketplace product ID. All 1,686 additional match
 
 Example: Manga Booster 01 Son Gohan : Childhood, official printing `583201:FB01-088_p2`, collector `FB01-088`, maps to Cardmarket product `831639`, expansion `6171`, foil trend EUR 0.05 / GBP 0.04. This is a labelled mixed-language reference, not an English Near Mint sold transaction or an instruction to sell at that amount.
 
-## Validation and remaining gates
+## Release verification
 
 Local verification passed 4,995 backend tests and every dashboard suite, including 39 catalogue interaction scenarios. Added regressions cover numbered releases, packaging category errors, contradictory expansions, collectors/regional/event packs, supplemental code mismatches, wrong numbers, wrong games, duplicate/unpriced alternatives and physical-copy exclusions. The actual PostgreSQL maintenance test now verifies that an identity-changed guide disappears from both displayed price and priced coverage without removing the reference.
 
-Before calling this release complete: require all checks on the exact PR head (including real PostgreSQL), observe Railway SUCCESS and readiness, read the revision-7 receipt and final coverage, compare owner/Store Price/status fields, verify unchanged prior market amounts and confirm Shopify processing. No signed-in real-iPhone acceptance has been performed during this continuation.
+[PR #567](https://github.com/pulltheorytcg/drop-rate-backend/pull/567) passed all four CI workflows / six jobs on exact head `314bb71f452c7d94d22c3cdf27d87255c944bfba`, including Catalogue maintenance persistence, Independent catalogue valuations and Live market persistence against real PostgreSQL. It merged as `926745d2186ea37429601fa48c9c78fc8e6df257`. Railway deployment `01247982-7743-422c-929f-9d5faf9c1bd2` reached SUCCESS at 13:29:36 UTC. The unchanged pre-deploy sequence passed all 4,995 tests and configured financial checks; the existing sold-source probe still reports its quota limit. Readiness returned 200, and unauthenticated catalogue coverage access returned 401. No infrastructure settings or schema were changed.
 
-Large coverage gaps remain in ambiguous parallel/promo printings, Japanese One Piece/Fusion World and Naruto without a supported exact-source mapping. Digital Pokémon Pocket records are not physical cash-market cards. The eBay sold-feed quota is still an independent constraint. None of these is reported as zero value or as complete coverage.
+The revision-7 reference receipt completed at 13:32:37 UTC with zero provider failures. It rechecked all 23,770 English Pokémon references (9,258 broad catalogue guides), all 4,527 English One Piece references (2,037 guides), and all 13,362 English Dragon Ball references (3,527 guides). Completed detailed Pokémon cache work was reused. Post-refresh production coverage, calculated using the deployed coverage query, is:
+
+| Reference group | Total cards | Priced cards |
+|---|---:|---:|
+| Pokémon English | 23,770 | 16,524 |
+| Pokémon Japanese | 13,006 | 9,449 |
+| One Piece English | 4,527 | 2,037 |
+| One Piece Japanese | 4,480 | 0 |
+| Dragon Ball Masters English | 9,002 | 2,797 |
+| Dragon Ball Fusion World English | 4,360 | 730 |
+| Dragon Ball Fusion World Japanese | 3,227 | 0 |
+| Naruto Bandai Legacy, language unspecified | 4,487 | 0 |
+| Naruto Kayou, language unspecified | 2,679 | 0 |
+| **All card references** | **69,538** | **31,537** |
+
+The increase is exactly 1,686 cards. Sealed coverage remains 2,725 / 3,879. All card and sealed identifying/source fields remain complete. These are current query results after the refresh; the earlier stored coverage receipt at 13:29:43 UTC predates completion.
+
+The actual Seller Hub `product_query` was run read-only against production for the following references. All four had no guide before refresh, and all have zero owned copies. Each now returns source `CARDMARKET_BULK_SINGLES`, showing that guide availability is independent of inventory:
+
+| Card | Exact provider printing | Cardmarket product | GBP guide |
+|---|---|---:|---:|
+| Destructive Terror Champa, BT1-004 | `428001:BT1-004.png` | 316508 | £0.31 |
+| Metamorphic Android Cell, BT26-139 | `428026:BT26-139.png` | 792115 | £420.59 |
+| Son Gohan : Childhood, FB01-088 | `583201:FB01-088_p2` | 831639 | £0.04 |
+| Son Goku : Childhood, FB06-119 | `583202:FB06-119_p2` | 859266 | £122.98 |
+
+These are explicitly labelled mixed-language/condition references with original source evidence, not exact physical-copy sold valuations. Automated dashboard coverage passed, but no fresh signed-in browser or real-iPhone acceptance has been performed during this continuation.
+
+The physical Cardmarket receipt completed at 13:33:05 UTC: 463 canonical products checked, 244 guide bases, 80 snapshots inserted, 76 inventory rows refreshed, zero provider calls and zero Store Price updates. Exact final comparison against all 510 baseline items confirms zero owner/Store Price/status changes, zero changed market/recommended amounts among previously valued copies, and zero removed inventory rows. Three previously unvalued copies gained eligible estimates, so physical coverage is now **327 / 510**. The 76 refreshes are not 76 new valuations.
+
+Shopify's connected shop was verified as Drop Rate (`fqu56y-hm.myshopify.com`, GBP). Eight active products, two per game, were read directly from Shopify; all matched their linked variant, exact inventory SKU and approved Store Price. The production database records zero linked selling-price differences. The last worker heartbeat at 13:26:16 UTC is COMPLETE with zero candidates/failures; no artificial listing change was made to manufacture a sync. Existing immediate post-approval processing, the minute recovery sweep and the daily 03:00 Europe/London catalogue schedule remain in place. These remote samples do not claim an exhaustive remote-price audit.
+
+## Remaining work
+
+There are still **38,001 card references**, **1,154 sealed references** and **183 physical inventory copies** without usable values. Gaps include ambiguous parallel/promo printings, Japanese One Piece/Fusion World and Naruto without a supported exact-source mapping. Digital Pokémon Pocket records are not physical cash-market cards. The eBay sold-feed quota is still an independent constraint. These remain unknown in the product; zero priced counts in the audit table mean no usable guide, not a zero monetary value. Full signed-in mobile acceptance remains outstanding. The Brand Redesign launch hold remains in place.

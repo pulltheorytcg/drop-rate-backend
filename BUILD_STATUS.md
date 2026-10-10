@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Market continuation deployed and verified
+
+- PR #567 merged as `926745d2186ea37429601fa48c9c78fc8e6df257`. Railway `01247982-7743-422c-929f-9d5faf9c1bd2` reached SUCCESS at 13:29:36 UTC; readiness is 200 and unauthenticated catalogue coverage is rejected with 401. All four exact-head CI workflows / six jobs passed, including three real PostgreSQL suites. CI and unchanged pre-deploy gates passed **4,995 backend tests**; all dashboard suites passed.
+- Revision 7 completed at 13:32:37 UTC with zero provider failures: all 23,770 English Pokémon, 4,527 English One Piece and 13,362 English Dragon Ball references were rechecked. Live coverage is **31,537 / 69,538 cards** (up 1,686) and **2,725 / 3,879 sealed references**. The actual Seller Hub catalogue query returns the recovered guides on four previously unpriced, unowned example cards. All reference identity fields remain complete.
+- Physical valuation completed at 13:33:05 UTC: 244 guide bases across 463 canonical products, zero provider calls and zero Store Price updates. Exact before/after comparison finds **327 / 510 inventory items valued**, three newly valued copies, zero ownership/Store Price/status changes and zero changes to previously valued amounts or recommended prices. The receipt's 76 inventory updates include refreshed existing evidence, not 76 newly valued copies.
+- The Shopify worker is healthy. Fresh remote checks of eight active listings across all four games match their exact linked variant/SKU and approved Store Price; the database records no selling-price differences. Daily refresh remains at 03:00 Europe/London, with immediate processing after seller For Sale approval and the minute recovery sweep.
+- Remaining: **38,001 card references and 183 inventory copies lack usable values**; missing exact printing/language/grade sources, unsupported Japanese/Naruto references and eBay quota remain explicit. No fresh signed-in iPhone acceptance is claimed. The Brand Redesign launch hold, financial controls and seller asking-price policy remain intact. See [verified continuation evidence](docs/CATALOGUE_MARKET_CONTINUATION.md).
+
 ## 10 October 2026 — Market continuation: numbered and supplemental Dragon Ball releases
 
 - Verified the previous handoff: PR #566 (`2267946`) is live on Railway `d6001a3d-c949-4254-8f10-8df8b347aa4c`, SUCCESS. Revision 6 finished at 12:53:20 UTC with no provider failures; coverage is **29,851 / 69,538 card references** and **2,725 / 3,879 sealed references**. All reference identity fields are present. Physical inventory remains 324/510 valued. The latest Shopify receipt is healthy, with no recorded approved Store Price differences.
