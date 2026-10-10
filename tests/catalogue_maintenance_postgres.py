@@ -70,7 +70,7 @@ async def main():
         sql,args=product_query(owner_id=owner,product_type='CARD');assert not await db.fetch(sql,*args)
         sql,args=product_query(owner_id=owner,product_type='SEALED',language='English');assert not await db.fetch(sql,*args)
         sets=await db.fetch(SETS_SQL,owner,['POKEMON_TCG'],'Unknown','',41,0)
-        assert len(sets)==1 and sets[0]['image_url']==product['image_url'] and sets[0]['indexed_count']==1
+        assert len(sets)==1 and 'image_url' not in sets[0] and sets[0]['indexed_count']==1
         assert (await db.fetch(GAMES_SQL,owner))[0]['products']==1
         from app.sealed_market import WRITE_SQL
         from app.catalogue_coverage import COVERAGE_SQL

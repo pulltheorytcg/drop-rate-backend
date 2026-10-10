@@ -53,6 +53,15 @@ def with_artwork_path(row):
     return item
 
 
+def set_metadata_only(row):
+    """Set navigation never exposes an arbitrary product/card artwork as cover art."""
+    result = dict(row)
+    for name in ("image_url", "display_image_url", "fallback_image_url",
+                 "reference_image_path", "source_kind", "provider_id"):
+        result.pop(name, None)
+    return result
+
+
 def browse_systems(system_code: str) -> list[str]:
     return list(BROWSE_FAMILIES.get(system_code, (system_code,)))
 
@@ -199,17 +208,10 @@ SETS_SQL = SET_CTE + """
  order by release_date desc nulls last,set_name,language,provider,set_id
  limit $5 offset $6
  )
- select page.*,preview.image_url,preview.provider_id,preview.source_kind
- from set_page page left join lateral (
-   select r.image_url,r.provider_id,'REFERENCE'::text as source_kind from tcg.reference_cards r
-   where r.provider=page.provider and r.system_code=page.system_code
-     and r.language=page.language and r.set_id=page.set_id and r.image_url is not null
-   union all
-   select r.image_url,r.provider_id,'SEALED_REFERENCE'::text from tcg.reference_sealed_products r
-   where r.provider=page.provider and r.system_code=page.system_code
-     and r.language=page.language and r.set_id=page.set_id and r.image_url is not null
-   order by provider_id limit 1
- ) preview on true
+ -- Set tiles deliberately have no card-image fallback. Logos are resolved
+ -- separately from verified title-art mappings in the client, not card rows.
+ select page.*
+ from set_page page
  order by page.release_date desc nulls last,page.set_name,page.language,page.provider,page.set_id
 """
 
@@ -279,7 +281,7 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
                limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         rows = await connection.fetch(SETS_SQL, access["owner_id"], browse_systems(system_code), language, q.strip(), limit + 1, offset)
-    return jsonable_encoder({"items": [with_artwork_path(row) for row in rows[:limit]], "has_more": len(rows) > limit,
+    return jsonable_encoder({"items": [set_metadata_only(row) for row in rows[:limit]], "has_more": len(rows) > limit,
                              "offset": offset, "total_count": rows[0]["total_count"] if rows else 0,
                              "coverage": "MASTER_SET_CATALOGUE"})
 
