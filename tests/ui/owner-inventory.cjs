@@ -94,7 +94,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(f.w.document.querySelector('[aria-label="Choose inventory copy"]').options.length,2);
   assert.equal(btn(f.w,'Sync to eBay'),undefined,'Unsupported eBay sealed publishing must not show a misleading action');
   assert.equal(f.w.document.querySelector('.owner-item-channel-ebay .owner-item-channel-availability').textContent,'Not available yet');
-  assert.match(f.w.document.querySelector('.owner-item-channel-ebay').textContent,/Sealed listings not supported/);
+  assert.match(f.w.document.querySelector('.owner-item-channel-ebay').textContent,/Sealed packs aren't supported yet/);
   let opened=null;f.w.open=(url,target,options)=>{opened={url,target,options};};
   await click(f.w,'Set up');
   assert.deepEqual(opened,{url:'https://apps.shopify.com/whatnot',target:'_blank',options:'noopener,noreferrer'});
