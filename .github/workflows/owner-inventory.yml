@@ -10,6 +10,7 @@ on:
       - 'backend/app/static/owner*'
       - 'database/migrations/*inventory_op17_reference_artwork.sql'
       - 'database/migrations/*seller_held_sealed_publication.sql'
+      - 'database/migrations/*shopify_publication_actor.sql'
       - 'tests/*owner_inventory*'
       - 'tests/*seller*postgres.py'
       - 'tests/ui/owner-inventory*'
