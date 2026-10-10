@@ -6,9 +6,30 @@
    is not enabled in this release. Never invent a label, price or dispatch. */
 (() => {
   const el = (id) => document.getElementById(id);
-  const dialog = el("owner-fulfill-dialog");
+  const template = el("owner-fulfill-template");
   const state = {item: null, revision: 0, packingAllowed: false};
-  if (!dialog) return;
+  if (!template) return;
+  let dialog = null;
+  let summary = null;
+  let blockers = null;
+  let printPacking = null;
+  let printLabel = null;
+  let confirm = null;
+
+  function ensureDialog() {
+    if (dialog) return dialog;
+    // Delayed creation means inventory/scanner dialogs retain their existing
+    // DOM order and event handling until a seller explicitly clicks Fulfill.
+    dialog = template.content.firstElementChild.cloneNode(true);
+    document.body.append(dialog);
+    summary = el("owner-fulfill-item-summary");
+    blockers = el("owner-fulfill-blockers");
+    printPacking = el("owner-fulfill-print-packing");
+    printLabel = el("owner-fulfill-print-label");
+    confirm = el("owner-fulfill-confirm");
+    installDialogHandlers();
+    return dialog;
+  }
 
   const text = (id, value) => {el(id).textContent = String(value ?? "");};
   const node = (type, value, className = "") => {
@@ -17,12 +38,6 @@
     result.textContent = String(value ?? "");
     return result;
   };
-  const summary = el("owner-fulfill-item-summary");
-  const blockers = el("owner-fulfill-blockers");
-  const printPacking = el("owner-fulfill-print-packing");
-  const printLabel = el("owner-fulfill-print-label");
-  const confirm = el("owner-fulfill-confirm");
-
   const blockerCopy = {
     SHOPIFY_ORDER_CANCELLED: "Shopify cancelled this order.",
     SHOPIFY_ORDER_PAYMENT_NOT_VERIFIED: "Shopify payment is not verified.",
@@ -49,6 +64,7 @@
 
   function close() {
     state.revision++;
+    if (!dialog) return;
     state.item = null;
     state.packingAllowed = false;
     printPacking.disabled = true;
@@ -68,6 +84,7 @@
 
   async function openFor(item) {
     if (!item || !/^[0-9a-f-]{36}$/i.test(String(item.order_item_id || ""))) return;
+    ensureDialog();
     const revision = ++state.revision;
     state.item = item;
     state.packingAllowed = false;
@@ -154,7 +171,8 @@
     ));
   }
 
-  printPacking.addEventListener("click", async () => {
+  function installDialogHandlers() {
+    printPacking.addEventListener("click", async () => {
     if (!state.packingAllowed || !state.item || !dialog.open) return;
     const rev = state.revision;
     // Open synchronously in the actual user gesture; avoid popup blocking.
@@ -197,6 +215,7 @@
 
   el("owner-fulfill-close").addEventListener("click",close);
   dialog.addEventListener("cancel", (event)=>{event.preventDefault();close();});
+  }
   document.addEventListener("seller-fulfillment-open", (event) => {
     openFor(event.detail?.item);
   });
