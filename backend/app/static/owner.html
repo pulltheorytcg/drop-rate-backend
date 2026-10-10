@@ -7,7 +7,7 @@
   <title>Drop Rate</title>
   <link rel="stylesheet" href="/assets/styles.css?v=owner-v2-base">
   <link rel="stylesheet" href="/assets/owner-portal.css?v=owner-v14">
-  <link rel="stylesheet" href="/assets/owner-fulfillment.css?v=3">
+  <link rel="stylesheet" href="/assets/owner-fulfillment.css?v=4">
   <link rel="stylesheet" href="/assets/owner-inventory.css?v=5">
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
@@ -778,6 +778,10 @@
         </section>
         <section class="owner-fulfill-stage" aria-labelledby="owner-fulfill-step-three">
           <div class="owner-fulfill-step-head"><span class="owner-fulfill-step-number">3</span><h3 id="owner-fulfill-step-three">Royal Mail shipping label</h3></div>
+          <div class="owner-fulfill-shipping-breakdown" id="owner-fulfill-shipping-breakdown" aria-live="polite">
+            <p id="owner-fulfill-shipping-status">Checking your share of the customer's delivery payment…</p>
+            <dl id="owner-fulfill-shipping-figures"></dl>
+          </div>
           <p id="owner-fulfill-label-note">Shopify Shipping will supply the carrier-issued label after an approved purchase. Label payment, sender verification and duplicate-purchase protection are required before this step opens.</p>
           <button id="owner-fulfill-print-label" class="owner-fulfill-action" type="button" disabled>Print Shopify shipping label</button>
         </section>
@@ -794,7 +798,7 @@
   <script src="/assets/owner-inventory.js?v=7" defer></script>
   <script src="/assets/owner-portal.js?v=owner-v20" defer></script>
   <script src="/assets/owner-fulfillment.js?v=3" defer></script>
-  <script src="/assets/owner-fulfill-wizard.js?v=1" defer></script>
+  <script src="/assets/owner-fulfill-wizard.js?v=2" defer></script>
   <script src="/assets/scanner-flow.js?v=7" defer></script>
   <script src="/assets/owner-recognition.js?v=owner-v13" defer></script>
   <script src="/assets/reference-library.js?v=2" defer></script>
