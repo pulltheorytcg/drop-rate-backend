@@ -43,6 +43,16 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
     assert "owner-card-prices" in card_block
     assert "owner-inventory-details" in card_block
     assert "owner-market-refresh" in card_block
+    list_block = portal.split("function renderInventoryRows(items) {", 1)[1].split(
+        "function renderInventoryCards(items) {", 1
+    )[0]
+    assert "row.append(cardCell, statusCell, marketCell, storeCell)" in list_block
+    assert "gameCell" not in list_block
+    assert "conditionCell" not in list_block
+    inventory_markup = html.split('id="owner-inventory-table-wrap"', 1)[1].split("</table>", 1)[0]
+    assert "<th>Game / set</th>" not in inventory_markup
+    assert "<th>Condition</th>" not in inventory_markup
+    assert 'colspan="4"' in inventory_markup
     assert "owner-item-facts-grid" in details
     for value in ("Game", "Set", "Card number", "Language", "Seal", "Condition",
                   "Type", "Grading company", "Grade", "Certificate", "Inventory ID"):
