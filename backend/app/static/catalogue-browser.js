@@ -273,7 +273,7 @@ window.DropRateCatalogue = (() => {
       if(!this.games.length)content.append(node("p","dr-browse-empty","The catalogue is being prepared. Try scanning an item."));
     }
     titleImage(artwork,cls,host,loadedClass,onError) {
-      const image=node("img",cls);image.alt="";image.decoding="async";image.loading="eager";
+      const image=node("img",cls);image.alt="";image.decoding="async";image.loading=cls==="dr-browse-set-logo"?"lazy":"eager";
       image.addEventListener("load",()=>host.classList.add(loadedClass));
       image.addEventListener("error",()=>{host.classList.remove(loadedClass);image.remove();onError?.();});
       image.referrerPolicy="no-referrer";
