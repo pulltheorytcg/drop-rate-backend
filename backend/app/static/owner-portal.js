@@ -661,6 +661,8 @@ async function loadOwnerChannels() {
 
   try {
     const data = await apiRequest("/api/v1/owner/channels?" + params.toString());
+    state.ownerChannelAccount = state.session?.user?.id || state.session?.access_token;
+    state.ownerChannelSummaries = Array.isArray(data.channels)?data.channels:[];
     state.channels.total = Number(data.total || 0);
     byId("owner-channels-total").textContent =
       state.channels.total.toLocaleString("en-GB");
