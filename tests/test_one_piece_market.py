@@ -32,9 +32,21 @@ def test_recorded_zoro_special_print_does_not_inherit_asia_region_price():
     result=market.matched_products([reference()],singles,packaging)
     assert result['EB04-007_p2']['idProduct']==904150
     assert market.release_identity('BOOSTER PACK -ADVENTURE ON KAMI’S ISLAND- [OP15-EB04]')==('adventureonkamis island'.replace(' ',''),'OP15')
-    for field,value in [('provider','Punk Records'),('language','Japanese'),('system_code','POKEMON_TCG'),('set_name','Other [OP-17]'),('card_number','EB04-008')]:
+    for field,value in [('provider','Unknown Provider'),('language','Japanese'),('system_code','POKEMON_TCG'),('set_name','Other [OP-17]'),('card_number','EB04-008')]:
         ref=reference();ref[field]=value
         assert not market.matched_products([ref],singles,packaging)
+
+
+def test_older_checklists_and_known_release_title_spelling_are_supported():
+    singles,packaging=fixtures();ref={**reference(),'provider':'Punk Records'}
+    assert market.matched_products([ref],singles,packaging)[ref['provider_id']]['idProduct']==904150
+    assert market.release_identity('BOOSTER PACK -500 YEARS IN THE FUTURE- [OP-07]')==('500yearsintothefuture','OP07')
+    assert market.release_identity('EXTRA BOOSTER -MEMORIAL COLLECTION- [EB-01]')==('memorialcollection','EB01')
+    # The same provider ID must not inherit whichever conflicting set was last.
+    other={**ref,'provider':'Bandai Official','set_id':'different','set_name':'Other [OP-17]'}
+    packaging['other']={'categoryName':'One Piece Lots','name':'Common Set - Other (OP17)','idExpansion':1234}
+    singles['other']={**singles['904150'],'idProduct':123,'idExpansion':1234}
+    assert not market.matched_products([ref,other],singles,packaging)
 
 
 @pytest.mark.parametrize('seed',range(2048))

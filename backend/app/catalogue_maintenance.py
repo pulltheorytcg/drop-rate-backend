@@ -23,6 +23,7 @@ from .reference_feeds import ReferenceFeeds
 from .reference_library import save_reference_set
 from .reference_market import REVISION, refresh_reference_prices
 from .one_piece_market import refresh_one_piece_prices
+from .dragon_ball_market import refresh_dragon_ball_prices
 from .reference_sealed import save_sealed_set, sealed_feed
 from .sealed_market import REVISION as SEALED_MARKET_REVISION, refresh_sealed_prices
 from .catalogue_coverage import record_coverage
@@ -32,8 +33,8 @@ from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_pr
 
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
-SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2}
-REFERENCE_JOB_REVISION=3
+SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
+REFERENCE_JOB_REVISION=4
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
@@ -129,6 +130,7 @@ async def warm_prices(pool,actor,limit):
     fx=EcbHistoricalFxProvider(timeout_seconds=6)
     try:
         report['one_piece']=await refresh_one_piece_prices(pool,actor,fx)
+        report['dragon_ball']=await refresh_dragon_ball_prices(pool,actor,fx)
         async with user_connection(pool,actor,str(uuid4())) as connection:
             rows=await connection.fetch('''select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key
               from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
@@ -148,7 +150,8 @@ async def warm_prices(pool,actor,limit):
             if views and all(v.get('provider_refresh_failed') for v in views):
                 report['reason']='PROVIDER_UNAVAILABLE';break
             await asyncio.sleep(.5)
-        status='COMPLETE' if len(rows)<=limit and not failed and not report['one_piece']['provider_failures'] else 'INCOMPLETE'
+        status='COMPLETE' if (len(rows)<=limit and not failed and not report['one_piece']['provider_failures']
+                              and not report['dragon_ball']['provider_failures']) else 'INCOMPLETE'
         report['more_due_at_start']=len(rows)>limit
     except asyncio.CancelledError:
         report['reason']='INTERRUPTED';raise

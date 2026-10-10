@@ -72,6 +72,7 @@ async def main():
     await db.execute((root/'database/migrations/20261009073244_current_ebay_reference_values.sql').read_text())
     await db.execute((root/'database/migrations/20261009184349_independent_catalogue_valuations.sql').read_text())
     await db.execute((root/'database/migrations/20261009193333_cardmarket_valuation_fallback.sql').read_text())
+    await db.execute((root/'database/migrations/20261010010226_cardmarket_multigame_guard.sql').read_text())
     actor,other,cat,a,b= [uuid4() for _ in range(5)]
     for owner in (actor,other):
         await db.execute("insert into tcg.owners(id,display_name,owner_type,founder_slot,active) values($1,'Fixture','FOUNDER',1,true)",owner)
@@ -242,9 +243,69 @@ async def main():
         async with user_connection(pool,actor,'changed-print') as conn:
             assert await conn.fetchval('select market_value_minor from tcg.catalogue_reference_value_v2($1,$2)',unowned,'English') is None
         assert not await db.fetchval("select has_function_privilege('anon','tcg.catalogue_reference_value_v2(uuid,text)','execute')")
+        await verify_multigame_guides(db,pool,actor,other)
     finally:
         await pool.close(); await db.close()
     print('PASS: eBay and Cardmarket persistence, unowned catalogue guides, source priority, immutable evidence, retries, owner isolation and unchanged Store Prices')
+
+
+async def verify_multigame_guides(db,pool,actor,other):
+    """Exercise real joins/guards, physical finish, cross-language exclusion and retries."""
+    from app.dragon_ball_market import guide_quotes,MASTERS
+    from app.fx import FxQuote
+    from decimal import Decimal
+    now=datetime.now(timezone.utc);observed=now-timedelta(hours=1)
+    fx=FxQuote('EUR','GBP',Decimal('.85'),observed,now,'ECB_EURO_REFERENCE_RATES')
+    db_ref={'provider':'Bandai Official','system_code':MASTERS,'language':'English',
+        'provider_id':'428013:BT13-029.png','set_id':'428013','name':'A Sudden Escape',
+        'card_number':'BT13-029','rarity':'Common[C]','set_name':'UW04 Booster -Supreme Rivalry-'}
+    db_quotes=guide_quotes(db_ref,{'idProduct':549841,'idCategory':1049,'idExpansion':3796},
+        {'idCategory':1049,'trend':1,'trend-foil':2},observed,fx)
+    op_ref=dict(db_ref,system_code='ONE_PIECE_CARD_GAME',provider_id='EB04-042',set_id='569115',
+        name='Alpha',card_number='EB04-042',rarity='C',set_name='BOOSTER PACK -ADVENTURE ON KAMI’S ISLAND- [OP15-EB04]')
+    op_quote=dict(db_quotes[0],finish='Printing guide',reference_printing_id='EB04-042',reference_rarity='C',
+        match_basis='UNIQUE_RELEASE_NAME_NUMBER_IN_BOTH_CHECKLISTS',
+        reference_identity={k:op_ref[k] for k in ('name','set_id','card_number','set_name')})
+    for ref,quotes in [(db_ref,db_quotes),(op_ref,[op_quote])]:
+        await db.execute('insert into tcg.reference_sets values($1,$2,$3,$4,$5,current_date-1)',
+            ref['provider'],ref['system_code'],ref['language'],ref['set_id'],ref['set_name'])
+        await db.execute('insert into tcg.reference_cards values($1,$2,$3,$4,$5,$6,$7,$8)',
+            ref['provider'],ref['system_code'],ref['language'],ref['provider_id'],ref['set_id'],ref['name'],ref['card_number'],ref['rarity'])
+        await db.execute('insert into tcg.reference_market_prices values($1,$2,$3,$4,$5::jsonb)',
+            ref['provider'],ref['system_code'],ref['language'],ref['provider_id'],quotes)
+    op,normal,foil=uuid4(),uuid4(),uuid4()
+    await db.execute("insert into tcg.catalogue_products values($1,'CARD','One Piece','Alpha',$2,'EB04-042','Normal','C','English')",
+        op,"Adventure on Kami's Island")
+    for cat,variant in [(normal,'Normal'),(foil,'Foil')]:
+        await db.execute("insert into tcg.catalogue_products values($1,'CARD','Dragon Ball Super','A Sudden Escape','Supreme Rivalry','BT13-029',$2,'Common','English')",cat,variant)
+    english,japanese,foil_copy=uuid4(),uuid4(),uuid4()
+    for ident,cat,language in [(english,op,'English'),(japanese,op,'Japanese'),(foil_copy,foil,'English')]:
+        await db.execute('''insert into tcg.inventory_items(id,owner_id,catalogue_id,version,status,identity_confirmed,condition,language,store_price_minor)
+          values($1,$2,$3,1,'APPROVED',true,'Near Mint',$4,9000)''',ident,actor,cat,language)
+    result=await cardmarket.refresh_cardmarket_values(pool,actor)
+    assert result['inventory_updated']==2
+    assert await db.fetchval('select market_value_minor from tcg.inventory_items where id=$1',english)==85
+    assert await db.fetchval('select market_value_minor from tcg.inventory_items where id=$1',foil_copy)==170
+    assert await db.fetchval('select market_value_minor from tcg.inventory_items where id=$1',japanese) is None
+    async with user_connection(pool,actor,'multigame-read') as conn:
+        assert await conn.fetchval('select market_value_minor from tcg.catalogue_reference_value_v2($1,$2)',normal,'English')==85
+        assert await cardmarket.apply_cached_inventory_guide(conn,foil_copy,actor,foil)
+    assert (await cardmarket.refresh_cardmarket_values(pool,actor))['inventory_updated']==0
+    assert await db.fetchval('select bool_and(store_price_minor=9000) from tcg.inventory_items')
+    # A later review cannot be bypassed through a cached guide of a new game.
+    await db.execute("insert into tcg.provider_catalogue_mappings values($1,'Bandai Official','English','REVIEW')",op)
+    async with user_connection(pool,actor,'multigame-review') as conn:
+        assert not await conn.fetchval('select market_value_minor from tcg.catalogue_reference_value_v2($1,$2)',op,'English')
+        assert await cardmarket.apply_cached_inventory_guide(conn,english,actor,op) is None
+    # Source identity can change independently of canonical identity. Both the
+    # cached intake path and public reader must reject its historical quote.
+    await db.execute("update tcg.reference_cards set name='Other printing' where provider_id=$1",db_ref['provider_id'])
+    async with user_connection(pool,actor,'changed-provider-identity') as conn:
+        assert await conn.fetchval('select market_value_minor from tcg.catalogue_reference_value_v2($1,$2)',foil,'English') is None
+        assert await cardmarket.apply_cached_inventory_guide(conn,foil_copy,actor,foil) is None
+    async with user_connection(pool,other,'other-owner-multigame') as conn:
+        assert await cardmarket.apply_cached_inventory_guide(conn,foil_copy,other,foil) is None
+    assert not await db.fetchval("select has_function_privilege('anon','tcg.cardmarket_reference_current(jsonb)','execute')")
 
 
 asyncio.run(main())

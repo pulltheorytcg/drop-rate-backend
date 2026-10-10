@@ -144,6 +144,7 @@ async def test_daily_price_warm_stops_on_provider_failure_and_reuses_fx(monkeypa
     monkeypatch.setattr(jobs,'refresh_reference_prices',refresh)
     async def one_piece(*args):return {'checked':1,'priced':1,'provider_failures':0}
     monkeypatch.setattr(jobs,'refresh_one_piece_prices',one_piece)
+    monkeypatch.setattr(jobs,'refresh_dragon_ball_prices',one_piece)
     await jobs.warm_prices(pool,uuid4(),80)
     assert len(requests)==1 and len(requests[0][0][3])==40
     assert requests[0][1]['fx_provider'] is not None

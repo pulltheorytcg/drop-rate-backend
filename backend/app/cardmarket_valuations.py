@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -23,9 +24,11 @@ from .reference_market import SOURCE, _text, _time
 
 CATALOGUE_METHOD = 'CATALOGUE_CARDMARKET_V1'
 INVENTORY_METHOD = 'CARDMARKET_GUIDE_V1'
-REVISION = 2
+REVISION = 3
 MAX_AGE = timedelta(days=7)
 LIMITATION = 'EU price guide across languages and conditions; not a condition-adjusted UK sold value.'
+GUIDE_WRITE_SQL = WRITE_SQL.replace('\n on conflict',
+    '\n and tcg.cardmarket_reference_current($17::jsonb)\n on conflict')
 
 REFERENCES_SQL = '''select p.id as catalogue_id,r.provider,r.system_code,r.provider_id,r.set_id,
  r.language as reference_language,r.name as reference_name,s.name as reference_set_name,
@@ -45,6 +48,25 @@ REFERENCES_SQL = '''select p.id as catalogue_id,r.provider,r.system_code,r.provi
  and not exists(select 1 from tcg.market_source_mappings link
    where link.catalogue_id=p.id and link.source='CARDMARKET' and link.match_status in ('REVIEW','REJECTED'))'''
 
+BANDAI_REFERENCES_SQL = '''select p.id as catalogue_id,r.provider,r.system_code,r.provider_id,r.set_id,
+ r.language as reference_language,r.name as reference_name,s.name as reference_set_name,
+ r.card_number as reference_number,r.rarity as reference_rarity,m.quotes
+ from tcg.catalogue_products p join tcg.reference_cards r
+ on p.product_type='CARD' and r.language='English'
+ and ((p.game='One Piece' and r.system_code='ONE_PIECE_CARD_GAME' and r.provider in ('Punk Records','Bandai Official'))
+   or (p.game='Dragon Ball Super' and r.system_code='DRAGON_BALL_SUPER_MASTERS' and r.provider='Bandai Official')
+   or (p.game='Dragon Ball Super Fusion World' and r.system_code='DRAGON_BALL_SUPER_FUSION_WORLD' and r.provider='Bandai Official'))
+ and upper(replace(p.card_number,' ',''))=r.card_number
+ join tcg.reference_sets s on (s.provider,s.system_code,s.language,s.set_id)=
+ (r.provider,r.system_code,r.language,r.set_id)
+ left join tcg.reference_market_prices m on (m.provider,m.system_code,m.language,m.provider_id)=
+ (r.provider,r.system_code,r.language,r.provider_id)
+ where p.id=any($1::uuid[]) and (s.release_date is null or s.release_date<=current_date)
+ and not exists(select 1 from tcg.provider_catalogue_mappings link
+   where link.catalogue_id=p.id and link.provider_language=r.language and link.match_status in ('REVIEW','REJECTED'))
+ and not exists(select 1 from tcg.market_source_mappings link
+   where link.catalogue_id=p.id and link.source='CARDMARKET' and link.match_status in ('REVIEW','REJECTED'))'''
+
 INVENTORY_SQL = f'''select i.*,p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,
  {IDENTITY_SQL} as current_identity_digest,ps.evidence as current_evidence,
  ps.algorithm_version as current_algorithm,ps.sold_observation_count as current_sold_count,
@@ -57,7 +79,7 @@ INVENTORY_SQL = f'''select i.*,p.product_type,p.game,p.name,p.set_name,p.card_nu
  and not exists(select 1 from tcg.market_source_mappings link
    where link.catalogue_id=p.id and link.source='CARDMARKET' and link.match_status in ('REVIEW','REJECTED'))
  and not exists(select 1 from tcg.provider_catalogue_mappings link
-   where link.catalogue_id=p.id and link.source_provider='TCGdex' and link.provider_language=i.language
+   where link.catalogue_id=p.id and link.provider_language=i.language
    and link.match_status in ('REVIEW','REJECTED'))
  order by i.id for update of i'''
 INVENTORY_ITEM_SQL = INVENTORY_SQL.replace('where i.catalogue_id=$1',
@@ -66,8 +88,10 @@ INVENTORY_ITEM_SQL = INVENTORY_SQL.replace('where i.catalogue_id=$1',
 
 def guide_values(product, references, *, now):
     """Require unique full set/name/collector-number/finish evidence per locale."""
-    if product.get('product_type') != 'CARD' or product.get('game') != 'Pokemon':
+    if product.get('product_type') != 'CARD':
         return []
+    if product.get('game') != 'Pokemon':
+        return bandai_guide_values(product,references,now=now)
     finish = product.get('variant')
     if finish not in {'Normal', 'Holofoil', 'Reverse Holofoil'}:
         return []
@@ -120,23 +144,108 @@ def guide_values(product, references, *, now):
         if len(quotes) != 1:
             continue
         quote = next(iter(quotes.values()));ref = rows[0]
-        observed = _time(quote['observed_at'])
-        observation = MarketObservation(source='CARDMARKET', observation_type='PRICE_GUIDE',
-            observed_at=observed, price_gbp_minor=quote['price_gbp_minor'],
-            evidence_quality=.65, source_country='EU')
-        result = calculate_price([observation], target=ComparableTarget(), as_of=now)
-        result = replace(result, confidence=min(result.confidence, .60), auto_publish_eligible=False,
-                         block_reasons=tuple(dict.fromkeys((*result.block_reasons, 'REFERENCE_ESTIMATE'))))
-        evidence = {'method':CATALOGUE_METHOD, 'input_sale_count':0, 'source':'CARDMARKET',
-            'valuation_kind':'REFERENCE_ESTIMATE', 'limitation':LIMITATION,
-            'condition_breakdown_available':False, 'language_breakdown_available':False,
-            'reference':{key:ref[key] for key in ('provider','system_code','provider_id','set_id','reference_language',
-                'reference_name','reference_set_name','reference_number')}, 'quote':quote}
-        digest = hashlib.sha256(json.dumps(evidence, sort_keys=True).encode()).hexdigest()
-        values.append({'language':language, 'result':result, 'evidence':evidence, 'evidence_digest':digest,
-            'evidence_checked_at':observed,
-            'basis_key':hashlib.sha256(json.dumps([CATALOGUE_METHOD,language,finish]).encode()).hexdigest()})
+        values.append(_guide_value(ref,quote,language,finish,now=now))
     return values
+
+
+def _guide_value(ref,quote,language,finish,*,now):
+    observed = _time(quote['observed_at'])
+    observation = MarketObservation(source='CARDMARKET', observation_type='PRICE_GUIDE',
+        observed_at=observed, price_gbp_minor=quote['price_gbp_minor'],
+        evidence_quality=.65, source_country='EU')
+    result = calculate_price([observation], target=ComparableTarget(), as_of=now)
+    result = replace(result, confidence=min(result.confidence, .60), auto_publish_eligible=False,
+                     block_reasons=tuple(dict.fromkeys((*result.block_reasons, 'REFERENCE_ESTIMATE'))))
+    evidence = {'method':CATALOGUE_METHOD, 'input_sale_count':0, 'source':'CARDMARKET',
+        'valuation_kind':'REFERENCE_ESTIMATE', 'limitation':LIMITATION,
+        'condition_breakdown_available':False, 'language_breakdown_available':False,
+        'reference':{key:ref[key] for key in ('provider','system_code','provider_id','set_id','reference_language',
+            'reference_name','reference_set_name','reference_number')}, 'quote':quote}
+    digest = hashlib.sha256(json.dumps(evidence, sort_keys=True).encode()).hexdigest()
+    return {'language':language, 'result':result, 'evidence':evidence, 'evidence_digest':digest,
+        'evidence_checked_at':observed,
+        'basis_key':hashlib.sha256(json.dumps([CATALOGUE_METHOD,language,finish]).encode()).hexdigest()}
+
+
+def rarity_key(value):
+    text=str(value or '').strip().upper()
+    match=re.fullmatch(r'.+\[([A-Z]+)\]',text)
+    if match:return match[1]
+    return {'COMMON':'C','UNCOMMON':'UC','RARE':'R','SUPER RARE':'SR','SECRET RARE':'SEC',
+            'LEADER':'L'}.get(text,text)
+
+
+def bandai_guide_values(product,references,*,now):
+    from . import dragon_ball_market as db
+    from .one_piece_market import SOURCE as BULK_SOURCE,normalized,release_identity
+    systems={'One Piece':'ONE_PIECE_CARD_GAME','Dragon Ball Super':db.MASTERS,
+             'Dragon Ball Super Fusion World':db.FUSION}
+    system=systems.get(product.get('game'))
+    if not system or _text(product.get('language')) not in {'','unknown','english'}:
+        return []
+    candidates={}
+    for ref in references:
+        release=(release_identity(ref.get('reference_set_name','')) if system=='ONE_PIECE_CARD_GAME'
+                 else db.release_identity(system,ref.get('reference_set_name','')))
+        title=release[0] if system=='ONE_PIECE_CARD_GAME' and release else release[1] if release else None
+        canonical_title=normalized(product.get('set_name'))
+        if canonical_title=='500yearsinthefuture':canonical_title='500yearsintothefuture'
+        if (ref.get('system_code')!=system or ref.get('reference_language')!='English'
+                or ref.get('provider') not in ({'Punk Records','Bandai Official'} if system=='ONE_PIECE_CARD_GAME' else {'Bandai Official'})
+                or not title or title!=canonical_title
+                or normalized(product.get('name'))!=normalized(ref.get('reference_name'))
+                or not number_key(product.get('card_number'))
+                or number_key(product.get('card_number'))!=number_key(ref.get('reference_number'))):
+            continue
+        candidates[(ref['provider'],ref['provider_id'],ref['set_id'])]=ref
+    # An unpriced duplicate is still a duplicate. Never choose by availability.
+    if len(candidates)!=1:return []
+    ref=next(iter(candidates.values()))
+    rarity=rarity_key(ref.get('reference_rarity'))
+    if rarity and rarity_key(product.get('rarity')) not in {'','UNKNOWN',rarity}:return []
+    finish=product.get('variant')
+    if system=='ONE_PIECE_CARD_GAME':
+        # Physical-copy fallback is deliberately limited to the ordinary base
+        # printing of a booster, with its published rarity. Reference quotes
+        # can still display for exact special printings without pricing stock.
+        if ref['provider_id']!=ref['reference_number']:return []
+        expected={'C':'Normal','UC':'Normal','L':'Normal','R':'Foil','SR':'Foil','SEC':'Foil'}.get(rarity)
+        if not expected or ('Foil' if finish=='Holofoil' else finish)!=expected:return []
+        fields={'trend'};quote_finish='Printing guide'
+    else:
+        quote_finish={'Normal':'Normal','Foil':'Holofoil','Holofoil':'Holofoil'}.get(finish)
+        if not quote_finish:return []
+        # The export can retain tiny default-column values for intrinsically
+        # foil rarities. An imported "Normal" on these needs identity review,
+        # not a fabricated nonfoil estimate or a silent finish correction.
+        if quote_finish=='Normal' and rarity in {'SR','SPR','SCR','SEC','GDR'}:return []
+        fields={'trend'} if quote_finish=='Normal' else {'trend-foil'}
+    identity={'name':ref['reference_name'],'set_id':ref['set_id'],
+              'card_number':ref['reference_number'],'set_name':ref['reference_set_name']}
+    quotes={}
+    for quote in ref.get('quotes') or []:
+        if (not isinstance(quote,dict) or quote.get('source')!=BULK_SOURCE
+                or quote.get('finish')!=quote_finish or quote.get('source_field') not in fields
+                or quote.get('reference_printing_id')!=ref['provider_id']
+                or quote.get('reference_identity')!=identity
+                or quote.get('reference_rarity')!=ref.get('reference_rarity')
+                or quote.get('match_basis') not in {'UNIQUE_RELEASE_NAME_NUMBER_IN_BOTH_CHECKLISTS','UNIQUE_RELEASE_AND_PRINTING_IN_BOTH_CHECKLISTS'}):
+            continue
+        try:
+            original=quote['original_minor'];gbp=quote['price_gbp_minor'];rate=Decimal(str(quote['fx_rate_to_gbp']))
+            observed=_time(quote['observed_at'])
+            if (quote.get('original_currency')!='EUR' or type(original) is not int or type(gbp) is not int
+                    or original<=0 or gbp<=0 or not rate.is_finite() or rate<=0
+                    or not str(quote.get('product_id','')).isdigit() or int(quote['product_id'])<=0
+                    or type(quote.get('expansion_id')) is not int or quote['expansion_id']<=0
+                    or quote.get('fx_source')!='ECB_EURO_REFERENCE_RATES'
+                    or not now-MAX_AGE<=observed<=now
+                    or int((Decimal(original)*rate).quantize(Decimal('1'),rounding=ROUND_HALF_UP))!=gbp):continue
+            _time(quote['fx_effective_at']);_time(quote['fx_retrieved_at'])
+        except (ValueError,TypeError,KeyError,InvalidOperation):continue
+        quotes[json.dumps(quote,sort_keys=True)]=quote
+    if len(quotes)!=1:return []
+    return [_guide_value(ref,next(iter(quotes.values())),'English',finish,now=now)]
 
 
 def inventory_eligible(item, value, *, now):
@@ -200,9 +309,10 @@ async def apply_inventory_guide(connection, item, value, *, now):
       recommended_retail_minor=$2,latest_pricing_snapshot_id=$3,pricing_updated_at=$4,
       updated_at=now(),version=i.version+1 where i.id=$5 and i.owner_id=$6 and i.version=$7
       and i.catalogue_id=$8 and exists(select 1 from tcg.catalogue_products p
-        where p.id=i.catalogue_id and {IDENTITY_SQL}=$9) returning i.id''',
+        where p.id=i.catalogue_id and {IDENTITY_SQL}=$9)
+      and tcg.cardmarket_reference_current($10::jsonb) returning i.id''',
       result.market_value_minor,result.recommended_retail_minor,snapshot,value['evidence_checked_at'],
-      item['id'],item['owner_id'],item['version'],item['catalogue_id'],value['identity_digest'])
+      item['id'],item['owner_id'],item['version'],item['catalogue_id'],value['identity_digest'],value['evidence'])
     if updated is None:
         raise ValueError('Inventory changed during guide application')
     return True
@@ -220,6 +330,7 @@ async def apply_cached_inventory_guide(connection, inventory_id, owner_id, catal
     guide=await connection.fetchrow('''select * from tcg.catalogue_market_snapshots
       where catalogue_id=$1 and identity_digest=$2 and basis_language=$3
       and evidence->>'method'='CATALOGUE_CARDMARKET_V1'
+      and tcg.cardmarket_reference_current(evidence)
       and evidence_checked_at between $4::timestamptz-interval '7 days' and $4
       order by evidence_checked_at desc,calculated_at desc,id limit 1''',
       catalogue_id,item['current_identity_digest'],item.get('language'),now)
@@ -253,6 +364,7 @@ async def refresh_cardmarket_values(pool, actor):
                 products=[dict(row) for row in await connection.fetch(TARGET_SQL,cursor)]
                 if not products:break
                 references=[dict(row) for row in await connection.fetch(REFERENCES_SQL,[p['catalogue_id'] for p in products])]
+                references.extend(dict(row) for row in await connection.fetch(BANDAI_REFERENCES_SQL,[p['catalogue_id'] for p in products]))
             for product in products:
                 report['catalogue_products_checked']+=1
                 values=guide_values(product,[r for r in references if r['catalogue_id']==product['catalogue_id']],now=now)
@@ -260,7 +372,7 @@ async def refresh_cardmarket_values(pool, actor):
                     result=value['result'];report['guide_bases']+=1
                     async with user_connection(pool,actor,str(uuid4())) as connection:
                         await require_platform_admin(connection)
-                        snapshot=await connection.fetchval(WRITE_SQL,product['catalogue_id'],product['identity_digest'],
+                        snapshot=await connection.fetchval(GUIDE_WRITE_SQL,product['catalogue_id'],product['identity_digest'],
                             value['basis_key'],None,value['language'],None,None,None,result.market_value_minor,
                             result.recommended_retail_minor,result.confidence,result.algorithm_version,None,
                             value['evidence_checked_at'],now.date(),value['evidence_digest'],value['evidence'])
@@ -268,7 +380,7 @@ async def refresh_cardmarket_values(pool, actor):
                         if snapshot is None:
                             snapshot=await connection.fetchval('''select id from tcg.catalogue_market_snapshots
                               where catalogue_id=$1 and identity_digest=$2 and basis_key=$3 and calculation_day=$4
-                              and evidence_digest=$5''',product['catalogue_id'],product['identity_digest'],
+                              and evidence_digest=$5 and tcg.cardmarket_reference_current(evidence)''',product['catalogue_id'],product['identity_digest'],
                               value['basis_key'],now.date(),value['evidence_digest'])
                         if snapshot is None:continue
                         value.update(snapshot_id=snapshot,identity_digest=product['identity_digest'])
