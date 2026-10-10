@@ -31,6 +31,7 @@ from .catalogue_coverage import record_coverage
 from .cardmarket_valuations import refresh_cardmarket_values, REVISION as CARDMARKET_VALUE_REVISION
 from .catalogue_valuations import REVISION as CATALOGUE_VALUE_REVISION, refresh_catalogue_values
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
+from .shopify_client import ShopifyMediaScopeRequired
 
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
@@ -232,6 +233,9 @@ async def shopify_pass(pool,settings):
                             request_id=str(run),test_mode=False)
                     report['result']=result['status'];status='COMPLETE'
                 except asyncio.CancelledError:raise
+                except ShopifyMediaScopeRequired:
+                    report.update(result='PERMISSION_REQUIRED',reason='MISSING_WRITE_FILES_SCOPE',required_scope='write_files')
+                    status='INCOMPLETE'
                 except HTTPException as exc:
                     report.update(result='REVIEW_OR_RETRY_REQUIRED',http_status=exc.status_code)
                     status='FAILED' if exc.status_code>=500 or exc.status_code==429 else 'INCOMPLETE'
