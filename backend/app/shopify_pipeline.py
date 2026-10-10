@@ -2547,10 +2547,14 @@ async def publish_inventory_to_shopify(
                     status_code=409,
                     detail=f"Required Shopify collection is missing: {collection_title}",
                 )
-            await shopify.add_product_to_collection(
-                collection_id=str(collection["id"]),
-                product_id=product_id,
-            )
+            # Shopify manages smart-collection membership from product rules.
+            # Manual assignment is rejected even when the product already
+            # belongs. Both draft/final readbacks below still require membership.
+            if not collection.get("automated"):
+                await shopify.add_product_to_collection(
+                    collection_id=str(collection["id"]),
+                    product_id=product_id,
+                )
 
         media_file_ids = set(launch["mediaReadiness"].get("shopifyFileIds") or [])
         for file_id in sorted(media_file_ids):

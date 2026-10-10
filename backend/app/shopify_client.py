@@ -499,7 +499,7 @@ class ShopifyAdminClient:
                 query="""
                 query DropRateCollections($first: Int!, $after: String) {
                   collections(first: $first, after: $after) {
-                    nodes { id title handle }
+                    nodes { id title handle ruleSet { appliedDisjunctively } }
                     pageInfo { hasNextPage endCursor }
                   }
                 }
@@ -526,6 +526,7 @@ class ShopifyAdminClient:
                         "id": collection_id,
                         "title": title,
                         "handle": node.get("handle"),
+                        "automated": isinstance(node.get("ruleSet"), dict),
                     }
             page_info = connection.get("pageInfo")
             if not isinstance(page_info, dict) or not page_info.get("hasNextPage"):
