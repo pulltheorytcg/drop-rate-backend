@@ -17,7 +17,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
     assert '<script src="/assets/owner-portal.js?v=owner-v20" defer></script>' in html
-    assert '<script src="/assets/owner-recognition.js?v=owner-v12" defer></script>' in html
+    assert '<script src="/assets/owner-recognition.js?v=owner-v13" defer></script>' in html
 
     for founder_script in (
         "dashboard-shell.js",
@@ -259,6 +259,30 @@ def test_mobile_batch_scanner_is_camera_first_and_locally_gated() -> None:
     assert ".owner-portal-page.owner-batch-camera-open" in css
     assert "position:fixed;inset:0;z-index:1000" in css
     assert "height:100dvh" in css
+
+
+def test_scanner_autocapture_rejects_texture_only_card_presence() -> None:
+    shared = (ROOT / "backend/app/static/scanner-flow.js").read_text()
+    legacy = RECOGNITION_JS.read_text()
+    html = HTML.read_text()
+
+    assert "const analyzeCardPresence = (pixels, width, height) =>" in shared
+    assert "centered && rectangular && fourEdges" in shared
+    assert "this.autoArmed = false;" in shared
+    assert "this.absenceFrames >= 3" in shared
+    assert "this.presenceFrames < 3 || this.stableFrames < 3" in shared
+    assert "Card detected · hold steady inside the guide" in shared
+    assert "this.status(\"Clear the guide briefly, then place your card inside\")" in shared
+    assert "|| deviation >= 0.18" not in shared
+
+    # The existing mobile fallback must never retain the old 'busy
+    # background means card' heuristic when the shared module is missing.
+    assert "window.DropRateScanner?.analyzeCardPresence?.(pixels, width, height)" in legacy
+    assert "present: detected?.present === true" in legacy
+    assert "batch.absenceFrames >= 3" in legacy
+    assert "|| deviation >= 0.18" not in legacy
+    assert 'src="/assets/scanner-flow.js?v=7"' in html
+    assert 'src="/assets/owner-recognition.js?v=owner-v13"' in html
 
 
 def test_mobile_batch_scanner_keeps_unresolved_cards_and_supports_search_correction() -> None:
