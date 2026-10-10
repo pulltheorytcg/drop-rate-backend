@@ -59,8 +59,8 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
         assert f'"{value}"' in details
     assert ".owner-item-facts" in css
     assert ".owner-item-fact dd" in css
-    assert 'href="/assets/owner-inventory.css?v=3"' in html
-    assert 'src="/assets/owner-inventory.js?v=4"' in html
+    assert 'href="/assets/owner-inventory.css?v=4"' in html
+    assert 'src="/assets/owner-inventory.js?v=5"' in html
 
 
 def test_owner_portal_requires_owner_role_and_redirects_platform_admin() -> None:
@@ -169,7 +169,7 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     css = CSS.read_text()
     js = JS.read_text()
 
-    assert 'href="/assets/owner-portal.css?v=owner-v13"' in html
+    assert 'href="/assets/owner-portal.css?v=owner-v14"' in html
     assert 'class="owner-portal-page hub-restoring"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
