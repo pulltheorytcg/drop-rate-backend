@@ -24,7 +24,7 @@ query DropRateShopifyFulfilmentPreflight($orderId: ID!) {
   order(id: $orderId) {
     id name cancelledAt fullyPaid displayFinancialStatus displayFulfillmentStatus
     lineItems(first: 100) {
-      nodes { id quantity currentQuantity }
+      nodes { id quantity currentQuantity title sku }
       pageInfo { hasNextPage }
     }
     fulfillmentOrders(first: 40) {
