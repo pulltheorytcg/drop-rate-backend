@@ -1238,7 +1238,7 @@ function ownerBatchFrameAnalysis(video) {
     fingerprint[output] = Math.round(
       pixels[pixel] * 0.299 + pixels[pixel + 1] * 0.587 + pixels[pixel + 2] * 0.114);
   }
-  const detected = window.DropRateScanner?.analyzeCardPresence?.(pixels, width, height);
+  const detected = window.DropRateScanner?.analyzeCardPresence?.(pixels, width, height, ownerScanMode().toUpperCase());
   return {fingerprint, present: detected?.present === true, box: detected?.box || null};
 }
 
