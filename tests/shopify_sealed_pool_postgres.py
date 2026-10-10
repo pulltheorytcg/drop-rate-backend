@@ -36,7 +36,7 @@ async def main():
         await db.execute(sql) # migration is idempotent on retry
         owner,inventory=uuid4(),uuid4()
         await db.execute("insert into tcg.owners values($1,'CONSIGNOR')",owner)
-        await db.execute("insert into tcg.inventory_items values($1,$2,'INV-OLD')",inventory)
+        await db.execute("insert into tcg.inventory_items values($1,$2,'INV-OLD')",inventory,owner)
         record=(
           "gid://shopify/ProductVariant/101","gid://shopify/Product/201","INV-OLD",
           inventory,owner,uuid4(),"fqu56y-hm.myshopify.com",
