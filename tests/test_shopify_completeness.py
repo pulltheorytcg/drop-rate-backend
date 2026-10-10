@@ -367,6 +367,21 @@ def test_launch_completeness_passes_when_every_required_surface_is_ready() -> No
         (("variants", "nodes", 0, "inventoryQuantity"), 0, "remote inventory quantity"),
         (("title",), "Amazing card!!!", "remote title"),
         (("descriptionHtml",), "<p>Guaranteed rare pulls!</p>", "remote description"),
+        (
+            ("descriptionHtml",),
+            lambda html: html.replace("<strong>", "<em>").replace("</strong>", "</em>"),
+            "remote description",
+        ),
+        (
+            ("descriptionHtml",),
+            lambda html: html.replace("<p>", '<p style="color:red">', 1),
+            "remote description",
+        ),
+        (
+            ("descriptionHtml",),
+            lambda html: html.replace("&lt;set&gt;", "<set>"),
+            "remote description",
+        ),
         (("seo", "title"), "Best investment", "remote SEO title"),
         (("seo", "description"), "Guaranteed returns", "remote SEO description"),
         (("media", "nodes"), [], "remote media"),
@@ -383,14 +398,19 @@ def test_launch_completeness_passes_when_every_required_surface_is_ready() -> No
 def test_remote_product_verification_checks_every_launch_surface(
     path, replacement, blocker
 ) -> None:
-    plan = build_shopify_product_plan(_card())
+    plan = build_shopify_product_plan(_card(name="Collector's <set> & card"))
     expected_metafields = {
         row["key"]: row["value"]
         for row in plan["metafields"]
     }
     snapshot = {
         "title": plan["title"],
-        "descriptionHtml": plan["descriptionHtml"],
+        # Shopify rewrites these entities and inserts block indentation in the
+        # live OP-17 draft; the copy and markup are otherwise unchanged.
+        "descriptionHtml": plan["descriptionHtml"]
+            .replace("&#x27;", "'")
+            .replace("&amp;", "&#38;")
+            .replace("><", ">\n<"),
         "status": "ACTIVE",
         "vendor": plan["vendor"],
         "productType": plan["productType"],
@@ -453,7 +473,9 @@ def test_remote_product_verification_checks_every_launch_surface(
     target = snapshot
     for key in path[:-1]:
         target = target[key]
-    target[path[-1]] = replacement
+    target[path[-1]] = (
+        replacement(target[path[-1]]) if callable(replacement) else replacement
+    )
     broken = verify_remote_product(
         plan,
         snapshot,

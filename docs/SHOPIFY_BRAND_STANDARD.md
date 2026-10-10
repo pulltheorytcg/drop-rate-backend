@@ -17,7 +17,7 @@ The seller explicitly requires Shopify images and copy to remain consistent with
 
 ## Enforcement and review
 
-The normal publisher writes a draft from the shared plan, reads it back and verifies title, description, SEO, tags, product type, theme template and exact media IDs before publication. It checks the final active product again and returns it to draft on mismatch. These are deterministic checks, not an automated claim that any newly approved image has passed visual brand review. Compare new image treatments with existing products during approval.
+The normal publisher writes a draft from the shared plan, reads it back and verifies title, description, SEO, tags, product type, theme template and exact media IDs before publication. Description comparison accepts Shopify's equivalent HTML entity and indentation rewrites while retaining the words, element structure and attributes; changing text, markup or styling still fails. It checks the final active product again and returns it to draft on mismatch. These are deterministic checks, not an automated claim that any newly approved image has passed visual brand review. Compare new image treatments with existing products during approval.
 
 On 10 October 2026 the OP-17 draft was compared with live Japanese Premium Card Collection -6 assort vol.1- and Tin Pack Set Vol.2 Portgas.D.Ace listings. All three use the same sealed copy renderer and language suffix. Their source images were inspected: the existing products use white/transparent backgrounds and product-led framing; OP-17 uses the complete official pack on transparency. Existing card samples also retain the shared title conventions. This is a representative consistency review, not a claim to have visually audited the entire store.
 
