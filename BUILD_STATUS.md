@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Pricing repairs verified in production
+
+- PRs #562 and #563 are merged. Final application `6248f03f1820ad8485dfb0b47297f837f1c61860` is live on Railway `38d759f7-4cf4-4216-b284-015fab10e0f2` (SUCCESS, readiness 200). All four follow-up CI workflows passed, including actual PostgreSQL; both CI and pre-deploy passed **4,893 backend tests**. Infrastructure configuration and original financial/social checks are unchanged, with nothing staged.
+- Cardmarket revision 4 completed at 01:24:35 UTC: 463 canonical products checked, 241 guide bases, eight further shared snapshots and six additional inventory estimates. Overall inventory coverage improved **251 → 324 of 510** (73 newly valued copies). Exact comparison confirms zero owner/Store Price/status changes across all 510 and zero value/recommended-price/snapshot changes among all prior 251 or the intermediate 318 valued copies.
+- Reference pricing has **24,928 priced card references**, including 1,823 One Piece and 1,755 Dragon Ball. Sealed revision 3 completed at 01:24:55 UTC: all 3,878 sealed references checked, **2,717 priced**, including 246 Masters and 66 Fusion World, zero provider failures. The complete 73,416-reference coverage audit followed at 01:25:01 UTC.
+- **186 physical copies remain pending:** One Piece 139, Masters 16, Fusion World 6 and Pokémon 25. Exact printing/grade/language mappings, source quotes and eBay sold-feed capacity remain gaps; no universal-pricing claim. Guides retain the existing v4 calculation and explicit Cardmarket estimate label, original source dates, no invented sold transactions and no automatic publication eligibility.
+- Daily refresh remains at 03:00 Europe/London with recovery; approved seller Shopify processing is unchanged. No new paid service, selling-price change or theme publication. No fresh signed-in iPhone acceptance is claimed. See [complete release evidence](docs/CARDMARKET_MULTIGAME_REPAIR.md).
+
 ## 10 October 2026 — Multi-game prices live; sealed follow-up in review
 
 - PR #562 deployed as `377c571a262332d962c5b9a3bf07b179c0b5f3fc` on Railway `25a62932-d944-428d-bbd8-423e9696682f` (SUCCESS, readiness 200). All five exact-head CI workflows passed, including PostgreSQL; CI and Railway each passed 4,874 backend tests. The additive migration is applied with SECURITY INVOKER, fixed search paths and no anonymous/authenticated execute grant. Security findings are unchanged from baseline.
