@@ -2953,10 +2953,8 @@ async def _select_order_units(
                 join tcg.owners o on o.id=i.owner_id
                 where a.legacy_variant_gid=$1
                   and sil.sync_state='PUBLISHED'
-                  and sil.reserved_order_reference is null
-                      or a.legacy_variant_gid=$1
-                  and sil.sync_state='PUBLISHED'
-                  and sil.reserved_order_reference=$2
+                  and (sil.reserved_order_reference is null
+                       or sil.reserved_order_reference=$2)
                 order by sil.allocation_priority,sil.linked_at,sil.inventory_id
                 for update of sil,i
                 """,
