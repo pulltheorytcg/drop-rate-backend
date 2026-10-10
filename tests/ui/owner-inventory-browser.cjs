@@ -2,7 +2,7 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const base=path.resolve(__dirname,'../../backend/app/static'),out='/tmp/inventory-layout';
 const artwork='https://www.onepiece-cardgame.com/products/boosters/op17/images/others/product_pack.webp';
-const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',inventory_code:'INV-D715B0E9B3C4451BA9095FA233F8A0E5',version:3,status:'DRAFT',sale_intent:'FOR_SALE',product_type:'SEALED',game:'One Piece',language:'Japanese',seal_status:'SEALED',name:"Booster Pack: World's Strongest Warriors [OP-17]",set_name:"World's Strongest Warriors [OP-17]",market_value_minor:866,store_price_minor:null,reference_image_url:artwork,approval_blockers:['Drop Rate intake review','A selling price of at least £1','An approved listing photo'],shopify_sync_enabled:true};
+const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op17-catalogue',inventory_code:'INV-D715B0E9B3C4451BA9095FA233F8A0E5',version:3,status:'DRAFT',sale_intent:'FOR_SALE',product_type:'SEALED',game:'One Piece',language:'Japanese',seal_status:'SEALED',name:"Booster Pack: World's Strongest Warriors [OP-17]",set_name:"World's Strongest Warriors [OP-17]",market_value_minor:866,store_price_minor:null,reference_image_url:artwork,approval_blockers:['Drop Rate intake review','A selling price of at least £1','An approved listing photo'],shopify_sync_enabled:true};
 (async()=>{
  fs.mkdirSync(out,{recursive:true});
  const response=await fetch(artwork);assert.equal(response.ok,true,'Official pack image unavailable');const pack=Buffer.from(await response.arrayBuffer());
