@@ -36,6 +36,38 @@ function expiredSessionFixture(role,refreshResponse){
   f.finish();checks++;
  }
 
+ // One primary heading per tab: use a local content title rather than two intros.
+ {
+  const f=fixture('seller');
+  const tabs=[
+   ['inventory','.owner-inventory-panel .owner-section-header h2','Inventory'],
+   ['sales','#owner-view-sales .owner-section-header h2','Your sold cards'],
+   ['settlements','#owner-view-settlements .owner-section-header h2','Settlements'],
+   ['scan','#owner-view-scan .owner-scan-hero h2','Scan it. Confirm it. Add it.'],
+   ['channels','#owner-view-channels .owner-channel-main-title','Channels'],
+  ];
+  const header=f.w.document.querySelector('.owner-page-header');
+  for(const [view,titleSelector,title] of tabs){
+   f.run(`activateOwnerView('${view}',false)`);
+   assert.equal(header.hidden,true,`Duplicate page header visible for ${view}`);
+   assert.equal(f.w.document.querySelector('.owner-dashboard-content').dataset.activeOwnerView,view);
+   const panel=f.w.document.querySelector(`[data-owner-view-panel="${view}"]`);
+   assert.equal(panel.classList.contains('hidden'),false);
+   assert.equal(panel.querySelector(titleSelector).textContent,title);
+  }
+  f.run("activateOwnerView('search',false)");
+  assert.equal(header.hidden,true,'Embedded catalogue already has its own heading');
+  for(const view of ['overview','balance','profile','more','settings']){
+   f.run(`activateOwnerView('${view}',false)`);
+   assert.equal(header.hidden,false,`Missing primary heading for ${view}`);
+   assert.notEqual(f.w.document.getElementById('owner-page-title').textContent,'');
+  }
+  assert.equal(f.w.document.querySelector('#owner-view-inventory .owner-section-header h2').textContent,'Inventory');
+  assert.equal(f.w.document.querySelector('#owner-view-inventory .owner-section-header p').textContent,
+    'Open an item to manage its copies and selling channels.');
+  assert.equal(f.w.document.querySelectorAll('#owner-view-inventory .owner-section-kicker').length,0);
+  f.finish();checks++;
+ }
  // One refresh request for simultaneous API failures; logout during refresh cannot resurrect a session.
  for(const role of ['founder','seller']){
   const f=fixture(role);f.run(`window.refreshCalls=0;authRequest=()=>{window.refreshCalls++;return new Promise(resolve=>{window.finishRefresh=resolve;});};`);
