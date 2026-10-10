@@ -20,14 +20,16 @@ def test_dispatch_is_inside_existing_sales_tab():
     assert sales.index('id="owner-dispatch-review"') < sales.index('id="owner-sales-body"')
     assert '<h3 id="owner-dispatch-heading">To ship' in sales
     assert '<h2>Your sold cards</h2>' in sales
-    assert '<script src="/assets/owner-fulfill-wizard.js?v=1" defer></script>' in html
+    assert '<script src="/assets/owner-fulfill-wizard.js?v=2" defer></script>' in html
     assert 'id="owner-fulfill-dialog"' in html
     assert 'id="owner-fulfill-print-packing"' in html
     assert 'id="owner-fulfill-print-label"' in html
+    assert 'id="owner-fulfill-shipping-figures"' in html
+    assert 'id="owner-fulfill-shipping-status"' in html
     assert 'id="owner-fulfill-confirm"' in html
 
     assert '<script src="/assets/owner-fulfillment.js?v=3" defer></script>' in html
-    assert '<link rel="stylesheet" href="/assets/owner-fulfillment.css?v=3">' in html
+    assert '<link rel="stylesheet" href="/assets/owner-fulfillment.css?v=4">' in html
     assert 'data-owner-view="fulfilment"' not in html
 
 
@@ -69,5 +71,21 @@ def test_fulfill_button_has_live_shopify_review_and_no_fake_shipping_label():
     assert "Confirm dispatched" in (ROOT / "backend/app/static/owner.html").read_text()
     assert "innerHTML" not in wizard
     assert "buyer_shipping_address" not in wizard
+    assert "printLabel.disabled = true" in wizard
+    assert "confirm.disabled = true" in wizard
+
+
+def test_owner_shipping_review_uses_real_checkout_and_does_not_guess_postage():
+    wizard = (ROOT / "backend/app/static/owner-fulfill-wizard.js").read_text()
+    assert "/shipping-cost" in wizard
+    assert "SHOPIFY_CHECKOUT_AND_OWNER_LEDGER" in wizard
+    assert "Customer paid for shipping" in wizard
+    assert "Your allocated customer payment" in wizard
+    assert "Actual postage charged" in wizard
+    assert "Your net shipping deduction" in wizard
+    assert "Pending verified carrier cost" in wizard
+    assert "Pending — not approved" in wizard
+    assert "shippingLabelPurchase" not in wizard
+    assert "innerHTML" not in wizard
     assert "printLabel.disabled = true" in wizard
     assert "confirm.disabled = true" in wizard
