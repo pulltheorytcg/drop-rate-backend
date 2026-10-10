@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 11 October 2026 — Seller Fulfill shipping cost visibility
+
+- Founder's instruction: sellers must **see the amount they are being charged**, while customer shipping may have been paid at checkout. Added an owner-authenticated read-only preview that fetches **actual Shopify order shipping price/refunded price/service** and the seller's exact allocated `SHIPPING_REVENUE` / `SHIPPING_REFUND` ledger share. It displays a **verified** carrier expense and net shipping adjustment only if the existing postage reconciliation is complete; otherwise shows **Pending — not approved**, never £0 or a guessed carrier quote. Supports UK Tracked 48 free from £50, paid Tracked 24, paid Europe and paid selected International without hard-coding customer fees.
+- In Seller Hub `Fulfill`, seller sees customer's whole checkout delivery charge separately from **their allocated share** (one Shopify shipping payment is not copied to multiple owners), alongside true verified label cost or Pending. Pure finance / SQL owner-scope / browser tests cover free/paid, mixed owners, partial refund and missing postage.
+- **No new seller deductions, carrier label purchasing, new Shopify orders, payments or quote provider.** Shopify Shipping's supported Admin API does not provide a guaranteed upfront merchant label-price quote: this remains a transaction gate. Existing ledger rules may produce a postage shortfall on customer-paid orders with multiple senders; business policy for platform-funded shortfalls and seller charges on free-delivery orders requires explicit founder approval before changing settlement behaviour. See [seller dispatch design](docs/SELLER_DISPATCH_REVIEW_V1.md).
+
 ## 11 October 2026 — Seller Hub Fulfill wizard and Shopify packing slip (print stage)
 
 - Founder requested **Fulfill** next to each seller's Shopify order, then printing both an official Shopify Shipping label and a Shopify-based packing slip, followed by dispatch. Added `Fulfill` to existing Sales → To Ship, displaying a four-stage mobile-friendly wizard (verify the exact Shopify paid order/allocated copy, print owner-only Shopify packing slip, Shopify carrier label, confirm dispatched). This reuses FastAPI, existing Shopify Admin credentials and Supabase physical allocations; no new primary navigation or service.
