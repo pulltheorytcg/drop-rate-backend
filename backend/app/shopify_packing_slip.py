@@ -105,6 +105,32 @@ def build_shopify_owner_packing_slip(
         if not isinstance(shopify_remaining, int) or shopify_remaining < own_qty:
             raise PackingSlipNotReady("Shopify remaining quantity is insufficient")
 
+    fulfillment_orders = remote_order.get("fulfillmentOrders")
+    if (
+        not isinstance(fulfillment_orders, Mapping)
+        or (fulfillment_orders.get("pageInfo") or {}).get("hasNextPage")
+    ):
+        raise PackingSlipNotReady("Shopify fulfillment orders require verification")
+    remaining_by_gid: Counter[str] = Counter()
+    for fo in fulfillment_orders.get("nodes") or []:
+        if not isinstance(fo, Mapping):
+            raise PackingSlipNotReady("Invalid Shopify fulfillment order")
+        fo_lines = fo.get("lineItems") or {}
+        if (fo_lines.get("pageInfo") or {}).get("hasNextPage"):
+            raise PackingSlipNotReady("Shopify fulfillment lines require verification")
+        if fo.get("status") != "OPEN" or fo.get("requestStatus") != "UNSUBMITTED":
+            continue
+        for fo_line in fo_lines.get("nodes") or []:
+            line_gid = (fo_line.get("lineItem") or {}).get("id")
+            if line_gid in expected_counts and fo_line.get("requiresShipping") is True:
+                amount = fo_line.get("remainingQuantity")
+                if not isinstance(amount, int) or amount < 0:
+                    raise PackingSlipNotReady("Invalid remaining Shopify fulfillment quantity")
+                remaining_by_gid[line_gid] += amount
+    for gid, qty in expected_counts.items():
+        if remaining_by_gid[gid] < qty:
+            raise PackingSlipNotReady("Shopify fulfillment quantity no longer available")
+
     # The packing slip may be prepared *before* Shopify FulfillmentOrder split;
     # this does not authorize a carrier-label purchase or dispatch.
     return {
