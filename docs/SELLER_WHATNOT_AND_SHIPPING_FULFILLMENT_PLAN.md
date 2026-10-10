@@ -2,6 +2,31 @@
 
 Date: 10 October 2026. This documents a newly requested capability. The Phase 2 Operating Manual prioritises storefront launch, measured operational simplicity and gated workstream reopening; **do not silently activate new customer/seller shipping automation before those gates and explicit commercial decisions**.
 
+
+## 10 October 2026 — Superseding launch decision: UK £3.95 / free £50 (NOT YET LIVE)
+
+The founder **superseded the earlier request for UK free postage above £10** and approved a more sustainable launch tariff, after reviewing the example Shopify Shipping / Royal Mail rates. Do not reapply the older £10 proposal.
+
+| Shopify market/zone | Target customer-facing checkout | Live verified on 10 October |
+| --- | --- | --- |
+| UK Standard | £3.95 below £50 | £4.99 below £50 — **NOT CHANGED** |
+| UK Standard free tier | £0 from £50 inclusive | £0 from £50 inclusive — already configured |
+| UK Express | £6.99, including orders qualifying for free Standard | £6.99 — already configured |
+| EU (existing international zone) | £14.99, no free threshold initially | £14.99, no free threshold |
+| International (existing countries) | £23.99, no free threshold initially | £23.99, no free threshold |
+
+**API blocker confirmed, no mutation succeeded.** A fresh minimal `deliveryProfileUpdate` targeted only the UK paid `Standard` rate `gid://shopify/DeliveryRateDefinition/1310722425179` from 4.99 to 3.95 without touching the free-shipping condition. Shopify rejected it with `This method definition cannot be updated because it uses new configurations that are only available through Shopify's updated APIs.` The connected Shopify schema lacks `rateGroupsToUpdate` and `freeConditions`; a subsequent full profile readback confirmed no rate/condition changes. Do not attempt method deletion, add a new overlapping rate, or infer an API version from developer examples.
+
+**Exact remaining merchant-admin step (Drop Rate store only):** Shopify Admin → Settings → Shipping and delivery (or the current Markets shipping options UI) → existing General profile / United Kingdom → **edit existing Standard shipping option**; set its *paid* rate to **£3.95**, retain the *free from £50* condition, and save. Do not create duplicate Standard options. Do not edit JŪSO, other Shopify stores, UK Express or international zones. Immediately read back the full shipping profile. Do not call this live until customer checkout (not merely Admin readback) proves UK merchandise at **£49.99 = £3.95 Standard** and **£50.00 = £0 Standard**, with Express still £6.99. Confirm international baskets of **£49.99 and £50.00** still receive *paid-only* EU £14.99 and existing International £23.99 (representative supported addresses). Roll back £3.95 to £4.99 if any unrelated zone/tier breaks.
+
+**Seller-funded physical dispatch (approved direction, controlled execution):** assign an actual shipment to its verified *physical custodian* (ownership alone does not prove who ships). For seller-held stock, the owner bears **only their own carrier-issued actual postage and eligible packing material**, net of the **one customer-paid shipping charge allocated once** through the existing ledger. Free Shopify shipping means zero customer shipping revenue; it is not a £3.95 seller deduction *plus* actual postage. For two owners each shipping a parcel, record two independent carrier invoices and split the *one* customer shipping payment; show any deficit explicitly. Obtain valid seller/consignor policy acceptance before activating deductions for third-party sellers; no automatic debit to existing unsettled balances merely because this plan is documented. Missing actual label invoice, absent ship-from address, unclear custody, fee shortfall or conflicting Shopify fulfilment state leaves settlement **unverified / Action Required**.
+
+**Packaging and Royal Mail:** the provided Shopify Shipping calculator displayed **£2.95 Tracked 48**, **£3.77 Tracked 24**, **£4.22 Tracked 48 Signed** and **£5.02 Tracked 24 Signed**, for an **illustrative 50 g, 11 × 14.5 × 2.1 cm** UK parcel. These were not actual bought labels. The founder notes **up to 2.3 g per One Piece card**, so 25 bare cards may weigh **57.5 g before sleeve/toploader, protective packaging, label and envelope/box**. Do not create an automatic 50 g weight default from this illustration. Photograph/weigh several *fully packed* envelopes and parcels; use a verified quote at purchase, checking carrier dimensions, declared value, insurance limits and card exclusions. More valuable slabs/cards need a suitable tracked/insured option, not forced Tracked 48. Actual 4×6/A4 print-ready labels require a supported carrier account and verified purchase confirmation; the current Seller Hub cannot buy them automatically.
+
+**Testing/scope:** new `tests/test_customer_shipping_seller_postage_policy.py` examples validate 395p customer revenue, a verified sample 295p postage charge, free-order 0p revenue, two-owner charge-allocation, and unknown actual postage blocking settlement. This does not claim live checkout, account linkage, actual label purchases, payout activation or a signed-in seller delivery journey. No new provider, Rails/DB migration, seller activation, unreviewed n8n flow or storefront theme launch. Update `BUILD_STATUS.md` only with observed evidence.
+
+---
+
 ## 1. Seller's own Whatnot account
 
 - A Seller Hub seller must link **their personal, approved Whatnot seller account** to **their own Drop Rate owner ID**, not install a Whatnot Shopify sales channel on the Drop Rate company's single Shopify store. The latter syncs the *store*, not a distinct unrelated seller, so the old "Set up" link was removed.
@@ -14,7 +39,7 @@ Official:
 - https://developers.whatnot.com/docs/getting-started/introduction
 - https://developers.whatnot.com/docs/getting-started/authentication
 
-## 2. Checkout shipping funding policy — confirmed 10 October 2026
+## 2. Checkout shipping funding policy — historical 10 October decision (superseded above)
 
 The founder clarified the **shipping-financing model**, so no seller courier billing integration is required merely to decide who bears postage:
 
@@ -31,7 +56,7 @@ The founder clarified the **shipping-financing model**, so no seller courier bil
 
 Live UK free Standard currently appears as a **legacy rate-range pseudo-method**, while the same underlying paid Standard method has ID `gid://shopify/DeliveryMethodDefinition/1379774038363`. The desired £10 threshold is not live. The previously attempted narrow condition-ID update failed; a fresh connected Admin schema inspection shows only `rateProvider`/`methodConditions`, without Shopify's [new tiered-rate fields](https://shopify.dev/changelog/posts/new-apis-to-read-and-write-shipping-options-in-delivery-profile) `rateGroups`/`freeConditions`. Deleting the shared Standard method could remove £4.99 paid delivery; adding a second overlapping free method could duplicate checkout options. Neither workaround is acceptable.
 
-Implement via the supported Shopify Admin shipping settings or a verified API version that exposes tiered-rate controls. Change **only UK Standard** from free above £50 to free from **£10 inclusive**; keep £4.99 Standard below £10, £6.99 Express and both international zones intact. Re-read the full profile and test shipping totals in UK checkouts at £9.99 and £10.00 before announcing live. Document revert to the original £50 threshold. This investigation has not purchased labels, modified shipping, created fulfilments or posted seller debits.
+Historical instruction (superseded by the £3.95 paid Standard / free £50 launch rule above): implement via supported Shopify Admin settings or verified tiered-rate API; the old £10 request is no longer approved. Previously proposed: change **only UK Standard** from free above £50 to free from **£10 inclusive**; keep £4.99 Standard below £10, £6.99 Express and both international zones intact. Re-read the full profile and test shipping totals in UK checkouts at £9.99 and £10.00 before announcing live. Document revert to the original £50 threshold. This investigation has not purchased labels, modified shipping, created fulfilments or posted seller debits.
 
 ## 2. Shipping in Seller Hub — operator choice required
 

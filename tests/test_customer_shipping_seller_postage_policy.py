@@ -38,7 +38,7 @@ def test_free_standard_shipping_deducts_real_postage_once_from_seller():
 
 
 def test_paid_delivery_offsets_actual_postage_without_double_charge():
-    # £4.99 is the current buyer-facing UK Standard rate. It is NOT the
+    # £4.99 is the historically configured UK Standard rate. It is NOT the
     # necessarily equal Royal Mail / Shopify Shipping label purchase price.
     result = owner_shipping_settlement(
         merchandise_minor=950, shipping_revenue_minor=499,
@@ -107,3 +107,51 @@ def test_unknown_label_cost_must_keep_settlement_unverified():
     )
     assert "POSTAGE" in status
     assert any("postage" in item.lower() for item in blockers)
+
+def test_requested_launch_uk_standard_395_reconciles_actual_postage_not_illustrative_quote():
+    # This is a deterministic settlement example, NOT a Shopify rate rule.
+    # £2.95 was observed in the founder's calculator at *estimated* parcel
+    # dimensions/weight; deduct only once an actual carrier charge is verified.
+    result = owner_shipping_settlement(
+        merchandise_minor=2400, shipping_revenue_minor=395,
+        actual_postage_minor=295,
+    )
+    assert result["gross_proceeds_minor"] == 2795
+    assert result["external_deductions_minor"] == 295
+    assert result["net_owner_proceeds_minor"] == 2500
+
+
+def test_requested_launch_uk_free_50_seller_cost_uses_real_carrier_amount():
+    # Eligibility for >=£50 is controlled by Shopify, not by the backend.
+    # Example only: Shopify captured £0 postage on an eligible £50 order.
+    result = owner_shipping_settlement(
+        merchandise_minor=5000, shipping_revenue_minor=0,
+        actual_postage_minor=295,
+    )
+    assert result["net_owner_proceeds_minor"] == 4705
+
+
+def test_requested_launch_uk_395_one_charge_split_across_two_owner_parcels():
+    # One Shopify checkout charge is NOT multiplied by owner count.
+    revenue_shares = allocate_minor(395, [1000, 1500])
+    assert len(revenue_shares) == 2
+    assert sum(revenue_shares) == 395
+    a = owner_shipping_settlement(
+        merchandise_minor=1000, shipping_revenue_minor=revenue_shares[0],
+        actual_postage_minor=295,
+    )
+    b = owner_shipping_settlement(
+        merchandise_minor=1500, shipping_revenue_minor=revenue_shares[1],
+        actual_postage_minor=377,
+    )
+    assert a["net_owner_proceeds_minor"] + b["net_owner_proceeds_minor"] == 2223
+    assert a["external_deductions_minor"] + b["external_deductions_minor"] == 672
+
+
+def test_no_postage_invoice_is_not_free_postage_or_settlement_verified():
+    # A checkout fee of £3.95 does not prove actual carrier spend is £3.95.
+    state, reasons = _settlement_reconciliation_state(
+        source="SHOPIFY", fees_reconciled=True, shipping_cost_reconciled=False,
+    )
+    assert state == "WAITING_POSTAGE"
+    assert reasons

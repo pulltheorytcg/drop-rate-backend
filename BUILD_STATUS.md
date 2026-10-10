@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Launch shipping tariff agreed, Shopify API blocked
+
+- Founder superseded the former **free UK shipping from £10** idea: launch target is **UK Standard £3.95 below £50 and FREE from £50**, UK Express £6.99, EU £14.99 and existing International £23.99, with *no free international threshold initially*. Shopify remains the sole source of buyer checkout rates. The £50 UK free condition and paid international options already exist.
+- Attempted an exact UK-only `deliveryProfileUpdate` (4.99 → 3.95, preserving all other rates). Shopify rejected the write: `This method definition cannot be updated because it uses new configurations that are only available through Shopify's updated APIs.` The connected schema exposes legacy fields only. **No Shopify price was changed**: live UK Standard still **£4.99**, free from £50, Express £6.99, EU £14.99, International £23.99, confirmed by full independent readback. Admin/updated-API edit and UK £49.99/£50 checkout tests remain mandatory.
+- Added pure multi-seller/postage examples to existing deterministic finance tests. Seller-funded *actual* label expense is assigned only to the verified physical sender; customer shipping revenue is allocated once; a missing invoice blocks settlement. The shown Royal Mail 50g/£2.95 calculator is illustrative, not an approved packing weight/quote: 25×2.3g cards alone are 57.5g. No carrier labels/accounts, addresses, owner deductions, payments, production database, shipping configurations or new automation were changed. See [shipping plan](docs/SELLER_WHATNOT_AND_SHIPPING_FULFILLMENT_PLAN.md).
+
 ## 10 October 2026 — Seller Hub quantity-control video bug: proposed count and actual save
 
 - In the supplied 9.6s signed-in iPhone recording, the OP17 group shows saved Qty 2. Tapping + or − only swaps a confirmation message; the central number remains 2, looking broken. Root cause: `owner-inventory.js` renders `copies.length` as immutable text and never shows the proposed adjustment. The confirmation routes exist, but this presentation hid the pending state.
