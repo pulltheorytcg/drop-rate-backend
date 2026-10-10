@@ -7,7 +7,7 @@ dom.window.eval(source);
 const detect=dom.window.DropRateScanner.analyzeCardPresence;
 const W=48,H=68;
 
-function picture({kind='blank',rect=null,bg=[193,189,183],light=1}={}){
+function picture({kind='blank',rect=null,plainRect=false,bg=[193,189,183],light=1}={}){
  const pixels=new Uint8ClampedArray(W*H*4);
  let seed=12345;
  const random=()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return ((seed>>>0)%256);};
@@ -24,7 +24,7 @@ function picture({kind='blank',rect=null,bg=[193,189,183],light=1}={}){
    }
    if(rect && x>=rect.left && x<=rect.right && y>=rect.top && y<=rect.bottom){
      const border=x===rect.left||x===rect.right||y===rect.top||y===rect.bottom;
-     rgb=border?[15,28,48]:[
+     rgb=border?[15,28,48]:plainRect?[151,153,155]:[
        55+(x*7+y*11)%120,
        52+(x*13+y*3)%90,
        70+(x*5+y*17)%120,
@@ -43,6 +43,7 @@ const noCard=[
  ['low-light empty desk',picture({bg:[28,32,35]})],
  ['lighting gradient',picture({kind:'gradient'})],
  ['moving hands (nonrectangular)',picture({kind:'hand'})],
+ ['empty rectangle/paper with no printed artwork',picture({rect:{left:8,right:40,top:9,bottom:58},plainRect:true})],
  ['high-frequency patterned desk',picture({kind:'checker'})],
  ['high-variance noise',picture({kind:'noise'})],
  ['vertical-striped wall',picture({kind:'stripes'})],
