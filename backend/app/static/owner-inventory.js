@@ -4,7 +4,7 @@ window.DropRateInventory = (() => {
   const el = (tag, cls = "", text = "") => { const n = document.createElement(tag); n.className = cls; n.textContent = text; return n; };
   const button = (label, action, cls = "") => { const n = el("button", cls, label); n.type = "button"; n.addEventListener("click", action); return n; };
   const account = () => state.session?.user?.id || state.session?.access_token;
-  let dialog, content, message, selected, revision = 0, busy = false, returnFocus;
+  let dialog, content, message, selected, revision = 0, busy = false, returnFocus, channels = [];
   const alive = (rev, owner) => revision === rev && account() === owner && dialog?.open;
   const active = item => ["DRAFT", "INSPECTION", "APPROVED"].includes(item.status);
   const price = minor => minor == null ? "Value pending" : formatMoney(minor);
@@ -40,7 +40,7 @@ window.DropRateInventory = (() => {
 
   function close(force = false) {
     if (busy && !force) return;
-    revision++; busy = false; selected = null;
+    revision++; busy = false; selected = null; channels = [];
     if (dialog?.open) dialog.close();
     content?.replaceChildren(); returnFocus?.focus();
   }
@@ -68,6 +68,10 @@ window.DropRateInventory = (() => {
     try {
       const data = await apiRequest(`/api/v1/owner/inventory/${encodeURIComponent(item.id)}`);
       if (!alive(rev, owner)) return;
+      // Reuse the owner-scoped channel dashboard snapshot; never block item
+      // details on an unrelated provider connection or a slow external API.
+      channels=state.ownerChannelAccount===owner && Array.isArray(state.ownerChannelSummaries)
+        ?state.ownerChannelSummaries:[];
       selected = data.item; render(data); status("");
     } catch (error) { if (alive(rev, owner)) status(error.message, true); }
   }
@@ -168,14 +172,72 @@ window.DropRateInventory = (() => {
     sale.append(el("p", "owner-item-note", item.seller_approval_available
       ? "Approve to confirm that you hold this exact sealed product and want to sell it at this price. We use the catalogue image. Your stock stays with you and syncs automatically."
       : "Your approval saves your selling price and requests Drop Rate review. Approved stock marked For sale syncs automatically."));
-    const sync = button("Sync to Shopify", () => run(async () => {
-      const result = await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/shopify/sync`, {method: "POST", body: JSON.stringify({version: item.version})});
-      return {message: `Shopify: ${result.status.replaceAll("_", " ")}`};
-    }));
-    sync.disabled = !(item.shopify_sync_enabled && item.status === "APPROVED" && item.sale_intent === "FOR_SALE");
-    sale.append(sync);
     if (!item.shopify_sync_enabled) sale.append(el("p", "owner-item-note", "Shopify publishing is currently unavailable."));
     content.append(sale);
+
+    // Platform status comes from the owner-scoped channel API. Never claim an
+    // external listing is live from a logo or a successful button press alone.
+    const sellerChannels = el("section", "owner-item-section owner-channel-section");
+    sellerChannels.append(el("h3", "", "Selling channels"),
+      el("p", "owner-item-note", "Each platform needs its own readiness checks. Stock and ownership stay in Drop Rate."));
+    const channelGrid=el("div", "owner-item-channels");
+    const ebay=channels.find(c=>c.code==="EBAY")||{};
+    const channelsReady=Boolean(ebay.connected && ebay.sync_enabled);
+    const ebayEligible=channelsReady && !item.is_consignment && item.product_type==="CARD" &&
+      item.status==="APPROVED" && item.sale_intent==="FOR_SALE";
+    const cards=[
+      {
+        code:"SHOPIFY",label:"Shopify",logo:null,
+        state:item.shopify_state==="PUBLISHED"?"Published":item.shopify_sync_enabled?"Ready to sync":"Unavailable",
+        action:"Sync to Shopify",disabled:!item.shopify_sync_enabled||item.status!=="APPROVED"||item.sale_intent!=="FOR_SALE",
+        click:()=>run(async()=>{
+          const result=await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/shopify/sync`,
+            {method:"POST",body:JSON.stringify({version:item.version})});
+          return {message:"Shopify: "+result.status.replaceAll("_"," ")};
+        })
+      },
+      {
+        code:"EBAY",label:"eBay",
+        logo:"https://images.prismic.io/ebayevo/Zm_Swpm069VX1ywL_logo_I1734-53180-5649-25395-5763-35557.png?auto=format%2Ccompress",
+        state:item.product_type!=="CARD"?"Sealed listings not supported":
+          item.is_consignment?"Consignor eBay sync not available":
+          !ebay.connected?"Seller connection unavailable":!ebay.sync_enabled?"Seller sync not enabled":"Eligible cards only",
+        action:"Sync to eBay",disabled:!ebayEligible,
+        click:()=>run(async()=>{
+          const result=await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/ebay/sync`,
+            {method:"POST",body:JSON.stringify({version:item.version})});
+          return {message:"eBay: "+result.status.replaceAll("_"," ")};
+        })
+      },
+      {
+        code:"WHATNOT",label:"Whatnot",
+        logo:"https://cdn.shopify.com/app-store/listing_images/088e55289003f1963a031804f2486f89/icon/CLTJiaCd65ADEAE%3D.png",
+        state:"Connect through Shopify",
+        action:"Set up",disabled:false,
+        click:()=>window.open("https://apps.shopify.com/whatnot","_blank","noopener,noreferrer")
+      }
+    ];
+    for(const channel of cards){
+      const block=el("div","owner-item-channel owner-item-channel-"+channel.code.toLowerCase());
+      const visual=el("span","owner-item-channel-visual");
+      if(channel.logo){
+        const img=el("img","owner-item-channel-logo");
+        img.src=channel.logo;img.alt=channel.label+" logo";img.loading="lazy";
+        img.referrerPolicy="no-referrer";
+        img.addEventListener("error",()=>{img.remove();visual.append(el("span","owner-item-channel-fallback",channel.label));});
+        visual.append(img);
+      }else visual.append(el("span","owner-item-shopify-mark","▣ Shopify"));
+      const info=el("small","owner-item-channel-state",channel.state);
+      const action=button(channel.action,channel.click,"owner-item-channel-action");
+      action.setAttribute("aria-label",channel.action==="Set up"?"Set up "+channel.label:channel.action);
+      action.disabled=channel.disabled;
+      if(channel.disabled)action.title=channel.state;
+      block.append(visual,info,action);channelGrid.append(block);
+    }
+    sellerChannels.append(channelGrid);
+    if(item.product_type!=="CARD")sellerChannels.append(el("small","owner-item-channel-footnote",
+      "eBay sealed-pack publishing is not yet supported. Whatnot connects via its official Shopify app; connecting requires a store administrator."));
+    content.append(sellerChannels);
 
     const stock = el("section", "owner-item-section"); stock.append(el("h3", "", "Quantity"));
     stock.append(el("p", "", `${copies.length} ${copies.length === 1 ? "copy" : "copies"} in your active inventory`));

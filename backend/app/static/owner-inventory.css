@@ -1,4 +1,16 @@
 .owner-portal-page .owner-card-image-wrap{width:100%;border-top:0;border-left:0;border-right:0;cursor:pointer}
+/* One visible product can represent several individually owned physical copies. */
+.owner-portal-page .owner-card-image-wrap{position:relative}
+.owner-portal-page .owner-card-quantity{
+ position:absolute;top:10px;right:10px;z-index:1;display:grid;place-items:center;
+ padding:5px 9px;min-width:36px;min-height:27px;border:1px solid #d9e4f0;
+ border-radius:999px;background:#fff;color:#09223d;font-size:.78rem;font-weight:900;
+ box-shadow:0 3px 10px rgba(12,28,48,.08);font-variant-numeric:tabular-nums;
+}
+.owner-portal-page .owner-card-value-coverage{
+ display:block;color:#627589;font-size:.58rem;line-height:1.35;margin-top:3px;
+}
+
 /* A fast-scanning grid: artwork, identity, status and prices. Specs stay in the dialog. */
 .owner-portal-page .owner-card-body{gap:8px}
 .owner-portal-page .owner-card-title-row{display:flex;flex-direction:column;align-items:flex-start;gap:7px}
@@ -48,6 +60,28 @@
 .owner-item-section input,.owner-item-section select{width:100%;min-width:0}
 .owner-item-actions{display:flex;flex-wrap:wrap;gap:10px}.owner-item-actions button{flex:1}
 .owner-item-note{font-size:.82rem;color:#617287;line-height:1.5}
+
+/* Compact channel cards show genuine service marks and honest live readiness. */
+.owner-item-channels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.owner-item-channel{display:flex;flex-direction:column;align-items:center;min-width:0;gap:9px;
+ padding:13px 9px;border:1px solid #dce6ef;border-radius:12px;background:#fafcff;text-align:center}
+.owner-item-channel-visual{display:grid;place-items:center;min-width:0;width:100%;height:49px;
+ border-radius:9px;background:white}
+.owner-item-channel-logo{display:block;width:100%;max-width:110px;max-height:43px;object-fit:contain}
+.owner-item-channel-whatnot .owner-item-channel-logo{max-width:42px;max-height:42px}
+.owner-item-shopify-mark{font-weight:800;color:#16845e;font-size:1rem}
+.owner-item-channel-fallback{font-weight:750;color:#17354a;font-size:.85rem}
+.owner-item-channel-state{flex:1;display:flex;align-items:center;justify-content:center;
+ font-size:.72rem;line-height:1.35;color:#65768b;min-height:34px;overflow-wrap:anywhere}
+.owner-item-channel .owner-item-channel-action{width:100%;min-height:44px;padding:8px 6px;
+ font-size:.75rem;font-weight:750;line-height:1.2;background:#fff;border-color:#bacbd9}
+.owner-item-channel .owner-item-channel-action:not(:disabled):hover{border-color:#2167a8;background:#f0f7ff}
+.owner-item-channel .owner-item-channel-action:disabled{cursor:not-allowed;background:#f2f4f7;color:#788698}
+.owner-item-channel-footnote{font-size:.75rem;color:#65768b;line-height:1.45}
+@media(max-width:470px){.owner-item-channels{gap:7px}.owner-item-channel{padding:10px 6px}
+ .owner-item-channel .owner-item-channel-action{font-size:.68rem;padding:6px 3px}
+ .owner-item-channel-visual{height:40px}.owner-item-channel-logo{max-height:36px}}
+
 .owner-item-quantity{display:flex;gap:20px;align-items:center}.owner-item-quantity button{font-size:1.25rem;min-width:48px}.owner-item-quantity strong{font-size:1.2rem}
 .owner-item-confirmation{display:grid;gap:10px}.owner-item-confirmation:empty{display:none}
 @media(max-width:600px){

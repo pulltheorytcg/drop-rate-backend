@@ -28,7 +28,9 @@ async def sync_inventory(
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         access = await require_owner_portal(connection)
         item = await connection.fetchrow(
-            "select id,status,sale_intent,version from tcg.inventory_items where id=$1 and owner_id=$2",
+            """select i.id,i.status,i.sale_intent,i.version,p.product_type
+               from tcg.inventory_items i join tcg.catalogue_products p on p.id=i.catalogue_id
+               where i.id=$1 and i.owner_id=$2""",
             inventory_id, access["owner_id"],
         )
         if item is None:
@@ -37,6 +39,14 @@ async def sync_inventory(
             raise HTTPException(409, "Inventory changed; refresh and try again")
         if item["status"] != "APPROVED" or item["sale_intent"] != "FOR_SALE":
             raise HTTPException(409, "Only approved inventory marked For sale can be synced")
+        if channel == "ebay":
+            # The legacy eBay seller publisher is an individually-owned card
+            # pathway with founder-only financial/media checks. Never route a
+            # consignor or sealed unit through it, even if shared eBay OAuth is READY.
+            if access["owner_type"] == "CONSIGNOR":
+                raise HTTPException(409, "Consignor eBay publishing is not enabled yet")
+            if item["product_type"] != "CARD":
+                raise HTTPException(409, "eBay v1 only supports individual physical cards")
         if channel == "shopify":
             if not settings.shopify_seller_sync_enabled or not settings.shopify_publish_enabled:
                 raise HTTPException(409, "Seller sync to Drop Rate Shopify is not enabled yet")

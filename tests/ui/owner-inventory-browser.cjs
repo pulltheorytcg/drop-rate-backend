@@ -2,7 +2,7 @@
 const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const base=path.resolve(__dirname,'../../backend/app/static'),out='/tmp/inventory-layout';
 const artwork='https://www.onepiece-cardgame.com/products/boosters/op17/images/others/product_pack.webp';
-const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',inventory_code:'INV-D715B0E9B3C4451BA9095FA233F8A0E5',version:3,status:'DRAFT',sale_intent:'FOR_SALE',product_type:'SEALED',game:'One Piece',language:'Japanese',seal_status:'SEALED',name:"Booster Pack: World's Strongest Warriors [OP-17]",set_name:"World's Strongest Warriors [OP-17]",market_value_minor:866,store_price_minor:null,reference_image_url:artwork,approval_blockers:['Drop Rate intake review','A selling price of at least £1','An approved listing photo'],shopify_sync_enabled:true};
+const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op17-catalogue',inventory_code:'INV-D715B0E9B3C4451BA9095FA233F8A0E5',version:3,status:'DRAFT',sale_intent:'FOR_SALE',product_type:'SEALED',game:'One Piece',language:'Japanese',seal_status:'SEALED',name:"Booster Pack: World's Strongest Warriors [OP-17]",set_name:"World's Strongest Warriors [OP-17]",market_value_minor:866,store_price_minor:null,reference_image_url:artwork,approval_blockers:['Drop Rate intake review','A selling price of at least £1','An approved listing photo'],shopify_sync_enabled:true};
 (async()=>{
  fs.mkdirSync(out,{recursive:true});
  const response=await fetch(artwork);assert.equal(response.ok,true,'Official pack image unavailable');const pack=Buffer.from(await response.arrayBuffer());
@@ -63,6 +63,25 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',inventory_code:'INV-D715B0
    assert.equal(await page.locator('#owner-inventory-body tr:first-child td').count(),4);
    assert.doesNotMatch(await page.locator('#owner-inventory-body').innerText(),/INV-D715B0E9|Japanese/);
    await page.locator('.owner-inventory-open').click();await page.getByRole('heading',{name:'Sell on Shopify',exact:true}).waitFor();
+   await page.getByRole('button',{name:'Close item details',exact:true}).click();
+   await page.getByRole('button',{name:'Grid view',exact:true}).click();
+   await page.evaluate(original=>{
+    const one={...original,status:'APPROVED',sale_intent:'FOR_SALE',store_price_minor:1000,market_value_minor:866,is_consignment:true};
+    const two={...one,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',
+      inventory_code:'INV-55FE97FC7BFA4A73A269664EC56D3004',
+      market_value_minor:null,can_refresh_market:true};
+    window.fixtureItem=one;
+    renderInventoryCards(ownerInventoryDisplayGroups([one,two]));
+    renderInventoryRows(ownerInventoryDisplayGroups([one,two]));
+   },item);
+   assert.equal(await page.locator('.owner-inventory-card').count(),1);
+   assert.equal(await page.locator('.owner-card-quantity').innerText(),'×2');
+   assert.match(await page.locator('.owner-card-prices').innerText(),/1\/2 copies valued/);
+   assert.match(await page.locator('.owner-card-prices').innerText(),/£10.00/);
+   const groupedBox=await page.locator('.owner-inventory-card').boundingBox();
+   assert.ok(groupedBox&&groupedBox.height<425);
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Grouped inventory overflows viewport');
+   await page.screenshot({path:path.join(out,`inventory-grouped-${viewport.width}.png`),fullPage:true});
    assert.deepEqual(errors,[]);await page.close();
   }
  }finally{await browser.close();}

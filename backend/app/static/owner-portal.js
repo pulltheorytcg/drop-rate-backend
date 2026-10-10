@@ -98,6 +98,50 @@ function createCardImage(item, className) {
   return wrap;
 }
 
+// A collection tile represents interchangeable physical copies, not a Shopify
+// variant or a change of ownership. Leave identity, prices and reservation
+// decisions to PostgreSQL/FastAPI. Never pool graded, non-sealed or mixed stock.
+function ownerInventoryDisplayGroups(items) {
+  const grouped=new Map(),result=[];
+  for(const original of items){
+    const item={...original};
+    const eligible=Boolean(item.catalogue_id) &&
+      ["SEALED","COLLECTION"].includes(item.product_type) &&
+      item.seal_status==="SEALED" && item.status==="APPROVED" &&
+      item.sale_intent==="FOR_SALE" && !item.grading_company && !item.grade &&
+      !item.certificate_number && item.store_price_minor!=null;
+    const signature=eligible?JSON.stringify([
+      item.catalogue_id,item.product_type,item.sealed_product_type||"",
+      item.language||"",item.seal_status,item.condition||"",item.variant||"",
+      item.status,item.sale_intent,item.store_price_minor
+    ]):"item:"+item.id;
+    const previous=grouped.get(signature);
+    const valued=Number.isInteger(item.market_value_minor);
+    if(!previous){
+      item.grouped_quantity=1;
+      item.group_valued_count=valued?1:0;
+      item.group_member_ids=[item.id];
+      item.group_unvalued_code=!valued&&item.can_refresh_market?item.inventory_code:null;
+      grouped.set(signature,item);result.push(item);
+      continue;
+    }
+    previous.grouped_quantity++;
+    previous.group_member_ids.push(item.id);
+    if(valued) {
+      previous.group_valued_count++;
+      // Show one evidenced physical-copy value, never manufacture a valuation
+      // for a second item whose valuation is still pending.
+      if(previous.market_value_minor==null){
+        previous.market_value_minor=item.market_value_minor;
+        previous.pricing_method=item.pricing_method;
+      }
+    }
+    if(!valued&&item.can_refresh_market)previous.group_unvalued_code=item.inventory_code;
+    previous.can_refresh_market=Boolean(previous.can_refresh_market||item.can_refresh_market);
+  }
+  return result;
+}
+
 function renderInventoryRows(items) {
   const body = byId("owner-inventory-body");
   body.replaceChildren();
@@ -126,6 +170,7 @@ function renderInventoryRows(items) {
     cardName.textContent = safeText(item.name);
     const cardCode = document.createElement("small");
     cardCode.textContent = inventoryCardSubtitle(item);
+    if((item.grouped_quantity||1)>1)cardCode.textContent+=" · Qty "+item.grouped_quantity;
     cardCopy.append(cardName, cardCode);
     if (item.id && window.DropRateInventory) {
       const open = document.createElement("button");
@@ -147,6 +192,8 @@ function renderInventoryRows(items) {
     marketCell.textContent = item.market_value_minor == null
       ? "Value pending"
       : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"");
+    if((item.grouped_quantity||1)>1 && item.group_valued_count<item.grouped_quantity)
+      marketCell.append(document.createTextNode(" · "+item.group_valued_count+"/"+item.grouped_quantity+" copies valued"));
     const storeCell = document.createElement("td");
     const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
     storeCell.textContent = storeValue == null ? "—" : formatMoney(storeValue);
@@ -188,6 +235,13 @@ function renderInventoryCards(items) {
     imageWrap.setAttribute("aria-label", `View ${item.name}`);
     imageWrap.className = "owner-card-image-wrap";
     imageWrap.append(createCardImage(item, "owner-card-thumb"));
+    if((item.grouped_quantity||1)>1){
+      const count=document.createElement("span");count.className="owner-card-quantity";
+      count.textContent="×"+item.grouped_quantity;
+      count.setAttribute("aria-label",item.grouped_quantity+" physical copies");
+      imageWrap.append(count);
+      imageWrap.setAttribute("aria-label",`View ${item.grouped_quantity} copies of ${item.name}`);
+    }
     imageWrap.addEventListener("click", () => window.DropRateInventory?.open(item));
 
     const body = document.createElement("div");
@@ -223,6 +277,12 @@ function renderInventoryCards(items) {
       const value = document.createElement("strong");
       value.textContent = valueText;
       box.append(label, value);
+      if(labelText==="Market value" && (item.grouped_quantity||1)>1){
+        const note=document.createElement("small");
+        note.className="owner-card-value-coverage";
+        note.textContent=item.group_valued_count+"/"+item.grouped_quantity+" copies valued";
+        box.append(note);
+      }
       prices.append(box);
     }
 
@@ -246,7 +306,7 @@ function renderInventoryCards(items) {
         refresh.textContent = "Refreshing value…";
         try {
           await apiRequest(
-            `/api/v1/owner/inventory/${encodeURIComponent(item.inventory_code)}/refresh-market`,
+            `/api/v1/owner/inventory/${encodeURIComponent(item.group_unvalued_code||item.inventory_code)}/refresh-market`,
             {method: "POST", body: "{}"}
           );
           showPortalMessage("Market value refreshed from current sealed-product evidence.", "success");
@@ -601,6 +661,8 @@ async function loadOwnerChannels() {
 
   try {
     const data = await apiRequest("/api/v1/owner/channels?" + params.toString());
+    state.ownerChannelAccount = state.session?.user?.id || state.session?.access_token;
+    state.ownerChannelSummaries = Array.isArray(data.channels)?data.channels:[];
     state.channels.total = Number(data.total || 0);
     byId("owner-channels-total").textContent =
       state.channels.total.toLocaleString("en-GB");
@@ -671,13 +733,22 @@ async function loadOwnerInventory() {
   if (revision !== state.inventory.requestRevision || account !== (state.session?.user?.id || state.session?.access_token)) return;
   state.inventory.total = Number(data.total || 0);
   const items = data.items || [];
-  renderInventoryRows(items);
-  renderInventoryCards(items);
+  const displayGroups=ownerInventoryDisplayGroups(items);
+  renderInventoryRows(displayGroups);
+  renderInventoryCards(displayGroups);
   renderInventoryPagination();
   const totalLabel = byId("owner-inventory-total-label");
-  if (totalLabel) totalLabel.textContent = state.inventory.total.toLocaleString("en-GB");
+  if (totalLabel) {
+    totalLabel.textContent = displayGroups.length.toLocaleString("en-GB");
+    const units = state.inventory.total.toLocaleString("en-GB");
+    const fullyLoaded = state.inventory.offset===0 && items.length>=state.inventory.total;
+    if(totalLabel.nextElementSibling)
+      totalLabel.nextElementSibling.textContent =
+        (fullyLoaded? (displayGroups.length===1?"product":"products") : "products shown")+
+        " · "+units+" "+(state.inventory.total===1?"copy":"copies");
+  }
   if (state.inventory.offset === 0 && !state.inventory.search && !state.inventory.status) {
-    renderOverviewLatestInventory(items);
+    renderOverviewLatestInventory(displayGroups);
   }
 }
 
