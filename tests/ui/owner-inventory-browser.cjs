@@ -33,6 +33,12 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    await page.locator('.owner-card-thumb img').waitFor();
    await page.waitForFunction(()=>document.querySelector('.owner-card-thumb img')?.naturalWidth>0);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Inventory overflows viewport');
+   assert.equal(await page.locator('.owner-page-header').isVisible(),false,'Redundant inventory heading still occupies space');
+   assert.equal(await page.locator('#owner-view-inventory .owner-section-header h2').innerText(),'Inventory');
+   assert.equal(await page.locator('#owner-view-inventory .owner-section-header p').innerText(),
+     'Open an item to manage its copies and selling channels.');
+   const top=await page.locator('#owner-view-inventory').boundingBox();
+   assert.ok(top && top.y<250,'Inventory layout still wastes height above search and filters');
    const tile=page.locator('.owner-inventory-card');
    assert.equal(await tile.locator('.owner-card-meta').count(),0,'Inventory grid still shows redundant specifications');
    const tileText=await tile.innerText();

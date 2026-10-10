@@ -1302,6 +1302,12 @@ function activateOwnerView(view, pushHistory = true) {
     else button.removeAttribute("aria-current");
   });
 
+  // One heading per section: content-led views already have a local title.
+  // Keep the global title for Home, Payouts, Profile, Settings and More only.
+  const contentLed = new Set(["search", "inventory", "scan", "sales", "channels", "settlements"]);
+  const pageHeader = document.querySelector(".owner-page-header");
+  if (pageHeader) pageHeader.hidden = contentLed.has(target);
+  document.querySelector(".owner-dashboard-content")?.setAttribute("data-active-owner-view", target);
   byId("owner-page-title").textContent = views[target][0];
   byId("owner-page-subtitle").textContent = views[target][1];
   const destination=target === "overview" ? "/owner" : `/owner#${target}`;
