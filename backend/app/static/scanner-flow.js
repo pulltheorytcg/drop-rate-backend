@@ -64,7 +64,7 @@ window.DropRateScanner = (() => {
   // alone is NOT evidence of a trading card: patterned tables, hands, posters,
   // reflections and empty rooms can be extremely detailed. Fail closed when
   // we cannot establish a centered rectangular object with four visible edges.
-  const analyzeCardPresence = (pixels, width, height) => {
+  const analyzeCardPresence = (pixels, width, height, mode = "RAW") => {
     const empty = {present: false, box: null, edgeConfidence: 0};
     if (!pixels || width < 32 || height < 44 || pixels.length < width * height * 4) return empty;
     const rgbDifference = (left, right) => (
@@ -100,21 +100,25 @@ window.DropRateScanner = (() => {
       const peak = measures.reduce((best, line) => line.mean > best.mean ? line : best);
       return {...peak, prominence: peak.mean / Math.max(0.012, baseline)};
     };
-    const w = width, h = height;
+    const w = width, h = height, sealed = mode === "SEALED";
     const middleY1 = Math.floor(h * 0.30), middleY2 = Math.ceil(h * 0.70);
     const middleX1 = Math.floor(w * 0.28), middleX2 = Math.ceil(w * 0.72);
-    const left = strongestLine(true, Math.ceil(w * 0.08), Math.floor(w * 0.31), middleY1, middleY2);
-    const right = strongestLine(true, Math.ceil(w * 0.69), Math.floor(w * 0.92), middleY1, middleY2);
-    const top = strongestLine(false, Math.ceil(h * 0.07), Math.floor(h * 0.30), middleX1, middleX2);
-    const bottom = strongestLine(false, Math.ceil(h * 0.70), Math.floor(h * 0.93), middleX1, middleX2);
+    // Sealed booster packs are often taller/narrower than raw cards; keep
+    // four-sided evidence mandatory while widening ONLY those guide bands.
+    const left = strongestLine(true, Math.ceil(w * 0.07), Math.floor(w * (sealed ? 0.39 : 0.31)), middleY1, middleY2);
+    const right = strongestLine(true, Math.ceil(w * (sealed ? 0.61 : 0.69)), Math.floor(w * 0.93), middleY1, middleY2);
+    const top = strongestLine(false, Math.ceil(h * 0.06), Math.floor(h * (sealed ? 0.36 : 0.30)), middleX1, middleX2);
+    const bottom = strongestLine(false, Math.ceil(h * (sealed ? 0.64 : 0.70)), Math.floor(h * 0.94), middleX1, middleX2);
     const borders = [left, right, top, bottom];
     const widthRatio = (right.position - left.position) / w;
     const heightRatio = (bottom.position - top.position) / h;
     const centered = Math.abs((left.position + right.position) / 2 - w / 2) <= w * 0.12
       && Math.abs((top.position + bottom.position) / 2 - h / 2) <= h * 0.12;
-    const rectangular = widthRatio >= 0.56 && widthRatio <= 0.91
-      && heightRatio >= 0.58 && heightRatio <= 0.92
-      && Math.abs(widthRatio - heightRatio) <= 0.16;
+    const rectangular = sealed
+      ? (widthRatio >= 0.39 && widthRatio <= 0.92 && heightRatio >= 0.52 && heightRatio <= 0.93
+         && Math.abs(widthRatio - heightRatio) <= 0.39)
+      : (widthRatio >= 0.56 && widthRatio <= 0.91 && heightRatio >= 0.58 && heightRatio <= 0.92
+         && Math.abs(widthRatio - heightRatio) <= 0.16);
     const fourEdges = borders.every(side => side.mean >= 0.105
       && side.support >= 0.54 && side.prominence >= 1.40);
     return {
@@ -537,7 +541,7 @@ window.DropRateScanner = (() => {
       if (!(sw > 0 && sh > 0)) return null;
       context.drawImage(this.video, sx, sy, sw, sh, 0, 0, width, height);
       const pixels = context.getImageData(0, 0, width, height).data;
-      const detected = analyzeCardPresence(pixels, width, height);
+      const detected = analyzeCardPresence(pixels, width, height, this.mode);
       const fingerprint = new Uint8Array(width * height);
       for (let index = 0; index < fingerprint.length; index += 1) {
         const pixel = index * 4;
