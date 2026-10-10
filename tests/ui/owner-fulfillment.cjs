@@ -37,6 +37,8 @@ function fixture(handler=async()=>result()){
   });
   const w=dom.window,context=dom.getInternalVMContext(),requests=[];
   w.scrollTo=()=>{};
+  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+  w.HTMLDialogElement.prototype.close=function(){this.open=false;};
   w.fetch=async()=>({ok:true,json:async()=>({})});
   const run=(src)=>vm.runInContext(src,context);
   const portal=fs.readFileSync(path.join(root,"owner-portal.js"),"utf8")
@@ -46,6 +48,14 @@ function fixture(handler=async()=>result()){
     requests.push(url);
     if(url==="/api/v1/fulfilment/shopify-status")
       return {store_connected:true,shopify_fulfilment_read_access:true,shop:"Drop Rate",carrier_label_purchase:false};
+    if(/^\/api\/v1\/fulfilment\/to-ship\/[a-f0-9-]+\/packing-slip$/i.test(url))
+      return {
+        source:"SHOPIFY_ADMIN_ORDER",document_type:"OWNER_PACKING_SLIP",
+        order_number:"#1009",customer_personal_data_included:false,
+        ship_to:null,item_count:1,
+        items:[{title:"Booster Pack OP17",sku:"DR-OP17",inventory_id:"INV-OWNER-COPY",quantity:"1"}],
+        notice:"Pack only your allocated items.",
+      };
     if(/^\/api\/v1\/fulfilment\/to-ship\/[a-f0-9-]+\/shopify$/i.test(url))
       return {
         shopify_connected:true,state:"REVIEW_REQUIRED",
@@ -59,6 +69,7 @@ function fixture(handler=async()=>result()){
   };
   run("apiRequest=window.__mockDispatchApi;");
   run(fs.readFileSync(path.join(root,"owner-fulfillment.js"),"utf8"));
+  run(fs.readFileSync(path.join(root,"owner-fulfill-wizard.js"),"utf8"));
   run(`state.session={access_token:"test-owner-token",user:{id:"owner-a"}};
     document.getElementById("owner-portal-view").classList.remove("hidden");
     document.getElementById("owner-auth-view").classList.add("hidden");
@@ -95,7 +106,8 @@ function fixture(handler=async()=>result()){
     assert.match(f.list().textContent,/Sender \/ custody not verified/);
     assert.doesNotMatch(f.list().textContent,/buyer@example.test|Private buyer home/);
     assert.equal(f.list().querySelectorAll(".owner-dispatch-remote-check").length,1);
-    assert.equal(f.list().querySelectorAll("button:not(.owner-dispatch-remote-check)").length,0);
+    assert.equal(f.list().querySelectorAll(".owner-dispatch-fulfill").length,1);
+    assert.equal(f.list().querySelectorAll("button:not(.owner-dispatch-remote-check):not(.owner-dispatch-fulfill)").length,0);
     f.finish();checks++;
   }
   {
@@ -150,6 +162,70 @@ function fixture(handler=async()=>result()){
     assert.match(f.w.document.getElementById("owner-dispatch-shopify-status").textContent,/Shopify connected/);
     assert.match(f.w.document.getElementById("owner-dispatch-shopify-status").textContent,/Label purchases still require/);
     assert.ok(f.requests.includes("/api/v1/fulfilment/shopify-status"));
+    f.finish();checks++;
+  }
+  {
+    const f=fixture(async()=>result([paidItem]));
+    await tick();await tick();
+    const card=f.list().querySelector(".owner-dispatch-item");
+    card.querySelector(".owner-dispatch-fulfill").click();
+    await tick();await tick();
+    const modal=f.w.document.getElementById("owner-fulfill-dialog");
+    assert.equal(modal.open,true);
+    assert.match(modal.textContent,/Fulfill #1009/);
+    const packing=f.w.document.getElementById("owner-fulfill-print-packing");
+    assert.equal(packing.disabled,false,"Paid Shopify items should allow verified packing slip printing");
+    assert.equal(f.w.document.getElementById("owner-fulfill-print-label").disabled,true);
+    assert.equal(f.w.document.getElementById("owner-fulfill-confirm").disabled,true);
+    f.w.document.getElementById("owner-fulfill-close").click();
+    assert.equal(modal.open,false);
+    f.finish();checks++;
+  }
+  {
+    const f=fixture(async()=>result([{...paidItem,order_status:"PARTIALLY_REFUNDED"}]));
+    await tick();await tick();
+    f.list().querySelector(".owner-dispatch-fulfill").click();
+    await tick();await tick();
+    assert.equal(f.w.document.getElementById("owner-fulfill-print-packing").disabled,true);
+    assert.equal(f.w.document.getElementById("owner-fulfill-print-label").disabled,true);
+    assert.equal(f.w.document.getElementById("owner-fulfill-confirm").disabled,true);
+    f.finish();checks++;
+  }
+  {
+    const f=fixture(async()=>result([paidItem]));
+    await tick();await tick();
+    const popup=new JSDOM("<!doctype html><html><head></head><body></body></html>", {
+      url:"about:blank",pretendToBeVisual:true
+    });
+    let printed=0;
+    popup.window.print=()=>{printed++;};
+    f.w.open=()=>popup.window;
+    f.list().querySelector(".owner-dispatch-fulfill").click();
+    await tick();await tick();
+    assert.equal(f.w.document.getElementById("owner-fulfill-print-packing").disabled,false);
+    f.w.document.getElementById("owner-fulfill-print-packing").click();
+    await tick();await tick();
+    assert.equal(printed,1,"A valid Shopify slip must invoke browser print");
+    assert.match(popup.window.document.body.textContent,/Booster Pack OP17/);
+    assert.match(popup.window.document.body.textContent,/INV-OWNER-COPY/);
+    assert.doesNotMatch(popup.window.document.body.textContent,/private|secret|other seller/i);
+    assert.ok(f.requests.some(url=>url.endsWith("/packing-slip")));
+    assert.equal(f.w.document.getElementById("owner-fulfill-print-label").disabled,true);
+    popup.window.close();f.finish();checks++;
+  }
+  {
+    const pendingSlip=pending();
+    const f=fixture(async()=>result([paidItem]));
+    await tick();await tick();
+    f.w.open=()=>({
+      document:{body:{textContent:""},head:{},title:""},
+      close:()=>{},focus:()=>{},print:()=>{}
+    });
+    f.list().querySelector(".owner-dispatch-fulfill").click();
+    await tick();await tick();
+    f.w.document.getElementById("owner-fulfill-close").click();
+    assert.equal(f.w.document.getElementById("owner-fulfill-dialog").open,false);
+    assert.equal(f.w.document.getElementById("owner-fulfill-print-label").disabled,true);
     f.finish();checks++;
   }
   console.log("Seller dispatch review: "+checks+" DOM scenarios passed.");

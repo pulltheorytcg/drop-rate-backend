@@ -155,7 +155,18 @@
             button.disabled = false;
           }
         });
-        card.append(button, remote);
+        const fulfillButton = tag("button", "owner-dispatch-fulfill", "Fulfill");
+        fulfillButton.type = "button";
+        fulfillButton.addEventListener("click", () => {
+          if (!visible()) return;
+          document.dispatchEvent(new CustomEvent("seller-fulfillment-open", {
+            detail: {item: entry},
+          }));
+        });
+        const actionRow = document.createElement("div");
+        actionRow.className = "owner-dispatch-action-row";
+        actionRow.append(fulfillButton, button);
+        card.append(actionRow, remote);
       }
       list.append(card);
     }

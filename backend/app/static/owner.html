@@ -7,7 +7,7 @@
   <title>Drop Rate</title>
   <link rel="stylesheet" href="/assets/styles.css?v=owner-v2-base">
   <link rel="stylesheet" href="/assets/owner-portal.css?v=owner-v14">
-  <link rel="stylesheet" href="/assets/owner-fulfillment.css?v=2">
+  <link rel="stylesheet" href="/assets/owner-fulfillment.css?v=3">
   <link rel="stylesheet" href="/assets/owner-inventory.css?v=5">
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
@@ -758,10 +758,43 @@
     </section>
   </main>
 
+    <template id="owner-fulfill-template">
+    <dialog id="owner-fulfill-dialog" class="owner-fulfill-dialog" aria-labelledby="owner-fulfill-title">
+      <div class="owner-fulfill-header">
+        <div><span class="owner-section-kicker">Drop Rate · Shopify Shipping</span><h2 id="owner-fulfill-title">Fulfill order</h2><p id="owner-fulfill-caption">Your allocated physical items only.</p></div>
+        <button id="owner-fulfill-close" class="owner-fulfill-close" type="button" aria-label="Close fulfilment">✕</button>
+      </div>
+      <div class="owner-fulfill-content">
+        <p id="owner-fulfill-status" class="owner-fulfill-state" role="status">Checking Shopify order…</p>
+        <section class="owner-fulfill-stage" aria-labelledby="owner-fulfill-step-one">
+          <div class="owner-fulfill-step-head"><span class="owner-fulfill-step-number">1</span><h3 id="owner-fulfill-step-one">Verify order and pack</h3></div>
+          <div id="owner-fulfill-item-summary" class="owner-fulfill-item-summary"></div>
+          <ul id="owner-fulfill-blockers" class="owner-fulfill-blockers"></ul>
+        </section>
+        <section class="owner-fulfill-stage" aria-labelledby="owner-fulfill-step-two">
+          <div class="owner-fulfill-step-head"><span class="owner-fulfill-step-number">2</span><h3 id="owner-fulfill-step-two">Print packing slip</h3></div>
+          <p>Printed from your allocated Shopify order items, without another seller's cards or prices. The postal address belongs on your purchased Shopify shipping label.</p>
+          <button id="owner-fulfill-print-packing" class="owner-fulfill-action" type="button" disabled>Print packing slip</button>
+        </section>
+        <section class="owner-fulfill-stage" aria-labelledby="owner-fulfill-step-three">
+          <div class="owner-fulfill-step-head"><span class="owner-fulfill-step-number">3</span><h3 id="owner-fulfill-step-three">Royal Mail shipping label</h3></div>
+          <p id="owner-fulfill-label-note">Shopify Shipping will supply the carrier-issued label after an approved purchase. Label payment, sender verification and duplicate-purchase protection are required before this step opens.</p>
+          <button id="owner-fulfill-print-label" class="owner-fulfill-action" type="button" disabled>Print Shopify shipping label</button>
+        </section>
+        <section class="owner-fulfill-stage" aria-labelledby="owner-fulfill-step-four">
+          <div class="owner-fulfill-step-head"><span class="owner-fulfill-step-number">4</span><h3 id="owner-fulfill-step-four">Confirm dispatched</h3></div>
+          <p>Only after a real label has been purchased and the parcel handed over. Shopify must confirm the exact seller-owned items and tracking.</p>
+          <button id="owner-fulfill-confirm" class="owner-fulfill-action owner-fulfill-action-primary" type="button" disabled>Confirm dispatched</button>
+        </section>
+      </div>
+    </dialog>
+    </template>
+
   <script src="/assets/hub-session.js?v=3" defer></script>
   <script src="/assets/owner-inventory.js?v=7" defer></script>
   <script src="/assets/owner-portal.js?v=owner-v20" defer></script>
-  <script src="/assets/owner-fulfillment.js?v=2" defer></script>
+  <script src="/assets/owner-fulfillment.js?v=3" defer></script>
+  <script src="/assets/owner-fulfill-wizard.js?v=1" defer></script>
   <script src="/assets/scanner-flow.js?v=7" defer></script>
   <script src="/assets/owner-recognition.js?v=owner-v13" defer></script>
   <script src="/assets/reference-library.js?v=2" defer></script>

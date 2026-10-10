@@ -54,3 +54,31 @@
   .owner-portal-page .owner-dispatch-connection-status{margin:8px 12px 0}
   .owner-portal-page .owner-dispatch-actions{width:100%}
 }
+
+/* Seller shipment Fulfill button and print-first wizard. */
+.owner-portal-page .owner-dispatch-action-row{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:12px}
+.owner-portal-page .owner-dispatch-action-row .owner-dispatch-remote-check{margin:0}
+.owner-portal-page .owner-dispatch-fulfill{border:0;border-radius:10px;background:#154579;color:#fff;font-weight:850;font-size:.72rem;padding:10px 18px;min-height:40px}
+.owner-portal-page .owner-dispatch-fulfill:hover{background:#0e3156}
+.owner-fulfill-dialog{width:min(94vw,680px);max-height:min(88vh,870px);padding:0;background:#fff;border:1px solid #d7e1ee;border-radius:18px;color:#17334f;box-shadow:0 25px 90px rgba(7,27,63,.25);font:inherit}
+.owner-fulfill-dialog::backdrop{background:rgba(6,22,49,.69)}
+.owner-fulfill-header{display:flex;align-items:start;justify-content:space-between;gap:15px;padding:22px 24px 17px;border-bottom:1px solid #e0e9f3}
+.owner-fulfill-header h2{margin:3px 0;font-size:1.4rem;letter-spacing:-.03em}
+.owner-fulfill-header p{margin:5px 0 0;color:#64768d;font-size:.76rem}
+.owner-fulfill-close{border:1px solid #d9e3ef;background:#fff;border-radius:9px;color:#17334f;font-weight:800;padding:9px 12px}
+.owner-fulfill-content{overflow-y:auto;max-height:calc(88vh - 100px);padding:17px 24px 24px}
+.owner-fulfill-state{margin:0 0 13px;padding:12px 14px;background:#edf4fd;border:1px solid #d8e6f6;border-radius:11px;color:#2e537a;font-size:.77rem;line-height:1.5}
+.owner-fulfill-stage{padding:14px 0 18px;border-bottom:1px solid #e5ecf5}
+.owner-fulfill-stage:last-child{border-bottom:0}
+.owner-fulfill-step-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.owner-fulfill-step-number{width:27px;height:27px;display:grid;place-items:center;border-radius:9px;background:#123f76;color:#fff;font-size:.72rem;font-weight:800}
+.owner-fulfill-step-head h3{margin:0;font-size:1.05rem;color:#19375c}
+.owner-fulfill-stage p{font-size:.74rem;line-height:1.55;color:#5c6f85;margin:0 0 13px}
+.owner-fulfill-item-summary{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;padding:12px 13px;border:1px solid #e2ebf5;border-radius:10px;font-size:.72rem}
+.owner-fulfill-item-summary span{color:#627790}
+.owner-fulfill-blockers{padding:0 0 0 20px;margin:12px 0 0;color:#805a22;font-size:.71rem;line-height:1.6}
+.owner-fulfill-action{border:1px solid #bfd2e7;border-radius:9px;padding:11px 15px;min-height:41px;background:#f6f9fd;color:#1c487d;font-size:.75rem;font-weight:850}
+.owner-fulfill-action:disabled{opacity:.52;cursor:not-allowed}
+.owner-fulfill-action:not(:disabled){background:#164979;color:#fff;border-color:#164979}
+.owner-fulfill-action-primary{background:#164979;color:#fff}
+@media(max-width:750px){.owner-fulfill-header{padding:17px}.owner-fulfill-content{padding:12px 17px 20px}.owner-fulfill-dialog{max-height:92vh}.owner-fulfill-content{max-height:calc(92vh - 96px)}}
