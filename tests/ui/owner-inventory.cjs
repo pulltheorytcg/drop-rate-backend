@@ -36,9 +36,24 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  {
   const f=fixture();f.run(`renderInventoryCards([${JSON.stringify(item)}]);renderInventoryRows([${JSON.stringify(item)}]);`);
   assert.equal(f.w.document.querySelector('.owner-card-thumb img').src,item.reference_image_url);
-  assert.match(f.w.document.querySelector('.owner-card-prices').textContent,/£8.66/);
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  assert.equal(tile.querySelector('.owner-card-meta'),null,'Quick inventory tiles must not expose detailed metadata');
+  assert.equal(tile.querySelector('.owner-card-title strong').textContent,item.name);
+  assert.match(tile.querySelector('.owner-status-pill').textContent,/DRAFT/);
+  assert.match(tile.querySelector('.owner-card-prices').textContent,/£8.66/);
+  assert.match(tile.querySelector('.owner-card-prices').textContent,/Store price/);
+  assert.doesNotMatch(tile.textContent,/INV-EXACT-COPY|Seal|Language|Type|Inventory ID/);
+  assert.ok(tile.querySelector('.owner-inventory-details'),'Manage action must stay available');
   f.w.document.querySelector('.owner-card-image-wrap').click();await tick();
   assert.equal(f.w.document.querySelector('dialog').open,true);assert.match(f.w.document.querySelector('dialog').textContent,/INV-EXACT-COPY/);
+  const facts=f.w.document.querySelector('.owner-item-facts');
+  assert.ok(facts,'Full inventory identity must be visible only inside details');
+  const entries=[...facts.querySelectorAll('.owner-item-fact')].map(n=>[
+    n.querySelector('dt').textContent,n.querySelector('dd').textContent]);
+  for(const [label,value] of [['Game','One Piece'],['Language','Japanese'],['Seal','Sealed'],
+    ['Type','Sealed product'],['Inventory ID','INV-EXACT-COPY']])
+    assert.ok(entries.some(entry=>entry[0]===label&&entry[1]===value),label+' missing from item details');
+  assert.equal(tile.querySelector('.owner-item-facts'),null);
   f.w.DropRateInventory.close();f.w.document.querySelector('.owner-inventory-open').click();await tick();assert.equal(f.w.document.querySelector('dialog').open,true);
   assert.match(f.w.document.querySelector('dialog').textContent,/Drop Rate intake review/);assert.equal(btn(f.w,'Sync to Shopify').disabled,true);
   assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
@@ -63,6 +78,28 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  }
  {
   const f=fixture({product_type:'CARD',grading_company:'PSA',grade:'10',certificate_number:'123'});await f.open();assert.equal(btn(f.w,'+').disabled,true);assert.match(f.w.document.querySelector('dialog').textContent,/own certificate/);f.finish();checks++;
+ }
+ {
+  const f=fixture({product_type:'CARD',seal_status:null,condition:'Near Mint',
+    grading_company:'PSA',grade:'10',certificate_number:'PSA-1234567'});await f.open();
+  const specs=f.w.document.querySelector('.owner-item-facts');
+  const entries=[...specs.querySelectorAll('.owner-item-fact')].map(n=>[
+    n.querySelector('dt').textContent,n.querySelector('dd').textContent]);
+  for(const [label,value] of [['Condition','PSA 10'],['Grading company','PSA'],['Grade','10'],
+    ['Certificate','PSA-1234567'],['Inventory ID','INV-EXACT-COPY']])
+    assert.ok(entries.some(row=>row[0]===label&&row[1]===value),label+' is not available in details');
+  assert.equal(btn(f.w,'+').disabled,true);f.finish();checks++;
+ }
+ {
+  const f=fixture({status:'APPROVED',store_price_minor:1000,can_refresh_market:true});
+  f.run(`renderInventoryCards([${JSON.stringify({...item,status:'APPROVED',store_price_minor:1000,can_refresh_market:true})}]);`);
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  assert.match(tile.querySelector('.owner-card-prices').textContent,/£10.00/);
+  assert.match(tile.querySelector('.owner-status-pill').textContent,/APPROVED/);
+  assert.ok(tile.querySelector('.owner-market-refresh'));
+  tile.querySelector('.owner-inventory-details').click();await tick();
+  assert.equal(f.w.document.querySelector('.owner-item-dialog').open,true);
+  f.finish();checks++;
  }
  {
   const f=fixture();let attempts=0;
