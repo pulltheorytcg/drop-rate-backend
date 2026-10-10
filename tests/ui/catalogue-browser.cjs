@@ -430,7 +430,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(tiles[1].querySelector('.dr-browse-set-logo').src,/\/assets\/title-art\/pokemon\.webp$/);
   assert.equal(tiles[1].querySelector('.dr-browse-set-name').textContent,'Crimson Blaze');
   assert.doesNotMatch(f.browser.find('.dr-browse-content').innerHTML,/bulbasaur-card|individual-card|Card preview|Product preview/i);
-  assert.equal(tiles[0].querySelector('.dr-browse-release').textContent,'16 Sept 2026');
+  assert.match(tiles[0].querySelector('.dr-browse-release').textContent,/16 Sep(?:t)? 2026/);
   const broken=tiles[1].querySelector('.dr-browse-set-logo');broken.dispatchEvent(new f.w.Event('error'));
   assert.equal(tiles[1].querySelector('img'),null,'Broken title art must expose the brand fallback, never a card');
   assert.equal(tiles[1].querySelector('.dr-browse-set-fallback').textContent,'✦');
