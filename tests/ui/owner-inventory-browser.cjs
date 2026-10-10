@@ -15,6 +15,10 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
     const u=new URL(route.request().url());
     if(u.href===artwork)return route.fulfill({body:pack,contentType:'image/webp'});
     if(u.hostname==='cdn.shopify.com')return route.fulfill({path:path.join(base,'brand-assets/drop-rate-seller-hub.png'),contentType:'image/png'});
+    if(u.hostname==='upload.wikimedia.org')return route.fulfill({
+      body:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 36"><rect width="130" height="36" fill="none"/><path fill="#174b73" d="M10 6h110v24H10z"/></svg>',
+      contentType:'image/svg+xml'
+    });
     if(u.pathname==='/owner')return route.fulfill({body:fs.readFileSync(path.join(base,'owner.html'),'utf8').replace(/<script[^>]*><\/script>/g,''),contentType:'text/html'});
     if(u.pathname.startsWith('/assets/')){const file=path.resolve(base,u.pathname.slice(8));assert.ok(file.startsWith(base+'/'));return route.fulfill({path:file});}
     return route.abort();
@@ -49,13 +53,21 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.ok(cardBox&&cardBox.height<425,'Inventory tile still has an oversized metadata layout');
    await page.screenshot({path:path.join(out,`inventory-${viewport.width}.png`),fullPage:true});
    await page.locator('.owner-card-image-wrap').click();await page.getByRole('dialog').waitFor();
-   await page.getByRole('heading',{name:'Sell on Shopify',exact:true}).waitFor();
+   await page.getByRole('heading',{name:'Selling price',exact:true}).waitFor();
    const facts=page.locator('.owner-item-facts');
    await facts.waitFor();
    const detail=await facts.innerText();
    for(const label of ['Game','One Piece','Language','Japanese','Seal','Sealed','Inventory ID',item.inventory_code])
     assert.ok(detail.includes(label),'Missing item detail: '+label);
-   assert.equal(await page.getByRole('button',{name:'Sync to Shopify',exact:true}).isDisabled(),true);
+   assert.equal(await page.getByRole('button',{name:'Sync to Shopify',exact:true}).count(),0);
+   assert.equal(await page.locator('.owner-item-channel-logo').count(),3);
+   const channelRects=await page.locator('.owner-item-channel-visual').evaluateAll(nodes=>
+     nodes.map(n=>({height:Math.round(n.getBoundingClientRect().height),
+                   background:getComputedStyle(n).backgroundColor})));
+   assert.equal(new Set(channelRects.map(r=>r.height)).size,1,'Brandmark display frames must align');
+   assert.ok(channelRects.every(r=>r.background==='rgba(0, 0, 0, 0)'),'Brandmarks must be on transparent image frames');
+   assert.equal(await page.locator('.owner-item-channel-ebay button').count(),0);
+   assert.match(await page.locator('.owner-item-channel-ebay').innerText(),/Not available yet/);
    const box=await page.getByRole('dialog').boundingBox();assert.ok(box.x>=0&&box.x+box.width<=viewport.width+1);
    assert.equal(await page.getByRole('dialog').evaluate(d=>d.scrollWidth<=d.clientWidth+1),true,'Details overflow');
    await page.screenshot({path:path.join(out,`details-${viewport.width}.png`)});
@@ -63,12 +75,22 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    await page.getByRole('button',{name:'Confirm additional copy',exact:true}).waitFor();
    await page.screenshot({path:path.join(out,`quantity-${viewport.width}.png`)});
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
+   await page.evaluate(existing=>{window.fixtureItem={...existing,status:'APPROVED',
+       sale_intent:'FOR_SALE',shopify_state:'PUBLISHED',seller_approval_available:true,
+       store_price_minor:1000,is_consignment:true};},item);
+   await page.locator('.owner-inventory-details').click();
+   await page.getByRole('heading',{name:'Selling price',exact:true}).waitFor();
+   assert.equal(await page.getByRole('button',{name:'Approve for Shopify'}).count(),0);
+   assert.equal(await page.getByRole('button',{name:'Sync to Shopify'}).count(),0);
+   assert.match(await page.locator('.owner-item-channel-shopify').innerText(),/Published/);
+   await page.screenshot({path:path.join(out,`channels-published-${viewport.width}.png`)});
+   await page.getByRole('button',{name:'Close item details',exact:true}).click();
    await page.getByRole('button',{name:'List view',exact:true}).click();
    const headings=await page.locator('#owner-inventory-table-wrap thead th').allTextContents();
    assert.deepEqual(headings,['Product','Status','Market value','Store / recommended']);
    assert.equal(await page.locator('#owner-inventory-body tr:first-child td').count(),4);
    assert.doesNotMatch(await page.locator('#owner-inventory-body').innerText(),/INV-D715B0E9|Japanese/);
-   await page.locator('.owner-inventory-open').click();await page.getByRole('heading',{name:'Sell on Shopify',exact:true}).waitFor();
+   await page.locator('.owner-inventory-open').click();await page.getByRole('heading',{name:'Selling price',exact:true}).waitFor();
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
    await page.getByRole('button',{name:'Grid view',exact:true}).click();
    await page.evaluate(original=>{
