@@ -2,7 +2,7 @@
   "name": "drop-rate-dashboard-tests",
   "private": true,
   "scripts": {
-    "test": "node founder-workspace.cjs && node founder-accounts.cjs && node scanner-flow.cjs && node catalogue-browser.cjs && node workspace-navigation.cjs && node collector-journey.cjs && node collector-settings.cjs && node owner-inventory.cjs"
+    "test": "node founder-workspace.cjs && node founder-accounts.cjs && node scanner-flow.cjs && node owner-scan-instant.cjs && node catalogue-browser.cjs && node workspace-navigation.cjs && node collector-journey.cjs && node collector-settings.cjs && node owner-inventory.cjs"
   },
   "devDependencies": {
     "jsdom": "26.1.0"
