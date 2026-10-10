@@ -151,7 +151,11 @@ def test_remote_prerequisites_fail_closed(change):
 
 
 @pytest.mark.asyncio
-async def test_legacy_variant_resolves_only_original_physical_copy():
+@pytest.mark.parametrize("legacy_variant,legacy_product",[
+    (RETIRED_VARIANT,RETIRED_PRODUCT),
+    (ANCHOR_VARIANT,ANCHOR_PRODUCT),
+])
+async def test_legacy_variant_resolves_only_original_physical_copy(legacy_variant,legacy_product):
     owner=uuid4()
     catalogue=uuid4()
     legacy={"id":uuid4(),"inventory_id":uuid4(),"owner_id":owner,
@@ -163,8 +167,8 @@ async def test_legacy_variant_resolves_only_original_physical_copy():
       "acquisition_cost_minor":None,"store_price_minor":1000,
       "sku":"DRP-S-NEW","shopify_variant_gid":ANCHOR_VARIANT,
       "shopify_product_gid":ANCHOR_PRODUCT,
-      "legacy_variant_gid":RETIRED_VARIANT,
-      "legacy_product_gid":RETIRED_PRODUCT,
+      "legacy_variant_gid":legacy_variant,
+      "legacy_product_gid":legacy_product,
       "legacy_sku":"INV-LEGACY-OLD",
       "source_record":{"seller_held_approval":{
         "owner_id":str(owner),"catalogue_id":str(catalogue),
@@ -177,21 +181,20 @@ async def test_legacy_variant_resolves_only_original_physical_copy():
       "inventory_code":"INV-LEGACY-OLD"}
     class FakeConnection:
         async def fetch(self,sql,*args):
-            if "where sil.shopify_variant_gid=$1" in sql:
-                assert args == (RETIRED_VARIANT,)
-                return []
             if "tcg.shopify_variant_pool_aliases a" in sql:
-                assert args == (RETIRED_VARIANT,"old-order")
+                assert args == (legacy_variant,"INV-LEGACY-OLD","old-order")
                 return [legacy]
+            if "where sil.shopify_variant_gid=$1" in sql:
+                raise AssertionError("Old-SKU alias must be preferred over current stock")
             raise AssertionError(sql)
-    spec={"variant_gid":RETIRED_VARIANT,"quantity":1,
+    spec={"variant_gid":legacy_variant,"quantity":1,
       "unit_price_minor":1000,"discount_minor":0,"line_reference":"old-line",
-      "line":{"product_id":RETIRED_PRODUCT.removeprefix("gid://shopify/Product/"),
+      "line":{"product_id":legacy_product.removeprefix("gid://shopify/Product/"),
               "sku":"INV-LEGACY-OLD"}}
     selected=await _select_order_units(FakeConnection(),order_reference="old-order",line_specs=[spec])
     assert len(selected)==1
     assert selected[0]["link"]["inventory_id"]==legacy["inventory_id"]
-    assert selected[0]["link"]["shopify_variant_gid"]==RETIRED_VARIANT
-    assert selected[0]["link"]["shopify_product_gid"]==RETIRED_PRODUCT
+    assert selected[0]["link"]["shopify_variant_gid"]==legacy_variant
+    assert selected[0]["link"]["shopify_product_gid"]==legacy_product
     assert selected[0]["link"]["sku"]=="INV-LEGACY-OLD"
     assert selected[0]["sale_price_minor"]==1000
