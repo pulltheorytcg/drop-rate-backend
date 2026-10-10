@@ -43,6 +43,20 @@ def test_live_prefixed_categories_exclude_accessories_and_separate_fusion_world(
     assert expansion_system(masters,{'name':'Galactic Battle','code':'BT01'})==masters
 
 
+@pytest.mark.parametrize('failure',['none','source','detail','interrupted','exception','missing_receipt'])
+def test_catalogue_pagination_continues_without_treating_provider_failures_as_progress(failure):
+    report={'more_due_at_start':True,'provider_failures':0,
+            **{name:{'provider_failures':0} for name in ('pokemon_catalogue','one_piece','dragon_ball')}}
+    if failure=='source':report['one_piece']['provider_failures']=1
+    if failure=='detail':report['provider_failures']=1
+    if failure=='interrupted':report['reason']='INTERRUPTED'
+    if failure=='exception':report['reason']='ValueError'
+    if failure=='missing_receipt':report.pop('dragon_ball')
+    run={'status':'INCOMPLETE','started_at':NOW,'report':report}
+    assert jobs.due(run,NOW)==(failure=='none')
+    assert jobs.due(run,NOW+timedelta(hours=2))
+
+
 def test_sealed_references_do_not_assume_language_price_or_canonical_approval():
     blueprint={'id':12,'category_id':9,'expansion_id':10,'name':'Booster box','image_url':'https://cardtrader.com/uploads/blueprints/image/12/preview_box.jpg',
                'editable_properties':[{'name':'pokemon_language','default_value':'en'}]}

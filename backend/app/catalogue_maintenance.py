@@ -35,7 +35,7 @@ from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_pr
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
-REFERENCE_JOB_REVISION=5
+REFERENCE_JOB_REVISION=6
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
@@ -61,6 +61,14 @@ def due(run,now,*,revision=None):
     if run is None:return True
     if revision is not None and (run.get('report') or {}).get('importer_revision',1)!=revision:return True
     if run['status']=='COMPLETE':return run['started_at']<daily_slot(now)
+    report=run.get('report') or {}
+    # A full page is normal progress, not a provider failure. Continue at the
+    # next worker tick; preserve the one-hour backoff for failures/interruption.
+    if (run['status']=='INCOMPLETE' and report.get('more_due_at_start') is True
+            and report.get('provider_failures')==0 and not report.get('reason')
+            and all(report.get(source,{}).get('provider_failures')==0
+                    for source in ('pokemon_catalogue','one_piece','dragon_ball'))):
+        return True
     return run['started_at']<now-timedelta(hours=1)
 
 

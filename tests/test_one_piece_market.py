@@ -49,6 +49,23 @@ def test_older_checklists_and_known_release_title_spelling_are_supported():
     assert not market.matched_products([ref,other],singles,packaging)
 
 
+@pytest.mark.parametrize('change',['valid','japanese','prerelease','different_title','duplicate_expansion','parallel','wrong_number'])
+def test_starter_deck_requires_exact_full_release_and_unique_print(change):
+    ref={**reference(),'provider_id':'ST05-008','card_number':'ST05-008','name':'Shiki',
+         'set_name':'STARTER DECK -ONE PIECE FILM edition- [ST-05]'}
+    product={'idProduct':1,'name':'Shiki (ST05-008)','idCategory':1621,'categoryName':'One Piece Single','idExpansion':5255}
+    pack={'idCategory':1625,'categoryName':'One Piece Preconstructed Decks','name':'Starter Deck: ONE PIECE FILM edition','idExpansion':5255}
+    packs={'one':pack};refs=[ref]
+    if change=='japanese':pack['name']+=' (Japanese)'
+    if change=='prerelease':pack['name']='Super PreRelease '+pack['name']
+    if change=='different_title':pack['name']='Starter Deck: Straw Hat Crew'
+    if change=='duplicate_expansion':packs['other']={**pack,'idExpansion':5555}
+    if change=='parallel':refs.append({**ref,'provider_id':'ST05-008_p1'})
+    if change=='wrong_number':product['name']='Shiki (ST05-009)'
+    assert bool(market.matched_products(refs,{'one':product},packs))==(change=='valid')
+    assert market.release_identity(ref['set_name'],include_starters=False) is None
+
+
 @pytest.mark.parametrize('seed',range(2048))
 def test_price_matching_collision_matrix(seed):
     """Different numbers, releases, regions and parallel collisions; no HTTP or stock writes."""

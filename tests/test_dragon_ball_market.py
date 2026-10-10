@@ -53,6 +53,32 @@ def test_fusion_world_requires_collector_number_and_excludes_non_english_expansi
     assert not db.matched_products([dict(ref,card_number='FB01-004')],products,packs)
 
 
+@pytest.mark.parametrize('system',[db.MASTERS,db.FUSION])
+@pytest.mark.parametrize('change',['valid','wrong_title','different_game','duplicate_expansion','parallel','different_language'])
+def test_starter_catalogue_references_preserve_game_release_and_print(system,change):
+    fusion=system==db.FUSION
+    ref=dict(REF,system_code=system,name='Vegeta',card_number='FS02-003' if fusion else 'SD13-003',
+             set_name='STARTER DECK -VEGETA- [FS02]' if fusion else 'UW01 Starter 13 -Clan Collusion-')
+    product=dict(PRODUCT,name='Vegeta (FS02-003) [Fusion World]' if fusion else 'Vegeta')
+    pack=dict(PACK,idCategory=1053,categoryName='Dragon Ball Super Starter Decks',
+              name='Starter Deck: Vegeta [Fusion World]' if fusion else 'Starter Deck: Clan Collusion')
+    packs={'one':pack};refs=[ref]
+    if change=='wrong_title':pack['name']='Starter Deck: Other'+(' [Fusion World]' if fusion else '')
+    if change=='different_game':pack['name']=pack['name'].replace(' [Fusion World]','') if fusion else pack['name']+' [Fusion World]'
+    if change=='duplicate_expansion':packs['other']=dict(pack,idExpansion=5555)
+    if change=='parallel':refs.append(dict(ref,provider_id='parallel'))
+    if change=='different_language':pack['name']+=' (Non-English)'
+    assert bool(db.matched_products(refs,{'one':product},packs))==(change=='valid')
+    assert db.release_identity(system,ref['set_name'],include_starters=False) is None
+
+
+def test_starter_reference_does_not_expand_physical_copy_valuation_scope():
+    product,ref=canonical_and_reference()
+    product['set_name']='Clan Collusion';ref['reference_set_name']='UW01 Starter 13 -Clan Collusion-'
+    for quote in ref['quotes']:quote['reference_identity']['set_name']=ref['reference_set_name']
+    assert not guide_values(product,[ref],now=NOW)
+
+
 def canonical_and_reference():
     product={'product_type':'CARD','game':'Dragon Ball Super','name':REF['name'],
              'set_name':'Supreme Rivalry','card_number':REF['card_number'],

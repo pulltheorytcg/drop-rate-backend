@@ -39,7 +39,10 @@ def normalized(value):
     return re.sub(r'[^a-z0-9]', '', unicodedata.normalize('NFKD', str(value)).casefold())
 
 
-def release_identity(name):
+def release_identity(name, *, include_starters=True):
+    starter = re.fullmatch(r'STARTER DECK -(.+)- \[ST-?(\d{2})\]', name, re.I)
+    if starter and include_starters:
+        return normalized(starter[1]), 'STARTER'
     match = re.fullmatch(r'(?:(?:BOOSTER PACK|EXTRA BOOSTER|PREMIUM BOOSTER)\s*)?-?(.+?)-?\s*\[(OP|EB|PRB)-?(\d{2})(?:-?EB\d{2})?\]', name, re.I)
     if not match:
         return None
@@ -53,6 +56,11 @@ def release_identity(name):
 def expansion_index(products):
     result = defaultdict(set)
     for product in products.values():
+        if product.get('idCategory') == 1625 and product.get('categoryName') == 'One Piece Preconstructed Decks':
+            starter = re.fullmatch(r'Starter Deck: (.+)', product.get('name',''))
+            expansion = product.get('idExpansion')
+            if starter and type(expansion) is int and expansion > 0:
+                result[(normalized(starter[1]),'STARTER')].add(expansion)
         # Cardmarket publishes the release name and ID on these set products.
         # A code alone can also refer to a regional release or tournament pack.
         if product.get('categoryName') != 'One Piece Lots':
