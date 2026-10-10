@@ -17,6 +17,11 @@ from .access_control import current_access_context
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .settings import get_settings
+from .seller_shipping_charges import (
+    ShippingCostReviewRequired,
+    SHIPPING_CHARGES_QUERY,
+    shipping_charge_breakdown,
+)
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
 from .shopify_packing_slip import PackingSlipNotReady, build_shopify_owner_packing_slip
 from .shopify_shipping_labels import (
@@ -379,3 +384,93 @@ async def owner_shopify_packing_slip(
     except PackingSlipNotReady as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return jsonable_encoder(prepared)
+
+
+@router.get("/to-ship/{order_item_id}/shipping-cost")
+async def owner_shopify_shipping_cost_preview(
+    order_item_id: UUID,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Read real buyer checkout delivery amount and only this owner's ledger.
+
+    Does not quote a carrier, purchase a label, set a shipping expense, or
+    expose other physical owners' inventory, payment credentials, or PII.
+    """
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id,
+    ) as connection:
+        access = await current_access_context(connection)
+        owner_id = access["owner_id"]
+        selected = await connection.fetchrow(
+            """
+            select o.id as local_order_id, o.source_reference,
+                   o.status as local_order_status
+            from tcg.order_items oi
+            join tcg.orders o on o.id=oi.order_id
+            join tcg.inventory_items i
+              on i.id=oi.inventory_id and i.owner_id=$1
+            join tcg.shopify_order_item_links sol
+              on sol.order_item_id=oi.id and sol.owner_id=$1
+            where oi.id=$2 and oi.owner_id=$1 and o.source='SHOPIFY'
+            """,
+            owner_id, order_item_id,
+        )
+        if selected is None:
+            raise HTTPException(status_code=404, detail="Seller Shopify order not found")
+        if selected["local_order_status"] != "PAID":
+            raise HTTPException(status_code=409, detail="Order is not eligible for shipping")
+        ledger = await connection.fetchrow(
+            """
+            select
+              count(distinct oi.id)::int as owner_items,
+              coalesce(sum(le.amount_minor)
+                filter (where le.entry_type='SHIPPING_REVENUE'), 0)::bigint
+                as shipping_revenue_minor,
+              coalesce(-sum(le.amount_minor)
+                filter (where le.entry_type='SHIPPING_REFUND'), 0)::bigint
+                as shipping_refund_minor,
+              coalesce(-sum(le.amount_minor)
+                filter (where le.entry_type='SHIPPING_COST'), 0)::bigint
+                as postage_cost_minor,
+              bool_and(rec.shipping_cost_reconciled_at is not null)
+                as postage_reconciled
+            from tcg.order_items oi
+            join tcg.inventory_items i
+              on i.id=oi.inventory_id and i.owner_id=$1
+            left join tcg.financial_ledger_entries le
+              on le.order_item_id=oi.id and le.owner_id=$1
+            left join tcg.order_item_reconciliations rec
+              on rec.order_item_id=oi.id and rec.owner_id=$1
+            where oi.order_id=$2 and oi.owner_id=$1
+            """,
+            owner_id, selected["local_order_id"],
+        )
+    if not ledger or not int(ledger["owner_items"] or 0):
+        raise HTTPException(status_code=409, detail="Owner's order allocations require review")
+    try:
+        order_gid = canonical_shopify_order_gid(selected["source_reference"])
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail="Invalid Shopify order reference") from exc
+    try:
+        remote = await _shipping_admin_client().graphql(
+            query=SHIPPING_CHARGES_QUERY, variables={"orderId": order_gid},
+        )
+    except ShopifyApiError as exc:
+        raise HTTPException(
+            status_code=503 if exc.retryable else 502,
+            detail="Could not verify checkout shipping. No cost has been charged.",
+        ) from exc
+    try:
+        breakdown = shipping_charge_breakdown(
+            remote_order=remote.get("order"),
+            source_reference_gid=order_gid,
+            owner_ledger=dict(ledger),
+        )
+    except ShippingCostReviewRequired as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return jsonable_encoder({
+        "order_item_id": order_item_id,
+        "owner_item_count": int(ledger["owner_items"]),
+        **breakdown,
+    })
