@@ -44,6 +44,15 @@ function fixture(handler=async()=>result()){
   run(portal);
   w.__mockDispatchApi=async(url)=>{
     requests.push(url);
+    if(url==="/api/v1/fulfilment/shopify-status")
+      return {store_connected:true,shopify_fulfilment_read_access:true,shop:"Drop Rate",carrier_label_purchase:false};
+    if(/^\/api\/v1\/fulfilment\/to-ship\/[a-f0-9-]+\/shopify$/i.test(url))
+      return {
+        shopify_connected:true,state:"REVIEW_REQUIRED",
+        blockers:["PHYSICAL_SHIPPER_UNVERIFIED","SHOPIFY_LABEL_QUOTE_AND_PURCHASE_JOURNAL_PENDING"],
+        can_buy_label:false,can_confirm_dispatched:false,
+        shipping_address:"must not be shown",customer_email:"must not be shown",
+      };
     if(!url.startsWith("/api/v1/fulfilment/to-ship?"))
       throw new Error("Unexpected API call "+url);
     return handler(url);
@@ -85,7 +94,8 @@ function fixture(handler=async()=>result()){
     assert.match(f.list().textContent,/<script>alert\('x'\)<\/script>/);
     assert.match(f.list().textContent,/Sender \/ custody not verified/);
     assert.doesNotMatch(f.list().textContent,/buyer@example.test|Private buyer home/);
-    assert.equal(f.list().querySelectorAll("button").length,0);
+    assert.equal(f.list().querySelectorAll(".owner-dispatch-remote-check").length,1);
+    assert.equal(f.list().querySelectorAll("button:not(.owner-dispatch-remote-check)").length,0);
     f.finish();checks++;
   }
   {
@@ -118,6 +128,28 @@ function fixture(handler=async()=>result()){
     await tick();await tick();
     assert.match(f.status(),/Unable to verify dispatch/);
     assert.doesNotMatch(f.status(),/Private provider|buyer info/);
+    f.finish();checks++;
+  }
+  {
+    const f=fixture(async()=>result([paidItem]));
+    await tick();await tick();
+    const button=f.list().querySelector(".owner-dispatch-remote-check");
+    assert.equal(button.textContent,"Check Shopify");
+    button.click();await tick();await tick();
+    assert.match(f.list().textContent,/Shopify checked/);
+    assert.match(f.list().textContent,/No label purchased/);
+    assert.doesNotMatch(f.list().textContent,/must not be shown/);
+    assert.ok(f.requests.some(x=>x.endsWith("/shopify") && x.includes(paidItem.order_item_id)));
+    f.finish();checks++;
+  }
+  {
+    const f=fixture();
+    await tick();await tick();
+    f.w.document.getElementById("owner-dispatch-shopify-check").click();
+    await tick();await tick();
+    assert.match(f.w.document.getElementById("owner-dispatch-shopify-status").textContent,/Shopify connected/);
+    assert.match(f.w.document.getElementById("owner-dispatch-shopify-status").textContent,/Label purchases still require/);
+    assert.ok(f.requests.includes("/api/v1/fulfilment/shopify-status"));
     f.finish();checks++;
   }
   console.log("Seller dispatch review: "+checks+" DOM scenarios passed.");
