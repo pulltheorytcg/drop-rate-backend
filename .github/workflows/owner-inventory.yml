@@ -4,8 +4,10 @@ on:
     paths:
       - 'backend/app/owner_inventory.py'
       - 'backend/app/owner_portal_api.py'
+      - 'backend/app/static/owner*'
       - 'database/migrations/*inventory_op17_reference_artwork.sql'
       - 'tests/*owner_inventory*'
+      - 'tests/ui/owner-inventory*'
       - '.github/workflows/owner-inventory.yml'
 permissions:
   contents: read
@@ -33,3 +35,19 @@ jobs:
       - run: PYTHONPATH=backend python tests/owner_inventory_postgres.py
         env:
           INVENTORY_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/inventory_test
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --prefix /tmp/inventory-browser --no-save playwright@1.55.1
+      - run: node /tmp/inventory-browser/node_modules/playwright/cli.js install --with-deps chromium
+      - run: NODE_PATH=/tmp/inventory-browser/node_modules node tests/ui/owner-inventory-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seller-inventory-layout
+          path: /tmp/inventory-layout
