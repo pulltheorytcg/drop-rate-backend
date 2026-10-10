@@ -23,14 +23,18 @@ MASTERS = 'DRAGON_BALL_SUPER_MASTERS'
 FUSION = 'DRAGON_BALL_SUPER_FUSION_WORLD'
 
 
-def release_identity(system, name):
+def release_identity(system, name, *, include_starters=True):
     if system == MASTERS:
         match = re.fullmatch(r'(?:[A-Z]+\d+ )?Booster -(.+)-', name, re.I)
+        if not match and include_starters:
+            match = re.fullmatch(r'(?:Series \d+|[A-Z]+\d+) Starter(?: \d+)? -(.+)-', name, re.I)
     elif system == FUSION:
         match = re.fullmatch(r'BOOSTER PACK -(.+)- \[FB\d{2}\]', name, re.I)
+        if not match and include_starters:
+            match = re.fullmatch(r'STARTER DECK -(.+)- \[FS\d{2}\]', name, re.I)
     else:
         return None
-    return (system, normalized(match[1])) if match else None
+    return (system, normalized(next(group for group in match.groups() if group is not None))) if match else None
 
 
 def expansion_index(packaging):
@@ -44,6 +48,9 @@ def expansion_index(packaging):
         elif category == 'Dragon Ball Super Boosters':
             match = re.fullmatch(r'(.+) Booster \[Fusion World\]', name)
             system = FUSION
+        elif product.get('idCategory') == 1053 and category == 'Dragon Ball Super Starter Decks':
+            match = re.fullmatch(r'Starter Deck: (.+?)( \[Fusion World\])?', name)
+            system = FUSION if match and match[2] else MASTERS
         expansion = product.get('idExpansion')
         if match and type(expansion) is int and expansion > 0:
             groups[(system, normalized(match[1]))].add(expansion)

@@ -1,5 +1,19 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Starter references and full-catalogue catch-up
+
+- A further read-only replay identifies 214 English One Piece and 86 Masters starter-card references omitted by booster-only release matching. Extend exact full-release/category matching for starter catalogues; duplicate expansions, regional products, alternate printings and incorrect numbers remain blocked. Starter guides explicitly stay outside physical valuation authority because deck finish distributions differ.
+- Reference job revision 6 adds those matches. Successful bounded pages continue on the next worker tick rather than waiting the failure backoff; actual provider failures and interrupted work still wait an hour. Previously completed revision-3 card checks are reused after deployment.
+- Follow-up exact-head CI and production read-back are required; the preceding database-wide deployment and measured checkpoint remain documented below.
+
+## 10 October 2026 — Database-wide reference fix live
+
+- PR #565 deployed as `5b991e959a25ecd2912e4da892dc7d1a61a67849`, Railway `ad6fb48b-897c-4771-a69c-14e3c8f63c7a` SUCCESS at 12:23 UTC. All six exact-head checks passed, including three real PostgreSQL jobs. CI and unchanged Railway pre-deploy gates each passed **4,929 backend tests**; dashboard UI includes 39 catalogue scenarios.
+- The independent direct pass checked **all 23,770 English Pokémon references** and cached **9,258 guides**. Live total card-reference pricing rose **24,928 → 29,185 of 69,538**, including **4,257 newly priced references**. These counts describe the shared database, not inventory. All 69,538 card references and 3,879 sealed references have complete identifying/source fields in the full coverage receipt.
+- Readiness is 200, the deployed catalogue JavaScript exactly matches the tested source and is served with `no-store`, and unauthenticated coverage access is rejected with 401. The new guide table has forced RLS and no anonymous/authenticated reads or API deletes; security findings are unchanged. No Railway changes remain staged.
+- The revised detailed TCGdex pass is still RUNNING; 2,600 revision-3 checks had persisted at read-back. Do not claim the full detailed backfill is finished. Live read-only provider replay recovered labelled unlimited/stamped Charizard, Pikachu and Servine references. The existing eBay sold probe still reports a provider credit/rate limit.
+- All owner/Store Price/status fields retain fingerprint `7db86dd9fbdb662b3f766ea08c14cee8`. Daily schedules, Shopify approval gates and the unpublished theme are unchanged. **40,353 card references still lack a GBP guide at this checkpoint**; unsupported sources, unresolved printing mappings and digital Pocket references remain explicit. See [full evidence and scope](docs/DATABASE_WIDE_REFERENCE_PRICING.md).
+
 ## 10 October 2026 — Entire reference catalogue pricing correction
 
 - The acceptance scope is all 69,538 card references and 3,879 sealed references, independent of inventory. All card references have provider/printing/set/name/number/source fields; baseline GBP coverage is 24,928 cards. The 463 canonical products are not the whole database.

@@ -199,8 +199,10 @@ def bandai_guide_values(product,references,*,now):
         return []
     candidates={}
     for ref in references:
-        release=(release_identity(ref.get('reference_set_name','')) if system=='ONE_PIECE_CARD_GAME'
-                 else db.release_identity(system,ref.get('reference_set_name','')))
+        # Starter-deck finish distributions differ from boosters. Catalogue
+        # guides for those releases do not expand physical valuation authority.
+        release=(release_identity(ref.get('reference_set_name',''),include_starters=False) if system=='ONE_PIECE_CARD_GAME'
+                 else db.release_identity(system,ref.get('reference_set_name',''),include_starters=False))
         title=release[0] if system=='ONE_PIECE_CARD_GAME' and release else release[1] if release else None
         canonical_title=normalized(product.get('set_name'))
         if canonical_title=='500yearsinthefuture':canonical_title='500yearsintothefuture'
