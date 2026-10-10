@@ -21,10 +21,45 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
 }
 (async()=>{
  {
+  const row={...card,image_url:'https://en.onepiece-cardgame.com/images/cardlist/card/OP17-002.png',reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=OP17-002'};
+  const waiting=deferred(),calls=[];
+  const f=fixture(async url=>({items:[{...row,key:row.key+(new URL(url,'https://example.test').searchParams.get('offset')||'0')}],has_more:true}));
+  f.w.URL.createObjectURL=()=> 'blob:kept';f.w.URL.revokeObjectURL=()=>{};
+  f.browser.client.requestImage=async path=>{calls.push(path);return waiting.promise;};
+  f.browser.filters.q='Luffy';await f.browser.load();await tick();
+  const first=f.browser.find('.dr-browse-product img');
+  await f.browser.load(true);await tick();
+  assert.equal(f.browser.find('.dr-browse-product img'),first,'Pagination must retain the loading artwork node');
+  assert.equal(calls.length,2,'Earlier pages must not start another download');
+  assert.ok(calls.every(path=>path.endsWith('&size=grid')));
+  waiting.resolve(new f.w.Blob(['image'],{type:'image/webp'}));await tick();await tick();
+  assert.equal(first.src,'blob:kept');assert.equal(f.browser.dialog.querySelectorAll('.dr-browse-product').length,2);
+  f.finish();checks++;
+ }
+ {
+  let next=null;const f=fixture(async()=>next?next.promise:{items:[{...card}]});
+  f.browser.filters.q='Luffy';await f.browser.load();next=deferred();
+  const refresh=f.browser.load(),first=f.browser.find('.dr-browse-product');
+  next.resolve({items:[{...card}]});await refresh;
+  assert.equal(f.browser.find('.dr-browse-product'),first,'Unchanged revalidation must preserve loaded cards');
+  f.finish();checks++;
+ }
+ {
+  const f=fixture(),row={...card,image_url:'https://assets.tcgdex.net/en/me/30th/002/high.webp'};
+  const grid=f.browser.productImage(row),detail=f.browser.productImage(row,'dr-browse-detail-image');
+  assert.equal(grid.querySelector('img').src,'https://assets.tcgdex.net/en/me/30th/002/low.webp');
+  assert.equal(detail.querySelector('img').src,row.image_url);
+  grid.querySelector('img').dispatchEvent(new f.w.Event('error'));
+  assert.equal(grid.querySelector('img').src,row.image_url,'A missing thumbnail must retain the exact original fallback');
+  f.browser.openProduct({...row,market_value_source:'CARDMARKET_BULK_SINGLES',market_value_minor:1234});
+  assert.match(f.browser.sheet.textContent,/Reference: £12.34/);assert.match(f.browser.sheet.textContent,/combines languages and conditions/);
+  f.finish();checks++;
+ }
+ {
   const f=fixture();
   f.browser.openProduct({...card,market_value_source:'TCGDEX_TCGPLAYER',market_quotes:[{source:'TCGDEX_TCGPLAYER',finish:'Normal',original_minor:42}]});
   assert.match(f.browser.sheet.textContent,/TCGplayer US context · \$0.42/);
-  assert.match(f.browser.sheet.textContent,/Value pending/);
+  assert.match(f.browser.sheet.textContent,/Price unavailable/);
   assert.doesNotMatch(f.browser.sheet.textContent,/£0.42/);
   f.browser.openProduct({...card,key:'s:guide',product_type:'SEALED',market_value_source:'CARDMARKET_BULK',market_value_minor:8000,market_quotes:[]});
   assert.match(f.browser.sheet.textContent,/Reference: £80.00/);
@@ -64,7 +99,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const waiting=deferred(),ref={...card,key:'r:'+'a'.repeat(32),provider:'TCGdex',source_kind:'REFERENCE',market_refresh_needed:true};
   const f=fixture(async(url,options)=>url.endsWith('/market-values')?waiting.promise:{items:[ref]});
   f.browser.filters.q='Seel';await f.browser.open();
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Value pending/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Checking price/);
   f.browser.openProduct(ref);const select=f.browser.sheet.querySelector('select');select.value='Near Mint';select.dispatchEvent(new f.w.Event('change'));
   waiting.resolve({items:[{key:ref.key,market_value_minor:7,market_value_high_minor:19,market_value_source:'TCGDEX_CARDMARKET',market_refresh_needed:false,
     basis_condition:'Raw · Cardmarket',pricing_updated_at:'2026-10-08T12:00:00Z',market_quotes:[{finish:'Normal',price_gbp_minor:7},{finish:'Reverse Holofoil',price_gbp_minor:19}]}]});
@@ -90,7 +125,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const f=fixture(async(url)=>{if(url.endsWith('/market-values'))throw new Error('Provider down');return {items:[ref]};});
   f.browser.filters.q='Card';await f.browser.open();await tick();
   assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Value pending/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Price temporarily unavailable/);
   f.finish();checks++;
  }
  {
@@ -133,7 +168,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(f.calls.at(-1).url,/language=Japanese/);
   f.browser.find('.dr-browse-set').click();await tick();
   assert.match(f.calls.at(-1).url,/set_id=OP11/);assert.match(f.calls.at(-1).url,/provider=Punk\+Records/);
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Value pending/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Price unavailable/);
   f.finish();checks++;
  }
  {

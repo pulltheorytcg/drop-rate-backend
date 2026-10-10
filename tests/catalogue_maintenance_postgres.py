@@ -99,6 +99,41 @@ async def main():
         await db.execute(CARD_PRICE_SQL,'TCGdex','POKEMON_TCG','Japanese','fixture',support,None,None,now,now,now+timedelta(days=1))
         assert await db.fetchval('select market_value_minor from tcg.reference_market_prices') is None
         assert await db.fetchval('select count(*) from tcg.reference_market_history')==2
+        # Replay the phone search against real Postgres. A set name containing
+        # EB04 must not make OP14-007 appear for the exact query EB04 007.
+        await db.execute("insert into tcg.collectible_systems values('ONE_PIECE_CARD_GAME')")
+        await db.execute('''insert into tcg.reference_sets(provider,system_code,language,set_id,name,release_date)
+          values('Bandai Official','ONE_PIECE_CARD_GAME','English','569117','The World’s Strongest Warriors [OP-17]','2020-01-01'),
+          ('Bandai Official','ONE_PIECE_CARD_GAME','English','569114','The Azure Sea [OP14-EB04]','2020-01-01'),
+          ('Bandai Official','ONE_PIECE_CARD_GAME','Japanese','550204','Egghead Crisis [EB04]','2020-01-01');
+          insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number,rarity)
+          values('Bandai Official','ONE_PIECE_CARD_GAME','English','EB04-007_p2','569117','Roronoa Zoro','EB04-007','SP CARD'),
+          ('Bandai Official','ONE_PIECE_CARD_GAME','English','OP14-007','569114','Jewelry Bonney','OP14-007','C'),
+          ('Bandai Official','ONE_PIECE_CARD_GAME','Japanese','EB04-007','550204','ロロノア・ゾロ','EB04-007','SR');''')
+        from app.one_piece_market import WRITE_SQL as ONE_PIECE_PRICE_SQL
+        identity={'name':'Roronoa Zoro','set_id':'569117','card_number':'EB04-007','set_name':'The World’s Strongest Warriors [OP-17]'}
+        quote={'source':'CARDMARKET_BULK_SINGLES','price_gbp_minor':28105,'observed_at':now.isoformat(),'reference_identity':identity}
+        one_piece_args=('Bandai Official','ONE_PIECE_CARD_GAME','English','EB04-007_p2',[quote],28105,28105,now,now,now+timedelta(days=1),*identity.values())
+        await db.execute(ONE_PIECE_PRICE_SQL,*one_piece_args)
+        await db.execute(ONE_PIECE_PRICE_SQL,*one_piece_args)
+        assert await db.fetchval('select count(*) from tcg.reference_market_history')==3,'Guide retry duplicated history'
+        assert await db.fetchval('select count(*) from tcg.inventory_items')==0,'Reference quote created physical stock'
+        for query in ('EB04-007','Eb04 007','eb04007','EB-04-007','EB04\u2009007','Zoro SP'):
+            for sort in ('newest','name','number','value_desc','value_asc'):
+                sql,args=product_query(owner_id=owner,q=query,system_code='ONE_PIECE_CARD_GAME',language='English',sort=sort)
+                found=await db.fetch(sql,*args)
+                assert [row['provider_id'] for row in found]==['EB04-007_p2'],(query,sort,found)
+                assert found[0]['market_value_minor']==28105 and found[0]['market_value_source']=='CARDMARKET_BULK_SINGLES'
+                assert found[0]['owned_quantity']==0 and 'mixed-language' in found[0]['basis_condition']
+        sql,args=product_query(owner_id=owner,q='EB04 007')
+        assert {r['language'] for r in await db.fetch(sql,*args)}=={'English','Japanese'}
+        await db.execute("update tcg.reference_cards set name='Changed identity' where provider_id='EB04-007_p2'")
+        sql,args=product_query(owner_id=owner,q='EB04 007',language='English')
+        assert (await db.fetch(sql,*args))[0]['market_value_minor'] is None,'Stale identity exposed the old guide'
+        changed=list(one_piece_args);changed[5]=changed[6]=99999;changed[8]=now+timedelta(seconds=1)
+        await db.execute(ONE_PIECE_PRICE_SQL,*changed)
+        assert await db.fetchval("select market_value_minor from tcg.reference_market_prices where provider_id='EB04-007_p2'")==28105,'Identity race replaced cached evidence'
+        await db.execute("update tcg.reference_cards set name='Roronoa Zoro' where provider_id='EB04-007_p2'")
         await db.execute("insert into tcg.owners values($1,true)",owner)
         ids=[uuid4() for _ in range(6)]
         for i,(status,intent) in enumerate([('APPROVED','FOR_SALE'),('DRAFT','FOR_SALE'),('APPROVED','PERSONAL_COLLECTION'),('SOLD','FOR_SALE'),('APPROVED','FOR_SALE'),('APPROVED','FOR_SALE')]):
@@ -123,7 +158,7 @@ async def main():
         assert await db.fetchval('select store_price_minor from tcg.inventory_items where id=$1',ids[4])==1500
         await db.execute("select set_config('tcg.user_id',$1,false)",str(owner))
         assert await db.fetchval('select count(*) from tcg.reference_sealed_products')==1
-        assert await db.fetchval('select count(*) from tcg.reference_market_history')==2
+        assert await db.fetchval('select count(*) from tcg.reference_market_history')==3
         try:
             await db.execute(WRITE_SQL,*sealed_args)
             raise AssertionError('Non-admin replaced sealed price evidence')

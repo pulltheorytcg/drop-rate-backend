@@ -1,7 +1,6 @@
 """Account-scoped catalogue browsing. Reference facts never approve physical stock."""
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import re
 from urllib.parse import urlencode, urlsplit
@@ -22,6 +21,7 @@ from .physical_state import CARD_CONDITIONS
 from .recognition_games import SYSTEM_BY_GAME
 from .reference_market import refresh_reference_prices
 from .recognition_images import reference_image_bytes
+from .catalogue_artwork import reference_thumbnail
 from .cardtrader_recognition import _cardtrader_image_url
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 
@@ -29,7 +29,6 @@ router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"
 GAME_BY_SYSTEM = {system: game for game, system in SYSTEM_BY_GAME.items()}
 # A browse family only: printing identities retain their original system.
 BROWSE_FAMILIES = {"NARUTO": ("NARUTO_KAYOU", "NARUTO_BANDAI_LEGACY")}
-_ARTWORK_FETCHES = asyncio.Semaphore(4)
 
 
 def one_piece_artwork_url(value):
@@ -115,7 +114,11 @@ with reference_base as not materialized (
         (r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language in ('English','Japanese')
           and (m.expires_at is null or m.expires_at<=now() or m.refresh_revision<2)) as market_refresh_needed
  from reference_base r left join exact_links l using(provider,system_code,language,provider_id)
- left join tcg.reference_market_prices m using(provider,system_code,language,provider_id)
+ left join tcg.reference_market_prices m
+ on (m.provider,m.system_code,m.language,m.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
+ and (coalesce(m.quotes->0->>'source','')<>'CARDMARKET_BULK_SINGLES'
+      or m.quotes->0->'reference_identity'=jsonb_build_object(
+        'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',r.set_name))
  union all
  select 's:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)),
         null::uuid,'SEALED'::text,r.system_code,{GAME_CASE},r.name,s.name,r.set_id,
@@ -223,10 +226,14 @@ def price_columns(entry: str) -> str:
     return f"""coalesce(v.market_value_minor,{entry}.reference_value_minor) as market_value_minor,
         case when v.market_value_minor is null then {entry}.reference_value_high_minor end as market_value_high_minor,
         coalesce(v.basis_condition,case when {entry}.reference_value_minor is not null
-          then case when {entry}.source_kind='SEALED_REFERENCE' then 'Sealed · Cardmarket mixed-language guide' else 'Raw · Cardmarket' end end) as basis_condition,
+          then case when {entry}.source_kind='SEALED_REFERENCE' then 'Sealed · Cardmarket mixed-language guide'
+            when {entry}.market_quotes->0->>'source'='CARDMARKET_BULK_SINGLES' then 'Raw · Cardmarket mixed-language guide'
+            else 'Raw · Cardmarket' end end) as basis_condition,
         coalesce(v.pricing_updated_at,{entry}.reference_pricing_updated_at) as pricing_updated_at,
         case when v.market_value_minor is not null then v.valuation_source
-             when {entry}.reference_value_minor is not null then case when {entry}.source_kind='SEALED_REFERENCE' then 'CARDMARKET_BULK' else 'TCGDEX_CARDMARKET' end
+             when {entry}.reference_value_minor is not null then case when {entry}.source_kind='SEALED_REFERENCE' then 'CARDMARKET_BULK'
+               when {entry}.market_quotes->0->>'source'='CARDMARKET_BULK_SINGLES' then 'CARDMARKET_BULK_SINGLES'
+               else 'TCGDEX_CARDMARKET' end
              when {entry}.market_quotes<>'[]'::jsonb then 'TCGDEX_TCGPLAYER' end as market_value_source"""
 
 
@@ -278,15 +285,22 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
     order = SORTS[sort]
     if q.strip():
         # Every term is literal; apostrophes, % and _ never become SQL or wildcards.
-        terms = bind(q.strip().split())
         number_key = re.sub(r"[^a-z0-9]", "", q.strip().lower())
         number_match = "false"
         if number_key and any(character.isdigit() for character in number_key):
             key = bind(number_key)
             number_match = f"lower(regexp_replace(coalesce(e.card_number,''),'[^A-Za-z0-9]','','g'))={key}"
-        where.append(f"""({number_match} or not exists (
-            select 1 from unnest({terms}::text[]) term where strpos(lower(concat_ws(' ',
-            e.name,e.set_name,e.card_number,e.game,e.variant,e.language)),lower(term))=0))""")
+        # A complete Bandai collector number is an identity lookup. Splitting
+        # 'EB04 007' into broad terms also matched set OP14-EB04/card 007.
+        collector_query = re.fullmatch(r'(?:OP|ST|EB|PRB|FB|FS|BT|EX|P)[\s-]*\d{0,2}[\s-]+\d{3}|(?:OP|ST|EB|PRB|FB|FS|BT|EX)\d{5}', q.strip(), re.I)
+        if collector_query:
+            where.append(number_match)
+        else:
+            terms = bind(q.strip().split())
+            text_match = f"""not exists (
+                select 1 from unnest({terms}::text[]) term where strpos(lower(concat_ws(' ',
+                e.name,e.set_name,e.card_number,e.game,e.variant,e.language,e.rarity)),lower(term))=0)"""
+            where.append(f"({number_match} or {text_match})")
         if sort in ("newest", "name", "number"):
             exact_query = bind(q.strip().lower())
             order = f"case when {number_match} then 0 when lower(e.name)={exact_query} then 1 else 2 end," + order
@@ -352,7 +366,8 @@ async def reference_image(request: Request, user: Annotated[AuthenticatedUser, D
                           access: Annotated[dict, Depends(browser_access)],
                           provider: str = Query(max_length=80), system_code: str = Query(max_length=80),
                           language: str = Query(max_length=80), provider_id: str = Query(max_length=200),
-                          reference_kind: Literal['card','sealed'] = 'card'):
+                          reference_kind: Literal['card','sealed'] = 'card',
+                          size: Literal['grid','detail'] = 'detail'):
     # Resolve the existing exact reference on the server. Never accept a URL
     # from the client or turn reference artwork into approved inventory media.
     async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
@@ -363,8 +378,7 @@ async def reference_image(request: Request, user: Annotated[AuthenticatedUser, D
           and (s.release_date is null or s.release_date<=current_date)''',provider,system_code,language,provider_id)
     if not (_cardtrader_image_url(url) if reference_kind=='sealed' else one_piece_artwork_url(url)):
         raise HTTPException(404,'Reference artwork not available')
-    async with _ARTWORK_FETCHES:
-        payload = await reference_image_bytes(url)
+    payload = await (reference_thumbnail(url) if size == 'grid' else reference_image_bytes(url))
     if payload is None:
         raise HTTPException(502,'Reference artwork could not load')
     return Response(payload.data,media_type=payload.content_type,headers={'Content-Disposition':'inline'})

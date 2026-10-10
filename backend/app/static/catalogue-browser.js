@@ -4,7 +4,7 @@ window.DropRateCatalogue = (() => {
   const node = (tag, cls = "", text) => { const el = document.createElement(tag); el.className = cls; if (text != null) el.textContent = text; return el; };
   const button = (text, action, cls = "") => { const el = node("button", cls, text); el.type = "button"; el.addEventListener("click", action); return el; };
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
-  const marketPrice = row => (row.market_value_source==="CARDMARKET_ESTIMATE"?"Estimate: ":["TCGDEX_CARDMARKET","CARDMARKET_BULK"].includes(row.market_value_source)?"Reference: ":"")+money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
+  const marketPrice = row => row.market_value_minor==null?(row.market_refresh_failed?"Price temporarily unavailable":row.market_refresh_needed?"Checking price…":"Price unavailable"):(row.market_value_source==="CARDMARKET_ESTIMATE"?"Estimate: ":["TCGDEX_CARDMARKET","CARDMARKET_BULK","CARDMARKET_BULK_SINGLES"].includes(row.market_value_source)?"Reference: ":"")+money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
   const sorts = {newest:"Newest first", name:"Name A–Z", number:"Card number", value_desc:"Value: high to low", value_asc:"Value: low to high"};
@@ -73,7 +73,7 @@ window.DropRateCatalogue = (() => {
           const job=this.artworkWaiting.get(entry.target);this.artworkWaiting.delete(entry.target);this.artworkObserver.unobserve(entry.target);
           if(job)this.artworkQueue.push(job);
         }this.drainArtwork();
-      },{root:this.scroll,rootMargin:'240px'});
+      },{root:this.scroll,rootMargin:'640px'});
     }
     async open(productKey = "") {
       if(!this.active())throw new Error("Sign in again to search products.");
@@ -189,15 +189,20 @@ window.DropRateCatalogue = (() => {
       try {
         const path="/api/v1/catalogue-browser/"+(this.page==="sets"?"sets":"products")+"?"+params;
         const cached=this.pageCache.get(path);
+        let renderedCache=false;
         if(!more && cached && Date.now()-cached.at<60000){
           this.rows=cached.data.items||[];this.hasMore=Boolean(cached.data.has_more);this.renderRows();
+          renderedCache=true;
         }
         const data=await this.client.request(path,{signal:this.controller.signal});
         if(!this.active() || revision!==this.revision)return;
         this.pageCache.delete(path);this.pageCache.set(path,{at:Date.now(),data});
         while(this.pageCache.size>12)this.pageCache.delete(this.pageCache.keys().next().value);
-        this.rows=more?this.rows.concat(data.items||[]):data.items||[];this.hasMore=Boolean(data.has_more);this.offset=nextOffset;
-        this.renderRows();status.textContent=this.rows.length?"":"No matches. Try another search or clear the filters.";
+        const unchanged=renderedCache && JSON.stringify(this.rows)===JSON.stringify(data.items||[]);
+        if(!unchanged)this.rows=more?this.rows.concat(data.items||[]):data.items||[];
+        this.hasMore=Boolean(data.has_more);this.offset=nextOffset;
+        if(!unchanged)this.renderRows(more?nextOffset:0);
+        status.textContent=this.rows.length?"":"No matches. Try another search or clear the filters.";
         if(this.page==="sets" && this.rows.length && Number.isInteger(data.total_count))status.textContent=data.total_count.toLocaleString()+" sets · Includes sets you don’t own";
         if(this.page!=="sets" && !this.rows.length && this.set?.checklist_status==="UNAVAILABLE" && !this.filters.q && this.filters.owned==="all" && !this.filters.watch && !this.filters.product_type)status.textContent="This set is in the catalogue. Its card checklist is currently unavailable.";
         if(this.filters.watch)status.textContent=this.rows.length?"Watchlist saved on this device.":"Your watchlist is empty for these filters. Star a product to save it on this device.";
@@ -216,7 +221,7 @@ window.DropRateCatalogue = (() => {
         for(const row of pending.slice(0,40)){
           const update=updates.get(row.key);if(!update)continue;
           changed=changed||row.market_value_minor!==update.market_value_minor;
-          Object.assign(row,update);
+          Object.assign(row,update,{market_refresh_failed:Boolean(update.provider_refresh_failed)});
           this.dialog.querySelectorAll('[data-price-key]').forEach(el=>{if(el.dataset.priceKey===row.key)el.textContent=marketPrice(row);});
           const detail=this.sheet.querySelector('[data-market-details]');
           if(detail?.dataset.marketDetails===row.key)this.renderMarketDetails(detail,row);
@@ -225,7 +230,16 @@ window.DropRateCatalogue = (() => {
         // ordering before pagination. Other sorts keep focus/scroll untouched.
         if(changed&&this.filters.sort.startsWith("value_")&&this.rows.length){this.load();return;}
         if(pending.length>40)this.refreshPrices(pending.slice(40),revision);
-      } catch(_) { /* Keep displayed cards and any previous prices usable. */ }
+      } catch(_) {
+        if(!this.active()||revision!==this.revision)return;
+        for(const row of pending){
+          row.market_refresh_failed=true;
+          for(const label of this.dialog.querySelectorAll('[data-price-key]'))if(label.dataset.priceKey===row.key)label.textContent=marketPrice(row);
+        }
+        const detail=this.sheet.querySelector('[data-market-details]');
+        const selected=pending.find(row=>row.key===detail?.dataset.marketDetails);
+        if(selected)this.renderMarketDetails(detail,selected);
+      }
     }
     renderMarketDetails(content,row) {
       content.replaceChildren(node("strong","dr-browse-detail-value",marketPrice(row)));
@@ -240,6 +254,7 @@ window.DropRateCatalogue = (() => {
       }
       if((row.market_quotes||[]).some(q=>q.source==="TCGDEX_TCGPLAYER"))content.append(node("p","dr-browse-reference-note","TCGplayer is supporting US market context. Its dollar price is not used as a UK sold-market valuation."));
       if(row.market_value_source==="CARDMARKET_BULK")content.append(node("p","dr-browse-reference-note","Cardmarket daily packaging guide, converted from EUR. This aggregate spans languages and conditions; confirm your exact package before valuing a physical item."));
+      if(row.market_value_source==="CARDMARKET_BULK_SINGLES")content.append(node("p","dr-browse-reference-note","Cardmarket daily guide for this printing’s release, converted from EUR. It combines languages and conditions; it is separate from a condition-adjusted eBay UK sold value."));
       if(row.market_value_source==="CARDMARKET_ESTIMATE")content.append(node("p","dr-browse-reference-note","Cardmarket estimate for this printing and finish, converted from EUR. The guide combines languages and conditions; it is not a condition-adjusted UK sold value. Fresh exact eBay UK evidence takes priority."));
     }
     renderGames() {
@@ -289,8 +304,9 @@ window.DropRateCatalogue = (() => {
           try {
             const cached=this.artworkCache.get(job.path);
             const blob=cached && Date.now()-cached.at<3600000?cached.blob:await this.client.requestImage(job.path,{signal:controller.signal});
-            if(!this.active() || job.epoch!==this.artworkEpoch || !job.image.isConnected)return;
+            if(!this.active() || job.epoch!==this.artworkEpoch)return;
             this.cacheArtwork(job.path,blob);
+            if(!job.image.isConnected)return;
             for(const [image,url]of this.artworkUrls){if(!image.isConnected){URL.revokeObjectURL(url);this.artworkUrls.delete(image);}}
             const url=URL.createObjectURL(blob);this.artworkUrls.set(job.image,url);job.image.src=url;
           } catch(_) {if(this.active() && job.epoch===this.artworkEpoch && job.image.isConnected)job.fallback();}
@@ -303,13 +319,18 @@ window.DropRateCatalogue = (() => {
       const urls=[...new Set([row.display_image_url,row.image_url,row.fallback_image_url]
         .filter(url=>typeof url==="string").map(url=>url.trim())
         .filter(url=>/^https:\/\//.test(url)||/^\/(?!\/)/.test(url)))];
+      // TCGdex serves a grid-sized asset for the exact same card. Keep the
+      // original as fallback and use it unchanged in the detail sheet.
+      if(cls!=="dr-browse-detail-image" && /^https:\/\/assets\.tcgdex\.net\/[^?#]+\/high\.webp(?:\?|$)/.test(urls[0]||"")){
+        urls.unshift(urls[0].replace('/high.webp','/low.webp'));
+      }
       const placeholder=node("span","dr-browse-image-placeholder",urls.length?"Loading image…":"Artwork unavailable");
       wrap.append(placeholder);
       if(urls.length){
-        const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.referrerPolicy="no-referrer";
+        const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.decoding="async";image.referrerPolicy="no-referrer";
         if(cls==="dr-browse-detail-image")image.loading="eager";
         image.addEventListener("load",()=>{placeholder.hidden=true;});
-        const referencePath=row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')?row.reference_image_path:null;
+        const referencePath=row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')?row.reference_image_path+(cls==="dr-browse-detail-image"?"":"&size=grid"):null;
         let proxyTried=Boolean(referencePath);
         const fallback=()=>{if(urls.length)image.src=urls.shift();else {image.remove();placeholder.textContent="Image unavailable";placeholder.hidden=false;}};
         image.addEventListener("error",()=>{
@@ -324,9 +345,11 @@ window.DropRateCatalogue = (() => {
       }
       return wrap;
     }
-    renderRows() {
-      const grid=node("div",this.page==="sets"?"dr-browse-grid dr-browse-set-grid":"dr-browse-grid");
-      for(const row of this.rows){
+    renderRows(start=0) {
+      const content=this.find(".dr-browse-content");
+      const previous=start?content.querySelector('.dr-browse-grid'):null;
+      const grid=previous||node("div",this.page==="sets"?"dr-browse-grid dr-browse-set-grid":"dr-browse-grid");
+      for(const row of this.rows.slice(previous?start:0)){
         if(this.page==="sets") {
           const tile=button("",()=>{this.set=row;Object.assign(this.filters,{language:row.language,q:"",owned:"all",watch:false,product_type:""});this.page="products";this.load();},"dr-browse-set");
           const art=node("div","dr-browse-set-art");
@@ -360,7 +383,7 @@ window.DropRateCatalogue = (() => {
         if(row.owned_quantity>0)card.append(node("span","dr-browse-owned","✓"));
         grid.append(card);
       }
-      this.find(".dr-browse-content").replaceChildren(grid);
+      if(!previous)content.replaceChildren(grid);
     }
     openSheet(title) {
       this.sheetReturn=document.activeElement;this.sheet.replaceChildren(node("div","dr-browse-handle"));

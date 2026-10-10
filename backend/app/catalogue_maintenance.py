@@ -22,6 +22,7 @@ from .fx import EcbHistoricalFxProvider
 from .reference_feeds import ReferenceFeeds
 from .reference_library import save_reference_set
 from .reference_market import REVISION, refresh_reference_prices
+from .one_piece_market import refresh_one_piece_prices
 from .reference_sealed import save_sealed_set, sealed_feed
 from .sealed_market import REVISION as SEALED_MARKET_REVISION, refresh_sealed_prices
 from .catalogue_coverage import record_coverage
@@ -31,7 +32,8 @@ from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_pr
 
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
-SOURCE_REVISIONS={'cardtrader_sealed':4}
+SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2}
+REFERENCE_JOB_REVISION=3
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
@@ -123,9 +125,10 @@ async def sync_source(pool,actor,source,settings):
 
 async def warm_prices(pool,actor,limit):
     run_id=await receipt(pool,actor,'REFERENCE_PRICES','RUNNING',{})
-    checked=priced=failed=us_only=0;status='INCOMPLETE';report={'importer_revision':REVISION}
+    checked=priced=failed=us_only=0;status='INCOMPLETE';report={'importer_revision':REFERENCE_JOB_REVISION}
     fx=EcbHistoricalFxProvider(timeout_seconds=6)
     try:
+        report['one_piece']=await refresh_one_piece_prices(pool,actor,fx)
         async with user_connection(pool,actor,str(uuid4())) as connection:
             rows=await connection.fetch('''select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key
               from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
@@ -145,7 +148,7 @@ async def warm_prices(pool,actor,limit):
             if views and all(v.get('provider_refresh_failed') for v in views):
                 report['reason']='PROVIDER_UNAVAILABLE';break
             await asyncio.sleep(.5)
-        status='COMPLETE' if len(rows)<=limit and not failed else 'INCOMPLETE'
+        status='COMPLETE' if len(rows)<=limit and not failed and not report['one_piece']['provider_failures'] else 'INCOMPLETE'
         report['more_due_at_start']=len(rows)>limit
     except asyncio.CancelledError:
         report['reason']='INTERRUPTED';raise
@@ -153,7 +156,7 @@ async def warm_prices(pool,actor,limit):
         report['reason']=type(exc).__name__
     finally:
         report.update(checked=checked,priced=priced,us_context_only=us_only,provider_failures=failed,
-                      scope='All English/Japanese Pokemon references, independent of inventory; Cardmarket GBP and TCGplayer USD context')
+                      scope='All English/Japanese Pokemon references and official English One Piece boosters; independent of inventory')
         await receipt(pool,actor,'REFERENCE_PRICES',status,report,run_id)
         log.warning('Daily reference prices status=%s checked=%s priced=%s',status,checked,priced)
 
@@ -178,7 +181,7 @@ async def daily_pass(pool,settings):
                     await sync_source(pool,actor,source,settings)
             if due(latest.get('SEALED_REFERENCE_PRICES'),now,revision=SEALED_MARKET_REVISION):
                 await refresh_sealed_prices(pool,actor)
-            if due(latest.get('REFERENCE_PRICES'),now,revision=REVISION):
+            if due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION):
                 # Record the complete database scope before a potentially long
                 # first fill; the final receipt then reflects its progress.
                 await record_coverage(pool,actor)

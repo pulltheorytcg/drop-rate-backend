@@ -5,7 +5,9 @@ from .db import user_connection
 
 COVERAGE_SQL = '''with coverage as (
  select 'CARD'::text as kind,r.system_code,r.language,
-   case when p.market_value_minor is not null and p.pricing_updated_at>=now()-interval '7 days' then 'REFERENCE_AVAILABLE'
+   case when p.market_value_minor is not null and p.pricing_updated_at>=now()-interval '7 days'
+          and p.quotes->0->>'source'='CARDMARKET_BULK_SINGLES' then 'MIXED_LANGUAGE_GUIDE'
+        when p.market_value_minor is not null and p.pricing_updated_at>=now()-interval '7 days' then 'REFERENCE_AVAILABLE'
         when p.quotes<>'[]'::jsonb and p.pricing_updated_at>=now()-interval '7 days' then 'US_CONTEXT_ONLY'
         when p.pricing_updated_at<now()-interval '7 days' then 'STALE_EVIDENCE'
         when r.provider='TCGdex' and r.language in ('English','Japanese') and p.checked_at is null then 'AWAITING_DAILY_REFRESH'

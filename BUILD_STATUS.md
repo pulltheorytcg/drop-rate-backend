@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Recorded catalogue failures: release candidate
+
+- Reproduced the two iPhone recordings against matching Railway request logs: reference images had a 1,728 ms median, the English EB04-007 Zoro printings were absent, and the newest reference rows had no pricing source. The earlier Pokémon price fill is now COMPLETE: 11,910 English and 9,440 Japanese references priced.
+- Fixes preserve images on pagination, add bounded authenticated WebP thumbnails and shared HTTP connections, discover released OP-15+ English boosters, accept promo numbers and make full collector-number search exact. Rarity is searchable. Daily Cardmarket reference pricing now has an unambiguous release/printing matcher and protects against changed identities.
+- Live source dry run: 520 official printings across three sets, 316 unambiguous Cardmarket matches, including the English Zoro SP. These are not yet production-refresh counts. Images tested are 71–82% smaller; cold mobile timing still requires deployed verification.
+- Local full backend/UI suites pass, including 2,048 generated identity/collision cases and 37 catalogue UI scenarios. Current-head CI, real PostgreSQL and production read-back remain required before claiming release. No inventory/Store Price changes, new service, schema migration or theme publication are intended. See [recorded catalogue repair](docs/CATALOGUE_MOBILE_REPAIR.md) for evidence and the remaining multi-game price gaps.
+
 ## 9 October 2026 — Cardmarket fallback released and verified
 
 - PRs #557 and #558 are merged. Final application commit `2d3d519e6624195581a56d191e5f15d1eb73e25a` is live on Railway deployment `526cd73a-947d-4aaa-a06a-c9b4153c8e8c` with SUCCESS status and readiness 200. Current-head backend/UI and real PostgreSQL checks passed, as did all 2,759 pre-deploy tests and the original financial checks. Original infrastructure configuration remains intact and nothing is staged.

@@ -51,6 +51,14 @@ def test_query_is_parameterized_and_unknown_values_sort_last():
     assert 'i.owner_id=$1' in sql
 
 
+@pytest.mark.parametrize('query',['EB04-007','eb04 007','EB04007','Zoro SP',"%' OR true --"])
+@pytest.mark.parametrize('sort',['name','newest','number','value_asc','value_desc'])
+def test_search_never_sends_an_unused_postgres_parameter(query,sort):
+    import re
+    sql,params=browser.product_query(owner_id=uuid4(),q=query,sort=sort)
+    assert {int(n) for n in re.findall(r'\$(\d+)',sql)}==set(range(1,len(params)+1))
+
+
 def test_watchlist_empty_does_not_return_whole_catalogue():
     sql,params=browser.product_query(owner_id=uuid4(),keys=[])
     assert [] in params and 'e.key=any(' in sql
