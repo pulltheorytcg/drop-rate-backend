@@ -21,7 +21,6 @@ def test_whatnot_readiness_is_not_false_company_shopify_install():
     assert 'https://apps.shopify.com/whatnot' not in HTML
     assert 'Personal seller connection' in ITEM
     assert 'Your own Whatnot account' in HTML
-    assert 'seller-specific Whatnot connection' not in HTML or 'Whatnot' in HTML
 
 
 def test_whatnot_pending_status_does_not_expose_secrets_or_fake_oauth():
