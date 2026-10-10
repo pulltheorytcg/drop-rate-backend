@@ -58,6 +58,10 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',inventory_code:'INV-D715B0
    await page.screenshot({path:path.join(out,`quantity-${viewport.width}.png`)});
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
    await page.getByRole('button',{name:'List view',exact:true}).click();
+   const headings=await page.locator('#owner-inventory-table-wrap thead th').allTextContents();
+   assert.deepEqual(headings,['Product','Status','Market value','Store / recommended']);
+   assert.equal(await page.locator('#owner-inventory-body tr:first-child td').count(),4);
+   assert.doesNotMatch(await page.locator('#owner-inventory-body').innerText(),/INV-D715B0E9|Japanese/);
    await page.locator('.owner-inventory-open').click();await page.getByRole('heading',{name:'Sell on Shopify',exact:true}).waitFor();
    assert.deepEqual(errors,[]);await page.close();
   }
