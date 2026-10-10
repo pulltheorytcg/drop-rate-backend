@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Two OP-17 packs published and branding verified
+
+- Both requested Japanese OP-17 packs are **ACTIVE and published to Online Store**, at **£10 each**, with available/on-hand quantity **1 per exact listing** and zero committed. Shopify readback confirms the original product/variant IDs and SKUs, the single approved official image, and Sealed/One Piece collection membership. Backend links and the automatic worker are COMPLETE / PUBLISHED, with zero publication failures.
+- The original copy remains `d715b0e9-b3c4-451b-a909-5fa233f8a0e5`; the one explicitly requested additional copy is `55fe97fc-7bfa-4a73-a269-664ec56d3004`. Both remain with owner `cba99d5c-fedf-4544-86aa-ab9a2785860f`, with unknown cost/storage preserved. The 509 unrelated inventory records retain fingerprint `b6c8fdfacd3b3c5b2890f44ec4adcf8e`.
+- PR #574 merged as `a5adc8d46a7b0e0b3c144a6668c9d3714ad7ebc2` after all five exact-head CI jobs passed, including actual SQL publication/owner/actor tests. Migration `20261010154057_shopify_publication_actor` is applied with runtime execute retained and anonymous execute denied. Railway `000c5590-7fba-4ecb-bc6f-b51f2ffa2069` reached SUCCESS at 15:42:03 UTC; pre-deploy passed **5,070 tests** and readiness returned 200.
+- The [listing brand standard](docs/SHOPIFY_BRAND_STANDARD.md) matches existing sealed-product copy and image presentation. Publication rejects changed copy/SEO/markup and any missing or unexpected image. The exact artwork was visually reviewed against representative existing products; no whole-store visual-audit claim is made.
+- **Remaining setup:** Drop Rate Backend lacks Shopify `write_files`. Existing approved associations are safely reused; automatic attachment of new files requires a merchant permission grant and otherwise records PERMISSION_REQUIRED. No permission was silently granted, no new services or theme launch occurred, and no fresh signed-in phone acceptance is claimed. Full [publication evidence](docs/SELLER_HELD_SEALED_PUBLICATION.md) retains the failures and repairs.
+
 ## 10 October 2026 — Seller publication actor correction
 
 - PR #573 deployed as `6062f10aae62067056b4a1048011329070c68b66`; all six CI jobs passed, Railway `6c1afe0d-755e-4942-a2f4-5f61dd5798bf` reached SUCCESS at 15:32:37 UTC, 5,070 pre-deploy tests passed and readiness returned 200. The exact OP-17 drafts now pass remote brand/stock verification with the approved image, £10 and quantity one.
