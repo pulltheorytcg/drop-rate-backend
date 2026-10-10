@@ -322,13 +322,18 @@ window.DropRateScanner = (() => {
       finally { if (this.active()) { this.editBusy = false; this.renderDetails(); } }
     }
 
-    async open(mode) {
+    async open(mode, {preferCamera = false} = {}) {
       if (mode) this.setMode(mode);
       if (!this.active()) throw new Error("Please sign in again before scanning.");
+      // Repeated navigation cannot create a second dialog or camera stream.
+      if (this.dialog.open) {
+        if (preferCamera && this.view !== "camera") await this.startCamera();
+        return;
+      }
       this.returnFocus = document.activeElement;
       this.dialog.showModal();
       document.body.classList.add("dr-scanner-open");
-      if (this.items.some(item => item.requests)) this.showReview();
+      if (!preferCamera && this.items.some(item => item.requests)) this.showReview();
       else await this.startCamera();
     }
 
