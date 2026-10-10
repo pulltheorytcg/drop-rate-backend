@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Whatnot seller-account connection correction and shipping decision gate
+
+- Removed the misleading Seller Hub Whatnot **Set up** action pointing to the Shopify app for the **company's unified Drop Rate store**. Owners must eventually authorise **their own Whatnot accounts** via seller-specific OAuth. Official Seller API is developer preview and does not accept new applicants; no credentials or merchant API access are available. Current state reports `DEVELOPER_ACCESS_REQUIRED`, `SELLER_OAUTH`, `sync_enabled=false`, with honest `Not available yet` UI. No fake connected listings or user credentials collected.
+- Completed a read-only Shopify/DB shipping audit: Shopify grants `write_merchant_managed_fulfillment_orders`/read scopes, ownership and order-item allocation are deterministic in Supabase; however, there is **no owner shipment/label ledger**, no UK label provider/credentials on Railway, no approved label cost bearer, and no independent custody/dispatch policy for seller-held vs Drop Rate-held consignments. Real label purchase, PDF printing, carrier tracking and Shopify partial fulfilment remain **NOT IMPLEMENTED** and must not be presented as operational.
+- The Phase 2 storefront-first launch/efficiency gates still apply; any activated shipping integration requires provider, payer, owner custody, permissions, quotes, refund/duplicate testing and explicit pilot authorisation. Plan: [seller Whatnot and shipping fulfilment design](docs/SELLER_WHATNOT_AND_SHIPPING_FULFILLMENT_PLAN.md). No new Railway service, automation, DB schema, Shopify theme or third-party owner activation.
+
 ## 10 October 2026 — Set artwork coverage audit and backend identity contract
 
 - PR #577 previously corrected Seller Hub set-tile layout and removed the random-card-image fallback. A 10 October read-only Supabase audit still found only **161 / 1,449 provider/language set records** with matching exact-title logos: Pokémon English 159/220, Japanese 0/186, CardTrader unknown-language 0/459, One Piece 2/201, Dragon Ball 0/302, Naruto 0/81. These are catalogue *source records*, not deduplicated physical releases. The generic Eevee Grove A3b title image is due to a missing TCGdex logo mapping, despite external official artwork.
