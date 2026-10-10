@@ -121,3 +121,72 @@ def test_artwork_coverage_groups_missing_and_indexed_sources_without_guessing():
     assert report["missing"][0]["set_id"] == "A3b"
     assert any(x["set_id"] == "A3b" and x["status"].startswith("SOURCE_FOUND") for x in report["manual_review"])
     assert sum(x["total"] for x in report["groups"]) == 4
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role,authorized,expected", [
+    ("PLATFORM_ADMIN", True, 200),
+    ("OWNER", False, 403),
+    ("PLATFORM_ADMIN", False, 403),
+])
+async def test_coverage_endpoint_is_founder_only(monkeypatch, role, authorized, expected):
+    from contextlib import asynccontextmanager
+    from types import SimpleNamespace
+    from uuid import uuid4
+    import httpx
+    from fastapi import FastAPI
+    from app import access_control
+    from app.auth import require_user
+
+    user_id, owner_id = uuid4(), uuid4()
+    rows = [
+        {"system_code": "POKEMON_TCG", "provider": "TCGdex",
+         "language": "English", "set_id": "base1", "set_name": "Base Set"},
+        {"system_code": "POKEMON_TCG", "provider": "TCGdex",
+         "language": "English", "set_id": "A3b", "set_name": "Eevee Grove"},
+    ]
+    calls = []
+
+    class Connection:
+        async def fetch(self, sql, *args):
+            calls.append(sql)
+            if "from tcg.owner_memberships m" in sql:
+                return [{"user_id": user_id, "owner_id": owner_id, "role": role,
+                         "founder_authorized": authorized, "owner_type": "FOUNDER" if authorized else "CONSIGNOR",
+                         "display_name": "Test", "founder_slot": 1 if authorized else None}]
+            if "from tcg.reference_sets" in sql:
+                assert args == (False, ["POKEMON_TCG"])
+                return rows
+            raise AssertionError("Unexpected SQL query")
+
+    @asynccontextmanager
+    async def connection(*args):
+        yield Connection()
+
+    monkeypatch.setattr(catalogue_browser, "user_connection", connection)
+    monkeypatch.setattr(access_control, "user_connection", connection)
+    app = FastAPI()
+    app.state.db_pool = object()
+    app.include_router(catalogue_browser.router)
+    app.dependency_overrides[require_user] = lambda: SimpleNamespace(user_id=user_id)
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "set-artwork-coverage-test"
+        return await call_next(request)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                 base_url="http://test") as client:
+        response = await client.get(
+            "/api/v1/catalogue-browser/set-artwork-coverage?system_code=POKEMON_TCG&missing_limit=2"
+        )
+    assert response.status_code == expected
+    if expected == 200:
+        data = response.json()
+        assert data["scope"] == "SET_REFERENCE_RECORDS_NOT_DISTINCT_RELEASES"
+        assert data["total"] == 2 and data["indexed_set_logos"] == 1
+        assert data["missing_set_logos"] == 1
+        assert data["missing"][0]["set_name"] == "Eevee Grove"
+        assert len(calls) == 2
+    else:
+        assert all("from tcg.reference_sets" not in query for query in calls)
