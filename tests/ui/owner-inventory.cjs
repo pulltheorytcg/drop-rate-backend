@@ -195,10 +195,86 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(f.w.document.querySelector('.owner-item-dialog').open,true);
   f.finish();checks++;
  }
+ // A saved quantity is not a fake stepper: arrows preview ±1, cancel/undo
+ // restores the saved count, and the owner-scoped POST happens only on confirm.
+ {
+  const first={...item,status:'APPROVED',sale_intent:'FOR_SALE',store_price_minor:1000,
+    shopify_state:'PUBLISHED',seller_approval_available:true};
+  const second={...first,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',
+    inventory_code:'INV-SECOND-COPY'};
+  const draft={...first,id:'22222222-3333-4444-8555-666666666666',
+    inventory_code:'INV-NEW-DRAFT',status:'DRAFT',sale_intent:'PERSONAL_COLLECTION'};
+  const f=fixture(first);
+  let copies=[first,second],posted=0;
+  f.setHandler(async(url,options)=>{
+    if(url.endsWith('/copies')){
+      posted++;copies=[...copies,draft];
+      return {message:'One copy added. Review and approve it separately before selling.'};
+    }
+    return {item:first,copies};
+  });
+  await f.open();
+  const counter=()=>f.w.document.querySelector('.owner-item-quantity-value');
+  assert.equal(counter().textContent,'2');
+  assert.equal(counter().getAttribute('aria-label'),'Saved quantity 2');
+  await click(f.w,'+');
+  assert.equal(counter().textContent,'3','+ must immediately show proposed quantity');
+  assert.equal(counter().getAttribute('aria-label'),'Proposed quantity 3, not saved');
+  assert.match(f.w.document.querySelector('.owner-item-quantity-feedback').textContent,/Not saved: 2 → 3/);
+  assert.equal(btn(f.w,'+').disabled,true,'A second unsaved request must not silently create another copy');
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,0,'Preview must never mutate stock');
+  await click(f.w,'−');
+  assert.equal(counter().textContent,'2','The opposite arrow must undo the preview');
+  assert.equal(f.w.document.querySelector('.owner-item-confirmation').textContent,'');
+  await click(f.w,'−');
+  assert.equal(counter().textContent,'1','− must immediately show proposed quantity');
+  assert.match(f.w.document.querySelector('.owner-item-confirmation').textContent,/INV-EXACT-COPY/);
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,0);
+  await click(f.w,'Cancel change');
+  assert.equal(counter().textContent,'2');
+  assert.equal(counter().getAttribute('aria-label'),'Saved quantity 2');
+  await click(f.w,'+');
+  assert.equal(counter().textContent,'3');
+  await click(f.w,'Confirm additional copy');
+  assert.equal(posted,1,'Exactly one extra physical record should be requested');
+  assert.equal(counter().textContent,'3','Successful save must reflect server re-read, not optimistic state');
+  assert.equal(counter().getAttribute('aria-label'),'Saved quantity 3');
+  assert.match(f.w.document.querySelector('.owner-item-quantity-breakdown').textContent,/2 approved for sale · 1 awaiting approval/);
+  assert.match(f.w.document.querySelector('.owner-item-message').textContent,/Shopify stock changes only after/);
+  assert.equal(f.w.document.querySelector('.owner-item-confirmation').textContent,'');
+  f.finish();checks++;
+ }
+ // Withdraw the selected physical item, not the entire grouped Shopify offer.
+ {
+  const first={...item,status:'APPROVED',sale_intent:'FOR_SALE',store_price_minor:1000,
+    shopify_state:'PUBLISHED'};
+  const second={...first,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',
+    inventory_code:'INV-SECOND-COPY'};
+  const f=fixture(first);let withdrawn=false;
+  f.setHandler(async(url,options)=>{
+    if(url.endsWith('/withdraw')){
+      withdrawn=true;
+      assert.deepEqual(JSON.parse(options.body),{version:3});
+      return {message:'Copy withdrawn. Its history is retained.'};
+    }
+    return {item:withdrawn?{...first,status:'WITHDRAWN'}:first,
+      copies:withdrawn?[second]:[first,second]};
+  });
+  await f.open();await click(f.w,'−');
+  assert.equal(f.w.document.querySelector('.owner-item-quantity-value').textContent,'1');
+  assert.equal(withdrawn,false,'Preview must not withdraw stock');
+  await click(f.w,'Withdraw this copy');
+  assert.equal(withdrawn,true);
+  assert.equal(f.w.document.querySelector('.owner-item-quantity-value').textContent,'1');
+  assert.equal(f.w.document.querySelector('.owner-item-quantity-value').getAttribute('aria-label'),'Saved quantity 1');
+  assert.match(f.w.document.querySelector('.owner-item-message').textContent,/Copy withdrawn/);
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,1);
+  f.finish();checks++;
+ }
  {
   const f=fixture();let attempts=0;
   f.setHandler(async(url,options)=>{if(url.endsWith('/copies')){attempts++;if(attempts===1)throw new Error('Connection lost');return {message:'Copy added'};}return {item:{...item,version:attempts?4:3},copies:[item]};});
-  await f.open();await click(f.w,'+');await click(f.w,'Confirm additional copy');assert.match(f.w.document.querySelector('.owner-item-message').textContent,/Connection lost/);
+  await f.open();await click(f.w,'+');assert.equal(f.w.document.querySelector('.owner-item-quantity-value').textContent,'2');await click(f.w,'Confirm additional copy');assert.match(f.w.document.querySelector('.owner-item-message').textContent,/Connection lost/);assert.equal(f.w.document.querySelector('.owner-item-quantity-value').textContent,'1','Failed mutation must revert to saved stock');
   await click(f.w,'+');await click(f.w,'Confirm additional copy');const posts=f.calls.filter(c=>c.url.endsWith('/copies'));
   assert.equal(posts.length,2);assert.equal(posts[0].headers['Idempotency-Key'],posts[1].headers['Idempotency-Key']);assert.equal(posts[0].body,posts[1].body);
   assert.deepEqual(JSON.parse(posts[0].body),{version:3,confirmed:true});f.finish();checks++;
