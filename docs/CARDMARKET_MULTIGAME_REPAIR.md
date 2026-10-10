@@ -11,7 +11,25 @@ The founder requested the remaining pricing failures be fixed and supplied the P
 
 Baseline: 510 inventory copies / 251 valued. Owner/Store Price/status fingerprint `ab62e1122c7e51df7a2288288a3c3005`; valued-amount fingerprint `deb7d73c61d3f2b264a3bd85871004d7`.
 
-## Production verification
+## Final production verification
+
+PR #563 merged as `6248f03f1820ad8485dfb0b47297f837f1c61860`. Railway deployment `38d759f7-4cf4-4216-b284-015fab10e0f2` is SUCCESS with readiness 200. All four relevant exact-head workflows passed, including the PostgreSQL tests for cached catalogue reads, ownership, physical pricing and both sealed Dragon Ball systems. CI and Railway each passed **4,893 backend tests**. Original deployment commands, financial/social checks, networking and infrastructure configuration are unchanged; nothing is staged.
+
+At 01:24:35 UTC, Cardmarket revision 4 completed all 463 canonical products, found 241 guide bases, inserted eight additional shared snapshots and recovered six more physical copies. The two releases together recovered **73 inventory prices: 251 → 324 of 510**. Exact row comparison preserves all 510 owners/Store Prices/statuses, and every value/recommended-price/snapshot from both the original 251 and intermediate 318 valued copies.
+
+At 01:24:55 UTC, sealed revision 3 completed **3,878 checked / 2,717 priced**, with no provider failures: Pokémon 2,136, One Piece 269, Masters 246 and Fusion World 66. All 312 new Dragon Ball guides from the source replay are persisted. Two additional Pokémon sealed quotes also became available in today's guide. Original source timestamps are 00:48–00:49 UTC, distinct from the refresh completion time. The 01:25:01 UTC coverage audit records all 73,416 card/sealed references. Current priced-card-reference total is **24,928**.
+
+| Game | Valued inventory copies | Pending inventory copies |
+| --- | ---: | ---: |
+| Pokémon | 177 | 25 |
+| One Piece | 134 | 139 |
+| Dragon Ball Masters | 13 | 16 |
+| Dragon Ball Fusion World | 0 | 6 |
+| **Total** | **324** | **186** |
+
+This repairs confirmed ingestion/matching/calculation omissions; it does not claim universal coverage. The remaining identities need exact printing/grade/language evidence or unavailable quotes. The eBay sold-data probe still reports a provider credit/rate limit. Cardmarket aggregates remain labelled reference estimates through the existing v4 engine, with zero invented sales and no automatic publication eligibility. Fresh eBay evidence keeps priority. Seller asking prices are independent. Daily maintenance remains due at 03:00 Europe/London with recovery, and seller-approved Shopify processing remains unchanged. No new paid provider, service or storefront publication occurred. Fresh signed-in/iPhone acceptance remains outstanding.
+
+## Initial production verification
 
 PR #562 merged as `377c571a262332d962c5b9a3bf07b179c0b5f3fc`. Railway deployment `25a62932-d944-428d-bbd8-423e9696682f` reached SUCCESS with readiness 200 and original financial/social pre-deploy checks retained. All five exact-head CI workflows passed; backend CI and Railway each passed 4,874 tests. The catalogue browser's 37 UI scenarios also passed. The applied migration has the intended SECURITY INVOKER/search-path/grant configuration, and security-advisor findings are unchanged from baseline. No fresh authenticated iPhone acceptance is claimed.
 
@@ -32,7 +50,7 @@ Remaining stock includes 103 raw Japanese singles, two Japanese sealed products,
 
 The same investigation found 464 Dragon Ball sealed references, 342 with explicit cross-provider IDs, excluded by the old two-game sealed worker. Extend the existing pass to game 13 for both systems, fetch shared exports once and keep packaging types separate. Current source replay finds 246 Masters plus 66 Fusion World guides. Eleven case/display records whose source category describes a single booster box remain excluded, as do missing IDs and missing prices. These are catalogue guides with mixed-language/condition limitations, not physical-stock asking prices.
 
-Only an exact repeated collector number at the end of an imported card title can be omitted during matching (`Card (OP15-022)`, `Card (022)` or `Card - OP15-022`). A conflicting number, parallel/pre-release qualifier or ambiguous candidate remains blocked. Stored canonical identities are not rewritten. This follow-up uses Cardmarket calculation revision 4 and sealed revision 3; its final CI/deployment/production counts remain outstanding. Coverage receipts update after a sealed-only refresh.
+Only an exact repeated collector number at the end of an imported card title can be omitted during matching (`Card (OP15-022)`, `Card (022)` or `Card - OP15-022`). A conflicting number, parallel/pre-release qualifier or ambiguous candidate remains blocked. Stored canonical identities are not rewritten. This follow-up uses Cardmarket calculation revision 4 and sealed revision 3; final CI/deployment/production counts are recorded above. Coverage receipts update after a sealed-only refresh.
 
 ## Changes and evidence rules
 
