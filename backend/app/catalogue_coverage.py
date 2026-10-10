@@ -18,8 +18,12 @@ COVERAGE_SQL = '''with coverage as (
    (nullif(btrim(r.provider_id),'') is not null and nullif(btrim(r.name),'') is not null
     and nullif(btrim(r.set_id),'') is not null and nullif(btrim(r.card_number),'') is not null
     and nullif(btrim(r.source_url),'') is not null) as reference_complete
- from tcg.reference_cards r left join tcg.reference_market_prices p using(provider,system_code,language,provider_id)
- left join tcg.reference_sets s using(provider,system_code,language,set_id)
+ from tcg.reference_cards r left join tcg.reference_sets s using(provider,system_code,language,set_id)
+ left join tcg.reference_market_prices p
+ on (p.provider,p.system_code,p.language,p.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
+ and (coalesce(p.quotes->0->>'source','')<>'CARDMARKET_BULK_SINGLES'
+      or p.quotes->0->'reference_identity'=jsonb_build_object(
+        'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',s.name))
  left join tcg.reference_catalogue_prices b
  on (b.provider,b.system_code,b.language,b.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
  and b.pricing_updated_at>=now()-interval '7 days'
