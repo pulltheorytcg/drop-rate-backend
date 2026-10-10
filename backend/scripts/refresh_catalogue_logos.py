@@ -53,6 +53,16 @@ def refresh():
         "delivery": "Original logos from assets.tcgdex.net; exact provider, language and set ID required.",
     }
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+
+    # Keep backend resolver and historical browser title lookup in exact sync.
+    # No new provider is introduced; only the existing TCGdex set indexes.
+    registry_path = STATIC / "title-art" / "set-artwork-registry.json"
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    if registry.get("schema_version") != 1 or "TCGdex" not in registry.get("provider_sets", {}):
+        raise ValueError("Set artwork registry is missing or incompatible")
+    registry["provider_sets"]["TCGdex"] = index
+    registry["provider_index_evidence"] = manifest["provider_set_logos"]
+    registry_path.write_text(json.dumps(registry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({source["language"]: source["logos"] for source in sources}))
 
 
