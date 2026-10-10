@@ -134,7 +134,7 @@ window.DropRateInventory = (() => {
     };
     const actions = el("div", "owner-item-actions");
     const save = button("Save selling price", () => priceAction("selling-price", "PATCH")); save.disabled = !active(item);
-    const approve = button(item.status === "INSPECTION" ? "Update Shopify approval request" : "Approve sale & request review",
+    const approve = button(item.seller_approval_available ? "Approve for Shopify" : item.status === "INSPECTION" ? "Update Shopify approval request" : "Approve sale & request review",
       () => priceAction("approval-request", "POST"), "primary"); approve.disabled = !active(item);
     actions.append(save, approve); sale.append(actions);
     const stateLabel = item.shopify_state ? `Shopify: ${item.shopify_state.replaceAll("_", " ")}` : "Not yet published to Shopify";
@@ -143,7 +143,9 @@ window.DropRateInventory = (() => {
       sale.append(el("p", "", "Before this copy can be published:"));
       const list = el("ul"); item.approval_blockers.forEach(reason => list.append(el("li", "", reason))); sale.append(list);
     }
-    sale.append(el("p", "owner-item-note", "Your approval saves your selling price and requests Drop Rate review. Approved stock marked For sale syncs automatically."));
+    sale.append(el("p", "owner-item-note", item.seller_approval_available
+      ? "Approve to confirm that you hold this exact sealed product and want to sell it at this price. We use the catalogue image. Your stock stays with you and syncs automatically."
+      : "Your approval saves your selling price and requests Drop Rate review. Approved stock marked For sale syncs automatically."));
     const sync = button("Sync to Shopify", () => run(async () => {
       const result = await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/shopify/sync`, {method: "POST", body: JSON.stringify({version: item.version})});
       return {message: `Shopify: ${result.status.replaceAll("_", " ")}`};

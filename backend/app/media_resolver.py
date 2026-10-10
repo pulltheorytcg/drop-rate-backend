@@ -56,6 +56,12 @@ def physical_photo_policy(
         raise ValueError("Physical-photo threshold must be at least £1.00")
 
     product_type = _text(item.get("product_type"))
+    if product_type == "SEALED" and _text(item.get("seal_status")) == "SEALED" and item.get("identity_confirmed") is True:
+        return {
+            "mediaPolicy": "CANONICAL_STOREFRONT_ALLOWED",
+            "physicalPhotosRequired": False, "requiredSides": ["FRONT"],
+            "reasons": [], "thresholdMinor": threshold_minor,
+        }
     if product_type in {"SEALED", "COLLECTION"}:
         return {
             "mediaPolicy": "PHYSICAL_ITEM_REQUIRED",

@@ -276,8 +276,8 @@ def _settlement_amounts(
     fulfilment_material_cost_minor: int,
     commission_minor: int,
     adjustments_minor: int,
-    effective_cogs_minor: int,
-) -> dict[str, int]:
+    effective_cogs_minor: int | None,
+) -> dict[str, int | None]:
     gross_proceeds = (
         item_revenue_minor
         + shipping_revenue_minor
@@ -296,7 +296,7 @@ def _settlement_amounts(
         - commission_minor
         + adjustments_minor
     )
-    owner_profit = net_owner_proceeds - effective_cogs_minor
+    owner_profit = None if effective_cogs_minor is None else net_owner_proceeds - effective_cogs_minor
     return {
         "gross_proceeds_minor": gross_proceeds,
         "external_deductions_minor": external_deductions,
@@ -366,7 +366,7 @@ async def finance_summary(
         )
         cogs = await connection.fetchval(
             """
-            select coalesce(sum(oi.cost_basis_minor), 0)::bigint
+            select case when count(*) filter(where oi.cost_basis_minor is null)>0 then null else coalesce(sum(oi.cost_basis_minor), 0) end::bigint
             from tcg.order_items oi
             where oi.owner_id = $1
               and not exists (
@@ -453,12 +453,12 @@ async def finance_summary(
             "commission_bps": int(owner["commission_bps"] or 0),
             "refunds_minor": refunds,
             "shipping_refunds_minor": shipping_refunds,
-            "cost_of_goods_minor": cost_of_goods,
-            "gross_profit_minor": gross_profit,
-            "net_profit_minor": net_profit,
+            "cost_of_goods_minor": cost_of_goods if cogs is not None else None,
+            "gross_profit_minor": gross_profit if cogs is not None else None,
+            "net_profit_minor": net_profit if cogs is not None else None,
             "fees_complete": missing_fee_sales == 0,
             "shipping_cost_complete": missing_shipping_cost_sales == 0,
-            "net_profit_complete": unreconciled_shopify_sales == 0,
+            "net_profit_complete": unreconciled_shopify_sales == 0 and cogs is not None,
             "unreconciled_external_sales": unreconciled_external_sales,
             "unreconciled_shopify_sales": unreconciled_external_sales,
             "sold_items": int(ledger["sold_items"] or 0),
@@ -533,7 +533,9 @@ async def finance_sales(
         items = []
         for row in rows:
             item = dict(row)
-            effective_cost = 0 if item["returned_to_stock"] else int(item["cost_basis_minor"])
+            effective_cost = None
+            if item["returned_to_stock"] or item["cost_basis_minor"] is not None:
+                effective_cost = 0 if item["returned_to_stock"] else int(item["cost_basis_minor"])
             item["effective_cost_basis_minor"] = effective_cost
             item["fees_complete"] = (
                 item["source"] not in {"SHOPIFY", "EBAY"} or bool(item["fees_reconciled"])
@@ -543,7 +545,7 @@ async def finance_sales(
                 or bool(item["shipping_cost_reconciled"])
             )
             item["profit_complete"] = (
-                item["fees_complete"] and item["shipping_cost_complete"]
+                item["fees_complete"] and item["shipping_cost_complete"] and effective_cost is not None
             )
             item["profit_minor"] = (
                 int(item["net_sale_minor"])
@@ -555,8 +557,8 @@ async def finance_sales(
                 - int(item["commission_minor"])
                 - int(item["refund_minor"])
                 - int(item["shipping_refund_minor"])
-                - effective_cost
-            )
+                - (effective_cost or 0)
+            ) if effective_cost is not None else None
             items.append(item)
         return jsonable_encoder({
             "total": total,
@@ -645,9 +647,9 @@ async def finance_sales_analytics(
               select
                 count(*)::int as sold_items,
                 count(distinct order_id)::int as orders,
-                coalesce(sum(
-                  case when returned_to_stock then 0 else cost_basis_minor end
-                ),0)::bigint as cost_of_goods_minor
+                case when count(*) filter(where not returned_to_stock and cost_basis_minor is null)>0 then null
+                else coalesce(sum(case when returned_to_stock then 0 else cost_basis_minor end),0)
+                end::bigint as cost_of_goods_minor
               from scoped_items
             ),
             reconciliation as (
@@ -751,9 +753,9 @@ async def finance_sales_analytics(
                 bucket_date,
                 count(*)::int as sold_items,
                 count(distinct order_id)::int as orders,
-                coalesce(sum(
-                  case when returned_to_stock then 0 else cost_basis_minor end
-                ),0)::bigint as cost_of_goods_minor
+                case when count(*) filter(where not returned_to_stock and cost_basis_minor is null)>0 then null
+                else coalesce(sum(case when returned_to_stock then 0 else cost_basis_minor end),0)
+                end::bigint as cost_of_goods_minor
               from scoped_items
               group by bucket_date
             )
@@ -765,14 +767,14 @@ async def finance_sales_analytics(
                 + coalesce(l.shipping_revenue_minor,0)
                 - coalesce(l.refunds_minor,0)
               )::bigint as net_revenue_minor,
-              (
+              case when i.sold_items>0 and i.cost_of_goods_minor is null then null else (
                 coalesce(l.sales_revenue_minor,0)
                 + coalesce(l.shipping_revenue_minor,0)
                 - coalesce(l.refunds_minor,0)
                 - coalesce(l.operating_costs_minor,0)
                 - coalesce(i.cost_of_goods_minor,0)
                 + coalesce(l.adjustments_minor,0)
-              )::bigint as profit_minor,
+              ) end::bigint as profit_minor,
               coalesce(i.orders,0)::int as orders,
               coalesce(i.sold_items,0)::int as sold_items
             from items_by_bucket i
@@ -833,9 +835,9 @@ async def finance_sales_analytics(
         "commission_minor": commission,
         "commission_bps": int(owner["commission_bps"] or 0),
         "adjustments_minor": adjustments,
-        "cost_of_goods_minor": cogs,
-        "net_profit_minor": net_profit,
-        "net_profit_complete": missing_fees == 0 and missing_postage == 0,
+        "cost_of_goods_minor": cogs if summary["cost_of_goods_minor"] is not None else None,
+        "net_profit_minor": net_profit if summary["cost_of_goods_minor"] is not None else None,
+        "net_profit_complete": missing_fees == 0 and missing_postage == 0 and summary["cost_of_goods_minor"] is not None,
         "unreconciled_external_sales": max(missing_fees, missing_postage),
         "unreconciled_shopify_sales": max(missing_fees, missing_postage),
         "orders": orders,
@@ -871,7 +873,9 @@ async def finance_settlements(
                 oi.order_id,
                 oi.owner_id,
                 count(*)::int as item_count,
-                coalesce(
+                case when count(*) filter(where oi.cost_basis_minor is null and not exists(
+                    select 1 from tcg.refund_events r where r.order_item_id=oi.id and r.return_to_stock))>0
+                then null else coalesce(
                   sum(
                     case
                       when exists (
@@ -885,7 +889,7 @@ async def finance_settlements(
                     end
                   ),
                   0
-                )::bigint as effective_cogs_minor,
+                ) end::bigint as effective_cogs_minor,
                 bool_and(rec.fees_reconciled_at is not null) as fees_reconciled,
                 bool_and(rec.shipping_cost_reconciled_at is not null)
                   as shipping_cost_reconciled
@@ -1023,7 +1027,7 @@ async def finance_settlements(
             )
             commission = int(item["commission_minor"] or 0)
             adjustments = int(item["adjustments_minor"] or 0)
-            effective_cogs = int(item["effective_cogs_minor"] or 0)
+            effective_cogs = int(item["effective_cogs_minor"]) if item["effective_cogs_minor"] is not None else None
 
             amounts = _settlement_amounts(
                 item_revenue_minor=item_revenue,
