@@ -71,9 +71,20 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    const box=await page.getByRole('dialog').boundingBox();assert.ok(box.x>=0&&box.x+box.width<=viewport.width+1);
    assert.equal(await page.getByRole('dialog').evaluate(d=>d.scrollWidth<=d.clientWidth+1),true,'Details overflow');
    await page.screenshot({path:path.join(out,`details-${viewport.width}.png`)});
+   const counter=page.locator('.owner-item-quantity-value');
+   assert.equal(await counter.innerText(),'1','Fixture starts with one saved physical copy');
    await page.getByRole('button',{name:'Increase quantity by one',exact:true}).click();
+   assert.equal(await counter.innerText(),'2','Mobile/desktop + must preview saved quantity plus one');
+   assert.equal(await counter.getAttribute('aria-label'),'Proposed quantity 2, not saved');
    await page.getByRole('button',{name:'Confirm additional copy',exact:true}).waitFor();
    await page.screenshot({path:path.join(out,`quantity-${viewport.width}.png`)});
+   await page.getByRole('button',{name:'Cancel change',exact:true}).click();
+   assert.equal(await counter.innerText(),'1','Cancel must restore stored quantity');
+   await page.getByRole('button',{name:'Decrease quantity by withdrawing this copy',exact:true}).click();
+   assert.equal(await counter.innerText(),'0','Mobile/desktop − must preview saved quantity minus one');
+   assert.equal(await page.getByRole('button',{name:'Withdraw this copy',exact:true}).count(),1);
+   await page.getByRole('button',{name:'Cancel change',exact:true}).click();
+   assert.equal(await counter.innerText(),'1');
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
    await page.evaluate(existing=>{window.fixtureItem={...existing,status:'APPROVED',
        sale_intent:'FOR_SALE',shopify_state:'PUBLISHED',seller_approval_available:true,
