@@ -16,3 +16,16 @@ The owner overview now reports valued and unvalued active-item counts. A wholly 
 - Read-only production query verification returned existing market values and approved images without modifying data. Three source image downloads returned HTTP 200 and image content types.
 - CI, release and authenticated device validation remain separate gates; this document does not claim them before completion.
 - Revert this PR to restore the previous response/UI/header behaviour. No migration or data rollback is needed.
+
+
+## 10 October 2026 — Single title per Seller Hub tab
+
+**Problem:** The shared `owner-page-header` showed `Inventory` and a lengthy explanation before the inventory panel independently rendered `Inventory` and a second explanation. This wasted vertical space, especially on phone screens. The same duplicate-title pattern appeared on Sales, Settlements and Scan.
+
+**UI resolution:** Every tab has one authoritative page-level heading. `activateOwnerView` hides the shared top header on content-led Search, Inventory, Scan, Sales, Channels and Settlements tabs, leaving each tab's native title/controls. Inventory keeps one concise instruction and product/copy count in the same compact panel header; its redundant collection kicker is removed. Channels receives one compact section-leading `Channels` heading because its channel cards otherwise lack a title. Home, Payouts, Profile, Settings and More retain their shared heading, as they have no duplicate top-level title. Distinct subordinate sections (e.g. Payout History or Synced Inventory within Channels) retain descriptive headers.
+
+**Scope and safety:** HTML/CSS and navigation only. No change to product identity, inventory ownership, Shopify pooling, valuations, pricing, settlement, RLS, authentication, login, or channel sync. The existing nav selection, deep-links and profile/settings paths continue functioning.
+
+**Tests:** JSDOM exercises all 11 tabs, verifying exactly one visible top-level title and preserved original active panel. Chromium at 430px and desktop verifies the duplicate global header is actually invisible (including CSS author overrides), inventory title appears once, search controls remain visible, no horizontal overflow or excessive top padding. Versioned CSS and JS URLs force client refresh together.
+
+**Rollback:** Revert the CSS/HTML/JS commit only if a content-led tab loses its title, while leaving DB, Shopify and the independent OP17 inventory migration untouched.
