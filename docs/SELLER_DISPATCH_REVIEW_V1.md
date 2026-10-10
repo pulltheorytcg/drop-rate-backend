@@ -2,6 +2,22 @@
 
 **Status:** first safe, read-only phase. This is **not** a carrier label or Shopify fulfillment release.
 
+## 11 October 2026 — Fulfill wizard and Shopify-order packing slip print
+
+**Founder instruction:** Every eligible Seller Hub order must have a **Fulfill** action that leads to a print-confirm-dispatch flow, using native Shopify Shipping labels and a Shopify-sourced packing slip.
+
+**Built in this release:** the existing Sales → To Ship physical-item cards now show **Fulfill**. Opening it triggers an exact authenticated Shopify `FulfillmentOrder` preflight and presents the four steps (verify/pack, print packing slip, Shopify Shipping label, confirm dispatched). The packing slip step calls `GET /api/v1/fulfilment/to-ship/{order_item_id}/packing-slip`, which re-fetches Shopify Order.lineItems, checks source order ID, payment, exact stored physical copies and open remaining Shopify fulfillment quantities. It then returns only this owner's Shopify product titles/SKUs, exact inventory IDs and order number. Browser print uses DOM `textContent`, not arbitrary order HTML. It contains no buyer email, postal address, private note, platform commission, acquisition cost, or another owner's items.
+
+**Shopify's native Admin packing-slip template limitation:** Shopify does not expose an officially supported downloadable **native Admin packing-slip PDF** to third-party Seller Hub apps. Its published print extension guidance uses order GraphQL data and developer-generated print content. Therefore the slip is a **Drop Rate-branded, Shopify-order-derived packing slip**, not a claim that the Shopify Admin PDF itself has been downloaded. Official Shopify Shipping still supplies the separately purchased physical carrier label.
+
+**Not deceptively available:** carrier label purchase, document download, and `fulfillmentCreate` dispatch remain disabled behind explicit steps in the wizard until a verified physical custodian/ship-from address, Shopify carrier quote and purchased-label journal, protection against ambiguous purchases and double settlement postings, correct mixed-owner FulfillmentOrder splitting, and protected customer address access are proven. A seller pressing **Fulfill** does **not** mark anything shipped, charge money, or post ledger costs. Printable packing slip != purchased postage.
+
+**Failure tests:** negative cases for cancelled/refunded/unpaid/fully fulfilled Shopify orders, closed/insufficient FO quantity, duplicate physical IDs, wrong/missing owner Shopify links, 1-of-2 pooled same-variant allocations, multi-owner order with unrelated Shopify lines, browser XSS/stale print state, and rendered content with no customer PII. Local native packing slip test exercises both the Shopify data model and the authenticated owner-scoped read endpoint.
+
+**Remaining acceptance gates:** running code branch must pass full pytest, browser, database and image checks; then the stable production backend must deploy and be read back. A paid, physically dispatchable Shopify test order is still necessary before any live label/dispatch flow can be called ready. The previous 3 order records were two cancelled and one refunded, and no customer order or funds were mutated.
+
+---
+
 ## 11 October 2026 — Direct Shopify Shipping API connection (read-only verification live, purchase gated)
 
 Founder confirmed Royal Mail labels can be purchased inside Drop Rate's Shopify Admin and explicitly requested the **native Shopify Shipping** integration, not another carrier subscription.
