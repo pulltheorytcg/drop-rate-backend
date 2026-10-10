@@ -285,7 +285,6 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
     order = SORTS[sort]
     if q.strip():
         # Every term is literal; apostrophes, % and _ never become SQL or wildcards.
-        terms = bind(q.strip().split())
         number_key = re.sub(r"[^a-z0-9]", "", q.strip().lower())
         number_match = "false"
         if number_key and any(character.isdigit() for character in number_key):
@@ -294,10 +293,14 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
         # A complete Bandai collector number is an identity lookup. Splitting
         # 'EB04 007' into broad terms also matched set OP14-EB04/card 007.
         collector_query = re.fullmatch(r'(?:OP|ST|EB|PRB|FB|FS|BT|EX|P)[\s-]*\d{0,2}[\s-]+\d{3}|(?:OP|ST|EB|PRB|FB|FS|BT|EX)\d{5}', q.strip(), re.I)
-        text_match = f"""not exists (
-            select 1 from unnest({terms}::text[]) term where strpos(lower(concat_ws(' ',
-            e.name,e.set_name,e.card_number,e.game,e.variant,e.language,e.rarity)),lower(term))=0)"""
-        where.append(number_match if collector_query else f"({number_match} or {text_match})")
+        if collector_query:
+            where.append(number_match)
+        else:
+            terms = bind(q.strip().split())
+            text_match = f"""not exists (
+                select 1 from unnest({terms}::text[]) term where strpos(lower(concat_ws(' ',
+                e.name,e.set_name,e.card_number,e.game,e.variant,e.language,e.rarity)),lower(term))=0)"""
+            where.append(f"({number_match} or {text_match})")
         if sort in ("newest", "name", "number"):
             exact_query = bind(q.strip().lower())
             order = f"case when {number_match} then 0 when lower(e.name)={exact_query} then 1 else 2 end," + order
