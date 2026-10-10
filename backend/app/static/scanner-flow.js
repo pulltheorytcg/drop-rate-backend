@@ -149,8 +149,19 @@ window.DropRateScanner = (() => {
       edgeSpan(true, right.position, bottom.position - yQuarter, bottom.position - yInset),
     ];
     const cornersSupported = nearCorners.every(support => support >= 0.48);
+    // An oval can have high contrast at the four sampled 'corners' if its
+    // bounding box was fit to its curved sides. Require that each chosen
+    // BORDER actually remains in the SAME place from one end to the other.
+    // A hand's curved silhouette drifts several pixels; a card/pack doesn't.
+    const longitudinal = [
+      edgeSpan(true, left.position, top.position + yInset, bottom.position - yInset),
+      edgeSpan(true, right.position, top.position + yInset, bottom.position - yInset),
+      edgeSpan(false, top.position, left.position + xInset, right.position - xInset),
+      edgeSpan(false, bottom.position, left.position + xInset, right.position - xInset),
+    ];
+    const straightSides = longitudinal.every(support => support >= 0.72);
     return {
-      present: centered && rectangular && fourEdges && cornersSupported,
+      present: centered && rectangular && fourEdges && cornersSupported && straightSides,
       box: {left: left.position, right: right.position, top: top.position, bottom: bottom.position},
       edgeConfidence: Math.min(...borders.map(side => side.support * side.prominence)),
     };
