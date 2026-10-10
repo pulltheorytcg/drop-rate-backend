@@ -111,7 +111,9 @@ def test_channels_api_keeps_whatnot_as_adapter_ready_not_fake_connected_state() 
     assert '"code": "EBAY"' in block
     assert '"code": "WHATNOT"' in block
     assert '"available": False' in block
-    assert '"connection_status": "PLANNED"' in block
+    assert '"connection_status": "DEVELOPER_ACCESS_REQUIRED"' in block
+    assert '"connection_mode": "SELLER_OAUTH"' in block
+    assert '"sync_enabled": False' in block
 
 
 def test_owner_dashboard_renders_payout_top_cards_movers_and_channels() -> None:
