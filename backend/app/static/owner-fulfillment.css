@@ -82,3 +82,28 @@
 .owner-fulfill-action:not(:disabled){background:#164979;color:#fff;border-color:#164979}
 .owner-fulfill-action-primary{background:#164979;color:#fff}
 @media(max-width:750px){.owner-fulfill-header{padding:17px}.owner-fulfill-content{padding:12px 17px 20px}.owner-fulfill-dialog{max-height:92vh}.owner-fulfill-content{max-height:calc(92vh - 96px)}}
+
+/* Shipping transparency in Fulfill, with no invented postage rates. */
+.owner-fulfill-shipping-breakdown {
+  background:#f7faff;border:1px solid #d5e2f0;border-radius:12px;
+  padding:14px;margin:0 0 14px;
+}
+.owner-fulfill-shipping-breakdown p{
+  color:#536b85;font-size:.73rem;line-height:1.5;margin:0 0 12px;
+}
+.owner-fulfill-shipping-breakdown dl{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;gap:11px 14px;margin:0;
+}
+.owner-fulfill-shipping-breakdown dt{
+  color:#556a82;font-size:.72rem;line-height:1.45;
+}
+.owner-fulfill-shipping-breakdown dd{
+  margin:0;font-size:.73rem;font-weight:800;color:#183955;
+  text-align:right;overflow-wrap:anywhere;
+}
+@media(max-width:550px){
+  .owner-fulfill-shipping-breakdown{padding:12px}
+  .owner-fulfill-shipping-breakdown dl{gap:9px 12px}
+  .owner-fulfill-shipping-breakdown dt,.owner-fulfill-shipping-breakdown dd{font-size:.68rem}
+}
