@@ -121,6 +121,7 @@ function ownerInventoryDisplayGroups(items) {
       item.grouped_quantity=1;
       item.group_valued_count=valued?1:0;
       item.group_member_ids=[item.id];
+      item.group_unvalued_code=!valued&&item.can_refresh_market?item.inventory_code:null;
       grouped.set(signature,item);result.push(item);
       continue;
     }
@@ -135,6 +136,7 @@ function ownerInventoryDisplayGroups(items) {
         previous.pricing_method=item.pricing_method;
       }
     }
+    if(!valued&&item.can_refresh_market)previous.group_unvalued_code=item.inventory_code;
     previous.can_refresh_market=Boolean(previous.can_refresh_market||item.can_refresh_market);
   }
   return result;
@@ -304,7 +306,7 @@ function renderInventoryCards(items) {
         refresh.textContent = "Refreshing value…";
         try {
           await apiRequest(
-            `/api/v1/owner/inventory/${encodeURIComponent(item.inventory_code)}/refresh-market`,
+            `/api/v1/owner/inventory/${encodeURIComponent(item.group_unvalued_code||item.inventory_code)}/refresh-market`,
             {method: "POST", body: "{}"}
           );
           showPortalMessage("Market value refreshed from current sealed-product evidence.", "success");
