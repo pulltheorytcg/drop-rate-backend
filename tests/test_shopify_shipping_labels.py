@@ -210,6 +210,7 @@ def test_official_2026_07_label_payload_measured_and_custom_origin():
     {"confirmed_charge_minor": 0},
     {"total_packed_weight_grams": 25.0},
     {"length_cm": 0.0},
+    {"package_type": "TINY_CUP"},
     {"height_cm": -1.0},
     {"shipping_datetime": datetime.now(timezone.utc) - timedelta(minutes=1)},
     {"shipping_datetime": datetime.now(timezone.utc) + timedelta(days=35)},
@@ -228,6 +229,17 @@ def test_older_shopify_versions_refused():
         with pytest.raises(ValueError):
             label.ensure_label_api_version(version)
     label.ensure_label_api_version("2026-07")
+
+
+def test_light_card_envelope_uses_measured_envelope_profile_not_box_guess():
+    entry = confirmed_shipment(
+        package_type="ENVELOPE",
+        total_packed_weight_grams=57.5,
+        package_empty_weight_grams=15.0,
+    )
+    result = label.build_confirmed_label_input(entry)
+    assert result["packageInfo"]["customPackage"]["type"] == "ENVELOPE"
+    assert result["totalWeight"]["value"] == 57.5
 
 
 def test_shopify_purchase_uses_server_only_graphql_and_no_browser_action():
