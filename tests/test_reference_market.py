@@ -201,3 +201,69 @@ async def test_tcgplayer_is_exact_finish_support_without_usd_to_gbp_fallback():
     variant['pricing']['tcgplayer']['normal']['productId']=123
     variant['pricing']['tcgplayer']['updated']=(NOW-timedelta(days=8)).isoformat()
     assert await market.tcgdex_quotes(payload,REFERENCE,FX(),now=NOW)==[]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('treatment',[{'subtype':'unlimited'},{'subtype':'shadowless'},{'stamp':['mcdonalds']},{'stamp':['1st-edition']}])
+async def test_named_variants_keep_exact_references_without_becoming_base_physical_prices(treatment):
+    payload=deepcopy(PAYLOAD);payload['variants_detailed'][0].update(treatment)
+    quotes=await market.tcgdex_quotes(payload,REFERENCE,FX(),now=NOW)
+    assert len(quotes)==1 and quotes[0]['source']==market.VARIANT_SOURCE
+    assert quotes[0]['physical_valuation_eligible'] is False
+    assert quotes[0]['variant_label']!='Normal'
+    assert market.price_view(KEY,quotes,now=NOW)['market_value_minor']==7
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('unpriced_other',[False,True])
+async def test_marketplace_id_shared_across_editions_is_not_evidence_for_either(unpriced_other):
+    payload=deepcopy(PAYLOAD)
+    payload['variants_detailed'][0]['subtype']='shadowless'
+    other=deepcopy(payload['variants_detailed'][0]);other.update(stamp=['1st-edition'],variantId='first-edition')
+    if unpriced_other:other.pop('pricing')
+    payload['variants_detailed'].append(other)
+    assert await market.tcgdex_quotes(payload,REFERENCE,FX(),now=NOW)==[]
+
+
+@pytest.mark.asyncio
+async def test_separate_named_variants_keep_their_own_prices_in_reference_range():
+    payload=deepcopy(PAYLOAD)
+    other=deepcopy(payload['variants_detailed'][0]);other.update(stamp=['special-event'],variantId='event')
+    other['thirdParty']['cardmarket']=123
+    other['pricing']['cardmarket'].update(idProduct=123,trend=10)
+    payload['variants_detailed'].append(other)
+    quotes=await market.tcgdex_quotes(payload,REFERENCE,FX(),now=NOW)
+    assert len(quotes)==2 and market.price_view(KEY,quotes,now=NOW)['market_value_high_minor']==750
+    assert [q['price_gbp_minor'] for q in quotes if q['source']==market.SOURCE]==[7]
+
+
+@pytest.mark.asyncio
+async def test_named_variant_reference_cannot_value_a_physical_base_copy():
+    from app.cardmarket_valuations import guide_values
+    payload=deepcopy(PAYLOAD);payload['variants_detailed'][0]['stamp']=['special-event']
+    quotes=await market.tcgdex_quotes(payload,REFERENCE,FX(),now=NOW)
+    product=dict(REFERENCE,product_type='CARD',game='Pokémon',variant='Normal')
+    reference=dict(REFERENCE,quotes=quotes,reference_language='English',reference_name=REFERENCE['name'],
+                   reference_set_name=REFERENCE['set_name'],reference_number=REFERENCE['card_number'])
+    assert guide_values(product,[reference],now=NOW)==[]
+
+
+@pytest.mark.asyncio
+async def test_detail_refresh_keeps_independent_catalogue_fallback_out_of_tcgdex_writes(monkeypatch):
+    now=datetime.now(timezone.utc)
+    quote=dict(source=market.CATALOGUE_SOURCE,price_gbp_minor=100,observed_at=now.isoformat(),
+               reference_identity={key:REFERENCE[key] for key in ('name','set_id','card_number','set_name')})
+    writes=[]
+    class Connection:
+        async def fetch(self,*args):return [{**REFERENCE,'catalogue_quotes':[quote]}]
+        async def execute(self,sql,*args):writes.append(args)
+    @asynccontextmanager
+    async def connection(*args):yield Connection()
+    async def no_quotes(*args,**kwargs):return []
+    monkeypatch.setattr(market,'user_connection',connection)
+    monkeypatch.setattr(market,'fetch_quotes',no_quotes)
+    view=(await market.refresh_reference_prices(object(),uuid4(),'test',[KEY]))[0]
+    assert view['market_value_minor']==100 and view['market_value_source']==market.CATALOGUE_SOURCE
+    assert writes[0][4]==[] and writes[0][5] is None
+    quote['reference_identity']['name']='Wrong card'
+    assert (await market.refresh_reference_prices(object(),uuid4(),'test',[KEY]))[0]['market_value_minor'] is None

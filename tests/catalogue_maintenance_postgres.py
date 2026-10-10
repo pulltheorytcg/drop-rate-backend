@@ -53,6 +53,7 @@ async def main():
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261008182234_reference_market_prices.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261009144903_catalogue_daily_maintenance.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261009183154_catalogue_market_evidence.sql').read_text())
+        await db.execute((Path(__file__).parents[1]/'database/migrations/20261010120815_database_wide_reference_guides.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20260930124000_shopify_price_reconciliation.sql').read_text())
         actor=UUID('00000000-0000-0000-0000-000000000001');owner=uuid4()
         await db.execute("set role tcg_api")
@@ -187,6 +188,55 @@ async def main():
             coverage=[r for r in await db.fetch(COVERAGE_SQL) if r['system_code']==system]
             assert len(coverage)==1 and coverage[0]['status']=='MIXED_LANGUAGE_GUIDE'
         assert await db.fetchval('select count(*) from tcg.inventory_items')==6
+        # The shared guide remains visible with no owned or canonical product.
+        # Actual SQL also verifies source priority, freshness, identity and RLS.
+        await db.execute('''insert into tcg.reference_sets(provider,system_code,language,set_id,name)
+          values('TCGdex','POKEMON_TCG','English','sv01','Scarlet & Violet');
+          insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number,source_url)
+          values('TCGdex','POKEMON_TCG','English','sv01-001','sv01','Pineco','001/198','https://api.tcgdex.net/v2/en/cards/sv01-001')''')
+        from app.pokemon_catalogue_market import WRITE_SQL as GUIDE_SQL
+        identity=dict(name='Pineco',set_id='sv01',card_number='001/198',set_name='Scarlet & Violet')
+        quote=dict(source='CARDMARKET_CATALOGUE',price_gbp_minor=8,observed_at=now.isoformat(),reference_identity=identity)
+        guide_args=('TCGdex','POKEMON_TCG','English','sv01-001',[quote],8,38,now,now,now+timedelta(days=1),*identity.values())
+        await db.execute(GUIDE_SQL,*guide_args);await db.execute(GUIDE_SQL,*guide_args)
+        assert await db.fetchval("select count(*) from tcg.reference_market_history where provider_id='sv01-001'")==1
+        for owner_filter in ('all','not_owned'):
+            for sort in ('newest','value_asc','value_desc'):
+                sql,args=product_query(owner_id=owner,q='Pineco',owned=owner_filter,sort=sort)
+                found=await db.fetch(sql,*args)
+                assert len(found)==1 and found[0]['owned_quantity']==0 and found[0]['catalogue_id'] is None
+                assert found[0]['market_value_minor']==8 and found[0]['market_value_high_minor']==38
+                assert found[0]['market_value_source']=='CARDMARKET_CATALOGUE' and not found[0]['market_refresh_needed']
+        sql,args=product_query(owner_id=owner,q='Pineco')
+        await db.execute(CARD_PRICE_SQL,'TCGdex','POKEMON_TCG','English','sv01-001',support,None,None,now,now,now+timedelta(days=1))
+        assert (await db.fetch(sql,*args))[0]['market_value_minor']==8,'US context erased a catalogue guide'
+        await db.execute("update tcg.reference_cards set name='Changed' where provider_id='sv01-001'")
+        changed_sql,changed_args=product_query(owner_id=owner,q='Changed')
+        assert (await db.fetch(changed_sql,*changed_args))[0]['market_value_minor'] is None
+        later=list(guide_args);later[8]=now+timedelta(seconds=1);later[5]=99;later[6]=99
+        await db.execute(GUIDE_SQL,*later)
+        assert await db.fetchval('select market_value_minor from tcg.reference_catalogue_prices')==8
+        await db.execute("update tcg.reference_cards set name='Pineco' where provider_id='sv01-001'")
+        fresh=[dict(source='TCGDEX_CARDMARKET',price_gbp_minor=10,observed_at=now.isoformat())]
+        await db.execute(CARD_PRICE_SQL,'TCGdex','POKEMON_TCG','English','sv01-001',fresh,10,10,now,now,now+timedelta(days=1))
+        assert (await db.fetch(sql,*args))[0]['market_value_minor']==10,'A broad guide replaced an exact variant'
+        await db.execute("update tcg.reference_market_prices set pricing_updated_at=now()-interval '8 days' where provider_id='sv01-001'")
+        assert (await db.fetch(sql,*args))[0]['market_value_minor']==8
+        total_before=sum(r['products'] for r in await db.fetch(COVERAGE_SQL))
+        await db.execute("update tcg.reference_catalogue_prices set pricing_updated_at=now()-interval '8 days'")
+        assert (await db.fetch(sql,*args))[0]['market_value_minor'] is None
+        assert sum(r['products'] for r in await db.fetch(COVERAGE_SQL))==total_before,'Stale references disappeared from full coverage'
+        await db.execute("select set_config('tcg.user_id',$1,false)",str(owner))
+        assert await db.fetchval('select count(*) from tcg.reference_catalogue_prices')==1
+        try:
+            await db.execute(GUIDE_SQL,*guide_args)
+            raise AssertionError('Non-admin replaced catalogue guide evidence')
+        except asyncpg.InsufficientPrivilegeError:pass
+        await db.execute("select set_config('tcg.user_id','',false)")
+        assert await db.fetchval('select count(*) from tcg.reference_catalogue_prices')==0
+        await db.execute('reset role')
+        for role in ('anon','authenticated'):
+            assert not await db.fetchval("select has_table_privilege($1,'tcg.reference_catalogue_prices','SELECT')",role)
     finally:await db.close()
     print('PASS: real sealed query, replay, set previews, publication gating/backoff, price finalization/audit, migrations and RLS')
 

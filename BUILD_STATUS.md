@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Entire reference catalogue pricing correction
+
+- The acceptance scope is all 69,538 card references and 3,879 sealed references, independent of inventory. All card references have provider/printing/set/name/number/source fields; baseline GBP coverage is 24,928 cards. The 463 canonical products are not the whole database.
+- Add independent daily Cardmarket Pokémon catalogue guides for unique names in complete matching releases, plus named TCGdex variant references. Preserve original source/FX evidence, separate physical pricing authority, immutable history and RLS. The complete English source replay finds 9,258 guides, including 4,257 previously unpriced references; deployment read-back remains required.
+- Product Details exposes card/set references, marketplace IDs and variant labels. An authenticated full-catalogue coverage read reports every game/language, including unsupported and stale records. Existing eBay/physical valuation, Store Prices, Shopify approval gates and unpublished Brand Redesign are unchanged.
+- Verification and exact-head CI/deployment gates are in progress. See [database-wide reference pricing](docs/DATABASE_WIDE_REFERENCE_PRICING.md) for matching rules, tests and the remaining Japanese/Naruto/digital-reference limits.
+
 ## 10 October 2026 — Pricing repairs verified in production
 
 - PRs #562 and #563 are merged. Final application `6248f03f1820ad8485dfb0b47297f837f1c61860` is live on Railway `38d759f7-4cf4-4216-b284-015fab10e0f2` (SUCCESS, readiness 200). All four follow-up CI workflows passed, including actual PostgreSQL; both CI and pre-deploy passed **4,893 backend tests**. Infrastructure configuration and original financial/social checks are unchanged, with nothing staged.
