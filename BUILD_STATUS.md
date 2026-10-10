@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Seller Hub quantity-control video bug: proposed count and actual save
+
+- In the supplied 9.6s signed-in iPhone recording, the OP17 group shows saved Qty 2. Tapping + or − only swaps a confirmation message; the central number remains 2, looking broken. Root cause: `owner-inventory.js` renders `copies.length` as immutable text and never shows the proposed adjustment. The confirmation routes exist, but this presentation hid the pending state.
+- Fix the existing item dialog (no new API/DB): + previews **3, not saved**, − previews **1, not saved** for two owned copies; opposite arrow or Cancel returns to **2** with no network mutation. Exactly **one** separately tracked physical copy is changed per confirmation. Save returns from the owner-scoped existing `POST /copies` or `POST /withdraw`, then re-fetches saved quantity. Failed/ambiguous saves re-read actual owner stock and preserve the existing idempotent add-copy retry key.
+- Newly added copies remain separate **DRAFT / PERSONAL_COLLECTION** items awaiting per-copy approval; quantity **on Shopify does not rise merely by pressing +**. The details view distinguishes awaiting approval from approved physical units, and Shopify stock is still governed by existing publication verification. Withdrawal continues through sale-intent protection and Shopify/other-channel reconciliation, not a guessed counter decrement.
+- Unit/JSDOM, Android-sized and iPhone-sized Chromium fixture cases cover immediate preview, cancel/undo, no request until confirmation, owner-specific physical withdrawal, after-save server reread, no duplicate POST and failure replay. No live physical stock, Shopify inventory, payments, other owners, theme or settings are mutated during testing. Exact-head CI and deployment/read-back are separate acceptance gates.
+
 ## 10 October 2026 — Fresh Phase 2 system audit and shipping API boundary
 
 - Updated the existing [Phase 2 production system map](docs/PHASE2_SYSTEM_MAP.md) rather than creating a duplicate: seven Railway services; 90 `tcg` Supabase base tables; 511 tracked physical items, 327 stored valuations and 507 PUBLISHED physical Shopify links. Both PSA-labelled prototype services remain retained per the founder's previous decision; diagnostics are not silently deleted.

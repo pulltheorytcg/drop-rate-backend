@@ -84,8 +84,18 @@
  .owner-item-channel .owner-item-channel-action,.owner-item-channel-availability{font-size:.68rem;padding:6px 3px}
  .owner-item-channel-visual{height:40px}.owner-item-channel-logo{height:33px}}
 
-.owner-item-quantity{display:flex;gap:20px;align-items:center}.owner-item-quantity button{font-size:1.25rem;min-width:48px}.owner-item-quantity strong{font-size:1.2rem}
-.owner-item-confirmation{display:grid;gap:10px}.owner-item-confirmation:empty{display:none}
+.owner-item-quantity{display:flex;gap:14px;align-items:center}
+.owner-item-quantity button{font-size:1.25rem;min-width:48px}
+.owner-item-quantity-value{display:grid;place-items:center;min-width:3ch;min-height:44px;font-size:1.3rem;font-variant-numeric:tabular-nums}
+.owner-item-quantity-value.unsaved{padding:0 10px;border:1px solid #e1b746;border-radius:10px;background:#fff4cf;color:#15263a}
+.owner-item-quantity-feedback{font-size:.82rem;font-weight:750;color:#6f4e14}
+.owner-item-quantity-feedback:empty{display:none}
+.owner-item-quantity-breakdown{font-size:.8rem;color:#52677c}
+.owner-item-confirmation{display:grid;gap:11px;padding:13px;border:1px solid #d6e1eb;border-radius:12px;background:#fafcff}
+.owner-item-confirmation:empty{display:none}
+.owner-item-confirmation-actions{display:flex;flex-wrap:wrap;gap:9px}
+.owner-item-confirmation-actions button{flex:1 1 150px}
+
 @media(max-width:600px){
  .owner-item-dialog{width:100%;max-width:100%;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0}
  .owner-item-content{padding:16px 16px calc(24px + env(safe-area-inset-bottom))}
