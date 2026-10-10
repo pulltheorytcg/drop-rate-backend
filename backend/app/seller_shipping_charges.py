@@ -14,10 +14,14 @@ SHIPPING_CHARGES_QUERY = """
 query DropRateOwnerShippingChargePreview($orderId: ID!) {
   order(id: $orderId) {
     id cancelledAt fullyPaid displayFinancialStatus
-    totalShippingPriceSet { shopMoney { amount currencyCode } }
+    currentShippingPriceSet { shopMoney { amount currencyCode } }
     totalRefundedShippingSet { shopMoney { amount currencyCode } }
     shippingLines(first: 30) {
-      nodes { title }
+      nodes {
+        title
+        discountedPriceSet { shopMoney { amount currencyCode } }
+        currentDiscountedPriceSet { shopMoney { amount currencyCode } }
+      }
       pageInfo { hasNextPage }
     }
   }
@@ -84,6 +88,8 @@ def shipping_charge_breakdown(
     if not isinstance(rows, list):
         raise ShippingCostReviewRequired("Shopify delivery methods missing")
     names: list[str] = []
+    charged = 0
+    current_lines = 0
     for row in rows:
         if not isinstance(row, Mapping):
             raise ShippingCostReviewRequired("Shopify delivery method invalid")
@@ -91,13 +97,30 @@ def shipping_charge_breakdown(
         if not name:
             raise ShippingCostReviewRequired("Shopify delivery method missing name")
         names.append(name[:120])
-    total = remote_order.get("totalShippingPriceSet") or {}
+        # Original shipping rate can be higher than the buyer's checkout
+        # payment because a free-shipping discount may reduce it to £0.
+        charged += _money_minor(
+            (row.get("discountedPriceSet") or {}).get("shopMoney"),
+            label="Checkout shipping after discounts",
+        )
+        current_lines += _money_minor(
+            (row.get("currentDiscountedPriceSet") or {}).get("shopMoney"),
+            label="Remaining shipping after refunds and discounts",
+        )
     refunded = remote_order.get("totalRefundedShippingSet") or {}
-    charged = _money_minor(total.get("shopMoney"), label="Customer shipping charged")
+    current = remote_order.get("currentShippingPriceSet") or {}
     returned = _money_minor(refunded.get("shopMoney"), label="Customer shipping refunded")
-    if returned > charged:
-        raise ShippingCostReviewRequired("Refunded shipping exceeds recorded checkout amount")
-    net_customer_shipping = charged - returned
+    net_customer_shipping = _money_minor(
+        current.get("shopMoney"), label="Customer shipping retained"
+    )
+    if returned > charged or charged - returned != net_customer_shipping:
+        raise ShippingCostReviewRequired(
+            "Checkout shipping totals require refund or discount review"
+        )
+    if current_lines != net_customer_shipping:
+        raise ShippingCostReviewRequired(
+            "Shopify delivery line totals require reconciliation"
+        )
 
     owner_share = _local_money(owner_ledger.get("shipping_revenue_minor"), label="Owner shipping credit")
     owner_shipping_refund = _local_money(
