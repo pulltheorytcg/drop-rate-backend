@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Multi-game pricing repair: release candidate
+
+- Confirmed Pokémon-only physical Cardmarket fallback, excluded older One Piece checklists and absent Dragon Ball bulk-price ingestion. Extend the existing daily pipeline with full-release/unique-print checks and separate normal/foil fields. Preserve One Piece rarity from existing full-pack downloads.
+- Source replay finds 1,823 One Piece and 1,755 Dragon Ball reference guides. Physical estimates stay limited to exact supported English printings and confirmed ungraded Near Mint stock, with existing eBay priority. Ambiguous variants, Japanese translation/mapping gaps, slabs and inconsistent imported finishes remain unknown.
+- Add a SECURITY INVOKER reference-cache/identity guard and enforce review mappings across providers. Original EUR/ECB evidence, zero-sale guide labels, owner isolation and seller Store Prices remain intact. No new service, paid plan or theme publication.
+- Targeted and full backend tests passed locally before the final added foil-rarity guard; final CI, real PostgreSQL, migration, deployment and live read-back are release gates. See [multi-game repair evidence](docs/CARDMARKET_MULTIGAME_REPAIR.md).
+
 ## 10 October 2026 — Recorded catalogue repair deployed and verified
 
 - PR #560 is merged as `e64a41122dc01c7862d19a0fbe4a1135ee5df070`. Railway deployment `b569a463-a4c8-4d53-991a-ec69dbbc30ca` is SUCCESS; readiness is 200 and the deployed browser asset matches the repository. Four current-head CI workflows passed, including real PostgreSQL; CI and Railway each passed 4,842 backend tests. Catalogue UI coverage is 37 scenarios, with 2,048 generated price-identity collision cases in the backend suite.

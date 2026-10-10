@@ -37,7 +37,9 @@ def punk_pack_artwork(payload, *, language: str, set_id: str):
                 or not parsed.path.startswith("/images/cardlist/card/")
                 or not re.fullmatch(r"/images/cardlist/card/[A-Za-z0-9_-]+\.(png|webp|jpg|jpeg)", parsed.path)):
             continue
-        record = {"provider_id": ident, "name": name, "image_url": image}
+        rarity = card.get('rarity')
+        record = {"provider_id": ident, "name": name, "image_url": image,
+                  "rarity": rarity if isinstance(rarity,str) and 0<len(rarity)<=80 else None}
         if ident in result and result[ident] != record:
             raise ValueError("Conflicting One Piece artwork printing")
         result[ident] = record

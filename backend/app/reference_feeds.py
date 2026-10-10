@@ -122,6 +122,7 @@ class ReferenceFeeds:
                 for card in cards:
                     if card['provider_id'] in matched:
                         card['image_url'] = matched[card['provider_id']]['image_url']
+                        card['rarity'] = matched[card['provider_id']].get('rarity')
                         card['evidence']['image_reference'] = evidence
                 yield {"provider":"Punk Records","system_code":"ONE_PIECE_CARD_GAME","language":language,
                     "set_id":sid,"name":names.get(sid) or f"Provider pack {sid}",
