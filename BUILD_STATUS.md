@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Recorded catalogue repair deployed and verified
+
+- PR #560 is merged as `e64a41122dc01c7862d19a0fbe4a1135ee5df070`. Railway deployment `b569a463-a4c8-4d53-991a-ec69dbbc30ca` is SUCCESS; readiness is 200 and the deployed browser asset matches the repository. Four current-head CI workflows passed, including real PostgreSQL; CI and Railway each passed 4,842 backend tests. Catalogue UI coverage is 37 scenarios, with 2,048 generated price-identity collision cases in the backend suite.
+- Official discovery completed at 00:23:09 UTC: 520 printings across OP-15/EB04, OP-16 and OP-17, adding 365 missing English references. Daily reference pricing completed at 00:23:19 UTC with 316 Cardmarket guides and no provider failures. Per-set priced counts are 122/196, 97/155 and 97/169. Database-wide reference scope is 69,538 cards plus 3,878 sealed products.
+- The recorded `Eb04 007` query now returns three English and two Japanese Zoro printings without the unrelated Bonney. The English SP has a £277.01 Cardmarket reference (product 904150, expansion 6492), independently of inventory. Ambiguous variants remain unavailable. Original EUR, source time and ECB conversion are preserved.
+- Inventory stays 510 copies / 251 valued, with owner/Store Price/status fingerprint unchanged at `ab62e1122c7e51df7a2288288a3c3005`. The existing daily Pokémon worker refreshed 95 guide snapshots for the new UTC day; an audit confirms zero amount or quote-evidence changes. No new service, paid plan, schema migration or theme publication occurred.
+- Image payloads sampled are 71–82% smaller; loaded nodes persist during pagination. The available browser remains signed out, so fresh iPhone end-to-end timing is outstanding. Older One Piece, Dragon Ball, Naruto and ambiguous printing mappings remain explicit pricing work. See [production evidence and limits](docs/CATALOGUE_MOBILE_REPAIR.md).
+
 ## 10 October 2026 — Recorded catalogue failures: release candidate
 
 - Reproduced the two iPhone recordings against matching Railway request logs: reference images had a 1,728 ms median, the English EB04-007 Zoro printings were absent, and the newest reference rows had no pricing source. The earlier Pokémon price fill is now COMPLETE: 11,910 English and 9,440 Japanese references priced.
