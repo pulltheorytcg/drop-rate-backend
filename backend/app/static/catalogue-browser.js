@@ -366,10 +366,19 @@ window.DropRateCatalogue = (() => {
           // Prefer the backend's typed, provenance-bound set-artwork contract.
           // Legacy lookup only supports cached/fixture responses without artwork.
           const serverArt=row.artwork;
+          const trustedLogoUrl=value=>{
+            if(typeof value!=="string")return false;
+            try {
+              const source=new URL(value);
+              return source.protocol==="https:" && source.host==="assets.tcgdex.net" &&
+                source.pathname.startsWith("/en/") && source.pathname.endsWith("/logo.webp") &&
+                !source.pathname.includes("..") && !source.search && !source.hash;
+            } catch(_) {return false;}
+          };
           const sourceValid=serverArt && ["SET_LOGO","GAME_LOGO","BRANDED_FALLBACK"].includes(serverArt.type) &&
             (serverArt.type==="BRANDED_FALLBACK" ||
-              (typeof serverArt.file==="string" && /^[a-z0-9][a-z0-9-]*\\.(png|jpg|jpeg|webp|svg)$/.test(serverArt.file)) ||
-              (typeof serverArt.url==="string" && /^https:\\/\\/assets\\.tcgdex\\.net\\/en\\/[a-zA-Z0-9_+./%-]+\\/logo\\.webp$/.test(serverArt.url)));
+              (typeof serverArt.file==="string" && /^[a-z0-9][a-z0-9-]*[.](png|jpg|jpeg|webp|svg)$/.test(serverArt.file)) ||
+              trustedLogoUrl(serverArt.url));
           const typedArt=sourceValid?serverArt:null;
           const exactArt=typedArt?(typedArt.type==="SET_LOGO"?typedArt:null):
             window.DropRateTitleArt?.set({...row,set_name:decode(row.set_name)});
