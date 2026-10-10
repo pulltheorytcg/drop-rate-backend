@@ -437,5 +437,37 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(tiles[1].querySelector('.dr-browse-set-name').textContent,'Crimson Blaze');
   f.finish();checks++;
  }
+
+ // The backend owns set artwork selection. Client validates its typed, safe sources.
+ {
+  const f=fixture();
+  f.browser.games=[{game:'Pokémon',system_code:'POKEMON_TCG',languages:['English']}];
+  f.browser.filters.system_code='POKEMON_TCG';f.browser.page='sets';
+  const base={system_code:'POKEMON_TCG',provider:'TCGdex',language:'English',
+    owned_count:0,owned_value_minor:null,indexed_count:107,card_count:107};
+  f.browser.rows=[
+    {...base,set_id:'A3b',set_name:'Eevee Grove',artwork:{
+      type:'GAME_LOGO',status:'SET_LOGO_MISSING',file:'pokemon.webp',source:'OFFICIAL_GAME_MARK'}},
+    {...base,set_id:'base1',set_name:'Base Set',artwork:{
+      type:'SET_LOGO',status:'SOURCE_INDEXED',url:'https://assets.tcgdex.net/en/base/base1/logo.webp',source:'TCGDEX'}},
+    {...base,set_id:'unsafe',set_name:'No official logo',artwork:{
+      type:'SET_LOGO',status:'SOURCE_INDEXED',url:'https://untrusted.example/evil-card.png',source:'TCGDEX'}},
+    {...base,set_id:'missing',set_name:'Missing title artwork',artwork:{
+      type:'BRANDED_FALLBACK',status:'SET_LOGO_MISSING',source:'DROP_RATE_FALLBACK'}}
+  ];
+  f.browser.productImage=()=>{throw new Error('Must never display a reference-card preview for sets');};
+  f.browser.renderRows();
+  const tiles=[...f.browser.find('.dr-browse-set-grid').children];
+  assert.equal(tiles.length,4);
+  assert.equal(tiles[0].dataset.artworkStatus,'SET_LOGO_MISSING');
+  assert.match(tiles[0].querySelector('img').src,/\/assets\/title-art\/pokemon\.webp$/);
+  assert.equal(tiles[1].dataset.artworkStatus,'SOURCE_INDEXED');
+  assert.equal(tiles[1].querySelector('img').src,'https://assets.tcgdex.net/en/base/base1/logo.webp');
+  assert.doesNotMatch(f.browser.find('.dr-browse-content').innerHTML,/untrusted\.example|evil-card/);
+  assert.equal(tiles[3].querySelector('img'),null);
+  assert.equal(tiles[3].querySelector('.dr-browse-set-fallback').textContent,'✦');
+  for(const tile of tiles)assert.ok(tile.querySelector('.dr-browse-set-name').textContent.length);
+  f.finish();checks++;
+ }
  console.log('Catalogue browser: '+checks+' search, navigation, filter, ownership, session and retry scenarios passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
