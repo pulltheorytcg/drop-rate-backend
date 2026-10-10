@@ -62,7 +62,9 @@ async def test_shopify_allocates_both_unknown_cost_consignment_copies():
     a=stock();b=deepcopy(a);b['id']=str(uuid4())
     for row in (a,b):row.update(inventory_id=row['id'],inventory_status='APPROVED',synced_price_minor=1000,
         sku='EXACT-OP17',created_by_user_id=str(uuid4()))
-    connection=SimpleNamespace(fetch=AsyncMock(return_value=[a,b]))
+    connection=SimpleNamespace(fetch=AsyncMock(
+        side_effect=lambda sql,*params: [] if "tcg.shopify_variant_pool_aliases" in sql else [a,b]
+    ))
     specs=[dict(line={'sku':'EXACT-OP17'},variant_gid='gid://shopify/ProductVariant/1',
                 line_reference='1',quantity=2,unit_price_minor=1000,discount_minor=0)]
     units=await _select_order_units(connection,order_reference='order',line_specs=specs)
