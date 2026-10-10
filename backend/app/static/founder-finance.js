@@ -10,7 +10,7 @@ const financeDate = new Intl.DateTimeFormat("en-GB", {
 let financeSalesRange = {preset: "all_time", start: null, end: null};
 
 function formatFinanceMoney(minor) {
-  return financeMoney.format(Number(minor || 0) / 100);
+  return minor === null ? "Not recorded" : financeMoney.format(Number(minor || 0) / 100);
 }
 
 function financeMinorFromInput(value) {

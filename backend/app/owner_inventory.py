@@ -21,6 +21,7 @@ from .inventory_sale_intent import change_inventory_sale_intent
 from .recognition_images import _trusted_reference_url
 from .schemas import InventorySaleIntentChange
 from .settings import get_settings
+from .seller_inventory_policy import sealed_seller_candidate
 
 router = APIRouter(prefix="/api/v1/owner/inventory", tags=["owner-inventory"])
 ACTIVE = {"DRAFT", "INSPECTION", "APPROVED"}
@@ -78,6 +79,7 @@ async def add_reference_artwork(connection, items):
 DETAIL_SQL = """
 select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
  i.condition,i.seal_status,i.grading_company,i.grade,i.certificate_number,
+ o.owner_type,p.language as catalogue_language,pr.identity_status as catalogue_identity_status,
  coalesce(i.language,p.language) as language,i.store_price_minor,i.market_value_minor,
  i.recommended_retail_minor,i.pricing_updated_at,p.product_type,p.game,p.name,p.set_name,
  p.card_number,p.variant,p.rarity,
@@ -93,11 +95,15 @@ select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
    where ((m.scope='INVENTORY_ITEM' and m.inventory_id=i.id and m.owner_id=i.owner_id
            and m.rights_tier='FIRST_PARTY_CAPTURE')
        or (m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT') and m.inventory_id is null
-           and m.catalogue_id=i.catalogue_id and m.rights_tier='STOREFRONT_ALLOWED'))
+           and m.catalogue_id=i.catalogue_id and m.rights_tier='STOREFRONT_ALLOWED'
+           and lower(btrim(coalesce(m.media_language,'')))=lower(btrim(coalesce(i.language,p.language,'')))
+           and lower(btrim(coalesce(m.media_variant,'')))=lower(btrim(coalesce(p.variant,'')))))
      and m.side='FRONT' and m.media_kind='IMAGE' and m.approval_status='APPROVED'
      and m.rights_status='VERIFIED' and m.source_status='ACTIVE' and m.revoked_at is null
    order by (m.inventory_id=i.id) desc,m.approved_at desc nulls last,m.id limit 1) as image_url
 from tcg.inventory_items i join tcg.catalogue_products p on p.id=i.catalogue_id
+join tcg.owners o on o.id=i.owner_id
+left join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
 where i.id=$1 and i.owner_id=$2
 """
 
@@ -116,9 +122,9 @@ order by c.created_at,c.id
 
 def approval_blockers(item):
     missing = []
-    if not item.get("identity_ready"):
+    if not item.get("identity_ready") and not sealed_seller_candidate(item):
         missing.append("Drop Rate identity verification")
-    if not item.get("intake_ready"):
+    if not item.get("intake_ready") and not sealed_seller_candidate(item):
         missing.append("Drop Rate intake review")
     if not item.get("language"):
         missing.append("Product language")
@@ -130,7 +136,7 @@ def approval_blockers(item):
     elif not item.get("seal_status"):
         missing.append("Seal status")
     if not item.get("image_url"):
-        missing.append("An approved listing photo")
+        missing.append("Catalogue image is being prepared" if sealed_seller_candidate(item) else "An approved listing photo")
     return missing
 
 
@@ -146,6 +152,9 @@ async def details(inventory_id: UUID, request: Request,
         await add_reference_artwork(connection, [item])
         copies = await connection.fetch(COPIES_SQL, inventory_id, access["owner_id"])
     item["approval_blockers"] = approval_blockers(item)
+    item["seller_approval_available"] = sealed_seller_candidate(item)
+    for key in ("owner_type", "catalogue_language", "catalogue_identity_status"):
+        item.pop(key, None)
     item.pop("identity_ready", None)
     item.pop("intake_ready", None)
     settings = get_settings()
@@ -205,21 +214,46 @@ async def save_selling_price(inventory_id, payload, request, user, access, *, ap
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         item = await locked_item(connection, inventory_id, access["owner_id"])
         require_editable(item, payload.version)
-        # Seller consent requests inspection; it cannot perform Founder HQ's
-        # physical identity, intake or media approval.
-        target = "INSPECTION" if approval_request and item["status"] == "DRAFT" else item["status"]
-        row = await connection.fetchrow("""update tcg.inventory_items
-            set store_price_minor=$4,status=$5,sale_intent=$6,version=version+1,updated_at=clock_timestamp()
-            where id=$1 and owner_id=$2 and version=$3 returning id,inventory_code,status,sale_intent,version,store_price_minor
-            """, inventory_id, access["owner_id"], payload.version, payload.store_price_minor, target,
-            "FOR_SALE" if approval_request else item["sale_intent"])
-        if row is None:
-            raise HTTPException(409, "Inventory changed. Refresh and try again.")
+        if approval_request:
+            context = await connection.fetchrow(DETAIL_SQL, inventory_id, access["owner_id"])
+            if context and sealed_seller_candidate(dict(context)):
+                if not context["image_url"]:
+                    raise HTTPException(422, "The exact catalogue image is being prepared. Your own photo is not required.")
+                approval = {"owner_id": str(access["owner_id"]), "catalogue_id": str(item["catalogue_id"]),
+                            "actor_user_id": str(user.user_id), "language": context["language"],
+                            "name": context["name"], "set_name": context["set_name"], "variant": context["variant"]}
+                row = await connection.fetchrow("""update tcg.inventory_items set
+                    store_price_minor=$4,status='APPROVED',sale_intent='FOR_SALE',identity_confirmed=true,
+                    source_record=coalesce(source_record,'{}'::jsonb) || jsonb_build_object('seller_held_approval',$5::jsonb),
+                    version=version+1,updated_at=clock_timestamp()
+                    where id=$1 and owner_id=$2 and version=$3
+                    returning id,inventory_code,status,sale_intent,version,store_price_minor
+                    """, inventory_id, access["owner_id"], payload.version,payload.store_price_minor,json.dumps(approval))
+                if row is None:
+                    raise HTTPException(409, "Inventory changed. Refresh and try again.")
+                result = jsonable_encoder({"item": dict(row), "message": "Approved for Shopify using the catalogue image. Your stock stays with you; automatic sync is queued."})
+            else:
+                result = None
+        else:
+            result = None
+        if result is None:
+            result = await _save_review_price(connection, inventory_id, payload, item, access, approval_request)
     request_shopify_sync(request)
-    return jsonable_encoder({"item": dict(row), "message":
-        "Your selling approval is saved. Drop Rate review is required before publication."
-        if approval_request and target != "APPROVED" else "Selling price saved. Approved For Sale stock will sync automatically."})
+    return result
 
+
+async def _save_review_price(connection, inventory_id, payload, item, access, approval_request):
+    target = "INSPECTION" if approval_request and item["status"] == "DRAFT" else item["status"]
+    row = await connection.fetchrow("""update tcg.inventory_items
+        set store_price_minor=$4,status=$5,sale_intent=$6,version=version+1,updated_at=clock_timestamp()
+        where id=$1 and owner_id=$2 and version=$3 returning id,inventory_code,status,sale_intent,version,store_price_minor
+        """, inventory_id, access["owner_id"], payload.version, payload.store_price_minor, target,
+        "FOR_SALE" if approval_request else item["sale_intent"])
+    if row is None:
+        raise HTTPException(409, "Inventory changed. Refresh and try again.")
+    return jsonable_encoder({"item": dict(row), "message":
+    "Your selling approval is saved. Drop Rate review is required before publication."
+    if approval_request and target != "APPROVED" else "Selling price saved. Approved For Sale stock will sync automatically."})
 
 @router.patch("/{inventory_id}/selling-price")
 async def selling_price(inventory_id: UUID, payload: SellingPrice, request: Request,

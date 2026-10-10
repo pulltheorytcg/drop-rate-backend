@@ -25,6 +25,7 @@ from .media_resolver import (
 )
 from .ownership import current_owner as _owner
 from .settings import get_settings
+from .seller_inventory_policy import seller_held_consignment
 from .shopify_completeness import (
     build_shopify_product_plan,
     media_completeness,
@@ -433,7 +434,7 @@ def _test_sync_missing(
         missing.append("APPROVED status")
     if not item["identity_confirmed"]:
         missing.append("identity confirmation")
-    if item["acquisition_cost_minor"] is None:
+    if item["acquisition_cost_minor"] is None and not seller_held_consignment(item):
         missing.append("acquisition cost")
 
     if item["product_type"] == "CARD":
@@ -464,9 +465,9 @@ def _test_sync_missing(
 
     if item["store_price_minor"] is None:
         missing.append("store price")
-    if item["storage_location_id"] is None:
+    if item["storage_location_id"] is None and not seller_held_consignment(item):
         missing.append("registered storage location")
-    elif (
+    elif item["storage_location_id"] is not None and (
         item["registered_location_id"] is None
         or not item["registered_location_active"]
     ):
@@ -2563,7 +2564,7 @@ async def publish_inventory_to_shopify(
             variant_id=variant_id,
             price=_money(int(item["store_price_minor"])),
             sku=str(item["inventory_code"]),
-            cost=_money(int(item["acquisition_cost_minor"])),
+            cost=_money(int(item["acquisition_cost_minor"])) if item["acquisition_cost_minor"] is not None else None,
             shipping_spec=launch["shippingSpec"],
         )
         inventory_item = updated_variant.get("inventoryItem")
@@ -2894,9 +2895,13 @@ async def _select_order_units(
             select
                 sil.*, i.inventory_code, i.status as inventory_status,
                 i.sale_intent,
-                i.acquisition_cost_minor, i.store_price_minor, i.version as inventory_version
+                i.acquisition_cost_minor, i.store_price_minor, i.version as inventory_version,
+                i.source_record,i.catalogue_id,i.language,i.seal_status,i.identity_confirmed,
+                p.product_type,p.name,p.set_name,p.variant,p.language as catalogue_language,o.owner_type
             from tcg.shopify_inventory_links sil
             join tcg.inventory_items i on i.id=sil.inventory_id
+            join tcg.catalogue_products p on p.id=i.catalogue_id
+            join tcg.owners o on o.id=i.owner_id
             where sil.shopify_variant_gid=$1
               and sil.sync_state='PUBLISHED'
             order by sil.allocation_priority, sil.linked_at, sil.inventory_id
@@ -2929,7 +2934,7 @@ async def _select_order_units(
                 "Shopify order exceeds Drop Rate linked stock",
             )
         for allocation_index, link in enumerate(eligible[:spec["quantity"]], start=1):
-            if link["acquisition_cost_minor"] is None:
+            if link["acquisition_cost_minor"] is None and not seller_held_consignment(link):
                 raise ShopifyProcessingError("MISSING_COST", "Linked inventory has no acquisition cost")
             if spec["unit_price_minor"] != int(link["synced_price_minor"]):
                 raise ShopifyProcessingError(

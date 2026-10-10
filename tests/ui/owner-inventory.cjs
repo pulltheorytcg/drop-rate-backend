@@ -19,6 +19,13 @@ function btn(w,text){return [...w.document.querySelectorAll('button')].find(b=>b
 async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);assert.equal(b.disabled,false);b.click();await tick();await tick();}
 (async()=>{
  let checks=0;
+ {
+  const f=fixture({seller_approval_available:true,approval_blockers:[],image_url:'https://cdn.shopify.com/op17.webp'});await f.open();
+  assert.match(f.w.document.querySelector('dialog').textContent,/Your stock stays with you/);
+  assert.doesNotMatch(f.w.document.querySelector('dialog').textContent,/requests Drop Rate review/);
+  f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value='10.00';await click(f.w,'Approve for Shopify');
+  assert.deepEqual(JSON.parse(f.calls.find(c=>c.method).body),{version:3,store_price_minor:1000});f.finish();checks++;
+ }
  for(const change of ['refresh','account','logout']){
   const f=fixture();let resolve;f.setHandler(()=>new Promise(r=>{resolve=r;}));const pending=f.w.testLoadInventory();
   if(change==='logout')f.run(`clearSession();state.session={access_token:'new',user:{id:'seller-a'}};`);

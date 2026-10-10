@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Seller-held sealed publication correction
+
+- The seller explicitly confirmed two Japanese OP-17 packs at the saved £10 price and reuse of the exact Seller Hub image. Replace warehouse-intake review with owner-scoped self-approval for verified intact sealed consignments; retain exact physical ownership, identity, media readiness and sale intent.
+- Unknown acquisition cost/location remain unknown. Shopify omits cost; a restricted database exception preserves NULL in the immutable sale snapshot, and finance reports unknown profit without changing commission or payout proceeds. No historical financial records are rewritten.
+- All 5,050 backend tests and 24 inventory UI scenarios pass locally. Exact-head CI, real PostgreSQL finance/owner checks, migration, deployment and two-copy publication remain pending. The exact official image is READY in Shopify; the owner/product shipping configuration is still being resolved. See [scope and evidence](docs/SELLER_HELD_SEALED_PUBLICATION.md).
+- The Brand Redesign hold and other sellers remain unchanged.
+
 ## 10 October 2026 — Seller inventory controls deployed and verified
 
 - The reported seller Inventory screen was read-only: no item details, price/approval actions or stock controls. Add an accessible detail dialog from grid/list views, exact reference artwork fallback, seller price editing, sale approval/review requests and the existing Shopify sync action. Keep founder-only physical approval and listing-media checks intact.

@@ -28,6 +28,12 @@ def harness(monkeypatch):
             if "status='WITHDRAWN'" in sql:
                 state["item"]["status"] = "WITHDRAWN"
         async def fetchrow(self, sql, *args):
+            if sql == api.DETAIL_SQL:
+                return deepcopy(state.get("detail"))
+            if "status='APPROVED',sale_intent='FOR_SALE'" in sql:
+                state["item"].update(store_price_minor=args[3],status="APPROVED",sale_intent="FOR_SALE",identity_confirmed=True,
+                                     source_record={"seller_held_approval":__import__('json').loads(args[4])},version=args[2]+1)
+                return {k:state["item"][k] for k in ("id","inventory_code","version","status","sale_intent","store_price_minor")}
             if "from tcg.request_receipts" in sql:
                 assert args[0] == owner
                 return state["receipts"].get(args[1])
@@ -92,6 +98,29 @@ async def test_seller_approval_requests_inspection_and_never_approves_identity(h
     assert result["item"]["store_price_minor"]==1234 and h.wake==[True]
     assert h.state["item"]["identity_confirmed"] is False
     assert "acquisition_cost_minor" not in result["item"]
+
+
+@pytest.mark.asyncio
+async def test_verified_sealed_seller_can_approve_with_catalogue_photo(harness):
+    h=harness
+    h.state['detail']={**h.state['item'],'owner_type':'CONSIGNOR','product_type':'SEALED',
+        'catalogue_identity_status':'VERIFIED','catalogue_language':'Japanese',
+        'image_url':'https://cdn.shopify.com/op17.webp','name':'OP17 pack','set_name':'OP17','variant':''}
+    result=await api.approval_request(h.id,api.SellingPrice(version=3,store_price_minor=1000),h.request,h.user,h.access)
+    assert result['item']['status']=='APPROVED' and h.state['item']['identity_confirmed']
+    assert h.state['item']['source_record']['seller_held_approval']['actor_user_id']==str(h.user.user_id)
+    assert h.state['item'].get('acquisition_cost_minor') is None and h.state['item'].get('storage_location_id') is None
+    assert h.wake==[True]
+
+
+@pytest.mark.asyncio
+async def test_reference_only_art_cannot_be_silently_promoted_by_seller(harness):
+    h=harness
+    h.state['detail']={**h.state['item'],'owner_type':'CONSIGNOR','product_type':'SEALED',
+        'catalogue_identity_status':'VERIFIED','catalogue_language':'Japanese','image_url':None}
+    with pytest.raises(HTTPException) as e:
+        await api.approval_request(h.id,api.SellingPrice(version=3,store_price_minor=1000),h.request,h.user,h.access)
+    assert e.value.status_code==422 and h.state['item']['status']=='DRAFT' and not h.wake
 
 
 @pytest.mark.asyncio
