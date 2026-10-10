@@ -59,7 +59,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
     assert.ok(entries.some(entry=>entry[0]===label&&entry[1]===value),label+' missing from item details');
   assert.equal(tile.querySelector('.owner-item-facts'),null);
   f.w.DropRateInventory.close();f.w.document.querySelector('.owner-inventory-open').click();await tick();assert.equal(f.w.document.querySelector('dialog').open,true);
-  assert.match(f.w.document.querySelector('dialog').textContent,/Drop Rate intake review/);assert.equal(btn(f.w,'Sync to Shopify').disabled,true);
+  assert.match(f.w.document.querySelector('dialog').textContent,/Drop Rate intake review/);assert.equal(btn(f.w,'Sync to Shopify'),undefined);
   assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
  }
  // Two approved identical sealed physical copies become ONE quantity-2 card,
@@ -92,13 +92,15 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   f.w.document.querySelector('.owner-inventory-details').click();await tick();
   assert.match(f.w.document.querySelector('.owner-item-quantity').textContent,/2/);
   assert.equal(f.w.document.querySelector('[aria-label="Choose inventory copy"]').options.length,2);
-  assert.equal(btn(f.w,'Sync to eBay').disabled,true,'Sealed consignments cannot use founder-only eBay publisher');
+  assert.equal(btn(f.w,'Sync to eBay'),undefined,'Unsupported eBay sealed publishing must not show a misleading action');
+  assert.equal(f.w.document.querySelector('.owner-item-channel-ebay .owner-item-channel-availability').textContent,'Not available yet');
   assert.match(f.w.document.querySelector('.owner-item-channel-ebay').textContent,/Sealed listings not supported/);
   let opened=null;f.w.open=(url,target,options)=>{opened={url,target,options};};
   await click(f.w,'Set up');
   assert.deepEqual(opened,{url:'https://apps.shopify.com/whatnot',target:'_blank',options:'noopener,noreferrer'});
-  assert.ok(f.w.document.querySelector('.owner-item-channel-ebay img').src.startsWith('https://images.prismic.io/ebayevo/'));
-  assert.ok(f.w.document.querySelector('.owner-item-channel-whatnot img').src.startsWith('https://cdn.shopify.com/app-store/'));
+  assert.equal(f.w.document.querySelector('.owner-item-channel-shopify img').src,'https://upload.wikimedia.org/wikipedia/commons/0/0e/Shopify_logo_2018.svg');
+  assert.equal(f.w.document.querySelector('.owner-item-channel-ebay img').src,'https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg');
+  assert.equal(f.w.document.querySelector('.owner-item-channel-whatnot img').src,'https://upload.wikimedia.org/wikipedia/commons/9/91/Whatnot_Logo_2025.svg');
   assert.equal(f.calls.filter(x=>x.method==='POST').length,0,'Channel setup must never claim a listing published');
   f.finish();checks++;
  }
@@ -137,8 +139,31 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const f=fixture({status:'APPROVED',store_price_minor:1000});await f.open();await click(f.w,'Sync to Shopify');
   assert.ok(f.calls.some(c=>c.url.endsWith('/channels/shopify/sync')&&JSON.parse(c.body).version===3));f.finish();checks++;
  }
+ // Already-published physical stock has a save-price control but must never
+ // show a second approval or Shopify sync action.
+ {
+  const f=fixture({status:'APPROVED',sale_intent:'FOR_SALE',
+    shopify_state:'PUBLISHED',seller_approval_available:true,
+    is_consignment:true,store_price_minor:1000,shopify_sync_enabled:true});
+  await f.open();
+  const modal=f.w.document.querySelector('dialog');
+  assert.ok(modal.querySelector('.owner-item-section h3').textContent==='Selling price');
+  assert.equal(btn(f.w,'Approve for Shopify'),undefined);
+  assert.equal(btn(f.w,'Sync to Shopify'),undefined);
+  assert.ok(btn(f.w,'Save selling price'));
+  assert.match(modal.querySelector('.owner-item-channel-shopify').textContent,/Published/);
+  assert.equal(modal.querySelector('.owner-item-channel-shopify .owner-item-channel-availability').textContent,'Already live');
+  assert.equal(modal.querySelector('.owner-item-channel-ebay button'),null);
+  assert.match(modal.querySelector('.owner-item-channel-ebay').textContent,/Sealed packs aren't supported yet/);
+  assert.match(modal.querySelector('.owner-item-channel-ebay .owner-item-channel-availability').textContent,/Not available yet/);
+  assert.equal(f.calls.filter(call=>call.method==='POST').length,0);
+  const allImages=[...modal.querySelectorAll('.owner-item-channel-logo')];
+  assert.equal(allImages.length,3);
+  assert.ok(allImages.every(img=>img.src.startsWith('https://upload.wikimedia.org/wikipedia/commons/')));
+  f.finish();checks++;
+ }
  for(const override of [{status:'SOLD'},{status:'RESERVED'},{status:'WITHDRAWN'},{sale_intent:'PERSONAL_COLLECTION',status:'APPROVED'},{shopify_sync_enabled:false,status:'APPROVED'}]){
-  const f=fixture(override);await f.open();assert.equal(btn(f.w,'Sync to Shopify').disabled,true);
+  const f=fixture(override);await f.open();assert.equal(btn(f.w,'Sync to Shopify'),undefined);
   if(override.status!=='APPROVED'){assert.equal(btn(f.w,'Save selling price').disabled,true);assert.equal(btn(f.w,'−').disabled,true);assert.equal(btn(f.w,'+').disabled,true);}
   f.finish();checks++;
  }
