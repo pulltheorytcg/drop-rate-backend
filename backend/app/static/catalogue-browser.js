@@ -355,23 +355,29 @@ window.DropRateCatalogue = (() => {
       for(const row of this.rows.slice(previous?start:0)){
         if(this.page==="sets") {
           const tile=button("",()=>{this.set=row;Object.assign(this.filters,{language:row.language,q:"",owned:"all",watch:false,product_type:""});this.page="products";this.load();},"dr-browse-set");
+          tile.dataset.system=row.system_code;
           const art=node("div","dr-browse-set-art");
           if(row.release_date)art.append(node("small","dr-browse-release",new Date(row.release_date+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})));
-          art.append(node("small","",this.game()?.game||""),node("strong","",decode(row.set_name)),node("span","",row.set_id));
+          const visual=node("div","dr-browse-set-visual");
+          const fallback=node("span","dr-browse-set-fallback","✦");fallback.setAttribute("aria-hidden","true");
+          visual.append(fallback);
+          // Set art comes exclusively from approved title-logo mappings.
+          // Individual card or sealed-product previews must never become set covers.
           const exactArt=window.DropRateTitleArt?.set({...row,set_name:decode(row.set_name)});
           const artwork=exactArt||window.DropRateTitleArt?.game(row.system_code);
-          const preview=()=>{if(!row.image_url)return;
-            const label=row.source_kind==='SEALED_REFERENCE'?'Product preview':'Card preview';
-            art.append(this.productImage({...row,name:label+' from '+decode(row.set_name)},'dr-browse-set-preview'));
-            art.append(node('small','',label));
-          };
-          if(!exactArt && row.image_url)preview();
-          else if(artwork)art.append(this.titleImage(artwork,"dr-browse-set-logo",art,exactArt?"has-set-logo":"has-game-logo",preview));
+          if(artwork)visual.append(this.titleImage(artwork,"dr-browse-set-logo",visual,exactArt?"has-set-logo":"has-game-logo"));
           if(exactArt)art.title=exactArt.title;
-          tile.append(art,node("span","","Progress: "+row.owned_count+"/"+(row.card_count||row.indexed_count||"—")),
+          art.append(visual);
+          const info=node("div","dr-browse-set-info");
+          info.append(node("small","dr-browse-set-game",this.game()?.game||row.system_code),
+            node("strong","dr-browse-set-name",decode(row.set_name)),
+            node("small","dr-browse-set-code",row.set_id||""));
+          const stats=node("div","dr-browse-set-stats");
+          stats.append(node("span","","Progress: "+row.owned_count+"/"+(row.card_count||row.indexed_count||"—")),
             node("small","","Total Value: "+(row.owned_count===0?"£0":row.owned_value_minor==null?"Pending":money(row.owned_value_minor)+(row.unknown_values?" + pending":""))));
-          if(row.checklist_status==="UNAVAILABLE")tile.append(node("small","dr-browse-checklist-note","Card checklist unavailable"));
-          else if(row.checklist_status==="PARTIAL")tile.append(node("small","dr-browse-checklist-note",row.indexed_count+" cards available to browse"));
+          if(row.checklist_status==="UNAVAILABLE")stats.append(node("small","dr-browse-checklist-note","Card checklist unavailable"));
+          else if(row.checklist_status==="PARTIAL")stats.append(node("small","dr-browse-checklist-note",row.indexed_count+" cards available to browse"));
+          tile.append(art,info,stats);
           tile.setAttribute("aria-label",decode(row.set_name)+" · "+row.language);grid.append(tile);continue;
         }
         const card=node("article","dr-browse-product");
