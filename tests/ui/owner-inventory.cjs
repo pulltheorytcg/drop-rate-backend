@@ -62,6 +62,67 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.match(f.w.document.querySelector('dialog').textContent,/Drop Rate intake review/);assert.equal(btn(f.w,'Sync to Shopify').disabled,true);
   assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
  }
+ // Two approved identical sealed physical copies become ONE quantity-2 card,
+ // without mutating or losing distinct inventory IDs or inventing prices.
+ {
+  const first={...item,status:'APPROVED',store_price_minor:1000,market_value_minor:866,
+    can_refresh_market:false,is_consignment:true};
+  const second={...first,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',
+    inventory_code:'INV-55FE97FC7BFA4A73A269664EC56D3004',market_value_minor:null,
+    can_refresh_market:true};
+  const f=fixture(first);
+  f.setHandler(async(url,options)=>{
+    if(url.startsWith('/api/v1/owner/inventory?'))return {total:2,items:[first,second]};
+    if(url.startsWith('/api/v1/owner/channels?'))return {channels:[
+      {code:'EBAY',connected:true,sync_enabled:true,connection_status:'READY'}]};
+    return {item:first,copies:[first,second]};
+  });
+  await f.w.testLoadInventory();
+  const cards=[...f.w.document.querySelectorAll('.owner-inventory-card')];
+  assert.equal(cards.length,1);
+  assert.equal(f.w.document.querySelectorAll('#owner-inventory-body tr').length,1);
+  assert.equal(cards[0].querySelector('.owner-card-quantity').textContent,'×2');
+  assert.match(cards[0].querySelector('.owner-card-prices').textContent,/£8.66/);
+  assert.match(cards[0].querySelector('.owner-card-prices').textContent,/1\/2 copies valued/);
+  assert.match(cards[0].querySelector('.owner-card-prices').textContent,/£10.00/);
+  assert.equal(f.w.document.querySelector('#owner-inventory-total-label').textContent,'2');
+  assert.equal(first.market_value_minor,866);
+  assert.equal(second.market_value_minor,null);
+  f.w.document.querySelector('.owner-inventory-details').click();await tick();
+  assert.match(f.w.document.querySelector('.owner-item-quantity').textContent,/2/);
+  assert.equal(f.w.document.querySelector('[aria-label="Choose inventory copy"]').options.length,2);
+  assert.equal(btn(f.w,'Sync to eBay').disabled,true,'Sealed consignments cannot use founder-only eBay publisher');
+  assert.match(f.w.document.querySelector('.owner-item-channel-ebay').textContent,/Sealed listings not supported/);
+  let opened=null;f.w.open=(url,target,options)=>{opened={url,target,options};};
+  await click(f.w,'Set up');
+  assert.deepEqual(opened,{url:'https://apps.shopify.com/whatnot',target:'_blank',options:'noopener,noreferrer'});
+  assert.ok(f.w.document.querySelector('.owner-item-channel-ebay img').src.startsWith('https://images.prismic.io/ebayevo/'));
+  assert.ok(f.w.document.querySelector('.owner-item-channel-whatnot img').src.startsWith('https://cdn.shopify.com/app-store/'));
+  assert.equal(f.calls.filter(x=>x.method==='POST').length,0,'Channel setup must never claim a listing published');
+  f.finish();checks++;
+ }
+ // Strict grouping invariants: cross-condition, language, price, type, ownership
+ // and graded identities must never turn into an interchangeable pack pool.
+ {
+  const f=fixture();
+  const base={...item,status:'APPROVED',store_price_minor:1000,market_value_minor:866,
+    sale_intent:'FOR_SALE'};
+  for(const variant of [
+    {...base,id:'other',language:'English'},
+    {...base,id:'other',store_price_minor:900},
+    {...base,id:'other',seal_status:'UNSEALED'},
+    {...base,id:'other',status:'RESERVED'},
+    {...base,id:'other',product_type:'CARD'},
+    {...base,id:'other',grade:'10',grading_company:'PSA'},
+    {...base,id:'other',variant:'Other packaging'},
+  ]){
+    const items=[base,variant];
+    f.run(`renderInventoryCards(ownerInventoryDisplayGroups(${JSON.stringify(items)}));`);
+    assert.equal(f.w.document.querySelectorAll('.owner-inventory-card').length,2,
+      'Different physical variants must remain separate');
+  }
+  f.finish();checks++;
+ }
  for(const value of ['', '0', '0.99', '1.001']){
   const f=fixture();await f.open();f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value=value;
   await click(f.w,'Save selling price');assert.equal(f.calls.filter(c=>c.method).length,0);assert.match(f.w.document.querySelector('.owner-item-message').textContent,/at least £1/);f.finish();checks++;
