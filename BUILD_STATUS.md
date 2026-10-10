@@ -1,11 +1,13 @@
 # Drop Rate — Live Build Status
 
-## 10 October 2026 — Seller inventory controls repair
+## 10 October 2026 — Seller inventory controls deployed and verified
 
 - The reported seller Inventory screen was read-only: no item details, price/approval actions or stock controls. Add an accessible detail dialog from grid/list views, exact reference artwork fallback, seller price editing, sale approval/review requests and the existing Shopify sync action. Keep founder-only physical approval and listing-media checks intact.
 - Quantity changes create separately tracked unapproved copies with persisted retry receipts or withdraw the exact selected copy through existing channel protection before reducing active stock. Reject stale versions, cross-owner access and sold/reserved edits; never duplicate graded certificates or delete history.
 - The pictured OP-17 Japanese pack has no assigned media, selling price, acquisition cost or storage location. An idempotent profile-only migration attaches the inspected official single-pack reference image; it does not approve a listing photo. Readiness blockers are visible in the detail view.
-- Twenty new UI scenarios and 35 backend cases pass locally. Full-suite, real PostgreSQL CI, migration, deployment and live readback are release gates. See [scope and verification](docs/SELLER_INVENTORY_CONTROLS.md). No production stock edits, new service/provider or theme publication are part of verification.
+- PR #569 merged as `a40b733b7b0ab8d741840bcf5d57d2c965d1545b`. All five exact-head CI jobs passed: **5,030 backend tests**, full dashboard UI (23 new inventory scenarios), n8n image, real PostgreSQL/RLS and Chromium at 430px/1440px. Railway `ed11d7e3-3f23-4558-ac56-d9e881a88cb5` reached SUCCESS at 14:18:49 UTC, including the unchanged pre-deploy gates. Same-account token refresh preserves inventory reload; logout/account changes discard stale responses.
+- The reviewed artwork migration is recorded as `20261010141736_inventory_op17_reference_artwork`. The exact live reference query now returns the official Japanese single-pack image. After release, all **510** physical items retain the same ownership/Store Price/status/sale-intent fingerprint; **447** media approvals remain unchanged. Health/readiness and page/assets return 200; deployed JS/CSS exactly match the release, and unauthenticated detail/artwork requests return 401.
+- The reported copy still requires a selling price, intake review and an approved listing photo before publication. Browser checks used isolated fixtures; no fresh signed-in iPhone acceptance or real inventory mutation is claimed. See [scope and release evidence](docs/SELLER_INVENTORY_CONTROLS.md). No new service/provider or theme publication.
 
 ## 10 October 2026 — Market continuation deployed and verified
 
