@@ -22,8 +22,8 @@ create table if not exists tcg.shopify_variant_pool_aliases (
   constraint pool_alias_product_format
     check (legacy_product_gid ~ '^gid://shopify/Product/[0-9]+$'
            and pooled_product_gid ~ '^gid://shopify/Product/[0-9]+$'),
-  constraint pool_alias_changes_variant
-    check (legacy_variant_gid <> pooled_variant_gid),
+  -- The original pooled anchor can retain its Shopify variant ID while its
+  -- SKU changes. It still needs an immutable original-SKU alias for pre-cutover orders.
   constraint pool_alias_pool_key
     check (listing_key like 'shopify-pool:%'),
   constraint pool_alias_nonempty_sku
