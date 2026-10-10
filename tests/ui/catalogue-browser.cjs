@@ -399,5 +399,43 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   if(kind==='CARDMARKET_CATALOGUE')assert.match(f.browser.sheet.textContent,/not an exact physical-copy valuation/);
   assert.equal(row.owned_quantity,0);f.finish();checks++;
  }
+ // Set artwork is logo-first, equally structured and never a card or pack preview.
+ {
+  const f=fixture();
+  f.browser.games=[{game:'Pokémon',system_code:'POKEMON_TCG',languages:['English']}];
+  f.browser.filters.system_code='POKEMON_TCG';f.browser.page='sets';
+  const base={system_code:'POKEMON_TCG',provider:'TCGdex',language:'English',
+    owned_count:0,owned_value_minor:null,unknown_values:0,indexed_count:120,card_count:120};
+  f.browser.rows=[
+    {...base,set_id:'me05',set_name:'Pitch Black',release_date:'2026-09-16',image_url:'https://example.test/individual-card.png'},
+    {...base,set_id:'B1a',set_name:'Crimson Blaze',source_kind:'REFERENCE',image_url:'https://example.test/bulbasaur-card.png'},
+    {...base,set_id:'unknown-release',set_name:'Unmapped Long-Named Collection Without Official Logo',image_url:null}
+  ];
+  f.browser.productImage=()=>{throw new Error('Set tiles must never fetch individual card previews');};
+  f.browser.renderRows();
+  const tiles=[...f.browser.find('.dr-browse-content').querySelectorAll('.dr-browse-set')];
+  assert.equal(tiles.length,3);
+  assert.equal(f.browser.find('.dr-browse-set-grid').children.length,3);
+  assert.equal(f.browser.find('.dr-browse-set-preview'),null);
+  for(const tile of tiles){
+    assert.equal(tile.querySelectorAll('.dr-browse-set-art').length,1);
+    assert.equal(tile.querySelectorAll('.dr-browse-set-visual').length,1);
+    assert.equal(tile.querySelectorAll('.dr-browse-set-info').length,1);
+    assert.equal(tile.querySelectorAll('.dr-browse-set-stats').length,1);
+    assert.equal(tile.querySelector('.dr-browse-set-game').textContent,'Pokémon');
+    assert.match(tile.querySelector('.dr-browse-set-stats').textContent,/Progress: 0\/120/);
+  }
+  assert.match(tiles[0].querySelector('.dr-browse-set-logo').src,/pokemon-mega-evolution-pitch-black\.png$/);
+  assert.equal(tiles[0].querySelector('.dr-browse-set-name').textContent,'Pitch Black');
+  assert.match(tiles[1].querySelector('.dr-browse-set-logo').src,/\/assets\/title-art\/pokemon\.webp$/);
+  assert.equal(tiles[1].querySelector('.dr-browse-set-name').textContent,'Crimson Blaze');
+  assert.doesNotMatch(f.browser.find('.dr-browse-content').innerHTML,/bulbasaur-card|individual-card|Card preview|Product preview/i);
+  assert.equal(tiles[0].querySelector('.dr-browse-release').textContent,'16 Sept 2026');
+  const broken=tiles[1].querySelector('.dr-browse-set-logo');broken.dispatchEvent(new f.w.Event('error'));
+  assert.equal(tiles[1].querySelector('img'),null,'Broken title art must expose the brand fallback, never a card');
+  assert.equal(tiles[1].querySelector('.dr-browse-set-fallback').textContent,'✦');
+  assert.equal(tiles[1].querySelector('.dr-browse-set-name').textContent,'Crimson Blaze');
+  f.finish();checks++;
+ }
  console.log('Catalogue browser: '+checks+' search, navigation, filter, ownership, session and retry scenarios passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
