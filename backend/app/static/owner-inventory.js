@@ -172,12 +172,6 @@ window.DropRateInventory = (() => {
     sale.append(el("p", "owner-item-note", item.seller_approval_available
       ? "Approve to confirm that you hold this exact sealed product and want to sell it at this price. We use the catalogue image. Your stock stays with you and syncs automatically."
       : "Your approval saves your selling price and requests Drop Rate review. Approved stock marked For sale syncs automatically."));
-    const sync = button("Sync to Shopify", () => run(async () => {
-      const result = await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/shopify/sync`, {method: "POST", body: JSON.stringify({version: item.version})});
-      return {message: `Shopify: ${result.status.replaceAll("_", " ")}`};
-    }));
-    sync.disabled = !(item.shopify_sync_enabled && item.status === "APPROVED" && item.sale_intent === "FOR_SALE");
-    sale.append(sync);
     if (!item.shopify_sync_enabled) sale.append(el("p", "owner-item-note", "Shopify publishing is currently unavailable."));
     content.append(sale);
 
@@ -195,7 +189,7 @@ window.DropRateInventory = (() => {
       {
         code:"SHOPIFY",label:"Shopify",logo:null,
         state:item.shopify_state==="PUBLISHED"?"Published":item.shopify_sync_enabled?"Ready to sync":"Unavailable",
-        action:"Sync",disabled:!item.shopify_sync_enabled||item.status!=="APPROVED"||item.sale_intent!=="FOR_SALE",
+        action:"Sync to Shopify",disabled:!item.shopify_sync_enabled||item.status!=="APPROVED"||item.sale_intent!=="FOR_SALE",
         click:()=>run(async()=>{
           const result=await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/shopify/sync`,
             {method:"POST",body:JSON.stringify({version:item.version})});
@@ -207,7 +201,7 @@ window.DropRateInventory = (() => {
         logo:"https://images.prismic.io/ebayevo/Zm_Swpm069VX1ywL_logo_I1734-53180-5649-25395-5763-35557.png?auto=format%2Ccompress",
         state:item.product_type!=="CARD"?"Sealed listings not supported":
           !ebay.connected?"Seller connection unavailable":!ebay.sync_enabled?"Seller sync not enabled":"Eligible cards only",
-        action:"Sync",disabled:!ebayEligible,
+        action:"Sync to eBay",disabled:!ebayEligible,
         click:()=>run(async()=>{
           const result=await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/ebay/sync`,
             {method:"POST",body:JSON.stringify({version:item.version})});
@@ -234,7 +228,7 @@ window.DropRateInventory = (() => {
       }else visual.append(el("span","owner-item-shopify-mark","▣ Shopify"));
       const info=el("small","owner-item-channel-state",channel.state);
       const action=button(channel.action,channel.click,"owner-item-channel-action");
-      action.setAttribute("aria-label",(channel.action==="Set up"?"Set up ":"Sync to ")+channel.label);
+      action.setAttribute("aria-label",channel.action==="Set up"?"Set up "+channel.label:channel.action);
       action.disabled=channel.disabled;
       if(channel.disabled)action.title=channel.state;
       block.append(visual,info,action);channelGrid.append(block);
