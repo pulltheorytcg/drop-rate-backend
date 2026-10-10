@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Seller publication actor correction
+
+- PR #573 deployed as `6062f10aae62067056b4a1048011329070c68b66`; all six CI jobs passed, Railway `6c1afe0d-755e-4942-a2f4-5f61dd5798bf` reached SUCCESS at 15:32:37 UTC, 5,070 pre-deploy tests passed and readiness returned 200. The exact OP-17 drafts now pass remote brand/stock verification with the approved image, £10 and quantity one.
+- Persistence then correctly refused the founder actor under an obsolete rule requiring a PLATFORM_ADMIN membership inside the seller's owner account. The existing platform authority deliberately requires a founder to have exactly one founder membership, so adding a seller membership would invalidate it.
+- Align both draft/published link functions with `tcg.is_platform_admin()` and require the supplied actor to equal the authenticated `tcg.current_user_id()`. Retain exact item/owner/version/sale-intent, remote product identity, event authorization and audit guards. No memberships, owners, RLS policies, grants or historical links change.
+- Extend the disposable PostgreSQL gate to reproduce the original failure and exercise actual link functions as `tcg_api`, including cross-owner founder publication, spoofed actors, disabled founders, wrong owners, stale versions, changed intent, wrong remote IDs, retries and audits. Migration application and final publication remain pending. See [evidence](docs/SELLER_HELD_SEALED_PUBLICATION.md).
+
 ## 10 October 2026 — Approved-image retry and Shopify permission diagnosis
 
 - PR #572 is deployed as `fb952da10921d26b8766aa8e4753af56887cf6c2`; all eight CI jobs passed, Railway `96921431-1654-488d-a929-ae3a82b89415` reached SUCCESS at 15:22:10 UTC, pre-deploy passed 5,063 tests and readiness returned 200. Branding uses the shared existing copy template and an exact approved-gallery check, including Shopify-equivalent HTML serialization.

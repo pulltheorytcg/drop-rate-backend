@@ -167,6 +167,10 @@ async def main():
                 await db.execute('insert into tcg.order_items(owner_id,inventory_id,cost_basis_minor) values($1,$2,null)',owner,item)
                 raise AssertionError('Changed identity retained cost exception')
             except asyncpg.CheckViolationError:pass
+        await db.execute("update tcg.catalogue_products set language='Japanese' where id=$1",product)
+        await db.execute("update tcg.inventory_items set language='Japanese' where id=$1",item)
+        from seller_publication_postgres import verify_publication_actor
+        await verify_publication_actor(db,pool,owner,item,foreign,actor)
         print('Seller inventory PostgreSQL: owner isolation, exact artwork/migration replay, concurrent quantity receipts, price/approval guards and audited withdrawal passed.')
     finally:
         if pool:await pool.close()
