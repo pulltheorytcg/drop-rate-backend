@@ -8,13 +8,22 @@ postage provider setup, and exact Shopify fulfillment-order preflight are built.
 from __future__ import annotations
 
 from typing import Annotated, Any, Mapping
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 
 from .access_control import current_access_context
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .settings import get_settings
+from .shopify_client import ShopifyAdminClient, ShopifyApiError
+from .shopify_shipping_labels import (
+    ORDER_SHIPPING_QUERY, canonical_shopify_order_gid,
+    canonical_shopify_line_gid, ensure_label_api_version,
+    evaluate_remote_shipping,
+)
+
 
 
 router = APIRouter(prefix="/api/v1/fulfilment", tags=["seller-fulfilment"])
@@ -140,4 +149,155 @@ async def owner_to_ship(
         "items": items,
         "capabilities": CAPABILITIES.copy(),
         "note": "Dispatch remains on hold until shipper, genuine label and Shopify fulfillment checks are verified.",
+    })
+
+
+def _shipping_admin_client() -> ShopifyAdminClient:
+    settings = get_settings()
+    if not all((
+        settings.shopify_shop_domain, settings.shopify_client_id,
+        settings.shopify_client_secret, settings.shopify_api_version,
+    )):
+        raise HTTPException(status_code=503, detail="Shopify connection is not configured")
+    try:
+        ensure_label_api_version(settings.shopify_api_version)
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail="Shopify shipping API version is outdated") from exc
+    return ShopifyAdminClient(
+        shop_domain=settings.shopify_shop_domain,
+        client_id=settings.shopify_client_id,
+        client_secret=settings.shopify_client_secret,
+        api_version=settings.shopify_api_version,
+    )
+
+
+@router.get("/shopify-status")
+async def owner_shopify_shipping_status(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Prove backend's DIRECT Shopify app scopes, not the ChatGPT connector.
+
+    No admin credentials, customer data or ability to purchase labels is exposed.
+    """
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id,
+    ) as connection:
+        await current_access_context(connection)
+    client = _shipping_admin_client()
+    try:
+        shop = await client.probe_shop()
+        scopes = await client.access_scopes()
+    except ShopifyApiError as exc:
+        raise HTTPException(
+            status_code=503 if exc.retryable else 502,
+            detail="Shopify Shipping connection could not be verified",
+        ) from exc
+    can_read = {"read_orders", "read_merchant_managed_fulfillment_orders"} <= scopes
+    can_write = {"write_orders", "write_merchant_managed_fulfillment_orders"} <= scopes
+    return jsonable_encoder({
+        "store_connected": True,
+        "shop": str(shop.get("name") or "Drop Rate"),
+        "shop_domain": client.shop_domain,
+        "api_version": client.api_version,
+        "shopify_fulfilment_read_access": can_read,
+        "shopify_label_write_scopes_present": can_write,
+        "shopify_label_purchase_operation": "ADAPTER_BUILT_PURCHASE_DISABLED",
+        "carrier_label_purchase": False,
+        "dispatch_confirmation": False,
+        "postage_cost_verified": False,
+        "reason": (
+            "No owner-scoped carrier purchase journal, verified custody, "
+            "confirmed postage quote or approved live order pilot."
+        ),
+    })
+
+
+@router.get("/to-ship/{order_item_id}/shopify")
+async def owner_shopify_preflight(
+    order_item_id: UUID,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    """Read live Shopify FulfillmentOrder for one provably owned physical copy."""
+    async with user_connection(
+        request.app.state.db_pool, user.user_id, request.state.request_id,
+    ) as connection:
+        access = await current_access_context(connection)
+        owner_id = access["owner_id"]
+        record = await connection.fetchrow(
+            """
+            select
+              o.id as local_order_id, o.source_reference, o.status as order_status,
+              i.status as physical_status,
+              sol.shopify_order_id, sol.shopify_line_item_id,
+              sol.shopify_variant_gid
+            from tcg.order_items oi
+            join tcg.orders o on o.id=oi.order_id
+            join tcg.inventory_items i
+              on i.id=oi.inventory_id and i.owner_id=$1
+            left join tcg.shopify_order_item_links sol
+              on sol.order_item_id=oi.id and sol.owner_id=$1
+            where oi.id=$2 and oi.owner_id=$1 and o.source='SHOPIFY'
+            """,
+            owner_id, order_item_id,
+        )
+        if record is None:
+            raise HTTPException(status_code=404, detail="Shopify order allocation not found")
+        candidate = dict(record)
+        if candidate["order_status"] not in {"PAID", "PARTIALLY_REFUNDED"}:
+            raise HTTPException(status_code=409, detail="Order is no longer eligible for dispatch")
+        local = await connection.fetch(
+            """
+            select
+              i.status as physical_status,
+              sol.shopify_order_id, sol.shopify_line_item_id,
+              sol.shopify_variant_gid
+            from tcg.order_items oi
+            join tcg.inventory_items i
+              on i.id=oi.inventory_id and i.owner_id=$1
+            left join tcg.shopify_order_item_links sol
+              on sol.order_item_id=oi.id and sol.owner_id=$1
+            where oi.order_id=$2 and oi.owner_id=$1
+            order by oi.id
+            """,
+            owner_id, candidate["local_order_id"],
+        )
+    try:
+        remote_order_gid = canonical_shopify_order_gid(candidate["source_reference"])
+        target_line_gid = canonical_shopify_line_gid(candidate["shopify_line_item_id"])
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail="Exact Shopify order allocation missing") from exc
+
+    client = _shipping_admin_client()
+    if (not candidate.get("shopify_order_id") or
+            str(candidate["shopify_order_id"]) != str(candidate["source_reference"])):
+        raise HTTPException(status_code=409, detail="Shopify order reference mismatch")
+    try:
+        result = await client.graphql(
+            query=ORDER_SHIPPING_QUERY,
+            variables={"orderId": remote_order_gid},
+        )
+    except ShopifyApiError as exc:
+        raise HTTPException(
+            status_code=503 if exc.retryable else 502,
+            detail="Could not verify live Shopify fulfillment. Dispatch remains locked.",
+        ) from exc
+    remote = evaluate_remote_shipping(
+        order=result.get("order"),
+        local_allocations=[dict(x) for x in local],
+        target_line_gid=target_line_gid,
+    )
+    if candidate["order_status"] != "PAID":
+        remote["blockers"].insert(0, "LOCAL_PARTIAL_REFUND_REVIEW_REQUIRED")
+        remote["state"] = "REVIEW_REQUIRED"
+    if candidate["physical_status"] != "SOLD":
+        if "PHYSICAL_INVENTORY_STATE_MISMATCH" not in remote["blockers"]:
+            remote["blockers"].insert(0, "PHYSICAL_INVENTORY_STATE_MISMATCH")
+        remote["state"] = "REVIEW_REQUIRED"
+    return jsonable_encoder({
+        "order_item_id": order_item_id,
+        "order_status": candidate["order_status"],
+        **remote,
+        "source": "DIRECT_SHOPIFY_ADMIN_API",
     })
