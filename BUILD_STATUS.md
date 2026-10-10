@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Set artwork coverage audit and backend identity contract
+
+- PR #577 previously corrected Seller Hub set-tile layout and removed the random-card-image fallback. A 10 October read-only Supabase audit still found only **161 / 1,449 provider/language set records** with matching exact-title logos: Pokémon English 159/220, Japanese 0/186, CardTrader unknown-language 0/459, One Piece 2/201, Dragon Ball 0/302, Naruto 0/81. These are catalogue *source records*, not deduplicated physical releases. The generic Eevee Grove A3b title image is due to a missing TCGdex logo mapping, despite external official artwork.
+- The follow-up adds a registry mirroring existing permitted TCGdex and checked-in publisher set images, a deterministic backend set-artwork resolver, typed catalogue responses, and founder-only `/api/v1/catalogue-browser/set-artwork-coverage` diagnostics. New indexed images still require explicit set/game/language matching. Unknown assets fail safely to the game mark/Drop Rate placeholder. Original source/provenance is **not** a commercial licence grant. No DB, Shopify, inventory, theme, payout or new provider changes.
+- The existing TCGdex refresh updates both backend registry and browser lookup; parity, RBAC, URL safety, no-card-preview and UI regressions have added tests. The source-by-source backlog, especially Japanese Pokémon, One Piece, Dragon Ball and Naruto, remains **open**, not falsely claimed complete. Eevee Grove's archived official logo is listed for rights review rather than silently embedded from a fair-use host. See [coverage and sourcing record](docs/CATALOGUE_SET_ARTWORK_COVERAGE.md).
+- The unrelated two-identical-OP17-packs issue is still tracked separately in #576; quantity pooling must not be simulated by archiving a Shopify product without deterministic Supabase/order allocations. This work does not modify OP17.
+- The Brand Redesign publishing gate remains in place. CI, production deployment/readback and signed-in handset checks remain required for the new continuation.
+
 ## 10 October 2026 — Two OP-17 packs published and branding verified
 
 - Both requested Japanese OP-17 packs are **ACTIVE and published to Online Store**, at **£10 each**, with available/on-hand quantity **1 per exact listing** and zero committed. Shopify readback confirms the original product/variant IDs and SKUs, the single approved official image, and Sealed/One Piece collection membership. Backend links and the automatic worker are COMPLETE / PUBLISHED, with zero publication failures.

@@ -13,7 +13,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from .access_control import current_access_context
+from .access_control import current_access_context, require_platform_admin_request
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .inventory_intake import create_inventory_intake, _find_exact_catalogue, _manual_identity_key
@@ -22,6 +22,7 @@ from .recognition_games import SYSTEM_BY_GAME
 from .reference_market import refresh_reference_prices
 from .recognition_images import reference_image_bytes
 from .catalogue_artwork import reference_thumbnail
+from .catalogue_set_artwork import resolve_set_artwork, artwork_coverage
 from .cardtrader_recognition import _cardtrader_image_url
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 
@@ -59,6 +60,7 @@ def set_metadata_only(row):
     for name in ("image_url", "display_image_url", "fallback_image_url",
                  "reference_image_path", "source_kind", "provider_id"):
         result.pop(name, None)
+    result["artwork"] = resolve_set_artwork(result)
     return result
 
 
@@ -264,6 +266,29 @@ async def price_coverage(request: Request, user: Annotated[AuthenticatedUser, De
     items = [dict(row) for row in rows]
     return jsonable_encoder({'scope':'ALL_REFERENCE_CARDS_AND_SEALED_PRODUCTS','items':items,
                              'total':sum(row['products'] for row in items)})
+
+
+@router.get("/set-artwork-coverage")
+async def set_artwork_coverage(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    admin: Annotated[dict, Depends(require_platform_admin_request)],
+    system_code: str = Query(default="", max_length=80),
+    missing_limit: int = Query(default=40, ge=1, le=150),
+):
+    # This reports navigation-asset coverage, not inventory or media approvals.
+    # Founders only: the long-tail gaps are an internal maintenance backlog.
+    systems = browse_systems(system_code) if system_code else []
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        rows = await connection.fetch(
+            """select provider,system_code,language,set_id,name as set_name,release_date
+               from tcg.reference_sets
+               where (release_date is null or release_date<=current_date)
+                 and ($1::boolean or system_code=any($2::text[]))
+               order by release_date desc nulls last,system_code,language,provider,name,set_id""",
+            not system_code, systems,
+        )
+    return jsonable_encoder(artwork_coverage(rows, missing_limit=missing_limit))
 
 
 @router.get("/games")

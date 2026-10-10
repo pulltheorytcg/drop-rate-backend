@@ -273,7 +273,7 @@ window.DropRateCatalogue = (() => {
       if(!this.games.length)content.append(node("p","dr-browse-empty","The catalogue is being prepared. Try scanning an item."));
     }
     titleImage(artwork,cls,host,loadedClass,onError) {
-      const image=node("img",cls);image.alt="";image.decoding="async";image.loading="eager";
+      const image=node("img",cls);image.alt="";image.decoding="async";image.loading=cls==="dr-browse-set-logo"?"lazy":"eager";
       image.addEventListener("load",()=>host.classList.add(loadedClass));
       image.addEventListener("error",()=>{host.classList.remove(loadedClass);image.remove();onError?.();});
       image.referrerPolicy="no-referrer";
@@ -363,10 +363,30 @@ window.DropRateCatalogue = (() => {
           visual.append(fallback);
           // Set art comes exclusively from approved title-logo mappings.
           // Individual card or sealed-product previews must never become set covers.
-          const exactArt=window.DropRateTitleArt?.set({...row,set_name:decode(row.set_name)});
-          const artwork=exactArt||window.DropRateTitleArt?.game(row.system_code);
+          // Prefer the backend's typed, provenance-bound set-artwork contract.
+          // Legacy lookup only supports cached/fixture responses without artwork.
+          const serverArt=row.artwork;
+          const trustedLogoUrl=value=>{
+            if(typeof value!=="string")return false;
+            try {
+              const source=new URL(value);
+              return source.protocol==="https:" && source.host==="assets.tcgdex.net" &&
+                source.pathname.startsWith("/en/") && source.pathname.endsWith("/logo.webp") &&
+                !source.pathname.includes("..") && !source.search && !source.hash;
+            } catch(_) {return false;}
+          };
+          const sourceValid=serverArt && ["SET_LOGO","GAME_LOGO","BRANDED_FALLBACK"].includes(serverArt.type) &&
+            (serverArt.type==="BRANDED_FALLBACK" ||
+              (typeof serverArt.file==="string" && /^[a-z0-9][a-z0-9-]*[.](png|jpg|jpeg|webp|svg)$/.test(serverArt.file)) ||
+              trustedLogoUrl(serverArt.url));
+          const typedArt=sourceValid?serverArt:null;
+          const exactArt=typedArt?(typedArt.type==="SET_LOGO"?typedArt:null):
+            window.DropRateTitleArt?.set({...row,set_name:decode(row.set_name)});
+          const artwork=typedArt?(typedArt.type==="BRANDED_FALLBACK"?null:typedArt):
+            exactArt||window.DropRateTitleArt?.game(row.system_code);
           if(artwork)visual.append(this.titleImage(artwork,"dr-browse-set-logo",visual,exactArt?"has-set-logo":"has-game-logo"));
           if(exactArt)art.title=exactArt.title;
+          tile.dataset.artworkStatus=typedArt?.status||(exactArt?"SOURCE_INDEXED":"SET_LOGO_MISSING");
           art.append(visual);
           const info=node("div","dr-browse-set-info");
           info.append(node("small","dr-browse-set-game",this.game()?.game||row.system_code),
