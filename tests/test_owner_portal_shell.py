@@ -272,7 +272,7 @@ def test_scanner_autocapture_rejects_texture_only_card_presence() -> None:
     assert "this.absenceFrames >= 3" in shared
     assert "this.presenceFrames < 3 || this.stableFrames < 3" in shared
     assert "Card detected · hold steady inside the guide" in shared
-    assert "this.status(\"Clear the guide briefly, then place your card inside\")" in shared
+    assert '"Clear the guide briefly, then place your card inside"' in shared
     assert "|| deviation >= 0.18" not in shared
 
     # The existing mobile fallback must never retain the old 'busy
