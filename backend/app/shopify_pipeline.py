@@ -2239,7 +2239,7 @@ async def sync_shopify_prices(
                     join tcg.inventory_items i on i.id=sil.inventory_id
                     where sil.id=$1
                       and sil.owner_id=$2
-                    for update of sil, i
+                    for update of sil,i
                     """,
                     candidate["link_id"],
                     owner_id,
@@ -3111,7 +3111,7 @@ async def _process_created_order(
         join tcg.inventory_items i on i.id=sil.inventory_id
         where sil.reserved_order_reference=$1
         order by sil.allocation_priority,sil.inventory_id
-        for update of sil, i
+        for update of sil,i
         """,
         order_reference,
     )
@@ -3421,7 +3421,7 @@ async def _process_cancelled_order(
         join tcg.inventory_items i on i.id=sil.inventory_id
         where sil.reserved_order_reference=$1
         order by sil.allocation_priority,sil.inventory_id
-        for update of sil, i
+        for update of sil,i
         """,
         order_reference,
     )
