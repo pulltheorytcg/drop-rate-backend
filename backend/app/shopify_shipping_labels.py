@@ -14,7 +14,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
-from urllib.parse import urlsplit
 import re
 
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
@@ -78,7 +77,6 @@ _FO_ID_RE = re.compile(r"^gid://shopify/FulfillmentOrder/\d{1,24}$")
 _RESULT_ID_RE = re.compile(r"^gid://shopify/ShippingLabelPurchaseResult/\d{1,24}$")
 _RATE_CODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 _COUNTRY_CODE_RE = re.compile(r"^[A-Z]{2}$")
-_URL_HOSTS = ("cdn.shopify.com", "shopify.com")
 
 
 def ensure_label_api_version(version: str) -> None:
@@ -245,6 +243,7 @@ class ConfirmedShipment:
     confirmed_charge_minor: int
     purchase_journal_reserved: bool
     physical_custody_verified: bool
+    package_type: str = "BOX"
 
 
 def build_confirmed_label_input(shipment: ConfirmedShipment) -> dict[str, Any]:
@@ -267,6 +266,8 @@ def build_confirmed_label_input(shipment: ConfirmedShipment) -> dict[str, Any]:
         raise ValueError("Measured physical package dimensions and weight are required")
     if shipment.package_empty_weight_grams >= shipment.total_packed_weight_grams:
         raise ValueError("Total packed weight must exceed empty packaging weight")
+    if shipment.package_type not in {"BOX", "ENVELOPE", "FLAT_RATE", "SOFT_PACK"}:
+        raise ValueError("Invalid verified carrier package type")
     origin = dict(shipment.origin_address)
     for field in ("address1", "city", "zip", "countryCode", "firstName", "lastName"):
         if not isinstance(origin.get(field), str) or not origin[field].strip():
@@ -289,7 +290,7 @@ def build_confirmed_label_input(shipment: ConfirmedShipment) -> dict[str, Any]:
                 "length": float(shipment.length_cm), "width": float(shipment.width_cm),
                 "height": float(shipment.height_cm), "unit": "CENTIMETERS",
             },
-            "type": "BOX",
+            "type": shipment.package_type,
         }},
         "originAddress": {k: v.strip() for k, v in origin.items() if k in allow and v},
         "preferredRateSelection": {
