@@ -121,8 +121,36 @@ window.DropRateScanner = (() => {
          && Math.abs(widthRatio - heightRatio) <= 0.16);
     const fourEdges = borders.every(side => side.mean >= 0.105
       && side.support >= 0.54 && side.prominence >= 1.40);
+    // Straight lines alone can still mistake an oval hand for a *narrow*
+    // sealed pack. A true rectangular item's borders reach toward all four
+    // corners; an ellipse's upper/lower outlines exist near the centre only.
+    const edgeSpan = (vertical, position, from, through) => {
+      let hits = 0;
+      const count = Math.max(1, through - from + 1);
+      for (let scan = from; scan <= through; scan += 1) {
+        if (edge(position, scan, vertical) >= 0.105) hits += 1;
+      }
+      return hits / count;
+    };
+    const xSize = right.position - left.position;
+    const ySize = bottom.position - top.position;
+    const xInset = Math.max(3, Math.round(xSize * 0.12));
+    const yInset = Math.max(4, Math.round(ySize * 0.12));
+    const xQuarter = Math.max(xInset + 2, Math.round(xSize * 0.34));
+    const yQuarter = Math.max(yInset + 3, Math.round(ySize * 0.34));
+    const nearCorners = [
+      edgeSpan(false, top.position, left.position + xInset, left.position + xQuarter),
+      edgeSpan(false, top.position, right.position - xQuarter, right.position - xInset),
+      edgeSpan(false, bottom.position, left.position + xInset, left.position + xQuarter),
+      edgeSpan(false, bottom.position, right.position - xQuarter, right.position - xInset),
+      edgeSpan(true, left.position, top.position + yInset, top.position + yQuarter),
+      edgeSpan(true, left.position, bottom.position - yQuarter, bottom.position - yInset),
+      edgeSpan(true, right.position, top.position + yInset, top.position + yQuarter),
+      edgeSpan(true, right.position, bottom.position - yQuarter, bottom.position - yInset),
+    ];
+    const cornersSupported = nearCorners.every(support => support >= 0.48);
     return {
-      present: centered && rectangular && fourEdges,
+      present: centered && rectangular && fourEdges && cornersSupported,
       box: {left: left.position, right: right.position, top: top.position, bottom: bottom.position},
       edgeConfidence: Math.min(...borders.map(side => side.support * side.prominence)),
     };
