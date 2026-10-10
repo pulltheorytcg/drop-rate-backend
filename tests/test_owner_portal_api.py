@@ -59,6 +59,10 @@ def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
         "i.pricing_updated_at",
         "i.created_at",
         "i.updated_at",
+        "i.id",
+        "i.catalogue_id",
+        "i.version",
+        "i.sale_intent",
     )
     for field in allowed:
         assert field in query
@@ -82,7 +86,6 @@ def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
         "purchase_lot_id",
         "purchase_lot_code",
         "i.notes",
-        "i.version",
         "shopify_product_id",
         "ebay_listing_id",
         "ebay_offer_id",

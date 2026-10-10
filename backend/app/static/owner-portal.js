@@ -70,6 +70,7 @@ function inventoryTypeLabel(item) {
 }
 
 function createCardImage(item, className) {
+  if (window.DropRateInventory) return window.DropRateInventory.image(item, className);
   const wrap = document.createElement("div");
   wrap.className = className;
   const url = String(item.image_url || "").trim();
@@ -126,6 +127,13 @@ function renderInventoryRows(items) {
     const cardCode = document.createElement("small");
     cardCode.textContent = `${safeText(item.inventory_code)} · ${inventoryCardSubtitle(item)}`;
     cardCopy.append(cardName, cardCode);
+    if (item.id && window.DropRateInventory) {
+      const open = document.createElement("button");
+      open.type = "button"; open.className = "owner-inventory-open";
+      open.setAttribute("aria-label", `View ${item.name}`);
+      open.append(...cardCopy.childNodes); cardCopy.append(open);
+      open.addEventListener("click", () => window.DropRateInventory.open(item));
+    }
     cardWrap.append(cardCopy);
     cardCell.append(cardWrap);
 
@@ -181,9 +189,12 @@ function renderInventoryCards(items) {
     const card = document.createElement("article");
     card.className = "owner-inventory-card";
 
-    const imageWrap = document.createElement("div");
+    const imageWrap = document.createElement("button");
+    imageWrap.type = "button";
+    imageWrap.setAttribute("aria-label", `View ${item.name}`);
     imageWrap.className = "owner-card-image-wrap";
     imageWrap.append(createCardImage(item, "owner-card-thumb"));
+    imageWrap.addEventListener("click", () => window.DropRateInventory?.open(item));
 
     const body = document.createElement("div");
     body.className = "owner-card-body";
@@ -241,6 +252,14 @@ function renderInventoryCards(items) {
     }
 
     body.append(heading, meta, prices);
+    const details = document.createElement("button");
+    details.type = "button"; details.className = "owner-secondary-button owner-inventory-details";
+    details.textContent = "View details & manage";
+    details.addEventListener("click", () => window.DropRateInventory?.open(item));
+    body.append(details);
+    card.addEventListener("click", event => {
+      if (!event.target.closest("button,a,input,select")) window.DropRateInventory?.open(item);
+    });
 
     if (item.can_refresh_market) {
       const refresh = document.createElement("button");
@@ -664,6 +683,8 @@ async function loadOwnerOverview() {
 }
 
 async function loadOwnerInventory() {
+  const revision = state.inventory.requestRevision = (state.inventory.requestRevision || 0) + 1;
+  const account = state.session?.user?.id || state.session?.access_token;
   const params = new URLSearchParams({
     limit: String(state.inventory.limit),
     offset: String(state.inventory.offset),
@@ -672,6 +693,7 @@ async function loadOwnerInventory() {
   if (state.inventory.status) params.set("status", state.inventory.status);
 
   const data = await apiRequest(`/api/v1/owner/inventory?${params.toString()}`);
+  if (revision !== state.inventory.requestRevision || account !== (state.session?.user?.id || state.session?.access_token)) return;
   state.inventory.total = Number(data.total || 0);
   const items = data.items || [];
   renderInventoryRows(items);
@@ -1289,6 +1311,8 @@ function saveSession(session) {
 }
 
 function clearSession() {
+  state.inventory.requestRevision = (state.inventory.requestRevision || 0) + 1;
+  window.DropRateInventory?.reset();
   window.dropRateCatalogue?.destroy();
   window.dropRateCatalogue = null;
   window.dropRateScanner?.destroy();

@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Seller inventory controls repair
+
+- The reported seller Inventory screen was read-only: no item details, price/approval actions or stock controls. Add an accessible detail dialog from grid/list views, exact reference artwork fallback, seller price editing, sale approval/review requests and the existing Shopify sync action. Keep founder-only physical approval and listing-media checks intact.
+- Quantity changes create separately tracked unapproved copies with persisted retry receipts or withdraw the exact selected copy through existing channel protection before reducing active stock. Reject stale versions, cross-owner access and sold/reserved edits; never duplicate graded certificates or delete history.
+- The pictured OP-17 Japanese pack has no assigned media, selling price, acquisition cost or storage location. An idempotent profile-only migration attaches the inspected official single-pack reference image; it does not approve a listing photo. Readiness blockers are visible in the detail view.
+- Twenty new UI scenarios and 35 backend cases pass locally. Full-suite, real PostgreSQL CI, migration, deployment and live readback are release gates. See [scope and verification](docs/SELLER_INVENTORY_CONTROLS.md). No production stock edits, new service/provider or theme publication are part of verification.
+
 ## 10 October 2026 — Market continuation deployed and verified
 
 - PR #567 merged as `926745d2186ea37429601fa48c9c78fc8e6df257`. Railway `01247982-7743-422c-929f-9d5faf9c1bd2` reached SUCCESS at 13:29:36 UTC; readiness is 200 and unauthenticated catalogue coverage is rejected with 401. All four exact-head CI workflows / six jobs passed, including three real PostgreSQL suites. CI and unchanged pre-deploy gates passed **4,995 backend tests**; all dashboard suites passed.
