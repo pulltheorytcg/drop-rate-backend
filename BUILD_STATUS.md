@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Customer-paid delivery and actual seller postage allocation
+
+- Founder confirmed: Shopify sets the customer's delivery charge; under £10 orders pay delivery, and when shipping is free the **actual carrier label price** is deducted from the responsible seller's proceeds. Customer-paid shipping contributes `SHIPPING_REVENUE` and actual label costs `SHIPPING_COST`, never a duplicate flat £4.99 debit. Existing deterministic finance functions already support this model; new pure regression tests cover free, paid, multiple-owner, shared-vs-separate parcels and still-unreconciled postage.
+- Read-only Shopify live audit: General profile, UK Standard **£4.99**, Express **£6.99**, free Standard **currently £50**; EU **£14.99**, other international **£23.99**. **£10 threshold NOT live**. Shopify rejected the narrow `deliveryProfileUpdate` condition edit, and no shipping rates have been changed; UK versus worldwide applicability requires user confirmation before another live attempt.
+- Shopify's stable API 2026-07 adds official asynchronous `shippingLabelPurchase` support, but the connected Shopify GraphQL schema does **not** expose the mutation; merchant terms, label purchase permission, shipping origin/custody and cost-before-purchase controls remain unsatisfied. The Seller Hub carrier-issued label and Shopify fulfilment workflow is still **NOT IMPLEMENTED** and must not be presented as operational. No address exposure, label charge, fulfilment mutation or vendor app installation occurred.
+- Details in [shipping and Whatnot integration design](docs/SELLER_WHATNOT_AND_SHIPPING_FULFILLMENT_PLAN.md); no new DB tables, secrets, n8n workflows or inventory changes in this policy/test release.
+
 ## 10 October 2026 — Whatnot seller-account connection correction and shipping decision gate
 
 - Removed the misleading Seller Hub Whatnot **Set up** action pointing to the Shopify app for the **company's unified Drop Rate store**. Owners must eventually authorise **their own Whatnot accounts** via seller-specific OAuth. Official Seller API is developer preview and does not accept new applicants; no credentials or merchant API access are available. Current state reports `DEVELOPER_ACCESS_REQUIRED`, `SELLER_OAUTH`, `sync_enabled=false`, with honest `Not available yet` UI. No fake connected listings or user credentials collected.
