@@ -13,6 +13,8 @@
     next: "owner-dispatch-next",
     page: "owner-dispatch-page",
     refresh: "owner-dispatch-refresh",
+    verifyShopify: "owner-dispatch-shopify-check",
+    shopifyStatus: "owner-dispatch-shopify-status",
   };
   const reasonLabels = {
     ORDER_REFUND_REVIEW_REQUIRED: "Refund review needed",
@@ -20,6 +22,23 @@
     SHOPIFY_ALLOCATION_INCOMPLETE: "Shopify item allocation requires review",
     PHYSICAL_SHIPPER_UNVERIFIED: "Sender / custody not verified",
     CARRIER_AND_SHOPIFY_FULFILMENT_NOT_CONNECTED: "Label and tracking connection pending",
+    SHOPIFY_ORDER_CANCELLED: "Shopify cancelled this order",
+    SHOPIFY_ORDER_PAYMENT_NOT_VERIFIED: "Shopify payment is not verified",
+    SHOPIFY_ORDER_ALREADY_FULFILLED: "Already fulfilled on Shopify",
+    SHOPIFY_LINE_ITEMS_TRUNCATED: "Shopify order details require further review",
+    SHOPIFY_FULFILMENT_ORDERS_TRUNCATED: "Shopify fulfilment list requires review",
+    LOCAL_OWNER_ALLOCATION_MISMATCH: "Owner's physical allocation mismatch",
+    FULFILMENT_ORDER_NOT_UNIQUE: "Shopify fulfilment needs manual review",
+    FULFILMENT_ORDER_WRONG_ORDER: "Shopify order reference mismatch",
+    FULFILMENT_ORDER_NOT_OPEN: "Shopify fulfilment no longer open",
+    FULFILMENT_SHIPPING_ORIGIN_OR_DESTINATION_MISSING: "Shipping origin or destination incomplete",
+    FULFILMENT_LINES_TRUNCATED: "Shopify fulfilment line count requires review",
+    FULFILMENT_NON_SHIPPING_OR_INVALID_QUANTITY: "Fulfilment quantities require review",
+    FULFILMENT_ALREADY_DISPATCHED_OR_RESERVED: "Already dispatched or reserved on Shopify",
+    FULFILMENT_MIXED_OWNER_OR_QUANTITY_SPLIT_REQUIRED: "Separate seller parcels need a Shopify fulfilment split",
+    INTERNATIONAL_CUSTOMS_AND_INSURANCE_REVIEW: "Customs and insurance review required",
+    SHOPIFY_LABEL_QUOTE_AND_PURCHASE_JOURNAL_PENDING: "Carrier cost approval and duplicate-purchase protection pending",
+    LOCAL_PARTIAL_REFUND_REVIEW_REQUIRED: "Refund requires manual review",
   };
   const page = {offset: 0, limit: 25, total: 0};
   let authenticated = false;
@@ -102,6 +121,42 @@
         detail.append(tag("li", "", reasonLabels[reason] || "Dispatch verification required"));
       }
       card.append(detail);
+
+      // This is a real Shopify read-only check. No "Buy" or "Dispatch"
+      // affordance may be shown before a separately approved cost-backed
+      // purchase journal and physical-custody verification exist.
+      if (/^[0-9a-f-]{36}$/i.test(String(entry.order_item_id || ""))) {
+        const button = tag("button", "owner-dispatch-remote-check", "Check Shopify");
+        button.type = "button";
+        const remote = tag("p", "owner-dispatch-remote-status", "");
+        button.addEventListener("click", async () => {
+          if (!visible()) return;
+          const sequence = generation;
+          button.disabled = true;
+          itemText(remote, "Checking this exact order and remaining Shopify fulfilment quantity…");
+          try {
+            const data = await apiRequest(
+              `/api/v1/fulfilment/to-ship/${encodeURIComponent(entry.order_item_id)}/shopify`
+            );
+            if (sequence !== generation || !visible() || !card.isConnected) return;
+            const detailReasons = Array.isArray(data.blockers) ? data.blockers : [];
+            const summaries = detailReasons.map((reason) =>
+              reasonLabels[reason] || "Dispatch verification required"
+            );
+            itemText(remote,
+              data.shopify_connected === true
+                ? `Shopify checked · ${summaries.join(" · ") || "Review required"} · No label purchased`
+                : "Shopify could not be verified. No label purchased."
+            );
+          } catch (_error) {
+            if (sequence !== generation || !visible() || !card.isConnected) return;
+            itemText(remote, "Shopify verification unavailable. No label purchased.");
+          } finally {
+            button.disabled = false;
+          }
+        });
+        card.append(button, remote);
+      }
       list.append(card);
     }
     renderPagination();
@@ -129,6 +184,29 @@
     }
   }
 
+  element(ids.verifyShopify)?.addEventListener("click", async () => {
+    if (!visible()) return;
+    const sequence = generation;
+    const button = element(ids.verifyShopify);
+    button.disabled = true;
+    itemText(element(ids.shopifyStatus), "Verifying Drop Rate's direct Shopify API connection…");
+    try {
+      const status = await apiRequest("/api/v1/fulfilment/shopify-status");
+      if (sequence !== generation || !visible()) return;
+      const isConnected = status.store_connected === true
+        && status.shopify_fulfilment_read_access === true;
+      itemText(element(ids.shopifyStatus),
+        isConnected
+          ? `Shopify connected · ${status.shop || "Drop Rate"} · Label purchases still require seller and cost verification.`
+          : "Shopify API access is incomplete. Orders remain on hold.");
+    } catch (_error) {
+      if (sequence !== generation || !visible()) return;
+      itemText(element(ids.shopifyStatus), "Shopify connection unavailable. Try again later.");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   element(ids.refresh)?.addEventListener("click", () => refresh());
   element(ids.previous)?.addEventListener("click", () => {
     page.offset = Math.max(0, page.offset - page.limit);
@@ -144,6 +222,7 @@
     generation++;
     clear(element(ids.list));
     itemText(element(ids.status), "");
+    itemText(element(ids.shopifyStatus), "Shopify verification available after sign-in.");
   }, {capture: true});
   document.addEventListener("hub-ready", () => {
     authenticated = true;
