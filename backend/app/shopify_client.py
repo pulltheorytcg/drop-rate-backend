@@ -22,6 +22,14 @@ class ShopifyApiError(RuntimeError):
         self.retryable = retryable
 
 
+class ShopifyMediaScopeRequired(ShopifyApiError):
+    def __init__(self) -> None:
+        super().__init__(
+            "Shopify app requires write_files to attach new approved media",
+            status_code=403,
+        )
+
+
 class ShopifyAdminClient:
     """Server-side Shopify GraphQL Admin API client using client credentials.
 
@@ -646,6 +654,47 @@ class ShopifyAdminClient:
         file_id: str,
         product_id: str,
     ) -> None:
+        # A previous attempt or authorized merchant may already have attached
+        # the exact approved file. Read through the product permission first;
+        # do not require a new file write for an association that already exists.
+        cursor = None
+        seen_cursors: set[str] = set()
+        while True:
+            data = await self.graphql(
+                query="""
+                query DropRateProductMedia($id: ID!, $after: String) {
+                  product(id: $id) {
+                    id
+                    media(first: 50, after: $after) {
+                      nodes { id }
+                      pageInfo { hasNextPage endCursor }
+                    }
+                  }
+                }
+                """,
+                variables={"id": product_id, "after": cursor},
+            )
+            product = data.get("product")
+            media = product.get("media") if isinstance(product, dict) else None
+            if (
+                not isinstance(product, dict)
+                or product.get("id") != product_id
+                or not isinstance(media, dict)
+                or not isinstance(media.get("nodes"), list)
+                or not isinstance(media.get("pageInfo"), dict)
+            ):
+                raise ShopifyApiError("Shopify product media readback is invalid")
+            if any(isinstance(node, dict) and node.get("id") == file_id
+                   for node in media["nodes"]):
+                return
+            if not media["pageInfo"].get("hasNextPage"):
+                break
+            cursor = media["pageInfo"].get("endCursor")
+            if not isinstance(cursor, str) or not cursor or cursor in seen_cursors:
+                raise ShopifyApiError("Shopify product media pagination is invalid")
+            seen_cursors.add(cursor)
+        if "write_files" not in await self.access_scopes():
+            raise ShopifyMediaScopeRequired()
         data = await self.graphql(
             query="""
             mutation DropRateFileAttach($files: [FileUpdateInput!]!) {

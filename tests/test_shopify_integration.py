@@ -14,7 +14,7 @@ from app.shopify import (
     plan_webhook_registration,
     verify_shopify_hmac,
 )
-from app.shopify_client import ShopifyAdminClient
+from app.shopify_client import ShopifyAdminClient, ShopifyApiError, ShopifyMediaScopeRequired
 
 
 ROOT = Path(__file__).parents[1]
@@ -22,6 +22,66 @@ SHOPIFY = ROOT / "backend" / "app" / "shopify.py"
 CLIENT = ROOT / "backend" / "app" / "shopify_client.py"
 MIGRATION = ROOT / "migrations" / "005_shopify_webhook_events.sql"
 MAIN = ROOT / "backend" / "app" / "main.py"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("initial", ["present", "second_page", "missing", "wrong_product", "invalid_cursor"])
+async def test_approved_media_retries_require_no_write_when_already_attached(initial):
+    client = ShopifyAdminClient(shop_domain="drop-rate.myshopify.com",
+        client_id="client-id", client_secret="client-secret", api_version="2026-07")
+    product_id = "gid://shopify/Product/1"
+    file_id = "gid://shopify/MediaImage/2"
+    calls = []
+
+    async def graphql(*, query, variables=None):
+        calls.append((query, variables))
+        if "currentAppInstallation" in query:
+            return {"currentAppInstallation": {"accessScopes": [{"handle": "read_products"}]}}
+        assert "DropRateProductMedia" in query, "No mutation is permitted without file scope"
+        found = initial == "present" or (initial == "second_page" and variables["after"] == "next")
+        more = initial in {"second_page", "invalid_cursor"} and not found
+        return {"product": {"id": "wrong" if initial == "wrong_product" else product_id,
+            "media": {"nodes": [{"id": file_id}] if found else [],
+                "pageInfo": {"hasNextPage": more, "endCursor": "next" if more else None}}}}
+
+    client.graphql = graphql
+    if initial == "missing":
+        with pytest.raises(ShopifyMediaScopeRequired):
+            await client.attach_file_to_product(file_id=file_id, product_id=product_id)
+    elif initial in {"wrong_product", "invalid_cursor"}:
+        with pytest.raises(ShopifyApiError):
+            await client.attach_file_to_product(file_id=file_id, product_id=product_id)
+    else:
+        await client.attach_file_to_product(file_id=file_id, product_id=product_id)
+        assert len(calls) == (2 if initial == "second_page" else 1)
+    assert not any("mutation" in query for query, _ in calls)
+
+
+@pytest.mark.asyncio
+async def test_new_approved_media_uses_file_scope_and_retry_reuses_association():
+    client = ShopifyAdminClient(shop_domain="drop-rate.myshopify.com",
+        client_id="client-id", client_secret="client-secret", api_version="2026-07")
+    product_id = "gid://shopify/Product/1"
+    file_id = "gid://shopify/MediaImage/2"
+    attached = []
+    mutations = []
+
+    async def graphql(*, query, variables=None):
+        if "DropRateProductMedia" in query:
+            return {"product": {"id": product_id, "media": {"nodes": [{"id": x} for x in attached],
+                "pageInfo": {"hasNextPage": False, "endCursor": None}}}}
+        if "currentAppInstallation" in query:
+            return {"currentAppInstallation": {"accessScopes": [{"handle": "write_files"}]}}
+        assert "fileUpdate" in query
+        assert variables == {"files": [{"id": file_id, "referencesToAdd": [product_id]}]}
+        mutations.append(variables)
+        attached.append(file_id)
+        return {"fileUpdate": {"files": [{"id": file_id}], "userErrors": []}}
+
+    client.graphql = graphql
+    await client.attach_file_to_product(file_id=file_id, product_id=product_id)
+    await client.attach_file_to_product(file_id=file_id, product_id=product_id)
+    assert len(mutations) == 1
 
 
 def test_shopify_hmac_accepts_exact_raw_body_signature() -> None:
@@ -291,6 +351,11 @@ async def test_shopify_media_uses_unified_file_create_and_reference_association(
                     "userErrors": [],
                 }
             }
+        if "DropRateProductMedia" in query:
+            return {"product": {"id": "gid://shopify/Product/2", "media": {
+                "nodes": [], "pageInfo": {"hasNextPage": False, "endCursor": None}}}}
+        if "currentAppInstallation" in query:
+            return {"currentAppInstallation": {"accessScopes": [{"handle": "write_files"}]}}
         return {
             "fileUpdate": {
                 "files": [{
@@ -321,7 +386,7 @@ async def test_shopify_media_uses_unified_file_create_and_reference_association(
             "contentType": "IMAGE",
         }]
     }
-    assert calls[1][1] == {
+    assert calls[-1][1] == {
         "files": [{
             "id": "gid://shopify/MediaImage/1",
             "referencesToAdd": ["gid://shopify/Product/2"],

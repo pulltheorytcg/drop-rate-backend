@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
-from app.shopify_client import ShopifyApiError
+from app.shopify_client import ShopifyApiError, ShopifyMediaScopeRequired
 
 from app import catalogue_maintenance as jobs
 from app import catalogue_browser as browser
@@ -122,7 +122,7 @@ class Pool:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('failure', [HTTPException(422,'Media review required'), ShopifyApiError('Collection assignment rejected')])
+@pytest.mark.parametrize('failure', [HTTPException(422,'Media review required'), ShopifyApiError('Collection assignment rejected'), ShopifyMediaScopeRequired()])
 async def test_automatic_sync_uses_exact_existing_pipeline_and_records_blockers(monkeypatch, failure):
     actor=uuid4();item=dict(id=uuid4(),owner_id=uuid4(),version=7)
     conn=Connection([item]);pool=Pool(conn);published=[];receipts=[]
@@ -140,7 +140,10 @@ async def test_automatic_sync_uses_exact_existing_pipeline_and_records_blockers(
     await jobs.shopify_pass(pool,settings)
     assert published[0]['inventory_id']==item['id'] and published[0]['owner_id']==item['owner_id']
     assert published[0]['expected_version']==7 and published[0]['test_mode'] is False
-    if isinstance(failure, HTTPException):
+    if isinstance(failure, ShopifyMediaScopeRequired):
+        assert any(r[3]=='INCOMPLETE' and r[4].get('result')=='PERMISSION_REQUIRED'
+                   and r[4].get('required_scope')=='write_files' for r in receipts)
+    elif isinstance(failure, HTTPException):
         assert any(r[3]=='INCOMPLETE' and r[4].get('http_status')==422 for r in receipts)
     else:
         assert any(r[3]=='FAILED' and r[4].get('reason')=='ShopifyApiError' for r in receipts)

@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Approved-image retry and Shopify permission diagnosis
+
+- PR #572 is deployed as `fb952da10921d26b8766aa8e4753af56887cf6c2`; all eight CI jobs passed, Railway `96921431-1654-488d-a929-ae3a82b89415` reached SUCCESS at 15:22:10 UTC, pre-deploy passed 5,063 tests and readiness returned 200. Branding uses the shared existing copy template and an exact approved-gallery check, including Shopify-equivalent HTML serialization.
+- The resumed two-pack attempt exposed a separate missing permission: installed **Drop Rate Backend** lacks `write_files`. The explicitly approved file was attached to both existing drafts through the authorized Shopify connection and read back with its original media ID. No new products/copies or backend permission grants were made.
+- Publication now reads existing product-media associations before writing. An exact existing association is reused; a missing association still requires `write_files`, otherwise the worker records `PERMISSION_REQUIRED` / `MISSING_WRITE_FILES_SCOPE` and remains incomplete. Exact full-gallery and copy readback still gate publication. This does not grant or bypass the missing scope; automatic attachment of new media needs the merchant to grant it.
+- Follow-up tests/deployment and final two-pack publication remain pending. See [release evidence](docs/SELLER_HELD_SEALED_PUBLICATION.md).
+
 ## 10 October 2026 — OP-17 release resumed; automatic collection repair
 
 - The seller requires strict consistency with existing Shopify products. Compared the OP-17 title/copy and exact artwork with live sealed-product references; preserve the shared template and clean product-led imagery. Add a durable [listing brand standard](docs/SHOPIFY_BRAND_STANDARD.md) and reject any unexpected Shopify gallery media, in addition to the existing title/description/SEO checks. Regression cases cover copy drift and missing/additional images.
