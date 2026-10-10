@@ -52,6 +52,7 @@ async def main():
           grant usage on schema tcg to tcg_api;grant select on all tables in schema tcg to tcg_api;
           grant insert on tcg.inventory_items,tcg.request_receipts,tcg.test_inventory_audit to tcg_api;
           grant update(store_price_minor,status,sale_intent,version,updated_at) on tcg.inventory_items to tcg_api;
+          grant update(state) on tcg.listing_inventory_members to tcg_api;
           alter table tcg.inventory_items enable row level security;alter table tcg.inventory_items force row level security;
           create policy inventory_owner on tcg.inventory_items to tcg_api
             using(owner_id in(select owner_id from tcg.owner_memberships where user_id=tcg.current_user_id() and active))

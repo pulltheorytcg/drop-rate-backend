@@ -684,7 +684,7 @@ async function loadOwnerOverview() {
 
 async function loadOwnerInventory() {
   const revision = state.inventory.requestRevision = (state.inventory.requestRevision || 0) + 1;
-  const session = state.session;
+  const account = state.session?.user?.id || state.session?.access_token;
   const params = new URLSearchParams({
     limit: String(state.inventory.limit),
     offset: String(state.inventory.offset),
@@ -693,7 +693,7 @@ async function loadOwnerInventory() {
   if (state.inventory.status) params.set("status", state.inventory.status);
 
   const data = await apiRequest(`/api/v1/owner/inventory?${params.toString()}`);
-  if (revision !== state.inventory.requestRevision || session !== state.session) return;
+  if (revision !== state.inventory.requestRevision || account !== (state.session?.user?.id || state.session?.access_token)) return;
   state.inventory.total = Number(data.total || 0);
   const items = data.items || [];
   renderInventoryRows(items);
@@ -1311,6 +1311,7 @@ function saveSession(session) {
 }
 
 function clearSession() {
+  state.inventory.requestRevision = (state.inventory.requestRevision || 0) + 1;
   window.DropRateInventory?.reset();
   window.dropRateCatalogue?.destroy();
   window.dropRateCatalogue = null;

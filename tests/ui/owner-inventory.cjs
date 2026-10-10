@@ -10,7 +10,7 @@ function fixture(override={}) {
  run(fs.readFileSync(path.join(base,'hub-session.js'),'utf8'));
  run(fs.readFileSync(path.join(base,'owner-inventory.js'),'utf8'));
  run(fs.readFileSync(path.join(base,'owner-portal.js'),'utf8').replace(/\ninitialise\(\);\s*$/,''));
- run(`state.session={access_token:'secret-session',user:{id:'seller-a'}};loadOwnerOverview=loadOwnerChannels=loadOwnerInsights=loadOwnerInventory=async()=>{};`);
+ run(`window.testLoadInventory=loadOwnerInventory;state.session={access_token:'secret-session',user:{id:'seller-a'}};loadOwnerOverview=loadOwnerChannels=loadOwnerInsights=loadOwnerInventory=async()=>{};`);
  let current={...item,...override},handler;
  w.testRequest=async(url,options={})=>{calls.push({url,...options});if(handler)return handler(url,options);return {item:current,copies:[current]};};run('apiRequest=window.testRequest');
  return {w,run,calls,setHandler:f=>{handler=f;},setItem:x=>{current={...current,...x};},open:()=>w.DropRateInventory.open(current),finish:()=>w.close()};
@@ -19,6 +19,13 @@ function btn(w,text){return [...w.document.querySelectorAll('button')].find(b=>b
 async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);assert.equal(b.disabled,false);b.click();await tick();await tick();}
 (async()=>{
  let checks=0;
+ for(const change of ['refresh','account','logout']){
+  const f=fixture();let resolve;f.setHandler(()=>new Promise(r=>{resolve=r;}));const pending=f.w.testLoadInventory();
+  if(change==='logout')f.run(`clearSession();state.session={access_token:'new',user:{id:'seller-a'}};`);
+  else f.run(`state.session={access_token:'new',user:{id:'${change==='refresh'?'seller-a':'seller-b'}'}};`);
+  resolve({total:1,items:[item]});await pending;
+  assert.equal(f.w.document.querySelectorAll('.owner-card-image-wrap').length,change==='refresh'?1:0);f.finish();checks++;
+ }
  {
   const f=fixture();f.run(`renderInventoryCards([${JSON.stringify(item)}]);renderInventoryRows([${JSON.stringify(item)}]);`);
   assert.equal(f.w.document.querySelector('.owner-card-thumb img').src,item.reference_image_url);
