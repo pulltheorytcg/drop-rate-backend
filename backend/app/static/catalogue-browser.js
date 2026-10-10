@@ -4,7 +4,7 @@ window.DropRateCatalogue = (() => {
   const node = (tag, cls = "", text) => { const el = document.createElement(tag); el.className = cls; if (text != null) el.textContent = text; return el; };
   const button = (text, action, cls = "") => { const el = node("button", cls, text); el.type = "button"; el.addEventListener("click", action); return el; };
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
-  const marketPrice = row => row.market_value_minor==null?(row.market_refresh_failed?"Price temporarily unavailable":row.market_refresh_needed?"Checking price…":"Price unavailable"):(row.market_value_source==="CARDMARKET_ESTIMATE"?"Estimate: ":["TCGDEX_CARDMARKET","CARDMARKET_BULK","CARDMARKET_BULK_SINGLES"].includes(row.market_value_source)?"Reference: ":"")+money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
+  const marketPrice = row => row.market_value_minor==null?(row.market_refresh_failed?"Price temporarily unavailable":row.market_refresh_needed?"Checking price…":"Price unavailable"):(row.market_value_source==="CARDMARKET_ESTIMATE"?"Estimate: ":["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT","CARDMARKET_CATALOGUE","CARDMARKET_BULK","CARDMARKET_BULK_SINGLES"].includes(row.market_value_source)?"Reference: ":"")+money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
   const sorts = {newest:"Newest first", name:"Name A–Z", number:"Card number", value_desc:"Value: high to low", value_asc:"Value: low to high"};
@@ -247,11 +247,14 @@ window.DropRateCatalogue = (() => {
       if(row.basis_condition)content.append(node("small","","Reference value: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
       for(const quote of row.market_quotes||[]){
         const label=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer US context · "+new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(quote.original_minor/100):money(quote.price_gbp_minor);
-        content.append(node("p","dr-browse-reference-note",quote.finish+": "+label));
+        const source=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer":"Cardmarket";
+        const evidence=[quote.product_id?source+" #"+quote.product_id:"",quote.observed_at?new Date(quote.observed_at).toLocaleDateString("en-GB"):""].filter(Boolean).join(" · ");
+        content.append(node("p","dr-browse-reference-note",(quote.variant_label||quote.finish)+": "+label+(evidence?" · "+evidence:"")));
       }
-      if(row.market_value_source==="TCGDEX_CARDMARKET"){
+      if(["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(row.market_value_source)){
         content.append(node("p","dr-browse-reference-note","Cardmarket reference via TCGdex, converted from EUR. This is separate from your collection’s eBay UK sold-market valuation."));
       }
+      if(row.market_value_source==="CARDMARKET_CATALOGUE")content.append(node("p","dr-browse-reference-note","Cardmarket catalogue guide, converted from EUR. Matched by a unique card name in both complete release checklists. The guide spans languages, conditions and foil treatments; it is not an exact physical-copy valuation."));
       if((row.market_quotes||[]).some(q=>q.source==="TCGDEX_TCGPLAYER"))content.append(node("p","dr-browse-reference-note","TCGplayer is supporting US market context. Its dollar price is not used as a UK sold-market valuation."));
       if(row.market_value_source==="CARDMARKET_BULK")content.append(node("p","dr-browse-reference-note","Cardmarket daily packaging guide, converted from EUR. This aggregate spans languages and conditions; confirm your exact package before valuing a physical item."));
       if(row.market_value_source==="CARDMARKET_BULK_SINGLES")content.append(node("p","dr-browse-reference-note","Cardmarket daily guide for this printing’s release, converted from EUR. It combines languages and conditions; it is separate from a condition-adjusted eBay UK sold value."));
@@ -430,6 +433,11 @@ window.DropRateCatalogue = (() => {
       this.edit=edit;
       const content=node("div","dr-browse-product-details");
       content.append(this.productImage(row,"dr-browse-detail-image"),node("h3","",decode(row.name)),node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
+      if(row.provider&&row.provider_id){
+        const reference=node("div","dr-browse-reference-note");reference.dataset.cardReference=row.key;
+        reference.append(node("strong","","Card reference"),node("p","",row.provider+" · "+row.provider_id),node("small","","Set reference: "+row.set_id+" · "+row.language));
+        content.append(reference);
+      } else if(row.catalogue_id)content.append(node("p","dr-browse-reference-note","Drop Rate reference: "+row.catalogue_id));
       const pricing=node("div");pricing.dataset.marketDetails=row.key;this.renderMarketDetails(pricing,row);content.append(pricing);
       const watch=button(this.watchlist.has(row.key)?"★ Saved":"☆ Watchlist",()=>this.toggleWatch(row,watch),"dr-browse-watch-product");watch.setAttribute("aria-pressed",String(this.watchlist.has(row.key)));content.append(watch);
       if(row.source_kind==="REFERENCE")content.append(node("p","dr-browse-reference-note","Reference artwork · check the exact printing and finish against your copy. New inventory remains pending identity review."));

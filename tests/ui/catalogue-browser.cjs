@@ -387,5 +387,17 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(f.calls.filter(c=>c.url.includes('/market-values')).length,0);
   f.finish();checks++;
  }
+ for(const kind of ['CARDMARKET_CATALOGUE','TCGDEX_CARDMARKET_VARIANT']){
+  const row={...card,catalogue_id:null,source_kind:'REFERENCE',provider:'TCGdex',provider_id:'base1-4',set_id:'base1',
+   market_value_minor:1200,market_value_source:kind,market_quotes:[{source:kind,variant_label:'Holofoil · unlimited',
+    finish:'Holofoil',product_id:'273699',price_gbp_minor:1200,observed_at:'2026-10-10T00:00:00Z'}]};
+  const f=fixture();f.browser.openProduct(row);
+  assert.match(f.browser.sheet.textContent,/Reference: £12.00/);
+  assert.match(f.browser.sheet.textContent,/Card referenceTCGdex · base1-4/);
+  assert.match(f.browser.sheet.textContent,/Set reference: base1 · English/);
+  assert.match(f.browser.sheet.textContent,/Holofoil · unlimited: £12.00 · Cardmarket #273699/);
+  if(kind==='CARDMARKET_CATALOGUE')assert.match(f.browser.sheet.textContent,/not an exact physical-copy valuation/);
+  assert.equal(row.owned_quantity,0);f.finish();checks++;
+ }
  console.log('Catalogue browser: '+checks+' search, navigation, filter, ownership, session and retry scenarios passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
