@@ -103,6 +103,20 @@ def test_reference_changes_and_unpriced_duplicate_still_block_inventory_value():
     assert not guide_values(product,[ref,dict(ref,provider_id='other-print',quotes=[])],now=NOW)
 
 
+@pytest.mark.parametrize('suffix',[' (BT13-029)',' (029)',' - BT13-029'])
+def test_repeated_matching_collector_number_does_not_hide_an_exact_guide(suffix):
+    product,ref=canonical_and_reference();product['name']+=suffix
+    assert guide_values(product,[ref],now=NOW)[0]['result'].market_value_minor==3
+    assert not guide_values(product,[ref,dict(ref,provider_id='different-print',quotes=[])],now=NOW)
+
+
+@pytest.mark.parametrize('suffix',[' (028)',' (BT13-028)',' - BT13-028',' (Alternate Art)',
+                                   ' (029 Parallel)',' (BT13-029_p1)',' (029) (Pre-Release)'])
+def test_title_normalization_never_discards_printing_or_conflicting_number(suffix):
+    product,ref=canonical_and_reference();product['name']+=suffix
+    assert not guide_values(product,[ref],now=NOW)
+
+
 def test_intrinsically_foil_rarity_with_imported_normal_finish_requires_review():
     product,ref=canonical_and_reference();product['rarity']='Super Rare';ref['reference_rarity']='Super Rare[SR]'
     for quote in ref['quotes']:quote['reference_rarity']='Super Rare[SR]'

@@ -19,7 +19,8 @@ COVERAGE_SQL = '''with coverage as (
  select 'SEALED',r.system_code,r.language,
    case when p.market_value_minor is not null and p.pricing_updated_at>=now()-interval '7 days' then 'MIXED_LANGUAGE_GUIDE'
         when p.pricing_updated_at<now()-interval '7 days' then 'STALE_EVIDENCE'
-        when r.system_code not in ('POKEMON_TCG','ONE_PIECE_CARD_GAME') then 'PROVIDER_FEED_REQUIRED'
+        when r.system_code not in ('POKEMON_TCG','ONE_PIECE_CARD_GAME',
+             'DRAGON_BALL_SUPER_MASTERS','DRAGON_BALL_SUPER_FUSION_WORLD') then 'PROVIDER_FEED_REQUIRED'
         when nullif(r.evidence->>'cardmarket_product_id','') is null then 'PROVIDER_MAPPING_REQUIRED'
         when p.checked_at is null then 'AWAITING_DAILY_REFRESH' else 'EXACT_QUOTE_UNAVAILABLE' end,p.checked_at
  from tcg.reference_sealed_products r left join tcg.reference_sealed_market_prices p using(provider,system_code,language,provider_id)
