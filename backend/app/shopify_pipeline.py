@@ -2908,40 +2908,24 @@ async def _select_order_units(
     selected_units: list[dict[str, Any]] = []
     for spec in line_specs:
         line = spec["line"]
-        links = await connection.fetch(
-            """
-            select
-                sil.*, i.inventory_code, i.status as inventory_status,
-                i.sale_intent,
-                i.acquisition_cost_minor, i.store_price_minor, i.version as inventory_version,
-                i.source_record,i.catalogue_id,i.language,i.seal_status,i.identity_confirmed,
-                p.product_type,p.name,p.set_name,p.variant,p.language as catalogue_language,o.owner_type
-            from tcg.shopify_inventory_links sil
-            join tcg.inventory_items i on i.id=sil.inventory_id
-            join tcg.catalogue_products p on p.id=i.catalogue_id
-            join tcg.owners o on o.id=i.owner_id
-            where sil.shopify_variant_gid=$1
-              and sil.sync_state='PUBLISHED'
-            order by sil.allocation_priority, sil.linked_at, sil.inventory_id
-            for update of sil, i
-            """,
-            spec["variant_gid"],
-        )
-        if not links:
-            # Legacy variant aliases are one-to-one and immutable. They route
-            # in-flight orders from a retired duplicate to its original copy
-            # without making that retired Shopify product sellable again.
-            legacy = await connection.fetch(
+        # Historic orders may have been placed immediately before a pool's
+        # shared SKU was activated. Resolve the original SKU, even when the
+        # original anchor kept its variant ID; never reassign that old sale to
+        # another copy based only on current allocation order.
+        sku=str(line.get("sku") or "").strip()
+        legacy=[]
+        if sku:
+            legacy=await connection.fetch(
                 """
                 select
                   sil.*, a.legacy_variant_gid, a.legacy_product_gid,
                   a.legacy_sku,
-                  i.inventory_code, i.status as inventory_status,
-                  i.sale_intent, i.acquisition_cost_minor,
-                  i.store_price_minor, i.version as inventory_version,
-                  i.source_record,i.catalogue_id,i.language,i.seal_status,
-                  i.identity_confirmed,p.product_type,p.name,p.set_name,
-                  p.variant,p.language as catalogue_language,o.owner_type
+                  i.inventory_code,i.status as inventory_status,
+                  i.sale_intent,i.acquisition_cost_minor,i.store_price_minor,
+                  i.version as inventory_version,i.source_record,
+                  i.catalogue_id,i.language,i.seal_status,i.identity_confirmed,
+                  p.product_type,p.name,p.set_name,p.variant,
+                  p.language as catalogue_language,o.owner_type
                 from tcg.shopify_variant_pool_aliases a
                 join tcg.shopify_inventory_links sil
                   on sil.inventory_id=a.inventory_id
@@ -2952,21 +2936,43 @@ async def _select_order_units(
                 join tcg.catalogue_products p on p.id=i.catalogue_id
                 join tcg.owners o on o.id=i.owner_id
                 where a.legacy_variant_gid=$1
+                  and a.legacy_sku=$2
                   and sil.sync_state='PUBLISHED'
                   and (sil.reserved_order_reference is null
-                       or sil.reserved_order_reference=$2)
+                       or sil.reserved_order_reference=$3)
                 order by sil.allocation_priority,sil.linked_at,sil.inventory_id
                 for update of sil,i
                 """,
-                spec["variant_gid"],order_reference,
+                spec["variant_gid"],sku,order_reference,
             )
-            links = []
+        if legacy:
+            links=[]
             for record in legacy:
-                mapped = dict(record)
-                mapped["shopify_variant_gid"] = mapped.pop("legacy_variant_gid")
-                mapped["shopify_product_gid"] = mapped.pop("legacy_product_gid")
-                mapped["sku"] = mapped.pop("legacy_sku")
+                mapped=dict(record)
+                mapped["shopify_variant_gid"]=mapped.pop("legacy_variant_gid")
+                mapped["shopify_product_gid"]=mapped.pop("legacy_product_gid")
+                mapped["sku"]=mapped.pop("legacy_sku")
                 links.append(mapped)
+        else:
+            links = await connection.fetch(
+                """
+                select
+                    sil.*, i.inventory_code, i.status as inventory_status,
+                    i.sale_intent,
+                    i.acquisition_cost_minor, i.store_price_minor, i.version as inventory_version,
+                    i.source_record,i.catalogue_id,i.language,i.seal_status,i.identity_confirmed,
+                    p.product_type,p.name,p.set_name,p.variant,p.language as catalogue_language,o.owner_type
+                from tcg.shopify_inventory_links sil
+                join tcg.inventory_items i on i.id=sil.inventory_id
+                join tcg.catalogue_products p on p.id=i.catalogue_id
+                join tcg.owners o on o.id=i.owner_id
+                where sil.shopify_variant_gid=$1
+                  and sil.sync_state='PUBLISHED'
+                order by sil.allocation_priority, sil.linked_at, sil.inventory_id
+                for update of sil,i
+                """,
+                spec["variant_gid"],
+            )
         eligible = [
             link
             for link in links
