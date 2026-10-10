@@ -135,5 +135,27 @@ assert.equal(captures,2,'Motion/geometry jitter must not be accepted');
 for(let i=0;i<7;i++)sample(true,90,card);
 assert.equal(captures,3,'Once steady, a properly framed card should scan');
 checks++;
+// A high-confidence card already visible at camera launch must still scan,
+// but requires longer stability than a card inserted after an empty guide.
+const instant=new w.DropRateScanner.Scanner({
+ role:'seller',session:()=>session,request:async()=>({}),
+ afterSave:async()=>{},viewInventory:()=>{}
+});
+instant.stream={getTracks:()=>[]}; instant.view='camera';
+Object.defineProperty(instant.video,'videoWidth',{value:1920,configurable:true});
+const strongBox={left:8,right:40,top:9,bottom:58};
+const strongPixels=new Uint8Array(560).fill(99);
+instant.frame=()=>({present:true,edgeConfidence:1.6,box:strongBox,fingerprint:strongPixels});
+let startupCaptures=0;
+instant.capture=()=>{startupCaptures++;instant.awaitingRemoval=true;};
+for(let i=0;i<4;i++)instant.tick();
+assert.equal(startupCaptures,0,'Startup must not send recognition immediately');
+for(let i=0;i<4;i++)instant.tick();
+assert.equal(startupCaptures,1,'Genuine already-present card should scan when unusually stable');
+for(let i=0;i<6;i++)instant.tick();
+assert.equal(startupCaptures,1,'Same card must not scan twice');
+instant.destroy();
+checks++;
+
 scanner.destroy();dom.window.close();
 console.log('Card-only auto-capture: '+checks+' empty scene, realistic rectangle and temporal removal cases passed.');
