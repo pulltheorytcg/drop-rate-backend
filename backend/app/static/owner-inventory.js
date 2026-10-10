@@ -5,6 +5,13 @@ window.DropRateInventory = (() => {
   const button = (label, action, cls = "") => { const n = el("button", cls, label); n.type = "button"; n.addEventListener("click", action); return n; };
   const account = () => state.session?.user?.id || state.session?.access_token;
   let dialog, content, message, selected, revision = 0, busy = false, returnFocus, channels = [];
+  // Transparent original brand wordmarks, not reconstructed symbols or app icons.
+  // All three use the same secure image source and visual alignment rules.
+  const channelLogos=Object.freeze({
+    SHOPIFY:"https://upload.wikimedia.org/wikipedia/commons/0/0e/Shopify_logo_2018.svg",
+    EBAY:"https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg",
+    WHATNOT:"https://upload.wikimedia.org/wikipedia/commons/9/91/Whatnot_Logo_2025.svg"
+  });
   const alive = (rev, owner) => revision === rev && account() === owner && dialog?.open;
   const active = item => ["DRAFT", "INSPECTION", "APPROVED"].includes(item.status);
   const price = minor => minor == null ? "Value pending" : formatMoney(minor);
@@ -142,7 +149,10 @@ window.DropRateInventory = (() => {
     if (item.pricing_updated_at) values.append(el("small", "", `Updated ${new Date(item.pricing_updated_at).toLocaleDateString("en-GB")}`));
     content.append(values);
 
-    const sale = el("section", "owner-item-section"); sale.append(el("h3", "", "Sell on Shopify"));
+    const publishedOnShopify=item.shopify_state==="PUBLISHED";
+    const approvedForSale=item.status==="APPROVED" && item.sale_intent==="FOR_SALE";
+    const sale = el("section", "owner-item-section");
+    sale.append(el("h3", "", "Selling price"));
     const priceLabel = el("label", "", "Your selling price (£)"), priceInput = el("input");
     priceInput.type = "number"; priceInput.min = "1"; priceInput.step = "0.01"; priceInput.inputMode = "decimal";
     priceInput.value = item.store_price_minor == null ? "" : (item.store_price_minor / 100).toFixed(2);
@@ -158,38 +168,57 @@ window.DropRateInventory = (() => {
       let minor; try { minor = value(); } catch (error) { status(error.message, true); priceInput.focus(); return; }
       run(() => apiRequest(`/api/v1/owner/inventory/${item.id}/${path}`, {method, body: JSON.stringify({version: item.version, store_price_minor: minor})}));
     };
-    const actions = el("div", "owner-item-actions");
-    const save = button("Save selling price", () => priceAction("selling-price", "PATCH")); save.disabled = !active(item);
-    const approve = button(item.seller_approval_available ? "Approve for Shopify" : item.status === "INSPECTION" ? "Update Shopify approval request" : "Approve sale & request review",
-      () => priceAction("approval-request", "POST"), "primary"); approve.disabled = !active(item);
-    actions.append(save, approve); sale.append(actions);
-    const stateLabel = item.shopify_state ? `Shopify: ${item.shopify_state.replaceAll("_", " ")}` : "Not yet published to Shopify";
-    sale.append(el("p", "", `${stateLabel} · ${item.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "For sale"}`));
-    if (item.approval_blockers?.length) {
-      sale.append(el("p", "", "Before this copy can be published:"));
-      const list = el("ul"); item.approval_blockers.forEach(reason => list.append(el("li", "", reason))); sale.append(list);
+    const actions=el("div","owner-item-actions");
+    const save=button("Save selling price",()=>priceAction("selling-price","PATCH"));
+    save.disabled=!active(item);
+    actions.append(save);
+    // Approval is only needed before publication. A published pack should
+    // never be offered a second "Approve" action.
+    if(!publishedOnShopify && !approvedForSale){
+      const approve=button(
+        item.seller_approval_available?"Approve for Shopify":
+        item.status==="INSPECTION"?"Update Shopify approval request":"Approve sale & request review",
+        ()=>priceAction("approval-request","POST"),"primary"
+      );
+      approve.disabled=!active(item);
+      actions.append(approve);
     }
-    sale.append(el("p", "owner-item-note", item.seller_approval_available
-      ? "Approve to confirm that you hold this exact sealed product and want to sell it at this price. We use the catalogue image. Your stock stays with you and syncs automatically."
-      : "Your approval saves your selling price and requests Drop Rate review. Approved stock marked For sale syncs automatically."));
-    if (!item.shopify_sync_enabled) sale.append(el("p", "owner-item-note", "Shopify publishing is currently unavailable."));
+    sale.append(actions);
+    if(publishedOnShopify){
+      sale.append(el("p","owner-item-note","This copy is already published on Shopify. You can still update your selling price."));
+    }else{
+      if(item.approval_blockers?.length){
+        sale.append(el("p","","Before this copy can be published:"));
+        const list=el("ul");
+        item.approval_blockers.forEach(reason=>list.append(el("li","",reason)));
+        sale.append(list);
+      }
+      if(!approvedForSale) {
+        sale.append(el("p","owner-item-note",item.seller_approval_available
+          ?"Approve to confirm that you hold this exact sealed product and want to sell it. Your stock stays with you and uses the approved catalogue image."
+          :"Approval saves your selling price and requests Drop Rate review. Approved For Sale stock can then sync to Shopify."));
+      }
+      if(!item.shopify_sync_enabled) sale.append(el("p","owner-item-note","Shopify publishing is currently unavailable."));
+    }
     content.append(sale);
 
-    // Platform status comes from the owner-scoped channel API. Never claim an
-    // external listing is live from a logo or a successful button press alone.
-    const sellerChannels = el("section", "owner-item-section owner-channel-section");
-    sellerChannels.append(el("h3", "", "Selling channels"),
-      el("p", "owner-item-note", "Each platform needs its own readiness checks. Stock and ownership stay in Drop Rate."));
-    const channelGrid=el("div", "owner-item-channels");
-    const ebay=channels.find(c=>c.code==="EBAY")||{};
-    const channelsReady=Boolean(ebay.connected && ebay.sync_enabled);
-    const ebayEligible=channelsReady && !item.is_consignment && item.product_type==="CARD" &&
-      item.status==="APPROVED" && item.sale_intent==="FOR_SALE";
+    const sellerChannels=el("section","owner-item-section owner-channel-section");
+    sellerChannels.append(el("h3","","Selling channels"));
+    const channelGrid=el("div","owner-item-channels");
+    const ebay=channels.find(row=>row.code==="EBAY")||{};
+    const ebayEligible=Boolean(ebay.connected && ebay.sync_enabled) &&
+      !item.is_consignment && item.product_type==="CARD" && approvedForSale;
+    const ebayReason=item.product_type!=="CARD"?"Sealed packs aren't supported yet":
+      item.is_consignment?"Consignor sync isn't supported yet":
+      !ebay.connected?"eBay account not connected":
+      !ebay.sync_enabled?"Seller publishing not enabled":
+      !approvedForSale?"Approval required":"Ready to sync";
     const cards=[
       {
-        code:"SHOPIFY",label:"Shopify",logo:null,
-        state:item.shopify_state==="PUBLISHED"?"Published":item.shopify_sync_enabled?"Ready to sync":"Unavailable",
-        action:"Sync to Shopify",disabled:!item.shopify_sync_enabled||item.status!=="APPROVED"||item.sale_intent!=="FOR_SALE",
+        code:"SHOPIFY",label:"Shopify",state:publishedOnShopify?"Published":
+          !item.shopify_sync_enabled?"Unavailable":
+          !approvedForSale?"Awaiting approval":"Ready to sync",
+        action:!publishedOnShopify && item.shopify_sync_enabled && approvedForSale?"Sync to Shopify":null,
         click:()=>run(async()=>{
           const result=await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/shopify/sync`,
             {method:"POST",body:JSON.stringify({version:item.version})});
@@ -197,12 +226,8 @@ window.DropRateInventory = (() => {
         })
       },
       {
-        code:"EBAY",label:"eBay",
-        logo:"https://images.prismic.io/ebayevo/Zm_Swpm069VX1ywL_logo_I1734-53180-5649-25395-5763-35557.png?auto=format%2Ccompress",
-        state:item.product_type!=="CARD"?"Sealed listings not supported":
-          item.is_consignment?"Consignor eBay sync not available":
-          !ebay.connected?"Seller connection unavailable":!ebay.sync_enabled?"Seller sync not enabled":"Eligible cards only",
-        action:"Sync to eBay",disabled:!ebayEligible,
+        code:"EBAY",label:"eBay",state:ebayReason,
+        action:ebayEligible?"Sync to eBay":null,
         click:()=>run(async()=>{
           const result=await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/ebay/sync`,
             {method:"POST",body:JSON.stringify({version:item.version})});
@@ -210,33 +235,38 @@ window.DropRateInventory = (() => {
         })
       },
       {
-        code:"WHATNOT",label:"Whatnot",
-        logo:"https://cdn.shopify.com/app-store/listing_images/088e55289003f1963a031804f2486f89/icon/CLTJiaCd65ADEAE%3D.png",
-        state:"Connect through Shopify",
-        action:"Set up",disabled:false,
-        click:()=>window.open("https://apps.shopify.com/whatnot","_blank","noopener,noreferrer")
+        code:"WHATNOT",label:"Whatnot",state:"Connect through Shopify",
+        action:"Set up",click:()=>window.open("https://apps.shopify.com/whatnot","_blank","noopener,noreferrer")
       }
     ];
     for(const channel of cards){
       const block=el("div","owner-item-channel owner-item-channel-"+channel.code.toLowerCase());
       const visual=el("span","owner-item-channel-visual");
-      if(channel.logo){
-        const img=el("img","owner-item-channel-logo");
-        img.src=channel.logo;img.alt=channel.label+" logo";img.loading="lazy";
-        img.referrerPolicy="no-referrer";
-        img.addEventListener("error",()=>{img.remove();visual.append(el("span","owner-item-channel-fallback",channel.label));});
-        visual.append(img);
-      }else visual.append(el("span","owner-item-shopify-mark","▣ Shopify"));
+      const img=el("img","owner-item-channel-logo");
+      img.src=channelLogos[channel.code]; img.alt=channel.label+" logo";
+      img.loading="lazy";img.decoding="async";img.referrerPolicy="no-referrer";
+      img.addEventListener("error",()=>{
+        img.remove();visual.append(el("span","owner-item-channel-fallback",channel.label));
+      });
+      visual.append(img);
       const info=el("small","owner-item-channel-state",channel.state);
-      const action=button(channel.action,channel.click,"owner-item-channel-action");
-      action.setAttribute("aria-label",channel.action==="Set up"?"Set up "+channel.label:channel.action);
-      action.disabled=channel.disabled;
-      if(channel.disabled)action.title=channel.state;
-      block.append(visual,info,action);channelGrid.append(block);
+      block.append(visual,info);
+      if(channel.action){
+        const action=button(channel.action,channel.click,"owner-item-channel-action");
+        action.setAttribute("aria-label",channel.action==="Set up"?"Set up "+channel.label:channel.action);
+        block.append(action);
+      }else{
+        const availability=el("span","owner-item-channel-availability",channel.code==="SHOPIFY" && publishedOnShopify
+          ?"Already live":"Not available yet");
+        availability.setAttribute("aria-label",channel.code==="SHOPIFY" && publishedOnShopify
+          ?"Already published on Shopify":"No publishing action available for "+channel.label);
+        block.append(availability);
+      }
+      channelGrid.append(block);
     }
     sellerChannels.append(channelGrid);
-    if(item.product_type!=="CARD")sellerChannels.append(el("small","owner-item-channel-footnote",
-      "eBay sealed-pack publishing is not yet supported. Whatnot connects via its official Shopify app; connecting requires a store administrator."));
+    if(!ebayEligible) sellerChannels.append(el("p","owner-item-channel-footnote",
+      "eBay: "+ebayReason+". Whatnot requires store administrator setup; it is not currently connected."));
     content.append(sellerChannels);
 
     const stock = el("section", "owner-item-section"); stock.append(el("h3", "", "Quantity"));
