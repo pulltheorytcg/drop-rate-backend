@@ -738,7 +738,15 @@ async function loadOwnerInventory() {
   renderInventoryCards(displayGroups);
   renderInventoryPagination();
   const totalLabel = byId("owner-inventory-total-label");
-  if (totalLabel) totalLabel.textContent = state.inventory.total.toLocaleString("en-GB");
+  if (totalLabel) {
+    totalLabel.textContent = displayGroups.length.toLocaleString("en-GB");
+    const units = state.inventory.total.toLocaleString("en-GB");
+    const fullyLoaded = state.inventory.offset===0 && items.length>=state.inventory.total;
+    if(totalLabel.nextElementSibling)
+      totalLabel.nextElementSibling.textContent =
+        (fullyLoaded? (displayGroups.length===1?"product":"products") : "products shown")+
+        " · "+units+" "+(state.inventory.total===1?"copy":"copies");
+  }
   if (state.inventory.offset === 0 && !state.inventory.search && !state.inventory.status) {
     renderOverviewLatestInventory(displayGroups);
   }
