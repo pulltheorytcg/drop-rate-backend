@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from html import escape
+from html.parser import HTMLParser
 from typing import Any, Mapping
 
 from .brands import brand_for_game
@@ -26,6 +27,41 @@ PRODUCT_TITLE_MAX = 255
 
 def _text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
+
+
+class _DescriptionParser(HTMLParser):
+    """Compare HTML content without Shopify's entity/indentation rewrites."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.tokens: list[tuple[Any, ...]] = []
+
+    def handle_starttag(self, tag, attrs):
+        self.tokens.append(("start", tag, tuple(sorted(attrs))))
+
+    def handle_endtag(self, tag):
+        self.tokens.append(("end", tag))
+
+    def handle_data(self, data):
+        value = _text(data)
+        if value:
+            self.tokens.append(("text", value))
+
+    def handle_comment(self, data):
+        self.tokens.append(("comment", data))
+
+    def handle_decl(self, decl):
+        self.tokens.append(("declaration", decl))
+
+    def handle_pi(self, data):
+        self.tokens.append(("instruction", data))
+
+
+def _description_tokens(value: object) -> list[tuple[Any, ...]]:
+    parser = _DescriptionParser()
+    parser.feed(str(value or ""))
+    parser.close()
+    return parser.tokens
 
 
 def _trim(value: str, limit: int) -> str:
@@ -430,8 +466,8 @@ def verify_remote_product(
     checks = {
         "title": (_text(snapshot.get("title")), _text(plan.get("title"))),
         "description": (
-            _text(snapshot.get("descriptionHtml")),
-            _text(plan.get("descriptionHtml")),
+            _description_tokens(snapshot.get("descriptionHtml")),
+            _description_tokens(plan.get("descriptionHtml")),
         ),
         "vendor": (_text(snapshot.get("vendor")), _text(plan.get("vendor"))),
         "product type": (
@@ -557,7 +593,9 @@ def verify_remote_product(
         for node in media_nodes or []
         if isinstance(node, Mapping) and _text(node.get("id"))
     }
-    if not expected_media_file_ids.issubset(actual_media_ids):
+    # The approved selection is the entire storefront gallery. An extra file
+    # may be stale, unrelated or off-brand even when the correct image is there.
+    if actual_media_ids != expected_media_file_ids:
         blockers.append("remote media")
 
     if _text(snapshot.get("status")) != expected_status:

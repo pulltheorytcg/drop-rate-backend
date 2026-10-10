@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — OP-17 release resumed; automatic collection repair
+
+- The seller requires strict consistency with existing Shopify products. Compared the OP-17 title/copy and exact artwork with live sealed-product references; preserve the shared template and clean product-led imagery. Add a durable [listing brand standard](docs/SHOPIFY_BRAND_STANDARD.md) and reject any unexpected Shopify gallery media, in addition to the existing title/description/SEO checks. Regression cases cover copy drift and missing/additional images.
+- PR #571 merged as `5759a8b4a7b28ba68f6f3045a0570421d943e628`; all five CI gates passed. Migration `20261010145452_seller_held_sealed_publication` is applied. Railway `80f7bf34-ee2d-4c9f-9cb0-c308828b9e1f` reached SUCCESS; pre-deploy passed 5,050 backend tests, readiness returned 200 and live Seller Hub HTML/JS matched the release.
+- Registered the exact READY OP-17 official catalogue image for the requesting seller. Added only the missing second physical copy under a persisted receipt; both are APPROVED / FOR_SALE at 1000p with unknown acquisition costs/storage retained. The exact-product shipping profile records a **15 g nominal product-weight estimate**, including measurement-source URLs and its exclusion of mailing packaging.
+- The first live sync created two drafts but Shopify rejected manual assignment to the rule-based Sealed/One Piece collections. Those drafts remain unpublished, have zero stock, and are reused by deterministic handles on retry. Repair collection discovery to identify automatic collections and leave membership to Shopify; the existing draft/final readback must still verify every required collection. Heartbeats now report incomplete publication passes rather than healthy price-only results.
+- Regression coverage includes automatic versus manual collections, missing automatic membership failing before publication, existing draft reuse and publication failures reflected in the heartbeat. Release/readback for this follow-up remains pending. No extra physical copies, store-price changes, unrelated seller activation or theme launch. See [evidence](docs/SELLER_HELD_SEALED_PUBLICATION.md).
+
 ## 10 October 2026 — Seller-held sealed publication correction
 
 - The seller explicitly confirmed two Japanese OP-17 packs at the saved £10 price and reuse of the exact Seller Hub image. Replace warehouse-intake review with owner-scoped self-approval for verified intact sealed consignments; retain exact physical ownership, identity, media readiness and sale intent.

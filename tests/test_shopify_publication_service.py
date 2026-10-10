@@ -230,6 +230,41 @@ async def _publish(connection, client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("missing_membership", [False, True])
+async def test_smart_collections_skip_manual_assignment_but_still_require_membership(monkeypatch, missing_membership):
+    _patch_launch(monkeypatch)
+    existing_launch = pipeline._launch_completeness
+    def launch(*args, **kwargs):
+        plan, readiness = existing_launch(*args, **kwargs)
+        plan["requiredCollections"] = ["Sealed", "Featured"]
+        return plan, readiness
+    monkeypatch.setattr(pipeline, "_launch_completeness", launch)
+    verified = []
+    def verify(*args, **kwargs):
+        verified.append(kwargs["expected_collection_titles"])
+        return {"complete": not missing_membership, "blockers": ["collection Sealed"] if missing_membership else []}
+    monkeypatch.setattr(pipeline, "verify_remote_product", verify)
+    class Client(FakeShopify):
+        async def list_collections_by_title(self):
+            return {"Sealed": {"id": "smart", "automated": True},
+                    "Featured": {"id": "manual", "automated": False}}
+        async def add_product_to_collection(self, **kwargs):
+            assert kwargs["collection_id"] == "manual"
+            await super().add_product_to_collection(**kwargs)
+    client = Client()
+    if missing_membership:
+        with pytest.raises(HTTPException) as exc:
+            await _publish(FakeConnection(_context()), client)
+        assert exc.value.status_code == 502
+        assert "publish" not in client.calls
+    else:
+        await _publish(FakeConnection(_context()), client)
+        assert "publish" in client.calls
+    assert client.calls.count("collection") == 1
+    assert verified and all(titles == {"Sealed", "Featured"} for titles in verified)
+
+
+@pytest.mark.asyncio
 async def test_duplicate_published_event_is_idempotent_without_shopify_write() -> None:
     existing = {
         "sync_state": "PUBLISHED",

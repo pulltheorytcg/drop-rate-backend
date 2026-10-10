@@ -220,6 +220,8 @@ async def shopify_pass(pool,settings):
                 await require_platform_admin(connection)
                 candidates=await connection.fetch(SHOPIFY_CANDIDATES)
                 previous=await connection.fetchval("select max(started_at) from tcg.catalogue_job_runs where job='SHOPIFY_SYNC'")
+            publication_failures=0
+            publication_incomplete=0
             for item in candidates:
                 report={'inventory_id':str(item['id']),'version':item['version']}
                 run=await receipt(pool,actor,'SHOPIFY_SYNC','RUNNING',report)
@@ -235,11 +237,14 @@ async def shopify_pass(pool,settings):
                     status='FAILED' if exc.status_code>=500 or exc.status_code==429 else 'INCOMPLETE'
                 except Exception as exc:
                     report.update(result='RETRY_REQUIRED',reason=type(exc).__name__);status='FAILED'
+                publication_failures += status == 'FAILED'
+                publication_incomplete += status == 'INCOMPLETE'
                 await receipt(pool,actor,'SHOPIFY_SYNC',status,report,run)
             prices=await reconcile_shopify_product_prices(pool,limit=25,request_id=str(uuid4()))
             if candidates or prices['candidate_count'] or previous is None or previous<datetime.now(timezone.utc)-timedelta(hours=1):
-                status='INCOMPLETE' if prices.get('failed_count') or prices.get('retry_required_count') else 'COMPLETE'
+                status='INCOMPLETE' if publication_failures or publication_incomplete or prices.get('failed_count') or prices.get('retry_required_count') else 'COMPLETE'
                 await receipt(pool,actor,'SHOPIFY_SYNC',status,{'publication_candidates':len(candidates),
+                    'publication_failures':publication_failures,'publication_incomplete':publication_incomplete,
                     'price_candidates':prices['candidate_count'],'prices_synced':prices['synced_count'],
                     'price_failures':prices.get('failed_count',0),'heartbeat':True})
                 log.warning('Automatic Shopify sync candidates=%s prices=%s status=%s',len(candidates),prices['synced_count'],status)

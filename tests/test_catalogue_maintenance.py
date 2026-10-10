@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from app.shopify_client import ShopifyApiError
 
 from app import catalogue_maintenance as jobs
 from app import catalogue_browser as browser
@@ -121,14 +122,15 @@ class Pool:
 
 
 @pytest.mark.asyncio
-async def test_automatic_sync_uses_exact_existing_pipeline_and_records_blockers(monkeypatch):
+@pytest.mark.parametrize('failure', [HTTPException(422,'Media review required'), ShopifyApiError('Collection assignment rejected')])
+async def test_automatic_sync_uses_exact_existing_pipeline_and_records_blockers(monkeypatch, failure):
     actor=uuid4();item=dict(id=uuid4(),owner_id=uuid4(),version=7)
     conn=Connection([item]);pool=Pool(conn);published=[];receipts=[]
     @asynccontextmanager
     async def user_connection(*args):yield conn
     async def authorized(connection):return {}
     async def publish(connection,**kwargs):
-        published.append(kwargs);raise HTTPException(422,'Media review required')
+        published.append(kwargs);raise failure
     async def prices(*args,**kwargs):return dict(candidate_count=0,synced_count=0,failed_count=0)
     async def receipt(*args):receipts.append(args);return uuid4()
     monkeypatch.setattr(jobs,'user_connection',user_connection);monkeypatch.setattr(jobs,'require_platform_admin',authorized)
@@ -138,7 +140,13 @@ async def test_automatic_sync_uses_exact_existing_pipeline_and_records_blockers(
     await jobs.shopify_pass(pool,settings)
     assert published[0]['inventory_id']==item['id'] and published[0]['owner_id']==item['owner_id']
     assert published[0]['expected_version']==7 and published[0]['test_mode'] is False
-    assert any(r[3]=='INCOMPLETE' and r[4].get('http_status')==422 for r in receipts)
+    if isinstance(failure, HTTPException):
+        assert any(r[3]=='INCOMPLETE' and r[4].get('http_status')==422 for r in receipts)
+    else:
+        assert any(r[3]=='FAILED' and r[4].get('reason')=='ShopifyApiError' for r in receipts)
+    heartbeat = next(r for r in receipts if r[4].get('heartbeat'))
+    assert heartbeat[3] == 'INCOMPLETE'
+    assert heartbeat[4]['publication_failures'] + heartbeat[4]['publication_incomplete'] == 1
     assert any("set_config('tcg.user_id','',false)" in sql for sql,_ in conn.calls)
     assert any('pg_advisory_unlock' in sql for sql,_ in conn.calls)
     published.clear();settings.shopify_publish_enabled=False

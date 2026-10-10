@@ -253,6 +253,22 @@ async def test_shopify_collection_assignment_uses_exact_collection_and_product_i
 
 
 @pytest.mark.asyncio
+async def test_shopify_collection_discovery_distinguishes_smart_and_manual() -> None:
+    client = ShopifyAdminClient(shop_domain="drop-rate.myshopify.com", client_id="id",
+                                client_secret="secret", api_version="2026-07")
+    async def graphql(*, query, variables):
+        assert "ruleSet { appliedDisjunctively }" in query
+        return {"collections": {"nodes": [
+            {"id": "smart", "title": "Sealed", "ruleSet": {"appliedDisjunctively": False}},
+            {"id": "manual", "title": "Featured", "ruleSet": None},
+        ], "pageInfo": {"hasNextPage": False}}}
+    client.graphql = graphql
+    collections = await client.list_collections_by_title()
+    assert collections["Sealed"]["automated"] is True
+    assert collections["Featured"]["automated"] is False
+
+
+@pytest.mark.asyncio
 async def test_shopify_media_uses_unified_file_create_and_reference_association() -> None:
     client = ShopifyAdminClient(
         shop_domain="drop-rate.myshopify.com",
