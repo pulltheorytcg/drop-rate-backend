@@ -1,4 +1,5 @@
 /* Owner Sales → To Ship review; no simulated shipping/label controls. */
+.owner-portal-page #owner-dispatch-heading{margin:0;font-size:1.2rem;color:#1c3553;font-weight:850}
 .owner-portal-page .owner-dispatch-note{
   padding:12px 20px;color:#596f89;font-size:.73rem;line-height:1.55;
 }
