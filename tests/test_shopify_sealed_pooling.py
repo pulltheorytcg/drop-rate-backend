@@ -185,7 +185,7 @@ async def test_legacy_variant_resolves_only_original_physical_copy():
                 return [legacy]
             raise AssertionError(sql)
     spec={"variant_gid":RETIRED_VARIANT,"quantity":1,
-      "unit_price_minor":1000,"line_reference":"old-line",
+      "unit_price_minor":1000,"discount_minor":0,"line_reference":"old-line",
       "line":{"product_id":RETIRED_PRODUCT.removeprefix("gid://shopify/Product/"),
               "sku":"INV-LEGACY-OLD"}}
     selected=await _select_order_units(FakeConnection(),order_reference="old-order",line_specs=[spec])
