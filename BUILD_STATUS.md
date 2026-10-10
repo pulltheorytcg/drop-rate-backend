@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Market continuation: numbered and supplemental Dragon Ball releases
+
+- Verified the previous handoff: PR #566 (`2267946`) is live on Railway `d6001a3d-c949-4254-8f10-8df8b347aa4c`, SUCCESS. Revision 6 finished at 12:53:20 UTC with no provider failures; coverage is **29,851 / 69,538 card references** and **2,725 / 3,879 sealed references**. All reference identity fields are present. Physical inventory remains 324/510 valued. The latest Shopify receipt is healthy, with no recorded approved Store Price differences.
+- Fixed omitted `Series N Booster` names and full-release joins through ordinary Dragon Ball booster/box packaging. Added explicit Fusion World Manga/Story release/code parsing with reference-only physical guards. A full read-only replay finds **1,686 additional priced references** (1,587 Masters, 99 Fusion), retaining every one of the existing 1,841 Dragon Ball matches with identical marketplace IDs. No Story Booster increase is claimed.
+- Coverage now rejects changed-identity bulk guides using the same condition as Seller Hub. Revision 7 resumes the existing daily worker using persisted detailed-cache progress. No new provider, service, migration, seller asking-price policy or storefront publication.
+- Local verification: **4,995 backend tests**, all dashboard suites (39 catalogue scenarios), and the current first-party export/ECB replay passed. Exact-head CI, real PostgreSQL and production read-back remain required at this checkpoint. See [continuation evidence](docs/CATALOGUE_MARKET_CONTINUATION.md).
+
 ## 10 October 2026 — Starter references and full-catalogue catch-up
 
 - A further read-only replay identifies 214 English One Piece and 86 Masters starter-card references omitted by booster-only release matching. Extend exact full-release/category matching for starter catalogues; duplicate expansions, regional products, alternate printings and incorrect numbers remain blocked. Starter guides explicitly stay outside physical valuation authority because deck finish distributions differ.

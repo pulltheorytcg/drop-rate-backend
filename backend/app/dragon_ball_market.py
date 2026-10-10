@@ -23,15 +23,21 @@ MASTERS = 'DRAGON_BALL_SUPER_MASTERS'
 FUSION = 'DRAGON_BALL_SUPER_FUSION_WORLD'
 
 
-def release_identity(system, name, *, include_starters=True):
+def release_identity(system, name, *, include_starters=True, include_supplemental=True):
     if system == MASTERS:
-        match = re.fullmatch(r'(?:[A-Z]+\d+ )?Booster -(.+)-', name, re.I)
+        match = re.fullmatch(r'(?:(?:Series \d+|[A-Z]+\d+) )?Booster -(.+)-', name, re.I)
         if not match and include_starters:
             match = re.fullmatch(r'(?:Series \d+|[A-Z]+\d+) Starter(?: \d+)? -(.+)-', name, re.I)
     elif system == FUSION:
         match = re.fullmatch(r'BOOSTER PACK -(.+)- \[FB\d{2}\]', name, re.I)
         if not match and include_starters:
             match = re.fullmatch(r'STARTER DECK -(.+)- \[FS\d{2}\]', name, re.I)
+        if not match and include_supplemental:
+            # The full release label and its printed code must agree. These
+            # reprint checklists remain reference-only, like starter decks.
+            match = re.fullmatch(r'(MANGA BOOSTER (\d{2})) \[SB\2\]', name, re.I)
+            if not match:
+                match = re.fullmatch(r'(STORY BOOSTER (\d{2})) \[ST\2\]', name, re.I)
     else:
         return None
     return (system, normalized(next(group for group in match.groups() if group is not None))) if match else None
@@ -45,9 +51,12 @@ def expansion_index(packaging):
         if category == 'DBS Set':
             match = re.fullmatch(r'(.+): (?:Common|Uncommon|Rare|Super Rare|Special Rare|Secret Rare|Full) Set', name)
             system = MASTERS
-        elif category == 'Dragon Ball Super Boosters':
-            match = re.fullmatch(r'(.+) Booster \[Fusion World\]', name)
-            system = FUSION
+        elif category == 'Dragon Ball Super Boosters' and product.get('idCategory') == 1050:
+            match = re.fullmatch(r'(.+) Booster( \[Fusion World\])?', name)
+            system = FUSION if match and match[2] else MASTERS
+        elif category == 'Dragon Ball Super Booster Boxes' and product.get('idCategory') == 1052:
+            match = re.fullmatch(r'(.+) Booster Box( \[Fusion World\])?', name)
+            system = FUSION if match and match[2] else MASTERS
         elif product.get('idCategory') == 1053 and category == 'Dragon Ball Super Starter Decks':
             match = re.fullmatch(r'Starter Deck: (.+?)( \[Fusion World\])?', name)
             system = FUSION if match and match[2] else MASTERS
@@ -64,7 +73,7 @@ def matched_products(references, singles, packaging):
         if product.get('idCategory') != 1049 or product.get('categoryName') != 'Dragon Ball Super Singles':
             continue
         name = product.get('name', '')
-        match = re.fullmatch(r'(.+) \((F[BS]\d{2}-\d{3})\) \[Fusion World\]', name)
+        match = re.fullmatch(r'(.+) \(((?:FB|FS|SB|ST)\d{2}-\d{3})\) \[Fusion World\]', name)
         system = FUSION if match else MASTERS
         products[(system, product.get('idExpansion'), normalized(match[1] if match else name))].append(
             (match[2] if match else None, product))

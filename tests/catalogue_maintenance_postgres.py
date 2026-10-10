@@ -131,6 +131,10 @@ async def main():
         await db.execute("update tcg.reference_cards set name='Changed identity' where provider_id='EB04-007_p2'")
         sql,args=product_query(owner_id=owner,q='EB04 007',language='English')
         assert (await db.fetch(sql,*args))[0]['market_value_minor'] is None,'Stale identity exposed the old guide'
+        coverage=[r for r in await db.fetch(COVERAGE_SQL)
+                  if r['system_code']=='ONE_PIECE_CARD_GAME' and r['language']=='English']
+        assert sum(r['products'] for r in coverage)==2,'Identity changes removed references from coverage'
+        assert not any(r['status']=='MIXED_LANGUAGE_GUIDE' for r in coverage),'Coverage counted a guide the browser rejects'
         changed=list(one_piece_args);changed[5]=changed[6]=99999;changed[8]=now+timedelta(seconds=1)
         await db.execute(ONE_PIECE_PRICE_SQL,*changed)
         assert await db.fetchval("select market_value_minor from tcg.reference_market_prices where provider_id='EB04-007_p2'")==28105,'Identity race replaced cached evidence'
