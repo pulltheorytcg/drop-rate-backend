@@ -19,9 +19,11 @@ from .reference_market import MAX_AGE, _minor, _time
 from .reference_sealed import category_type
 
 SOURCE = 'CARDMARKET_BULK'
-REVISION = 2
+REVISION = 3
 # Confirmed public first-party game exports. Unsupported games stay explicit.
-GAMES = {'POKEMON_TCG': (6, 'Pokémon'), 'ONE_PIECE_CARD_GAME': (18, 'One Piece')}
+GAMES = {'POKEMON_TCG': (6, 'Pokémon'), 'ONE_PIECE_CARD_GAME': (18, 'One Piece'),
+         'DRAGON_BALL_SUPER_MASTERS': (13, 'Dragon Ball Super'),
+         'DRAGON_BALL_SUPER_FUSION_WORLD': (13, 'Dragon Ball Super')}
 BASE = 'https://downloads.s3.cardmarket.com/productCatalog/'
 WRITE_SQL = '''insert into tcg.reference_sealed_market_prices
  (provider,system_code,language,provider_id,quotes,market_value_minor,market_value_high_minor,
@@ -64,7 +66,10 @@ async def quote_for(reference, products, prices, observed, fx, *, game_name):
     # These are the exact labels in Cardmarket's public non-singles export;
     # CardTrader calls a Pokémon display a booster box.
     packaging_type={('Pokémon','Pokémon Display'):'BOOSTER_BOX',
-                    ('One Piece','One Piece Preconstructed Decks'):'STARTER_DECK'}.get(
+                    ('One Piece','One Piece Preconstructed Decks'):'STARTER_DECK',
+                    ('Dragon Ball Super','Dragon Ball Super Boosters'):'BOOSTER_PACK',
+                    ('Dragon Ball Super','Dragon Ball Super Expansion Sets'):'COLLECTION',
+                    ('Dragon Ball Super','Dragon Ball Super Special Packs'):'COLLECTION'}.get(
         (game_name,product.get('categoryName')),category_type(product.get('categoryName'), {'name':game_name}))
     if (str(price.get('idCategory'))!=str(product.get('idCategory')) or packaging_type!=reference['product_type']):
         return None
@@ -91,11 +96,16 @@ async def refresh_sealed_prices(pool, actor):
     fx=EcbHistoricalFxProvider(timeout_seconds=10)
     try:
         async with httpx.AsyncClient(timeout=45,follow_redirects=False) as client:
+            feeds={}
             for system,(game_id,game_name) in GAMES.items():
                 try:
-                    products_result,prices_result=await asyncio.gather(
-                        download(client,f'productList/products_nonsingles_{game_id}.json',rows_key='products',now=now),
-                        download(client,f'priceGuide/price_guide_{game_id}.json',rows_key='priceGuides',now=now))
+                    # Masters and Fusion World share game 13; fetch its two
+                    # public exports once while retaining separate reference IDs.
+                    if game_id not in feeds:
+                        feeds[game_id]=await asyncio.gather(
+                            download(client,f'productList/products_nonsingles_{game_id}.json',rows_key='products',now=now),
+                            download(client,f'priceGuide/price_guide_{game_id}.json',rows_key='priceGuides',now=now))
+                    products_result,prices_result=feeds[game_id]
                     products,_=products_result;prices,observed=prices_result
                     async with user_connection(pool,actor,str(uuid4())) as connection:
                         rows=await connection.fetch('''select r.* from tcg.reference_sealed_products r

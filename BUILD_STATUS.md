@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Multi-game prices live; sealed follow-up in review
+
+- PR #562 deployed as `377c571a262332d962c5b9a3bf07b179c0b5f3fc` on Railway `25a62932-d944-428d-bbd8-423e9696682f` (SUCCESS, readiness 200). All five exact-head CI workflows passed, including PostgreSQL; CI and Railway each passed 4,874 backend tests. The additive migration is applied with SECURITY INVOKER, fixed search paths and no anonymous/authenticated execute grant. Security findings are unchanged from baseline.
+- The reference refresh completed at 01:15:51 UTC: **1,823 One Piece, 1,124 Masters and 631 Fusion World references priced**, with zero provider failures. The full 463-product Cardmarket calculation completed at 01:16:15 UTC: 233 guide bases, 69 new snapshots, **67 newly valued inventory copies**, zero provider calls and zero Store Price updates.
+- Inventory is now **318/510 valued**, up from 251. All 510 owner/Store Price/status fields and all 251 prior value/recommended-price/snapshot fields are identical in an exact row comparison. The remaining 192 copies are One Piece 145, Masters 16, Fusion World 6 and Pokémon 25; this is not universal pricing coverage.
+- Follow-up repairs the existing sealed worker's Dragon Ball exclusion using already-saved explicit CardTrader/Cardmarket IDs, matching packaging categories and one shared game-13 download. A source replay finds 312 guides; production read-back is still required. Repeated matching collector numbers in imported card titles are normalized for comparison only; conflicting numbers, edition qualifiers and duplicate printing candidates remain blocked. No canonical identity is edited.
+- Daily refresh remains 03:00 Europe/London with recovery. Seller prices/publication gates are unchanged, with no new paid provider, service or storefront launch. See [repair evidence and limits](docs/CARDMARKET_MULTIGAME_REPAIR.md).
+
 ## 10 October 2026 — Multi-game pricing repair: release candidate
 
 - Confirmed Pokémon-only physical Cardmarket fallback, excluded older One Piece checklists and absent Dragon Ball bulk-price ingestion. Extend the existing daily pipeline with full-release/unique-print checks and separate normal/foil fields. Preserve One Piece rarity from existing full-pack downloads.

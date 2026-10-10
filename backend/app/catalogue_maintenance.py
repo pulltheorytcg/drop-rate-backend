@@ -159,7 +159,7 @@ async def warm_prices(pool,actor,limit):
         report['reason']=type(exc).__name__
     finally:
         report.update(checked=checked,priced=priced,us_context_only=us_only,provider_failures=failed,
-                      scope='All English/Japanese Pokemon references and official English One Piece boosters; independent of inventory')
+                      scope='All English/Japanese Pokemon, English One Piece and English Dragon Ball references; independent of inventory')
         await receipt(pool,actor,'REFERENCE_PRICES',status,report,run_id)
         log.warning('Daily reference prices status=%s checked=%s priced=%s',status,checked,priced)
 
@@ -182,8 +182,10 @@ async def daily_pass(pool,settings):
             for source in SOURCES:
                 if due(last.get(source),now,revision=SOURCE_REVISIONS.get(source,1)):
                     await sync_source(pool,actor,source,settings)
+            sealed_refreshed=False
             if due(latest.get('SEALED_REFERENCE_PRICES'),now,revision=SEALED_MARKET_REVISION):
                 await refresh_sealed_prices(pool,actor)
+                sealed_refreshed=True
             if due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION):
                 # Record the complete database scope before a potentially long
                 # first fill; the final receipt then reflects its progress.
@@ -191,7 +193,7 @@ async def daily_pass(pool,settings):
                 await warm_prices(pool,actor,settings.catalogue_price_refresh_limit)
                 await refresh_cardmarket_values(pool,actor)
                 await record_coverage(pool,actor)
-            elif due(latest.get('CATALOGUE_COVERAGE'),now):
+            elif sealed_refreshed or due(latest.get('CATALOGUE_COVERAGE'),now):
                 await record_coverage(pool,actor)
         finally:await lock.execute('select pg_advisory_unlock($1)',847220092)
 

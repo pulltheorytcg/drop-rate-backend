@@ -170,6 +170,23 @@ async def main():
         except asyncpg.InsufficientPrivilegeError:pass
         await db.execute("select set_config('tcg.user_id','',false)")
         assert await db.fetchval('select count(*) from tcg.reference_sealed_products')==0
+        # Both Dragon Ball systems use their own explicit cross-provider IDs,
+        # with the same cached catalogue reader and no inventory dependency.
+        await db.execute("select set_config('tcg.user_id',$1,false)",str(actor))
+        for system in ('DRAGON_BALL_SUPER_MASTERS','DRAGON_BALL_SUPER_FUSION_WORLD'):
+            await db.execute('insert into tcg.collectible_systems values($1)',system)
+            db_record=dict(record,system_code=system)
+            db_product=dict(product,system_code=system,evidence={'cardmarket_product_id':'12'})
+            await save_sealed_set(db,db_record,[db_product])
+            value=('CardTrader',system,'Unknown','12',[{'source':'CARDMARKET_BULK','price_gbp_minor':8000,
+                   'observed_at':now.isoformat(),'valuation_role':'MIXED_LANGUAGE_REFERENCE'}],8000,8000,now,now,now+timedelta(days=1))
+            await db.execute(WRITE_SQL,*value)
+            sql,params=product_query(owner_id=owner,product_type='SEALED',system_code=system)
+            found=await db.fetch(sql,*params)
+            assert len(found)==1 and found[0]['market_value_minor']==8000 and found[0]['owned_quantity']==0
+            coverage=[r for r in await db.fetch(COVERAGE_SQL) if r['system_code']==system]
+            assert len(coverage)==1 and coverage[0]['status']=='MIXED_LANGUAGE_GUIDE'
+        assert await db.fetchval('select count(*) from tcg.inventory_items')==6
     finally:await db.close()
     print('PASS: real sealed query, replay, set previews, publication gating/backoff, price finalization/audit, migrations and RLS')
 

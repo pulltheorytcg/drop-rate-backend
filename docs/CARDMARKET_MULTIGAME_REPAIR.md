@@ -11,6 +11,29 @@ The founder requested the remaining pricing failures be fixed and supplied the P
 
 Baseline: 510 inventory copies / 251 valued. Owner/Store Price/status fingerprint `ab62e1122c7e51df7a2288288a3c3005`; valued-amount fingerprint `deb7d73c61d3f2b264a3bd85871004d7`.
 
+## Production verification
+
+PR #562 merged as `377c571a262332d962c5b9a3bf07b179c0b5f3fc`. Railway deployment `25a62932-d944-428d-bbd8-423e9696682f` reached SUCCESS with readiness 200 and original financial/social pre-deploy checks retained. All five exact-head CI workflows passed; backend CI and Railway each passed 4,874 tests. The catalogue browser's 37 UI scenarios also passed. The applied migration has the intended SECURITY INVOKER/search-path/grant configuration, and security-advisor findings are unchanged from baseline. No fresh authenticated iPhone acceptance is claimed.
+
+The 01:15:51 UTC reference receipt is COMPLETE: One Piece 4,527 checked / 1,823 priced; Dragon Ball 13,362 checked / 1,755 priced (1,124 Masters, 631 Fusion World), zero provider failures. The 01:16:15 UTC Cardmarket calculation is COMPLETE: 463 canonical products checked, 233 guide bases, 69 new shared snapshots and 67 newly valued inventory copies, with zero provider calls and Store Price updates.
+
+Inventory coverage is **318/510**, compared with 251/510 before this repair. An exact comparison of all 510 rows found zero owner/Store Price/status changes, and zero value/recommended-price/snapshot changes among all 251 previously valued copies. An additional pre-refresh snapshot was captured before the new deployment's first worker run, so this does not rely on comparing only aggregate totals.
+
+| Game | Valued copies | Pending copies |
+| --- | ---: | ---: |
+| Pokémon | 177 | 25 |
+| One Piece | 128 | 145 |
+| Dragon Ball Masters | 13 | 16 |
+| Dragon Ball Fusion World | 0 | 6 |
+
+Remaining stock includes 103 raw Japanese singles, two Japanese sealed products, four slabs, English special/promotional/pre-release printings, conflicting or decorated imported identities, absent exact guides and an explicit review mapping. Fusion World references now have prices; this does not imply every held Fusion World promo has an exact physical-copy match. Trawl/eBay sold-data capacity still reports a credit/rate limit. No paid upgrade or fabricated sold evidence was introduced.
+
+## Sealed and imported-title follow-up
+
+The same investigation found 464 Dragon Ball sealed references, 342 with explicit cross-provider IDs, excluded by the old two-game sealed worker. Extend the existing pass to game 13 for both systems, fetch shared exports once and keep packaging types separate. Current source replay finds 246 Masters plus 66 Fusion World guides. Eleven case/display records whose source category describes a single booster box remain excluded, as do missing IDs and missing prices. These are catalogue guides with mixed-language/condition limitations, not physical-stock asking prices.
+
+Only an exact repeated collector number at the end of an imported card title can be omitted during matching (`Card (OP15-022)`, `Card (022)` or `Card - OP15-022`). A conflicting number, parallel/pre-release qualifier or ambiguous candidate remains blocked. Stored canonical identities are not rewritten. This follow-up uses Cardmarket calculation revision 4 and sealed revision 3; its final CI/deployment/production counts remain outstanding. Coverage receipts update after a sealed-only refresh.
+
 ## Changes and evidence rules
 
 The existing daily pass reads older One Piece English boosters and Dragon Ball Masters/Fusion World bulk guides. Complete release names, game, collector numbers where Cardmarket publishes them, full card names and uniqueness across both checklists establish a match. A duplicate number, conflicting name, alternate printing or regional expansion cannot be resolved through price/order. Masters' export omits collector numbers: both the official name and collector number must identify one official printing and its full release/name must identify one Cardmarket SKU. Normal and foil prices retain separate fields.
@@ -27,6 +50,6 @@ Read-only source replay found 1,823 One Piece and 1,755 Dragon Ball priced refer
 
 Tests cover actual bulk-export shapes, independent normal/foil prices, regional/printing/name/number collisions, stale/future evidence, invalid FX, changed source identities, review status, owner isolation, unowned guides, retries, unchanged Store Prices and eBay priority. Real PostgreSQL exercises the new joins, migration and cached intake. Current-head CI, applied migration, successful deployment and production read-back remain required before reporting live counts.
 
-Revisions: Punk import 2, reference-price job 4, Cardmarket calculation 3. The existing daily schedule and recovery loop perform the refresh; no provider calls are made by the physical-copy calculation. Rollback reverts the worker changes while retaining the additive helper and all historical evidence.
+Initial release revisions: Punk import 2, reference-price job 4, Cardmarket calculation 3. The existing daily schedule and recovery loop perform the refresh; no provider calls are made by the physical-copy calculation. Rollback reverts the worker changes while retaining the additive helper and all historical evidence.
 
 Primary sources: Cardmarket `products_singles_13.json`, `products_nonsingles_13.json`, `price_guide_13.json` and corresponding game-18 exports under https://downloads.s3.cardmarket.com/productCatalog/; Bandai English Masters/Fusion World/One Piece checklists; exact Punk Records full-pack snapshots already used by the reference importer.

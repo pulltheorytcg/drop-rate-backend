@@ -24,7 +24,7 @@ from .reference_market import SOURCE, _text, _time
 
 CATALOGUE_METHOD = 'CATALOGUE_CARDMARKET_V1'
 INVENTORY_METHOD = 'CARDMARKET_GUIDE_V1'
-REVISION = 3
+REVISION = 4
 MAX_AGE = timedelta(days=7)
 LIMITATION = 'EU price guide across languages and conditions; not a condition-adjusted UK sold value.'
 GUIDE_WRITE_SQL = WRITE_SQL.replace('\n on conflict',
@@ -175,6 +175,20 @@ def rarity_key(value):
             'LEADER':'L'}.get(text,text)
 
 
+def bandai_name(value,collector):
+    """Ignore only a repeated, matching collector number in an import title."""
+    from .one_piece_market import normalized
+    text=str(value or '').strip();number=str(collector or '').strip().upper()
+    if re.fullmatch(r'[A-Z]{1,3}\d{2}-\d{3}',number):
+        suffix=re.fullmatch(r'(.+?)\s+\(([A-Z0-9-]+)\)',text,re.I)
+        if suffix and suffix[2].upper() in {number,number.rsplit('-',1)[1]}:
+            text=suffix[1]
+        else:
+            suffix=re.fullmatch(r'(.+?)\s+-\s+([A-Z]{1,3}\d{2}-\d{3})',text,re.I)
+            if suffix and suffix[2].upper()==number:text=suffix[1]
+    return normalized(text)
+
+
 def bandai_guide_values(product,references,*,now):
     from . import dragon_ball_market as db
     from .one_piece_market import SOURCE as BULK_SOURCE,normalized,release_identity
@@ -193,7 +207,7 @@ def bandai_guide_values(product,references,*,now):
         if (ref.get('system_code')!=system or ref.get('reference_language')!='English'
                 or ref.get('provider') not in ({'Punk Records','Bandai Official'} if system=='ONE_PIECE_CARD_GAME' else {'Bandai Official'})
                 or not title or title!=canonical_title
-                or normalized(product.get('name'))!=normalized(ref.get('reference_name'))
+                or bandai_name(product.get('name'),product.get('card_number'))!=bandai_name(ref.get('reference_name'),ref.get('reference_number'))
                 or not number_key(product.get('card_number'))
                 or number_key(product.get('card_number'))!=number_key(ref.get('reference_number'))):
             continue

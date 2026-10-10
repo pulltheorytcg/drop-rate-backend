@@ -149,3 +149,28 @@ async def test_daily_price_warm_stops_on_provider_failure_and_reuses_fx(monkeypa
     assert len(requests)==1 and len(requests[0][0][3])==40
     assert requests[0][1]['fx_provider'] is not None
     assert receipts[-1][3]=='INCOMPLETE' and receipts[-1][4]['provider_failures']==40
+
+
+@pytest.mark.asyncio
+async def test_sealed_only_refresh_updates_the_coverage_receipt(monkeypatch):
+    now=datetime.now(timezone.utc);events=[]
+    class DailyConnection(Connection):
+        async def fetch(self,sql,*args):
+            if 'reference_sync_runs' in sql:
+                return [dict(source=s,status='COMPLETE',started_at=now,report={'importer_revision':jobs.SOURCE_REVISIONS.get(s,1)}) for s in jobs.SOURCES]
+            revisions={'REFERENCE_PRICES':jobs.REFERENCE_JOB_REVISION,'SEALED_REFERENCE_PRICES':jobs.SEALED_MARKET_REVISION-1,
+                       'CATALOGUE_VALUES':jobs.CATALOGUE_VALUE_REVISION,'CARDMARKET_VALUES':jobs.CARDMARKET_VALUE_REVISION,
+                       'CATALOGUE_COVERAGE':1}
+            return [dict(job=j,status='COMPLETE',started_at=now,report={'importer_revision':r}) for j,r in revisions.items()]
+    conn=DailyConnection()
+    @asynccontextmanager
+    async def user_connection(*args):yield conn
+    async def authorized(*args):pass
+    async def sealed(*args):events.append('sealed')
+    async def coverage(*args):events.append('coverage')
+    monkeypatch.setattr(jobs,'user_connection',user_connection)
+    monkeypatch.setattr(jobs,'require_platform_admin',authorized)
+    monkeypatch.setattr(jobs,'refresh_sealed_prices',sealed)
+    monkeypatch.setattr(jobs,'record_coverage',coverage)
+    await jobs.daily_pass(Pool(conn),SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4())))
+    assert events==['sealed','coverage']
