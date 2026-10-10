@@ -67,6 +67,19 @@ for(const [name,pixels] of [
  assert.ok(result.edgeConfidence>0.5);
  checks++;
 }
+// SEALED packages can be taller/narrower than a raw trading card. They
+// still need real four-sided structure and an empty-guide presence transition.
+const tallPack=picture({rect:{left:13,right:35,top:7,bottom:61}});
+assert.equal(detect(tallPack,W,H,'RAW').present,false,
+  'A tall booster pack must not be misidentified as a RAW card shape');
+assert.equal(detect(tallPack,W,H,'SEALED').present,true,
+  'A centered Japanese booster pack must remain usable in SEALED mode');
+for(const [name,pixels] of noCard){
+  assert.equal(detect(pixels,W,H,'SEALED').present,false,
+    'SEALED scanner must not auto-scan an empty/textured scene: '+name);
+}
+checks+=noCard.length+2;
+
 assert.equal(detect(new Uint8ClampedArray(1),W,H).present,false);
 checks++;
 
