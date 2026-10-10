@@ -239,6 +239,28 @@ async function matched(scanner, quantity = 1) {
     assert.equal(saved, 0); assert.equal(f.calls.length, 0);
     f.finish(); checks += 1;
   }
+  // A direct Scan tap prefers the live camera, even when previous recognised
+  // cards are still queued for review; a later Next keeps that queue intact.
+  {
+    const f=fixture('seller',async()=>result());
+    await f.scanner.recognise('data:image/jpeg;base64,AA==');
+    const queued=f.scanner.items[0];queued.requests=[{key:'unsaved-copy',result:null}];
+    let count=0,stops=0;
+    Object.defineProperty(f.w.navigator,'mediaDevices',{configurable:true,value:{
+      getUserMedia:async()=>{count++;return {getTracks:()=>[{stop(){stops++;}}],getVideoTracks:()=>[]};}
+    }});
+    await f.scanner.open('RAW',{preferCamera:true});
+    assert.equal(f.scanner.view,'camera');
+    assert.equal(f.scanner.items.length,1);
+    assert.equal(f.scanner.items[0].requests[0].key,'unsaved-copy');
+    assert.equal(count,1);
+    await f.scanner.open('RAW',{preferCamera:true});
+    assert.equal(count,1,'Repeated open should not restart an already-running camera');
+    f.scanner.showReview();
+    assert.equal(f.scanner.items.length,1);
+    f.scanner.close();assert.ok(stops>=1);
+    f.finish();checks++;
+  }
   // A late camera permission grant after closing never leaves hardware streaming.
   {
     const pending = deferred(); const f = fixture(); let stopped = 0;
