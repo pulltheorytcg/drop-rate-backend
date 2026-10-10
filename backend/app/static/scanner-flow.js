@@ -160,8 +160,28 @@ window.DropRateScanner = (() => {
       edgeSpan(false, bottom.position, left.position + xInset, right.position - xInset),
     ];
     const straightSides = longitudinal.every(support => support >= 0.72);
+    // Hands and blank rectangular objects have smooth interiors. A printed
+    // TCG card, graded slab or booster usually contains visible fine artwork
+    // inside its outer edge. Confirm local print/detail rather than relying
+    // on an isolated silhouette or the camera's overall image variation.
+    const innerX1 = Math.ceil(left.position + xSize * 0.24);
+    const innerX2 = Math.floor(right.position - xSize * 0.24);
+    const innerY1 = Math.ceil(top.position + ySize * 0.20);
+    const innerY2 = Math.floor(bottom.position - ySize * 0.20);
+    let sum = 0, squared = 0, sampleCount = 0;
+    for (let y = innerY1; y <= innerY2; y += 1) {
+      for (let x = innerX1; x <= innerX2; x += 1) {
+        const pixel = (y * w + x) * 4;
+        const gray = pixels[pixel] * 0.299 + pixels[pixel + 1] * 0.587 + pixels[pixel + 2] * 0.114;
+        sum += gray; squared += gray * gray; sampleCount += 1;
+      }
+    }
+    const printDeviation = sampleCount
+      ? Math.sqrt(Math.max(0, squared / sampleCount - (sum / sampleCount) ** 2)) / 255
+      : 0;
+    const printed = printDeviation >= 0.055;
     return {
-      present: centered && rectangular && fourEdges && cornersSupported && straightSides,
+      present: centered && rectangular && fourEdges && cornersSupported && straightSides && printed,
       box: {left: left.position, right: right.position, top: top.position, bottom: bottom.position},
       edgeConfidence: Math.min(...borders.map(side => side.support * side.prominence)),
     };
