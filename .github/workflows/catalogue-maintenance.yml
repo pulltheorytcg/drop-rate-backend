@@ -6,6 +6,7 @@ on:
       - 'backend/app/reference_sealed.py'
       - 'backend/app/reference_market.py'
       - 'backend/app/sealed_market.py'
+      - 'backend/app/one_piece_market.py'
       - 'backend/app/catalogue_coverage.py'
       - 'backend/app/catalogue_browser.py'
       - 'database/migrations/*catalogue_daily_maintenance.sql'

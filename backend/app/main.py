@@ -60,6 +60,8 @@ from .ebay_sold_pricing import router as ebay_sold_pricing_router
 from .pricing_preview import router as pricing_preview_router
 from .recognition import router as recognition_router
 from .recognition_vision import close_shared_vision_http_client
+from .recognition_images import close_reference_http_client
+from .catalogue_artwork import close_artwork_tasks
 from .reference_library import router as reference_library_router
 from .purchase_lots import router as purchase_lots_router
 from .refunds import router as refunds_router
@@ -262,6 +264,8 @@ def create_app() -> FastAPI:
                     except Exception:
                         pass
             await close_shared_vision_http_client()
+            await close_artwork_tasks()
+            await close_reference_http_client()
             await app.state.db_pool.close()
 
     app = FastAPI(
