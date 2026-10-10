@@ -85,3 +85,15 @@ The 3-across seller channel cards previously mixed a fake Shopify glyph, a small
 **Whatnot:** The `Set up` action opens `https://apps.shopify.com/whatnot`; only an authorised store admin can complete the connection. It does not claim inventory sync or installation. This is separate from the outstanding live Shopify OP17 variant consolidation (#576/#582).
 
 **Acceptance and rollback:** JSDOM verifies published/no duplicate action, draft approval, ready-not-published sync, actual transparent wordmark URLs, blocked eBay affordances and setup link. The isolated Chromium gate checks logo-frame alignment and transparency, no overflow, and the PUBLISHED screenshot at 430px and 1440px. Versioned frontend assets and stricter `upload.wikimedia.org` image-only CSP support correct client refresh. No database, product stock, consignment, financial or Shopify theme changes.
+
+## 10 October 2026 — Per-seller Whatnot connection correction
+
+The original Seller Hub 'Set up' link opened `apps.shopify.com/whatnot`, which attempts to install an app on the **Drop Rate company Shopify store**, not connect the seller's own Whatnot account. This is incorrect for the user's multi-owner marketplace architecture.
+
+Whatnot's official Seller API supports third-party **seller-specific OAuth** with individual `read:inventory`, `write:inventory` and optional order/shipment scopes, but as of this release its developer-preview programme is **not accepting new API applicants**. Without Drop Rate's approved client credentials and explicit per-seller OAuth grants, Seller Hub must never simulate a connection, store a seller's Whatnot password, or invite the seller to connect their account to the company Shopify admin.
+
+The UI therefore displays **Personal seller connection awaiting Whatnot API access**, with **Not available yet** rather than an active 'Set up' button. The backend reports `DEVELOPER_ACCESS_REQUIRED`, `connection_mode=SELLER_OAUTH`, `sync_enabled=false` and `connected=false`. The official brandmark is retained. This is a truthful fix with no external connection requests, new service, secret storage, sales, accounting or Shopify changes. When Whatnot grants credentials, a separate audited multi-owner OAuth adapter will be required: CSRF state tied to account, token encryption at rest, scope review, webhook signature checks, exact owner inventory links, replay/idempotency, and disconnection.
+
+Official sources:
+- https://developers.whatnot.com/docs/getting-started/introduction
+- https://developers.whatnot.com/docs/getting-started/authentication

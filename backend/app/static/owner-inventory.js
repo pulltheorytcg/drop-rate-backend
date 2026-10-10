@@ -235,8 +235,9 @@ window.DropRateInventory = (() => {
         })
       },
       {
-        code:"WHATNOT",label:"Whatnot",state:"Connect through Shopify",
-        action:"Set up",click:()=>window.open("https://apps.shopify.com/whatnot","_blank","noopener,noreferrer")
+        code:"WHATNOT",label:"Whatnot",
+        state:"Personal seller connection awaiting Whatnot API access",
+        action:null
       }
     ];
     for(const channel of cards){
@@ -266,7 +267,7 @@ window.DropRateInventory = (() => {
     }
     sellerChannels.append(channelGrid);
     if(!ebayEligible) sellerChannels.append(el("p","owner-item-channel-footnote",
-      "eBay: "+ebayReason+". Whatnot requires store administrator setup; it is not currently connected."));
+      "eBay: "+ebayReason+". Whatnot direct seller-account authorisation is currently unavailable; your account will not be linked to Drop Rate’s Shopify admin."));
     content.append(sellerChannels);
 
     const stock = el("section", "owner-item-section"); stock.append(el("h3", "", "Quantity"));
