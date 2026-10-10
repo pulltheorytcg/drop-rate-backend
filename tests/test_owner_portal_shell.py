@@ -16,7 +16,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=owner-v16" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=owner-v17" defer></script>' in html
     assert '<script src="/assets/owner-recognition.js?v=owner-v11" defer></script>' in html
 
     for founder_script in (
@@ -27,6 +27,30 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
         "identity-review.js",
     ):
         assert founder_script not in html
+
+
+def test_compact_inventory_grid_moves_metadata_into_details() -> None:
+    portal = (STATIC / "owner-portal.js").read_text()
+    details = (STATIC / "owner-inventory.js").read_text()
+    css = (STATIC / "owner-inventory.css").read_text()
+    html = HTML.read_text()
+    card_block = portal.split("function renderInventoryCards(items) {", 1)[1].split(
+        "function renderOverviewLatestInventory(items) {", 1
+    )[0]
+    assert "owner-card-meta" not in card_block
+    assert "body.append(heading, prices);" in card_block
+    assert "owner-card-image-wrap" in card_block
+    assert "owner-card-prices" in card_block
+    assert "owner-inventory-details" in card_block
+    assert "owner-market-refresh" in card_block
+    assert "owner-item-facts-grid" in details
+    for value in ("Game", "Set", "Card number", "Language", "Seal", "Condition",
+                  "Type", "Grading company", "Grade", "Certificate", "Inventory ID"):
+        assert f'"{value}"' in details
+    assert ".owner-item-facts" in css
+    assert ".owner-item-fact dd" in css
+    assert 'href="/assets/owner-inventory.css?v=2"' in html
+    assert 'src="/assets/owner-inventory.js?v=3"' in html
 
 
 def test_owner_portal_requires_owner_role_and_redirects_platform_admin() -> None:
