@@ -1,4 +1,4 @@
-/* Owner Sales → To Ship review; no simulated shipping/label controls. */
+/* Owner Sales → To Ship verification; no simulated label or dispatch controls. */
 .owner-portal-page #owner-dispatch-heading{margin:0;font-size:1.2rem;color:#1c3553;font-weight:850}
 .owner-portal-page .owner-dispatch-note{
   padding:12px 20px;color:#596f89;font-size:.73rem;line-height:1.55;
@@ -34,4 +34,23 @@
  .owner-portal-page .owner-dispatch-list{grid-template-columns:1fr;padding:8px 12px 16px}
  .owner-portal-page .owner-dispatch-note{padding:12px;font-size:.72rem}
  .owner-portal-page .owner-dispatch-item{padding:12px}
+}
+
+.owner-portal-page .owner-dispatch-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.owner-portal-page #owner-dispatch-shopify-check,
+.owner-portal-page .owner-dispatch-remote-check{
+  background:#f5f9fe;border:1px solid #cddded;border-radius:9px;
+  padding:7px 12px;color:#234d78;font-size:.7rem;font-weight:800;
+}
+.owner-portal-page #owner-dispatch-shopify-check:disabled,
+.owner-portal-page .owner-dispatch-remote-check:disabled{opacity:.55;cursor:wait}
+.owner-portal-page .owner-dispatch-connection-status{
+  margin:12px 20px 0;padding:10px 12px;border:1px solid #d9e4ef;
+  border-radius:9px;background:#f7faff;color:#415b76;font-size:.68rem;
+}
+.owner-portal-page .owner-dispatch-remote-check{display:block;margin-top:12px}
+.owner-portal-page .owner-dispatch-remote-status{color:#5c7089;font-size:.68rem;line-height:1.5;margin:8px 0 0;overflow-wrap:anywhere}
+@media(max-width:750px){
+  .owner-portal-page .owner-dispatch-connection-status{margin:8px 12px 0}
+  .owner-portal-page .owner-dispatch-actions{width:100%}
 }

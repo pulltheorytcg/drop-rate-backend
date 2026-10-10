@@ -7,7 +7,7 @@
   <title>Drop Rate</title>
   <link rel="stylesheet" href="/assets/styles.css?v=owner-v2-base">
   <link rel="stylesheet" href="/assets/owner-portal.css?v=owner-v14">
-  <link rel="stylesheet" href="/assets/owner-fulfillment.css?v=1">
+  <link rel="stylesheet" href="/assets/owner-fulfillment.css?v=2">
   <link rel="stylesheet" href="/assets/owner-inventory.css?v=5">
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
@@ -554,8 +554,12 @@
             <section id="owner-dispatch-review" class="owner-panel" aria-labelledby="owner-dispatch-heading">
               <div class="owner-section-header compact">
                 <div><span class="owner-section-kicker">Shopify dispatch</span><h3 id="owner-dispatch-heading">To ship <span id="owner-dispatch-count" aria-label="Items for dispatch review">—</span></h3><p>Your exact physical order items, checked against your own seller account. No shipping label is purchased from this page yet.</p></div>
-                <button id="owner-dispatch-refresh" type="button">Refresh ↻</button>
+                <div class="owner-dispatch-actions">
+                  <button id="owner-dispatch-shopify-check" type="button">Verify Shopify</button>
+                  <button id="owner-dispatch-refresh" type="button">Refresh ↻</button>
+                </div>
               </div>
+              <div id="owner-dispatch-shopify-status" class="owner-dispatch-connection-status" role="status">Shopify Shipping verification available.</div>
               <div id="owner-dispatch-message" class="owner-dispatch-note" role="status">Open Sales to check your pending Shopify order items.</div>
               <div id="owner-dispatch-list" class="owner-dispatch-list" aria-live="polite"></div>
               <div class="owner-pagination">
@@ -757,7 +761,7 @@
   <script src="/assets/hub-session.js?v=3" defer></script>
   <script src="/assets/owner-inventory.js?v=7" defer></script>
   <script src="/assets/owner-portal.js?v=owner-v20" defer></script>
-  <script src="/assets/owner-fulfillment.js?v=1" defer></script>
+  <script src="/assets/owner-fulfillment.js?v=2" defer></script>
   <script src="/assets/scanner-flow.js?v=7" defer></script>
   <script src="/assets/owner-recognition.js?v=owner-v13" defer></script>
   <script src="/assets/reference-library.js?v=2" defer></script>
