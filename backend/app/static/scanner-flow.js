@@ -631,7 +631,30 @@ window.DropRateScanner = (() => {
         return;
       }
       if (!this.autoArmed) {
-        this.status("Clear the guide briefly, then place your card inside");
+        // Most users show the card *after* opening the camera. If a card was
+        // already there on the very first frame, permit an EXTRA-CONFIDENT,
+        // long-stable rectangle to scan too; don't force a pointless
+        // remove-and-represent gesture like a broken camera app.
+        const strong = analysis.edgeConfidence >= 1.35 && Boolean(analysis.box);
+        const previousBox = this.previousBox, box = analysis.box;
+        const aligned = !previousBox || (
+          Math.abs(previousBox.left - box.left) <= 2
+          && Math.abs(previousBox.right - box.right) <= 2
+          && Math.abs(previousBox.top - box.top) <= 2
+          && Math.abs(previousBox.bottom - box.bottom) <= 2);
+        const movement = fingerprintDelta(analysis.fingerprint, this.previous);
+        this.previous = analysis.fingerprint; this.previousBox = box;
+        this.presenceFrames = strong ? this.presenceFrames + 1 : 0;
+        this.stableFrames = strong && movement <= 0.018 && aligned
+          ? this.stableFrames + 1 : 0;
+        if (this.presenceFrames < 5 || this.stableFrames < 4) {
+          this.status(strong ? "Card detected · hold steady inside the guide"
+            : "Clear the guide briefly, then place your card inside");
+          return;
+        }
+        this.autoArmed = true;
+        if (this.mode === "GRADED" && !this.qrBusy) this.captureSlabQr();
+        else if (this.mode !== "GRADED") this.capture();
         return;
       }
       this.presenceFrames += 1;
