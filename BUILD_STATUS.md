@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 10 October 2026 — Shopify owner dispatch review v1 (PR in progress)
+
+- Added owner-scoped read-only **Sales → To ship** queue inside existing Seller Hub. It lists exact paid or partly refunded Shopify physical order items from the canonical `orders → order_items → inventory_items → shopify_order_item_links` path, scopes every row to the active owner membership, and does **not** expose buyer shipping addresses or customer details.
+- Every candidate remains **REVIEW_REQUIRED** or **AWAITING_DISPATCH_SETUP**; missing exact Shopify line, partially refunded order or inconsistent physical SOLD status creates explicit review blockers. A physical storage location does not prove dispatch custody. No fake Buy label, Dispatch, PDF or tracking action; public API capabilities are explicitly false until carrier, seller identity and remote Shopify FulfillmentOrder preflights are implemented.
+- Current live database has **no eligible paid Shopify orders** (2 cancelled / 1 refunded); real end-to-end dispatch and mobile acceptance are still unverified. Adds pure blocker tests, fake owner-scoped SQL/PII tests and responsive Sales UI guard tests. No new DB migration, provider, Railway service, n8n workflow or storefront theme. See [seller dispatch v1](docs/SELLER_DISPATCH_REVIEW_V1.md).
+- Future phase: custody/address policy, carrier-issued label quote/purchase, private PDF, verified tracking/partial Shopify fulfillment, exact postage reconciliation and controlled real-order pilot. **Do not mark full fulfilment complete** until those gates pass.
+
 ## 10 October 2026 — Launch shipping tariff agreed, Shopify API blocked
 
 - Founder superseded the former **free UK shipping from £10** idea: launch target is **UK Standard £3.95 below £50 and FREE from £50**, UK Express £6.99, EU £14.99 and existing International £23.99, with *no free international threshold initially*. Shopify remains the sole source of buyer checkout rates. The £50 UK free condition and paid international options already exist.
