@@ -183,7 +183,7 @@ window.DropRateInventory = (() => {
     const channelGrid=el("div", "owner-item-channels");
     const ebay=channels.find(c=>c.code==="EBAY")||{};
     const channelsReady=Boolean(ebay.connected && ebay.sync_enabled);
-    const ebayEligible=channelsReady && item.product_type==="CARD" &&
+    const ebayEligible=channelsReady && !item.is_consignment && item.product_type==="CARD" &&
       item.status==="APPROVED" && item.sale_intent==="FOR_SALE";
     const cards=[
       {
@@ -200,6 +200,7 @@ window.DropRateInventory = (() => {
         code:"EBAY",label:"eBay",
         logo:"https://images.prismic.io/ebayevo/Zm_Swpm069VX1ywL_logo_I1734-53180-5649-25395-5763-35557.png?auto=format%2Ccompress",
         state:item.product_type!=="CARD"?"Sealed listings not supported":
+          item.is_consignment?"Consignor eBay sync not available":
           !ebay.connected?"Seller connection unavailable":!ebay.sync_enabled?"Seller sync not enabled":"Eligible cards only",
         action:"Sync to eBay",disabled:!ebayEligible,
         click:()=>run(async()=>{
