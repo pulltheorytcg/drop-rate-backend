@@ -23,7 +23,7 @@ def test_dispatch_is_inside_existing_sales_tab():
 
 def test_dispatch_frontend_has_no_buyer_address_or_fake_provider_actions():
     js = JS.read_text()
-    assert '"/api/v1/fulfilment/to-ship?' in js
+    assert "/api/v1/fulfilment/to-ship?" in js
     assert 'document.addEventListener("hub-ready"' in js
     assert 'document.addEventListener("owner-view-changed"' in js
     assert 'element("owner-logout-button")' in js
