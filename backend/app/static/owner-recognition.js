@@ -605,7 +605,9 @@ async function ownerScanStartCamera(facingMode = "environment") {
   if (window.DropRateScanner) {
     ownerScanStopCamera();
     ownerSharedScanner();
-    await window.dropRateScanner.open(ownerScanMode().toUpperCase());
+    // A tab click always opens the LIVE view even when previous scans still
+    // await review. They stay safely queued for Next / Review, not discarded.
+    await window.dropRateScanner.open(ownerScanMode().toUpperCase(), {preferCamera: true});
     return;
   }
   if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
@@ -2145,6 +2147,35 @@ async function ownerBatchAddAll() {
   }
 }
 
+// This entry point is called *synchronously from the Scan navigation click*.
+// Do not await recognition status, fetch config, or an animation before calling
+// ownerScanStartCamera: browsers require a user gesture for camera permission.
+function ownerRecognitionLaunchCamera() {
+  if (!state.session?.access_token || byId("owner-view-scan")?.classList.contains("hidden")) return;
+  if (window.dropRateScanner?.dialog?.open) return;
+  void ownerScanStartCamera("environment").catch(error => {
+    const reason = error?.name === "NotAllowedError"
+      ? "Allow camera access in your browser, or choose a photo instead."
+      : error?.message || "Camera unavailable. Choose a photo instead.";
+    if (!byId("owner-view-scan")?.classList.contains("hidden")) {
+      ownerScanMessage(reason, "error");
+      window.dropRateScanner?.status?.(reason);
+    }
+  });
+}
+window.ownerRecognitionLaunchCamera = ownerRecognitionLaunchCamera;
+
+function ownerRecognitionLeave() {
+  // Invalidate pending camera permission grants, even on browser Back/hash
+  // navigation. Keep queued recognised cards intact until the user saves them.
+  ownerScanStopCamera();
+  const scanner = window.dropRateScanner;
+  if (!scanner) return;
+  scanner.stopCamera();
+  if (scanner.dialog?.open && !scanner.saving && !scanner.editBusy) scanner.close();
+}
+window.ownerRecognitionLeave = ownerRecognitionLeave;
+
 async function ownerRecognitionEnter() {
   if (!state.session?.access_token || state.ownerRecognition.status) return;
   const badge = byId("owner-scan-engine-status");
@@ -2272,9 +2303,7 @@ byId("owner-scan-another").addEventListener("click", () => {
   ownerScanMessage("Ready for your next card.");
   byId("owner-scan-open-camera").scrollIntoView({behavior: "smooth", block: "center"});
 });
-document.querySelectorAll('[data-owner-view="scan"],[data-owner-jump="scan"]').forEach((button) => {
-  button.addEventListener("click", () => ownerRecognitionEnter());
-});
+// Scan navigation owns readiness and automatic camera launch; no duplicate listeners.
 
 window.addEventListener("pagehide", () => ownerScanStopCamera());
 document.addEventListener("visibilitychange", () => {

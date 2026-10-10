@@ -1276,7 +1276,7 @@ async function saveOwnerPayoutPreference() {
   }
 }
 
-function activateOwnerView(view, pushHistory = true) {
+function activateOwnerView(view, pushHistory = true, launchCameraFromClick = false) {
   const views = {
     search: ["Search", "Discover cards and sets across the complete catalogue."],
     overview: ["Home", "Everything you need to track your cards, sales and payouts."],
@@ -1291,6 +1291,8 @@ function activateOwnerView(view, pushHistory = true) {
     settings: ["Settings", "Make your workspace feel like yours."],
   };
   const target = Object.hasOwn(views, view) ? view : "overview";
+  const leavingScan = target !== "scan"
+    && !byId("owner-view-scan")?.classList.contains("hidden");
 
   document.querySelectorAll("[data-owner-view-panel]").forEach((panel) => {
     panel.classList.toggle("hidden", panel.dataset.ownerViewPanel !== target);
@@ -1314,8 +1316,14 @@ function activateOwnerView(view, pushHistory = true) {
   if(location.pathname+location.hash!==destination) history[pushHistory?"pushState":"replaceState"]({}, document.title, destination);
   document.dispatchEvent(new CustomEvent("owner-view-changed", {detail:{view:target}}));
   window.scrollTo({top: 0, behavior: "instant"});
-  if (target === "scan" && typeof window.ownerRecognitionEnter === "function") {
-    window.ownerRecognitionEnter();
+  if (target === "scan") {
+    // Readiness checks must never delay a user-initiated camera permission
+    // request: getUserMedia must begin within this original click handler.
+    window.ownerRecognitionEnter?.();
+    if (launchCameraFromClick) window.ownerRecognitionLaunchCamera?.();
+  } else if (leavingScan) {
+    // Close the camera on browser navigation as well as the scanner's own Back.
+    window.ownerRecognitionLeave?.();
   }
 }
 
@@ -1649,11 +1657,15 @@ byId("owner-inventory-next").addEventListener("click", async () => {
 });
 
 document.querySelectorAll(".owner-nav-item[data-owner-view]").forEach((button) => {
-  button.addEventListener("click", () => activateOwnerView(button.dataset.ownerView));
+  button.addEventListener("click", () => activateOwnerView(
+    button.dataset.ownerView, true, button.dataset.ownerView === "scan"
+  ));
 });
 
 document.querySelectorAll("[data-owner-jump]").forEach((button) => {
-  button.addEventListener("click", () => activateOwnerView(button.dataset.ownerJump));
+  button.addEventListener("click", () => activateOwnerView(
+    button.dataset.ownerJump, true, button.dataset.ownerJump === "scan"
+  ));
 });
 
 document.querySelectorAll("[data-owner-inventory-layout]").forEach((button) => {

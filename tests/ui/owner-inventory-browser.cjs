@@ -110,6 +110,35 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.ok(groupedBox&&groupedBox.height<425);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Grouped inventory overflows viewport');
    await page.screenshot({path:path.join(out,`inventory-grouped-${viewport.width}.png`),fullPage:true});
+
+   // Genuine Chromium tap: Scan launches the camera modal and calls
+   // getUserMedia immediately. Keep permission unresolved to prove the UI
+   // does not wait on camera approval or a recognition API response.
+   for(const name of ['scanner-flow.js','owner-recognition.js']){
+    await page.addScriptTag({content:fs.readFileSync(path.join(base,name),'utf8')});
+   }
+   await page.evaluate(()=>{
+     window.__cameraRequests=[];
+     const pending=new Promise(()=>{});
+     Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{
+       getUserMedia:constraints=>{window.__cameraRequests.push(constraints);return pending;}
+     }});
+     apiRequest=async(url)=>url==='/api/v1/recognition/status'
+       ?{configured:true,vision_model:'isolated-test-vision'}
+       :url==='/api/v1/grading-certificates/status'?{configured:true}
+       :{item:window.fixtureItem,copies:[window.fixtureItem]};
+   });
+   await page.locator('.owner-nav-item[data-owner-view="scan"]').click();
+   await page.locator('.dr-scanner').waitFor();
+   assert.equal(await page.locator('.dr-scanner').evaluate(element=>element.open),true);
+   assert.equal(await page.evaluate(()=>window.__cameraRequests.length),1,
+      'Scan navigation did not immediately request the live camera');
+   assert.equal(await page.evaluate(()=>window.__cameraRequests[0].video.facingMode.ideal),'environment');
+   assert.match(await page.locator('.dr-scan-status').innerText(),/Opening camera/);
+   await page.screenshot({path:path.join(out,`scan-camera-opening-${viewport.width}.png`)});
+   await page.getByRole('button',{name:'Close scanner',exact:true}).click();
+   assert.equal(await page.locator('.dr-scanner').evaluate(element=>element.open),false);
+
    assert.deepEqual(errors,[]);await page.close();
   }
  }finally{await browser.close();}
