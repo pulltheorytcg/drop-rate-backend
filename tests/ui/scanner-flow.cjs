@@ -205,7 +205,7 @@ async function matched(scanner, quantity = 1) {
     for (let i = 0; i < 10; i++) s.tick(); assert.equal(captured, 0);
     present = true; for (let i = 0; i < 6; i++) s.tick(); assert.equal(captured, 1);
     for (let i = 0; i < 10; i++) s.tick(); assert.equal(captured, 1);
-    present = false; s.tick(); s.tick(); present = true;
+    present = false; s.tick(); s.tick(); s.tick(); present = true;
     for (let i = 0; i < 6; i++) s.tick(); assert.equal(captured, 2);
     f.finish(); checks += 1;
   }

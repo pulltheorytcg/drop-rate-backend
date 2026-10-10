@@ -60,6 +60,133 @@ window.DropRateScanner = (() => {
     return left.reduce((total, value, index) => total + Math.abs(value - right[index]), 0) / left.length / 255;
   };
 
+  // Four-sided, straight-edge gate for the live scan guide. Frame variance
+  // alone is NOT evidence of a trading card: patterned tables, hands, posters,
+  // reflections and empty rooms can be extremely detailed. Fail closed when
+  // we cannot establish a centered rectangular object with four visible edges.
+  const analyzeCardPresence = (pixels, width, height, mode = "RAW") => {
+    const empty = {present: false, box: null, edgeConfidence: 0};
+    if (!pixels || width < 32 || height < 44 || pixels.length < width * height * 4) return empty;
+    const rgbDifference = (left, right) => (
+      Math.abs(pixels[left] - pixels[right])
+      + Math.abs(pixels[left + 1] - pixels[right + 1])
+      + Math.abs(pixels[left + 2] - pixels[right + 2])
+    ) / (3 * 255);
+    const edge = (position, scan, vertical) => {
+      if (vertical) {
+        const a = (scan * width + position - 2) * 4;
+        const b = (scan * width + position + 2) * 4;
+        return rgbDifference(a, b);
+      }
+      const a = ((position - 2) * width + scan) * 4;
+      const b = ((position + 2) * width + scan) * 4;
+      return rgbDifference(a, b);
+    };
+    const strongestLine = (vertical, from, through, spanStart, spanEnd) => {
+      const measures = [];
+      for (let position = from; position <= through; position += 1) {
+        let total = 0, hits = 0, streak = 0, longest = 0;
+        for (let scan = spanStart; scan <= spanEnd; scan += 1) {
+          const difference = edge(position, scan, vertical);
+          total += difference;
+          if (difference >= 0.105) { hits += 1; streak += 1; longest = Math.max(longest, streak); }
+          else streak = 0;
+        }
+        const samples = spanEnd - spanStart + 1;
+        measures.push({position, mean: total / samples, support: hits / samples,
+          continuity: longest / samples});
+      }
+      const baseline = measures.reduce((sum, value) => sum + value.mean, 0) / measures.length;
+      const peak = measures.reduce((best, line) => line.mean > best.mean ? line : best);
+      return {...peak, prominence: peak.mean / Math.max(0.012, baseline)};
+    };
+    const w = width, h = height, sealed = mode === "SEALED";
+    const middleY1 = Math.floor(h * 0.30), middleY2 = Math.ceil(h * 0.70);
+    const middleX1 = Math.floor(w * 0.28), middleX2 = Math.ceil(w * 0.72);
+    // Sealed booster packs are often taller/narrower than raw cards; keep
+    // four-sided evidence mandatory while widening ONLY those guide bands.
+    const left = strongestLine(true, Math.ceil(w * 0.07), Math.floor(w * (sealed ? 0.39 : 0.31)), middleY1, middleY2);
+    const right = strongestLine(true, Math.ceil(w * (sealed ? 0.61 : 0.69)), Math.floor(w * 0.93), middleY1, middleY2);
+    const top = strongestLine(false, Math.ceil(h * 0.06), Math.floor(h * (sealed ? 0.36 : 0.30)), middleX1, middleX2);
+    const bottom = strongestLine(false, Math.ceil(h * (sealed ? 0.64 : 0.70)), Math.floor(h * 0.94), middleX1, middleX2);
+    const borders = [left, right, top, bottom];
+    const widthRatio = (right.position - left.position) / w;
+    const heightRatio = (bottom.position - top.position) / h;
+    const centered = Math.abs((left.position + right.position) / 2 - w / 2) <= w * 0.12
+      && Math.abs((top.position + bottom.position) / 2 - h / 2) <= h * 0.12;
+    const rectangular = sealed
+      ? (widthRatio >= 0.39 && widthRatio <= 0.92 && heightRatio >= 0.52 && heightRatio <= 0.93
+         && Math.abs(widthRatio - heightRatio) <= 0.39)
+      : (widthRatio >= 0.56 && widthRatio <= 0.91 && heightRatio >= 0.58 && heightRatio <= 0.92
+         && Math.abs(widthRatio - heightRatio) <= 0.16);
+    const fourEdges = borders.every(side => side.mean >= 0.105
+      && side.support >= 0.54 && side.prominence >= 1.40);
+    // Straight lines alone can still mistake an oval hand for a *narrow*
+    // sealed pack. A true rectangular item's borders reach toward all four
+    // corners; an ellipse's upper/lower outlines exist near the centre only.
+    const edgeSpan = (vertical, position, from, through) => {
+      let hits = 0;
+      const count = Math.max(1, through - from + 1);
+      for (let scan = from; scan <= through; scan += 1) {
+        if (edge(position, scan, vertical) >= 0.105) hits += 1;
+      }
+      return hits / count;
+    };
+    const xSize = right.position - left.position;
+    const ySize = bottom.position - top.position;
+    const xInset = Math.max(3, Math.round(xSize * 0.12));
+    const yInset = Math.max(4, Math.round(ySize * 0.12));
+    const xQuarter = Math.max(xInset + 2, Math.round(xSize * 0.34));
+    const yQuarter = Math.max(yInset + 3, Math.round(ySize * 0.34));
+    const nearCorners = [
+      edgeSpan(false, top.position, left.position + xInset, left.position + xQuarter),
+      edgeSpan(false, top.position, right.position - xQuarter, right.position - xInset),
+      edgeSpan(false, bottom.position, left.position + xInset, left.position + xQuarter),
+      edgeSpan(false, bottom.position, right.position - xQuarter, right.position - xInset),
+      edgeSpan(true, left.position, top.position + yInset, top.position + yQuarter),
+      edgeSpan(true, left.position, bottom.position - yQuarter, bottom.position - yInset),
+      edgeSpan(true, right.position, top.position + yInset, top.position + yQuarter),
+      edgeSpan(true, right.position, bottom.position - yQuarter, bottom.position - yInset),
+    ];
+    const cornersSupported = nearCorners.every(support => support >= 0.48);
+    // An oval can have high contrast at the four sampled 'corners' if its
+    // bounding box was fit to its curved sides. Require that each chosen
+    // BORDER actually remains in the SAME place from one end to the other.
+    // A hand's curved silhouette drifts several pixels; a card/pack doesn't.
+    const longitudinal = [
+      edgeSpan(true, left.position, top.position + yInset, bottom.position - yInset),
+      edgeSpan(true, right.position, top.position + yInset, bottom.position - yInset),
+      edgeSpan(false, top.position, left.position + xInset, right.position - xInset),
+      edgeSpan(false, bottom.position, left.position + xInset, right.position - xInset),
+    ];
+    const straightSides = longitudinal.every(support => support >= 0.72);
+    // Hands and blank rectangular objects have smooth interiors. A printed
+    // TCG card, graded slab or booster usually contains visible fine artwork
+    // inside its outer edge. Confirm local print/detail rather than relying
+    // on an isolated silhouette or the camera's overall image variation.
+    const innerX1 = Math.ceil(left.position + xSize * 0.24);
+    const innerX2 = Math.floor(right.position - xSize * 0.24);
+    const innerY1 = Math.ceil(top.position + ySize * 0.20);
+    const innerY2 = Math.floor(bottom.position - ySize * 0.20);
+    let sum = 0, squared = 0, sampleCount = 0;
+    for (let y = innerY1; y <= innerY2; y += 1) {
+      for (let x = innerX1; x <= innerX2; x += 1) {
+        const pixel = (y * w + x) * 4;
+        const gray = pixels[pixel] * 0.299 + pixels[pixel + 1] * 0.587 + pixels[pixel + 2] * 0.114;
+        sum += gray; squared += gray * gray; sampleCount += 1;
+      }
+    }
+    const printDeviation = sampleCount
+      ? Math.sqrt(Math.max(0, squared / sampleCount - (sum / sampleCount) ** 2)) / 255
+      : 0;
+    const printed = printDeviation >= 0.055;
+    return {
+      present: centered && rectangular && fourEdges && cornersSupported && straightSides && printed,
+      box: {left: left.position, right: right.position, top: top.position, bottom: bottom.position},
+      edgeConfidence: Math.min(...borders.map(side => side.support * side.prominence)),
+    };
+  };
+
   class Scanner {
     constructor(options) {
       this.options = options;
@@ -72,6 +199,10 @@ window.DropRateScanner = (() => {
       this.searchRevision = 0;
       this.mode = ["RAW", "GRADED", "SEALED"].includes(options.mode) ? options.mode : "RAW";
       this.auto = true;
+      // Auto capture requires an observed EMPTY guide before it can arm.
+      // This prevents a static textured desk/background from triggering on
+      // startup, even if camera exposure briefly resembles a card.
+      this.autoArmed = false;
       this.facing = "environment";
       this.controllers = new Set();
       this.images = new Map();
@@ -373,6 +504,9 @@ window.DropRateScanner = (() => {
       this.torchTrack = null; this.torchOn = false;
       this.find('[data-action="torch"]').hidden = true;
       this.video.srcObject = null;
+      this.autoArmed = false;
+      this.absenceFrames = 0; this.presenceFrames = 0; this.stableFrames = 0;
+      this.previous = null; this.previousBox = null;
       this.find(".dr-scan-camera-resume").hidden = false;
       this.find('[data-action="capture"]').disabled = true;
     }
@@ -409,6 +543,8 @@ window.DropRateScanner = (() => {
         this.find(".dr-scan-camera-resume").hidden = true;
         this.find('[data-action="capture"]').disabled = this.atCapacity();
         this.previous = null;
+        this.previousBox = null;
+        this.autoArmed = false;
         this.stableFrames = 0;
         this.presenceFrames = 0;
         this.absenceFrames = 0;
@@ -451,30 +587,27 @@ window.DropRateScanner = (() => {
 
     frame() {
       const crop = this.crop(), canvas = document.createElement("canvas");
-      canvas.width = 20; canvas.height = 28;
+      const width = 48, height = 68;
+      canvas.width = width; canvas.height = height;
       const context = canvas.getContext("2d", {willReadFrequently: true});
       if (!context) return null;
-      context.drawImage(this.video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, 20, 28);
-      const pixels = context.getImageData(0, 0, 20, 28).data;
-      const fingerprint = new Uint8Array(560);
-      let total = 0, squared = 0, edges = 0, edgeCount = 0, border = 0, borderCount = 0, inner = 0, innerCount = 0;
-      for (let index = 0; index < 560; index += 1) {
+      // Include a narrow margin outside the visible guide so an actual
+      // card's FOUR outer edges can be distinguished from a textured surface.
+      const xMargin = crop.sw * 0.11, yMargin = crop.sh * 0.11;
+      const sx = Math.max(0, crop.sx - xMargin), sy = Math.max(0, crop.sy - yMargin);
+      const sw = Math.min(this.video.videoWidth - sx, crop.sw + 2 * xMargin);
+      const sh = Math.min(this.video.videoHeight - sy, crop.sh + 2 * yMargin);
+      if (!(sw > 0 && sh > 0)) return null;
+      context.drawImage(this.video, sx, sy, sw, sh, 0, 0, width, height);
+      const pixels = context.getImageData(0, 0, width, height).data;
+      const detected = analyzeCardPresence(pixels, width, height, this.mode);
+      const fingerprint = new Uint8Array(width * height);
+      for (let index = 0; index < fingerprint.length; index += 1) {
         const pixel = index * 4;
-        const gray = Math.round(pixels[pixel] * 0.299 + pixels[pixel + 1] * 0.587 + pixels[pixel + 2] * 0.114);
-        fingerprint[index] = gray; total += gray; squared += gray * gray;
-        const x = index % 20, y = Math.floor(index / 20);
-        if (x < 2 || x >= 18 || y < 2 || y >= 26) { border += gray; borderCount += 1; }
-        else { inner += gray; innerCount += 1; }
-        if (x > 0) { edges += Math.abs(gray - fingerprint[index - 1]); edgeCount += 1; }
-        if (y > 0) { edges += Math.abs(gray - fingerprint[index - 20]); edgeCount += 1; }
+        fingerprint[index] = Math.round(
+          pixels[pixel] * 0.299 + pixels[pixel + 1] * 0.587 + pixels[pixel + 2] * 0.114);
       }
-      const mean = total / 560;
-      const deviation = Math.sqrt(Math.max(0, squared / 560 - mean * mean)) / 255;
-      const edge = edges / edgeCount / 255;
-      const borderContrast = Math.abs(inner / innerCount - border / borderCount) / 255;
-      const present = (borderContrast >= 0.035 && deviation >= 0.055)
-        || (edge >= 0.065 && deviation >= 0.10) || deviation >= 0.18;
-      return {fingerprint, present};
+      return {...detected, fingerprint};
     }
 
     tick() {
@@ -484,17 +617,62 @@ window.DropRateScanner = (() => {
       if (!analysis.present) {
         this.presenceFrames = 0; this.stableFrames = 0; this.absenceFrames += 1;
         this.previous = analysis.fingerprint;
-        if (this.absenceFrames >= 2) this.awaitingRemoval = false;
+        this.previousBox = null;
+        if (this.absenceFrames >= 3) {
+          this.autoArmed = true;
+          this.awaitingRemoval = false;
+        }
         this.status(this.awaitingRemoval ? "Remove the scanned card to continue" : this.guideMessage());
         return;
       }
-      this.absenceFrames = 0; this.presenceFrames += 1;
-      if (this.awaitingRemoval) { this.status("Card scanned · show the next card after removing this one"); return; }
+      this.absenceFrames = 0;
+      if (this.awaitingRemoval) {
+        this.status("Card scanned · show the next card after removing this one");
+        return;
+      }
+      if (!this.autoArmed) {
+        // Most users show the card *after* opening the camera. If a card was
+        // already there on the very first frame, permit an EXTRA-CONFIDENT,
+        // long-stable rectangle to scan too; don't force a pointless
+        // remove-and-represent gesture like a broken camera app.
+        const strong = analysis.edgeConfidence >= 1.35 && Boolean(analysis.box);
+        const previousBox = this.previousBox, box = analysis.box;
+        const aligned = !previousBox || (
+          Math.abs(previousBox.left - box.left) <= 2
+          && Math.abs(previousBox.right - box.right) <= 2
+          && Math.abs(previousBox.top - box.top) <= 2
+          && Math.abs(previousBox.bottom - box.bottom) <= 2);
+        const movement = fingerprintDelta(analysis.fingerprint, this.previous);
+        this.previous = analysis.fingerprint; this.previousBox = box;
+        this.presenceFrames = strong ? this.presenceFrames + 1 : 0;
+        this.stableFrames = strong && movement <= 0.018 && aligned
+          ? this.stableFrames + 1 : 0;
+        if (this.presenceFrames < 5 || this.stableFrames < 4) {
+          this.status(strong ? "Card detected · hold steady inside the guide"
+            : "Clear the guide briefly, then place your card inside");
+          return;
+        }
+        this.autoArmed = true;
+        if (this.mode === "GRADED" && !this.qrBusy) this.captureSlabQr();
+        else if (this.mode !== "GRADED") this.capture();
+        return;
+      }
+      this.presenceFrames += 1;
       if (this.atCapacity()) { this.status("Two scans are recognising · keep the next card ready"); return; }
       const movement = fingerprintDelta(analysis.fingerprint, this.previous);
+      const previousBox = this.previousBox, box = analysis.box;
+      const aligned = !previousBox || !box || (
+        Math.abs(previousBox.left - box.left) <= 2
+        && Math.abs(previousBox.right - box.right) <= 2
+        && Math.abs(previousBox.top - box.top) <= 2
+        && Math.abs(previousBox.bottom - box.bottom) <= 2);
       this.previous = analysis.fingerprint;
-      this.stableFrames = movement <= 0.028 ? this.stableFrames + 1 : 0;
-      if (this.presenceFrames < 2 || this.stableFrames < 3) { this.status("Hold the item steady"); return; }
+      this.previousBox = box;
+      this.stableFrames = movement <= 0.022 && aligned ? this.stableFrames + 1 : 0;
+      if (this.presenceFrames < 3 || this.stableFrames < 3) {
+        this.status("Card detected · hold steady inside the guide");
+        return;
+      }
       if (this.mode === "GRADED" && !this.qrBusy) this.captureSlabQr();
       else if (this.mode !== "GRADED") this.capture();
     }
@@ -1152,5 +1330,5 @@ window.DropRateScanner = (() => {
     }
   }
 
-  return {Scanner, isMobile: () => window.matchMedia("(max-width: 900px)").matches};
+  return {Scanner, analyzeCardPresence, isMobile: () => window.matchMedia("(max-width: 900px)").matches};
 })();

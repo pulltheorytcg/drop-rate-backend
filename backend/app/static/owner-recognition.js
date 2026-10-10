@@ -31,7 +31,8 @@ state.ownerRecognition = {
     presenceFrames: 0,
     absenceFrames: 0,
     awaitingRemoval: false,
-    armed: true,
+    armed: false,
+    previousBox: null,
     currentCorrectionId: null,
     searchTimer: null,
     latestResultId: null,
@@ -1216,79 +1217,29 @@ function ownerBatchFingerprintDelta(left, right) {
 
 function ownerBatchFrameAnalysis(video) {
   if (!video?.videoWidth || !video?.videoHeight) return null;
+  // The authoritative four-edge detector is shipped by scanner-flow.js.
+  // If that module fails to load, FAIL CLOSED to manual capture rather than
+  // restore the old false-positive high-variance auto-capture heuristic.
   const crop = ownerScanCrop(video.videoWidth, video.videoHeight);
-  const width = 20;
-  const height = 28;
+  const width = 48, height = 68, xMargin = crop.sw * 0.11, yMargin = crop.sh * 0.11;
+  const sx = Math.max(0, crop.sx - xMargin), sy = Math.max(0, crop.sy - yMargin);
+  const sw = Math.min(video.videoWidth - sx, crop.sw + 2 * xMargin);
+  const sh = Math.min(video.videoHeight - sy, crop.sh + 2 * yMargin);
+  if (!(sw > 0 && sh > 0)) return null;
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = width; canvas.height = height;
   const context = canvas.getContext("2d", {willReadFrequently: true});
   if (!context) return null;
-  context.drawImage(
-    video,
-    crop.sx,
-    crop.sy,
-    crop.sw,
-    crop.sh,
-    0,
-    0,
-    width,
-    height
-  );
+  context.drawImage(video, sx, sy, sw, sh, 0, 0, width, height);
   const pixels = context.getImageData(0, 0, width, height).data;
   const fingerprint = new Uint8Array(width * height);
-  let total = 0;
-  let totalSquared = 0;
-  let edgeTotal = 0;
-  let edgeCount = 0;
-  let borderTotal = 0;
-  let borderCount = 0;
-  let innerTotal = 0;
-  let innerCount = 0;
-
-  for (let pixel = 0, output = 0; pixel < pixels.length; pixel += 4, output += 1) {
-    const gray = Math.round(
-      pixels[pixel] * 0.299 + pixels[pixel + 1] * 0.587 + pixels[pixel + 2] * 0.114
-    );
-    fingerprint[output] = gray;
-    total += gray;
-    totalSquared += gray * gray;
-
-    const x = output % width;
-    const y = Math.floor(output / width);
-    const border = x < 2 || x >= width - 2 || y < 2 || y >= height - 2;
-    if (border) {
-      borderTotal += gray;
-      borderCount += 1;
-    } else {
-      innerTotal += gray;
-      innerCount += 1;
-    }
-    if (x > 0) {
-      edgeTotal += Math.abs(gray - fingerprint[output - 1]);
-      edgeCount += 1;
-    }
-    if (y > 0) {
-      edgeTotal += Math.abs(gray - fingerprint[output - width]);
-      edgeCount += 1;
-    }
+  for (let output = 0; output < fingerprint.length; output += 1) {
+    const pixel = output * 4;
+    fingerprint[output] = Math.round(
+      pixels[pixel] * 0.299 + pixels[pixel + 1] * 0.587 + pixels[pixel + 2] * 0.114);
   }
-
-  const count = fingerprint.length;
-  const mean = total / count;
-  const variance = Math.max(0, totalSquared / count - mean * mean);
-  const deviation = Math.sqrt(variance) / 255;
-  const edge = edgeCount ? edgeTotal / edgeCount / 255 : 0;
-  const borderMean = borderCount ? borderTotal / borderCount : mean;
-  const innerMean = innerCount ? innerTotal / innerCount : mean;
-  const borderContrast = Math.abs(innerMean - borderMean) / 255;
-  const present = (
-    (borderContrast >= 0.035 && deviation >= 0.055)
-    || (edge >= 0.065 && deviation >= 0.10)
-    || deviation >= 0.18
-  );
-
-  return {fingerprint, present, deviation, edge, borderContrast};
+  const detected = window.DropRateScanner?.analyzeCardPresence?.(pixels, width, height, ownerScanMode().toUpperCase());
+  return {fingerprint, present: detected?.present === true, box: detected?.box || null};
 }
 
 function ownerBatchFrameFingerprint(video) {
@@ -1330,6 +1281,8 @@ function ownerBatchStopLoop() {
   state.ownerRecognition.batch.presenceFrames = 0;
   state.ownerRecognition.batch.absenceFrames = 0;
   state.ownerRecognition.batch.awaitingRemoval = false;
+  state.ownerRecognition.batch.armed = false;
+  state.ownerRecognition.batch.previousBox = null;
 }
 
 function ownerBatchStartLoop() {
@@ -1430,7 +1383,8 @@ async function ownerBatchTick() {
     batch.absenceFrames += 1;
     batch.stableFrames = 0;
     batch.previousFingerprint = fingerprint;
-    if (batch.awaitingRemoval && batch.absenceFrames >= 2) {
+    batch.previousBox = null;
+    if (batch.awaitingRemoval && batch.absenceFrames >= 3) {
       batch.awaitingRemoval = false;
       batch.armed = true;
       batch.lastAcceptedFingerprint = null;
@@ -1438,27 +1392,37 @@ async function ownerBatchTick() {
     } else if (batch.awaitingRemoval) {
       ownerBatchSetCameraState("Remove the scanned item to continue");
     } else {
-      batch.armed = true;
+      if (batch.absenceFrames >= 3) batch.armed = true;
       ownerBatchSetCameraState("Place a card or sealed product inside the guide");
     }
     return;
   }
 
   batch.absenceFrames = 0;
-  batch.presenceFrames += 1;
   if (batch.awaitingRemoval) {
     batch.stableFrames = 0;
-    batch.previousFingerprint = fingerprint;
     ownerBatchSetCameraState("Item scanned · remove it before showing the next one");
     return;
   }
+  if (!batch.armed) {
+    ownerBatchSetCameraState("Clear the guide briefly, then place the card inside");
+    return;
+  }
 
+  batch.presenceFrames += 1;
   const movement = ownerBatchFingerprintDelta(fingerprint, batch.previousFingerprint);
+  const previousBox = batch.previousBox, box = analysis.box;
+  const aligned = !previousBox || !box || (
+    Math.abs(previousBox.left - box.left) <= 2
+    && Math.abs(previousBox.right - box.right) <= 2
+    && Math.abs(previousBox.top - box.top) <= 2
+    && Math.abs(previousBox.bottom - box.bottom) <= 2);
   batch.previousFingerprint = fingerprint;
-  batch.stableFrames = movement <= 0.028 ? batch.stableFrames + 1 : 0;
+  batch.previousBox = box;
+  batch.stableFrames = movement <= 0.022 && aligned ? batch.stableFrames + 1 : 0;
 
-  if (batch.presenceFrames < 2) {
-    ownerBatchSetCameraState("Item detected · hold steady");
+  if (batch.presenceFrames < 3) {
+    ownerBatchSetCameraState("Card detected · hold steady");
     return;
   }
   if (batch.stableFrames < 3) {
