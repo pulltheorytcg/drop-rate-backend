@@ -16,6 +16,8 @@ def test_dispatch_is_inside_existing_sales_tab():
     assert 'id="owner-dispatch-list"' in sales
     assert 'id="owner-sales-body"' in sales
     assert sales.index('id="owner-dispatch-review"') < sales.index('id="owner-sales-body"')
+    assert '<h3 id="owner-dispatch-heading">To ship' in sales
+    assert '<h2>Your sold cards</h2>' in sales
     assert '<script src="/assets/owner-fulfillment.js?v=1" defer></script>' in html
     assert '<link rel="stylesheet" href="/assets/owner-fulfillment.css?v=1">' in html
     assert 'data-owner-view="fulfilment"' not in html
