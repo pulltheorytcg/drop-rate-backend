@@ -2,6 +2,24 @@
 
 **Status:** first safe, read-only phase. This is **not** a carrier label or Shopify fulfillment release.
 
+## 11 October 2026 — Seller shipping payment transparency (read-only)
+
+Founder clarified that the seller must see how much will be deducted before accepting a postage charge, and that customer-paid delivery needs to offset it. Customer checkout price is not the carrier cost. UK Standard Tracked 48 is **£3.95 below £50, free from £50**; UK Tracked 24 stays **£4.95 paid at every order value**. Europe **£14.99** and selected International **£23.99** currently charge shipping at every order value. Do not blindly apply a free-shipping threshold to other services or countries, and never infer checkout shipping from merchandise subtotal: discounts/refunds and live Shopify rate rules can change the captured amount.
+
+**Implemented this phase:**
+- `GET /api/v1/fulfilment/to-ship/{order_item_id}/shipping-cost` authenticates one active owner, verifies their exact physical order-item and Shopify link, reads only their order-item ledger `SHIPPING_REVENUE`, `SHIPPING_REFUND` and **reconciled** `SHIPPING_COST` and queries the current Shopify order shipping total, refunded shipping and delivery service titles in **shop currency GBP**.
+- A pure deterministic `seller_shipping_charges.py` contract validates both sources, rejects refunded/cancelled orders, malformed money, truncated shipping services, foreign currencies and owner shipping credit exceeding Shopify's whole net delivery payment. It returns the buyer's paid delivery, one owner's allocated share and any **verified** label cost. For one checkout with two physical owners, the customer shipping charge is shown for context but the owner's share comes only from the existing ledger and is **never copied in full to each owner**.
+- In the existing Fulfill wizard, seller sees customer-paid amount, their allocated customer payment, real postage cost if verified (otherwise **Pending verified carrier cost**) and additional net shipping adjustment if and only if the ledger has a verified source (otherwise **Pending — not approved**). No bogus £2.95 example or fixed threshold-based carrier guess. Sensitive buyer addresses, customer names and Shopify credentials never enter this response.
+- The UI remains read-only for carrier fees. No `shippingLabelPurchase`, label print, `fulfillmentCreate`, customer notification or finance ledger mutation is triggered by viewing costs.
+
+**Commercial policy still requires founder sign-off before applying new charges:** the existing deterministic finance engine currently credits the shipping revenue to owners and debits verified actual postage. If multiple owners ship separately and their pooled buyer-paid delivery revenue is insufficient, an owner may incur a **net postage shortfall even below £50** unless Drop Rate agrees to subsidise that shortfall. The founder suggested seller-funded postage only when the buyer receives free UK Standard shipping; this is **not yet an implemented override**. Do not silently switch net cost treatment or post seller deductions. Decide whether customer-paid shipments have a platform-funded shortfall and how free-delivery costs are capped/approved in the seller agreement.
+
+**Unresolved API limit:** the official Shopify Shipping `shippingLabelPurchase` API purchases a label and returns tracking/documents asynchronously, but does **not** expose a guaranteed per-label merchant postage quote before purchase through its publicly supported Admin GraphQL. The preview therefore cannot promise an exact carrier charge before payment from Shopify alone. To permit a seller to approve a *known* charge, either get a permitted carrier quote source with genuinely matching payable tariff (verify agreement), or publish a deterministic seller contribution schedule/maximum and have Drop Rate fund discrepancies. A buyer's £3.95 shipping fee is not that quote.
+
+**Test gates:** pure money/checkout tests for standard, free £50, Tracked 24 on >£50, paid EU/International, refunds, multi-owner shares, verified carrier cost, missing/unverified carrier cost, bad currencies and unexpected checkout allocation; authenticated SQL owner isolation and UI pending-cost display. No production mutations or paid labels.
+
+---
+
 ## 11 October 2026 — Fulfill wizard and Shopify-order packing slip print
 
 **Founder instruction:** Every eligible Seller Hub order must have a **Fulfill** action that leads to a print-confirm-dispatch flow, using native Shopify Shipping labels and a Shopify-sourced packing slip.
