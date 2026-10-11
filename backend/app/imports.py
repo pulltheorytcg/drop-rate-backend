@@ -39,14 +39,24 @@ class ImportPreviewRequest(BaseModel):
     adapter: ImportAdapter = "AUTO"
     default_game: str | None = Field(default=None, max_length=80)
     default_language: str | None = Field(default=None, max_length=80)
+    # Optional exact source-header -> canonical-field selections for formats
+    # without stable names, e.g. community CSV exports. No arbitrary DB fields.
+    column_mapping: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def normalise(self) -> "ImportPreviewRequest":
         self.filename = self.filename.strip()
         self.default_game = self.default_game.strip() if self.default_game else None
         self.default_language = clean_language(self.default_language)
-        if not self.filename.lower().endswith(".csv"):
-            raise ValueError("Only CSV imports are supported in this first import release")
+        if not self.filename.lower().endswith((".csv", ".tsv")):
+            raise ValueError("Only CSV or tab-delimited TSV collection files are supported")
+        if len(self.column_mapping) > len(ALIASES):
+            raise ValueError("Too many import column mappings")
+        for target, header in self.column_mapping.items():
+            if target not in ALIASES or not isinstance(header, str) or not header.strip():
+                raise ValueError("Unrecognized CSV column mapping")
+            if len(header) > 200:
+                raise ValueError("Mapped CSV header is too long")
         return self
 
 
@@ -537,7 +547,11 @@ async def preview_import(
     encoded = payload.content.encode("utf-8")
     source_sha256 = hashlib.sha256(encoded).hexdigest()
     try:
-        reader = csv.DictReader(io.StringIO(payload.content, newline=""))
+        delimiter = "\t" if payload.filename.lower().endswith(".tsv") else ","
+        source_text = payload.content.lstrip("\ufeff")
+        reader = csv.DictReader(
+            io.StringIO(source_text, newline=""), delimiter=delimiter, strict=True
+        )
         headers = reader.fieldnames or []
         if not headers:
             raise HTTPException(status_code=422, detail="CSV has no header row")
@@ -551,6 +565,16 @@ async def preview_import(
         raise HTTPException(status_code=422, detail="Import is limited to 5,000 source rows per batch")
 
     mapping = _field_map(headers)
+    for canonical_key, selected_header in payload.column_mapping.items():
+        if selected_header not in headers:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "Mapped CSV column is missing from uploaded file",
+                    "canonical_field": canonical_key,
+                },
+            )
+        mapping[canonical_key] = selected_header
     if "name" not in mapping:
         raise HTTPException(status_code=422, detail={"message": "Could not identify a product/card name column", "headers": headers})
     adapter = _detect_adapter(headers, payload.adapter)
