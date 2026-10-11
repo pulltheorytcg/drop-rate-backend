@@ -15,6 +15,7 @@ from fastapi.encoders import jsonable_encoder
 
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .import_catalogue_search import CATALOGUE_SEARCH_SQL, search_tokens
 
 from .access_control import require_owner_portal_request
 from .import_review import resolve_import_candidate, skip_import_candidate
@@ -41,40 +42,24 @@ async def search_existing_catalogue_for_import(
     q: str = Query(min_length=2, max_length=150),
     product_type: str | None = Query(default=None),
 ) -> dict:
-    """Search public canonical identities only; never other sellers' stock.
+    """Search canonical identities across fields; never other sellers' stock.
 
-    A seller can choose a currently existing catalogue item for a CSV REVIEW
-    row, but cannot create canonical products or alter anyone's inventory.
+    The review UI prefills e.g. 'OP14-041 The Azure Sea\'s Seven'. Requiring
+    that entire phrase inside ONE column returned zero results. Instead all
+    literal tokens must occur across the identity fields. A result is only a
+    suggestion: the existing explicit review, owner and commit gates remain.
     """
     product_type = (product_type or "").strip().upper()
     if product_type and product_type not in {"CARD", "SEALED", "COLLECTION"}:
         return {"items": []}
     term = q.strip()
-    if len(term) < 2:
+    tokens = search_tokens(term)
+    if len(term) < 2 or not tokens:
         return {"items": []}
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id,
     ) as connection:
-        rows = await connection.fetch(
-            """
-            select p.id,p.game,p.name,p.set_name,p.card_number,
-                   p.variant,p.language,p.product_type
-            from tcg.catalogue_products p
-            where ($2::text = '' or p.product_type = $2)
-              and (
-                p.name ilike '%' || $1 || '%'
-                or coalesce(p.card_number,'') ilike '%' || $1 || '%'
-                or p.set_name ilike '%' || $1 || '%'
-                or p.game ilike '%' || $1 || '%'
-              )
-            order by
-              case when lower(p.card_number)=lower($1) then 0
-                   when lower(p.name)=lower($1) then 1 else 2 end,
-              p.game,p.set_name,p.name,p.card_number,p.id
-            limit 16
-            """,
-            term, product_type,
-        )
+        rows = await connection.fetch(CATALOGUE_SEARCH_SQL, term, product_type, tokens)
     return jsonable_encoder({"items": [dict(row) for row in rows]})
 
 
