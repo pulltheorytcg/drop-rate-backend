@@ -88,6 +88,7 @@ async def main():
           grant usage on schema tcg to tcg_api;
           grant select on tcg.owners,tcg.owner_memberships,tcg.orders,tcg.order_items,
             tcg.financial_ledger_entries,tcg.order_item_reconciliations to tcg_api;
+          grant insert on tcg.financial_ledger_entries,tcg.order_item_reconciliations to tcg_api;
           grant execute on function tcg.current_user_id() to tcg_api;
         """)
         await db.execute(SQL.read_text())
