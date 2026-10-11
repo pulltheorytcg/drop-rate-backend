@@ -1,0 +1,54 @@
+name: Prepare shared inventory images
+on:
+  push:
+    branches: ['fix/shared-inventory-image-delivery-20261011']
+    paths: ['.github/workflows/prepare-shared-images.yml']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-media-only
+          POSTGRES_DB: media_test
+          PGUSER: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: python tools/prepare_shared_images.py && git diff --check
+      - run: python -m pip install --quiet -r requirements-dev.txt
+      - run: PYTHONPATH=backend pytest
+      - run: npm ci --prefix tests/ui --silent && npm test --prefix tests/ui
+      - name: Restricted PostgreSQL media migration and authenticated image handler
+        run: PYTHONPATH=backend python tests/shared_inventory_media_postgres.py
+        env:
+          MEDIA_TEST_DSN: postgresql://postgres:disposable-media-only@127.0.0.1:5432/media_test
+      - name: Commit only tested patches if branch is unchanged
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/fix/shared-inventory-image-delivery-20261011 | cut -f1)" = "$GITHUB_SHA"
+          python - <<'PY'
+          import subprocess
+          expected={'backend/app/api.py','backend/app/static/owner-inventory.js','backend/app/static/owner.html','tests/ui/owner-inventory.cjs','tests/ui/owner-inventory-browser.cjs','BUILD_STATUS.md'}
+          actual=set(subprocess.check_output(['git','diff','--name-only'],text=True).splitlines())
+          assert actual==expected,(actual,expected)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/app/api.py backend/app/static/owner-inventory.js backend/app/static/owner.html tests/ui/owner-inventory.cjs tests/ui/owner-inventory-browser.cjs BUILD_STATUS.md
+          git commit -m 'Share approved catalogue artwork through the existing owned-item image route'
+          git push origin HEAD:refs/heads/fix/shared-inventory-image-delivery-20261011
