@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 import asyncpg
 
 ROOT = Path(__file__).resolve().parents[1]
-SQL = ROOT / "database/migrations/20261011020000_shopify_net_shipping_accounts.sql"
+SQL = ROOT / "database/migrations/20261011005033_shopify_net_shipping_accounts.sql"
 ADMIN_USER = UUID("00000000-0000-0000-0000-000000000001")
 SELLER_A = UUID("00000000-0000-0000-0000-000000000002")
 SELLER_B = UUID("00000000-0000-0000-0000-000000000003")
