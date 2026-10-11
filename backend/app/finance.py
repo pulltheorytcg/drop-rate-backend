@@ -1703,7 +1703,9 @@ async def reconcile_shopify_postage(
                 return jsonable_encoder({
                     "order_id": order_id,
                     "order_number": rows[0]["order_number"],
-                    "shipping_cost_minor": payload.amount_minor,
+                    "verified_carrier_cost_minor": payload.amount_minor,
+                    "seller_net_shipping_charge_minor": owner_postage_charge,
+                    "shipping_cost_minor": owner_postage_charge,
                     "fulfilment_material_cost_minor": material_total,
                     "replayed": True,
                 })
@@ -1714,6 +1716,26 @@ async def reconcile_shopify_postage(
                     "adjustment workflow"
                 ),
             )
+
+        if platform_account is not None:
+            # One privately audited carrier receipt, no hidden seller debit.
+            # A duplicate label reference or owner/order cannot charge twice.
+            try:
+                await connection.execute(
+                    """
+                    insert into tcg.shopify_postage_actual_costs(
+                      order_id,owner_id,carrier_label_reference,
+                      verified_postage_minor,owner_net_charge_minor
+                    ) values($1,$2,$3,$4,$5)
+                    """,
+                    order_id, target_owner_id, payload.reference,
+                    payload.amount_minor, owner_postage_charge,
+                )
+            except asyncpg.UniqueViolationError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This carrier receipt or owner order has already been recorded",
+                ) from exc
 
         for index, row in enumerate(rows):
             postage = postage_allocations[index]
@@ -1771,7 +1793,9 @@ async def reconcile_shopify_postage(
         return jsonable_encoder({
             "order_id": order_id,
             "order_number": rows[0]["order_number"],
-            "shipping_cost_minor": payload.amount_minor,
+            "verified_carrier_cost_minor": payload.amount_minor,
+            "seller_net_shipping_charge_minor": owner_postage_charge,
+            "shipping_cost_minor": owner_postage_charge,
             "fulfilment_material_cost_minor": material_total,
             "replayed": False,
         })
