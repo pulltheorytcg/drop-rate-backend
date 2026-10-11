@@ -1623,57 +1623,70 @@ async def reconcile_shopify_postage(
             if platform_account is not None else payload.amount_minor
         )
 
-        profile_keys: list[str] = []
-        for row in rows:
-            if row["product_type"] != "CARD":
+        if platform_account is not None:
+            # Existing material components remain stored as platform cost
+            # evidence; the founder chose only one seller NET SHIPPING charge.
+            material_allocations = [0] * len(rows)
+            material_total = 0
+        else:
+            profile_keys: list[str] = []
+            for row in rows:
+                if row["product_type"] != "CARD":
+                    raise HTTPException(
+                        status_code=409,
+                        detail="No fulfilment profile is configured for this product type",
+                    )
+                is_graded = bool(
+                    str(row["grading_company"] or "").strip()
+                    and str(row["grade"] or "").strip()
+                )
+                profile_keys.append("GRADED_CARD" if is_graded else "RAW_CARD")
+            if len(set(profile_keys)) != 1:
                 raise HTTPException(
                     status_code=409,
-                    detail="No fulfilment profile is configured for this product type",
+                    detail=(
+                        "Mixed shipping profiles require an approved fulfilment "
+                        "allocation policy"
+                    ),
                 )
-            is_graded = bool(
-                str(row["grading_company"] or "").strip()
-                and str(row["grade"] or "").strip()
-            )
-            profile_keys.append("GRADED_CARD" if is_graded else "RAW_CARD")
-        if len(set(profile_keys)) != 1:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "Mixed shipping profiles require an approved fulfilment "
-                    "allocation policy"
-                ),
-            )
-        profile_key = profile_keys[0]
+            profile_key = profile_keys[0]
 
-        components = await connection.fetch(
-            """
-            select
-              component_key,quantity,accounting_unit_cost_minor_gbp,
-              allocation_basis
-            from tcg.fulfilment_cost_components
-            where owner_id=$1
-              and shipping_profile_key=$2
-              and active
-            order by component_key
-            """,
-            target_owner_id, profile_key,
-        )
-        try:
-            material_allocations = _fulfilment_material_allocations(
-                rows,
-                components,
+            components = await connection.fetch(
+                """
+                select
+                  component_key,quantity,accounting_unit_cost_minor_gbp,
+                  allocation_basis
+                from tcg.fulfilment_cost_components
+                where owner_id=$1
+                  and shipping_profile_key=$2
+                  and active
+                order by component_key
+                """,
+                target_owner_id, profile_key,
             )
-        except ValueError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        material_total = sum(material_allocations)
+            try:
+                material_allocations = _fulfilment_material_allocations(
+                    rows,
+                    components,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            material_total = sum(material_allocations)
         postage_allocations = allocate_minor(
-            payload.amount_minor,
+            owner_postage_charge,
             [int(row["net_sale_minor"]) for row in rows],
         )
-        reconciliation_source = (
-            f"MANUAL_FULFILMENT:{payload.reference}:"
-            f"POSTAGE:{payload.amount_minor}:MATERIALS:{material_total}"
-        )
+        if platform_account is not None:
+            reconciliation_source = (
+                f"AUTO_SHOPIFY_POSTAGE:{payload.reference}:"
+                f"CARRIER:{payload.amount_minor}:NET_OWNER:{owner_postage_charge}:"
+                f"POLICY:{platform_account['charge_policy']}"
+            )
+        else:
+            reconciliation_source = (
+                f"MANUAL_FULFILMENT:{payload.reference}:"
+                f"POSTAGE:{payload.amount_minor}:MATERIALS:{material_total}"
+            )
 
         reconciled = [
             row for row in rows
