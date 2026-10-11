@@ -3,7 +3,8 @@
 begin;
 
 create table tcg.shopify_delivery_accounts (
-    order_id uuid primary key references tcg.orders(id) on delete restrict,
+    id uuid primary key default gen_random_uuid(),
+    order_id uuid not null unique references tcg.orders(id) on delete restrict,
     shopify_order_reference text not null unique,
     customer_shipping_paid_minor bigint not null check (customer_shipping_paid_minor >= 0),
     qualifying_merchandise_minor bigint not null check (qualifying_merchandise_minor >= 0),
