@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#071b3f">
-  <title>Drop Rate — Create your Seller Hub account</title>
+  <title>Drop Rate — Sell With Us</title>
   <link rel="stylesheet" href="/assets/styles.css?v=owner-join-v2">
   <link rel="stylesheet" href="/assets/collector-worlds.css?v=6">
   <link rel="stylesheet" href="/assets/owner-join.css?v=1">
@@ -31,13 +31,15 @@
           <p id="owner-invite-invalid-message" class="muted" role="alert"></p>
           <a class="owner-entry-back" href="/app">Back to sign in</a>
         </div>
-        <form id="owner-join-form" class="auth-card hidden">
+        <form id="owner-join-form" class="auth-card hidden" aria-label="Seller onboarding">
           <p class="eyebrow">Join the crew</p><h2>Create your account</h2>
           <p class="muted">Your collection, sales and payouts. One account, one workspace.</p>
           <p id="owner-invite-summary" class="muted owner-entry-summary"></p>
           <details class="owner-onboarding-callout owner-entry-includes">
             <summary>What your seller account includes</summary>
-            <ul><li>Your own inventory, values and listing status in one place.</li><li>Transparent sales, commission and settlement reporting.</li><li>Stripe payout onboarding and payout preferences.</li></ul>
+            <p>Sell with Drop Rate</p>
+            <div class="owner-onboarding-steps" aria-label="Seller onboarding progress"><span class="active">1 · Account</span><span>2 · Verify email</span><span>3 · Seller Hub</span></div>
+            <ul><li>Verified accounts with access to your own inventory.</li><li>Your values and listing status in one place.</li><li>Transparent sales, commission and settlement reporting.</li><li>Stripe payout onboarding and payout preferences.</li></ul>
           </details>
           <div id="owner-join-social-auth" class="social-auth hidden" aria-label="Social account creation">
             <button id="owner-join-google" class="oauth-button" type="button">Continue with Google</button>
