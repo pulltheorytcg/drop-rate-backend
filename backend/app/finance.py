@@ -1577,6 +1577,7 @@ async def reconcile_shopify_postage(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _owner(connection)
+        target_owner_id = payload.owner_id if (payload.owner_id and "/finance/shopify/" in request.url.path) else owner["id"]
         await connection.execute(
             "select pg_advisory_xact_lock(hashtext($1::text))",
             order_id,
@@ -1598,7 +1599,7 @@ async def reconcile_shopify_postage(
             where o.id=$1 and oi.owner_id=$2
             order by oi.id
             """,
-            order_id, owner["id"],
+            order_id, target_owner_id,
         )
         if not rows:
             raise HTTPException(status_code=404, detail="Order not found")
@@ -1610,6 +1611,17 @@ async def reconcile_shopify_postage(
                 status_code=422,
                 detail=f"Postage reconciliation path does not match {rows[0]['source']} order",
             )
+
+        platform_account = None
+        if expected_source == "SHOPIFY":
+            platform_account = await connection.fetchrow(
+                "select charge_policy from tcg.shopify_delivery_accounts where order_id=$1",
+                order_id,
+            )
+        owner_postage_charge = (
+            seller_auto_postage_charge(platform_account["charge_policy"], payload.amount_minor)
+            if platform_account is not None else payload.amount_minor
+        )
 
         profile_keys: list[str] = []
         for row in rows:
@@ -1644,7 +1656,7 @@ async def reconcile_shopify_postage(
               and active
             order by component_key
             """,
-            owner["id"], profile_key,
+            target_owner_id, profile_key,
         )
         try:
             material_allocations = _fulfilment_material_allocations(
@@ -1702,7 +1714,7 @@ async def reconcile_shopify_postage(
                     ) values($1,$2,$3,'SHIPPING_COST',$4,'GBP','PENDING',$5,$6,$7)
                     on conflict(source_key) do nothing
                     """,
-                    owner["id"], order_id, row["order_item_id"], -postage,
+                    target_owner_id, order_id, row["order_item_id"], -postage,
                     f"postage:{payload.reference}:{row['order_item_id']}",
                     occurred_at,
                     payload.notes or "Actual Royal Mail postage cost.",
@@ -1719,7 +1731,7 @@ async def reconcile_shopify_postage(
                     )
                     on conflict(source_key) do nothing
                     """,
-                    owner["id"], order_id, row["order_item_id"], -materials,
+                    target_owner_id, order_id, row["order_item_id"], -materials,
                     (
                         f"fulfilment-material:{payload.reference}:"
                         f"{row['order_item_id']}"
@@ -1739,7 +1751,7 @@ async def reconcile_shopify_postage(
                     updated_at=clock_timestamp(),
                     version=tcg.order_item_reconciliations.version+1
                 """,
-                row["order_item_id"], order_id, owner["id"],
+                row["order_item_id"], order_id, target_owner_id,
                 reconciliation_source,
             )
 
