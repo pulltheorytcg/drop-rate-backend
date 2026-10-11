@@ -48,7 +48,8 @@ def test_owner_api_is_allowlisted_and_founder_apis_remain_admin_only():
     assert "app.include_router(import_enrichment_router, dependencies=[Depends(require_platform_admin_request)])" in main
     assert "app.include_router(import_review_router, dependencies=[Depends(require_platform_admin_request)])" in main
     owner_api = (Path(__file__).resolve().parents[1] / "backend/app/owner_imports.py").read_text()
-    assert "from .import_enrichment import" not in owner_api\n    assert "import_enrichment_router" not in owner_api
+    assert "from .import_enrichment import" not in owner_api
+    assert "import_enrichment_router" not in owner_api
     assert "require_owner_portal_request" in owner_api
 
 
