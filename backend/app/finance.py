@@ -17,6 +17,7 @@ from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .settings import get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
+from .shopify_net_postage_policy import seller_auto_postage_charge
 
 
 router = APIRouter(prefix="/api/v1")
@@ -88,6 +89,7 @@ class EbayFeeReconcile(BaseModel):
 class ShopifyPostageReconcile(BaseModel):
     amount_minor: int = Field(ge=0)
     reference: str = Field(min_length=1, max_length=96)
+    owner_id: UUID | None = None
     notes: str = Field(default="", max_length=1000)
     occurred_at: datetime | None = None
 
