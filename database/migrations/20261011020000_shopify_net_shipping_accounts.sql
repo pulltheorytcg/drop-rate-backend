@@ -129,7 +129,7 @@ declare
     v_all_reconciled boolean;
     v_owner_postage bigint;
 begin
-    select count(*)::int, min(m.owner_id)
+    select count(*)::int, (array_agg(m.owner_id))[1]
     into v_memberships,v_owner_id
     from tcg.owner_memberships m
     join tcg.owners own on own.id=m.owner_id
