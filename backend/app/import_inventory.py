@@ -16,6 +16,22 @@ def json_object(value: Any) -> dict:
     return value
 
 
+def physical_inventory_condition(normalized: dict) -> str | None:
+    """Project CSV evidence onto the existing physical-state storage contract.
+
+    Collectr can export both a slab grade and a raw Card Condition. Keep that
+    original condition in raw_record/source_record and the source snapshot key,
+    but condition on an actual graded inventory item must be NULL. Apply this
+    at the shared writer so saved previews and per-row confirmation are fixed
+    too, without rewriting their source evidence or weakening database guards.
+    Incomplete grading and non-card conflicts are not silently repaired here.
+    """
+    if (normalized.get("product_type") == "CARD"
+            and normalized.get("grading_company") and normalized.get("grade")):
+        return None
+    return normalized.get("condition")
+
+
 async def lock_import_owner(connection: asyncpg.Connection, owner_id: UUID) -> None:
     # Transaction lock, not an UPDATE privilege on the ownership table.
     await connection.fetchval(
@@ -30,6 +46,7 @@ async def create_draft_copies(connection: asyncpg.Connection, *, candidates: lis
     for candidate in candidates:
         normalized = json_object(candidate["normalized_record"])
         raw = json_object(candidate["raw_record"])
+        condition = physical_inventory_condition(normalized)
         for copy_number in range(1, candidate["quantity"] + 1):
             inventory_id = uuid4()
             await connection.execute(
@@ -41,7 +58,7 @@ async def create_draft_copies(connection: asyncpg.Connection, *, candidates: lis
                 ) values($1,$2,$3,$4,$5,'GBP',$6,$7,$8,$9,$10,$11,
                          false,'DRAFT','',$12,$13,$14,$15::jsonb)""",
                 inventory_id,f"INV-{inventory_id.hex.upper()}",candidate["catalogue_id"],owner_id,
-                normalized.get("acquisition_cost_minor"),normalized.get("condition"),
+                normalized.get("acquisition_cost_minor"),condition,
                 normalized.get("seal_status"),normalized.get("grading_company"),
                 normalized.get("grade"),normalized.get("certificate_number"),
                 normalized.get("language"),batch_id,candidate["source_row"],

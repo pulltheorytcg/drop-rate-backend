@@ -27,16 +27,17 @@
   border-radius:18px;box-shadow:0 25px 85px rgba(11,30,61,.27);
   font-family:inherit;
 }
+.owner-import-dialog[open]{display:flex;flex-direction:column}
 .owner-import-dialog::backdrop{background:rgba(9,25,46,.68)}
 .owner-import-dialog-header{
-  display:flex;justify-content:space-between;align-items:flex-start;gap:14px;
+  display:flex;flex-shrink:0;justify-content:space-between;align-items:flex-start;gap:14px;
   padding:18px 23px 15px;border-bottom:1px solid #dfe8f2;background:#fff;
 }
 .owner-import-dialog-header h2{margin:3px 0 7px;font-size:1.3rem;color:#183c67}
 .owner-import-dialog-header p{margin:0;color:#5d7189;font-size:.72rem;line-height:1.55}
-.owner-import-close{border:1px solid #d7e1ec;border-radius:9px;background:#fff;
+.owner-import-close{flex-shrink:0;border:1px solid #d7e1ec;border-radius:9px;background:#fff;
   padding:9px 13px;font-size:.9rem;color:#263e59;cursor:pointer}
-.owner-import-dialog-body{overflow:auto;padding:18px 23px;max-height:calc(90dvh - 100px)}
+.owner-import-dialog-body{overflow:auto;min-height:0;padding:18px 23px;max-height:calc(90dvh - 100px)}
 .owner-import-fields{
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 14px;
 }
@@ -108,16 +109,17 @@
 .owner-import-history-row small{font-size:.68rem;color:#70879b}
 .owner-import-history-row button{align-self:center}
 @media(max-width:660px){
- .owner-import-dialog{height:100dvh;max-height:100dvh;width:100vw;border:0;border-radius:0}
- .owner-import-dialog-body{max-height:calc(100dvh - 108px);padding:13px}
+ .owner-import-dialog{height:100dvh;max-height:100dvh;width:100vw;max-width:100vw;margin:0;inset:0;border:0;border-radius:0}
+ .owner-import-dialog-body{flex:1;max-height:none;padding:13px;padding-bottom:max(13px,env(safe-area-inset-bottom));overscroll-behavior:contain}
  .owner-import-dialog-header{padding:13px}
  .owner-import-fields,.owner-import-map-fields{grid-template-columns:1fr}
  .owner-import-file-label{grid-column:1}
  .owner-import-row{grid-template-columns:1fr}
  .owner-import-review-bar{align-items:flex-end}
  .owner-import-summary strong{font-size:1rem}
- .owner-import-menu-wrap{order:2}
- .owner-portal-page .owner-import-menu{right:0}
+ .owner-portal-page .owner-import-menu-wrap{order:2;flex:1 0 100%;min-width:0}
+ .owner-portal-page .owner-import-menu{left:0;right:auto;max-width:100%;box-sizing:border-box}
+ .owner-import-dialog input,.owner-import-dialog select{font-size:16px}
 }
 
 /* Keep matching controls consistent with the collection modal. */
