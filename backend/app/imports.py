@@ -27,7 +27,7 @@ from .collectr_snapshot import (
     collectr_cost_minor,
     collectr_grade,
     collectr_product_type,
-    collectr_snapshot_key,
+    collectr_source_snapshot_key as collectr_snapshot_key,
 )
 
 router = APIRouter(prefix="/api/v1/imports")

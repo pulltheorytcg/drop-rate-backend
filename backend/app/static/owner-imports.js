@@ -78,6 +78,7 @@
     state.dialog = dialog;
 
     $("owner-import-preview").textContent = "Import collection";
+    $("owner-import-preview-title").textContent = "Import results";
     $("owner-import-close").addEventListener("click", closeDialog);
     dialog.addEventListener("cancel", (event) => {
       event.preventDefault();
@@ -328,9 +329,8 @@
       review_rows: state.candidates.filter(x => x.status === "REVIEW").length,
       skipped_rows: state.candidates.filter(x => x.status === "SKIPPED").length,
     };
-    // Counts from the server's entire stored batch take priority; the
-    // initial POST body displays only 200 candidate previews.
-    state.summary = summary;
+    // Use authoritative totals when the mutation returns them.
+    state.summary = {...summary, ...(compact?.summary || {})};
     state.filter = state.batch.automatic_intake && summary.review_rows ? "REVIEW" : "ALL";
     state.page = 0;
     $("owner-import-filter").value = state.filter;
@@ -441,7 +441,7 @@
     const generation = state.generation;
     const stored = await apiRequest(`/api/v1/owner/imports/${encodeURIComponent(result.batch_id)}`);
     if (generation !== state.generation || !state.dialog?.open) return;
-    loadPreview(stored);
+    loadPreview(stored, result);
     await refreshInventory();
   }
 

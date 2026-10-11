@@ -97,7 +97,8 @@ async def main():
         request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=pool)),state=SimpleNamespace(request_id='intake-regression'))
         a=SimpleNamespace(user_id=actor_a);b=SimpleNamespace(user_id=actor_b)
         try:
-            await api.upload_collection(payload(),request,a)
+            initial=await imports.preview_import(payload(),request,a)
+            await api.add_recognised(UUID(initial['batch_id']),imports.ImportCommitRequest(version=initial['version']),request,a)
             raise AssertionError('Missing UPDATE grant was not reproduced')
         except asyncpg.InsufficientPrivilegeError:
             pass
@@ -138,7 +139,9 @@ async def main():
             replay=await api.upload_collection(payload(),request,a)
             assert replay['created_count']==0 and replay['replayed'] and replay['version']==version
         assert inventory==await db.fetch('select * from tcg.inventory_items order by id')
+        preview_count=await db.fetchval('select count(*) from tcg.import_batches')
         await expected_error(api.upload_collection(payload(3),request,a),409)
+        assert await db.fetchval('select count(*) from tcg.import_batches')==preview_count,'Blocked export left a stale preview'
         assert await db.fetchval('select count(*) from tcg.inventory_items')==2,'New export bypassed open review'
         for operation in (
             imports.get_import_batch(batch_id,request,b),
@@ -172,9 +175,9 @@ async def main():
         assert retry['replayed'] and retry['created_count']==0
         assert await db.fetchval('select count(*) from tcg.fixture_committed_events where batch_id=$1',batch_id)==1
         assert await db.fetchval('select count(*) from tcg.inventory_items')==3
-        # The earlier rejected new preview has a stale baseline. Fresh export
-        # includes a harmless newline, not a way to bypass duplicate stock.
-        next_result=await api.upload_collection(payload(3,suffix='\n'),request,a)
+        # The previously blocked exact file is now accepted without editing
+        # its contents to evade a fingerprint or leaving a stale preview.
+        next_result=await api.upload_collection(payload(3),request,a)
         assert next_result['created_count']==1 and next_result['summary']['review_rows']==0,'Confirmed source mapping was not retained on re-export'
         assert await db.fetchval('select count(*) from tcg.inventory_items')==4
         decrease=await api.upload_collection(payload(1,suffix='\n'),request,a)

@@ -65,3 +65,13 @@ def test_invalid_costs_go_to_review_not_server_error(value):
     from app.imports import _money_minor
     assert collectr_cost_minor(value)==(None,['invalid_purchase_cost'])
     assert _money_minor(value,'GBP')==(None,['invalid_purchase_cost'])
+
+
+def test_source_receipt_never_masks_changed_physical_identity():
+    from app.collectr_snapshot import collectr_snapshot_key, collectr_source_snapshot_key
+    source,_=records()
+    original=collectr_snapshot_key(source)
+    source['_collectr_source_identity']=list(original)
+    changed=dict(source,language='Japanese',grade='10',grading_company='PSA')
+    assert collectr_snapshot_key(changed)!=original
+    assert collectr_source_snapshot_key(changed)==original

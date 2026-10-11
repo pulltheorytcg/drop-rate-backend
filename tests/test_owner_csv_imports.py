@@ -238,7 +238,7 @@ def test_seller_cannot_create_unreviewed_shared_canonical_during_commit(monkeypa
             raise AssertionError(sql)
 
         async def fetchval(self, sql, *args):
-            if "select id from tcg.owners" in sql:
+            if "pg_advisory_xact_lock" in sql:
                 assert args == (owner_id,)
                 return owner_id
             if "from tcg.import_batches" in sql:

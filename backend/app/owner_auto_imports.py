@@ -24,7 +24,7 @@ from . import imports
 from .import_review import ImportCandidateResolutionRequest, ImportCandidateSkipRequest, IDENTITY_REVIEW_ISSUES
 from .import_inventory import lock_import_owner, create_draft_copies, json_object
 from .import_admission import exact_admission, manual_admission_valid, identity_fingerprint, meets_threshold
-from .collectr_snapshot import collectr_snapshot_key
+from .collectr_snapshot import collectr_source_snapshot_key as collectr_snapshot_key
 from .language import clean_language
 
 
@@ -151,6 +151,16 @@ async def add_recognised(batch_id: UUID,payload: imports.ImportCommitRequest,req
 
 async def upload_collection(payload: imports.ImportPreviewRequest,request: Request,
                             user: Annotated[AuthenticatedUser,Depends(require_user)]) -> dict:
+    # Reject another file before persisting a stale preview. The locked
+    # apply stage rechecks this condition for simultaneous requests.
+    digest=hashlib.sha256(payload.content.encode()).hexdigest()
+    async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
+        owner=await current_owner(connection)
+        other=await connection.fetchval("""select id from tcg.import_batches
+            where owner_id=$1 and automatic_intake and status='PREVIEW'
+              and source_sha256<>$2 limit 1""",owner["id"],digest)
+        if other:
+            raise HTTPException(409,{"message":"Finish or skip the remaining rows in your open import before uploading another export","batch_id":str(other)})
     try:
         preview=await imports.preview_import(payload,request,user)
         batch_id=UUID(str(preview["batch_id"]))
