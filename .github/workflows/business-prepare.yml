@@ -43,12 +43,12 @@ jobs:
           test "$(git ls-remote origin refs/heads/feat/founder-business-area-20261011 | cut -f1)" = "$GITHUB_SHA"
           python - <<'PY'
           import subprocess
-          allowed={'backend/app/access_control.py','backend/app/founder_accounts.py','backend/app/main.py','backend/app/static/workspace-shell.js','BUILD_STATUS.md'}
+          allowed={'backend/app/access_control.py','backend/app/founder_accounts.py','backend/app/main.py','backend/app/static/workspace-shell.js','BUILD_STATUS.md','tests/ui/founder-workspace.cjs','tests/business_area_postgres.py'}
           changed=set(subprocess.check_output(['git','diff','--name-only'],text=True).splitlines())
           assert changed==allowed, changed
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add backend/app/access_control.py backend/app/founder_accounts.py backend/app/main.py backend/app/static/workspace-shell.js BUILD_STATUS.md
+          git add backend/app/access_control.py backend/app/founder_accounts.py backend/app/main.py backend/app/static/workspace-shell.js BUILD_STATUS.md tests/ui/founder-workspace.cjs tests/business_area_postgres.py
           git commit -m 'Wire verified-founder Business access, read-only account fields and navigation'
           git push origin HEAD:refs/heads/feat/founder-business-area-20261011
