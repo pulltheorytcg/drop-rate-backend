@@ -106,4 +106,90 @@ create trigger shopify_postage_actual_costs_audit
     after insert on tcg.shopify_postage_actual_costs
     for each row execute function tcg.audit_finance_change();
 
+-- The only account view permitted to a seller. SECURITY DEFINER reads the
+-- private company accounting row but returns exactly ONE net owner charge.
+-- It cannot return customer payments, postage invoices, other owner records,
+-- addresses, or buyer identity.
+create function tcg.owner_net_shopify_postage(p_order_item_id uuid)
+returns table (
+    charge_policy text,
+    net_shipping_charge_minor bigint,
+    policy_status text
+)
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog
+as $body$
+declare
+    v_owner_id uuid;
+    v_memberships integer;
+    v_order_id uuid;
+    v_order_policy text;
+    v_all_reconciled boolean;
+    v_owner_postage bigint;
+begin
+    select count(*)::int, min(m.owner_id)
+    into v_memberships,v_owner_id
+    from tcg.owner_memberships m
+    join tcg.owners own on own.id=m.owner_id
+    where m.user_id=tcg.current_user_id() and m.active and own.active;
+
+    if v_memberships<>1 then
+        return;
+    end if;
+
+    select oi.order_id,a.charge_policy
+    into v_order_id,v_order_policy
+    from tcg.order_items oi
+    join tcg.orders o on o.id=oi.order_id
+    join tcg.shopify_delivery_accounts a on a.order_id=o.id
+    where oi.id=p_order_item_id
+      and oi.owner_id=v_owner_id
+      and o.source='SHOPIFY'
+      and o.status='PAID';
+    if not found then
+        return;
+    end if;
+
+    if v_order_policy in (
+        'COMPANY_FUNDED_CUSTOMER_PAID',
+        'COMPANY_FUNDED_REVIEW'
+    ) then
+        return query select v_order_policy,0::bigint,'NO_SELLER_CHARGE'::text;
+        return;
+    end if;
+
+    if v_order_policy<>'AUTOMATIC_FREE_UK_TRACKED_48' then
+        return;
+    end if;
+
+    select
+        coalesce(bool_and(rec.shipping_cost_reconciled_at is not null),false),
+        coalesce(-sum(le.amount_minor),0)::bigint
+    into v_all_reconciled,v_owner_postage
+    from tcg.order_items oi
+    left join tcg.order_item_reconciliations rec
+      on rec.order_item_id=oi.id and rec.owner_id=v_owner_id
+    left join tcg.financial_ledger_entries le
+      on le.order_item_id=oi.id
+     and le.owner_id=v_owner_id
+     and le.entry_type='SHIPPING_COST'
+    where oi.order_id=v_order_id and oi.owner_id=v_owner_id;
+
+    if v_all_reconciled then
+        return query select
+            v_order_policy,
+            greatest(v_owner_postage,0)::bigint,
+            'AUTO_CHARGE_VERIFIED'::text;
+    else
+        return query select
+            v_order_policy,null::bigint,'AUTO_CHARGE_PENDING'::text;
+    end if;
+end
+$body$;
+
+revoke all on function tcg.owner_net_shopify_postage(uuid) from public, anon, authenticated;
+grant execute on function tcg.owner_net_shopify_postage(uuid) to tcg_api;
+
 commit;
