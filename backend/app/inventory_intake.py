@@ -395,14 +395,14 @@ async def create_inventory_intake(
                 condition, seal_status, grading_company, grade,
                 certificate_number, language, storage_location_id,
                 store_price_minor, identity_confirmed, status, notes,
-                intake_request_key
+                intake_request_key, sale_intent
             ) values (
                 $1, $2, $3, $4,
                 $5, $6, 'GBP',
                 $7, $8, $9, $10,
                 $11, $12, $13,
                 $14, $15, 'DRAFT', $16,
-                $17
+                $17, 'PERSONAL_COLLECTION'
             )
             on conflict (intake_request_key) do nothing
             returning *

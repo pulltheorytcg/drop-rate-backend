@@ -105,3 +105,8 @@
  .owner-portal-page .owner-card-body{padding:10px}
 }
 @media(max-width:380px){.owner-item-facts-grid{grid-template-columns:1fr}}
+
+/* Collection first: opening this disclosure never changes stock. */
+.owner-item-selling>summary{font-size:1.05rem;font-weight:750;cursor:pointer;min-height:44px;display:list-item;padding:10px 0}
+.owner-item-selling>summary:focus-visible{outline:3px solid #198bcb;outline-offset:4px}
+.owner-item-selling select{width:100%;min-height:44px;padding:10px;border:1px solid #d4deeb;border-radius:10px;background:#fff;color:#14263f}

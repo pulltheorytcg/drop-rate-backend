@@ -22,6 +22,7 @@ from .recognition_images import _trusted_reference_url
 from .schemas import InventorySaleIntentChange
 from .settings import get_settings
 from .seller_inventory_policy import sealed_seller_candidate
+from .physical_state import CARD_CONDITIONS, validate_physical_state
 
 router = APIRouter(prefix="/api/v1/owner/inventory", tags=["owner-inventory"])
 ACTIVE = {"DRAFT", "INSPECTION", "APPROVED"}
@@ -84,6 +85,8 @@ select i.id,i.inventory_code,i.catalogue_id,i.version,i.status,i.sale_intent,
  i.recommended_retail_minor,i.pricing_updated_at,p.product_type,p.game,p.name,p.set_name,
  p.card_number,p.variant,p.rarity,
  i.identity_confirmed as identity_ready,
+ (i.acquisition_cost_minor is not null) as cost_recorded,
+ (i.storage_location_id is not null) as location_recorded,
  (i.acquisition_cost_minor is not null and i.storage_location_id is not null) as intake_ready,
  (select ps.evidence->>'method' from tcg.pricing_snapshots ps
    where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id
@@ -123,9 +126,12 @@ order by c.created_at,c.id
 def approval_blockers(item):
     missing = []
     if not item.get("identity_ready") and not sealed_seller_candidate(item):
-        missing.append("Drop Rate identity verification")
+        missing.append("Drop Rate selling review: confirm the exact printing before publication")
     if not item.get("intake_ready") and not sealed_seller_candidate(item):
-        missing.append("Drop Rate intake review")
+        if not item.get("cost_recorded"):
+            missing.append("Acquisition cost needs recording by Drop Rate before sale")
+        if not item.get("location_recorded"):
+            missing.append("Storage / dispatch location needs recording by Drop Rate")
     if not item.get("language"):
         missing.append("Product language")
     if not item.get("store_price_minor") or item["store_price_minor"] < 100:
@@ -136,7 +142,7 @@ def approval_blockers(item):
     elif not item.get("seal_status"):
         missing.append("Seal status")
     if not item.get("image_url"):
-        missing.append("Catalogue image is being prepared" if sealed_seller_candidate(item) else "An approved listing photo")
+        missing.append("Catalogue image is being prepared" if sealed_seller_candidate(item) else "Listing image approval / preparation (separate from collection artwork)")
     return missing
 
 
@@ -192,6 +198,10 @@ class SellingPrice(VersionRequest):
     store_price_minor: int = Field(ge=100, le=100_000_000, strict=True)
 
 
+class ListingRequest(SellingPrice):
+    condition: str | None = Field(default=None, max_length=80)
+
+
 class AddCopy(VersionRequest):
     confirmed: Literal[True]
 
@@ -216,7 +226,23 @@ async def save_selling_price(inventory_id, payload, request, user, access, *, ap
         item = await locked_item(connection, inventory_id, access["owner_id"])
         require_editable(item, payload.version)
         if approval_request:
+            proposed_condition = getattr(payload, "condition", None)
+            if proposed_condition is not None:
+                if item["status"] not in {"DRAFT", "INSPECTION"}:
+                    raise HTTPException(409, "Condition changes on approved stock need Drop Rate review")
+                if proposed_condition not in CARD_CONDITIONS:
+                    raise HTTPException(422, "Choose a valid raw-card condition")
+                kind = await connection.fetchval("select product_type from tcg.catalogue_products where id=$1", item["catalogue_id"])
+                try:
+                    validate_physical_state(product_type=kind, condition=proposed_condition,
+                        seal_status=item.get("seal_status"), grading_company=item.get("grading_company"),
+                        grade=item.get("grade"), certificate_number=item.get("certificate_number"))
+                except ValueError as exc:
+                    raise HTTPException(422, str(exc)) from exc
             context = await connection.fetchrow(DETAIL_SQL, inventory_id, access["owner_id"])
+            if (context and context["product_type"] == "CARD" and not context.get("grading_company")
+                    and not (proposed_condition or context.get("condition"))):
+                raise HTTPException(422, "Choose the raw-card condition for this listing; your card is already saved")
             if context and sealed_seller_candidate(dict(context)):
                 if not context["image_url"]:
                     raise HTTPException(422, "The exact catalogue image is being prepared. Your own photo is not required.")
@@ -246,10 +272,10 @@ async def save_selling_price(inventory_id, payload, request, user, access, *, ap
 async def _save_review_price(connection, inventory_id, payload, item, access, approval_request):
     target = "INSPECTION" if approval_request and item["status"] == "DRAFT" else item["status"]
     row = await connection.fetchrow("""update tcg.inventory_items
-        set store_price_minor=$4,status=$5,sale_intent=$6,version=version+1,updated_at=clock_timestamp()
+        set store_price_minor=$4,status=$5,sale_intent=$6,condition=coalesce($7::text,condition),version=version+1,updated_at=clock_timestamp()
         where id=$1 and owner_id=$2 and version=$3 returning id,inventory_code,status,sale_intent,version,store_price_minor
         """, inventory_id, access["owner_id"], payload.version, payload.store_price_minor, target,
-        "FOR_SALE" if approval_request else item["sale_intent"])
+        "FOR_SALE" if approval_request else item["sale_intent"], getattr(payload, "condition", None) if approval_request else None)
     if row is None:
         raise HTTPException(409, "Inventory changed. Refresh and try again.")
     return jsonable_encoder({"item": dict(row), "message":
@@ -264,7 +290,7 @@ async def selling_price(inventory_id: UUID, payload: SellingPrice, request: Requ
 
 
 @router.post("/{inventory_id}/approval-request")
-async def approval_request(inventory_id: UUID, payload: SellingPrice, request: Request,
+async def approval_request(inventory_id: UUID, payload: ListingRequest, request: Request,
                            user: Annotated[AuthenticatedUser, Depends(require_user)],
                            access: Annotated[dict, Depends(require_owner_portal_request)]):
     return await save_selling_price(inventory_id, payload, request, user, access, approval_request=True)

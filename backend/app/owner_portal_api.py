@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .access_control import require_owner_portal_request
 from .auth import AuthenticatedUser, require_user
@@ -26,6 +26,7 @@ from .grading_certificates import (
 )
 from .physical_state import validate_physical_state
 from .pricing import _recalculate_one
+from .language import clean_language
 from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .settings import get_settings
 from .owner_inventory import add_reference_artwork
@@ -61,6 +62,7 @@ class OwnerProfileUpdate(BaseModel):
 
 
 class OwnerRecognitionIntakeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     recognition_run_id: UUID
     selected_catalogue_id: UUID
     condition: str | None = Field(default=None, max_length=80)
@@ -92,12 +94,13 @@ class OwnerRecognitionIntakeRequest(BaseModel):
             or self.certificate_number is not None
         ):
             raise ValueError("Sealed-product intake must not include card condition or grading fields")
-        if self.condition is None and self.grading_company is None and self.seal_status is None:
-            raise ValueError("Choose a raw-card condition, provide grading details, or provide seal status")
+        # Unknown raw condition is allowed in a collection, never guessed as Near Mint.
+        # Type/grade conflicts are checked against the selected catalogue product.
         return self
 
 
 class OwnerGradedCertificateIntakeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     selected_catalogue_id: UUID
     grading_company: str = Field(min_length=2, max_length=40)
     grade: str = Field(min_length=1, max_length=40)
@@ -117,6 +120,14 @@ class OwnerGradedCertificateIntakeRequest(BaseModel):
             self.certificate_number,
         )
         return self
+
+
+def _collection_language(supplied: str | None, catalogue_language: str | None) -> str | None:
+    supplied_clean = clean_language(supplied)
+    catalogue_clean = clean_language(catalogue_language)
+    if supplied_clean and catalogue_clean and supplied_clean != catalogue_clean:
+        raise HTTPException(422, "Language conflicts with the selected printing. Choose the correct language/version.")
+    return supplied_clean or catalogue_clean
 
 
 def _owner_graded_payload_hash(payload: OwnerGradedCertificateIntakeRequest) -> str:
@@ -154,6 +165,7 @@ def _owner_scan_inventory_payload(row: object, catalogue: object, *, replayed: b
             "inventory_code": inventory.get("inventory_code"),
             "catalogue_id": inventory.get("catalogue_id"),
             "status": inventory.get("status"),
+            "sale_intent": inventory.get("sale_intent"),
             "condition": inventory.get("condition"),
             "seal_status": inventory.get("seal_status"),
             "grading_company": inventory.get("grading_company"),
@@ -1238,6 +1250,10 @@ async def owner_graded_certificate_intake(
         user.user_id,
         request.state.request_id,
     ) as connection:
+        await connection.execute(
+            "select pg_advisory_xact_lock(hashtextextended($1,0))",
+            f"collection-intake:{owner_id}:{request_key}",
+        )
         existing = await connection.fetchrow(
             """
             select i.*
@@ -1309,7 +1325,7 @@ async def owner_graded_certificate_intake(
 
         inventory_id = uuid4()
         inventory_code = f"INV-{inventory_id.hex.upper()}"
-        physical_language = payload.language or catalogue["language"]
+        physical_language = _collection_language(payload.language, catalogue["language"])
         provider_snapshot = (
             provider_result.model_dump(mode="json") if provider_result is not None else None
         )
@@ -1337,7 +1353,7 @@ async def owner_graded_certificate_intake(
                 ) values(
                     $1,$2,$3,$4,
                     null,$5,$6,$7,$8,
-                    false,'DRAFT',$9,$10::jsonb,'FOR_SALE'
+                    false,'DRAFT',$9,$10::jsonb,'PERSONAL_COLLECTION'
                 )
                 on conflict (intake_request_key) do nothing
                 returning *
@@ -1367,12 +1383,8 @@ async def owner_graded_certificate_intake(
 
         valuation: dict | None = None
         valuation_error: str | None = None
-        try:
-            valuation = await _recalculate_one(connection, owner_id, inventory_id)
-        except HTTPException as exc:
-            if exc.status_code != 422:
-                raise
-            valuation_error = str(exc.detail)
+        # Pricing uses the existing separate refresh operation. Missing evidence
+        # or a provider failure must not delay or roll back collection admission.
 
         inventory = await connection.fetchrow(
             "select * from tcg.inventory_items where id=$1 and owner_id=$2",
@@ -1422,6 +1434,10 @@ async def owner_recognition_intake(
         user.user_id,
         request.state.request_id,
     ) as connection:
+        await connection.execute(
+            "select pg_advisory_xact_lock(hashtextextended($1,0))",
+            f"collection-intake:{owner_id}:{request_key}",
+        )
         existing = await connection.fetchrow(
             """
             select i.*
@@ -1558,7 +1574,7 @@ async def owner_recognition_intake(
 
         inventory_id = uuid4()
         inventory_code = f"INV-{inventory_id.hex.upper()}"
-        physical_language = payload.language or catalogue["language"]
+        physical_language = _collection_language(payload.language, catalogue["language"])
         source_record = {
             "source": OWNER_SCAN_SOURCE,
             "recognition_run_id": str(payload.recognition_run_id),
@@ -1583,7 +1599,7 @@ async def owner_recognition_intake(
             ) values(
                 $1,$2,$3,$4,
                 $5,$6,$7,$8,$9,$10,
-                $11,'DRAFT',$12,$13::jsonb,'FOR_SALE'
+                $11,'DRAFT',$12,$13::jsonb,'PERSONAL_COLLECTION'
             )
             on conflict (intake_request_key) do nothing
             returning *
@@ -1610,12 +1626,8 @@ async def owner_recognition_intake(
 
         valuation: dict | None = None
         valuation_error: str | None = None
-        try:
-            valuation = await _recalculate_one(connection, owner_id, inventory_id)
-        except HTTPException as exc:
-            if exc.status_code != 422:
-                raise
-            valuation_error = str(exc.detail)
+        # Pricing uses the existing separate refresh operation. Missing evidence
+        # or a provider failure must not delay or roll back collection admission.
 
         inventory = await connection.fetchrow(
             "select * from tcg.inventory_items where id=$1 and owner_id=$2",

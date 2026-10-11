@@ -429,7 +429,7 @@ def test_recognition_intake_does_not_call_external_market_provider_inside_transa
 
     assert "_hydrate_verified_sealed_market" not in block
     assert "refresh_verified_sealed_ebay_market" not in block
-    assert "_recalculate_one(connection, owner_id, inventory_id)" in block
+    assert "_recalculate_one(connection, owner_id, inventory_id)" not in block
 
 
 def test_inventory_ui_renders_sealed_state_identity_and_market_refresh_action() -> None:

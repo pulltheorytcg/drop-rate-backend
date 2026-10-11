@@ -1,5 +1,14 @@
 # Drop Rate — Live Build Status
 
+## 11 October 2026 — Collection-first confirmation / separate selling (implementation; release evidence pending)
+
+The existing scanner now saves a confirmed selection immediately, without a second whole-queue save or waiting for uncertain neighbours. Newly added scan/manual/CSV physical copies explicitly start DRAFT / PERSONAL_COLLECTION. Missing raw condition, acquisition cost, selling price or market value does not block collection admission. Canonical language is reused with conflict checks; owner/request locking and retry receipts prevent duplicate submissions. Pricing is no longer awaited inside the scan save transaction.
+
+Seller inventory keeps selling fields and channel controls under an optional List for sale disclosure. Raw condition can be supplied in that explicit versioned listing request; existing raw/slab selling review and channel publication guards remain. Approved sealed selling is unchanged. No account merge, existing-row rewrite, overlapping-import reconciliation, media-policy relaxation, channel activation, product/theme publication, migration, new service or n8n flow. The existing overlapping Draft import and explicit hold remain separate work. #607 shared-artwork loading is preserved.
+
+See docs/COLLECTION_FIRST_INTAKE.md. Source checks, real restricted PostgreSQL/signed HTTP, mocked browser tests, exact deployment/readback and real physical-device acceptance are distinct. PR release comment must record actual results; this entry is not evidence that deployment or signed-in production acceptance passed.
+
+
 ## 11 October 2026 — Shared inventory artwork delivery (implementation; release verification pending)
 
 Founder HQ and Seller Hub now use the same bounded authenticated image route for provider-hosted inventory artwork. Catalogue artwork is selected by exact catalogue identity, independent of the uploading owner; physical photos remain restricted to the exact owned copy. Seller images load near the viewport, use trusted CDN fast paths, and fall back through the shared route/reference endpoint without forwarding credentials to providers. An additive SELECT-only policy covers approved shared CANONICAL_PRODUCT media, matching the already shared card-art concept. No inventory, import, price, ownership, listing or finance write. See docs/SHARED_INVENTORY_IMAGES.md. Real database and browser tests, migration, deployment, live source checks and real signed-in acceptance are separately reported.

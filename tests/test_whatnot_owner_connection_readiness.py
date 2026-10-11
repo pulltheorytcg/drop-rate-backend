@@ -15,11 +15,11 @@ def test_whatnot_readiness_is_not_false_company_shopify_install():
     assert '"sync_enabled": False' in API
 
     assert 'code:"WHATNOT",label:"Whatnot"' in ITEM
-    assert 'state:"Personal seller connection awaiting Whatnot API access"' in ITEM
+    assert 'state:"Not connected in Drop Rate — publishing unavailable"' in ITEM
     assert 'action:null' in ITEM
     assert 'https://apps.shopify.com/whatnot' not in ITEM
     assert 'https://apps.shopify.com/whatnot' not in HTML
-    assert 'Personal seller connection' in ITEM
+    assert 'Whatnot is not connected in this workflow' in ITEM
     assert 'Your own Whatnot account' in HTML
 
 

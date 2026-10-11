@@ -54,13 +54,14 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.ok(cardBox&&cardBox.height<425,'Inventory tile still has an oversized metadata layout');
    await page.screenshot({path:path.join(out,`inventory-${viewport.width}.png`),fullPage:true});
    await page.locator('.owner-card-image-wrap').click();await page.getByRole('dialog').waitFor();
-   await page.getByRole('heading',{name:'Selling price',exact:true}).waitFor();
+   await page.locator('.owner-item-selling summary').waitFor();
+   if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();
    const facts=page.locator('.owner-item-facts');
    await facts.waitFor();
    const detail=await facts.innerText();
    for(const label of ['Game','One Piece','Language','Japanese','Seal','Sealed','Inventory ID',item.inventory_code])
     assert.ok(detail.includes(label),'Missing item detail: '+label);
-   assert.equal(await page.getByRole('button',{name:'Sync to Shopify',exact:true}).count(),0);
+   assert.equal(await page.getByRole('button',{name:'Check & sync to Shopify',exact:true}).count(),0);
    assert.equal(await page.locator('.owner-item-channel-logo').count(),3);
    const channelRects=await page.locator('.owner-item-channel-visual').evaluateAll(nodes=>
      nodes.map(n=>({height:Math.round(n.getBoundingClientRect().height),
@@ -91,9 +92,10 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
        sale_intent:'FOR_SALE',shopify_state:'PUBLISHED',seller_approval_available:true,
        store_price_minor:1000,is_consignment:true};},item);
    await page.locator('.owner-inventory-details').click();
-   await page.getByRole('heading',{name:'Selling price',exact:true}).waitFor();
-   assert.equal(await page.getByRole('button',{name:'Approve for Shopify'}).count(),0);
-   assert.equal(await page.getByRole('button',{name:'Sync to Shopify'}).count(),0);
+   await page.locator('.owner-item-selling summary').waitFor();
+   if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();
+   assert.equal(await page.getByRole('button',{name:'List on Shopify'}).count(),0);
+   assert.equal(await page.getByRole('button',{name:'Check & sync to Shopify'}).count(),0);
    assert.match(await page.locator('.owner-item-channel-shopify').innerText(),/Published/);
    await page.screenshot({path:path.join(out,`channels-published-${viewport.width}.png`)});
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
@@ -102,7 +104,8 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.deepEqual(headings,['Product','Status','Market value','Store / recommended']);
    assert.equal(await page.locator('#owner-inventory-body tr:first-child td').count(),4);
    assert.doesNotMatch(await page.locator('#owner-inventory-body').innerText(),/INV-D715B0E9|Japanese/);
-   await page.locator('.owner-inventory-open').click();await page.getByRole('heading',{name:'Selling price',exact:true}).waitFor();
+   await page.locator('.owner-inventory-open').click();await page.locator('.owner-item-selling summary').waitFor();
+   if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
    await page.getByRole('button',{name:'Grid view',exact:true}).click();
    await page.evaluate(original=>{
