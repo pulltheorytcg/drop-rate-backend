@@ -37,17 +37,16 @@ def source(raw_quantity: int = 92) -> imports.ImportPreviewRequest:
     writer = csv.writer(output)
     writer.writerow(['Portfolio Name', 'Category', 'Product Name', 'Set', 'Card Number',
                      'Rarity', 'Variance', 'Quantity', 'Card Condition', 'Language',
-                     'Grade', 'Average Cost Paid', 'Certificate'])
+                     'Grade', 'Average Cost Paid'])
     writer.writerow(['Test', 'Pokemon', 'Known Card', 'Synthetic Set', '001',
-                     'C', 'Normal', raw_quantity, 'Near Mint', 'English', 'Ungraded', '', ''])
+                     'C', 'Normal', raw_quantity, 'Near Mint', 'English', 'Ungraded', ''])
     for index in range(3):
         writer.writerow(['Test', 'Pokemon', f'Synthetic Slab {index}', 'Synthetic Set', f'10{index}',
-                         'C', 'Normal', 1, 'Near Mint', 'English', 'PSA 10', '', f'TEST-CERT-{index}'])
+                         'C', 'Normal', 1, 'Near Mint', 'English', 'PSA 10', ''])
     writer.writerow(['Test', 'Pokemon', 'Needs confirmation', 'Synthetic Set', '002',
-                     'C', 'Normal', 439, 'Near Mint', '', 'Ungraded', '', ''])
+                     'C', 'Normal', 439, 'Near Mint', '', 'Ungraded', ''])
     return imports.ImportPreviewRequest(
         filename='synthetic-mixed-collection.csv', adapter='COLLECTR', content=output.getvalue(),
-        column_mapping={'certificate_number': 'Certificate'},
     )
 
 
@@ -159,12 +158,15 @@ async def main():
                 assert len(stock) == 95
                 graded = [row for row in stock if row['grade'] is not None]
                 assert len(graded) == 3
-                assert {row['certificate_number'] for row in graded} == {'TEST-CERT-0', 'TEST-CERT-1', 'TEST-CERT-2'}
+                # Standard Collectr grade exports contain no certificate; do
+                # not invent one. Explicit mapped certificates are tested below.
+                assert all(row['certificate_number'] is None for row in graded)
                 assert all(row['condition'] is None and row['grade'] == '10' and row['grading_company'] == 'PSA' for row in graded)
                 assert all(row['source_record']['Card Condition'] == 'Near Mint' and row['source_record']['Grade'] == 'PSA 10' for row in graded)
                 assert all(row['condition'] == 'Near Mint' for row in stock if row['grade'] is None)
                 assert all(row['owner_id'] == owner_a and row['status'] == 'DRAFT' and not row['identity_confirmed'] and row['acquisition_cost_minor'] is None for row in stock)
-                assert await db.fetch('select raw_record from tcg.import_candidates where batch_id=$1 order by source_row', batch_id) == [dict(raw_record=row['raw_record']) for row in original_candidates]
+                saved_source = await db.fetch('select raw_record from tcg.import_candidates where batch_id=$1 order by source_row', batch_id)
+                assert [row['raw_record'] for row in saved_source] == [row['raw_record'] for row in original_candidates]
                 for _ in range(3):
                     replay = await client.post(commit, json={'version': 1}, headers=headers(actor_a))
                     assert replay.status_code == 200 and replay.json()['created_count'] == 0
@@ -184,8 +186,23 @@ async def main():
                 assert changed.status_code == 201, changed.text
                 assert changed.json()['created_count'] == 1
                 assert await db.fetchval('select count(*) from tcg.inventory_items where owner_id=$1', owner_a) == 535
-        # Prove the patch did not weaken the real guard, then cover sealed
-        # storage through the same shared writer (no new scanner capability).
+                # Generic mapped input supports explicit grading certificates.
+                # Test a real insert, not merely the helper's return value.
+                generic = imports.ImportPreviewRequest(
+                    filename='mapped-slab.csv', adapter='GENERIC_CSV',
+                    content='Name,Game,Set,Number,Variant,Rarity,Language,Condition,Company,Grade,Certificate,Quantity\nSynthetic Slab 0,Pokemon,Synthetic Set,100,Normal,C,English,Near Mint,PSA,10,TEST-CERT-123,1\n',
+                    column_mapping={'name':'Name','game':'Game','set_name':'Set','card_number':'Number',
+                                    'variant':'Variant','rarity':'Rarity','language':'Language','condition':'Condition',
+                                    'grading_company':'Company','grade':'Grade','certificate_number':'Certificate','quantity':'Quantity'},
+                )
+                saved = await client.post('/api/v1/owner/imports/upload', json=generic.model_dump(), headers=headers(actor_b))
+                assert saved.status_code == 201 and saved.json()['created_count'] == 1, saved.text
+                slab = await db.fetchrow('select * from tcg.inventory_items where import_batch_id=$1', UUID(saved.json()['batch_id']))
+                assert slab['condition'] is None and slab['certificate_number'] == 'TEST-CERT-123'
+                assert slab['grading_company'] == 'PSA' and slab['grade'] == '10'
+                assert slab['source_record']['Condition'] == 'Near Mint'
+                assert slab['source_record']['Certificate'] == 'TEST-CERT-123'
+        # Prove the patch did not weaken the real physical-state guard.
         raw_card = await db.fetchval("select id from tcg.catalogue_products where identity_key='synthetic:a'")
         try:
             async with user_connection(pool, actor_a, 'guard-still-active') as connection:
@@ -198,7 +215,7 @@ async def main():
         assert guard_before == await db.fetchval("select pg_get_functiondef('tcg.validate_inventory_condition_state()'::regprocedure)")
         assert catalogue_count == await db.fetchval('select count(*) from tcg.catalogue_products')
         assert not await db.fetchval("select has_any_column_privilege('tcg_api','tcg.owners','UPDATE')")
-        print('PASS: original production graded/raw-condition error reproduced and fully rolled back; unchanged real SQL guard; authenticated legacy-preview resume adds 92 raw + 3 graded copies, leaves 439 pending; original source/grade/certificates preserved; replay adds zero; confirmation and +1 re-export succeed; cross-owner access denied. Synthetic data/local issuer only.')
+        print('PASS: original production graded/raw-condition error reproduced and fully rolled back; unchanged real SQL guard; authenticated legacy-preview resume adds 92 raw + 3 graded copies, leaves 439 pending; original source and grade preserved; mapped certificate retained; replay adds zero; confirmation and +1 re-export succeed; cross-owner access denied. Synthetic data/local issuer only.')
     finally:
         auth._jwk_client.cache_clear()
         if pool:
