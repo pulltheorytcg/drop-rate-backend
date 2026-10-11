@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/assets/styles.css?v=owner-v2-base">
   <link rel="stylesheet" href="/assets/owner-portal.css?v=owner-v14">
   <link rel="stylesheet" href="/assets/owner-fulfillment.css?v=4">
+  <link rel="stylesheet" href="/assets/owner-imports.css?v=1">
   <link rel="stylesheet" href="/assets/owner-inventory.css?v=5">
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
@@ -519,6 +520,14 @@
                   <option value="SOLD">Sold</option>
                   <option value="WITHDRAWN">Withdrawn</option>
                 </select>
+                <div class="owner-import-menu-wrap">
+                  <button id="owner-import-trigger" class="owner-import-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="owner-import-menu">Import <span aria-hidden="true">⌄</span></button>
+                  <div id="owner-import-menu" class="owner-import-menu" hidden>
+                    <button type="button" data-owner-import-adapter="COLLECTR"><strong>Collectr</strong><small>Collection CSV export</small></button>
+                    <button type="button" data-owner-import-adapter="HOLODEX"><strong>Holodex</strong><small>CSV · map unfamiliar columns</small></button>
+                    <button type="button" data-owner-import-adapter="GENERIC_CSV"><strong>Other</strong><small>CSV or TSV file</small></button>
+                  </div>
+                </div>
                 <div class="owner-layout-toggle" aria-label="Inventory layout">
                   <button class="active" id="owner-inventory-grid-toggle" type="button" data-owner-inventory-layout="grid" aria-label="Grid view">▦</button>
                   <button id="owner-inventory-list-toggle" type="button" data-owner-inventory-layout="list" aria-label="List view">☰</button>
@@ -758,6 +767,88 @@
     </section>
   </main>
 
+    <template id="owner-import-template">
+      <dialog id="owner-import-dialog" class="owner-import-dialog" aria-labelledby="owner-import-dialog-title">
+        <div class="owner-import-dialog-header">
+          <div><span class="owner-section-kicker">Drop Rate · Collection imports</span><h2 id="owner-import-dialog-title">Import collection</h2><p>Preview before adding anything. All physical copies stay owned by your account and start as Draft.</p></div>
+          <button id="owner-import-close" type="button" aria-label="Close import" class="owner-import-close">✕</button>
+        </div>
+        <div class="owner-import-dialog-body">
+          <form id="owner-import-form">
+            <div class="owner-import-fields">
+              <label>Source
+                <select id="owner-import-adapter" required>
+                  <option value="COLLECTR">Collectr</option>
+                  <option value="HOLODEX">Holodex</option>
+                  <option value="GENERIC_CSV">Other CSV / TSV</option>
+                  <option value="AUTO">Auto-detect format</option>
+                </select>
+              </label>
+              <label>Default game
+                <select id="owner-import-game">
+                  <option value="">Use file / review missing</option>
+                  <option value="Pokemon">Pokémon</option>
+                  <option value="One Piece">One Piece</option>
+                  <option value="Dragon Ball">Dragon Ball</option>
+                  <option value="Naruto">Naruto</option>
+                  <option value="Riftbound">Riftbound</option>
+                  <option value="Lorcana">Lorcana</option>
+                </select>
+              </label>
+              <label>Default language
+                <select id="owner-import-language">
+                  <option value="">Use file / review missing</option>
+                  <option value="English">English</option>
+                  <option value="Japanese">Japanese</option>
+                  <option value="Chinese">Chinese</option>
+                  <option value="Korean">Korean</option>
+                </select>
+              </label>
+              <label class="owner-import-file-label">Collection file
+                <input id="owner-import-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" required>
+                <small>CSV or TSV · up to 8 MB · 5,000 source rows per batch</small>
+              </label>
+            </div>
+            <details id="owner-import-map-details" class="owner-import-map-details">
+              <summary>Map file columns (for Holodex or other exports)</summary>
+              <p>Choose which column contains each value. Leave any field on Auto-detect to use standard headings.</p>
+              <div id="owner-import-map-fields" class="owner-import-map-fields"></div>
+            </details>
+            <div id="owner-import-message" class="owner-import-message" role="status">Select an export to begin.</div>
+            <div class="owner-import-form-actions">
+              <button id="owner-import-preview" class="owner-import-primary" type="submit">Preview collection</button>
+              <button id="owner-import-commit" class="owner-import-primary" type="button" disabled hidden>Import Draft inventory</button>
+            </div>
+          </form>
+          <section id="owner-import-preview-section" class="owner-import-preview-section" aria-labelledby="owner-import-preview-title" hidden>
+            <h3 id="owner-import-preview-title">Import preview</h3>
+            <div id="owner-import-summary" class="owner-import-summary"></div>
+            <div id="owner-import-warnings" class="owner-import-warnings"></div>
+            <div class="owner-import-review-bar">
+              <label>View rows
+                <select id="owner-import-filter">
+                  <option value="ALL">All</option>
+                  <option value="REVIEW">Needs review</option>
+                  <option value="READY">Ready</option>
+                  <option value="SKIPPED">Skipped</option>
+                </select>
+              </label>
+              <span id="owner-import-page"></span>
+            </div>
+            <div id="owner-import-rows" class="owner-import-rows"></div>
+            <div class="owner-import-pager">
+              <button id="owner-import-prev" type="button">← Previous</button>
+              <button id="owner-import-next" type="button">Next →</button>
+            </div>
+          </section>
+          <section class="owner-import-history" aria-label="Recent collection imports">
+            <div class="owner-import-history-header"><h3>Recent imports</h3><button id="owner-import-refresh-history" type="button">Refresh</button></div>
+            <div id="owner-import-history-list"></div>
+          </section>
+        </div>
+      </dialog>
+    </template>
+
     <template id="owner-fulfill-template">
     <dialog id="owner-fulfill-dialog" class="owner-fulfill-dialog" aria-labelledby="owner-fulfill-title">
       <div class="owner-fulfill-header">
@@ -797,6 +888,7 @@
   <script src="/assets/hub-session.js?v=3" defer></script>
   <script src="/assets/owner-inventory.js?v=7" defer></script>
   <script src="/assets/owner-portal.js?v=owner-v20" defer></script>
+  <script src="/assets/owner-imports.js?v=1" defer></script>
   <script src="/assets/owner-fulfillment.js?v=3" defer></script>
   <script src="/assets/owner-fulfill-wizard.js?v=2" defer></script>
   <script src="/assets/scanner-flow.js?v=7" defer></script>
