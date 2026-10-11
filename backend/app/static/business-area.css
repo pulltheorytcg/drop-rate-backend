@@ -1,5 +1,5 @@
 /* Seller Hub visual language; scoped to founder Business, no global re-theme. */
-.business-area{--business-navy:#0b2137;--business-blue:#194779;--business-teal:#087a8c;color:#152b43;max-width:1440px;margin-inline:auto}
+.business-area{--business-navy:#0b2137;--business-blue:#194779;--business-teal:#087a8c;color:#152b43;max-width:1440px;margin-inline:auto;color-scheme:light}
 .business-area [hidden],.business-entry[hidden],#seller-view-more [data-more-view="accounts"][hidden]{display:none!important}
 .business-area *, .business-entry{box-sizing:border-box}
 .business-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:12px 0 18px}
@@ -20,6 +20,7 @@
 .business-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:0 0 20px}
 .business-kpi{background:white;border:1px solid #dce5ed;border-radius:16px;padding:20px;display:grid;gap:9px;min-width:0}
 .business-kpi:first-child{background:var(--business-navy);color:white;border-color:var(--business-navy)}
+.business-kpi:first-child strong{color:#fff}
 .business-kpi span{font-size:.78rem;font-weight:650}.business-kpi strong{font-size:2rem;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .business-kpi small{font-size:.69rem;line-height:1.4;color:#687e90}.business-kpi:first-child small{color:#aec8dc}
 .business-intro,.business-tools{padding:23px;border:1px solid #dce5ed;background:#fff;border-radius:16px;margin:0 0 17px}
@@ -30,6 +31,7 @@
 .business-filters{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin:0 0 20px;padding:18px;background:white;border:1px solid #dae4ed;border-radius:14px}
 .business-filters label{display:grid;gap:7px;flex:1;min-width:180px;color:#526981;font-size:.76rem;font-weight:700}
 .business-filters input,.business-filters select{width:100%;min-width:0;min-height:44px;border:1px solid #c5d5e5;border-radius:9px;background:#fff;color:#1c3856;padding:10px 12px;font:inherit}
+.business-filters select{appearance:none;-webkit-appearance:none;padding-right:34px;background-image:linear-gradient(45deg,transparent 50%,#20476a 50%),linear-gradient(135deg,#20476a 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
 .business-caption{color:#60788f;font-size:.78rem;line-height:1.4;margin:0 0 13px}
 .business-seller-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .business-seller-card{padding:20px;border:1px solid #dce5ee;border-radius:15px;background:#fff;min-width:0;display:flex;flex-direction:column;align-items:start}
