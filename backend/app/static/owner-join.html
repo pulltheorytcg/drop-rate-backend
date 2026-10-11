@@ -2,103 +2,78 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#071b3f">
   <title>Drop Rate — Sell With Us</title>
   <link rel="stylesheet" href="/assets/styles.css?v=owner-join-v2">
-  <link rel="stylesheet" href="/assets/collector-worlds.css?v=5">
+  <link rel="stylesheet" href="/assets/collector-worlds.css?v=6">
+  <link rel="stylesheet" href="/assets/owner-join.css?v=1">
 </head>
 <body class="owner-join-page">
-  <div class="ambient ambient-one"></div>
-  <div class="ambient ambient-two"></div>
-
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
   <main class="shell">
-    <section class="auth-layout">
+    <section id="auth-view" class="auth-layout">
       <div class="brand-panel">
-        <div class="brand-lockup brand-lockup-logo">
-          <span class="dr-logo-image" role="img" aria-label="Drop Rate"></span>
-        </div>
+        <div class="brand-lockup brand-lockup-logo"><img class="collector-auth-logo" src="/assets/brand-assets/seller-hub-approved.webp" alt="Drop Rate Seller Hub"></div>
+        <div class="collector-auth-grails" aria-hidden="true"><img src="/assets/brand-assets/collector-slab-pair-labels.webp" alt="" width="1254" height="1254" decoding="async"></div>
         <div class="brand-copy">
-          <p class="eyebrow">Sell with Drop Rate</p>
-          <h1>Your cards.<br><em>Your business.</em></h1>
-          <p class="lead">Create your Seller Hub account and manage your inventory, sales, valuations and payouts with Drop Rate.</p>
+          <p class="eyebrow">Your collection starts here</p>
+          <h1>Every card.<br><em>A new adventure.</em></h1>
+          <p class="lead">From your first pull to your next grail. Discover, collect and sell across your favourite worlds.</p>
         </div>
-        <div class="trust-row"><span>Verified accounts</span><span>Your inventory only</span><span>Transparent payouts</span></div>
+        <div class="collector-auth-games"><span>ONE PIECE</span><span>POKÉMON</span><span>NARUTO</span><span>DRAGON BALL</span></div>
       </div>
-
       <div class="auth-panel">
-        <div id="owner-invite-loading" class="auth-card">
-          <p class="eyebrow">Preparing Seller Hub</p>
-          <h2>Please wait…</h2>
-        </div>
-
+        <div id="owner-invite-loading" class="auth-card" role="status"><p class="eyebrow">Preparing Seller Hub</p><h2>Getting your account ready…</h2></div>
         <div id="owner-invite-invalid" class="auth-card hidden">
-          <p class="eyebrow">Invitation unavailable</p>
-          <h2>This invite cannot be used</h2>
-          <p id="owner-invite-invalid-message" class="muted"></p>
+          <p class="eyebrow">Invitation unavailable</p><h2>This invite cannot be used</h2>
+          <p id="owner-invite-invalid-message" class="muted" role="alert"></p>
+          <a class="owner-entry-back" href="/app">Back to sign in</a>
         </div>
-
-        <form id="owner-join-form" class="auth-card hidden">
-          <div class="owner-onboarding-steps" aria-label="Seller onboarding progress">
-            <span class="active">1 · Invitation</span>
-            <span class="active">2 · Account</span>
-            <span>3 · Seller Hub</span>
-          </div>
-          <p class="eyebrow">Seller onboarding</p>
-          <h2>Join Drop Rate</h2>
-          <p id="owner-invite-summary" class="muted"></p>
-          <div class="owner-onboarding-callout">
-            <strong>What your seller account includes</strong>
-            <ul>
-              <li>Your own inventory, values and listing status in one place.</li>
-              <li>Transparent sales, commission and settlement reporting.</li>
-              <li>Stripe payout onboarding and payout preferences.</li>
-            </ul>
-          </div>
-
+        <form id="owner-join-form" class="auth-card hidden" aria-label="Seller onboarding">
+          <p class="eyebrow">Join the crew</p><h2>Create your account</h2>
+          <p class="muted">Your collection, sales and payouts. One account, one workspace.</p>
+          <p id="owner-invite-summary" class="muted owner-entry-summary"></p>
+          <details class="owner-onboarding-callout owner-entry-includes">
+            <summary>What your seller account includes</summary>
+            <p>Sell with Drop Rate</p>
+            <div class="owner-onboarding-steps" aria-label="Seller onboarding progress"><span class="active">1 · Account</span><span>2 · Verify email</span><span>3 · Seller Hub</span></div>
+            <ul><li>Verified accounts with access to your own inventory.</li><li>Your values and listing status in one place.</li><li>Transparent sales, commission and settlement reporting.</li><li>Stripe payout onboarding and payout preferences.</li></ul>
+          </details>
           <div id="owner-join-social-auth" class="social-auth hidden" aria-label="Social account creation">
             <button id="owner-join-google" class="oauth-button" type="button">Continue with Google</button>
             <button id="owner-join-apple" class="oauth-button oauth-button-apple" type="button">Continue with Apple</button>
             <div class="auth-divider"><span>or create with email</span></div>
           </div>
-
           <label>Your name<input id="owner-join-name" type="text" autocomplete="name" required maxlength="120"></label>
-          <label>Email address<input id="owner-join-email" type="email" autocomplete="email" required maxlength="320" placeholder="Use your verified email address"></label>
-          <label>Password<input id="owner-join-password" type="password" autocomplete="new-password" required minlength="12"></label>
+          <label>Email address<input id="owner-join-email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required maxlength="320" placeholder="Use your verified email address"></label>
+          <label>Password<input id="owner-join-password" type="password" autocomplete="new-password" required minlength="12" aria-describedby="owner-password-hint"></label>
+          <p id="owner-password-hint" class="muted owner-entry-hint">Use at least 12 characters with uppercase, lowercase, a number and a symbol.</p>
           <label>Confirm password<input id="owner-join-confirm-password" type="password" autocomplete="new-password" required minlength="12"></label>
           <label class="owner-onboarding-ack"><input id="owner-join-ack" type="checkbox" required> <span>I understand this seller account only gives me access to my own inventory and the commission shown above applies to sales attributed to it.</span></label>
-          <div id="owner-join-message" class="message" role="status"></div>
-          <button class="primary-button" type="submit">Create Seller Hub account <span>→</span></button>
-          <button id="owner-show-existing-login" class="text-button" type="button">I already have an account</button>
+          <div id="owner-join-message" class="message" role="status" aria-live="polite"></div>
+          <button class="primary-button" type="submit">Create Seller Hub account <span aria-hidden="true">→</span></button>
+          <button id="owner-show-existing-login" class="text-button" type="button">I already have an account — sign in</button>
         </form>
-
         <form id="owner-existing-login-form" class="auth-card hidden">
-          <div class="owner-onboarding-steps" aria-label="Seller onboarding progress">
-            <span class="active">1 · Invitation</span>
-            <span class="active">2 · Account</span>
-            <span>3 · Seller Hub</span>
-          </div>
-          <p class="eyebrow">Existing account</p>
-          <h2>Sign in to continue</h2>
-          <p id="owner-existing-summary" class="muted"></p>
-
+          <button id="owner-back-to-join" class="back-button" type="button">← Back</button>
+          <p class="eyebrow">Existing account</p><h2>Sign in to continue</h2>
+          <p id="owner-existing-summary" class="muted owner-entry-summary"></p>
           <div id="owner-existing-social-auth" class="social-auth hidden" aria-label="Social sign in">
             <button id="owner-existing-google" class="oauth-button" type="button">Continue with Google</button>
             <button id="owner-existing-apple" class="oauth-button oauth-button-apple" type="button">Continue with Apple</button>
             <div class="auth-divider"><span>or use email</span></div>
           </div>
-
-          <label>Email address<input id="owner-existing-email" type="email" autocomplete="email" required></label>
+          <label>Email address<input id="owner-existing-email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required></label>
           <label>Password<input id="owner-existing-password" type="password" autocomplete="current-password" required></label>
           <label class="owner-onboarding-ack"><input id="owner-existing-ack" type="checkbox" required> <span>I understand this seller account only gives me access to my own inventory and the commission shown above applies to sales attributed to it.</span></label>
-          <div id="owner-existing-message" class="message" role="status"></div>
-          <button class="primary-button" type="submit">Sign in & continue <span>→</span></button>
-          <button id="owner-back-to-join" class="text-button" type="button">Back</button>
+          <div id="owner-existing-message" class="message" role="status" aria-live="polite"></div>
+          <button class="primary-button" type="submit">Sign in &amp; continue <span aria-hidden="true">→</span></button>
         </form>
       </div>
     </section>
   </main>
-
   <script src="/assets/hub-session.js?v=3" defer></script>
   <script src="/assets/owner-join.js?v=public-join-3" defer></script>
 </body>
