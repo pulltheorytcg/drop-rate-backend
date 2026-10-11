@@ -1,6 +1,6 @@
 /* Seller Hub visual language; scoped to founder Business, no global re-theme. */
 .business-area{--business-navy:#0b2137;--business-blue:#194779;--business-teal:#087a8c;color:#152b43;max-width:1440px;margin-inline:auto}
-.business-area [hidden],.business-entry[hidden]{display:none!important}
+.business-area [hidden],.business-entry[hidden],#seller-view-more [data-more-view="accounts"][hidden]{display:none!important}
 .business-area *, .business-entry{box-sizing:border-box}
 .business-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:12px 0 18px}
 .business-heading h1{font-size:clamp(1.8rem,3vw,2.5rem);letter-spacing:-.04em;margin:4px 0 10px;color:var(--business-navy)}
@@ -48,3 +48,15 @@
 .business-empty{color:#687d92;background:white;border:1px dashed #cbd9e5;border-radius:13px;padding:24px;font-size:.85rem;line-height:1.5;grid-column:1/-1}
 @media(max-width:1000px){.business-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.business-seller-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.business-heading{align-items:flex-start}.business-entry{display:none}}
 @media(max-width:660px){.business-heading{flex-wrap:wrap;gap:12px}.business-heading p{font-size:.82rem}.business-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.business-tabs button{padding:10px 8px;font-size:.79rem}.business-kpis{gap:10px}.business-kpi{padding:15px}.business-kpi strong{font-size:1.7rem}.business-intro,.business-tools{padding:18px}.business-seller-grid{grid-template-columns:1fr}.business-filters{padding:14px}.business-filters label{flex-basis:100%;min-width:0}.business-filters input,.business-filters select{font-size:16px}.business-filters>.business-button{width:100%}.business-area .business-table{display:block}.business-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.business-table tbody{display:grid;gap:10px}.business-table tr{display:block;padding:9px 13px;border-bottom:1px solid #dce5ed}.business-table tr:last-child{border-bottom:0}.business-table td{display:grid;grid-template-columns:105px minmax(0,1fr);gap:10px;border:0;padding:7px 0;font-size:.77rem}.business-table td::before{content:attr(data-label);font-size:.67rem;font-weight:700;color:#7890a5}.business-table td>*{min-width:0}.business-table-wrap{overflow:visible}.business-pages{gap:6px}.business-pages .business-button{padding:10px;font-size:.73rem}}
+/* The legacy Accounts ID has more-specific table rules. Override only this
+   Business table rather than changing other founder tables or seller views. */
+#seller-view-accounts.business-area .business-table{min-width:0;max-width:100%;width:100%}
+#seller-view-accounts.business-area .business-table tr{background:#fff}
+#seller-view-accounts.business-area .business-table td:nth-child(2){max-width:none;white-space:normal}
+@media(max-width:660px){
+ #seller-view-accounts.business-area .business-table tbody{display:block;padding:0}
+ #seller-view-accounts.business-area .business-table tr{display:block;width:100%;padding:9px 13px;border:0;border-bottom:1px solid #dce5ed;border-radius:0}
+ #seller-view-accounts.business-area .business-table td{display:grid;grid-template-columns:minmax(82px,105px) minmax(0,1fr);gap:10px;padding:9px 0;min-width:0;width:auto;max-width:none;grid-column:auto;white-space:normal;overflow-wrap:anywhere}
+ #seller-view-accounts.business-area .business-table td:nth-child(2){grid-column:auto;max-width:none}
+ #seller-view-accounts.business-area .business-table td::before{text-transform:none;letter-spacing:0;font-size:.67rem;line-height:1.5}
+}
