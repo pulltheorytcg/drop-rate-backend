@@ -108,7 +108,7 @@
 .owner-import-history-row small{font-size:.68rem;color:#70879b}
 .owner-import-history-row button{align-self:center}
 @media(max-width:660px){
- .owner-import-dialog{height:100dvh;max-height:100dvh;width:100vw;border:0;border-radius:0}
+ .owner-import-dialog{height:100dvh;max-height:100dvh;width:100vw;max-width:100vw;margin:0;inset:0;border:0;border-radius:0}
  .owner-import-dialog-body{max-height:calc(100dvh - 108px);padding:13px}
  .owner-import-dialog-header{padding:13px}
  .owner-import-fields,.owner-import-map-fields{grid-template-columns:1fr}
@@ -116,8 +116,12 @@
  .owner-import-row{grid-template-columns:1fr}
  .owner-import-review-bar{align-items:flex-end}
  .owner-import-summary strong{font-size:1rem}
- .owner-import-menu-wrap{order:2}
- .owner-portal-page .owner-import-menu{right:0}
+ .owner-portal-page .owner-import-menu-wrap{order:2;flex:1 0 100%;min-width:0}
+ .owner-portal-page .owner-import-menu{left:0;right:auto;width:min(300px,100%);max-width:100%;box-sizing:border-box}
+ .owner-import-dialog-header{padding-top:max(13px,env(safe-area-inset-top))}
+ .owner-import-dialog-body{padding-bottom:max(13px,env(safe-area-inset-bottom))}
+ .owner-import-dialog input,.owner-import-dialog select{font-size:16px}
+ .owner-import-form-actions .owner-import-primary{max-width:100%;white-space:normal;overflow-wrap:anywhere}
 }
 
 /* Keep matching controls consistent with the collection modal. */
@@ -125,3 +129,14 @@
 .owner-import-resolver button {font:inherit;background:#fff;color:#17385f;border:1px solid #c7d8ee;border-radius:8px;padding:9px 12px;cursor:pointer;}
 .owner-import-resolver button:disabled {opacity:.55;cursor:wait;}
 .owner-import-resolver label {display:grid;gap:6px;font-size:.8rem;}
+
+/* Header height changes with text size; let the remaining body scroll rather
+   than guessing a fixed header height and clipping the bottom actions. */
+.owner-import-dialog[open]{display:flex;flex-direction:column}
+.owner-import-dialog-header{flex:0 0 auto}
+.owner-import-dialog-header>div{min-width:0}
+.owner-import-close{flex:0 0 auto;min-width:44px;min-height:44px}
+.owner-import-dialog-body{flex:1 1 auto;min-height:0;max-height:none;overscroll-behavior:contain}
+@media(max-width:660px){
+ .owner-import-dialog .owner-import-resolver input,.owner-import-dialog .owner-import-resolver select{font-size:16px}
+}
