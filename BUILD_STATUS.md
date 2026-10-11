@@ -1,5 +1,10 @@
 # Drop Rate — Live Build Status
 
+## 11 October 2026 — Verify discounted Shopify delivery payment in seller shipping preview
+
+- Corrected the owner shipping breakdown to read `ShippingLine.discountedPriceSet` (buyer delivery payment **after** shipping promotions) and `Order.currentShippingPriceSet` (current price **after discounts and refunds**), validating against Shopify's refunded total and each current shipping line. `Order.totalShippingPriceSet` can retain an original higher rate and must not be assumed to be what was paid when Standard becomes free from £50.
+- Added regressions for free shipping discounted from a £3.95 original rate to **£0**, as well as mismatched current order/shipping line values blocking review. No carrier label, seller deduction, checkout setting or automated fulfilment was changed.
+
 ## 11 October 2026 — Seller Fulfill shipping cost visibility
 
 - Founder's instruction: sellers must **see the amount they are being charged**, while customer shipping may have been paid at checkout. Added an owner-authenticated read-only preview that fetches **actual Shopify order shipping price/refunded price/service** and the seller's exact allocated `SHIPPING_REVENUE` / `SHIPPING_REFUND` ledger share. It displays a **verified** carrier expense and net shipping adjustment only if the existing postage reconciliation is complete; otherwise shows **Pending — not approved**, never £0 or a guessed carrier quote. Supports UK Tracked 48 free from £50, paid Tracked 24, paid Europe and paid selected International without hard-coding customer fees.

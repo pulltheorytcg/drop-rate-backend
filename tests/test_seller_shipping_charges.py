@@ -24,21 +24,40 @@ ORDER_ID = "gid://shopify/Order/8506160775515"
 def shopify_order(
     *,
     amount="3.95", refunded="0.00",
-    title="Royal Mail Tracked 48", code="GBP",
+    title="Royal Mail Tracked 48", code="GBP", original=None,
 ):
+    try:
+        retained = str(Decimal(amount) - Decimal(refunded))
+    except Exception:
+        retained = amount
     return {
         "id": ORDER_ID,
         "cancelledAt": None,
         "fullyPaid": True,
         "displayFinancialStatus": "PAID",
+        # A free-delivery discount can leave the ORIGINAL rate as £3.95,
+        # while the actual customer checkout payment is £0.
         "totalShippingPriceSet": {
-            "shopMoney": {"amount": amount, "currencyCode": code}
+            "shopMoney": {"amount": original if original is not None else amount,
+                          "currencyCode": code}
+        },
+        "currentShippingPriceSet": {
+            "shopMoney": {"amount": retained, "currencyCode": code}
         },
         "totalRefundedShippingSet": {
             "shopMoney": {"amount": refunded, "currencyCode": code}
         },
         "shippingLines": {
-            "nodes": [{"title": title}], "pageInfo": {"hasNextPage": False},
+            "nodes": [{
+                "title": title,
+                "discountedPriceSet": {"shopMoney": {
+                    "amount": amount, "currencyCode": code,
+                }},
+                "currentDiscountedPriceSet": {"shopMoney": {
+                    "amount": retained, "currencyCode": code,
+                }},
+            }],
+            "pageInfo": {"hasNextPage": False},
         },
         "buyer_details": {
             "name": "Private buyer", "address": "Sensitive location",
@@ -79,12 +98,34 @@ def test_paid_uk_tracked_48_no_duplicate_charge_and_no_guessed_postage():
 
 
 def test_free_uk_50_still_has_unknown_real_carrier_cost():
-    value=breakdown(shopify_order(amount="0.00"), ledger(owner_share=0))
+    value=breakdown(shopify_order(amount="0.00", original="3.95"), ledger(owner_share=0))
     assert value["buyer_shipping_retained_minor"] == 0
     assert value["owner_allocated_shipping_minor"] == 0
     assert value["verified_postage_cost_minor"] is None
     assert value["seller_additional_shipping_charge_minor"] is None
     assert value["purchase_allowed"] is False
+
+
+def test_free_shipping_discount_never_uses_undiscounted_395_original_rate():
+    order = shopify_order(amount="0.00", original="3.95")
+    assert order["totalShippingPriceSet"]["shopMoney"]["amount"] == "3.95"
+    assert order["currentShippingPriceSet"]["shopMoney"]["amount"] == "0.00"
+    value = breakdown(order, ledger(owner_share=0))
+    assert value["buyer_shipping_charged_minor"] == 0
+    assert value["buyer_shipping_retained_minor"] == 0
+    assert value["owner_allocated_shipping_minor"] == 0
+    assert value["seller_additional_shipping_charge_minor"] is None
+
+
+def test_shopify_shipping_line_total_mismatch_blocks_unverified_amounts():
+    order = shopify_order()
+    order["currentShippingPriceSet"]["shopMoney"]["amount"] = "0.00"
+    with pytest.raises(ShippingCostReviewRequired):
+        breakdown(order)
+    order = shopify_order()
+    order["shippingLines"]["nodes"][0]["currentDiscountedPriceSet"]["shopMoney"]["amount"] = "0.00"
+    with pytest.raises(ShippingCostReviewRequired):
+        breakdown(order)
 
 
 def test_express_order_over_50_must_still_show_customer_paid_495():
@@ -225,7 +266,9 @@ def test_owner_scoped_http_endpoint_proves_order_and_ledger_before_shopify(monke
         async def graphql(self,*,query,variables):
             assert variables == {"orderId":ORDER_ID}
             assert "shippingLines" in query
-            assert "totalShippingPriceSet" in query
+            assert "currentShippingPriceSet" in query
+            assert "discountedPriceSet" in query
+            assert "currentDiscountedPriceSet" in query
             assert "shippingAddress" not in query
             seen.append("shopify")
             return {"order":shopify_order()}
