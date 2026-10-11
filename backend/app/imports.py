@@ -683,7 +683,7 @@ async def preview_import(
                             "select * from tcg.catalogue_products where id=$1",
                             previous["catalogue_id"],
                         )
-                        if manual_admission_valid(prior_record, dict(chosen) if chosen else None):
+                        if "language_conflict" not in issues and manual_admission_valid(prior_record, dict(chosen) if chosen else None):
                             catalogue_id = previous["catalogue_id"]
                             for identity_field in ("game", "name", "set_name", "card_number", "variant", "rarity", "language"):
                                 normalized[identity_field] = prior_record.get(identity_field)

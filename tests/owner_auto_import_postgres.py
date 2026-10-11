@@ -213,6 +213,24 @@ async def main():
             assert rows==await db.fetch(f'select * from tcg.{t} order by 1'),f'Rollback leaked changes in {t}'
         assert await db.fetchval('select count(*)=count(distinct inventory_code) from tcg.inventory_items')
         assert await db.fetchval('select count(*) from tcg.catalogue_products')==2,'Importer created canonical cards'
+        # A newly contradictory title/language must not be cleared by a
+        # prior manual source mapping even when its normalised key matches.
+        conflict_owner,conflict_actor=uuid4(),uuid4()
+        await db.execute("insert into tcg.owners(id,display_name,owner_type,commission_bps) values($1,'Language conflict fixture','CONSIGNOR',1000)",conflict_owner)
+        await db.execute("insert into tcg.owner_memberships(user_id,owner_id,role) values($1,$2,'OWNER')",conflict_actor,conflict_owner)
+        conflict_user=SimpleNamespace(user_id=conflict_actor)
+        header='Portfolio Name,Category,Product Name,Set,Card Number,Rarity,Variance,Quantity,Card Condition,Language,Grade,Average Cost Paid\n'
+        original=header+'Mine,Pokemon,Unmatched source,Synthetic Set,002,C,Normal,1,Near Mint,English,Ungraded,\n'
+        first=await api.upload_collection(imports.ImportPreviewRequest(filename='language.csv',adapter='COLLECTR',content=original),request,conflict_user)
+        row=await db.fetchrow("select id from tcg.import_candidates where batch_id=$1 and status='REVIEW'",UUID(first['batch_id']))
+        assert row and first['created_count']==0
+        await api.confirm_candidate(UUID(first['batch_id']),row['id'],api.ConfirmImportCandidate(version=first['version'],catalogue_id=card_b),request,conflict_user)
+        changed=header+'Mine,Pokemon,Unmatched source (JP),Synthetic Set,002,C,Normal,2,Near Mint,English,Ungraded,\n'
+        second=await api.upload_collection(imports.ImportPreviewRequest(filename='language.csv',adapter='COLLECTR',content=changed),request,conflict_user)
+        assert second['created_count']==0 and second['summary']['review_rows']==1,'New language contradiction reused prior approval'
+        conflict_row=await db.fetchrow('select issues from tcg.import_candidates where batch_id=$1',UUID(second['batch_id']))
+        assert 'language_conflict' in conflict_row['issues']
+        assert await db.fetchval('select count(*) from tcg.inventory_items where owner_id=$1',conflict_owner)==1
         print('PASS: original permission/owner-lock failures reproduced; narrow migration/replay; immediate partial Draft intake; manual language confirmation; source mapping persistence; repeated files; +1/decrease; concurrent apply; RLS/foreign/revoked/ambiguous isolation; late-failure atomic rollback; no canonical/Shopify/payment writes.')
     finally:
         if pool:
