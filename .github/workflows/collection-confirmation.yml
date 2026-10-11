@@ -1,0 +1,106 @@
+name: Collection-first confirmation
+on:
+  pull_request:
+    paths:
+      - 'backend/app/owner_portal_api.py'
+      - 'backend/app/inventory_intake.py'
+      - 'backend/app/import_inventory.py'
+      - 'backend/app/owner_inventory.py'
+      - 'backend/app/static/owner*'
+      - 'backend/app/static/scanner-flow.*'
+      - 'tests/collection*'
+      - 'tests/ui/collection-confirmation.py'
+      - '.github/workflows/collection-confirmation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/static/scanner-flow.js'
+      - 'backend/app/static/owner-inventory.js'
+      - '.github/workflows/collection-confirmation.yml'
+permissions:
+  contents: read
+jobs:
+  postgres-admission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-collection-only
+          POSTGRES_DB: collection_intake_test
+          PGUSER: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet -r requirements-dev.txt
+      - name: Actual physical guards, owner RLS, signed local-issuer HTTP and concurrent retries
+        run: PYTHONPATH=backend python tests/collection_intake_postgres.py
+        env:
+          COLLECTION_TEST_DSN: postgresql://postgres:disposable-collection-only@127.0.0.1:5432/collection_intake_test
+  browser-confirmation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.57.0
+      - run: python -m playwright install --with-deps chromium webkit
+      - name: Real scanner source with synthetic API data, no camera/production identity
+        run: python tests/ui/collection-confirmation.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: collection-confirmation-layout
+          path: /tmp/collection-confirmation
+  production-readback:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: GET-only deployed file hashes, entrypoint, readiness and anonymous denial
+        run: |
+          python - <<'PY'
+          import hashlib,json,re,time,urllib.request,urllib.error
+          from pathlib import Path
+          base='https://drop-rate-api-live-production.up.railway.app'
+          page=Path('backend/app/static/owner.html').read_text()
+          names=('scanner-flow.js','owner-inventory.js')
+          urls={n:re.search(r'src="([^"]*'+re.escape(n)+r'\?v=[^"]+)"',page).group(1) for n in names}
+          expected={n:Path('backend/app/static/'+n).read_bytes() for n in names}
+          def get(path):
+              with urllib.request.urlopen(base+path,timeout=10) as response:return response.read()
+          result={}
+          for attempt in range(60):
+              try:
+                  remote={n:get(path) for n,path in urls.items()}
+                  entry=get('/owner')
+                  if all(remote[n]==expected[n] and urls[n].encode() in entry for n in names):break
+              except (OSError,urllib.error.URLError):pass
+              time.sleep(5)
+          else:raise AssertionError('Exact merged assets were not served within deployment window')
+          result['assets']={n:{'url':urls[n],'sha256':hashlib.sha256(remote[n]).hexdigest()} for n in names}
+          result['ready']=json.loads(get('/health/ready'))
+          try:get('/api/v1/owner/inventory/d715b0e9-b3c4-451b-a909-5fa233f8a0e5')
+          except urllib.error.HTTPError as e:assert e.code==401;result['anonymous_inventory_status']=e.code
+          else:raise AssertionError('Anonymous inventory access was not rejected')
+          result['note']='Public GET checks only. No production login, scan, import, listing or financial write.'
+          Path('/tmp/collection-production-readback.json').write_text(json.dumps(result,indent=2));print(result)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: collection-production-readback
+          path: /tmp/collection-production-readback.json
