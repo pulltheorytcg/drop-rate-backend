@@ -1,0 +1,99 @@
+name: Shared inventory images
+on:
+  pull_request:
+    paths:
+      - 'backend/app/api.py'
+      - 'backend/app/static/owner-inventory.js'
+      - 'backend/app/static/owner.html'
+      - 'database/migrations/*shared_canonical_product_images.sql'
+      - 'tests/*shared_inventory_media*'
+      - 'tests/ui/shared-inventory-images.py'
+      - '.github/workflows/shared-inventory-images.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/api.py'
+      - 'backend/app/static/owner-inventory.js'
+      - '.github/workflows/shared-inventory-images.yml'
+permissions:
+  contents: read
+jobs:
+  postgres-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-media-only
+          POSTGRES_DB: media_test
+          PGUSER: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet -r requirements-dev.txt
+      - run: PYTHONPATH=backend pytest -q tests/test_remote_image_security.py
+      - name: Real media migrations, owner RLS and signed HTTP requests
+        run: PYTHONPATH=backend python tests/shared_inventory_media_postgres.py
+        env:
+          MEDIA_TEST_DSN: postgresql://postgres:disposable-media-only@127.0.0.1:5432/media_test
+  browser-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.57.0
+      - run: python -m playwright install --with-deps chromium webkit
+      - run: python tests/ui/shared-inventory-images.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shared-image-layout
+          path: /tmp/shared-image-layout
+  production-readback:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Exact deployed asset and anonymous denial; GET only, no credentials
+        run: |
+          python - <<'PY'
+          import hashlib,json,time,urllib.request,urllib.error
+          from pathlib import Path
+          base='https://drop-rate-api-live-production.up.railway.app'
+          local=Path('backend/app/static/owner-inventory.js').read_bytes()
+          result={}
+          for attempt in range(30):
+              try:
+                  with urllib.request.urlopen(base+'/assets/owner-inventory.js?v=shared-art-v8',timeout=10) as response: remote=response.read()
+                  if remote==local: break
+              except (OSError,urllib.error.URLError):pass
+              time.sleep(5)
+          else:raise AssertionError('Expected asset not deployed in readback window')
+          result['asset_sha256']=hashlib.sha256(remote).hexdigest()
+          with urllib.request.urlopen(base+'/owner',timeout=10) as response:assert b'owner-inventory.js?v=shared-art-v8' in response.read()
+          with urllib.request.urlopen(base+'/health/ready',timeout=10) as response:assert response.status==200
+          try:urllib.request.urlopen(base+'/api/v1/inventory/d715b0e9-b3c4-451b-a909-5fa233f8a0e5/image',timeout=10)
+          except urllib.error.HTTPError as error:assert error.code==401;result['anonymous_image_status']=error.code
+          else:raise AssertionError('Anonymous image request was not rejected')
+          result['note']='Asset/readiness/anonymous checks only; not authenticated production seller image acceptance.'
+          Path('/tmp/shared-image-readback.json').write_text(json.dumps(result,indent=2));print(result)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shared-image-production-readback
+          path: /tmp/shared-image-readback.json
