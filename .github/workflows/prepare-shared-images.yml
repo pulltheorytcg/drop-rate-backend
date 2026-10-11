@@ -41,6 +41,9 @@ jobs:
           p=Path('tests/ui/shared-inventory-images.py');s=p.read_text();s=s.replace("'provider','missing_metadata'","'provider','inventory_alias','missing_metadata'")
           s=s.replace("                    if mode=='missing_metadata':item.pop('image_url')","                    if mode=='inventory_alias':item['inventory_id']=item.pop('id')\n                    if mode=='missing_metadata':item.pop('image_url')")
           p.write_text(s)
+          p=Path('tests/shared_inventory_media_postgres.py');s=p.read_text();before='        app=FastAPI();app.state.db_pool=pool;app.include_router(api.router)';assert s.count(before)==1
+          s=s.replace(before,before+'\n        @app.middleware("http")\n        async def request_context(request, call_next):\n            request.state.request_id="synthetic-media-http"\n            return await call_next(request)')
+          p.write_text(s)
           PY
           git diff --check
       - run: python -m pip install --quiet -r requirements-dev.txt
@@ -56,12 +59,12 @@ jobs:
           test "$(git ls-remote origin refs/heads/fix/shared-inventory-image-delivery-20261011 | cut -f1)" = "$GITHUB_SHA"
           python - <<'PY'
           import subprocess
-          expected={'backend/app/api.py','backend/app/static/owner-inventory.js','backend/app/static/owner.html','tests/ui/owner-inventory.cjs','tests/ui/owner-inventory-browser.cjs','tests/test_owner_portal_shell.py','tests/ui/shared-inventory-images.py','BUILD_STATUS.md'}
+          expected={'backend/app/api.py','backend/app/static/owner-inventory.js','backend/app/static/owner.html','tests/ui/owner-inventory.cjs','tests/ui/owner-inventory-browser.cjs','tests/test_owner_portal_shell.py','tests/ui/shared-inventory-images.py','tests/shared_inventory_media_postgres.py','BUILD_STATUS.md'}
           actual=set(subprocess.check_output(['git','diff','--name-only'],text=True).splitlines())
           assert actual==expected,(actual,expected)
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add backend/app/api.py backend/app/static/owner-inventory.js backend/app/static/owner.html tests/ui/owner-inventory.cjs tests/ui/owner-inventory-browser.cjs tests/test_owner_portal_shell.py tests/ui/shared-inventory-images.py BUILD_STATUS.md
+          git add backend/app/api.py backend/app/static/owner-inventory.js backend/app/static/owner.html tests/ui/owner-inventory.cjs tests/ui/owner-inventory-browser.cjs tests/test_owner_portal_shell.py tests/ui/shared-inventory-images.py tests/shared_inventory_media_postgres.py BUILD_STATUS.md
           git commit -m 'Share approved catalogue artwork through the existing owned-item image route'
           git push origin HEAD:refs/heads/fix/shared-inventory-image-delivery-20261011
