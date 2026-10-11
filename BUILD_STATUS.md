@@ -1,5 +1,12 @@
 # Drop Rate — Live Build Status
 
+## 11 October 2026 — Automatic owner NET Shopify shipping charge policy (in development)
+
+- Founder confirmed **seller sees ONLY net shipping charge**. For customer-paid shipping (UK Tracked48 below £50, paid Tracked24, paid EU/international), Drop Rate retains checkout shipping and absorbs the carrier postage; seller postage debit **£0**. For **free UK Tracked48 at £50+**, actual verified Royal Mail label cost is deducted automatically from the responsible seller, no per-order consent button. Unknown actual label cost displays *Pending automatic charge*. No customer/label amounts disclosed to seller. Final carrier label purchase remains disabled until reliable carrier receipt journal/custody/FO split pilot.
+- Added immutable company-only `tcg.shopify_delivery_accounts` (one true paid customer checkout charge/order), `tcg.shopify_delivery_refunds` (unique refund evidence), and `tcg.shopify_postage_actual_costs` (unique verified carrier cost and owner net charge), all restricted by platform-admin RLS, audit triggers and immutability triggers. `tcg.owner_net_shopify_postage` SECURITY DEFINER returns only one member's actual net charge/status.
+- New `orders/paid` Shopify webhook classifies discounted real delivery + GB/Tracked48/service and net merchandise, creating **no owner SHIPPING_REVENUE**. Legacy existing orders retain their original accounting. Verified founder postage reconciliation automatically posts owner SHIPPING_COST only on eligible free UK Tracked48; company pays customer-paid labels, zero owner postage debit. Partially refunded/cancelled orders cannot add new seller postage cost.
+- Seller Hub Fulfill displays one Net shipping charge, £0 for paid or pending automatic fee for qualifying free delivery until verified; no per-order seller approval. This change needs migration-first deployment, full CI and safe pilot. See [shipping finance policy](docs/SHOPIFY_AUTOMATIC_OWNER_NET_SHIPPING.md).
+
 ## 11 October 2026 — Seller Hub collection CSV/TSV Import
 
 - User requested **Inventory → Import** menu supporting Collectr, Holodex and Other. Reviewed existing founder bulk CSV importer and found it already had deterministic Collectr snapshot deltas, candidate preview, exact-file fingerprint, manually resolved/skip rows and Draft physical item commit, but all import routes were founder-admin-only and its UI was never included in Seller Hub.
