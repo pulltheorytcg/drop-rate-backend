@@ -1459,7 +1459,7 @@ async def reconcile_ebay_fees(
         rows = await connection.fetch(
             """
             select
-              o.source,o.order_number,
+              o.source,o.order_number,o.status as order_status,
               oi.id as order_item_id,oi.net_sale_minor,
               rec.fees_reconciled_at,rec.fees_source
             from tcg.orders o
@@ -1617,6 +1617,11 @@ async def reconcile_shopify_postage(
             platform_account = await connection.fetchrow(
                 "select charge_policy from tcg.shopify_delivery_accounts where order_id=$1",
                 order_id,
+            )
+        if platform_account is not None and rows[0]["order_status"] != "PAID":
+            raise HTTPException(
+                status_code=409,
+                detail="Refunded or cancelled Shopify orders require review before postage cost reconciliation",
             )
         owner_postage_charge = (
             seller_auto_postage_charge(platform_account["charge_policy"], payload.amount_minor)
