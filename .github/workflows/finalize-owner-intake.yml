@@ -67,6 +67,7 @@ jobs:
               '''        preview_count=await db.fetchval('select count(*) from tcg.import_batches')
                   await expected_error(api.upload_collection(payload(3),request,a),409)
                   assert await db.fetchval('select count(*) from tcg.import_batches')==preview_count,'Blocked export left a stale preview' ''')
+          p=Path('tests/owner_auto_import_postgres.py');p.write_text(p.read_text().replace("'Blocked export left a stale preview' \n","'Blocked export left a stale preview'\n"))
           replace('tests/owner_auto_import_postgres.py',
               "        # The earlier rejected new preview has a stale baseline. Fresh export\n        # includes a harmless newline, not a way to bypass duplicate stock.\n        next_result=await api.upload_collection(payload(3,suffix='\\n'),request,a)",
               "        # The previously blocked exact file is now accepted without editing\n        # its contents to evade a fingerprint or leaving a stale preview.\n        next_result=await api.upload_collection(payload(3),request,a)")
@@ -93,7 +94,7 @@ jobs:
           node --check backend/app/static/owner-imports.js
       - run: PYTHONPATH=backend pytest -q
       - run: npm ci --prefix tests/ui --silent && npm test --prefix tests/ui
-      - run: PYTHONPATH=backend python tests/owner_auto_import_postgres.py
+      - run: PYTHONPATH=backend python tests/owner_auto_import_postgres.py && PYTHONPATH=backend python tests/owner_import_http_acceptance.py
         env:
           IMPORT_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/import_intake_test
       - name: Commit only tested follow-up files with branch lease
