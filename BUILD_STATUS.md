@@ -1,5 +1,9 @@
 # Drop Rate — Live Build Status
 
+## 11 October 2026 — Shared inventory artwork delivery (implementation; release verification pending)
+
+Founder HQ and Seller Hub now use the same bounded authenticated image route for provider-hosted inventory artwork. Catalogue artwork is selected by exact catalogue identity, independent of the uploading owner; physical photos remain restricted to the exact owned copy. Seller images load near the viewport, use trusted CDN fast paths, and fall back through the shared route/reference endpoint without forwarding credentials to providers. An additive SELECT-only policy covers approved shared CANONICAL_PRODUCT media, matching the already shared card-art concept. No inventory, import, price, ownership, listing or finance write. See docs/SHARED_INVENTORY_IMAGES.md. Real database and browser tests, migration, deployment, live source checks and real signed-in acceptance are separately reported.
+
 ## 11 October 2026 — Founder-only Business area (implementation; release evidence pending)
 
 The user selected the Seller Hub visual approach with a dedicated Business area for the three verified founder accounts only. The first bounded release replaces the existing Accounts presentation with Overview, Sellers, Stock ownership and recorded Sales & payouts. Search active accounts by name/username and inspect their exact physical inventory; retain IDs, owners, history and private API/RLS boundaries. Ordinary sellers get no Business entry or API access; generic admin/metadata claims do not bypass the verified founder roster.

@@ -19,7 +19,7 @@ def main():
         for engine in ('chromium','webkit'):
             browser=getattr(p,engine).launch()
             for width in (390,1440):
-                for mode in ('provider','missing_metadata','cdn_failure','reference_fallback','expired','denied','bad_mime','stale_session'):
+                for mode in ('provider','inventory_alias','missing_metadata','cdn_failure','reference_fallback','expired','denied','bad_mime','stale_session'):
                     page=browser.new_page(viewport={'width':width,'height':900});calls=[];errors=[]
                     page.on('pageerror',lambda e: errors.append(str(e)))
                     def handle(route):
@@ -40,6 +40,7 @@ def main():
                     page.evaluate('''() => {window.state={session:{access_token:'fixture-a',user:{id:'seller-a'}}};window.refreshes=0;window.refreshSession=async()=>{refreshes++;state.session.access_token='refreshed-a';return 'refreshed-a';};}''')
                     page.add_script_tag(content=(ROOT/'backend/app/static/owner-inventory.js').read_text())
                     item={'id':ID,'name':'Synthetic known card','image_url':'https://www.onepiece-cardgame.com/card.png'}
+                    if mode=='inventory_alias':item['inventory_id']=item.pop('id')
                     if mode=='missing_metadata':item.pop('image_url')
                     if mode=='cdn_failure':item['image_url']='https://cdn.shopify.com/missing.png'
                     if mode=='reference_fallback':item.update(reference_image_url='https://www.onepiece-cardgame.com/exact-reference.png',reference_image_path=REF)

@@ -107,6 +107,10 @@ async def main():
         real_client=httpx.AsyncClient
         def provider_client(**kwargs):return real_client(transport=httpx.MockTransport(remote),**kwargs)
         app=FastAPI();app.state.db_pool=pool;app.include_router(api.router)
+        @app.middleware("http")
+        async def request_context(request, call_next):
+            request.state.request_id="synthetic-media-http"
+            return await call_next(request)
         auth._jwk_client.cache_clear()
         async with real_client(transport=httpx.ASGITransport(app=app),base_url='http://app.test') as client:
             with patch.object(auth,'get_settings',return_value=settings),patch.object(api.httpx,'AsyncClient',side_effect=provider_client):
