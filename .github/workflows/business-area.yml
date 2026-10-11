@@ -1,0 +1,60 @@
+name: Founder Business access
+on:
+  pull_request:
+    paths:
+      - 'backend/app/access_control.py'
+      - 'backend/app/founder_accounts.py'
+      - 'backend/app/static/founder-accounts.js'
+      - 'backend/app/static/business-area.css'
+      - 'backend/app/static/workspace-shell.js'
+      - 'tests/*business*'
+      - 'tests/ui/*business*'
+      - 'tests/ui/founder-accounts.cjs'
+      - 'database/migrations/*founder_app_access.sql'
+      - '.github/workflows/business-area.yml'
+permissions:
+  contents: read
+jobs:
+  postgres-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-business-only
+          POSTGRES_DB: business_area_test
+          PGUSER: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet -r requirements-dev.txt
+      - run: PYTHONPATH=backend pytest tests/test_business_access.py tests/test_founder_accounts.py tests/test_access_control.py
+      - name: Real roster migration, restricted PostgreSQL and signed JWT/JWKS HTTP
+        run: PYTHONPATH=backend python tests/business_area_postgres.py
+        env:
+          BUSINESS_TEST_DSN: postgresql://postgres:disposable-business-only@127.0.0.1:5432/business_area_test
+  browser-layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.57.0
+      - run: python -m playwright install --with-deps chromium webkit
+      - name: Business layouts on actual shell with local mocked data
+        run: python tests/ui/business-layout.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: business-layout
+          path: /tmp/drop-rate-business-layout

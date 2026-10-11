@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.encoders import jsonable_encoder
 
-from .access_control import require_platform_admin
+from .access_control import require_business_founder
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 
@@ -15,9 +15,10 @@ router = APIRouter(prefix="/api/v1/founder/accounts", tags=["founder-accounts"])
 @router.get("")
 async def accounts(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)]):
     async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as conn:
-        access = await require_platform_admin(conn)
+        access = await require_business_founder(conn)
         rows = await conn.fetch("""
-          select o.id,o.display_name,o.owner_type,o.founder_slot,
+          select o.id,o.display_name,o.username,o.owner_type,o.founder_slot,
+            coalesce(i.active_stock,0) as active_stock_count,coalesce(i.drafts,0) as draft_count,
             coalesce(i.items,0) as inventory_count,coalesce(i.for_sale,0) as for_sale_count,
             i.market_value_minor,coalesce(i.unvalued,0) as unvalued_count,
             coalesce(f.revenue,0) as sales_revenue_minor,
@@ -29,6 +30,8 @@ async def accounts(request: Request, user: Annotated[AuthenticatedUser, Depends(
           from tcg.owners o
           left join lateral (
             select count(*)::int as items,
+              count(*) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED'))::int as active_stock,
+              count(*) filter(where status='DRAFT')::int as drafts,
               count(*) filter(where sale_intent='FOR_SALE' and status='APPROVED')::int as for_sale,
               sum(market_value_minor) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')) as market_value_minor,
               count(*) filter(where market_value_minor is null and status in ('DRAFT','INSPECTION','APPROVED','RESERVED'))::int as unvalued
@@ -60,12 +63,13 @@ async def account_inventory(
     limit: int = Query(default=40,ge=1,le=100), offset: int = Query(default=0,ge=0),
 ):
     async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as conn:
-        await require_platform_admin(conn)
-        where = "o.active and ($1::uuid is null or i.owner_id=$1) and ($2='' or concat_ws(' ',i.inventory_code,p.name,p.card_number,p.set_name) ilike '%'||$2||'%')"
+        await require_business_founder(conn)
+        where = "o.active and ($1::uuid is null or i.owner_id=$1) and ($2='' or concat_ws(' ',i.inventory_code,p.name,p.card_number,p.set_name,o.display_name,o.username,i.certificate_number) ilike '%'||$2||'%')"
         total = await conn.fetchval(f"select count(*) from tcg.inventory_items i join tcg.owners o on o.id=i.owner_id join tcg.catalogue_products p on p.id=i.catalogue_id where {where}",owner_id,search.strip())
         rows = await conn.fetch(f"""
           select i.id,i.inventory_code,i.owner_id,o.display_name as owner_name,
-            p.name,p.card_number,p.set_name,p.game,i.language,i.condition,i.grading_company,i.grade,
+            p.name,p.card_number,p.set_name,p.game,p.product_type,p.variant,
+            i.language,i.condition,i.grading_company,i.grade,i.certificate_number,i.location,i.pricing_updated_at,
             i.status,i.sale_intent,i.market_value_minor,i.store_price_minor,
             s.sync_state as shopify_state,e.state as ebay_state
           from tcg.inventory_items i join tcg.owners o on o.id=i.owner_id
@@ -86,7 +90,7 @@ async def account_activity(
     limit: int = Query(default=40,ge=1,le=100),offset: int = Query(default=0,ge=0),
 ):
     async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as conn:
-        await require_platform_admin(conn)
+        await require_business_founder(conn)
         sales = await conn.fetch("""
           select oi.id,oi.inventory_id,oi.sale_price_minor,oi.owner_id,
             o.display_name as owner_name,ord.order_number,ord.source,ord.status,ord.created_at

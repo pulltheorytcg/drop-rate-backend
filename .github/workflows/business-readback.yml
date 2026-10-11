@@ -1,0 +1,74 @@
+name: Business production readback
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/static/founder-accounts.js'
+      - 'backend/app/static/business-area.css'
+      - 'backend/app/static/workspace-shell.js'
+      - 'backend/app/access_control.py'
+      - 'backend/app/founder_accounts.py'
+      - '.github/workflows/business-readback.yml'
+permissions:
+  contents: read
+jobs:
+  read-only-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Verify exact public assets, readiness and anonymous API denial
+        run: |
+          python - <<'PY'
+          import hashlib,json,time,urllib.request,urllib.error
+          from pathlib import Path
+          from datetime import datetime,timezone
+          base='https://drop-rate-api-live-production.up.railway.app'
+          paths=['founder-accounts.js','business-area.css','workspace-shell.js']
+          expected={name:hashlib.sha256(Path('backend/app/static',name).read_bytes()).hexdigest() for name in paths}
+          def get(path):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(base+path,headers={'Cache-Control':'no-cache'}),timeout=12) as response:
+                      return response.status,response.read(),response.headers
+              except urllib.error.HTTPError as response:
+                  return response.code,response.read(),response.headers
+          verified=False
+          for attempt in range(36):
+              try:
+                  actual={}
+                  for name in paths:
+                      code,body,_=get('/assets/'+name+'?readback=business')
+                      if code!=200:raise ValueError('Asset not ready')
+                      actual[name]=hashlib.sha256(body).hexdigest()
+                  if actual!=expected:raise ValueError('Release assets not yet deployed')
+                  code,body,_=get('/health/ready')
+                  if code!=200 or json.loads(body).get('database')!='connected':raise ValueError('Database readiness unavailable')
+                  code,body,_=get('/app')
+                  if code!=200 or b'founder-accounts.js?v=business-v1' not in body:raise ValueError('App entry not at expected release')
+                  denied={}
+                  for path in ['/api/v1/founder/accounts','/api/v1/founder/accounts/inventory','/api/v1/founder/accounts/activity']:
+                      code,_,headers=get(path);denied[path]=code
+                      if code!=401:raise AssertionError('Anonymous Business API was not denied')
+                      if headers.get('Cache-Control')!='no-store':raise AssertionError('Missing private cache protection')
+                  code,body,_=get('/owner')
+                  if code!=200 or b'founder-accounts.js' in body:raise AssertionError('Seller shell changed or loads founder module')
+                  Path('business-readback.json').write_text(json.dumps({'checked_at':datetime.now(timezone.utc).isoformat(),'asset_sha256':actual,'anonymous_api_status':denied,'readiness':200,'normal_seller_login_tested':False,'mutations':0},indent=2))
+                  print('PASS: exact production static assets; ready database; anonymous Business APIs denied; ordinary seller shell excludes founder module. No signed-in account or transaction tested.')
+                  verified=True;break
+              except AssertionError:
+                  raise
+              except (ValueError,urllib.error.URLError,TimeoutError):
+                  if attempt<35:time.sleep(5)
+          if not verified:raise SystemExit('Expected release could not be verified; do not mark deployment accepted.')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: business-production-readback
+          path: business-readback.json

@@ -12,7 +12,7 @@
     reports:['Reports','Track performance and inventory value','▥'],
     channels:['Sales channels','Shopify, eBay and channel status','⇄'],
     settings:[seller?'Settings':'Settings & channels',seller?'Appearance and workspace settings':'Appearance, store connections and workspace settings','⚙'],
-    accounts:['Accounts','Founder oversight of inventory and balances','◎'],
+    accounts:['Business','Company overview, sellers and stock ownership','◎'],
     profile:['Your account','Profile, contact details and sign-in settings','○']
   };
   const groups=[['Selling & payouts',['sales','balance','channels','settlements']],['Collection tools',['verification','media','reports']],['Workspace',['accounts','settings','profile']]];
