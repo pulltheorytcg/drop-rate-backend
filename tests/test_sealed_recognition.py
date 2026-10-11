@@ -326,7 +326,7 @@ def test_verified_exact_sealed_intake_sets_identity_confirmed_without_affecting_
     assert "pr.collectible_type='SEALED'" in recognition_block
     assert "pr.identity_status='VERIFIED'" in recognition_block
     assert "sd.identity_status='VERIFIED'" in recognition_block
-    assert "$11,'DRAFT',$12,$13::jsonb,'FOR_SALE'" in recognition_block
+    assert "$11,'DRAFT',$12,$13::jsonb,'PERSONAL_COLLECTION'" in recognition_block
     assert "verified_exact_sealed_identity," in recognition_block
     assert "verified_exact_sealed_identity" not in graded_block
 
