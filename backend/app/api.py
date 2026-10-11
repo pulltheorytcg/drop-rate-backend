@@ -79,6 +79,10 @@ INVENTORY_IMAGE_EXACT_HOSTS = {
     "optcgapi.com",
     "cdn.shopify.com",
     "cards.tcggraph.io",
+    "cardtrader.com",
+    "www.cardtrader.com",
+    "www.dbs-cardgame.com",
+    "narutocardgame.gg",
 }
 INVENTORY_IMAGE_ALLOWED_SUFFIXES = (
     ".shopifycdn.com",
@@ -107,6 +111,8 @@ INVENTORY_IMAGE_CONTENT_TYPES = {
 def _inventory_image_source_allowed(url: str) -> bool:
     try:
         parsed = urlparse(url)
+        if parsed.port not in (None, 443):
+            return False
     except ValueError:
         return False
     host = (parsed.hostname or "").lower().rstrip(".")
@@ -133,6 +139,8 @@ def _inventory_image_direct_browser_allowed(url: str) -> bool:
 
     try:
         parsed = urlparse(url)
+        if parsed.port not in (None, 443):
+            return False
     except ValueError:
         return False
     host = (parsed.hostname or "").lower().rstrip(".")
@@ -476,8 +484,11 @@ async def inventory_card_image(
 ) -> Response:
     """Proxy the best currently-eligible inventory image through Drop Rate.
 
-    Dashboard display eligibility is deliberately separate from exact-print
-    recognition approval. Pending but rights-verified images may display.
+    Shared by Founder HQ and Seller Hub. Authorize the physical item first;
+    canonical artwork follows catalogue identity, never its uploader's account.
+    Only approved canonical artwork is shared across owners. A holder may still
+    preview their own pending, rights-verified media. No publication approval,
+    inventory duplication, or foreign physical-photo access is implied.
     """
 
     async with user_connection(
@@ -501,17 +512,27 @@ async def inventory_card_image(
                 ma.id, ma.scope, ma.approval_status, ma.source_provider,
                 ma.shopify_cdn_url, ma.public_source_url, ma.created_at
             from tcg.media_assets ma
-            where ma.owner_id = $1
-              and ma.side = 'FRONT'
+            where ma.side = 'FRONT'
+              and ma.media_kind = 'IMAGE'
               and ma.source_status = 'ACTIVE'
               and ma.rights_status = 'VERIFIED'
               and ma.approval_status in ('PENDING','APPROVED')
               and ma.revoked_at is null
-              and coalesce(ma.shopify_cdn_url, ma.public_source_url) is not null
+              and coalesce(nullif(btrim(ma.shopify_cdn_url),''),nullif(btrim(ma.public_source_url),'')) is not null
               and (
-                (ma.scope = 'INVENTORY_ITEM' and ma.inventory_id = $2)
+                (ma.scope = 'INVENTORY_ITEM' and ma.inventory_id = $2 and ma.owner_id = $1)
                 or
-                (ma.scope = 'CANONICAL_CARD' and ma.catalogue_id = $3)
+                (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
+                 and ma.inventory_id is null and ma.catalogue_id = $3
+                 and (ma.approval_status='APPROVED' or ma.owner_id=$1)
+                 and ma.rights_tier='STOREFRONT_ALLOWED'
+                 and exists (
+                   select 1 from tcg.catalogue_products p
+                   join tcg.inventory_items i on i.catalogue_id=p.id
+                   where i.id=$2 and i.owner_id=$1 and p.id=$3
+                     and lower(btrim(coalesce(ma.media_language,'')))=lower(btrim(coalesce(i.language,p.language,'')))
+                     and lower(btrim(coalesce(ma.media_variant,'')))=lower(btrim(coalesce(p.variant,'')))
+                 ))
               )
             order by
                 case when ma.scope = 'INVENTORY_ITEM' then 0 else 1 end,
@@ -527,7 +548,7 @@ async def inventory_card_image(
         raise HTTPException(status_code=404, detail="No image is assigned to this card")
 
     timeout = httpx.Timeout(10.0, connect=5.0)
-    headers = {"User-Agent": "DropRateFounderHQ/1.0"}
+    headers = {"User-Agent": "DropRateInventory/1.0"}
     failures: list[str] = []
     async with httpx.AsyncClient(
         timeout=timeout,
@@ -556,6 +577,10 @@ async def inventory_card_image(
                     headers={
                         "X-Drop-Rate-Media-Id": str(asset["id"]),
                         "X-Drop-Rate-Media-Provider": str(asset["source_provider"] or ""),
+                        "X-Drop-Rate-Media-Scope": str(asset["scope"]),
+                        "Cache-Control": "private, no-store",
+                        "Vary": "Authorization",
+                        "X-Content-Type-Options": "nosniff",
                     },
                 )
 

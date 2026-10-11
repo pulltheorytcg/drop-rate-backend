@@ -17,32 +17,75 @@ window.DropRateInventory = (() => {
   const price = minor => minor == null ? "Value pending" : formatMoney(minor);
 
   function image(item, cls) {
-    const wrap = el("div", cls), placeholder = el("span", "owner-image-placeholder", "Image unavailable");
-    wrap.append(placeholder);
-    const urls = [...new Set([item.image_url, item.reference_image_url].filter(Boolean))];
-    if (!urls.length) return wrap;
-    const img = el("img"); img.alt = `${item.name || "Inventory item"} ${item.image_url ? "image" : "catalogue reference"}`;
+    const wrap = el("div", cls), placeholder = el("span", "owner-image-placeholder", "Loading image…");
+    const img = el("img");
+    img.alt = `${item.name || "Inventory item"} reference image`;
     img.loading = "lazy"; img.decoding = "async"; img.referrerPolicy = "no-referrer";
-    const owner = account(); let proxied = false, objectUrl;
-    img.addEventListener("load", () => { placeholder.hidden = true; if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; } });
-    img.addEventListener("error", async () => {
-      if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
-      if (urls.length) { img.src = urls.shift(); return; }
-      const path = item.reference_image_path;
-      if (!proxied && /^\/api\/v1\/owner\/inventory\/[0-9a-f-]+\/reference-image$/.test(path || "")) {
-        proxied = true;
+    wrap.append(placeholder, img);
+    const owner = account(), attempts = [];
+    const inventoryId = item.inventory_id || item.id;
+    const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inventoryId || "");
+    const directUrl = (value) => {
+      try {
+        const url = new URL(value);
+        if (url.protocol !== "https:" || url.username || url.password || url.hash || (url.port && url.port !== "443")) return null;
+        const host = url.hostname.toLowerCase();
+        return host === "cdn.shopify.com" || host === "assets.tcgdex.net" || host.endsWith(".shopifycdn.com") || host.endsWith(".shopifycdn.net") ? url.href : null;
+      } catch (_) { return null; }
+    };
+    // Same delivery route as Founder HQ; a provider's public URL need not work
+    // in a browser. Send credentials ONLY to our owned-item API, never a CDN.
+    const direct = directUrl(item.image_url);
+    if (direct) attempts.push({url: direct});
+    if (validId) attempts.push({path: `/api/v1/inventory/${inventoryId}/image`});
+    const reference = directUrl(item.reference_image_url);
+    if (reference && reference !== direct) attempts.push({url: reference});
+    const referencePath = `/api/v1/owner/inventory/${inventoryId}/reference-image`;
+    if (validId && item.reference_image_path === referencePath) attempts.push({path: referencePath});
+    let index = 0, objectUrl = null, loading = false, started = false;
+    const current = () => owner === account() && wrap.isConnected;
+    const release = () => {if (objectUrl) {URL.revokeObjectURL(objectUrl); objectUrl = null;}};
+    const unavailable = () => {release(); img.remove(); placeholder.textContent = "Image unavailable"; placeholder.hidden = false;};
+    async function next() {
+      if (loading || !current()) return;
+      release();
+      while (index < attempts.length && current()) {
+        const attempt = attempts[index++];
+        if (attempt.url) {img.src = attempt.url; return;}
+        loading = true;
         try {
-          let response = await fetch(path, {headers: {Authorization: `Bearer ${state.session.access_token}`}});
-          if (response.status === 401 && owner === account()) response = await fetch(path, {headers: {Authorization: `Bearer ${await refreshSession()}`}});
+          const get = token => fetch(attempt.path, {headers: {Authorization: `Bearer ${token}`}, cache: "no-store"});
+          let response = await get(state.session.access_token);
+          if (response.status === 401 && current()) {
+            const token = await refreshSession();
+            if (!current()) return;
+            response = await get(token);
+          }
           if (!response.ok) throw new Error("Image unavailable");
           const blob = await response.blob();
-          if (owner !== account() || !wrap.isConnected) return;
+          if (!current()) return;
+          if (!/^image\/(png|jpeg|webp)$/.test(blob.type) || blob.size > 12 * 1024 * 1024) throw new Error("Invalid image response");
           objectUrl = URL.createObjectURL(blob); img.src = objectUrl; return;
-        } catch (_) { /* Keep an explicit placeholder when the provider fails. */ }
+        } catch (_) { /* Try only the next bounded, authenticated source. */ }
+        finally {loading = false;}
       }
-      img.remove(); placeholder.hidden = false;
-    });
-    img.src = urls.shift(); wrap.append(img); return wrap;
+      if (current()) unavailable();
+    }
+    img.addEventListener("load", () => {release(); if (current()) placeholder.hidden = true; else img.remove();});
+    img.addEventListener("error", next);
+    const start = () => {if (!started) {started = true; next();}};
+    if (!attempts.length) unavailable();
+    else if (typeof window.IntersectionObserver === "function") {
+      const observer = new window.IntersectionObserver(entries => {
+        if (!current()) {observer.disconnect(); return;}
+        if (entries.some(entry => entry.isIntersecting)) {observer.disconnect(); start();}
+      }, {rootMargin: "320px 0px"});
+      observer.observe(wrap);
+    } else {
+      // Queue after the caller inserts the returned element in the document.
+      queueMicrotask(start);
+    }
+    return wrap;
   }
 
   function close(force = false) {

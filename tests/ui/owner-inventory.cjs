@@ -6,7 +6,7 @@ function fixture(override={}) {
  const dom=new JSDOM(fs.readFileSync(path.join(base,'owner.html'),'utf8').replace(/<script[^>]*><\/script>/g,''),{url:'https://example.test/owner',runScripts:'outside-only',pretendToBeVisual:true});
  const w=dom.window,run=s=>vm.runInContext(s,dom.getInternalVMContext()),calls=[];
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
- w.scrollTo=()=>{};w.fetch=async()=>({ok:true,json:async()=>({})});
+ w.scrollTo=()=>{};w.URL.createObjectURL=()=> 'blob:fixture';w.URL.revokeObjectURL=()=>{};w.fetch=async()=>({ok:true,json:async()=>({}),blob:async()=>new w.Blob(['image'],{type:'image/webp'})});
  run(fs.readFileSync(path.join(base,'hub-session.js'),'utf8'));
  run(fs.readFileSync(path.join(base,'owner-inventory.js'),'utf8'));
  run(fs.readFileSync(path.join(base,'owner-portal.js'),'utf8').replace(/\ninitialise\(\);\s*$/,''));
@@ -35,7 +35,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  }
  {
   const f=fixture();f.run(`renderInventoryCards([${JSON.stringify(item)}]);renderInventoryRows([${JSON.stringify(item)}]);`);
-  assert.equal(f.w.document.querySelector('.owner-card-thumb img').src,item.reference_image_url);
+  await tick();assert.equal(f.w.document.querySelector('.owner-card-thumb img').src,'blob:fixture');
   const tile=f.w.document.querySelector('.owner-inventory-card');
   assert.equal(tile.querySelector('.owner-card-meta'),null,'Quick inventory tiles must not expose detailed metadata');
   assert.equal(tile.querySelector('.owner-card-title strong').textContent,item.name);
@@ -296,7 +296,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const f=fixture(),calls=[],revoked=[];f.w.URL.createObjectURL=()=> 'blob:safe';f.w.URL.revokeObjectURL=x=>revoked.push(x);
   f.w.fetch=async(url,options)=>{calls.push({url,options});return {ok:true,blob:async()=>new f.w.Blob(['image'],{type:'image/webp'})};};
   const picture=f.w.DropRateInventory.image({...item,image_url:'https://cdn.shopify.com/missing.png'},'owner-card-thumb');f.w.document.body.append(picture);const img=picture.querySelector('img');
-  img.dispatchEvent(new f.w.Event('error'));assert.equal(img.src,item.reference_image_url);img.dispatchEvent(new f.w.Event('error'));await tick();assert.equal(img.src,'blob:safe');
+  await tick();img.dispatchEvent(new f.w.Event('error'));await tick();assert.equal(img.src,'blob:safe');assert.equal(calls[0].url,`/api/v1/inventory/${id}/image`);
   assert.equal(calls.length,1);assert.equal(calls[0].options.headers.Authorization,'Bearer secret-session');img.dispatchEvent(new f.w.Event('load'));assert.deepEqual(revoked,['blob:safe']);assert.equal(picture.querySelector('span').hidden,true);f.finish();checks++;
  }
  {

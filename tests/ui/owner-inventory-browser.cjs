@@ -14,6 +14,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    await page.route('**/*',async route=>{
     const u=new URL(route.request().url());
     if(u.href===artwork)return route.fulfill({body:pack,contentType:'image/webp'});
+    if(u.pathname===`/api/v1/inventory/${item.id}/image`){assert.equal(route.request().headers().authorization,'Bearer isolated-fixture');return route.fulfill({body:pack,contentType:'image/webp'});}
     if(u.hostname==='cdn.shopify.com')return route.fulfill({path:path.join(base,'brand-assets/drop-rate-seller-hub.png'),contentType:'image/png'});
     if(u.hostname==='upload.wikimedia.org')return route.fulfill({
       body:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 36"><rect width="130" height="36" fill="none"/><path fill="#174b73" d="M10 6h110v24H10z"/></svg>',
