@@ -50,16 +50,21 @@ def main():
        activateSellerView('accounts',true);
      }''')
      page.locator('.business-kpi').first.wait_for()
-     for mode in ('overview','sellers','inventory'):
+     for mode in ('overview','sellers','inventory','activity'):
       if mode!='overview':page.locator(f'#business-tab-{mode}').click()
-      target='.business-kpi' if mode=='overview' else '.business-seller-card' if mode=='sellers' else '.business-table'
+      target={'overview':'.business-kpi','sellers':'.business-seller-card','inventory':'.business-table','activity':'.business-empty'}[mode]
       page.locator(target).first.wait_for()
       for element in page.locator('.business-area button:visible,.business-area input:visible,.business-area select:visible').all():
        box=element.bounding_box();assert box and box['x']>=-1 and box['x']+box['width']<=width+1,(engine,width,mode,box)
       assert page.locator('.business-area').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),(engine,width,mode,'overflow')
+      if mode=='inventory' and width<=660:
+       assert page.locator('.business-table tr').last.evaluate("el=>getComputedStyle(el).display")=='block'
+       assert page.locator('.business-table tr').last.evaluate("el=>getComputedStyle(el).backgroundColor")=='rgb(255, 255, 255)'
       if width in (390,1440):page.screenshot(path=str(OUT/f'{engine}-{width}-{mode}.png'),full_page=True)
      page.evaluate("state.session=null;window.dispatchEvent(new Event('hub-session-cleared'))")
-     assert not page.locator('#business-content').is_visible();assert not errors,errors
+     assert not page.locator('#business-content').is_visible()
+     assert page.locator('[data-more-view="accounts"]').evaluate('el=>getComputedStyle(el).display')=='none'
+     assert not errors,errors
      records.append({'engine':engine,'width':width,'passed':True})
     except Exception:
      page.screenshot(path=str(OUT/f'FAIL-{engine}-{width}.png'),full_page=True)
@@ -67,5 +72,5 @@ def main():
      (OUT/f'FAIL-{engine}-{width}-errors.json').write_text(json.dumps(errors));raise
     finally:page.close()
    browser.close()
- (OUT/'results.json').write_text(json.dumps(records,indent=2));print(f'PASS: {len(records)} Chromium/WebKit sizes, {3*len(records)} Business states, controls contained, no horizontal overflow, logout hides content. Actual shell modules; API/auth bootstrap mocked, not production login.')
+ (OUT/'results.json').write_text(json.dumps(records,indent=2));print(f'PASS: {len(records)} Chromium/WebKit sizes, {4*len(records)} Business states, controls contained, no horizontal overflow, logout hides private menu/content. Actual shell modules; API/auth bootstrap mocked, not production login.')
 if __name__=='__main__':main()
