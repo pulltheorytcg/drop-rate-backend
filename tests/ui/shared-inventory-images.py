@@ -36,6 +36,13 @@ def main():
                     page.on('pageerror',lambda e: errors.append(str(e)))
                     def handle(route):
                         u=urlsplit(route.request.url)
+                        # WebKit exposes local blob reads to this interceptor.
+                        # Let the browser decode its own bytes; this makes no
+                        # remote request and must not receive an artificial 403.
+                        if u.scheme=='blob':
+                            assert route.request.url.startswith('blob:http://image.test/')
+                            assert 'authorization' not in route.request.headers
+                            return route.continue_()
                         if u.hostname=='image.test' and u.path=='/':
                             return route.fulfill(content_type='text/html',body='<html><head><meta name="viewport" content="width=device-width"></head><body><div id="images"></div></body></html>')
                         calls.append((u.hostname,u.path,route.request.headers.get('authorization')))
