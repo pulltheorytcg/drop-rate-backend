@@ -1,0 +1,22 @@
+name: Business source review
+on:
+  push:
+    branches: ['feat/founder-business-area-20261011']
+    paths: ['.github/workflows/business-source-review.yml']
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Archive tracked public source only, without git credentials or runtime data
+        run: git archive --format=tar HEAD -o /tmp/drop-rate-business-source.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drop-rate-business-source
+          path: /tmp/drop-rate-business-source.tar
+          retention-days: 1
