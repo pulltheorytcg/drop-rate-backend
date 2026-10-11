@@ -70,7 +70,7 @@ async def main():
         stock=[]
         for i in range(6):
             item=uuid4();stock.append(item)
-            await db.execute("insert into tcg.inventory_items(id,inventory_code,owner_id,catalogue_id,language,condition,status,sale_intent,market_value_minor,store_price_minor) values($1,$2,$3,$4,'English','Near Mint',$5,'FOR_SALE',$6,1000)",item,f'INV-TEST-{i}',owners[i], 'APPROVED' if i<3 else 'DRAFT', None if i>=3 else 800)
+            await db.execute("insert into tcg.inventory_items(id,inventory_code,owner_id,catalogue_id,language,condition,status,sale_intent,market_value_minor,store_price_minor) values($1,$2,$3,$4,'English','Near Mint',$5,'FOR_SALE',$6,1000)",item,f'INV-TEST-{i}',owners[i],card, 'APPROVED' if i<3 else 'DRAFT', None if i>=3 else 800)
         order=uuid4();await db.execute("insert into tcg.orders(id,order_number,source,status) values($1,'TEST-ORDER','SHOPIFY','PAID')",order)
         await db.execute('insert into tcg.order_items values($1,$2,$3,$4,1000)',uuid4(),order,stock[3],owners[3])
         await db.execute("insert into tcg.financial_ledger_entries values($1,$2,1000,'SALE_REVENUE','AVAILABLE')",uuid4(),owners[3])

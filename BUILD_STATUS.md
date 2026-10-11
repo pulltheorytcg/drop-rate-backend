@@ -1,5 +1,11 @@
 # Drop Rate — Live Build Status
 
+## 11 October 2026 — Founder-only Business area (implementation; release evidence pending)
+
+The user selected the Seller Hub visual approach with a dedicated Business area for the three verified founder accounts only. The first bounded release replaces the existing Accounts presentation with Overview, Sellers, Stock ownership and recorded Sales & payouts. Search active accounts by name/username and inspect their exact physical inventory; retain IDs, owners, history and private API/RLS boundaries. Ordinary sellers get no Business entry or API access; generic admin/metadata claims do not bypass the verified founder roster.
+
+Reuses existing founder account APIs, adds explicit Business capability/guard and richer read-only stock fields. No new service, database migration, role enrollment, account merge, ownership change, import commit, publishing, money movement or n8n workflow. Counts are labelled stock records, not a deduplicated portfolio valuation; known overlapping Draft imports remain unreconciled. Existing founder tools remain linked with their existing scope. See `docs/FOUNDER_BUSINESS_AREA.md`; exact-head CI, deployment and real-session acceptance are separate evidence categories. Account consolidation and further editing functions remain later work.
+
 ## 11 October 2026 — Immediate recognised Seller Hub intake (implementation branch; release verification pending)
 
 New explicit founder decision supersedes the all-rows-reviewed/manual-whole-batch rule: an intentional collection upload adds eligible >=95% matches directly to individually owned **Draft** inventory; uncertain rows remain for explicit confirmation and are added independently when confirmed. No Shopify publication, invented values, automatic owner transfer or financial changes.

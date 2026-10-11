@@ -84,7 +84,8 @@ assert.match(doc.getElementById('issue-buttons').textContent,/Add your first car
 for(const view of run('SELLER_VIEWS.map(v=>v[0])')){
   run(`activateSellerView(${JSON.stringify(view)},true)`);
   assert.equal(doc.querySelectorAll('[data-seller-view]:not(.hidden)').length,1);
-  assert.equal(doc.querySelectorAll('[role=tab][aria-selected=true]').length,1);
+  assert.equal(doc.querySelectorAll('.seller-nav-tab[role=tab][aria-selected=true]').length,1);
+  assert.equal(doc.querySelectorAll('.business-tabs [role=tab][aria-selected=true]').length,1);
 }
 for(const id of ['shopify-settings-panel','ebay-connect-button','owner-invite-create','pricing-adapter-status']){
   assert.ok(doc.getElementById(id).closest('details'),'Settings control retained: '+id);

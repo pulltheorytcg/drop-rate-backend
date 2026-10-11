@@ -114,11 +114,11 @@ def _dashboard_html() -> str:
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
         '<script src="/assets/market-value-column.js?v=2" defer></script>',
         '<script src="/assets/founder-workspace.js" defer></script>',
-        '<script src="/assets/founder-accounts.js" defer></script>',
+        '<script src="/assets/founder-accounts.js?v=business-v1" defer></script>',
         '<script src="/assets/catalogue-title-art.js?v=3" defer></script>',
         '<script src="/assets/catalogue-browser.js?v=14" defer></script>',
         '<script src="/assets/catalogue-browser-entry.js?v=5" defer></script>',
-        '<script src="/assets/workspace-shell.js?v=3" defer></script>',
+        '<script src="/assets/workspace-shell.js?v=4" defer></script>',
         '<script src="/assets/collector-worlds.js?v=3" defer></script>',
     )
     for script in scripts:
