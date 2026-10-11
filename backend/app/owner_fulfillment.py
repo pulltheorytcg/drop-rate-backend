@@ -392,85 +392,105 @@ async def owner_shopify_shipping_cost_preview(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    """Read real buyer checkout delivery amount and only this owner's ledger.
+    """Return only the seller's ONE net auto postage charge, never internal costs.
 
-    Does not quote a carrier, purchase a label, set a shipping expense, or
-    expose other physical owners' inventory, payment credentials, or PII.
+    Buyer shipping revenue, allocation, label cost, and platform margin are
+    private tcg accounting. A SECURITY DEFINER query verifies the exact
+    authenticated physical owner before returning the single net charge.
+    No seller has an approval action; no label purchase happens here.
     """
     async with user_connection(
         request.app.state.db_pool, user.user_id, request.state.request_id,
     ) as connection:
         access = await current_access_context(connection)
-        owner_id = access["owner_id"]
-        selected = await connection.fetchrow(
+        row = await connection.fetchrow(
             """
-            select o.id as local_order_id, o.source_reference,
-                   o.status as local_order_status
+            select o.source_reference,o.status as order_status
             from tcg.order_items oi
-            join tcg.orders o on o.id=oi.order_id
             join tcg.inventory_items i
               on i.id=oi.inventory_id and i.owner_id=$1
+            join tcg.orders o on o.id=oi.order_id
             join tcg.shopify_order_item_links sol
               on sol.order_item_id=oi.id and sol.owner_id=$1
             where oi.id=$2 and oi.owner_id=$1 and o.source='SHOPIFY'
             """,
-            owner_id, order_item_id,
+            access["owner_id"], order_item_id,
         )
-        if selected is None:
-            raise HTTPException(status_code=404, detail="Seller Shopify order not found")
-        if selected["local_order_status"] != "PAID":
-            raise HTTPException(status_code=409, detail="Order is not eligible for shipping")
-        ledger = await connection.fetchrow(
+        if row is None:
+            raise HTTPException(status_code=404, detail="Your Shopify order item was not found")
+        if row["order_status"] != "PAID":
+            raise HTTPException(status_code=409, detail="Order cannot currently be fulfilled")
+        policy = await connection.fetchrow(
             """
-            select
-              count(distinct oi.id)::int as owner_items,
-              coalesce(sum(le.amount_minor)
-                filter (where le.entry_type='SHIPPING_REVENUE'), 0)::bigint
-                as shipping_revenue_minor,
-              coalesce(-sum(le.amount_minor)
-                filter (where le.entry_type='SHIPPING_REFUND'), 0)::bigint
-                as shipping_refund_minor,
-              coalesce(-sum(le.amount_minor)
-                filter (where le.entry_type='SHIPPING_COST'), 0)::bigint
-                as postage_cost_minor,
-              bool_and(rec.shipping_cost_reconciled_at is not null)
-                as postage_reconciled
-            from tcg.order_items oi
-            join tcg.inventory_items i
-              on i.id=oi.inventory_id and i.owner_id=$1
-            left join tcg.financial_ledger_entries le
-              on le.order_item_id=oi.id and le.owner_id=$1
-            left join tcg.order_item_reconciliations rec
-              on rec.order_item_id=oi.id and rec.owner_id=$1
-            where oi.order_id=$2 and oi.owner_id=$1
+            select charge_policy,net_shipping_charge_minor,policy_status
+            from tcg.owner_net_shopify_postage($1)
             """,
-            owner_id, selected["local_order_id"],
+            order_item_id,
         )
-    if not ledger or not int(ledger["owner_items"] or 0):
-        raise HTTPException(status_code=409, detail="Owner's order allocations require review")
+        # Historic sales retain immutable older customer-shipping ledger
+        # treatment. Never pretend those records use the new charging model.
+        if policy is None:
+            return jsonable_encoder({
+                "order_item_id": order_item_id,
+                "currency": "GBP",
+                "source": "OWNER_NET_POSTAGE_POLICY",
+                "net_shipping_charge_minor": None,
+                "shipping_charge_status": "LEGACY_REVIEW_REQUIRED",
+                "automatic": False,
+                "purchase_allowed": False,
+            })
+
     try:
-        order_gid = canonical_shopify_order_gid(selected["source_reference"])
+        order_gid = canonical_shopify_order_gid(row["source_reference"])
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail="Invalid Shopify order reference") from exc
+        raise HTTPException(status_code=409, detail="Shopify order reference is invalid") from exc
     try:
-        remote = await _shipping_admin_client().graphql(
+        live = await _shipping_admin_client().graphql(
             query=SHIPPING_CHARGES_QUERY, variables={"orderId": order_gid},
         )
     except ShopifyApiError as exc:
         raise HTTPException(
             status_code=503 if exc.retryable else 502,
-            detail="Could not verify checkout shipping. No cost has been charged.",
+            detail="Unable to verify Shopify payment; no extra charge is approved",
         ) from exc
+
     try:
-        breakdown = shipping_charge_breakdown(
-            remote_order=remote.get("order"),
+        # Validate actual discounted/refunded Shopify delivery receipts
+        # without returning these platform-only figures to Seller Hub.
+        verified = shipping_charge_breakdown(
+            remote_order=live.get("order"),
             source_reference_gid=order_gid,
-            owner_ledger=dict(ledger),
+            owner_ledger={
+                "shipping_revenue_minor": 0,
+                "shipping_refund_minor": 0,
+                "postage_reconciled": False,
+                "postage_cost_minor": 0,
+            },
         )
     except ShippingCostReviewRequired as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(status_code=409, detail="Shopify delivery payment requires review") from exc
+
+    mode = str(policy["charge_policy"])
+    if (
+        mode == "COMPANY_FUNDED_CUSTOMER_PAID"
+        and int(verified["buyer_shipping_retained_minor"]) <= 0
+    ):
+        raise HTTPException(status_code=409, detail="Customer-paid delivery has changed")
+    if (
+        mode == "AUTOMATIC_FREE_UK_TRACKED_48"
+        and (
+            int(verified["buyer_shipping_retained_minor"]) != 0
+            or verified["service_names"] != ["Royal Mail Tracked 48"]
+        )
+    ):
+        raise HTTPException(status_code=409, detail="Free delivery terms have changed")
+
     return jsonable_encoder({
         "order_item_id": order_item_id,
-        "owner_item_count": int(ledger["owner_items"]),
-        **breakdown,
+        "currency": "GBP",
+        "source": "OWNER_NET_POSTAGE_POLICY",
+        "net_shipping_charge_minor": policy["net_shipping_charge_minor"],
+        "shipping_charge_status": policy["policy_status"],
+        "automatic": True,
+        "purchase_allowed": False,
     })

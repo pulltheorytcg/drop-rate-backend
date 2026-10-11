@@ -26,6 +26,7 @@ from .media_resolver import (
 from .ownership import current_owner as _owner
 from .settings import get_settings
 from .seller_inventory_policy import seller_held_consignment
+from .shopify_net_postage_policy import classify_shopify_shipping
 from .shopify_completeness import (
     build_shopify_product_plan,
     media_completeness,
@@ -3279,18 +3280,37 @@ async def _process_paid_order(
         unit["discount_minor"] = discount
         unit_weights.append(max(unit["sale_price_minor"] - discount, 0))
 
-    shipping_set = payload.get("total_shipping_price_set")
-    shipping_minor = 0
-    if isinstance(shipping_set, dict):
-        shop_money = shipping_set.get("shop_money")
-        if isinstance(shop_money, dict):
-            if str(shop_money.get("currency_code") or "").upper() not in {"", "GBP"}:
-                raise ShopifyProcessingError(
-                    "SHIPPING_CURRENCY_MISMATCH",
-                    "Shopify shipping currency is not GBP",
-                )
-            shipping_minor = _minor(shop_money.get("amount"), field="shipping")
-    shipping_allocations = allocate_minor(shipping_minor, unit_weights)
+    # Shopify shipping belongs to the platform, not the physical owner.
+    # The checkout charge is recorded ONCE per order in an immutable,
+    # platform-only account; sellers receive no SHIPPING_REVENUE entries.
+    # Zero-paid free UK Tracked48 on >=£50 is automatically debited only
+    # after the actual label cost is independently verified.
+    try:
+        shipping_snapshot = classify_shopify_shipping(
+            payload, merchandise_minor=sum(unit_weights),
+        )
+    except ValueError as exc:
+        raise ShopifyProcessingError(
+            "SHIPPING_ACCOUNTING_INVALID",
+            "Shopify delivery money cannot be verified",
+        ) from exc
+    await connection.execute(
+        """
+        insert into tcg.shopify_delivery_accounts(
+          order_id,shopify_order_reference,customer_shipping_paid_minor,
+          qualifying_merchandise_minor,delivery_service,destination_country,
+          evidence_status,charge_policy,source_webhook_id
+        ) values($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        """,
+        order_id, order_reference,
+        shipping_snapshot.customer_shipping_paid_minor,
+        shipping_snapshot.qualifying_merchandise_minor,
+        shipping_snapshot.delivery_service,
+        shipping_snapshot.destination_country,
+        shipping_snapshot.evidence_status,
+        shipping_snapshot.charge_policy,
+        webhook_id,
+    )
 
     created = []
     for index, unit in enumerate(selected_units):
@@ -3322,19 +3342,6 @@ async def _process_paid_order(
                 f"shopify:{order_reference}:{unit['line_reference']}:{unit['allocation_index']}:sale",
                 placed_at,
                 "Shopify gross line revenue; platform/payment fees are not yet settled.",
-            )
-        if shipping_allocations[index]:
-            await connection.execute(
-                """
-                insert into tcg.financial_ledger_entries(
-                  owner_id,order_id,order_item_id,entry_type,amount_minor,
-                  currency,funds_status,source_key,occurred_at,notes
-                ) values($1,$2,$3,'SHIPPING_REVENUE',$4,'GBP','PENDING',$5,$6,$7)
-                """,
-                owner_id, order_id, order_item_id, shipping_allocations[index],
-                f"shopify:{order_reference}:{unit['line_reference']}:{unit['allocation_index']}:shipping",
-                placed_at,
-                "Shopify shipping revenue allocated deterministically by net line value.",
             )
         expected_status = link["inventory_status"]
         sold = await connection.fetchrow(
@@ -3754,7 +3761,61 @@ async def _process_refund(
             })
 
     shipping_created: list[dict[str, Any]] = []
+    platform_delivery = None
     if shipping_refund_minor:
+        platform_delivery = await connection.fetchrow(
+            """
+            select customer_shipping_paid_minor
+            from tcg.shopify_delivery_accounts
+            where order_id=$1
+            for update
+            """,
+            order["id"],
+        )
+        if platform_delivery is not None:
+            existing_company_refund = await connection.fetchrow(
+                """
+                select amount_minor from tcg.shopify_delivery_refunds
+                where shopify_refund_id=$1
+                """,
+                refund_id,
+            )
+            if existing_company_refund is not None:
+                if int(existing_company_refund["amount_minor"]) != shipping_refund_minor:
+                    raise ShopifyProcessingError(
+                        "SHIPPING_REFUND_ID_CONFLICT",
+                        "The same Shopify refund ID has a different delivery amount",
+                    )
+            else:
+                already_refunded = await connection.fetchval(
+                    """
+                    select coalesce(sum(amount_minor),0)::bigint
+                    from tcg.shopify_delivery_refunds
+                    where order_id=$1
+                    """,
+                    order["id"],
+                )
+                if int(already_refunded or 0) + shipping_refund_minor > int(platform_delivery["customer_shipping_paid_minor"]):
+                    raise ShopifyProcessingError(
+                        "SHIPPING_REFUND_EXCEEDS_REVENUE",
+                        "Shopify refunded more delivery money than the platform received",
+                    )
+                await connection.execute(
+                    """
+                    insert into tcg.shopify_delivery_refunds(
+                      order_id,shopify_refund_id,amount_minor
+                    ) values($1,$2,$3)
+                    """,
+                    order["id"], refund_id, shipping_refund_minor,
+                )
+            shipping_created.append({
+                "platform_shipping_refund_minor": shipping_refund_minor,
+            })
+
+    # Historical orders have owner SHIPPING_REVENUE and matching owner
+    # SHIPPING_REFUND entries. Preserve that audited legacy route; new
+    # platform-funded orders must never debit sellers for buyer refunds.
+    if shipping_refund_minor and platform_delivery is None:
         duplicate_shipping = await connection.fetchval(
             """
             select exists(

@@ -58,14 +58,10 @@ function fixture(handler=async()=>result()){
       };
     if(/^\/api\/v1\/fulfilment\/to-ship\/[a-f0-9-]+\/shipping-cost$/i.test(url))
       return {
-        source:"SHOPIFY_CHECKOUT_AND_OWNER_LEDGER",currency:"GBP",
-        service_names:["Royal Mail Tracked 48"],buyer_shipping_retained_minor:395,
-        buyer_shipping_charged_minor:395,buyer_shipping_refunded_minor:0,
-        owner_allocated_shipping_minor:158,verified_postage_cost_minor:null,
-        seller_additional_shipping_charge_minor:null,
-        seller_shipping_credit_after_postage_minor:null,
-        postage_verification:"PENDING_VERIFIED_CARRIER_COST",
-        carrier_quote_minor:null,purchase_allowed:false,
+        source:"OWNER_NET_POSTAGE_POLICY",currency:"GBP",
+        net_shipping_charge_minor:0,
+        shipping_charge_status:"NO_SELLER_CHARGE",
+        automatic:true,purchase_allowed:false,
         customer_email:"must not be printed",shipping_address:"private",
       };
     if(/^\/api\/v1\/fulfilment\/to-ship\/[a-f0-9-]+\/shopify$/i.test(url))
@@ -187,11 +183,12 @@ function fixture(handler=async()=>result()){
     assert.match(modal.textContent,/Fulfill #1009/);
     const packing=f.w.document.getElementById("owner-fulfill-print-packing");
     assert.equal(packing.disabled,false,"Paid Shopify items should allow verified packing slip printing");
-    assert.match(f.w.document.getElementById("owner-fulfill-shipping-figures").textContent,/Customer paid for shipping£3\.95/);
-    assert.match(f.w.document.getElementById("owner-fulfill-shipping-figures").textContent,/Your allocated customer payment£1\.58/);
-    assert.match(f.w.document.getElementById("owner-fulfill-shipping-figures").textContent,/Actual postage chargedPending verified carrier cost/);
-    assert.match(f.w.document.getElementById("owner-fulfill-shipping-figures").textContent,/Your net shipping deductionPending/);
-    assert.doesNotMatch(f.w.document.getElementById("owner-fulfill-shipping-figures").textContent,/private|must not be printed/);
+    assert.equal(f.w.document.getElementById("owner-fulfill-shipping-figures").textContent,
+      "Net shipping charge£0.00");
+    assert.match(f.w.document.getElementById("owner-fulfill-shipping-status").textContent,
+      /No seller postage charge applies/);
+    assert.doesNotMatch(f.w.document.getElementById("owner-fulfill-shipping-figures").textContent,
+      /Customer paid|Your allocated|Actual postage|private|must not be printed/);
     assert.equal(f.w.document.getElementById("owner-fulfill-print-label").disabled,true);
     assert.equal(f.w.document.getElementById("owner-fulfill-confirm").disabled,true);
     f.w.document.getElementById("owner-fulfill-close").click();

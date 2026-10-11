@@ -17,6 +17,7 @@ from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .settings import get_settings
 from .shopify_client import ShopifyAdminClient, ShopifyApiError
+from .shopify_net_postage_policy import seller_auto_postage_charge
 
 
 router = APIRouter(prefix="/api/v1")
@@ -88,6 +89,7 @@ class EbayFeeReconcile(BaseModel):
 class ShopifyPostageReconcile(BaseModel):
     amount_minor: int = Field(ge=0)
     reference: str = Field(min_length=1, max_length=96)
+    owner_id: UUID | None = None
     notes: str = Field(default="", max_length=1000)
     occurred_at: datetime | None = None
 
@@ -1457,7 +1459,7 @@ async def reconcile_ebay_fees(
         rows = await connection.fetch(
             """
             select
-              o.source,o.order_number,
+              o.source,o.order_number,o.status as order_status,
               oi.id as order_item_id,oi.net_sale_minor,
               rec.fees_reconciled_at,rec.fees_source
             from tcg.orders o
@@ -1575,6 +1577,7 @@ async def reconcile_shopify_postage(
         request.app.state.db_pool, user.user_id, request.state.request_id
     ) as connection:
         owner = await _owner(connection)
+        target_owner_id = payload.owner_id if (payload.owner_id and "/finance/shopify/" in request.url.path) else owner["id"]
         await connection.execute(
             "select pg_advisory_xact_lock(hashtext($1::text))",
             order_id,
@@ -1596,7 +1599,7 @@ async def reconcile_shopify_postage(
             where o.id=$1 and oi.owner_id=$2
             order by oi.id
             """,
-            order_id, owner["id"],
+            order_id, target_owner_id,
         )
         if not rows:
             raise HTTPException(status_code=404, detail="Order not found")
@@ -1609,57 +1612,86 @@ async def reconcile_shopify_postage(
                 detail=f"Postage reconciliation path does not match {rows[0]['source']} order",
             )
 
-        profile_keys: list[str] = []
-        for row in rows:
-            if row["product_type"] != "CARD":
-                raise HTTPException(
-                    status_code=409,
-                    detail="No fulfilment profile is configured for this product type",
-                )
-            is_graded = bool(
-                str(row["grading_company"] or "").strip()
-                and str(row["grade"] or "").strip()
+        platform_account = None
+        if expected_source == "SHOPIFY":
+            platform_account = await connection.fetchrow(
+                "select charge_policy from tcg.shopify_delivery_accounts where order_id=$1",
+                order_id,
             )
-            profile_keys.append("GRADED_CARD" if is_graded else "RAW_CARD")
-        if len(set(profile_keys)) != 1:
+        if platform_account is not None and rows[0]["order_status"] != "PAID":
             raise HTTPException(
                 status_code=409,
-                detail=(
-                    "Mixed shipping profiles require an approved fulfilment "
-                    "allocation policy"
-                ),
+                detail="Refunded or cancelled Shopify orders require review before postage cost reconciliation",
             )
-        profile_key = profile_keys[0]
-
-        components = await connection.fetch(
-            """
-            select
-              component_key,quantity,accounting_unit_cost_minor_gbp,
-              allocation_basis
-            from tcg.fulfilment_cost_components
-            where owner_id=$1
-              and shipping_profile_key=$2
-              and active
-            order by component_key
-            """,
-            owner["id"], profile_key,
+        owner_postage_charge = (
+            seller_auto_postage_charge(platform_account["charge_policy"], payload.amount_minor)
+            if platform_account is not None else payload.amount_minor
         )
-        try:
-            material_allocations = _fulfilment_material_allocations(
-                rows,
-                components,
+
+        if platform_account is not None:
+            # Existing material components remain stored as platform cost
+            # evidence; the founder chose only one seller NET SHIPPING charge.
+            material_allocations = [0] * len(rows)
+            material_total = 0
+        else:
+            profile_keys: list[str] = []
+            for row in rows:
+                if row["product_type"] != "CARD":
+                    raise HTTPException(
+                        status_code=409,
+                        detail="No fulfilment profile is configured for this product type",
+                    )
+                is_graded = bool(
+                    str(row["grading_company"] or "").strip()
+                    and str(row["grade"] or "").strip()
+                )
+                profile_keys.append("GRADED_CARD" if is_graded else "RAW_CARD")
+            if len(set(profile_keys)) != 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Mixed shipping profiles require an approved fulfilment "
+                        "allocation policy"
+                    ),
+                )
+            profile_key = profile_keys[0]
+
+            components = await connection.fetch(
+                """
+                select
+                  component_key,quantity,accounting_unit_cost_minor_gbp,
+                  allocation_basis
+                from tcg.fulfilment_cost_components
+                where owner_id=$1
+                  and shipping_profile_key=$2
+                  and active
+                order by component_key
+                """,
+                target_owner_id, profile_key,
             )
-        except ValueError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        material_total = sum(material_allocations)
+            try:
+                material_allocations = _fulfilment_material_allocations(
+                    rows,
+                    components,
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            material_total = sum(material_allocations)
         postage_allocations = allocate_minor(
-            payload.amount_minor,
+            owner_postage_charge,
             [int(row["net_sale_minor"]) for row in rows],
         )
-        reconciliation_source = (
-            f"MANUAL_FULFILMENT:{payload.reference}:"
-            f"POSTAGE:{payload.amount_minor}:MATERIALS:{material_total}"
-        )
+        if platform_account is not None:
+            reconciliation_source = (
+                f"AUTO_SHOPIFY_POSTAGE:{payload.reference}:"
+                f"CARRIER:{payload.amount_minor}:NET_OWNER:{owner_postage_charge}:"
+                f"POLICY:{platform_account['charge_policy']}"
+            )
+        else:
+            reconciliation_source = (
+                f"MANUAL_FULFILMENT:{payload.reference}:"
+                f"POSTAGE:{payload.amount_minor}:MATERIALS:{material_total}"
+            )
 
         reconciled = [
             row for row in rows
@@ -1676,7 +1708,9 @@ async def reconcile_shopify_postage(
                 return jsonable_encoder({
                     "order_id": order_id,
                     "order_number": rows[0]["order_number"],
-                    "shipping_cost_minor": payload.amount_minor,
+                    "verified_carrier_cost_minor": payload.amount_minor,
+                    "seller_net_shipping_charge_minor": owner_postage_charge,
+                    "shipping_cost_minor": owner_postage_charge,
                     "fulfilment_material_cost_minor": material_total,
                     "replayed": True,
                 })
@@ -1687,6 +1721,26 @@ async def reconcile_shopify_postage(
                     "adjustment workflow"
                 ),
             )
+
+        if platform_account is not None:
+            # One privately audited carrier receipt, no hidden seller debit.
+            # A duplicate label reference or owner/order cannot charge twice.
+            try:
+                await connection.execute(
+                    """
+                    insert into tcg.shopify_postage_actual_costs(
+                      order_id,owner_id,carrier_label_reference,
+                      verified_postage_minor,owner_net_charge_minor
+                    ) values($1,$2,$3,$4,$5)
+                    """,
+                    order_id, target_owner_id, payload.reference,
+                    payload.amount_minor, owner_postage_charge,
+                )
+            except asyncpg.UniqueViolationError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This carrier receipt or owner order has already been recorded",
+                ) from exc
 
         for index, row in enumerate(rows):
             postage = postage_allocations[index]
@@ -1700,7 +1754,7 @@ async def reconcile_shopify_postage(
                     ) values($1,$2,$3,'SHIPPING_COST',$4,'GBP','PENDING',$5,$6,$7)
                     on conflict(source_key) do nothing
                     """,
-                    owner["id"], order_id, row["order_item_id"], -postage,
+                    target_owner_id, order_id, row["order_item_id"], -postage,
                     f"postage:{payload.reference}:{row['order_item_id']}",
                     occurred_at,
                     payload.notes or "Actual Royal Mail postage cost.",
@@ -1717,7 +1771,7 @@ async def reconcile_shopify_postage(
                     )
                     on conflict(source_key) do nothing
                     """,
-                    owner["id"], order_id, row["order_item_id"], -materials,
+                    target_owner_id, order_id, row["order_item_id"], -materials,
                     (
                         f"fulfilment-material:{payload.reference}:"
                         f"{row['order_item_id']}"
@@ -1737,14 +1791,16 @@ async def reconcile_shopify_postage(
                     updated_at=clock_timestamp(),
                     version=tcg.order_item_reconciliations.version+1
                 """,
-                row["order_item_id"], order_id, owner["id"],
+                row["order_item_id"], order_id, target_owner_id,
                 reconciliation_source,
             )
 
         return jsonable_encoder({
             "order_id": order_id,
             "order_number": rows[0]["order_number"],
-            "shipping_cost_minor": payload.amount_minor,
+            "verified_carrier_cost_minor": payload.amount_minor,
+            "seller_net_shipping_charge_minor": owner_postage_charge,
+            "shipping_cost_minor": owner_postage_charge,
             "fulfilment_material_cost_minor": material_total,
             "replayed": False,
         })

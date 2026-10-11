@@ -78,13 +78,15 @@ def test_fulfill_button_has_live_shopify_review_and_no_fake_shipping_label():
 def test_owner_shipping_review_uses_real_checkout_and_does_not_guess_postage():
     wizard = (ROOT / "backend/app/static/owner-fulfill-wizard.js").read_text()
     assert "/shipping-cost" in wizard
-    assert "SHOPIFY_CHECKOUT_AND_OWNER_LEDGER" in wizard
-    assert "Customer paid for shipping" in wizard
-    assert "Your allocated customer payment" in wizard
-    assert "Actual postage charged" in wizard
-    assert "Your net shipping deduction" in wizard
-    assert "Pending verified carrier cost" in wizard
-    assert "Pending — not approved" in wizard
+    assert "OWNER_NET_POSTAGE_POLICY" in wizard
+    assert "Net shipping charge" in wizard
+    assert "Pending automatic charge" in wizard
+    assert "No seller postage charge applies" in wizard
+    assert "AUTO_CHARGE_VERIFIED" in wizard
+    assert "NO_SELLER_CHARGE" in wizard
+    for forbidden in ("Customer paid for shipping", "Actual postage charged",
+                      "owner_allocated_shipping_minor", "buyer_shipping_retained_minor"):
+        assert forbidden not in wizard
     assert "shippingLabelPurchase" not in wizard
     assert "innerHTML" not in wizard
     assert "printLabel.disabled = true" in wizard

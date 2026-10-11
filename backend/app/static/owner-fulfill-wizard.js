@@ -52,45 +52,44 @@
   }
 
   function renderShippingPreview(value) {
-    if (value.source !== "SHOPIFY_CHECKOUT_AND_OWNER_LEDGER" ||
+    if (value.source !== "OWNER_NET_POSTAGE_POLICY" ||
         value.currency !== "GBP" ||
-        value.purchase_allowed !== false ||
-        !Number.isSafeInteger(value.buyer_shipping_retained_minor) ||
-        !Number.isSafeInteger(value.owner_allocated_shipping_minor) ||
-        value.buyer_shipping_retained_minor < 0 ||
-        value.owner_allocated_shipping_minor < 0) {
-      throw new Error("Shopify shipping finance needs manual review");
+        value.purchase_allowed !== false) {
+      throw new Error("Seller shipping policy verification failed");
     }
-    const serviceNames = Array.isArray(value.service_names)
-      ? value.service_names.filter(name => typeof name === "string").slice(0, 5)
-      : [];
     const info = el("owner-fulfill-shipping-figures");
     info.replaceChildren();
-    const add = (label, amount) => {
-      const dt = node("dt", label);
-      const dd = node("dd", amount);
-      info.append(dt, dd);
-    };
-    add("Shopify delivery service", serviceNames.join(" · ") || "Not specified");
-    add("Customer paid for shipping", pounds(value.buyer_shipping_retained_minor));
-    add("Your allocated customer payment", pounds(value.owner_allocated_shipping_minor));
-    const verified = value.postage_verification === "VERIFIED"
-      && Number.isSafeInteger(value.verified_postage_cost_minor)
-      && Number.isSafeInteger(value.seller_additional_shipping_charge_minor)
-      && Number.isSafeInteger(value.seller_shipping_credit_after_postage_minor);
-    add("Actual postage charged", verified
-      ? pounds(value.verified_postage_cost_minor)
-      : "Pending verified carrier cost");
-    add("Your net shipping deduction", verified
-      ? pounds(value.seller_additional_shipping_charge_minor)
-      : "Pending — not approved");
-    if (verified && value.seller_shipping_credit_after_postage_minor > 0) {
-      add("Shipping credit retained", pounds(value.seller_shipping_credit_after_postage_minor));
+    const status = String(value.shipping_charge_status || "");
+    let amount;
+    if (status === "NO_SELLER_CHARGE" && value.net_shipping_charge_minor === 0) {
+      amount = pounds(0);
+    } else if (status === "AUTO_CHARGE_VERIFIED" &&
+        Number.isSafeInteger(value.net_shipping_charge_minor) &&
+        value.net_shipping_charge_minor >= 0) {
+      amount = pounds(value.net_shipping_charge_minor);
+    } else if (status === "AUTO_CHARGE_PENDING" &&
+        value.net_shipping_charge_minor === null &&
+        value.automatic === true) {
+      amount = "Pending automatic charge";
+    } else if (status === "LEGACY_REVIEW_REQUIRED" &&
+        value.net_shipping_charge_minor === null) {
+      amount = "Needs review";
+    } else {
+      throw new Error("Unknown seller postage state");
     }
+    info.append(
+      node("dt", "Net shipping charge"),
+      node("dd", amount),
+    );
     text("owner-fulfill-shipping-status",
-      verified
-        ? "Customer payment and actual postage reconciled. Label purchase is still controlled separately."
-        : "Customer payment is confirmed, but Shopify's label price is not a pre-purchase quote. No new seller charge has been approved.");
+      status === "NO_SELLER_CHARGE"
+        ? "The customer paid for delivery. No seller postage charge applies."
+        : status === "AUTO_CHARGE_PENDING"
+          ? "Free UK delivery: verified label postage is deducted automatically once recorded. No separate approval is required."
+          : status === "AUTO_CHARGE_VERIFIED"
+            ? "Verified free-delivery postage charged automatically to your proceeds."
+            : "This historical order needs the previous finance rules reviewed."
+    );
   }
   const blockerCopy = {
     SHOPIFY_ORDER_CANCELLED: "Shopify cancelled this order.",
@@ -153,7 +152,7 @@
       node("span", item.inventory_code || "Unique physical item"),
     );
     blockers.replaceChildren();
-    clearShippingPreview("Verifying the customer payment from Shopify…");
+    clearShippingPreview("Checking your net shipping charge…");
     text("owner-fulfill-status", "Checking the latest payment and fulfilment state directly with Shopify…");
     if (!dialog.open) dialog.showModal();
     try {
@@ -185,12 +184,12 @@
         renderShippingPreview(preview);
       } catch (_error) {
         if (revision !== state.revision || !dialog.open) return;
-        clearShippingPreview("Unable to verify the delivery charge. No seller postage cost has been approved.");
+        clearShippingPreview("Unable to verify your net shipping charge. No new seller debit has been posted.");
       }
     } catch (_error) {
       if (revision !== state.revision || !dialog.open) return;
       markBlockers(["SHOPIFY_CHECK_UNAVAILABLE"]);
-      clearShippingPreview("Shopify verification unavailable. No shipping charge approved.");
+      clearShippingPreview("Shopify verification unavailable. No new seller debit has been posted.");
       text("owner-fulfill-status", "Shopify could not verify this order. Nothing has been purchased or fulfilled.");
     }
   }
