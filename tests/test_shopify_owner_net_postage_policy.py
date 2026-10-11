@@ -9,7 +9,7 @@ from app.shopify_net_postage_policy import (
 )
 
 ROOT=Path(__file__).resolve().parents[1]
-POLICY_SQL=(ROOT/"database/migrations/20261011020000_shopify_net_shipping_accounts.sql").read_text()
+POLICY_SQL=(ROOT/"database/migrations/20261011005033_shopify_net_shipping_accounts.sql").read_text()
 PIPELINE=(ROOT/"backend/app/shopify_pipeline.py").read_text()
 FINANCE=(ROOT/"backend/app/finance.py").read_text()
 OWNER=(ROOT/"backend/app/owner_fulfillment.py").read_text()
