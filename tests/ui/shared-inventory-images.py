@@ -2,18 +2,29 @@
 import base64
 import json
 import os
+import struct
+import zlib
 from pathlib import Path
 from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright
 
 ROOT=Path(__file__).resolve().parents[2]
-PNG=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jhZkAAAAASUVORK5CYII=')
+PNG=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAC0lEQVR4nGNgQAYAAA4AAamRc7EAAAAASUVORK5CYII=')
 ID='d715b0e9-b3c4-451b-a909-5fa233f8a0e5'
 PATH=f'/api/v1/inventory/{ID}/image'
 REF=f'/api/v1/owner/inventory/{ID}/reference-image'
 OUT=Path(os.environ.get('MEDIA_LAYOUT_DIR','/tmp/shared-image-layout'))
 
 def main():
+    # The fixture itself must be a valid raster, not merely a PNG MIME label.
+    offset=8
+    assert PNG[:8]==b'\x89PNG\r\n\x1a\n'
+    while offset<len(PNG):
+        length=struct.unpack('>I',PNG[offset:offset+4])[0]
+        chunk=PNG[offset+4:offset+8+length]
+        crc=struct.unpack('>I',PNG[offset+8+length:offset+12+length])[0]
+        assert zlib.crc32(chunk)&0xffffffff==crc,'Broken PNG fixture'
+        offset+=12+length
     OUT.mkdir(parents=True,exist_ok=True);results=[]
     with sync_playwright() as p:
         for engine in ('chromium','webkit'):
@@ -21,6 +32,7 @@ def main():
             for width in (390,1440):
                 for mode in ('provider','inventory_alias','missing_metadata','cdn_failure','reference_fallback','expired','denied','bad_mime','stale_session'):
                     page=browser.new_page(viewport={'width':width,'height':900});calls=[];errors=[]
+                    page.set_default_timeout(8000)
                     page.on('pageerror',lambda e: errors.append(str(e)))
                     def handle(route):
                         u=urlsplit(route.request.url)
@@ -53,7 +65,9 @@ def main():
                         page.wait_for_function('document.getElementById("images").textContent.includes("Image unavailable")')
                         assert page.locator('#images img').count()==0 and len(calls)==1
                     else:
-                        page.wait_for_function('document.querySelector("#images img")?.naturalWidth>0')
+                        try:page.wait_for_function('document.querySelector("#images img")?.naturalWidth>0')
+                        except Exception:
+                            print('FAILED',engine,width,mode,calls,errors,page.locator('#images').inner_html());raise
                         assert page.locator('.owner-image-placeholder').is_hidden()
                         assert page.locator('#images img').get_attribute('src').startswith('blob:')
                         assert sum(1 for _,path,_ in calls if path==PATH)==(2 if mode=='expired' else 1)
