@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 11 October 2026 — Seller Hub collection CSV/TSV Import
+
+- User requested **Inventory → Import** menu supporting Collectr, Holodex and Other. Reviewed existing founder bulk CSV importer and found it already had deterministic Collectr snapshot deltas, candidate preview, exact-file fingerprint, manually resolved/skip rows and Draft physical item commit, but all import routes were founder-admin-only and its UI was never included in Seller Hub.
+- Added an independent Seller Hub import menu + mobile-friendly lazy modal, per-format CSV/TSV upload, optional column mapping and game/language defaults, full paginated candidate preview, exact catalogue search and resolve/skip, owner-scope versioned commit, resume history and refresh inventory. Reuses the existing PostgreSQL import tables and business functions, not a new uploader.
+- New **OWNER-only** `/api/v1/owner/imports` allowlist uses `require_owner_portal_request`; original founder `/api/v1/imports` and enrichment remain platform-admin. Collectr unmatched canonical identities are held for human review for Seller Hub users; no restricted seller can create a shared canonical card silently. Skipped new Collectr rows are excluded from future snapshot baseline to prevent false duplicate/imported quantities.
+- Every committed physical copy remains owned by the importing account with a unique Inventory ID, state **DRAFT**, identity unconfirmed. No listing/Shopify sync, market valuation override, settlement payment, external seller activation, DB migration or automation created. Holodex formats may require manual header mapping; XLSX and remote account sync are not claimed. See [CSV import operating note](docs/SELLER_CSV_IMPORTS.md).
+- Tests: owner authorization, Collectr re-export/duplicate/baseline behaviour, role-scoped catalogue creation, CSV/TSV mapping, live DOM import/review flow, existing real PostgreSQL and dashboard suites. CI/deployment pending before marking live.
+
 ## 11 October 2026 — Verify discounted Shopify delivery payment in seller shipping preview
 
 - Corrected the owner shipping breakdown to read `ShippingLine.discountedPriceSet` (buyer delivery payment **after** shipping promotions) and `Order.currentShippingPriceSet` (current price **after discounts and refunds**), validating against Shopify's refunded total and each current shipping line. `Order.totalShippingPriceSet` can retain an original higher rate and must not be assumed to be what was paid when Standard becomes free from £50.
