@@ -364,7 +364,7 @@ async def _collectr_previous_snapshot(
     if batch is not None:
         rows = await connection.fetch(
             """
-            select raw_record, normalized_record, catalogue_id
+            select raw_record, normalized_record, catalogue_id, status
             from tcg.import_candidates
             where batch_id = $1 and owner_id = $2
             order by source_row
@@ -381,6 +381,16 @@ async def _collectr_previous_snapshot(
                 or raw.get("Quantity")
                 or 1
             )
+            if row["status"] == "SKIPPED":
+                # A seller may skip a NEW unmatched source row. A later
+                # snapshot must not pretend those physical copies exist;
+                # otherwise the next Collectr export would silently lose them.
+                # Retain only the previously imported quantity for skipped
+                # increases/decreases. Unchanged SKIPPED rows retain baseline.
+                previous_quantity = int(normalized.get("previous_quantity") or 0)
+                quantity = previous_quantity
+                if quantity <= 0:
+                    continue
             key = collectr_snapshot_key(normalized)
             existing = result.get(key)
             if existing is None:
@@ -645,6 +655,17 @@ async def preview_import(
                     if "catalogue_not_found" in issues:
                         issues = [issue for issue in issues if issue != "catalogue_not_found"]
                         normalized["collectr_create_catalogue"] = True
+
+            # Third-party sellers own their physical copies but must never
+            # silently extend the platform-wide canonical card catalogue.
+            # A founder/admin can still use the established Collectr path.
+            if (
+                adapter == "COLLECTR"
+                and normalized.get("collectr_create_catalogue") is True
+                and owner["role"] != "PLATFORM_ADMIN"
+            ):
+                normalized.pop("collectr_create_catalogue", None)
+                issues.extend(["catalogue_not_found", "catalogue_admin_review_required"])
 
             issues = sorted(set(issues))
             if adapter == "COLLECTR" and normalized.get("delta_quantity") == 0 and not issues:
@@ -913,6 +934,14 @@ async def commit_import_batch(
                     batch_id,
                     owner["id"],
                 )
+                if pending_catalogues and owner["role"] != "PLATFORM_ADMIN":
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            "Unmatched Collectr catalogue identities require "
+                            "Drop Rate review; sellers cannot create shared card records"
+                        ),
+                    )
                 for pending in pending_catalogues:
                     normalized = _json_value(
                         pending["normalized_record"],
