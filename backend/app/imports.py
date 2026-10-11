@@ -39,14 +39,24 @@ class ImportPreviewRequest(BaseModel):
     adapter: ImportAdapter = "AUTO"
     default_game: str | None = Field(default=None, max_length=80)
     default_language: str | None = Field(default=None, max_length=80)
+    # Optional exact source-header -> canonical-field selections for formats
+    # without stable names, e.g. community CSV exports. No arbitrary DB fields.
+    column_mapping: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def normalise(self) -> "ImportPreviewRequest":
         self.filename = self.filename.strip()
         self.default_game = self.default_game.strip() if self.default_game else None
         self.default_language = clean_language(self.default_language)
-        if not self.filename.lower().endswith(".csv"):
-            raise ValueError("Only CSV imports are supported in this first import release")
+        if not self.filename.lower().endswith((".csv", ".tsv")):
+            raise ValueError("Only CSV or tab-delimited TSV collection files are supported")
+        if len(self.column_mapping) > len(ALIASES):
+            raise ValueError("Too many import column mappings")
+        for target, header in self.column_mapping.items():
+            if target not in ALIASES or not isinstance(header, str) or not header.strip():
+                raise ValueError("Unrecognized CSV column mapping")
+            if len(header) > 200:
+                raise ValueError("Mapped CSV header is too long")
         return self
 
 
@@ -364,7 +374,7 @@ async def _collectr_previous_snapshot(
     if batch is not None:
         rows = await connection.fetch(
             """
-            select raw_record, normalized_record, catalogue_id
+            select raw_record, normalized_record, catalogue_id, status
             from tcg.import_candidates
             where batch_id = $1 and owner_id = $2
             order by source_row
@@ -381,6 +391,16 @@ async def _collectr_previous_snapshot(
                 or raw.get("Quantity")
                 or 1
             )
+            if row["status"] == "SKIPPED":
+                # A seller may skip a NEW unmatched source row. A later
+                # snapshot must not pretend those physical copies exist;
+                # otherwise the next Collectr export would silently lose them.
+                # Retain only the previously imported quantity for skipped
+                # increases/decreases. Unchanged SKIPPED rows retain baseline.
+                previous_quantity = int(normalized.get("previous_quantity") or 0)
+                quantity = previous_quantity
+                if quantity <= 0:
+                    continue
             key = collectr_snapshot_key(normalized)
             existing = result.get(key)
             if existing is None:
@@ -527,7 +547,11 @@ async def preview_import(
     encoded = payload.content.encode("utf-8")
     source_sha256 = hashlib.sha256(encoded).hexdigest()
     try:
-        reader = csv.DictReader(io.StringIO(payload.content, newline=""))
+        delimiter = "\t" if payload.filename.lower().endswith(".tsv") else ","
+        source_text = payload.content.lstrip("\ufeff")
+        reader = csv.DictReader(
+            io.StringIO(source_text, newline=""), delimiter=delimiter, strict=True
+        )
         headers = reader.fieldnames or []
         if not headers:
             raise HTTPException(status_code=422, detail="CSV has no header row")
@@ -541,6 +565,16 @@ async def preview_import(
         raise HTTPException(status_code=422, detail="Import is limited to 5,000 source rows per batch")
 
     mapping = _field_map(headers)
+    for canonical_key, selected_header in payload.column_mapping.items():
+        if selected_header not in headers:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "Mapped CSV column is missing from uploaded file",
+                    "canonical_field": canonical_key,
+                },
+            )
+        mapping[canonical_key] = selected_header
     if "name" not in mapping:
         raise HTTPException(status_code=422, detail={"message": "Could not identify a product/card name column", "headers": headers})
     adapter = _detect_adapter(headers, payload.adapter)
@@ -645,6 +679,17 @@ async def preview_import(
                     if "catalogue_not_found" in issues:
                         issues = [issue for issue in issues if issue != "catalogue_not_found"]
                         normalized["collectr_create_catalogue"] = True
+
+            # Third-party sellers own their physical copies but must never
+            # silently extend the platform-wide canonical card catalogue.
+            # A founder/admin can still use the established Collectr path.
+            if (
+                adapter == "COLLECTR"
+                and normalized.get("collectr_create_catalogue") is True
+                and owner["role"] != "PLATFORM_ADMIN"
+            ):
+                normalized.pop("collectr_create_catalogue", None)
+                issues.extend(["catalogue_not_found", "catalogue_admin_review_required"])
 
             issues = sorted(set(issues))
             if adapter == "COLLECTR" and normalized.get("delta_quantity") == 0 and not issues:
@@ -913,6 +958,14 @@ async def commit_import_batch(
                     batch_id,
                     owner["id"],
                 )
+                if pending_catalogues and owner["role"] != "PLATFORM_ADMIN":
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            "Unmatched Collectr catalogue identities require "
+                            "Drop Rate review; sellers cannot create shared card records"
+                        ),
+                    )
                 for pending in pending_catalogues:
                     normalized = _json_value(
                         pending["normalized_record"],

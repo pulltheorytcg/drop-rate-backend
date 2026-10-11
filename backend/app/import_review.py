@@ -26,6 +26,9 @@ IDENTITY_REVIEW_ISSUES = {
     "missing_card_number",
     "ambiguous_catalogue_match",
     "catalogue_not_found",
+    # A seller may clear this restriction only by selecting an existing
+    # canonical match. It cannot create a new shared catalogue identity.
+    "catalogue_admin_review_required",
 }
 
 
