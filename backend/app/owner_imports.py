@@ -18,9 +18,8 @@ from .db import user_connection
 from .import_catalogue_search import CATALOGUE_SEARCH_SQL, search_tokens
 
 from .access_control import require_owner_portal_request
-from .import_review import resolve_import_candidate, skip_import_candidate
+from .owner_auto_imports import upload_collection, add_recognised, confirm_candidate, skip_candidate
 from .imports import (
-    commit_import_batch,
     get_import_batch,
     list_import_batches,
     preview_import,
@@ -63,17 +62,18 @@ async def search_existing_catalogue_for_import(
     return jsonable_encoder({"items": [dict(row) for row in rows]})
 
 
+router.add_api_route("/upload", upload_collection, methods=["POST"], status_code=201)
 router.add_api_route("/preview", preview_import, methods=["POST"], status_code=201)
 router.add_api_route("", list_import_batches, methods=["GET"])
 router.add_api_route("/{batch_id}", get_import_batch, methods=["GET"])
-router.add_api_route("/{batch_id}/commit", commit_import_batch, methods=["POST"])
+router.add_api_route("/{batch_id}/commit", add_recognised, methods=["POST"])
 router.add_api_route(
     "/{batch_id}/candidates/{candidate_id}/resolve",
-    resolve_import_candidate,
+    confirm_candidate,
     methods=["POST"],
 )
 router.add_api_route(
     "/{batch_id}/candidates/{candidate_id}/skip",
-    skip_import_candidate,
+    skip_candidate,
     methods=["POST"],
 )

@@ -2,7 +2,7 @@
 
 /* Seller Hub Inventory → Import. Reuses the canonical founder import engine
    through an owner-only, allowlisted API. No file silently publishes to
-   Shopify: preview/review precede explicit Draft physical inventory creation. */
+   Shopify: an explicit upload adds verified matches as Draft and leaves exceptions for review. */
 (() => {
   const $ = (id) => document.getElementById(id);
   const menu = $("owner-import-menu");
@@ -77,6 +77,8 @@
     document.body.append(dialog);
     state.dialog = dialog;
 
+    $("owner-import-preview").textContent = "Import collection";
+    $("owner-import-preview-title").textContent = "Import results";
     $("owner-import-close").addEventListener("click", closeDialog);
     dialog.addEventListener("cancel", (event) => {
       event.preventDefault();
@@ -161,7 +163,7 @@
     $("owner-import-map-fields").replaceChildren();
     $("owner-import-map-details").open = false;
     resetPreview();
-    message("Choose a collection export, then preview the matching records.");
+    message("Upload your collection: verified matches are added as Draft; only uncertain rows need confirmation.");
     updateMappingHelp();
     if (!dialog.open) dialog.showModal();
     await loadHistory();
@@ -224,7 +226,7 @@
       state.headers = headers;
       state.fileContents = contents;
       buildMappings(headers);
-      message(`${file.name} · ${headers.length} headers detected. Preview to check matches and quantities.`);
+      message(`${file.name} · ${headers.length} headers detected. Import to add recognised cards and review the remainder.`);
     } catch (_error) {
       message("Could not read this CSV/TSV file. Export again as UTF-8 text.", "error");
     }
@@ -272,9 +274,9 @@
     }
     const generation = state.generation;
     setBusy(true);
-    message("Previewing exact card identities and checking previous Collectr snapshots…");
+    message("Checking exact matches and adding recognised Draft copies…");
     try {
-      const preview = await apiRequest("/api/v1/owner/imports/preview", {
+      const preview = await apiRequest("/api/v1/owner/imports/upload", {
         method: "POST",
         body: JSON.stringify({
           filename: file.name,
@@ -291,11 +293,12 @@
       );
       if (generation !== state.generation || !state.dialog?.open) return;
       loadPreview(stored, preview);
-      message("Preview complete. Review anything uncertain, then commit your Draft inventory.", "success");
+      message(`${state.summary.added_units} copies added to your inventory. ${state.summary.review_rows} rows need confirmation. Nothing is published.`, "success");
+      await refreshInventory();
       await loadHistory();
     } catch (_error) {
       if (generation !== state.generation || !state.dialog?.open) return;
-      message("Could not preview this file. Check the column mapping, or see Recent imports if it was already uploaded.", "error");
+      message("Import could not finish. Check Recent imports for any copies already added and rows still needing review; do not upload it as Other.", "error");
       await loadHistory();
     } finally {
       if (generation === state.generation) setBusy(false);
@@ -309,6 +312,7 @@
     state.batch = {
       id: String(stored.batch.id),
       status: stored.batch.status,
+      automatic_intake: Boolean(stored.batch.automatic_intake),
       version: Number(stored.batch.version),
       adapter: stored.batch.adapter,
       source_rows: Number(stored.batch.source_rows || 0),
@@ -318,28 +322,25 @@
     state.warnings = parseJSON(stored.batch.warnings, []);
     if (!Array.isArray(state.warnings)) state.warnings = [];
     const summary = {
+      added_units: state.candidates.filter(x => x.status === "COMMITTED").reduce((total, x) => total + Number(x.quantity || 0), 0),
+      review_units: state.candidates.filter(x => x.status === "REVIEW").reduce((total, x) => total + Number(x.quantity || 0), 0),
       ready_units: state.candidates.filter(x => x.status === "READY")
         .reduce((total, x) => total + Number(x.quantity || 0), 0),
       review_rows: state.candidates.filter(x => x.status === "REVIEW").length,
       skipped_rows: state.candidates.filter(x => x.status === "SKIPPED").length,
     };
-    // Counts from the server's entire stored batch take priority; the
-    // initial POST body displays only 200 candidate previews.
-    state.summary = compact?.review_rows === undefined ? summary : {
-      ready_units: Number(compact.ready_units || 0),
-      review_rows: Number(compact.review_rows || 0),
-      skipped_rows: Number(compact.skipped_rows || 0),
-    };
-    state.filter = "ALL";
+    // Use authoritative totals when the mutation returns them.
+    state.summary = {...summary, ...(compact?.summary || {})};
+    state.filter = state.batch.automatic_intake && summary.review_rows ? "REVIEW" : "ALL";
     state.page = 0;
-    $("owner-import-filter").value = "ALL";
+    $("owner-import-filter").value = state.filter;
     $("owner-import-preview-section").hidden = false;
     renderPreview();
   }
 
   function canCommit() {
     return Boolean(state.batch && state.batch.status === "PREVIEW" &&
-      state.summary && state.summary.review_rows === 0 && Number.isInteger(state.batch.version));
+      state.summary && Number.isInteger(state.batch.version) && (!state.batch.automatic_intake || state.summary.ready_units > 0));
   }
 
   function renderPreview() {
@@ -347,8 +348,8 @@
     summary.replaceChildren();
     for (const [value, title] of [
       [state.batch.physical_units, "Copies in source"],
-      [state.summary.ready_units, "New Draft copies"],
-      [state.summary.review_rows, "Rows needing review"],
+      [state.summary.added_units, "Copies added to inventory"],
+      [state.summary.review_rows, `Rows needing review (${state.summary.review_units} copies)`],
     ]) {
       const block = document.createElement("div");
       block.append(node("strong", String(value)), node("span", title));
@@ -358,14 +359,12 @@
       state.warnings.join(" ") +
       (state.batch.adapter === "COLLECTR"
         ? " Collectr re-exports reconcile changed quantities; do not import the same collection as Other."
-        : " Other exports are treated as new physical copies; check the preview before committing.")
+        : " Other exports add new physical copies; only exact-file retries are deduplicated.")
     );
     const commit = $("owner-import-commit");
-    commit.hidden = state.batch.status !== "PREVIEW";
+    commit.hidden = state.batch.status !== "PREVIEW" || (state.batch.automatic_intake && !state.summary.ready_units);
     commit.disabled = !canCommit() || state.busy;
-    commit.textContent = state.summary.ready_units
-      ? `Import ${state.summary.ready_units} Draft copies`
-      : "Confirm snapshot (0 new copies)";
+    commit.textContent = "Add recognised cards; review the rest";
     renderCandidates();
   }
 
@@ -430,18 +429,20 @@
     }
   }
 
-  function updateCandidate(result) {
+  async function refreshInventory() {
+    await Promise.allSettled([
+      typeof loadOwnerInventory === "function" ? loadOwnerInventory() : Promise.resolve(),
+      typeof loadOwnerOverview === "function" ? loadOwnerOverview() : Promise.resolve(),
+    ]);
+  }
+
+  async function updateCandidate(result) {
     if (!state.batch || state.batch.id !== String(result.batch_id)) return;
-    state.batch.version = Number(result.version);
-    state.summary = {
-      ready_units: Number(result.summary?.ready_units || 0),
-      review_rows: Number(result.summary?.review_rows || 0),
-      skipped_rows: Number(result.summary?.skipped_rows || 0),
-    };
-    const candidate = normalizeCandidate(result.candidate || {});
-    const idx = state.candidates.findIndex(x => String(x.id) === String(candidate.id));
-    if (idx >= 0) state.candidates[idx] = candidate;
-    renderPreview();
+    const generation = state.generation;
+    const stored = await apiRequest(`/api/v1/owner/imports/${encodeURIComponent(result.batch_id)}`);
+    if (generation !== state.generation || !state.dialog?.open) return;
+    loadPreview(stored, result);
+    await refreshInventory();
   }
 
   async function skipCandidate(candidate, button) {
@@ -454,7 +455,7 @@
         {method: "POST", body: JSON.stringify({version: state.batch.version})}
       );
       if (!state.batch || state.batch.id !== batchId || !state.dialog?.open) return;
-      updateCandidate(result);
+      await updateCandidate(result);
       message(`Source row ${candidate.source_row} will not be added.`, "success");
     } catch (_error) {
       message("This row could not be skipped. Refresh the import preview and retry.", "error");
@@ -475,6 +476,13 @@
       .filter(Boolean).join(" ").slice(0, 150);
     const search = node("button", "Search Drop Rate catalogue");
     search.type = "button";
+    const languageLabel = node("label", "Confirm language only when missing or conflicting");
+    const language = document.createElement("select");
+    language.setAttribute("aria-label", "Card language confirmation");
+    for (const [value, text] of [["", "Use selected card language"], ["English", "English"], ["Japanese", "Japanese"], ["Chinese", "Chinese"], ["Korean", "Korean"], ["French", "French"], ["German", "German"], ["Italian", "Italian"], ["Spanish", "Spanish"], ["Portuguese", "Portuguese"]]) {
+      const option = node("option", text); option.value = value; language.append(option);
+    }
+    languageLabel.append(language);
     const results = document.createElement("div");
     results.className = "owner-import-resolver-results";
     const runSearch = async () => {
@@ -502,9 +510,9 @@
           description.append(node("small", [
             item.game, item.set_name, item.card_number, item.variant, item.language,
           ].filter(Boolean).join(" · ")));
-          const choose = node("button", "Use match");
+          const choose = node("button", state.batch.automatic_intake ? "Confirm and add" : "Confirm match");
           choose.type = "button";
-          choose.addEventListener("click", () => resolveCandidate(candidate, item.id, choose));
+          choose.addEventListener("click", () => resolveCandidate(candidate, item.id, choose, language.value || null));
           itemRow.append(description, choose);
           results.append(itemRow);
         }
@@ -518,12 +526,13 @@
     input.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {event.preventDefault();runSearch();}
     });
-    section.append(input, search, results);
+    section.append(input, search, languageLabel, results);
     row.append(section);
     input.focus();
+    await runSearch();
   }
 
-  async function resolveCandidate(candidate, catalogueId, button) {
+  async function resolveCandidate(candidate, catalogueId, button, language = null) {
     if (!state.batch) return;
     const batchId = state.batch.id;
     button.disabled = true;
@@ -532,14 +541,14 @@
         `/api/v1/owner/imports/${encodeURIComponent(batchId)}/candidates/${encodeURIComponent(candidate.id)}/resolve`,
         {
           method: "POST",
-          body: JSON.stringify({version: state.batch.version, catalogue_id: catalogueId}),
+          body: JSON.stringify({version: state.batch.version, catalogue_id: catalogueId, language}),
         }
       );
       if (!state.batch || state.batch.id !== batchId || !state.dialog?.open) return;
-      updateCandidate(result);
-      message("Existing catalogue match selected. Remaining issues still need review.", "success");
+      await updateCandidate(result);
+      message(result.candidate?.status === "COMMITTED" ? "Confirmed card added to your Draft inventory." : "Match saved. Any remaining missing facts still need confirmation.", "success");
     } catch (_error) {
-      message("Catalogue match could not be saved. Refresh the preview and retry.", "error");
+      message("Confirmation could not finish. Refresh the import to check its current result before retrying.", "error");
       button.disabled = false;
     }
   }
@@ -555,10 +564,10 @@
         {method: "POST", body: JSON.stringify({version: state.batch.version})}
       );
       if (!state.batch || state.batch.id !== batchId || !state.dialog?.open) return;
-      state.batch.status = "COMMITTED";
-      $("owner-import-commit").hidden = true;
-      message(`${Number(result.created_count || 0)} new physical Draft copies added to your own inventory. Nothing has been published.`, "success");
-      renderPreview();
+      const stored = await apiRequest(`/api/v1/owner/imports/${encodeURIComponent(batchId)}`);
+      if (!state.batch || state.batch.id !== batchId || !state.dialog?.open) return;
+      loadPreview(stored);
+      message(`${state.summary.added_units} copies added. ${state.summary.review_rows} rows still need confirmation. Nothing is published.`, "success");
       await loadHistory();
       // Account-level inventory is the only affected UI. Avoid new
       // publication/AI enrichment/settlement side effects.
@@ -567,7 +576,7 @@
         typeof loadOwnerOverview === "function" ? loadOwnerOverview() : Promise.resolve(),
       ]);
     } catch (_error) {
-      message("Could not commit this preview. No duplicate import was attempted; refresh the batch and try again.", "error");
+      message("Import could not finish. Refresh this batch to check which copies were already added before retrying.", "error");
     } finally {
       setBusy(false);
     }
@@ -594,7 +603,7 @@
         copy.append(node("strong", entry.filename || "CSV import"));
         copy.append(node("small", [
           entry.adapter, entry.source_rows ? `${entry.source_rows} source rows` : "",
-          entry.status,
+          entry.status === "PREVIEW" ? "Review remaining" : entry.status,
         ].filter(Boolean).join(" · ")));
         if (entry.status === "PREVIEW") {
           const resume = node("button", "Resume review");
@@ -607,7 +616,7 @@
               );
               if (!state.dialog?.open) return;
               loadPreview(stored);
-              message("Restored previous import preview. Review any unresolved rows.");
+              message("Import restored. Added copies stay in your inventory; review only the remaining rows.");
             } catch (_error) {
               message("Could not resume this import. Refresh and try again.", "error");
             } finally {
