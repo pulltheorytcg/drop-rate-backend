@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - run: python -m pip install playwright==1.55.1
+      - run: python -m pip install playwright==1.57.0
       - run: python -m playwright install --with-deps chromium
       - name: Isolated theme layout regression (no checkout or network)
         run: python tests/ui/storefront_card_layout.py
