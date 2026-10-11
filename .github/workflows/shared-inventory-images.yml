@@ -72,20 +72,21 @@ jobs:
       - name: Exact deployed asset and anonymous denial; GET only, no credentials
         run: |
           python - <<'PY'
-          import hashlib,json,time,urllib.request,urllib.error
+          import hashlib,json,re,time,urllib.request,urllib.error
           from pathlib import Path
           base='https://drop-rate-api-live-production.up.railway.app'
           local=Path('backend/app/static/owner-inventory.js').read_bytes()
+          asset=re.search(r'src="([^"]*owner-inventory\.js\?v=[^"]+)"',Path('backend/app/static/owner.html').read_text()).group(1)
           result={}
           for attempt in range(30):
               try:
-                  with urllib.request.urlopen(base+'/assets/owner-inventory.js?v=shared-art-v8',timeout=10) as response: remote=response.read()
+                  with urllib.request.urlopen(base+asset,timeout=10) as response: remote=response.read()
                   if remote==local: break
               except (OSError,urllib.error.URLError):pass
               time.sleep(5)
           else:raise AssertionError('Expected asset not deployed in readback window')
           result['asset_sha256']=hashlib.sha256(remote).hexdigest()
-          with urllib.request.urlopen(base+'/owner',timeout=10) as response:assert b'owner-inventory.js?v=shared-art-v8' in response.read()
+          with urllib.request.urlopen(base+'/owner',timeout=10) as response:assert asset.encode() in response.read()
           with urllib.request.urlopen(base+'/health/ready',timeout=10) as response:assert response.status==200
           try:urllib.request.urlopen(base+'/api/v1/inventory/d715b0e9-b3c4-451b-a909-5fa233f8a0e5/image',timeout=10)
           except urllib.error.HTTPError as error:assert error.code==401;result['anonymous_image_status']=error.code
