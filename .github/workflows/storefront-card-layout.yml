@@ -1,0 +1,27 @@
+name: Storefront card layout
+on:
+  pull_request:
+    paths:
+      - 'storefront/theme/**'
+      - 'tests/ui/storefront_card_layout.py'
+      - '.github/workflows/storefront-card-layout.yml'
+permissions:
+  contents: read
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.55.1
+      - run: python -m playwright install --with-deps chromium
+      - name: Isolated theme layout regression (no checkout or network)
+        run: python tests/ui/storefront_card_layout.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: storefront-card-layout
+          path: /tmp/drop-rate-card-layout
