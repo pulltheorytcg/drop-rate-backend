@@ -1,0 +1,98 @@
+name: Import grade and mobile regression
+on:
+  pull_request:
+    paths:
+      - 'backend/app/import*.py'
+      - 'backend/app/owner_auto_imports.py'
+      - 'backend/app/static/owner-imports*'
+      - 'backend/app/static/owner.html'
+      - 'database/migrations/**'
+      - 'tests/*import*'
+      - 'tests/ui/owner-import-mobile-layout.py'
+      - '.github/workflows/import-grade-mobile.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/import_inventory.py'
+      - 'backend/app/static/owner-imports.css'
+      - '.github/workflows/import-grade-mobile.yml'
+permissions:
+  contents: read
+jobs:
+  grade-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: import_intake_test
+          PGUSER: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet -r requirements-dev.txt
+      - run: PYTHONPATH=backend pytest -q tests/test_import_inventory_condition.py
+      - name: Actual import handlers with committed production condition guard
+        run: PYTHONPATH=backend python tests/owner_import_grade_regression.py
+        env:
+          IMPORT_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/import_intake_test
+  mobile-layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet playwright==1.57.0
+      - run: python -m playwright install --with-deps chromium webkit
+      - run: python tests/ui/owner-import-mobile-layout.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: import-mobile-layout
+          path: /tmp/drop-rate-import-layout
+  production-readback:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v7
+      - name: Read-only rollout check; no authenticated import or data write
+        env:
+          BASE_URL: https://drop-rate-api-live-production.up.railway.app
+        run: |
+          python - <<'PY'
+          import hashlib, os, time, urllib.request, urllib.error
+          from pathlib import Path
+          base=os.environ['BASE_URL']
+          expected=Path('backend/app/static/owner-imports.css').read_bytes()
+          for attempt in range(60):
+              try:
+                  request=urllib.request.Request(base+'/assets/owner-imports.css?v=auto-intake-v1',headers={'Cache-Control':'no-cache'})
+                  with urllib.request.urlopen(request,timeout=10) as response:
+                      actual=response.read()
+                      headers={k:response.headers.get(k) for k in ('Cache-Control','ETag','Last-Modified')}
+                  if actual==expected: break
+              except (OSError,urllib.error.URLError): pass
+              time.sleep(5)
+          else: raise AssertionError('Deployed import CSS did not match tested commit')
+          with urllib.request.urlopen(base+'/health/ready',timeout=10) as response:
+              assert response.status==200
+          try:
+              urllib.request.urlopen(base+'/api/v1/owner/imports',timeout=10)
+          except urllib.error.HTTPError as error:
+              assert error.code==401,error.code
+          else: raise AssertionError('Owner imports unexpectedly accessible without authentication')
+          print('PASS: deployed CSS SHA256',hashlib.sha256(actual).hexdigest(),headers)
+          print('Readiness 200; unauthenticated imports 401. Not a production seller-session test.')
+          PY
