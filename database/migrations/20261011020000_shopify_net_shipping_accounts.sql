@@ -193,4 +193,15 @@ $body$;
 revoke all on function tcg.owner_net_shopify_postage(uuid) from public, anon, authenticated;
 grant execute on function tcg.owner_net_shopify_postage(uuid) to tcg_api;
 
+-- Even privileged repairs require append-only adjustment records and audit.
+create trigger shopify_delivery_account_immutable
+    before update or delete on tcg.shopify_delivery_accounts
+    for each row execute function tcg.prevent_finance_mutation();
+create trigger shopify_delivery_refund_immutable
+    before update or delete on tcg.shopify_delivery_refunds
+    for each row execute function tcg.prevent_finance_mutation();
+create trigger shopify_postage_actual_cost_immutable
+    before update or delete on tcg.shopify_postage_actual_costs
+    for each row execute function tcg.prevent_finance_mutation();
+
 commit;
