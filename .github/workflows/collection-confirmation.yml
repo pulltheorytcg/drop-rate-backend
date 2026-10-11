@@ -9,7 +9,7 @@ on:
       - 'backend/app/static/owner*'
       - 'backend/app/static/scanner-flow.*'
       - 'tests/collection*'
-      - 'tests/ui/collection-confirmation.py'
+      - 'tests/ui/collection-*.py'
       - '.github/workflows/collection-confirmation.yml'
   push:
     branches: [main]
@@ -55,8 +55,10 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install playwright==1.57.0
       - run: python -m playwright install --with-deps chromium webkit
-      - name: Real scanner source with synthetic API data, no camera/production identity
-        run: python tests/ui/collection-confirmation.py
+      - name: Real scanner and selling controls with synthetic API data, no camera/production identity
+        run: |
+          python tests/ui/collection-confirmation.py
+          python tests/ui/collection-selling.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
