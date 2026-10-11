@@ -1,0 +1,39 @@
+name: Prepare collection confirmation branch
+on:
+  push:
+    branches: [fix/collection-first-confirmation-20261011]
+    paths: ['.github/workflows/prepare-collection-confirmation.yml']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    if: github.repository == 'pulltheorytcg/drop-rate-backend' && github.ref == 'refs/heads/fix/collection-first-confirmation-20261011'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 2
+      - name: Checked source patch; never run against main or production data
+        env:
+          EXPECTED_HEAD: ${{ github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          python tools/prepare_collection_confirmation.py
+          python tools/finish_collection_preparation.py
+          python -m compileall -q backend tests/collection_intake_postgres.py tests/collection_selling_postgres.py tests/ui/collection-confirmation.py
+          node --check backend/app/static/scanner-flow.js
+          node --check backend/app/static/owner-inventory.js
+          git diff --check
+          rm tools/prepare_collection_confirmation.py tools/finish_collection_preparation.py .github/workflows/prepare-collection-confirmation.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -u
+          git commit -m 'Separate collection confirmation from optional selling; preserve existing publication gates'
+          git push origin HEAD:refs/heads/fix/collection-first-confirmation-20261011
+          git archive --format=tar HEAD > /tmp/collection-confirmation-source.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: collection-confirmation-source
+          path: /tmp/collection-confirmation-source.tar
