@@ -2,6 +2,14 @@
 
 **Status:** first safe, read-only phase. This is **not** a carrier label or Shopify fulfillment release.
 
+## 11 October 2026 — Shopify free-delivery discount correction
+
+**Before paid-label activation:** the buyer's selected rate can have an *undiscounted* amount even when Shopify applies a free-shipping promotion or tier. The correct "customer paid for shipping" amount is Shopify `ShippingLine.discountedPriceSet` **after** shipping discounts, not the original `Order.totalShippingPriceSet`. The correct "still retained" amount is `Order.currentShippingPriceSet` (after discounts and refunds), which must match the sum of `ShippingLine.currentDiscountedPriceSet`. Refund adjustments must reconcile to `Order.totalRefundedShippingSet`. If the totals disagree, block preview and label purchase; never falsely credit £3.95 to the seller for a £0 delivery checkout.
+
+An independent read on a historical refunded Drop Rate Shopify order confirmed original £4.99, initial discounted shipping £4.99, current shipping £0 and shipping refund £4.99. Regression tests include a free UK Standard £50+ order where original rate £3.95 was discounted to £0, paid Tracked 24, international and mismatched prices. No Shopify rates or seller accounting were changed by this correction.
+
+---
+
 ## 11 October 2026 — Seller shipping payment transparency (read-only)
 
 Founder clarified that the seller must see how much will be deducted before accepting a postage charge, and that customer-paid delivery needs to offset it. Customer checkout price is not the carrier cost. UK Standard Tracked 48 is **£3.95 below £50, free from £50**; UK Tracked 24 stays **£4.95 paid at every order value**. Europe **£14.99** and selected International **£23.99** currently charge shipping at every order value. Do not blindly apply a free-shipping threshold to other services or countries, and never infer checkout shipping from merchandise subtotal: discounts/refunds and live Shopify rate rules can change the captured amount.
