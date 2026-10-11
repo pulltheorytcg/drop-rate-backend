@@ -807,7 +807,7 @@ window.DropRateScanner = (() => {
 
     editable(item) { return !this.saving && !this.editBusy && !item.requests && item.status !== "processing"; }
     ready(item) { return Boolean(item.requests || (item.selected?.catalogue_id && item.status === "matched"
-      && (graded(item) ? gradeValid(item) && item.quantity === 1 : usableRun(item) && (sealed(item) || conditions.includes(item.condition))))); }
+      && (graded(item) ? gradeValid(item) && item.quantity === 1 : usableRun(item) && (!item.condition || conditions.includes(item.condition))))); }
 
     render() {
       const totals = this.totals();
@@ -855,11 +855,11 @@ window.DropRateScanner = (() => {
         const card = snapshot(selected(item));
         for (const [label, value] of [["Variant", card.variant || card.art_treatment || card.sealed_product_type || "—"],
           ["Type", graded(item) ? item.grading_company + " " + item.grade : sealed(item) ? "Sealed product" : "Raw card"],
-          [graded(item) ? "Certificate" : "Condition", graded(item) ? item.certificate_number : sealed(item) ? "Sealed" : item.condition || "Choose condition"], ["Quantity", item.quantity]]) {
+          [graded(item) ? "Certificate" : "Condition", graded(item) ? item.certificate_number : sealed(item) ? "Sealed" : item.condition || "Not recorded — needed when selling"], ["Quantity", item.quantity]]) {
           fields.append(node("dt", "", label), node("dd", "", value));
         }
         copy.append(fields);
-        const edit = button(!graded(item) && !sealed(item) && !item.condition ? "Choose condition & confirm" : item.status === "unresolved" ? "Confirm match" : "Edit details", () => this.openDetails(item));
+        const edit = button(item.status === "unresolved" ? "Confirm match" : "Confirm & add", () => this.openDetails(item));
         edit.disabled = !this.editable(item); copy.append(edit);
         if (item.status === "added") copy.append(node("span", "dr-scan-added", "Added to inventory"));
         if (item.error) copy.append(node("p", "dr-scan-item-error", item.error));
@@ -871,13 +871,13 @@ window.DropRateScanner = (() => {
       const missingCondition = this.items.filter(item => item.selected && !graded(item) && !sealed(item) && !item.condition).length;
       const matched = this.items.length - unresolved;
       this.find(".dr-scan-review-count").textContent = matched + " matched " + (matched === 1 ? "scan" : "scans") +
-        (unresolved ? " · " + unresolved + " to review" : "") + (missingCondition ? " · check conditions" : "") +
+        (unresolved ? " · " + unresolved + " to review" : "") + (missingCondition ? " · condition can be added later" : "") +
         (totals.unknown ? " · " + totals.unknown + " without a market value" : "") + ".";
       const done = this.items.length && this.items.every(item => item.status === "added");
       const retry = this.items.some(item => item.requests && item.status !== "added");
       const save = this.find('[data-action="save"]');
-      save.textContent = this.saving ? "Adding…" : done ? "View inventory" : retry ? "Retry remaining saves" : "Add to Inventory";
-      save.disabled = this.saving || !this.items.length || (!done && this.items.some(item => !this.ready(item)));
+      save.textContent = this.saving ? "Adding…" : done ? "View inventory" : retry ? "Retry remaining saves" : "Confirm & add recognised";
+      save.disabled = this.saving || !this.items.length || (!done && !this.items.some(item => item.status !== "added" && this.ready(item)));
       this.find('[data-action="back"]').disabled = this.saving;
       this.review.querySelector('[data-action="close"]').disabled = this.saving;
     }
@@ -987,9 +987,9 @@ window.DropRateScanner = (() => {
       const isSealed = sealed(candidateItem);
       content.append(isSealed ? node("span", "dr-scan-type-chip", "Sealed product") : this.graderChoices());
       const fields = node("div", "dr-scan-detail-fields");
-      const conditionLabel = node("label", "", isGraded ? "Grade" : "Condition");
+      const conditionLabel = node("label", "", isGraded ? "Grade" : "Condition (optional until selling)");
       const condition = node("select"); condition.setAttribute("aria-label", isGraded ? "Grade" : "Condition");
-      (isSealed ? ["Sealed"] : isGraded ? ["Choose grade", ...gradeOptions(edit.grading_company)] : ["Choose condition", ...conditions]).forEach((value, index) => {
+      (isSealed ? ["Sealed"] : isGraded ? ["Choose grade", ...gradeOptions(edit.grading_company)] : ["Not recorded", ...conditions]).forEach((value, index) => {
         const label = isGraded && value === "10" ? (edit.grading_company === "BGS" ? "Pristine · 10" : "10") : value;
         const option = node("option", "", label); option.value = !isSealed && index === 0 ? "" : value; condition.append(option);
       });
@@ -1023,14 +1023,8 @@ window.DropRateScanner = (() => {
       const footer = node("footer", "dr-scan-details-footer");
       const remove = button("⌫", () => this.remove(item), "dr-scan-delete"); remove.setAttribute("aria-label", "Remove this scan");
       remove.innerHTML = icons.trash;
-      const save = button("Looks Good", () => {
-        if (!isGraded && !isSealed && !conditions.includes(edit.condition)) {
-          condition.focus();
-          try { condition.showPicker?.(); } catch (_) { /* Focus still exposes the required field. */ }
-          return;
-        }
-        this.confirmDetails();
-      }, "dr-scan-primary"); save.dataset.detailsSave = "true";
+      content.append(node("p", "dr-scan-review-note", "Confirming saves this item to your collection, not a selling channel. Price, cost and shipping can wait."));
+      const save = button("Confirm & add", () => this.confirmDetails(), "dr-scan-primary"); save.dataset.detailsSave = "true";
       footer.append(remove, save); this.details.append(footer); this.updateDetailsSave();
       content.scrollTop = edit.detailScroll;
       close.focus();
@@ -1058,17 +1052,16 @@ window.DropRateScanner = (() => {
       const missingCondition = !isSealed && !conditions.includes(edit.condition);
       const save = this.details.querySelector("[data-details-save]");
       save.disabled = this.editBusy || !valid;
-      save.textContent = missingCondition ? "Choose condition to continue" : "Looks Good";
+      save.textContent = "Confirm & add";
       this.details.querySelector(".dr-scan-detail-message").textContent = !usableRun(edit.item)
         ? "Retry this photo before confirming a match." : !allowedSealed ? "This sealed product needs identity review."
         : !edit.selected ? "Choose a match or search for the correct card."
         : !valid ? "Quantity must be a whole number from 1 to 50."
-        : missingCondition ? "Select the card’s condition above, then confirm the match." : "";
+        : missingCondition ? "Condition is optional for your collection. Confirm it when listing for sale." : "";
     }
 
     async confirmDetails() {
       const edit = this.edit; if (!edit || this.editBusy || this.details.querySelector("[data-details-save]").disabled) return;
-      if (!graded(edit) && !sealed({...edit.item, selected: edit.selected}) && !conditions.includes(edit.condition)) return;
       this.editBusy = true;
       this.details.querySelectorAll("button, input, select").forEach(control => { control.disabled = true; });
       try {
@@ -1097,6 +1090,7 @@ window.DropRateScanner = (() => {
           grading_company: graded(edit) ? edit.grading_company : null, grade: graded(edit) ? edit.grade : null,
           certificate_number: graded(edit) ? edit.certificate_number : null, slab: edit.slab, savedGradedValue: null});
         this.editBusy = false; this.closeDetails(); this.render();
+        await this.saveAll([edit.item]);
       } catch (error) {
         if (!this.active()) return;
         this.editBusy = false; this.renderDetails();
@@ -1269,7 +1263,7 @@ window.DropRateScanner = (() => {
       item.feedback = JSON.stringify({outcome: item.searchSelected ? "CORRECTED_BY_SEARCH"
         : item.selected.catalogue_id === item.run.top_catalogue_id ? "CONFIRMED_TOP" : "CORRECTED_TO_CANDIDATE",
       selected_catalogue_id: item.selected.catalogue_id, notes: "Confirmed in Drop Rate scanner review"});
-      const physical = {condition: isSealed ? null : item.condition, seal_status: isSealed ? "SEALED" : null,
+      const physical = {condition: isSealed ? null : item.condition || null, seal_status: isSealed ? "SEALED" : null,
         grading_company: null, grade: null, certificate_number: null, language: card.language || null};
       const payload = this.options.role === "seller"
         ? {...physical, recognition_run_id: item.run.id, selected_catalogue_id: item.selected.catalogue_id}
@@ -1278,15 +1272,17 @@ window.DropRateScanner = (() => {
       item.requests = Array.from({length: item.quantity}, () => ({key: crypto.randomUUID(), body: JSON.stringify(payload), result: null}));
     }
 
-    async saveAll() {
+    async saveAll(onlyItems = null) {
       if (this.saving || !this.active() || !this.items.length) return;
       if (this.items.every(item => item.status === "added")) { this.close(); this.options.viewInventory(); return; }
-      if (this.items.some(item => !this.ready(item))) return;
-      this.saving = true; this.items.forEach(item => this.freeze(item)); this.renderReview();
+      const targets = (onlyItems || this.items).filter(item => this.items.includes(item)
+        && item.status !== "added" && this.ready(item));
+      if (!targets.length) return;
+      this.saving = true; targets.forEach(item => this.freeze(item)); this.renderReview();
       const epoch = this.epoch;
       const message = this.find(".dr-scan-save-message");
-      let added = 0, failed = 0, marketPending = 0;
-      for (const item of this.items) {
+      let added = 0, failed = 0;
+      for (const item of targets) {
         if (!this.active(epoch)) return;
         if (item.status === "added") continue;
         try {
@@ -1301,16 +1297,10 @@ window.DropRateScanner = (() => {
               : this.options.role === "seller" ? "/api/v1/owner/recognition-intake" : "/api/v1/inventory/intake", {
               method: "POST", headers: {"Idempotency-Key": pending.key}, body: pending.body,
             });
+            if (!this.active(epoch)) return;
             if (!data.inventory?.inventory_code) throw new Error("Save confirmation was incomplete. Retry to check this same request.");
             pending.result = data; added += 1;
             if (graded(item)) item.savedGradedValue = data.valuation?.market_value_minor ?? data.inventory.market_value_minor ?? null;
-            if (this.options.role === "seller" && sealed(item) && data.inventory.identity_confirmed && data.inventory.market_value_minor == null) {
-              try {
-                const market = await this.request("/api/v1/owner/inventory/" + encodeURIComponent(data.inventory.inventory_code) + "/refresh-market", {method: "POST", body: "{}"});
-                if (market.valuation?.market_value_minor == null) marketPending += 1;
-                else item.selected.market_value_minor = market.valuation.market_value_minor;
-              } catch (_) { marketPending += 1; }
-            }
           }
           item.status = "added"; item.error = null; item.photo = null;
         } catch (error) {
@@ -1322,9 +1312,9 @@ window.DropRateScanner = (() => {
       if (!this.active(epoch)) return;
       this.saving = false; this.render();
       message.textContent = failed ? added + " added. Retry the remaining saves; their details are locked to prevent duplicate copies."
-        : added + " added to your inventory. " + (this.options.role === "founder" || this.items.some(item => item.requests.some(request => !request.result.inventory.identity_confirmed))
-          ? "Identity review is still required before approval." : "Saved with verified identity.");
-      if (marketPending) message.textContent += " Some market values are still pending.";
+        : added + " added to your collection. Listing for sale is a separate action.";
+      if (this.items.some(item => !item.requests && !this.ready(item))) message.textContent += " Uncertain matches remain for confirmation.";
+      this.status(message.textContent);
       try { await this.options.afterSave(); }
       catch (_) { if (this.active(epoch)) message.textContent += " Refresh inventory to see the latest totals."; }
     }

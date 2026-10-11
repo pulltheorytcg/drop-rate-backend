@@ -326,7 +326,7 @@ def test_verified_exact_sealed_intake_sets_identity_confirmed_without_affecting_
     assert "pr.collectible_type='SEALED'" in recognition_block
     assert "pr.identity_status='VERIFIED'" in recognition_block
     assert "sd.identity_status='VERIFIED'" in recognition_block
-    assert "$11,'DRAFT',$12,$13::jsonb,'FOR_SALE'" in recognition_block
+    assert "$11,'DRAFT',$12,$13::jsonb,'PERSONAL_COLLECTION'" in recognition_block
     assert "verified_exact_sealed_identity," in recognition_block
     assert "verified_exact_sealed_identity" not in graded_block
 
@@ -429,7 +429,7 @@ def test_recognition_intake_does_not_call_external_market_provider_inside_transa
 
     assert "_hydrate_verified_sealed_market" not in block
     assert "refresh_verified_sealed_ebay_market" not in block
-    assert "_recalculate_one(connection, owner_id, inventory_id)" in block
+    assert "_recalculate_one(connection, owner_id, inventory_id)" not in block
 
 
 def test_inventory_ui_renders_sealed_state_identity_and_market_refresh_action() -> None:

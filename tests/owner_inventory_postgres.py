@@ -54,7 +54,7 @@ async def main():
           create trigger inventory_audit after update on tcg.inventory_items for each row execute function tcg.fixture_audit();
           grant usage on schema tcg to tcg_api;grant select on all tables in schema tcg to tcg_api;
           grant insert on tcg.inventory_items,tcg.request_receipts,tcg.order_items,tcg.test_inventory_audit to tcg_api;
-          grant update(store_price_minor,status,sale_intent,version,updated_at,identity_confirmed) on tcg.inventory_items to tcg_api;
+          grant update(condition,store_price_minor,status,sale_intent,version,updated_at,identity_confirmed) on tcg.inventory_items to tcg_api;
           grant update(state) on tcg.listing_inventory_members to tcg_api;
           alter table tcg.inventory_items enable row level security;alter table tcg.inventory_items force row level security;
           create policy inventory_owner on tcg.inventory_items to tcg_api
@@ -97,7 +97,7 @@ async def main():
             detail=await api.details(item,request,user,access)
             assert len(detail['copies'])==1 and detail['copies'][0]['inventory_code']=='INV-A'
             assert detail['item']['reference_image_url'].endswith('/product_pack.webp')
-            assert 'Drop Rate intake review' in detail['item']['approval_blockers']
+            assert any('Acquisition cost' in issue for issue in detail['item']['approval_blockers'])
             assert 'acquisition_cost_minor' not in detail['item'] and 'intake_ready' not in detail['item']
             for read in (api.details,api.reference_image):
                 try: await read(other,request,user,access);raise AssertionError('Read foreign inventory')
@@ -171,6 +171,8 @@ async def main():
         await db.execute("update tcg.inventory_items set language='Japanese' where id=$1",item)
         from seller_publication_postgres import verify_publication_actor
         await verify_publication_actor(db,pool,owner,item,foreign,actor)
+        from collection_selling_postgres import verify_collection_selling
+        await verify_collection_selling(db,pool,request,user,access,foreign)
         print('Seller inventory PostgreSQL: owner isolation, exact artwork/migration replay, concurrent quantity receipts, price/approval guards and audited withdrawal passed.')
     finally:
         if pool:await pool.close()

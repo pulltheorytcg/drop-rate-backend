@@ -194,8 +194,19 @@ window.DropRateInventory = (() => {
 
     const publishedOnShopify=item.shopify_state==="PUBLISHED";
     const approvedForSale=item.status==="APPROVED" && item.sale_intent==="FOR_SALE";
-    const sale = el("section", "owner-item-section");
-    sale.append(el("h3", "", "Selling price"));
+    const sale = el("details", "owner-item-section owner-item-selling");
+    sale.open = publishedOnShopify || approvedForSale || item.status === "INSPECTION";
+    sale.append(el("summary", "", publishedOnShopify ? "Manage listing" : "List for sale"));
+    sale.append(el("p", "owner-item-note", "Your card is already in inventory. Listing is optional and requires a separate selling request."));
+    let saleCondition;
+    if (item.product_type === "CARD" && !item.grading_company && ["DRAFT", "INSPECTION"].includes(item.status)) {
+      const label = el("label", "", "Condition when selling"); saleCondition = el("select");
+      saleCondition.setAttribute("aria-label", "Condition when selling");
+      for (const value of ["", "Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"]) {
+        const option = el("option", "", value || "Choose condition"); option.value = value; saleCondition.append(option);
+      }
+      saleCondition.value = item.condition || ""; label.append(saleCondition); sale.append(label);
+    }
     const priceLabel = el("label", "", "Your selling price (£)"), priceInput = el("input");
     priceInput.type = "number"; priceInput.min = "1"; priceInput.step = "0.01"; priceInput.inputMode = "decimal";
     priceInput.value = item.store_price_minor == null ? "" : (item.store_price_minor / 100).toFixed(2);
@@ -209,7 +220,12 @@ window.DropRateInventory = (() => {
     };
     const priceAction = (path, method) => {
       let minor; try { minor = value(); } catch (error) { status(error.message, true); priceInput.focus(); return; }
-      run(() => apiRequest(`/api/v1/owner/inventory/${item.id}/${path}`, {method, body: JSON.stringify({version: item.version, store_price_minor: minor})}));
+      if (path === "approval-request" && saleCondition && !saleCondition.value) {
+        status("Choose the condition for your listing. The card is already saved in inventory.", true); saleCondition.focus(); return;
+      }
+      const body = {version: item.version, store_price_minor: minor};
+      if (path === "approval-request" && saleCondition) body.condition = saleCondition.value;
+      run(() => apiRequest(`/api/v1/owner/inventory/${item.id}/${path}`, {method, body: JSON.stringify(body)}));
     };
     const actions=el("div","owner-item-actions");
     const save=button("Save selling price",()=>priceAction("selling-price","PATCH"));
@@ -219,8 +235,8 @@ window.DropRateInventory = (() => {
     // never be offered a second "Approve" action.
     if(!publishedOnShopify && !approvedForSale){
       const approve=button(
-        item.seller_approval_available?"Approve for Shopify":
-        item.status==="INSPECTION"?"Update Shopify approval request":"Approve sale & request review",
+        item.seller_approval_available?"List on Shopify":
+        item.status==="INSPECTION"?"Update listing request":"Request listing review",
         ()=>priceAction("approval-request","POST"),"primary"
       );
       approve.disabled=!active(item);
@@ -231,15 +247,15 @@ window.DropRateInventory = (() => {
       sale.append(el("p","owner-item-note","This copy is already published on Shopify. You can still update your selling price."));
     }else{
       if(item.approval_blockers?.length){
-        sale.append(el("p","","Before this copy can be published:"));
+        sale.append(el("p","","Known next steps before selling (channel checks run again before publication):"));
         const list=el("ul");
         item.approval_blockers.forEach(reason=>list.append(el("li","",reason)));
         sale.append(list);
       }
       if(!approvedForSale) {
         sale.append(el("p","owner-item-note",item.seller_approval_available
-          ?"Approve to confirm that you hold this exact sealed product and want to sell it. Your stock stays with you and uses the approved catalogue image."
-          :"Approval saves your selling price and requests Drop Rate review. Approved For Sale stock can then sync to Shopify."));
+          ?"List on Shopify confirms that you hold this exact sealed product and want it offered for sale. Your stock stays with you and uses approved catalogue artwork."
+          :"This selling request is separate from adding the card. Drop Rate selling review still applies to this item; approval can then trigger Shopify publication."));
       }
       if(!item.shopify_sync_enabled) sale.append(el("p","owner-item-note","Shopify publishing is currently unavailable."));
     }
@@ -260,8 +276,8 @@ window.DropRateInventory = (() => {
       {
         code:"SHOPIFY",label:"Shopify",state:publishedOnShopify?"Published":
           !item.shopify_sync_enabled?"Unavailable":
-          !approvedForSale?"Awaiting approval":"Ready to sync",
-        action:!publishedOnShopify && item.shopify_sync_enabled && approvedForSale?"Sync to Shopify":null,
+          !approvedForSale?"Not listed — use List for sale":"Awaiting channel checks",
+        action:!publishedOnShopify && item.shopify_sync_enabled && approvedForSale?"Check & sync to Shopify":null,
         click:()=>run(async()=>{
           const result=await apiRequest(`/api/v1/owner/inventory/${item.id}/channels/shopify/sync`,
             {method:"POST",body:JSON.stringify({version:item.version})});
@@ -279,7 +295,7 @@ window.DropRateInventory = (() => {
       },
       {
         code:"WHATNOT",label:"Whatnot",
-        state:"Personal seller connection awaiting Whatnot API access",
+        state:"Not connected in Drop Rate — publishing unavailable",
         action:null
       }
     ];
@@ -310,8 +326,8 @@ window.DropRateInventory = (() => {
     }
     sellerChannels.append(channelGrid);
     if(!ebayEligible) sellerChannels.append(el("p","owner-item-channel-footnote",
-      "eBay: "+ebayReason+". Whatnot direct seller-account authorisation is currently unavailable; your account will not be linked to Drop Rate’s Shopify admin."));
-    content.append(sellerChannels);
+      "eBay: "+ebayReason+". Whatnot is not connected in this workflow. No seller is given access to Shopify Admin."));
+    sale.append(sellerChannels);
 
     const stock = el("section", "owner-item-section"); stock.append(el("h3", "", "Quantity"));
     const savedQuantity = copies.length;

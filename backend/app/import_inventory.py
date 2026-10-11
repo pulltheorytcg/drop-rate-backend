@@ -54,9 +54,9 @@ async def create_draft_copies(connection: asyncpg.Connection, *, candidates: lis
                     id,inventory_code,catalogue_id,owner_id,acquisition_cost_minor,
                     currency,condition,seal_status,grading_company,grade,
                     certificate_number,language,identity_confirmed,status,notes,
-                    import_batch_id,source_row,source_copy,source_record
+                    import_batch_id,source_row,source_copy,source_record,sale_intent
                 ) values($1,$2,$3,$4,$5,'GBP',$6,$7,$8,$9,$10,$11,
-                         false,'DRAFT','',$12,$13,$14,$15::jsonb)""",
+                         false,'DRAFT','',$12,$13,$14,$15::jsonb,'PERSONAL_COLLECTION')""",
                 inventory_id,f"INV-{inventory_id.hex.upper()}",candidate["catalogue_id"],owner_id,
                 normalized.get("acquisition_cost_minor"),condition,
                 normalized.get("seal_status"),normalized.get("grading_company"),

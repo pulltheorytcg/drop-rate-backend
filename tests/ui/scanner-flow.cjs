@@ -89,7 +89,7 @@ async function matched(scanner, quantity = 1) {
     assert.equal(body.identity_confirmed, role === 'seller' ? undefined : false);
     assert.equal(item.status, 'added'); assert.equal(item.photo, null);
     assert.ok(f.calls.findIndex(call => call.url.endsWith('/feedback')) < f.calls.indexOf(save));
-    assert.match(f.scanner.find('.dr-scan-save-message').textContent, /review is still required/);
+    assert.match(f.scanner.find('.dr-scan-save-message').textContent, /Listing for sale is a separate action/);
     await f.scanner.saveAll(); assert.equal(f.scanner.inventoryOpened, true);
     f.finish(); checks += 1;
   }
@@ -127,11 +127,11 @@ async function matched(scanner, quantity = 1) {
     assert.equal(item.status, 'added');
     f.finish(); checks += 1;
   }
-  // Exact matches still require a physical condition; changing quantity validates integer bounds.
+  // Condition is optional for collection entry; confirmation saves selected copies.
   {
-    const f = fixture('seller', async () => result());
+    const f = fixture('seller', async url => url.endsWith('/resolve') ? result() : url.endsWith('/recognition-intake') ? {inventory:{inventory_code:'INV-CONFIRMED'}} : {});
     await f.scanner.recognise('photo'); const item = f.scanner.items[0]; f.scanner.showReview();
-    assert.ok(f.scanner.find('[data-action="save"]').disabled);
+    assert.ok(!f.scanner.find('[data-action="save"]').disabled);
     f.scanner.openDetails(item);
     const condition = f.scanner.details.querySelector('select'); condition.value = 'Lightly Played';
     condition.dispatchEvent(new f.w.Event('change'));
@@ -140,7 +140,8 @@ async function matched(scanner, quantity = 1) {
     quantity.value = '2'; quantity.dispatchEvent(new f.w.Event('input'));
     await f.scanner.confirmDetails();
     assert.equal(item.condition, 'Lightly Played'); assert.equal(item.quantity, 2);
-    assert.equal(f.calls.length, 1, 'Detail confirmation alone does not write inventory or feedback');
+    assert.equal(item.status, 'added');
+    assert.equal(f.calls.filter(call => call.url.endsWith('/recognition-intake')).length, 2, 'One confirmation saves the two selected copies');
     assert.match(f.scanner.find('.dr-scan-review-total').textContent, /£30.00/);
     f.finish(); checks += 1;
   }
@@ -356,15 +357,12 @@ async function matched(scanner, quantity = 1) {
     });
     await f.scanner.recognise('law-photo'); const item=f.scanner.items[0]; f.scanner.openDetails(item);
     const confirm=f.scanner.details.querySelector('[data-details-save]');
-    assert.equal(confirm.textContent,'Choose condition to continue');
-    confirm.click(); await tick();
-    assert.equal(f.dom.window.document.activeElement.getAttribute('aria-label'),'Condition');
-    assert.equal(f.calls.length,1,'No write before condition is chosen');
+    assert.equal(confirm.textContent,'Confirm & add');
+    assert.equal(f.calls.length,1,'No write before explicit confirmation');
     assert.match(f.scanner.details.textContent,/Market value unavailable/);
-    const condition=f.scanner.details.querySelector('select'); condition.value='Near Mint';
-    condition.dispatchEvent(new f.w.Event('change'));
-    assert.equal(confirm.textContent,'Looks Good');
     await f.scanner.confirmDetails(); f.scanner.showReview();
+    const saveRequest=f.calls.find(call=>call.headers?.['Idempotency-Key']);
+    assert.equal(JSON.parse(saveRequest.body).condition,null,'Unknown condition is not guessed as Near Mint');
     assert.equal(f.scanner.find('[data-action="save"]').disabled,false);
     await f.scanner.saveAll();
     assert.equal(item.status,'added');

@@ -23,7 +23,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const f=fixture({seller_approval_available:true,approval_blockers:[],image_url:'https://cdn.shopify.com/op17.webp'});await f.open();
   assert.match(f.w.document.querySelector('dialog').textContent,/Your stock stays with you/);
   assert.doesNotMatch(f.w.document.querySelector('dialog').textContent,/requests Drop Rate review/);
-  f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value='10.00';await click(f.w,'Approve for Shopify');
+  f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value='10.00';await click(f.w,'List on Shopify');
   assert.deepEqual(JSON.parse(f.calls.find(c=>c.method).body),{version:3,store_price_minor:1000});f.finish();checks++;
  }
  for(const change of ['refresh','account','logout']){
@@ -59,7 +59,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
     assert.ok(entries.some(entry=>entry[0]===label&&entry[1]===value),label+' missing from item details');
   assert.equal(tile.querySelector('.owner-item-facts'),null);
   f.w.DropRateInventory.close();f.w.document.querySelector('.owner-inventory-open').click();await tick();assert.equal(f.w.document.querySelector('dialog').open,true);
-  assert.match(f.w.document.querySelector('dialog').textContent,/Drop Rate intake review/);assert.equal(btn(f.w,'Sync to Shopify'),undefined);
+  assert.match(f.w.document.querySelector('dialog').textContent,/Drop Rate intake review/);assert.equal(btn(f.w,'Check & sync to Shopify'),undefined);
   assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
  }
  // Two approved identical sealed physical copies become ONE quantity-2 card,
@@ -98,7 +98,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   let opened=null;f.w.open=(url,target,options)=>{opened={url,target,options};};
   assert.equal(btn(f.w,'Set up'),undefined,'Seller must not be sent to Drop Rate Shopify');
   assert.equal(f.w.document.querySelector('.owner-item-channel-whatnot button'),null);
-  assert.match(f.w.document.querySelector('.owner-item-channel-whatnot').textContent,/Personal seller connection awaiting Whatnot API access/);
+  assert.match(f.w.document.querySelector('.owner-item-channel-whatnot').textContent,/Not connected in Drop Rate — publishing unavailable/);
   assert.equal(f.w.document.querySelector('.owner-item-channel-whatnot .owner-item-channel-availability').textContent,'Not available yet');
   assert.equal(opened,null,'No unapproved Whatnot OAuth or Shopify install should open');
   assert.equal(f.w.document.querySelector('.owner-item-channel-shopify img').src,'https://upload.wikimedia.org/wikipedia/commons/0/0e/Shopify_logo_2018.svg');
@@ -133,13 +133,13 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const f=fixture();await f.open();f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value=value;
   await click(f.w,'Save selling price');assert.equal(f.calls.filter(c=>c.method).length,0);assert.match(f.w.document.querySelector('.owner-item-message').textContent,/at least £1/);f.finish();checks++;
  }
- for(const action of ['Save selling price','Approve sale & request review']){
+ for(const action of ['Save selling price','Request listing review']){
   const f=fixture();await f.open();f.w.document.querySelector('[aria-label="Your selling price in pounds"]').value='12.34';
   await click(f.w,action);const sent=f.calls.find(c=>c.method);assert.deepEqual(JSON.parse(sent.body),{version:3,store_price_minor:1234});
   assert.ok(sent.url.endsWith(action.startsWith('Save')?'/selling-price':'/approval-request'));assert.equal(sent.body.includes('identity'),false);f.finish();checks++;
  }
  {
-  const f=fixture({status:'APPROVED',store_price_minor:1000});await f.open();await click(f.w,'Sync to Shopify');
+  const f=fixture({status:'APPROVED',store_price_minor:1000});await f.open();await click(f.w,'Check & sync to Shopify');
   assert.ok(f.calls.some(c=>c.url.endsWith('/channels/shopify/sync')&&JSON.parse(c.body).version===3));f.finish();checks++;
  }
  // Already-published physical stock has a save-price control but must never
@@ -150,9 +150,10 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
     is_consignment:true,store_price_minor:1000,shopify_sync_enabled:true});
   await f.open();
   const modal=f.w.document.querySelector('dialog');
-  assert.ok(modal.querySelector('.owner-item-section h3').textContent==='Selling price');
-  assert.equal(btn(f.w,'Approve for Shopify'),undefined);
-  assert.equal(btn(f.w,'Sync to Shopify'),undefined);
+  assert.equal(modal.querySelector('.owner-item-selling summary').textContent,'Manage listing');
+  assert.ok(modal.querySelector('.owner-item-selling').open);
+  assert.equal(btn(f.w,'List on Shopify'),undefined);
+  assert.equal(btn(f.w,'Check & sync to Shopify'),undefined);
   assert.ok(btn(f.w,'Save selling price'));
   assert.match(modal.querySelector('.owner-item-channel-shopify').textContent,/Published/);
   assert.equal(modal.querySelector('.owner-item-channel-shopify .owner-item-channel-availability').textContent,'Already live');
@@ -166,7 +167,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   f.finish();checks++;
  }
  for(const override of [{status:'SOLD'},{status:'RESERVED'},{status:'WITHDRAWN'},{sale_intent:'PERSONAL_COLLECTION',status:'APPROVED'},{shopify_sync_enabled:false,status:'APPROVED'}]){
-  const f=fixture(override);await f.open();assert.equal(btn(f.w,'Sync to Shopify'),undefined);
+  const f=fixture(override);await f.open();assert.equal(btn(f.w,'Check & sync to Shopify'),undefined);
   if(override.status!=='APPROVED'){assert.equal(btn(f.w,'Save selling price').disabled,true);assert.equal(btn(f.w,'−').disabled,true);assert.equal(btn(f.w,'+').disabled,true);}
   f.finish();checks++;
  }
