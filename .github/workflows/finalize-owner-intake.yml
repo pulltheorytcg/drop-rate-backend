@@ -1,0 +1,111 @@
+name: Finalize owner intake branch
+on:
+  push:
+    branches: ['fix/owner-immediate-import-20261011']
+permissions:
+  contents: write
+concurrency:
+  group: finalize-owner-intake-20261011
+  cancel-in-progress: false
+jobs:
+  finalize:
+    if: github.repository == 'pulltheorytcg/drop-rate-backend'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: import_intake_test
+          PGUSER: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: python -m pip install --quiet -r requirements-dev.txt
+      - name: Apply reviewed, count-checked follow-up edits
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          def replace(path,old,new):
+              p=Path(path);s=p.read_text();assert s.count(old)==1,(path,old[:100],s.count(old));p.write_text(s.replace(old,new,1))
+          replace('backend/app/imports.py','    collectr_snapshot_key,','    collectr_source_snapshot_key as collectr_snapshot_key,')
+          replace('backend/app/owner_auto_imports.py','from .collectr_snapshot import collectr_snapshot_key','from .collectr_snapshot import collectr_source_snapshot_key as collectr_snapshot_key')
+          replace('tests/test_owner_csv_imports.py','if "select id from tcg.owners" in sql:','if "pg_advisory_xact_lock" in sql:')
+          replace('backend/app/owner_auto_imports.py',
+              '    try:\n        preview=await imports.preview_import(payload,request,user)',
+              '''    # Reject another file before persisting a stale preview. The locked
+              # apply stage rechecks this condition for simultaneous requests.
+              digest=hashlib.sha256(payload.content.encode()).hexdigest()
+              async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
+                  owner=await current_owner(connection)
+                  other=await connection.fetchval("""select id from tcg.import_batches
+                      where owner_id=$1 and automatic_intake and status='PREVIEW'
+                        and source_sha256<>$2 limit 1""",owner["id"],digest)
+                  if other:
+                      raise HTTPException(409,{"message":"Finish or skip the remaining rows in your open import before uploading another export","batch_id":str(other)})
+              try:
+                  preview=await imports.preview_import(payload,request,user)''')
+          replace('tests/owner_auto_import_postgres.py','            await api.upload_collection(payload(),request,a)\n            raise AssertionError',
+              '''            initial=await imports.preview_import(payload(),request,a)
+                      await api.add_recognised(UUID(initial['batch_id']),imports.ImportCommitRequest(version=initial['version']),request,a)
+                      raise AssertionError''')
+          replace('tests/owner_auto_import_postgres.py',
+              '        await expected_error(api.upload_collection(payload(3),request,a),409)',
+              '''        preview_count=await db.fetchval('select count(*) from tcg.import_batches')
+                  await expected_error(api.upload_collection(payload(3),request,a),409)
+                  assert await db.fetchval('select count(*) from tcg.import_batches')==preview_count,'Blocked export left a stale preview' ''')
+          replace('tests/owner_auto_import_postgres.py',
+              "        # The earlier rejected new preview has a stale baseline. Fresh export\n        # includes a harmless newline, not a way to bypass duplicate stock.\n        next_result=await api.upload_collection(payload(3,suffix='\\n'),request,a)",
+              "        # The previously blocked exact file is now accepted without editing\n        # its contents to evade a fingerprint or leaving a stale preview.\n        next_result=await api.upload_collection(payload(3),request,a)")
+          replace('backend/app/static/owner-imports.js',
+              '    $("owner-import-preview").textContent = "Import collection";',
+              '    $("owner-import-preview").textContent = "Import collection";\n    $("owner-import-preview-title").textContent = "Import results";')
+          replace('backend/app/static/owner-imports.js',
+              "    // Counts from the server's entire stored batch take priority; the\n    // initial POST body displays only 200 candidate previews.\n    state.summary = summary;",
+              "    // Use authoritative totals when the mutation returns them.\n    state.summary = {...summary, ...(compact?.summary || {})};")
+          replace('backend/app/static/owner-imports.js','    loadPreview(stored);\n    await refreshInventory();','    loadPreview(stored, result);\n    await refreshInventory();')
+          p=Path('tests/test_import_admission.py');p.write_text(p.read_text()+'''
+
+          def test_source_receipt_never_masks_changed_physical_identity():
+              from app.collectr_snapshot import collectr_snapshot_key, collectr_source_snapshot_key
+              source,_=records()
+              original=collectr_snapshot_key(source)
+              source['_collectr_source_identity']=list(original)
+              changed=dict(source,language='Japanese',grade='10',grading_company='PSA')
+              assert collectr_snapshot_key(changed)!=original
+              assert collectr_source_snapshot_key(changed)==original
+          ''')
+          PY
+          python -m compileall -q backend/app
+          node --check backend/app/static/owner-imports.js
+      - run: PYTHONPATH=backend pytest -q
+      - run: npm ci --prefix tests/ui --silent && npm test --prefix tests/ui
+      - run: PYTHONPATH=backend python tests/owner_auto_import_postgres.py
+        env:
+          IMPORT_TEST_DSN: postgresql://postgres:disposable-ci-only@127.0.0.1:5432/import_intake_test
+      - name: Commit only tested follow-up files with branch lease
+        env:
+          EXPECTED_HEAD: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          BRANCH=fix/owner-immediate-import-20261011
+          test "$(git ls-remote origin refs/heads/$BRANCH | cut -f1)" = "$EXPECTED_HEAD"
+          git diff --check
+          git add backend/app/imports.py backend/app/owner_auto_imports.py backend/app/static/owner-imports.js tests/test_owner_csv_imports.py tests/owner_auto_import_postgres.py tests/test_import_admission.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Separate receipt identity, reject stale previews early and preserve importer regressions'
+          git push origin HEAD:refs/heads/$BRANCH
