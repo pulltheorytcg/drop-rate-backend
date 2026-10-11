@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Mapping
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -14,6 +14,23 @@ def json_object(value: Any) -> dict:
     if not isinstance(value, dict):
         raise ValueError("Stored import record must be an object")
     return value
+
+
+def inventory_condition_for_copy(normalized: Mapping[str, Any]) -> str | None:
+    """Project export data into mutually exclusive physical inventory fields.
+
+    Collectr can retain a raw condition even when Grade says PSA 10. Keep that
+    source fact in the raw receipt and snapshot identity, but don't assert a
+    separate raw condition for the graded physical copy. Only a complete
+    grading pair on a CARD takes this path; incomplete/non-card contradictions
+    still face the existing review and database guards. Do not mutate the
+    candidate: older previews and Collectr re-exports must keep their keys.
+    """
+    if (normalized.get("product_type") == "CARD"
+            and str(normalized.get("grading_company") or "").strip()
+            and str(normalized.get("grade") or "").strip()):
+        return None
+    return normalized.get("condition")
 
 
 async def lock_import_owner(connection: asyncpg.Connection, owner_id: UUID) -> None:
@@ -30,6 +47,7 @@ async def create_draft_copies(connection: asyncpg.Connection, *, candidates: lis
     for candidate in candidates:
         normalized = json_object(candidate["normalized_record"])
         raw = json_object(candidate["raw_record"])
+        condition = inventory_condition_for_copy(normalized)
         for copy_number in range(1, candidate["quantity"] + 1):
             inventory_id = uuid4()
             await connection.execute(
@@ -41,7 +59,7 @@ async def create_draft_copies(connection: asyncpg.Connection, *, candidates: lis
                 ) values($1,$2,$3,$4,$5,'GBP',$6,$7,$8,$9,$10,$11,
                          false,'DRAFT','',$12,$13,$14,$15::jsonb)""",
                 inventory_id,f"INV-{inventory_id.hex.upper()}",candidate["catalogue_id"],owner_id,
-                normalized.get("acquisition_cost_minor"),normalized.get("condition"),
+                normalized.get("acquisition_cost_minor"),condition,
                 normalized.get("seal_status"),normalized.get("grading_company"),
                 normalized.get("grade"),normalized.get("certificate_number"),
                 normalized.get("language"),batch_id,candidate["source_row"],
