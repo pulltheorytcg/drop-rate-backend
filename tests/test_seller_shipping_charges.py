@@ -235,57 +235,69 @@ def test_customer_shipping_refund_offsets_only_existing_owner_shipping_credit():
     assert result["owner_allocated_shipping_minor"] == 295
 
 
-def test_owner_scoped_http_endpoint_proves_order_and_ledger_before_shopify(monkeypatch):
-    user_id=uuid4()
-    item_id=uuid4()
-    local_id=uuid4()
-    seen=[]
+def test_owner_scoped_http_endpoint_shows_only_net_auto_postage(monkeypatch):
+    user_id = uuid4()
+    order_item_id = uuid4()
+    requests = []
+
     class FakeConn:
-        async def fetchrow(self,sql,*args):
-            if "select o.id as local_order_id" in sql:
-                assert args == (user_id,item_id)
-                assert "sol.owner_id=$1" in sql
-                assert "i.owner_id=$1" in sql
+        async def fetchrow(self, sql, *params):
+            if "select o.source_reference" in sql:
+                assert params == (user_id, order_item_id)
                 assert "oi.id=$2 and oi.owner_id=$1" in sql
-                seen.append("selected")
-                return {"local_order_id":local_id,"source_reference":"8506160775515",
-                        "local_order_status":"PAID"}
-            assert args == (user_id,local_id)
-            assert "where oi.order_id=$2 and oi.owner_id=$1" in sql
-            assert "le.owner_id=$1" in sql
-            assert "rec.owner_id=$1" in sql
-            seen.append("ledger")
-            return ledger(owner_share=158)
+                assert "i.owner_id=$1" in sql and "sol.owner_id=$1" in sql
+                requests.append("owner_item")
+                return {"source_reference": "8506160775515", "order_status": "PAID"}
+            assert params == (order_item_id,)
+            assert "tcg.owner_net_shopify_postage($1)" in sql
+            requests.append("net_policy")
+            return {
+                "charge_policy": "COMPANY_FUNDED_CUSTOMER_PAID",
+                "net_shipping_charge_minor": 0,
+                "policy_status": "NO_SELLER_CHARGE",
+            }
+
     @asynccontextmanager
-    async def fake_connection(pool,uid,request_id):
-        assert uid==user_id
+    async def fake_connection(pool, uid, request_id):
+        assert uid == user_id
         yield FakeConn()
+
     async def fake_access(conn):
-        return {"owner_id":user_id,"access_role":"OWNER"}
+        return {"owner_id": user_id, "access_role": "OWNER"}
+
     class FakeShopify:
-        async def graphql(self,*,query,variables):
-            assert variables == {"orderId":ORDER_ID}
-            assert "shippingLines" in query
+        async def graphql(self, *, query, variables):
+            assert variables == {"orderId": ORDER_ID}
             assert "currentShippingPriceSet" in query
             assert "discountedPriceSet" in query
-            assert "currentDiscountedPriceSet" in query
             assert "shippingAddress" not in query
-            seen.append("shopify")
-            return {"order":shopify_order()}
-    monkeypatch.setattr(portal,"user_connection",fake_connection)
-    monkeypatch.setattr(portal,"current_access_context",fake_access)
-    monkeypatch.setattr(portal,"_shipping_admin_client",lambda:FakeShopify())
-    req=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),
-                        state=SimpleNamespace(request_id="fee-preview"))
-    result=asyncio.run(portal.owner_shopify_shipping_cost_preview(
-        item_id,req,SimpleNamespace(user_id=user_id)
+            requests.append("shopify")
+            return {"order": shopify_order()}
+
+    monkeypatch.setattr(portal, "user_connection", fake_connection)
+    monkeypatch.setattr(portal, "current_access_context", fake_access)
+    monkeypatch.setattr(portal, "_shipping_admin_client", lambda: FakeShopify())
+
+    req = SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),
+        state=SimpleNamespace(request_id="net-only-policy"),
+    )
+    result = asyncio.run(portal.owner_shopify_shipping_cost_preview(
+        order_item_id, req, SimpleNamespace(user_id=user_id),
     ))
-    assert result["owner_item_count"] == 1
-    assert result["owner_allocated_shipping_minor"] == 158
-    assert result["buyer_shipping_retained_minor"] == 395
+    assert result["currency"] == "GBP"
+    assert result["source"] == "OWNER_NET_POSTAGE_POLICY"
+    assert result["shipping_charge_status"] == "NO_SELLER_CHARGE"
+    assert result["net_shipping_charge_minor"] == 0
+    assert result["automatic"] is True
     assert result["purchase_allowed"] is False
-    assert seen == ["selected","ledger","shopify"]
-    assert "Private buyer" not in repr(result)
+    assert requests == ["owner_item", "net_policy", "shopify"]
+    for private in (
+        "buyer_shipping_retained_minor", "owner_allocated_shipping_minor",
+        "verified_postage_cost_minor", "buyer_details",
+    ):
+        assert private not in repr(result)
+
 
 
 def test_wrong_owner_returns_404_without_shopify_request(monkeypatch):
