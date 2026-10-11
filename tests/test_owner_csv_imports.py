@@ -30,6 +30,7 @@ def test_owner_api_is_allowlisted_and_founder_apis_remain_admin_only():
         for route in owner_imports.router.routes if isinstance(route, APIRoute)
     }
     expected = {
+        (prefix + "/upload", ("POST",)),
         (prefix + "/preview", ("POST",)),
         (prefix, ("GET",)),
         (prefix + "/{batch_id}", ("GET",)),

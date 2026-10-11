@@ -1,5 +1,13 @@
 # Drop Rate — Live Build Status
 
+## 11 October 2026 — Immediate recognised Seller Hub intake (implementation branch; release verification pending)
+
+New explicit founder decision supersedes the all-rows-reviewed/manual-whole-batch rule: an intentional collection upload adds eligible >=95% matches directly to individually owned **Draft** inventory; uncertain rows remain for explicit confirmation and are added independently when confirmed. No Shopify publication, invented values, automatic owner transfer or financial changes.
+
+The first admission method is unique complete exact catalogue identity, recorded as a deterministic rule result, NOT an empirically calibrated probability. No fuzzy/AI/CSV confidence is trusted. Grade, language, variant and physical safety checks remain. Replays/partial imports use the existing candidate receipts and unique physical source keys. One incremental Collectr snapshot per owner remains open until exceptions are confirmed/skipped; newer files cannot bypass it.
+
+Fixes include narrow batch-processing column grants, replacing the invalid ownership-row lock with a transaction advisory lock, shared physical-copy insertion, clearer source/added/review counts and immediate inventory refresh. Existing pending real previews are not imported by deployment; their owner must explicitly choose Import/Add recognised cards. See `docs/IMMEDIATE_OWNER_IMPORTS.md` and #599. Exact-head CI, migration/deployment readback and authenticated production acceptance are separate gates; do not mark them passed merely from this entry.
+
 ## 11 October 2026 — Automatic owner NET Shopify shipping charge policy (in development)
 
 - Founder confirmed **seller sees ONLY net shipping charge**. For customer-paid shipping (UK Tracked48 below £50, paid Tracked24, paid EU/international), Drop Rate retains checkout shipping and absorbs the carrier postage; seller postage debit **£0**. For **free UK Tracked48 at £50+**, actual verified Royal Mail label cost is deducted automatically from the responsible seller, no per-order consent button. Unknown actual label cost displays *Pending automatic charge*. No customer/label amounts disclosed to seller. Final carrier label purchase remains disabled until reliable carrier receipt journal/custody/FO split pilot.

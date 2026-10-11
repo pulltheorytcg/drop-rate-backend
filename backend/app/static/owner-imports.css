@@ -119,3 +119,9 @@
  .owner-import-menu-wrap{order:2}
  .owner-portal-page .owner-import-menu{right:0}
 }
+
+/* Keep matching controls consistent with the collection modal. */
+.owner-import-resolver input,.owner-import-resolver select {font:inherit;background:#fff;color:#17385f;border:1px solid #c7d8ee;border-radius:9px;padding:10px;width:100%;}
+.owner-import-resolver button {font:inherit;background:#fff;color:#17385f;border:1px solid #c7d8ee;border-radius:8px;padding:9px 12px;cursor:pointer;}
+.owner-import-resolver button:disabled {opacity:.55;cursor:wait;}
+.owner-import-resolver label {display:grid;gap:6px;font-size:.8rem;}

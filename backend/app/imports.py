@@ -18,6 +18,8 @@ from pydantic import BaseModel, Field, model_validator
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .import_inventory import lock_import_owner, create_draft_copies
+from .import_admission import manual_admission_valid
 from .language import clean_language, parse_title_language
 from .collectr_snapshot import (
     collectr_adapter_headers,
@@ -187,7 +189,7 @@ def _money_minor(value: str | None, currency: str | None) -> tuple[int | None, l
         amount = Decimal(cleaned)
     except InvalidOperation:
         return None, ["invalid_purchase_cost"]
-    if amount < 0:
+    if not amount.is_finite() or amount < 0:
         return None, ["invalid_purchase_cost"]
     minor = int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
     return minor, []
@@ -312,6 +314,11 @@ def _normalized_row(
         "certificate_number": certificate,
         "acquisition_cost_minor": cost_minor,
     }
+    if adapter == "COLLECTR":
+        source_identity = dict(normalized)
+        source_identity["language"] = explicit_language or title_language or set_language
+        source_identity["game"] = _cell(row, mapping, "game")
+        normalized["_collectr_source_identity"] = list(collectr_snapshot_key(source_identity))
     return normalized, sorted(set(issues))
 
 
@@ -665,6 +672,29 @@ async def preview_import(
                     catalogue_id = previous["catalogue_id"]
                     issues = [issue for issue in issues if issue != "catalogue_not_found"]
 
+                # Reuse a recorded human decision only for the identical source
+                # key and an unchanged catalogue identity. This is a mapping,
+                # not a fabricated model confidence or a new canonical record.
+                if previous and previous.get("catalogue_id"):
+                    prior_record = previous.get("normalized_record") or {}
+                    prior_confirmation = prior_record.get("import_identity_confirmation") or {}
+                    if prior_confirmation.get("method") == "MANUAL":
+                        chosen = await connection.fetchrow(
+                            "select * from tcg.catalogue_products where id=$1",
+                            previous["catalogue_id"],
+                        )
+                        if manual_admission_valid(prior_record, dict(chosen) if chosen else None):
+                            catalogue_id = previous["catalogue_id"]
+                            for identity_field in ("game", "name", "set_name", "card_number", "variant", "rarity", "language"):
+                                normalized[identity_field] = prior_record.get(identity_field)
+                            normalized["import_identity_confirmation"] = prior_confirmation
+                            resolved = {"missing_name", "missing_game", "missing_set", "missing_card_number",
+                                        "catalogue_not_found", "catalogue_admin_review_required",
+                                        "ambiguous_catalogue_match", "manual_identity_confirmation_required"}
+                            if normalized.get("language"):
+                                resolved.update({"missing_language", "language_conflict"})
+                            issues = [issue for issue in issues if issue not in resolved]
+
                 if delta_quantity < 0:
                     issues.append("collectr_quantity_decrease")
                 elif delta_quantity == 0:
@@ -889,6 +919,7 @@ async def commit_import_batch(
 ) -> dict:
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         owner = await _owner(connection)
+        await lock_import_owner(connection, owner["id"])
         async with connection.transaction():
             batch = await connection.fetchrow(
                 "select * from tcg.import_batches where id = $1 and owner_id = $2 for update",
@@ -896,18 +927,22 @@ async def commit_import_batch(
             )
             if batch is None:
                 raise HTTPException(status_code=404, detail="Import batch not found")
+            if batch["status"] == "COMMITTED" and payload.version in {batch["version"], batch["version"] - 1}:
+                return {"batch_id": str(batch_id), "replayed": True, "created_count": 0, "status": "COMMITTED"}
             if batch["version"] != payload.version:
                 raise HTTPException(status_code=409, detail={"message": "Import batch changed", "current_version": batch["version"]})
-            if batch["status"] == "COMMITTED":
-                return {"batch_id": str(batch_id), "replayed": True, "created_count": 0, "status": "COMMITTED"}
+            if batch.get("automatic_intake"):
+                raise HTTPException(status_code=409, detail="Continue this import through Seller Hub")
+            active_intake = await connection.fetchval(
+                "select id from tcg.import_batches where owner_id=$1 and id<>$2 and automatic_intake and status='PREVIEW' limit 1",
+                owner["id"], batch_id,
+            )
+            if active_intake:
+                raise HTTPException(status_code=409, detail="Finish the open Seller Hub import before committing another snapshot")
             if batch["status"] != "PREVIEW":
                 raise HTTPException(status_code=409, detail="Only PREVIEW batches can be committed")
 
             if batch["adapter"] == "COLLECTR":
-                await connection.fetchval(
-                    "select id from tcg.owners where id = $1 for update",
-                    owner["id"],
-                )
                 marker = await connection.fetchrow(
                     """
                     select normalized_record
@@ -1002,50 +1037,10 @@ async def commit_import_batch(
                 """,
                 batch_id, owner["id"],
             )
-            created_count = 0
-            for candidate in candidates:
-                normalized = _json_value(
-                    candidate["normalized_record"], expected_type=dict, fallback={}
-                )
-                raw_record = _json_value(candidate["raw_record"], expected_type=dict, fallback={})
-                for copy_number in range(1, candidate["quantity"] + 1):
-                    inventory_id = uuid4()
-                    inventory_code = f"INV-{inventory_id.hex.upper()}"
-                    unit_cost = normalized.get("acquisition_cost_minor")
-                    await connection.execute(
-                        """
-                        insert into tcg.inventory_items(
-                            id, inventory_code, catalogue_id, owner_id,
-                            acquisition_cost_minor, currency, condition, seal_status,
-                            grading_company, grade, certificate_number, language,
-                            identity_confirmed, status, notes,
-                            import_batch_id, source_row, source_copy, source_record
-                        ) values (
-                            $1, $2, $3, $4,
-                            $5, 'GBP', $6, $7,
-                            $8, $9, $10, $11,
-                            false, 'DRAFT', '',
-                            $12, $13, $14, $15::jsonb
-                        )
-                        """,
-                        inventory_id, inventory_code, candidate["catalogue_id"], owner["id"],
-                        unit_cost, normalized.get("condition"), normalized.get("seal_status"),
-                        normalized.get("grading_company"), normalized.get("grade"),
-                        normalized.get("certificate_number"), normalized.get("language"),
-                        batch_id,
-                        candidate["source_row"],
-                        (
-                            int(normalized.get("previous_quantity") or 0) + copy_number
-                            if batch["adapter"] == "COLLECTR"
-                            else copy_number
-                        ),
-                        json.dumps(raw_record),
-                    )
-                    created_count += 1
-                await connection.execute(
-                    "update tcg.import_candidates set status = 'COMMITTED' where id = $1",
-                    candidate["id"],
-                )
+            created_count = await create_draft_copies(
+                connection, candidates=list(candidates), owner_id=owner["id"],
+                batch_id=batch_id, adapter=batch["adapter"],
+            )
 
             now = datetime.now(timezone.utc)
             updated = await connection.fetchrow(

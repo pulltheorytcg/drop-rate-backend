@@ -112,6 +112,11 @@ async def main():
         migrations=list((ROOT/'database/migrations').glob('*_owner_incremental_import_intake.sql'));assert len(migrations)==1
         migration=migrations[0].read_text()
         await db.execute(migration);await db.execute(migration)
+        # Mirror migration-first deployment: the new application has a fresh
+        # connection pool, not SELECT * prepared plans from the old schema.
+        await pool.close()
+        pool=await asyncpg.create_pool(dsn,min_size=1,max_size=6,init=_init_connection,setup=setup,command_timeout=10)
+        request.app.state.db_pool=pool
         assert pending==await db.fetch('select id,owner_id,source_sha256,status,version from tcg.import_batches order by id'),'Migration changed source records'
         assert not await db.fetchval("select has_table_privilege('tcg_api','tcg.import_batches','UPDATE')")
         assert not await db.fetchval("select has_any_column_privilege('tcg_api','tcg.owners','UPDATE')")

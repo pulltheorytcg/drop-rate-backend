@@ -37,7 +37,7 @@ class ConfirmImportCandidate(ImportCandidateResolutionRequest):
         if value is None:
             return None
         result = clean_language(value)
-        if not result:
+        if result not in {"English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese"}:
             raise ValueError("Choose a supported card language")
         return result
 

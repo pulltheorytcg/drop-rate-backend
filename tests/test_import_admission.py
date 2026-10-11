@@ -57,3 +57,11 @@ def test_explicit_manual_language_is_validated():
         with pytest.raises(ValidationError):
             ConfirmImportCandidate(version=1,catalogue_id=uuid4(),language=invalid)
     assert ConfirmImportCandidate(version=1,catalogue_id=uuid4(),language='EN').language=='English'
+
+
+@pytest.mark.parametrize('value',['NaN','Infinity','-Infinity','-1'])
+def test_invalid_costs_go_to_review_not_server_error(value):
+    from app.collectr_snapshot import collectr_cost_minor
+    from app.imports import _money_minor
+    assert collectr_cost_minor(value)==(None,['invalid_purchase_cost'])
+    assert _money_minor(value,'GBP')==(None,['invalid_purchase_cost'])
