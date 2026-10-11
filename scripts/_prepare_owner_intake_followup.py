@@ -34,7 +34,32 @@ new=old+'''
                             issues = [issue for issue in issues if issue not in resolved]
 '''
 assert s.count(old)==1
-p.write_text(s.replace(old,new,1))
+s=s.replace(old,new,1)
+assert s.count('    if amount < 0:')==1
+s=s.replace('    if amount < 0:','    if not amount.is_finite() or amount < 0:',1)
+p.write_text(s)
+p=ROOT/'backend/app/collectr_snapshot.py';s=p.read_text()
+assert s.count('    if amount < 0:')==1
+p.write_text(s.replace('    if amount < 0:','    if not amount.is_finite() or amount < 0:',1))
 p=ROOT/'backend/app/owner_auto_imports.py';s=p.read_text()
 s=s.replace('        if not result:\n            raise ValueError("Choose a supported card language")','        if result not in {"English", "Japanese", "Chinese", "Korean", "French", "German", "Italian", "Spanish", "Portuguese"}:\n            raise ValueError("Choose a supported card language")',1)
+p.write_text(s)
+p=ROOT/'tests/owner_auto_import_postgres.py';s=p.read_text()
+old='        await db.execute(migration);await db.execute(migration)\n'
+new=old+'''        # Mirror migration-first deployment: the new application has a fresh
+        # connection pool, not SELECT * prepared plans from the old schema.
+        await pool.close()
+        pool=await asyncpg.create_pool(dsn,min_size=1,max_size=6,init=_init_connection,setup=setup,command_timeout=10)
+        request.app.state.db_pool=pool
+'''
+assert s.count(old)==1
+p.write_text(s.replace(old,new,1))
+p=ROOT/'tests/test_import_admission.py';s=p.read_text()
+s+='''\n\n@pytest.mark.parametrize('value',['NaN','Infinity','-Infinity','-1'])
+def test_invalid_costs_go_to_review_not_server_error(value):
+    from app.collectr_snapshot import collectr_cost_minor
+    from app.imports import _money_minor
+    assert collectr_cost_minor(value)==(None,['invalid_purchase_cost'])
+    assert _money_minor(value,'GBP')==(None,['invalid_purchase_cost'])
+'''
 p.write_text(s)
