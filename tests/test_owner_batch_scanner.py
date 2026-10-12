@@ -57,7 +57,7 @@ def test_owner_catalogue_search_returns_only_safe_card_identity_and_approved_med
     assert "p.card_number" in block
     assert "p.name" in block
     assert "p.set_name" in block
-    assert "tcg.recognition_catalogue_reference_value" in block
+    assert "tcg.catalogue_reference_value_v2" in block
     assert "m.approval_status='APPROVED'" in block
     assert "m.rights_status='VERIFIED'" in block
     assert "m.rights_tier='STOREFRONT_ALLOWED'" in block
