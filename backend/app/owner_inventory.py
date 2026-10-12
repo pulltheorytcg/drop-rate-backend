@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .access_control import require_owner_portal_request
 from .auth import AuthenticatedUser, require_user
 from .catalogue_artwork import reference_thumbnail
+from .language import clean_language
 from .recognition_games import SYSTEM_BY_GAME
 from .channel_sync_wakeup import request_shopify_sync
 from .db import user_connection
@@ -35,7 +36,7 @@ GAME_CASE = "case r.system_code " + " ".join(
 # A source must identify the exact printing, not merely share a card number or
 # set. These images are private collection references, never publication media.
 REFERENCE_ART_SQL = f"""
-select p.id,array_agg(distinct art.url) filter(where nullif(btrim(art.url),'') is not null) as urls
+select p.id,p.language as catalogue_language,array_agg(distinct art.url) filter(where nullif(btrim(art.url),'') is not null) as urls
 from tcg.catalogue_products p
 left join lateral (
  select r.image_url as url from tcg.reference_cards r
@@ -69,9 +70,16 @@ async def add_reference_artwork(connection, items):
     if not ids:
         return items
     rows = await connection.fetch(REFERENCE_ART_SQL, ids)
-    by_id = {row["id"]: row["urls"] or [] for row in rows}
+    by_id = {row["id"]: dict(row) for row in rows}
     for item in items:
-        urls = by_id.get(item["catalogue_id"], [])
+        artwork = by_id.get(item["catalogue_id"], {})
+        urls = artwork.get("urls") or []
+        physical_language = clean_language(item.get("language"))
+        catalogue_language = clean_language(artwork.get("catalogue_language"))
+        item.pop("reference_image_url", None)
+        item.pop("reference_image_path", None)
+        if physical_language and catalogue_language and physical_language != catalogue_language:
+            continue
         # Conflicting references remain unavailable; do not guess the picture.
         if len(urls) == 1 and _trusted_reference_url(urls[0]):
             item["reference_image_url"] = urls[0]
@@ -178,7 +186,7 @@ async def reference_image(inventory_id: UUID, request: Request,
                           user: Annotated[AuthenticatedUser, Depends(require_user)],
                           access: Annotated[dict, Depends(require_owner_portal_request)]):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        row = await connection.fetchrow("select id,catalogue_id from tcg.inventory_items where id=$1 and owner_id=$2",
+        row = await connection.fetchrow("select id,catalogue_id,language from tcg.inventory_items where id=$1 and owner_id=$2",
                                         inventory_id, access["owner_id"])
         if row is None:
             raise HTTPException(404, "Inventory item not found")

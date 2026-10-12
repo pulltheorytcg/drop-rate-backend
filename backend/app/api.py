@@ -503,7 +503,7 @@ async def inventory_card_image(
         owner = await _owner(connection)
         item = await connection.fetchrow(
             """
-            select i.id, i.catalogue_id
+            select i.id, i.catalogue_id, i.language
             from tcg.inventory_items i
             where i.id = $1 and i.owner_id = $2
             """,

@@ -70,3 +70,17 @@ def test_reference_totals_and_groups_do_not_promote_unknowns():
 def test_direct_image_url_safe_hosts(url):assert direct_image_url(url)==url
 @pytest.mark.parametrize('url',['http://cdn.shopify.com/x','https://cdn.shopify.com.evil.test/x','https://user:pass@cdn.shopify.com/x','https://127.0.0.1/x','https://cdn.shopify.com:81/x','javascript:alert(1)'])
 def test_direct_image_url_rejects_unsafe(url):assert direct_image_url(url) is None
+
+
+@pytest.mark.asyncio
+async def test_library_art_respects_physical_language_and_clears_rejected_fallback():
+    from app.owner_inventory import add_reference_artwork
+    class Connection:
+        async def fetch(self,sql,ids):
+            assert "p.language as catalogue_language" in sql
+            return [{"id": CAT,"catalogue_language":"Japanese","urls":["https://assets.tcgdex.net/ja/sv/sv1S/001/high.webp"]}]
+    correct={"id":"own-copy","catalogue_id":CAT,"language":"Japanese"}
+    wrong={"id":"legacy-copy","catalogue_id":CAT,"language":"English","reference_image_url":"old-value","reference_image_path":"old-path"}
+    await add_reference_artwork(Connection(),[correct,wrong])
+    assert correct.get("reference_image_url")
+    assert "reference_image_url" not in wrong and "reference_image_path" not in wrong
