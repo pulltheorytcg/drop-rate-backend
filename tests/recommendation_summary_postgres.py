@@ -40,7 +40,7 @@ async def main():
             return await db.fetchval('''insert into tcg.catalogue_market_snapshots(catalogue_id,identity_digest,basis_key,basis_condition,basis_language,grading_company,grade,seal_status,
               market_value_minor,recommended_retail_minor,confidence,algorithm_version,oldest_sale_at,evidence_checked_at,calculation_day,evidence_digest,evidence)
               select id,md5(concat_ws(chr(31),product_type,game,name,set_name,card_number,variant,rarity,language)),$2,$3,'Japanese',$4,$5,$6,
-                $7,$8,0.8,'drop-rate-market-v4',case when $9 then null else now()-interval '10 days' end,clock_timestamp(),current_date,$2,$10::jsonb
+                $7,$8,case when $9 then 0.5 else 0.8 end,'drop-rate-market-v4',case when $9 then null else now()-interval '10 days' end,clock_timestamp(),current_date,$2,$10::jsonb
               from tcg.catalogue_products where id=$1 returning id''',product,str(uuid4()),condition,company,grade,seal,market,recommended,guide,json.dumps(evidence))
         await snap(products[0],condition='Near Mint')
         await snap(products[0],company='PSA',grade='10',market=9900,recommended=9900)
