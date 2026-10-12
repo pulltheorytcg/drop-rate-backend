@@ -1,0 +1,43 @@
+name: Align recommendation label tests
+on:
+  push:
+    branches: [fix/automatic-retail-summary-20261012]
+    paths: ['.github/workflows/align-retail-test-contract.yml']
+permissions:
+  contents: write
+jobs:
+  align:
+    if: github.repository == 'pulltheorytcg/drop-rate-backend' && github.ref == 'refs/heads/fix/automatic-retail-summary-20261012'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - name: Checked assertions for the deliberately renamed tile and versioned bundles
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          files={'tests/test_owner_portal_shell.py':'472a1a332c519656ed98253047c2c33a992d12c2','tests/test_owner_username_login.py':'2c37b1b51f654743fce193a7c4ca54f16eb49e7d'}
+          updates={}
+          for name,expected in files.items():
+              raw=Path(name).read_bytes()
+              assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()==expected,name
+              text=raw.decode(); assert 'owner-portal.js?v=shared-reference-v21' in text
+              text=text.replace('owner-portal.js?v=shared-reference-v21','owner-portal.js?v=recommendation-v22')
+              if name.endswith('test_owner_portal_shell.py'):
+                  for old,new in [('owner-inventory.js?v=shared-reference-v10','owner-inventory.js?v=recommendation-v11'),('owner-portal.css?v=owner-v14','owner-portal.css?v=recommendation-v15'),('"Store / recommended value"','"Automatic recommendations where market evidence is available"')]:
+                      assert old in text,old
+                      text=text.replace(old,new)
+                  text+='\n\ndef test_recommendation_tile_does_not_mislabel_manual_asking_totals():\n    html = HTML.read_text()\n    assert "Store / recommended value" not in html\n    assert \'id="owner-recommendation-note"\' in html\n    assert \'id="owner-asking-price-note"\' in html\n'
+              updates[name]=text
+          for name,text in updates.items():Path(name).write_text(text)
+          PY
+          python -m compileall -q tests/test_owner_portal_shell.py tests/test_owner_username_login.py
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tests/test_owner_portal_shell.py tests/test_owner_username_login.py
+          git commit -m 'Assert the distinct recommendation tile and current cache-busted assets'
+          git push origin HEAD:refs/heads/fix/automatic-retail-summary-20261012
