@@ -1,0 +1,34 @@
+name: One-shot public Cardmarket product evidence (development branch)
+on:
+  push:
+    branches: [fix/market-cardmarket-exact-match-20261012]
+    paths: [.github/workflows/cardmarket-public-evidence.yml]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Inspect bounded official public product catalogue only
+        run: |
+          python - <<'PY'
+          import json, urllib.request, collections
+          base="https://downloads.s3.cardmarket.com/productCatalog/productList/"
+          for suffix in ["products_singles_18.json","products_nonsingles_18.json","products_singles_13.json","products_nonsingles_13.json"]:
+              req=urllib.request.Request(base+suffix,headers={"User-Agent":"DropRate-Catalogue-Audit/1.0"})
+              with urllib.request.urlopen(req,timeout=40) as f:
+                  data=f.read(32000001)
+              if len(data)>32000000:raise ValueError("Unexpected large public catalogue")
+              payload=json.loads(data)
+              rows=payload.get("products") or []
+              counts=collections.Counter((r.get("categoryName"),r.get("idCategory")) for r in rows)
+              print("FEED",suffix,"total",len(rows),"published",payload.get("createdAt"))
+              print("CATEGORIES",counts.most_common(15))
+              if "18" in suffix:
+                  matches=[(r.get("name"),r.get("categoryName"),r.get("idCategory"),r.get("idExpansion")) for r in rows if any(t in str(r.get("name","")).casefold() for t in ["one piece card the best","prb01","prb02","prb-01","prb-02","promotion"])]
+              else:
+                  matches=[(r.get("name"),r.get("categoryName"),r.get("idCategory"),r.get("idExpansion")) for r in rows if any(t in str(r.get("name","")).casefold() for t in ["fusion world","series 9","manga booster"])]
+              print("MATCHED_COUNT",len(matches))
+              print("SAMPLES",matches[:35])
+          PY
