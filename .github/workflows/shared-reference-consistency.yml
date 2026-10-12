@@ -1,0 +1,106 @@
+name: Shared inventory reference consistency
+on:
+  pull_request:
+    paths:
+      - 'backend/app/inventory_reference*.py'
+      - 'backend/app/inventory_market_values.py'
+      - 'backend/app/inventory_intelligence.py'
+      - 'backend/app/api.py'
+      - 'backend/app/owner*.py'
+      - 'backend/app/founder_accounts.py'
+      - 'backend/app/static/*'
+      - 'tests/*reference*'
+      - 'tests/ui/shared-reference-display.py'
+      - '.github/workflows/shared-reference-consistency.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/inventory_reference*.py'
+      - 'backend/app/static/reference-value-display.js'
+      - '.github/workflows/shared-reference-consistency.yml'
+permissions:
+  contents: read
+jobs:
+  postgres-references:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-reference-only
+          POSTGRES_DB: shared_reference_test
+          PGUSER: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet -r requirements-dev.txt
+      - run: PYTHONPATH=backend pytest -q tests/test_inventory_reference_values.py
+      - name: Real reference/media migrations, restricted role and signed local-JWKS requests
+        run: PYTHONPATH=backend python tests/shared_reference_postgres.py
+        env:
+          SHARED_REFERENCE_TEST_DSN: postgresql://postgres:disposable-reference-only@127.0.0.1:5432/shared_reference_test
+  browser-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.57.0
+      - run: python -m playwright install --with-deps chromium webkit
+      - name: Actual founder/seller display code, synthetic read-only API responses
+        run: python tests/ui/shared-reference-display.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shared-reference-layout
+          path: /tmp/reference-layout
+  production-readback:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: GET-only exact bundles and authenticated-route denial, no production credentials
+        run: |
+          python - <<'PY'
+          import hashlib,json,time,urllib.request,urllib.error
+          from pathlib import Path
+          base='https://drop-rate-api-live-production.up.railway.app'
+          assets={'reference-value-display.js':'shared-v1','owner-inventory.js':'shared-reference-v10','owner-portal.js':'shared-reference-v21','market-value-column.js':'shared-reference-v3','founder-accounts.js':'shared-reference-v2','dashboard-shell.js':'shared-reference-v5'}
+          result={}
+          for attempt in range(36):
+              try:
+                  for name,version in assets.items():
+                      with urllib.request.urlopen(base+'/assets/'+name+'?v='+version,timeout=10) as response: remote=response.read()
+                      assert remote==Path('backend/app/static',name).read_bytes(),name
+                      result[name]=hashlib.sha256(remote).hexdigest()
+                  break
+              except (OSError,AssertionError):time.sleep(5)
+          else:raise AssertionError('Expected shared-reference bundles did not arrive')
+          for entry in ('/owner','/app'):
+              with urllib.request.urlopen(base+entry,timeout=10) as response:content=response.read()
+              assert b'reference-value-display.js?v=shared-v1' in content,entry
+          with urllib.request.urlopen(base+'/health/ready',timeout=10) as response:assert response.status==200
+          try:urllib.request.urlopen(base+'/api/v1/inventory/market-values?inventory_id=00000000-0000-4000-8000-000000000001',timeout=10)
+          except urllib.error.HTTPError as error:assert error.code==401
+          else:raise AssertionError('Unauthenticated values request accepted')
+          result['scope']='Public bundle/entry/readiness and anonymous denial only. Not a production authenticated seller scan or provider-price verification.'
+          Path('/tmp/shared-reference-readback.json').write_text(json.dumps(result,indent=2));print(result)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shared-reference-production-readback
+          path: /tmp/shared-reference-readback.json
