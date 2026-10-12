@@ -2,6 +2,7 @@ name: Shopify net postage accounting PostgreSQL safety
 on:
   pull_request:
     paths:
+      - 'tests/ui/journey-regressions.py'
       - 'backend/app/shopify_pipeline.py'
       - 'backend/app/shopify_net_postage_policy.py'
       - 'backend/app/finance.py'

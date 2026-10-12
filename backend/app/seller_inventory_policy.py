@@ -27,3 +27,12 @@ def seller_held_consignment(item):
             and approval.get('set_name') == item.get('set_name')
             and approval.get('variant') == item.get('variant')
             and bool(approval.get('actor_user_id')))
+
+
+def ebay_listing_scope_blocker(owner_type: str, product_type: str) -> str | None:
+    """The existing v1 publisher scope, shared by readiness display and execution."""
+    if owner_type == "CONSIGNOR":
+        return "Consignor eBay publishing is not enabled yet"
+    if product_type != "CARD":
+        return "eBay v1 only supports individual physical cards"
+    return None

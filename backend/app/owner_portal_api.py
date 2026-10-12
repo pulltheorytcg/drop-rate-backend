@@ -29,6 +29,7 @@ from .pricing import _recalculate_one
 from .language import clean_language
 from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .settings import get_settings
+from .seller_inventory_policy import ebay_listing_scope_blocker
 from .owner_inventory import add_reference_artwork
 from .inventory_reference_values import add_shared_reference_values, reference_portfolio, reference_totals, recommended_totals
 from .inventory_reference_media import add_shared_inventory_media
@@ -651,15 +652,11 @@ async def owner_channels(
         rows = await connection.fetch(
             f"""
             select
-                i.id as inventory_id,
+                i.id, i.id as inventory_id, i.catalogue_id,
+                i.condition, i.grading_company, i.grade, i.seal_status,
+                i.store_price_minor, p.product_type, p.language as catalogue_language,
                 i.inventory_code,
                 i.status as inventory_status,i.sale_intent,i.version,
-                i.market_value_minor,
-                (select ps.evidence->>'method' from tcg.pricing_snapshots ps
-                 where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id
-                   and ps.inventory_id=i.id and ps.catalogue_id=i.catalogue_id) as pricing_method,
-                coalesce(i.store_price_minor,i.recommended_retail_minor)
-                    as store_value_minor,
                 p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,
                 coalesce(i.language,p.language) as language,
                 shopify.sync_state as shopify_state,
@@ -670,39 +667,7 @@ async def owner_channels(
                 ebay.listed_price_minor as ebay_price_minor,
                 ebay.last_verified_at as ebay_last_verified_at,
                 ebay.last_error_code as ebay_last_error_code,
-                ebay.listing_id as ebay_listing_id,
-                (
-                    select coalesce(m.shopify_cdn_url,m.public_source_url)
-                    from tcg.media_assets m
-                    where (
-                        (m.scope='INVENTORY_ITEM' and m.inventory_id=i.id)
-                        or (
-                            m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
-                            and m.inventory_id is null
-                            and m.catalogue_id=i.catalogue_id
-                        )
-                    )
-                      and m.side='FRONT'
-                      and m.media_kind='IMAGE'
-                      and m.approval_status='APPROVED'
-                      and m.rights_status='VERIFIED'
-                      and (
-                        (m.scope='INVENTORY_ITEM' and m.rights_tier='FIRST_PARTY_CAPTURE')
-                        or (
-                          m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
-                          and m.rights_tier='STOREFRONT_ALLOWED'
-                        )
-                      )
-                      and m.source_status='ACTIVE'
-                      and m.revoked_at is null
-                      and coalesce(m.shopify_cdn_url,m.public_source_url) is not null
-                    order by
-                      (m.inventory_id=i.id) desc,
-                      m.approved_at desc nulls last,
-                      m.created_at desc,
-                      m.id
-                    limit 1
-                ) as image_url
+                ebay.listing_id as ebay_listing_id
             from tcg.inventory_items i
             join tcg.catalogue_products p on p.id=i.catalogue_id
             left join lateral (
@@ -733,6 +698,15 @@ async def owner_channels(
             *page_params,
         )
 
+        items = [dict(row) for row in rows]
+        await add_reference_artwork(connection, items)
+        await add_shared_inventory_media(connection, items)
+        await add_shared_reference_values(connection, items)
+        for item in items:
+            # Actual remote asking prices remain in the channel-specific fields.
+            item["store_value_minor"] = item.get("store_price_minor") if item.get("store_price_minor") is not None else item.get("recommended_retail_minor")
+            item["channel_sync_blockers"] = {"EBAY": ebay_listing_scope_blocker(access["owner_type"], item["product_type"])}
+
     shopify_configured = bool(
         settings.shopify_shop_domain
         and settings.shopify_client_id
@@ -756,7 +730,9 @@ async def owner_channels(
                 {
                     "code": "EBAY",
                     "label": "Drop Rate eBay",
-                    "sync_enabled": bool(settings.ebay_seller_sync_enabled and settings.ebay_publish_enabled and settings.ebay_shared_store_owner_id),
+                    "sync_enabled": bool(settings.ebay_seller_sync_enabled and settings.ebay_publish_enabled and settings.ebay_shared_store_owner_id
+                                         and not ebay_listing_scope_blocker(access["owner_type"], "CARD")),
+                    "sync_unavailable_reason": ebay_listing_scope_blocker(access["owner_type"], "CARD"),
                     "available": True,
                     "connected": bool(
                         ebay_data
@@ -791,7 +767,7 @@ async def owner_channels(
             "total": int(total or 0),
             "limit": limit,
             "offset": offset,
-            "items": [dict(row) for row in rows],
+            "items": items,
             "source_of_truth": "DROP_RATE",
         }
     )

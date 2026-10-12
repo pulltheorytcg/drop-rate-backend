@@ -10,6 +10,7 @@ from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .ebay_sales import EbayListRequest, publish_inventory_to_ebay
 from .settings import get_settings
+from .seller_inventory_policy import ebay_listing_scope_blocker
 from .shopify_pipeline import publish_inventory_to_shopify
 
 router = APIRouter(prefix="/api/v1/owner", tags=["seller-channels"])
@@ -43,10 +44,9 @@ async def sync_inventory(
             # The legacy eBay seller publisher is an individually-owned card
             # pathway with founder-only financial/media checks. Never route a
             # consignor or sealed unit through it, even if shared eBay OAuth is READY.
-            if access["owner_type"] == "CONSIGNOR":
-                raise HTTPException(409, "Consignor eBay publishing is not enabled yet")
-            if item["product_type"] != "CARD":
-                raise HTTPException(409, "eBay v1 only supports individual physical cards")
+            blocker = ebay_listing_scope_blocker(access["owner_type"], item["product_type"])
+            if blocker:
+                raise HTTPException(409, blocker)
         if channel == "shopify":
             if not settings.shopify_seller_sync_enabled or not settings.shopify_publish_enabled:
                 raise HTTPException(409, "Seller sync to Drop Rate Shopify is not enabled yet")

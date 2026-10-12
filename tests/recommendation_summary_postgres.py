@@ -56,6 +56,25 @@ async def main():
                   identifier,f'INV-SYN-{n}-{position}',owners[n],product,condition,company,grade,seal,(1000+n*500) if position<2 else None,50+n*100)
         for position in range(93):
             await db.execute("insert into tcg.inventory_items(id,inventory_code,owner_id,catalogue_id,language,condition,recommended_retail_minor) values($1,$2,$3,$4,'Japanese','Near Mint',999999)",uuid4(),f'INV-UNPRICED-{position}',owners[0],products[3])
+        # Channel table projections are synthetic; reference/media migrations above
+        # are actual production migrations. No external seller or live order exists.
+        await db.execute('''alter table tcg.shopify_inventory_links add column id uuid default gen_random_uuid(),
+            add column linked_at timestamptz default now(),add column synced_price_minor bigint;
+          create table tcg.ebay_inventory_links(id uuid default gen_random_uuid(),inventory_id uuid,owner_id uuid,state text,
+            listed_price_minor bigint,last_verified_at timestamptz,last_error_code text,listing_id text,created_at timestamptz default now());
+          create table tcg.ebay_seller_connections(id uuid default gen_random_uuid(),owner_id uuid,status text,marketplace_id text,
+            connected_at timestamptz default now(),last_verified_at timestamptz,last_error_code text);
+          grant select on tcg.ebay_inventory_links,tcg.ebay_seller_connections to tcg_api;
+          alter table tcg.ebay_inventory_links enable row level security;
+          create policy own_link on tcg.ebay_inventory_links to tcg_api using(owner_id in(select id from tcg.owners));
+          alter table tcg.ebay_seller_connections enable row level security;
+          create policy own_connection on tcg.ebay_seller_connections to tcg_api using(owner_id in(select id from tcg.owners));''')
+        await db.execute("insert into tcg.ebay_seller_connections(owner_id,status,marketplace_id) values($1,'READY','EBAY_GB')",owners[0])
+        await db.execute('''insert into tcg.media_assets(owner_id,catalogue_id,scope,source_type,source_reference,public_source_url,
+          rights_status,rights_basis,approval_status,alt_text,created_by_user_id,approved_by_user_id,approved_at,rights_tier,
+          source_provider,media_language,media_variant,source_status)
+          values($1,$2,'CANONICAL_CARD','OFFICIAL_PROVIDER','Synthetic only','https://www.onepiece-cardgame.com/synthetic-reference.png',
+          'VERIFIED','Synthetic permission','APPROVED','Fixture',$3,$3,now(),'STOREFRONT_ALLOWED','Fixture','Japanese','Foil','ACTIVE')''',owners[0],products[0],actors[0])
         async def setup(c): await c.execute('set role tcg_api')
         pool=await asyncpg.create_pool(dsn,min_size=1,max_size=3,init=_init_connection,setup=setup)
         key=ec.generate_private_key(ec.SECP256R1()); public=json.loads(jwt.algorithms.ECAlgorithm.to_jwk(key.public_key())); public.update(kid='summary-test',use='sig',alg='ES256')
@@ -64,7 +83,7 @@ async def main():
                 body=json.dumps({'keys':[public]}).encode(); self.send_response(200); self.send_header('Content-Type','application/json'); self.end_headers(); self.wfile.write(body)
             def log_message(self,*args): pass
         server=ThreadingHTTPServer(('127.0.0.1',0),JWKS); threading.Thread(target=server.serve_forever,daemon=True).start()
-        settings=SimpleNamespace(jwks_url=f'http://127.0.0.1:{server.server_port}/jwks',auth_audience='authenticated',auth_issuer='https://summary-fixture.invalid/auth',shopify_seller_sync_enabled=False,shopify_publish_enabled=False)
+        settings=SimpleNamespace(jwks_url=f'http://127.0.0.1:{server.server_port}/jwks',auth_audience='authenticated',auth_issuer='https://summary-fixture.invalid/auth',shopify_seller_sync_enabled=False,shopify_publish_enabled=False,shopify_shop_domain='',shopify_client_id='',shopify_client_secret='',ebay_seller_sync_enabled=True,ebay_publish_enabled=True,ebay_shared_store_owner_id=str(owners[0]))
         def headers(n,expired=False):
             now=int(time.time()); token=jwt.encode(dict(sub=str(actors[n]),aud='authenticated',iss=settings.auth_issuer,role='authenticated',iat=now-20,exp=now-1 if expired else now+600),key,algorithm='ES256',headers={'kid':'summary-test'})
             return {'Authorization':'Bearer '+token}
@@ -75,7 +94,7 @@ async def main():
         async def state():
             return {table:await db.fetchval(f"select coalesce(jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text),'[]'::jsonb) from tcg.{table} r") for table in ('inventory_items','catalogue_market_snapshots','pricing_snapshots','shopify_inventory_links','media_assets','audit_events')}
         before=await state(); auth._jwk_client.cache_clear()
-        with patch.object(auth,'get_settings',return_value=settings),patch.object(owner_inventory,'get_settings',return_value=settings):
+        with patch.object(auth,'get_settings',return_value=settings),patch.object(owner_inventory,'get_settings',return_value=settings),patch.object(owner_portal_api,'get_settings',return_value=settings):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://fixture') as client:
                 async def overview(n):
                     response=await client.get('/api/v1/owner/overview',headers=headers(n)); assert response.status_code==200,response.text
@@ -91,6 +110,23 @@ async def main():
                     item=detail.json()['item']; assert item['recommended_retail_minor']==1200 and item['store_price_minor']==1000+n*500
                     response=await client.get('/api/v1/inventory/market-values',params=[('inventory_id',str(x)) for x in ids[n]],headers=headers(n)); assert response.status_code==200,response.text
                     assert sum(x['recommended_retail_minor'] for x in response.json()['items'])==14132
+                    channel_response=await client.get('/api/v1/owner/channels',params={'limit':100},headers=headers(n))
+                    assert channel_response.status_code==200,channel_response.text
+                    channel_data=channel_response.json()
+                    assert channel_data['total']==(99 if n==0 else 6)
+                    channel_item=next(x for x in channel_data['items'] if x['inventory_id']==str(ids[n][0]))
+                    assert channel_item['reference_value']==item['reference_value']
+                    assert channel_item['market_value_minor']==item['market_value_minor']==1200
+                    assert channel_item['recommended_retail_minor']==1200 and channel_item['store_value_minor']==1000+n*500
+                    assert channel_item['card_image_url']==item['card_image_url']=='https://www.onepiece-cardgame.com/synthetic-reference.png'
+                    assert channel_item['channel_sync_blockers']['EBAY']=='Consignor eBay publishing is not enabled yet'
+                    assert not next(x for x in channel_data['channels'] if x['code']=='EBAY')['sync_enabled']
+                    unpriced=next((x for x in channel_data['items'] if x['inventory_code'].startswith('INV-UNPRICED')),None)
+                    if unpriced:assert unpriced['market_value_minor'] is None and unpriced['recommended_retail_minor'] is None and unpriced['store_value_minor'] is None
+                    foreign_search=await client.get('/api/v1/owner/channels',params={'search':f'INV-SYN-{1-n}-'},headers=headers(n))
+                    assert foreign_search.status_code==200 and foreign_search.json()['items']==[]
+                assert (await client.get('/api/v1/owner/channels')).status_code==401
+                assert (await client.get('/api/v1/owner/channels',headers=headers(0,True))).status_code==401
                 assert (await client.get('/api/v1/owner/overview')).status_code==401
                 assert (await client.get('/api/v1/owner/overview',headers=headers(0,True))).status_code==401
                 assert (await client.get(f'/api/v1/owner/inventory/{ids[1][0]}',headers=headers(0))).status_code==404
@@ -99,10 +135,13 @@ async def main():
                 after_snapshot=await state()
                 assert (await overview(0))['active_recommended_retail_minor']==14332
                 assert (await overview(1))['active_recommended_retail_minor']==14332
+                channels=await client.get('/api/v1/owner/channels',headers=headers(1))
+                assert next(x for x in channels.json()['items'] if x['inventory_id']==str(ids[1][0]))['recommended_retail_minor']==1300
                 assert after_snapshot==await state()
                 await db.execute('update tcg.owner_memberships set active=false where user_id=$1',actors[1])
                 assert (await client.get('/api/v1/owner/overview',headers=headers(1))).status_code==403
-        print('PASS: 99-copy partial summary, 6 shared recommendations including grade/seal/guide, independent asking prices, list/detail/overview equality, repeated GETs, new immutable snapshot, owner isolation and expiry/revocation. Real PostgreSQL and signed local-JWKS HTTP; no real provider or production login.')
+                assert (await client.get('/api/v1/owner/channels',headers=headers(1))).status_code==403
+        print('PASS: 99-copy partial summary, 6 shared recommendations including grade/seal/guide, independent asking prices, list/detail/overview/channels equality, shared artwork, denied consignor eBay controls, repeated GETs, new immutable snapshot, owner isolation and expiry/revocation. Real PostgreSQL and signed local-JWKS HTTP; no real provider or production login.')
     finally:
         auth._jwk_client.cache_clear()
         if pool: await pool.close()

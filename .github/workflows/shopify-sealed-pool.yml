@@ -2,6 +2,7 @@ name: Shopify sealed pooling order safety
 on:
   pull_request:
     paths:
+      - 'tests/ui/journey-regressions.py'
       - 'backend/app/shopify_pipeline.py'
       - 'backend/app/shopify_sealed_pooling.py'
       - 'database/migrations/*shopify_variant_pool_aliases.sql'
