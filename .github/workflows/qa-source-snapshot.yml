@@ -1,0 +1,27 @@
+name: Isolated QA source snapshot
+on:
+  push:
+    branches: [fix/journey-regressions-20261012]
+    paths: ['.github/workflows/qa-source-snapshot.yml']
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: b93a9d700b9b6ba20dbb29be8006ef2b16e89dce
+          persist-credentials: false
+      - name: Archive tracked source only, no credentials or runtime data
+        run: |
+          git rev-parse HEAD > qa-source-sha.txt
+          git archive --format=tar HEAD > qa-source.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qa-baseline-source
+          retention-days: 3
+          path: |
+            qa-source.tar
+            qa-source-sha.txt
