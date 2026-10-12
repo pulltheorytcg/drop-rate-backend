@@ -26,7 +26,7 @@ jobs:
           old='''    by_id = {row["id"]: row["urls"] or [] for row in rows}
               for item in items:
                   urls = by_id.get(item["catalogue_id"], [])
-          '''.replace('              for','    for').replace('                  urls','        urls').rstrip()+'\n'
+          '''
           assert text.count(old)==1
           new='''    by_id = {row["id"]: dict(row) for row in rows}
               for item in items:
@@ -38,9 +38,7 @@ jobs:
                   item.pop("reference_image_path", None)
                   if physical_language and catalogue_language and physical_language != catalogue_language:
                       continue
-          '''.replace('              for','    for').replace('                  ','        ').replace('                      continue','            continue').rstrip()+'\n'
-          # The triple-quoted indentation is normalised explicitly below.
-          new=new.replace('\n            continue','\n            continue')
+          '''
           text=text.replace(old,new)
           text=text.replace('select id,catalogue_id from tcg.inventory_items where id=$1 and owner_id=$2','select id,catalogue_id,language from tcg.inventory_items where id=$1 and owner_id=$2')
           p.write_text(text)
@@ -62,10 +60,7 @@ jobs:
               assert correct.get("reference_image_url")
               assert "reference_image_url" not in wrong and "reference_image_path" not in wrong
           '''
-          # Remove only the leading indentation from this appended function.
-          head,tail=text.rsplit('\n\n@pytest.mark.asyncio',1)
-          tail='\n'.join(line[10:] if line.startswith('          ') else line for line in tail.split('\n'))
-          p.write_text(head+'\n\n@pytest.mark.asyncio'+tail)
+          p.write_text(text)
           PY
           python -m compileall -q backend/app/owner_inventory.py backend/app/api.py tests/test_inventory_reference_values.py
           git diff --check
