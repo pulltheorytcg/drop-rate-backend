@@ -64,7 +64,7 @@ jobs:
           print('ALIAS_TARGET', corrected('EXTRA BOOSTER -ONE PIECE HEROINES EDITION- [EB-03]'))
           assert len(original)==0, 'Previous baseline unexpectedly changed'
           assert len(added)>0, 'No valid improvement'
-          assert set(original.items()) <= set(improved.items()), 'Existing matches lost'
+          assert all(improved.get(k)==v for k,v in original.items()), 'Existing matches lost'
           assert all(v['idExpansion']==6449 for v in added.values()), 'Regional/Asia release was mixed'
           PY
       - uses: actions/upload-artifact@v4
