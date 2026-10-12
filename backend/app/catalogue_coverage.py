@@ -135,6 +135,6 @@ async def record_coverage(pool,actor):
     items=[dict(row,oldest_check=row['oldest_check'].isoformat() if row['oldest_check'] else None) for row in rows]
     report={'scope':'ALL_REFERENCE_CARDS_AND_SEALED_PRODUCTS','items':items,
             'total':sum(row['products'] for row in items),'canonical_products':canonical,
-            'store_price_updates':0}
+            'store_price_updates':0, 'summary': coverage_summary(items)}
     await receipt(pool,actor,'CATALOGUE_COVERAGE','COMPLETE',report)
     return report
