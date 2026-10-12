@@ -192,6 +192,11 @@ window.DropRateInventory = (() => {
     if (!item.reference_value && item.pricing_method === "CARDMARKET_GUIDE_V1") values.append(el("small", "", "Cardmarket guide estimate"));
     if (item.pricing_updated_at) values.append(el("small", "", `Updated ${new Date(item.pricing_updated_at).toLocaleDateString("en-GB")}`));
     content.append(values);
+    const recommended = window.DropRateReferenceValue?.recommendedMinor(item) ?? null;
+    const recommendationNote = el("p", "owner-item-note",
+      "Recommended retail: " + (window.DropRateReferenceValue?.recommendationText(item, formatMoney) || "Recommendation unavailable"));
+    recommendationNote.dataset.recommendedRetail = "true";
+    content.append(recommendationNote);
 
     const publishedOnShopify=item.shopify_state==="PUBLISHED";
     const approvedForSale=item.status==="APPROVED" && item.sale_intent==="FOR_SALE";
@@ -210,9 +215,23 @@ window.DropRateInventory = (() => {
     }
     const priceLabel = el("label", "", "Your selling price (£)"), priceInput = el("input");
     priceInput.type = "number"; priceInput.min = "1"; priceInput.step = "0.01"; priceInput.inputMode = "decimal";
-    priceInput.value = item.store_price_minor == null ? "" : (item.store_price_minor / 100).toFixed(2);
+    const initialPrice = item.store_price_minor ?? recommended;
+    priceInput.value = initialPrice == null ? "" : (initialPrice / 100).toFixed(2);
+    let suggestionPrefilled = item.store_price_minor == null && recommended != null;
+    priceInput.addEventListener("input", () => { suggestionPrefilled = false; });
+    if (saleCondition) saleCondition.addEventListener("change", () => {
+      const guide = item.reference_value?.status === "REFERENCE_ESTIMATE";
+      const sameBasis = guide ? ["", "Near Mint"].includes(saleCondition.value)
+        : saleCondition.value === (item.condition || "");
+      if (!sameBasis && suggestionPrefilled) { priceInput.value = ""; suggestionPrefilled = false; }
+      if (!sameBasis) recommendationNote.textContent = "Recorded-condition recommendation does not apply to the newly selected condition.";
+    });
     priceInput.setAttribute("aria-label", "Your selling price in pounds"); priceInput.disabled = !active(item);
     priceLabel.append(priceInput); sale.append(priceLabel);
+    if (recommended != null) sale.append(el("p", "owner-item-note",
+      item.store_price_minor == null
+        ? "Suggested automatically from current shared evidence. Nothing is saved or listed until you choose a selling action."
+        : "Your saved asking price is retained. The automatic recommendation does not overwrite it."));
     const value = () => {
       if (!/^\d+(\.\d{1,2})?$/.test(priceInput.value) || Number(priceInput.value) < 1 || Number(priceInput.value) > 1_000_000) {
         throw new Error("Enter a selling price of at least £1, with no more than two decimal places.");

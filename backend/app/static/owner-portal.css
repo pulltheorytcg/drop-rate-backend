@@ -1629,3 +1629,6 @@
   .owner-portal-page .owner-slab-fields{grid-template-columns:1fr}
   .owner-portal-page .owner-slab-evidence-grid{grid-template-columns:1fr 1fr}
 }
+
+/* Readable missing-value labels within the existing compact mobile KPI grid. */
+.owner-portal-page .owner-kpi-card>strong.owner-value-unavailable{font-size:1rem;line-height:1.25;overflow-wrap:anywhere}

@@ -13,6 +13,7 @@ from typing import Any
 from uuid import UUID
 
 from .language import clean_language
+from .pricing_rules import MIN_STORE_PRICE_MINOR
 
 SOLD = "CATALOGUE_EBAY_V4"
 GUIDE = "CATALOGUE_CARDMARKET_V1"
@@ -24,7 +25,7 @@ SALE_AGE = timedelta(days=90)
 REFERENCE_VALUES_SQL = """
 select distinct on(s.catalogue_id,s.basis_condition,s.basis_language,s.grading_company,s.grade,s.seal_status,s.evidence->>'method')
  s.id as snapshot_id,s.catalogue_id,s.basis_condition,s.basis_language,
- s.grading_company,s.grade,s.seal_status,s.market_value_minor,s.confidence,
+ s.grading_company,s.grade,s.seal_status,s.market_value_minor,s.recommended_retail_minor,s.confidence,
  s.evidence_checked_at,s.oldest_sale_at,s.calculated_at,s.algorithm_version,
  s.evidence->>'method' as method,s.evidence->>'limitation' as limitation,
  s.evidence->>'input_sale_count' as input_sale_count,
@@ -68,7 +69,7 @@ def _time(value: Any) -> datetime | None:
 def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime) -> dict:
     """Select a reference, not a seller's price or another owner's valuation."""
     result = {"version": "SHARED_CATALOGUE_V1", "status": "UNAVAILABLE", "currency": "GBP",
-              "market_value_minor": None, "last_known_minor": None, "snapshot_id": None,
+              "market_value_minor": None, "recommended_retail_minor": None, "last_known_minor": None, "snapshot_id": None,
               "checked_at": None, "method": None, "basis": None,
               "reason": "No suitable shared market evidence for this exact version."}
     language = clean_language(item.get("language")) or clean_language(item.get("catalogue_language"))
@@ -132,6 +133,11 @@ def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime)
     if not fresh:
         result.update(status="STALE", last_known_minor=selected["market_value_minor"], reason="Last recorded evidence is stale; no current reference value is available.")
     else:
+        # Reuse the algorithm output from this SAME eligible snapshot. Never
+        # infer it from an asking price, stale per-copy cache or another basis.
+        recommended = selected.get("recommended_retail_minor")
+        if type(recommended) is int and recommended >= MIN_STORE_PRICE_MINOR:
+            result["recommended_retail_minor"] = recommended
         result.update(status="REFERENCE_ESTIMATE" if estimate else "AVAILABLE", market_value_minor=selected["market_value_minor"],
                       reason=selected.get("limitation") or ("Guide across conditions/languages, not an exact-copy valuation." if estimate else "Shared exact-profile UK sold evidence."))
     return result
@@ -150,6 +156,7 @@ async def add_shared_reference_values(connection, items: list[dict], *, now: dat
         item["reference_value"] = reference
         # Compatibility fields belong to the response, NOT a financial write.
         item["market_value_minor"] = reference["market_value_minor"]
+        item["recommended_retail_minor"] = reference["recommended_retail_minor"]
         item["pricing_updated_at"] = reference["checked_at"]
         item["pricing_method"] = "CARDMARKET_GUIDE_V1" if reference["method"] == GUIDE else "LIVE_EBAY_MARKET_V1" if reference["method"] == SOLD else None
         item["pricing_limitation"] = reference["reason"]
@@ -180,6 +187,30 @@ def reference_totals(items):
     return {"count": len(items), "valued_count": len(valued), "unvalued_count": len(items)-len(valued),
             "total_minor": sum(item['market_value_minor'] for item in valued) if valued else None,
             "estimate_count": sum(item['reference_value']['status']=='REFERENCE_ESTIMATE' for item in valued)}
+
+
+def recommended_totals(items):
+    """Recommendations and private asking prices are separate, coverage-aware sums.
+
+    Every input is an authorized physical record enriched by the shared resolver.
+    Count copies, not catalogue groups; absent evidence is not a zero-price card.
+    This function performs no calculation of a new price and no database writes.
+    """
+    eligible = [item for item in items
+                if item.get("reference_value", {}).get("status") in {"AVAILABLE", "REFERENCE_ESTIMATE"}
+                and type(item.get("recommended_retail_minor")) is int
+                and item["recommended_retail_minor"] >= MIN_STORE_PRICE_MINOR]
+    asking = [item["store_price_minor"] for item in items
+              if type(item.get("store_price_minor")) is int and item["store_price_minor"] > 0]
+    return {
+        "active_inventory_count": len(items),
+        "active_recommended_count": len(eligible),
+        "active_unrecommended_count": len(items) - len(eligible),
+        "active_recommended_retail_minor": sum(item["recommended_retail_minor"] for item in eligible) if eligible else None,
+        "recommendation_guide_count": sum(item["reference_value"]["status"] == "REFERENCE_ESTIMATE" for item in eligible),
+        "recorded_asking_count": len(asking),
+        "recorded_asking_value_minor": sum(asking) if asking else None,
+    }
 
 
 def reference_top_groups(items, limit=5):

@@ -458,9 +458,8 @@ function renderOwnerInsightList(containerId, items, mover = false) {
       value.append(movement, delta);
     } else {
       const store = document.createElement("small");
-      store.textContent = item.store_value_minor == null
-        ? "Store value pending"
-        : "Store / recommended " + formatMoney(item.store_value_minor);
+      store.textContent = "Recommended retail: " +
+        (window.DropRateReferenceValue?.recommendationText(item, formatMoney) || "Recommendation unavailable");
       value.append(store);
     }
 
@@ -696,13 +695,30 @@ async function loadOwnerOverview() {
   const valued = Number(summary.active_valued_count || 0);
   byId("owner-market-value").textContent = unvalued && !valued
     ? "Value unavailable" : formatMoney(summary.active_market_value_minor);
+  byId("owner-market-value").classList.toggle("owner-value-unavailable", Boolean(unvalued && !valued));
   byId("owner-market-value-note").textContent = unvalued
     ? `${valued} valued · ${unvalued} awaiting market data`
     : "Latest available market prices";
   if(summary.guide_estimate_count)byId("owner-market-value-note").textContent+=` · ${summary.guide_estimate_count} Cardmarket estimates`;
-  byId("owner-store-value").textContent = formatMoney(
-    summary.active_store_value_minor ?? summary.active_store_price_minor
-  );
+  // Do not mix saved asking prices into the automatic recommendation total.
+  // An older response without the new fields must not fall back to that sum.
+  const activeCount = Number.isInteger(summary.active_inventory_count) ? summary.active_inventory_count : total;
+  const recommendedCount = Number(summary.active_recommended_count || 0);
+  const recommendationTotal = summary.active_recommended_retail_minor;
+  byId("owner-store-value").textContent = activeCount === 0 ? formatMoney(0)
+    : recommendedCount > 0 && Number.isInteger(recommendationTotal) && recommendationTotal > 0
+      ? formatMoney(recommendationTotal) : "Unavailable";
+  byId("owner-store-value").classList.toggle("owner-value-unavailable", activeCount > 0 && !(recommendedCount > 0 && Number.isInteger(recommendationTotal) && recommendationTotal > 0));
+  const recommendationNote = byId("owner-recommendation-note");
+  if (recommendationNote) recommendationNote.textContent = activeCount === 0
+    ? "Add cards to see automatic recommendations"
+    : `Automatic · ${recommendedCount} of ${activeCount} copies priced`
+      + (summary.recommendation_guide_count ? ` · ${summary.recommendation_guide_count} guide estimate${summary.recommendation_guide_count === 1 ? "" : "s"}` : "");
+  const askingNote = byId("owner-asking-price-note");
+  if (askingNote) askingNote.textContent = summary.recorded_asking_count > 0
+    && Number.isInteger(summary.recorded_asking_value_minor)
+    ? `Saved asking prices: ${formatMoney(summary.recorded_asking_value_minor)} (${summary.recorded_asking_count} copies)`
+    : "No asking prices saved · nothing listed by this calculation";
   byId("owner-sold-count").textContent = Number(summary.sold_count || 0).toLocaleString("en-GB");
 
   const stages = {

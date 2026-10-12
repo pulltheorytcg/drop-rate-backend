@@ -30,7 +30,7 @@ from .language import clean_language
 from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .settings import get_settings
 from .owner_inventory import add_reference_artwork
-from .inventory_reference_values import add_shared_reference_values, reference_portfolio, reference_totals
+from .inventory_reference_values import add_shared_reference_values, reference_portfolio, reference_totals, recommended_totals
 from .inventory_reference_media import add_shared_inventory_media
 
 
@@ -334,8 +334,10 @@ async def owner_overview(
             owner_id,
         )
 
-        refs = reference_totals(await reference_portfolio(connection, [owner_id]))
+        shared = await reference_portfolio(connection, [owner_id])
+        refs = reference_totals(shared)
         summary = dict(summary)
+        summary.update(recommended_totals(shared))
         summary.update(active_market_value_minor=refs["total_minor"], active_valued_count=refs["valued_count"],
                        active_unvalued_count=refs["unvalued_count"], guide_estimate_count=refs["estimate_count"],
                        valuation_basis="SHARED_CATALOGUE_V1")

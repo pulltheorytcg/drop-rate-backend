@@ -16,7 +16,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=shared-reference-v21" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=recommendation-v22" defer></script>' in html
     assert '<script src="/assets/owner-recognition.js?v=owner-v13" defer></script>' in html
 
     for founder_script in (
@@ -60,7 +60,7 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
     assert ".owner-item-facts" in css
     assert ".owner-item-fact dd" in css
     assert 'href="/assets/owner-inventory.css?v=5"' in html
-    assert 'src="/assets/owner-inventory.js?v=shared-reference-v10"' in html
+    assert 'src="/assets/owner-inventory.js?v=recommendation-v11"' in html
 
 
 def test_owner_portal_requires_owner_role_and_redirects_platform_admin() -> None:
@@ -143,7 +143,7 @@ def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None
     for required in (
         "Total inventory",
         "Active market value",
-        "Store / recommended value",
+        "Automatic recommendations where market evidence is available",
         "Sold",
         "Market value",
         "Recommended retail",
@@ -169,7 +169,7 @@ def test_owner_portal_v2_isolated_design_system_and_responsive_navigation() -> N
     css = CSS.read_text()
     js = JS.read_text()
 
-    assert 'href="/assets/owner-portal.css?v=owner-v14"' in html
+    assert 'href="/assets/owner-portal.css?v=recommendation-v15"' in html
     assert 'class="owner-portal-page hub-restoring"' in html
     assert 'data-owner-view="overview"' in html
     assert 'class="owner-sidebar"' in html
@@ -453,3 +453,10 @@ def test_owner_portal_uses_integrated_seller_hub_brand_lockup() -> None:
     assert "background:none!important" in css
     assert "width:220px!important" in css
     assert 'https://cdn.shopify.com/s/files/1/1038/7482/2491/files/drop-rate-seller-hub-approved.png?v=1790808031' in html
+
+
+def test_recommendation_tile_does_not_mislabel_manual_asking_totals():
+    html = HTML.read_text()
+    assert "Store / recommended value" not in html
+    assert 'id="owner-recommendation-note"' in html
+    assert 'id="owner-asking-price-note"' in html

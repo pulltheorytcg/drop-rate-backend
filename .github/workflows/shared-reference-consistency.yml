@@ -10,7 +10,9 @@ on:
       - 'backend/app/founder_accounts.py'
       - 'backend/app/static/*'
       - 'tests/*reference*'
+      - 'tests/*recommendation*'
       - 'tests/ui/shared-reference-display.py'
+      - 'tests/ui/recommendation-summary.py'
       - '.github/workflows/shared-reference-consistency.yml'
   push:
     branches: [main]
@@ -42,14 +44,39 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install --quiet -r requirements-dev.txt
-      - run: PYTHONPATH=backend pytest -q tests/test_inventory_reference_values.py
+      - run: PYTHONPATH=backend pytest -q tests/test_inventory_reference_values.py tests/test_recommendation_summary.py
       - name: Real reference/media migrations, restricted role and signed local-JWKS requests
         run: PYTHONPATH=backend python tests/shared_reference_postgres.py
         env:
           SHARED_REFERENCE_TEST_DSN: postgresql://postgres:disposable-reference-only@127.0.0.1:5432/shared_reference_test
+  postgres-recommendations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-recommendations-only
+          POSTGRES_DB: recommendation_test
+          PGUSER: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet -r requirements-dev.txt
+      - name: Partial portfolio recommendations through real PostgreSQL and signed test HTTP
+        run: PYTHONPATH=backend python tests/recommendation_summary_postgres.py
+        env:
+          RECOMMENDATION_TEST_DSN: postgresql://postgres:disposable-recommendations-only@127.0.0.1:5432/recommendation_test
   browser-parity:
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -57,8 +84,12 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install playwright==1.57.0
       - run: python -m playwright install --with-deps chromium webkit
-      - name: Actual founder/seller display code, synthetic read-only API responses
-        run: python tests/ui/shared-reference-display.py
+      - name: Actual founder/seller display and recommendation controls, synthetic API responses
+        run: |
+          python tests/ui/shared-reference-display.py
+          python tests/ui/recommendation-summary.py
+        env:
+          RECOMMENDATION_LAYOUT_DIR: /tmp/reference-layout/recommendations
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -76,10 +107,16 @@ jobs:
       - name: GET-only exact bundles and authenticated-route denial, no production credentials
         run: |
           python - <<'PY'
-          import hashlib,json,time,urllib.request,urllib.error
+          import hashlib,json,re,time,urllib.request,urllib.error
           from pathlib import Path
           base='https://drop-rate-api-live-production.up.railway.app'
-          assets={'reference-value-display.js':'shared-v1','owner-inventory.js':'shared-reference-v10','owner-portal.js':'shared-reference-v21','market-value-column.js':'shared-reference-v3','founder-accounts.js':'shared-reference-v2','dashboard-shell.js':'shared-reference-v5'}
+          names=('reference-value-display.js','owner-inventory.js','owner-portal.js','market-value-column.js','founder-accounts.js','dashboard-shell.js','owner-portal.css')
+          source=Path('backend/app/static/owner.html').read_text()+Path('backend/app/main.py').read_text()
+          assets={}
+          for name in names:
+              versions=set(re.findall(r'/assets/'+re.escape(name)+r'\?v=([A-Za-z0-9._-]+)',source))
+              assert len(versions)==1,('Ambiguous/missing source version',name)
+              assets[name]=versions.pop()
           result={}
           for attempt in range(36):
               try:
@@ -92,11 +129,13 @@ jobs:
           else:raise AssertionError('Expected shared-reference bundles did not arrive')
           for entry in ('/owner','/app'):
               with urllib.request.urlopen(base+entry,timeout=10) as response:content=response.read()
-              assert b'reference-value-display.js?v=shared-v1' in content,entry
+              assert ('reference-value-display.js?v='+assets['reference-value-display.js']).encode() in content,entry
+              if entry=='/owner':assert b'<span>Recommended retail</span>' in content
           with urllib.request.urlopen(base+'/health/ready',timeout=10) as response:assert response.status==200
-          try:urllib.request.urlopen(base+'/api/v1/inventory/market-values?inventory_id=00000000-0000-4000-8000-000000000001',timeout=10)
-          except urllib.error.HTTPError as error:assert error.code==401
-          else:raise AssertionError('Unauthenticated values request accepted')
+          for path in ('/api/v1/inventory/market-values?inventory_id=00000000-0000-4000-8000-000000000001','/api/v1/owner/overview'):
+              try:urllib.request.urlopen(base+path,timeout=10)
+              except urllib.error.HTTPError as error:assert error.code==401
+              else:raise AssertionError('Unauthenticated values request accepted')
           result['scope']='Public bundle/entry/readiness and anonymous denial only. Not a production authenticated seller scan or provider-price verification.'
           Path('/tmp/shared-reference-readback.json').write_text(json.dumps(result,indent=2));print(result)
           PY
