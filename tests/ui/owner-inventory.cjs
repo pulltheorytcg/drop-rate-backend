@@ -301,7 +301,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(calls.length,1);assert.equal(calls[0].options.headers.Authorization,'Bearer secret-session');img.dispatchEvent(new f.w.Event('load'));assert.deepEqual(revoked,['blob:safe']);assert.equal(picture.querySelector('span').hidden,true);f.finish();checks++;
  }
  {
-  const f=fixture({name:'<img src=x onerror=alert(1)>',market_value_minor:null});await f.open();assert.match(f.w.document.querySelector('dialog').textContent,/Value pending/);assert.equal(f.w.document.querySelector('dialog img[src="x"]'),null);f.finish();checks++;
+  const f=fixture({name:'<img src=x onerror=alert(1)>',market_value_minor:null});await f.open();assert.match(f.w.document.querySelector('dialog').textContent,/Value unavailable/);assert.equal(f.w.document.querySelector('dialog img[src="x"]'),null);f.finish();checks++;
  }
  console.log(`Seller inventory: ${checks} detail, image, approval, sync, quantity, retry and isolation scenarios passed.`);
 })().catch(e=>{console.error(e);process.exitCode=1;});
