@@ -10,6 +10,7 @@ from fastapi.encoders import jsonable_encoder
 from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .inventory_reference_values import add_shared_reference_values
 
 
 router = APIRouter(prefix="/api/v1/inventory", tags=["inventory"])
@@ -38,7 +39,8 @@ async def inventory_market_values(
         rows = await connection.fetch(
             """
             select
-                i.id,
+                i.id,i.catalogue_id,i.condition,i.grading_company,i.grade,i.seal_status,
+                i.language,p.language as catalogue_language,p.product_type,
                 i.market_value_minor,
                 i.recommended_retail_minor,
                 i.pricing_updated_at,
@@ -49,6 +51,7 @@ async def inventory_market_values(
                 s.observation_count,
                 s.newest_observation_at
             from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id=i.catalogue_id
             left join tcg.pricing_snapshots s on s.id = i.latest_pricing_snapshot_id
             where i.owner_id = $1
               and i.id = any($2::uuid[])
@@ -56,4 +59,5 @@ async def inventory_market_values(
             owner["id"],
             ids,
         )
-        return jsonable_encoder({"items": [dict(row) for row in rows]})
+        items = await add_shared_reference_values(connection, [dict(row) for row in rows])
+        return jsonable_encoder({"items": items})

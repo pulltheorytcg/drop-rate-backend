@@ -14,7 +14,7 @@ window.DropRateInventory = (() => {
   });
   const alive = (rev, owner) => revision === rev && account() === owner && dialog?.open;
   const active = item => ["DRAFT", "INSPECTION", "APPROVED"].includes(item.status);
-  const price = minor => minor == null ? "Value pending" : formatMoney(minor);
+  const price = minor => minor == null ? "Value unavailable" : formatMoney(minor);
 
   function image(item, cls) {
     const wrap = el("div", cls), placeholder = el("span", "owner-image-placeholder", "Loading image…");
@@ -187,8 +187,9 @@ window.DropRateInventory = (() => {
     facts.append(list); content.append(facts);
 
     const values = el("section", "owner-item-values");
-    values.append(el("div", "", "Market value"), el("strong", "", price(item.market_value_minor)));
-    if (item.pricing_method === "CARDMARKET_GUIDE_V1") values.append(el("small", "", "Cardmarket guide estimate"));
+    values.append(el("div", "", "Market value"), el("strong", "", item.reference_value ? window.DropRateReferenceValue.text(item, formatMoney) : price(item.market_value_minor)));
+    if (item.reference_value) values.append(el("small", "", window.DropRateReferenceValue.description(item)));
+    if (!item.reference_value && item.pricing_method === "CARDMARKET_GUIDE_V1") values.append(el("small", "", "Cardmarket guide estimate"));
     if (item.pricing_updated_at) values.append(el("small", "", `Updated ${new Date(item.pricing_updated_at).toLocaleDateString("en-GB")}`));
     content.append(values);
 

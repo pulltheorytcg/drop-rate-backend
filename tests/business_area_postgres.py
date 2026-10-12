@@ -76,6 +76,8 @@ async def main():
         await db.execute("insert into tcg.financial_ledger_entries values($1,$2,1000,'SALE_REVENUE','AVAILABLE')",uuid4(),owners[3])
         await db.execute("insert into tcg.payout_requests(id,owner_id,payout_code,amount_minor,currency,status) values($1,$2,'TEST-PAYOUT',100,'GBP','REQUESTED')",uuid4(),owners[3])
         await db.execute("insert into tcg.shopify_inventory_links values($1,$2,'PUBLISHED',false,now())",stock[0],owners[0])
+        from shared_reference_fixture import install_reference_schema
+        await install_reference_schema(db)
         async def setup(conn):await conn.execute('set role tcg_api')
         pool=await asyncpg.create_pool(dsn,min_size=1,max_size=3,init=_init_connection,setup=setup)
         private=ec.generate_private_key(ec.SECP256R1());public=json.loads(jwt.algorithms.ECAlgorithm.to_jwk(private.public_key()));public.update(kid='business-fixture',use='sig',alg='ES256')

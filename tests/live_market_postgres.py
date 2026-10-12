@@ -118,7 +118,12 @@ async def main():
         await history(actor,'drop-rate-market-v4','EBAY',4,8,9999)
         await history(other,'drop-rate-market-v4','EBAY',5,8,9999)
         report=await inventory_intelligence(request,user,top_limit=5,window_days=7)
-        assert report['totals']['active_inventory_count']==1 and report['totals']['market_valued_item_count']==1
+        assert report['totals']['active_inventory_count']==1
+        # Current display must not borrow the owner-specific cache when
+        # this fixture has not yet produced shared catalogue evidence.
+        assert report['totals']['market_valued_item_count']==0
+        assert report['totals']['inventory_market_value_minor'] is None
+        assert report['totals']['valuation_basis']=='SHARED_CATALOGUE_V1'
         assert not report['weekly_movers']['history_ready']
         assert not report['weekly_movers']['gainers'] and not report['weekly_movers']['decliners']
         await history(actor,'drop-rate-market-v4','EBAY',5,10,100)
@@ -180,6 +185,13 @@ async def main():
         assert (await cardmarket.refresh_cardmarket_values(pool,actor))['inventory_updated']==0
         assert await db.fetchval('select count(*) from tcg.pricing_snapshots')==snapshots
         assert await db.fetchval('select count(*) from tcg.catalogue_market_snapshots')==2
+        # The real guide writer now supplies shared evidence. Verify the
+        # current view starts using it without changing either sale price.
+        report=await inventory_intelligence(request,user,top_limit=5,window_days=7)
+        assert report['totals']['market_valued_item_count']==1
+        assert report['totals']['inventory_market_value_minor']==170
+        assert report['totals']['guide_estimate_count']==1
+        assert await db.fetchval('select bool_and(store_price_minor=9000) from tcg.inventory_items')
         # Intake/manual recalculation reuses the saved quote without any request.
         await db.execute('update tcg.inventory_items set market_value_minor=null where id=$1',a)
         async with user_connection(pool,actor,'cached-guide') as conn:

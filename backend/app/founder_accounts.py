@@ -8,6 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from .access_control import require_business_founder
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .inventory_reference_values import add_shared_reference_values, reference_portfolio, reference_totals
 
 router = APIRouter(prefix="/api/v1/founder/accounts", tags=["founder-accounts"])
 
@@ -53,7 +54,12 @@ async def accounts(request: Request, user: Annotated[AuthenticatedUser, Depends(
             where owner_id=o.id and state='LIVE') e on true
           where o.active order by o.founder_slot nulls last,o.display_name,o.id
         """)
-    return jsonable_encoder({"accounts":[dict(r) for r in rows],"own_owner_id":access["owner_id"],"read_only":True})
+        rows = [dict(row) for row in rows]
+        shared = await reference_portfolio(conn, [row["id"] for row in rows])
+        for row in rows:
+            refs = reference_totals([item for item in shared if item["owner_id"] == row["id"]])
+            row.update(market_value_minor=refs["total_minor"], unvalued_count=refs["unvalued_count"], valuation_basis="SHARED_CATALOGUE_V1")
+    return jsonable_encoder({"accounts":rows,"own_owner_id":access["owner_id"],"read_only":True})
 
 
 @router.get("/inventory")
@@ -67,7 +73,7 @@ async def account_inventory(
         where = "o.active and ($1::uuid is null or i.owner_id=$1) and ($2='' or concat_ws(' ',i.inventory_code,p.name,p.card_number,p.set_name,o.display_name,o.username,i.certificate_number) ilike '%'||$2||'%')"
         total = await conn.fetchval(f"select count(*) from tcg.inventory_items i join tcg.owners o on o.id=i.owner_id join tcg.catalogue_products p on p.id=i.catalogue_id where {where}",owner_id,search.strip())
         rows = await conn.fetch(f"""
-          select i.id,i.inventory_code,i.owner_id,o.display_name as owner_name,
+          select i.id,i.catalogue_id,i.seal_status,p.language as catalogue_language,i.inventory_code,i.owner_id,o.display_name as owner_name,
             p.name,p.card_number,p.set_name,p.game,p.product_type,p.variant,
             i.language,i.condition,i.grading_company,i.grade,i.certificate_number,i.location,i.pricing_updated_at,
             i.status,i.sale_intent,i.market_value_minor,i.store_price_minor,
@@ -80,7 +86,8 @@ async def account_inventory(
             where inventory_id=i.id and owner_id=i.owner_id order by created_at desc limit 1) e on true
           where {where} order by i.updated_at desc,i.id limit $3 offset $4
         """,owner_id,search.strip(),limit,offset)
-    return jsonable_encoder({"items":[dict(r) for r in rows],"total":total,"limit":limit,"offset":offset,"read_only":True})
+        items = await add_shared_reference_values(conn, [dict(r) for r in rows])
+    return jsonable_encoder({"items":items,"total":total,"limit":limit,"offset":offset,"read_only":True})
 
 
 @router.get("/activity")

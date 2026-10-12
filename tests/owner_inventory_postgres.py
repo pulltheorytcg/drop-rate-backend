@@ -84,6 +84,8 @@ async def main():
         seller_migration=(Path(__file__).parents[1]/'database/migrations/20261010143413_seller_held_sealed_publication.sql').read_text()
         await db.execute(seller_migration);await db.execute(seller_migration)
 
+        from shared_reference_fixture import install_reference_schema
+        await install_reference_schema(db)
         async def init(connection):
             await _init_connection(connection);await connection.execute('set role tcg_api')
         pool=await asyncpg.create_pool(dsn,min_size=1,max_size=4,init=init)

@@ -2,7 +2,7 @@
 
 (function attachMarketValueColumn() {
   function formatGBP(value) {
-    if (value === null || value === undefined) return "Value pending";
+    if (value === null || value === undefined) return "Value unavailable";
     return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value / 100);
   }
 
@@ -55,11 +55,12 @@
       document.querySelectorAll("#inventory-body td[data-market-value-cell]").forEach((cell) => {
         const value = values.get(cell.dataset.inventoryId);
         if (!value) return;
-        cell.textContent = formatGBP(value.market_value_minor);
-        if(value.market_value_minor!=null && value.pricing_method==="CARDMARKET_GUIDE_V1"){
+        cell.textContent = value.reference_value ? window.DropRateReferenceValue.text(value, formatGBP) : formatGBP(value.market_value_minor);
+        if (value.reference_value) cell.title = window.DropRateReferenceValue.description(value);
+        if(!value.reference_value && value.market_value_minor!=null && value.pricing_method==="CARDMARKET_GUIDE_V1"){
           const note=document.createElement("small");note.style.display="block";note.textContent="Cardmarket estimate";cell.append(note);
         }
-        if (value.pricing_updated_at) {
+        if (!value.reference_value && value.pricing_updated_at) {
           const updated = new Date(value.pricing_updated_at);
           if (!Number.isNaN(updated.getTime())) {
             cell.title = `${value.pricing_method==="CARDMARKET_GUIDE_V1"?"Cardmarket guide":"Market value"} updated ${updated.toLocaleString("en-GB")}${value.pricing_limitation?" · "+value.pricing_limitation:""}`;

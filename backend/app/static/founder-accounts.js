@@ -84,7 +84,7 @@
             const ownerButton=node("button",item.owner_name,"business-owner-link");ownerButton.type="button";ownerButton.onclick=()=>selectOwner(item.owner_id);
             const identity=node("div");identity.append(node("strong",item.name),node("small",[item.game,item.set_name,item.card_number].filter(Boolean).join(" · ")),node("code",item.inventory_code));
             const details=[item.language,item.grading_company&&item.grade?`${item.grading_company} ${item.grade}`:item.condition,item.variant,item.certificate_number&&`Cert ${item.certificate_number}`,item.location&&`Location: ${item.location}`].filter(Boolean).join(" · ");
-            return [ownerButton,identity,details||"Details not recorded",`${item.status} · ${item.sale_intent==="PERSONAL_COLLECTION"?"Personal collection":"For sale intent"}`,`${money(item.market_value_minor)} / ${money(item.store_price_minor)}`,item.shopify_state||"No recorded link"];
+            return [ownerButton,identity,details||"Details not recorded",`${item.status} · ${item.sale_intent==="PERSONAL_COLLECTION"?"Personal collection":"For sale intent"}`,`${item.reference_value ? window.DropRateReferenceValue.text(item,money) : money(item.market_value_minor)} / ${money(item.store_price_minor)}`,item.shopify_state||"No recorded link"];
           })));
           const total=Number(response.total||0);$("accounts-next").disabled=offset+limit>=total;$("accounts-page").textContent=total?`${offset+1}–${Math.min(offset+limit,total)} of ${total} records`:"0 records";
         }else{

@@ -18,6 +18,8 @@ from .brands import brand_sql
 from .channel_sync_wakeup import request_shopify_sync
 from .db import user_connection
 from .physical_state import validate_physical_state
+from .inventory_reference_values import add_shared_reference_values
+from .inventory_reference_media import add_shared_inventory_media, shared_media_assets
 from .schemas import (
     BulkCostAllocation,
     InventoryApproval,
@@ -469,6 +471,10 @@ async def list_inventory(
             item["card_image_cdn_url"] = direct_url or None
             items.append(item)
 
+        from .owner_inventory import add_reference_artwork
+        await add_reference_artwork(connection, items)
+        await add_shared_inventory_media(connection, items)
+        await add_shared_reference_values(connection, items)
         return jsonable_encoder(
             {"owner": dict(owner), "total": total, "limit": limit,
              "offset": offset, "items": items}
@@ -487,7 +493,7 @@ async def inventory_card_image(
     Shared by Founder HQ and Seller Hub. Authorize the physical item first;
     canonical artwork follows catalogue identity, never its uploader's account.
     Only approved canonical artwork is shared across owners. A holder may still
-    preview their own pending, rights-verified media. No publication approval,
+    preview their own physical-copy media; pending catalogue art stays in review. No publication approval,
     inventory duplication, or foreign physical-photo access is implied.
     """
 
@@ -497,7 +503,7 @@ async def inventory_card_image(
         owner = await _owner(connection)
         item = await connection.fetchrow(
             """
-            select i.id, i.catalogue_id
+            select i.id, i.catalogue_id, i.language
             from tcg.inventory_items i
             where i.id = $1 and i.owner_id = $2
             """,
@@ -506,46 +512,34 @@ async def inventory_card_image(
         if item is None:
             raise HTTPException(status_code=404, detail="Inventory item not found")
 
-        assets = await connection.fetch(
-            """
-            select
-                ma.id, ma.scope, ma.approval_status, ma.source_provider,
-                ma.shopify_cdn_url, ma.public_source_url, ma.created_at
-            from tcg.media_assets ma
-            where ma.side = 'FRONT'
-              and ma.media_kind = 'IMAGE'
-              and ma.source_status = 'ACTIVE'
-              and ma.rights_status = 'VERIFIED'
-              and ma.approval_status in ('PENDING','APPROVED')
-              and ma.revoked_at is null
-              and coalesce(nullif(btrim(ma.shopify_cdn_url),''),nullif(btrim(ma.public_source_url),'')) is not null
-              and (
-                (ma.scope = 'INVENTORY_ITEM' and ma.inventory_id = $2 and ma.owner_id = $1)
-                or
-                (ma.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')
-                 and ma.inventory_id is null and ma.catalogue_id = $3
-                 and (ma.approval_status='APPROVED' or ma.owner_id=$1)
-                 and ma.rights_tier='STOREFRONT_ALLOWED'
-                 and exists (
-                   select 1 from tcg.catalogue_products p
-                   join tcg.inventory_items i on i.catalogue_id=p.id
-                   where i.id=$2 and i.owner_id=$1 and p.id=$3
-                     and lower(btrim(coalesce(ma.media_language,'')))=lower(btrim(coalesce(i.language,p.language,'')))
-                     and lower(btrim(coalesce(ma.media_variant,'')))=lower(btrim(coalesce(p.variant,'')))
-                 ))
-              )
-            order by
-                case when ma.scope = 'INVENTORY_ITEM' then 0 else 1 end,
-                case ma.approval_status when 'APPROVED' then 0 else 1 end,
-                case when nullif(btrim(coalesce(ma.shopify_cdn_url,'')), '') is not null then 0 else 1 end,
-                ma.created_at desc,
-                ma.id
-            """,
-            owner["id"], inventory_id, item["catalogue_id"],
-        )
+        assets = await shared_media_assets(connection, [inventory_id])
+        # Library fallback is resolved by the same exact-reference rules used in
+        # both list/detail responses. No uploader/account rule for catalogue art.
+        reference_item = dict(item)
+
+    async def reference_response():
+        from .owner_inventory import add_reference_artwork
+        async with user_connection(request.app.state.db_pool, user.user_id, _request_id(request)) as connection:
+            current_owner = await _owner(connection)
+            visible = await connection.fetchval("select exists(select 1 from tcg.inventory_items where id=$1 and owner_id=$2)", inventory_id, current_owner["id"])
+            if not visible:
+                raise HTTPException(404, "Inventory item not found")
+            await add_reference_artwork(connection, [reference_item])
+        if reference_item.get("reference_image_url"):
+            from .catalogue_artwork import reference_thumbnail
+            payload = await reference_thumbnail(reference_item["reference_image_url"])
+            if payload:
+                return Response(payload.data, media_type=payload.content_type, headers={
+                    "Cache-Control": "private, no-store", "Vary": "Authorization",
+                    "X-Content-Type-Options": "nosniff", "X-Drop-Rate-Media-Scope": "CATALOGUE_REFERENCE",
+                })
+        return None
 
     if not assets:
-        raise HTTPException(status_code=404, detail="No image is assigned to this card")
+        fallback = await reference_response()
+        if fallback is not None:
+            return fallback
+        raise HTTPException(status_code=404, detail="No verified artwork is available for this exact printing")
 
     timeout = httpx.Timeout(10.0, connect=5.0)
     headers = {"User-Agent": "DropRateInventory/1.0"}
@@ -584,6 +578,9 @@ async def inventory_card_image(
                     },
                 )
 
+    fallback = await reference_response()
+    if fallback is not None:
+        return fallback
     raise HTTPException(
         status_code=502,
         detail={
