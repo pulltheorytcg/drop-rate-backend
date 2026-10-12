@@ -8,6 +8,17 @@ window.DropRateReferenceValue = Object.freeze({
     }
     return ({STALE: "Stale evidence — value unavailable", NEEDS_DETAILS: "Confirm details for value"})[ref.status] || "No exact market evidence";
   },
+  recommendedMinor(item) {
+    const ref = item?.reference_value;
+    return ref && ["AVAILABLE", "REFERENCE_ESTIMATE"].includes(ref.status)
+      && Number.isInteger(ref.recommended_retail_minor) && ref.recommended_retail_minor >= 100
+      ? ref.recommended_retail_minor : null;
+  },
+  recommendationText(item, money) {
+    const amount = this.recommendedMinor(item);
+    return amount == null ? "Recommendation unavailable"
+      : money(amount) + (item.reference_value.status === "REFERENCE_ESTIMATE" ? " · Guide estimate" : "");
+  },
   description(item) {
     const ref = item?.reference_value;
     if (!ref) return "";
