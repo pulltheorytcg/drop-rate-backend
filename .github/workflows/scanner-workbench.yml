@@ -1,0 +1,22 @@
+name: Scanner regression workbench
+on:
+  push:
+    branches: [fix/scanner-video-regressions-20261012]
+    paths: [.github/workflows/scanner-workbench.yml]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Export tracked source only
+        run: git archive --format=zip HEAD -o /tmp/scanner-source.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scanner-source
+          path: /tmp/scanner-source.zip
+          retention-days: 1
