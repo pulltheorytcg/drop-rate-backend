@@ -1,0 +1,33 @@
+name: Prepare shared-reference source
+on:
+  push:
+    branches: [fix/shared-inventory-reference-consistency-20261012]
+    paths: ['.github/workflows/prepare-shared-references.yml']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    if: github.repository == 'pulltheorytcg/drop-rate-backend' && github.ref == 'refs/heads/fix/shared-inventory-reference-consistency-20261012'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - name: Check hashes, prepare source, remove temporary script
+        run: |
+          python tools/prepare_shared_references.py
+          python -m compileall -q backend tests/shared_reference_fixture.py tests/shared_reference_postgres.py tests/ui/shared-reference-display.py
+          find backend/app/static -name '*.js' -print0 | xargs -0 -n1 node --check
+          git diff --check
+          rm tools/prepare_shared_references.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -u
+          git commit -m 'Use shared approved artwork and exact-profile values across inventory views'
+          git push origin HEAD:refs/heads/fix/shared-inventory-reference-consistency-20261012
+          git archive --format=tar HEAD > /tmp/shared-reference-source.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shared-reference-source
+          path: /tmp/shared-reference-source.tar
