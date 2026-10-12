@@ -65,7 +65,7 @@ async function matched(scanner, quantity = 1) {
     const pending = deferred(); const f = fixture('seller', () => pending.promise);
     const promise = f.scanner.recognise('data:image/jpeg;base64,AA==');
     assert.equal(f.scanner.items.length, 1);
-    assert.match(f.scanner.find('.dr-scan-strip').textContent, /Loading/);
+    assert.match(f.scanner.find('.dr-scan-strip').textContent, /Photo captured · identifying/);
     assert.ok(f.scanner.find('.dr-scan-tile').disabled);
     f.scanner.showReview();
     assert.ok(f.scanner.find('[data-action="save"]').disabled);
@@ -135,7 +135,7 @@ async function matched(scanner, quantity = 1) {
     f.scanner.openDetails(item);
     const condition = f.scanner.details.querySelector('select'); condition.value = 'Lightly Played';
     condition.dispatchEvent(new f.w.Event('change'));
-    const quantity = f.scanner.details.querySelector('input'); quantity.value = '1.5'; quantity.dispatchEvent(new f.w.Event('input'));
+    const quantity = f.scanner.details.querySelector('[aria-label="Quantity"]'); quantity.value = '1.5'; quantity.dispatchEvent(new f.w.Event('input'));
     assert.ok(f.scanner.details.querySelector('[data-details-save]').disabled);
     quantity.value = '2'; quantity.dispatchEvent(new f.w.Event('input'));
     await f.scanner.confirmDetails();
@@ -497,6 +497,73 @@ async function matched(scanner, quantity = 1) {
     assert.equal(f.scanner.edit.grade,'Pristine 10');assert.equal(f.scanner.edit.slab.verified,false);
     assert.equal(f.scanner.edit.item.grading_company,'PSA','Lookup must not commit the draft choice');
     f.finish();checks+=1;
+  }
+  // Video regression: backend grade normalization, structured label search,
+  // explicit manual PSA fallback, no write or guessed certificate correction.
+  for (const role of ['seller','founder']) {
+    const f=fixture(role,async url=>url.endsWith('/scan') ? {
+      observation:{grader:'PSA',grade:'GEM MT 10',certificate_number:'130649012',card_name:'Mega Charizard X ex',card_number:'223'},
+      normalized_provider:'PSA',normalized_certificate:'130649012',normalized_grade:'10',
+      catalogue_search_seed:'223',catalogue_label:{card_name:'Mega Charizard X ex',card_number:'223',set_name:'MEGA DREAM EX',language:'Japanese'},
+      provider_error:'PROVIDER_NOT_CONFIGURED',verification_url:'https://www.psacard.com/cert/130649012/psa',conflicts:[]
+    } : {items:[]});
+    f.scanner.setMode('GRADED');await f.scanner.recognise('photo');const item=f.scanner.items[0];
+    assert.equal(item.grade,'10');assert.equal(item.certificate_number,'130649012');assert.equal(item.suggested,null);
+    const lookup=f.calls.find(c=>c.url.includes('/products?'));const params=new URL(lookup.url,'https://test').searchParams;
+    assert.equal(params.get('slab_name'),'Mega Charizard X ex');assert.equal(params.get('language'),'Japanese');
+    assert.equal(lookup.signal,f.calls.find(c=>c.url.endsWith('/scan')).signal,'The deadline covers catalogue read too');
+    f.scanner.openDetails(item);assert.equal(f.scanner.details.querySelector('[aria-label="Grade"]').value,'10');
+    assert.equal(f.scanner.details.querySelector('a').href,'https://www.psacard.com/cert/130649012/psa');
+    assert.ok(![...f.scanner.details.querySelectorAll('button')].some(b=>b.textContent==='Lookup certificate'));
+    assert.ok(f.scanner.details.querySelector('[data-details-save]').disabled);
+    assert.match(f.scanner.details.textContent,/not configured/);assert.equal(f.calls.length,2);
+    f.finish();checks++;
+  }
+  // An unknown company/ambiguous grade is not silently relabelled PSA/10.
+  {
+    const f=fixture('seller',async()=>({observation:{grader:'Unknown',grade:'10 or 9',card_name:'Unknown'},normalized_grade:null,conflicts:[]}));
+    f.scanner.setMode('GRADED');await f.scanner.recognise('photo');f.scanner.openDetails(f.scanner.items[0]);
+    assert.equal(f.scanner.edit.grading_company,'');assert.equal(f.scanner.edit.grade,'');
+    assert.match(f.scanner.details.querySelector('.dr-scan-detail-message').textContent,/Choose the grading company/);
+    assert.equal(f.calls.length,1);f.finish();checks++;
+  }
+  // A failed slab retry clears the old match/label and never adds a second scan.
+  {
+    const f=fixture('seller',async()=>{throw new Error('synthetic provider failure');});
+    const item={id:'slab',mode:'GRADED',photo:'old',quantity:1,status:'unresolved',selected:{catalogue_id:'wrong'},
+      suggested:{catalogue_id:'wrong'},grade:'10',grading_company:'PSA',certificate_number:'12345678',slab:{conflicts:[]}};
+    f.scanner.items.push(item);await f.scanner.recognise('replacement',item);
+    assert.equal(f.scanner.items.length,1);assert.equal(item.selected,null);assert.equal(item.suggested,null);
+    assert.equal(item.grade,'');assert.equal(item.certificate_number,'');
+    item.requests=[{key:'already-sent'}];await f.scanner.recognise('replacement',item);assert.equal(f.calls.length,1);
+    f.finish();checks++;
+  }
+  // Manual shutter shares the same physical-presentation latch as auto capture.
+  {
+    const f=fixture();const s=f.scanner;s.stream={getTracks:()=>[]};s.view='camera';s.auto=false;
+    Object.defineProperty(s.video,'videoWidth',{value:1920});s.crop=()=>({sx:0,sy:0,sw:100,sh:140});
+    f.w.HTMLCanvasElement.prototype.getContext=()=>({drawImage(){}});f.w.HTMLCanvasElement.prototype.toDataURL=()=> 'photo';
+    let captures=0;s.recognise=()=>{captures++;};s.capture();s.capture();assert.equal(captures,1);
+    s.frame=()=>({present:false,fingerprint:new Uint8Array(560)});s.absenceFrames=0;s.tick();s.tick();s.tick();
+    s.capture();assert.equal(captures,2,'Intentional second physical copy still works');f.finish();checks++;
+  }
+  // Existing authenticated artwork route, exact reference keys, MIME checks and
+  // in-flight deduplication; never forward bearer credentials to provider hosts.
+  {
+    const f=fixture();const calls=[];const blob=new f.w.Blob(['png'],{type:'image/png'});
+    f.w.fetch=async(path,options)=>{calls.push({path,...options});return {ok:true,blob:async()=>blob};};
+    const candidate={reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=OP01-017_p2',image_url:'https://en.onepiece-cardgame.com/images/cardlist/card/OP01-017_p2.png'};
+    const item={selected:candidate,status:'unresolved'};const a=f.scanner.thumb(item),b=f.scanner.thumb(item);await tick();
+    assert.equal(calls.length,1);assert.ok(calls[0].path.startsWith('/api/v1/catalogue-browser/reference-image?'));
+    assert.equal(calls[0].headers.Authorization,'Bearer test-token');assert.equal(a.querySelector('img').src,'blob:preview');
+    assert.equal(b.querySelector('img').src,'blob:preview');f.finish();checks++;
+  }
+  // Bad MIME from the reference route is never shown as an image or trusted data.
+  {
+    const f=fixture();f.w.fetch=async()=>({ok:true,blob:async()=>new f.w.Blob(['html'],{type:'text/html'})});
+    const item={selected:{reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=bad'},status:'unresolved'};
+    const thumb=f.scanner.thumb(item);await tick();assert.ok(thumb.querySelector('img').hidden);
+    assert.match(thumb.textContent,/Image could not load/);f.finish();checks++;
   }
   await tick();
   console.log('Scanner flow: ' + checks + ' interaction, permission and retry scenarios passed.');

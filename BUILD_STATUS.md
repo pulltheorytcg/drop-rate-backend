@@ -1,3 +1,7 @@
+## 12 October 2026 — Scanner video regressions (implementation; release evidence in PR)
+
+Bounded repair of existing raw/toploader/slab/sealed journey: server-side slab suggestion corroboration rather than bare-number first match; strict displayed-grade normalization with literal evidence preserved; explicit unverified manual certificate fallback when PSA API is unconfigured; shared authenticated reference artwork; manual capture/removal latch, same-item replacement photos, immutable save retries, cleared stale slab evidence and shared request deadline; readable candidate metadata and iPhone-sized form inputs. No model/provider/service, migration, data/price/ownership/finance write or Shopify publication. Missing translated catalogue aliases, reference images and valuation evidence remain unresolved rather than guessed. See `docs/SCANNER_VIDEO_REGRESSIONS_20261012.md`. CI/deployment and physical iPhone acceptance must be recorded separately; this entry alone proves neither.
+
 ## Current correction — automatic retail recommendation summary (12 October 2026)
 
 ## 12 October 2026 — Existing journey bug-fix QA (release verification in PR)
