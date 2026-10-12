@@ -13,6 +13,9 @@ on:
       - 'tests/*recommendation*'
       - 'tests/ui/shared-reference-display.py'
       - 'tests/ui/recommendation-summary.py'
+      - 'tests/ui/journey-regressions.py'
+      - 'backend/app/seller_inventory_policy.py'
+      - 'backend/app/seller_channel_sync.py'
       - '.github/workflows/shared-reference-consistency.yml'
   push:
     branches: [main]
@@ -88,8 +91,10 @@ jobs:
         run: |
           python tests/ui/shared-reference-display.py
           python tests/ui/recommendation-summary.py
+          python tests/ui/journey-regressions.py
         env:
           RECOMMENDATION_LAYOUT_DIR: /tmp/reference-layout/recommendations
+          JOURNEY_LAYOUT_DIR: /tmp/reference-layout/journeys
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -110,8 +115,8 @@ jobs:
           import hashlib,json,re,time,urllib.request,urllib.error
           from pathlib import Path
           base='https://drop-rate-api-live-production.up.railway.app'
-          names=('reference-value-display.js','owner-inventory.js','owner-portal.js','market-value-column.js','founder-accounts.js','dashboard-shell.js','owner-portal.css')
-          source=Path('backend/app/static/owner.html').read_text()+Path('backend/app/main.py').read_text()
+          names=('reference-value-display.js','owner-inventory.js','owner-portal.js','market-value-column.js','founder-accounts.js','dashboard-shell.js','owner-portal.css','hub-session.js','app.js','owner-imports.js')
+          source=Path('backend/app/static/owner.html').read_text()+Path('backend/app/main.py').read_text()+Path('backend/app/static/index.html').read_text()
           assets={}
           for name in names:
               versions=set(re.findall(r'/assets/'+re.escape(name)+r'\?v=([A-Za-z0-9._-]+)',source))
@@ -132,7 +137,7 @@ jobs:
               assert ('reference-value-display.js?v='+assets['reference-value-display.js']).encode() in content,entry
               if entry=='/owner':assert b'<span>Recommended retail</span>' in content
           with urllib.request.urlopen(base+'/health/ready',timeout=10) as response:assert response.status==200
-          for path in ('/api/v1/inventory/market-values?inventory_id=00000000-0000-4000-8000-000000000001','/api/v1/owner/overview'):
+          for path in ('/api/v1/inventory/market-values?inventory_id=00000000-0000-4000-8000-000000000001','/api/v1/owner/overview','/api/v1/owner/channels'):
               try:urllib.request.urlopen(base+path,timeout=10)
               except urllib.error.HTTPError as error:assert error.code==401
               else:raise AssertionError('Unauthenticated values request accepted')
