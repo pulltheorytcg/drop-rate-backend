@@ -17,7 +17,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
     assert '<script src="/assets/owner-portal.js?v=journey-v23" defer></script>' in html
-    assert '<script src="/assets/owner-recognition.js?v=video-fix-v9" defer></script>' in html
+    assert '<script src="/assets/owner-recognition.js?v=shared-value-v1" defer></script>' in html
 
     for founder_script in (
         "dashboard-shell.js",
@@ -282,7 +282,7 @@ def test_scanner_autocapture_rejects_texture_only_card_presence() -> None:
     assert "batch.absenceFrames >= 3" in legacy
     assert "|| deviation >= 0.18" not in legacy
     assert 'src="/assets/scanner-flow.js?v=video-fix-v9"' in html
-    assert 'src="/assets/owner-recognition.js?v=video-fix-v9"' in html
+    assert 'src="/assets/owner-recognition.js?v=shared-value-v1"' in html
 
 
 def test_mobile_batch_scanner_keeps_unresolved_cards_and_supports_search_correction() -> None:
