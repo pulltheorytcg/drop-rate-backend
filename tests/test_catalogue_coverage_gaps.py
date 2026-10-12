@@ -70,3 +70,49 @@ def test_coverage_remains_account_independent_and_is_strict_on_negative_counts()
     assert summary["missing_by_reason"][0]["needs_external_data_access"] is False
     with pytest.raises(ValueError, match="Invalid catalogue"):
         coverage_summary([row("CARD", "POKEMON_TCG", "Japanese", "REFERENCE_AVAILABLE", -1)])
+
+
+@pytest.mark.asyncio
+async def test_existing_daily_receipt_contains_actionable_global_coverage_without_new_jobs(monkeypatch):
+    from contextlib import asynccontextmanager
+    from datetime import datetime, timezone
+    from uuid import uuid4
+
+    from app import catalogue_coverage, catalogue_maintenance
+
+    global_rows = [
+        dict(row("CARD", "ONE_PIECE_CARD_GAME", "Japanese", "SOURCE_ACCESS_REQUIRED", 4480),
+             oldest_check=None),
+        dict(row("CARD", "POKEMON_TCG", "English", "REFERENCE_AVAILABLE", 12127),
+             oldest_check=datetime(2026, 10, 12, tzinfo=timezone.utc)),
+    ]
+    class Conn:
+        async def fetch(self, query):
+            assert "from tcg.reference_cards" in query
+            assert "tcg.inventory_items" not in query
+            return global_rows
+
+        async def fetchval(self, query):
+            assert query.strip() == "select count(*) from tcg.catalogue_products"
+            return 464
+
+    @asynccontextmanager
+    async def connection(pool, actor, request_id):
+        yield Conn()
+
+    stored = []
+
+    async def record(pool, actor, job, status, report):
+        stored.append({"job": job, "status": status, "report": report})
+
+    monkeypatch.setattr(catalogue_coverage, "user_connection", connection)
+    monkeypatch.setattr(catalogue_maintenance, "receipt", record)
+    data = await catalogue_coverage.record_coverage(object(), uuid4())
+    assert data["scope"] == "ALL_REFERENCE_CARDS_AND_SEALED_PRODUCTS"
+    assert data["total"] == 16607
+    assert data["summary"]["by_kind"]["CARD"]["missing"] == 4480
+    assert data["summary"]["missing_by_reason"][0]["status"] == "SOURCE_ACCESS_REQUIRED"
+    assert data["store_price_updates"] == 0
+    assert stored[0]["job"] == "CATALOGUE_COVERAGE"
+    assert stored[0]["status"] == "COMPLETE"
+    assert stored[0]["report"] is data
