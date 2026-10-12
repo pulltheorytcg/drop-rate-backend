@@ -1,0 +1,46 @@
+"""Actual owner details and founder market column; synthetic read-only API.
+Not production login, camera recognition, or live provider-price acceptance.
+"""
+import json,os
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+ROOT=Path(__file__).resolve().parents[2];OUT=Path(os.environ.get('REFERENCE_LAYOUT_DIR','/tmp/reference-layout'))
+ID='00000000-0000-4000-8000-000000000001'
+def main():
+ OUT.mkdir(parents=True,exist_ok=True);results=[]
+ with sync_playwright() as p:
+  for engine in os.environ.get('BROWSER_ENGINES','chromium,webkit').split(','):
+   kwargs={'headless':True}
+   if engine=='chromium' and os.environ.get('CHROMIUM_EXECUTABLE'):kwargs['executable_path']=os.environ['CHROMIUM_EXECUTABLE']
+   browser=getattr(p,engine).launch(**kwargs)
+   for width in (320,390,1440):
+    for status in ('AVAILABLE','REFERENCE_ESTIMATE','STALE','NEEDS_DETAILS','UNAVAILABLE'):
+     page=browser.new_page(viewport={'width':width,'height':1000});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+     page.route('**/*',lambda r:r.fulfill(status=404,body='Synthetic image unavailable'))
+     page.set_content('<html><head><meta name="viewport" content="width=device-width"></head><body><table><thead><tr><th>Card</th><th>Store price</th></tr></thead><tbody id="inventory-body"></tbody></table></body></html>')
+     page.add_style_tag(content='body{font-family:Arial;background:#fff;color:#142944;margin:16px}button,input,select{font:inherit}*{box-sizing:border-box}')
+     page.add_style_tag(content=(ROOT/'backend/app/static/owner-inventory.css').read_text())
+     item={'id':ID,'name':'Synthetic exact card','game':'One Piece','set_name':'Exact set','card_number':'TEST-001','language':'Japanese','product_type':'CARD','condition':'Near Mint','status':'DRAFT','sale_intent':'PERSONAL_COLLECTION','version':1,'inventory_code':'INV-TEST','store_price_minor':None,'market_value_minor':9900 if status in ('AVAILABLE','REFERENCE_ESTIMATE') else None,'pricing_method':'CARDMARKET_GUIDE_V1' if status=='REFERENCE_ESTIMATE' else 'LIVE_EBAY_MARKET_V1','approval_blockers':[],'reference_value':{'status':status,'market_value_minor':9900 if status in ('AVAILABLE','REFERENCE_ESTIMATE') else None,'basis':'Japanese · Near Mint','reason':'Synthetic evidence status','checked_at':'2026-10-11T12:00:00Z'}}
+     page.evaluate('''item => {window.item=item;window.calls=[];window.state={session:{access_token:'synthetic',user:{id:'seller-fixture'}}};
+       window.formatMoney=n=>n==null?'—':new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100);
+       window.inventoryCardSubtitle=x=>x.card_number;window.conditionLabel=x=>x.condition;window.inventoryTypeLabel=x=>x.product_type;window.statusClass=()=>'';
+       window.apiRequest=async(path,options={})=>{calls.push({path,method:options.method||'GET'});return path.includes('market-values')?{items:[item]}:{item,copies:[item]}};
+       window.renderInventory=data=>{document.getElementById('inventory-body').innerHTML='<tr><td>Exact card</td><td data-label="Store price">Not selling</td></tr>';};
+     }''',item)
+     for name in ('reference-value-display.js','owner-inventory.js','market-value-column.js'):page.add_script_tag(content=(ROOT/'backend/app/static'/name).read_text())
+     page.evaluate('renderInventory({items:[item]})');page.wait_for_function("document.querySelector('[data-market-value-cell]')?.textContent!=='—'")
+     founder=page.locator('[data-market-value-cell]').inner_text().strip()
+     page.evaluate('DropRateInventory.open(item)');page.wait_for_selector('.owner-item-values strong')
+     seller=page.locator('.owner-item-values strong').inner_text().strip();assert founder==seller,(status,founder,seller)
+     if status=='AVAILABLE':assert '£99.00' in seller
+     elif status=='REFERENCE_ESTIMATE':assert 'Guide estimate' in seller
+     else:assert '£0' not in seller and 'pending' not in seller.lower()
+     assert all(call['method']=='GET' for call in page.evaluate('calls'))
+     assert not errors,errors
+     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(engine,width,status)
+     if width in (390,1440) and status in ('AVAILABLE','UNAVAILABLE'):
+      page.screenshot(path=str(OUT/f'{engine}-{width}-{status}.png'),full_page=True)
+     results.append({'engine':engine,'width':width,'status':status,'same_display':True});page.close()
+   browser.close()
+ (OUT/'results.json').write_text(json.dumps(results,indent=2));print(f'PASS {len(results)} paired founder/seller display cases; API responses synthetic and GET-only.')
+if __name__=='__main__':main()
