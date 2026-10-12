@@ -1,3 +1,7 @@
+## 12 October 2026 — Seller manual search shared market follow-up (PR; deploy/acceptance tracked separately)
+
+Corrected the existing owner card-correction search to read the same catalogue market selector as the global browser and scanner; exact unmapped provider references now return eligible GBP guides from already-persisted source rows, with source/freshness/identity checks and explicit "Shared guide" labelling. Both owners see the same underlying reference or the same unavailable status; their ownership and asking prices remain private and unchanged. No new feed, provider, data backfill, schema, service or Shopify write. This does **not** close the 38,001-card genuine source-coverage gap. See docs/OWNER_SEARCH_SHARED_MARKET_20261012.md. Exact-head CI, deploy and physical signed-in tests are separate evidence.
+
 ## 12 October 2026 — Shared reference market values across accounts (implementation; final release checks pending)
 
 - Read-only database audit: 69,538 reference cards, 613 owned inventory items, 464 canonical products. 31,537 references have a positive GBP reference or guide; 38,001 do not. Guide availability is not verified exact-condition/sold value. Daily market and coverage jobs already run.
