@@ -23,6 +23,8 @@ from .schemas import InventorySaleIntentChange
 from .settings import get_settings
 from .seller_inventory_policy import sealed_seller_candidate
 from .physical_state import CARD_CONDITIONS, validate_physical_state
+from .inventory_reference_values import add_shared_reference_values
+from .inventory_reference_media import add_shared_inventory_media
 
 router = APIRouter(prefix="/api/v1/owner/inventory", tags=["owner-inventory"])
 ACTIVE = {"DRAFT", "INSPECTION", "APPROVED"}
@@ -155,9 +157,11 @@ async def details(inventory_id: UUID, request: Request,
         if row is None:
             raise HTTPException(404, "Inventory item not found")
         item = dict(row)
+        item["approval_blockers"] = approval_blockers(item)
         await add_reference_artwork(connection, [item])
+        await add_shared_inventory_media(connection, [item])
+        await add_shared_reference_values(connection, [item])
         copies = await connection.fetch(COPIES_SQL, inventory_id, access["owner_id"])
-    item["approval_blockers"] = approval_blockers(item)
     item["seller_approval_available"] = sealed_seller_candidate(item)
     item["is_consignment"] = access.get("owner_type", item.get("owner_type")) == "CONSIGNOR"
     for key in ("owner_type", "catalogue_language", "catalogue_identity_status"):

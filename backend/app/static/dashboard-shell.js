@@ -639,7 +639,7 @@ async function loadPortfolioIntelligence() {
   try {
     const data = await apiRequest("/api/v1/inventory/intelligence?top_limit=5&window_days=7");
     const totals = data.totals || {};
-    byId("portfolio-market-value").textContent = money(totals.inventory_market_value_minor || 0);
+    byId("portfolio-market-value").textContent = totals.inventory_market_value_minor == null ? "Value unavailable" : money(totals.inventory_market_value_minor);
     byId("portfolio-store-value").textContent = money(totals.inventory_store_value_minor || 0);
     byId("portfolio-market-coverage").textContent =
       `${Number(totals.market_valued_item_count || 0).toLocaleString("en-GB")} of ${Number(totals.active_inventory_count || 0).toLocaleString("en-GB")} active items valued`+

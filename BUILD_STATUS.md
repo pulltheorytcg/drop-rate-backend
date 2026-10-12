@@ -1,3 +1,7 @@
+## Current work — shared inventory references (12 October 2026)
+
+Owner-independent catalogue image/value resolution is being consolidated for founder and seller inventory, details and current totals. Read-only response enrichment reuses existing catalogue snapshots/media, matches exact language/condition/grader/grade/seal, labels guides and stale/missing evidence, and preserves own costs, selling prices, history and physical photo privacy. No migration, provider/service, account merge, stock reconciliation, image approval or Shopify publication. Implementation/tests and deployment must be distinguished; exact release evidence is recorded on the associated PR after verification. See `docs/SHARED_INVENTORY_REFERENCES.md`. Unresolved exact artwork and missing market evidence remain explicit exceptions, not fabricated completion.
+
 # Drop Rate — Live Build Status
 
 ## 11 October 2026 — Collection-first confirmation / separate selling (implementation; release evidence pending)

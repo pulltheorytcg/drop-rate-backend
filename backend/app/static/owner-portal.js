@@ -189,7 +189,7 @@ function renderInventoryRows(items) {
     statusCell.append(status);
 
     const marketCell = document.createElement("td");
-    marketCell.textContent = item.market_value_minor == null
+    marketCell.textContent = item.reference_value ? window.DropRateReferenceValue.text(item, formatMoney) : item.market_value_minor == null
       ? "Value pending"
       : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"");
     if((item.grouped_quantity||1)>1 && item.group_valued_count<item.grouped_quantity)
@@ -268,7 +268,7 @@ function renderInventoryCards(items) {
       ? "Recommended retail"
       : "Store price";
     for (const [labelText, valueText] of [
-      ["Market value", item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"")],
+      ["Market value", item.reference_value ? window.DropRateReferenceValue.text(item, formatMoney) : item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"")],
       [storeLabel, storeValue == null ? "—" : formatMoney(storeValue)],
     ]) {
       const box = document.createElement("div");
@@ -615,7 +615,7 @@ function renderOwnerChannelsRows(items, channels = []) {
 
     const marketCell = document.createElement("td");
     marketCell.textContent =
-      item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"");
+      item.reference_value ? window.DropRateReferenceValue.text(item, formatMoney) : item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"");
 
     const storeCell = document.createElement("td");
     storeCell.textContent =
@@ -695,7 +695,7 @@ async function loadOwnerOverview() {
   const unvalued = Number(summary.active_unvalued_count || 0);
   const valued = Number(summary.active_valued_count || 0);
   byId("owner-market-value").textContent = unvalued && !valued
-    ? "Value pending" : formatMoney(summary.active_market_value_minor);
+    ? "Value unavailable" : formatMoney(summary.active_market_value_minor);
   byId("owner-market-value-note").textContent = unvalued
     ? `${valued} valued · ${unvalued} awaiting market data`
     : "Latest available market prices";

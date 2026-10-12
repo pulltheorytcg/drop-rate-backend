@@ -8,6 +8,7 @@ from fastapi.encoders import jsonable_encoder
 
 from .auth import AuthenticatedUser, require_user
 from .db import user_connection
+from .inventory_reference_values import reference_portfolio, reference_totals, reference_top_groups
 from .ownership import current_owner as _owner
 
 
@@ -248,6 +249,14 @@ async def inventory_intelligence(
             window_days,
         )
 
+        shared = await reference_portfolio(connection, [owner_id], statuses=("DRAFT", "INSPECTION", "APPROVED"))
+        refs = reference_totals(shared)
+        totals = dict(totals)
+        totals.update(inventory_market_value_minor=refs["total_minor"], market_valued_item_count=refs["valued_count"],
+                      guide_estimate_count=refs["estimate_count"], valuation_basis="SHARED_CATALOGUE_V1",
+                      valued_pricing_group_count=len(reference_top_groups(shared, limit=len(shared))))
+        top_rows = reference_top_groups(shared, top_limit)
+
     mover_dicts = [dict(row) for row in mover_rows]
     ranked = rank_weekly_movers(mover_dicts, limit=top_limit)
     groups_with_prior = sum(
@@ -256,6 +265,7 @@ async def inventory_intelligence(
         if row.get("prior_market_value_minor") is not None
         and int(row["prior_market_value_minor"]) > 0
     )
+
 
     return jsonable_encoder(
         {

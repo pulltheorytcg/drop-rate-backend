@@ -30,6 +30,8 @@ from .language import clean_language
 from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .settings import get_settings
 from .owner_inventory import add_reference_artwork
+from .inventory_reference_values import add_shared_reference_values, reference_portfolio, reference_totals
+from .inventory_reference_media import add_shared_inventory_media
 
 
 router = APIRouter(prefix="/api/v1/owner", tags=["owner-portal"])
@@ -332,13 +334,19 @@ async def owner_overview(
             owner_id,
         )
 
+        refs = reference_totals(await reference_portfolio(connection, [owner_id]))
+        summary = dict(summary)
+        summary.update(active_market_value_minor=refs["total_minor"], active_valued_count=refs["valued_count"],
+                       active_unvalued_count=refs["unvalued_count"], guide_estimate_count=refs["estimate_count"],
+                       valuation_basis="SHARED_CATALOGUE_V1")
+
     return jsonable_encoder(
         {
             "owner": {
                 "display_name": access["display_name"],
                 "owner_type": access["owner_type"],
             },
-            "summary": dict(summary),
+            "summary": summary,
         }
     )
 
@@ -521,6 +529,15 @@ async def owner_insights(
             """,
             owner_id,
         )
+
+        shared = await reference_portfolio(connection, [owner_id])
+        top_valued = sorted((item for item in shared if item["market_value_minor"] is not None),
+                            key=lambda item: (-item["market_value_minor"], str(item["id"])))[:6]
+        for item in top_valued:
+            item["inventory_id"] = item["id"]
+            item["store_value_minor"] = item.get("store_price_minor") or item.get("recommended_retail_minor")
+        await add_reference_artwork(connection, top_valued)
+        await add_shared_inventory_media(connection, top_valued)
 
     return jsonable_encoder(
         {
@@ -1163,6 +1180,8 @@ async def owner_inventory(
         )
 
         items = await add_reference_artwork(connection, [dict(row) for row in rows])
+        await add_shared_inventory_media(connection, items)
+        await add_shared_reference_values(connection, items)
 
     return jsonable_encoder(
         {
