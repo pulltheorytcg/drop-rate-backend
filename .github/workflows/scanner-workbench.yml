@@ -34,6 +34,13 @@ jobs:
           Path('/tmp/scanner.patch').write_bytes(patch)
           subprocess.run(['git','apply','--check','/tmp/scanner.patch'],check=True)
           subprocess.run(['git','apply','/tmp/scanner.patch'],check=True)
+          def replace(path,old,new,count):
+            p=Path(path);s=p.read_text();assert s.count(old)==count,(path,old,s.count(old));p.write_text(s.replace(old,new))
+          replace('tests/test_scanner_video_regressions.py','Image.new("RGB", (64,64))','Image.new("RGB", (512,512))',1)
+          replace('tests/test_owner_portal_shell.py','owner-recognition.js?v=owner-v13','owner-recognition.js?v=video-fix-v9',1)
+          replace('tests/test_owner_portal_shell.py','scanner-flow.js?v=collection-v8','scanner-flow.js?v=video-fix-v9',1)
+          replace('backend/app/main.py','scanner-flow.js?v=collection-v8','scanner-flow.js?v=video-fix-v9',1)
+          replace('tests/ui/scanner-flow.cjs',"details.querySelector('input'); quantity", "details.querySelector('[aria-label=\"Quantity\"]'); quantity",1)
           PY
       - name: Install existing pinned test dependencies
         run: |
@@ -44,30 +51,12 @@ jobs:
           python -m compileall -q backend
           find backend/app/static -type f -name '*.js' -print0 | xargs -0 -n1 node --check
       - name: Full backend regressions
-        run: PYTHONPATH=backend pytest -q
+        run: PYTHONPATH=backend pytest
       - name: Full dashboard regressions
         run: npm test --prefix tests/ui
       - name: Commit verified app source only to repair branch
         run: |
           git diff --check
-          git add BUILD_STATUS.md backend/app/catalogue_browser.py backend/app/grading_certificates.py backend/app/slab_evidence.py backend/app/static/index.html backend/app/static/owner-recognition.js backend/app/static/owner.html backend/app/static/scanner-flow.css backend/app/static/scanner-flow.js docs/SCANNER_VIDEO_REGRESSIONS_20261012.md tests/test_catalogue_browser.py tests/test_scanner_video_regressions.py tests/ui/scanner-flow.cjs
+          git add BUILD_STATUS.md backend/app/catalogue_browser.py backend/app/grading_certificates.py backend/app/slab_evidence.py backend/app/main.py backend/app/static/index.html backend/app/static/owner-recognition.js backend/app/static/owner.html backend/app/static/scanner-flow.css backend/app/static/scanner-flow.js docs/SCANNER_VIDEO_REGRESSIONS_20261012.md tests/test_catalogue_browser.py tests/test_scanner_video_regressions.py tests/test_owner_portal_shell.py tests/ui/scanner-flow.cjs
           git -c user.name='Drop Rate regression workbench' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: reject conflicting slab matches and repair scanner capture, grade and artwork recovery'
           git push origin HEAD:refs/heads/fix/scanner-video-regressions-20261012
-      - name: Export only public pinned test dependencies for offline verification
-        if: always()
-        run: |
-          python -m pip download -r requirements-dev.txt --dest /tmp/scanner-wheels
-          python - <<'PY'
-          from pathlib import Path
-          import zipfile
-          with zipfile.ZipFile('/tmp/scanner-test-deps.zip','w',zipfile.ZIP_DEFLATED) as z:
-            for root,prefix in [(Path('/tmp/scanner-wheels'),'wheels'),(Path('tests/ui/node_modules'),'node_modules')]:
-              for p in root.rglob('*'):
-                if p.is_file():z.write(p,str(Path(prefix)/p.relative_to(root)))
-          PY
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: scanner-test-deps
-          path: /tmp/scanner-test-deps.zip
-          retention-days: 1
