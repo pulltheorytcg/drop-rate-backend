@@ -1,0 +1,33 @@
+name: Adjust reference value label regression
+on:
+  push:
+    branches: [fix/shared-inventory-reference-consistency-20261012]
+    paths: ['.github/workflows/final-reference-label-regression.yml']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    if: github.repository == 'pulltheorytcg/drop-rate-backend' && github.ref == 'refs/heads/fix/shared-inventory-reference-consistency-20261012'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - name: Change only the old value label assertion; retain XSS and all other tests
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('tests/ui/owner-inventory.cjs');data=p.read_bytes()
+          assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()=='48b153d2f5ae43df3c6035e2a14806caef3a7f2a'
+          text=data.decode();assert text.count('/Value pending/')==1
+          p.write_text(text.replace('/Value pending/','/Value unavailable/'))
+          PY
+          node --check tests/ui/owner-inventory.cjs
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tests/ui/owner-inventory.cjs
+          git commit -m 'Retain unsafe-name and missing-value coverage with truthful unavailable wording'
+          git push origin HEAD:refs/heads/fix/shared-inventory-reference-consistency-20261012
