@@ -623,7 +623,7 @@ function recognitionCandidateCard(candidate, label, runId) {
   marketValue.className = "recognition-score recognition-market-value";
   const marketLabel = document.createElement("span");
   const marketAmount = document.createElement("strong");
-  marketLabel.textContent = "Market value";
+  marketLabel.textContent = candidate.pricing_status === "REFERENCE_ESTIMATE" ? "Market guide (GBP)" : "Market value (GBP)";
   marketAmount.textContent = recognitionMoney(candidate.market_value_minor);
   marketValue.append(marketLabel, marketAmount);
 
@@ -638,7 +638,7 @@ function recognitionCandidateCard(candidate, label, runId) {
       ? recognitionPercent(candidate.pricing_confidence)
       : null;
     const algorithm = String(candidate.pricing_algorithm_version || "").toLowerCase();
-    const provisional = algorithm.includes("provisional") ? "Provisional" : "Stored pricing";
+    const provisional = candidate.pricing_status === "REFERENCE_ESTIMATE" ? "Shared reference · not an exact physical-copy valuation" : algorithm.includes("provisional") ? "Provisional" : "Shared stored pricing";
     pricingMeta.textContent = [
       provisional,
       confidence ? `${confidence} pricing confidence` : null,
