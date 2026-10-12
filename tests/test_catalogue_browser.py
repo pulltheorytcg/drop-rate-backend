@@ -11,7 +11,7 @@ from app.auth import require_user
 
 
 @pytest.mark.parametrize('role,roster,status', [('OWNER',False,200),('PLATFORM_ADMIN',True,200),('PLATFORM_ADMIN',False,403),(None,False,403)])
-@pytest.mark.parametrize('path', ['/games','/sets?system_code=ONE_PIECE_CARD_GAME','/products?q=Luffy','/select'])
+@pytest.mark.parametrize('path', ['/games','/sets?system_code=ONE_PIECE_CARD_GAME','/products?q=Luffy','/products?q=223&slab_number=223&slab_name=Charizard','/select'])
 @pytest.mark.asyncio
 async def test_browse_access_and_own_counts(monkeypatch, role, roster, status, path):
     owner_id=uuid4(); user_id=uuid4(); queries=[]

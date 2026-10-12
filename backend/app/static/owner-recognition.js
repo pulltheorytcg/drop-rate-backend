@@ -223,7 +223,8 @@ function ownerSlabEvidenceValues(data) {
     provider: data?.normalized_provider || provider.provider || observation.grader || byId("owner-slab-grader")?.value || "",
     certificate: data?.normalized_certificate || provider.certificate_number || observation.certificate_number || byId("owner-slab-certificate")?.value || "",
     status: provider.status || data?.provider_error || "LABEL_READ_ONLY",
-    grade: provider.grade || observation.grade || "",
+    grade: Object.prototype.hasOwnProperty.call(data || {}, "normalized_grade") ? data.normalized_grade || ""
+      : provider.display_grade ?? provider.grade ?? observation.grade ?? "",
     name: provider.subject || observation.card_name || "",
     number: provider.card_number || observation.card_number || "",
     setName: provider.set_brand || observation.set_name || "",

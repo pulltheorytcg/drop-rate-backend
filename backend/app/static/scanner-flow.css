@@ -204,3 +204,8 @@
   .dr-scan-modes { left: calc(50% - 150px); right: auto; width: 300px; }
   .dr-scan-tray { left: calc(50% - 300px); right: auto; width: 600px; }
 }
+
+/* Avoid iOS focus zoom/cropped certificate forms; do not disable user zoom. */
+.dr-scanner input, .dr-scanner select { font-size: 16px; min-width: 0; max-width: 100%; }
+
+.dr-scan-candidate-meta { display: block; max-width: 10rem; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }

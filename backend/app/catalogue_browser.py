@@ -18,6 +18,7 @@ from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .inventory_intake import create_inventory_intake, _find_exact_catalogue, _manual_identity_key
 from .physical_state import CARD_CONDITIONS
+from .slab_evidence import slab_candidate_supported
 from .recognition_games import SYSTEM_BY_GAME
 from .reference_market import refresh_reference_prices
 from .recognition_images import reference_image_bytes
@@ -399,6 +400,9 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
                    product_type: Literal["", "CARD", "SEALED"] = "", owned: Literal["all", "owned", "not_owned"] = "all",
                    sort: Literal["name", "newest", "number", "value_desc", "value_asc"] = "newest",
                    keys: str | None = Query(default=None, max_length=5000),
+                   slab_number: str = Query(default="", max_length=80),
+                   slab_name: str = Query(default="", max_length=160),
+                   slab_set: str = Query(default="", max_length=200),
                    limit: int = Query(default=40, ge=1, le=80), offset: int = Query(default=0, ge=0, le=100000)):
     key_list = keys.split(",") if keys else ([] if keys is not None else None)
     if key_list is not None and len(key_list) > 100:
@@ -407,7 +411,18 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
         set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list, limit=limit, offset=offset)
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         rows = await connection.fetch(query, *params)
-    return jsonable_encoder({"items": [with_artwork_path(row) for row in rows[:limit]], "has_more": len(rows) > limit, "offset": offset})
+    # This bounded page is a suggestion pool, never a verified match. Filtering
+    # is deliberately server-side and separate from ordinary manual search.
+    # A translated/abbreviated label with no verified alias remains unresolved.
+    slab_search = bool(slab_number or slab_name or slab_set)
+    selected_rows = rows[:limit]
+    if slab_search:
+        selected_rows = [row for row in selected_rows if slab_candidate_supported(
+            row, card_name=slab_name, card_number=slab_number, set_name=slab_set)]
+    return jsonable_encoder({"items": [with_artwork_path(row) for row in selected_rows],
+        "has_more": len(rows) > limit, "offset": offset,
+        "slab_review_required": slab_search,
+        "slab_search_bounded": slab_search and len(rows) > limit})
 
 
 @router.get('/reference-image')
