@@ -31,6 +31,41 @@ jobs:
                   print(filename,len(payload),"timestamp",raw["createdAt"])
                   time.sleep(.1)
           PY
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install existing pinned project test dependencies
+        run: python -m pip install -r requirements-dev.txt -q
+      - name: Replay strict EB03 product matches with guarded title alias
+        run: |
+          PYTHONPATH=backend python - <<'PY'
+          import json
+          from pathlib import Path
+          from app import one_piece_market as op
+          root=Path('/tmp/cardmarket-public')
+          refs=json.loads(Path('.github/eb03-public-reference-fixture.json').read_text())
+          singles={str(x['idProduct']):x for x in json.loads((root/'products_singles_18.json').read_text())['products']}
+          packaging={str(x['idProduct']):x for x in json.loads((root/'products_nonsingles_18.json').read_text())['products']}
+          prices={str(x['idProduct']):x for x in json.loads((root/'price_guide_18.json').read_text())['priceGuides']}
+          original=op.matched_products(refs,singles,packaging)
+          before_release=op.release_identity
+          def corrected(name, *, include_starters=True):
+              result=before_release(name,include_starters=include_starters)
+              if result==('onepieceheroinesedition','EB03'):
+                  return ('heroinesedition','EB03')
+              return result
+          op.release_identity=corrected
+          improved=op.matched_products(refs,singles,packaging)
+          added={k:v for k,v in improved.items() if k not in original}
+          priced={k:v for k,v in added.items() if prices.get(str(v['idProduct']),{}).get('trend') is not None}
+          print('EB03_PUBLIC_CATALOGUE', 'refs',len(refs),'before',len(original),'after',len(improved),'new',len(added),'with_trend',len(priced))
+          print('RECOVERED_PUBLIC_IDENTITIES', [(k,v['idProduct'],v['name'],v['idExpansion']) for k,v in list(priced.items())[:20]])
+          print('ALIAS_TARGET', corrected('EXTRA BOOSTER -ONE PIECE HEROINES EDITION- [EB-03]'))
+          assert len(original)==0, 'Previous baseline unexpectedly changed'
+          assert len(added)>0, 'No valid improvement'
+          assert set(original.items()) <= set(improved.items()), 'Existing matches lost'
+          assert all(v['idExpansion']==6449 for v in added.values()), 'Regional/Asia release was mixed'
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: public-cardmarket-data
