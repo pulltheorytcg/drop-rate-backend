@@ -1,0 +1,76 @@
+name: Harden reference-language fallback
+on:
+  push:
+    branches: [fix/shared-inventory-reference-consistency-20261012]
+    paths: ['.github/workflows/harden-reference-language.yml']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    if: github.repository == 'pulltheorytcg/drop-rate-backend' && github.ref == 'refs/heads/fix/shared-inventory-reference-consistency-20261012'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - name: Apply guarded source patch on feature branch only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('backend/app/owner_inventory.py');raw=p.read_bytes()
+          assert hashlib.sha256(raw).hexdigest()=='9fb8db9d527401d489f641aede08fb75f1faf764882239d91504ebac886ba7f2'
+          text=raw.decode().replace('from .catalogue_artwork import reference_thumbnail','from .catalogue_artwork import reference_thumbnail\nfrom .language import clean_language')
+          text=text.replace('select p.id,array_agg(distinct art.url)','select p.id,p.language as catalogue_language,array_agg(distinct art.url)')
+          old='''    by_id = {row["id"]: row["urls"] or [] for row in rows}
+              for item in items:
+                  urls = by_id.get(item["catalogue_id"], [])
+          '''.replace('              for','    for').replace('                  urls','        urls').rstrip()+'\n'
+          assert text.count(old)==1
+          new='''    by_id = {row["id"]: dict(row) for row in rows}
+              for item in items:
+                  artwork = by_id.get(item["catalogue_id"], {})
+                  urls = artwork.get("urls") or []
+                  physical_language = clean_language(item.get("language"))
+                  catalogue_language = clean_language(artwork.get("catalogue_language"))
+                  item.pop("reference_image_url", None)
+                  item.pop("reference_image_path", None)
+                  if physical_language and catalogue_language and physical_language != catalogue_language:
+                      continue
+          '''.replace('              for','    for').replace('                  ','        ').replace('                      continue','            continue').rstrip()+'\n'
+          # The triple-quoted indentation is normalised explicitly below.
+          new=new.replace('\n            continue','\n            continue')
+          text=text.replace(old,new)
+          text=text.replace('select id,catalogue_id from tcg.inventory_items where id=$1 and owner_id=$2','select id,catalogue_id,language from tcg.inventory_items where id=$1 and owner_id=$2')
+          p.write_text(text)
+          p=Path('backend/app/api.py');raw=p.read_bytes()
+          assert hashlib.sha256(raw).hexdigest()=='34790abda0d2a257bebbc7473e767a2c484551210e63705d1fb8b761d1888123'
+          text=raw.decode();old='select i.id, i.catalogue_id\n            from tcg.inventory_items i'
+          assert text.count(old)==1;p.write_text(text.replace(old,'select i.id, i.catalogue_id, i.language\n            from tcg.inventory_items i'))
+          p=Path('tests/test_inventory_reference_values.py');text=p.read_text()
+          text+='''\n\n@pytest.mark.asyncio
+          async def test_library_art_respects_physical_language_and_clears_rejected_fallback():
+              from app.owner_inventory import add_reference_artwork
+              class Connection:
+                  async def fetch(self,sql,ids):
+                      assert "p.language as catalogue_language" in sql
+                      return [{"id": CAT,"catalogue_language":"Japanese","urls":["https://assets.tcgdex.net/ja/sv/sv1S/001/high.webp"]}]
+              correct={"id":"own-copy","catalogue_id":CAT,"language":"Japanese"}
+              wrong={"id":"legacy-copy","catalogue_id":CAT,"language":"English","reference_image_url":"old-value","reference_image_path":"old-path"}
+              await add_reference_artwork(Connection(),[correct,wrong])
+              assert correct.get("reference_image_url")
+              assert "reference_image_url" not in wrong and "reference_image_path" not in wrong
+          '''
+          # Remove only the leading indentation from this appended function.
+          head,tail=text.rsplit('\n\n@pytest.mark.asyncio',1)
+          tail='\n'.join(line[10:] if line.startswith('          ') else line for line in tail.split('\n'))
+          p.write_text(head+'\n\n@pytest.mark.asyncio'+tail)
+          PY
+          python -m compileall -q backend/app/owner_inventory.py backend/app/api.py tests/test_inventory_reference_values.py
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/app/owner_inventory.py backend/app/api.py tests/test_inventory_reference_values.py
+          git commit -m 'Reject wrong-language reference artwork even in legacy inventory fallback'
+          git push origin HEAD:refs/heads/fix/shared-inventory-reference-consistency-20261012
