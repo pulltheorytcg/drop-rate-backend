@@ -367,7 +367,7 @@ function ownerSlabSearchResultCard(row) {
   const value = document.createElement("small");
   value.textContent = row.market_value_minor == null
     ? "Reference value unavailable"
-    : `Market ${formatMoney(row.market_value_minor)}`;
+    : `${["CARDMARKET_ESTIMATE", "TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT", "CARDMARKET_BULK_SINGLES", "CARDMARKET_CATALOGUE"].includes(row.market_value_source) ? "Shared guide" : "Market"} ${formatMoney(row.market_value_minor)}`;
   copy.append(name, meta, value);
   const choose = document.createElement("em");
   choose.textContent = "Confirm";
@@ -1797,7 +1797,7 @@ function ownerBatchSearchResultCard(row) {
   const value = document.createElement("small");
   value.textContent = row.market_value_minor == null
     ? "Reference value unavailable"
-    : `Market ${formatMoney(row.market_value_minor)}`;
+    : `${["CARDMARKET_ESTIMATE", "TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT", "CARDMARKET_BULK_SINGLES", "CARDMARKET_CATALOGUE"].includes(row.market_value_source) ? "Shared guide" : "Market"} ${formatMoney(row.market_value_minor)}`;
   copy.append(name, meta, value);
 
   const choose = document.createElement("em");
