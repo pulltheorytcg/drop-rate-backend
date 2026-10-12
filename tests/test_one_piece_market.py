@@ -121,3 +121,93 @@ async def test_refresh_normalizes_guide_and_never_writes_inventory(monkeypatch):
     monkeypatch.setattr(market,'download',failure)
     report=await market.refresh_one_piece_prices(object(),uuid4(),FX())
     assert report['provider_failures']==1 and not writes
+
+
+def test_eb03_heroines_release_recovers_exact_english_matches_only():
+    """Real Cardmarket source has English expansion 6449 and Asia expansion 6379."""
+    ref = dict(provider='Punk Records', system_code='ONE_PIECE_CARD_GAME',
+               language='English', provider_id='EB03-002', card_number='EB03-002',
+               name='Ain', set_id='569203',
+               set_name='EXTRA BOOSTER -ONE PIECE HEROINES EDITION- [EB-03]')
+    english = {'idProduct': 871954, 'name': 'Ain (EB03-002)',
+               'idCategory': 1621, 'categoryName': 'One Piece Single',
+               'idExpansion': 6449}
+    asia = {**english, 'idProduct': 990001, 'idExpansion': 6379}
+    english_lot = {'name': 'Common Set - Heroines Edition (EB03)',
+                   'categoryName': 'One Piece Lots', 'idExpansion': 6449}
+    asia_pack = {'name': 'Heroines Edition Booster (Asia Region Legal)',
+                 'categoryName': 'One Piece Booster', 'idExpansion': 6379}
+
+    assert market.release_identity(ref['set_name']) == ('heroinesedition', 'EB03')
+    assert market.release_identity('EXTRA BOOSTER -ONE PIECE HEROINES EDITION- [EB-02]') == (
+        'onepieceheroinesedition', 'EB02'
+    )
+    result = market.matched_products([ref], {'english': english, 'asia': asia},
+                                     {'english-lot': english_lot, 'asia-boost': asia_pack})
+    assert result['EB03-002']['idProduct'] == 871954
+
+    # Price existence, a regional product, or a shared collector number never
+    # resolves conflicting exact artworks or a duplicated variant.
+    assert not market.matched_products([ref], {'asia': asia}, {'english-lot': english_lot})
+    assert not market.matched_products([ref], {
+        'english': english, 'another-english': {**english, 'idProduct': 871955},
+    }, {'english-lot': english_lot})
+    assert not market.matched_products([ref, {**ref, 'provider_id': 'EB03-002_p1'}],
+                                       {'english': english}, {'english-lot': english_lot})
+
+    for change in ({'language': 'Japanese'}, {'card_number': 'EB03-003'},
+                   {'name': 'Ain (Parallel)'}, {'set_name': 'EXTRA BOOSTER -OTHER- [EB-03]'},
+                   {'provider': 'Unknown Provider'}):
+        assert not market.matched_products([{**ref, **change}],
+                                           {'english': english}, {'english-lot': english_lot})
+
+
+@pytest.mark.asyncio
+async def test_eb03_refresh_writes_only_verified_global_reference_guides(monkeypatch):
+    ref = dict(provider='Punk Records', system_code='ONE_PIECE_CARD_GAME',
+               language='English', provider_id='EB03-002', card_number='EB03-002',
+               name='Ain', set_id='569203',
+               set_name='EXTRA BOOSTER -ONE PIECE HEROINES EDITION- [EB-03]',
+               rarity='Uncommon')
+    single = {'idProduct': 871954, 'name': 'Ain (EB03-002)',
+              'idCategory': 1621, 'categoryName': 'One Piece Single',
+              'idExpansion': 6449}
+    pack = {'name': 'Common Set - Heroines Edition (EB03)',
+            'categoryName': 'One Piece Lots', 'idExpansion': 6449}
+    now = datetime.now(timezone.utc)
+    written = []
+
+    async def download(client, path, **kwargs):
+        if 'nonsingles' in path:
+            return {'lot': pack}, now
+        if 'singles' in path:
+            return {'single': single}, now
+        return {'871954': {'idProduct': 871954, 'idCategory': 1621, 'trend': '0.85'}}, now
+
+    class Connection:
+        async def fetch(self, sql):
+            return [ref]
+        async def executemany(self, sql, values):
+            assert 'reference_market_prices' in sql
+            assert 'inventory_items' not in sql and 'shopify' not in sql.lower()
+            written.extend(values)
+    @asynccontextmanager
+    async def connection(*args):
+        yield Connection()
+    class FX:
+        async def quote(self, **kwargs):
+            return FxQuote('EUR','GBP',Decimal('.86'), now, now, 'ECB_EURO_REFERENCE_RATES')
+
+    monkeypatch.setattr(market, 'download', download)
+    monkeypatch.setattr(market, 'user_connection', connection)
+    result = await market.refresh_one_piece_prices(object(), uuid4(), FX())
+    assert result['provider_failures'] == 0
+    assert result['checked'] == result['matched'] == result['priced'] == 1
+    assert len(written) == 1
+    assert written[0][5] == 73  # EUR 0.85 converted to GBP, rounded in pennies
+    quote = written[0][4][0]
+    assert quote['reference_printing_id'] == 'EB03-002'
+    assert quote['expansion_id'] == 6449
+    assert quote['valuation_role'] == 'MIXED_LANGUAGE_REFERENCE'
+    assert quote['physical_language_confirmed'] is False
+    assert quote['condition_specific'] is False
