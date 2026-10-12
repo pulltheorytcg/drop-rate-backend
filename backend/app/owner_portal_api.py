@@ -807,6 +807,7 @@ async def owner_catalogue_search(
                 value.pricing_updated_at,
                 value.basis_condition,
                 value.basis_language,
+                value.valuation_source as market_value_source,
                 (
                     select coalesce(m.shopify_cdn_url,m.public_source_url)
                     from tcg.media_assets m
@@ -831,7 +832,7 @@ async def owner_catalogue_search(
                 ) as image_url
             from tcg.catalogue_products p
             join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
-            left join lateral tcg.recognition_catalogue_reference_value(
+            left join lateral tcg.catalogue_reference_value_v2(
                 p.id,
                 nullif(p.language,'')
             ) value on true
@@ -912,7 +913,15 @@ async def owner_catalogue_search(
                     c.provider,c.system_code,c.language,c.provider_id,c.name,
                     s.name as set_name,c.card_number,
                     c.provider_id as variant,c.rarity,c.finish,c.image_url,
-                    mapped.catalogue_id as mapped_catalogue_id
+                    mapped.catalogue_id as mapped_catalogue_id,
+                    coalesce(exact_snapshot.market_value_minor,ref_market.market_value_minor,
+                             ref_catalogue.market_value_minor) as reference_market_value_minor,
+                    coalesce(exact_snapshot.pricing_updated_at,ref_market.pricing_updated_at,
+                             ref_catalogue.pricing_updated_at) as reference_pricing_updated_at,
+                    case when exact_snapshot.market_value_minor>0 then exact_snapshot.valuation_source
+                         when ref_market.market_value_minor>0 then ref_market.quotes->0->>'source'
+                         when ref_catalogue.market_value_minor>0 then 'CARDMARKET_CATALOGUE'
+                         else null end as reference_value_source
                 from matching_cards c
                 join tcg.reference_sets s
                   using(provider,system_code,language,set_id)
@@ -928,6 +937,31 @@ async def owner_catalogue_search(
                       and m.match_status='VERIFIED'
                     limit 1
                 ) mapped on true
+                -- Owner-independent reference evidence. Ambiguous mappings are
+                -- never treated as approval to inherit somebody else's price.
+                left join lateral tcg.catalogue_reference_value_v2(
+                    mapped.catalogue_id, nullif(c.language,'')
+                ) exact_snapshot on mapped.catalogue_id is not null
+                left join tcg.reference_market_prices ref_market
+                  on (ref_market.provider,ref_market.system_code,ref_market.language,ref_market.provider_id)=
+                     (c.provider,c.system_code,c.language,c.provider_id)
+                 and ref_market.market_value_minor>0
+                 and ref_market.pricing_updated_at between now()-interval '7 days' and now()
+                 and (
+                    (ref_market.quotes->0->>'source' in ('TCGDEX_CARDMARKET','TCGDEX_CARDMARKET_VARIANT')
+                      and ref_market.quotes->0->>'reference_language'=c.language)
+                    or (ref_market.quotes->0->>'source'='CARDMARKET_BULK_SINGLES'
+                      and ref_market.quotes->0->'reference_identity'=jsonb_build_object(
+                          'name',c.name,'set_id',c.set_id,'card_number',c.card_number,'set_name',s.name))
+                 )
+                left join tcg.reference_catalogue_prices ref_catalogue
+                  on (ref_catalogue.provider,ref_catalogue.system_code,ref_catalogue.language,ref_catalogue.provider_id)=
+                     (c.provider,c.system_code,c.language,c.provider_id)
+                 and ref_catalogue.market_value_minor>0
+                 and ref_catalogue.pricing_updated_at between now()-interval '7 days' and now()
+                 and ref_catalogue.quotes->0->>'source'='CARDMARKET_CATALOGUE'
+                 and ref_catalogue.quotes->0->'reference_identity'=jsonb_build_object(
+                     'name',c.name,'set_id',c.set_id,'card_number',c.card_number,'set_name',s.name)
                 where (s.release_date is null or s.release_date<=current_date)
                 order by
                   case
@@ -968,9 +1002,17 @@ async def owner_catalogue_search(
                 item = dict(row)
                 item["id"] = mapped_id
                 item["game"] = GAME_BY_SYSTEM.get(item["system_code"], item["system_code"])
-                item["market_value_minor"] = None
+                item["market_value_minor"] = item.pop("reference_market_value_minor", None)
                 item["recommended_retail_minor"] = None
-                item["pricing_updated_at"] = None
+                item["pricing_updated_at"] = item.pop("reference_pricing_updated_at", None)
+                item["market_value_source"] = item.pop("reference_value_source", None)
+                item["pricing_status"] = (
+                    "NO_VERIFIED_VALUATION" if item["market_value_minor"] is None
+                    else "REFERENCE_ESTIMATE" if item["market_value_source"] in {
+                        "CARDMARKET_ESTIMATE", "CARDMARKET_BULK_SINGLES",
+                        "TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT", "CARDMARKET_CATALOGUE"
+                    } else "AVAILABLE"
+                )
                 item["basis_condition"] = None
                 item["basis_language"] = item["language"]
                 item["source_kind"] = "REFERENCE"
