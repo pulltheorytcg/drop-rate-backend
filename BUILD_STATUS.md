@@ -1,5 +1,15 @@
 ## Current correction — automatic retail recommendation summary (12 October 2026)
 
+## 12 October 2026 — Existing journey bug-fix QA (release verification in PR)
+
+- Reproduce/fix late-account request replay and response/profile races in both hubs; preserve same-account token refresh and backend authorization.
+- Fix stuck reopened imports, stale commit/resume/search completions and session-expiry cleanup without resetting real batches or changing idempotency.
+- Use shared exact-profile artwork/market/recommendation reads in Channels as well as inventory; reflect unchanged eBay scope rather than displaying unsupported sync controls.
+- Restore untouched retail suggestions after condition round trips; preserve manually chosen prices and collection-first intent.
+- Add actual-script Chromium/WebKit race regressions, extend restricted PostgreSQL/signed test HTTP channel consistency checks, run existing Business and shipping/pooling safety suites. No production data/price/ownership/publication writes.
+- See `docs/JOURNEY_REGRESSION_QA.md`. Full real-phone/scanner/checkout and signed-in production acceptance are NOT claimed by this pass. Release status requires exact-head CI and Railway/served-source verification recorded in the PR.
+
+
 Recommendations now reuse the same eligible algorithm snapshot as the shared market value, rather than an empty per-copy cache. Overview sums recommendations independently of saved asking prices, with explicit copy/guide coverage; item details show and prefill eligible suggestions without overwriting chosen prices or publishing. Null/stale/wrong-profile evidence never becomes a guessed recommendation. Existing daily catalogue jobs already run; no new provider, scheduler, service, migration, rate-limit bypass or stock/price/ownership/finance backfill. #609 shared imagery and #608 collection-first intent are preserved. See docs/AUTOMATIC_RETAIL_RECOMMENDATIONS.md; exact tests, deployment and live readback belong in the release comment. This entry alone is not acceptance evidence.
 
 ## Current work — shared inventory references (12 October 2026)

@@ -101,11 +101,15 @@ function parseOAuthSession() {
 }
 async function hydrateSessionUser() {
   if (!state.session?.access_token) return;
-  const user = await authRequest("/user", {
-    headers: {Authorization: `Bearer ${state.session.access_token}`},
-  });
-  state.session.user = user;
-  saveSession(state.session);
+  const checkSession = window.PullTheoryHubSession.capture(() => state.session);
+  try {
+    const user = await authRequest("/user", {
+      headers: {Authorization: `Bearer ${state.session.access_token}`},
+    });
+    checkSession();
+    state.session.user = user;
+    saveSession(state.session);
+  } catch (error) { checkSession(); throw error; }
 }
 function saveSession(session) {
   state.session = session;
@@ -120,19 +124,26 @@ function clearSession() {
   window.PullTheoryHubSession.clear();
 }
 async function refreshSession() {
+  const previous = state.session;
+  const checkSession = window.PullTheoryHubSession.capture(() => state.session);
   return window.PullTheoryHubSession.refresh(async () => {
-    const previous = state.session;
     try {
+      checkSession();
       if (!previous?.refresh_token) {
         const error = new Error("Your session has expired.");
         error.sessionExpired = true;
         throw error;
       }
       const session = await authRequest("/token?grant_type=refresh_token", {method:"POST", body:JSON.stringify({refresh_token:previous.refresh_token})});
-      if (state.session !== previous) throw new Error("Your account changed. Please sign in again.");
+      checkSession();
+      if (session.user?.id && previous.user?.id && session.user.id !== previous.user.id) {
+        throw new Error("Your account changed. Please sign in again.");
+      }
+      if (!session.user && previous.user) session.user = previous.user;
       saveSession(session);
       return session.access_token;
     } catch (error) {
+      checkSession();
       error.refreshSession = previous;
       error.sessionExpired ||= window.PullTheoryHubSession.isExpiredRefresh(error);
       throw error;
@@ -140,31 +151,48 @@ async function refreshSession() {
   });
 }
 async function apiRequest(path, options = {}, retry = true) {
+  const checkSession = window.PullTheoryHubSession.capture(() => state.session);
+  checkSession();
   const requestOptions = {
     ...options,
-    headers: { Authorization: `Bearer ${state.session.access_token}`, "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: {"Content-Type": "application/json", ...(options.headers || {}), Authorization: `Bearer ${state.session.access_token}`},
   };
-  let response = await fetch(path, requestOptions);
-  if (response.status === 401 && retry) {
-    requestOptions.headers.Authorization = `Bearer ${await refreshSession()}`;
-    response = await fetch(path, requestOptions);
-  }
-  return readJson(response);
+  try {
+    let response = await fetch(path, requestOptions);
+    checkSession();
+    if (response.status === 401 && retry) {
+      requestOptions.headers.Authorization = `Bearer ${await refreshSession()}`;
+      checkSession();
+      response = await fetch(path, requestOptions);
+      checkSession();
+    }
+    const data = await readJson(response);
+    checkSession();
+    return data;
+  } catch (error) { checkSession(); throw error; }
 }
 async function apiImageBlob(path, retry = true) {
-  const requestOptions = {
-    headers: { Authorization: `Bearer ${state.session.access_token}` },
-  };
-  let response = await fetch(path, requestOptions);
-  if (response.status === 401 && retry) {
-    requestOptions.headers.Authorization = `Bearer ${await refreshSession()}`;
-    response = await fetch(path, requestOptions);
-  }
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(errorMessage(data));
-  }
-  return response.blob();
+  const checkSession = window.PullTheoryHubSession.capture(() => state.session);
+  checkSession();
+  const requestOptions = {headers: {Authorization: `Bearer ${state.session.access_token}`}};
+  try {
+    let response = await fetch(path, requestOptions);
+    checkSession();
+    if (response.status === 401 && retry) {
+      requestOptions.headers.Authorization = `Bearer ${await refreshSession()}`;
+      checkSession();
+      response = await fetch(path, requestOptions);
+      checkSession();
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      checkSession();
+      throw new Error(errorMessage(data));
+    }
+    const blob = await response.blob();
+    checkSession();
+    return blob;
+  } catch (error) { checkSession(); throw error; }
 }
 
 function redirectPendingFounderInviteCallback() {

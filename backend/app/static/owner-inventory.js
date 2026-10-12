@@ -218,13 +218,20 @@ window.DropRateInventory = (() => {
     const initialPrice = item.store_price_minor ?? recommended;
     priceInput.value = initialPrice == null ? "" : (initialPrice / 100).toFixed(2);
     let suggestionPrefilled = item.store_price_minor == null && recommended != null;
-    priceInput.addEventListener("input", () => { suggestionPrefilled = false; });
+    let priceEdited = false;
+    const recommendationText = recommendationNote.textContent;
+    priceInput.addEventListener("input", () => { suggestionPrefilled = false; priceEdited = true; });
     if (saleCondition) saleCondition.addEventListener("change", () => {
       const guide = item.reference_value?.status === "REFERENCE_ESTIMATE";
       const sameBasis = guide ? ["", "Near Mint"].includes(saleCondition.value)
         : saleCondition.value === (item.condition || "");
       if (!sameBasis && suggestionPrefilled) { priceInput.value = ""; suggestionPrefilled = false; }
-      if (!sameBasis) recommendationNote.textContent = "Recorded-condition recommendation does not apply to the newly selected condition.";
+      recommendationNote.textContent = sameBasis ? recommendationText
+        : "Recorded-condition recommendation does not apply to the newly selected condition.";
+      if (sameBasis && !priceEdited && item.store_price_minor == null && recommended != null) {
+        priceInput.value = (recommended / 100).toFixed(2);
+        suggestionPrefilled = true;
+      }
     });
     priceInput.setAttribute("aria-label", "Your selling price in pounds"); priceInput.disabled = !active(item);
     priceLabel.append(priceInput); sale.append(priceLabel);

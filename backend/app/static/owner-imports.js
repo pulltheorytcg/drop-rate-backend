@@ -30,7 +30,7 @@
   ];
   const KNOWN_ADAPTERS = new Set(["COLLECTR", "HOLODEX", "GENERIC_CSV", "AUTO"]);
   const state = {
-    dialog: null, generation: 0, busy: false, batch: null,
+    dialog: null, generation: 0, historyRevision: 0, busy: false, batch: null,
     candidates: [], summary: null, warnings: [], page: 0,
     filter: "ALL", headers: [], fileContents: null,
   };
@@ -59,6 +59,11 @@
     current.className = "owner-import-message" + (mode ? " is-" + mode : "");
   }
 
+  function current(generation, batchId = null) {
+    return generation === state.generation && Boolean(state.dialog?.open)
+      && (batchId === null || state.batch?.id === batchId);
+  }
+
   function setBusy(active) {
     state.busy = Boolean(active);
     for (const id of ["owner-import-preview", "owner-import-commit"]) {
@@ -67,7 +72,9 @@
         id === "owner-import-commit" && !canCommit()
       );
     }
-    if ($("owner-import-file")) $("owner-import-file").disabled = state.busy;
+    for (const id of ["owner-import-file", "owner-import-adapter", "owner-import-game", "owner-import-language"]) {
+      if ($(id)) $(id).disabled = state.busy;
+    }
   }
 
   function ensureDialog() {
@@ -148,6 +155,9 @@
     state.fileContents = null;
     state.headers = [];
     resetPreview();
+    setBusy(false);
+    $("owner-import-history-list")?.replaceChildren();
+    message("");
     if (state.dialog?.open) state.dialog.close();
   }
 
@@ -163,6 +173,7 @@
     $("owner-import-map-fields").replaceChildren();
     $("owner-import-map-details").open = false;
     resetPreview();
+    setBusy(false);
     message("Upload your collection: verified matches are added as Draft; only uncertain rows need confirmation.");
     updateMappingHelp();
     if (!dialog.open) dialog.showModal();
@@ -201,6 +212,8 @@
   }
 
   async function inspectFile() {
+    if (state.busy) return;
+    state.generation++;
     state.fileContents = null;
     state.headers = [];
     resetPreview();
@@ -228,6 +241,7 @@
       buildMappings(headers);
       message(`${file.name} · ${headers.length} headers detected. Import to add recognised cards and review the remainder.`);
     } catch (_error) {
+      if (!current(generation) || file !== $("owner-import-file").files?.[0]) return;
       message("Could not read this CSV/TSV file. Export again as UTF-8 text.", "error");
     }
   }
@@ -436,30 +450,32 @@
     ]);
   }
 
-  async function updateCandidate(result) {
-    if (!state.batch || state.batch.id !== String(result.batch_id)) return;
-    const generation = state.generation;
+  async function updateCandidate(result, generation) {
+    if (!current(generation, String(result.batch_id))) return false;
     const stored = await apiRequest(`/api/v1/owner/imports/${encodeURIComponent(result.batch_id)}`);
-    if (generation !== state.generation || !state.dialog?.open) return;
+    if (!current(generation, String(result.batch_id))) return false;
     loadPreview(stored, result);
     await refreshInventory();
+    return current(generation, String(result.batch_id));
   }
 
   async function skipCandidate(candidate, button) {
-    if (!state.batch || !window.confirm(`Skip source row ${candidate.source_row}? It will not add this physical stock.`)) return;
-    const batchId = state.batch.id;
+    if (state.busy || !state.batch || !window.confirm(`Skip source row ${candidate.source_row}? It will not add this physical stock.`)) return;
+    const batchId = state.batch.id, generation = state.generation;
     button.disabled = true;
+    setBusy(true);
     try {
       const result = await apiRequest(
         `/api/v1/owner/imports/${encodeURIComponent(batchId)}/candidates/${encodeURIComponent(candidate.id)}/skip`,
         {method: "POST", body: JSON.stringify({version: state.batch.version})}
       );
-      if (!state.batch || state.batch.id !== batchId || !state.dialog?.open) return;
-      await updateCandidate(result);
+      if (!current(generation, batchId) || !await updateCandidate(result, generation)) return;
       message(`Source row ${candidate.source_row} will not be added.`, "success");
     } catch (_error) {
+      if (!current(generation, batchId)) return;
       message("This row could not be skipped. Refresh the import preview and retry.", "error");
-      button.disabled = false;
+    } finally {
+      if (current(generation, batchId)) { setBusy(false); button.disabled = false; }
     }
   }
 
@@ -485,8 +501,14 @@
     languageLabel.append(language);
     const results = document.createElement("div");
     results.className = "owner-import-resolver-results";
+    const generation = state.generation, batchId = state.batch?.id;
+    let searchRevision = 0;
     const runSearch = async () => {
+      const revision = ++searchRevision;
       const term = input.value.trim();
+      const relevant = () => current(generation, batchId) && section.isConnected
+        && revision === searchRevision && input.value.trim() === term;
+      if (!relevant()) return;
       if (term.length < 2) {
         results.replaceChildren(node("p", "Enter at least two characters."));
         return;
@@ -496,6 +518,7 @@
       try {
         const url = new URLSearchParams({q: term, product_type: normalized.product_type || "CARD"});
         const data = await apiRequest(`/api/v1/owner/imports/catalogue-search?${url.toString()}`);
+        if (!relevant()) return;
         results.replaceChildren();
         if (!Array.isArray(data.items) || !data.items.length) {
           results.append(node("small",
@@ -517,9 +540,9 @@
           results.append(itemRow);
         }
       } catch (_error) {
-        results.replaceChildren(node("small", "Catalogue search unavailable. Try again."));
+        if (relevant()) results.replaceChildren(node("small", "Catalogue search unavailable. Try again."));
       } finally {
-        search.disabled = false;
+        if (current(generation, batchId) && revision === searchRevision) search.disabled = false;
       }
     };
     search.addEventListener("click", runSearch);
@@ -533,9 +556,10 @@
   }
 
   async function resolveCandidate(candidate, catalogueId, button, language = null) {
-    if (!state.batch) return;
-    const batchId = state.batch.id;
+    if (state.busy || !state.batch) return;
+    const batchId = state.batch.id, generation = state.generation;
     button.disabled = true;
+    setBusy(true);
     try {
       const result = await apiRequest(
         `/api/v1/owner/imports/${encodeURIComponent(batchId)}/candidates/${encodeURIComponent(candidate.id)}/resolve`,
@@ -544,18 +568,19 @@
           body: JSON.stringify({version: state.batch.version, catalogue_id: catalogueId, language}),
         }
       );
-      if (!state.batch || state.batch.id !== batchId || !state.dialog?.open) return;
-      await updateCandidate(result);
+      if (!current(generation, batchId) || !await updateCandidate(result, generation)) return;
       message(result.candidate?.status === "COMMITTED" ? "Confirmed card added to your Draft inventory." : "Match saved. Any remaining missing facts still need confirmation.", "success");
     } catch (_error) {
+      if (!current(generation, batchId)) return;
       message("Confirmation could not finish. Refresh the import to check its current result before retrying.", "error");
-      button.disabled = false;
+    } finally {
+      if (current(generation, batchId)) { setBusy(false); button.disabled = false; }
     }
   }
 
   async function commitDrafts() {
     if (!canCommit() || state.busy) return;
-    const batchId = state.batch.id;
+    const batchId = state.batch.id, generation = state.generation;
     setBusy(true);
     message("Creating your Draft physical inventory. Nothing will publish to Shopify.");
     try {
@@ -563,12 +588,13 @@
         `/api/v1/owner/imports/${encodeURIComponent(batchId)}/commit`,
         {method: "POST", body: JSON.stringify({version: state.batch.version})}
       );
-      if (!state.batch || state.batch.id !== batchId || !state.dialog?.open) return;
+      if (!current(generation, batchId)) return;
       const stored = await apiRequest(`/api/v1/owner/imports/${encodeURIComponent(batchId)}`);
-      if (!state.batch || state.batch.id !== batchId || !state.dialog?.open) return;
+      if (!current(generation, batchId)) return;
       loadPreview(stored);
       message(`${state.summary.added_units} copies added. ${state.summary.review_rows} rows still need confirmation. Nothing is published.`, "success");
       await loadHistory();
+      if (!current(generation, batchId)) return;
       // Account-level inventory is the only affected UI. Avoid new
       // publication/AI enrichment/settlement side effects.
       await Promise.allSettled([
@@ -576,20 +602,20 @@
         typeof loadOwnerOverview === "function" ? loadOwnerOverview() : Promise.resolve(),
       ]);
     } catch (_error) {
-      message("Import could not finish. Refresh this batch to check which copies were already added before retrying.", "error");
+      if (current(generation, batchId)) message("Import could not finish. Refresh this batch to check which copies were already added before retrying.", "error");
     } finally {
-      setBusy(false);
+      if (current(generation, batchId)) setBusy(false);
     }
   }
 
   async function loadHistory() {
     if (!state.dialog?.open) return;
-    const generation = state.generation;
+    const generation = state.generation, revision = ++state.historyRevision;
     const list = $("owner-import-history-list");
     list.replaceChildren(node("small", "Checking previous imports…"));
     try {
       const data = await apiRequest("/api/v1/owner/imports?limit=8");
-      if (generation !== state.generation || !state.dialog?.open) return;
+      if (!current(generation) || revision !== state.historyRevision) return;
       list.replaceChildren();
       const rows = Array.isArray(data.items) ? data.items : [];
       if (!rows.length) {
@@ -609,18 +635,21 @@
           const resume = node("button", "Resume review");
           resume.type = "button";
           resume.addEventListener("click", async () => {
+            if (state.busy) return;
+            const generation = ++state.generation;
+            setBusy(true);
             resume.disabled = true;
             try {
               const stored = await apiRequest(
                 `/api/v1/owner/imports/${encodeURIComponent(entry.id)}`
               );
-              if (!state.dialog?.open) return;
+              if (!current(generation)) return;
               loadPreview(stored);
               message("Import restored. Added copies stay in your inventory; review only the remaining rows.");
             } catch (_error) {
-              message("Could not resume this import. Refresh and try again.", "error");
+              if (current(generation)) message("Could not resume this import. Refresh and try again.", "error");
             } finally {
-              resume.disabled = false;
+              if (current(generation)) { setBusy(false); resume.disabled = false; }
             }
           });
           row.append(copy, resume);
@@ -630,12 +659,13 @@
         list.append(row);
       }
     } catch (_error) {
-      if (generation === state.generation) {
+      if (current(generation) && revision === state.historyRevision) {
         list.replaceChildren(node("small", "Import history unavailable."));
       }
     }
   }
 
+  window.addEventListener("hub-session-cleared", () => { hideMenu(); closeDialog(); });
   document.addEventListener("owner-view-changed", (event) => {
     if (event.detail?.view !== "inventory") {
       hideMenu();

@@ -589,7 +589,8 @@ function renderOwnerChannelsRows(items, channels = []) {
       if (linked) continue;
       const channel = channels.find(value => value.code === code);
       const eligible = item.inventory_status === "APPROVED" && item.sale_intent === "FOR_SALE";
-      if (eligible && channel?.sync_enabled) {
+      const blocker = item.channel_sync_blockers?.[code] || channel?.sync_unavailable_reason;
+      if (eligible && channel?.sync_enabled && !blocker) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "ghost-button compact";
@@ -607,7 +608,7 @@ function renderOwnerChannelsRows(items, channels = []) {
       } else {
         const note = document.createElement("small");
         note.className = "owner-channel-price";
-        note.textContent = !eligible ? (item.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "Awaiting approval") : "Seller sync not enabled yet";
+        note.textContent = !eligible ? (item.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "Awaiting approval") : blocker || "Seller sync not enabled yet";
         cell.append(note);
       }
     }
@@ -651,6 +652,10 @@ function showOwnerChannelsMessage(text = "", kind = "") {
 }
 
 async function loadOwnerChannels() {
+  const revision = state.channels.requestRevision = (state.channels.requestRevision || 0) + 1;
+  const account = state.session?.user?.id || state.session?.access_token;
+  const current = () => revision === state.channels.requestRevision
+    && account === (state.session?.user?.id || state.session?.access_token);
   const params = new URLSearchParams({
     limit: String(state.channels.limit),
     offset: String(state.channels.offset),
@@ -660,7 +665,8 @@ async function loadOwnerChannels() {
 
   try {
     const data = await apiRequest("/api/v1/owner/channels?" + params.toString());
-    state.ownerChannelAccount = state.session?.user?.id || state.session?.access_token;
+    if (!current()) return;
+    state.ownerChannelAccount = account;
     state.ownerChannelSummaries = Array.isArray(data.channels)?data.channels:[];
     state.channels.total = Number(data.total || 0);
     byId("owner-channels-total").textContent =
@@ -670,6 +676,7 @@ async function loadOwnerChannels() {
     renderOwnerChannelsPagination();
     showOwnerChannelsMessage();
   } catch (error) {
+    if (!current()) return;
     showOwnerChannelsMessage(error.message, "error");
     throw error;
   }
@@ -1388,6 +1395,12 @@ function saveSession(session) {
 
 function clearSession() {
   state.inventory.requestRevision = (state.inventory.requestRevision || 0) + 1;
+  state.channels.requestRevision = (state.channels.requestRevision || 0) + 1;
+  state.ownerChannelAccount = null;
+  state.ownerChannelSummaries = [];
+  state.financeSummary = null;
+  state.payoutPreference = null;
+  state.profile = null;
   window.DropRateInventory?.reset();
   window.dropRateCatalogue?.destroy();
   window.dropRateCatalogue = null;
@@ -1398,19 +1411,26 @@ function clearSession() {
 }
 
 async function refreshSession() {
+  const previous = state.session;
+  const checkSession = window.PullTheoryHubSession.capture(() => state.session);
   return window.PullTheoryHubSession.refresh(async () => {
-    const previous = state.session;
     try {
+      checkSession();
       if (!previous?.refresh_token) {
         const error = new Error("Your session has expired.");
         error.sessionExpired = true;
         throw error;
       }
       const session = await authRequest("/token?grant_type=refresh_token", {method:"POST", body:JSON.stringify({refresh_token:previous.refresh_token})});
-      if (state.session !== previous) throw new Error("Your account changed. Please sign in again.");
+      checkSession();
+      if (session.user?.id && previous.user?.id && session.user.id !== previous.user.id) {
+        throw new Error("Your account changed. Please sign in again.");
+      }
+      if (!session.user && previous.user) session.user = previous.user;
       saveSession(session);
       return session.access_token;
     } catch (error) {
+      checkSession();
       error.refreshSession = previous;
       error.sessionExpired ||= window.PullTheoryHubSession.isExpiredRefresh(error);
       throw error;
@@ -1418,20 +1438,25 @@ async function refreshSession() {
   });
 }
 async function apiRequest(path, options = {}, retry = true) {
+  const checkSession = window.PullTheoryHubSession.capture(() => state.session);
+  checkSession();
   const requestOptions = {
     ...options,
-    headers: {
-      Authorization: `Bearer ${state.session.access_token}`,
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
+    headers: {"Content-Type": "application/json", ...(options.headers || {}), Authorization: `Bearer ${state.session.access_token}`},
   };
-  let response = await fetch(path, requestOptions);
-  if (response.status === 401 && retry) {
-    requestOptions.headers.Authorization = `Bearer ${await refreshSession()}`;
-    response = await fetch(path, requestOptions);
-  }
-  return readJson(response);
+  try {
+    let response = await fetch(path, requestOptions);
+    checkSession();
+    if (response.status === 401 && retry) {
+      requestOptions.headers.Authorization = `Bearer ${await refreshSession()}`;
+      checkSession();
+      response = await fetch(path, requestOptions);
+      checkSession();
+    }
+    const data = await readJson(response);
+    checkSession();
+    return data;
+  } catch (error) { checkSession(); throw error; }
 }
 
 async function loadSocialProviders() {
@@ -1479,11 +1504,15 @@ function parseOAuthSession() {
 
 async function hydrateSessionUser() {
   if (!state.session?.access_token) return;
-  const user = await authRequest("/user", {
-    headers: {Authorization: `Bearer ${state.session.access_token}`},
-  });
-  state.session.user = user;
-  saveSession(state.session);
+  const checkSession = window.PullTheoryHubSession.capture(() => state.session);
+  try {
+    const user = await authRequest("/user", {
+      headers: {Authorization: `Bearer ${state.session.access_token}`},
+    });
+    checkSession();
+    state.session.user = user;
+    saveSession(state.session);
+  } catch (error) { checkSession(); throw error; }
 }
 
 function showOwnerOnboardingWelcome() {
