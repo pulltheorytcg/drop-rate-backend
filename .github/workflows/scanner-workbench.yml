@@ -37,7 +37,7 @@ jobs:
           def replace(path,old,new,count):
             p=Path(path);s=p.read_text();assert s.count(old)==count,(path,old,s.count(old));p.write_text(s.replace(old,new))
           replace('tests/test_scanner_video_regressions.py','Image.new("RGB", (64,64))','Image.new("RGB", (512,512))',1)
-          replace('tests/test_owner_portal_shell.py','owner-recognition.js?v=owner-v13','owner-recognition.js?v=video-fix-v9',1)
+          replace('tests/test_owner_portal_shell.py','owner-recognition.js?v=owner-v13','owner-recognition.js?v=video-fix-v9',2)
           replace('tests/test_owner_portal_shell.py','scanner-flow.js?v=collection-v8','scanner-flow.js?v=video-fix-v9',1)
           replace('backend/app/main.py','scanner-flow.js?v=collection-v8','scanner-flow.js?v=video-fix-v9',1)
           replace('tests/ui/scanner-flow.cjs',"details.querySelector('input'); quantity", "details.querySelector('[aria-label=\"Quantity\"]'); quantity",1)
