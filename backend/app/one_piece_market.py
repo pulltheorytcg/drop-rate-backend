@@ -50,6 +50,12 @@ def release_identity(name, *, include_starters=True):
     # Published English title differs by this one preposition on Cardmarket.
     if title == '500yearsinthefuture':
         title = '500yearsintothefuture'
+    # The official English EB-03 checklist says "ONE PIECE HEROINES
+    # EDITION"; Cardmarket's English lot checklist says "Heroines Edition".
+    # Require the printed EB03 set code as well: never merge similarly named
+    # promos, another release or Asia-region printings by translated title.
+    if match[2].upper() == 'EB' and match[3] == '03' and title == 'onepieceheroinesedition':
+        title = 'heroinesedition'
     return title, match[2].upper()+match[3]
 
 

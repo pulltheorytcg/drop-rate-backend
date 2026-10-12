@@ -19,6 +19,19 @@ PREFIX = "DROP_RATE_SOCIAL_MARKET_EVIDENCE "
 
 
 async def run() -> dict:
+    # Railway invokes this research-only script on every backend deployment.
+    # A probe must never consume paid sold-data credits just to boot the API.
+    # Run it only when an operator explicitly opts in to a bounded paid check.
+    if os.environ.get("DROP_RATE_SOCIAL_SOLD_PROBE_OPT_IN", "").strip() != "1":
+        return {
+            "probe_version": "social-market-evidence-v1",
+            "status": "SKIPPED",
+            "reason": "PAID_PROVIDER_PROBE_NOT_OPTED_IN",
+            "evidence_only": True,
+            "persisted": False,
+            "requested_targets": [],
+            "results": [],
+        }
     key = os.environ.get("TCG_TRAWL_API_KEY", "").strip()
     if not key:
         return {
