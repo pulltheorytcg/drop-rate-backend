@@ -2,6 +2,7 @@ name: Founder Business access
 on:
   pull_request:
     paths:
+      - 'tests/ui/journey-regressions.py'
       - 'backend/app/access_control.py'
       - 'backend/app/founder_accounts.py'
       - 'backend/app/static/founder-accounts.js'
