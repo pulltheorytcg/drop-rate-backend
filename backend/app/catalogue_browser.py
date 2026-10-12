@@ -261,12 +261,13 @@ async def browser_access(request: Request, user: Annotated[AuthenticatedUser, De
 @router.get("/coverage")
 async def price_coverage(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)],
                          access: Annotated[dict, Depends(browser_access)]):
-    from .catalogue_coverage import COVERAGE_SQL
+    from .catalogue_coverage import COVERAGE_SQL, coverage_summary
     async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
         rows = await connection.fetch(COVERAGE_SQL)
     items = [dict(row) for row in rows]
     return jsonable_encoder({'scope':'ALL_REFERENCE_CARDS_AND_SEALED_PRODUCTS','items':items,
-                             'total':sum(row['products'] for row in items)})
+                             'total':sum(row['products'] for row in items),
+                             'summary':coverage_summary(items)})
 
 
 @router.get("/set-artwork-coverage")

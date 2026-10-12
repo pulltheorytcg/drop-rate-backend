@@ -45,6 +45,40 @@ select kind,system_code,language,status,count(*)::int as products,min(checked_at
  count(*) filter(where not reference_complete)::int as incomplete_references
 from coverage group by kind,system_code,language,status order by kind,system_code,language,status'''
 
+# Availability is global by source/printing, not by owner or the cards anybody
+# happens to have scanned. Do not count USD context, stale prices or unresolved
+# mappings as verified GBP market values.
+PRICED_REFERENCE_STATUSES = frozenset({"REFERENCE_AVAILABLE", "MIXED_LANGUAGE_GUIDE"})
+
+
+def coverage_summary(rows):
+    """Stable source-coverage denominator, identical for every signed-in user."""
+    groups = {kind: {"total": 0, "priced": 0, "missing": 0} for kind in ("CARD", "SEALED")}
+    by_game = {}
+    for row in rows:
+        kind = row["kind"]
+        if kind not in groups:
+            continue
+        count = int(row["products"])
+        if count < 0:
+            raise ValueError("Invalid catalogue coverage count")
+        priced = count if row["status"] in PRICED_REFERENCE_STATUSES else 0
+        for group in (groups[kind], by_game.setdefault((kind, row["system_code"], row["language"]),
+                          {"total": 0, "priced": 0, "missing": 0})):
+            group["total"] += count
+            group["priced"] += priced
+            group["missing"] += count - priced
+    return {
+        "by_kind": groups,
+        "by_game": [
+            {"kind": kind, "system_code": system, "language": language, **stats}
+            for (kind, system, language), stats in sorted(by_game.items())
+        ],
+        "pricing_scope": "GLOBAL_REFERENCE_LIBRARY",
+        "valuation_currency": "GBP",
+        "note": "Guides are estimates; missing/stale/US-only sources are not current GBP market values.",
+    }
+
 
 async def record_coverage(pool,actor):
     from .catalogue_maintenance import receipt

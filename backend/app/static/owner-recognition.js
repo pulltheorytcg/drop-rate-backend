@@ -877,7 +877,7 @@ function ownerScanCandidateCard(candidate, run, index) {
   for (const [labelText, valueText] of [
     ["Identity", ownerScanPercent(candidate.score)],
     ["Printing", ownerScanPercent(candidate?.signals?.printing_confidence?.match)],
-    ["Market", candidate.market_value_minor == null ? "—" : formatMoney(candidate.market_value_minor)],
+    [candidate.pricing_status === "REFERENCE_ESTIMATE" ? "Guide (GBP)" : "Market (GBP)", candidate.market_value_minor == null ? "—" : formatMoney(candidate.market_value_minor)],
   ]) {
     const box = document.createElement("div");
     const label = document.createElement("span");

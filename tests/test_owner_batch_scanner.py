@@ -36,7 +36,7 @@ def test_candidate_reference_value_is_global_safe_projection_not_owner_inventory
     sql = MIGRATION.read_text()
 
     run_payload = api[api.index("async def _run_payload") : api.index('@router.get("/status")')]
-    assert "tcg.recognition_catalogue_reference_value(" in run_payload
+    assert "tcg.catalogue_reference_value_v2(" in run_payload and "tcg.reference_market_prices" in run_payload
     assert "where i.owner_id=$2" not in run_payload
     assert "REFERENCE_SNAPSHOT" in run_payload
 

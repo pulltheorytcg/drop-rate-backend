@@ -157,9 +157,13 @@ def _candidate_review_payload(candidate: dict[str, Any]) -> dict[str, Any]:
     if isinstance(reference, str):
         reference = json.loads(reference)
     candidate["reference_selection"] = reference
+    source = str(candidate.get("market_value_source") or "")
     candidate["pricing_status"] = (
-        "AVAILABLE" if candidate.get("market_value_minor") is not None
-        else "NO_VERIFIED_VALUATION"
+        "NO_VERIFIED_VALUATION" if candidate.get("market_value_minor") is None
+        else "REFERENCE_ESTIMATE" if source in {
+            "CARDMARKET_ESTIMATE", "TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT",
+            "CARDMARKET_BULK_SINGLES", "CARDMARKET_CATALOGUE",
+        } else "AVAILABLE"
     )
     return candidate
 
@@ -194,9 +198,15 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
                 'provider',reference.provider,'system_code',reference.system_code,
                 'language',reference.language,'provider_id',reference.provider_id
             ) end as reference_selection,
-            price.market_value_minor,
-            price.recommended_retail_minor,
-            price.pricing_updated_at,
+            coalesce(price.market_value_minor,ref_market.market_value_minor,ref_catalogue.market_value_minor) as market_value_minor,
+            case when price.market_value_minor>0 then price.recommended_retail_minor end as recommended_retail_minor,
+            case when price.market_value_minor>0 then price.pricing_updated_at
+                 when ref_market.market_value_minor>0 then ref_market.pricing_updated_at
+                 else ref_catalogue.pricing_updated_at end as pricing_updated_at,
+            case when price.market_value_minor is not null then price.valuation_source
+                when ref_market.market_value_minor is not null then ref_market.quotes->0->>'source'
+                when ref_catalogue.market_value_minor is not null then 'CARDMARKET_CATALOGUE'
+            end as market_value_source,
             price.pricing_confidence,
             price.pricing_source_count,
             price.pricing_observation_count,
@@ -218,7 +228,8 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
             limit 1
         ) provider_map on true
         left join lateral (
-            select c.provider,c.system_code,c.language,c.provider_id
+            select c.provider,c.system_code,c.language,c.provider_id,
+                   c.name,c.set_id,c.card_number,s.name as set_name
             from tcg.reference_cards c
             join tcg.reference_sets s using(provider,system_code,language,set_id)
             where c.provider=rc.provider and c.provider_id=rc.provider_id
@@ -227,17 +238,43 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
               and (s.release_date is null or s.release_date<=current_date)
             limit 1
         ) reference on true
+        -- Owner-independent reference guide for exactly matched provider card and printing.
+        left join tcg.reference_market_prices ref_market
+          on (ref_market.provider,ref_market.system_code,ref_market.language,ref_market.provider_id)=
+             (reference.provider,reference.system_code,reference.language,reference.provider_id)
+         and ref_market.market_value_minor>0
+         and ref_market.pricing_updated_at between now()-interval '7 days' and now()
+         and ref_market.quotes->0->>'source' in (
+             'TCGDEX_CARDMARKET','TCGDEX_CARDMARKET_VARIANT','CARDMARKET_BULK_SINGLES')
+         and (
+             (ref_market.quotes->0->>'source' in ('TCGDEX_CARDMARKET','TCGDEX_CARDMARKET_VARIANT')
+               and ref_market.quotes->0->>'reference_language'=reference.language)
+             or (ref_market.quotes->0->>'source'='CARDMARKET_BULK_SINGLES'
+               and ref_market.quotes->0->'reference_identity'=jsonb_build_object(
+                   'name',reference.name,'set_id',reference.set_id,
+                   'card_number',reference.card_number,'set_name',reference.set_name))
+         )
+        left join tcg.reference_catalogue_prices ref_catalogue
+          on (ref_catalogue.provider,ref_catalogue.system_code,ref_catalogue.language,ref_catalogue.provider_id)=
+             (reference.provider,reference.system_code,reference.language,reference.provider_id)
+         and ref_catalogue.market_value_minor>0
+         and ref_catalogue.pricing_updated_at between now()-interval '7 days' and now()
+         and ref_catalogue.quotes->0->>'source'='CARDMARKET_CATALOGUE'
+         and ref_catalogue.quotes->0->'reference_identity'=jsonb_build_object(
+             'name',reference.name,'set_id',reference.set_id,
+             'card_number',reference.card_number,'set_name',reference.set_name)
         left join lateral (
             select
                 v.market_value_minor,
                 v.recommended_retail_minor,
                 v.pricing_updated_at,
+                v.valuation_source,
                 null::numeric as pricing_confidence,
                 null::integer as pricing_source_count,
                 null::integer as pricing_observation_count,
                 null::timestamptz as pricing_newest_observation_at,
                 'REFERENCE_SNAPSHOT'::text as pricing_algorithm_version
-            from tcg.recognition_catalogue_reference_value(
+            from tcg.catalogue_reference_value_v2(
                 coalesce(rc.catalogue_id,provider_map.catalogue_id),
                 nullif(rc.candidate_snapshot->>'language','')
             ) v
