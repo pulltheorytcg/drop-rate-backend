@@ -121,19 +121,29 @@ async def refresh_one_piece_prices(pool, actor, fx):
         async with user_connection(pool,actor,str(uuid4())) as connection:
             references = [dict(row) for row in await connection.fetch('''select r.*,s.name as set_name
               from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
-              where r.provider in ('Bandai Official','Punk Records') and r.system_code='ONE_PIECE_CARD_GAME' and r.language='English'
+              where r.provider in ('Bandai Official','Punk Records') and r.system_code='ONE_PIECE_CARD_GAME'
+                and (r.language='English' or (r.language='Japanese' and r.provider='Punk Records'))
                 and (s.release_date is null or s.release_date<=current_date)''')]
+        from .one_piece_japanese_market import matched_japanese_products, japanese_nonenglish_quote
         matches = matched_products(references,singles,packaging)
-        report.update(checked=len(references),matched=len(matches))
-        if references and not matches:
+        jp_matches = matched_japanese_products(references,singles,packaging)
+        jp_references = [ref for ref in references if ref['language']=='Japanese']
+        report.update(checked=len(references),matched=len(matches)+len(jp_matches))
+        # Keep the previous lightweight receipt shape for English-only fixture tests.
+        if jp_references:
+            report.update(japanese_checked=len(jp_references),japanese_matched=len(jp_matches))
+        if references and not matches and not jp_matches:
             raise ValueError('No unambiguous Cardmarket release matches')
         conversion = await fx.quote(base_currency='EUR',quote_currency='GBP',at=observed)
         values = []
         for ref in references:
-            product = matches.get(ref['provider_id'])
+            jp_match = jp_matches.get(ref['provider_id']) if ref['language']=='Japanese' else None
+            product = jp_match['product'] if jp_match else matches.get(ref['provider_id'])
             price = prices.get(str(product['idProduct'])) if product else None
             quote = None
-            if price and price.get('idCategory') == product['idCategory']:
+            if jp_match:
+                quote = japanese_nonenglish_quote(ref,jp_match,price,observed,conversion)
+            elif price and price.get('idCategory') == product['idCategory']:
                 try:
                     original = _minor(price.get('trend'))
                     gbp = int((Decimal(original)*conversion.rate).quantize(Decimal('1'),rounding=ROUND_HALF_UP))
@@ -159,6 +169,9 @@ async def refresh_one_piece_prices(pool, actor, fx):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await connection.executemany(WRITE_SQL,values[start:start+100])
         report['priced'] = sum(row[5] is not None for row in values)
+        if jp_references:
+            report['japanese_priced'] = sum(row[5] is not None and row[2]=='Japanese' for row in values)
+            report['english_priced'] = report['priced']-report['japanese_priced']
     except (httpx.HTTPError,ValueError,KeyError,TypeError,RuntimeError) as exc:
         # Provider/FX outages preserve previous usable evidence. Ambiguous
         # identities in a successful export are explicitly cleared above.
