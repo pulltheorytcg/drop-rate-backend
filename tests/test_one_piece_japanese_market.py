@@ -174,3 +174,84 @@ def test_japanese_matcher_1024_random_collisions_never_guesses():
         # itself ambiguous, but a duplicate market product or release does.
         assert ('OP01-001' in result)==(not(seed&2 or seed&4 or seed&8))
     assert (en,jp,products,packaging)==stable
+
+
+
+@pytest.mark.asyncio
+async def test_unmatched_japanese_starter_never_inherits_same_id_english_quote(monkeypatch):
+    """The real incident: 454 JP prices came from matching English source ids.
+
+    ST05-004 is common to both publisher language checklists. The Japanese
+    booster-only match rules reject the starter, so English market prices must
+    be excluded even though the numeric provider_id collides.
+    """
+    en = {
+        'provider':'Punk Records','system_code':'ONE_PIECE_CARD_GAME',
+        'language':'English','provider_id':'ST05-004','card_number':'ST05-004',
+        'set_id':'569005','set_name':'STARTER DECK -ONE PIECE FILM edition- [ST-05]',
+        'name':'Uta','rarity':'SuperRare'
+    }
+    jp = {
+        **en,'language':'Japanese','set_id':'550005',
+        'set_name':'スタートデッキ ONE PIECE FILM edition【ST-05】',
+        'name':'ウタ'
+    }
+    product = {'idProduct':123,'name':'Uta (ST05-004)',
+               'idCategory':1621,'categoryName':'One Piece Single','idExpansion':5255}
+    pack = {'name':'Starter Deck: ONE PIECE FILM edition',
+            'idCategory':1625,'categoryName':'One Piece Preconstructed Decks',
+            'idExpansion':5255}
+    writes=[]
+    async def download(client,path,**kwargs):
+        if 'nonsingles' in path: return {'pack':pack},NOW
+        if 'singles' in path: return {'one':product},NOW
+        return {'123':{'idProduct':123,'idCategory':1621,'trend':'2.00'}},NOW
+    class Connection:
+        async def fetch(self,query):
+            return [en,jp]
+        async def executemany(self,query,rows):
+            writes.extend(rows)
+    @asynccontextmanager
+    async def connection(*args):
+        yield Connection()
+    class FX:
+        async def quote(self,**kwargs): return fx()
+    monkeypatch.setattr(english,'download',download)
+    monkeypatch.setattr(english,'user_connection',connection)
+    report=await english.refresh_one_piece_prices(object(),uuid4(),FX())
+    assert report['matched']==1  # English identity only
+    assert report['japanese_matched']==0
+    assert report['japanese_priced']==0
+    assert report['english_priced']==1
+    assert writes[0][2]=='English'
+    assert writes[0][5]==170
+    assert writes[1][2]=='Japanese'
+    assert writes[1][5] is None and writes[1][4]==[]
+
+
+@pytest.mark.asyncio
+async def test_japanese_wrong_release_never_inherits_matching_english_product(monkeypatch):
+    en,jp=references()
+    products,packaging=marketplace()
+    # Same provider id would match English, but this JP printing's official
+    # release marker is invalid for the targeted non-English expansion.
+    jp['set_name']='ブースターパック WRONG EDITION【OP-02】'
+    writes=[]
+    async def download(client,path,**kwargs):
+        if 'nonsingles' in path:return packaging,NOW
+        if 'singles' in path:return products,NOW
+        return {'1001':{'idProduct':1001,'idCategory':1621,'trend':'3.00'},
+                '768234':{'idProduct':768234,'idCategory':1621,'trend':'8.00'}},NOW
+    class Connection:
+        async def fetch(self,sql):return [en,jp]
+        async def executemany(self,sql,values):writes.extend(values)
+    @asynccontextmanager
+    async def connection(*args):yield Connection()
+    class FX:
+        async def quote(self,**kwargs):return fx()
+    monkeypatch.setattr(english,'download',download)
+    monkeypatch.setattr(english,'user_connection',connection)
+    result=await english.refresh_one_piece_prices(object(),uuid4(),FX())
+    assert result['japanese_priced']==0
+    assert writes[0][2]=='English' and writes[0][5]==255
+    assert writes[1][2]=='Japanese' and writes[1][5] is None
