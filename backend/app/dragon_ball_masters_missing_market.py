@@ -81,6 +81,7 @@ def exact_masters_supplemental_matches(references: list[dict],singles: dict,pack
     # Count ALL publisher variants, including parallel and promo suffixes:
     # if the same identity/name has another official printing, no base guide.
     ref_by_name: dict[tuple[str,str],list[dict]]=defaultdict(list)
+    ref_by_number: dict[tuple[str,str],list[dict]]=defaultdict(list)
     for ref in references:
         identity=RELEASES.get(str(ref.get("set_id") or ""))
         if (
@@ -89,6 +90,7 @@ def exact_masters_supplemental_matches(references: list[dict],singles: dict,pack
             and ref.get("set_name")==identity[0]
         ):
             ref_by_name[(ref["set_id"],normalized(ref.get("name") or ""))].append(ref)
+            ref_by_number[(ref["set_id"],ref.get("card_number"))].append(ref)
 
     products:dict[tuple[int,str],list[tuple[dict,str|None]]]=defaultdict(list)
     for p in singles.values():
@@ -115,7 +117,8 @@ def exact_masters_supplemental_matches(references: list[dict],singles: dict,pack
         number=ref.get("card_number")
         expected=RELEASES[set_id]
         if (
-            not isinstance(number,str) or NUMBERED_CARD.fullmatch(number) is None
+            len(ref_by_number[(set_id,number)]) != 1
+            or not isinstance(number,str) or NUMBERED_CARD.fullmatch(number) is None
             or not number.startswith(expected[2]+"-")
             or ref.get("provider_id")!=set_id+":"+number+".png"
         ):
