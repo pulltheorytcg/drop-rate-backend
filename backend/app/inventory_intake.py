@@ -56,6 +56,8 @@ def _manual_identity_key(product: ManualCatalogueCreate) -> str:
         "rarity": product.rarity.casefold(),
         "language": (product.language or "").casefold(),
     }
+    if product.comic_printing is not None:
+        payload["comic_printing"] = product.comic_printing.identity()
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -64,6 +66,9 @@ def _manual_identity_key(product: ManualCatalogueCreate) -> str:
 
 def _manual_intake_payload_hash(payload: ManualInventoryCreate) -> str:
     canonical = payload.model_dump(mode="json")
+    # Preserve receipt hashes for card/sealed requests issued before books.
+    if canonical.get("new_catalogue") and canonical["new_catalogue"].get("comic_printing") is None:
+        canonical["new_catalogue"].pop("comic_printing", None)
     return hashlib.sha256(
         json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -110,6 +115,11 @@ async def _find_exact_catalogue(
     connection: asyncpg.Connection,
     product: ManualCatalogueCreate,
 ) -> asyncpg.Record | None:
+    if product.comic_printing is not None:
+        return await connection.fetchrow(
+            "select * from tcg.catalogue_products where identity_key=$1 and product_type='COMIC'",
+            _manual_identity_key(product),
+        )
     rows = await connection.fetch(
         """
         select *
@@ -332,6 +342,8 @@ async def create_inventory_intake(
                 raise HTTPException(status_code=404, detail="Catalogue product not found")
         else:
             assert payload.new_catalogue is not None
+            if payload.new_catalogue.product_type == "COMIC" and payload.new_catalogue.comic_printing is None:
+                raise HTTPException(422, "Comic printing details are required when adding a book")
             catalogue = await _find_exact_catalogue(connection, payload.new_catalogue)
             if catalogue is not None:
                 catalogue_reused = True
@@ -365,6 +377,25 @@ async def create_inventory_intake(
                     catalogue_reused = True
                 else:
                     catalogue_created = True
+
+            if catalogue_created and payload.new_catalogue.comic_printing is not None:
+                book = payload.new_catalogue.comic_printing
+                attributes = json.dumps({"publisher": book.publisher, "book_format": book.book_format,
+                                         "identity_source": "SELLER_ENTERED",
+                                         "submitted_by_user_id": str(user.user_id)})
+                await connection.execute("""
+                    insert into tcg.catalogue_product_profiles
+                      (catalogue_id,system_code,collectible_type,identity_status,attributes)
+                    values ($1,$2,'COMIC','NEEDS_REVIEW',$3::jsonb)
+                    """, catalogue["id"], book.system_code, attributes)
+                await connection.execute("""
+                    insert into tcg.comic_printing_details
+                      (catalogue_id,system_code,series_title,volume_identifier,issue_number,
+                       printing_number,release_year,cover_code,cover_artist,barcode_gtin,identity_status,attributes)
+                    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'NEEDS_REVIEW',$11::jsonb)
+                    """, catalogue["id"], book.system_code, book.series_title, book.volume_identifier,
+                    book.issue_number, book.printing_number, book.release_year, book.cover_code,
+                    book.cover_artist, book.barcode_gtin, attributes)
 
         _validate_physical_state(catalogue["product_type"], payload)
 

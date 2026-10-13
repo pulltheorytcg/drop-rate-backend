@@ -49,6 +49,26 @@ def test_lv_x_matches_only_a_corresponding_lv_x_reference():
     assert market.matched_products([ref],{'123':product},{'456':BOX})=={'sv01-001':product}
 
 
+def test_delta_species_expansion_retains_printed_symbol_and_ambiguity_guards():
+    ref={**REF,'name':'Pineco δ'}
+    product={**PRODUCT,'name':'Pineco δ Delta Species [Guard Press]'}
+    assert market.matched_products([ref],{'123':product},{'456':BOX})=={'sv01-001':product}
+    assert not market.matched_products([REF],{'123':product},{'456':BOX})
+    for name in ['Pineco Delta Species','Pineco δ Delta Species (V.1)','Pineco δ Delta Species (1st Edition)']:
+        assert not market.matched_products([ref],{'123':{**product,'name':name}},{'456':BOX})
+    assert not market.matched_products([ref],{'123':product,'456':{**product,'idProduct':456}},{'456':BOX})
+
+
+def test_kalos_release_uses_exact_theme_deck_title_and_category():
+    ref={**REF,'set_id':'xy0','set_name':'Kalos Starter Set','provider_id':'xy0-1'}
+    deck={**BOX,'idCategory':54,'categoryName':'Pokémon Theme Decks','name':'XY Kalos Starter Set: Chespin Theme Deck'}
+    assert market.matched_products([ref],{'123':PRODUCT},{'456':deck})=={'xy0-1':PRODUCT}
+    for change in [dict(idCategory=52),dict(name='Kalos Starter Set: Chespin Theme Deck'),dict(name='XY Kalos Starter Set: Chespin Theme Deck (JP)')]:
+        assert not market.matched_products([ref],{'123':PRODUCT},{'456':{**deck,**change}})
+    assert not market.matched_products([ref],{'123':PRODUCT},{'456':deck,'other':{**deck,'idExpansion':999}})
+    assert not market.matched_products([{**ref,'set_id':'other'}],{'123':PRODUCT},{'456':deck})
+
+
 @pytest.mark.parametrize('change',['provider','game','language','wrong_release','wrong_name','regional_release',
     'partial_checklist','unknown_count','duplicate_reference','duplicate_product','duplicate_release',
     'wrong_category','wrong_category_id','version_suffix','edition_suffix','number_suffix','gender'])

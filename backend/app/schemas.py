@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from .comic_identity import ComicPrintingCreate
+
 
 InventoryStatus = Literal["DRAFT", "INSPECTION", "APPROVED", "WITHDRAWN"]
 EditableInventoryStatus = Literal["DRAFT", "INSPECTION", "WITHDRAWN"]
@@ -238,9 +240,15 @@ class ManualCatalogueCreate(BaseModel):
     variant: str = Field(default="", max_length=160)
     rarity: str = Field(default="", max_length=80)
     language: str | None = Field(default=None, max_length=80)
+    comic_printing: ComicPrintingCreate | None = None
 
     @model_validator(mode="after")
     def normalise(self) -> "ManualCatalogueCreate":
+        if self.comic_printing is not None:
+            if self.product_type != "COMIC":
+                raise ValueError("Comic printing details require a comic product")
+            for key, value in self.comic_printing.catalogue_fields().items():
+                setattr(self, key, value)
         self.game = self.game.strip()
         self.name = self.name.strip()
         self.set_name = self.set_name.strip()
@@ -277,14 +285,17 @@ class ManualInventoryCreate(BaseModel):
             raise ValueError("New inventory must be verified through the Verify workflow")
         if (self.catalogue_id is None) == (self.new_catalogue is None):
             raise ValueError("Choose exactly one existing catalogue product or new catalogue product")
-        if (self.grading_company is None) != (self.grade is None):
-            raise ValueError("grading_company and grade must both be set or both cleared")
-        if self.certificate_number and not self.grading_company:
-            raise ValueError("certificate_number requires grading_company and grade")
         self.condition = self.condition.strip() if self.condition else None
         self.grading_company = self.grading_company.strip() if self.grading_company else None
         self.grade = self.grade.strip() if self.grade else None
         self.certificate_number = self.certificate_number.strip() if self.certificate_number else None
         self.language = self.language.strip() if self.language else None
         self.notes = self.notes.strip()
+        self.grading_company = self.grading_company or None
+        self.grade = self.grade or None
+        self.certificate_number = self.certificate_number or None
+        if (self.grading_company is None) != (self.grade is None):
+            raise ValueError("grading_company and grade must both be set or both cleared")
+        if self.certificate_number and not self.grading_company:
+            raise ValueError("certificate_number requires grading_company and grade")
         return self

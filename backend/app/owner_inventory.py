@@ -24,6 +24,7 @@ from .schemas import InventorySaleIntentChange
 from .settings import get_settings
 from .seller_inventory_policy import sealed_seller_candidate
 from .physical_state import CARD_CONDITIONS, validate_physical_state
+from .comic_identity import BOOK_CONDITIONS
 from .inventory_reference_values import add_shared_reference_values
 from .inventory_reference_media import add_shared_inventory_media
 
@@ -146,9 +147,9 @@ def approval_blockers(item):
         missing.append("Product language")
     if not item.get("store_price_minor") or item["store_price_minor"] < 100:
         missing.append("A selling price of at least £1")
-    if item["product_type"] == "CARD":
+    if item["product_type"] in {"CARD", "COMIC"}:
         if not ((item.get("grading_company") and item.get("grade")) or item.get("condition")):
-            missing.append("Card condition or grade")
+            missing.append("Book condition or grade" if item["product_type"] == "COMIC" else "Card condition or grade")
     elif not item.get("seal_status"):
         missing.append("Seal status")
     if not item.get("image_url"):
@@ -165,6 +166,16 @@ async def details(inventory_id: UUID, request: Request,
         if row is None:
             raise HTTPException(404, "Inventory item not found")
         item = dict(row)
+        if item["product_type"] == "COMIC":
+            book = await connection.fetchrow("""select b.*,i.notes from tcg.comic_printing_details b
+                join tcg.inventory_items i on i.catalogue_id=b.catalogue_id
+                where i.id=$1 and i.owner_id=$2""", inventory_id, access["owner_id"])
+            item["comic_printing"] = dict(book) if book else None
+            if book:
+                attributes = book["attributes"]
+                if isinstance(attributes, str):
+                    attributes = json.loads(attributes)
+                item["comic_printing"]["attributes"] = {key: attributes.get(key) for key in ("publisher", "book_format")}
         item["approval_blockers"] = approval_blockers(item)
         await add_reference_artwork(connection, [item])
         await add_shared_inventory_media(connection, [item])
@@ -242,9 +253,10 @@ async def save_selling_price(inventory_id, payload, request, user, access, *, ap
             if proposed_condition is not None:
                 if item["status"] not in {"DRAFT", "INSPECTION"}:
                     raise HTTPException(409, "Condition changes on approved stock need Drop Rate review")
-                if proposed_condition not in CARD_CONDITIONS:
-                    raise HTTPException(422, "Choose a valid raw-card condition")
                 kind = await connection.fetchval("select product_type from tcg.catalogue_products where id=$1", item["catalogue_id"])
+                allowed = BOOK_CONDITIONS if kind == "COMIC" else CARD_CONDITIONS
+                if proposed_condition not in allowed:
+                    raise HTTPException(422, "Choose a valid book condition" if kind == "COMIC" else "Choose a valid raw-card condition")
                 try:
                     validate_physical_state(product_type=kind, condition=proposed_condition,
                         seal_status=item.get("seal_status"), grading_company=item.get("grading_company"),
@@ -252,9 +264,9 @@ async def save_selling_price(inventory_id, payload, request, user, access, *, ap
                 except ValueError as exc:
                     raise HTTPException(422, str(exc)) from exc
             context = await connection.fetchrow(DETAIL_SQL, inventory_id, access["owner_id"])
-            if (context and context["product_type"] == "CARD" and not context.get("grading_company")
+            if (context and context["product_type"] in {"CARD", "COMIC"} and not context.get("grading_company")
                     and not (proposed_condition or context.get("condition"))):
-                raise HTTPException(422, "Choose the raw-card condition for this listing; your card is already saved")
+                raise HTTPException(422, "Choose the condition for this listing; your item is already saved")
             if context and sealed_seller_candidate(dict(context)):
                 if not context["image_url"]:
                     raise HTTPException(422, "The exact catalogue image is being prepared. Your own photo is not required.")

@@ -167,9 +167,9 @@ window.DropRateInventory = (() => {
     facts.append(el("h3", "", "Item information"));
     const list = el("dl", "owner-item-facts-grid");
     const rows = [
-      ["Game", item.game],
-      ["Set", item.set_name],
-      ["Card number", item.card_number],
+      [item.product_type === "COMIC" ? "Category" : "Game", item.game],
+      [item.product_type === "COMIC" ? "Series / edition" : "Set", item.set_name],
+      [item.product_type === "COMIC" ? (item.game === "Manga" ? "Volume" : "Issue / book number") : "Card number", item.card_number],
       ["Language", item.language],
       [item.product_type === "SEALED" ? "Seal" : "Condition", conditionLabel(item)],
       ["Type", inventoryTypeLabel(item)],
@@ -178,6 +178,12 @@ window.DropRateInventory = (() => {
       ["Certificate", item.certificate_number],
       ["Inventory ID", item.inventory_code],
     ];
+    if (item.comic_printing) {
+      const book = item.comic_printing;
+      rows.push(["Publisher", book.attributes?.publisher], ["Publication year", book.release_year],
+        ["Printing", book.printing_number], ["Cover / variant", book.cover_code],
+        ["Cover artist", book.cover_artist], ["ISBN / barcode", book.barcode_gtin], ["Notes", book.notes]);
+    }
     for (const [labelText, valueText] of rows) {
       if (valueText == null || String(valueText).trim() === "") continue;
       const pair = el("div", "owner-item-fact");
@@ -203,12 +209,13 @@ window.DropRateInventory = (() => {
     const sale = el("details", "owner-item-section owner-item-selling");
     sale.open = publishedOnShopify || approvedForSale || item.status === "INSPECTION";
     sale.append(el("summary", "", publishedOnShopify ? "Manage listing" : "List for sale"));
-    sale.append(el("p", "owner-item-note", "Your card is already in inventory. Listing is optional and requires a separate selling request."));
+    sale.append(el("p", "owner-item-note", "Your item is already in inventory. Listing is optional and requires a separate selling request."));
     let saleCondition;
-    if (item.product_type === "CARD" && !item.grading_company && ["DRAFT", "INSPECTION"].includes(item.status)) {
+    if (["CARD", "COMIC"].includes(item.product_type) && !item.grading_company && ["DRAFT", "INSPECTION"].includes(item.status)) {
       const label = el("label", "", "Condition when selling"); saleCondition = el("select");
       saleCondition.setAttribute("aria-label", "Condition when selling");
-      for (const value of ["", "Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"]) {
+      const conditions = item.product_type === "COMIC" ? ["", "Mint", "Near Mint", "Very Fine", "Fine", "Very Good", "Good", "Fair", "Poor"] : ["", "Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
+      for (const value of conditions) {
         const option = el("option", "", value || "Choose condition"); option.value = value; saleCondition.append(option);
       }
       saleCondition.value = item.condition || ""; label.append(saleCondition); sale.append(label);
@@ -294,7 +301,7 @@ window.DropRateInventory = (() => {
     const ebay=channels.find(row=>row.code==="EBAY")||{};
     const ebayEligible=Boolean(ebay.connected && ebay.sync_enabled) &&
       !item.is_consignment && item.product_type==="CARD" && approvedForSale;
-    const ebayReason=item.product_type!=="CARD"?"Sealed packs aren't supported yet":
+    const ebayReason=item.product_type!=="CARD"?(item.product_type === "COMIC" ? "Comics and manga aren't supported here yet" : "Sealed packs aren't supported yet"):
       item.is_consignment?"Consignor sync isn't supported yet":
       !ebay.connected?"eBay account not connected":
       !ebay.sync_enabled?"Seller publishing not enabled":
@@ -428,7 +435,7 @@ window.DropRateInventory = (() => {
     updateQuantity();
     stock.append(el("p", "owner-item-note",
       item.grading_company
-        ? "Add each graded slab through Scan with its own certificate. Withdrawing a copy keeps its history."
+        ? (item.product_type === "COMIC" ? "Add each graded book through Comic / manga with its own certificate. Withdrawing a copy keeps its history." : "Add each graded slab through Scan with its own certificate. Withdrawing a copy keeps its history.")
         : "Adjust one physical copy at a time, then confirm. New copies need their own sale approval; Shopify quantities update only after verified syncing."));
     content.append(stock);
   }

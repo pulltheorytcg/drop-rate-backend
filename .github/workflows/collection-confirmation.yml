@@ -6,6 +6,11 @@ on:
       - 'backend/app/inventory_intake.py'
       - 'backend/app/import_inventory.py'
       - 'backend/app/owner_inventory.py'
+      - 'backend/app/owner_books.py'
+      - 'backend/app/comic_identity.py'
+      - 'backend/app/schemas.py'
+      - 'backend/app/physical_state.py'
+      - 'database/migrations/*seller_comics_manga.sql'
       - 'backend/app/static/owner*'
       - 'backend/app/static/scanner-flow.*'
       - 'tests/collection*'
@@ -59,6 +64,7 @@ jobs:
         run: |
           python tests/ui/collection-confirmation.py
           python tests/ui/collection-selling.py
+          python tests/ui/collection-books.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
