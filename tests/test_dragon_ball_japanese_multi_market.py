@@ -233,3 +233,63 @@ def test_512_randomized_conflicting_print_variants_never_inherit_a_price():
         else:
             packs["conflict"]={**packs["non-en"],"idExpansion":conflict_id}
         assert match_regional_boosters([en,jp],products,packs)=={}
+
+
+@pytest.mark.asyncio
+async def test_existing_market_worker_persists_only_supported_region_sources(monkeypatch):
+    """No new workflow, no owner writes; regional absence must stay unpriced."""
+    from contextlib import asynccontextmanager
+    from uuid import uuid4
+    from app import dragon_ball_market
+    en2,jp2,packs2,singles2,trend2=fixture("FB02")
+    en3,jp3,packs3,singles3,trend3=fixture("FB03")
+    en6=make_ref("FB06","FB06-001","English","FB06 Card")
+    jp6=make_ref("FB06","FB06-001","Japanese","日本語 FB06")
+    packages={**{f"FB02-{k}":v for k,v in packs2.items()},
+              **{f"FB03-{k}":v for k,v in packs3.items()},
+              "en6":pack("FB06",EXPANSIONS["FB06"][0]),
+              "region6":pack("FB06",EXPANSIONS["FB06"][1],region="Non-English")}
+    singles={**{f"FB02-{k}":v for k,v in singles2.items()},
+             **{f"FB03-{k}":v for k,v in singles3.items()}}
+    source_prices={
+        str(singles2["regional"]["idProduct"]):{
+            "idProduct":singles2["regional"]["idProduct"],"idCategory":1049,"trend":trend2},
+        str(singles3["regional"]["idProduct"]):{
+            "idProduct":singles3["regional"]["idProduct"],"idCategory":1049,"trend":trend3},
+    }
+    writes=[]
+    class Connection:
+        async def fetch(self,sql):
+            assert "r.set_id between '584001' and '584011'" in sql
+            return [en2,jp2,en3,jp3,en6,jp6]
+        async def executemany(self,sql,values):
+            assert "reference_market_prices" in sql
+            assert "inventory_items" not in sql
+            assert "shopify" not in sql.lower()
+            writes.extend(values)
+    @asynccontextmanager
+    async def connection(*args):
+        yield Connection()
+    async def download(client,path,**kwargs):
+        if "nonsingles" in path:return packages,NOW
+        if "singles" in path:return singles,NOW
+        return source_prices,NOW
+    class FX:
+        async def quote(self,**kwargs):
+            return FxQuote("EUR","GBP",Decimal(".85"),NOW,NOW,"ECB_EURO_REFERENCE_RATES")
+    monkeypatch.setattr(dragon_ball_market,"user_connection",connection)
+    monkeypatch.setattr(dragon_ball_market,"download",download)
+    report=await dragon_ball_market.refresh_dragon_ball_prices(object(),uuid4(),FX())
+    assert report["provider_failures"]==0
+    assert report["japanese_multiset_checked"]==3
+    assert report["japanese_multiset_matched"]==2
+    assert report["japanese_multiset_priced"]==2
+    assert report["japanese_multiset_by_release"]["FB02"]["priced"]==1
+    assert report["japanese_multiset_by_release"]["FB03"]["priced"]==1
+    assert report["japanese_multiset_by_release"]["FB06"]["checked"]==1
+    assert report["japanese_multiset_by_release"]["FB06"]["priced"]==0
+    jp_writes=[x for x in writes if x[2]=="Japanese"]
+    assert len(jp_writes)==2
+    assert {x[3] for x in jp_writes}=={jp2["provider_id"],jp3["provider_id"]}
+    assert all(x[4][0]["physical_valuation_eligible"] is False for x in jp_writes)
+    assert all(x[5]>0 for x in jp_writes)
