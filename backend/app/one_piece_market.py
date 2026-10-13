@@ -137,8 +137,18 @@ async def refresh_one_piece_prices(pool, actor, fx):
         conversion = await fx.quote(base_currency='EUR',quote_currency='GBP',at=observed)
         values = []
         for ref in references:
-            jp_match = jp_matches.get(ref['provider_id']) if ref['language']=='Japanese' else None
-            product = jp_match['product'] if jp_match else matches.get(ref['provider_id'])
+            # Provider ids are reused verbatim across English and Japanese
+            # official printings. Never fall through to an English marketplace
+            # product just because the Japanese base/region match is missing.
+            if ref['language']=='Japanese':
+                jp_match = jp_matches.get(ref['provider_id'])
+                product = jp_match['product'] if jp_match else None
+            elif ref['language']=='English':
+                jp_match = None
+                product = matches.get(ref['provider_id'])
+            else:
+                jp_match = None
+                product = None
             price = prices.get(str(product['idProduct'])) if product else None
             quote = None
             if jp_match:
