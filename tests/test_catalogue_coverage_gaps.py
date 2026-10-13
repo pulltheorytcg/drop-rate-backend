@@ -87,9 +87,14 @@ async def test_existing_daily_receipt_contains_actionable_global_coverage_withou
              oldest_check=datetime(2026, 10, 12, tzinfo=timezone.utc)),
     ]
     class Conn:
-        async def fetch(self, query):
+        async def execute(self, query):
+            assert query == "select set_config('statement_timeout','45000',true)"
+            return "SELECT 1"
+
+        async def fetch(self, query, **kwargs):
             assert "from tcg.reference_cards" in query
             assert "tcg.inventory_items" not in query
+            assert kwargs == {"timeout": 50}
             return global_rows
 
         async def fetchval(self, query):
@@ -116,3 +121,32 @@ async def test_existing_daily_receipt_contains_actionable_global_coverage_withou
     assert stored[0]["job"] == "CATALOGUE_COVERAGE"
     assert stored[0]["status"] == "COMPLETE"
     assert stored[0]["report"] is data
+
+
+def test_coverage_retries_after_completed_price_refresh_without_refetching_sources():
+    from datetime import datetime, timedelta, timezone
+    from app.catalogue_maintenance import coverage_lags_pricing
+
+    base=datetime(2026,10,13,14,37,tzinfo=timezone.utc)
+    complete=lambda t:{"started_at":t,"status":"COMPLETE"}
+    coverage=complete(base)
+    latest={"CATALOGUE_COVERAGE":coverage,
+            "REFERENCE_PRICES":complete(base+timedelta(seconds=2)),
+            "CARDMARKET_VALUES":complete(base+timedelta(minutes=4))}
+    assert coverage_lags_pricing(latest)
+    # Pricing remains COMPLETE. Only the skipped coverage receipt needs retry;
+    # the existing due() logic therefore does not re-run expensive providers.
+    assert not coverage_lags_pricing({
+        **latest,"CATALOGUE_COVERAGE":complete(base+timedelta(minutes=6))
+    })
+    assert not coverage_lags_pricing({
+        "CATALOGUE_COVERAGE":coverage,
+        "REFERENCE_PRICES":{"started_at":base+timedelta(minutes=1),"status":"RUNNING"},
+    })
+    assert coverage_lags_pricing({"CATALOGUE_COVERAGE":coverage,
+        "SEALED_REFERENCE_PRICES":complete(base+timedelta(minutes=1))})
+    assert coverage_lags_pricing({"CATALOGUE_COVERAGE":coverage,
+        "CATALOGUE_VALUES":complete(base+timedelta(minutes=1))})
+    assert coverage_lags_pricing({"CATALOGUE_COVERAGE":coverage,
+        "CARDMARKET_VALUES":complete(base+timedelta(minutes=1))})
+    assert coverage_lags_pricing({})
