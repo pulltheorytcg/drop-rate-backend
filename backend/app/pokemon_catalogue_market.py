@@ -38,6 +38,8 @@ def release_titles(ref):
     titles = {ref['set_name']}
     if EX_RELEASE_TITLES.get(ref['set_id']) == ref['set_name']:
         titles.add('EX ' + ref['set_name'])
+    if ref['set_id'] == 'xy0' and ref['set_name'] == 'Kalos Starter Set':
+        titles.add('XY Kalos Starter Set')
     return titles
 
 READ_SQL = '''select r.*,s.name as set_name,s.declared_card_count,
@@ -71,6 +73,9 @@ def product_card_name(product):
     # Attack text and printed numeric level are card metadata. Lv.X is a
     # distinct card type and must survive, along with edition/version suffixes.
     name = re.sub(r' \[[^\[\]]+\]$', '', product.get('name', ''))
+    # Cardmarket expands this printed symbol as "δ Delta Species". Retain δ:
+    # removing the symbol would confuse ordinary and Delta Species printings.
+    name = re.sub(r'δ Delta Species(?= |$)', 'δ', name)
     return re.sub(r' Lv\.[1-9]\d{0,2}$', '', name)
 
 
@@ -79,6 +84,12 @@ def matched_products(references, singles, packaging):
     for product in packaging.values():
         name = product.get('name', '')
         expansion = product.get('idExpansion')
+        if (product.get('idCategory') == 54 and product.get('categoryName') == 'Pokémon Theme Decks'
+                and name in {'XY Kalos Starter Set: Chespin Theme Deck',
+                             'XY Kalos Starter Set: Fennekin Theme Deck',
+                             'XY Kalos Starter Set: Froakie Theme Deck'}
+                and type(expansion) is int and expansion > 0):
+            expansions[normalized('XY Kalos Starter Set')].add(expansion)
         if (product.get('idCategory') == 52 and product.get('categoryName') == 'Pokémon Booster'
                 and name.endswith(' Booster') and type(expansion) is int and expansion > 0):
             expansions[normalized(name[:-8])].add(expansion)

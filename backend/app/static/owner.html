@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/assets/owner-portal.css?v=recommendation-v15">
   <link rel="stylesheet" href="/assets/owner-fulfillment.css?v=4">
   <link rel="stylesheet" href="/assets/owner-imports.css?v=auto-intake-v1">
+  <link rel="stylesheet" href="/assets/owner-books.css?v=1">
   <link rel="stylesheet" href="/assets/owner-inventory.css?v=5">
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
@@ -270,6 +271,7 @@
                 <span class="owner-section-kicker">AI card recognition</span>
                 <h2>Scan it. Confirm it. Add it.</h2>
                 <p>Use your camera or upload a clear card photo. Drop Rate will identify the exact printing, show the evidence, and only add it after you confirm.</p>
+                <button class="owner-secondary-action owner-add-book" type="button" data-owner-add-book>Add a comic or manga</button>
               </div>
               <div class="owner-scan-guardrail">
                 <strong>Seller-safe workflow</strong>
@@ -510,7 +512,7 @@
               <div class="owner-inventory-toolbar">
                 <div class="owner-search-field">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 20-4.2-4.2m1.2-5.3a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z"/></svg>
-                  <input id="owner-inventory-search" type="search" placeholder="Search card, set, number or inventory ID" aria-label="Search inventory">
+                  <input id="owner-inventory-search" type="search" placeholder="Search title, series, number or inventory ID" aria-label="Search inventory">
                 </div>
                 <select id="owner-inventory-status" aria-label="Filter inventory by status">
                   <option value="">All statuses</option>
@@ -522,6 +524,7 @@
                   <option value="WITHDRAWN">Withdrawn</option>
                 </select>
                 <div class="owner-import-menu-wrap">
+                  <button class="owner-secondary-action owner-add-book" type="button" data-owner-add-book>+ Comic / manga</button>
                   <button id="owner-import-trigger" class="owner-import-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="owner-import-menu">Import <span aria-hidden="true">⌄</span></button>
                   <div id="owner-import-menu" class="owner-import-menu" hidden>
                     <button type="button" data-owner-import-adapter="COLLECTR"><strong>Collectr</strong><small>Collection CSV export</small></button>
@@ -888,8 +891,9 @@
 
   <script src="/assets/hub-session.js?v=journey-v4" defer></script>
   <script src="/assets/reference-value-display.js?v=recommendation-v2" defer></script>
-  <script src="/assets/owner-inventory.js?v=journey-v12" defer></script>
-  <script src="/assets/owner-portal.js?v=journey-v23" defer></script>
+  <script src="/assets/owner-inventory.js?v=books-v13" defer></script>
+  <script src="/assets/owner-portal.js?v=books-v24" defer></script>
+  <script src="/assets/owner-books.js?v=1" defer></script>
   <script src="/assets/owner-imports.js?v=journey-v2" defer></script>
   <script src="/assets/owner-fulfillment.js?v=3" defer></script>
   <script src="/assets/owner-fulfill-wizard.js?v=2" defer></script>

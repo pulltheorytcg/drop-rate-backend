@@ -59,6 +59,7 @@ function conditionLabel(item) {
 }
 
 function inventoryTypeLabel(item) {
+  if (item.product_type === "COMIC") return item.game === "Manga" ? "Manga" : "Comic";
   if (item.sealed_product_type) {
     return String(item.sealed_product_type)
       .toLowerCase()
@@ -1402,6 +1403,7 @@ function clearSession() {
   state.payoutPreference = null;
   state.profile = null;
   window.DropRateInventory?.reset();
+  window.DropRateBooks?.reset();
   window.dropRateCatalogue?.destroy();
   window.dropRateCatalogue = null;
   window.dropRateScanner?.destroy();
