@@ -130,7 +130,12 @@ def coverage_summary(rows):
 async def record_coverage(pool,actor):
     from .catalogue_maintenance import receipt
     async with user_connection(pool,actor,str(uuid4())) as connection:
-        rows=await connection.fetch(COVERAGE_SQL)
+        # This private once-daily full-catalogue aggregation can exceed the
+        # normal 15-second web/API query timeout on a cold 73k-row scan.
+        # SET LOCAL is transaction-scoped (user_connection opens one), so this
+        # bounded 45-second budget cannot leak to ordinary user requests.
+        await connection.execute("select set_config('statement_timeout','45000',true)")
+        rows=await connection.fetch(COVERAGE_SQL,timeout=50)
         canonical=await connection.fetchval('select count(*) from tcg.catalogue_products')
     items=[dict(row,oldest_check=row['oldest_check'].isoformat() if row['oldest_check'] else None) for row in rows]
     report={'scope':'ALL_REFERENCE_CARDS_AND_SEALED_PRODUCTS','items':items,
