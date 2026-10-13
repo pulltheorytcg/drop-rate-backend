@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from math import exp, log, sqrt
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta, timezone
+from math import exp, isfinite, log, sqrt
 from statistics import median
 from typing import Iterable
 
@@ -10,6 +10,11 @@ from .pricing_rules import store_price_floor
 
 
 ALGORITHM_VERSION = "drop-rate-market-v4"
+# Keep the persisted v4 identifier compatible with the existing database CHECKs
+# and historical snapshots. Record the exact hardening rule revision separately.
+RULESET_REVISION = "2026-10-13-source-integrity-1"
+MAX_MARKET_VALUE_MINOR = 1_000_000_000_000
+MAX_FUTURE_CLOCK_DRIFT = timedelta(minutes=5)
 
 SOURCE_RELIABILITY = {
     "EBAY": 1.00,
@@ -45,6 +50,16 @@ HALF_LIFE_DAYS = {
     "ACTIVE": 3.0,
 }
 
+# Never use old or future evidence as a current GBP anchor, no matter how many
+# supporting USD/global observations are present. Daily Cardmarket guides are
+# not completed sales and are intentionally subject to a shorter window.
+MAX_OBSERVATION_AGE_DAYS = {
+    "SOLD": 90,
+    "MARKET_AGGREGATE": 7,
+    "PRICE_GUIDE": 7,
+    "ACTIVE": 3,
+}
+
 
 @dataclass(frozen=True, slots=True)
 class ComparableTarget:
@@ -69,6 +84,9 @@ class MarketObservation:
     language: str | None = None
     seal_status: str | None = None
     source_country: str | None = None
+    # Exact provider sale/listing ID. A duplicate event must not create another
+    # independent sold comparable or inflate confidence in one seller's price.
+    source_record_key: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +132,8 @@ class PricingResult:
     auto_publish_eligible: bool
     block_reasons: tuple[str, ...]
     source_estimates: tuple[SourceEstimate, ...]
+    ruleset_revision: str = RULESET_REVISION
+    excluded_observation_count: int = 0
 
 
 def _norm(value: str | None) -> str | None:
@@ -176,10 +196,17 @@ def recency_weight(observation: MarketObservation, as_of: datetime) -> float:
 
 
 def weighted_median(values: list[tuple[int, float]]) -> int:
-    valid = sorted((value, weight) for value, weight in values if weight > 0)
+    valid = sorted(
+        (value, weight)
+        for value, weight in values
+        if type(value) is int and value > 0
+        and isinstance(weight, (int, float)) and isfinite(weight) and weight > 0
+    )
     if not valid:
         raise ValueError("weighted median requires at least one positive weight")
     total = sum(weight for _, weight in valid)
+    if not isfinite(total):
+        raise ValueError("weighted median total weight must be finite")
     threshold = total / 2.0
     running = 0.0
     for value, weight in valid:
@@ -215,7 +242,15 @@ def _is_uk_eu_anchor(observation: MarketObservation, target: ComparableTarget) -
         return False
     source = observation.source.upper().strip()
     country = (observation.source_country or "").upper().strip()
-    return source == "CARDMARKET" or (source == "EBAY" and country == "GB")
+    if observation.observation_type == "ACTIVE":
+        # An unsold asking price is only supporting context, not evidence of
+        # clearing price, even when the seller is UK-based.
+        return False
+    if source == "CARDMARKET":
+        # Cardmarket is the regional guide anchor, but do not relabel a source
+        # record explicitly located outside Europe as a UK/EU price.
+        return country in {"", "EU", "GB", "UK", "FR", "DE", "IT", "ES", "NL", "BE", "PT", "IE", "AT", "PL", "DK", "SE", "FI", "CZ", "SK", "HU", "RO", "BG", "HR", "SI", "EE", "LV", "LT", "LU", "GR", "CY", "MT"}
+    return source == "EBAY" and country == "GB" and observation.observation_type == "SOLD"
 
 
 def _source_estimate(
@@ -236,7 +271,7 @@ def _source_estimate(
             * dimension_quality
             * freshness
             * type_quality
-            * max(1.0, sqrt(observation.sample_size))
+            * max(1.0, sqrt(min(observation.sample_size, 25)))
         )
         if weight > 0:
             comparable.append((observation, weight))
