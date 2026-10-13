@@ -143,18 +143,44 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
         async with user_connection(pool,actor,str(uuid4())) as connection:
             references = [dict(r) for r in await connection.fetch('''select r.*,s.name as set_name
               from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
-              where r.provider='Bandai Official' and r.language='English'
-                and r.system_code in ('DRAGON_BALL_SUPER_MASTERS','DRAGON_BALL_SUPER_FUSION_WORLD')
+              where r.provider='Bandai Official'
+                and ((r.language='English' and r.system_code in
+                       ('DRAGON_BALL_SUPER_MASTERS','DRAGON_BALL_SUPER_FUSION_WORLD'))
+                  or (r.language='Japanese' and r.system_code='DRAGON_BALL_SUPER_FUSION_WORLD'))
                 and (s.release_date is null or s.release_date<=current_date)''')]
+        from .fusion_world_japanese_market import (
+            matched_japanese_products, japanese_nonenglish_quote,
+        )
         matches = matched_products(references,singles,packaging)
-        report.update(checked=len(references),matched=len(matches))
-        if references and not matches:
+        jp_matches = matched_japanese_products(references,singles,packaging)
+        jp_references = [ref for ref in references if ref["language"] == "Japanese"]
+        report.update(checked=len(references),matched=len(matches)+len(jp_matches))
+        if jp_references:
+            report.update(japanese_checked=len(jp_references),
+                          japanese_matched=len(jp_matches))
+        if references and not matches and not jp_matches:
             raise ValueError('No unambiguous Cardmarket Dragon Ball release matches')
         conversion = await fx.quote(base_currency='EUR',quote_currency='GBP',at=observed)
         values = []
         for ref in references:
-            product = matches.get((ref['system_code'],ref['provider_id']))
-            quotes = guide_quotes(ref,product,prices.get(str(product['idProduct'])),observed,conversion) if product else []
+            if ref["language"] == "Japanese":
+                # Do not fall through to an English quote because of the same
+                # collector number or an overlapping provider product ID.
+                jp_match = jp_matches.get(ref["provider_id"]) if ref["system_code"] == FUSION else None
+                product = jp_match["product"] if jp_match else None
+                price = prices.get(str(product["idProduct"])) if product else None
+                quote = (
+                    japanese_nonenglish_quote(ref,jp_match,price,observed,conversion)
+                    if jp_match else None
+                )
+                quotes = [quote] if quote else []
+            elif ref["language"] == "English":
+                product = matches.get((ref["system_code"],ref["provider_id"]))
+                quotes = guide_quotes(
+                    ref,product,prices.get(str(product["idProduct"])),observed,conversion
+                ) if product else []
+            else:
+                quotes = []
             amounts = [q['price_gbp_minor'] for q in quotes]
             values.append((ref['provider'],ref['system_code'],ref['language'],ref['provider_id'],quotes,
                 min(amounts) if amounts else None,max(amounts) if amounts else None,observed if quotes else None,
@@ -163,6 +189,11 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await connection.executemany(WRITE_SQL,values[start:start+100])
         report['priced'] = sum(v[5] is not None for v in values)
+        if jp_references:
+            report['japanese_priced'] = sum(
+                v[5] is not None and v[2] == "Japanese" for v in values
+            )
+            report['english_priced'] = report['priced'] - report['japanese_priced']
     except (httpx.HTTPError,ValueError,KeyError,TypeError,RuntimeError) as exc:
         report.update(provider_failures=1,reason=type(exc).__name__)
     return report
