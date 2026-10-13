@@ -81,6 +81,8 @@ async def probe_cardtrader_references(client, references, singles):
                          provider_examples=[{'id': b.get('id'), 'name': b.get('name'),
                                              'version': b.get('version'),
                                              'collector_number': _collector_number(b),
+                                             'fixed_property_keys': sorted((b.get('fixed_properties') or {}).keys())[:20],
+                                             'property_keys': sorted((b.get('properties_hash') or {}).keys())[:20],
                                              'card_market_ids': (b.get('card_market_ids') or [])[:40]}
                                             for b in blueprints[:3]])
         report['status'] = 'COMPLETE'
