@@ -260,6 +260,7 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
                 report['masters_supplemental_by_release'][set_id]['priced']=sum(
                     v[5] is not None and v[2]=='English' and
                     v[1]==MASTERS and v[3].startswith(set_id+':')
+                    and (v[1],v[3]) in supplemental_matches
                     for v in values
                 )
             report['masters_supplemental_priced']=sum(
