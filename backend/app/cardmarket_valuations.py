@@ -157,6 +157,8 @@ def _guide_value(ref,quote,language,finish,*,now):
     result = replace(result, confidence=min(result.confidence, .60), auto_publish_eligible=False,
                      block_reasons=tuple(dict.fromkeys((*result.block_reasons, 'REFERENCE_ESTIMATE'))))
     evidence = {'method':CATALOGUE_METHOD, 'input_sale_count':0, 'source':'CARDMARKET',
+        'ruleset_revision':result.ruleset_revision,
+        'excluded_observation_count':result.excluded_observation_count,
         'valuation_kind':'REFERENCE_ESTIMATE', 'limitation':LIMITATION,
         'condition_breakdown_available':False, 'language_breakdown_available':False,
         'reference':{key:ref[key] for key in ('provider','system_code','provider_id','set_id','reference_language',
@@ -307,6 +309,8 @@ async def apply_inventory_guide(connection, item, value, *, now):
         policy=_policy_from_row(policy) if policy else None,
         current_store_price_minor=item.get('store_price_minor'), as_of=now)
     evidence = {**value['evidence'], 'method':INVENTORY_METHOD,
+        'ruleset_revision':result.ruleset_revision,
+        'excluded_observation_count':result.excluded_observation_count,
         'catalogue_snapshot_id':str(value['snapshot_id']), 'catalogue_identity_digest':value['identity_digest'],
         'physical_basis':physical_basis(item), 'sources':[{'source':'CARDMARKET',
             'observation_type':'PRICE_GUIDE','estimate_minor':result.market_value_minor,
