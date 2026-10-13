@@ -4,6 +4,8 @@ on:
     paths:
       - 'backend/app/inventory_reference*.py'
       - 'backend/app/inventory_market_values.py'
+      - 'backend/app/pricing_engine.py'
+      - 'backend/app/pricing.py'
       - 'backend/app/inventory_intelligence.py'
       - 'backend/app/api.py'
       - 'backend/app/owner*.py'

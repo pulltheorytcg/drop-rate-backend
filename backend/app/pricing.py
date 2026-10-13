@@ -301,6 +301,7 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
             language=row["language"],
             seal_status=row["seal_status"],
             source_country=row["source_country"],
+            source_record_key=row["source_record_key"],
         )
         for row in rows
     ]
@@ -322,6 +323,8 @@ async def _recalculate_one(connection: asyncpg.Connection, owner_id: UUID, inven
 
     evidence = {
         "method": "LIVE_EBAY_MARKET_V1",
+        "ruleset_revision": result.ruleset_revision,
+        "excluded_observation_count": result.excluded_observation_count,
         "source_record_keys": [row["source_record_key"] for row in rows],
         "sources": [
             {

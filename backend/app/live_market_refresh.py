@@ -201,7 +201,8 @@ def value_comps(comps, target, policy=None, now=None):
         raise ValueError("Five exact recent sales required")
     physical = {k:target.get(k) for k in ("condition", "grading_company", "grade", "language", "seal_status")}
     observations = [MarketObservation(source="EBAY", observation_type="SOLD", observed_at=c["sold_at"],
-                    price_gbp_minor=c["price_minor"], source_country="GB", **physical) for c in comps]
+                    price_gbp_minor=c["price_minor"], source_country="GB",
+                    source_record_key=str(c["item_id"]), **physical) for c in comps]
     return calculate_price(observations, target=ComparableTarget(**physical), policy=policy or PricingPolicy(),
                            current_store_price_minor=target.get("store_price_minor"), as_of=now)
 
@@ -210,6 +211,8 @@ async def save_snapshot(connection, item, comps, query, now):
     policy_row = await connection.fetchrow("select * from tcg.pricing_policies where owner_id=$1", item["owner_id"])
     result = value_comps(comps, item, _policy_from_row(policy_row) if policy_row else None, now)
     evidence = {"method": JOB, "marketplace": "EBAY_GB", "query":query, "sale_price_excludes_shipping":True,
+                "ruleset_revision":result.ruleset_revision,
+                "excluded_observation_count":result.excluded_observation_count,
                 "comps":[dict(c, sold_at=c["sold_at"].isoformat()) for c in comps],
                 "sources":[dict(asdict(s), newest_observation_at=s.newest_observation_at.isoformat()) for s in result.source_estimates]}
     snapshot = await connection.fetchval("""insert into tcg.pricing_snapshots

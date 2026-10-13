@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from math import exp, log, sqrt
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta, timezone
+from math import exp, isfinite, log, sqrt
 from statistics import median
 from typing import Iterable
 
@@ -10,6 +10,11 @@ from .pricing_rules import store_price_floor
 
 
 ALGORITHM_VERSION = "drop-rate-market-v4"
+# Keep the persisted v4 identifier compatible with the existing database CHECKs
+# and historical snapshots. Record the exact hardening rule revision separately.
+RULESET_REVISION = "2026-10-13-source-integrity-1"
+MAX_MARKET_VALUE_MINOR = 1_000_000_000_000
+MAX_FUTURE_CLOCK_DRIFT = timedelta(minutes=5)
 
 SOURCE_RELIABILITY = {
     "EBAY": 1.00,
@@ -45,6 +50,16 @@ HALF_LIFE_DAYS = {
     "ACTIVE": 3.0,
 }
 
+# Never use old or future evidence as a current GBP anchor, no matter how many
+# supporting USD/global observations are present. Daily Cardmarket guides are
+# not completed sales and are intentionally subject to a shorter window.
+MAX_OBSERVATION_AGE_DAYS = {
+    "SOLD": 90,
+    "MARKET_AGGREGATE": 7,
+    "PRICE_GUIDE": 7,
+    "ACTIVE": 3,
+}
+
 
 @dataclass(frozen=True, slots=True)
 class ComparableTarget:
@@ -69,6 +84,9 @@ class MarketObservation:
     language: str | None = None
     seal_status: str | None = None
     source_country: str | None = None
+    # Exact provider sale/listing ID. A duplicate event must not create another
+    # independent sold comparable or inflate confidence in one seller's price.
+    source_record_key: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +132,8 @@ class PricingResult:
     auto_publish_eligible: bool
     block_reasons: tuple[str, ...]
     source_estimates: tuple[SourceEstimate, ...]
+    ruleset_revision: str = RULESET_REVISION
+    excluded_observation_count: int = 0
 
 
 def _norm(value: str | None) -> str | None:
@@ -176,10 +196,17 @@ def recency_weight(observation: MarketObservation, as_of: datetime) -> float:
 
 
 def weighted_median(values: list[tuple[int, float]]) -> int:
-    valid = sorted((value, weight) for value, weight in values if weight > 0)
+    valid = sorted(
+        (value, weight)
+        for value, weight in values
+        if type(value) is int and value > 0
+        and isinstance(weight, (int, float)) and isfinite(weight) and weight > 0
+    )
     if not valid:
         raise ValueError("weighted median requires at least one positive weight")
     total = sum(weight for _, weight in valid)
+    if not isfinite(total):
+        raise ValueError("weighted median total weight must be finite")
     threshold = total / 2.0
     running = 0.0
     for value, weight in valid:
@@ -215,8 +242,123 @@ def _is_uk_eu_anchor(observation: MarketObservation, target: ComparableTarget) -
         return False
     source = observation.source.upper().strip()
     country = (observation.source_country or "").upper().strip()
-    return source == "CARDMARKET" or (source == "EBAY" and country == "GB")
+    if observation.observation_type == "ACTIVE":
+        # An unsold asking price is only supporting context, not evidence of
+        # clearing price, even when the seller is UK-based.
+        return False
+    if source == "CARDMARKET":
+        # Cardmarket is the regional guide anchor, but do not relabel a source
+        # record explicitly located outside Europe as a UK/EU price.
+        return country in {"", "EU", "GB", "UK", "FR", "DE", "IT", "ES", "NL", "BE", "PT", "IE", "AT", "PL", "DK", "SE", "FI", "CZ", "SK", "HU", "RO", "BG", "HR", "SI", "EE", "LV", "LT", "LU", "GR", "CY", "MT"}
+    return source == "EBAY" and country == "GB" and observation.observation_type == "SOLD"
 
+
+
+def _eligible_observations(
+    observations: list[MarketObservation], as_of: datetime,
+) -> tuple[list[MarketObservation], int]:
+    """Reject invalid, stale, future and duplicated evidence before pricing.
+
+    One SOLD row represents **one** independent transaction, irrespective of a
+    provider-supplied sample_size field. Provider IDs are authoritative for
+    deduplication; conflicting payloads for one ID are quarantined, never
+    resolved by whichever happens to arrive last. Legacy rows without IDs are
+    deduplicated by their complete observed facts.
+    """
+    accepted: dict[tuple, MarketObservation] = {}
+    conflicts: set[tuple] = set()
+    rejected = 0
+    for observation in observations:
+        if not isinstance(observation, MarketObservation):
+            rejected += 1
+            continue
+        source = str(observation.source or "").strip().upper()
+        kind = str(observation.observation_type or "").strip().upper()
+        at = observation.observed_at
+        quality = observation.evidence_quality
+        size = observation.sample_size
+        if (
+            source not in SOURCE_RELIABILITY
+            or kind not in TYPE_QUALITY
+            or type(observation.price_gbp_minor) is not int
+            or not 0 < observation.price_gbp_minor <= MAX_MARKET_VALUE_MINOR
+            or type(size) is not int or size < 1 or size > 1_000_000
+            or not isinstance(quality, (int, float)) or not isfinite(quality)
+            or not 0 < quality <= 1
+            or not isinstance(at, datetime)
+            or (observation.grading_company is None) != (observation.grade is None)
+            or any(
+                value is not None and not isinstance(value, str)
+                for value in (
+                    observation.condition, observation.grading_company,
+                    observation.grade, observation.language, observation.seal_status,
+                    observation.source_country, observation.source_record_key,
+                )
+            )
+        ):
+            rejected += 1
+            continue
+        if at.tzinfo is None or at.utcoffset() is None:
+            # A source's timezone is part of the evidence, not a guess.
+            rejected += 1
+            continue
+        at = at.astimezone(timezone.utc)
+        if (
+            at > as_of + MAX_FUTURE_CLOCK_DRIFT
+            or at < as_of - timedelta(days=MAX_OBSERVATION_AGE_DAYS[kind])
+        ):
+            rejected += 1
+            continue
+        key = str(observation.source_record_key or "").strip() or None
+        canonical = replace(
+            observation, source=source, observation_type=kind,
+            observed_at=at, source_country=(observation.source_country or "").strip().upper() or None,
+            sample_size=1 if kind == "SOLD" else min(size, 25),
+            source_record_key=key,
+        )
+        dedup_key = (
+            ("provider", source, key)
+            if key is not None else ("facts", canonical)
+        )
+        if dedup_key in conflicts:
+            rejected += 1
+        elif dedup_key in accepted:
+            if accepted[dedup_key] != canonical:
+                conflicts.add(dedup_key)
+                accepted.pop(dedup_key)
+                rejected += 2  # Both conflicting provider records are invalid.
+            else:
+                rejected += 1
+        else:
+            accepted[dedup_key] = canonical
+    return list(accepted.values()), rejected
+
+
+def _validate_policy(policy: PricingPolicy, target: ComparableTarget) -> None:
+    """Reject invalid policy/target configuration instead of publishing a NaN.
+
+    Normally FastAPI/DB enforce this, but a corrupted batch job, replay or
+    manually supplied policy must fail closed in the deterministic core too.
+    """
+    for value in (target.condition, target.grading_company, target.grade, target.language, target.seal_status):
+        if value is not None and not isinstance(value, str):
+            raise ValueError("Invalid physical pricing target")
+    if (target.grading_company is None) != (target.grade is None):
+        raise ValueError("Grading company and grade must both be present")
+    for name, maximum in (
+        ("min_confidence", 1), ("max_auto_change_pct", 100),
+        ("min_price_change_pct", 100), ("max_volatility_pct", 500),
+        ("retail_multiplier", 5), ("quick_sale_multiplier", 5),
+        ("acquisition_multiplier", 5),
+    ):
+        value = getattr(policy, name)
+        if not isinstance(value, (int, float)) or not isfinite(value) or not 0 <= value <= maximum:
+            raise ValueError(f"Invalid pricing policy: {name}")
+    if (min(policy.retail_multiplier, policy.quick_sale_multiplier, policy.acquisition_multiplier) <= 0
+            or type(policy.min_sources) is not int or not 1 <= policy.min_sources <= 10
+            or type(policy.min_price_change_minor) is not int or policy.min_price_change_minor < 0
+            or type(policy.high_value_review_minor) is not int or policy.high_value_review_minor < 0):
+        raise ValueError("Invalid pricing policy")
 
 def _source_estimate(
     source: str,
@@ -236,7 +378,7 @@ def _source_estimate(
             * dimension_quality
             * freshness
             * type_quality
-            * max(1.0, sqrt(observation.sample_size))
+            * max(1.0, sqrt(min(observation.sample_size, 25)))
         )
         if weight > 0:
             comparable.append((observation, weight))
@@ -285,6 +427,23 @@ def _volatility_pct(estimates: Iterable[SourceEstimate], market_value_minor: int
     return round((1.4826 * mad / market_value_minor) * 100.0, 4)
 
 
+
+def _sold_dispersion_pct(observations: list[MarketObservation]) -> float:
+    """Volatile sales from *one* source need review too.
+
+    Cross-source MAD alone reports zero volatility for a single eBay source,
+    regardless of how wildly its five sold prices differ. A large tail is a
+    review condition even if the median itself is robust to that outlier.
+    """
+    sold = [item.price_gbp_minor for item in observations if item.observation_type == "SOLD"]
+    if len(sold) < 5:
+        return 0.0
+    centre = float(median(sold))
+    if centre <= 0:
+        return 0.0
+    spread = max(abs(price - centre) for price in sold) / centre * 100.0
+    return round(spread, 4)
+
 def calculate_price(
     observations: list[MarketObservation],
     *,
@@ -299,11 +458,12 @@ def calculate_price(
     as_of = as_of or datetime.now(timezone.utc)
     if as_of.tzinfo is None:
         as_of = as_of.replace(tzinfo=timezone.utc)
+    as_of = as_of.astimezone(timezone.utc)
+    _validate_policy(policy, target)
 
+    eligible, excluded_count = _eligible_observations(observations, as_of)
     by_source: dict[str, list[MarketObservation]] = {}
-    for observation in observations:
-        if observation.price_gbp_minor <= 0:
-            continue
+    for observation in eligible:
         by_source.setdefault(observation.source, []).append(observation)
 
     estimates = tuple(
@@ -314,7 +474,7 @@ def calculate_price(
     if not estimates:
         raise ValueError("No comparable market observations supplied")
 
-    anchor_observations = [item for item in observations if _is_uk_eu_anchor(item, target)]
+    anchor_observations = [item for item in eligible if _is_uk_eu_anchor(item, target)]
     if not anchor_observations:
         raise ValueError("No UK/EU market anchor available")
 
@@ -340,7 +500,10 @@ def calculate_price(
     source_count = len(estimates)
     regional_sold_count = sum(estimate.sold_observation_count for estimate in anchor_estimates)
     newest = max(estimate.newest_observation_at for estimate in estimates)
-    volatility = _volatility_pct(anchor_estimates, market_value)
+    volatility = max(
+        _volatility_pct(anchor_estimates, market_value),
+        _sold_dispersion_pct(anchor_observations),
+    )
 
     source_score = min(source_count / 3.0, 1.0)
     sample_score = min((sold_count / 8.0) + ((observation_count - sold_count) / 12.0), 1.0)
@@ -361,6 +524,21 @@ def calculate_price(
         block_reasons.append("INSUFFICIENT_SOURCE_DIVERSITY")
     if len(anchor_estimates) < 2 and regional_sold_count < 5:
         block_reasons.append("INSUFFICIENT_REGIONAL_EVIDENCE")
+    # Several guides/active listings may agree closely yet none is proof of a
+    # transaction. Never turn their agreement into automatic repricing power.
+    if regional_sold_count < 5:
+        block_reasons.append("INSUFFICIENT_INDEPENDENT_SALES")
+    if excluded_count:
+        block_reasons.append("INVALID_OR_DUPLICATE_EVIDENCE_EXCLUDED")
+    # Unknown condition or language can be useful as a clearly labelled guide,
+    # but never authorises an exact-condition physical-copy price change.
+    if any(
+        (target.language and not _norm(item.language))
+        or (target.seal_status and not _norm(item.seal_status))
+        or (not target.grading_company and target.condition and not _norm(item.condition))
+        for item in anchor_observations
+    ):
+        block_reasons.append("INCOMPLETE_PHYSICAL_MATCH_BASIS")
     if volatility > policy.max_volatility_pct:
         block_reasons.append("HIGH_VOLATILITY")
     if recommended >= policy.high_value_review_minor:
@@ -390,4 +568,6 @@ def calculate_price(
         auto_publish_eligible=auto_publish,
         block_reasons=tuple(block_reasons),
         source_estimates=estimates,
+        ruleset_revision=RULESET_REVISION,
+        excluded_observation_count=excluded_count,
     )
