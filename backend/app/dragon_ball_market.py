@@ -146,29 +146,53 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
               where r.provider='Bandai Official'
                 and (r.language='English' or
                      (r.language='Japanese' and r.system_code='DRAGON_BALL_SUPER_FUSION_WORLD'
-                      and r.set_id='584001'))
+                      and r.set_id between '584001' and '584011'))
                 and r.system_code in ('DRAGON_BALL_SUPER_MASTERS','DRAGON_BALL_SUPER_FUSION_WORLD')
                 and (s.release_date is null or s.release_date<=current_date)''')]
         from .dragon_ball_japanese_fb01_market import (
             matched_japanese_fb01, japanese_fb01_quote,
         )
+        from .dragon_ball_japanese_multi_market import (
+            RELEASES, match_regional_boosters, regional_booster_quote,
+            regional_coverage_report,
+        )
         matches = matched_products(references,singles,packaging)
         jp_matches = matched_japanese_fb01(references,singles,packaging)
+        multi_matches = match_regional_boosters(references,singles,packaging)
         jp_references = [ref for ref in references if ref['language']=='Japanese']
-        report.update(checked=len(references),matched=len(matches)+len(jp_matches))
-        if jp_references:
-            report.update(japanese_fb01_checked=len(jp_references),
+        jp_fb01_refs = [ref for ref in jp_references if ref['set_id']=='584001']
+        jp_multiset_refs = [ref for ref in jp_references if ref['set_id']!='584001']
+        report.update(checked=len(references),matched=len(matches)+len(jp_matches)+len(multi_matches))
+        if jp_fb01_refs:
+            report.update(japanese_fb01_checked=len(jp_fb01_refs),
                           japanese_fb01_matched=len(jp_matches))
-        if references and not matches and not jp_matches:
+        if jp_multiset_refs:
+            report.update(japanese_multiset_checked=len(jp_multiset_refs),
+                          japanese_multiset_base_candidates=sum(
+                              r.get('provider_id')==r.get('set_id')+':'+str(r.get('card_number'))
+                              for r in jp_multiset_refs),
+                          japanese_multiset_matched=len(multi_matches),
+                          japanese_multiset_by_release=regional_coverage_report(
+                              jp_multiset_refs,multi_matches,prices))
+        if references and not matches and not jp_matches and not multi_matches:
             raise ValueError('No unambiguous Cardmarket Dragon Ball release matches')
         conversion = await fx.quote(base_currency='EUR',quote_currency='GBP',at=observed)
         values = []
         for ref in references:
             jp_match = jp_matches.get(ref['provider_id']) if ref['language']=='Japanese' else None
-            product = jp_match['product'] if jp_match else matches.get((ref['system_code'],ref['provider_id']))
+            multi_match = multi_matches.get(ref['provider_id']) if ref['language']=='Japanese' else None
+            product = (
+                jp_match['product'] if jp_match else
+                multi_match['product'] if multi_match else
+                matches.get((ref['system_code'],ref['provider_id']))
+            )
             if jp_match:
                 quote = japanese_fb01_quote(
                     ref,jp_match,prices.get(str(product['idProduct'])),observed,conversion)
+                quotes = [quote] if quote else []
+            elif multi_match:
+                quote = regional_booster_quote(
+                    ref,multi_match,prices.get(str(product['idProduct'])),observed,conversion)
                 quotes = [quote] if quote else []
             else:
                 quotes = guide_quotes(
@@ -186,11 +210,24 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await connection.executemany(WRITE_SQL,values[start:start+100])
         report['priced'] = sum(v[5] is not None for v in values)
-        if jp_references:
+        if jp_fb01_refs:
             report['japanese_fb01_priced'] = sum(
-                v[5] is not None and v[2]=='Japanese' for v in values
+                v[5] is not None and v[2]=='Japanese' and v[3].startswith('584001:')
+                for v in values
             )
-            report['english_priced'] = report['priced']-report['japanese_fb01_priced']
+        if jp_multiset_refs:
+            report['japanese_multiset_priced'] = sum(
+                v[5] is not None and v[2]=='Japanese' and v[3][:6] in
+                {r[1] for r in RELEASES.values()}
+                for v in values
+            )
+            for code, (en_set, jp_set, *_other) in RELEASES.items():
+                report['japanese_multiset_by_release'][code]['priced'] = sum(
+                    v[5] is not None and v[2]=='Japanese' and v[3].startswith(jp_set+':')
+                    for v in values
+                )
+        if jp_references:
+            report['english_priced'] = report['priced'] - report.get('japanese_fb01_priced',0) - report.get('japanese_multiset_priced',0)
     except (httpx.HTTPError,ValueError,KeyError,TypeError,RuntimeError) as exc:
         report.update(provider_failures=1,reason=type(exc).__name__)
     return report
