@@ -45,12 +45,18 @@ jobs:
           total=priced=0
           for set_id,item in RELEASES.items():
               c=coverage[set_id]
+              def eligible_source_quote(p):
+                  guide=guides.get(str(p["idProduct"]))
+                  if not guide or guide.get("idCategory")!=1049:return False
+                  try:
+                      euro=_minor(guide.get("trend"))
+                      gbp=int((Decimal(euro)*Decimal(".85")).quantize(Decimal("1"),rounding=ROUND_HALF_UP))
+                      return euro>0 and gbp>0
+                  except (ValueError,TypeError,ArithmeticError):
+                      return False
               valid=sum(
                   1 for key,p in matches.items() if key[1].startswith(set_id+":")
-                  and (g:=guides.get(str(p["idProduct"]))) is not None
-                  and g.get("idCategory")==1049
-                  and _minor(g.get("trend"))>0
-                  and int((Decimal(_minor(g["trend"]))*Decimal(".85")).quantize(Decimal("1"),rounding=ROUND_HALF_UP))>0
+                  and eligible_source_quote(p)
               )
               c["valid_priced_estimate"]=valid
               total+=c["checked"];priced+=valid
