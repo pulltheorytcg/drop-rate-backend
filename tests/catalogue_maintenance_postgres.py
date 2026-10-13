@@ -241,6 +241,20 @@ async def main():
         await db.execute('reset role')
         for role in ('anon','authenticated'):
             assert not await db.fetchval("select has_table_privilege($1,'tcg.reference_catalogue_prices','SELECT')",role)
+        # Digital catalogue entries stay visible in total coverage, with an
+        # explicit N/A resale reason, including entries without artwork.
+        await db.execute("""insert into tcg.reference_sets(provider,system_code,language,set_id,name)
+          values('TCGdex','POKEMON_TCG','English','A1','Genetic Apex');
+          insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number,source_url)
+          values('TCGdex','POKEMON_TCG','English','A1-001','A1','Bulbasaur','001/226','https://api.tcgdex.net/v2/en/cards/A1-001');""")
+        from app.catalogue_coverage import coverage_summary
+        digital=coverage_summary(await db.fetch(COVERAGE_SQL))
+        assert digital['non_physical_cards']==1
+        assert digital['by_kind']['CARD']['total']==digital['physical_cards']['total']+1
+        assert digital['by_kind']['CARD']['priced']==digital['physical_cards']['priced']
+        await db.execute("update tcg.reference_sets set name='Another physical release' where set_id='A1'")
+        assert coverage_summary(await db.fetch(COVERAGE_SQL))['non_physical_cards']==0
+
     finally:await db.close()
     print('PASS: real sealed query, replay, set previews, publication gating/backoff, price finalization/audit, migrations and RLS')
 

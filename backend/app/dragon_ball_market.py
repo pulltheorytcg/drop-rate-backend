@@ -22,6 +22,28 @@ from .sealed_market import download
 MASTERS = 'DRAGON_BALL_SUPER_MASTERS'
 FUSION = 'DRAGON_BALL_SUPER_FUSION_WORLD'
 
+# Exact provider release-title discrepancies seen in the first-party export.
+# This affects catalogue guide matching only, not physical valuation rules.
+REFERENCE_RELEASE_ALIASES = {
+    (MASTERS, '428024', 'Z07 Booster -BEYOND GENERATIONS-'): 'Beyond Generation',
+    (MASTERS, '428025', 'Z08 Booster -LEGEND OF THE DRAGON BALLS-'): 'Legends of the Dragon Balls',
+    (MASTERS, '428031', 'UB04 Booster -IMPACT BEYOND DIMENSIONS-'): 'Impact Beyond Dimension',
+    (MASTERS, '428301', 'Series 1 Starter -THE AWAKING-'): 'The Awakening',
+    (FUSION, '583011', 'BOOSTER PACK -BRIGHTNESS OF HOPE- [FB11]'): 'Brigtness Of Hope',
+}
+
+
+def reference_expansion(ref, expansions):
+    identity = release_identity(ref['system_code'], ref['set_name'])
+    ids = {expansions[identity]} if identity in expansions else set()
+    alias = REFERENCE_RELEASE_ALIASES.get((ref['system_code'], ref['set_id'], ref['set_name']))
+    if alias:
+        alias_key = (ref['system_code'], normalized(alias))
+        if alias_key in expansions:
+            ids.add(expansions[alias_key])
+    return next(iter(ids)) if len(ids) == 1 and None not in ids else None
+
+
 
 def release_identity(system, name, *, include_starters=True, include_supplemental=True):
     if system == MASTERS:
@@ -43,7 +65,7 @@ def release_identity(system, name, *, include_starters=True, include_supplementa
     return (system, normalized(next(group for group in match.groups() if group is not None))) if match else None
 
 
-def expansion_index(packaging):
+def expansion_index(packaging, *, include_ambiguous=False):
     groups = defaultdict(set)
     for product in packaging.values():
         category, name = product.get('categoryName'), product.get('name', '')
@@ -63,11 +85,12 @@ def expansion_index(packaging):
         expansion = product.get('idExpansion')
         if match and type(expansion) is int and expansion > 0:
             groups[(system, normalized(match[1]))].add(expansion)
-    return {key:next(iter(ids)) for key,ids in groups.items() if len(ids)==1}
+    return {key:next(iter(ids)) if len(ids)==1 else None
+            for key,ids in groups.items() if len(ids)==1 or include_ambiguous}
 
 
 def matched_products(references, singles, packaging):
-    expansions = expansion_index(packaging)
+    expansions = expansion_index(packaging, include_ambiguous=True)
     products = defaultdict(list)
     for product in singles.values():
         if product.get('idCategory') != 1049 or product.get('categoryName') != 'Dragon Ball Super Singles':
@@ -94,7 +117,7 @@ def matched_products(references, singles, packaging):
         ref = refs[0]
         if len(numbers[(system,ref['set_id'],ref['card_number'])]) != 1:
             continue
-        expansion = expansions.get(release_identity(system,ref['set_name']))
+        expansion = reference_expansion(ref, expansions)
         candidates = products.get((system,expansion,name),[]) if expansion else []
         if len(candidates) != 1:
             continue
@@ -122,12 +145,17 @@ def guide_quotes(ref, product, price, observed, conversion):
             'original_currency':'EUR','original_minor':original,'price_gbp_minor':gbp,
             'observed_at':observed.isoformat(),'valuation_role':'MIXED_LANGUAGE_REFERENCE',
             'physical_language_confirmed':False,'condition_specific':False,
-            'match_basis':'UNIQUE_RELEASE_AND_PRINTING_IN_BOTH_CHECKLISTS',
+            'match_basis':('EXACT_RELEASE_ALIAS_AND_UNIQUE_PRINTING'
+                if (ref['system_code'],ref['set_id'],ref['set_name']) in REFERENCE_RELEASE_ALIASES
+                else 'UNIQUE_RELEASE_AND_PRINTING_IN_BOTH_CHECKLISTS'),
             'reference_printing_id':ref['provider_id'],'reference_rarity':ref.get('rarity'),
             'reference_identity':{k:ref[k] for k in ('name','set_id','card_number','set_name')},
             'fx_rate_to_gbp':str(conversion.rate),'fx_source':conversion.source,
             'fx_effective_at':conversion.effective_at.isoformat(),
             'fx_retrieved_at':conversion.retrieved_at.isoformat()})
+    if (ref['system_code'],ref['set_id'],ref['set_name']) in REFERENCE_RELEASE_ALIASES:
+        for quote in quotes:
+            quote['physical_valuation_eligible'] = False
     return quotes
 
 

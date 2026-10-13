@@ -2,10 +2,12 @@
 from uuid import uuid4
 
 from .db import user_connection
+from .reference_applicability import DIGITAL_REFERENCE_SQL
 
-COVERAGE_SQL = '''with coverage as (
+COVERAGE_SQL = f'''with coverage as (
  select 'CARD'::text as kind,r.system_code,r.language,
-   case when p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days'
+   case when {DIGITAL_REFERENCE_SQL} then 'NOT_APPLICABLE_DIGITAL'
+        when p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days'
           and p.quotes->0->>'source'='CARDMARKET_BULK_SINGLES' then 'MIXED_LANGUAGE_GUIDE'
         when p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days' then 'REFERENCE_AVAILABLE'
         when b.market_value_minor>0 then 'MIXED_LANGUAGE_GUIDE'
@@ -58,6 +60,7 @@ PRICED_REFERENCE_STATUSES = frozenset({"REFERENCE_AVAILABLE", "MIXED_LANGUAGE_GU
 # Actions describe the needed evidence, not a guarantee that it can be bought
 # or that a source permits redistribution in a user-facing marketplace.
 UNPRICED_REFERENCE_ACTIONS = {
+    "NOT_APPLICABLE_DIGITAL": "Digital TCG Pocket reference; physical resale pricing does not apply.",
     "SOURCE_ACCESS_REQUIRED": "Obtain permitted exact-print GBP market data for this game and language.",
     "PROVIDER_FEED_REQUIRED": "Obtain an approved provider feed covering this game and product type.",
     "PROVIDER_MAPPING_REQUIRED": "Resolve an exact provider product/printing mapping; do not infer parallels.",
@@ -77,6 +80,7 @@ def coverage_summary(rows):
     groups = {kind: {"total": 0, "priced": 0, "missing": 0} for kind in ("CARD", "SEALED")}
     by_game = {}
     by_status = {}
+    digital_cards = 0
     for row in rows:
         kind = row["kind"]
         if kind not in groups:
@@ -85,6 +89,8 @@ def coverage_summary(rows):
         if count < 0:
             raise ValueError("Invalid catalogue coverage count")
         status = str(row["status"])
+        if kind == "CARD" and status == "NOT_APPLICABLE_DIGITAL":
+            digital_cards += count
         priced = count if status in PRICED_REFERENCE_STATUSES else 0
         bucket = by_game.setdefault(
             (kind, row["system_code"], row["language"]),
@@ -112,6 +118,14 @@ def coverage_summary(rows):
     missing_reasons.sort(key=lambda item: (-item["count"], item["status"]))
     return {
         "by_kind": groups,
+        # Preserve all-reference totals for comparison with earlier receipts.
+        # Digital records are explicitly NOT counted as newly priced cards.
+        "physical_cards": {
+            "total": groups["CARD"]["total"] - digital_cards,
+            "priced": groups["CARD"]["priced"],
+            "missing": groups["CARD"]["missing"] - digital_cards,
+        },
+        "non_physical_cards": digital_cards,
         "by_game": [
             {"kind": kind, "system_code": system, "language": language, **stats}
             for (kind, system, language), stats in sorted(by_game.items())

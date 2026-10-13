@@ -61,7 +61,20 @@ def release_identity(name, *, include_starters=True):
 
 def expansion_index(products):
     result = defaultdict(set)
+    # PRB releases have no Lots rows in the public export. Full English
+    # booster/box names independently corroborate these exact named releases.
+    premium_titles = {'The Best': ('onepiececardthebest', 'PRB01'),
+                      'The Best Vol.2': ('onepiececardthebestvol2', 'PRB02')}
     for product in products.values():
+        category = (product.get('idCategory'), product.get('categoryName'))
+        suffix = {(1622, 'One Piece Booster'): ' Booster',
+                  (1624, 'One Piece Booster Boxes'): ' Booster Box'}.get(category)
+        name = str(product.get('name') or '')
+        expansion = product.get('idExpansion')
+        if suffix and name.endswith(suffix) and type(expansion) is int and expansion > 0:
+            key = premium_titles.get(name[:-len(suffix)])
+            if key:
+                result[key].add(expansion)
         if product.get('idCategory') == 1625 and product.get('categoryName') == 'One Piece Preconstructed Decks':
             starter = re.fullmatch(r'Starter Deck: (.+)', product.get('name',''))
             expansion = product.get('idExpansion')
@@ -163,7 +176,9 @@ async def refresh_one_piece_prices(pool, actor, fx):
                             'original_currency':'EUR','original_minor':original,'price_gbp_minor':gbp,
                             'observed_at':observed.isoformat(),'finish':'Printing guide',
                             'valuation_role':'MIXED_LANGUAGE_REFERENCE','physical_language_confirmed':False,
-                            'condition_specific':False,'match_basis':'UNIQUE_RELEASE_NAME_NUMBER_IN_BOTH_CHECKLISTS',
+                            'condition_specific':False,'match_basis':('EXACT_PREMIUM_RELEASE_UNIQUE_PRINTING'
+                                if release_identity(ref['set_name'])[1] in {'PRB01','PRB02'}
+                                else 'UNIQUE_RELEASE_NAME_NUMBER_IN_BOTH_CHECKLISTS'),
                             'reference_printing_id':ref['provider_id'],'reference_rarity':ref.get('rarity'),
                             'reference_identity':{key:ref[key] for key in ('name','set_id','card_number','set_name')},
                             'fx_rate_to_gbp':str(conversion.rate),'fx_source':conversion.source,
@@ -171,6 +186,8 @@ async def refresh_one_piece_prices(pool, actor, fx):
                             'fx_retrieved_at':conversion.retrieved_at.isoformat()}
                 except (ValueError,TypeError,ArithmeticError):
                     pass
+            if quote and quote.get('match_basis')=='EXACT_PREMIUM_RELEASE_UNIQUE_PRINTING':
+                quote['physical_valuation_eligible']=False
             value = quote['price_gbp_minor'] if quote else None
             values.append((ref['provider'],ref['system_code'],ref['language'],ref['provider_id'],
                 [quote] if quote else [],value,value,observed if quote else None,now,now+timedelta(days=1),

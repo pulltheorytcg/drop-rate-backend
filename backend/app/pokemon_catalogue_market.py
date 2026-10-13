@@ -22,6 +22,24 @@ from .reference_market import _minor
 from .sealed_market import download
 
 SOURCE = 'CARDMARKET_CATALOGUE'
+# Provider-published EX-era titles. Scope aliases to both ID and exact title;
+# do not strip arbitrary prefixes from modern/promotional/regional releases.
+EX_RELEASE_TITLES = {
+    'ex1': 'Ruby & Sapphire', 'ex2': 'Sandstorm', 'ex3': 'Dragon',
+    'ex4': 'Team Magma vs Team Aqua', 'ex5': 'Hidden Legends',
+    'ex6': 'FireRed & LeafGreen', 'ex7': 'Team Rocket Returns',
+    'ex8': 'Deoxys', 'ex9': 'Emerald', 'ex10': 'Unseen Forces',
+    'ex11': 'Delta Species', 'ex12': 'Legend Maker', 'ex13': 'Holon Phantoms',
+    'ex14': 'Crystal Guardians', 'ex15': 'Dragon Frontiers', 'ex16': 'Power Keepers',
+}
+
+
+def release_titles(ref):
+    titles = {ref['set_name']}
+    if EX_RELEASE_TITLES.get(ref['set_id']) == ref['set_name']:
+        titles.add('EX ' + ref['set_name'])
+    return titles
+
 READ_SQL = '''select r.*,s.name as set_name,s.declared_card_count
  from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
  where r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language='English'
@@ -74,7 +92,8 @@ def matched_products(references, singles, packaging):
         declared = ref.get('declared_card_count')
         if type(declared) is not int or declared <= 0 or len(sets[set_id]) < declared:
             continue
-        expansion_ids = expansions.get(normalized(ref['set_name']), set())
+        expansion_ids = set().union(*(expansions.get(normalized(title), set())
+                                      for title in release_titles(ref)))
         if len(expansion_ids) != 1:
             continue
         candidates = products.get((next(iter(expansion_ids)), name), [])
