@@ -26,8 +26,8 @@ RELEASES = {
     "428103": ("Themed Booster -CLASH OF FATES-", "Clash of Fates", "TB3"),
     "428201": ("Battle Evolution Booster", "Battle Evolution Booster", "EB1"),
 }
-NUMBERED_CARD = re.compile(r"((?:DB[123]|TB[123]|EB1)-\d{3})\Z")
-MARKET_NUMBER_SUFFIX = re.compile(r"(.+?) \(((?:DB[123]|TB[123]|EB1)-\d{3})\)\Z")
+NUMBERED_CARD = re.compile(r"(?:(?:DB[123]|TB[123])-\d{3}|EB1-\d{2})\Z")
+MARKET_NUMBER_SUFFIX = re.compile(r"(.+?) \(((?:(?:DB[123]|TB[123])-\d{3}|EB1-\d{2}))\)\Z")
 SET_LABEL = re.compile(
     r"(.+): (?:Common|Uncommon|Rare|Super Rare|Special Rare|Secret Rare|"
     r"Feature Rare|Full) Set\Z",
