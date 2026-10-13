@@ -69,7 +69,7 @@ async def exercise(client, db, headers, ua, ub, uf, owner_a, owner_b):
     assert (await client.post(path,json=changed,headers=headers(ua,key))).status_code == 409
     other_edition = await client.post(path,json=changed,headers=headers(ua,uuid4()))
     assert other_edition.status_code == 201 and other_edition.json()['catalogue']['id'] != str(cat),other_edition.text
-    graded = {**payload,'condition':None,'grading_company':'CBCS','grade':'9.8','certificate_number':'BOOK-0001'}
+    graded = {**payload,'condition':None,'grading_company':'CGC','grade':'9.8','certificate_number':'BOOK-0001'}
     slab = await client.post(path,json=graded,headers=headers(ua,uuid4()))
     assert slab.status_code == 201 and slab.json()['inventory']['grade'] == '9.8',slab.text
     assert (await client.post(path,json=graded,headers=headers(ub,uuid4()))).status_code == 409
@@ -81,6 +81,15 @@ async def exercise(client, db, headers, ua, ub, uf, owner_a, owner_b):
     response = await client.post(path,json=manga,headers=headers(ua,uuid4()))
     assert response.status_code == 201 and response.json()['catalogue']['game'] == 'Manga',response.text
     assert response.json()['catalogue']['name'] == 'Fixture Manga Volume 2'
+    manga_catalogue = response.json()['catalogue']['id']
+    for company, grade in (('CGC','9.8'),('BGS','9.5')):
+        graded_manga = {**manga,'condition':None,'grading_company':company,'grade':grade,'certificate_number':'MANGA-0001'}
+        slab = await client.post(path,json=graded_manga,headers=headers(ua,uuid4()))
+        assert slab.status_code == 201 and slab.json()['catalogue']['id'] == manga_catalogue,slab.text
+        copy = await db.fetchrow('select * from tcg.inventory_items where id=$1',UUID(slab.json()['inventory']['id']))
+        assert copy['grading_company'] == company and copy['grade'] == grade and copy['certificate_number'] == 'MANGA-0001'
+        assert copy['status'] == 'DRAFT' and copy['market_value_minor'] is None
+        assert (await client.post(path,json=graded_manga,headers=headers(ub,uuid4()))).status_code == 409
     # Restricted SQL role also rejects self-verification and invalid physical fields.
     for statement, args, error in [
         ("update tcg.inventory_items set condition='Lightly Played' where id=$1",[row['id']],asyncpg.CheckViolationError),

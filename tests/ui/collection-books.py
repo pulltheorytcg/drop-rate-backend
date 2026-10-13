@@ -49,7 +49,7 @@ def main():
                 page.locator('#owner-book-year').fill('2022')
                 page.locator('#owner-book-cover').fill('Cover A')
                 page.locator('#owner-book-state').select_option('GRADED')
-                page.locator('#owner-book-grader').select_option('CBCS')
+                assert page.locator('#owner-book-grader option').evaluate_all('xs=>xs.map(x=>x.value)') == ['CGC']
                 page.locator('#owner-book-grade').fill('9.8')
                 page.locator('#owner-book-certificate').fill('fixture-cert')
                 assert page.locator('#owner-book-condition').is_hidden()
@@ -69,7 +69,7 @@ def main():
                 assert len(writes) == 2 and writes[0]['body'] == writes[1]['body']
                 assert writes[0]['headers']['Idempotency-Key'] == writes[1]['headers']['Idempotency-Key']
                 body = json.loads(writes[0]['body'])
-                assert body['grading_company'] == 'CBCS' and body['grade'] == '9.8' and body['condition'] is None
+                assert body['grading_company'] == 'CGC' and body['grade'] == '9.8' and body['condition'] is None
                 assert body['new_catalogue']['comic_printing']['system_code'] == 'MARVEL_COMICS'
                 page.locator('#owner-book-cancel').click()
                 page.evaluate("document.querySelector('[data-owner-add-book]').click();mode='refresh-error'")
@@ -91,14 +91,46 @@ def main():
                 assert body['condition'] == 'Very Good' and body['grading_company'] is None
                 assert not any('/sync' in call['url'] for call in page.evaluate('calls'))
                 page.locator('#owner-book-cancel').click()
+                for company, grade in (('CGC', '9.8'), ('BGS', '9.5')):
+                    page.evaluate("document.querySelector('[data-owner-add-book]').click();mode='success'")
+                    page.locator('#owner-book-category').select_option('MANGA')
+                    page.locator('#owner-book-state').select_option('GRADED')
+                    assert page.locator('#owner-book-grader option').evaluate_all('xs=>xs.map(x=>x.value)') == ['CGC', 'BGS']
+                    if company == 'BGS':
+                        page.locator('#owner-book-grade').fill('9.8')
+                        page.locator('#owner-book-certificate').fill('old-cgc-cert')
+                        page.locator('#owner-book-grader').select_option('BGS')
+                        assert page.locator('#owner-book-grade').input_value() == ''
+                        assert page.locator('#owner-book-certificate').input_value() == ''
+                        page.locator('#owner-book-grade').fill('9.5')
+                        page.locator('#owner-book-certificate').fill('old-bgs-cert')
+                        for category in ('DC_COMICS', 'OTHER_COMICS', 'MARVEL_COMICS'):
+                            page.locator('#owner-book-category').select_option(category)
+                            assert page.locator('#owner-book-grader option').evaluate_all('xs=>xs.map(x=>x.value)') == ['CGC']
+                            assert page.locator('#owner-book-grade').input_value() == ''
+                            assert page.locator('#owner-book-certificate').input_value() == ''
+                        page.locator('#owner-book-category').select_option('MANGA')
+                        page.locator('#owner-book-grader').select_option('BGS')
+                    page.locator('#owner-book-series').fill('One Piece')
+                    page.locator('#owner-book-number').fill('1')
+                    page.locator('#owner-book-publisher').fill('VIZ Media')
+                    page.locator('#owner-book-grade').fill(grade)
+                    page.locator('#owner-book-certificate').fill(f'fixture-manga-{company}')
+                    page.locator('#owner-book-save').click()
+                    page.get_by_role('button', name='Added to inventory').wait_for()
+                    body = json.loads(page.evaluate('calls.at(-1).body'))
+                    assert body['new_catalogue']['comic_printing']['system_code'] == 'MANGA'
+                    assert body['grading_company'] == company and body['grade'] == grade
+                    assert body['certificate_number'] == f'fixture-manga-{company}' and body['condition'] is None
+                    page.locator('#owner-book-cancel').click()
                 page.evaluate("document.querySelector('[data-owner-add-book]').click();state.session={user:{id:'seller-b'}}")
                 page.locator('#owner-book-form').dispatch_event('submit')
                 assert not page.locator('#owner-book-dialog').is_visible()
-                assert len(page.evaluate('calls')) == 3
+                assert len(page.evaluate('calls')) == 5
                 assert not errors, errors
                 page.close()
             browser.close()
-    print('PASS: comics, CBCS certificate, manga, responsive form, immutable retry, refresh failure and account change; fixture API only.')
+    print('PASS: CGC comics, CGC/BGS manga, category-specific choices, certificate reset, responsive form, immutable retry, refresh failure and account change; fixture API only.')
 
 
 if __name__ == '__main__':
