@@ -40,6 +40,11 @@ jobs:
           singles={str(r['idProduct']):r for r in data['productList/products_singles_13.json']['products']}
           packaging={str(r['idProduct']):r for r in data['productList/products_nonsingles_13.json']['products']}
           prices={str(r['idProduct']):r for r in data['priceGuide/price_guide_13.json']['priceGuides']}
+          from app.fusion_world_japanese_market import _regional_expansions
+          print('DEBUG_EN',_booster_identity(refs[0]))
+          print('DEBUG_JP',_booster_identity(next(r for r in refs if r['language']=='Japanese')))
+          print('DEBUG_REGIONS',list(_regional_expansions(packaging).items())[:20])
+          print('DEBUG_VADOS',[(p.get('idExpansion'),p.get('name'),p.get('idCategory'),p.get('categoryName')) for p in singles.values() if 'Vados (FB01-003)' in str(p.get('name'))][:8])
           matches=matched_japanese_products(refs,singles,packaging)
           priced={key:x for key,x in matches.items() if
               prices.get(str(x['product']['idProduct']),{}).get('idCategory')==1049
