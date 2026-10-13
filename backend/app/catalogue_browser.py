@@ -241,6 +241,8 @@ def price_columns(entry: str) -> str:
         case when v.market_value_minor is null then {entry}.reference_value_high_minor end as market_value_high_minor,
         coalesce(v.basis_condition,case when {entry}.reference_value_minor is not null
           then case when {entry}.source_kind='SEALED_REFERENCE' then 'Sealed · Cardmarket mixed-language guide'
+            when {entry}.market_quotes->0->>'valuation_role'='MIXED_NON_ENGLISH_REFERENCE'
+              then 'Raw · Cardmarket Non-English regional guide (Japanese language not verified)'
             when {entry}.market_quotes->0->>'source' in ('CARDMARKET_BULK_SINGLES','CARDMARKET_CATALOGUE') then 'Raw · Cardmarket mixed-language guide'
             else 'Raw · Cardmarket' end end) as basis_condition,
         coalesce(v.pricing_updated_at,{entry}.reference_pricing_updated_at) as pricing_updated_at,
