@@ -1,6 +1,12 @@
-## 13 October 2026 — Catalogue release aliases and physical/digital coverage (release verification pending)
+## 13 October 2026 — Fusion World exact-number guide recovery (release verification pending)
+
+Found and fixed a second coverage defect: the existing general name matcher rejects distinct Fusion World collector numbers sharing a character name. An additional reference-only matcher uses exact English release/name/number, counts all official and market printing collisions, rejects unsupported source suffixes and requires the official base identity. Read-only replay finds **422 previously unpriced positive guides** across FB01–10 and SB01–02; **475** additional exact matches include currently absent quotes. Reuses existing source downloads and worker revision **15**, with explicit recovery/conflict receipts. New guides cannot value physical stock. Full backend suite **5,675 passed**; live release gates pending. See docs/FUSION_NUMBER_PRICE_RECOVERY_20261013.md.
+
+## 13 October 2026 — Catalogue release aliases and physical/digital coverage (verified live)
 
 Current live baseline **33,972/69,538** positive GBP card references/guides. Full read-only replay of existing Cardmarket exports and original database checklists found **758 previously unpriced candidates**: 416 Pokemon EX, 300 Dragon Ball release-title corrections, 42 One Piece PRB reprints. Scoped release aliases preserve game/language/printing uniqueness and original quote identity; newly recovered guide types stay outside physical-copy valuation. Existing worker revision **14**, no new service/provider/schema or owner/Store Price/Shopify writes. Coverage explicitly identifies **2,480 TCG Pocket digital records** and provides a separate physical denominator without removing records or counting N/A as priced. Full CI, deployment, revision-14 receipt and post-write counts remain acceptance gates. Details: docs/CATALOGUE_RELEASE_PRICE_RECOVERY_20261013.md.
+
+**Verified:** PR #627, commit `99f8a18564df969deb3f8f93ce05dcc0f6788b3d`, all four CI workflows successful, Railway `02253a7a-5418-4d2c-a69e-8c0fbcf649ee` SUCCESS and readiness healthy. Revision 14 COMPLETE at 17:05:55 UTC with zero provider failures. Actual coverage **34,730/69,538**, gain **758**; **32,328** physical references still unpriced plus **2,480** digital. Inventory **613 / 327 valued** and owner/Store Price fingerprint unchanged.
 
 ## 13 October 2026 — English Dragon Ball Masters high-gap Cardmarket price recovery (release checks pending)
 

@@ -128,6 +128,49 @@ def matched_products(references, singles, packaging):
     return result
 
 
+def numbered_fusion_matches(references, singles, packaging):
+    """Match repeated character names only when both sources give exact numbers.
+
+    All official printings and all market products with a number participate
+    in collision detection, including unpriced variants and conflicting names.
+    Masters has no comparable number field in its ordinary export.
+    """
+    expansions = expansion_index(packaging, include_ambiguous=True)
+    refs_by_number = defaultdict(list)
+    products_by_number = defaultdict(list)
+    for ref in references:
+        if (ref.get('provider'), ref.get('system_code'), ref.get('language')) == (
+                'Bandai Official', FUSION, 'English'):
+            refs_by_number[(ref['set_id'], ref['card_number'])].append(ref)
+    for product in singles.values():
+        if (product.get('idCategory'), product.get('categoryName')) != (
+                1049, 'Dragon Ball Super Singles'):
+            continue
+        label = str(product.get('name') or '')
+        numbers = re.findall(r'\b(?:FB|FS|SB|ST)\d{2}-\d{3}\b', label)
+        for number in set(numbers):
+            # Count extra suffixes too. They cannot silently disappear from
+            # uniqueness checks merely because only the base row has a price.
+            products_by_number[(product.get('idExpansion'), number)].append(product)
+    result = {}
+    for (set_id, number), refs in refs_by_number.items():
+        if len(refs) != 1:
+            continue
+        ref = refs[0]
+        if ref.get('provider_id') != set_id + ':' + str(number):
+            continue
+        expansion = reference_expansion(ref, expansions)
+        candidates = products_by_number.get((expansion, number), []) if expansion else []
+        if len(candidates) != 1:
+            continue
+        product = candidates[0]
+        match = re.fullmatch(r'(.+) \(((?:FB|FS|SB|ST)\d{2}-\d{3})\) \[Fusion World\]',
+                             product.get('name', ''))
+        if match and match[2] == number and normalized(match[1]) == normalized(ref['name']):
+            result[(FUSION, ref['provider_id'])] = product
+    return result
+
+
 def guide_quotes(ref, product, price, observed, conversion):
     if not price or price.get('idCategory') != product['idCategory']:
         return []
@@ -203,6 +246,17 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
             supplemental_matches.pop(key,None)
         for key,product in supplemental_matches.items():
             matches.setdefault(key,product)
+        numbered_matches = numbered_fusion_matches(references, singles, packaging)
+        numbered_conflicts = {key for key, product in numbered_matches.items()
+                              if key in matches and matches[key]['idProduct'] != product['idProduct']}
+        for key in numbered_conflicts:
+            matches.pop(key, None)
+            numbered_matches.pop(key, None)
+        numbered_recoveries = {key: product for key, product in numbered_matches.items() if key not in matches}
+        matches.update(numbered_recoveries)
+        if any(r['system_code']==FUSION and r['language']=='English' for r in references):
+            report.update(fusion_numbered_recovered=len(numbered_recoveries),
+                          fusion_numbered_conflicts=len(numbered_conflicts))
         jp_matches = matched_japanese_fb01(references,singles,packaging)
         multi_matches = match_regional_boosters(references,singles,packaging)
         jp_references = [ref for ref in references if ref['language']=='Japanese']
@@ -255,6 +309,10 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
                 quotes = guide_quotes(
                     ref,product,prices.get(str(product['idProduct'])),observed,conversion
                 ) if product else []
+                if (ref['system_code'], ref['provider_id']) in numbered_recoveries:
+                    for quote in quotes:
+                        quote.update(match_basis='EXACT_FUSION_RELEASE_NAME_NUMBER_REFERENCE',
+                                     physical_valuation_eligible=False)
             # Never replace an unpriced Japanese reference with a null value
             # when this narrowly scoped regional expansion has no match.
             if ref['language']=='Japanese' and not quotes:
@@ -267,6 +325,10 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await connection.executemany(WRITE_SQL,values[start:start+100])
         report['priced'] = sum(v[5] is not None for v in values)
+        if 'fusion_numbered_recovered' in report:
+            report['fusion_numbered_priced'] = sum(
+                v[5] is not None and (v[1], v[3]) in numbered_recoveries for v in values
+            )
         if jp_fb01_refs:
             report['japanese_fb01_priced'] = sum(
                 v[5] is not None and v[2]=='Japanese' and v[3].startswith('584001:')
