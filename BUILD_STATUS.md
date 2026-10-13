@@ -1,3 +1,7 @@
+## 13 October 2026 — Expansion and deck pricing recovery (live verification pending)
+
+Reference worker revision **20** recognises 28 Masters expansion/anniversary/expert releases and nine exact One Piece deck labels that the earlier parser skipped. Real-source replay finds **471 additional positive guide candidates** across 720 checked records (396 Masters, 75 One Piece). Full reference identity, release/category, printed number and ambiguity checks remain required; all new quotes are explicitly excluded from physical-copy valuation. Baseline **39,204/69,538** supported card references. No new source, schema, service, subscription or stock/Store Price changes. See docs/SUPPLEMENTAL_RELEASE_PRICE_RECOVERY_20261013.md. Production gain remains unverified until CI, deployment and the revision-20 readback complete.
+
 ## 13 October 2026 — Pricing recovery verified: 5,056 additional records
 
 The session's deployed repairs are verified live at **39,028/69,538** priced card references, up **5,056** from 33,972. English physical Pokemon is **20,472/21,290 (96.2%)**. Remaining: **28,030 physical references** without eligible values and **2,480 digital Pocket records** explicitly N/A. **All-card pricing is not complete**: unresolved exact printings and missing source evidence are recorded in docs/PRICING_RECOVERY_LIVE_RESULTS_20261013.md with per-game counts and concrete requirements. Existing daily workers contain the fixes; no new services/subscriptions. Owner/Store Price/status fingerprint unchanged, physical inventory **613 / 327 valued**.

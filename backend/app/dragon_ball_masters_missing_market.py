@@ -1,4 +1,4 @@
-"""Strict first-party Cardmarket guides for Masters draft/themed booster releases.
+"""Strict first-party Cardmarket guides for Masters supplemental releases.
 
 These English Bandai checklist families previously had no price matches because
 their official release titles are not the general "Booster -NAME-" format.
@@ -26,8 +26,44 @@ RELEASES = {
     "428103": ("Themed Booster -CLASH OF FATES-", "Clash of Fates", "TB3"),
     "428201": ("Battle Evolution Booster", "Battle Evolution Booster", "EB1"),
 }
-NUMBERED_CARD = re.compile(r"(?:(?:DB[123]|TB[123])-\d{3}|EB1-\d{2})\Z")
-MARKET_NUMBER_SUFFIX = re.compile(r"(.+?) \(((?:(?:DB[123]|TB[123])-\d{3}|EB1-\d{2}))\)\Z")
+# Exact publisher titles, packaging labels and printed number families from
+# the official checklist and Cardmarket export. Packaging versions corroborate
+# a release only; they never identify a card's parallel artwork or finish.
+EXPANSION_RELEASES = {
+    "428401": ("EXPANSION DECK BOX SET 01 -Mighty Heroes-", "Expansion Set: Mighty Heroes", "EX01"),
+    "428402": ("EXPANSION DECK BOX SET 02 -Dark Demon’s Villains-", "Expansion Set: Dark Demon's Villains", "EX02"),
+    "428403": ("ULTIMATE BOX", "Expansion Set: Ultimate Box", "EX03"),
+    "428404": ("EXPANSION SET 04 -Unity of Saiyans-", "Expansion Set: Unity of Saiyans", "EX04"),
+    "428405": ("EXPANSION SET 05 -Unity of Destruction-", "Expansion Set: Unity of Destruction", "EX05"),
+    "428406": ("Special Anniversary Box", "Expansion Set: Special Anniversary Box", "EX06"),
+    "428407": ("EXPANSION SET Magnificent Collection -Fusion Hero-", "Magnificent Collection Fusion Hero", "EX07"),
+    "428408": ("EXPANSION SET Magnificent Collection -Forsaken Warrior-", "Magnificent Collection Forsaken Warrior", "EX08"),
+    "428409": ("EXPANSION SET 09 -Saiyan Surge-", "Expansion Set: Saiyan Surge", "EX09"),
+    "428410": ("EXPANSION SET 10 -Namekian Surge-", "Expansion Set: Namekian Surge", "EX10"),
+    "428411": ("EXPANSION SET 11 -Universe 7 Unison-", "Expansion Set: Universe 7 Unison", "EX11"),
+    "428412": ("EXPANSION SET 12 -Universe 11 Unison-", "Expansion Set: Universe 11 Unison", "EX12"),
+    "428413": ("Special Anniversary Box 2020", "Expansion Set: Special Anniversary Box 2020", "EX13"),
+    "428414": ("EXPANSION SET 14 -Battle Advanced-", "Expansion Set: Battle Advanced", "EX14"),
+    "428415": ("EXPANSION SET 15 -Battle Enhanced-", "Expansion Set: Battle Enhanced", "EX15"),
+    "428416": ("Ultimate Deck", "Expansion Set: Ultimate Deck", "EX16"),
+    "428417": ("EXPANSION SET 17 -Saiyan Boost-", "Expansion Set: Saiyan Boost", "EX17"),
+    "428418": ("EXPANSION SET 18 -Namekian Boost-", "Expansion Set: Namekian Boost", "EX18"),
+    "428419": ("Special Anniversary Box 2021", "Expansion Set: Special Anniversary Box 2021", "EX19"),
+    "428420": ("Ultimate Deck 2022", "Expansion Set: Ultimate Deck 2022", "EX20"),
+    "428421": ("5th Anniversary Set", "Expansion Set: 5th Anniversary Set", "EX21"),
+    "428422": ("Ultimate Deck 2023", "Expansion Set: Ultimate Deck 2023", "EX22"),
+    "428423": ("Premium Anniversary Box 2023", "Premium Anniversary Box 2023", "EX23"),
+    "428424": ("Premium Anniversary Box 2024", "Premium 7th Anniversary Box 2024", "EX24"),
+    "428425": ("Premium Anniversary Box 2025", "Premium Anniversary Box 2025", "EX25"),
+    "428501": ("EXPERT DECK -UNIVERSE 6 ASSAILANTS-", "Expert Deck: Universe 6 Assailants", "XD1"),
+    "428502": ("EXPERT DECK -ANDROID DUALITY-", "Expert Deck: Android Duality", "XD2"),
+    "428503": ("EXPERT DECK -THE ULTIMATE LIFE FORM-", "Expert Deck: The Ultimate Life Form", "XD3"),
+}
+RELEASES.update(EXPANSION_RELEASES)
+EXPANSION_BASIS = "EXACT_MASTERS_EXPANSION_RELEASE_UNIQUE_PRINTING"
+NUMBER_PATTERN = r"(?:(?:DB[123]|TB[123])-\d{3}|(?:EB1|EX\d{2}|XD[123])-\d{2})"
+NUMBERED_CARD = re.compile(NUMBER_PATTERN+r"\Z")
+MARKET_NUMBER_SUFFIX = re.compile(r"(.+?) \(("+NUMBER_PATTERN+r")\)\Z")
 SET_LABEL = re.compile(
     r"(.+): (?:Common|Uncommon|Rare|Super Rare|Special Rare|Secret Rare|"
     r"Feature Rare|Full) Set\Z",
@@ -50,8 +86,23 @@ def _release_expansion_ids(packaging: dict) -> dict[str, int]:
     invalidate the release rather than picking a priced one.
     """
     ids: dict[str, set[int]] = defaultdict(set)
-    title_map={normalized(entry[1]):set_id for set_id,entry in RELEASES.items()}
+    title_map={normalized(entry[1]):set_id for set_id,entry in RELEASES.items()
+               if set_id not in EXPANSION_RELEASES}
+    packages = {}
+    for set_id, (_, title, prefix) in EXPANSION_RELEASES.items():
+        category = ("Dragon Ball Super Starter Decks", 1053) if prefix.startswith("XD") else (
+            "Dragon Ball Super Expansion Sets", 1061)
+        titles = [title]
+        if set_id in {"428406", "428413", "428419"}:
+            titles += [title+f" (Version {version})" for version in range(1, 5)]
+        for label in titles:
+            packages[(*category, normalized(label))] = set_id
     for package in packaging.values():
+        set_id = packages.get((package.get("categoryName"), package.get("idCategory"),
+                               normalized(package.get("name") or "")))
+        expansion = package.get("idExpansion")
+        if set_id and type(expansion) is int and expansion > 0:
+            ids[set_id].add(expansion)
         if (package.get("categoryName"),package.get("idCategory")) not in CATEGORY_IDS:
             continue
         title=str(package.get("name") or "")
@@ -90,7 +141,10 @@ def exact_masters_supplemental_matches(references: list[dict],singles: dict,pack
             and ref.get("set_name")==identity[0]
         ):
             ref_by_name[(ref["set_id"],normalized(ref.get("name") or ""))].append(ref)
-            ref_by_number[(ref["set_id"],ref.get("card_number"))].append(ref)
+            number = ref.get("card_number")
+            if ref["set_id"] in EXPANSION_RELEASES and isinstance(number, str):
+                number = number.split("_", 1)[0]
+            ref_by_number[(ref["set_id"],number)].append(ref)
 
     products:dict[tuple[int,str],list[tuple[dict,str|None]]]=defaultdict(list)
     for p in singles.values():
