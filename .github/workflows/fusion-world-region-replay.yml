@@ -46,9 +46,12 @@ jobs:
           print('DEBUG_REGIONS',list(_regional_expansions(packaging).items())[:20])
           print('DEBUG_VADOS',[(p.get('idExpansion'),p.get('name'),p.get('idCategory'),p.get('categoryName')) for p in singles.values() if 'Vados (FB01-003)' in str(p.get('name'))][:8])
           matches=matched_japanese_products(refs,singles,packaging)
-          priced={key:x for key,x in matches.items() if
-              prices.get(str(x['product']['idProduct']),{}).get('idCategory')==1049
-              and _minor(prices.get(str(x['product']['idProduct']),{}).get('trend'))>0}
+          def has_price(mapping):
+              entry=prices.get(str(mapping['product']['idProduct'])) or {}
+              if entry.get('idCategory')!=1049:return False
+              try:return _minor(entry.get('trend'))>0
+              except (TypeError,ValueError):return False
+          priced={key:x for key,x in matches.items() if has_price(x)}
           english=matched_products(refs,singles,packaging)
           by_code=collections.Counter(key.split(':')[1].split('-')[0] for key in matches)
           by_code_priced=collections.Counter(key.split(':')[1].split('-')[0] for key in priced)
