@@ -108,8 +108,8 @@ def exact_masters_supplemental_matches(references: list[dict],singles: dict,pack
         if key[1]:
             products[key].append((p,number))
 
-    matched={}
-    used=set()
+    possible={}
+    product_claims=defaultdict(list)
     for (set_id,name),refs in ref_by_name.items():
         if len(refs)!=1 or not name:
             continue
@@ -134,11 +134,15 @@ def exact_masters_supplemental_matches(references: list[dict],singles: dict,pack
         product,market_number=candidates[0]
         if market_number is not None and market_number!=number:
             continue
-        if product["idProduct"] in used:
-            continue
-        used.add(product["idProduct"])
-        matched[(MASTERS,ref["provider_id"])]=product
-    return matched
+        key=(MASTERS,ref["provider_id"])
+        possible[key]=product
+        product_claims[product["idProduct"]].append(key)
+    # If one Cardmarket SKU claims two different publisher cards, reject
+    # *both*. Iteration/query order must never determine which card gets priced.
+    return {
+        key:product for key,product in possible.items()
+        if len(product_claims[product["idProduct"]])==1
+    }
 
 
 def supplemental_coverage(references:list[dict],matched:dict,prices:dict)->dict:
