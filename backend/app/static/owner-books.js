@@ -7,8 +7,20 @@
   const optional = id => value(id) || null;
   const integer = id => value(id) ? Number(value(id)) : null;
 
+  function clearGradingDetails() {
+    node("grade").value = "";
+    node("certificate").value = "";
+  }
+
   function update() {
     const manga = value("category") === "MANGA", graded = value("state") === "GRADED";
+    const companies = manga ? ["CGC", "BGS"] : ["CGC"], grader = node("grader");
+    if (Array.from(grader.options, option => option.value).join(",") !== companies.join(",")) {
+      const previous = grader.value;
+      grader.replaceChildren(...companies.map(company => new Option(company, company)));
+      if (companies.includes(previous)) grader.value = previous;
+      else clearGradingDetails();
+    }
     const customPublisher = ["MANGA", "OTHER_COMICS"].includes(value("category"));
     node("number-text").textContent = manga ? "Volume number" : "Issue / book number";
     node("series").placeholder = manga ? "e.g. One Piece" : "e.g. The Amazing Spider-Man";
@@ -18,8 +30,6 @@
     node("condition-label").hidden = graded;
     node("grading-fields").hidden = !graded;
     for (const id of ["grader", "grade", "certificate"]) node(id).required = graded;
-    node("other-grader-label").hidden = !graded || value("grader") !== "OTHER";
-    node("other-grader").required = graded && value("grader") === "OTHER";
   }
 
   function ensureDialog() {
@@ -56,8 +66,7 @@
             <label id="owner-book-condition-label">Condition<select id="owner-book-condition"><option value="">Not assessed yet</option>${conditions.map(c => `<option>${c}</option>`).join("")}</select></label>
           </div>
           <div id="owner-book-grading-fields" class="owner-import-fields" hidden>
-            <label>Grading company<select id="owner-book-grader"><option value="CGC">CGC</option><option value="CBCS">CBCS</option><option value="PGX">PGX</option><option value="OTHER">Other grading company</option></select></label>
-            <label id="owner-book-other-grader-label" hidden>Company name<input id="owner-book-other-grader" maxlength="40"></label>
+            <label>Grading company<select id="owner-book-grader"><option value="CGC">CGC</option></select></label>
             <label>Grade<input id="owner-book-grade" type="number" min="0.5" max="10" step="0.1" inputmode="decimal" placeholder="e.g. 9.8"></label>
             <label>Certificate number<input id="owner-book-certificate" maxlength="120" autocomplete="off"></label>
           </div>
@@ -73,7 +82,8 @@
       </form>
       <datalist id="owner-book-languages"><option value="English"><option value="Japanese"><option value="French"><option value="German"><option value="Spanish"><option value="Italian"></datalist>`;
     document.body.append(dialog);
-    for (const id of ["category", "state", "grader"]) node(id).addEventListener("change", update);
+    for (const id of ["category", "state"]) node(id).addEventListener("change", update);
+    node("grader").addEventListener("change", clearGradingDetails);
     for (const id of ["close", "cancel"]) node(id).addEventListener("click", () => { if (!saving) dialog.close(); });
     dialog.addEventListener("cancel", event => { if (saving) event.preventDefault(); });
     node("form").addEventListener("submit", save);
@@ -92,7 +102,7 @@
         }
       },
       condition: graded ? null : optional("condition"),
-      grading_company: graded ? (value("grader") === "OTHER" ? value("other-grader") : value("grader")) : null,
+      grading_company: graded ? value("grader") : null,
       grade: graded ? value("grade") : null, certificate_number: graded ? value("certificate") : null,
       acquisition_cost_minor: value("cost") ? Math.round(Number(value("cost")) * 100) : null,
       store_price_minor: value("price") ? Math.round(Number(value("price")) * 100) : null,

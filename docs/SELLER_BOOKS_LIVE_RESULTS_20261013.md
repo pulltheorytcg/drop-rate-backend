@@ -2,7 +2,7 @@
 
 The owner Seller Hub now supports manual entry of Marvel, DC and other comics, graded comics, and manga. Open **Inventory → + Comic / manga**, or **Scan → Add a comic or manga**. Refresh an already-open Seller Hub tab to load the new form.
 
-The form records series, issue or book/volume number, publisher, edition, format, language, and optional year, printing, cover, artist and ISBN/barcode. A raw copy has a book condition; a graded copy records its grading company, numerical grade and required certificate number. CGC, CBCS, PGX and a custom grading-company option are available. Cost, selling price and copy notes are optional.
+The form records series, issue or book/volume number, publisher, edition, format, language, and optional year, printing, cover, artist and ISBN/barcode. A raw copy has a book condition; a graded copy records its grading company, numerical grade and required certificate number. Following the user's clarification, the form offers **CGC for comics** and **CGC or BGS for manga**. Cost, selling price and copy notes are optional. Changing the grading company clears the previous grade and certificate number; switching a BGS manga to a comic also clears those details.
 
 Each addition is an unconfirmed `PERSONAL_COLLECTION` / `DRAFT` copy belonging to the authenticated owner. Seller-submitted catalogue identities require review. The existing confirmation and selling-review rules still apply. Duplicate graded certificates are rejected without disclosing another owner's stock. A retry after an uncertain save reuses the same request and cannot create an additional copy.
 
@@ -20,10 +20,12 @@ This release provides manual book entry, not automatic cover recognition, certif
 
 The 614-item baseline was measured before this release; an earlier pricing receipt had 613. No production book or physical copy was inserted for testing, and this release did not alter stock ownership, selling prices, statuses or publication.
 
-## Validation scope
+## Initial release validation scope
 
 All nine applicable CI workflows passed. The local backend suite passed **5,776 tests**, and existing dashboard tests passed. Restricted-role PostgreSQL and signed-HTTP tests covered raw Marvel, graded CBCS and manga entry; owner isolation; shared reference identity with separate owned copies; edition separation; concurrent/changed-payload retries; duplicate certificates; invalid physical states; and attempts to self-verify catalogue identities.
 
 Real Chromium and WebKit checks at 390 and 1440 px covered graded-book and manga forms, uncertain-save retry, post-save refresh failure and account switching. Browser tests used fixture API responses; authenticated intake tests used the isolated PostgreSQL fixture. Production checks verified deployment, database migration, assets and access protection without creating real stock.
 
 The accompanying card-pricing repair is recorded separately in [the pricing recovery receipt](PRICING_RECOVERY_LIVE_RESULTS_20261013.md).
+
+The grader-choice follow-up extends the existing browser checks to both CGC and BGS manga, every comic category, and certificate reset when changing grading company. The isolated PostgreSQL fixture verifies both manga graders save against the same shared book identity while retaining separate per-copy company/grade/certificate details and rejecting duplicate certificates within each company. Existing records and the general intake API are preserved; the change is to the Seller Hub's offered grading choices.
