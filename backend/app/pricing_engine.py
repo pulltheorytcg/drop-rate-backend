@@ -427,6 +427,23 @@ def _volatility_pct(estimates: Iterable[SourceEstimate], market_value_minor: int
     return round((1.4826 * mad / market_value_minor) * 100.0, 4)
 
 
+
+def _sold_dispersion_pct(observations: list[MarketObservation]) -> float:
+    """Volatile sales from *one* source need review too.
+
+    Cross-source MAD alone reports zero volatility for a single eBay source,
+    regardless of how wildly its five sold prices differ. A large tail is a
+    review condition even if the median itself is robust to that outlier.
+    """
+    sold = [item.price_gbp_minor for item in observations if item.observation_type == "SOLD"]
+    if len(sold) < 5:
+        return 0.0
+    centre = float(median(sold))
+    if centre <= 0:
+        return 0.0
+    spread = max(abs(price - centre) for price in sold) / centre * 100.0
+    return round(spread, 4)
+
 def calculate_price(
     observations: list[MarketObservation],
     *,
@@ -441,11 +458,12 @@ def calculate_price(
     as_of = as_of or datetime.now(timezone.utc)
     if as_of.tzinfo is None:
         as_of = as_of.replace(tzinfo=timezone.utc)
+    as_of = as_of.astimezone(timezone.utc)
+    _validate_policy(policy, target)
 
+    eligible, excluded_count = _eligible_observations(observations, as_of)
     by_source: dict[str, list[MarketObservation]] = {}
-    for observation in observations:
-        if observation.price_gbp_minor <= 0:
-            continue
+    for observation in eligible:
         by_source.setdefault(observation.source, []).append(observation)
 
     estimates = tuple(
@@ -456,7 +474,7 @@ def calculate_price(
     if not estimates:
         raise ValueError("No comparable market observations supplied")
 
-    anchor_observations = [item for item in observations if _is_uk_eu_anchor(item, target)]
+    anchor_observations = [item for item in eligible if _is_uk_eu_anchor(item, target)]
     if not anchor_observations:
         raise ValueError("No UK/EU market anchor available")
 
@@ -482,7 +500,10 @@ def calculate_price(
     source_count = len(estimates)
     regional_sold_count = sum(estimate.sold_observation_count for estimate in anchor_estimates)
     newest = max(estimate.newest_observation_at for estimate in estimates)
-    volatility = _volatility_pct(anchor_estimates, market_value)
+    volatility = max(
+        _volatility_pct(anchor_estimates, market_value),
+        _sold_dispersion_pct(anchor_observations),
+    )
 
     source_score = min(source_count / 3.0, 1.0)
     sample_score = min((sold_count / 8.0) + ((observation_count - sold_count) / 12.0), 1.0)
@@ -503,6 +524,21 @@ def calculate_price(
         block_reasons.append("INSUFFICIENT_SOURCE_DIVERSITY")
     if len(anchor_estimates) < 2 and regional_sold_count < 5:
         block_reasons.append("INSUFFICIENT_REGIONAL_EVIDENCE")
+    # Several guides/active listings may agree closely yet none is proof of a
+    # transaction. Never turn their agreement into automatic repricing power.
+    if regional_sold_count < 5:
+        block_reasons.append("INSUFFICIENT_INDEPENDENT_SALES")
+    if excluded_count:
+        block_reasons.append("INVALID_OR_DUPLICATE_EVIDENCE_EXCLUDED")
+    # Unknown condition or language can be useful as a clearly labelled guide,
+    # but never authorises an exact-condition physical-copy price change.
+    if any(
+        (target.language and not _norm(item.language))
+        or (target.seal_status and not _norm(item.seal_status))
+        or (not target.grading_company and target.condition and not _norm(item.condition))
+        for item in anchor_observations
+    ):
+        block_reasons.append("INCOMPLETE_PHYSICAL_MATCH_BASIS")
     if volatility > policy.max_volatility_pct:
         block_reasons.append("HIGH_VOLATILITY")
     if recommended >= policy.high_value_review_minor:
@@ -532,4 +568,6 @@ def calculate_price(
         auto_publish_eligible=auto_publish,
         block_reasons=tuple(block_reasons),
         source_estimates=estimates,
+        ruleset_revision=RULESET_REVISION,
+        excluded_observation_count=excluded_count,
     )
