@@ -128,7 +128,7 @@ def quotes_for(ref, product, price, observed, conversion):
     return quotes
 
 
-async def refresh_pokemon_catalogue_prices(pool, actor, fx):
+async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client=None):
     report = {'checked':0,'matched':0,'priced':0,'provider_failures':0,'inventory_rows_read':0}
     now = datetime.now(timezone.utc)
     try:
@@ -142,6 +142,10 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx):
             references = [dict(row) for row in await connection.fetch(READ_SQL)]
         matches = matched_products(references,singles,packaging)
         report.update(checked=len(references),matched=len(matches))
+        if cardtrader_client is not None:
+            from .cardtrader_reference_probe import probe_cardtrader_references
+            report['cardtrader_identity_probe'] = await probe_cardtrader_references(
+                cardtrader_client, references, singles)
         if references and not matches:
             raise ValueError('No unambiguous Cardmarket release matches')
         conversion = await fx.quote(base_currency='EUR',quote_currency='GBP',at=observed)
