@@ -1,6 +1,12 @@
-## 13 October 2026 — Masters paired leader-face reference recovery (release checks pending)
+## 13 October 2026 — Pricing recovery verified: 5,056 additional records
+
+The session's deployed repairs are verified live at **39,028/69,538** priced card references, up **5,056** from 33,972. English physical Pokemon is **20,472/21,290 (96.2%)**. Remaining: **28,030 physical references** without eligible values and **2,480 digital Pocket records** explicitly N/A. **All-card pricing is not complete**: unresolved exact printings and missing source evidence are recorded in docs/PRICING_RECOVERY_LIVE_RESULTS_20261013.md with per-game counts and concrete requirements. Existing daily workers contain the fixes; no new services/subscriptions. Owner/Store Price/status fingerprint unchanged, physical inventory **613 / 327 valued**.
+
+## 13 October 2026 — Masters paired leader-face reference recovery (verified live)
 
 Worker revision **18** adds a separate guide matcher for official English Masters leader front/back records. Both exact names must appear together on one Cardmarket product in the independently confirmed release. Both official records must share the exact collector number/rarity, declare LEADER/OFFICIAL_CHECKLIST, and use the matching official `.png` / `_b.png` image identities. All same-name, third-face, parallel, product and release collisions still block. Current export replay finds **344 matched face records**, including **314 previously unpriced positive candidates (157 two-sided cards)**; read-only production checks confirm required official metadata for all 314. These are reference records, not 314 new physical cards. New quotes record both face IDs and remain ineligible for physical valuation. Baseline **38,684/69,538**; actual live lift remains an acceptance gate. See docs/MASTERS_PAIRED_LEADER_PRICE_RECOVERY_20261013.md.
+
+**Verified:** PR #631 / `9a7096e498c59019bdd2a57c750a46a7655eac1c`; all four applicable CI workflows and **5,750 local tests** passed. Railway `3904737b-3d75-463d-b3b4-1f238a52cc13` SUCCESS. Revision 18 COMPLETE at **18:06:15 UTC** with no provider failures. Actual net lift **344 face records / 172 paired card identities**, including 30 with eligible foil-field quotes beyond the conservative normal-trend replay. All 344 are excluded from physical valuation. Global **39,028/69,538** and owner/Store Price fingerprint unchanged.
 
 ## 13 October 2026 — Pokemon numeric-level and explicit product-ID recovery (verified live)
 

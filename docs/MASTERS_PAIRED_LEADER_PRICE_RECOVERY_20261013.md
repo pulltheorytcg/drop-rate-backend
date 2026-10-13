@@ -28,3 +28,11 @@ Tests cover real paired identity, reversed order, missing/extra faces, same-name
 Baseline after revision 17: **38,684/69,538** priced reference rows; **28,374/67,058** physical references missing; **2,480** digital Pocket records N/A. Physical inventory **613**, valued **327**, ownership/Store Price/status fingerprint `820fee0063fe48d9e4a774b4b9f98301`.
 
 Rollback: revert this matcher integration and importer revision together; the existing successful refresh clears unsupported current reference guides without editing historical evidence. Do not manually rewrite history or fill missing values with zero.
+
+## Verified production result
+
+PR #631 merged as `9a7096e498c59019bdd2a57c750a46a7655eac1c` after all four applicable CI workflows passed. Railway deployment `3904737b-3d75-463d-b3b4-1f238a52cc13` succeeded. Revision 18 completed at **2026-10-13 18:06:15.952883 UTC**, with zero provider failures and zero conflicting leader pairs.
+
+Actual recovery is **344 priced face records**, representing **172 paired source products**. The normal-trend replay's 314 candidates were conservative: 30 further records had eligible foil-field prices. All 344 quote records are explicitly excluded from physical stock valuation and retain the original 12 October source timestamp.
+
+Independent coverage readback confirms **39,028/69,538** priced references, net gain **344** over revision 17 and **5,056** over the session baseline. Physical inventory remains **613 / 327 valued**, and owner/Store Price/status fingerprint is unchanged. Remaining physical pricing gap: **28,030**. Full per-game source requirements are in docs/PRICING_RECOVERY_LIVE_RESULTS_20261013.md.
