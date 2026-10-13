@@ -70,3 +70,17 @@ Bandai/Kayou (7,166 references) still lack a connected permitted quote feed and
 verified language. Other gaps include independently unresolved alternate prints,
 regional quotes and genuine upstream absence. Paid access or licensing has not
 been purchased, and no absent value is presented as zero or inferred by AI.
+
+## Verified release receipt
+
+PR #627 merged as `99f8a18564df969deb3f8f93ce05dcc0f6788b3d`. All four
+current-head GitHub workflows passed. Railway deployment
+`02253a7a-5418-4d2c-a69e-8c0fbcf649ee` is SUCCESS; pre-deploy ran 5,658 tests
+and `/health/ready` returned `ready` with a connected database. Revision 14
+finished COMPLETE at **17:05:55 UTC**, with no provider failures.
+
+Independent source-aware database readback confirms **34,730 / 69,538** card
+references priced, an actual gain of **758**. There are **32,328** unpriced
+physical references and **2,480** digital references. The original 613 physical
+inventory items, 327 valued count and ownership/Store Price fingerprint above
+are unchanged. These are reference-guide gains, not new sold-price valuations.
