@@ -53,3 +53,15 @@ unchanged physical inventory ownership/Store Price fingerprint.
 
 This does not close the remaining source-access, exact-quote and printing-mapping
 gaps. Source guides remain estimates, separate from five-sale market valuations.
+
+## Verified production receipt
+
+PR #628 merged as `65c887a6e3e9a1d718dea3d1d8f386a1255a2c98`; all four
+current-head workflows passed. Railway deployment
+`b2751be0-4c09-4d24-b48b-c8042e7648ce` is SUCCESS. Revision 15 finished COMPLETE
+at **17:15:57 UTC** with **422** newly priced numbered Fusion references and
+zero provider failures. Source-aware readback confirms **35,152 / 69,538**
+priced card references, a combined **1,180** gain over this session's baseline.
+There remain **31,906** unpriced physical references plus **2,480** digital ones.
+The physical inventory remains 613 items, 327 valued, with unchanged fingerprint
+`820fee0063fe48d9e4a774b4b9f98301` for owner, identity, Store Price and status.

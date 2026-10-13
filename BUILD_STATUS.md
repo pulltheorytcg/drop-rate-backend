@@ -1,6 +1,12 @@
-## 13 October 2026 — Fusion World exact-number guide recovery (release verification pending)
+## 13 October 2026 — Existing CardTrader identity coverage verification
+
+Before introducing a paid feed, worker revision **16** adds a bounded read-only probe of the existing CardTrader connection for eight high-gap English Pokemon releases. At most ten read requests verify explicit collector numbers, singleton Cardmarket cross-IDs and exact source identities. Reports contain only public identity examples/counts, no credentials, and the probe writes **zero prices or mappings**. This is coverage investigation, not a claim of new values. See docs/CARDTRADER_REFERENCE_COVERAGE_PROBE.md.
+
+## 13 October 2026 — Fusion World exact-number guide recovery (verified live)
 
 Found and fixed a second coverage defect: the existing general name matcher rejects distinct Fusion World collector numbers sharing a character name. An additional reference-only matcher uses exact English release/name/number, counts all official and market printing collisions, rejects unsupported source suffixes and requires the official base identity. Read-only replay finds **422 previously unpriced positive guides** across FB01–10 and SB01–02; **475** additional exact matches include currently absent quotes. Reuses existing source downloads and worker revision **15**, with explicit recovery/conflict receipts. New guides cannot value physical stock. Full backend suite **5,675 passed**; live release gates pending. See docs/FUSION_NUMBER_PRICE_RECOVERY_20261013.md.
+
+**Verified:** PR #628, commit `65c887a6e3e9a1d718dea3d1d8f386a1255a2c98`, all four CI workflows successful, Railway `b2751be0-4c09-4d24-b48b-c8042e7648ce` SUCCESS. Revision 15 COMPLETE at 17:15:57 UTC with **422** new Fusion prices and no provider failures. Global **35,152/69,538**, total session gain **1,180**. Physical gap **31,906**, digital references **2,480**. Inventory 613 / 327 valued and owner/Store Price fingerprint unchanged.
 
 ## 13 October 2026 — Catalogue release aliases and physical/digital coverage (verified live)
 

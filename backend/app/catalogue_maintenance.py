@@ -36,7 +36,7 @@ from .shopify_client import ShopifyMediaScopeRequired
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
-REFERENCE_JOB_REVISION=15
+REFERENCE_JOB_REVISION=16
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
@@ -134,12 +134,18 @@ async def sync_source(pool,actor,source,settings):
     return {'status':status,'sets':sets,'records':cards}
 
 
-async def warm_prices(pool,actor,limit):
+async def warm_prices(pool,actor,limit,cardtrader_api_token=''):
     run_id=await receipt(pool,actor,'REFERENCE_PRICES','RUNNING',{})
     checked=priced=failed=us_only=0;status='INCOMPLETE';report={'importer_revision':REFERENCE_JOB_REVISION}
     fx=EcbHistoricalFxProvider(timeout_seconds=6)
     try:
-        report['pokemon_catalogue']=await refresh_pokemon_catalogue_prices(pool,actor,fx)
+        if cardtrader_api_token:
+            from .cardtrader_client import CardTraderClient
+            report['pokemon_catalogue']=await refresh_pokemon_catalogue_prices(
+                pool,actor,fx,cardtrader_client=CardTraderClient(
+                    api_token=cardtrader_api_token,timeout_seconds=8))
+        else:
+            report['pokemon_catalogue']=await refresh_pokemon_catalogue_prices(pool,actor,fx)
         report['one_piece']=await refresh_one_piece_prices(pool,actor,fx)
         report['dragon_ball']=await refresh_dragon_ball_prices(pool,actor,fx)
         async with user_connection(pool,actor,str(uuid4())) as connection:
@@ -221,7 +227,8 @@ async def daily_pass(pool,settings):
                 # Record the complete database scope before a potentially long
                 # first fill; the final receipt then reflects its progress.
                 await record_coverage(pool,actor)
-                await warm_prices(pool,actor,settings.catalogue_price_refresh_limit)
+                await warm_prices(pool,actor,settings.catalogue_price_refresh_limit,
+                                  getattr(settings,'cardtrader_api_token',''))
                 await refresh_cardmarket_values(pool,actor)
                 await record_coverage(pool,actor)
             elif (sealed_refreshed or due(latest.get('CATALOGUE_COVERAGE'),now)
