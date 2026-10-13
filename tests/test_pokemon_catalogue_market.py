@@ -28,6 +28,27 @@ def test_complete_unowned_checklist_matches_and_retains_source_and_printing_iden
     assert all(q['physical_valuation_eligible'] is False and q['collector_number_supplied_by_marketplace'] is False for q in quotes)
 
 
+@pytest.mark.parametrize('label',['Pineco Lv.12 [Guard Press]','Pineco Lv.12'])
+def test_numeric_level_metadata_does_not_hide_a_unique_complete_release_card(label):
+    product={**PRODUCT,'name':label}
+    assert market.matched_products([REF],{'123':product},{'456':BOX})=={'sv01-001':product}
+    assert product['name']==label
+    assert not market.matched_products([REF],{'123':product,'other':{**product,'idProduct':999,'name':'Pineco Lv.20'}},{'456':BOX})
+    assert not market.matched_products([REF,{**REF,'provider_id':'sv01-002','card_number':'002/198'}],{'123':product},{'456':BOX})
+
+
+@pytest.mark.parametrize('label',['Pineco Lv.X','Pineco LV.X','Pineco Lv.12 (V.1)',
+                                  'Pineco (1st Edition) Lv.12','Pineco (205) Lv.12'])
+def test_numeric_level_handling_never_removes_card_type_or_printing_evidence(label):
+    assert not market.matched_products([REF],{'123':{**PRODUCT,'name':label}},{'456':BOX})
+
+
+def test_lv_x_matches_only_a_corresponding_lv_x_reference():
+    ref={**REF,'name':'Pineco LV.X'}
+    product={**PRODUCT,'name':'Pineco Lv.X [Guard Press]'}
+    assert market.matched_products([ref],{'123':product},{'456':BOX})=={'sv01-001':product}
+
+
 @pytest.mark.parametrize('change',['provider','game','language','wrong_release','wrong_name','regional_release',
     'partial_checklist','unknown_count','duplicate_reference','duplicate_product','duplicate_release',
     'wrong_category','wrong_category_id','version_suffix','edition_suffix','number_suffix','gender'])

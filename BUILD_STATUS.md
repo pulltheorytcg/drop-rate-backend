@@ -1,6 +1,12 @@
-## 13 October 2026 — Existing CardTrader identity coverage verification
+## 13 October 2026 — Pokemon numeric-level and explicit product-ID recovery (release checks pending)
+
+Worker revision **17** fixes numeric `Lv.50` name metadata while preserving `Lv.X` and printing suffixes: real-source replay identifies **612** additional previously unpriced candidates. The verified existing CardTrader connection now supplies explicit collector-number/singleton Cardmarket product-ID mappings across complete English Pokemon checklists, replacing the read-only eight-set probe. Prices still use the current Cardmarket export and ECB FX; all new quotes remain reference-only. Duplicate prints, conflicting cross-IDs and cross-release reuse fail closed; outages preserve prior dated bridge evidence. No subscription, source credential, schema or service added. Baseline **35,152/69,538**; bridge net gain requires live readback. See docs/POKEMON_IDENTITY_PRICE_RECOVERY_20261013.md.
+
+## 13 October 2026 — Existing CardTrader identity coverage verification (verified)
 
 Before introducing a paid feed, worker revision **16** adds a bounded read-only probe of the existing CardTrader connection for eight high-gap English Pokemon releases. At most ten read requests verify explicit collector numbers, singleton Cardmarket cross-IDs and exact source identities. Reports contain only public identity examples/counts, no credentials, and the probe writes **zero prices or mappings**. This is coverage investigation, not a claim of new values. See docs/CARDTRADER_REFERENCE_COVERAGE_PROBE.md.
+
+**Verified:** PR #629 / `bf6911c0f5c7fa86eecc5e11088ada569c121858`, all five CI workflows successful, Railway `edc25f5c-3a59-4f62-937b-e72139200ba0` SUCCESS. Revision 16 completed at 17:29:42 UTC, ten provider calls, zero diagnostic price writes. Existing CardTrader exposes exact number/cross-ID data, including 207 XY and 90 BW promo identity candidates. These counts are not price gains.
 
 ## 13 October 2026 — Fusion World exact-number guide recovery (verified live)
 

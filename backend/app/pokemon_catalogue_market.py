@@ -40,8 +40,12 @@ def release_titles(ref):
         titles.add('EX ' + ref['set_name'])
     return titles
 
-READ_SQL = '''select r.*,s.name as set_name,s.declared_card_count
+READ_SQL = '''select r.*,s.name as set_name,s.declared_card_count,
+ (p.market_value_minor>0 and p.pricing_updated_at>=now()-interval '7 days') as current_detail_priced,
+ b.quotes->0->>'match_basis' as existing_match_basis
  from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
+ left join tcg.reference_market_prices p using(provider,system_code,language,provider_id)
+ left join tcg.reference_catalogue_prices b using(provider,system_code,language,provider_id)
  where r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language='English'
  and (s.release_date is null or s.release_date<=current_date)'''
 WRITE_SQL = '''insert into tcg.reference_catalogue_prices
@@ -63,6 +67,13 @@ def normalized(value):
     return re.sub(r'[^\w]', '', value.replace('♀', 'female').replace('♂', 'male'))
 
 
+def product_card_name(product):
+    # Attack text and printed numeric level are card metadata. Lv.X is a
+    # distinct card type and must survive, along with edition/version suffixes.
+    name = re.sub(r' \[[^\[\]]+\]$', '', product.get('name', ''))
+    return re.sub(r' Lv\.[1-9]\d{0,2}$', '', name)
+
+
 def matched_products(references, singles, packaging):
     expansions = defaultdict(set)
     for product in packaging.values():
@@ -74,8 +85,7 @@ def matched_products(references, singles, packaging):
     products = defaultdict(list)
     for product in singles.values():
         if product.get('idCategory') == 51 and product.get('categoryName') == 'Pokémon Single':
-            # The bracket is an attack description, not a printing/edition suffix.
-            name = re.sub(r' \[[^\[\]]+\]$', '', product.get('name', ''))
+            name = product_card_name(product)
             products[(product.get('idExpansion'), normalized(name))].append(product)
     groups = defaultdict(list)
     sets = defaultdict(set)
@@ -141,11 +151,24 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
         async with user_connection(pool,actor,str(uuid4())) as connection:
             references = [dict(row) for row in await connection.fetch(READ_SQL)]
         matches = matched_products(references,singles,packaging)
-        report.update(checked=len(references),matched=len(matches))
+        bridged, failed_bridge_sets = {}, set()
+        from .pokemon_cardtrader_market import MATCH_BASIS, cardtrader_matches
         if cardtrader_client is not None:
-            from .cardtrader_reference_probe import probe_cardtrader_references
-            report['cardtrader_identity_probe'] = await probe_cardtrader_references(
-                cardtrader_client, references, singles)
+            bridged, bridge_report, failed_bridge_sets = await cardtrader_matches(
+                cardtrader_client, references, singles, matches)
+            conflicts = {key for key,value in bridged.items() if key in matches and
+                         matches[key]['idProduct']!=value['product']['idProduct']}
+            for key in conflicts:
+                matches.pop(key,None)
+                bridged.pop(key,None)
+            bridge_report['cross_source_conflicts'] = len(conflicts)
+            report['cardtrader_bridge'] = bridge_report
+            report['provider_failures'] += bridge_report['provider_failures']
+            for key,value in bridged.items():
+                matches.setdefault(key,value['product'])
+        else:
+            failed_bridge_sets = {r['set_id'] for r in references}
+        report.update(checked=len(references),matched=len(matches))
         if references and not matches:
             raise ValueError('No unambiguous Cardmarket release matches')
         conversion = await fx.quote(base_currency='EUR',quote_currency='GBP',at=observed)
@@ -154,6 +177,14 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
             product = matches.get(ref['provider_id'])
             price = prices.get(str(product['idProduct'])) if product else None
             quotes = quotes_for(ref,product,price,observed,conversion)
+            if ref['provider_id'] in bridged:
+                for quote in quotes:
+                    quote.update(bridged[ref['provider_id']]['proof'])
+            if (not quotes and ref['set_id'] in failed_bridge_sets and
+                    ref.get('existing_match_basis')==MATCH_BASIS):
+                # A failed identity source is not proof of a missing quote.
+                # Leave its original price, dates and expiry untouched.
+                continue
             amounts = [q['price_gbp_minor'] for q in quotes]
             values.append((ref['provider'],ref['system_code'],ref['language'],ref['provider_id'],
                 quotes,min(amounts) if amounts else None,max(amounts) if amounts else None,
@@ -163,6 +194,9 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await connection.executemany(WRITE_SQL,values[start:start+100])
         report['priced'] = sum(row[5] is not None for row in values)
+        if 'cardtrader_bridge' in report:
+            report['cardtrader_bridge']['priced'] = sum(
+                row[5] is not None and row[3] in bridged for row in values)
     except (httpx.HTTPError,ValueError,KeyError,TypeError,RuntimeError) as exc:
         report.update(provider_failures=1,reason=type(exc).__name__)
     return report

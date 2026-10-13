@@ -9,7 +9,7 @@ import re
 
 from .cardtrader_client import CardTraderApiError
 from .cardtrader_media import _collector_number
-from .pokemon_catalogue_market import normalized, release_titles
+from .pokemon_catalogue_market import normalized, release_titles, product_card_name
 from .reference_sealed import cardmarket_product_id, normalized as game_name
 
 TARGET_SETS = ('dp1', 'dp2', 'dp3', 'dp6', 'xyp', 'bwp', 'sv01', 'swsh1')
@@ -69,7 +69,7 @@ async def probe_cardtrader_references(client, references, singles):
                 product = singles.get(product_id)
                 if not product or product.get('idCategory')!=51:
                     continue
-                name = re.sub(r' \[[^\[\]]+\]$', '', product.get('name', ''))
+                name = product_card_name(product)
                 if normalized(ref['name'])==normalized(blueprint.get('name'))==normalized(name):
                     candidates.append({'reference_id': ref['provider_id'],
                                        'blueprint_id': blueprint['id'], 'cardmarket_product_id': product_id})
