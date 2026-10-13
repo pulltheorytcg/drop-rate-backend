@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'backend/app/catalogue_valuations.py'
+      - 'backend/app/pricing_engine.py'
+      - 'backend/app/cardmarket_valuations.py'
+      - 'backend/app/pricing.py'
       - 'backend/app/catalogue_maintenance.py'
       - 'database/migrations/*independent_catalogue_valuations.sql'
       - 'database/migrations/*activate_catalogue_reference_values.sql'
