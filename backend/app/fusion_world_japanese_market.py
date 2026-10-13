@@ -120,7 +120,7 @@ def matched_japanese_products(
             continue
         jp, (en, title) = jp_rows[0], en_rows[0]
         if (
-            not title or not normalized(jp["name"])
+            not title or not str(jp.get("name") or "").strip()
             or not normalized(en["name"])
             or jp["set_id"] == en["set_id"]
             or normalized(jp.get("rarity")) != normalized(en.get("rarity"))
