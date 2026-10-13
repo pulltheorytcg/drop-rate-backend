@@ -156,13 +156,42 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
             RELEASES, match_regional_boosters, regional_booster_quote,
             regional_coverage_report,
         )
+        from .dragon_ball_masters_missing_market import (
+            RELEASES as MASTERS_HIGH_GAP_RELEASES,
+            exact_masters_supplemental_matches, supplemental_coverage,
+        )
         matches = matched_products(references,singles,packaging)
+        supplemental_matches = exact_masters_supplemental_matches(
+            references,singles,packaging
+        )
+        # A conflicting source identity cannot be resolved by whichever
+        # adapter has a populated price; fail this printing closed.
+        conflicts={
+            key for key,product in supplemental_matches.items()
+            if key in matches and matches[key]['idProduct']!=product['idProduct']
+        }
+        for key in conflicts:
+            matches.pop(key,None)
+            supplemental_matches.pop(key,None)
+        for key,product in supplemental_matches.items():
+            matches.setdefault(key,product)
         jp_matches = matched_japanese_fb01(references,singles,packaging)
         multi_matches = match_regional_boosters(references,singles,packaging)
         jp_references = [ref for ref in references if ref['language']=='Japanese']
         jp_fb01_refs = [ref for ref in jp_references if ref['set_id']=='584001']
         jp_multiset_refs = [ref for ref in jp_references if ref['set_id']!='584001']
         report.update(checked=len(references),matched=len(matches)+len(jp_matches)+len(multi_matches))
+        masters_refs=[
+            r for r in references if r['language']=='English'
+            and r['system_code']==MASTERS and r['set_id'] in MASTERS_HIGH_GAP_RELEASES
+        ]
+        if masters_refs:
+            report['masters_supplemental_checked']=len(masters_refs)
+            report['masters_supplemental_matched']=len(supplemental_matches)
+            report['masters_supplemental_conflicts']=len(conflicts)
+            report['masters_supplemental_by_release']=supplemental_coverage(
+                masters_refs,supplemental_matches,prices
+            )
         if jp_fb01_refs:
             report.update(japanese_fb01_checked=len(jp_fb01_refs),
                           japanese_fb01_matched=len(jp_matches))
@@ -226,6 +255,17 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
                     v[5] is not None and v[2]=='Japanese' and v[3].startswith(jp_set+':')
                     for v in values
                 )
+        if masters_refs:
+            for set_id in MASTERS_HIGH_GAP_RELEASES:
+                report['masters_supplemental_by_release'][set_id]['priced']=sum(
+                    v[5] is not None and v[2]=='English' and
+                    v[1]==MASTERS and v[3].startswith(set_id+':')
+                    and (v[1],v[3]) in supplemental_matches
+                    for v in values
+                )
+            report['masters_supplemental_priced']=sum(
+                data['priced'] for data in report['masters_supplemental_by_release'].values()
+            )
         if jp_references:
             report['english_priced'] = report['priced'] - report.get('japanese_fb01_priced',0) - report.get('japanese_multiset_priced',0)
     except (httpx.HTTPError,ValueError,KeyError,TypeError,RuntimeError) as exc:
