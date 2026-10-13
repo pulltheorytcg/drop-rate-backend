@@ -143,18 +143,41 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
         async with user_connection(pool,actor,str(uuid4())) as connection:
             references = [dict(r) for r in await connection.fetch('''select r.*,s.name as set_name
               from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
-              where r.provider='Bandai Official' and r.language='English'
+              where r.provider='Bandai Official'
+                and (r.language='English' or
+                     (r.language='Japanese' and r.system_code='DRAGON_BALL_SUPER_FUSION_WORLD'
+                      and r.set_id='584001'))
                 and r.system_code in ('DRAGON_BALL_SUPER_MASTERS','DRAGON_BALL_SUPER_FUSION_WORLD')
                 and (s.release_date is null or s.release_date<=current_date)''')]
+        from .dragon_ball_japanese_fb01_market import (
+            matched_japanese_fb01, japanese_fb01_quote,
+        )
         matches = matched_products(references,singles,packaging)
-        report.update(checked=len(references),matched=len(matches))
-        if references and not matches:
+        jp_matches = matched_japanese_fb01(references,singles,packaging)
+        jp_references = [ref for ref in references if ref['language']=='Japanese']
+        report.update(checked=len(references),matched=len(matches)+len(jp_matches))
+        if jp_references:
+            report.update(japanese_fb01_checked=len(jp_references),
+                          japanese_fb01_matched=len(jp_matches))
+        if references and not matches and not jp_matches:
             raise ValueError('No unambiguous Cardmarket Dragon Ball release matches')
         conversion = await fx.quote(base_currency='EUR',quote_currency='GBP',at=observed)
         values = []
         for ref in references:
-            product = matches.get((ref['system_code'],ref['provider_id']))
-            quotes = guide_quotes(ref,product,prices.get(str(product['idProduct'])),observed,conversion) if product else []
+            jp_match = jp_matches.get(ref['provider_id']) if ref['language']=='Japanese' else None
+            product = jp_match['product'] if jp_match else matches.get((ref['system_code'],ref['provider_id']))
+            if jp_match:
+                quote = japanese_fb01_quote(
+                    ref,jp_match,prices.get(str(product['idProduct'])),observed,conversion)
+                quotes = [quote] if quote else []
+            else:
+                quotes = guide_quotes(
+                    ref,product,prices.get(str(product['idProduct'])),observed,conversion
+                ) if product else []
+            # Never replace an unpriced Japanese reference with a null value
+            # when this narrowly scoped regional expansion has no match.
+            if ref['language']=='Japanese' and not quotes:
+                continue
             amounts = [q['price_gbp_minor'] for q in quotes]
             values.append((ref['provider'],ref['system_code'],ref['language'],ref['provider_id'],quotes,
                 min(amounts) if amounts else None,max(amounts) if amounts else None,observed if quotes else None,
@@ -163,6 +186,11 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await connection.executemany(WRITE_SQL,values[start:start+100])
         report['priced'] = sum(v[5] is not None for v in values)
+        if jp_references:
+            report['japanese_fb01_priced'] = sum(
+                v[5] is not None and v[2]=='Japanese' for v in values
+            )
+            report['english_priced'] = report['priced']-report['japanese_fb01_priced']
     except (httpx.HTTPError,ValueError,KeyError,TypeError,RuntimeError) as exc:
         report.update(provider_failures=1,reason=type(exc).__name__)
     return report
