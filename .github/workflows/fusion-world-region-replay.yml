@@ -36,7 +36,7 @@ jobs:
               if not isinstance(result,dict) or 'createdAt' not in result:raise ValueError("Invalid source")
               data[suffix]=result
               print('SOURCE',suffix,'published',result['createdAt'])
-          refs=json.loads(Path('.github/replay-fixtures/fusion-world-en-jp-base-20261013.json').read_text())
+          refs=[dict(r,provider='Bandai Official',system_code='DRAGON_BALL_SUPER_FUSION_WORLD') for r in json.loads(Path('.github/replay-fixtures/fusion-world-en-jp-base-20261013.json').read_text())]
           singles={str(r['idProduct']):r for r in data['productList/products_singles_13.json']['products']}
           packaging={str(r['idProduct']):r for r in data['productList/products_nonsingles_13.json']['products']}
           prices={str(r['idProduct']):r for r in data['priceGuide/price_guide_13.json']['priceGuides']}
