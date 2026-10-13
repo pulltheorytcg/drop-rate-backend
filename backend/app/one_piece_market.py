@@ -21,6 +21,20 @@ from .reference_market import _minor
 from .sealed_market import download
 
 SOURCE = 'CARDMARKET_BULK_SINGLES'
+# The complete official label (including ST code) is required. Never drop
+# colours, EX, region or edition text from arbitrary release names.
+STARTER_RELEASE_ALIASES = {
+    'ULTRA DECK -The Three Captains- [ST-10]': 'The Three Captains',
+    'STARTER DECK -Zoro and Sanji- [ST-12]': 'Zoro & Sanji',
+    'ULTRA DECK -The Three Brothers- [ST-13]': 'The Three Brothers',
+    'STARTER DECK -Red Edward.Newgate- [ST-15]': 'Edward.Newgate',
+    'STARTER DECK -Blue Donquixote Doflamingo- [ST-17]': 'Donquixote Doflamingo',
+    'STARTER DECK -Black Smoker- [ST-19]': 'Smoker',
+    'STARTER DECK -Yellow Charlotte Katakuri- [ST-20]': 'Charlotte Katakuri',
+    'STARTER DECK EX -GEAR5- [ST-21]': 'EX Gear 5',
+    'STARTER DECK -Ace & Newgate- [ST-22]': 'EX Ace & Newgate',
+}
+STARTER_ALIAS_BASIS = 'EXACT_STARTER_RELEASE_ALIAS_UNIQUE_PRINTING'
 WRITE_SQL = '''insert into tcg.reference_market_prices
  (provider,system_code,language,provider_id,quotes,market_value_minor,market_value_high_minor,
   pricing_updated_at,checked_at,expires_at,refresh_revision)
@@ -40,6 +54,8 @@ def normalized(value):
 
 
 def release_identity(name, *, include_starters=True):
+    if name in STARTER_RELEASE_ALIASES:
+        return (normalized(STARTER_RELEASE_ALIASES[name]), 'STARTER') if include_starters else None
     starter = re.fullmatch(r'STARTER DECK -(.+)- \[ST-?(\d{2})\]', name, re.I)
     if starter and include_starters:
         return normalized(starter[1]), 'STARTER'
@@ -80,6 +96,10 @@ def expansion_index(products):
             expansion = product.get('idExpansion')
             if starter and type(expansion) is int and expansion > 0:
                 result[(normalized(starter[1]),'STARTER')].add(expansion)
+            ultra = {'Ultimate Deck: The Three Captains': 'The Three Captains',
+                     'Ultra Deck: The Three Brothers': 'The Three Brothers'}.get(name)
+            if ultra and type(expansion) is int and expansion > 0:
+                result[(normalized(ultra),'STARTER')].add(expansion)
         # Cardmarket publishes the release name and ID on these set products.
         # A code alone can also refer to a regional release or tournament pack.
         if product.get('categoryName') != 'One Piece Lots':
@@ -142,6 +162,11 @@ async def refresh_one_piece_prices(pool, actor, fx):
         jp_matches = matched_japanese_products(references,singles,packaging)
         jp_references = [ref for ref in references if ref['language']=='Japanese']
         report.update(checked=len(references),matched=len(matches)+len(jp_matches))
+        starter_refs = [r for r in references if r['language']=='English' and
+                        r['set_name'] in STARTER_RELEASE_ALIASES]
+        if starter_refs:
+            report.update(starter_alias_checked=len(starter_refs),
+                          starter_alias_matched=sum(r['provider_id'] in matches for r in starter_refs))
         # Keep the previous lightweight receipt shape for English-only fixture tests.
         if jp_references:
             report.update(japanese_checked=len(jp_references),japanese_matched=len(jp_matches))
@@ -188,6 +213,8 @@ async def refresh_one_piece_prices(pool, actor, fx):
                     pass
             if quote and quote.get('match_basis')=='EXACT_PREMIUM_RELEASE_UNIQUE_PRINTING':
                 quote['physical_valuation_eligible']=False
+            if quote and ref['language']=='English' and ref['set_name'] in STARTER_RELEASE_ALIASES:
+                quote.update(match_basis=STARTER_ALIAS_BASIS, physical_valuation_eligible=False)
             value = quote['price_gbp_minor'] if quote else None
             values.append((ref['provider'],ref['system_code'],ref['language'],ref['provider_id'],
                 [quote] if quote else [],value,value,observed if quote else None,now,now+timedelta(days=1),
@@ -196,6 +223,10 @@ async def refresh_one_piece_prices(pool, actor, fx):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await connection.executemany(WRITE_SQL,values[start:start+100])
         report['priced'] = sum(row[5] is not None for row in values)
+        if starter_refs:
+            report['starter_alias_priced'] = sum(
+                row[5] is not None and row[2]=='English' and row[13] in STARTER_RELEASE_ALIASES
+                for row in values)
         if jp_references:
             report['japanese_priced'] = sum(row[5] is not None and row[2]=='Japanese' for row in values)
             report['english_priced'] = report['priced']-report['japanese_priced']

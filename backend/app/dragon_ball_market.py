@@ -229,6 +229,7 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
         )
         from .dragon_ball_masters_missing_market import (
             RELEASES as MASTERS_HIGH_GAP_RELEASES,
+            EXPANSION_RELEASES, EXPANSION_BASIS,
             exact_masters_supplemental_matches, supplemental_coverage,
         )
         matches = matched_products(references,singles,packaging)
@@ -330,6 +331,10 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
                 quotes = guide_quotes(
                     ref,product,prices.get(str(product['idProduct'])),observed,conversion
                 ) if product else []
+                if (ref['set_id'] in EXPANSION_RELEASES and
+                        (ref['system_code'], ref['provider_id']) in supplemental_matches):
+                    for quote in quotes:
+                        quote.update(match_basis=EXPANSION_BASIS, physical_valuation_eligible=False)
                 if (ref['system_code'], ref['provider_id']) in numbered_recoveries:
                     for quote in quotes:
                         quote.update(match_basis='EXACT_FUSION_RELEASE_NAME_NUMBER_REFERENCE',
@@ -386,6 +391,10 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
                 )
             report['masters_supplemental_priced']=sum(
                 data['priced'] for data in report['masters_supplemental_by_release'].values()
+            )
+            report['masters_expansion_priced'] = sum(
+                report['masters_supplemental_by_release'][set_id]['priced']
+                for set_id in EXPANSION_RELEASES
             )
         if jp_references:
             report['english_priced'] = report['priced'] - report.get('japanese_fb01_priced',0) - report.get('japanese_multiset_priced',0)
