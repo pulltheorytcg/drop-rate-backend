@@ -2,7 +2,7 @@ name: One-shot Fusion World reference evidence (development branch)
 on:
   push:
     branches: [fix/jp-fusion-world-cardmarket-coverage-20261013]
-    paths: [.github/workflows/fusion-world-region-replay.yml]
+    paths: [.github/workflows/fusion-world-region-replay.yml, backend/app/fusion_world_japanese_market.py]
 permissions:
   contents: read
 jobs:
