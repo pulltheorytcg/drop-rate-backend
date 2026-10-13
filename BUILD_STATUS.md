@@ -1,6 +1,12 @@
-## 13 October 2026 — Pokemon numeric-level and explicit product-ID recovery (release checks pending)
+## 13 October 2026 — Masters paired leader-face reference recovery (release checks pending)
+
+Worker revision **18** adds a separate guide matcher for official English Masters leader front/back records. Both exact names must appear together on one Cardmarket product in the independently confirmed release. Both official records must share the exact collector number/rarity, declare LEADER/OFFICIAL_CHECKLIST, and use the matching official `.png` / `_b.png` image identities. All same-name, third-face, parallel, product and release collisions still block. Current export replay finds **344 matched face records**, including **314 previously unpriced positive candidates (157 two-sided cards)**; read-only production checks confirm required official metadata for all 314. These are reference records, not 314 new physical cards. New quotes record both face IDs and remain ineligible for physical valuation. Baseline **38,684/69,538**; actual live lift remains an acceptance gate. See docs/MASTERS_PAIRED_LEADER_PRICE_RECOVERY_20261013.md.
+
+## 13 October 2026 — Pokemon numeric-level and explicit product-ID recovery (verified live)
 
 Worker revision **17** fixes numeric `Lv.50` name metadata while preserving `Lv.X` and printing suffixes: real-source replay identifies **612** additional previously unpriced candidates. The verified existing CardTrader connection now supplies explicit collector-number/singleton Cardmarket product-ID mappings across complete English Pokemon checklists, replacing the read-only eight-set probe. Prices still use the current Cardmarket export and ECB FX; all new quotes remain reference-only. Duplicate prints, conflicting cross-IDs and cross-release reuse fail closed; outages preserve prior dated bridge evidence. No subscription, source credential, schema or service added. Baseline **35,152/69,538**; bridge net gain requires live readback. See docs/POKEMON_IDENTITY_PRICE_RECOVERY_20261013.md.
+
+**Verified:** PR #630 / `9047b2acb4e0ae3bed120feba8d85d63853b1c63`, all four applicable CI workflows successful. Railway `e4e015a0-d9ff-42c3-bdc4-01ca075159bc`, revision 17 COMPLETE at **17:54:00 UTC**, no provider failures. CardTrader checked 100 releases with 103 calls; one cross-source conflict rejected. Actual global coverage **38,684/69,538**, net release gain **3,532**, cumulative session gain **4,712**. English physical Pokemon **20,472/21,290 (96.2%)**. Remaining physical gap **28,374**, digital references **2,480**. Inventory **613 / 327 valued** and owner/Store Price fingerprint unchanged.
 
 ## 13 October 2026 — Existing CardTrader identity coverage verification (verified)
 

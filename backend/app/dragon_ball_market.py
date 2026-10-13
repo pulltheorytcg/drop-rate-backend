@@ -254,6 +254,27 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
             numbered_matches.pop(key, None)
         numbered_recoveries = {key: product for key, product in numbered_matches.items() if key not in matches}
         matches.update(numbered_recoveries)
+        from .dragon_ball_leader_market import paired_leader_matches, MATCH_BASIS as LEADER_BASIS
+        leader_matches = paired_leader_matches(references, singles, packaging)
+        leader_conflicts = {key for key, match in leader_matches.items()
+                            if key in matches and matches[key]['idProduct'] != match['product']['idProduct']}
+        # Reject both faces if any adapter disagrees about their common product.
+        conflicting_pairs = {leader_matches[key]['pair'] for key in leader_conflicts}
+        leader_products = {match['product']['idProduct']: match for match in leader_matches.values()}
+        for key, product in list(matches.items()):
+            leader = leader_products.get(product['idProduct'])
+            if leader and key not in {(MASTERS, face) for face in leader['reference_face_ids']}:
+                conflicting_pairs.add(leader['pair'])
+                matches.pop(key, None)
+        for key, match in list(leader_matches.items()):
+            if match['pair'] in conflicting_pairs:
+                matches.pop(key, None)
+                leader_matches.pop(key)
+        leader_recoveries = {key: match for key, match in leader_matches.items() if key not in matches}
+        matches.update({key: match['product'] for key, match in leader_recoveries.items()})
+        if leader_matches or conflicting_pairs:
+            report.update(masters_leader_faces_matched=len(leader_recoveries),
+                          masters_leader_pairs_conflicting=len(conflicting_pairs))
         if any(r['system_code']==FUSION and r['language']=='English' for r in references):
             report.update(fusion_numbered_recovered=len(numbered_recoveries),
                           fusion_numbered_conflicts=len(numbered_conflicts))
@@ -313,6 +334,12 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
                     for quote in quotes:
                         quote.update(match_basis='EXACT_FUSION_RELEASE_NAME_NUMBER_REFERENCE',
                                      physical_valuation_eligible=False)
+                leader = leader_recoveries.get((ref['system_code'], ref['provider_id']))
+                if leader:
+                    for quote in quotes:
+                        quote.update(match_basis=LEADER_BASIS, physical_valuation_eligible=False,
+                                     reference_face_ids=leader['reference_face_ids'],
+                                     reference_face=leader['reference_face'])
             # Never replace an unpriced Japanese reference with a null value
             # when this narrowly scoped regional expansion has no match.
             if ref['language']=='Japanese' and not quotes:
@@ -325,6 +352,10 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await connection.executemany(WRITE_SQL,values[start:start+100])
         report['priced'] = sum(v[5] is not None for v in values)
+        if leader_recoveries:
+            report['masters_leader_faces_priced'] = sum(
+                v[5] is not None and (v[1], v[3]) in leader_recoveries for v in values
+            )
         if 'fusion_numbered_recovered' in report:
             report['fusion_numbered_priced'] = sum(
                 v[5] is not None and (v[1], v[3]) in numbered_recoveries for v in values
