@@ -62,3 +62,8 @@ is unknown until that readback; do not add candidate counts to the priced total.
 Rollback through the normal PR path preserves immutable price history. The
 baseline inventory fingerprint remains `820fee0063fe48d9e4a774b4b9f98301`
 over 613 items (327 valued), covering owner, identity, Store Price and status.
+# Verified production result
+
+PR #630 merged as `9047b2acb4e0ae3bed120feba8d85d63853b1c63` after all four applicable CI workflows passed. Revision 17 completed at **2026-10-13 17:54:00 UTC** with no provider failures. CardTrader checked 100 releases using 103 read calls, yielding 10,358 exact identity candidates and 10,312 positive cache guides; these largely overlap existing priced references and are **not** the net new count. One disagreement between the original matcher and the explicit cross-ID bridge was rejected.
+
+Independent source-aware readback found **38,684 priced of 69,538 card references**, up **3,532** from 35,152. English physical Pokemon reached **20,472/21,290 (96.2%)**. Physical missing count is **28,374**, with another **2,480 digital Pocket references** explicitly N/A. Existing physical inventory remained **613 items / 327 valued**, and the owner/Store Price/status fingerprint remained `820fee0063fe48d9e4a774b4b9f98301`.
