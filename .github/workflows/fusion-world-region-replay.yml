@@ -50,7 +50,7 @@ jobs:
               entry=prices.get(str(mapping['product']['idProduct'])) or {}
               if entry.get('idCategory')!=1049:return False
               try:return _minor(entry.get('trend'))>0
-              except (TypeError,ValueError):return False
+              except (TypeError,ValueError,ArithmeticError):return False
           priced={key:x for key,x in matches.items() if has_price(x)}
           english=matched_products(refs,singles,packaging)
           by_code=collections.Counter(key.split(':')[1].split('-')[0] for key in matches)
