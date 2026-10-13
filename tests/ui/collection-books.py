@@ -22,8 +22,12 @@ def main():
                 page = browser.new_page(viewport={'width': width, 'height': 900})
                 errors = []
                 page.on('pageerror', lambda error: errors.append(str(error)))
-                page.route('**/*', lambda route: route.abort())
-                page.set_content(re.sub(r'<script[^>]*>.*?</script>', '', (ROOT/'owner.html').read_text(), flags=re.S))
+                html = re.sub(r'<script[^>]*>.*?</script>', '', (ROOT/'owner.html').read_text(), flags=re.S)
+                # Match the deployed HTTPS secure context for crypto.randomUUID.
+                # Every request is still intercepted; no account or live API is used.
+                page.route('**/*', lambda route: route.fulfill(body=html, content_type='text/html')
+                           if route.request.url == 'https://book-fixture.test/' else route.abort())
+                page.goto('https://book-fixture.test/')
                 for name in ('owner-portal.css', 'owner-imports.css', 'owner-books.css'):
                     page.add_style_tag(content=(ROOT/name).read_text())
                 page.add_script_tag(content='''
@@ -39,6 +43,7 @@ def main():
                 ''')
                 page.add_script_tag(content=(ROOT/'owner-books.js').read_text())
                 page.evaluate("document.querySelector('[data-owner-add-book]').click()")
+                assert not errors, errors
                 page.locator('#owner-book-series').fill('Amazing Spider-Man')
                 page.locator('#owner-book-number').fill('1')
                 page.locator('#owner-book-year').fill('2022')
