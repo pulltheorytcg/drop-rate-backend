@@ -176,6 +176,25 @@ async def warm_prices(pool,actor,limit):
         log.warning('Daily reference prices status=%s checked=%s priced=%s',status,checked,priced)
 
 
+def coverage_lags_pricing(latest):
+    """Retry a dropped coverage receipt after a completed source-price pass.
+
+    A large batch can commit all source quotes successfully, then time out on
+    the final global aggregation. It must *not* leave yesterday's coverage
+    figures until the next daily slot, nor rerun all paid provider calls.
+    """
+    coverage=latest.get('CATALOGUE_COVERAGE')
+    if coverage is None:
+        return True
+    checkpoint=coverage['started_at']
+    return any(
+        run is not None and run['status']=='COMPLETE' and run['started_at']>checkpoint
+        for name in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES',
+                     'CARDMARKET_VALUES','CATALOGUE_VALUES')
+        for run in (latest.get(name),)
+    )
+
+
 async def daily_pass(pool,settings):
     actor=UUID(settings.catalogue_maintenance_actor_user_id)
     async with pool.acquire() as lock:
@@ -205,7 +224,10 @@ async def daily_pass(pool,settings):
                 await warm_prices(pool,actor,settings.catalogue_price_refresh_limit)
                 await refresh_cardmarket_values(pool,actor)
                 await record_coverage(pool,actor)
-            elif sealed_refreshed or due(latest.get('CATALOGUE_COVERAGE'),now):
+            elif (sealed_refreshed or due(latest.get('CATALOGUE_COVERAGE'),now)
+                  or coverage_lags_pricing(latest)):
+                # Retry only the cheap, read-only coverage receipt when the
+                # source refresh succeeded but the final summary timed out.
                 await record_coverage(pool,actor)
         finally:await lock.execute('select pg_advisory_unlock($1)',847220092)
 
