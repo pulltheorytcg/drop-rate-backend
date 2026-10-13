@@ -253,6 +253,113 @@ def _is_uk_eu_anchor(observation: MarketObservation, target: ComparableTarget) -
     return source == "EBAY" and country == "GB" and observation.observation_type == "SOLD"
 
 
+
+def _eligible_observations(
+    observations: list[MarketObservation], as_of: datetime,
+) -> tuple[list[MarketObservation], int]:
+    """Reject invalid, stale, future and duplicated evidence before pricing.
+
+    One SOLD row represents **one** independent transaction, irrespective of a
+    provider-supplied sample_size field. Provider IDs are authoritative for
+    deduplication; conflicting payloads for one ID are quarantined, never
+    resolved by whichever happens to arrive last. Legacy rows without IDs are
+    deduplicated by their complete observed facts.
+    """
+    accepted: dict[tuple, MarketObservation] = {}
+    conflicts: set[tuple] = set()
+    rejected = 0
+    for observation in observations:
+        if not isinstance(observation, MarketObservation):
+            rejected += 1
+            continue
+        source = str(observation.source or "").strip().upper()
+        kind = str(observation.observation_type or "").strip().upper()
+        at = observation.observed_at
+        quality = observation.evidence_quality
+        size = observation.sample_size
+        if (
+            source not in SOURCE_RELIABILITY
+            or kind not in TYPE_QUALITY
+            or type(observation.price_gbp_minor) is not int
+            or not 0 < observation.price_gbp_minor <= MAX_MARKET_VALUE_MINOR
+            or type(size) is not int or size < 1 or size > 1_000_000
+            or not isinstance(quality, (int, float)) or not isfinite(quality)
+            or not 0 < quality <= 1
+            or not isinstance(at, datetime)
+            or (observation.grading_company is None) != (observation.grade is None)
+            or any(
+                value is not None and not isinstance(value, str)
+                for value in (
+                    observation.condition, observation.grading_company,
+                    observation.grade, observation.language, observation.seal_status,
+                    observation.source_country, observation.source_record_key,
+                )
+            )
+        ):
+            rejected += 1
+            continue
+        if at.tzinfo is None or at.utcoffset() is None:
+            # A source's timezone is part of the evidence, not a guess.
+            rejected += 1
+            continue
+        at = at.astimezone(timezone.utc)
+        if (
+            at > as_of + MAX_FUTURE_CLOCK_DRIFT
+            or at < as_of - timedelta(days=MAX_OBSERVATION_AGE_DAYS[kind])
+        ):
+            rejected += 1
+            continue
+        key = str(observation.source_record_key or "").strip() or None
+        canonical = replace(
+            observation, source=source, observation_type=kind,
+            observed_at=at, source_country=(observation.source_country or "").strip().upper() or None,
+            sample_size=1 if kind == "SOLD" else min(size, 25),
+            source_record_key=key,
+        )
+        dedup_key = (
+            ("provider", source, key)
+            if key is not None else ("facts", canonical)
+        )
+        if dedup_key in conflicts:
+            rejected += 1
+        elif dedup_key in accepted:
+            if accepted[dedup_key] != canonical:
+                conflicts.add(dedup_key)
+                accepted.pop(dedup_key)
+                rejected += 2  # Both conflicting provider records are invalid.
+            else:
+                rejected += 1
+        else:
+            accepted[dedup_key] = canonical
+    return list(accepted.values()), rejected
+
+
+def _validate_policy(policy: PricingPolicy, target: ComparableTarget) -> None:
+    """Reject invalid policy/target configuration instead of publishing a NaN.
+
+    Normally FastAPI/DB enforce this, but a corrupted batch job, replay or
+    manually supplied policy must fail closed in the deterministic core too.
+    """
+    for value in (target.condition, target.grading_company, target.grade, target.language, target.seal_status):
+        if value is not None and not isinstance(value, str):
+            raise ValueError("Invalid physical pricing target")
+    if (target.grading_company is None) != (target.grade is None):
+        raise ValueError("Grading company and grade must both be present")
+    for name, maximum in (
+        ("min_confidence", 1), ("max_auto_change_pct", 100),
+        ("min_price_change_pct", 100), ("max_volatility_pct", 500),
+        ("retail_multiplier", 5), ("quick_sale_multiplier", 5),
+        ("acquisition_multiplier", 5),
+    ):
+        value = getattr(policy, name)
+        if not isinstance(value, (int, float)) or not isfinite(value) or not 0 <= value <= maximum:
+            raise ValueError(f"Invalid pricing policy: {name}")
+    if (min(policy.retail_multiplier, policy.quick_sale_multiplier, policy.acquisition_multiplier) <= 0
+            or type(policy.min_sources) is not int or not 1 <= policy.min_sources <= 10
+            or type(policy.min_price_change_minor) is not int or policy.min_price_change_minor < 0
+            or type(policy.high_value_review_minor) is not int or policy.high_value_review_minor < 0):
+        raise ValueError("Invalid pricing policy")
+
 def _source_estimate(
     source: str,
     observations: list[MarketObservation],
