@@ -185,12 +185,13 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
             r for r in references if r['language']=='English'
             and r['system_code']==MASTERS and r['set_id'] in MASTERS_HIGH_GAP_RELEASES
         ]
-        report['masters_supplemental_checked']=len(masters_refs)
-        report['masters_supplemental_matched']=len(supplemental_matches)
-        report['masters_supplemental_conflicts']=len(conflicts)
-        report['masters_supplemental_by_release']=supplemental_coverage(
-            masters_refs,supplemental_matches,prices
-        )
+        if masters_refs:
+            report['masters_supplemental_checked']=len(masters_refs)
+            report['masters_supplemental_matched']=len(supplemental_matches)
+            report['masters_supplemental_conflicts']=len(conflicts)
+            report['masters_supplemental_by_release']=supplemental_coverage(
+                masters_refs,supplemental_matches,prices
+            )
         if jp_fb01_refs:
             report.update(japanese_fb01_checked=len(jp_fb01_refs),
                           japanese_fb01_matched=len(jp_matches))
@@ -254,15 +255,16 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
                     v[5] is not None and v[2]=='Japanese' and v[3].startswith(jp_set+':')
                     for v in values
                 )
-        for set_id in MASTERS_HIGH_GAP_RELEASES:
-            report['masters_supplemental_by_release'][set_id]['priced']=sum(
-                v[5] is not None and v[2]=='English' and
-                v[1]==MASTERS and v[3].startswith(set_id+':')
-                for v in values
+        if masters_refs:
+            for set_id in MASTERS_HIGH_GAP_RELEASES:
+                report['masters_supplemental_by_release'][set_id]['priced']=sum(
+                    v[5] is not None and v[2]=='English' and
+                    v[1]==MASTERS and v[3].startswith(set_id+':')
+                    for v in values
+                )
+            report['masters_supplemental_priced']=sum(
+                data['priced'] for data in report['masters_supplemental_by_release'].values()
             )
-        report['masters_supplemental_priced']=sum(
-            data['priced'] for data in report['masters_supplemental_by_release'].values()
-        )
         if jp_references:
             report['english_priced'] = report['priced'] - report.get('japanese_fb01_priced',0) - report.get('japanese_multiset_priced',0)
     except (httpx.HTTPError,ValueError,KeyError,TypeError,RuntimeError) as exc:
