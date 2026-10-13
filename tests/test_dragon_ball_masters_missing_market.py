@@ -33,7 +33,7 @@ PUBLIC_PRODUCTS={
     "428601": ("DB1-001","Son Goku, Might of Many",393712,"0.12"),
     "428602": ("DB2-002","Ultra Instinct Son Goku, Monumental Presence",441443,"1.21"),
     "428603": ("DB3-002","Son Goku, Off to Defeat King Piccolo",508450,"0.82"),
-    "428101": ("TB1-045","Universe 9 Striker Roselle",355305,"0.05"),
+    "428101": ("TB1-045","Universe 9 Striker Roselle",356381,"0.05"),
     "428201": ("EB1-02","Yamcha, Wolf Fang Pitching Fistball",538068,"0.05"),
 }
 
