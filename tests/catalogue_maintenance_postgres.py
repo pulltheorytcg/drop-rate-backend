@@ -55,6 +55,8 @@ async def main():
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261009183154_catalogue_market_evidence.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261010120815_database_wide_reference_guides.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20260930124000_shopify_price_reconciliation.sql').read_text())
+        await db.execute((Path(__file__).parents[1]/'database/migrations/20261013141000_fusion_world_japanese_source_guard.sql').read_text())
+        assert await db.fetchval("select convalidated from pg_constraint where conname='reference_market_fusion_japanese_region_source_guard'") is True
         actor=UUID('00000000-0000-0000-0000-000000000001');owner=uuid4()
         await db.execute("set role tcg_api")
         await db.execute("select set_config('tcg.user_id',$1,false)",str(actor))
@@ -230,6 +232,58 @@ async def main():
         await db.execute("update tcg.reference_catalogue_prices set pricing_updated_at=now()-interval '8 days'")
         assert (await db.fetch(sql,*args))[0]['market_value_minor'] is None
         assert sum(r['products'] for r in await db.fetch(COVERAGE_SQL))==total_before,'Stale references disappeared from full coverage'
+        # Real PostgreSQL + RLS: a Japanese Fusion regional guide cannot
+        # inherit an English source or claim a physically verified finish.
+        await db.execute('''
+          insert into tcg.reference_sets(provider,system_code,language,set_id,name,release_date)
+          values('Bandai Official','DRAGON_BALL_SUPER_FUSION_WORLD','Japanese','584001',
+                 'ブースターパック 覚醒の鼓動[FB01]','2020-01-01');
+          insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number,evidence)
+          values('Bandai Official','DRAGON_BALL_SUPER_FUSION_WORLD','Japanese','584001:FB01-003',
+                 '584001','ヴァドス','FB01-003','{"provider_variant":""}'::jsonb);
+        ''')
+        from app.one_piece_market import WRITE_SQL as BULK_REFERENCE_WRITE
+        identity={'name':'ヴァドス','set_id':'584001','card_number':'FB01-003',
+                  'set_name':'ブースターパック 覚醒の鼓動[FB01]'}
+        good={
+            'source':'CARDMARKET_BULK_SINGLES','product_id':'768554','expansion_id':5731,
+            'price_gbp_minor':85,'original_currency':'EUR','original_minor':100,
+            'observed_at':now.isoformat(),'reference_language':'Japanese',
+            'valuation_role':'MIXED_NON_ENGLISH_REFERENCE',
+            'match_basis':'OFFICIAL_FUSION_JP_EN_BASE_PRINT_AND_UNIQUE_NONENGLISH_MARKET_PRODUCT',
+            'marketplace_region_label':'Non-English',
+            'physical_language_confirmed':False,'physical_valuation_eligible':False,
+            'condition_specific':False,'reference_identity':identity,
+        }
+        japanese_args=('Bandai Official','DRAGON_BALL_SUPER_FUSION_WORLD','Japanese',
+              '584001:FB01-003',[good],85,85,now,now,now+timedelta(days=1),*identity.values())
+        for modifier in (
+            {'reference_language':'English'},
+            {'valuation_role':'UK_REFERENCE'},
+            {'match_basis':'UNIQUE_RELEASE_NAME_NUMBER_IN_BOTH_CHECKLISTS'},
+            {'marketplace_region_label':'English'},
+            {'physical_language_confirmed':True},
+            {'physical_valuation_eligible':True},
+            {'condition_specific':True},
+        ):
+            unsafe=list(japanese_args);unsafe[4]=[{**good,**modifier}]
+            try:
+                await db.execute(BULK_REFERENCE_WRITE,*unsafe)
+                raise AssertionError('Invalid Japanese regional quote bypassed SQL guard')
+            except asyncpg.CheckViolationError:
+                pass
+        assert await db.fetchval("""select count(*) from tcg.reference_market_prices
+          where provider_id='584001:FB01-003'""")==0
+        await db.execute(BULK_REFERENCE_WRITE,*japanese_args)
+        assert await db.fetchval("""select market_value_minor from tcg.reference_market_prices
+          where provider_id='584001:FB01-003'""")==85
+        search,parameters=product_query(owner_id=owner,q='FB01-003',
+                                  system_code='DRAGON_BALL_SUPER_FUSION_WORLD',language='Japanese')
+        found=await db.fetch(search,*parameters)
+        assert len(found)==1 and found[0]['market_value_minor']==85
+        assert 'Japanese language not verified' in found[0]['basis_condition']
+        assert found[0]['market_value_source']=='CARDMARKET_BULK_SINGLES'
+        assert await db.fetchval('select count(*) from tcg.inventory_items')==0
         await db.execute("select set_config('tcg.user_id',$1,false)",str(owner))
         assert await db.fetchval('select count(*) from tcg.reference_catalogue_prices')==1
         try:
