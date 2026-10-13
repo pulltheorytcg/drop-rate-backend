@@ -17,7 +17,10 @@ from .reference_market import _minor
 SYSTEM = "DRAGON_BALL_SUPER_FUSION_WORLD"
 PROVIDER = "Bandai Official"
 MATCH_BASIS = "OFFICIAL_FUSION_JP_EN_BASE_PRINT_AND_UNIQUE_NONENGLISH_MARKET_PRODUCT"
-REGION_MARKERS = frozenset({"Non-English", "Japanese", "Asia Region Legal"})
+REGION_MARKERS = frozenset({
+    "Non-English", "Japanese", "Asia Region Legal",
+    "Asia Region Legal/Non-English", "Japanese/Non-English",
+})
 
 
 def _booster_identity(ref: dict) -> tuple[str, str] | None:
