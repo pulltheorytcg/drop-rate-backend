@@ -36,7 +36,7 @@ from .shopify_client import ShopifyMediaScopeRequired
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
-REFERENCE_JOB_REVISION=11
+REFERENCE_JOB_REVISION=12
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
@@ -171,7 +171,7 @@ async def warm_prices(pool,actor,limit):
         report['reason']=type(exc).__name__
     finally:
         report.update(checked=checked,priced=priced,us_context_only=us_only,provider_failures=failed,
-                      scope='All English/Japanese Pokemon and One Piece, English Dragon Ball and scoped Japanese Fusion World FB01 regional references; independent of inventory')
+                      scope='All English/Japanese Pokemon and One Piece, English Dragon Ball and batched Japanese Fusion World FB01-FB11 regional references; independent of inventory')
         await receipt(pool,actor,'REFERENCE_PRICES',status,report,run_id)
         log.warning('Daily reference prices status=%s checked=%s priced=%s',status,checked,priced)
 

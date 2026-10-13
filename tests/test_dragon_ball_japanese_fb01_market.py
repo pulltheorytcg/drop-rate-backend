@@ -187,7 +187,7 @@ async def test_existing_refresh_updates_only_global_reference_prices(monkeypatch
 
     class Connection:
         async def fetch(self, sql):
-            assert "r.set_id='584001'" in sql
+            assert "r.set_id between '584001' and '584011'" in sql
             assert "reference_cards" in sql
             return [english, japanese]
         async def executemany(self, sql, values):
