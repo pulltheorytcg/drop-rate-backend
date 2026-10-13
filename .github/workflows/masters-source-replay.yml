@@ -2,7 +2,7 @@ name: Temporary English Masters market source replay
 on:
   push:
     branches: [feat/market-batch-03-masters-catalogue-20261013]
-    paths: [.github/workflows/masters-source-replay.yml]
+    paths: [.github/workflows/masters-source-replay.yml, backend/app/dragon_ball_masters_missing_market.py]
 permissions:
   contents: read
 jobs:
