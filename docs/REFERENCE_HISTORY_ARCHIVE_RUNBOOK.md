@@ -55,6 +55,12 @@ is retrievable from Drive; there is no automatic in-app reader for cold archives
    read-write override to reduce storage. Do not change a role or the global
    configuration to bypass the quota. Use `SET TRANSACTION READ WRITE` before
    queries in the maintenance transaction, and bounded lock/statement timeouts.
+   For the full-table content hash, EXPLAIN the aggregate before execution. On
+   PostgreSQL 17, `SET LOCAL enable_presorted_aggregate=off` avoids a slow random
+   UUID index scan; `SET LOCAL work_mem='64MB'` was used for the verified recovery.
+   These transaction-local planner settings preserve the exact ordered checksum.
+   If the connector times out, verify that the transaction rolled back and no
+   receipt exists before retrying. Never replace the content guard with a count.
 3. Only after durable verification, call
    `tcg.archive_verified_reference_history` as the admin with the exact count,
    cutoff, content root, observed Drive file ID/URL, package SHA-256 and restore
