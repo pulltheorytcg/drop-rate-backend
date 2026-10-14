@@ -42,6 +42,8 @@ WRITE_SQL = '''insert into tcg.reference_market_prices
  from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
  where r.provider=$1 and r.system_code=$2 and r.language=$3 and r.provider_id=$4
    and r.name=$11 and r.set_id=$12 and r.card_number=$13 and s.name=$14
+   and (coalesce($5::jsonb->0->>'match_basis','')<>'CARDTRADER_MASTERS_NUMBER_RARITY_SINGLETON_CARDMARKET_ID'
+        or r.rarity is not distinct from $5::jsonb->0->>'reference_rarity')
  on conflict(provider,system_code,language,provider_id) do update
  set quotes=excluded.quotes,market_value_minor=excluded.market_value_minor,
  market_value_high_minor=excluded.market_value_high_minor,pricing_updated_at=excluded.pricing_updated_at,

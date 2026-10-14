@@ -57,6 +57,70 @@ class Client:
         return self.blueprints
 
 
+def leader_fixture():
+    refs, expansion, blueprints, singles, packaging = fixture()
+    leader_refs, leader_blueprints, leader_singles = [], [], {}
+    for suffix, rarity, bid, pid in [('', 'Uncommon[UC]', 282512, 761976),
+                                     ('_PR', 'Special Leader Rare[SLR]', 282508, 761977)]:
+        number = 'BT24-001' + suffix
+        for face, name in [('', 'Vegeta'), ('_b', 'Vegeta, Awakened Feelings')]:
+            filename = number + face + '.png'
+            leader_refs.append(dict(refs[0], name=name, provider_id='428024:' + filename,
+                card_number=number, rarity=rarity,
+                evidence={'detail_level': 'OFFICIAL_CHECKLIST', 'card_type': 'LEADER'},
+                image_url='https://www.dbs-cardgame.com/images/cardlist/cardimg/' + filename))
+        name = 'Vegeta // Vegeta, Awakened Feelings'
+        leader_blueprints.append(dict(blueprints[0], name=name, id=bid, card_market_ids=[pid],
+            version='Special Leader Rare' if suffix else None,
+            fixed_properties={'collector_number': 'BT24-001slr' if suffix else 'BT24-001',
+                              'dragonball_rarity': 'Leader' if suffix else 'Uncommon'}))
+        leader_singles[str(pid)] = dict(singles['762001'], idProduct=pid, name=name)
+    return leader_refs, expansion, leader_blueprints, leader_singles, packaging
+
+
+def test_explicit_leader_rarity_and_exact_front_back_pair_share_one_market_product():
+    refs, expansion, blueprints, singles, _ = leader_fixture()
+    matches = match_blueprints(refs, blueprints, expansion, {138}, singles, 5609)
+    assert len(matches) == 4
+    for index, ref in enumerate(refs):
+        match = matches[(db.MASTERS, ref['provider_id'])]
+        assert match['product']['idProduct'] == (761976 if index < 2 else 761977)
+        assert match['proof']['reference_face'] == ('front' if index % 2 == 0 else 'back')
+        assert match['proof']['reference_face_ids'] == [r['provider_id'] for r in refs[index // 2 * 2:index // 2 * 2 + 2]]
+        assert match['proof']['cardtrader_rarity_source'] == ('rarity' if index < 2 else 'version')
+
+
+@pytest.mark.parametrize('change', ['missing_back', 'wrong_back_number', 'wrong_image',
+    'wrong_face_name', 'wrong_card_type', 'duplicate_pair', 'unknown_leader_rarity',
+    'suffix_only_rarity', 'missing_market_back', 'reversed_market_faces', 'rarity_mismatch'])
+def test_leader_pair_cannot_be_completed_or_classified_by_guessing(change):
+    refs, expansion, blueprints, singles, _ = leader_fixture()
+    front_key = (db.MASTERS, refs[2]['provider_id'])
+    if change == 'missing_back': refs.pop()
+    if change == 'wrong_back_number': refs[3]['card_number'] = 'BT24-002_PR'
+    if change == 'wrong_image': refs[3]['image_url'] = refs[1]['image_url']
+    if change == 'wrong_face_name': refs[3]['name'] = 'Wrong name'
+    if change == 'wrong_card_type': refs[3]['evidence']['card_type'] = 'BATTLE'
+    if change == 'duplicate_pair':
+        refs.extend([dict(r, card_number='BT24-001_PR02', provider_id=r['provider_id'].replace('_PR', '_PR02'))
+                     for r in refs[2:]])
+    if change == 'unknown_leader_rarity': blueprints[1]['version'] = 'Leader'
+    if change == 'suffix_only_rarity': blueprints[1]['version'] = None
+    if change == 'missing_market_back': singles['761977']['name'] = 'Vegeta'
+    if change == 'reversed_market_faces': singles['761977']['name'] = 'Vegeta, Awakened Feelings // Vegeta'
+    if change == 'rarity_mismatch': refs[3]['rarity'] = 'Uncommon[UC]'
+    matches = match_blueprints(refs, blueprints, expansion, {138}, singles, 5609)
+    assert front_key not in matches
+    assert (db.MASTERS, '428024:BT24-001_PR_b.png') not in matches
+
+
+def test_unmapped_collector_foil_blocks_only_its_own_explicit_rarity():
+    refs, expansion, blueprints, singles, _ = leader_fixture()
+    blueprints.append(dict(blueprints[0], id=283257, version='Collector Booster Foil', card_market_ids=[]))
+    matches = match_blueprints(refs, blueprints, expansion, {138}, singles, 5609)
+    assert set(matches) == {(db.MASTERS, r['provider_id']) for r in refs[2:]}
+
+
 @pytest.mark.asyncio
 async def test_actual_rarity_distinguishes_identical_names_with_explicit_product_ids():
     refs, expansion, blueprints, singles, packaging = fixture()
@@ -148,9 +212,10 @@ async def test_release_identity_is_independently_required_in_both_providers(chan
 
 
 @pytest.mark.parametrize('outage', [False, True])
+@pytest.mark.parametrize('leader', [False, True])
 @pytest.mark.asyncio
-async def test_refresh_retains_provenance_and_preserves_previous_evidence_during_outage(monkeypatch, outage):
-    refs, expansion, blueprints, singles, packaging = fixture()
+async def test_refresh_retains_provenance_and_preserves_previous_evidence_during_outage(monkeypatch, outage, leader):
+    refs, expansion, blueprints, singles, packaging = (leader_fixture if leader else fixture)()
     for ref in refs:
         ref['existing_match_basis'] = MATCH_BASIS
     now = datetime.now(timezone.utc)
@@ -182,7 +247,7 @@ async def test_refresh_retains_provenance_and_preserves_previous_evidence_during
         plain = dict(refs[0], name='Different card', card_number='BT24-014',
                      provider_id='428024:BT24-014.png', existing_match_basis=None)
         refs.append(plain)
-        singles['99'] = dict(singles['762001'], idProduct=99, name=plain['name'])
+        singles['99'] = dict(next(iter(singles.values())), idProduct=99, name=plain['name'])
     report = await db.refresh_dragon_ball_prices(object(), uuid4(), FX(),
                                                 cardtrader_client=Source(expansion, blueprints))
     assert report['provider_failures'] == int(outage)
@@ -190,8 +255,9 @@ async def test_refresh_retains_provenance_and_preserves_previous_evidence_during
     if outage:
         assert [row[3] for row in writes] == ['428024:BT24-014.png']
         return
-    assert report['cardtrader_masters_bridge']['priced'] == 2
-    assert len(writes) == 2
+    assert report['cardtrader_masters_bridge']['priced'] == (4 if leader else 2)
+    assert report['cardtrader_masters_bridge']['leader_faces_priced'] == (4 if leader else 0)
+    assert len(writes) == (4 if leader else 2)
     for row in writes:
         assert row[5:7] == (170, 425)
         for quote in row[4]:

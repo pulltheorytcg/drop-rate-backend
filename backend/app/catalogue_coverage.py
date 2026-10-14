@@ -29,6 +29,8 @@ COVERAGE_SQL = f'''with coverage as (
  from tcg.reference_cards r left join tcg.reference_sets s using(provider,system_code,language,set_id)
  left join tcg.reference_market_prices p
  on (p.provider,p.system_code,p.language,p.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
+ and (coalesce(p.quotes->0->>'match_basis','')<>'CARDTRADER_MASTERS_NUMBER_RARITY_SINGLETON_CARDMARKET_ID'
+      or r.rarity is not distinct from p.quotes->0->>'reference_rarity')
  and (coalesce(p.quotes->0->>'source','')<>'CARDMARKET_BULK_SINGLES'
       or p.quotes->0->'reference_identity'=jsonb_build_object(
         'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',s.name))

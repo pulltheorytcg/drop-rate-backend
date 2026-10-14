@@ -229,7 +229,7 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
         ) provider_map on true
         left join lateral (
             select c.provider,c.system_code,c.language,c.provider_id,
-                   c.name,c.set_id,c.card_number,s.name as set_name
+                   c.name,c.set_id,c.card_number,c.rarity,s.name as set_name
             from tcg.reference_cards c
             join tcg.reference_sets s using(provider,system_code,language,set_id)
             where c.provider=rc.provider and c.provider_id=rc.provider_id
@@ -243,6 +243,8 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
           on (ref_market.provider,ref_market.system_code,ref_market.language,ref_market.provider_id)=
              (reference.provider,reference.system_code,reference.language,reference.provider_id)
          and ref_market.market_value_minor>0
+         and (coalesce(ref_market.quotes->0->>'match_basis','')<>'CARDTRADER_MASTERS_NUMBER_RARITY_SINGLETON_CARDMARKET_ID'
+              or reference.rarity is not distinct from ref_market.quotes->0->>'reference_rarity')
          and ref_market.pricing_updated_at between now()-interval '7 days' and now()
          and ref_market.quotes->0->>'source' in (
              'TCGDEX_CARDMARKET','TCGDEX_CARDMARKET_VARIANT','CARDMARKET_BULK_SINGLES')

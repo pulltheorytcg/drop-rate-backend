@@ -139,6 +139,39 @@ async def main():
         await db.execute(ONE_PIECE_PRICE_SQL,*changed)
         assert await db.fetchval("select market_value_minor from tcg.reference_market_prices where provider_id='EB04-007_p2'")==28105,'Identity race replaced cached evidence'
         await db.execute("update tcg.reference_cards set name='Roronoa Zoro' where provider_id='EB04-007_p2'")
+        # Rarity is an identity field for the Masters bridge. A correction
+        # must immediately hide the old guide and block an in-flight write.
+        await db.execute('begin')
+        await db.execute("insert into tcg.collectible_systems values('DRAGON_BALL_SUPER_MASTERS')")
+        await db.execute("""insert into tcg.reference_sets(provider,system_code,language,set_id,name)
+          values('Bandai Official','DRAGON_BALL_SUPER_MASTERS','English','428024','Z07 Booster -BEYOND GENERATIONS-');
+          insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number,rarity)
+          values('Bandai Official','DRAGON_BALL_SUPER_MASTERS','English','428024:BT24-013_PR.png',
+            '428024','SS2 Vegeta, Charging Rage','BT24-013_PR','Special Rare[SPR]')""")
+        master_identity=dict(name='SS2 Vegeta, Charging Rage',set_id='428024',
+                             card_number='BT24-013_PR',set_name='Z07 Booster -BEYOND GENERATIONS-')
+        master_quote=dict(quote,reference_identity=master_identity,reference_rarity='Special Rare[SPR]',
+                          match_basis='CARDTRADER_MASTERS_NUMBER_RARITY_SINGLETON_CARDMARKET_ID')
+        master_args=('Bandai Official','DRAGON_BALL_SUPER_MASTERS','English','428024:BT24-013_PR.png',
+                     [master_quote],28105,28105,now,now,now+timedelta(days=1),*master_identity.values())
+        await db.execute(ONE_PIECE_PRICE_SQL,*master_args)
+        for search in ('BT24 013','BT24-013','bt24013','SS2 Vegeta'):
+            for sort in ('newest','value_desc'):
+                sql,args=product_query(owner_id=owner,system_code='DRAGON_BALL_SUPER_MASTERS',q=search,sort=sort)
+                found=await db.fetch(sql,*args)
+                assert len(found)==1 and found[0]['provider_id']=='428024:BT24-013_PR.png'
+                assert found[0]['market_value_minor']==28105
+        sql,args=product_query(owner_id=owner,system_code='DRAGON_BALL_SUPER_MASTERS',q='BT24 014')
+        assert not await db.fetch(sql,*args),'Printed-number search leaked another number'
+        sql,args=product_query(owner_id=owner,system_code='DRAGON_BALL_SUPER_MASTERS',q='BT24 013')
+        await db.execute("update tcg.reference_cards set rarity='Super Rare[SR]' where provider_id='428024:BT24-013_PR.png'")
+        assert (await db.fetch(sql,*args))[0]['market_value_minor'] is None,'Changed rarity inherited old guide'
+        assert not any(r['status']=='MIXED_LANGUAGE_GUIDE' for r in await db.fetch(COVERAGE_SQL)
+                       if r['system_code']=='DRAGON_BALL_SUPER_MASTERS')
+        changed=list(master_args);changed[5]=changed[6]=99999;changed[8]=now+timedelta(seconds=1)
+        await db.execute(ONE_PIECE_PRICE_SQL,*changed)
+        assert await db.fetchval("select market_value_minor from tcg.reference_market_prices where provider_id='428024:BT24-013_PR.png'")==28105
+        await db.execute('rollback')
         await db.execute("insert into tcg.owners values($1,true)",owner)
         ids=[uuid4() for _ in range(6)]
         for i,(status,intent) in enumerate([('APPROVED','FOR_SALE'),('DRAFT','FOR_SALE'),('APPROVED','PERSONAL_COLLECTION'),('SOLD','FOR_SALE'),('APPROVED','FOR_SALE'),('APPROVED','FOR_SALE')]):

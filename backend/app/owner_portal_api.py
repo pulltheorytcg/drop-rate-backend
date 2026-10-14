@@ -946,6 +946,8 @@ async def owner_catalogue_search(
                   on (ref_market.provider,ref_market.system_code,ref_market.language,ref_market.provider_id)=
                      (c.provider,c.system_code,c.language,c.provider_id)
                  and ref_market.market_value_minor>0
+                 and (coalesce(ref_market.quotes->0->>'match_basis','')<>'CARDTRADER_MASTERS_NUMBER_RARITY_SINGLETON_CARDMARKET_ID'
+                      or c.rarity is not distinct from ref_market.quotes->0->>'reference_rarity')
                  and ref_market.pricing_updated_at between now()-interval '7 days' and now()
                  and (
                     (ref_market.quotes->0->>'source' in ('TCGDEX_CARDMARKET','TCGDEX_CARDMARKET_VARIANT')
