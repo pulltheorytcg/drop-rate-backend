@@ -1,5 +1,7 @@
 # Missing-price source audit — 14 October 2026
 
+**Free-evaluation follow-up:** the user subsequently approved free testing. Five additional exact candidates were checked through the public playground; two have potential current Cardmarket guide data, and all five tested UK RAW/standard filters returned empty. The larger no-card account signup requires the user's new password/email verification. No subscription or production values were added. See [free evaluation receipt](PRICING_FREE_EVALUATION_20261014.md).
+
 This pass researched real unpriced catalogue identities and provider access. **Zero new production prices were imported.** A fresh read-only coverage query still returns **40,423 priced references and 26,635 missing physical references (39.72%)**. The previous 745-record recovery remains live; it is not a gain from this research pass.
 
 Of the remaining physical gap, **17,257** records need new source evidence or eligible regional quotes: 13,062 source-access cases, 4,182 exact-quote cases and 13 US-context-only cases. The separate 9,378 mapping cases still need exact printing resolution. Provider catalogue membership does not establish quote availability.
