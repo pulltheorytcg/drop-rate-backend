@@ -51,16 +51,19 @@ jobs:
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    strategy:
+      matrix:
+        browser: [chromium, webkit]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - run: npm install --prefix /tmp/inventory-browser --no-save playwright@1.55.1
-      - run: node /tmp/inventory-browser/node_modules/playwright/cli.js install --with-deps chromium
-      - run: NODE_PATH=/tmp/inventory-browser/node_modules node tests/ui/owner-inventory-browser.cjs
+      - run: node /tmp/inventory-browser/node_modules/playwright/cli.js install --with-deps ${{ matrix.browser }}
+      - run: NODE_PATH=/tmp/inventory-browser/node_modules INVENTORY_BROWSER=${{ matrix.browser }} node tests/ui/owner-inventory-browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: seller-inventory-layout
+          name: seller-inventory-layout-${{ matrix.browser }}
           path: /tmp/inventory-layout

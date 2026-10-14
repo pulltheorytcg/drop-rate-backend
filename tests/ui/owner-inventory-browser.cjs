@@ -1,20 +1,27 @@
 // Render the actual seller page/assets with isolated API fixtures; never mutate live stock.
-const {chromium}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
-const base=path.resolve(__dirname,'../../backend/app/static'),out='/tmp/inventory-layout';
+const {chromium,webkit}=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const engine=process.env.INVENTORY_BROWSER||'chromium';
+const base=path.resolve(__dirname,'../../backend/app/static'),out='/tmp/inventory-layout/'+engine;
 const artwork='https://www.onepiece-cardgame.com/products/boosters/op17/images/others/product_pack.webp';
 const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op17-catalogue',inventory_code:'INV-D715B0E9B3C4451BA9095FA233F8A0E5',version:3,status:'DRAFT',sale_intent:'FOR_SALE',product_type:'SEALED',game:'One Piece',language:'Japanese',seal_status:'SEALED',name:"Booster Pack: World's Strongest Warriors [OP-17]",set_name:"World's Strongest Warriors [OP-17]",market_value_minor:866,store_price_minor:null,reference_image_url:artwork,approval_blockers:['Drop Rate intake review','A selling price of at least £1','An approved listing photo'],shopify_sync_enabled:true};
 (async()=>{
  fs.mkdirSync(out,{recursive:true});
  const response=await fetch(artwork);assert.equal(response.ok,true,'Official pack image unavailable');const pack=Buffer.from(await response.arrayBuffer());
- const browser=await chromium.launch({headless:true});
+ const browser=await ({chromium,webkit})[engine].launch({headless:true});
  try{
-  for(const viewport of [{width:430,height:932},{width:1440,height:1000}]){
+  for(const viewport of [{width:320,height:800},{width:390,height:844},{width:430,height:932},{width:1440,height:1000}]){
    const page=await browser.newPage({viewport,deviceScaleFactor:1}),errors=[];
    page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/*',async route=>{
+   // Only intercept network traffic. WebKit also routes blob: image requests;
+   // those are created by the real authenticated-image loader from fixture bytes.
+   await page.route(/^https?:\/\//,async route=>{
     const u=new URL(route.request().url());
     if(u.href===artwork)return route.fulfill({body:pack,contentType:'image/webp'});
-    if(u.pathname===`/api/v1/inventory/${item.id}/image`){assert.equal(route.request().headers().authorization,'Bearer isolated-fixture');return route.fulfill({body:pack,contentType:'image/webp'});}
+    if(/^\/api\/v1\/inventory\/[^/]+\/image$/.test(u.pathname)){
+     assert.equal(route.request().headers().authorization,'Bearer isolated-fixture');
+     const file=u.pathname.includes('/75e288a1-8252-414f-912d-b82b253447c7/')?'luffy-op05-119-p2.png':u.pathname.includes('/60cf7078-2925-47df-8df2-3c0c28d8d788/')?'umbreon-vmax-215.webp':null;
+     return file?route.fulfill({path:path.join(base,'grail-art',file)}):route.fulfill({body:pack,contentType:'image/webp'});
+    }
     if(u.hostname==='cdn.shopify.com')return route.fulfill({path:path.join(base,'brand-assets/drop-rate-seller-hub.png'),contentType:'image/png'});
     if(u.hostname==='upload.wikimedia.org')return route.fulfill({
       body:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 36"><rect width="130" height="36" fill="none"/><path fill="#174b73" d="M10 6h110v24H10z"/></svg>',
@@ -25,7 +32,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
     return route.abort();
    });
    await page.goto('http://127.0.0.1:4178/owner');
-   for(const name of ['hub-session.js','owner-inventory.js','owner-portal.js'])await page.addScriptTag({content:fs.readFileSync(path.join(base,name),'utf8').replace(/\ninitialise\(\);\s*$/,'')});
+   for(const name of ['hub-session.js','reference-value-display.js','owner-inventory.js','owner-portal.js','workspace-shell.js','collector-worlds.js'])await page.addScriptTag({content:fs.readFileSync(path.join(base,name),'utf8').replace(/\ninitialise\(\);\s*$/,'')});
    await page.evaluate(item=>{
     window.fixtureItem=item;
     state.session={access_token:'isolated-fixture',user:{id:'fixture-seller'}};
@@ -36,7 +43,18 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
     activateOwnerView('inventory',false);state.inventory.total=1;byId('owner-inventory-total-label').textContent='1';renderInventoryCards([item]);renderInventoryRows([item]);renderInventoryPagination();
    },item);
    await page.locator('.owner-card-thumb img').waitFor();
-   await page.waitForFunction(()=>document.querySelector('.owner-card-thumb img')?.naturalWidth>0);
+   await page.locator('.owner-card-thumb').scrollIntoViewIfNeeded();
+   try{
+    await page.waitForFunction(()=>document.querySelector('.owner-card-thumb img')?.naturalWidth>0);
+   }catch(error){
+    await page.screenshot({path:path.join(out,`image-failure-${viewport.width}.png`),fullPage:true});
+    console.error('Image load diagnostics',await page.locator('.owner-card-thumb').evaluate(n=>({
+      html:n.outerHTML,rect:n.getBoundingClientRect().toJSON(),viewport:[innerWidth,innerHeight],
+      ready:document.readyState,scroll:scrollY
+    })),errors);
+    throw error;
+   }
+   await page.evaluate(()=>scrollTo(0,0));
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Inventory overflows viewport');
    assert.equal(await page.locator('.owner-page-header').isVisible(),false,'Redundant inventory heading still occupies space');
    assert.equal(await page.locator('#owner-view-inventory .owner-section-header h2').innerText(),'Inventory');
@@ -49,7 +67,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    const tileText=await tile.innerText();
    assert.doesNotMatch(tileText,/INV-D715B0E9|\bLANGUAGE\b|\bSEAL\b|\bTYPE\b|\bGAME\b/i);
    assert.match(tileText,/Market value/);assert.match(tileText,/£8.66/);
-   assert.match(tileText,/View details & manage/);
+   assert.match(tileText,/Manage/);
    const cardBox=await tile.boundingBox();
    assert.ok(cardBox&&cardBox.height<425,'Inventory tile still has an oversized metadata layout');
    await page.screenshot({path:path.join(out,`inventory-${viewport.width}.png`),fullPage:true});
@@ -122,9 +140,61 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.match(await page.locator('.owner-card-prices').innerText(),/1\/2 copies valued/);
    assert.match(await page.locator('.owner-card-prices').innerText(),/£10.00/);
    const groupedBox=await page.locator('.owner-inventory-card').boundingBox();
-   assert.ok(groupedBox&&groupedBox.height<425);
+   assert.ok(groupedBox&&groupedBox.height<425,`Grouped card is ${groupedBox?.height}px at ${viewport.width}px`);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Grouped inventory overflows viewport');
    await page.screenshot({path:path.join(out,`inventory-grouped-${viewport.width}.png`),fullPage:true});
+
+   // Page-level overflow checks miss controls clipped by an overflow:hidden card.
+   // Exercise the actual narrow-card actions with mixed statuses and long values.
+   await page.evaluate(original=>{
+    const approved={...original,status:'APPROVED',store_price_minor:1000};
+    const draft={...original,id:'55fe97fc-7bfa-4a73-a269-664ec56d3004',can_refresh_market:true,recommended_retail_minor:866};
+    const pending={...original,id:'75e288a1-8252-414f-912d-b82b253447c7',name:'Monkey.D.Luffy — Manga alternate art [OP05-119]',
+      set_name:'Awakening of the New Era · Japanese',product_type:'RAW',
+      reference_image_url:'/assets/grail-art/luffy-op05-119-p2.png',market_value_minor:null,
+      reference_value:{status:'NEEDS_DETAILS'}};
+    renderInventoryCards([approved,draft,pending,{...pending,id:'60cf7078-2925-47df-8df2-3c0c28d8d788',
+      name:'Umbreon VMAX — Evolving Skies alternate art [215/203]',
+      reference_image_url:'/assets/grail-art/umbreon-vmax-215.webp'}]);
+   },item);
+   const violations=await page.locator('.owner-inventory-card').evaluateAll(cards=>cards.flatMap((card,index)=>{
+    const bounds=card.getBoundingClientRect(),issues=[];
+    for(const node of card.querySelectorAll('.owner-card-title,.owner-card-prices,.owner-card-actions,button')){
+     const r=node.getBoundingClientRect();
+     if(r.left<bounds.left-1||r.right>bounds.right+1)issues.push(`${index}: ${node.className} clipped`);
+     if(node.closest('.owner-card-actions')&&node.tagName==='BUTTON'){
+      if(r.height<44||r.width<44)issues.push(`${index}: action target too small`);
+      if(node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1)issues.push(`${index}: action text clipped`);
+     }
+    }
+    return issues;
+   }));
+   assert.deepEqual(violations,[],'Card contents must fit inside every card');
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Mixed inventory overflows viewport');
+   const actions=await page.locator('.owner-card-actions').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().bottom));
+   assert.ok(Math.abs(actions[0]-actions[1])<1,'Actions in the same row must align');
+   await page.waitForFunction(()=>{
+    const images=[...document.querySelectorAll('.owner-card-thumb img')];
+    return images.length===4&&images.every(img=>img.naturalWidth>0);
+   });
+   await page.locator('.owner-card-thumb img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
+   await page.screenshot({path:path.join(out,`inventory-mixed-${viewport.width}.png`),fullPage:true});
+   await page.evaluate(()=>{
+    window.refreshCalls=[];
+    apiRequest=(url,options)=>{window.refreshCalls.push({url,...options});return new Promise((_,reject)=>{window.failRefresh=()=>reject(new Error('Provider temporarily unavailable'));});};
+   });
+   const refresh=page.getByRole('button',{name:'Refresh market value for '+item.name,exact:true});
+   await refresh.click();
+   assert.equal(await page.locator('.owner-market-refresh').isDisabled(),true);
+   assert.equal(await page.locator('.owner-market-refresh').getAttribute('aria-busy'),'true');
+   assert.equal(await page.locator('.owner-item-dialog[open]').count(),0,'Refresh must not open item management');
+   assert.equal(await page.evaluate(()=>window.refreshCalls.length),1);
+   assert.equal(await page.evaluate(()=>window.refreshCalls[0].url),`/api/v1/owner/inventory/${item.inventory_code}/refresh-market`);
+   assert.equal(await page.evaluate(()=>window.refreshCalls[0].method),'POST');
+   await page.evaluate(()=>window.failRefresh());
+   await refresh.waitFor();assert.equal(await refresh.isEnabled(),true);
+   assert.equal(await refresh.getAttribute('aria-busy'),null);
+   assert.match(await page.locator('#owner-portal-message').innerText(),/Provider temporarily unavailable/);
 
    // Genuine Chromium tap: Scan launches the camera modal and calls
    // getUserMedia immediately. Keep permission unresolved to prove the UI
@@ -157,5 +227,5 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.deepEqual(errors,[]);await page.close();
   }
  }finally{await browser.close();}
- console.log('Real Chromium: mobile/desktop artwork, item details, readable widths, quantity confirmation and list opening passed.');
+ console.log(`Real ${engine}: 320/390/430/1440px card bounds, actions, refresh recovery, artwork, item details, quantity confirmation and list opening passed.`);
 })().catch(e=>{console.error(e);process.exitCode=1;});
