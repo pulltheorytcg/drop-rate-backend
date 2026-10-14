@@ -26,7 +26,7 @@ Revision 21 is verified live: **595 additional priced references**, increasing M
 
 Predeployment stock baseline: 614 rows, 327 stored positive values; fingerprint `de5af2619bdfbc03127b64c179df03c5`, computed as `md5(string_agg(concat_ws('|',id,owner_id,status,store_price_minor),E'\n' order by id))`.
 
-## Revision 22 extension — production acceptance pending
+## Revision 22 extension — verified live
 
 Two-sided leader prints use both exact official filename/image identities, matching number/rarity, and the ordered full front/back names. Each quote retains both face IDs. CardTrader sometimes publishes a generic `Leader` type as rarity while its version explicitly says `Special Leader Rare`; only this exact documented combination establishes SLR. The `slr` number suffix never supplies rarity. A duplicated Collector Booster Foil printing still blocks its own rarity, even if it has no price or cross-ID.
 
@@ -34,7 +34,11 @@ Product claims are counted per paired printing, not per face; cross-source confl
 
 The first PostgreSQL check exposed a related search bug: an official Masters parallel such as `BT24-013_PR` was excluded from an exact printed-number query `BT24 013`. Search now includes all exact-number Masters `_PR` printings while retaining their separate identities and values. Other games and different numbers remain excluded. PostgreSQL tests cover spaced, hyphenated, compact and name searches, plus value sorting and the adjacent-number negative case.
 
-This repair is not a claim that every remaining game/language/parallel has eligible source data. Final production counts and remaining requirements will be recorded after the revision-22 refresh.
+Revision 22 is verified: **150 additional leader face records / 75 products**, increasing Masters to **5,161/9,002** and global coverage to **40,423/69,538**. This pass's combined gain is **745 records / 670 distinct products**, including revision 21's 595; the worker's 745 recovered count must not be added again to those 595. The job completed at **2026-10-14 07:01:26.380611 UTC**, zero provider failures and zero identity conflicts. All 745 quotes are reference-only and retain the source date **2026-10-14 00:53:42 UTC**.
+
+PR #639 deployed code `3ec3692ff6d95ecfcfd30a781184a3b5f9505410`; all seven final-head CI workflows passed. Railway `55b50ac6-129b-4eb7-b8af-aed5e64e2910` is SUCCESS and live readiness is healthy. Actual Seller Hub catalogue searches now return both BT24-013 printings with their separate £0.17/£12.17 guides. The paired Special Leader Rare BT24-001 faces return the same £78.88 guide (Cardmarket 761977 / CardTrader 282508), while the unresolved Uncommon printing remains unavailable.
+
+Inventory is unchanged at 614 rows / 327 stored values, with the same fingerprint above. **26,635/67,058 physical references still lack a supported price**. See [the final 14 October receipt](PRICING_RECOVERY_LIVE_RESULTS_20261014.md) for per-game counts, evidence requirements and the distinction between catalogue guides and physical-copy valuations.
 
 ## Source contracts checked
 

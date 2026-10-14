@@ -1,5 +1,7 @@
 # Pricing recovery — verified live results, 13 October 2026
 
+Historical receipt. The [14 October follow-up](PRICING_RECOVERY_LIVE_RESULTS_20261014.md) records the latest verified position: **40,423 priced references**, with **26,635 physical references still missing a supported value**.
+
 The deployed repairs recovered **5,703 additional GBP reference prices/guides**, including **471** from the latest pass. Coverage rose from **33,972 to 39,675 of 69,538 card reference records**. This is a verified improvement, **not completion of pricing for every card**. All counts are shared catalogue references, independent of an owner's stock. These source guides are not individually verified sold, graded or condition-specific valuations.
 
 ## Current database position
