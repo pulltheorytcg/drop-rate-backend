@@ -436,7 +436,7 @@ def test_inventory_ui_renders_sealed_state_identity_and_market_refresh_action() 
     js = (ROOT / "backend" / "app" / "static" / "owner-portal.js").read_text()
 
     assert 'return "Sealed"' in js
-    assert 'refresh.textContent = "Refresh market value"' in js
+    assert 'refresh.title = "Refresh market value"' in js
     assert 'item.market_value_minor == null' in js
     assert '? "—"' in js
     assert '/refresh-market' in js

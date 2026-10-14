@@ -16,7 +16,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=books-v24" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=card-actions-v25" defer></script>' in html
     assert '<script src="/assets/owner-recognition.js?v=shared-value-v2" defer></script>' in html
 
     for founder_script in (
@@ -59,7 +59,7 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
         assert f'"{value}"' in details
     assert ".owner-item-facts" in css
     assert ".owner-item-fact dd" in css
-    assert 'href="/assets/owner-inventory.css?v=5"' in html
+    assert 'href="/assets/owner-inventory.css?v=card-actions-v6"' in html
     assert 'src="/assets/owner-inventory.js?v=books-v13"' in html
 
 

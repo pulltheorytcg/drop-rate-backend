@@ -288,11 +288,14 @@ function renderInventoryCards(items) {
     }
 
     body.append(heading, prices);
+    const actions = document.createElement("div");
+    actions.className = "owner-card-actions";
     const details = document.createElement("button");
-    details.type = "button"; details.className = "owner-secondary-button owner-inventory-details";
-    details.textContent = "View details & manage";
+    details.type = "button"; details.className = "owner-inventory-details";
+    details.textContent = "Manage";
+    details.setAttribute("aria-label", `Manage ${item.name}`);
     details.addEventListener("click", () => window.DropRateInventory?.open(item));
-    body.append(details);
+    actions.append(details);
     card.addEventListener("click", event => {
       if (!event.target.closest("button,a,input,select")) window.DropRateInventory?.open(item);
     });
@@ -300,11 +303,15 @@ function renderInventoryCards(items) {
     if (item.can_refresh_market) {
       const refresh = document.createElement("button");
       refresh.type = "button";
-      refresh.className = "owner-secondary-button owner-market-refresh";
-      refresh.textContent = "Refresh market value";
+      refresh.className = "owner-market-refresh";
+      refresh.title = "Refresh market value";
+      refresh.setAttribute("aria-label", `Refresh market value for ${item.name}`);
+      refresh.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 6.1a8 8 0 0 1 13 2.9M4.9 15a8 8 0 0 0 13 2.9"/></svg>';
       refresh.addEventListener("click", async () => {
         refresh.disabled = true;
-        refresh.textContent = "Refreshing value…";
+        refresh.setAttribute("aria-busy", "true");
+        refresh.setAttribute("aria-label", `Refreshing market value for ${item.name}`);
+        refresh.title = "Refreshing market value…";
         try {
           await apiRequest(
             `/api/v1/owner/inventory/${encodeURIComponent(item.group_unvalued_code||item.inventory_code)}/refresh-market`,
@@ -315,12 +322,15 @@ function renderInventoryCards(items) {
         } catch (error) {
           showPortalMessage(error.message || "Market value could not be refreshed.", "error");
           refresh.disabled = false;
-          refresh.textContent = "Refresh market value";
+          refresh.removeAttribute("aria-busy");
+          refresh.setAttribute("aria-label", `Refresh market value for ${item.name}`);
+          refresh.title = "Refresh market value";
         }
       });
-      body.append(refresh);
+      actions.append(refresh);
     }
 
+    body.append(actions);
     card.append(imageWrap, body);
     grid.append(card);
   }

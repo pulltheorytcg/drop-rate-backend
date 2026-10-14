@@ -1,3 +1,9 @@
+## 14 October 2026 — Inventory cards and mobile actions cleaned up
+
+The seller screenshot exposed unstyled native buttons and card contents wider than their clipped containers. Inventory cards now use one compact **Manage** action plus an accessible 44px refresh control where available. Text stays inside each card, actions align at the bottom, market/store prices have a clearer hierarchy, and the inventory panel no longer receives duplicate mobile padding. The search/import/view toolbar also keeps its controls in deliberate rows instead of stretching the refresh button across desktop.
+
+The existing real-browser check now loads the collector presentation, exercises 320/390/430/1440px layouts, checks each card's internal bounds and touch targets, and verifies refresh failure/retry behavior. The inventory CI workflow covers Chromium and WebKit. Local seller interaction checks (31 scenarios) and focused portal/sealed tests (48) pass. This is a presentation change in the existing Seller Hub; release verification is recorded on the associated PR and Railway deployment.
+
 ## 14 October 2026 — Archive moved to the correct Drop Rate account
 
 The price-history archive is now private to **dropratetcg@gmail.com**, in the [Drop Rate archive folder](https://drive.google.com/drive/folders/1NhFIsWesgxlf059UMdx65ps9kFMqQeO9). The complete 70,408,023-byte / 722,511-record archive passed a fresh download SHA-256 and ZIP CRC check at **17:54:22 UTC**. The earlier part and corrected receipt also passed readback checks. The database archive registry now points to the new file with original content/restore evidence preserved; misplaced JUSO copies were removed afterward. The runbook requires explicit connection-email and destination-owner verification before future uploads. No current-price, inventory, schema or runtime change. See [account correction evidence](docs/DATABASE_READ_ONLY_INCIDENT_20261014.md).
