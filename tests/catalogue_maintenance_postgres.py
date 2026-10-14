@@ -155,7 +155,7 @@ async def main():
         master_args=('Bandai Official','DRAGON_BALL_SUPER_MASTERS','English','428024:BT24-013_PR.png',
                      [master_quote],28105,28105,now,now,now+timedelta(days=1),*master_identity.values())
         await db.execute(ONE_PIECE_PRICE_SQL,*master_args)
-        sql,args=product_query(owner_id=owner,system_code='DRAGON_BALL_SUPER_MASTERS',q='BT24 013')
+        sql,args=product_query(owner_id=owner,system_code='DRAGON_BALL_SUPER_MASTERS',q='SS2 Vegeta')
         assert (await db.fetch(sql,*args))[0]['market_value_minor']==28105
         await db.execute("update tcg.reference_cards set rarity='Super Rare[SR]' where provider_id='428024:BT24-013_PR.png'")
         assert (await db.fetch(sql,*args))[0]['market_value_minor'] is None,'Changed rarity inherited old guide'
