@@ -1,5 +1,27 @@
 # Database capacity incident — 14 October 2026
 
+## Archive account correction — verified 14 October 2026
+
+The founder identified that the original upload used the connected JUSO account
+and specified Drop Rate's Drive. After the Drop Rate connection was added, its
+profile and all destination owners were verified as **dropratetcg@gmail.com**.
+The corrected private [archive folder](https://drive.google.com/drive/folders/1NhFIsWesgxlf059UMdx65ps9kFMqQeO9)
+contains the [full archive](https://drive.google.com/file/d/1tvMgxVs480slYLTyAagR1nZXFxAokV9g/view),
+the original earlier part, and the archive receipt with corrected location and
+completed-cleanup status. No files were shared publicly.
+
+A fresh download from the Drop Rate account at **17:54:22.631274 UTC** matched
+all **70,408,023 bytes**, package SHA-256
+`035d0938fd755b5e5d961d9a2b70e17cd65c1f262f52be09bf3940b7ae890d94`,
+and ZIP CRC. The earlier part and corrected receipt also passed readback checks.
+The admin-only `tcg.reference_history_archives` row was conditionally updated
+to the verified new file ID/URL and independently read back; its 722,511 rows,
+content checksum, original archive timestamp and restore verification were
+preserved. The misplaced JUSO files were deleted only after these checks.
+The archive procedure now requires explicit account and folder-owner verification
+before each upload. This correction changes storage references, not live pricing
+or inventory data.
+
 ## Verified incident
 
 Read-only checks at 12:21–12:25 UTC / 13:21–13:25 London found:
@@ -42,7 +64,7 @@ Focused HTTP tests cover writable, read-only, unavailable and invalid readiness 
 
 ## Verified recovery checkpoint — 17:05 UTC
 
-The full private [Drive archive](https://drive.google.com/file/d/1Y1kjEMRQovKzmymbcnve4B2MpJuCFyjB/view) contains all **722,511** original rows through **2026-10-14 07:01:20.941369 UTC**, including original IDs, full source quotes and timestamps. Complete typed restoration was verified at **15:44:30 UTC**. A fresh 70,408,023-byte download on retry matched the package SHA-256 and ZIP CRC. Archive evidence is recorded in the admin-only `tcg.reference_history_archives` receipt.
+The full private [Drive archive](https://drive.google.com/file/d/1tvMgxVs480slYLTyAagR1nZXFxAokV9g/view) contains all **722,511** original rows through **2026-10-14 07:01:20.941369 UTC**, including original IDs, full source quotes and timestamps. Complete typed restoration was verified at **15:44:30 UTC**. A fresh 70,408,023-byte download on retry matched the package SHA-256 and ZIP CRC. Archive evidence is recorded in the admin-only `tcg.reference_history_archives` receipt. The link now resolves to the verified Drop Rate copy described above.
 
 The first cleanup transaction timed out and rolled back. EXPLAIN identified a random primary-key index scan for the ordered digest aggregation. Transaction-local `enable_presorted_aggregate=off` and `work_mem='64MB'` selected a sequential scan; the same exact count, cutoff and full-field content root guard then passed under the exclusive lock. No global setting changed. Reclamation committed at **17:04:18.766084 UTC**, reclaiming **1,189,609,472 bytes**. The fresh database-size readback is **321,334,419 bytes** and history storage is **32,768 bytes / zero rows** at this checkpoint. Fresh default transaction read-only mode is `off`; the organisation remains Free.
 

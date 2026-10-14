@@ -6,7 +6,18 @@ The founder approved the free recovery route and Google Drive storage on
 reference cards, physical inventory, owners, Store Prices and audit events are
 outside its removal scope.
 
-Private archive folder: https://drive.google.com/drive/folders/1ETujWynCvWmboeex_Ax9JSOxsvtJvTJj
+Required storage account: **dropratetcg@gmail.com** (Drop Rate).
+Private archive folder: https://drive.google.com/drive/folders/1NhFIsWesgxlf059UMdx65ps9kFMqQeO9
+
+Before every upload, verify the selected Drive connection's profile email and the
+destination folder's owner/permissions. Use the Drop Rate account explicitly;
+neither a default connection nor a folder named Drop Rate establishes ownership.
+Keep the folder and files private. If the account differs, stop before uploading.
+
+The 14 October archive was relocated to this account with a complete downloaded
+SHA-256 and ZIP CRC check at **17:54:22 UTC**. The archive registry now points to
+file `1tvMgxVs480slYLTyAagR1nZXFxAokV9g`; its original count, content digest and
+restore verification remain unchanged. See the [incident record](DATABASE_READ_ONLY_INCIDENT_20261014.md).
 
 ## Archive before reclamation
 
