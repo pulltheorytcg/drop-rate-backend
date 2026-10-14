@@ -55,6 +55,7 @@ async def main():
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261009183154_catalogue_market_evidence.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261010120815_database_wide_reference_guides.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261014122734_reference_history_fx_refresh_guard.sql').read_text())
+        await db.execute((Path(__file__).parents[1]/'database/migrations/20261014152708_reference_history_archive_registry.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20260930124000_shopify_price_reconciliation.sql').read_text())
         actor=UUID('00000000-0000-0000-0000-000000000001');owner=uuid4()
         await db.execute("set role tcg_api")
@@ -345,6 +346,48 @@ async def main():
         async with db.transaction(readonly=True):
             assert await db.fetchval(DATABASE_WRITE_READY_SQL) is False
         assert await db.fetchval(DATABASE_WRITE_READY_SQL) is True
+
+        # Archival requires the admin role, complete content match and external
+        # restore receipt. A stale archive must never clear newly changed rows.
+        archive_call='select tcg.archive_verified_reference_history($1,$2,$3,$4,$5,$6,$7,$8)'
+        args=['disposable-ci-archive',now+timedelta(days=1),1,'0'*64,
+              'disposable-ci-file','https://drive.google.com/file/d/disposable-ci-file',
+              '1'*64,now]
+        try:
+            await db.fetchval(archive_call,*args)
+            raise AssertionError('API executed history archival')
+        except asyncpg.InsufficientPrivilegeError:pass
+        await db.execute('reset role')
+        cache_tables=['reference_market_prices','reference_catalogue_prices','reference_sealed_market_prices']
+        caches_before=[await db.fetch(f'select row_to_json(t)::text as row from tcg.{t} t order by row_to_json(t)::text') for t in cache_tables]
+        inventory_before=await db.fetch('select row_to_json(t)::text as row from tcg.inventory_items t order by id')
+        row=await db.fetchrow('''select count(*) as count,max(recorded_at) as cutoff,
+            encode(sha256(convert_to(string_agg(encode(sha256(convert_to(row_to_json(h)::text,'UTF8')),'hex'),'' order by id),'UTF8')),'hex') as root
+            from tcg.reference_market_history h''')
+        args[1]=row['cutoff'];args[2]=row['count'];args[3]=row['root']
+        for invalid_count,invalid_root in ((row['count']+1,row['root']),(row['count'],'0'*64)):
+            invalid=list(args);invalid[2]=invalid_count;invalid[3]=invalid_root
+            try:
+                await db.fetchval(archive_call,*invalid)
+                raise AssertionError('Mismatched backup cleared history')
+            except asyncpg.RaiseError:pass
+            assert await db.fetchval('select count(*) from tcg.reference_market_history')==row['count']
+        try:
+            async with db.transaction():
+                await db.execute("update tcg.reference_market_history set market_value_minor=coalesce(market_value_minor,0)+1 where id=(select id from tcg.reference_market_history limit 1)")
+                await db.fetchval(archive_call,*args)
+                raise AssertionError('Changed evidence passed the archive guard')
+        except asyncpg.RaiseError:pass
+        assert await db.fetchval(archive_call,*args)>0
+        assert await db.fetchval('select count(*) from tcg.reference_market_history')==0
+        assert await db.fetchval('select row_count from tcg.reference_history_archives where archive_id=$1',args[0])==row['count']
+        assert caches_before==[await db.fetch(f'select row_to_json(t)::text as row from tcg.{t} t order by row_to_json(t)::text') for t in cache_tables]
+        assert inventory_before==await db.fetch('select row_to_json(t)::text as row from tcg.inventory_items t order by id')
+        await db.execute('set role tcg_api')
+        try:
+            await db.fetch('select * from tcg.reference_history_archives')
+            raise AssertionError('API read private archive receipts')
+        except asyncpg.InsufficientPrivilegeError:pass
 
     finally:await db.close()
     print('PASS: real sealed query, replay, set previews, publication gating/backoff, price finalization/audit, migrations and RLS')

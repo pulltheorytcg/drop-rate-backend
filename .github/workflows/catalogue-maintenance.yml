@@ -15,6 +15,7 @@ on:
       - 'database/migrations/*database_wide_reference_guides.sql'
       - 'database/migrations/*shopify_price_reconciliation.sql'
       - 'database/migrations/*reference_history_fx_refresh_guard.sql'
+      - 'database/migrations/*reference_history_archive_registry.sql'
       - 'backend/app/db.py'
       - 'tests/test_database_readiness.py'
       - 'tests/*catalogue_maintenance*'

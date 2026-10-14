@@ -23,17 +23,11 @@ These fixes are prepared for review, **not deployed/applied during read-only mod
 
 ## Recovery decision and order
 
-The recommended immediate capacity option is Supabase Pro, publicly listed from **USD $25/month**, including 8 GB disk per project and compute credit for one Micro instance. Actual organization checkout, taxes, other projects and usage must be reviewed. Keep the spend cap enabled. The operating manual's Section 0 requires founder approval for this new commercial dependency.
+On 14 October 2026 the founder approved the **free archive route using Google Drive**. No paid upgrade is authorized. All 722,511 historical records through 07:01:20.941369 UTC are being exported with original fields and timestamps. A first 10,000-row file passed upload/download SHA-256 verification and complete typed PostgreSQL restoration. Full archival, cleanup and runtime recovery are still in progress at this checkpoint.
 
-A free-plan alternative needs an explicit archival/retention decision, a durable verified export and restore procedure, then approved removal of historical records and space reclamation. No such deletion is authorized or performed here. Existing price history is immutable evidence; do not truncate it to clear the alert.
+Current prices already retain their latest source quote arrays. Once the complete durable archive is verified, the admin-only archive helper will require an exact full-table content checksum under a lock, record the private Drive receipt, and reclaim the archived history storage in one transaction. New or changed rows invalidate the receipt and block cleanup. Current prices, cards, inventory and audit events are excluded. See [the reviewed archive runbook](REFERENCE_HISTORY_ARCHIVE_RUNBOOK.md).
 
-After capacity is approved and changed:
-
-1. Verify the organization plan/capacity and `default_transaction_read_only=off` on a new connection. Do not force read-write mode to work around the allowance.
-2. Apply the reviewed trigger migration after its real PostgreSQL CI check passes; verify the installed function and existing history count.
-3. Merge/deploy the readiness fix only after all required CI checks pass and the database is writable. Verify the exact Railway deployment succeeds and `/health/ready` returns 200.
-4. Verify a fresh operations-monitor cron run completes, maintenance receipts advance and new read-only errors cease. Check inventory ownership/status/Store Price fingerprint before and after. Do not run a money-transfer operation as a health test.
-5. Resume the bounded pricing-source evaluation. The Flipzi account is verified with 500 free units, but `FLIPZI_API_KEY` was absent from `drop-rate-api-live` at the last check. Free evaluation quotes still require commercial permission before Seller Hub use.
+After archival and space reclamation, verify actual committed size and write mode, apply the tested FX-only history guard, merge/deploy write-aware readiness, and verify a fresh successful operations-monitor run. Recheck current-price and owner/status/Store Price fingerprints. Resume bounded missing-price source evaluation only after recovery; the Flipzi key remains unconfirmed and free evaluation quotes do not imply commercial display permission.
 
 ## Sources
 
