@@ -16,11 +16,23 @@ The source is bounded to 80 booster releases per pass, three concurrent reads wi
 
 Identity and refresh tests cover actual same-name SR/SPR records, bare numbers, reprints, duplicate references, unmapped duplicates, unknown rarity/number suffixes, cross-ID reuse, wrong games/categories/releases/languages, mismatched names/IDs, leader exclusion, dated provenance and outage preservation. The full local backend suite passed before publication.
 
-Production acceptance is pending the exact-head CI checks, successful Railway deployment, revision-21 receipt, independent source-aware catalogue coverage, Seller Hub catalogue readback, and unchanged inventory owner/status/Store Price fingerprint. Candidate matches are not counted as recovered prices before live verification.
+Revision 21 is verified live: **595 additional priced references**, increasing Masters from **4,416 to 5,011/9,002** and the full catalogue from **39,678 to 40,273/69,538**. Physical missing references fell from **27,380 to 26,785/67,058**. All other game/language counts were unchanged in this pass.
+
+- PR #638, deployed code `5ef49b444586a6465abf527ce313dbab13344100`; all four applicable CI workflows passed; 5,839 local tests passed.
+- Railway deployment `99efc609-d787-438d-8888-f8ca95f1b4ca`: SUCCESS. Live readiness HTTP 200, database connected.
+- Revision 21 COMPLETE at **2026-10-14 06:37:01.450618 UTC**. The identity adapter checked 31 booster releases with 34 requests, zero failures and zero cross-source/cross-release conflicts. 3,393 identities included previously covered cards; **595** were actual newly priced recoveries.
+- The shared Seller Hub catalogue query returns SS2 Vegeta `BT24-013` Super Rare at **£0.17**, and `BT24-013_PR` Special Rare at **£12.17**, with distinct product IDs 762000 / 762001 and the original Cardmarket evidence date **2026-10-14 00:53:42 UTC**.
+- Post-deployment inventory remains **614 / 327 stored positive values**, with the same owner/status/Store Price fingerprint below. These are catalogue reference guides, not newly verified valuations of particular physical copies.
 
 Predeployment stock baseline: 614 rows, 327 stored positive values; fingerprint `de5af2619bdfbc03127b64c179df03c5`, computed as `md5(string_agg(concat_ws('|',id,owner_id,status,store_price_minor),E'\n' order by id))`.
 
-This repair is not a claim that every remaining game/language/parallel has eligible source data. Production counts and remaining requirements will be recorded after the refresh.
+## Revision 22 extension — production acceptance pending
+
+Two-sided leader prints use both exact official filename/image identities, matching number/rarity, and the ordered full front/back names. Each quote retains both face IDs. CardTrader sometimes publishes a generic `Leader` type as rarity while its version explicitly says `Special Leader Rare`; only this exact documented combination establishes SLR. The `slr` number suffix never supplies rarity. A duplicated Collector Booster Foil printing still blocks its own rarity, even if it has no price or cross-ID.
+
+Product claims are counted per paired printing, not per face; cross-source conflicts reject both faces. Existing ordinary guides retain their prior basis. Rarity changes invalidate these guides immediately in shared catalogue coverage, Seller Hub search and recognition, and block stale in-flight writes. The full local suite passes with the added leader cases (5,854 tests); real PostgreSQL CI also exercises rarity correction and the write/read guards before deployment.
+
+This repair is not a claim that every remaining game/language/parallel has eligible source data. Final production counts and remaining requirements will be recorded after the revision-22 refresh.
 
 ## Source contracts checked
 

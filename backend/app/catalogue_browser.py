@@ -132,6 +132,8 @@ with reference_base as not materialized (
  from reference_base r left join exact_links l using(provider,system_code,language,provider_id)
  left join tcg.reference_market_prices m
  on (m.provider,m.system_code,m.language,m.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)
+ and (coalesce(m.quotes->0->>'match_basis','')<>'CARDTRADER_MASTERS_NUMBER_RARITY_SINGLETON_CARDMARKET_ID'
+      or r.rarity is not distinct from m.quotes->0->>'reference_rarity')
  and (coalesce(m.quotes->0->>'source','')<>'CARDMARKET_BULK_SINGLES'
       or m.quotes->0->'reference_identity'=jsonb_build_object(
         'name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',r.set_name))

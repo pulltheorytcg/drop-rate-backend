@@ -50,6 +50,51 @@ def number_key(value, family):
     return (family, int(match[1])) if match and family else None
 
 
+def blueprint_rarity(blueprint):
+    value = _property_value(blueprint, 'dragonball_rarity', 'rarity')
+    # The live provider uses a card-type label in this field for SLRs, but
+    # spells out the actual rarity in version. Do not infer it from "slr"
+    # collector suffixes or treat every Leader as an Uncommon printing.
+    if game_name(value) == 'leader' and game_name(blueprint.get('version')) == 'special leader rare':
+        return 'special leader rare'
+    return rarity_key(value)
+
+
+def official_printing(refs):
+    """Return the exact named printing and its one or two official records."""
+    from .dragon_ball_leader_market import IMAGE_ROOT
+
+    if len(refs) not in {1, 2}:
+        return None
+    for ref in refs:
+        evidence = ref.get('evidence') or {}
+        if evidence.get('detail_level') != 'OFFICIAL_CHECKLIST' or not evidence.get('card_type'):
+            return None
+    if len(refs) == 1:
+        ref = refs[0]
+        if ('LEADER' in ref['evidence']['card_type'] or
+                ref['provider_id'] != ref['set_id'] + ':' + ref['card_number'] + '.png'):
+            return None
+        return ref['name'], refs
+    first = refs[0]
+    number, set_id = first['card_number'], first['set_id']
+    if not re.fullmatch(r'BT\d{1,2}-\d{2,3}(?:_PR\d*)?', str(number)):
+        return None
+    front_id, back_id = set_id + ':' + number + '.png', set_id + ':' + number + '_b.png'
+    by_id = {r['provider_id']: r for r in refs}
+    if set(by_id) != {front_id, back_id}:
+        return None
+    for ref in refs:
+        if (ref['set_id'] != set_id or ref['set_name'] != first['set_name'] or
+                ref['card_number'] != number or ref['rarity'] != first['rarity'] or
+                ref['evidence']['card_type'] != 'LEADER' or
+                ref.get('image_url') != IMAGE_ROOT + ref['provider_id'].split(':', 1)[1] or
+                not str(ref['name']).strip() or ' // ' in ref['name']):
+            return None
+    front, back = by_id[front_id], by_id[back_id]
+    return front['name'] + ' // ' + back['name'], [front, back]
+
+
 def match_blueprints(references, blueprints, expansion, single_categories, singles,
                      market_expansion):
     from .dragon_ball_market import MASTERS
@@ -82,7 +127,7 @@ def match_blueprints(references, blueprints, expansion, single_categories, singl
         else:
             prints_by_number[number].append(blueprint)
     matches = {}
-    claims = defaultdict(list)
+    claims = defaultdict(set)
     for number, refs in refs_by_number.items():
         prints = prints_by_number.get(number, [])
         if number is None or not prints:
@@ -90,22 +135,18 @@ def match_blueprints(references, blueprints, expansion, single_categories, singl
         # An unclassified printing cannot disappear just because it has no
         # quote, mapping or usable rarity. It blocks this entire number.
         if any(rarity_key(r.get('rarity')) is None for r in refs) or any(
-                rarity_key(_property_value(b, 'dragonball_rarity', 'rarity')) is None
-                for b in prints):
+                blueprint_rarity(b) is None for b in prints):
             continue
-        for ref in refs:
-            rarity = rarity_key(ref.get('rarity'))
+        for rarity in {rarity_key(ref.get('rarity')) for ref in refs}:
             same_refs = [r for r in refs if rarity_key(r.get('rarity')) == rarity]
-            same_prints = [b for b in prints if rarity_key(
-                _property_value(b, 'dragonball_rarity', 'rarity')) == rarity]
-            if len(same_refs) != 1 or len(same_prints) != 1:
+            same_prints = [b for b in prints if blueprint_rarity(b) == rarity]
+            identity = official_printing(same_refs)
+            if identity is None or len(same_prints) != 1:
                 continue
+            name, members = identity
+            ref = members[0]
             blueprint = same_prints[0]
-            evidence = ref.get('evidence') or {}
-            if (evidence.get('detail_level') != 'OFFICIAL_CHECKLIST' or
-                    not evidence.get('card_type') or 'LEADER' in evidence['card_type'] or
-                    ref['provider_id'] != ref['set_id'] + ':' + ref['card_number'] + '.png' or
-                    normalized(ref['name']) in unnumbered_names):
+            if normalized(name) in unnumbered_names:
                 continue
             # Unknown suffixes count above, but cannot themselves provide
             # affirmative identity evidence. A suffix never supplies rarity.
@@ -119,20 +160,31 @@ def match_blueprints(references, blueprints, expansion, single_categories, singl
                     (product.get('idCategory'), product.get('categoryName')) !=
                     (1049, 'Dragon Ball Super Singles') or
                     product.get('idExpansion') != market_expansion or
-                    not normalized(ref['name']) or not (
-                        normalized(ref['name']) == normalized(blueprint.get('name')) ==
+                    not normalized(name) or not (
+                        normalized(name) == normalized(blueprint.get('name')) ==
                         normalized(product.get('name')))):
                 continue
-            key = (MASTERS, ref['provider_id'])
+            if len(members) == 2 and (str(blueprint.get('name')).count(' // ') != 1 or
+                                      str(product.get('name')).count(' // ') != 1):
+                continue
             proof = {'mapping_source': 'CARDTRADER', 'match_basis': MATCH_BASIS,
                      'cardtrader_blueprint_id': blueprint['id'],
                      'cardtrader_expansion_id': expansion['id'],
                      'cardtrader_collector_number': _collector_number(blueprint),
                      'cardtrader_rarity': _property_value(blueprint, 'dragonball_rarity', 'rarity'),
+                     'cardtrader_rarity_source': ('version' if game_name(_property_value(
+                         blueprint, 'dragonball_rarity', 'rarity')) == 'leader' else 'rarity'),
                      'cardtrader_version': blueprint.get('version'),
                      'physical_valuation_eligible': False}
-            matches[key] = {'product': product, 'proof': proof}
-            claims[product_id].append(key)
+            printing = (ref['set_id'], ref['card_number'])
+            for index, member in enumerate(members):
+                member_proof = dict(proof)
+                if len(members) == 2:
+                    member_proof.update(reference_face_ids=[r['provider_id'] for r in members],
+                                        reference_face='front' if index == 0 else 'back')
+                matches[(MASTERS, member['provider_id'])] = {
+                    'product': product, 'proof': member_proof, 'printing': printing}
+            claims[product_id].add(printing)
     return {key: match for key, match in matches.items()
             if len(claims[str(match['product']['idProduct'])]) == 1}
 
@@ -206,10 +258,11 @@ async def cardtrader_matches(client, references, singles, packaging, base_matche
             # This connection also serves the Pokemon bridge. Bound bursts.
             if start + 3 < len(selected):
                 await asyncio.sleep(.25)
-        claims = defaultdict(list)
+        claims = defaultdict(set)
         for key, match in result.items():
-            claims[match['product']['idProduct']].append(key)
-        conflicts = {key for keys in claims.values() if len(keys) > 1 for key in keys}
+            claims[match['product']['idProduct']].add(match['printing'])
+        conflicts = {key for key, match in result.items()
+                     if len(claims[match['product']['idProduct']]) > 1}
         result = {key: match for key, match in result.items() if key not in conflicts}
         report.update(status='PARTIAL' if failed_sets else 'COMPLETE', exact_candidates=len(result),
                       cross_release_conflicts=len(conflicts))

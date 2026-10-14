@@ -295,9 +295,14 @@ async def refresh_dragon_ball_prices(pool, actor, fx, *, cardtrader_client=None)
             for key, product in matches.items():
                 claims[product['idProduct']].add(key)
             for key, match in candidates.items():
-                other_claims = claims[match['product']['idProduct']] - {key}
+                allowed = {(MASTERS, face) for face in match['proof'].get('reference_face_ids', [])} or {key}
+                other_claims = claims[match['product']['idProduct']] - allowed
                 if other_claims:
                     bridge_conflicts.update({key, *other_claims})
+            rejected_printings = {match['printing'] for key, match in candidates.items()
+                                  if key in rejected | bridge_conflicts}
+            bridge_conflicts.update(key for key, match in candidates.items()
+                                    if match['printing'] in rejected_printings)
             for key in bridge_conflicts:
                 matches.pop(key, None)
             bridged = {key: match for key, match in candidates.items()
@@ -396,6 +401,9 @@ async def refresh_dragon_ball_prices(pool, actor, fx, *, cardtrader_client=None)
         if 'cardtrader_masters_bridge' in report:
             report['cardtrader_masters_bridge']['priced'] = sum(
                 v[5] is not None and (v[1], v[3]) in bridged for v in values)
+            report['cardtrader_masters_bridge']['leader_faces_priced'] = sum(
+                v[5] is not None and 'reference_face_ids' in
+                bridged.get((v[1], v[3]), {}).get('proof', {}) for v in values)
         if leader_recoveries:
             report['masters_leader_faces_priced'] = sum(
                 v[5] is not None and (v[1], v[3]) in leader_recoveries for v in values
