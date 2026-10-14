@@ -1,4 +1,5 @@
-.owner-portal-page .owner-card-image-wrap{appearance:none;width:100%;min-width:0;margin:0;border-top:0;border-left:0;border-right:0;border-radius:0;cursor:pointer}
+.owner-portal-page #owner-view-inventory{color-scheme:light}
+.owner-portal-page .owner-card-image-wrap{appearance:none;width:100%;min-width:0;height:148px;flex:0 0 148px;aspect-ratio:auto;padding:10px;margin:0;border-top:0;border-left:0;border-right:0;border-radius:0;cursor:pointer}
 /* One visible product can represent several individually owned physical copies. */
 .owner-portal-page .owner-card-image-wrap{position:relative}
 .owner-portal-page .owner-card-quantity{
@@ -18,7 +19,7 @@
 .owner-portal-page .owner-inventory-toolbar .owner-add-book{margin:0;min-height:44px}
 .owner-portal-page .owner-inventory-toolbar .owner-import-trigger{min-height:44px}
 .owner-portal-page .owner-inventory-card{display:flex;flex-direction:column}
-.owner-portal-page .owner-card-body{display:flex;flex:1;flex-direction:column;min-width:0;gap:10px}
+.owner-portal-page .owner-card-body{display:flex;flex:1;flex-direction:column;min-width:0;gap:8px}
 .owner-portal-page .owner-card-title-row{display:flex;flex-direction:column;align-items:flex-start;gap:7px}
 .owner-portal-page .owner-card-title{width:100%;min-width:0}
 .owner-portal-page .owner-card-title strong{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.35;min-height:2.7em;font-size:.8rem}
@@ -52,7 +53,7 @@
 .owner-portal-page #owner-inventory-table-wrap .owner-table{min-width:560px}
 .owner-portal-page #owner-inventory-table-wrap .owner-table th:first-child{width:46%}
 .owner-portal-page .owner-inventory-open{border:0;background:none;padding:0;text-align:left;color:inherit;cursor:pointer}
-.owner-portal-page .owner-card-thumb{display:grid;place-items:center;width:min(94px,70%);overflow:hidden;position:relative}
+.owner-portal-page .owner-card-thumb{display:grid;place-items:center;width:min(90px,70%);height:126px;max-height:100%;overflow:hidden;position:relative}
 .owner-portal-page .owner-card-thumb img{width:100%;height:100%;object-fit:contain;grid-area:1/1}
 .owner-portal-page .owner-image-placeholder{font-size:.68rem;text-align:center;grid-area:1/1;padding:8px}
 .owner-portal-page .owner-image-placeholder[hidden]{display:none}
