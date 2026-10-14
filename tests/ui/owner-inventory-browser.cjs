@@ -41,7 +41,18 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
     activateOwnerView('inventory',false);state.inventory.total=1;byId('owner-inventory-total-label').textContent='1';renderInventoryCards([item]);renderInventoryRows([item]);renderInventoryPagination();
    },item);
    await page.locator('.owner-card-thumb img').waitFor();
-   await page.waitForFunction(()=>document.querySelector('.owner-card-thumb img')?.naturalWidth>0);
+   await page.locator('.owner-card-thumb').scrollIntoViewIfNeeded();
+   try{
+    await page.waitForFunction(()=>document.querySelector('.owner-card-thumb img')?.naturalWidth>0);
+   }catch(error){
+    await page.screenshot({path:path.join(out,`image-failure-${viewport.width}.png`),fullPage:true});
+    console.error('Image load diagnostics',await page.locator('.owner-card-thumb').evaluate(n=>({
+      html:n.outerHTML,rect:n.getBoundingClientRect().toJSON(),viewport:[innerWidth,innerHeight],
+      ready:document.readyState,scroll:scrollY
+    })),errors);
+    throw error;
+   }
+   await page.evaluate(()=>scrollTo(0,0));
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Inventory overflows viewport');
    assert.equal(await page.locator('.owner-page-header').isVisible(),false,'Redundant inventory heading still occupies space');
    assert.equal(await page.locator('#owner-view-inventory .owner-section-header h2').innerText(),'Inventory');
