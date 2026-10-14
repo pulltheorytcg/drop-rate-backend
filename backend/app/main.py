@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
-from .db import create_pool
+from .db import DATABASE_WRITE_READY_SQL, create_pool
 from .seller_channel_sync import router as seller_channel_sync_router
 from .owner_inventory import router as owner_inventory_router
 from .owner_imports import router as owner_csv_imports_router
@@ -364,8 +364,13 @@ def create_app() -> FastAPI:
     async def ready(request: Request):
         try:
             async with request.app.state.db_pool.acquire() as connection:
-                value = await connection.fetchval("select 1")
-            if value != 1:
+                writable = await connection.fetchval(DATABASE_WRITE_READY_SQL)
+            if writable is False:
+                return JSONResponse(
+                    status_code=503,
+                    content={"status": "not_ready", "database": "read_only"},
+                )
+            if writable is not True:
                 raise RuntimeError("Unexpected readiness response")
         except Exception:
             return JSONResponse(status_code=503, content={"status": "not_ready", "database": "unavailable"})
