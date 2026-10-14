@@ -12,7 +12,7 @@ import asyncpg
 
 from app.catalogue_browser import GAMES_SQL,SETS_SQL,product_query
 from app.catalogue_maintenance import SHOPIFY_CANDIDATES
-from app.db import _init_connection
+from app.db import DATABASE_WRITE_READY_SQL, _init_connection
 from app.reference_sealed import save_sealed_set
 
 
@@ -54,6 +54,8 @@ async def main():
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261009144903_catalogue_daily_maintenance.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261009183154_catalogue_market_evidence.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261010120815_database_wide_reference_guides.sql').read_text())
+        await db.execute((Path(__file__).parents[1]/'database/migrations/20261014122734_reference_history_fx_refresh_guard.sql').read_text())
+        await db.execute((Path(__file__).parents[1]/'database/migrations/20261014152708_reference_history_archive_registry.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20260930124000_shopify_price_reconciliation.sql').read_text())
         actor=UUID('00000000-0000-0000-0000-000000000001');owner=uuid4()
         await db.execute("set role tcg_api")
@@ -287,6 +289,105 @@ async def main():
         assert digital['by_kind']['CARD']['priced']==digital['physical_cards']['priced']
         await db.execute("update tcg.reference_sets set name='Another physical release' where set_id='A1'")
         assert coverage_summary(await db.fetch(COVERAGE_SQL))['non_physical_cards']==0
+
+        # Reproduce the production growth bug against all three real triggers.
+        # Only FX retrieval time changes: current freshness must advance but
+        # immutable evidence must not accumulate duplicate observations.
+        await db.execute("set role tcg_api")
+        await db.execute("select set_config('tcg.user_id',$1,false)",str(actor))
+        for table,provider_id in (
+            ('reference_market_prices','sv01-001'),
+            ('reference_catalogue_prices','sv01-001'),
+            ('reference_sealed_market_prices','12'),
+        ):
+            predicate="system_code='POKEMON_TCG' and provider_id=$1"
+            original_history=await db.fetch('select id,quotes from tcg.reference_market_history order by id')
+            base_quote=(await db.fetchval(f'select quotes from tcg.{table} where {predicate}',provider_id))[0]
+            before=await db.fetchval('select count(*) from tcg.reference_market_history')
+            for minute in range(1,6):
+                repeated=dict(base_quote,fx_retrieved_at=(now+timedelta(minutes=minute)).isoformat())
+                await db.execute(f'update tcg.{table} set quotes=$2,checked_at=$3 where {predicate}',
+                                 provider_id,[repeated],now+timedelta(minutes=minute))
+            assert await db.fetchval('select count(*) from tcg.reference_market_history')==before,table
+            cached=await db.fetchval(f'select quotes from tcg.{table} where {predicate}',provider_id)
+            assert cached==[repeated],'Latest FX retrieval metadata was discarded from the cache'
+            assert await db.fetch('select id,quotes from tcg.reference_market_history order by id')==original_history
+            # Keep original prices, source dates, identity, eligibility, FX rate
+            # and FX publication changes in history even at the same GBP price.
+            evidence_changes={
+                'original_minor':999,'product_id':'different-product',
+                'observed_at':(now+timedelta(minutes=6)).isoformat(),
+                'fx_rate_to_gbp':'0.82','fx_effective_at':now.isoformat(),
+                'finish':'Reverse Holo','physical_valuation_eligible':False,
+                'reference_identity':{'name':'changed-reference'},
+            }
+            for field,value in evidence_changes.items():
+                repeated=dict(repeated,**{field:value})
+                await db.execute(f'update tcg.{table} set quotes=$2 where {predicate}',provider_id,[repeated])
+                before+=1
+                assert await db.fetchval('select count(*) from tcg.reference_market_history')==before,(table,field)
+            # A range/timestamp change is not an FX-only retry.
+            for column,value in (('market_value_high_minor',9999),('market_value_minor',7),
+                                 ('pricing_updated_at',now+timedelta(seconds=10))):
+                repeated=dict(repeated,fx_retrieved_at=str(uuid4()))
+                await db.execute(f'update tcg.{table} set quotes=$2,{column}=$3 where {predicate}',provider_id,[repeated],value)
+                before+=1
+                assert await db.fetchval('select count(*) from tcg.reference_market_history')==before,(table,column)
+            try:
+                await db.execute('delete from tcg.reference_market_history')
+                raise AssertionError('API deleted immutable history after the growth fix')
+            except asyncpg.InsufficientPrivilegeError:pass
+        # A connected primary may reject writes. Check real session and
+        # transaction read-only modes without attempting any business write.
+        assert await db.fetchval(DATABASE_WRITE_READY_SQL) is True
+        await db.execute('set default_transaction_read_only=on')
+        assert await db.fetchval(DATABASE_WRITE_READY_SQL) is False
+        await db.execute('set default_transaction_read_only=off')
+        async with db.transaction(readonly=True):
+            assert await db.fetchval(DATABASE_WRITE_READY_SQL) is False
+        assert await db.fetchval(DATABASE_WRITE_READY_SQL) is True
+
+        # Archival requires the admin role, complete content match and external
+        # restore receipt. A stale archive must never clear newly changed rows.
+        archive_call='select tcg.archive_verified_reference_history($1,$2,$3,$4,$5,$6,$7,$8)'
+        args=['disposable-ci-archive',now+timedelta(days=1),1,'0'*64,
+              'disposable-ci-file','https://drive.google.com/file/d/disposable-ci-file',
+              '1'*64,now]
+        try:
+            await db.fetchval(archive_call,*args)
+            raise AssertionError('API executed history archival')
+        except asyncpg.InsufficientPrivilegeError:pass
+        await db.execute('reset role')
+        cache_tables=['reference_market_prices','reference_catalogue_prices','reference_sealed_market_prices']
+        caches_before=[await db.fetch(f'select row_to_json(t)::text as row from tcg.{t} t order by row_to_json(t)::text') for t in cache_tables]
+        inventory_before=await db.fetch('select row_to_json(t)::text as row from tcg.inventory_items t order by id')
+        row=await db.fetchrow('''select count(*) as count,max(recorded_at) as cutoff,
+            encode(sha256(convert_to(string_agg(encode(sha256(convert_to(row_to_json(h)::text,'UTF8')),'hex'),'' order by id),'UTF8')),'hex') as root
+            from tcg.reference_market_history h''')
+        args[1]=row['cutoff'];args[2]=row['count'];args[3]=row['root']
+        for invalid_count,invalid_root in ((row['count']+1,row['root']),(row['count'],'0'*64)):
+            invalid=list(args);invalid[2]=invalid_count;invalid[3]=invalid_root
+            try:
+                await db.fetchval(archive_call,*invalid)
+                raise AssertionError('Mismatched backup cleared history')
+            except asyncpg.RaiseError:pass
+            assert await db.fetchval('select count(*) from tcg.reference_market_history')==row['count']
+        try:
+            async with db.transaction():
+                await db.execute("update tcg.reference_market_history set market_value_minor=coalesce(market_value_minor,0)+1 where id=(select id from tcg.reference_market_history limit 1)")
+                await db.fetchval(archive_call,*args)
+                raise AssertionError('Changed evidence passed the archive guard')
+        except asyncpg.RaiseError:pass
+        assert await db.fetchval(archive_call,*args)>0
+        assert await db.fetchval('select count(*) from tcg.reference_market_history')==0
+        assert await db.fetchval('select row_count from tcg.reference_history_archives where archive_id=$1',args[0])==row['count']
+        assert caches_before==[await db.fetch(f'select row_to_json(t)::text as row from tcg.{t} t order by row_to_json(t)::text') for t in cache_tables]
+        assert inventory_before==await db.fetch('select row_to_json(t)::text as row from tcg.inventory_items t order by id')
+        await db.execute('set role tcg_api')
+        try:
+            await db.fetch('select * from tcg.reference_history_archives')
+            raise AssertionError('API read private archive receipts')
+        except asyncpg.InsufficientPrivilegeError:pass
 
     finally:await db.close()
     print('PASS: real sealed query, replay, set previews, publication gating/backoff, price finalization/audit, migrations and RLS')

@@ -11,6 +11,15 @@ from asyncpg import Connection, Pool
 from .settings import Settings
 
 
+DATABASE_WRITE_READY_SQL = """
+select not (
+    pg_is_in_recovery()
+    or current_setting('transaction_read_only')::boolean
+    or current_setting('default_transaction_read_only')::boolean
+)
+"""
+
+
 def _encode_json(value: Any) -> str:
     """Encode JSON values without double-encoding existing serialized payloads."""
 
