@@ -202,7 +202,7 @@ def guide_quotes(ref, product, price, observed, conversion):
     return quotes
 
 
-async def refresh_dragon_ball_prices(pool, actor, fx):
+async def refresh_dragon_ball_prices(pool, actor, fx, *, cardtrader_client=None):
     report = {'checked':0,'matched':0,'priced':0,'provider_failures':0}
     now = datetime.now(timezone.utc)
     try:
@@ -212,8 +212,10 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
                 download(client,'productList/products_nonsingles_13.json',rows_key='products',now=now),
                 download(client,'priceGuide/price_guide_13.json',rows_key='priceGuides',now=now))
         async with user_connection(pool,actor,str(uuid4())) as connection:
-            references = [dict(r) for r in await connection.fetch('''select r.*,s.name as set_name
+            references = [dict(r) for r in await connection.fetch('''select r.*,s.name as set_name,
+                p.quotes->0->>'match_basis' as existing_match_basis
               from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
+              left join tcg.reference_market_prices p using(provider,system_code,language,provider_id)
               where r.provider='Bandai Official'
                 and (r.language='English' or
                      (r.language='Japanese' and r.system_code='DRAGON_BALL_SUPER_FUSION_WORLD'
@@ -279,6 +281,31 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
         if any(r['system_code']==FUSION and r['language']=='English' for r in references):
             report.update(fusion_numbered_recovered=len(numbered_recoveries),
                           fusion_numbered_conflicts=len(numbered_conflicts))
+        from .masters_cardtrader_market import cardtrader_matches, MATCH_BASIS as BRIDGE_BASIS
+        bridged, failed_bridge_sets = {}, {r['set_id'] for r in references}
+        if cardtrader_client is not None:
+            candidates, bridge_report, failed_bridge_sets = await cardtrader_matches(
+                cardtrader_client, references, singles, packaging, matches)
+            # A later adapter cannot revive an identity already rejected by
+            # two earlier sources. Also reject reused IDs across printings.
+            rejected = conflicts | numbered_conflicts | leader_conflicts
+            bridge_conflicts = {key for key, match in candidates.items() if key in matches
+                                and matches[key]['idProduct'] != match['product']['idProduct']}
+            claims = defaultdict(set)
+            for key, product in matches.items():
+                claims[product['idProduct']].add(key)
+            for key, match in candidates.items():
+                other_claims = claims[match['product']['idProduct']] - {key}
+                if other_claims:
+                    bridge_conflicts.update({key, *other_claims})
+            for key in bridge_conflicts:
+                matches.pop(key, None)
+            bridged = {key: match for key, match in candidates.items()
+                       if key not in rejected | bridge_conflicts and key not in matches}
+            matches.update({key: match['product'] for key, match in bridged.items()})
+            bridge_report.update(recovered=len(bridged), cross_source_conflicts=len(bridge_conflicts))
+            report['cardtrader_masters_bridge'] = bridge_report
+            report['provider_failures'] += bridge_report['provider_failures']
         jp_matches = matched_japanese_fb01(references,singles,packaging)
         multi_matches = match_regional_boosters(references,singles,packaging)
         jp_references = [ref for ref in references if ref['language']=='Japanese']
@@ -345,6 +372,15 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
                         quote.update(match_basis=LEADER_BASIS, physical_valuation_eligible=False,
                                      reference_face_ids=leader['reference_face_ids'],
                                      reference_face=leader['reference_face'])
+                bridge = bridged.get((ref['system_code'], ref['provider_id']))
+                if bridge:
+                    for quote in quotes:
+                        quote.update(bridge['proof'])
+            if (not quotes and ref['set_id'] in failed_bridge_sets and
+                    ref.get('existing_match_basis') == BRIDGE_BASIS):
+                # Provider failure is not negative evidence. Preserve the
+                # original quote and dates; never turn stale data into fresh.
+                continue
             # Never replace an unpriced Japanese reference with a null value
             # when this narrowly scoped regional expansion has no match.
             if ref['language']=='Japanese' and not quotes:
@@ -357,6 +393,9 @@ async def refresh_dragon_ball_prices(pool, actor, fx):
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await connection.executemany(WRITE_SQL,values[start:start+100])
         report['priced'] = sum(v[5] is not None for v in values)
+        if 'cardtrader_masters_bridge' in report:
+            report['cardtrader_masters_bridge']['priced'] = sum(
+                v[5] is not None and (v[1], v[3]) in bridged for v in values)
         if leader_recoveries:
             report['masters_leader_faces_priced'] = sum(
                 v[5] is not None and (v[1], v[3]) in leader_recoveries for v in values

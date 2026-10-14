@@ -36,7 +36,7 @@ from .shopify_client import ShopifyMediaScopeRequired
 log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
-REFERENCE_JOB_REVISION=20
+REFERENCE_JOB_REVISION=21
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
@@ -147,7 +147,12 @@ async def warm_prices(pool,actor,limit,cardtrader_api_token=''):
         else:
             report['pokemon_catalogue']=await refresh_pokemon_catalogue_prices(pool,actor,fx)
         report['one_piece']=await refresh_one_piece_prices(pool,actor,fx)
-        report['dragon_ball']=await refresh_dragon_ball_prices(pool,actor,fx)
+        if cardtrader_api_token:
+            report['dragon_ball']=await refresh_dragon_ball_prices(
+                pool,actor,fx,cardtrader_client=CardTraderClient(
+                    api_token=cardtrader_api_token,timeout_seconds=8))
+        else:
+            report['dragon_ball']=await refresh_dragon_ball_prices(pool,actor,fx)
         async with user_connection(pool,actor,str(uuid4())) as connection:
             rows=await connection.fetch('''select 'r:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)) as key
               from tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)
