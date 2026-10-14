@@ -32,6 +32,8 @@ Two-sided leader prints use both exact official filename/image identities, match
 
 Product claims are counted per paired printing, not per face; cross-source conflicts reject both faces. Existing ordinary guides retain their prior basis. Rarity changes invalidate these guides immediately in shared catalogue coverage, Seller Hub search and recognition, and block stale in-flight writes. The full local suite passes with the added leader cases (5,854 tests); real PostgreSQL CI also exercises rarity correction and the write/read guards before deployment.
 
+The first PostgreSQL check exposed a related search bug: an official Masters parallel such as `BT24-013_PR` was excluded from an exact printed-number query `BT24 013`. Search now includes all exact-number Masters `_PR` printings while retaining their separate identities and values. Other games and different numbers remain excluded. PostgreSQL tests cover spaced, hyphenated, compact and name searches, plus value sorting and the adjacent-number negative case.
+
 This repair is not a claim that every remaining game/language/parallel has eligible source data. Final production counts and remaining requirements will be recorded after the revision-22 refresh.
 
 ## Source contracts checked

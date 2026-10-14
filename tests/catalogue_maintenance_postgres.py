@@ -155,8 +155,15 @@ async def main():
         master_args=('Bandai Official','DRAGON_BALL_SUPER_MASTERS','English','428024:BT24-013_PR.png',
                      [master_quote],28105,28105,now,now,now+timedelta(days=1),*master_identity.values())
         await db.execute(ONE_PIECE_PRICE_SQL,*master_args)
-        sql,args=product_query(owner_id=owner,system_code='DRAGON_BALL_SUPER_MASTERS',q='SS2 Vegeta')
-        assert (await db.fetch(sql,*args))[0]['market_value_minor']==28105
+        for search in ('BT24 013','BT24-013','bt24013','SS2 Vegeta'):
+            for sort in ('newest','value_desc'):
+                sql,args=product_query(owner_id=owner,system_code='DRAGON_BALL_SUPER_MASTERS',q=search,sort=sort)
+                found=await db.fetch(sql,*args)
+                assert len(found)==1 and found[0]['provider_id']=='428024:BT24-013_PR.png'
+                assert found[0]['market_value_minor']==28105
+        sql,args=product_query(owner_id=owner,system_code='DRAGON_BALL_SUPER_MASTERS',q='BT24 014')
+        assert not await db.fetch(sql,*args),'Printed-number search leaked another number'
+        sql,args=product_query(owner_id=owner,system_code='DRAGON_BALL_SUPER_MASTERS',q='BT24 013')
         await db.execute("update tcg.reference_cards set rarity='Super Rare[SR]' where provider_id='428024:BT24-013_PR.png'")
         assert (await db.fetch(sql,*args))[0]['market_value_minor'] is None,'Changed rarity inherited old guide'
         assert not any(r['status']=='MIXED_LANGUAGE_GUIDE' for r in await db.fetch(COVERAGE_SQL)

@@ -345,6 +345,15 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
         if number_key and any(character.isdigit() for character in number_key):
             key = bind(number_key)
             number_match = f"lower(regexp_replace(coalesce(e.card_number,''),'[^A-Za-z0-9]','','g'))={key}"
+            if re.fullmatch(r'bt\d{4,5}', number_key):
+                # The official Masters importer retains its parallel filename
+                # suffix in card_number. A printed-number search should show
+                # each separate printing, without merging their identities.
+                number_match = f"""({number_match} or (
+                    e.source_kind='REFERENCE' and e.provider='Bandai Official'
+                    and e.system_code='DRAGON_BALL_SUPER_MASTERS'
+                    and e.card_number ~ '^BT[0-9]{{1,2}}-[0-9]{{2,3}}_PR[0-9]*$'
+                    and lower(regexp_replace(split_part(e.card_number,'_',1),'[^A-Za-z0-9]','','g'))={key}))"""
         # A complete Bandai collector number is an identity lookup. Splitting
         # 'EB04 007' into broad terms also matched set OP14-EB04/card 007.
         collector_query = re.fullmatch(r'(?:OP|ST|EB|PRB|FB|FS|BT|EX|P)[\s-]*\d{0,2}[\s-]+\d{3}|(?:OP|ST|EB|PRB|FB|FS|BT|EX)\d{5}', q.strip(), re.I)
