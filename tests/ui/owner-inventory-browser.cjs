@@ -12,7 +12,9 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
   for(const viewport of [{width:320,height:800},{width:390,height:844},{width:430,height:932},{width:1440,height:1000}]){
    const page=await browser.newPage({viewport,deviceScaleFactor:1}),errors=[];
    page.on('pageerror',e=>errors.push(e.message));
-   await page.route('**/*',async route=>{
+   // Only intercept network traffic. WebKit also routes blob: image requests;
+   // those are created by the real authenticated-image loader from fixture bytes.
+   await page.route(/^https?:\/\//,async route=>{
     const u=new URL(route.request().url());
     if(u.href===artwork)return route.fulfill({body:pack,contentType:'image/webp'});
     if(/^\/api\/v1\/inventory\/[^/]+\/image$/.test(u.pathname)){
