@@ -56,6 +56,8 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    }
    await page.evaluate(()=>scrollTo(0,0));
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Inventory overflows viewport');
+   assert.equal(await page.locator('#owner-inventory-status').evaluate(n=>getComputedStyle(n).colorScheme),'light',
+     'Native inventory controls must use the light inventory surface in Safari');
    assert.equal(await page.locator('.owner-page-header').isVisible(),false,'Redundant inventory heading still occupies space');
    assert.equal(await page.locator('#owner-view-inventory .owner-section-header h2').innerText(),'Inventory');
    assert.equal(await page.locator('#owner-view-inventory .owner-section-header p').innerText(),
@@ -159,6 +161,9 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    },item);
    const violations=await page.locator('.owner-inventory-card').evaluateAll(cards=>cards.flatMap((card,index)=>{
     const bounds=card.getBoundingClientRect(),issues=[];
+    const frame=card.querySelector('.owner-card-image-wrap').getBoundingClientRect();
+    const art=card.querySelector('.owner-card-thumb').getBoundingClientRect();
+    if(art.top<frame.top-1||art.bottom>frame.bottom+1)issues.push(`${index}: artwork exceeds its frame`);
     for(const node of card.querySelectorAll('.owner-card-title,.owner-card-prices,.owner-card-actions,button')){
      const r=node.getBoundingClientRect();
      if(r.left<bounds.left-1||r.right>bounds.right+1)issues.push(`${index}: ${node.className} clipped`);
