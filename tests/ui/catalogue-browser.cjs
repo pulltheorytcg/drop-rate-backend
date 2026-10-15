@@ -553,5 +553,40 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   for(const tile of tiles)assert.ok(tile.querySelector('.dr-browse-set-name').textContent.length);
   f.finish();checks++;
  }
+ // Curated publisher references never imply manufacturer image rights, price,
+ // stock ownership or automatically confirmed product language.
+ {
+  const manufacturer={...card,key:'s:'+'d'.repeat(32),provider:'Kayou Official',
+    provider_id:'NR-RDIV-Z001-NA',source_kind:'SEALED_REFERENCE',
+    system_code:'NARUTO_KAYOU',game:'Naruto Kayou',
+    name:'Naruto Heaven Scroll Series 1 · Version A Booster Box (24 packs)',
+    set_name:'Heaven Scroll · Series 1',
+    product_type:'SEALED',language:'Unknown',image_url:null,market_value_minor:null,
+    source_url:'https://www.kayouofficial.com/en-US/series/series-5zdty4vj'};
+  const f=fixture(async()=>({items:[manufacturer],has_more:false}));
+  f.browser.filters.system_code='NARUTO';f.browser.filters.product_type='SEALED';
+  await f.browser.load();
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Verified Kayou product/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Price unavailable/);
+  assert.equal(f.browser.find('.dr-browse-status').textContent,'');
+  f.browser.openProduct(manufacturer);
+  const link=f.browser.sheet.querySelector('.dr-browse-publisher-source');
+  assert.ok(link,'Official source link should be visible rather than unlicensed pack art');
+  assert.equal(link.href,manufacturer.source_url);
+  assert.equal(link.rel,'noopener noreferrer');
+  assert.equal(link.target,'_blank');
+  assert.match(f.browser.sheet.textContent,/Packaging photo pending/);
+  assert.match(f.browser.sheet.textContent,/confirm the exact product, language, edition and pack count/);
+  assert.equal(f.browser.sheet.querySelector('[data-add]').disabled,true);
+  f.finish();checks++;
+ }
+ // Never link to another publisher or untrusted spoofed Kayou URL.
+ {
+  const f=fixture();
+  f.browser.openProduct({...card,source_kind:'SEALED_REFERENCE',provider:'Kayou Official',
+    source_url:'https://www.kayouofficial.com.evil.test/en-US/series/series-5zdty4vj'});
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-publisher-source'),null);
+  f.finish();checks++;
+ }
  console.log('Catalogue browser: '+checks+' search, navigation, filter, ownership, session and retry scenarios passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
