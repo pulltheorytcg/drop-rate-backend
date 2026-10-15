@@ -59,6 +59,7 @@ from coverage group by kind,system_code,language,status order by kind,system_cod
 # happens to have scanned. Do not count USD context, stale prices or unresolved
 # mappings as verified GBP market values.
 PRICED_REFERENCE_STATUSES = frozenset({"REFERENCE_AVAILABLE", "MIXED_LANGUAGE_GUIDE"})
+PHYSICAL_CARD_COVERAGE_TARGET_BPS = 9500  # 95%, exact integer threshold
 # Actions describe the needed evidence, not a guarantee that it can be bought
 # or that a source permits redistribution in a user-facing marketplace.
 UNPRICED_REFERENCE_ACTIONS = {
@@ -118,6 +119,31 @@ def coverage_summary(rows):
         if status not in PRICED_REFERENCE_STATUSES and count > 0
     ]
     missing_reasons.sort(key=lambda item: (-item["count"], item["status"]))
+    physical_total = groups["CARD"]["total"] - digital_cards
+    physical_priced = groups["CARD"]["priced"]
+    physical_missing = groups["CARD"]["missing"] - digital_cards
+    if physical_total < 0 or physical_missing < 0 or physical_priced > physical_total:
+        raise ValueError("Invalid physical-card coverage totals")
+
+    # Never round a displayed percentage up to a passing 95% threshold.
+    minimum_priced = (physical_total * PHYSICAL_CARD_COVERAGE_TARGET_BPS + 9999) // 10000
+    remaining_to_target = max(0, minimum_priced - physical_priced)
+    target_by_game = []
+    for (kind, system, language), stats in sorted(by_game.items()):
+        if kind != "CARD":
+            continue
+        eligible = stats["total"] - stats["status_counts"].get("NOT_APPLICABLE_DIGITAL", 0)
+        if eligible <= 0:
+            continue
+        priced = stats["priced"]
+        required = (eligible * PHYSICAL_CARD_COVERAGE_TARGET_BPS + 9999) // 10000
+        target_by_game.append({
+            "system_code": system, "language": language, "eligible": eligible,
+            "priced": priced, "missing": eligible - priced,
+            "coverage_percent": round(priced * 100 / eligible, 2),
+            "additional_needed": max(0, required - priced),
+            "target_met": priced >= required,
+        })
     return {
         "by_kind": groups,
         # Preserve all-reference totals for comparison with earlier receipts.
@@ -128,6 +154,24 @@ def coverage_summary(rows):
             "missing": groups["CARD"]["missing"] - digital_cards,
         },
         "non_physical_cards": digital_cards,
+        "coverage_target": {
+            "scope": "GLOBAL_PHYSICAL_REFERENCE_CARDS",
+            "target_percent": PHYSICAL_CARD_COVERAGE_TARGET_BPS // 100,
+            "eligible": physical_total,
+            "priced": physical_priced,
+            "missing": physical_missing,
+            "minimum_priced": minimum_priced,
+            "additional_needed": remaining_to_target,
+            "coverage_percent": round(physical_priced * 100 / physical_total, 2)
+                if physical_total else 0.0,
+            "target_met": physical_total > 0 and physical_priced >= minimum_priced,
+            "priced_statuses": sorted(PRICED_REFERENCE_STATUSES),
+            "by_game_language": target_by_game,
+            "disclaimer": (
+                "This counts supported dated GBP reference values or explicitly labelled guides. "
+                "A guide is not an exact UK sold valuation; digital Pocket records are excluded."
+            ),
+        },
         "by_game": [
             {"kind": kind, "system_code": system, "language": language, **stats}
             for (kind, system, language), stats in sorted(by_game.items())
