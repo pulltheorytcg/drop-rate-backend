@@ -17,6 +17,7 @@ import httpx
 from .db import user_connection
 from .one_piece_market import SOURCE, WRITE_SQL, normalized
 from .reference_market import _minor
+from .market_guide_fields import choose_bulk_price_field
 from .sealed_market import download
 
 MASTERS = 'DRAGON_BALL_SUPER_MASTERS'
@@ -177,14 +178,17 @@ def guide_quotes(ref, product, price, observed, conversion):
     quotes = []
     for field,finish in (('trend','Normal'),('trend-foil','Holofoil')):
         try:
-            original = _minor(price.get(field))
+            selected = choose_bulk_price_field(price, field)
+            if selected is None:
+                continue
+            original, source_field = selected
             gbp = int((Decimal(original)*conversion.rate).quantize(Decimal('1'),rounding=ROUND_HALF_UP))
             if gbp <= 0:
                 continue
         except (ValueError,TypeError,ArithmeticError):
             continue
         quotes.append({'source':SOURCE,'product_id':str(product['idProduct']),
-            'expansion_id':product['idExpansion'],'source_field':field,'finish':finish,
+            'expansion_id':product['idExpansion'],'source_field':source_field,'finish':finish,
             'original_currency':'EUR','original_minor':original,'price_gbp_minor':gbp,
             'observed_at':observed.isoformat(),'valuation_role':'MIXED_LANGUAGE_REFERENCE',
             'physical_language_confirmed':False,'condition_specific':False,
@@ -196,6 +200,9 @@ def guide_quotes(ref, product, price, observed, conversion):
             'fx_rate_to_gbp':str(conversion.rate),'fx_source':conversion.source,
             'fx_effective_at':conversion.effective_at.isoformat(),
             'fx_retrieved_at':conversion.retrieved_at.isoformat()})
+    for quote in quotes:
+        if quote.get('source_field') in {'avg30','avg30-foil'}:
+            quote.update(guide_window_days=30, physical_valuation_eligible=False)
     if (ref['system_code'],ref['set_id'],ref['set_name']) in REFERENCE_RELEASE_ALIASES:
         for quote in quotes:
             quote['physical_valuation_eligible'] = False
