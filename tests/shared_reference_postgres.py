@@ -186,9 +186,12 @@ async def main():
      value=rows[0];displays.append(value['catalogue_reference'])
      assert value['market_value_minor'] is None and value['recommended_retail_minor'] is None
      detail=await client.get(f'/api/v1/owner/inventory/{guide_items[n]}',headers=headers(n))
-     assert detail.status_code==200,detail.text
-     assert detail.json()['item']['catalogue_reference']==value['catalogue_reference']
-     assert detail.json()['item']['store_price_minor']==500+n*100
+     if n==0:
+      assert detail.status_code==403,'Founder fixture has no seller portal membership'
+     else:
+      assert detail.status_code==200,detail.text
+      assert detail.json()['item']['catalogue_reference']==value['catalogue_reference']
+      assert detail.json()['item']['store_price_minor']==500+n*100
   assert displays[0]==displays[1] and displays[0]['market_value_minor']==85 and displays[0]['market_value_high_minor']==170
   assert before==await state(),'Catalogue display wrote a valuation or changed inventory'
   await db.execute("insert into tcg.provider_catalogue_mappings(catalogue_id,provider_language,match_status) values($1,'English','REJECTED')",guide_card)

@@ -1,6 +1,6 @@
 # Missing inventory market references — 15 October 2026
 
-The mobile layout repair did not fix pricing. A read-only live audit at 11:57 UTC
+The mobile layout repair did not fix pricing. A read-only live audit at 11:45 UTC
 found **620 inventory copies**: **333** with eligible shared physical-basis
 values, **282** unavailable and **5** needing details. The global catalogue had
 **40,443 priced physical references of 67,060**; its separate 2,480 digital

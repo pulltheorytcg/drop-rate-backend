@@ -141,12 +141,14 @@ def catalogue_guide(product, rows, language, *, now):
     detailed = [v for v in eligible if v[2]['source'].startswith('TCGDEX_')]
     eligible = detailed or eligible
     regional = any(v[2].get('valuation_role') == 'MIXED_NON_ENGLISH_REFERENCE' for v in eligible)
+    all_finishes = any(v[2]['source'] == 'CARDMARKET_CATALOGUE' for v in eligible)
     return {'status': 'CATALOGUE_GUIDE', 'currency': 'GBP',
             'market_value_minor': min(v[0] for v in eligible),
             'market_value_high_minor': max(v[0] for v in eligible),
             'checked_at': min(v[1] for v in eligible), 'basis': language + ' · Raw catalogue reference',
-            'label': 'Regional guide' if regional else 'Catalogue guide',
+            'label': 'Regional guide' if regional else 'All-finish guide' if all_finishes else 'Catalogue guide',
             'reason': ('Non-English regional guide; not a Japanese condition-specific sale.' if regional
+                       else 'Catalogue range across finishes, conditions and languages; not a valuation of this copy.' if all_finishes
                        else 'Cardmarket catalogue guide across conditions and languages; not a valuation of this copy.'),
             'reference_id': ':'.join(next(iter(identities))),
             'physical_valuation_eligible': False, 'recommended_retail_minor': None}
