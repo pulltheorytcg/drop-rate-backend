@@ -16,6 +16,7 @@ from .ownership import current_owner as _owner
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
 from .channel_sync_wakeup import request_shopify_sync
+from .inventory_display_groups import inventory_group_page
 from .db import user_connection
 from .physical_state import validate_physical_state
 from .inventory_reference_values import add_shared_reference_values
@@ -343,6 +344,7 @@ async def list_inventory(
     unlocated: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    group_copies: bool = False,
 ) -> dict:
     if storage_location_id is not None and unlocated:
         raise HTTPException(
@@ -389,13 +391,23 @@ async def list_inventory(
             filters.append("i.storage_location_id is null")
 
         where = " and ".join(filters)
-        total = await connection.fetchval(
-            f"""select count(*) from tcg.inventory_items i
-            join tcg.catalogue_products p on p.id = i.catalogue_id where {where}""",
-            *params,
-        )
+        copy_total = None
+        if group_copies:
+            total, copy_total, group_ids = await inventory_group_page(
+                connection, where, params, limit, offset
+            )
+            params.append(group_ids)
+            where += f" and i.id=any(${len(params)}::uuid[])"
+        else:
+            total = await connection.fetchval(
+                f"""select count(*) from tcg.inventory_items i
+                join tcg.catalogue_products p on p.id = i.catalogue_id where {where}""",
+                *params,
+            )
 
-        params.extend([limit, offset])
+        pagination = "" if group_copies else f"limit ${len(params)+1} offset ${len(params)+2}"
+        if not group_copies:
+            params.extend([limit, offset])
         rows = await connection.fetch(
             f"""
             select
@@ -450,7 +462,7 @@ async def list_inventory(
             left join tcg.ebay_inventory_links eil on eil.inventory_id = i.id
             where {where}
             order by i.updated_at desc, i.inventory_code
-            limit ${len(params) - 1} offset ${len(params)}
+            {pagination}
             """,
             *params,
         )
@@ -477,7 +489,8 @@ async def list_inventory(
         await add_shared_reference_values(connection, items)
         return jsonable_encoder(
             {"owner": dict(owner), "total": total, "limit": limit,
-             "offset": offset, "items": items}
+             "offset": offset, "items": items, "grouped": group_copies,
+             "copy_total": copy_total if group_copies else total}
         )
 
 

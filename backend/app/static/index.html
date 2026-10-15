@@ -169,6 +169,7 @@
         <label class="full-width">Notes<textarea id="edit-notes" maxlength="2000" rows="3"></textarea></label>
         <label class="check-field full-width"><input id="edit-identity" type="checkbox" disabled><span>Identity verification is managed in the Verify tab with an audit record.</span></label>
       </div>
+      <label id="edit-copy-label" hidden>Choose the copy to manage<select id="edit-copy" aria-label="Choose inventory copy"></select></label>
       <div id="editor-message" class="message" role="status"></div>
       <div class="modal-actions"><button id="approve-button" class="approve-button" type="button">Approve stock</button><button class="ghost-button" type="button" data-close="editor-dialog">Cancel</button><button class="primary-button compact" type="submit">Save changes</button></div>
     </form>
@@ -206,9 +207,10 @@
     </form>
   </dialog>
   <script src="/assets/hub-session.js?v=journey-v4" defer></script>
-  <script src="/assets/app.js?v=immediate-prices-v4" defer></script>
+  <script src="/assets/inventory-groups.js?v=copy-quantities-v1" defer></script>
+  <script src="/assets/app.js?v=copy-quantities-v5" defer></script>
   <script src="/assets/purchase-lots.js" defer></script>
-  <script src="/assets/inventory-state.js" defer></script>
+  <script src="/assets/inventory-state.js?v=copy-quantities-v2" defer></script>
   <script src="/assets/purchase-lot-management.js" defer></script>
   <script src="/assets/storage-locations.js" defer></script>
 </body>

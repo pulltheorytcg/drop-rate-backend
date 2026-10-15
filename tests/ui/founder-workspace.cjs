@@ -37,6 +37,30 @@ run(`renderInventory({total:1,owner:{display_name:'Fixture'},items:[{
 assert.equal(doc.querySelector('[data-market-value-cell]').textContent,'£1.32 · Near-mint reference','Table price is synchronous');
 assert.match(doc.getElementById('inventory-visual-grid').textContent,/£1.32 · Near-mint reference/,'Grid uses the same shared display');
 assert.equal(run(`window.inventoryRequests.filter(url=>url.includes('/market-values')).length`),0,'No duplicate pricing request');
+// Grouped rows must keep price alignment and select/edit the actual copies.
+run(`window.copyFixture={id:'00000000-0000-4000-8000-000000000101',catalogue_id:'raw-printing',
+ name:'Duplicate card',game:'One Piece',product_type:'CARD',inventory_code:'COPY-1',currency:'GBP',
+ status:'DRAFT',sale_intent:'PERSONAL_COLLECTION',condition:null,seal_status:null,version:1,market_value_minor:null,
+ reference_value:{status:'NEEDS_DETAILS'},catalogue_reference:{status:'CONDITION_REFERENCE',market_value_minor:132,label:'Near-mint reference'}};
+ window.copyTwo={...copyFixture,id:'00000000-0000-4000-8000-000000000102',inventory_code:'COPY-2',status:'APPROVED',sale_intent:'FOR_SALE'};
+ renderInventory({total:2,copy_total:3,grouped:true,owner:{display_name:'Fixture'},items:[copyFixture,copyTwo,
+ {...copyFixture,id:'00000000-0000-4000-8000-000000000103',catalogue_id:'other-printing',name:'Other card',market_value_minor:999,reference_value:null,catalogue_reference:null}]});`);
+assert.equal(doc.querySelectorAll('#inventory-body tr').length,2);
+assert.equal(doc.querySelectorAll('.inventory-visual-card').length,2);
+assert.match(doc.querySelector('.inventory-visual-card').textContent,/Qty 2/);
+assert.match(doc.querySelector('.inventory-visual-card').textContent,/Mixed status/);
+assert.deepEqual([...doc.querySelectorAll('[data-market-value-cell]')].map(n=>n.textContent),['£1.32 · Near-mint reference','£9.99']);
+doc.querySelector('.inventory-card-select input').click();
+assert.equal(run('state.selected.size'),2);
+assert.equal(run('state.selected.get(copyFixture.id) === copyFixture'),true,'Select original physical records');
+run('openInventoryCopies(DropRateInventoryGroups.group([copyFixture,copyTwo])[0])');
+assert.equal(doc.querySelector('#edit-copy').options.length,2);
+assert.equal(run('state.editing === copyFixture'),true,'Editor receives original data, not group projections');
+doc.querySelector('#edit-copy').value='00000000-0000-4000-8000-000000000102';
+doc.querySelector('#edit-copy').dispatchEvent(new dom.window.Event('change'));
+assert.equal(run('state.editing === copyTwo'),true);
+assert.equal(doc.querySelector('#edit-copy-label').hidden,false);
+doc.querySelector('#editor-dialog').close();run('state.selected.clear()');
 assert.equal(doc.querySelectorAll('.seller-nav-tab').length,5);
 assert.equal(doc.querySelector('#recognition-scanner-panel').closest('[data-seller-view]').dataset.sellerView,'intake');
 for(const id of ['new-inventory-button','import-inventory-button']){

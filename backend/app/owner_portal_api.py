@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .access_control import require_owner_portal_request
 from .auth import AuthenticatedUser, require_user
 from .brands import brand_sql
+from .inventory_display_groups import inventory_group_page
 from .db import user_connection
 from .ebay_sealed_pricing import refresh_verified_sealed_ebay_market
 from .grading_certificates import (
@@ -1050,6 +1051,7 @@ async def owner_inventory(
     status: str | None = Query(default=None, max_length=30),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    group_copies: bool = False,
 ) -> dict:
     owner_id = access["owner_id"]
     search_value = (search or "").strip()
@@ -1085,34 +1087,44 @@ async def owner_inventory(
         user.user_id,
         request.state.request_id,
     ) as connection:
-        total = await connection.fetchval(
-            f"""
-            select count(*)::int
-            from tcg.inventory_items i
-            join tcg.catalogue_products p on p.id=i.catalogue_id
-            left join tcg.sealed_product_details sd on sd.catalogue_id=p.id
-            left join lateral (
-                select a.value_code
-                from tcg.catalogue_taxonomy_assignments a
-                where a.catalogue_id=p.id
-                  and a.scope_kind='SEALED'
-                  and a.dimension_code='SEALED_TYPE'
-                order by
-                  case when a.verification_status='VERIFIED' then 0 else 1 end,
-                  a.created_at desc
-                limit 1
-            ) sealed_type on true
-            where {where}
-            """,
-            *params,
-        )
+        copy_total = None
+        if group_copies:
+            total, copy_total, group_ids = await inventory_group_page(
+                connection, where, params, limit, offset
+            )
+            params.append(group_ids)
+            where += f" and i.id=any(${len(params)}::uuid[])"
+        else:
+            total = await connection.fetchval(
+                f"""
+                select count(*)::int
+                from tcg.inventory_items i
+                join tcg.catalogue_products p on p.id=i.catalogue_id
+                left join tcg.sealed_product_details sd on sd.catalogue_id=p.id
+                left join lateral (
+                    select a.value_code
+                    from tcg.catalogue_taxonomy_assignments a
+                    where a.catalogue_id=p.id
+                      and a.scope_kind='SEALED'
+                      and a.dimension_code='SEALED_TYPE'
+                    order by
+                      case when a.verification_status='VERIFIED' then 0 else 1 end,
+                      a.created_at desc
+                    limit 1
+                ) sealed_type on true
+                where {where}
+                """,
+                *params,
+            )
 
-        page_params = [*params, limit, offset]
+        pagination = "" if group_copies else f"limit ${len(params)+1} offset ${len(params)+2}"
+        page_params = params if group_copies else [*params, limit, offset]
         rows = await connection.fetch(
             f"""
             select
                 i.inventory_code,
                 i.id,i.catalogue_id,i.version,i.sale_intent,
+                (nullif(btrim(i.certificate_number),'') is not null) as has_certificate,
                 p.product_type,
                 p.game,
                 {BRAND_SQL} as brand,
@@ -1130,6 +1142,7 @@ async def owner_inventory(
                 p.variant,
                 p.rarity,
                 coalesce(i.language,p.language) as language,
+                p.language as catalogue_language,
                 i.condition,
                 i.seal_status,
                 sealed_type.value_code as sealed_product_type,
@@ -1196,7 +1209,7 @@ async def owner_inventory(
             ) sealed_type on true
             where {where}
             order by i.updated_at desc,i.inventory_code
-            limit ${len(page_params)-1} offset ${len(page_params)}
+            {pagination}
             """,
             *page_params,
         )
@@ -1215,6 +1228,8 @@ async def owner_inventory(
             "limit": limit,
             "offset": offset,
             "items": items,
+            "grouped": group_copies,
+            "copy_total": copy_total if group_copies else int(total or 0),
         }
     )
 

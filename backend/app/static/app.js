@@ -574,7 +574,7 @@ function inventoryImageFigure(item) {
   figure.type = "button";
   figure.className = "inventory-card-art";
   figure.setAttribute("aria-label", `Review ${item.name}`);
-  figure.addEventListener("click", () => openEditor(item));
+  figure.addEventListener("click", () => openInventoryCopies(item));
 
   if (!item.card_image_url) {
     const empty = document.createElement("div");
@@ -671,11 +671,13 @@ function inventoryVisualCard(item) {
   selectWrap.className = "inventory-card-select";
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
-  checkbox.checked = state.selected.has(item.id);
+  checkbox.checked = (item.group_members || [item]).every(copy => state.selected.has(copy.id));
+  checkbox.indeterminate = !checkbox.checked && (item.group_members || [item]).some(copy => state.selected.has(copy.id));
   checkbox.setAttribute("aria-label", `Select ${item.name}`);
   checkbox.addEventListener("change", () => {
-    if (checkbox.checked) state.selected.set(item.id, item);
-    else state.selected.delete(item.id);
+    for (const copy of item.group_members || [item]) {
+      if (checkbox.checked) state.selected.set(copy.id, copy); else state.selected.delete(copy.id);
+    }
     refreshSelectionControls();
   });
   selectWrap.append(checkbox);
@@ -690,8 +692,8 @@ function inventoryVisualCard(item) {
   const title = document.createElement("button");
   title.type = "button";
   title.className = "inventory-card-title";
-  title.textContent = item.name;
-  title.addEventListener("click", () => openEditor(item));
+  title.textContent = item.name + (item.grouped_quantity > 1 ? ` · Qty ${item.grouped_quantity}` : "");
+  title.addEventListener("click", () => openInventoryCopies(item));
   const subtitle = document.createElement("p");
   subtitle.textContent = [
     item.set_name,
@@ -703,19 +705,20 @@ function inventoryVisualCard(item) {
   titleWrap.append(title, subtitle);
 
   const status = document.createElement("span");
-  status.className = `pill ${String(item.status || "").toLowerCase()}`;
-  status.textContent = item.status
+  status.className = `pill ${item.group_status_label === "Mixed status" ? "mixed" : String(item.status || "").toLowerCase()}`;
+  status.textContent = item.group_status_label === "Mixed status" ? item.group_status_label : item.status
     ? item.status.charAt(0) + item.status.slice(1).toLowerCase()
     : "Unknown";
+  status.title = item.group_status_description || "";
   heading.append(titleWrap, status);
   body.append(heading);
 
   const valueRow = document.createElement("div");
   valueRow.className = "inventory-card-values";
   const values = [
-    ["Market", window.DropRateReferenceValue.text(item, value => money(value, item.currency))],
-    ["Store", money(item.store_price_minor, item.currency)],
-    ["Cost", money(item.acquisition_cost_minor, item.currency)],
+    [item.grouped_quantity > 1 ? "Market · each" : "Market", window.DropRateReferenceValue.text(item, value => money(value, item.currency))],
+    ["Store", window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", value => money(value, item.currency))],
+    ["Cost", window.DropRateInventoryGroups.moneyRange(item, "acquisition_cost_minor", value => money(value, item.currency))],
   ];
   values.forEach(([label, value]) => {
     const box = document.createElement("div");
@@ -731,13 +734,13 @@ function inventoryVisualCard(item) {
   const facts = document.createElement("div");
   facts.className = "inventory-card-facts";
   const factValues = [
-    ["Inventory", item.inventory_code],
-    ["Intent", item.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "For sale"],
+    ["Inventory", item.grouped_quantity > 1 ? `${item.grouped_quantity} copies` : item.inventory_code],
+    ["Intent", item.group_members?.some(copy => copy.sale_intent !== item.sale_intent) ? "Mixed · choose a copy" : item.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "For sale"],
     ["Condition", item.grade
       ? [item.grading_company || "Graded", item.grade].filter(Boolean).join(" ")
       : (item.condition || "—")],
-    ["Location", item.storage_location_label || item.location || "—"],
-    ["Identity", item.identity_confirmed ? "Confirmed" : "Needs verification"],
+    ["Location", item.group_members?.some(copy => copy.storage_location_id !== item.storage_location_id || copy.location !== item.location) ? "Multiple locations" : item.storage_location_label || item.location || "—"],
+    ["Identity", item.group_members?.some(copy => !copy.identity_confirmed) ? "Some copies need verification" : item.identity_confirmed ? "Confirmed" : "Needs verification"],
   ];
   factValues.forEach(([label, value]) => {
     const row = document.createElement("div");
@@ -753,7 +756,7 @@ function inventoryVisualCard(item) {
   const readiness = itemCoreReadiness(item);
   const readinessLine = document.createElement("span");
   readinessLine.className = `core-readiness${readiness.complete === readiness.total ? " complete" : ""}`;
-  readinessLine.textContent = item.sale_intent === "PERSONAL_COLLECTION"
+  readinessLine.textContent = item.grouped_quantity > 1 ? item.group_status_description : item.sale_intent === "PERSONAL_COLLECTION"
     ? "Personal collection · not for sale"
     : readiness.complete === readiness.total
       ? `Core ${readiness.complete}/${readiness.total} ✓`
@@ -766,9 +769,13 @@ function inventoryVisualCard(item) {
   review.className = "primary-button compact";
   review.type = "button";
   review.textContent = "Review";
-  review.addEventListener("click", () => openEditor(item));
-  actions.append(review, saleIntentAction(item));
-  if (item.product_type === "CARD") actions.append(ebayInventoryAction(item));
+  review.addEventListener("click", () => openInventoryCopies(item));
+  if (item.grouped_quantity > 1) {
+    review.textContent = "Manage copies"; actions.append(review);
+  } else {
+    actions.append(review, saleIntentAction(item));
+    if (item.product_type === "CARD") actions.append(ebayInventoryAction(item));
+  }
   body.append(actions);
 
   card.append(body);
@@ -778,24 +785,28 @@ function inventoryVisualCard(item) {
 function renderInventory(data) {
   state.total = data.total;
   state.items = new Map(data.items.map((item) => [item.id, item]));
-  byId("total-count").textContent = state.readiness?.total?.toLocaleString("en-GB") || data.total.toLocaleString("en-GB");
+  byId("total-count").textContent = state.readiness?.total?.toLocaleString("en-GB") || (data.copy_total ?? data.total).toLocaleString("en-GB");
   byId("owner-name").textContent = data.owner.display_name;
   byId("owner-initial").textContent = data.owner.display_name.slice(0, 1).toUpperCase();
   const body = byId("inventory-body");
   const visualGrid = byId("inventory-visual-grid");
   body.replaceChildren();
   visualGrid.replaceChildren();
-  data.items.forEach((item) => {
+  const displayItems = data.display_items = window.DropRateInventoryGroups.group(data.items);
+  displayItems.forEach((item) => {
     visualGrid.append(inventoryVisualCard(item));
     const row = document.createElement("tr");
     const selectCell = document.createElement("td");
     selectCell.dataset.label = "Select";
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.checked = state.selected.has(item.id);
+    checkbox.checked = (item.group_members || [item]).every(copy => state.selected.has(copy.id));
+    checkbox.indeterminate = !checkbox.checked && (item.group_members || [item]).some(copy => state.selected.has(copy.id));
     checkbox.setAttribute("aria-label", `Select ${item.name}`);
     checkbox.addEventListener("change", () => {
-      if (checkbox.checked) state.selected.set(item.id, item); else state.selected.delete(item.id);
+      for (const copy of item.group_members || [item]) {
+        if (checkbox.checked) state.selected.set(copy.id, copy); else state.selected.delete(copy.id);
+      }
       refreshSelectionControls();
     });
     selectCell.append(checkbox);
@@ -805,7 +816,7 @@ function renderInventory(data) {
     const wrap = document.createElement("div");
     wrap.className = "card-name";
     const strong = document.createElement("strong");
-    strong.textContent = item.name;
+    strong.textContent = item.name + (item.grouped_quantity > 1 ? ` · Qty ${item.grouped_quantity}` : "");
     const meta = document.createElement("small");
     const productLabel = item.product_type === "SEALED"
       ? "Sealed product"
@@ -819,11 +830,11 @@ function renderInventory(data) {
     ].filter(Boolean).join(" · ") || "Uncatalogued";
     const code = document.createElement("span");
     code.className = "code";
-    code.textContent = item.inventory_code;
+    code.textContent = item.grouped_quantity > 1 ? `${item.grouped_quantity} physical copies` : item.inventory_code;
     const readiness = itemCoreReadiness(item);
     const readinessLine = document.createElement("span");
     readinessLine.className = `core-readiness${readiness.complete === readiness.total ? " complete" : ""}`;
-    readinessLine.textContent = item.sale_intent === "PERSONAL_COLLECTION"
+    readinessLine.textContent = item.grouped_quantity > 1 ? item.group_status_description : item.sale_intent === "PERSONAL_COLLECTION"
       ? "Personal collection · not for sale"
       : readiness.complete === readiness.total
         ? `Core ${readiness.complete}/${readiness.total} ✓`
@@ -835,15 +846,16 @@ function renderInventory(data) {
     row.append(textCell("Condition", item.product_type === "CARD" && !item.grade ? (item.condition || "—") : "—"));
     row.append(textCell("Grading", item.product_type === "CARD" && item.grade ? `${item.grading_company || "Graded"} ${item.grade}` : "—"));
     row.append(textCell("Seal", item.product_type !== "CARD" ? (item.seal_status === "SEALED" ? "Sealed" : item.seal_status === "UNSEALED" ? "Unsealed" : "—") : "—"));
-    row.append(textCell("Cost", money(item.acquisition_cost_minor, item.currency)));
-    row.append(textCell("Store price", money(item.store_price_minor, item.currency)));
+    row.append(textCell("Cost", window.DropRateInventoryGroups.moneyRange(item, "acquisition_cost_minor", value => money(value, item.currency))));
+    row.append(textCell("Store price", window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", value => money(value, item.currency))));
     const status = document.createElement("td");
     status.dataset.label = "Status";
     const pill = document.createElement("span");
-    pill.className = `pill ${item.status.toLowerCase()}`;
-    pill.textContent = item.status.charAt(0) + item.status.slice(1).toLowerCase();
+    pill.className = `pill ${item.group_status_label === "Mixed status" ? "mixed" : item.status.toLowerCase()}`;
+    pill.textContent = item.group_status_label === "Mixed status" ? item.group_status_label : item.status.charAt(0) + item.status.slice(1).toLowerCase();
+    pill.title = item.group_status_description || "";
     status.append(pill);
-    if (item.sale_intent === "PERSONAL_COLLECTION") {
+    if (item.sale_intent === "PERSONAL_COLLECTION" && !item.group_members?.some(copy => copy.sale_intent !== item.sale_intent)) {
       const intent = document.createElement("span");
       intent.className = "channel-status ended";
       intent.textContent = "Personal";
@@ -857,9 +869,10 @@ function renderInventory(data) {
     edit.className = "row-button";
     edit.type = "button";
     edit.textContent = "Review";
-    edit.addEventListener("click", () => openEditor(item));
-    actions.append(edit, saleIntentAction(item));
-    if (item.product_type === "CARD" && item.identity_confirmed) {
+    edit.addEventListener("click", () => openInventoryCopies(item));
+    if (item.grouped_quantity > 1) { edit.textContent = "Manage copies"; actions.append(edit); }
+    else actions.append(edit, saleIntentAction(item));
+    if (item.grouped_quantity <= 1 && item.product_type === "CARD" && item.identity_confirmed) {
       const preview = document.createElement("button");
       preview.className = "row-button";
       preview.type = "button";
@@ -868,7 +881,7 @@ function renderInventory(data) {
       preview.addEventListener("click", () => openFiveSoldPreview(item));
       actions.append(preview);
     }
-    if (item.product_type === "CARD") actions.append(ebayInventoryAction(item));
+    if (item.grouped_quantity <= 1 && item.product_type === "CARD") actions.append(ebayInventoryAction(item));
     row.append(actions);
     body.append(row);
   });
@@ -962,7 +975,7 @@ async function loadBrandOptions() {
 
 async function loadInventory() {
   showMessage("inventory-message", "Loading inventory…");
-  const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(state.offset) });
+  const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(state.offset), group_copies: "true" });
   if (state.search) params.set("search", state.search);
   if (state.status) params.set("status", state.status);
   if (state.brand) params.set("brand", state.brand);
@@ -981,7 +994,27 @@ async function reloadDashboard(message = "") {
   if (message) showMessage("inventory-message", message, "success");
 }
 
+function openInventoryCopies(item) {
+  const copies = item.group_members || [item];
+  const selected = copies.find(copy => copy.id === item.id) || copies[0];
+  openEditor(selected);
+  const label = byId("edit-copy-label"), select = byId("edit-copy");
+  label.hidden = copies.length < 2;
+  select.replaceChildren();
+  copies.forEach(copy => {
+    const option = document.createElement("option"); option.value = copy.id;
+    option.textContent = `${copy.inventory_code} · ${copy.status} · ${copy.sale_intent === "PERSONAL_COLLECTION" ? "Personal collection" : "For sale"}`;
+    select.append(option);
+  });
+  select.value = selected.id;
+  select.onchange = () => {
+    openEditor(copies.find(copy => copy.id === select.value));
+    label.hidden = false;
+  };
+}
+
 function openEditor(item) {
+  byId("edit-copy-label").hidden = true;
   state.editing = item;
   byId("editor-title").textContent = item.name;
   const productLabel = item.product_type === "SEALED"

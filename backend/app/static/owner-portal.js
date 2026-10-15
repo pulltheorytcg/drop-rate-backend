@@ -44,6 +44,7 @@ function statusClass(value) {
 
 function inventoryCardSubtitle(item) {
   return [
+    item.product_type === "CARD" ? (conditionLabel(item) === "—" ? "Condition not specified" : conditionLabel(item)) : "",
     safeText(item.set_name, ""),
     item.card_number ? `#${item.card_number}` : "",
     safeText(item.variant, ""),
@@ -99,48 +100,9 @@ function createCardImage(item, className) {
   return wrap;
 }
 
-// A collection tile represents interchangeable physical copies, not a Shopify
-// variant or a change of ownership. Leave identity, prices and reservation
-// decisions to PostgreSQL/FastAPI. Never pool graded, non-sealed or mixed stock.
+// The API pages complete groups; the same display helper is used in Founder HQ.
 function ownerInventoryDisplayGroups(items) {
-  const grouped=new Map(),result=[];
-  for(const original of items){
-    const item={...original};
-    const eligible=Boolean(item.catalogue_id) &&
-      ["SEALED","COLLECTION"].includes(item.product_type) &&
-      item.seal_status==="SEALED" && item.status==="APPROVED" &&
-      item.sale_intent==="FOR_SALE" && !item.grading_company && !item.grade &&
-      !item.certificate_number && item.store_price_minor!=null;
-    const signature=eligible?JSON.stringify([
-      item.catalogue_id,item.product_type,item.sealed_product_type||"",
-      item.language||"",item.seal_status,item.condition||"",item.variant||"",
-      item.status,item.sale_intent,item.store_price_minor
-    ]):"item:"+item.id;
-    const previous=grouped.get(signature);
-    const valued=Number.isInteger(item.market_value_minor);
-    if(!previous){
-      item.grouped_quantity=1;
-      item.group_valued_count=valued?1:0;
-      item.group_member_ids=[item.id];
-      item.group_unvalued_code=!valued&&item.can_refresh_market?item.inventory_code:null;
-      grouped.set(signature,item);result.push(item);
-      continue;
-    }
-    previous.grouped_quantity++;
-    previous.group_member_ids.push(item.id);
-    if(valued) {
-      previous.group_valued_count++;
-      // Show one evidenced physical-copy value, never manufacture a valuation
-      // for a second item whose valuation is still pending.
-      if(previous.market_value_minor==null){
-        previous.market_value_minor=item.market_value_minor;
-        previous.pricing_method=item.pricing_method;
-      }
-    }
-    if(!valued&&item.can_refresh_market)previous.group_unvalued_code=item.inventory_code;
-    previous.can_refresh_market=Boolean(previous.can_refresh_market||item.can_refresh_market);
-  }
-  return result;
+  return window.DropRateInventoryGroups.group(items);
 }
 
 function renderInventoryRows(items) {
@@ -185,19 +147,23 @@ function renderInventoryRows(items) {
 
     const statusCell = document.createElement("td");
     const status = document.createElement("span");
-    status.className = `owner-status-pill ${statusClass(item.status)}`;
-    status.textContent = safeText(item.status);
+    status.className = `owner-status-pill ${statusClass(item.group_status_label === "Mixed status" ? "mixed" : item.status)}`;
+    status.textContent = safeText(item.group_status_label || item.status);
+    status.title = item.group_status_description || "";
     statusCell.append(status);
 
     const marketCell = document.createElement("td");
     marketCell.textContent = item.reference_value ? window.DropRateReferenceValue.text(item, formatMoney) : item.market_value_minor == null
       ? "Value pending"
       : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"");
-    if((item.grouped_quantity||1)>1 && item.group_valued_count<item.grouped_quantity)
+    if((item.grouped_quantity||1)>1 && item.group_valued_count>0 && item.group_valued_count<item.grouped_quantity)
       marketCell.append(document.createTextNode(" · "+item.group_valued_count+"/"+item.grouped_quantity+" copies valued"));
     const storeCell = document.createElement("td");
     const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
-    storeCell.textContent = storeValue == null ? "—" : formatMoney(storeValue);
+    const storeText = (item.grouped_quantity || 1) > 1
+      ? window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", formatMoney)
+      : storeValue == null ? "—" : formatMoney(storeValue);
+    storeCell.textContent = storeText;
 
     row.append(cardCell, statusCell, marketCell, storeCell);
     body.append(row);
@@ -258,27 +224,31 @@ function renderInventoryCards(items) {
     subtitle.textContent = inventoryCardSubtitle(item);
     title.append(name, subtitle);
     const status = document.createElement("span");
-    status.className = `owner-status-pill ${statusClass(item.status)}`;
-    status.textContent = safeText(item.status);
+    status.className = `owner-status-pill ${statusClass(item.group_status_label === "Mixed status" ? "mixed" : item.status)}`;
+    status.textContent = safeText(item.group_status_label || item.status);
+    status.title = item.group_status_description || "";
     heading.append(title, status);
 
     const prices = document.createElement("div");
     prices.className = "owner-card-prices";
     const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
-    const storeLabel = item.store_price_minor == null && item.recommended_retail_minor != null
+    const storeText = (item.grouped_quantity || 1) > 1
+      ? window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", formatMoney)
+      : storeValue == null ? "—" : formatMoney(storeValue);
+    const storeLabel = (item.grouped_quantity || 1) === 1 && item.store_price_minor == null && item.recommended_retail_minor != null
       ? "Recommended retail"
       : "Store price";
     for (const [labelText, valueText] of [
       ["Market value", item.reference_value ? window.DropRateReferenceValue.text(item, formatMoney) : item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"")],
-      [storeLabel, storeValue == null ? "—" : formatMoney(storeValue)],
+      [storeLabel, storeText],
     ]) {
       const box = document.createElement("div");
       const label = document.createElement("span");
-      label.textContent = labelText;
+      label.textContent = labelText === "Market value" && item.grouped_quantity > 1 ? "Market value · each" : labelText;
       const value = document.createElement("strong");
       value.textContent = valueText;
       box.append(label, value);
-      if(labelText==="Market value" && (item.grouped_quantity||1)>1){
+      if(labelText==="Market value" && (item.grouped_quantity||1)>1 && item.group_valued_count>0){
         const note=document.createElement("small");
         note.className="owner-card-value-coverage";
         note.textContent=item.group_valued_count+"/"+item.grouped_quantity+" copies valued";
@@ -365,7 +335,8 @@ function renderOverviewLatestInventory(items) {
     const detail = document.createElement("span");
     detail.textContent = inventoryCardSubtitle(item);
     const status = document.createElement("small");
-    status.textContent = safeText(item.status);
+    status.textContent = safeText(item.group_status_label || item.status);
+    status.title = item.group_status_description || "";
     copy.append(name, detail, status);
     card.append(copy);
     container.append(card);
@@ -698,7 +669,7 @@ function renderInventoryPagination() {
   const start = total ? offset + 1 : 0;
   const end = Math.min(offset + limit, total);
   byId("owner-inventory-page").textContent = total
-    ? `${start}–${end} of ${total}`
+    ? `${start}–${end} of ${total} entries`
     : "0 items";
   byId("owner-inventory-prev").disabled = offset <= 0;
   byId("owner-inventory-next").disabled = offset + limit >= total;
@@ -759,6 +730,7 @@ async function loadOwnerInventory() {
   const params = new URLSearchParams({
     limit: String(state.inventory.limit),
     offset: String(state.inventory.offset),
+    group_copies: "true",
   });
   if (state.inventory.search) params.set("search", state.inventory.search);
   if (state.inventory.status) params.set("status", state.inventory.status);
@@ -774,12 +746,13 @@ async function loadOwnerInventory() {
   const totalLabel = byId("owner-inventory-total-label");
   if (totalLabel) {
     totalLabel.textContent = displayGroups.length.toLocaleString("en-GB");
-    const units = state.inventory.total.toLocaleString("en-GB");
-    const fullyLoaded = state.inventory.offset===0 && items.length>=state.inventory.total;
+    const copyTotal = Number(data.copy_total ?? data.total ?? 0);
+    const units = copyTotal.toLocaleString("en-GB");
+    const fullyLoaded = state.inventory.offset===0 && (data.grouped ? displayGroups.length : items.length)>=state.inventory.total;
     if(totalLabel.nextElementSibling)
       totalLabel.nextElementSibling.textContent =
         (fullyLoaded? (displayGroups.length===1?"product":"products") : "products shown")+
-        " · "+units+" "+(state.inventory.total===1?"copy":"copies");
+        " · "+units+" "+(copyTotal===1?"copy":"copies");
   }
   if (state.inventory.offset === 0 && !state.inventory.search && !state.inventory.status) {
     renderOverviewLatestInventory(displayGroups);

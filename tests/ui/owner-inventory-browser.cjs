@@ -32,7 +32,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
     return route.abort();
    });
    await page.goto('http://127.0.0.1:4178/owner');
-   for(const name of ['hub-session.js','reference-value-display.js','owner-inventory.js','owner-portal.js','workspace-shell.js','collector-worlds.js'])await page.addScriptTag({content:fs.readFileSync(path.join(base,name),'utf8').replace(/\ninitialise\(\);\s*$/,'')});
+   for(const name of ['hub-session.js','reference-value-display.js','inventory-groups.js','owner-inventory.js','owner-portal.js','workspace-shell.js','collector-worlds.js'])await page.addScriptTag({content:fs.readFileSync(path.join(base,name),'utf8').replace(/\ninitialise\(\);\s*$/,'')});
    await page.evaluate(item=>{
     window.fixtureItem=item;
     state.session={access_token:'isolated-fixture',user:{id:'fixture-seller'}};
@@ -145,6 +145,23 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.ok(groupedBox&&groupedBox.height<425,`Grouped card is ${groupedBox?.height}px at ${viewport.width}px`);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Grouped inventory overflows viewport');
    await page.screenshot({path:path.join(out,`inventory-grouped-${viewport.width}.png`),fullPage:true});
+
+   await page.evaluate(original=>{
+    const raw={...original,product_type:'CARD',seal_status:null,condition:null,language:'English',
+      name:'Capone"Gang"Bege (101)',card_number:'OP11-101',market_value_minor:null,
+      reference_value:{status:'NEEDS_DETAILS'},catalogue_reference:{status:'CONDITION_REFERENCE',market_value_minor:132,label:'Near-mint reference'}};
+    const copies=[raw,{...raw,id:'raw-copy-2',status:'APPROVED'},
+      {...raw,id:'nm',condition:'Near Mint'},
+      {...raw,id:'slab-1',grading_company:'PSA',grade:'10'},
+      {...raw,id:'slab-2',grading_company:'PSA',grade:'10'}];
+    renderInventoryCards(ownerInventoryDisplayGroups(copies));renderInventoryRows(ownerInventoryDisplayGroups(copies));
+   },item);
+   assert.equal(await page.locator('.owner-inventory-card').count(),4);
+   assert.equal(await page.locator('.owner-card-quantity').innerText(),'×2');
+   assert.match(await page.locator('.owner-inventory-card').first().innerText(),/£1.32/);
+   assert.match(await page.locator('.owner-inventory-card').first().innerText(),/Mixed status/i);
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Raw quantities overflow');
+   await page.screenshot({path:path.join(out,`raw-copy-quantities-${viewport.width}.png`),fullPage:true});
 
    // Page-level overflow checks miss controls clipped by an overflow:hidden card.
    // Exercise the actual narrow-card actions with mixed statuses and long values.

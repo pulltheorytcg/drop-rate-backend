@@ -34,7 +34,7 @@
         cell.dataset.label = "Market value";
         row.insertBefore(cell, storePriceCell);
       }
-      const item = data.items[index];
+      const item = (data.display_items || data.items)[index];
       if (!item) return;
       cell.dataset.inventoryId = item.id;
       // The authorized inventory response already contains the shared price.

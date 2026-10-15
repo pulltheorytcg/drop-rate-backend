@@ -79,7 +79,6 @@ def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
     forbidden = (
         "acquisition_cost_minor",
         "acquisition_date",
-        "certificate_number",
         "storage_location_id",
         "storage_location_code",
         "storage_location_label",
@@ -92,6 +91,8 @@ def test_owner_inventory_response_is_an_explicit_safe_allowlist() -> None:
         "last_error_code",
         "identity_confirmed",
     )
+    assert "(nullif(btrim(i.certificate_number),'') is not null) as has_certificate" in query
+    assert query.count("certificate_number") == 1, "Only a presence flag, never the certificate value"
     for field in forbidden:
         assert field not in query
 
@@ -139,10 +140,13 @@ def test_owner_inventory_and_channels_bind_pagination_parameters() -> None:
     inventory = source[inventory_start:inventory_end]
     channels = source[channels_start:channels_end]
 
-    for block in (inventory, channels):
-        assert "page_params = [*params, limit, offset]" in block
-        assert 'limit ${len(page_params)-1} offset ${len(page_params)}' in block
-        assert 'limit {len(page_params)-1} offset {len(page_params)}' not in block
+    assert "page_params = [*params, limit, offset]" in channels
+    assert 'limit ${len(page_params)-1} offset ${len(page_params)}' in channels
+    assert 'page_params = params if group_copies else [*params, limit, offset]' in inventory
+    assert 'limit ${len(params)+1} offset ${len(params)+2}' in inventory
+    assert 'inventory_group_page(' in inventory
+    assert 'where += f" and i.id=any(${len(params)}::uuid[])"' in inventory
+
 
 
 def test_owner_inventory_can_render_governed_sealed_product_media() -> None:
