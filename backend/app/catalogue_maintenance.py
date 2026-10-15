@@ -19,6 +19,7 @@ from .access_control import require_platform_admin
 from .cardtrader_client import CardTraderClient
 from .db import user_connection
 from .fx import EcbHistoricalFxProvider
+from .database_capacity import check_database_capacity
 from .reference_feeds import ReferenceFeeds
 from .reference_library import save_reference_set
 from .reference_market import REVISION, refresh_reference_prices
@@ -213,6 +214,13 @@ async def daily_pass(pool,settings):
         try:
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await require_platform_admin(connection)
+                capacity = await check_database_capacity(connection)
+                if not capacity.refresh_allowed:
+                    # Preserve all cached prices and history. An unattended
+                    # full catalogue refresh could cross the Free quota before
+                    # verified cold archival. Exit under the existing lock.
+                    log.error('CATALOGUE_BULK_REFRESH_DEFERRED %s', json.dumps(capacity.report(), sort_keys=True))
+                    return
                 runs=await connection.fetch('select distinct on(source) source,started_at,status,report from tcg.reference_sync_runs order by source,started_at desc')
                 jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES') order by job,started_at desc")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
