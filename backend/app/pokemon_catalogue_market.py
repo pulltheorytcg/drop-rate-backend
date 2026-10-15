@@ -19,6 +19,7 @@ import httpx
 
 from .db import user_connection
 from .reference_market import _minor
+from .market_guide_fields import choose_bulk_price_field
 from .sealed_market import download
 
 SOURCE = 'CARDMARKET_CATALOGUE'
@@ -129,14 +130,20 @@ def quotes_for(ref, product, price, observed, conversion):
     quotes = []
     for field, label in (('trend','Printing guide'), ('trend-holo','Alternative foil guide')):
         try:
-            original = _minor(price.get(field))
+            if field == 'trend':
+                selected = choose_bulk_price_field(price, field)
+                if selected is None:
+                    continue
+                original, source_field = selected
+            else:
+                original, source_field = _minor(price.get(field)), field
             gbp = int((Decimal(original)*conversion.rate).quantize(Decimal('1'),rounding=ROUND_HALF_UP))
             if gbp <= 0:
                 continue
         except (ValueError,TypeError,ArithmeticError):
             continue
         quotes.append({'source':SOURCE,'product_id':str(product['idProduct']),
-            'expansion_id':product['idExpansion'],'source_field':field,
+            'expansion_id':product['idExpansion'],'source_field':source_field,
             'original_currency':'EUR','original_minor':original,'price_gbp_minor':gbp,
             'observed_at':observed.isoformat(),'finish':label,
             'valuation_role':'MIXED_LANGUAGE_REFERENCE','physical_language_confirmed':False,
@@ -145,7 +152,9 @@ def quotes_for(ref, product, price, observed, conversion):
             'collector_number_supplied_by_marketplace':False,
             'reference_identity':{key:ref[key] for key in ('name','set_id','card_number','set_name')},
             'fx_rate_to_gbp':str(conversion.rate),'fx_source':conversion.source,
-            'fx_effective_at':conversion.effective_at.isoformat(),'fx_retrieved_at':conversion.retrieved_at.isoformat()})
+            'fx_effective_at':conversion.effective_at.isoformat(),'fx_retrieved_at':conversion.retrieved_at.isoformat(),
+            **({'guide_window_days':30,'physical_valuation_eligible':False}
+               if source_field=='avg30' else {})})
     return quotes
 
 
