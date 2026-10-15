@@ -608,7 +608,9 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const f=fixture();
   const row={...card,source_kind:'REFERENCE',provider:'TCGdex',provider_id:'SV11B-001',language:'Japanese',
     system_code:'POKEMON_TCG',image_url:'https://assets.tcgdex.net/ja/sv11b/SV11B-001/high.webp'};
-  const panel=f.browser.productImage(row);panel.querySelector('img').dispatchEvent(new f.w.Event('error'));
+  const panel=f.browser.productImage(row);
+  panel.querySelector('img').dispatchEvent(new f.w.Event('error')); // low thumbnail
+  panel.querySelector('img').dispatchEvent(new f.w.Event('error')); // exact full source
   assert.equal(panel.querySelector('img'),null);
   assert.ok(panel.classList.contains('dr-browse-reference-photo-pending'));
   assert.match(panel.textContent,/Reference only/);
