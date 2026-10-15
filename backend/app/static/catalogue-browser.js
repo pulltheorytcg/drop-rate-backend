@@ -9,7 +9,15 @@ window.DropRateCatalogue = (() => {
     : row.market_value_minor==null?(row.market_refresh_failed?"Price temporarily unavailable":row.market_refresh_needed?"Checking price…":"Price unavailable"):(row.market_value_source==="CARDMARKET_ESTIMATE"?"Estimate: ":["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT","CARDMARKET_CATALOGUE","CARDMARKET_BULK","CARDMARKET_BULK_SINGLES"].includes(row.market_value_source)?"Reference: ":"")+money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
-  const sorts = {newest:"Newest first", name:"Name A–Z", number:"Card number", value_desc:"Value: high to low", value_asc:"Value: low to high"};
+  const sorts = {newest:"Newest first", oldest:"Oldest first", name:"Name A–Z", name_desc:"Name Z–A",
+    number:"Card number", value_desc:"Market value: high to low", value_asc:"Market value: low to high"};
+  // Bandai's _pN is a distinct publisher reference: show it without assuming
+  // a grade, rarity or market value from the base card.
+  const printingMarker = row => {
+    if (row.source_kind!=="REFERENCE" || row.provider!=="Bandai Official" || !String(row.system_code||"").startsWith("DRAGON_BALL"))return null;
+    const match=String(row.provider_id||row.variant||"").match(/_p([1-9][0-9]*)$/);
+    return match ? "Printing variant p"+match[1] : null;
+  };
   const gameTitles = {POKEMON_TCG:["Pokémon","TRADING CARD GAME"], ONE_PIECE_CARD_GAME:["ONE PIECE","CARD GAME"],
     DRAGON_BALL_SUPER_MASTERS:["DRAGON BALL","SUPER · MASTERS"], DRAGON_BALL_SUPER_FUSION_WORLD:["DRAGON BALL","FUSION WORLD"],
     NARUTO:["NARUTO","TRADING CARD GAME"],
@@ -40,7 +48,7 @@ window.DropRateCatalogue = (() => {
         <div class="dr-browse-menu" hidden><button type="button" data-action="sort">Sort ↕</button><button type="button" data-action="filters">Filter ☷</button></div>
         <div class="dr-browse-context"><span>Browse: <strong>All products</strong></span><button type="button" data-action="sets">Show Sets</button></div>
         <nav class="dr-browse-types" aria-label="Product type"><button type="button" data-type="">All products</button><button type="button" data-type="CARD">Cards</button><button type="button" data-type="SEALED">Sealed products</button></nav>
-        <div class="dr-browse-chips"></div><nav class="dr-browse-languages" aria-label="Set language" hidden></nav><button type="button" class="dr-browse-pending" hidden></button></header>
+        <div class="dr-browse-chips"></div><div class="dr-browse-toolbar" role="group" aria-label="Catalogue sorting and filters"><button type="button" data-action="sort-visible" aria-label="Sort catalogue">Sort: Newest first</button><button type="button" data-action="filters-visible">Filters</button></div><nav class="dr-browse-languages" aria-label="Set language" hidden></nav><button type="button" class="dr-browse-pending" hidden></button></header>
         <div class="dr-browse-scroll"><p class="dr-browse-status" role="status"></p><div class="dr-browse-content"></div><button type="button" data-action="more" class="dr-browse-load" hidden>Load more</button><div class="dr-browse-sentinel"></div></div>
         <nav class="dr-browse-nav" aria-label="App navigation"><button type="button" data-action="home"><span>⌂</span>Home</button><button type="button" class="active" data-action="search"><span>⌕</span>Search</button><button type="button" data-action="camera"><span>◎</span>Scan</button><button type="button" data-action="inventory"><span>▣</span>Inventory</button><button type="button" data-action="tools"><span>•••</span>More</button></nav>
         <div class="dr-browse-backdrop" hidden><section class="dr-browse-sheet" role="dialog" aria-modal="true"></section></div>`;
@@ -49,6 +57,7 @@ window.DropRateCatalogue = (() => {
       const actions = {back:()=>this.back(), camera:()=>this.scan(), home:()=>this.navigate("home"), inventory:()=>this.navigate("inventory"), tools:()=>this.navigate("more"),
         search:()=>this.reset(), "clear-query":()=>{ if(this.page === "sets") this.setQuery=""; else this.filters.q=""; this.input.value=""; this.load(); },
         sets:()=>this.showSets(), more:()=>this.load(true), filters:()=>this.openFilters(), sort:()=>this.openSort(),
+        "sort-visible":()=>this.openSort(), "filters-visible":()=>this.openFilters(),
         menu:()=>{ this.find(".dr-browse-menu").hidden = !this.find(".dr-browse-menu").hidden; }, watch:()=>{ this.filters.watch=!this.filters.watch; this.page="products"; this.load(); }};
       this.dialog.querySelectorAll("[data-action]").forEach(control=>control.addEventListener("click",()=>actions[control.dataset.action]()));
       this.dialog.querySelectorAll('[data-type]').forEach(control=>control.addEventListener('click',()=>{
@@ -149,6 +158,9 @@ window.DropRateCatalogue = (() => {
       this.input.setAttribute("aria-label",this.input.placeholder);
       this.find(".dr-browse-context").hidden=sets||home;
       this.find('.dr-browse-types').hidden=sets;
+      this.find('.dr-browse-toolbar').hidden=sets||home;
+      this.find('[data-action="sort-visible"]').textContent="Sort: "+(sorts[this.filters.sort]||sorts.newest);
+      this.find('[data-action="sort-visible"]').setAttribute("aria-label","Sort catalogue, current order "+(sorts[this.filters.sort]||sorts.newest));
       this.dialog.querySelectorAll('[data-type]').forEach(control=>control.setAttribute('aria-pressed',String(control.dataset.type===this.filters.product_type)));
       this.find(".dr-browse-context strong").textContent=this.filters.watch?"Watchlist":this.filters.owned==="owned"?"Products owned":this.filters.owned==="not_owned"?"Products not owned":"All products";
       this.find('[data-action="sets"]').hidden=!this.filters.system_code;
@@ -205,6 +217,11 @@ window.DropRateCatalogue = (() => {
         this.hasMore=Boolean(data.has_more);this.offset=nextOffset;
         if(!unchanged)this.renderRows(more?nextOffset:0);
         status.textContent=this.rows.length?"":"No matches. Try another search or clear the filters.";
+        if(this.page==="products" && !this.rows.length && this.filters.system_code==="NARUTO"
+           && this.filters.product_type==="SEALED" && this.filters.owned==="all" && !this.filters.watch && !this.filters.q.trim()){
+          status.textContent="Naruto sealed products are not yet indexed from a verified product source. Naruto cards are available.";
+          this.find(".dr-browse-content").append(button("Browse Naruto cards",()=>{this.filters.product_type="CARD";this.load();},"dr-browse-empty-action"));
+        }
         if(this.page==="sets" && this.rows.length && Number.isInteger(data.total_count))status.textContent=data.total_count.toLocaleString()+" sets · Includes sets you don’t own";
         if(this.page!=="sets" && !this.rows.length && this.set?.checklist_status==="UNAVAILABLE" && !this.filters.q && this.filters.owned==="all" && !this.filters.watch && !this.filters.product_type)status.textContent="This set is in the catalogue. Its card checklist is currently unavailable.";
         if(this.filters.watch)status.textContent=this.rows.length?"Watchlist saved on this device.":"Your watchlist is empty for these filters. Star a product to save it on this device.";
@@ -407,7 +424,7 @@ window.DropRateCatalogue = (() => {
         const open=button("",()=>this.openProduct(row),"dr-browse-product-open");open.append(this.productImage(row),node("strong","dr-browse-product-title",decode(row.name)));
         open.setAttribute("aria-label","View "+decode(row.name));
         const meta=[row.rarity,row.card_number].filter(Boolean).join(" · ");
-        open.append(node("small","",decode(row.set_name)),node("small","",meta),node("small","",row.language+" · "+(row.product_type==="SEALED"?"Sealed":decode(row.variant))));
+        open.append(node("small","",decode(row.set_name)),node("small","",meta),node("small","",row.language+" · "+(row.product_type==="SEALED"?"Sealed":printingMarker(row)||decode(row.variant))));
         card.append(open);
         const footer=node("div","dr-browse-product-footer"),copy=node("div"),price=node("strong","",marketPrice(row));price.dataset.priceKey=row.key;
         copy.append(price,node("small","","Qty: "+row.owned_quantity));

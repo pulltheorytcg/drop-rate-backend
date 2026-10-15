@@ -233,7 +233,9 @@ MEDIA_SQL = """
  order by m.approved_at desc nulls last,m.created_at desc,m.id limit 1
 """
 SORTS = {
-    "name": "lower(e.name),e.key", "newest": "e.release_date desc nulls last,lower(e.name),e.key",
+    "name": "lower(e.name),e.key", "name_desc": "lower(e.name) desc,e.key",
+    "newest": "e.release_date desc nulls last,lower(e.name),e.key",
+    "oldest": "e.release_date asc nulls last,lower(e.name),e.key",
     "number": "e.card_number nulls last,lower(e.name),e.key",
     "value_desc": "coalesce(v.market_value_minor,e.reference_value_minor) desc nulls last,lower(e.name),e.key",
     "value_asc": "coalesce(v.market_value_minor,e.reference_value_minor) asc nulls last,lower(e.name),e.key",
@@ -389,7 +391,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
                 select 1 from unnest({terms}::text[]) term where strpos(lower(concat_ws(' ',
                 e.name,e.set_name,e.card_number,e.game,e.variant,e.language,e.rarity)),lower(term))=0)"""
             where.append(f"({number_match} or {text_match})")
-        if sort in ("newest", "name", "number"):
+        if sort in ("newest", "oldest", "name", "name_desc", "number"):
             exact_query = bind(q.strip().lower())
             order = f"case when {number_match} then 0 when lower(e.name)={exact_query} then 1 else 2 end," + order
     clause = " and ".join(where) or "true"
@@ -451,7 +453,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
                    system_code: str = Query(default="", max_length=80), language: str = Query(default="", max_length=80),
                    set_id: str = Query(default="", max_length=200), provider: str | None = Query(default=None, max_length=80),
                    product_type: Literal["", "CARD", "SEALED"] = "", owned: Literal["all", "owned", "not_owned"] = "all",
-                   sort: Literal["name", "newest", "number", "value_desc", "value_asc"] = "newest",
+                   sort: Literal["name", "name_desc", "newest", "oldest", "number", "value_desc", "value_asc"] = "newest",
                    keys: str | None = Query(default=None, max_length=5000),
                    slab_number: str = Query(default="", max_length=80),
                    slab_name: str = Query(default="", max_length=160),

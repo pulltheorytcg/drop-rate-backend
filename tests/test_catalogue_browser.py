@@ -77,19 +77,30 @@ def test_query_is_parameterized_and_unknown_values_sort_last():
 
 
 @pytest.mark.parametrize('query',['EB04-007','eb04 007','EB04007','Zoro SP',"%' OR true --"])
-@pytest.mark.parametrize('sort',['name','newest','number','value_asc','value_desc'])
+@pytest.mark.parametrize('sort',['name','name_desc','newest','oldest','number','value_asc','value_desc'])
 def test_search_never_sends_an_unused_postgres_parameter(query,sort):
     import re
     sql,params=browser.product_query(owner_id=uuid4(),q=query,sort=sort)
     assert {int(n) for n in re.findall(r'\$(\d+)',sql)}==set(range(1,len(params)+1))
 
 
+@pytest.mark.parametrize('sort,sql_order', [
+    ('name_desc', 'lower(e.name) desc,e.key'),
+    ('oldest', 'e.release_date asc nulls last,lower(e.name),e.key'),
+])
+def test_new_browse_sorts_use_whitelisted_source_order_before_pagination(sort, sql_order):
+    sql,params=browser.product_query(owner_id=uuid4(),q='Goku',sort=sort,limit=40,offset=40)
+    assert sql_order in sql
+    assert sql.index(sql_order) < sql.index('limit $')
+    assert params[-2:]==[41,40]
+    assert 'i.owner_id=$1' in sql
+
 def test_watchlist_empty_does_not_return_whole_catalogue():
     sql,params=browser.product_query(owner_id=uuid4(),keys=[])
     assert [] in params and 'e.key=any(' in sql
 
 
-@pytest.mark.parametrize('sort', ['newest','name','number'])
+@pytest.mark.parametrize('sort', ['newest','oldest','name','name_desc','number'])
 def test_ordinary_search_bounds_pricing_to_the_selected_page(sort):
     sql,params=browser.product_query(owner_id=uuid4(),q='Luffy',sort=sort,limit=40,offset=80)
     # Price lookups must not run for the full catalogue on an ordinary search.
