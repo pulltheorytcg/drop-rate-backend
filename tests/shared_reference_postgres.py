@@ -162,6 +162,39 @@ async def main():
   await db.execute("update tcg.catalogue_products set variant='Different printing' where id=$1",card)
   async with user_connection(pool,actors[1],'changed-identity') as c:
    assert all(row['market_value_minor'] is None for row in await reference_portfolio(c,[owners[1]]))
+  # A real shared-cache lookup now reaches both accounts even when no physical
+  # snapshot exists. An unfinished copy sees the same range without being valued.
+  guide_card=uuid4();guide_items=[uuid4(),uuid4()]
+  await db.execute("insert into tcg.catalogue_products values($1,'CARD','Pokemon','Heat Rotom','Destined Rivals','043/182','sv10-043','Unknown','English')",guide_card)
+  await db.execute("insert into tcg.reference_sets(provider,system_code,language,set_id,name) values('TCGdex','POKEMON_TCG','English','sv10','Destined Rivals')")
+  await db.execute("insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number,number_key) values('TCGdex','POKEMON_TCG','English','sv10-043','sv10','Heat Rotom','043/182','43:/:182')")
+  checked=datetime.now(timezone.utc)-timedelta(hours=1)
+  quotes=[dict(source='TCGDEX_CARDMARKET',reference_language='English',finish='Normal',
+    price_gbp_minor=85,original_minor=100,original_currency='EUR',fx_source='ECB_EURO_REFERENCE_RATES',
+    fx_rate_to_gbp='0.85',observed_at=checked.isoformat())]
+  quotes.append(dict(quotes[0],finish='Reverse Holofoil',price_gbp_minor=170,original_minor=200))
+  await db.execute("insert into tcg.reference_market_prices values('TCGdex','POKEMON_TCG','English','sv10-043',$1::jsonb)",quotes)
+  for n in range(2):
+   await db.execute("insert into tcg.inventory_items(id,inventory_code,owner_id,catalogue_id,language,condition,store_price_minor) values($1,$2,$3,$4,'English',$5,$6)",guide_items[n],f'GUIDE-{n}',owners[n],guide_card,None if n else 'Near Mint',500+n*100)
+  before=await state();displays=[]
+  with patch.object(auth,'get_settings',return_value=settings),patch.object(owner_inventory,'get_settings',return_value=settings):
+   async with real_client(transport=httpx.ASGITransport(app=app),base_url='http://test') as client:
+    for n in range(2):
+     response=await client.get('/api/v1/inventory/market-values',params=[('inventory_id',str(v)) for v in guide_items],headers=headers(n))
+     assert response.status_code==200,response.text
+     rows=response.json()['items'];assert len(rows)==1 and rows[0]['id']==str(guide_items[n])
+     value=rows[0];displays.append(value['catalogue_reference'])
+     assert value['market_value_minor'] is None and value['recommended_retail_minor'] is None
+     detail=await client.get(f'/api/v1/owner/inventory/{guide_items[n]}',headers=headers(n))
+     assert detail.status_code==200,detail.text
+     assert detail.json()['item']['catalogue_reference']==value['catalogue_reference']
+     assert detail.json()['item']['store_price_minor']==500+n*100
+  assert displays[0]==displays[1] and displays[0]['market_value_minor']==85 and displays[0]['market_value_high_minor']==170
+  assert before==await state(),'Catalogue display wrote a valuation or changed inventory'
+  await db.execute("insert into tcg.provider_catalogue_mappings(catalogue_id,provider_language,match_status) values($1,'English','REJECTED')",guide_card)
+  async with user_connection(pool,actors[1],'rejected-guide') as c:
+   value=next(r for r in await reference_portfolio(c,[owners[1]]) if r['id']==guide_items[1])
+   assert not value.get('catalogue_reference') and value['market_value_minor'] is None
   await db.execute('update tcg.owner_memberships set active=false where user_id=$1',actors[1])
   async with user_connection(pool,actors[1],'revoked') as c:assert await reference_portfolio(c,[owners[1]])==[]
   print('PASS: same catalogue/profile gives identical shared value and artwork for independent founder/seller records; exact grade; preserved own price/cost and immutable state; real production snapshot/media migrations + restricted PostgreSQL + signed local-JWKS HTTP, expired/foreign/revoked and changed-identity/mapping checks. Provider bytes mocked; not a live seller login.')
