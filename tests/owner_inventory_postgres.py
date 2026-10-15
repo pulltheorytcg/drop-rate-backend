@@ -132,7 +132,11 @@ async def main():
             assert await db.fetchval('select status from tcg.inventory_items where id=$1',item)=='WITHDRAWN'
             assert await db.fetchval('select count(*) from tcg.test_inventory_audit where id=$1 and new_status=$2',item,'WITHDRAWN')>=1
             assert (await api.withdraw_copy(item,api.VersionRequest(version=2),request,user,access))['replayed']
-            assert (await api.details(item,request,user,access))['copies'][0]['id']==a['item']['id']
+            # Withdrawn history must not be pooled with the active draft copy.
+            withdrawn_copies = (await api.details(item,request,user,access))['copies']
+            active_copies = (await api.details(__import__('uuid').UUID(a['item']['id']),request,user,access))['copies']
+            assert [copy['id'] for copy in withdrawn_copies] == [str(item)]
+            assert [copy['id'] for copy in active_copies] == [a['item']['id']]
             assert await db.fetchrow('select * from tcg.inventory_items where id=$1',other)==next(row for row in before if row['id']==other)
             # Reference identity changes cannot retain the old pack image.
             await db.execute("update tcg.catalogue_products set language='English' where id=$1",product)
