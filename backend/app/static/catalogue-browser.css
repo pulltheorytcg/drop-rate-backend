@@ -69,6 +69,11 @@ body.dr-browser-open { overflow: hidden; }
 .dr-browse-product-image img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#fff; }
 .dr-browse-image-placeholder { color:#758397; font-size:11px; background:#f4f7fb; padding:10px; border-radius:8px; }
 .dr-browse-publisher-photo-pending { min-height:185px; background:linear-gradient(145deg,#f5f8ff,#eaf0f9); padding:18px; }
+/* This is an explicit game-mark placeholder, NOT a substituted card scan. */
+.dr-browse-reference-photo-pending { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:185px; gap:14px; padding:16px; background:linear-gradient(145deg,#f5f8ff,#eef2f8); }
+.dr-browse-reference-photo-pending::before { content:""; display:block; width:min(85%,185px); height:70px; background:url('/assets/title-art/pokemon.webp') center / contain no-repeat; opacity:.85; }
+.dr-browse-reference-photo-pending .dr-browse-image-placeholder { text-align:center; max-width:180px; line-height:1.6; background:rgba(255,255,255,.85); color:#53627a; border:1px solid var(--browse-line); }
+
 .dr-browse-publisher-photo-pending .dr-browse-image-placeholder { max-width:170px; line-height:1.6; text-align:center; background:#fff; color:#26394f; font-weight:600; border:1px solid var(--browse-line); }
 .dr-browser .dr-browse-publisher-source { display:inline-flex; align-items:center; min-height:44px; padding:10px 12px; border:1px solid var(--browse-blue); border-radius:10px; margin-top:8px; font-size:13px; font-weight:600; color:var(--browse-blue); text-decoration:none; }
 
