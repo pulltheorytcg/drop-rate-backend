@@ -160,6 +160,20 @@ async def add_shared_reference_values(connection, items: list[dict], *, now: dat
         item["pricing_updated_at"] = reference["checked_at"]
         item["pricing_method"] = "CARDMARKET_GUIDE_V1" if reference["method"] == GUIDE else "LIVE_EBAY_MARKET_V1" if reference["method"] == SOLD else None
         item["pricing_limitation"] = reference["reason"]
+        item.pop("catalogue_reference", None)
+        # An unfinished raw copy may display the shared NM comparison without
+        # asserting its condition or adding that amount to portfolio totals.
+        if (reference['status'] == 'NEEDS_DETAILS' and item.get('product_type') == 'CARD'
+                and not any(item.get(k) for k in ('condition', 'grading_company', 'grade', 'seal_status'))):
+            comparison = resolve_reference_value(dict(item, condition='Near Mint'),
+                by_catalogue[str(item.get('catalogue_id'))], now=now)
+            if comparison['status'] in {'AVAILABLE', 'STALE'}:
+                item['catalogue_reference'] = dict(comparison, status='CONDITION_REFERENCE',
+                    label='Near-mint reference', physical_valuation_eligible=False,
+                    recommended_retail_minor=None,
+                    reason='Shared near-mint reference. Record this copy’s condition before valuing it.')
+    from .inventory_catalogue_reference import add_catalogue_references
+    await add_catalogue_references(connection, items, now=now)
     return items
 
 

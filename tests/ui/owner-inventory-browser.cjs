@@ -154,10 +154,13 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
     const pending={...original,id:'75e288a1-8252-414f-912d-b82b253447c7',name:'Monkey.D.Luffy — Manga alternate art [OP05-119]',
       set_name:'Awakening of the New Era · Japanese',product_type:'RAW',
       reference_image_url:'/assets/grail-art/luffy-op05-119-p2.png',market_value_minor:null,
-      reference_value:{status:'NEEDS_DETAILS'}};
+      reference_value:{status:'NEEDS_DETAILS'},catalogue_reference:{status:'CONDITION_REFERENCE',
+        market_value_minor:132,label:'Near-mint reference',checked_at:'2026-10-15T00:46:00Z'}};
     renderInventoryCards([approved,draft,pending,{...pending,id:'60cf7078-2925-47df-8df2-3c0c28d8d788',
       name:'Umbreon VMAX — Evolving Skies alternate art [215/203]',
-      reference_image_url:'/assets/grail-art/umbreon-vmax-215.webp'}]);
+      reference_image_url:'/assets/grail-art/umbreon-vmax-215.webp',
+      catalogue_reference:{status:'CATALOGUE_GUIDE',market_value_minor:85000,market_value_high_minor:99000,
+        label:'Catalogue guide',checked_at:'2026-10-15T00:46:00Z'}}]);
    },item);
    const violations=await page.locator('.owner-inventory-card').evaluateAll(cards=>cards.flatMap((card,index)=>{
     const bounds=card.getBoundingClientRect(),issues=[];

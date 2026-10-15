@@ -1,10 +1,23 @@
 "use strict";
 window.DropRateReferenceValue = Object.freeze({
-  text(item, money) {
+  displayReference(item) {
     const ref = item?.reference_value;
+    return ["AVAILABLE", "REFERENCE_ESTIMATE"].includes(ref?.status) ? ref : item?.catalogue_reference || ref;
+  },
+  text(item, money) {
+    const ref = this.displayReference(item);
     if (!ref) return item?.market_value_minor == null ? "Value unavailable" : money(item.market_value_minor);
     if (["AVAILABLE", "REFERENCE_ESTIMATE"].includes(ref.status) && Number.isInteger(ref.market_value_minor)) {
       return money(ref.market_value_minor) + (ref.status === "REFERENCE_ESTIMATE" ? " · Guide estimate" : "");
+    }
+    if (["CATALOGUE_GUIDE", "CONDITION_REFERENCE"].includes(ref.status) && Number.isInteger(ref.market_value_minor)) {
+      const high = ref.market_value_high_minor;
+      return money(ref.market_value_minor) + (Number.isInteger(high) && high > ref.market_value_minor ? "–" + money(high) : "")
+        + " · " + ref.label;
+    }
+    if (Number.isInteger(ref.last_known_minor) && ref.checked_at) {
+      const date = new Date(ref.checked_at);
+      if (!Number.isNaN(date.getTime())) return money(ref.last_known_minor) + " · Last known " + date.toLocaleDateString("en-GB");
     }
     return ({STALE: "Stale evidence — value unavailable", NEEDS_DETAILS: "Confirm details for value"})[ref.status] || "No exact market evidence";
   },
@@ -20,7 +33,7 @@ window.DropRateReferenceValue = Object.freeze({
       : money(amount) + (item.reference_value.status === "REFERENCE_ESTIMATE" ? " · Guide estimate" : "");
   },
   description(item) {
-    const ref = item?.reference_value;
+    const ref = this.displayReference(item);
     if (!ref) return "";
     const time = ref.checked_at ? new Date(ref.checked_at) : null;
     return [ref.basis, ref.reason, time && !Number.isNaN(time.getTime()) ? "Evidence checked " + time.toLocaleDateString("en-GB") : null].filter(Boolean).join(" · ");
