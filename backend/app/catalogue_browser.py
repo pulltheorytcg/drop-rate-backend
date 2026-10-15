@@ -147,7 +147,7 @@ with reference_base as not materialized (
  union all
  select 's:'||md5(concat_ws(chr(31),r.provider,r.system_code,r.language,r.provider_id)),
         null::uuid,'SEALED'::text,r.system_code,{GAME_CASE},r.name,s.name,r.set_id,
-        null::text,'CardTrader sealed '||r.provider_id,r.product_type,r.language,r.image_url,
+        null::text,r.provider||' sealed '||r.provider_id,r.product_type,r.language,r.image_url,
         s.release_date,r.provider,r.provider_id,r.source_url,'SEALED_REFERENCE'::text,
         case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_minor end,
         case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_high_minor end,
