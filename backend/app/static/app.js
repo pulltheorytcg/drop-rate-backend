@@ -713,7 +713,7 @@ function inventoryVisualCard(item) {
   const valueRow = document.createElement("div");
   valueRow.className = "inventory-card-values";
   const values = [
-    ["Market", money(item.market_value_minor, item.currency)],
+    ["Market", window.DropRateReferenceValue.text(item, value => money(value, item.currency))],
     ["Store", money(item.store_price_minor, item.currency)],
     ["Cost", money(item.acquisition_cost_minor, item.currency)],
   ];

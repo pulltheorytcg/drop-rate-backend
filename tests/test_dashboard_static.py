@@ -194,7 +194,7 @@ def test_inventory_defaults_to_visual_collectr_style_cards() -> None:
     assert 'rootMargin: "320px 0px"' in js
     assert "observer.observe(figure)" in js
     assert "loadProxyNearViewport();" in js
-    assert "item.market_value_minor" in js
+    assert "DropRateReferenceValue.text(item" in js
     assert "item.store_price_minor" in js
     assert "item.acquisition_cost_minor" in js
     assert "item.inventory_code" in js

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from urllib.parse import urlencode, urlsplit
 
@@ -19,13 +20,14 @@ from .db import user_connection
 from .inventory_intake import create_inventory_intake, _find_exact_catalogue, _manual_identity_key
 from .physical_state import CARD_CONDITIONS
 from .slab_evidence import slab_candidate_supported
-from .recognition_games import SYSTEM_BY_GAME
+from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .reference_market import refresh_reference_prices
 from .recognition_images import reference_image_bytes
 from .catalogue_artwork import reference_thumbnail
 from .catalogue_set_artwork import resolve_set_artwork, artwork_coverage
 from .cardtrader_recognition import _cardtrader_image_url
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
+from .catalogue_display_prices import read_shared_prices, with_shared_price
 
 router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"])
 GAME_BY_SYSTEM = {system: game for game, system in SYSTEM_BY_GAME.items()}
@@ -238,23 +240,31 @@ SORTS = {
 }
 
 
-def price_columns(entry: str) -> str:
-    return f"""coalesce(v.market_value_minor,{entry}.reference_value_minor) as market_value_minor,
-        case when v.market_value_minor is null then {entry}.reference_value_high_minor end as market_value_high_minor,
+def price_columns(entry: str, shared: bool = False) -> str:
+    low = ',d.market_value_minor' if shared else ''
+    high = f'coalesce({entry}.reference_value_high_minor,d.market_value_high_minor)' if shared else f'{entry}.reference_value_high_minor'
+    basis = ',d.basis_condition' if shared else ''
+    stamp = (f"coalesce(v.pricing_updated_at,case when {entry}.reference_value_minor is not null then {entry}.reference_pricing_updated_at end,d.pricing_updated_at,{entry}.reference_pricing_updated_at)"
+             if shared else f'coalesce(v.pricing_updated_at,{entry}.reference_pricing_updated_at)')
+    source = "when d.shared_price is not null then d.market_value_source" if shared else ''
+    display = ',case when v.market_value_minor is null then d.shared_price end as shared_price' if shared else ''
+    return f"""coalesce(v.market_value_minor,{entry}.reference_value_minor{low}) as market_value_minor,
+        case when v.market_value_minor is null then {high} end as market_value_high_minor,
         coalesce(v.basis_condition,case when {entry}.reference_value_minor is not null
           then case when {entry}.source_kind='SEALED_REFERENCE' then 'Sealed · Cardmarket mixed-language guide'
             when {entry}.market_quotes->0->>'valuation_role'='MIXED_NON_ENGLISH_REFERENCE'
               then 'Raw · Cardmarket Non-English regional guide (Japanese language not verified)'
             when {entry}.market_quotes->0->>'source' in ('CARDMARKET_BULK_SINGLES','CARDMARKET_CATALOGUE') then 'Raw · Cardmarket mixed-language guide'
-            else 'Raw · Cardmarket' end end) as basis_condition,
-        coalesce(v.pricing_updated_at,{entry}.reference_pricing_updated_at) as pricing_updated_at,
+            else 'Raw · Cardmarket' end end{basis}) as basis_condition,
+        {stamp} as pricing_updated_at,
         case when v.market_value_minor is not null then v.valuation_source
              when {entry}.reference_value_minor is not null then case when {entry}.source_kind='SEALED_REFERENCE' then 'CARDMARKET_BULK'
                when {entry}.market_quotes->0->>'source'='CARDMARKET_BULK_SINGLES' then 'CARDMARKET_BULK_SINGLES'
                when {entry}.market_quotes->0->>'source'='CARDMARKET_CATALOGUE' then 'CARDMARKET_CATALOGUE'
                when {entry}.market_quotes->0->>'source'='TCGDEX_CARDMARKET_VARIANT' then 'TCGDEX_CARDMARKET_VARIANT'
                else 'TCGDEX_CARDMARKET' end
-             when {entry}.market_quotes<>'[]'::jsonb then 'TCGDEX_TCGPLAYER' end as market_value_source"""
+             {source}
+             when {entry}.market_quotes<>'[]'::jsonb then 'TCGDEX_TCGPLAYER' end as market_value_source{display}"""
 
 
 async def browser_access(request: Request, user: Annotated[AuthenticatedUser, Depends(require_user)]) -> dict:
@@ -318,7 +328,8 @@ async def sets(request: Request, user: Annotated[AuthenticatedUser, Depends(requ
 
 
 def product_query(*, owner_id, q="", system_code="", language="", set_id="", provider=None,
-                  product_type="", owned="all", sort="newest", keys=None, limit=40, offset=0):
+                  product_type="", owned="all", sort="newest", keys=None, limit=40, offset=0,
+                  shared_prices=None):
     params = [owner_id]
     where = []
     def bind(value):
@@ -338,6 +349,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
     elif owned == "not_owned":
         where.append("coalesce(o.quantity,0)=0")
     order = SORTS[sort]
+    reference_number_filter = ''
     if q.strip():
         # Every term is literal; apostrophes, % and _ never become SQL or wildcards.
         number_key = re.sub(r"[^a-z0-9]", "", q.strip().lower())
@@ -359,6 +371,18 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
         collector_query = re.fullmatch(r'(?:OP|ST|EB|PRB|FB|FS|BT|EX|P)[\s-]*\d{0,2}[\s-]+\d{3}|(?:OP|ST|EB|PRB|FB|FS|BT|EX)\d{5}', q.strip(), re.I)
         if collector_query:
             where.append(number_match)
+            # Complete printed numbers have an indexed provider key. Bound
+            # the reference CTE before joins instead of regex-scanning every
+            # card in every set. Keep legacy null keys and Masters parallels.
+            parts = re.fullmatch(r'([a-z]+)(\d{0,2})(\d{3})', number_key)
+            if parts:
+                indexed_key = bind(collector_key(parts[1] + parts[2] + '-' + parts[3]))
+                parallel = (f"or (r.provider='Bandai Official' and r.system_code='DRAGON_BALL_SUPER_MASTERS' "
+                            f"and r.number_key like {indexed_key}||':PR%')" if parts[1] == 'bt' else '')
+                legacy_number = "split_part(coalesce(r.card_number,''),'_',1)" if parts[1] == 'bt' else "coalesce(r.card_number,'')"
+                reference_number_filter = f""" and (r.number_key={indexed_key}
+                  or (r.number_key is null and lower(regexp_replace({legacy_number},'[^A-Za-z0-9]','','g'))={key})
+                  {parallel})"""
         else:
             terms = bind(q.strip().split())
             text_match = f"""not exists (
@@ -369,25 +393,40 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
             exact_query = bind(q.strip().lower())
             order = f"case when {number_match} then 0 when lower(e.name)={exact_query} then 1 else 2 end," + order
     clause = " and ".join(where) or "true"
+    source_cte, shared_join = SOURCE_CTE, ''
+    if reference_number_filter:
+        source_cte = source_cte.replace('where (s.release_date is null or s.release_date<=current_date)',
+            'where (s.release_date is null or s.release_date<=current_date)' + reference_number_filter, 1)
+    if shared_prices:
+        shared_param = bind(json.dumps(jsonable_encoder(list(shared_prices.values()))))
+        source_cte += f""", shared_display as (
+          select * from jsonb_to_recordset({shared_param}::jsonb) as price(
+            key text,market_value_minor bigint,market_value_high_minor bigint,
+            pricing_updated_at timestamptz,basis_condition text,market_value_source text,shared_price jsonb)
+        )"""
+        shared_join = 'left join shared_display d on d.key=e.key and e.reference_value_minor is null'
+        order = order.replace('coalesce(v.market_value_minor,e.reference_value_minor)',
+                              'coalesce(v.market_value_minor,e.reference_value_minor,d.market_value_minor)')
     page_limit, page_offset = bind(limit + 1), bind(offset)
     # Value sorts must price the matching population before pagination. All
     # other sorts can select a page first and price only those canonical rows.
     if sort in ("value_desc", "value_asc"):
-        query = SOURCE_CTE + f""", reference_values as materialized (
+        query = source_cte + f""", reference_values as materialized (
       select p.id,v.* from tcg.catalogue_products p
       left join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) v on true
     ), page as (
-      select e.*,coalesce(o.quantity,0) as owned_quantity,{price_columns('e')},
+      select e.*,coalesce(o.quantity,0) as owned_quantity,{price_columns('e', bool(shared_prices))},
              row_number() over(order by {order}) as ordinal
       from entries e left join owned o on o.catalogue_id=e.catalogue_id
       left join reference_values v on v.id=e.catalogue_id
+      {shared_join}
       where {clause} order by {order} limit {page_limit} offset {page_offset}
     ) select page.*,coalesce(nullif(btrim(page.image_url),''),media.url) as display_image_url,
              media.url as fallback_image_url
       from page left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null order by page.ordinal
         """
     else:
-        query = SOURCE_CTE + f""", selected_page as materialized (
+        query = source_cte + f""", selected_page as materialized (
           select e.*,coalesce(o.quantity,0) as owned_quantity
           from entries e left join owned o on o.catalogue_id=e.catalogue_id
           where {clause} order by {order} limit {page_limit} offset {page_offset}
@@ -421,10 +460,18 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     key_list = keys.split(",") if keys else ([] if keys is not None else None)
     if key_list is not None and len(key_list) > 100:
         raise HTTPException(422, "Watchlist is limited to 100 products")
-    query, params = product_query(owner_id=access["owner_id"], q=q, system_code=system_code, language=language,
-        set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list, limit=limit, offset=offset)
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+        # Value sorts include alias prices before pagination. Other searches
+        # resolve only the missing values on their bounded visible page.
+        shared = await read_shared_prices(connection) if sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
+        query, params = product_query(owner_id=access["owner_id"], q=q, system_code=system_code, language=language,
+            set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list,
+            limit=limit, offset=offset, shared_prices=shared)
         rows = await connection.fetch(query, *params)
+        if sort not in ('value_desc', 'value_asc'):
+            missing = [dict(row) for row in rows[:limit] if row.get('market_value_minor') is None]
+            shared = await read_shared_prices(connection, missing)
+            rows = [with_shared_price(row, shared) for row in rows]
     # This bounded page is a suggestion pool, never a verified match. Filtering
     # is deliberately server-side and separate from ordinary manual search.
     # A translated/abbreviated label with no verified alias remains unresolved.

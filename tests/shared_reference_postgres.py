@@ -194,6 +194,21 @@ async def main():
       assert detail.json()['item']['store_price_minor']==500+n*100
   assert displays[0]==displays[1] and displays[0]['market_value_minor']==85 and displays[0]['market_value_high_minor']==170
   assert before==await state(),'Catalogue display wrote a valuation or changed inventory'
+  # Search/set display and inventory consume the same dated cache through the
+  # restricted role. No ownership is needed for the catalogue value.
+  from app.catalogue_display_prices import read_shared_prices,reference_key,with_shared_price
+  browse_row=dict(provider='TCGdex',system_code='POKEMON_TCG',language='English',provider_id='sv10-043',
+    card_number='043/182',market_value_minor=None,catalogue_id=None,owned_quantity=0)
+  browse_row['key']=reference_key(browse_row)
+  for n in range(2):
+   async with user_connection(pool,actors[n],'immediate-browse') as c:
+    prices=await read_shared_prices(c,[browse_row])
+    shown=with_shared_price(browse_row,prices)
+    assert shown['market_value_minor']==displays[n]['market_value_minor']
+    assert shown['market_value_high_minor']==displays[n]['market_value_high_minor']
+    assert shown['shared_price']['checked_at'].isoformat()==displays[n]['checked_at']
+    assert shown['catalogue_id'] is None and shown['owned_quantity']==0
+  assert before==await state(),'Search pricing changed stock, shared prices or ownership'
   await db.execute("insert into tcg.provider_catalogue_mappings(catalogue_id,provider_language,match_status) values($1,'English','REJECTED')",guide_card)
   async with user_connection(pool,actors[1],'rejected-guide') as c:
    value=next(r for r in await reference_portfolio(c,[owners[1]]) if r['id']==guide_items[1])

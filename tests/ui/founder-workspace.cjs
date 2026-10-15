@@ -27,6 +27,16 @@ for(const file of scripts){
 run(`window.inventoryRequests=[]; apiRequest = async (url) => {window.inventoryRequests.push(url); return {items:[],total:0, owner:{display_name:'Demo founder',email:'preview@example.test'}};};`);
 const doc=dom.window.document;
 assert.equal(errors.length,0);
+run(`renderInventory({total:1,owner:{display_name:'Fixture'},items:[{
+ id:'00000000-0000-4000-8000-000000000001',name:'Exact card',game:'One Piece',product_type:'CARD',
+ inventory_code:'TEST-1',currency:'GBP',status:'DRAFT',sale_intent:'PERSONAL_COLLECTION',
+ market_value_minor:null,reference_value:{status:'NEEDS_DETAILS'},
+ catalogue_reference:{status:'CONDITION_REFERENCE',market_value_minor:132,label:'Near-mint reference',
+  checked_at:'2026-10-15T12:00:00Z',basis:'English · Near Mint'}
+}]});`);
+assert.equal(doc.querySelector('[data-market-value-cell]').textContent,'£1.32 · Near-mint reference','Table price is synchronous');
+assert.match(doc.getElementById('inventory-visual-grid').textContent,/£1.32 · Near-mint reference/,'Grid uses the same shared display');
+assert.equal(run(`window.inventoryRequests.filter(url=>url.includes('/market-values')).length`),0,'No duplicate pricing request');
 assert.equal(doc.querySelectorAll('.seller-nav-tab').length,5);
 assert.equal(doc.querySelector('#recognition-scanner-panel').closest('[data-seller-view]').dataset.sellerView,'intake');
 for(const id of ['new-inventory-button','import-inventory-button']){

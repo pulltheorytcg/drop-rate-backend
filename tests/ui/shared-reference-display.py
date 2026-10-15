@@ -33,7 +33,31 @@ def main():
      }''',item)
      for name in ('reference-value-display.js','owner-inventory.js','market-value-column.js'):page.add_script_tag(content=(ROOT/'backend/app/static'/name).read_text())
      page.evaluate('renderInventory({items:[item]})');page.wait_for_function("document.querySelector('[data-market-value-cell]')?.textContent!=='—'")
+     assert page.evaluate('calls.length')==0,'Inventory prices must render from the initial payload without another request'
      founder=page.locator('[data-market-value-cell]').inner_text().strip()
+     if status in ('CATALOGUE_GUIDE','CONDITION_REFERENCE','STALE'):
+      page.add_style_tag(content=(ROOT/'backend/app/static/catalogue-browser.css').read_text())
+      page.add_script_tag(content=(ROOT/'backend/app/static/catalogue-browser.js').read_text())
+      page.evaluate('''async()=>{
+       const host=document.createElement('main');document.body.append(host);
+       const ref=DropRateReferenceValue.displayReference(item);
+       const row={key:'r:'+'a'.repeat(32),name:'Synthetic exact card',game:'One Piece',system_code:'ONE_PIECE_CARD_GAME',
+        set_name:'Exact release',set_id:'OP11',provider:'Punk Records',language:'English',product_type:'CARD',
+        source_kind:'REFERENCE',variant:'OP11-101',card_number:'OP11-101',catalogue_id:null,owned_quantity:0,
+        market_value_minor:ref.market_value_minor,shared_price:ref,market_refresh_needed:true};
+       window.browseCalls=[];window.sharedBrowse=new DropRateCatalogue.Browser({host,
+        client:{owner:'synthetic',active:()=>true,request:async(path,options={})=>{browseCalls.push({path,method:options.method||'GET'});return {items:[row]}}},
+        navigate:()=>{},scan:()=>{}});
+       sharedBrowse.filters.q='OP11-101';await sharedBrowse.load();
+      }''')
+      assert page.locator('[data-price-key]').inner_text().strip()==founder
+      page.evaluate('''async()=>{sharedBrowse.filters.q='';sharedBrowse.filters.system_code='ONE_PIECE_CARD_GAME';
+       sharedBrowse.set={system_code:'ONE_PIECE_CARD_GAME',set_id:'OP11',provider:'Punk Records'};await sharedBrowse.load()}''')
+      assert page.locator('[data-price-key]').inner_text().strip()==founder
+      assert all(call['method']=='GET' and '/market-values' not in call['path'] for call in page.evaluate('browseCalls'))
+      assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(engine,width,status,'catalogue')
+      if width==390 and status=='CONDITION_REFERENCE':page.screenshot(path=str(OUT/f'{engine}-search-set-immediate-390.png'),full_page=True)
+      page.evaluate('sharedBrowse.destroy()')
      page.evaluate('DropRateInventory.open(item)');page.wait_for_selector('.owner-item-values strong')
      seller=page.locator('.owner-item-values strong').inner_text().strip();assert founder==seller,(status,founder,seller)
      if status=='AVAILABLE':assert '£99.00' in seller

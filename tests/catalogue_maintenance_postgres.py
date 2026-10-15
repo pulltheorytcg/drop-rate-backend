@@ -264,6 +264,18 @@ async def main():
         total_before=sum(r['products'] for r in await db.fetch(COVERAGE_SQL))
         await db.execute("update tcg.reference_catalogue_prices set pricing_updated_at=now()-interval '8 days'")
         assert (await db.fetch(sql,*args))[0]['market_value_minor'] is None
+        # Actual query ordering must see shared display prices BEFORE paging,
+        # while stale history stays outside numeric value sorts.
+        shared_key=(await db.fetch(sql,*args))[0]['key']
+        proposed={shared_key:dict(key=shared_key,market_value_minor=123,market_value_high_minor=None,
+          pricing_updated_at=now,basis_condition='English · Near Mint',market_value_source='SHARED_CATALOGUE_REFERENCE',
+          shared_price=dict(status='CONDITION_REFERENCE',market_value_minor=123,label='Near-mint reference',physical_valuation_eligible=False))}
+        for sort in ('value_asc','value_desc'):
+            priced_sql,priced_args=product_query(owner_id=owner,q='Pineco',sort=sort,shared_prices=proposed,limit=1)
+            priced=await db.fetch(priced_sql,*priced_args)
+            assert len(priced)==1 and priced[0]['market_value_minor']==123
+            assert priced[0]['shared_price']['physical_valuation_eligible'] is False
+            assert priced[0]['catalogue_id'] is None and priced[0]['owned_quantity']==0
         assert sum(r['products'] for r in await db.fetch(COVERAGE_SQL))==total_before,'Stale references disappeared from full coverage'
         await db.execute("select set_config('tcg.user_id',$1,false)",str(owner))
         assert await db.fetchval('select count(*) from tcg.reference_catalogue_prices')==1

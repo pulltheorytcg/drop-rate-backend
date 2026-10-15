@@ -173,7 +173,8 @@ def rarity_key(value):
     text=str(value or '').strip().upper()
     match=re.fullmatch(r'.+\[([A-Z]+)\]',text)
     if match:return match[1]
-    return {'COMMON':'C','UNCOMMON':'UC','RARE':'R','SUPER RARE':'SR','SECRET RARE':'SEC',
+    return {'COMMON':'C','UNCOMMON':'UC','RARE':'R','SUPER RARE':'SR','SUPERRARE':'SR',
+            'SECRET RARE':'SEC','SECRETRARE':'SEC',
             'LEADER':'L'}.get(text,text)
 
 

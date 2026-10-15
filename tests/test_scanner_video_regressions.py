@@ -117,6 +117,9 @@ async def test_slab_filter_is_in_authenticated_http_read_and_manual_search_uncha
             dict(product_type="CARD",name="Mega Charizard X ex",card_number="223/193",set_name="Dream",set_id="M2a")]
     class Connection:
         async def fetch(self, sql, *args):
+            from app.catalogue_display_prices import PRODUCTS
+            if sql == PRODUCTS:
+                return []  # No matching shared-price alias in this scan fixture.
             assert args[0] == owner_id and "i.owner_id=$1" in sql
             assert "Japanese" in args
             return rows

@@ -4,6 +4,7 @@ on:
     paths:
       - 'backend/app/inventory_reference*.py'
       - 'backend/app/inventory_catalogue_reference.py'
+      - 'backend/app/catalogue_display_prices.py'
       - 'backend/app/inventory_market_values.py'
       - 'backend/app/pricing_engine.py'
       - 'backend/app/pricing.py'
@@ -50,7 +51,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install --quiet -r requirements-dev.txt
-      - run: PYTHONPATH=backend pytest -q tests/test_inventory_reference_values.py tests/test_inventory_catalogue_reference.py tests/test_recommendation_summary.py
+      - run: PYTHONPATH=backend pytest -q tests/test_inventory_reference_values.py tests/test_inventory_catalogue_reference.py tests/test_catalogue_display_prices.py tests/test_recommendation_summary.py
       - name: Real reference/media migrations, restricted role and signed local-JWKS requests
         run: PYTHONPATH=backend python tests/shared_reference_postgres.py
         env:
