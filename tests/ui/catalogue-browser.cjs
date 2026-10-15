@@ -588,5 +588,31 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(f.browser.sheet.querySelector('.dr-browse-publisher-source'),null);
   f.finish();checks++;
  }
+ // A missing TCGdex image is not a licence to borrow another variant's
+ // photo. The local Pokémon *game logo* is expressly labelled as a fallback.
+ {
+  const f=fixture();
+  const row={...card,source_kind:'REFERENCE',provider:'TCGdex',provider_id:'SV11B-001',language:'Japanese',
+    system_code:'POKEMON_TCG',image_url:null,display_image_url:null,fallback_image_url:null};
+  const panel=f.browser.productImage(row);
+  assert.equal(panel.querySelector('img'),null);
+  assert.equal(panel.classList.contains('dr-browse-reference-photo-pending'),true);
+  assert.match(panel.textContent,/Card image not yet available/);
+  assert.match(panel.textContent,/Reference only/);
+  assert.equal(row.image_url,null);
+  f.finish();checks++;
+ }
+ // An exact old TCGdex URL that genuinely fails rendering takes the same
+ // truthful path, but never substitutes the English card for Japanese.
+ {
+  const f=fixture();
+  const row={...card,source_kind:'REFERENCE',provider:'TCGdex',provider_id:'SV11B-001',language:'Japanese',
+    system_code:'POKEMON_TCG',image_url:'https://assets.tcgdex.net/ja/sv11b/SV11B-001/high.webp'};
+  const panel=f.browser.productImage(row);panel.querySelector('img').dispatchEvent(new f.w.Event('error'));
+  assert.equal(panel.querySelector('img'),null);
+  assert.ok(panel.classList.contains('dr-browse-reference-photo-pending'));
+  assert.match(panel.textContent,/Reference only/);
+  f.finish();checks++;
+ }
  console.log('Catalogue browser: '+checks+' search, navigation, filter, ownership, session and retry scenarios passed.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
