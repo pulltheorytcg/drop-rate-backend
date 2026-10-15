@@ -348,8 +348,10 @@ window.DropRateCatalogue = (() => {
         urls.unshift(urls[0].replace('/high.webp','/low.webp'));
       }
       const publisherReference=row.source_kind==="SEALED_REFERENCE"&&row.provider==="Kayou Official";
-      const placeholder=node("span","dr-browse-image-placeholder",urls.length?"Loading image…":publisherReference?"Verified Kayou product · Packaging photo pending":"Artwork unavailable");
+      const missingPokemonSource=row.source_kind==="REFERENCE"&&row.provider==="TCGdex"&&row.system_code==="POKEMON_TCG";
+      const placeholder=node("span","dr-browse-image-placeholder",urls.length?"Loading image…":publisherReference?"Verified Kayou product · Packaging photo pending":missingPokemonSource?"Card image not yet available · Reference only":"Artwork unavailable");
       if(publisherReference&&!urls.length)wrap.classList.add("dr-browse-publisher-photo-pending");
+      if(missingPokemonSource&&!urls.length)wrap.classList.add("dr-browse-reference-photo-pending");
       wrap.append(placeholder);
       if(urls.length){
         const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.decoding="async";image.referrerPolicy="no-referrer";
@@ -357,7 +359,7 @@ window.DropRateCatalogue = (() => {
         image.addEventListener("load",()=>{placeholder.hidden=true;});
         const referencePath=row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')?row.reference_image_path+(cls==="dr-browse-detail-image"?"":"&size=grid"):null;
         let proxyTried=Boolean(referencePath);
-        const fallback=()=>{if(urls.length)image.src=urls.shift();else {image.remove();placeholder.textContent="Image unavailable";placeholder.hidden=false;}};
+        const fallback=()=>{if(urls.length)image.src=urls.shift();else {image.remove();placeholder.textContent=missingPokemonSource?"Card image not yet available · Reference only":"Image unavailable";placeholder.hidden=false;if(missingPokemonSource)wrap.classList.add("dr-browse-reference-photo-pending");}};
         image.addEventListener("error",()=>{
           if(!proxyTried && row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')){
             proxyTried=true;this.loadReferenceImage(image,row.reference_image_path,fallback);
