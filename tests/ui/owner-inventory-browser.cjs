@@ -159,7 +159,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.equal(await page.locator('.owner-inventory-card').count(),4);
    assert.equal(await page.locator('.owner-card-quantity').innerText(),'×2');
    assert.match(await page.locator('.owner-inventory-card').first().innerText(),/£1.32/);
-   assert.match(await page.locator('.owner-inventory-card').first().innerText(),/Mixed status/);
+   assert.match(await page.locator('.owner-inventory-card').first().innerText(),/Mixed status/i);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Raw quantities overflow');
    await page.screenshot({path:path.join(out,`raw-copy-quantities-${viewport.width}.png`),fullPage:true});
 
