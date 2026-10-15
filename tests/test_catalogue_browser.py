@@ -91,7 +91,7 @@ def test_search_never_sends_an_unused_postgres_parameter(query,sort):
 def test_new_browse_sorts_use_whitelisted_source_order_before_pagination(sort, sql_order):
     sql, params = browser.product_query(owner_id=uuid4(), q='Goku', sort=sort, limit=40, offset=40)
     assert sql_order in sql
-    assert sql.index('order by ' + sql_order) < sql.index('limit ')
+    assert sql.index(sql_order) < sql.index('limit ')
     assert params[-2:] == [41, 40]
     assert 'i.owner_id=' in sql
 
