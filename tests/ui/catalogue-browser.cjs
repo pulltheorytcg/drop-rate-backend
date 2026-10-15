@@ -20,6 +20,71 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  return {browser,w,calls,logout:()=>{alive=false;browser.destroy();},finish:()=>{browser.destroy();w.close();}};
 }
 (async()=>{
+ // Mobile sort is visible before opening the overflow menu and is an actual
+ // server-side paginated sort, not a client-only rearrangement of 40 tiles.
+ {
+  const f=fixture(async()=>({items:[card],has_more:false}));
+  await f.browser.open();f.browser.pickGame(games[0]);await tick();
+  const sort=f.browser.find('[data-action="sort-visible"]');
+  const filters=f.browser.find('[data-action="filters-visible"]');
+  assert.equal(f.browser.find('.dr-browse-toolbar').hidden,false);
+  assert.match(sort.textContent,/Sort: Newest first/);
+  assert.equal(filters.textContent,'Filters');
+  sort.click();assert.match(f.browser.sheet.textContent,/Name Z–A/);
+  [...f.browser.sheet.querySelectorAll('button')].find(b=>b.textContent.startsWith('Name Z–A')).click();await tick();
+  assert.match(f.calls.at(-1).url,/sort=name_desc/);
+  assert.match(sort.textContent,/Name Z–A/);
+  sort.click();
+  [...f.browser.sheet.querySelectorAll('button')].find(b=>b.textContent.startsWith('Market value: high to low')).click();await tick();
+  assert.match(f.calls.at(-1).url,/sort=value_desc/);
+  assert.match(sort.textContent,/Market value: high to low/);
+  sort.click();
+  [...f.browser.sheet.querySelectorAll('button')].find(b=>b.textContent.startsWith('Oldest first')).click();await tick();
+  assert.match(f.calls.at(-1).url,/sort=oldest/);
+  assert.match(sort.textContent,/Oldest first/);
+  filters.click();assert.match(f.browser.sheet.textContent,/Product Type/);
+  f.browser.closeSheet();f.browser.reset();
+  assert.equal(f.browser.find('.dr-browse-toolbar').hidden,true);
+  f.finish();checks++;
+ }
+ // No Naruto sealed products: be explicit that the verified index is missing,
+ // and offer a working route to browse indexed Naruto cards instead.
+ {
+  const f=fixture(async()=>({items:[],has_more:false}));
+  f.browser.games=[{system_code:'NARUTO',game:'Naruto',languages:['Unknown']}];f.browser.gamesLoaded=true;
+  f.browser.filters.system_code='NARUTO';f.browser.filters.product_type='SEALED';
+  await f.browser.load();
+  assert.match(f.browser.find('.dr-browse-status').textContent,/Naruto sealed products are not yet indexed/);
+  assert.doesNotMatch(f.browser.find('.dr-browse-status').textContent,/No matches/);
+  const action=[...f.browser.find('.dr-browse-content').querySelectorAll('button')]
+    .find(b=>b.textContent==='Browse Naruto cards');
+  assert.ok(action);action.click();await tick();
+  const params=new URL(f.calls.at(-1).url,'https://example.test').searchParams;
+  assert.equal(params.get('system_code'),'NARUTO');
+  assert.equal(params.get('product_type'),'CARD');
+  f.finish();checks++;
+ }
+ // Separate Bandai artwork/parallel identity is rendered as a labelled
+ // printing, never silently deduplicated or assigned the base-card price.
+ {
+  const row={...card,source_kind:'REFERENCE',provider:'Bandai Official',system_code:'DRAGON_BALL_SUPER_FUSION_WORLD',
+    name:'Android 13',card_number:'FB06-006',set_name:'Release Event Pack [FB06 - FB09]',
+    provider_id:'583903:FB06-006_p1',variant:'583903:FB06-006_p1',
+    market_value_minor:null};
+  const base={...row,key:'r:'+'1'.repeat(32),provider_id:'583006:FB06-006',variant:'583006:FB06-006',set_name:'BOOSTER PACK -RIVALS CLASH- [FB06]'};
+  const alt={...row,key:'r:'+'2'.repeat(32)};
+  const f=fixture(async()=>({items:[base,alt],has_more:false}));
+  f.browser.filters.q='Android 13';await f.browser.load();
+  const results=[...f.browser.find('.dr-browse-content').querySelectorAll('.dr-browse-product')];
+  assert.equal(results.length,2);
+  assert.match(results[0].textContent,/RIVALS CLASH/);
+  assert.match(results[1].textContent,/Release Event Pack/);
+  assert.match(results[1].textContent,/Printing variant p1/);
+  assert.match(results[1].textContent,/Price unavailable/);
+  assert.equal(f.browser.rows[0].provider_id,base.provider_id);
+  assert.equal(f.browser.rows[1].provider_id,alt.provider_id);
+  f.finish();checks++;
+ }
  for(const owner of ['account-a','account-b'])for(const view of ['search','set']){
   const ref={...card,key:'r:'+'d'.repeat(32),catalogue_id:null,source_kind:'REFERENCE',
     market_value_minor:132,market_value_source:'SHARED_CATALOGUE_REFERENCE',market_refresh_needed:true,
