@@ -347,7 +347,9 @@ window.DropRateCatalogue = (() => {
       if(cls!=="dr-browse-detail-image" && /^https:\/\/assets\.tcgdex\.net\/[^?#]+\/high\.webp(?:\?|$)/.test(urls[0]||"")){
         urls.unshift(urls[0].replace('/high.webp','/low.webp'));
       }
-      const placeholder=node("span","dr-browse-image-placeholder",urls.length?"Loading image…":"Artwork unavailable");
+      const publisherReference=row.source_kind==="SEALED_REFERENCE"&&row.provider==="Kayou Official";
+      const placeholder=node("span","dr-browse-image-placeholder",urls.length?"Loading image…":publisherReference?"Verified Kayou product · Packaging photo pending":"Artwork unavailable");
+      if(publisherReference&&!urls.length)wrap.classList.add("dr-browse-publisher-photo-pending");
       wrap.append(placeholder);
       if(urls.length){
         const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.decoding="async";image.referrerPolicy="no-referrer";
@@ -488,6 +490,12 @@ window.DropRateCatalogue = (() => {
       const watch=button(this.watchlist.has(row.key)?"★ Saved":"☆ Watchlist",()=>this.toggleWatch(row,watch),"dr-browse-watch-product");watch.setAttribute("aria-pressed",String(this.watchlist.has(row.key)));content.append(watch);
       if(row.source_kind==="REFERENCE")content.append(node("p","dr-browse-reference-note","Reference artwork · check the exact printing and finish against your copy. New inventory remains pending identity review."));
       if(row.source_kind==='SEALED_REFERENCE')content.append(node('p','dr-browse-reference-note','Packaging reference · confirm the exact product, language, edition and pack count. Your item stays in review before it can be listed.'));
+      if(row.source_kind==="SEALED_REFERENCE"&&row.provider==="Kayou Official"
+         && /^https:\/\/www\.kayouofficial\.com\/en-US\/series\/series-[a-z0-9]{8}$/.test(row.source_url||"")){
+        const source=node("a","dr-browse-publisher-source","See official Kayou product details ↗");
+        source.href=row.source_url;source.target="_blank";source.rel="noopener noreferrer";
+        content.append(source);
+      }
       const fields=node("div","dr-browse-physical");
       if(row.product_type==='SEALED' && row.language==='Unknown'){
         const label=node('label','','Product language'),select=node('select');select.setAttribute('aria-label','Product language');
