@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'backend/app/owner_inventory.py'
+      - 'backend/app/inventory_display_groups.py'
+      - 'backend/app/static/inventory-groups.js'
+      - 'tests/inventory_groups_postgres.py'
       - 'backend/app/owner_imports.py'
       - 'backend/app/import_catalogue_search.py'
       - 'backend/app/seller_inventory_policy.py'

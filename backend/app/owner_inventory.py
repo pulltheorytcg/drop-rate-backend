@@ -17,6 +17,7 @@ from .catalogue_artwork import reference_thumbnail
 from .language import clean_language
 from .recognition_games import SYSTEM_BY_GAME
 from .channel_sync_wakeup import request_shopify_sync
+from .inventory_display_groups import display_key_sql
 from .db import user_connection
 from .inventory_sale_intent import change_inventory_sale_intent
 from .recognition_images import _trusted_reference_url
@@ -121,15 +122,13 @@ left join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
 where i.id=$1 and i.owner_id=$2
 """
 
-COPIES_SQL = """
+COPIES_SQL = f"""
 select c.id,c.inventory_code,c.status,c.version,c.sale_intent
-from tcg.inventory_items i join tcg.inventory_items c
- on c.owner_id=i.owner_id and c.catalogue_id=i.catalogue_id
- and c.language is not distinct from i.language and c.condition is not distinct from i.condition
- and c.seal_status is not distinct from i.seal_status
- and c.grading_company is not distinct from i.grading_company and c.grade is not distinct from i.grade
- and (i.grading_company is null or c.id=i.id)
-where i.id=$1 and i.owner_id=$2 and c.status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
+from tcg.inventory_items i
+join tcg.catalogue_products p on p.id=i.catalogue_id
+join tcg.inventory_items c on c.owner_id=i.owner_id and c.catalogue_id=i.catalogue_id
+  and ({display_key_sql('c')})=({display_key_sql('i')})
+where i.id=$1 and i.owner_id=$2
 order by c.created_at,c.id
 """
 

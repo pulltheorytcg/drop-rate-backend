@@ -21,6 +21,7 @@ def shell(browser, role='seller'):
     # Opaque-origin offline fixture: Storage is a synthetic per-page adapter.
     page.evaluate('''()=>{for(const name of ['sessionStorage','localStorage']){const data=new Map();Object.defineProperty(window,name,{value:{getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,String(v)),removeItem:k=>data.delete(k),clear:()=>data.clear()}});}}''')
     page.add_script_tag(content=(ROOT/'hub-session.js').read_text())
+    page.add_script_tag(content=(ROOT/'inventory-groups.js').read_text())
     page.add_script_tag(content=re.sub(r'\ninitialise\(\);\s*$', '', (ROOT/('app.js' if role == 'founder' else 'owner-portal.js')).read_text()))
     page.evaluate('''()=>{state.session={access_token:'token-a',refresh_token:'refresh-a',user:{id:'owner-a'}};PullTheoryHubSession.save(state.session);
       window.switchAccount=()=>saveSession({access_token:'token-b',refresh_token:'refresh-b',user:{id:'owner-b'}});

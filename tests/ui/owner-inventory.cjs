@@ -8,6 +8,8 @@ function fixture(override={}) {
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
  w.scrollTo=()=>{};w.URL.createObjectURL=()=> 'blob:fixture';w.URL.revokeObjectURL=()=>{};w.fetch=async()=>({ok:true,json:async()=>({}),blob:async()=>new w.Blob(['image'],{type:'image/webp'})});
  run(fs.readFileSync(path.join(base,'hub-session.js'),'utf8'));
+ run(fs.readFileSync(path.join(base,'reference-value-display.js'),'utf8'));
+ run(fs.readFileSync(path.join(base,'inventory-groups.js'),'utf8'));
  run(fs.readFileSync(path.join(base,'owner-inventory.js'),'utf8'));
  run(fs.readFileSync(path.join(base,'owner-portal.js'),'utf8').replace(/\ninitialise\(\);\s*$/,''));
  run(`window.testLoadInventory=loadOwnerInventory;state.session={access_token:'secret-session',user:{id:'seller-a'}};loadOwnerOverview=loadOwnerChannels=loadOwnerInsights=loadOwnerInventory=async()=>{};`);
@@ -107,7 +109,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(f.calls.filter(x=>x.method==='POST').length,0,'Channel setup must never claim a listing published');
   f.finish();checks++;
  }
- // Strict grouping invariants: cross-condition, language, price, type, ownership
+ // Strict grouping invariants: cross-condition, language, type, ownership
  // and graded identities must never turn into an interchangeable pack pool.
  {
   const f=fixture();
@@ -115,9 +117,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
     sale_intent:'FOR_SALE'};
   for(const variant of [
     {...base,id:'other',language:'English'},
-    {...base,id:'other',store_price_minor:900},
     {...base,id:'other',seal_status:'UNSEALED'},
-    {...base,id:'other',status:'RESERVED'},
     {...base,id:'other',product_type:'CARD'},
     {...base,id:'other',grade:'10',grading_company:'PSA'},
     {...base,id:'other',variant:'Other packaging'},
@@ -127,6 +127,31 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
     assert.equal(f.w.document.querySelectorAll('.owner-inventory-card').length,2,
       'Different physical variants must remain separate');
   }
+  f.finish();checks++;
+ }
+ // Raw duplicates include unknown-condition, personal, pending and approved copies.
+ // Different exact physical states and all slabs remain individually visible.
+ {
+  const f=fixture();
+  const raw={...item,product_type:'CARD',seal_status:null,condition:null,language:'English',
+    market_value_minor:null,reference_value:{status:'NEEDS_DETAILS'},
+    catalogue_reference:{status:'CONDITION_REFERENCE',market_value_minor:132,label:'Near-mint reference'}};
+  const copies=[raw,{...raw,id:'copy-2',status:'APPROVED',sale_intent:'PERSONAL_COLLECTION',store_price_minor:200}];
+  const extras=[{...raw,id:'nm',condition:'Near Mint'},
+    {...raw,id:'jp',language:'Japanese'}, {...raw,id:'parallel',catalogue_id:'other-printing'},
+    {...raw,id:'slab-1',grading_company:'PSA',grade:'10'}, {...raw,id:'slab-2',grading_company:'PSA',grade:'10'},
+    {...raw,id:'certificate-1',certificate_number:'one'}, {...raw,id:'certificate-2',certificate_number:'two'},
+    {...raw,id:'sold',status:'SOLD'}, {...raw,id:'foreign',owner_id:'other-owner'}];
+  f.run(`renderInventoryCards(ownerInventoryDisplayGroups(${JSON.stringify([...copies,...extras])}));renderInventoryRows(ownerInventoryDisplayGroups(${JSON.stringify([...copies,...extras])}));`);
+  assert.equal(f.w.document.querySelectorAll('.owner-inventory-card').length,10);
+  assert.equal(f.w.document.querySelectorAll('#owner-inventory-body tr').length,10);
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  assert.equal(tile.querySelector('.owner-card-quantity').textContent,'×2');
+  assert.match(tile.textContent,/Mixed status/);assert.match(tile.textContent,/£1.32/);
+  assert.match(tile.textContent,/Market value · each/);assert.match(tile.textContent,/some unset/);
+  assert.match(tile.textContent,/Condition not specified/);
+  assert.equal(raw.market_value_minor,null,'Grouping never writes a value into the physical copy');
+  assert.equal(f.calls.filter(call=>call.method).length,0);
   f.finish();checks++;
  }
  for(const value of ['', '0', '0.99', '1.001']){

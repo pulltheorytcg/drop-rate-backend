@@ -175,6 +175,8 @@ async def main():
         await verify_publication_actor(db,pool,owner,item,foreign,actor)
         from collection_selling_postgres import verify_collection_selling
         await verify_collection_selling(db,pool,request,user,access,foreign)
+        from inventory_groups_postgres import verify_display_groups
+        await verify_display_groups(db,pool,owner,actor,foreign,foreign_actor)
         print('Seller inventory PostgreSQL: owner isolation, exact artwork/migration replay, concurrent quantity receipts, price/approval guards and audited withdrawal passed.')
     finally:
         if pool:await pool.close()
