@@ -1,8 +1,8 @@
 # Missing inventory market references — 15 October 2026
 
 The mobile layout repair did not fix pricing. A read-only live audit at 11:45 UTC
-found **620 inventory copies**: **333** with eligible shared physical-basis
-values, **282** unavailable and **5** needing details. The global catalogue had
+found **614 inventory copies**: **333** with eligible shared physical-basis
+values, **276** unavailable and **5** needing details. The global catalogue had
 **40,443 priced physical references of 67,060**; its separate 2,480 digital
 records are not resale products. These are different denominators.
 
@@ -39,9 +39,9 @@ eligible snapshots restores **7 previously blank copy displays**:
 - Monkey.D.Luffy: one unfinished copy, **£1.44 · Near-mint reference**.
 - Heat Rotom, Moltres, Suicune and Vileplume: four fresh catalogue guide ranges.
 
-That is **340/620 copies with a visible current value or labelled comparison**;
+That is **340/614 copies with a visible current value or labelled comparison**;
 only the original **333** remain eligible for the existing current-value totals.
-The remaining **280** do not acquire invented prices. The global catalogue price
+The remaining **274** do not acquire invented prices. The global catalogue price
 coverage is unchanged. Replayed values are not a claim of an authenticated live
 seller session; release evidence must separately confirm CI and deployed code.
 
@@ -57,7 +57,7 @@ pricing or restore upstream sold-feed capacity.
 
 ## Verification and rollback
 
-Full local backend suite: **5,883 passed**. Focused tests cover ranges, source age,
+Full local backend suite: **5,884 passed**. Focused tests cover ranges, source age,
 identity collisions, region isolation, conversion validation, account-independent
 display and exclusion from financial totals. Restricted-Postgres integration adds
 real cache reads through both signed account HTTP routes, ownership isolation,

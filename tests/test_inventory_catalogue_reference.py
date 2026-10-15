@@ -76,6 +76,20 @@ def test_bulk_guide_requires_current_identity_and_rarity():
     assert catalogue_guide(product, [ref], 'English', now=NOW) is None
 
 
+def test_catalogue_fallback_is_labelled_across_finishes_and_detailed_quote_wins():
+    product, ref, quote = fixtures();product['variant'] = 'Holofoil'
+    guide = dict(quote, source='CARDMARKET_CATALOGUE', finish='Printing guide',
+                 reference_identity={k:ref[k] for k in ('name','set_id','card_number','set_name')})
+    ref['catalogue_quotes'] = [guide, dict(guide, finish='Alternative foil guide', original_minor=200, price_gbp_minor=170)]
+    ref['quotes'] = []
+    value = catalogue_guide(product, [ref], 'English', now=NOW)
+    assert value['label'] == 'All-finish guide' and value['market_value_high_minor'] == 170
+    ref['quotes'] = [dict(quote, finish='Holofoil', original_minor=300, price_gbp_minor=255)]
+    value = catalogue_guide(product, [ref], 'English', now=NOW)
+    assert value['market_value_minor'] == value['market_value_high_minor'] == 255
+    assert value['label'] == 'Catalogue guide'
+
+
 def test_japanese_import_requires_its_own_region_quote_and_explicit_counterpart():
     product, _, quote = fixtures()
     product.update(game='One Piece', name='Roronoa Zoro', set_name='Romance Dawn',
