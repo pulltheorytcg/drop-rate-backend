@@ -18,6 +18,7 @@ import httpx
 
 from .db import user_connection
 from .reference_market import _minor
+from .market_guide_fields import choose_bulk_price_field
 from .sealed_market import download
 
 SOURCE = 'CARDMARKET_BULK_SINGLES'
@@ -195,11 +196,14 @@ async def refresh_one_piece_prices(pool, actor, fx):
                 quote = japanese_nonenglish_quote(ref,jp_match,price,observed,conversion)
             elif price and price.get('idCategory') == product['idCategory']:
                 try:
-                    original = _minor(price.get('trend'))
+                    selected = choose_bulk_price_field(price, 'trend')
+                    if selected is None:
+                        raise ValueError('No positive trend or eligible 30-day guide')
+                    original, source_field = selected
                     gbp = int((Decimal(original)*conversion.rate).quantize(Decimal('1'),rounding=ROUND_HALF_UP))
                     if gbp > 0:
                         quote = {'source':SOURCE,'product_id':str(product['idProduct']),
-                            'expansion_id':product['idExpansion'],'source_field':'trend',
+                            'expansion_id':product['idExpansion'],'source_field':source_field,
                             'original_currency':'EUR','original_minor':original,'price_gbp_minor':gbp,
                             'observed_at':observed.isoformat(),'finish':'Printing guide',
                             'valuation_role':'MIXED_LANGUAGE_REFERENCE','physical_language_confirmed':False,
@@ -213,6 +217,8 @@ async def refresh_one_piece_prices(pool, actor, fx):
                             'fx_retrieved_at':conversion.retrieved_at.isoformat()}
                 except (ValueError,TypeError,ArithmeticError):
                     pass
+            if quote and quote.get('source_field') == 'avg30':
+                quote.update(guide_window_days=30, physical_valuation_eligible=False)
             if quote and quote.get('match_basis')=='EXACT_PREMIUM_RELEASE_UNIQUE_PRINTING':
                 quote['physical_valuation_eligible']=False
             if quote and ref['language']=='English' and ref['set_name'] in STARTER_RELEASE_ALIASES:
