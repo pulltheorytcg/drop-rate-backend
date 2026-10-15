@@ -12,7 +12,7 @@ let checks=0;
 function fixture(handler=async()=>({items:[card],has_more:false}),owner='account-a',embedded=false,gameHandler=async()=>({items:games})){
  const dom=new JSDOM('',{runScripts:'outside-only',url:'https://example.test',pretendToBeVisual:true});const w=dom.window;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
- w.eval(titleArt);w.eval(source);let alive=true;const calls=[];
+ w.eval(fs.readFileSync(path.join(__dirname,'../../backend/app/static/reference-value-display.js'),'utf8'));w.eval(titleArt);w.eval(source);let alive=true;const calls=[];
  const client={owner,active:()=>alive,request:async(url,options)=>{calls.push({url,...options});return url.endsWith('/games')?gameHandler():handler(url,options);}};
  let host;
  if(embedded){w.document.body.innerHTML='<header class="topbar"></header><nav class="seller-nav"></nav><aside class="owner-sidebar"></aside><header class="owner-page-header"></header><main id="catalogue-host"></main>';host=w.document.getElementById('catalogue-host');}
@@ -20,6 +20,22 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  return {browser,w,calls,logout:()=>{alive=false;browser.destroy();},finish:()=>{browser.destroy();w.close();}};
 }
 (async()=>{
+ for(const owner of ['account-a','account-b'])for(const view of ['search','set']){
+  const ref={...card,key:'r:'+'d'.repeat(32),catalogue_id:null,source_kind:'REFERENCE',
+    market_value_minor:132,market_value_source:'SHARED_CATALOGUE_REFERENCE',market_refresh_needed:true,
+    shared_price:{status:'CONDITION_REFERENCE',market_value_minor:132,label:'Near-mint reference',
+      checked_at:'2026-10-15T12:00:00Z',basis:'English · Near Mint',physical_valuation_eligible:false}};
+  const f=fixture(async()=>({items:[ref]}),owner);
+  if(view==='search')f.browser.filters.q='OP11-101';
+  else {f.browser.filters.system_code=card.system_code;f.browser.set={set_id:'OP11',provider:'Punk Records',system_code:card.system_code};}
+  await f.browser.load();
+  assert.equal(f.browser.find('[data-price-key]').textContent,'£1.32 · Near-mint reference');
+  f.browser.openProduct(ref);
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'£1.32 · Near-mint reference');
+  assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,0,'Shared price is in the first response, no second fetch');
+  assert.equal(ref.catalogue_id,null,'Displaying a value must not create an intake mapping');
+  f.finish();checks++;
+ }
  {
   const row={...card,image_url:'https://en.onepiece-cardgame.com/images/cardlist/card/OP17-002.png',reference_image_path:'/api/v1/catalogue-browser/reference-image?provider_id=OP17-002'};
   const waiting=deferred(),calls=[];

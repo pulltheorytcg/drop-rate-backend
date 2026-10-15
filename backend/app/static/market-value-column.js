@@ -21,7 +21,7 @@
     headerRow.insertBefore(marketValueHeader, storePriceHeader);
   }
 
-  function insertPlaceholderCells(data) {
+  function renderMarketValues(data) {
     ensureHeader();
     const rows = [...document.querySelectorAll("#inventory-body tr")];
     rows.forEach((row, index) => {
@@ -34,48 +34,20 @@
         cell.dataset.label = "Market value";
         row.insertBefore(cell, storePriceCell);
       }
-      cell.textContent = "—";
       const item = data.items[index];
-      if (item) cell.dataset.inventoryId = item.id;
+      if (!item) return;
+      cell.dataset.inventoryId = item.id;
+      // The authorized inventory response already contains the shared price.
+      // Render it synchronously; another request used to replace it with a dash.
+      cell.textContent = window.DropRateReferenceValue.text(item, formatGBP);
+      cell.title = window.DropRateReferenceValue.description(item);
     });
-  }
-
-  async function hydrateMarketValues(data) {
-    insertPlaceholderCells(data);
-    const ids = data.items.map((item) => item.id).filter(Boolean);
-    if (!ids.length) return;
-
-    const params = new URLSearchParams();
-    ids.forEach((id) => params.append("inventory_id", id));
-
-    try {
-      const result = await apiRequest(`/api/v1/inventory/market-values?${params.toString()}`);
-      const values = new Map(result.items.map((item) => [item.id, item]));
-
-      document.querySelectorAll("#inventory-body td[data-market-value-cell]").forEach((cell) => {
-        const value = values.get(cell.dataset.inventoryId);
-        if (!value) return;
-        cell.textContent = value.reference_value ? window.DropRateReferenceValue.text(value, formatGBP) : formatGBP(value.market_value_minor);
-        if (value.reference_value) cell.title = window.DropRateReferenceValue.description(value);
-        if(!value.reference_value && value.market_value_minor!=null && value.pricing_method==="CARDMARKET_GUIDE_V1"){
-          const note=document.createElement("small");note.style.display="block";note.textContent="Cardmarket estimate";cell.append(note);
-        }
-        if (!value.reference_value && value.pricing_updated_at) {
-          const updated = new Date(value.pricing_updated_at);
-          if (!Number.isNaN(updated.getTime())) {
-            cell.title = `${value.pricing_method==="CARDMARKET_GUIDE_V1"?"Cardmarket guide":"Market value"} updated ${updated.toLocaleString("en-GB")}${value.pricing_limitation?" · "+value.pricing_limitation:""}`;
-          }
-        }
-      });
-    } catch (error) {
-      console.warn("Unable to load inventory market values", error);
-    }
   }
 
   const originalRenderInventory = renderInventory;
   renderInventory = function renderInventoryWithMarketValues(data) {
     originalRenderInventory(data);
-    void hydrateMarketValues(data);
+    renderMarketValues(data);
   };
 
   ensureHeader();

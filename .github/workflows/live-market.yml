@@ -9,6 +9,8 @@ on:
       - 'backend/app/catalogue_maintenance.py'
       - 'backend/app/ebay_sold_pricing.py'
       - 'backend/app/inventory_intelligence.py'
+      - 'backend/app/inventory_reference_values.py'
+      - 'backend/app/inventory_catalogue_reference.py'
       - 'database/migrations/*_current_ebay_reference_values.sql'
       - 'database/migrations/*_cardmarket_valuation_fallback.sql'
       - 'database/migrations/*_cardmarket_multigame_guard.sql'
