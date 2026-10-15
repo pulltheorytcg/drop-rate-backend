@@ -198,5 +198,9 @@ async def test_sealed_only_refresh_updates_the_coverage_receipt(monkeypatch):
     monkeypatch.setattr(jobs,'require_platform_admin',authorized)
     monkeypatch.setattr(jobs,'refresh_sealed_prices',sealed)
     monkeypatch.setattr(jobs,'record_coverage',coverage)
+    async def safe_capacity(_):
+        from app.database_capacity import assess_capacity
+        return assess_capacity(321_334_419, 'off')
+    monkeypatch.setattr(jobs,'check_database_capacity',safe_capacity)
     await jobs.daily_pass(Pool(conn),SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4())))
     assert events==['sealed','coverage']
