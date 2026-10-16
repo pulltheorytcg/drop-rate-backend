@@ -708,7 +708,7 @@ function renderOwnerOverview(summary) {
   byId("owner-market-value-label").textContent = unvalued ? "Market value · partial" : "Market value";
   const referenceTotal = summary.active_market_value_minor;
   byId("owner-market-value").textContent = valued > 0 && Number.isInteger(referenceTotal)
-    ? formatMoney(referenceTotal) : activeCount === 0 ? formatMoney(0) : "Unavailable";
+    ? formatMoney(referenceTotal) : activeCount === 0 ? formatMoney(0) : "Value unavailable";
   byId("owner-market-value").classList.toggle("owner-value-unavailable", Boolean(activeCount && !valued));
   const coverage = byId("owner-market-value-note");
   coverage.textContent = activeCount === 0 ? "No inventory yet"
