@@ -21,6 +21,54 @@ function btn(w,text){return [...w.document.querySelectorAll('button')].find(b=>b
 async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);assert.equal(b.disabled,false);b.click();await tick();await tick();}
 (async()=>{
  let checks=0;
+ // The recorded account has 104 physical items, but only ONE eligible
+ // catalogue guide. Don't present £0.03 as the worth of all 104, or £1.00
+ // automatic retail as the two saved £10 Store Prices.
+ {
+  const f=fixture();
+  const summary={total_inventory_count:104,active_inventory_count:104,
+    active_valued_count:1,active_unvalued_count:103,active_market_value_minor:3,
+    guide_estimate_count:1,recorded_asking_count:2,recorded_asking_value_minor:2000,
+    active_recommended_count:1,active_recommended_retail_minor:100,
+    recommendation_guide_count:1,draft_count:102,approved_count:2,sold_count:0};
+  f.run('renderOwnerOverview('+JSON.stringify(summary)+')');
+  const get=id=>f.w.document.getElementById(id).textContent;
+  assert.equal(get('owner-total-inventory'),'104');
+  assert.equal(get('owner-market-value'),'£0.03');
+  assert.match(get('owner-market-value-note'),/1 of 104 currently valued/);
+  assert.match(get('owner-market-value-note'),/103 awaiting exact market evidence/);
+  assert.match(get('owner-market-value-note'),/1 guide estimate/);
+  assert.equal(get('owner-store-value'),'£20.00','Store Value comes from actual saved owner asking prices');
+  assert.match(get('owner-asking-price-note'),/2 of 104 items have a saved asking price/);
+  assert.match(get('owner-recommendation-note'),/£1.00 \(1 of 104\)/);
+  assert.equal(get('owner-pipeline-draft'),'102');
+  assert.equal(get('owner-pipeline-approved'),'2');
+  f.finish();checks++;
+ }
+ // A partial (or completely absent) valuation must never masquerade as a
+ // complete portfolio valuation; missing prices are not equal to £0.
+ {
+  const f=fixture();
+  f.run('renderOwnerOverview('+JSON.stringify({total_inventory_count:104,active_inventory_count:104,
+    active_valued_count:0,active_unvalued_count:104,recorded_asking_count:0,
+    active_recommended_count:0})+')');
+  const get=id=>f.w.document.getElementById(id).textContent;
+  assert.equal(get('owner-market-value'),'Unavailable');
+  assert.match(get('owner-market-value-note'),/104 awaiting exact market evidence/);
+  assert.equal(get('owner-store-value'),'Not set');
+  assert.match(get('owner-recommendation-note'),/unavailable pending market evidence/);
+  f.finish();checks++;
+ }
+ // Keep the empty-seller case at zero rather than claiming a data outage.
+ {
+  const f=fixture();
+  f.run('renderOwnerOverview('+JSON.stringify({total_inventory_count:0,active_inventory_count:0,
+    active_valued_count:0,active_unvalued_count:0})+')');
+  const get=id=>f.w.document.getElementById(id).textContent;
+  assert.equal(get('owner-market-value'),'£0.00');
+  assert.equal(get('owner-store-value'),'£0.00');
+  f.finish();checks++;
+ }
  {
   const f=fixture({seller_approval_available:true,approval_blockers:[],image_url:'https://cdn.shopify.com/op17.webp'});await f.open();
   assert.match(f.w.document.querySelector('dialog').textContent,/Your stock stays with you/);
