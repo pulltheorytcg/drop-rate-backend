@@ -80,7 +80,8 @@ def eligibility(target):
 def query_for(target):
     b=target["book_printing"]
     return " ".join(str(x) for x in (b["series_title"],
-        "Vol" if b["system_code"]=="MANGA" else "Issue",b["issue_number"],b["release_year"],
+        "Vol" if b["system_code"]=="MANGA" else "Issue",b["issue_number"],b["publisher"],b["release_year"],
+        f"printing {b['printing_number']}",
         b.get("volume_identifier"),b.get("cover_code"),b.get("barcode_gtin"),target["language"],
         target.get("grading_company"),target.get("grade")) if x)
 
@@ -124,8 +125,10 @@ def exact_match(row, target):
     if any(word!=pword and re.search(rf"\b{word}\s+print(?:ing)?\b",title,re.I) for word in words.values()): return False
     for field in ("volume_identifier","cover_code","cover_artist"):
         if b.get(field) and not _contains(title,b[field]): return False
-    for marker in ("omnibus","deluxe","hardcover","virgin","foil","newsstand","variant","exclusive"):
-        if _contains(title,marker) and not any(_contains(b.get(k),marker) for k in ("volume_identifier","cover_code","book_format")):
+    for marker in ("omnibus","deluxe","hardcover","virgin","foil","newsstand","variant","exclusive",
+                   "annual","ashcan","preview","digest","3 in 1","library edition","collectors edition",
+                   "collector edition","color edition","colour edition","anniversary edition"):
+        if _contains(title,marker) and not any(_contains(b.get(k),marker) for k in ("series_title","issue_number","volume_identifier","cover_code","book_format")):
             return False
     if b["book_format"]=="HARDCOVER" and not _contains(title,"hardcover"): return False
     if b["book_format"]=="TRADE_PAPERBACK" and not (_contains(title,"paperback") or _contains(title,"tpb")): return False

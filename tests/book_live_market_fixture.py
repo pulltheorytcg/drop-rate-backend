@@ -25,7 +25,7 @@ async def exercise(db,pool,actor,other):
         values($1,'MARVEL_COMICS','Fixture Hero','1',1,2022,'Cover A','VERIFIED','{"publisher":"Marvel","book_format":"SINGLE_ISSUE"}')""",cat)
     for ident,owner,notes in ((a,actor,None),(b,other,None),(special,actor,'Signed by artist')):
         await db.execute("""insert into tcg.inventory_items(id,owner_id,catalogue_id,inventory_code,version,status,identity_confirmed,condition,language,store_price_minor,notes)
-            values($1,$2,$3,$1::text,1,'APPROVED',true,'Near Mint','English',9000,$4)""",ident,owner,cat,notes)
+            values($1::uuid,$2,$3,$1::uuid::text,1,'APPROVED',true,'Near Mint','English',9000,$4)""",ident,owner,cat,notes)
     async def targets():
         async with user_connection(pool,actor,'book-market-targets') as conn:
             rows=[dict(r) for r in await conn.fetch(market.TARGET_SQL+' where i.catalogue_id=$1',cat)]

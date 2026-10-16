@@ -33,7 +33,7 @@ def sale(n=1,**changes):
     TITLE+' Cover B',TITLE+' newsstand',TITLE+' signed',TITLE+' restored',TITLE+' qualified',
     TITLE+' facsimile',TITLE+' x2',TITLE+' bundle',TITLE+' issues 1-5',TITLE+' Japanese',
     TITLE.replace('English',''),TITLE.replace('Marvel','DC'),TITLE.replace('Near Mint','Very Good'),
-    TITLE+' CGC 9.8',TITLE+' #2',TITLE.replace('Fixture Hero','Fixture Heroine'),
+    TITLE+' CGC 9.8',TITLE+' #2',TITLE+' Annual',TITLE+' preview',TITLE+' 3-in-1',TITLE.replace('Fixture Hero','Fixture Heroine'),
 ])
 def test_near_matches_are_not_sales_evidence(title):
     assert not books.exact_match(sale(title=title),target())

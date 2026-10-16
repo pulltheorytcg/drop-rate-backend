@@ -105,7 +105,7 @@
     node("grader").addEventListener("change", clearGradingDetails);
     for (const id of ["close", "cancel"]) node(id).addEventListener("click", () => { if (!saving) { cancelScan(); dialog.close(); } });
     dialog.addEventListener("cancel", event => { if (saving) event.preventDefault(); });
-    dialog.addEventListener("close", cancelScan);
+    dialog.addEventListener("close", () => { if (!dialog.open) cancelScan(); });
     node("camera").addEventListener("click", () => node("camera-file").click());
     node("gallery").addEventListener("click", () => node("gallery-file").click());
     for (const id of ["camera-file", "gallery-file"]) node(id).addEventListener("change", addPhotos);
@@ -156,7 +156,7 @@
 
   async function addPhotos(event) {
     const files = [...(event.target.files || [])]; event.target.value = "";
-    if (scanning || saving || pending) return;
+    if (scanning || saving || pending || saved) return;
     const actor = actorId, revision = ++scanRevision;
     try {
       for (const file of files.slice(0, 3 - photos.length)) {
