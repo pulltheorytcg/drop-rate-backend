@@ -21,6 +21,16 @@ window.DropRateReferenceValue = Object.freeze({
     }
     return ({STALE: "Stale evidence — value unavailable", NEEDS_DETAILS: "Confirm details for value"})[ref.status] || "No exact market evidence";
   },
+  isHistorical(item) {
+    const ref = this.displayReference(item);
+    return ref != null && !["AVAILABLE", "REFERENCE_ESTIMATE", "CATALOGUE_GUIDE", "CONDITION_REFERENCE"].includes(ref.status)
+      && Number.isInteger(ref.last_known_minor) && Boolean(ref.checked_at);
+  },
+  compactText(item, money) {
+    // The exact observation date remains visible in details, not the mobile
+    // two-column grid. A visual historical label is added by the tile itself.
+    return this.isHistorical(item) ? money(this.displayReference(item).last_known_minor) : this.text(item, money);
+  },
   recommendedMinor(item) {
     const ref = item?.reference_value;
     return ref && ["AVAILABLE", "REFERENCE_ESTIMATE"].includes(ref.status)
