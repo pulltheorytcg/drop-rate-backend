@@ -16,7 +16,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=tile-tap-v28" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=home-money-v29" defer></script>' in html
     assert '<script src="/assets/owner-recognition.js?v=shared-value-v2" defer></script>' in html
 
     for founder_script in (
@@ -144,11 +144,11 @@ def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None
 
     for required in (
         "Total inventory",
-        "Active market value",
-        "Automatic recommendations where market evidence is available",
+        "Known market value",
+        "Only your saved asking prices are counted",
         "Sold",
         "Market value",
-        "Recommended retail",
+        "Saved Store Prices",
     ):
         assert required in html
 
