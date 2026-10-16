@@ -221,8 +221,13 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    }));
    assert.deepEqual(violations,[],'Card contents must fit inside every card');
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Mixed inventory overflows viewport');
-   const actions=await page.locator('.owner-card-actions').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect().bottom));
-   assert.ok(Math.abs(actions[0]-actions[1])<1,'Actions in the same row must align');
+   // With the redundant Manage footer removed, only the optional image
+   // refresh is separately clickable; neither card reserves an actions row.
+   const cardBottoms=await page.locator('.owner-inventory-card').evaluateAll(nodes=>
+     nodes.map(n=>n.getBoundingClientRect().bottom));
+   assert.ok(Math.abs(cardBottoms[0]-cardBottoms[1])<1,
+     'Cards in a row must align without a padded action footer');
+   assert.equal(await page.locator('.owner-inventory-details').count(),0);
    await page.waitForFunction(()=>{
     const images=[...document.querySelectorAll('.owner-card-thumb img')];
     return images.length===4&&images.every(img=>img.naturalWidth>0);
