@@ -135,7 +135,7 @@ async def test_railway_loop_only_runs_market_price_jobs_once_weekly_and_keeps_da
     monkeypatch.setattr(jobs,"record_coverage",record("coverage"))
     monkeypatch.setattr(jobs,"sync_source",record("source"))
 
-    await jobs.daily_pass(Pool(),SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4())))
+    await jobs.daily_pass(Pool(),SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4()), catalogue_price_refresh_limit=20000))
     assert events[0]=="capacity" and events[-1]=="unlock"
     if not monday:
         assert events==["capacity","unlock"],"A Friday loop must not rewrite bulk price history"
