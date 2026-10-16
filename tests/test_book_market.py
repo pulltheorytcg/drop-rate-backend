@@ -61,6 +61,15 @@ def test_manga_requires_volume_printing_language_edition_and_isbn():
     assert books.exact_match(sale(title=title.replace('Near Mint','BGS 9.5')),t)
 
 
+def test_comic_series_volume_is_distinct_from_its_issue_number():
+    t=target();title=TITLE+' Vol. 2'
+    assert not books.exact_match(sale(title=title),t)
+    t['book_printing']['volume_identifier']='Vol. 2'
+    assert books.exact_match(sale(title=title),t)
+    assert not books.exact_match(sale(title=title.replace('Vol. 2','Vol. 3')),t)
+    assert not books.exact_match(sale(title=title+' Vol. 3'),t)
+
+
 def test_printing_approval_special_state_and_condition_are_required():
     for changes in ({'identity_status':'NEEDS_REVIEW'},{'profile_status':'NEEDS_REVIEW'},
                     {'printing_number':None},{'release_year':None},{'cover_code':None}):

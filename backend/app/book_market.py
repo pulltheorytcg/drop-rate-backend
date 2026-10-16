@@ -113,8 +113,13 @@ def exact_match(row, target):
     number=re.escape(str(b["issue_number"]))
     marker=r"(?:vol(?:ume)?\.?\s*|#\s*)" if b["system_code"]=="MANGA" else r"(?:issue\s*|#\s*)"
     if not re.search(marker+number+r"(?![\w.])",title,re.I): return False
-    all_numbers=re.findall(r"(?:\bvol(?:ume)?\.?\s*|\bissue\s*|#\s*)(\d+(?:\.\d+)?)(?!\w)",title,re.I)
+    issue_markers=r"(?:\bvol(?:ume)?\.?\s*|\bissue\s*|#\s*)" if b["system_code"]=="MANGA" else r"(?:\bissue\s*|#\s*)"
+    all_numbers=re.findall(issue_markers+r"(\d+(?:\.\d+)?)(?!\w)",title,re.I)
     if any(n != str(b["issue_number"]) for n in all_numbers): return False
+    if b["system_code"]!="MANGA":
+        volume_pattern=r"\bvol(?:ume)?\.?\s*(\d+)\b"
+        expected_volumes=re.findall(volume_pattern,b.get("volume_identifier") or "",re.I)
+        if any(v not in expected_volumes for v in re.findall(volume_pattern,title,re.I)): return False
     printing=str(b["printing_number"])
     words={"1":"first","2":"second","3":"third","4":"fourth","5":"fifth"}
     pword=words.get(printing,printing)
