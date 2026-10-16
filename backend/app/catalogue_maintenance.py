@@ -20,6 +20,7 @@ from .cardtrader_client import CardTraderClient
 from .db import user_connection
 from .fx import EcbHistoricalFxProvider
 from .database_capacity import check_database_capacity
+from .archive_backlog import archive_check_window, check_archive_backlog
 from .reference_feeds import ReferenceFeeds
 from .reference_library import save_reference_set
 from .reference_market import REVISION, refresh_reference_prices
@@ -325,10 +326,30 @@ async def shopify_pass(pool,settings):
 
 
 async def run_loop(pool,settings,*,shopify=False,wakeup=None):
+    last_archive_window_checked = None
     while True:
         # Clear BEFORE scanning: an approval during a pass must cause another
         # pass, not disappear into a subsequent clear/sleep race.
         if wakeup is not None:wakeup.clear()
+        if not shopify:
+            # Observe once per eligible UK day without making *any* history
+            # changes. Works even when the 400 MB price guard defers imports.
+            window = archive_check_window(datetime.now(timezone.utc))
+            if window is not None and window != last_archive_window_checked:
+                try:
+                    report = await check_archive_backlog(
+                        pool, UUID(settings.catalogue_maintenance_actor_user_id), window)
+                except asyncio.CancelledError:raise
+                except Exception as exc:
+                    log.error('CATALOGUE_ARCHIVE_BACKLOG_CHECK_FAILED type=%s', type(exc).__name__)
+                else:
+                    last_archive_window_checked = window
+                    if report['status'] == 'OVERDUE':
+                        log.error('CATALOGUE_ARCHIVE_BACKLOG_OVERDUE %s',
+                                  json.dumps(report, sort_keys=True))
+                    else:
+                        log.info('CATALOGUE_ARCHIVE_BACKLOG_CURRENT %s',
+                                 json.dumps(report, sort_keys=True))
         try:await (shopify_pass if shopify else daily_pass)(pool,settings)
         except asyncio.CancelledError:raise
         except Exception as exc:log.error('Catalogue maintenance job=%s failed type=%s','SHOPIFY' if shopify else 'DAILY',type(exc).__name__)
