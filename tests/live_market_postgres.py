@@ -45,7 +45,7 @@ async def main():
       create table tcg.reference_sets(provider text,system_code text,language text,set_id text,name text,release_date date);
       create table tcg.reference_market_prices(provider text,system_code text,language text,provider_id text,quotes jsonb);
       create table tcg.reference_catalogue_prices(provider text,system_code text,language text,provider_id text,quotes jsonb);
-      create table tcg.provider_catalogue_mappings(catalogue_id uuid,source_provider text,provider_language text,match_status text);
+      create table tcg.provider_catalogue_mappings(catalogue_id uuid,source_provider text,provider_language text,match_status text,system_code text,provider_id text,provider_entity_type text,provider_variant_key text,verification_basis text,confidence numeric,metadata jsonb);
       create table tcg.market_source_mappings(catalogue_id uuid,source text,match_status text);
       create table tcg.pricing_snapshots(id uuid primary key default gen_random_uuid(),inventory_id uuid,catalogue_id uuid,owner_id uuid,
        market_value_minor bigint,recommended_retail_minor bigint,quick_sale_minor bigint,target_acquisition_minor bigint,confidence numeric,
@@ -306,7 +306,7 @@ async def verify_multigame_guides(db,pool,actor,other):
     assert (await cardmarket.refresh_cardmarket_values(pool,actor))['inventory_updated']==0
     assert await db.fetchval('select bool_and(store_price_minor=9000) from tcg.inventory_items')
     # A later review cannot be bypassed through a cached guide of a new game.
-    await db.execute("insert into tcg.provider_catalogue_mappings values($1,'Bandai Official','English','REVIEW')",op)
+    await db.execute("insert into tcg.provider_catalogue_mappings(catalogue_id,source_provider,provider_language,match_status) values($1,'Bandai Official','English','REVIEW')",op)
     async with user_connection(pool,actor,'multigame-review') as conn:
         assert not await conn.fetchval('select market_value_minor from tcg.catalogue_reference_value_v2($1,$2)',op,'English')
         assert await cardmarket.apply_cached_inventory_guide(conn,english,actor,op) is None

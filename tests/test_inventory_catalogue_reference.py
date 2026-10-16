@@ -147,3 +147,66 @@ async def test_unfinished_capone_displays_nm_comparison_without_confirming_condi
     assert copy['catalogue_reference']['market_value_minor'] == 1200
     assert copy['catalogue_reference']['label'] == 'Near-mint reference'
     assert copy['catalogue_reference']['recommended_retail_minor'] is None
+
+def test_media_pending_review_is_not_a_price_rejection_when_independent_print_identity_is_proven():
+    from app.inventory_catalogue_reference import PRODUCTS_SQL
+    # Database guard: only a pending *media* review of a deterministic Japanese
+    # source identity can allow read-only reference *display*. Explicitly
+    # unresolved/rejected financial identities still block all source guides.
+    for evidence in (
+        "m.match_status='REVIEW'", "m.verification_basis='DETERMINISTIC_EXACT'",
+        "m.confidence=1", "m.provider_entity_type='CARD_PRINTING'",
+        "m.provider_language=p.language", "m.provider_variant_key=p.variant",
+        "m.metadata->>'media_approval_status'='PENDING'",
+        "m.metadata->>'media_asset_id'", "m.match_status in ('REVIEW','REJECTED')",
+        "m.provider_id=p.card_number", "tcg.reference_cards r",
+        "r.card_number=p.card_number", "m.source='CARDMARKET'",
+    ):
+        assert evidence in PRODUCTS_SQL
+    # It is strictly display-only: no change to the owner-independent financial
+    # snapshot resolver, and nothing in this SQL can write owner, price or media.
+    from app.inventory_reference_values import REFERENCE_VALUES_SQL
+    assert "m.match_status in ('REVIEW','REJECTED')" in REFERENCE_VALUES_SQL
+    assert all(x not in PRODUCTS_SQL.lower() for x in ("update tcg.","delete from tcg.","insert into tcg.","truncate tcg."))
+
+
+def test_actual_jp_op14_regional_cardmarket_guide_requires_original_print_link():
+    from app.inventory_catalogue_reference import catalogue_guide
+    now = NOW
+    product=dict(id=uuid4(),product_type='CARD',game='One Piece',
+                 name='Bepo',set_name="The Azure Sea's Seven",card_number='OP14-012',
+                 variant='Normal',rarity='C',language='Japanese',blocked=False)
+    en=dict(provider='Punk Records',system_code='ONE_PIECE_CARD_GAME',
+            language='English',provider_id='OP14-012',set_id='569114',
+            set_name='BOOSTER PACK -THE AZURE SEA’S SEVEN- [OP14-EB04]',
+            card_number='OP14-012',name='Bepo',rarity='Common',quotes=[],catalogue_quotes=[])
+    jp=dict(en,language='Japanese',set_id='550114',name='ベポ',
+            set_name='ブースターパック 蒼海の七傑【OP-14】')
+    valid=dict(source='CARDMARKET_BULK_SINGLES',source_field='trend',
+        match_basis='OFFICIAL_JP_EN_BASE_ID_AND_UNIQUE_NONENGLISH_MARKET_PRODUCT',
+        english_checklist_provider_id='OP14-012',english_checklist_set_id='569114',
+        reference_language='Japanese',reference_printing_id='OP14-012',reference_rarity='Common',
+        reference_identity={k:jp[k] for k in ('name','set_id','card_number','set_name')},
+        valuation_role='MIXED_NON_ENGLISH_REFERENCE',physical_language_confirmed=False,
+        physical_valuation_eligible=False,price_gbp_minor=4,original_minor=5,
+        original_currency='EUR',fx_source='ECB_EURO_REFERENCE_RATES',
+        fx_rate_to_gbp='0.84385',observed_at=(now-timedelta(minutes=10)).isoformat())
+    jp['quotes']=[valid];jp['catalogue_quotes']=[]
+    result=catalogue_guide(product,[en,jp],'Japanese',now=now)
+    assert result and result['market_value_minor']==4
+    assert result['label']=='Regional guide'
+    assert result['physical_valuation_eligible'] is False
+    assert result['recommended_retail_minor'] is None
+    assert 'not a Japanese condition-specific sale' in result['reason']
+    product['blocked']=True
+    assert catalogue_guide(product,[en,jp],'Japanese',now=now) is None
+    product['blocked']=False
+    for change in (
+        {'english_checklist_set_id':'wrong-release'},
+        {'reference_printing_id':'OP14-012_p1'},
+        {'reference_language':'English'},
+        {'fx_rate_to_gbp':'3'},
+        {'observed_at':(now-timedelta(days=8)).isoformat()},
+    ):
+        jp['quotes']=[dict(valid,**change)]
+        assert catalogue_guide(product,[en,jp],'Japanese',now=now) is None,change

@@ -18,9 +18,51 @@ from .one_piece_market import normalized, release_identity
 from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .reference_market import _text, _time
 
+# A media review is NOT proof that a market source is invalid. Allow only
+# display-only references when every pending mapping is a fully deterministic,
+# language/printing-specific identity backed by an actual source checklist.
+# Do not update match_status; the priced physical-copy resolver retains its
+# stricter REVIEW veto in REFERENCE_VALUES_SQL.
+#
+# Explicit REJECTED mappings, non-media reviews, unknown identities, conflicting
+# languages, and missing source IDs still block ALL price displays. The later
+# reference_candidates() + catalogue_guide() also reject ambiguous printings
+# and quote/source/FX/age mismatches. Neither supplies retail recommendations.
 PRODUCTS_SQL = """select p.*,
  exists(select 1 from tcg.provider_catalogue_mappings m where m.catalogue_id=p.id
-   and m.match_status in ('REVIEW','REJECTED'))
+   and m.match_status in ('REVIEW','REJECTED')
+   and not (
+     p.product_type='CARD' and p.language='Japanese'
+     and m.match_status='REVIEW'
+     and m.verification_basis='DETERMINISTIC_EXACT'
+     and m.confidence=1
+     and m.provider_entity_type='CARD_PRINTING'
+     and m.provider_language=p.language
+     and m.provider_variant_key=p.variant
+     and m.metadata->>'media_approval_status'='PENDING'
+     and nullif(m.metadata->>'media_asset_id','') is not null
+     and (
+       (p.game='One Piece' and m.source_provider='Punk Records'
+        and m.provider_id=p.card_number)
+       or
+       (p.game='Pokemon' and m.source_provider='TCGdex')
+     )
+     and exists (
+       select 1 from tcg.reference_cards r
+       join tcg.reference_sets s
+         on (s.provider,s.system_code,s.language,s.set_id)=
+            (r.provider,r.system_code,r.language,r.set_id)
+       where (r.provider,r.system_code,r.language,r.provider_id)=
+         (m.source_provider,m.system_code,m.provider_language,m.provider_id)
+         and r.card_number=p.card_number
+         and (s.release_date is null or s.release_date<=current_date)
+         and (
+           (p.game='One Piece' and r.system_code='ONE_PIECE_CARD_GAME')
+           or (p.game='Pokemon' and r.system_code='POKEMON_TCG'
+             and lower(r.name)=lower(p.name) and lower(s.name)=lower(p.set_name))
+         )
+     )
+   ))
  or exists(select 1 from tcg.market_source_mappings m where m.catalogue_id=p.id
    and m.source='CARDMARKET' and m.match_status in ('REVIEW','REJECTED')) as blocked
  from tcg.catalogue_products p where p.id=any($1::uuid[])"""
