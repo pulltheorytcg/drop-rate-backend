@@ -167,7 +167,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const tile=f.w.document.querySelector('.owner-inventory-card');
   const prices=tile.querySelector('.owner-card-prices');
   assert.match(prices.textContent,/£1.32/);
-  assert.doesNotMatch(prices.textContent,/Last known|09\\/10\\/2026/);
+  assert.ok(!prices.textContent.includes("Last known")&&!prices.textContent.includes("09/10/2026"));
   assert.match(prices.querySelector('.owner-card-historical-label').textContent,/Historical reference/);
   assert.equal(f.w.DropRateReferenceValue.isHistorical(raw),true);
   assert.equal(raw.reference_value.market_value_minor,null,'Historical comparison is not an eligible owned-copy valuation');
