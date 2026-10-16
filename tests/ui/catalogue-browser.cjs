@@ -4,7 +4,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=18'), 'Seller Hub must load the fresh mobile sort script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=19'), 'Seller Hub must load the fresh book value script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=4'), 'Seller Hub must load the fresh mobile sort styles');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -656,7 +656,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(f.browser.find('.dr-browse-content').textContent,/One Piece Volume 1/);
   const cardButton=f.browser.find('.dr-browse-product-open');
   cardButton.click();
-  assert.match(f.browser.sheet.textContent,/Book identity and cover\/printing require confirmation/);
+  assert.match(f.browser.sheet.textContent,/Confirm the printing and your copy's condition or grade/);
   assert.equal(f.browser.sheet.querySelector('select[aria-label="Condition"]'),null,
     'Book must never use CARD raw/graded intake');
   assert.equal(f.browser.sheet.querySelector('[data-add]'),null);

@@ -257,6 +257,8 @@ async def main():
             assert await conn.fetchval('select market_value_minor from tcg.catalogue_reference_value_v2($1,$2)',unowned,'English') is None
         assert not await db.fetchval("select has_function_privilege('anon','tcg.catalogue_reference_value_v2(uuid,text)','execute')")
         await verify_multigame_guides(db,pool,actor,other)
+        from book_live_market_fixture import exercise as exercise_books
+        await exercise_books(db,pool,actor,other)
     finally:
         await pool.close(); await db.close()
     print('PASS: eBay and Cardmarket persistence, unowned catalogue guides, source priority, immutable evidence, retries, owner isolation and unchanged Store Prices')

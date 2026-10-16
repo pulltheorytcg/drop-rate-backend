@@ -69,7 +69,12 @@ class PassSoldClient:
 
 
 def identity_key(target):
-    return hashlib.sha256(json.dumps([str(target.get(k) or "") for k in IDENTITY_FIELDS]).encode()).hexdigest()
+    fields=[str(target.get(k) or "") for k in IDENTITY_FIELDS]
+    if target.get("product_type")=="COMIC":
+        from .book_market import printing_digest, eligibility as book_eligibility
+        fields.append(printing_digest(target.get("book_printing") or {}))
+        fields.append(book_eligibility(target) or "ELIGIBLE")
+    return hashlib.sha256(json.dumps(fields).encode()).hexdigest()
 
 
 def card_name(target):
@@ -79,6 +84,9 @@ def card_name(target):
 
 
 def query_for(target):
+    if target["product_type"] == "COMIC":
+        from .book_market import query_for as book_query
+        return book_query(target)
     if target["product_type"] != "CARD":
         return _sealed_query(target)
     parts = [_normalise_text(card_name(target)), target["card_number"]]
@@ -94,6 +102,9 @@ def eligibility(target):
         return "IDENTITY_UNCONFIRMED"
     if target["language"] not in {"English", "Japanese"}:
         return "LANGUAGE_REVIEW_REQUIRED"
+    if target["product_type"] == "COMIC":
+        from .book_market import eligibility as book_eligibility
+        return book_eligibility(target)
     if target["product_type"] == "CARD":
         if not target["card_number"] or not target["variant"]:
             return "EXACT_PRINT_REQUIRED"
@@ -163,6 +174,9 @@ def exact_card_match(row, target):
 
 
 def select_comps(payload, target, now):
+    if target["product_type"] == "COMIC":
+        from .book_market import select_comps as book_comps
+        return book_comps(payload,target,now)
     if payload.get("site") != "EBAY_GB" or payload.get("currency") != "GBP":
         raise ValueError("UK GBP sold response required")
     rows = payload.get("results")
@@ -215,6 +229,9 @@ async def save_snapshot(connection, item, comps, query, now):
                 "excluded_observation_count":result.excluded_observation_count,
                 "comps":[dict(c, sold_at=c["sold_at"].isoformat()) for c in comps],
                 "sources":[dict(asdict(s), newest_observation_at=s.newest_observation_at.isoformat()) for s in result.source_estimates]}
+    if item.get("product_type")=="COMIC":
+        from .book_market import printing_digest
+        evidence["book_identity_digest"]=printing_digest(item["book_printing"])
     snapshot = await connection.fetchval("""insert into tcg.pricing_snapshots
       (inventory_id,catalogue_id,owner_id,market_value_minor,recommended_retail_minor,quick_sale_minor,
        target_acquisition_minor,confidence,source_count,observation_count,sold_observation_count,
@@ -245,7 +262,7 @@ async def refresh_group(pool, actor, owner_id, items, client):
     comps, usage, query = [], {}, None
     if reason is None:
         query = query_for(target)
-        payload = await client.sold(query=query, max_pages=2 if target["product_type"] != "CARD" else 1)
+        payload = await client.sold(query=query, max_pages=1 if target["product_type"] in {"CARD","COMIC"} else 2)
         usage = payload.get("_usage", {})
         try:
             comps = select_comps(payload, target, started)
@@ -257,6 +274,8 @@ async def refresh_group(pool, actor, owner_id, items, client):
     async with user_connection(pool, actor, str(uuid4())) as connection:
         await require_platform_admin(connection)
         current_rows = await connection.fetch(TARGET_SQL + " where i.id=any($1::uuid[]) order by i.id for update of i", [i["id"] for i in items])
+        from .book_market import attach_book_printings
+        current_rows=await attach_book_printings(connection,[dict(r) for r in current_rows],lock=True)
         expected = {i["id"]:i for i in items}
         valid = [dict(r) for r in current_rows if r["status"] in ACTIVE and r["version"]==expected[r["id"]]["version"]
                  and r["owner_id"]==expected[r["id"]]["owner_id"] and identity_key(r)==key]
@@ -321,6 +340,8 @@ async def refresh_pass(pool, settings):
                           and cm.identity_digest=md5(concat_ws(chr(31),p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language))
                           and cm.evidence_checked_at between now()-interval '7 days' and now()))))""")
                 rows = await connection.fetch(TARGET_SQL + " where i.status in ('DRAFT','INSPECTION','APPROVED') order by i.store_price_minor desc nulls last,i.id limit 2000")
+                from .book_market import attach_book_printings
+                rows=await attach_book_printings(connection,[dict(r) for r in rows])
                 checks = await connection.fetch("""select distinct on (metadata->>'identity_key') metadata,completed_at
                   from tcg.market_ingestion_runs where source='EBAY' and metadata->>'job'=$1
                   order by metadata->>'identity_key',completed_at desc limit 3000""", JOB)

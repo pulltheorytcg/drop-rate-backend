@@ -491,8 +491,10 @@ window.DropRateCatalogue = (() => {
         content.append(this.productImage(row,"dr-browse-detail-image"),
           node("h3","",decode(row.name)),
           node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
-        content.append(node("p","dr-browse-reference-note",
-          "Book identity and cover/printing require confirmation. No independently verified market price is available. Existing books remain in Draft until reviewed."));
+        content.append(node("p","dr-browse-reference-note", row.market_value_minor == null
+          ? "No independently verified market price is available for this printing yet."
+          : money(row.market_value_minor) + " · " + row.basis_condition + " · UK sold reference"));
+        content.append(node("p","dr-browse-reference-note","Confirm the printing and your copy's condition or grade before adding it. Selling remains a separate step."));
         const buttonRow=node("footer");
         buttonRow.append(button("Add a comic or manga",()=>this.openBookIntake(),"dr-browse-primary"));
         this.sheet.append(content,buttonRow);

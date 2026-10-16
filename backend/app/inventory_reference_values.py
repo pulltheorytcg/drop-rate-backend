@@ -29,6 +29,7 @@ select distinct on(s.catalogue_id,s.basis_condition,s.basis_language,s.grading_c
  s.evidence_checked_at,s.oldest_sale_at,s.calculated_at,s.algorithm_version,
  s.evidence->>'method' as method,s.evidence->>'limitation' as limitation,
  s.evidence->>'input_sale_count' as input_sale_count,
+ s.evidence->>'book_identity_digest' as book_identity_digest,
  case when s.evidence->>'method'='CATALOGUE_CARDMARKET_V1'
       then tcg.cardmarket_reference_current(s.evidence) else true end as reference_current
 from tcg.catalogue_market_snapshots s
@@ -81,11 +82,16 @@ def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime)
     condition, seal = _condition(item.get("condition")), _text(item.get("seal_status"))
     kind = item.get("product_type")
     if (bool(company) != bool(grade) or (company and (condition or seal))
-            or (kind == "CARD" and seal) or (kind != "CARD" and (company or condition))):
+            or (kind in {"CARD","COMIC"} and seal) or (kind not in {"CARD","COMIC"} and (company or condition))):
         result.update(status="NEEDS_DETAILS", reason="Check the raw, graded or sealed details for this copy.")
         return result
-    if kind not in {"CARD", "SEALED", "COLLECTION"}:
+    if kind not in {"CARD", "COMIC", "SEALED", "COLLECTION"}:
         return result
+    if kind == "COMIC":
+        from .book_market import eligibility as book_eligibility
+        if book_eligibility(item):
+            result.update(status="NEEDS_DETAILS",reason="Confirm this book's exact printing, cover and condition or grade before valuation.")
+            return result
     candidates = []
     for row in snapshots:
         if str(row.get("catalogue_id")) != str(item.get("catalogue_id")):
@@ -96,11 +102,13 @@ def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime)
             continue
         method = row.get("method")
         if method == SOLD:
+            if kind == "COMIC" and row.get("book_identity_digest") != item.get("book_identity_digest"):
+                continue
             if (str(row.get("input_sale_count")) != "5"
                     or (company, grade, seal) != (_text(row.get("grading_company")), _text(row.get("grade")), _text(row.get("seal_status")))
                     or condition != _condition(row.get("basis_condition"))
-                    or (kind == "CARD" and not company and not condition)
-                    or (kind != "CARD" and not seal)):
+                    or (kind in {"CARD","COMIC"} and not company and not condition)
+                    or (kind not in {"CARD","COMIC"} and not seal)):
                 continue
         elif method == GUIDE:
             # A guide remains explicitly an estimate, not an exact NM quote.
@@ -146,6 +154,8 @@ def resolve_reference_value(item: dict, snapshots: list[dict], *, now: datetime)
 async def add_shared_reference_values(connection, items: list[dict], *, now: datetime | None = None) -> list[dict]:
     """Enrich authorized response dictionaries only; never persist into inventory."""
     now = now or datetime.now(timezone.utc)
+    from .book_market import attach_book_printings
+    await attach_book_printings(connection,items)
     catalogue_ids = list(dict.fromkeys(UUID(str(item["catalogue_id"])) for item in items if item.get("catalogue_id")))
     by_catalogue: dict[str, list[dict]] = defaultdict(list)
     for start in range(0, len(catalogue_ids), 100):

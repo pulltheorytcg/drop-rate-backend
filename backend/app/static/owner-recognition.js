@@ -598,6 +598,7 @@ function ownerSharedScanner() {
         saveSession: session => saveSession(session),
         afterSave: () => Promise.all([loadOwnerOverview(), loadOwnerInventory()]),
         viewInventory: () => activateOwnerView("inventory"),
+        openBooks: () => window.DropRateBooks?.open({scan: true}),
       });
     }
   return window.dropRateScanner;

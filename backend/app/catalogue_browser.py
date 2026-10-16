@@ -426,7 +426,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
     if sort in ("value_desc", "value_asc"):
         query = source_cte + f""", reference_values as materialized (
       select p.id,v.* from tcg.catalogue_products p
-      left join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) v on true
+      left join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) v on p.product_type<>'COMIC'
     ), page as (
       select e.*,coalesce(o.quantity,0) as owned_quantity,{price_columns('e', bool(shared_prices))},
              row_number() over(order by {order}) as ordinal
@@ -451,7 +451,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
           from page left join lateral (
             select value.* from tcg.catalogue_products p
             cross join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) value
-            where p.id=page.catalogue_id
+            where p.id=page.catalogue_id and p.product_type<>'COMIC'
           ) v on page.catalogue_id is not null
           left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null order by page.ordinal
         """
@@ -476,7 +476,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         # Value sorts include alias prices before pagination. Other searches
         # resolve only the missing values on their bounded visible page.
-        shared = await read_shared_prices(connection) if sort in ('value_desc', 'value_asc') and product_type not in ('SEALED','COMIC') else {}
+        shared = await read_shared_prices(connection) if sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
         query, params = product_query(owner_id=access["owner_id"], q=q, system_code=system_code, language=language,
             set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list,
             limit=limit, offset=offset, shared_prices=shared)

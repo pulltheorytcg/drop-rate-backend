@@ -272,8 +272,9 @@ window.DropRateScanner = (() => {
         '<video autoplay muted playsinline aria-label="Live camera"></video>' +
         '<header class="dr-scan-topbar"><button type="button" data-action="close" aria-label="Close scanner">←</button>' +
         '<strong>Trading Card Games</strong><button type="button" data-action="settings" aria-label="Scanner settings">⚙</button></header>' +
-        '<nav class="dr-scan-modes" aria-label="Scan type">' +
-        ['RAW', 'GRADED', 'SEALED'].map(mode => '<button type="button" data-mode="' + mode + '" aria-pressed="false">' + mode + '</button>').join('') + '</nav>' +
+        '<nav class="dr-scan-modes' + (this.options.openBooks ? ' dr-scan-modes-books' : '') + '" aria-label="Scan type">' +
+        ['RAW', 'GRADED', 'SEALED'].map(mode => '<button type="button" data-mode="' + mode + '" aria-pressed="false">' + mode + '</button>').join('') +
+        (this.options.openBooks ? '<button type="button" data-action="books">COMICS / MANGA</button>' : '') + '</nav>' +
         '<button type="button" class="dr-scan-certificate" data-action="certificate" hidden>Enter certificate</button>' +
         '<div class="dr-scan-guide" aria-hidden="true"></div><p class="dr-scan-status" role="status">Place a card inside the guide</p>' +
         '<button type="button" class="dr-scan-camera-resume" data-action="resume">Start camera</button>' +
@@ -307,6 +308,7 @@ window.DropRateScanner = (() => {
           torch: () => this.toggleTorch(), certificate: () => this.manualSlab(),
           gallery: () => this.find(".dr-scan-file").click(), capture: () => this.capture(),
           next: () => this.showReview(), back: () => this.startCamera(), save: () => this.saveAll(),
+          books: () => { if (!this.processing && !this.saving && !this.editBusy) { this.close(); this.options.openBooks?.(); } },
         };
         actions[control.dataset.action]();
       }));

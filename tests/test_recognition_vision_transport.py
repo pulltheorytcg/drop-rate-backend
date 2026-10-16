@@ -152,7 +152,7 @@ def test_transport_change_does_not_change_recognition_engine_version_or_gates() 
 
     assert 'ENGINE_VERSION = "v1.9.0"' in recognition
     assert '"detail": "high"' in vision
-    assert '"max_output_tokens": 1800' in vision
+    assert OpenAIRecognitionVisionClient.max_output_tokens == 1800
     assert '"reasoning"' not in vision
 
 

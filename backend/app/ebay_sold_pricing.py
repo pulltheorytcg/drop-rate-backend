@@ -478,6 +478,10 @@ async def _persist_comp(connection, target: dict[str, Any], comp: SoldComparable
             "shipping_observed_separately": comp.shipping_minor is not None,
         },
     ).validate()
+    if target.get("product_type")=="COMIC":
+        from .book_market import printing_digest
+        observation.metadata["selection_rule"]="FIVE_NEWEST_EXACT_BOOK_SALES"
+        observation.metadata["book_identity_digest"]=printing_digest(target["book_printing"])
     row = await connection.fetchrow(
         """
         insert into tcg.market_observations(
