@@ -145,7 +145,7 @@ window.DropRateCatalogue = (() => {
     game() { return this.games.find(game=>game.system_code===this.filters.system_code); }
     isHome() { const f=this.filters;return this.page!=="sets" && !f.q.trim()&&!f.system_code&&!f.language&&!f.product_type&&f.owned==="all"&&!f.watch; }
     isBookFamily(code=this.filters.system_code){ return ["COMICS","MANGA"].includes(code); }
-    openBookIntake(){if(!this.find(".dr-browse-backdrop").hidden)this.closeSheet();this.close();if(typeof this.options.books==="function")this.options.books();else this.options.navigate("inventory");}
+    openBookIntake(row){if(!this.find(".dr-browse-backdrop").hidden)this.closeSheet();this.close();if(typeof this.options.books==="function")this.options.books({book:row?.book_details});else this.options.navigate("inventory");}
     pickGame(game) { this.filters.system_code=game.system_code;this.filters.language="";this.filters.product_type=this.isBookFamily(game.system_code)?"COMIC":"";this.set=null;this.page="products";this.load(); }
     showSets() { if(!this.filters.system_code)return;this.page="sets";this.setQuery="";this.set=null;
       this.filters.q="";this.filters.owned="all";this.filters.watch=false;this.filters.product_type="";
@@ -440,7 +440,7 @@ window.DropRateCatalogue = (() => {
         card.append(open);
         const footer=node("div","dr-browse-product-footer"),copy=node("div"),price=node("strong","",marketPrice(row));price.dataset.priceKey=row.key;
         copy.append(price,node("small","","Qty: "+row.owned_quantity));
-        const plus=button("+",()=>row.product_type==="COMIC"?this.openBookIntake():this.openProduct(row),"dr-browse-plus");plus.setAttribute("aria-label","Add "+decode(row.name));footer.append(copy,plus);card.append(footer);
+        const plus=button("+",()=>row.product_type==="COMIC"?this.openBookIntake(row):this.openProduct(row),"dr-browse-plus");plus.setAttribute("aria-label","Add "+decode(row.name));footer.append(copy,plus);card.append(footer);
         if(row.owned_quantity>0)card.append(node("span","dr-browse-owned","✓"));
         grid.append(card);
       }
@@ -495,8 +495,13 @@ window.DropRateCatalogue = (() => {
           ? "No independently verified market price is available for this printing yet."
           : money(row.market_value_minor) + " · " + row.basis_condition + " · UK sold reference"));
         content.append(node("p","dr-browse-reference-note","Confirm the printing and your copy's condition or grade before adding it. Selling remains a separate step."));
+        if(row.book_details?.barcode_gtin)content.append(node("p","dr-browse-reference-note","ISBN / barcode: "+row.book_details.barcode_gtin));
+        if(row.publisher_source_url && /^https:\/\/(?:www\.viz\.com\/manga-books\/manga\/|www\.dc\.com\/comics\/|www\.marvel\.com\/comics\/issue\/)[^?#]+$/.test(row.publisher_source_url)){
+          const source=node("a","dr-browse-publisher-source","View publisher details and cover ↗");
+          source.href=row.publisher_source_url;source.target="_blank";source.rel="noopener noreferrer";content.append(source);
+        }
         const buttonRow=node("footer");
-        buttonRow.append(button("Add a comic or manga",()=>this.openBookIntake(),"dr-browse-primary"));
+        buttonRow.append(button("Add a comic or manga",()=>this.openBookIntake(row),"dr-browse-primary"));
         this.sheet.append(content,buttonRow);
         return;
       }

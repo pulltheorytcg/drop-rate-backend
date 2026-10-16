@@ -42,6 +42,18 @@ def main():
                     }
                 ''')
                 page.add_script_tag(content=(ROOT/'owner-books.js').read_text())
+                # Selecting a catalogue edition prefills only book facts. It
+                # must never submit a copy, imply a first printing, or price it.
+                page.evaluate("""DropRateBooks.open({book:{system_code:'MANGA',series_title:'One Piece',issue_number:'1',
+                    publisher:'VIZ Media',book_format:'MANGA',language:'English',release_year:2003,
+                    barcode_gtin:'9781569319017',printing_number:null,condition:'Mint',price:999}})""")
+                assert page.locator('#owner-book-series').input_value() == 'One Piece'
+                assert page.locator('#owner-book-barcode').input_value() == '9781569319017'
+                for field in ('printing','condition','cost','price','grade','certificate'):
+                    assert page.locator('#owner-book-'+field).input_value() == ''
+                assert page.locator('#owner-book-number-text').inner_text() == 'Volume number'
+                assert not page.evaluate('calls.length')
+                page.locator('#owner-book-close').click()
                 page.evaluate("document.querySelector('[data-owner-add-book]').click()")
                 assert not errors, errors
                 page.locator('#owner-book-series').fill('Amazing Spider-Man')

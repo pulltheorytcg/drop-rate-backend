@@ -25,6 +25,7 @@ from fastapi import Depends, FastAPI
 from app import auth, inventory_intake, owner_portal_api, owner_books, seller_channel_sync, book_recognition
 from collection_books_fixture import prepare as prepare_books, exercise as exercise_books
 from collection_book_scanner_fixture import prepare as prepare_scanner, exercise as exercise_scanner
+from book_catalogue_seed_fixture import exercise as exercise_book_catalogue_seed
 from app.access_control import require_platform_admin_request
 from app.db import _init_connection
 from owner_auto_import_postgres import SCHEMA
@@ -146,6 +147,7 @@ async def main():
         assert await db.fetchval('select count(*) from tcg.catalogue_products')==2+book_count
         assert await db.fetchval("select pg_get_functiondef('tcg.validate_inventory_condition_state()'::regprocedure)")==guard
         assert not await db.fetchval('select rolbypassrls from pg_roles where rolname=$1','tcg_api')
+        await exercise_book_catalogue_seed(db, (ub, uf))
         print('PASS: actual physical-state migrations + signed HTTP/RLS: optional cost/condition/price, canonical language, raw/slab/sealed, concurrent replay, changed payload, wrong owner/role, expired/revoked access, global certificate uniqueness, no pricing/publication/financial writes. Synthetic issuer and provider only.')
     finally:
         auth._jwk_client.cache_clear()

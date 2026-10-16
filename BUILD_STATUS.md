@@ -1,3 +1,9 @@
+# Build status
+
+## 16 October 2026 — Publisher-backed starter book catalogue (release pending)
+
+Prepared 14 real English-language edition references: One Piece 1–3, Naruto 1–3, Dragon Ball Z 1, Hunter x Hunter 1, Jujutsu Kaisen 1, Death Note 1; Absolute Batman 1–2, Absolute Superman 1, Ultimate Spider-Man (2024) 1. Publisher URLs, release dates and ten ISBNs are recorded in the reviewed manifest. The append-only seed reuses the existing manual identity algorithm, rejects collisions and is idempotent. Records remain STRUCTURED; unknown physical printing/cover, condition, grade, stock and market values are not inferred. Catalogue selection prefills the existing book intake for explicit review/save. Cover URLs are recorded as pending-rights provenance, with publisher links; existing approved-media gates remain intact. No Shopify products, new services, schema, provider subscriptions or refreshes. See [starter catalogue](docs/BOOK_CATALOGUE_STARTER_20261016.md).
+
 ## 16 October 2026 — Comic/manga scanner and exact-book market values (release verification pending)
 
 Seller Hub now connects the existing book intake to camera/gallery evidence recognition (up to three photos), with explicit field confirmation and draft save. Added an exact-printing branch to the existing UK sold/v4 pipeline, immutable book identity digests, shared inventory/catalogue values and a read-only form lookup. Uncertain identity, mismatched editions/grades, unverified book profiles and signed/restored/qualified copies cannot inherit a standard value. No new service/schema, asking-price update or Shopify publication. Production has zero canonical books and the existing sold provider is paused after HTTP 429 until 17 October 17:00 UTC; **no new live book prices or real-photo accuracy are claimed**. See [design, failure cases and verification](docs/BOOK_SCANNER_MARKET_VALUES_20261016.md).

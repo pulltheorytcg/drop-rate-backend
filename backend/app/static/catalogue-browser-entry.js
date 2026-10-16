@@ -20,7 +20,7 @@
           graded:async row=>{const current=scanner();await current.open("GRADED");current.manualSlab();
             if(row.catalogue_id&&current.edit){const candidate={...row,catalogue_id:row.catalogue_id,candidate_snapshot:row,market_value_minor:null,image_url:row.display_image_url};
               current.edit.item.candidates=[candidate];current.edit.selected=candidate;current.renderSlabDetails();}},
-          books:()=>seller?window.DropRateBooks?.open():navigate("inventory"),
+          books:options=>seller?window.DropRateBooks?.open(options):navigate("inventory"),
           afterSave:()=>seller?Promise.all([loadOwnerOverview(),loadOwnerInventory()]):reloadDashboard(),
         });
       }

@@ -281,6 +281,16 @@
     node("message").textContent = "";
     node("scan-message").textContent = "Up to 3 photos of the same book. You confirm the details before saving.";
     node("market-result").textContent = "Complete the book and copy details to check matching sold evidence.";
+    if (options.book) {
+      const fields = options.book;
+      const mapping = {system_code:"category", series_title:"series", issue_number:"number", volume_identifier:"volume",
+        publisher:"publisher", language:"language", release_year:"year", printing_number:"printing", cover_code:"cover",
+        cover_artist:"artist", barcode_gtin:"barcode"};
+      for (const [field,id] of Object.entries(mapping)) node(id).value = fields[field] ?? "";
+      node("format").value = fields.book_format === "MANGA" ? "SINGLE_ISSUE" : fields.book_format || "";
+      node("condition").value = "";
+      node("scan-message").textContent = "Catalogue details filled in. Check these against your copy, including its printing and cover.";
+    }
     update(); renderPhotos(); dialog.showModal(); (options.scan ? node("camera") : node("category")).focus();
   }
   window.DropRateBooks = {open, reset() { cancelScan(); photos = []; if (dialog) { dialog.close(); renderPhotos(); } }};

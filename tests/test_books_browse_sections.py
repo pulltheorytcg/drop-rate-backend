@@ -1,5 +1,5 @@
-"""Only actual seller-entered collectible books appear in comics/manga browse.
-No catalogue rows, price records or Shopify listings are invented.
+"""Real seller-entered and publisher-sourced books appear in comics/manga browse.
+Physical stock, prices and Shopify listings are never invented.
 """
 import json
 from pathlib import Path
@@ -77,8 +77,8 @@ def test_book_opening_never_uses_card_intake_or_infers_prices():
     assert "if(row.product_type===\"COMIC\")" in js
     assert "this.openBookIntake()" in js
     assert "window.DropRateBooks = {open" in owner
-    assert "books:()=>seller?window.DropRateBooks?.open()" in entry
+    assert "books:options=>seller?window.DropRateBooks?.open(options)" in entry
     assert "No independently verified market price is available" in js
     # Generic card ISBN/certificate data cannot be forged by the catalogue
     # browser; the existing book form enforces exact printing and owner.
-    assert 'fetch(' not in js[js.index('openBookIntake()'):js.index('pickGame(game)')]
+    assert 'fetch(' not in js[js.index('openBookIntake(row)'):js.index('pickGame(game)')]
