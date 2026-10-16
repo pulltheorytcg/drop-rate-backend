@@ -694,7 +694,10 @@ function renderInventoryPagination() {
 
 async function loadOwnerOverview() {
   const data = await apiRequest("/api/v1/owner/overview");
-  const summary = data.summary || {};
+  renderOwnerOverview(data.summary || {});
+}
+
+function renderOwnerOverview(summary) {
   const total = Number(summary.total_inventory_count || 0);
   byId("owner-total-inventory").textContent = total.toLocaleString("en-GB");
   const unvalued = Number(summary.active_unvalued_count || 0);
