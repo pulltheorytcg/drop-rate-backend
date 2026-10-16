@@ -44,6 +44,8 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.match(tile.querySelector('.owner-status-pill').textContent,/DRAFT/);
   assert.match(tile.querySelector('.owner-card-prices').textContent,/£8.66/);
   assert.match(tile.querySelector('.owner-card-prices').textContent,/Store price/);
+  assert.match(tile.querySelector('.owner-card-prices').textContent,/Not set/);
+  assert.match(f.w.document.querySelector('#owner-inventory-body tr td:last-child').textContent,/Not set/);
   assert.doesNotMatch(tile.textContent,/INV-EXACT-COPY|Seal|Language|Type|Inventory ID/);
   assert.equal(tile.querySelector('.owner-inventory-details'),null,'No redundant Manage button');
   const openTile=tile.querySelector('.owner-card-open-overlay');
