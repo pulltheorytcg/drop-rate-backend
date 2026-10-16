@@ -705,6 +705,7 @@ function renderOwnerOverview(summary) {
   const activeCount = Number.isInteger(summary.active_inventory_count) ? summary.active_inventory_count : total;
   // Only show an aggregate for copies with eligible evidence. An unpriced
   // collection is not worth pennies merely because only one card was matched.
+  byId("owner-market-value-label").textContent = unvalued ? "Market value · partial" : "Market value";
   const referenceTotal = summary.active_market_value_minor;
   byId("owner-market-value").textContent = valued > 0 && Number.isInteger(referenceTotal)
     ? formatMoney(referenceTotal) : activeCount === 0 ? formatMoney(0) : "Unavailable";
