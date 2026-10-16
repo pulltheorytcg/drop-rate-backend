@@ -169,8 +169,8 @@ function renderInventoryRows(items) {
     const storeCell = document.createElement("td");
     const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
     const storeText = (item.grouped_quantity || 1) > 1
-      ? window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", formatMoney)
-      : storeValue == null ? "—" : formatMoney(storeValue);
+      ? window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", formatMoney, "Not set")
+      : storeValue == null ? "Not set" : formatMoney(storeValue);
     storeCell.textContent = storeText;
 
     row.append(cardCell, statusCell, marketCell, storeCell);
@@ -241,8 +241,8 @@ function renderInventoryCards(items) {
     prices.className = "owner-card-prices";
     const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
     const storeText = (item.grouped_quantity || 1) > 1
-      ? window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", formatMoney)
-      : storeValue == null ? "—" : formatMoney(storeValue);
+      ? window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", formatMoney, "Not set")
+      : storeValue == null ? "Not set" : formatMoney(storeValue);
     const storeLabel = (item.grouped_quantity || 1) === 1 && item.store_price_minor == null && item.recommended_retail_minor != null
       ? "Recommended retail"
       : "Store price";
