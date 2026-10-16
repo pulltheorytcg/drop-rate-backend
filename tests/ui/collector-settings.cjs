@@ -49,7 +49,7 @@ function fixture(role,saved='electric'){
   assert.equal(w.dropRateCatalogue.filters.system_code,'');assert.equal(w.dropRateCatalogue.filters.q,'');
   assert.equal(w.dropRateCatalogue.filters.language,'');assert.equal(w.dropRateCatalogue.filters.owned,'all');
   assert.equal(w.dropRateCatalogue.filters.watch,false);assert.equal(w.dropRateCatalogue.filters.product_type,'');assert.equal(w.dropRateCatalogue.set,null);
-  assert.match(w.dropRateCatalogue.find('.dr-browse-content').textContent,/Browse card games/);
+  assert.match(w.dropRateCatalogue.find('.dr-browse-content').textContent,/Browse cards, comics & manga/);
   // Re-entering Search from the primary navigation preserves a deliberate filter.
   w.dropRateCatalogue.filters.q='Luffy';await w.openDropRateCatalogue();assert.equal(w.dropRateCatalogue.filters.q,'Luffy');
   assert.equal(f.errors.length,0);f.finish();checks++;
