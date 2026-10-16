@@ -144,8 +144,9 @@ def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None
 
     for required in (
         "Total inventory",
-        "Active market value",
-        "Automatic recommendations where market evidence is available",
+        "Market value",
+        "Saved Store Value",
+        "Automatic recommendations are separate from saved Store Prices",
         "Sold",
         "Market value",
         "Recommended retail",
