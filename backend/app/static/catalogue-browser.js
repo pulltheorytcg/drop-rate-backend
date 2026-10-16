@@ -6,7 +6,7 @@ window.DropRateCatalogue = (() => {
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
   const marketPrice = row => row.shared_price
     ? window.DropRateReferenceValue.text({reference_value:row.shared_price}, money)
-    : row.market_value_minor==null?(row.market_refresh_failed?"Price temporarily unavailable":row.market_refresh_needed?"Checking price…":"Price unavailable"):(row.market_value_source==="CARDMARKET_ESTIMATE"?"Estimate: ":["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT","CARDMARKET_CATALOGUE","CARDMARKET_BULK","CARDMARKET_BULK_SINGLES"].includes(row.market_value_source)?"Reference: ":"")+money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
+    : row.market_value_minor==null?(row.product_type==="COMIC"?"Market value pending":row.market_refresh_failed?"Price temporarily unavailable":row.market_refresh_needed?"Checking price…":"Price unavailable"):(row.market_value_source==="CARDMARKET_ESTIMATE"?"Estimate: ":["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT","CARDMARKET_CATALOGUE","CARDMARKET_BULK","CARDMARKET_BULK_SINGLES"].includes(row.market_value_source)?"Reference: ":"")+money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
   const sorts = {newest:"Newest first", oldest:"Oldest first", name:"Name A–Z", name_desc:"Name Z–A",
@@ -357,15 +357,16 @@ window.DropRateCatalogue = (() => {
       }
       const publisherReference=row.source_kind==="SEALED_REFERENCE"&&row.provider==="Kayou Official";
       const missingPokemonSource=row.source_kind==="REFERENCE"&&row.provider==="TCGdex"&&row.system_code==="POKEMON_TCG";
-      const placeholder=node("span","dr-browse-image-placeholder",urls.length?"Loading image…":publisherReference?"Verified Kayou product · Packaging photo pending":missingPokemonSource?"Card image not yet available · Reference only":"Artwork unavailable");
+      const referencePath=row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')?row.reference_image_path+(cls==="dr-browse-detail-image"?"":"&size=grid"):null;
+      const placeholder=node("span","dr-browse-image-placeholder",(urls.length||referencePath)?"Loading image…":publisherReference?"Verified Kayou product · Packaging photo pending":missingPokemonSource?"Card image not yet available · Reference only":"Artwork unavailable");
       if(publisherReference&&!urls.length)wrap.classList.add("dr-browse-publisher-photo-pending");
       if(missingPokemonSource&&!urls.length)wrap.classList.add("dr-browse-reference-photo-pending");
       wrap.append(placeholder);
-      if(urls.length){
+      if(urls.length||referencePath){
         const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.decoding="async";image.referrerPolicy="no-referrer";
+        if(row.artwork_kind==="PUBLISHER_REFERENCE")image.alt+=" — publisher reference cover";
         if(cls==="dr-browse-detail-image")image.loading="eager";
         image.addEventListener("load",()=>{placeholder.hidden=true;});
-        const referencePath=row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')?row.reference_image_path+(cls==="dr-browse-detail-image"?"":"&size=grid"):null;
         let proxyTried=Boolean(referencePath);
         const fallback=()=>{if(urls.length)image.src=urls.shift();else {image.remove();placeholder.textContent=missingPokemonSource?"Card image not yet available · Reference only":"Image unavailable";placeholder.hidden=false;if(missingPokemonSource)wrap.classList.add("dr-browse-reference-photo-pending");}};
         image.addEventListener("error",()=>{
@@ -492,13 +493,20 @@ window.DropRateCatalogue = (() => {
           node("h3","",decode(row.name)),
           node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
         content.append(node("p","dr-browse-reference-note", row.market_value_minor == null
-          ? "No independently verified market price is available for this printing yet."
+          ? row.book_market_status === "PRINTING_REVIEW_REQUIRED"
+            ? "Market value pending: the printing and cover need confirmation before matching sold prices."
+            : "Market value pending: at least five matching recent sales are needed for this printing."
           : money(row.market_value_minor) + " · " + row.basis_condition + " · UK sold reference"));
         content.append(node("p","dr-browse-reference-note","Confirm the printing and your copy's condition or grade before adding it. Selling remains a separate step."));
         if(row.book_details?.barcode_gtin)content.append(node("p","dr-browse-reference-note","ISBN / barcode: "+row.book_details.barcode_gtin));
         if(row.publisher_source_url && /^https:\/\/(?:www\.viz\.com\/manga-books\/manga\/|www\.dc\.com\/comics\/|www\.marvel\.com\/comics\/issue\/)[^?#]+$/.test(row.publisher_source_url)){
           const source=node("a","dr-browse-publisher-source","View publisher details and cover ↗");
           source.href=row.publisher_source_url;source.target="_blank";source.rel="noopener noreferrer";content.append(source);
+        }
+        if(row.artwork_kind==="PUBLISHER_REFERENCE")content.append(node("p","dr-browse-reference-note","Publisher reference cover. Your copy's printing or cover may differ."));
+        if(row.book_sold_search_url?.startsWith("https://www.ebay.co.uk/sch/i.html?")){
+          const sold=node("a","dr-browse-publisher-source","Compare sold listings on eBay UK ↗");
+          sold.href=row.book_sold_search_url;sold.target="_blank";sold.rel="noopener noreferrer";content.append(sold);
         }
         const buttonRow=node("footer");
         buttonRow.append(button("Add a comic or manga",()=>this.openBookIntake(row),"dr-browse-primary"));

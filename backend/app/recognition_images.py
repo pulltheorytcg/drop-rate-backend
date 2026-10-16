@@ -194,6 +194,9 @@ REFERENCE_IMAGE_MAX_REDIRECTS = 3
 
 
 def _trusted_reference_url(url: str) -> bool:
+    from .book_artwork import publisher_cover_url
+    if publisher_cover_url(url):
+        return True
     try:
         parsed = urlparse(url)
     except ValueError:
@@ -241,6 +244,7 @@ async def _fetch_reference_image_uncached(
     max_bytes: int,
     timeout_seconds: float,
 ) -> ReferenceImagePayload | None:
+    from .book_artwork import publisher_cover_url
     current = url
     data = b""
     content_type = ""
@@ -274,7 +278,7 @@ async def _fetch_reference_image_uncached(
                     "image/png",
                     "image/webp",
                     "image/avif",
-                }:
+                } and not (not content_type and publisher_cover_url(current)):
                     return None
                 content_length = response.headers.get("content-length")
                 if content_length:
@@ -298,9 +302,16 @@ async def _fetch_reference_image_uncached(
         return None
 
     try:
-        _open_image(data)
+        image, _, _ = _open_image(data)
     except RecognitionImageError:
         return None
+    # Some VIZ publisher JPEGs omit Content-Type. Only those exact publisher
+    # paths may use a decoded raster format; HTML/SVG and declared bad MIME fail.
+    if not content_type:
+        content_type = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp",
+                        "AVIF": "image/avif"}.get(image.format)
+        if not content_type:
+            return None
     return ReferenceImagePayload(content_type=content_type, data=data)
 
 

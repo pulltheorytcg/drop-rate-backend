@@ -24,6 +24,7 @@ from .recognition_games import SYSTEM_BY_GAME, collector_key
 from .reference_market import refresh_reference_prices
 from .recognition_images import reference_image_bytes
 from .catalogue_artwork import reference_thumbnail
+from .book_artwork import book_cover_reference
 from .catalogue_set_artwork import resolve_set_artwork, artwork_coverage
 from .cardtrader_recognition import _cardtrader_image_url
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
@@ -506,10 +507,34 @@ async def reference_image(request: Request, user: Annotated[AuthenticatedUser, D
                           access: Annotated[dict, Depends(browser_access)],
                           provider: str = Query(max_length=80), system_code: str = Query(max_length=80),
                           language: str = Query(max_length=80), provider_id: str = Query(max_length=200),
-                          reference_kind: Literal['card','sealed'] = 'card',
+                          reference_kind: Literal['card','sealed','book'] = 'card',
                           size: Literal['grid','detail'] = 'detail'):
     # Resolve the existing exact reference on the server. Never accept a URL
     # from the client or turn reference artwork into approved inventory media.
+    if reference_kind == 'book':
+        try:
+            catalogue_id = UUID(provider_id)
+        except ValueError:
+            raise HTTPException(404, 'Reference artwork not available')
+        if provider != 'Official Publisher':
+            raise HTTPException(404, 'Reference artwork not available')
+        async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
+            book = await connection.fetchrow('''select b.*,pr.identity_status as profile_status,
+                pr.release_date as profile_release_date
+              from tcg.comic_printing_details b
+              join tcg.catalogue_product_profiles pr on pr.catalogue_id=b.catalogue_id
+                and pr.system_code=b.system_code and pr.collectible_type='COMIC'
+              join tcg.catalogue_products p on p.id=b.catalogue_id and p.product_type='COMIC'
+              where p.id=$1 and b.system_code=$2 and p.language=$3
+                and pr.release_date<=current_date''',catalogue_id,system_code,language)
+        cover = book_cover_reference(dict(book), language) if book else None
+        if not cover:
+            raise HTTPException(404, 'Reference artwork not available')
+        # Publisher reference thumbnails are sufficient in both browse sizes.
+        payload = await reference_thumbnail(cover['image_url'])
+        if payload is None:
+            raise HTTPException(502, 'Reference artwork could not load')
+        return Response(payload.data,media_type=payload.content_type,headers={'Content-Disposition':'inline'})
     async with user_connection(request.app.state.db_pool,user.user_id,request.state.request_id) as connection:
         table='reference_sealed_products' if reference_kind=='sealed' else 'reference_cards'
         url = await connection.fetchval(f'''select r.image_url from tcg.{table} r

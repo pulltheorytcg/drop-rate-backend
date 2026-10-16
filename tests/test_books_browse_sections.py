@@ -78,7 +78,8 @@ def test_book_opening_never_uses_card_intake_or_infers_prices():
     assert "this.openBookIntake()" in js
     assert "window.DropRateBooks = {open" in owner
     assert "books:options=>seller?window.DropRateBooks?.open(options)" in entry
-    assert "No independently verified market price is available" in js
+    assert "Market value pending: the printing and cover need confirmation" in js
+    assert "at least five matching recent sales are needed" in js
     # Generic card ISBN/certificate data cannot be forged by the catalogue
     # browser; the existing book form enforces exact printing and owner.
     assert 'fetch(' not in js[js.index('openBookIntake(row)'):js.index('pickGame(game)')]

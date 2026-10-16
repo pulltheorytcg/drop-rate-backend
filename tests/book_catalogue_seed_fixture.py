@@ -26,6 +26,10 @@ async def exercise(db, users):
             enriched = await with_book_details(db, rows)
             assert all(row['book_details']['printing_number'] is None for row in enriched)
             assert all(row['publisher_source_url'].startswith('https://www.') for row in enriched)
+            assert all(row['artwork_kind'] == 'PUBLISHER_REFERENCE' for row in enriched)
+            assert all('reference_kind=book' in row['reference_image_path'] for row in enriched)
+            assert all(row['book_market_status'] == 'PRINTING_REVIEW_REQUIRED' for row in enriched)
+            assert all(row.get('market_value_minor') is None for row in enriched)
             for row in seed['entries']:
                 product = ManualCatalogueCreate(**row['catalogue'], comic_printing=row['book'])
                 assert (await _find_exact_catalogue(db, product))['id'] == UUID(row['id'])
