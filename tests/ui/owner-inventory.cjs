@@ -152,6 +152,27 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   resolveRefresh(new Error("Provider unavailable"));await tick();await tick();
   f.finish();checks++;
  }
+ // Real video regression: a missing-condition card can hold a *stale*
+ // near-mint comparison wrapped as CONDITION_REFERENCE. Do not accidentally
+ // let that nested label revive "£1.32 · Last known DD/MM/YYYY" in the grid
+ // after the historical-price compactness release.
+ {
+  const raw={...item,product_type:'CARD',seal_status:null,condition:null,
+    market_value_minor:null,store_price_minor:null,
+    reference_value:{status:'NEEDS_DETAILS',market_value_minor:null},
+    catalogue_reference:{status:'CONDITION_REFERENCE',market_value_minor:null,
+      last_known_minor:132,checked_at:'2026-10-09T00:00:00Z',
+      label:'Near-mint reference',physical_valuation_eligible:false}};
+  const f=fixture(raw);f.run('renderInventoryCards('+JSON.stringify([raw])+')');
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  const prices=tile.querySelector('.owner-card-prices');
+  assert.match(prices.textContent,/£1.32/);
+  assert.doesNotMatch(prices.textContent,/Last known|09\\/10\\/2026/);
+  assert.match(prices.querySelector('.owner-card-historical-label').textContent,/Historical reference/);
+  assert.equal(f.w.DropRateReferenceValue.isHistorical(raw),true);
+  assert.equal(raw.reference_value.market_value_minor,null,'Historical comparison is not an eligible owned-copy valuation');
+  f.finish();checks++;
+ }
  // Two approved identical sealed physical copies become ONE quantity-2 card,
  // without mutating or losing distinct inventory IDs or inventing prices.
  {
