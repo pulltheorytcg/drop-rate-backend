@@ -45,12 +45,16 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.match(tile.querySelector('.owner-card-prices').textContent,/£8.66/);
   assert.match(tile.querySelector('.owner-card-prices').textContent,/Store price/);
   assert.doesNotMatch(tile.textContent,/INV-EXACT-COPY|Seal|Language|Type|Inventory ID/);
-  assert.ok(tile.querySelector('.owner-inventory-details'),'Manage action must stay available');
+  assert.equal(tile.querySelector('.owner-inventory-details'),null,'No redundant Manage button');
+  const openTile=tile.querySelector('.owner-card-open-overlay');
+  assert.ok(openTile,'Whole card needs an accessible details button');
+  assert.match(openTile.getAttribute('aria-label'),/View details for/);
+  assert.equal(tile.querySelectorAll('button').length,1,'No duplicate image/Manage controls on a static tile');
   const inventoryRow=f.w.document.querySelector('#owner-inventory-body tr');
   assert.equal(inventoryRow.children.length,4,'List view should have only essential columns');
   assert.doesNotMatch(inventoryRow.textContent,/INV-EXACT-COPY|Japanese|\\bSeal\\b|\\bLanguage\\b/);
   assert.match(inventoryRow.textContent,/£8.66/);
-  f.w.document.querySelector('.owner-card-image-wrap').click();await tick();
+  f.w.document.querySelector('.owner-card-open-overlay').click();await tick();
   assert.equal(f.w.document.querySelector('dialog').open,true);assert.match(f.w.document.querySelector('dialog').textContent,/INV-EXACT-COPY/);
   const facts=f.w.document.querySelector('.owner-item-facts');
   assert.ok(facts,'Full inventory identity must be visible only inside details');
@@ -63,6 +67,37 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   f.w.DropRateInventory.close();f.w.document.querySelector('.owner-inventory-open').click();await tick();assert.equal(f.w.document.querySelector('dialog').open,true);
   assert.match(f.w.document.querySelector('dialog').textContent,/Drop Rate intake review/);assert.equal(btn(f.w,'Check & sync to Shopify'),undefined);
   assert.equal(f.calls.filter(c=>c.method).length,0);f.finish();checks++;
+ }
+ // The screenshot showed a giant "Last known 08/10/2026" block. A
+ // two-column card should show the GBP figure, never that dated caption.
+ {
+  const old={...item,reference_value:{status:'STALE',last_known_minor:866,
+    checked_at:'2026-10-08T12:00:00Z'},store_price_minor:1000};
+  const f=fixture(old);f.run(`renderInventoryCards([${JSON.stringify(old)}]);`);
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  const prices=tile.querySelector('.owner-card-prices');
+  assert.match(prices.textContent,/£8.66/);
+  assert.doesNotMatch(prices.textContent,/Last known|08\\/10\\/2026/);
+  assert.match(prices.querySelector('.owner-card-historical-label').textContent,/Historical reference/);
+  assert.equal(tile.querySelector('.owner-inventory-details'),null);
+  tile.querySelector('.owner-card-open-overlay').click();await tick();
+  assert.match(f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent,/Last known 08\\/10\\/2026/);
+  f.finish();checks++;
+ }
+ // Clicking a refresh button must never open the detail sheet, even when it
+ // is laid above the stretched tile button.
+ {
+  const f=fixture({...item,can_refresh_market:true});
+  let resolveRefresh;
+  f.setHandler((url,options)=>new Promise((resolve,reject)=>{resolveRefresh=reject;}));
+  f.run(`renderInventoryCards([${JSON.stringify({...item,can_refresh_market:true})}]);`);
+  const tile=f.w.document.querySelector('.owner-inventory-card');
+  assert.ok(tile.querySelector('.owner-market-refresh'));
+  tile.querySelector('.owner-market-refresh').click();await tick();
+  assert.equal(f.w.document.querySelector('.owner-item-dialog'),null);
+  assert.equal(f.calls.length,1);
+  resolveRefresh(new Error("Provider unavailable"));await tick();await tick();
+  f.finish();checks++;
  }
  // Two approved identical sealed physical copies become ONE quantity-2 card,
  // without mutating or losing distinct inventory IDs or inventing prices.
@@ -91,7 +126,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.match(f.w.document.querySelector('.owner-inventory-total').textContent,/1product · 2 copies/);
   assert.equal(first.market_value_minor,866);
   assert.equal(second.market_value_minor,null);
-  f.w.document.querySelector('.owner-inventory-details').click();await tick();
+  f.w.document.querySelector('.owner-card-open-overlay').click();await tick();
   assert.match(f.w.document.querySelector('.owner-item-quantity').textContent,/2/);
   assert.equal(f.w.document.querySelector('[aria-label="Choose inventory copy"]').options.length,2);
   assert.equal(btn(f.w,'Sync to eBay'),undefined,'Unsupported eBay sealed publishing must not show a misleading action');
@@ -217,7 +252,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.match(tile.querySelector('.owner-card-prices').textContent,/£10.00/);
   assert.match(tile.querySelector('.owner-status-pill').textContent,/APPROVED/);
   assert.ok(tile.querySelector('.owner-market-refresh'));
-  tile.querySelector('.owner-inventory-details').click();await tick();
+  tile.querySelector('.owner-card-open-overlay').click();await tick();
   assert.equal(f.w.document.querySelector('.owner-item-dialog').open,true);
   f.finish();checks++;
  }
