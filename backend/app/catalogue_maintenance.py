@@ -1,4 +1,4 @@
-"""Daily reference imports and bounded Shopify reconciliation in the existing API.
+"""Daily catalogue imports, weekly market pricing, and bounded Shopify reconciliation.
 
 Provider calls never approve identities/media or change an owner's selling price.
 Durable receipts and advisory locks survive restarts and overlapping deployments.
@@ -57,6 +57,33 @@ def daily_slot(now):
     slot=local.replace(hour=3,minute=0,second=0,microsecond=0)
     if local<slot:slot-=timedelta(days=1)
     return slot.astimezone(timezone.utc)
+
+
+def weekly_price_slot(now):
+    """Most recent Monday 03:00 Europe/London, including DST transitions.
+
+    The existing daily archive task runs at 04:00 UK time. Pricing on Monday
+    at 03:00 leaves that day's archive window available for the new history.
+    """
+    local=now.astimezone(ZoneInfo('Europe/London'))
+    slot=(local-timedelta(days=local.weekday())).replace(
+        hour=3,minute=0,second=0,microsecond=0)
+    if local<slot:slot-=timedelta(days=7)
+    return slot.astimezone(timezone.utc)
+
+
+def weekly_price_due(run,now,*,revision=None):
+    """At most one completed bulk pricing pass per UK Monday week.
+
+    A missing first receipt is eligible for an initial fill. Completed jobs,
+    including an old importer revision, wait for the next Monday slot.
+    Incomplete or failed work continues using the existing retry/backoff logic.
+    This applies to BULK catalogue market jobs only, not user-triggered pricing.
+    """
+    if run is None:return True
+    if run['status']=='COMPLETE':
+        return run['started_at']<weekly_price_slot(now)
+    return due(run,now,revision=revision)
 
 
 def due(run,now,*,revision=None):
@@ -163,7 +190,7 @@ async def warm_prices(pool,actor,limit,cardtrader_api_token=''):
                 and (p.checked_at is null or p.checked_at<$2 or p.refresh_revision<$3
                      or (p.expires_at<=now() and p.expires_at<=p.checked_at+interval '5 minutes'))
               order by p.checked_at nulls first,s.release_date desc nulls last,r.provider_id limit $1''',
-              limit+1,daily_slot(datetime.now(timezone.utc)),REVISION)
+              limit+1,weekly_price_slot(datetime.now(timezone.utc)),REVISION)
         for start in range(0,min(len(rows),limit),40):
             keys=[r['key'] for r in rows[start:min(start+40,limit)]]
             views=await refresh_reference_prices(pool,actor,str(uuid4()),keys,fx_provider=fx,force=True)
@@ -185,7 +212,7 @@ async def warm_prices(pool,actor,limit,cardtrader_api_token=''):
         report.update(checked=checked,priced=priced,us_context_only=us_only,provider_failures=failed,
                       scope='All English/Japanese Pokemon and One Piece, English Dragon Ball and batched Japanese Fusion World FB01-FB11 regional references; independent of inventory')
         await receipt(pool,actor,'REFERENCE_PRICES',status,report,run_id)
-        log.warning('Daily reference prices status=%s checked=%s priced=%s',status,checked,priced)
+        log.warning('Weekly bulk reference prices status=%s checked=%s priced=%s',status,checked,priced)
 
 
 def coverage_lags_pricing(latest):
@@ -225,18 +252,18 @@ async def daily_pass(pool,settings):
                 jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES') order by job,started_at desc")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
             latest={r['job']:r for r in jobs}
-            if due(latest.get('CATALOGUE_VALUES'),now,revision=CATALOGUE_VALUE_REVISION):
+            if weekly_price_due(latest.get('CATALOGUE_VALUES'),now,revision=CATALOGUE_VALUE_REVISION):
                 await refresh_catalogue_values(pool,actor)
-            if due(latest.get('CARDMARKET_VALUES'),now,revision=CARDMARKET_VALUE_REVISION):
+            if weekly_price_due(latest.get('CARDMARKET_VALUES'),now,revision=CARDMARKET_VALUE_REVISION):
                 await refresh_cardmarket_values(pool,actor)
             for source in SOURCES:
                 if due(last.get(source),now,revision=SOURCE_REVISIONS.get(source,1)):
                     await sync_source(pool,actor,source,settings)
             sealed_refreshed=False
-            if due(latest.get('SEALED_REFERENCE_PRICES'),now,revision=SEALED_MARKET_REVISION):
+            if weekly_price_due(latest.get('SEALED_REFERENCE_PRICES'),now,revision=SEALED_MARKET_REVISION):
                 await refresh_sealed_prices(pool,actor)
                 sealed_refreshed=True
-            if due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION):
+            if weekly_price_due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION):
                 # Record the complete database scope before a potentially long
                 # first fill; the final receipt then reflects its progress.
                 await record_coverage(pool,actor)
