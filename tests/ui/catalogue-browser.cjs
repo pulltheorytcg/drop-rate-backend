@@ -23,6 +23,37 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  return {browser,w,calls,logout:()=>{alive=false;browser.destroy();},finish:()=>{browser.destroy();w.close();}};
 }
 (async()=>{
+ // Both Dragon Ball game families are real; their shared publisher-style
+ // logo must not make two legitimate games look like a duplicate tile.
+ {
+   const f=fixture();
+   f.browser.games=[
+     {game:'Dragon Ball Super Masters',system_code:'DRAGON_BALL_SUPER_MASTERS',languages:['English']},
+     {game:'Dragon Ball Super Fusion World',system_code:'DRAGON_BALL_SUPER_FUSION_WORLD',languages:['English','Japanese']}
+   ];f.browser.gamesLoaded=true;
+   f.browser.renderGames();
+   const masters=f.browser.find('[data-system="DRAGON_BALL_SUPER_MASTERS"]');
+   const fusion=f.browser.find('[data-system="DRAGON_BALL_SUPER_FUSION_WORLD"]');
+   assert.equal(masters.querySelector('.dr-browse-game-edition').textContent,'SUPER MASTERS');
+   assert.equal(fusion.querySelector('.dr-browse-game-edition').textContent,'FUSION WORLD');
+   assert.notEqual(masters.getAttribute('aria-label'),fusion.getAttribute('aria-label'));
+   f.finish();checks++;
+ }
+ // The recording showed "Reference £0.04Reference value" stuck together.
+ // Price/evidence must be separate elements and use block layout.
+ {
+   const f=fixture();
+   const area=f.w.document.createElement('div');area.dataset.marketDetails='fixture';
+   f.browser.renderMarketDetails(area,{...card,market_value_minor:4,market_value_source:'CARDMARKET_BULK_SINGLES',
+     basis_condition:'Raw',pricing_updated_at:'2026-10-15T08:00:00Z',market_quotes:[]});
+   assert.equal(area.querySelectorAll(':scope > strong').length,1);
+   assert.equal(area.querySelectorAll(':scope > small').length,1);
+   assert.match(area.querySelector('strong').textContent,/£0.04/);
+   assert.match(area.querySelector('small').textContent,/Raw/);
+   const css=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.css'),'utf8');
+   assert.match(css,/\.dr-browse-detail-value \{ display:block;/);
+   f.finish();checks++;
+ }
  // Mobile sort is visible before opening the overflow menu and is an actual
  // server-side paginated sort, not a client-only rearrangement of 40 tiles.
  {
