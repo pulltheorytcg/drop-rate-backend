@@ -114,7 +114,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/media-condition.js" defer></script>',
         '<script src="/assets/market-smoke-panel.js" defer></script>',
         '<script src="/assets/market-mapping-workbench.js" defer></script>',
-        '<script src="/assets/reference-value-display.js?v=catalogue-display-v3" defer></script>',
+        '<script src="/assets/reference-value-display.js?v=catalogue-display-v4" defer></script>',
         '<script src="/assets/market-value-column.js?v=grouped-reference-v5" defer></script>',
         '<script src="/assets/founder-workspace.js" defer></script>',
         '<script src="/assets/founder-accounts.js?v=shared-reference-v2" defer></script>',
