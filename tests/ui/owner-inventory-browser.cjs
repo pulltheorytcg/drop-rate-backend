@@ -69,11 +69,13 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    const tileText=await tile.innerText();
    assert.doesNotMatch(tileText,/INV-D715B0E9|\bLANGUAGE\b|\bSEAL\b|\bTYPE\b|\bGAME\b/i);
    assert.match(tileText,/Market value/);assert.match(tileText,/£8.66/);
-   assert.match(tileText,/Manage/);
+   assert.doesNotMatch(tileText,/Manage|Last known \\d{2}\\/\\d{2}\\/\\d{4}/);
+   assert.equal(await tile.locator('.owner-card-open-overlay').count(),1,'The whole card must be one native button');
+   assert.equal(await tile.locator('.owner-inventory-details').count(),0,'No redundant Manage CTA');
    const cardBox=await tile.boundingBox();
    assert.ok(cardBox&&cardBox.height<425,'Inventory tile still has an oversized metadata layout');
    await page.screenshot({path:path.join(out,`inventory-${viewport.width}.png`),fullPage:true});
-   await page.locator('.owner-card-image-wrap').click();await page.getByRole('dialog').waitFor();
+   await page.locator('.owner-card-open-overlay').click();await page.getByRole('dialog').waitFor();
    await page.locator('.owner-item-selling summary').waitFor();
    if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();
    const facts=page.locator('.owner-item-facts');
@@ -108,10 +110,32 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    await page.getByRole('button',{name:'Cancel change',exact:true}).click();
    assert.equal(await counter.innerText(),'1');
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
+   // The entire card, not just the picture or a tiny CTA, receives
+   // keyboard and pointer interactions. All details remain in the modal.
+   const tileTarget=page.locator('.owner-card-open-overlay').first();
+   const accessibleName=await tileTarget.getAttribute('aria-label');
+   assert.match(accessibleName,/View details for.*World's Strongest Warriors/);
+   await tileTarget.focus();await page.keyboard.press('Enter');
+   await page.getByRole('dialog').waitFor();
+   assert.equal(await page.locator('.owner-item-dialog[open]').count(),1);
+   await page.getByRole('button',{name:'Close item details',exact:true}).click();
+   // The date is deliberately removed from the scan grid, but not from
+   // historic evidence in the full detail view.
+   await page.evaluate(original=>{
+     renderInventoryCards([{...original,reference_value:{status:'STALE',
+       last_known_minor:866,checked_at:'2026-10-08T12:00:00Z'}}]);
+   },item);
+   assert.doesNotMatch(await page.locator('.owner-card-prices').innerText(),/Last known|08\\/10\\/2026/);
+   assert.match(await page.locator('.owner-card-prices').innerText(),/£8.66/);
+   assert.match(await page.locator('.owner-card-historical-label').innerText(),/Historical reference/);
+   await page.locator('.owner-card-open-overlay').click();
+   assert.match(await page.locator('.owner-item-values').innerText(),/Last known 08\\/10\\/2026/);
+   await page.getByRole('button',{name:'Close item details',exact:true}).click();
+   await page.evaluate(original=>{renderInventoryCards([original]);},item);
    await page.evaluate(existing=>{window.fixtureItem={...existing,status:'APPROVED',
        sale_intent:'FOR_SALE',shopify_state:'PUBLISHED',seller_approval_available:true,
        store_price_minor:1000,is_consignment:true};},item);
-   await page.locator('.owner-inventory-details').click();
+   await page.locator('.owner-card-open-overlay').click();
    await page.locator('.owner-item-selling summary').waitFor();
    if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();
    assert.equal(await page.getByRole('button',{name:'List on Shopify'}).count(),0);
