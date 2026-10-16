@@ -25,7 +25,7 @@ function expiredSessionFixture(role,refreshResponse){
 (async()=>{
  let checks=0;
  // An unvalued collection must not be presented as worth zero; partial totals retain their coverage.
- for(const [valued,unvalued,amount,label,note] of [[0,1,0,'Value unavailable','0 valued · 1 awaiting market data'],[2,1,1234,'£12.34','2 valued · 1 awaiting market data'],[0,0,0,'£0.00','Latest available market prices']]){
+ for(const [valued,unvalued,amount,label,note] of [[0,1,0,'Value unavailable','0 of 1 currently valued · 1 awaiting exact market evidence'],[2,1,1234,'£12.34','2 of 3 currently valued · 1 awaiting exact market evidence'],[0,0,0,'£0.00','No inventory yet']]){
   const f=fixture('seller');
   f.run(`apiRequest=async()=>({summary:{total_inventory_count:${valued+unvalued},active_valued_count:${valued},active_unvalued_count:${unvalued},active_market_value_minor:${amount}}});`);
   await f.run('loadOwnerOverview()');
