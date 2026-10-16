@@ -1,5 +1,9 @@
 # Starter comic and manga catalogue
 
+Follow-up: [publisher cover artwork and market-price status](BOOK_ARTWORK_AND_PRICE_STATUS_20261017.md)
+adds authenticated reference thumbnails for all 14 editions. The original seed
+and its physical-copy/price restrictions below remain unchanged.
+
 The user asked to add real comics and manga after the scanner release. The
 reviewed manifest contains 14 English-language edition references, with publisher
 pages and the release dates those pages give. This is a small curated import,

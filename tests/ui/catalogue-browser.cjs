@@ -4,7 +4,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=20'), 'Seller Hub must load the fresh book value script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=21'), 'Seller Hub must load the fresh book value script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=4'), 'Seller Hub must load the fresh mobile sort styles');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -648,17 +648,29 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
     name:'One Piece Volume 1',set_name:'One Piece',card_number:'1',
     variant:'Manga',language:'English',market_value_minor:null,reference_value:null,
     source_kind:'CATALOGUE',book_details:{system_code:'MANGA',series_title:'One Piece',issue_number:'1',barcode_gtin:'9781569319017',printing_number:null},
-    publisher_source_url:'https://www.viz.com/manga-books/manga/one-piece-volume-1/product/139'};
+    publisher_source_url:'https://www.viz.com/manga-books/manga/one-piece-volume-1/product/139',
+    image_url:null,display_image_url:null,artwork_kind:'PUBLISHER_REFERENCE',
+    reference_image_path:'/api/v1/catalogue-browser/reference-image?provider=Official+Publisher&system_code=MANGA&language=English&provider_id=00000000-0000-0000-0000-000000000025&reference_kind=book',
+    book_market_status:'PRINTING_REVIEW_REQUIRED',
+    book_sold_search_url:'https://www.ebay.co.uk/sch/i.html?_nkw=9781569319017&LH_Sold=1&LH_Complete=1'};
   const f=fixture(async()=>({items:[book],has_more:false}));
+  const images=[];f.browser.loadReferenceImage=(image,path)=>images.push({image,path});
   let opened=0,bookOptions;f.browser.options.books=options=>{opened++;bookOptions=options;};
   f.browser.filters.system_code='MANGA';f.browser.filters.product_type='COMIC';
   await f.browser.open();
   await f.browser.load();
   assert.match(f.browser.find('.dr-browse-content').textContent,/One Piece Volume 1/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Market value pending/);
+  assert.ok(images.some(entry=>entry.path===book.reference_image_path+'&size=grid'));
+  assert.match(images[0].image.alt,/publisher reference cover/);
   const cardButton=f.browser.find('.dr-browse-product-open');
   cardButton.click();
   assert.match(f.browser.sheet.textContent,/9781569319017/);
   assert.equal(f.browser.sheet.querySelector('a').href,book.publisher_source_url);
+  assert.ok(images.some(entry=>entry.path===book.reference_image_path));
+  assert.match(f.browser.sheet.textContent,/printing and cover need confirmation/);
+  assert.match(f.browser.sheet.textContent,/Publisher reference cover/);
+  assert.equal([...f.browser.sheet.querySelectorAll('a')].find(a=>a.textContent.includes('sold listings')).href,book.book_sold_search_url);
   assert.match(f.browser.sheet.textContent,/Confirm the printing and your copy's condition or grade/);
   assert.equal(f.browser.sheet.querySelector('select[aria-label="Condition"]'),null,
     'Book must never use CARD raw/graded intake');

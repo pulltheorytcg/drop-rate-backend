@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import json
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from pydantic import ValidationError
 
 from .comic_identity import ComicPrintingCreate
+from .book_artwork import book_cover_reference
 
 
 def publisher_page(value):
@@ -29,7 +30,7 @@ async def with_book_details(connection, rows):
     books = [row for row in items if row.get("product_type") == "COMIC" and row.get("catalogue_id")]
     if not books:
         return items
-    records = await connection.fetch("""select b.*,pr.identity_status as profile_status
+    records = await connection.fetch("""select b.*,pr.identity_status as profile_status,pr.release_date as profile_release_date
         from tcg.comic_printing_details b
         join tcg.catalogue_product_profiles pr on pr.catalogue_id=b.catalogue_id
         and pr.system_code=b.system_code and pr.collectible_type='COMIC'
@@ -51,6 +52,19 @@ async def with_book_details(connection, rows):
         except ValidationError:
             continue
         item["book_details"] = {**details, "language": item.get("language")}
+        item["book_market_status"] = ("AVAILABLE" if item.get("market_value_minor") is not None else
+            "PRINTING_REVIEW_REQUIRED" if (book.get("identity_status") != "VERIFIED"
+                or book.get("profile_status") != "VERIFIED" or not details.get("printing_number")
+                or (details["book_format"] == "SINGLE_ISSUE" and not details.get("cover_code")))
+            else "SOLD_EVIDENCE_PENDING")
+        search = " ".join(str(value) for value in (
+            details["series_title"], "Vol" if details["system_code"] == "MANGA" else "Issue",
+            details["issue_number"], details.get("barcode_gtin"), details.get("publisher"),
+            item.get("language"), details.get("release_year"),
+            f"printing {details['printing_number']}" if details.get("printing_number") else None,
+            details.get("cover_code")) if value)
+        item["book_sold_search_url"] = "https://www.ebay.co.uk/sch/i.html?" + urlencode({
+            "_nkw": search, "LH_Sold": "1", "LH_Complete": "1"})
         if (book.get("identity_status") in {"STRUCTURED", "VERIFIED"}
                 and book.get("profile_status") in {"STRUCTURED", "VERIFIED"}
                 and attributes.get("identity_source") == "OFFICIAL_PUBLISHER_CATALOGUE"):
@@ -58,6 +72,12 @@ async def with_book_details(connection, rows):
             if source:
                 item["publisher_source_url"] = source
                 item["book_reference_scope"] = "PUBLISHER_EDITION"
-        # Publisher cover links are provenance, not approved storefront media.
-        # Existing canonical media gates continue to decide displayed artwork.
+        cover = book_cover_reference(book, item.get("language"))
+        if cover and not (item.get("display_image_url") or item.get("image_url")):
+            item["reference_image_path"] = "/api/v1/catalogue-browser/reference-image?" + urlencode({
+                "provider": "Official Publisher", "system_code": details["system_code"],
+                "language": item["language"], "provider_id": str(item["catalogue_id"]),
+                "reference_kind": "book"})
+            item["artwork_kind"] = "PUBLISHER_REFERENCE"
+        # Covers never become approved inventory/Shopify media or proof of a copy.
     return items
