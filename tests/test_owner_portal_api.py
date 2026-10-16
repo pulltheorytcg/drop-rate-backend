@@ -175,3 +175,20 @@ def test_owner_inventory_prefers_governed_first_party_inventory_media() -> None:
     assert "m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT')" in query
     assert "and m.rights_tier='STOREFRONT_ALLOWED'" in query
     assert "(m.inventory_id=i.id) desc" in query
+
+
+def test_overview_stock_type_breakdown_is_owner_scoped_and_honest_about_sealed_stock() -> None:
+    source = SOURCE.read_text()
+    block = source[source.index('@router.get("/overview")'):source.index('@router.get("/insights")')]
+    assert "total_inventory_count" in block
+    assert "total_card_count" in block and "total_sealed_count" in block
+    assert "p.product_type='CARD'" in block
+    assert "p.product_type in ('SEALED','COLLECTION')" in block
+    assert "join tcg.catalogue_products p on p.id=i.catalogue_id" in block
+    assert "where owner_id=$1" in block
+    assert "reference_portfolio(connection, [owner_id])" in block
+    assert "summary.update(recommended_totals(shared))" in block
+    assert "active_market_value_minor=refs" in block
+    # Never infer missing prices from another owner, acquisition costs or asking prices.
+    for forbidden in ("acquisition_cost_minor", "owner_id in", "price_override", "truncate", "delete from"):
+        assert forbidden not in block.lower()

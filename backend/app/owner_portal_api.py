@@ -303,6 +303,8 @@ async def owner_overview(
             """
             select
                 count(*)::int as total_inventory_count,
+                count(*) filter(where p.product_type='CARD')::int as total_card_count,
+                count(*) filter(where p.product_type in ('SEALED','COLLECTION'))::int as total_sealed_count,
                 count(*) filter(where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
                     and market_value_minor is not null and exists(select 1 from tcg.pricing_snapshots ps
                     where ps.id=i.latest_pricing_snapshot_id and ps.owner_id=i.owner_id and ps.inventory_id=i.id
@@ -331,6 +333,7 @@ async def owner_overview(
                     where status in ('DRAFT','INSPECTION','APPROVED','RESERVED')
                 ),0)::bigint as active_store_value_minor
             from tcg.inventory_items i
+            join tcg.catalogue_products p on p.id=i.catalogue_id
             where owner_id=$1
             """,
             owner_id,

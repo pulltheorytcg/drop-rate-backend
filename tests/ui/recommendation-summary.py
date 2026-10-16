@@ -22,14 +22,21 @@ def main():
                 for name in ('hub-session.js','reference-value-display.js','owner-inventory.js'):page.add_script_tag(content=(ROOT/name).read_text())
                 page.add_script_tag(content=re.sub(r'\ninitialise\(\);\s*$','',(ROOT/'owner-portal.js').read_text()))
                 page.evaluate('''()=>{document.body.classList.remove('hub-restoring');document.getElementById('owner-auth-view')?.classList.add('hidden');document.getElementById('owner-portal-view').classList.remove('hidden');state.session={access_token:'synthetic',user:{id:'owner-a'}};window.calls=[];window.summary={};apiRequest=async(url,options={})=>{calls.push({url,method:options.method||'GET'});return url.endsWith('/overview')?{summary}:{item:currentItem,copies:[currentItem]}};}''')
-                for status,count,total,recommended,expected in [('partial',6,99,14132,'£141.32'),('none',0,99,None,'Unavailable'),('empty',0,0,None,'£0.00')]:
+                for status,count,total,recommended,expected in [('partial',6,99,14132,'£20.00'),('none',0,99,None,'£20.00'),('empty',0,0,None,'£0.00')]:
                     payload={'total_inventory_count':total,'active_inventory_count':total,'active_valued_count':count,'active_unvalued_count':total-count,'active_market_value_minor':14035 if count else None,
                              'active_recommended_count':count,'active_unrecommended_count':total-count,'active_recommended_retail_minor':recommended,'recommendation_guide_count':1 if count else 0,
                              'recorded_asking_count':2 if total else 0,'recorded_asking_value_minor':2000 if total else None,'active_store_value_minor':2000}
                     page.evaluate('data=>{summary=data}',payload); page.evaluate('loadOwnerOverview()')
                     assert page.locator('#owner-store-value').text_content()==expected,(status,expected,page.locator('#owner-store-value').text_content(),page.evaluate('calls'),errors)
-                    assert f'{count} of {total}' in page.locator('#owner-recommendation-note').inner_text() or total==0
-                    if total:assert '£20.00' in page.locator('#owner-asking-price-note').inner_text()
+                    recommendation=page.locator('#owner-recommendation-note').inner_text()
+                    if count:
+                        assert f'{count} of {total}' in recommendation
+                        assert '£141.32' in recommendation
+                    elif total:
+                        assert 'Automatic recommendation unavailable' in recommendation
+                    if total:
+                        assert '£20.00' == page.locator('#owner-store-value').inner_text()
+                        assert f'2 of {total} copies have saved Store Prices' in page.locator('#owner-asking-price-note').inner_text()
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(engine,width,status)
                     if width in (390,1440) and status=='partial':page.locator('#owner-view-overview .owner-kpi-grid').screenshot(path=str(OUT/f'{engine}-{width}-overview.png'))
                     results.append({'engine':engine,'width':width,'case':status,'passed':True})
