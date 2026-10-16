@@ -8,6 +8,9 @@
  border-radius:999px;background:#fff;color:#09223d;font-size:.78rem;font-weight:900;
  box-shadow:0 3px 10px rgba(12,28,48,.08);font-variant-numeric:tabular-nums;
 }
+.owner-portal-page .owner-card-historical-label{
+ display:block;color:#6b7688;font-size:.64rem;line-height:1.35;margin-top:2px;
+}
 .owner-portal-page .owner-card-value-coverage{
  display:block;color:#627589;font-size:.58rem;line-height:1.35;margin-top:3px;
 }
@@ -18,7 +21,14 @@
 .owner-portal-page .owner-inventory-toolbar .owner-import-menu-wrap{display:flex;align-items:center;gap:8px}
 .owner-portal-page .owner-inventory-toolbar .owner-add-book{margin:0;min-height:44px}
 .owner-portal-page .owner-inventory-toolbar .owner-import-trigger{min-height:44px}
-.owner-portal-page .owner-inventory-card{display:flex;flex-direction:column}
+.owner-portal-page .owner-inventory-card{display:flex;flex-direction:column;position:relative;isolation:isolate;cursor:pointer}
+.owner-portal-page .owner-inventory-card:focus-within{box-shadow:0 0 0 2px #1780be,0 6px 20px rgba(11,33,55,.1)}
+.owner-portal-page .owner-card-open-overlay{
+ position:absolute;inset:0;z-index:1;display:block;appearance:none;
+ width:100%;height:100%;margin:0;padding:0;border:0;background:transparent;
+ border-radius:inherit;cursor:pointer;
+}
+.owner-portal-page .owner-card-open-overlay:focus-visible{outline:3px solid #1780be;outline-offset:-3px}
 .owner-portal-page .owner-card-body{display:flex;flex:1;flex-direction:column;min-width:0;gap:8px}
 .owner-portal-page .owner-card-title-row{display:flex;flex-direction:column;align-items:flex-start;gap:7px}
 .owner-portal-page .owner-card-title{width:100%;min-width:0}
@@ -31,14 +41,18 @@
 .owner-portal-page .owner-card-prices strong{overflow-wrap:anywhere;line-height:1.35;font-size:.94rem;font-variant-numeric:tabular-nums}
 .owner-portal-page .owner-card-prices>div:last-child{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .owner-portal-page .owner-card-prices>div:last-child strong{margin:0;font-size:.85rem;white-space:nowrap}
-.owner-portal-page .owner-card-actions{display:flex;gap:8px;min-width:0;margin-top:auto;padding-top:2px}
+.owner-portal-page .owner-card-actions{
+ display:flex;justify-content:flex-end;position:absolute;top:96px;right:10px;z-index:2;
+ min-width:0;margin:0;padding:0;pointer-events:none
+}
+.owner-portal-page .owner-card-actions:empty{display:none}
+.owner-portal-page .owner-card-actions button{pointer-events:auto}
 .owner-portal-page .owner-card-actions button{
  appearance:none;display:inline-flex;align-items:center;justify-content:center;
  min-width:0;min-height:44px;margin:0;padding:10px 6px;border:1px solid transparent;
  border-radius:10px;font:inherit;font-size:.8rem;font-weight:750;line-height:1.25;
  white-space:normal;overflow-wrap:anywhere;cursor:pointer;
 }
-.owner-portal-page .owner-card-actions .owner-inventory-details{flex:1;background:#ffd455;color:#10243a;border-color:#ebbf40}
 .owner-portal-page .owner-card-actions .owner-market-refresh{flex:0 0 44px;background:#f4f7fa;color:#34536d;border-color:#dbe4ed}
 .owner-portal-page .owner-market-refresh svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .owner-portal-page .owner-card-actions button:focus-visible{outline:3px solid #07889a;outline-offset:2px}
@@ -46,7 +60,6 @@
 .owner-portal-page .owner-market-refresh[aria-busy="true"] svg{animation:owner-market-refresh-spin 1s linear infinite}
 @keyframes owner-market-refresh-spin{to{transform:rotate(360deg)}}
 @media(hover:hover){
- .owner-portal-page .owner-inventory-details:hover{background:#ffca38}
  .owner-portal-page .owner-market-refresh:hover{background:#eaf0f6;border-color:#afc3d5}
 }
 @media(prefers-reduced-motion:reduce){.owner-portal-page .owner-market-refresh[aria-busy="true"] svg{animation:none}}

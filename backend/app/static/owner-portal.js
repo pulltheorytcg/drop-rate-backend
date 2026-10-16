@@ -197,9 +197,9 @@ function renderInventoryCards(items) {
     const card = document.createElement("article");
     card.className = "owner-inventory-card";
 
-    const imageWrap = document.createElement("button");
-    imageWrap.type = "button";
-    imageWrap.setAttribute("aria-label", `View ${item.name}`);
+    // Image and details are a single keyboard-accessible tile target.
+    // Do not nest interactive buttons inside a clickable card.
+    const imageWrap = document.createElement("div");
     imageWrap.className = "owner-card-image-wrap";
     imageWrap.append(createCardImage(item, "owner-card-thumb"));
     if((item.grouped_quantity||1)>1){
@@ -207,9 +207,9 @@ function renderInventoryCards(items) {
       count.textContent="×"+item.grouped_quantity;
       count.setAttribute("aria-label",item.grouped_quantity+" physical copies");
       imageWrap.append(count);
-      imageWrap.setAttribute("aria-label",`View ${item.grouped_quantity} copies of ${item.name}`);
+      // The quantity also appears in the full-tile button's accessible name.
     }
-    imageWrap.addEventListener("click", () => window.DropRateInventory?.open(item));
+    // Full-tile button is rendered below, above artwork and body.
 
     const body = document.createElement("div");
     body.className = "owner-card-body";
@@ -239,7 +239,7 @@ function renderInventoryCards(items) {
       ? "Recommended retail"
       : "Store price";
     for (const [labelText, valueText] of [
-      ["Market value", item.reference_value ? window.DropRateReferenceValue.text(item, formatMoney) : item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"")],
+      ["Market value", item.reference_value ? window.DropRateReferenceValue.compactText(item, formatMoney) : item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"")],
       [storeLabel, storeText],
     ]) {
       const box = document.createElement("div");
@@ -248,6 +248,14 @@ function renderInventoryCards(items) {
       const value = document.createElement("strong");
       value.textContent = valueText;
       box.append(label, value);
+      // Stale values stay explicitly historical, but their date/source detail
+      // lives in the item view instead of cluttering small mobile tiles.
+      if(labelText==="Market value" && item.reference_value && window.DropRateReferenceValue?.isHistorical(item)){
+        const historical=document.createElement("small");
+        historical.className="owner-card-historical-label";
+        historical.textContent="Historical reference";
+        box.append(historical);
+      }
       if(labelText==="Market value" && (item.grouped_quantity||1)>1 && item.group_valued_count>0){
         const note=document.createElement("small");
         note.className="owner-card-value-coverage";
@@ -260,15 +268,14 @@ function renderInventoryCards(items) {
     body.append(heading, prices);
     const actions = document.createElement("div");
     actions.className = "owner-card-actions";
-    const details = document.createElement("button");
-    details.type = "button"; details.className = "owner-inventory-details";
-    details.textContent = "Manage";
-    details.setAttribute("aria-label", `Manage ${item.name}`);
-    details.addEventListener("click", () => window.DropRateInventory?.open(item));
-    actions.append(details);
-    card.addEventListener("click", event => {
-      if (!event.target.closest("button,a,input,select")) window.DropRateInventory?.open(item);
-    });
+    // One button stretches over the entire tile. The independent refresh
+    // control sits above it and never opens details or double-submits.
+    const openDetails = document.createElement("button");
+    openDetails.type="button";
+    openDetails.className="owner-card-open-overlay";
+    openDetails.setAttribute("aria-label",
+      `View details for ${item.grouped_quantity>1 ? item.grouped_quantity+" copies of " : ""}${item.name}`);
+    openDetails.addEventListener("click",()=>window.DropRateInventory?.open(item));
 
     if (item.can_refresh_market) {
       const refresh = document.createElement("button");
@@ -300,8 +307,10 @@ function renderInventoryCards(items) {
       actions.append(refresh);
     }
 
-    body.append(actions);
-    card.append(imageWrap, body);
+    card.append(imageWrap, body, openDetails);
+    // An unrefreshable item has no action bar at all; do not leave an empty
+    // absolute wrapper that could appear clipped on 320px Safari layouts.
+    if(actions.children.length)card.append(actions);
     grid.append(card);
   }
 }
