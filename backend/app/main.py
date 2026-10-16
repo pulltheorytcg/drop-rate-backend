@@ -34,6 +34,7 @@ from .import_enrichment import router as import_enrichment_router
 from .import_review import router as import_review_router
 from .inventory_intake import router as inventory_intake_router
 from .owner_books import router as owner_books_router
+from .book_recognition import router as book_recognition_router
 from .catalogue_browser import router as catalogue_browser_router
 from .inventory_intelligence import router as inventory_intelligence_router
 from .inventory_market_values import router as inventory_market_values_router
@@ -383,6 +384,7 @@ def create_app() -> FastAPI:
     app.include_router(seller_channel_sync_router)
     app.include_router(owner_inventory_router)
     app.include_router(owner_books_router)
+    app.include_router(book_recognition_router)
     app.include_router(owner_csv_imports_router)
     app.include_router(action_required_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(automation_control_router)

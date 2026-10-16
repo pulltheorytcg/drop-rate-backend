@@ -22,8 +22,9 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi import Depends, FastAPI
 
-from app import auth, inventory_intake, owner_portal_api, owner_books, seller_channel_sync
+from app import auth, inventory_intake, owner_portal_api, owner_books, seller_channel_sync, book_recognition
 from collection_books_fixture import prepare as prepare_books, exercise as exercise_books
+from collection_book_scanner_fixture import prepare as prepare_scanner, exercise as exercise_scanner
 from app.access_control import require_platform_admin_request
 from app.db import _init_connection
 from owner_auto_import_postgres import SCHEMA
@@ -92,6 +93,7 @@ async def main():
         async def request_id(request,call_next):request.state.request_id='collection-http-fixture';return await call_next(request)
         app.include_router(owner_portal_api.router)
         app.include_router(owner_books.router)
+        app.include_router(book_recognition.router)
         app.include_router(inventory_intake.router,dependencies=[Depends(require_platform_admin_request)])
         app.include_router(seller_channel_sync.router)
         no_pricing=AsyncMock(side_effect=AssertionError('Collection save waited for pricing'))
@@ -134,6 +136,8 @@ async def main():
                 r=await client.post(f'/api/v1/owner/inventory/{saved["id"]}/channels/shopify/sync',json={'version':1},headers=headers(ua,uuid4()))
                 assert r.status_code==409,r.text
                 book_count = await exercise_books(client,db,headers,ua,ub,uf,a,b)
+                await prepare_scanner(db,ROOT,(ua,ub,uf))
+                await exercise_scanner(client,db,pool,headers,settings,ua,ub,uf,a,b)
                 await db.execute('update tcg.owner_memberships set active=false where user_id=$1',ua)
                 assert (await client.post(endpoint,json=payload,headers=headers(ua,key))).status_code==403
                 assert no_pricing.await_count==0 and no_publish.await_count==0

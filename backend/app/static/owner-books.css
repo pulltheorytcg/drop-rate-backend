@@ -11,4 +11,10 @@
 #owner-book-message{font-size:.8rem;line-height:1.5;overflow-wrap:anywhere}
 .owner-book-costs{margin-top:14px}
 .owner-add-book{white-space:nowrap;min-height:41px}
+.owner-book-scanner,.owner-book-market{background:#f2f6fb;border:1px solid #d4e0ef;border-radius:12px;padding:14px;margin-bottom:20px}
+.owner-book-scanner h3{margin:0 0 8px}.owner-book-scanner p,.owner-book-market p{font-size:.78rem;line-height:1.5;color:#445d79}
+.owner-book-photo-actions{display:flex;flex-wrap:wrap;gap:8px}.owner-book-scanner button{min-height:44px}
+.owner-book-photos{display:flex;gap:10px;margin:12px 0}.owner-book-photos figure{margin:0;min-width:0;flex:1;max-width:120px}
+.owner-book-photos img{display:block;width:100%;height:110px;object-fit:contain;background:white;border-radius:8px}
+.owner-book-photos button{width:100%;font:inherit;border:0;background:transparent;color:#9c2536}
 @media(max-width:600px){.owner-book-dialog .owner-import-fields{grid-template-columns:1fr}.owner-book-actions button{flex:1}.owner-book-dialog .owner-import-dialog-body{padding:16px}}

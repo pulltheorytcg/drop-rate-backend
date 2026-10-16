@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'backend/app/catalogue_valuations.py'
+      - 'backend/app/book_market.py'
       - 'backend/app/pricing_engine.py'
       - 'backend/app/cardmarket_valuations.py'
       - 'backend/app/pricing.py'

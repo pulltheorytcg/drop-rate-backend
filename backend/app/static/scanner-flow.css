@@ -184,6 +184,10 @@
 .dr-scan-modes { position: absolute; z-index: 2; top: calc(env(safe-area-inset-top, 0px) + 65px); left: 15%; right: 15%; display: flex; padding: 3px; border: 1px solid #28d7eb66; border-radius: 22px; background: #071b3fed; }
 .dr-scan-modes button { flex: 1; min-height: 38px; padding: 6px 8px; border-radius: 19px; background: transparent; color: #fff; font-size: 11px; letter-spacing: .06em; font-weight: 650; }
 .dr-scan-modes button[aria-pressed="true"] { background: var(--scan-accent); box-shadow: inset 0 -2px 0 var(--scan-cyan); }
+.dr-scan-modes-books button { min-height: 44px; letter-spacing: 0; }
+@media (max-width: 600px) and (orientation: portrait) {
+  .dr-scan-modes-books { left: 10px; right: 10px; }
+}
 .dr-scan-guide { top: calc(env(safe-area-inset-top, 0px) + 127px); width: min(81%, calc((100dvh - 380px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) * .7142857)); }
 .dr-scanner[data-mode="SEALED"] .dr-scan-guide { aspect-ratio: 1; width: min(86%, calc(100dvh - 390px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); }
 .dr-scanner .dr-scan-certificate { position: absolute; z-index: 2; bottom: calc(env(safe-area-inset-bottom, 0px) + 256px); left: 50%; transform: translateX(-50%); padding: 10px 18px; white-space: nowrap; border-radius: 20px; background: #071b3fe8; border: 1px solid #28d7eb88; font-size: 12px; }

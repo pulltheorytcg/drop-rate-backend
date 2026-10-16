@@ -480,6 +480,14 @@ def _output_text(payload: Mapping[str, Any]) -> str:
 
 
 class OpenAIRecognitionVisionClient:
+    instructions = VISION_INSTRUCTIONS
+    observation_schema = OBSERVATION_SCHEMA
+    schema_name = "tcg_recognition_observation"
+    max_output_tokens = 1800
+
+    def parse_observation(self, parsed):
+        return RecognitionObservation.model_validate(_repair_observation_payload(parsed))
+
     def __init__(
         self,
         *,
@@ -518,24 +526,24 @@ class OpenAIRecognitionVisionClient:
                 {
                     "role": "user",
                     "content": [
-                        {"type": "input_text", "text": VISION_INSTRUCTIONS},
-                        {
+                        {"type": "input_text", "text": self.instructions},
+                        *[{
                             "type": "input_image",
-                            "image_url": image_data_url,
+                            "image_url": url,
                             "detail": "high",
-                        },
+                        } for url in (image_data_url if isinstance(image_data_url, list) else [image_data_url])],
                     ],
                 }
             ],
             "text": {
                 "format": {
                     "type": "json_schema",
-                    "name": "tcg_recognition_observation",
+                    "name": self.schema_name,
                     "strict": True,
-                    "schema": OBSERVATION_SCHEMA,
+                    "schema": self.observation_schema,
                 }
             },
-            "max_output_tokens": 1800,
+            "max_output_tokens": self.max_output_tokens,
         }
         request_started = time.perf_counter()
         try:
@@ -605,9 +613,8 @@ class OpenAIRecognitionVisionClient:
             parsed = json.loads(text)
             if not isinstance(parsed, Mapping):
                 raise ValueError("structured observation must be an object")
-            repaired = _repair_observation_payload(parsed)
             return RecognitionVisionResult(
-                observation=RecognitionObservation.model_validate(repaired),
+                observation=self.parse_observation(parsed),
                 telemetry=telemetry,
             )
         except (json.JSONDecodeError, ValueError) as exc:

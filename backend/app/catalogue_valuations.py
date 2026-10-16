@@ -17,8 +17,8 @@ from .db import user_connection
 from .live_market_refresh import identity_key,select_comps,value_comps
 
 DIMENSIONS=('condition','grading_company','grade','language','seal_status')
-REVISION=2
-SELECTION_RULES={'FIVE_NEWEST_EXACT_COMPARABLE_SALES','FIVE_NEWEST_EXACT_SEALED_PACK_SALES'}
+REVISION=3
+SELECTION_RULES={'FIVE_NEWEST_EXACT_COMPARABLE_SALES','FIVE_NEWEST_EXACT_SEALED_PACK_SALES','FIVE_NEWEST_EXACT_BOOK_SALES'}
 IDENTITY_SQL="md5(concat_ws(chr(31),p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language))"
 TARGET_SQL=f'''select p.id as catalogue_id,p.product_type,p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language,
  {IDENTITY_SQL} as identity_digest,pr.set_code,pr.identity_status as profile_identity_status,
@@ -35,7 +35,7 @@ OBSERVATIONS_SQL='''select * from (
  from tcg.market_observations o where catalogue_id=any($1::uuid[]) and source='EBAY'
   and observation_type='SOLD' and source_country='GB' and currency='GBP'
   and observed_at>=$2 and observed_at<=$3 and ingested_at<=$3
-  and metadata->>'selection_rule' in ('FIVE_NEWEST_EXACT_COMPARABLE_SALES','FIVE_NEWEST_EXACT_SEALED_PACK_SALES')
+  and metadata->>'selection_rule' in ('FIVE_NEWEST_EXACT_COMPARABLE_SALES','FIVE_NEWEST_EXACT_SEALED_PACK_SALES','FIVE_NEWEST_EXACT_BOOK_SALES')
   and metadata->>'marketplace'='EBAY_GB'
  ) eligible where position<=100'''
 PROVIDER_CHECK_SQL='''select distinct on(metadata->>'identity_key') metadata->>'identity_key' as identity_key,completed_at
@@ -56,6 +56,11 @@ WRITE_SQL=f'''insert into tcg.catalogue_market_snapshots
 def catalogue_values(product,observations,*,now,provider_checks=None):
     groups=defaultdict(list)
     for row in observations:
+        if product.get('product_type')=='COMIC':
+            from .book_market import printing_digest
+            if (row.get('metadata',{}).get('selection_rule')!='FIVE_NEWEST_EXACT_BOOK_SALES'
+                    or row.get('metadata',{}).get('book_identity_digest')!=printing_digest(product.get('book_printing') or {})):
+                continue
         if (str(row['catalogue_id'])!=str(product['catalogue_id']) or row.get('source')!='EBAY'
                 or row.get('observation_type')!='SOLD' or row.get('source_country')!='GB' or row.get('currency')!='GBP'
                 or not now-timedelta(days=90)<=row['observed_at']<=now
@@ -76,6 +81,9 @@ def catalogue_values(product,observations,*,now,provider_checks=None):
         if product['product_type']=='CARD':
             if not product['variant'] or not product['card_number'] or not (physical['condition'] or (physical['grading_company'] and physical['grade'])):
                 continue
+        elif product['product_type']=='COMIC':
+            from .book_market import eligibility as book_eligibility
+            if book_eligibility(target): continue
         elif not (product['game']=='One Piece' and physical['seal_status']=='SEALED'
                   and product.get('profile_identity_status')==product.get('sealed_identity_status')=='VERIFIED'
                   and product.get('sealed_product_type')=='BOOSTER_PACK' and product.get('set_code')):
@@ -105,6 +113,9 @@ def catalogue_values(product,observations,*,now,provider_checks=None):
                   'sale_price_excludes_shipping':True,'observation_ids':[str(r['id']) for r in selected],
                   'comps':[dict(c,sold_at=c['sold_at'].isoformat()) for c in comps],
                   'sold_observations_after_outliers':result.sold_observation_count}
+        if product['product_type']=='COMIC':
+            from .book_market import printing_digest
+            evidence['book_identity_digest']=printing_digest(product['book_printing'])
         basis_key=hashlib.sha256(json.dumps(dimensions).encode()).hexdigest()
         digest=hashlib.sha256(json.dumps(evidence,sort_keys=True).encode()).hexdigest()
         values.append(dict(physical,result=result,evidence=evidence,basis_key=basis_key,evidence_digest=digest,
@@ -128,6 +139,8 @@ async def refresh_catalogue_values(pool,actor):
                 await require_platform_admin(connection)
                 products=[dict(row) for row in await connection.fetch(TARGET_SQL,cursor)]
                 if not products:break
+                from .book_market import attach_book_printings
+                await attach_book_printings(connection,products)
                 observations=await connection.fetch(OBSERVATIONS_SQL,[p['catalogue_id'] for p in products],
                                                      now-timedelta(days=90),now)
             by_product=defaultdict(list)
@@ -146,7 +159,13 @@ async def refresh_catalogue_values(pool,actor):
                        value['evidence_checked_at'],now.date(),value['evidence_digest'],value['evidence']))
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 await require_platform_admin(connection)
+                expected_books={str(p['catalogue_id']):p.get('book_identity_digest') for p in products if p['product_type']=='COMIC'}
+                current_books=await attach_book_printings(connection,[dict(p) for p in products if p['product_type']=='COMIC'],lock=True)
+                valid_books={str(p['catalogue_id']) for p in current_books
+                             if p.get('book_identity_digest')==expected_books[str(p['catalogue_id'])]
+                             and p['book_printing'].get('identity_status')==p['book_printing'].get('profile_status')=='VERIFIED'}
                 for args in prepared:
+                    if str(args[0]) in expected_books and str(args[0]) not in valid_books: continue
                     report['snapshots_inserted']+=bool(await connection.fetchval(WRITE_SQL,*args))
             cursor=products[-1]['catalogue_id']
         status='COMPLETE'

@@ -1,7 +1,8 @@
 "use strict";
 (() => {
   const conditions = ["Mint", "Near Mint", "Very Fine", "Fine", "Very Good", "Good", "Fair", "Poor"];
-  let dialog, requestKey, submittedPayload, actorId, saving = false, pending = false;
+  let dialog, requestKey, submittedPayload, actorId, saving = false, pending = false, saved = false;
+  let photos = [], scanRevision = 0, scanning = false, scanController = null, priceRevision = 0;
   const node = id => document.getElementById(`owner-book-${id}`);
   const value = id => node(id).value.trim();
   const optional = id => value(id) || null;
@@ -27,6 +28,7 @@
     node("publisher-label").hidden = !customPublisher;
     node("publisher").required = customPublisher;
     node("format-label").hidden = manga;
+    node("format").required = !manga;
     node("condition-label").hidden = graded;
     node("grading-fields").hidden = !graded;
     for (const id of ["grader", "grade", "certificate"]) node(id).required = graded;
@@ -44,10 +46,23 @@
         <button type="button" class="owner-import-close" id="owner-book-close" aria-label="Close add book">×</button>
       </div>
       <form id="owner-book-form" class="owner-import-dialog-body">
+        <section class="owner-book-scanner" aria-label="Comic and manga scanner">
+          <h3>Scan your comic or manga</h3>
+          <p>Photograph one book. Add its barcode or copyright page to read the edition and printing; for graded books, include the label.</p>
+          <div class="owner-book-photo-actions">
+            <button type="button" id="owner-book-camera" class="owner-secondary-action">Take a photo</button>
+            <button type="button" id="owner-book-gallery" class="owner-secondary-action">Choose photos</button>
+          </div>
+          <input type="file" id="owner-book-camera-file" accept="image/*" capture="environment" hidden>
+          <input type="file" id="owner-book-gallery-file" accept="image/*" multiple hidden>
+          <div id="owner-book-photos" class="owner-book-photos"></div>
+          <button type="button" id="owner-book-recognize" class="owner-primary-action" disabled>Read book photos</button>
+          <p id="owner-book-scan-message" role="status" aria-live="polite">Up to 3 photos of the same book. You confirm the details before saving.</p>
+        </section>
         <fieldset id="owner-book-fields">
           <legend>Book details</legend>
           <div class="owner-import-fields">
-            <label>Category<select id="owner-book-category"><option value="MARVEL_COMICS">Marvel Comics</option><option value="DC_COMICS">DC Comics</option><option value="OTHER_COMICS">Other comics</option><option value="MANGA">Manga</option></select></label>
+            <label>Category<select id="owner-book-category" required><option value="MARVEL_COMICS">Marvel Comics</option><option value="DC_COMICS">DC Comics</option><option value="OTHER_COMICS">Other comics</option><option value="MANGA">Manga</option></select></label>
             <label>Series title<input id="owner-book-series" maxlength="140" required></label>
             <label><span id="owner-book-number-text">Issue / book number</span><input id="owner-book-number" maxlength="40" placeholder="e.g. 1, Annual 1 or Omnibus 1" required></label>
             <label>Series volume / edition <span>(optional)</span><input id="owner-book-volume" maxlength="40" placeholder="e.g. Vol. 2 or Deluxe edition"></label>
@@ -76,6 +91,10 @@
           </div>
           <label class="owner-book-notes">Notes <span>(optional — signatures, label type, restoration or damage)</span><textarea id="owner-book-notes" rows="3" maxlength="2000"></textarea></label>
         </fieldset>
+        <section class="owner-book-market" aria-label="Book market value">
+          <strong>Market value</strong><p id="owner-book-market-result" role="status">Complete the book and copy details to check matching sold evidence.</p>
+          <button type="button" id="owner-book-market-check" class="owner-secondary-action">Check market value</button>
+        </section>
         <p class="owner-book-explanation">Saved to your collection as a draft. Selling is a separate step. Market value appears only when matching evidence is available; certificate details are recorded for review.</p>
         <p id="owner-book-message" role="status" aria-live="polite"></p>
         <div class="owner-book-actions"><button type="button" id="owner-book-cancel" class="owner-secondary-action">Cancel</button><button type="submit" id="owner-book-save" class="owner-primary-action">Add to my inventory</button></div>
@@ -84,9 +103,119 @@
     document.body.append(dialog);
     for (const id of ["category", "state"]) node(id).addEventListener("change", update);
     node("grader").addEventListener("change", clearGradingDetails);
-    for (const id of ["close", "cancel"]) node(id).addEventListener("click", () => { if (!saving) dialog.close(); });
+    for (const id of ["close", "cancel"]) node(id).addEventListener("click", () => { if (!saving) { cancelScan(); dialog.close(); } });
     dialog.addEventListener("cancel", event => { if (saving) event.preventDefault(); });
+    dialog.addEventListener("close", cancelScan);
+    node("camera").addEventListener("click", () => node("camera-file").click());
+    node("gallery").addEventListener("click", () => node("gallery-file").click());
+    for (const id of ["camera-file", "gallery-file"]) node(id).addEventListener("change", addPhotos);
+    node("recognize").addEventListener("click", recognize);
+    node("market-check").addEventListener("click", checkMarket);
+    node("fields").addEventListener("input", () => { priceRevision++; node("market-result").textContent = "Details changed. Check the value for this exact copy again."; });
+    node("fields").addEventListener("change", () => { priceRevision++; node("market-result").textContent = "Details changed. Check the value for this exact copy again."; });
     node("form").addEventListener("submit", save);
+  }
+
+  function cancelScan() {
+    scanRevision++; priceRevision++; scanning = false;
+    scanController?.abort(); scanController = null;
+    if (dialog && !saving) { node("fields").disabled = pending; node("save").disabled = false; }
+  }
+
+  function scanActive(actor, revision) { return dialog.open && actorId === actor && state.session?.user?.id === actor && scanRevision === revision; }
+
+  function renderPhotos() {
+    node("photos").replaceChildren();
+    photos.forEach((photo, index) => {
+      const figure = document.createElement("figure"), image = document.createElement("img"), remove = document.createElement("button");
+      image.src = photo; image.alt = `Book photo ${index + 1}`;
+      remove.type = "button"; remove.textContent = "Remove"; remove.disabled = scanning || pending || saved;
+      remove.setAttribute("aria-label", `Remove book photo ${index + 1}`);
+      remove.addEventListener("click", () => { photos.splice(index, 1); scanRevision++; renderPhotos(); });
+      figure.append(image, remove); node("photos").append(figure);
+    });
+    node("recognize").disabled = !photos.length || scanning || saving || pending || saved;
+    for (const id of ["camera", "gallery"]) node(id).disabled = photos.length >= 3 || scanning || saving || pending || saved;
+  }
+
+  async function imageData(file) {
+    if (!file.type.startsWith("image/") || file.size > 20_000_000) throw new Error("Choose an image smaller than 20 MB.");
+    const url = URL.createObjectURL(file), image = new Image();
+    try {
+      await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(new Error("This photo could not be opened. Try a JPEG or a new camera photo.")); image.src = url; });
+      if (!image.naturalWidth || !image.naturalHeight) throw new Error("This photo could not be read.");
+      const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      const data = canvas.toDataURL("image/jpeg", .86);
+      if (data.length > 4_000_000) throw new Error("The photo is too large. Try a closer photo of the book.");
+      return data;
+    } finally { URL.revokeObjectURL(url); }
+  }
+
+  async function addPhotos(event) {
+    const files = [...(event.target.files || [])]; event.target.value = "";
+    if (scanning || saving || pending) return;
+    const actor = actorId, revision = ++scanRevision;
+    try {
+      for (const file of files.slice(0, 3 - photos.length)) {
+        const data = await imageData(file);
+        if (!scanActive(actor, revision)) return;
+        photos.push(data);
+      }
+      node("scan-message").textContent = "Photos ready. Read them, then check the suggested book details.";
+    } catch (error) { if (scanActive(actor, revision)) node("scan-message").textContent = error.message; }
+    if (scanActive(actor, revision)) renderPhotos();
+  }
+
+  function applySuggestion(result) {
+    if (result.status !== "NEEDS_REVIEW") { node("scan-message").textContent = (result.warnings || ["No book could be read. Try a clearer photo."]).join(" "); return; }
+    const fields = result.fields || {};
+    const mapping = {system_code:"category", series_title:"series", issue_number:"number", volume_identifier:"volume",
+      publisher:"publisher", language:"language", release_year:"year", printing_number:"printing", cover_code:"cover",
+      cover_artist:"artist", barcode_gtin:"barcode"};
+    for (const [field, id] of Object.entries(mapping)) node(id).value = fields[field] ?? "";
+    node("format").value = fields.book_format === "MANGA" ? "SINGLE_ISSUE" : fields.book_format || "";
+    const graded = !!fields.grading_company;
+    node("state").value = graded ? "GRADED" : "RAW"; node("condition").value = ""; clearGradingDetails(); update();
+    if (graded && [...node("grader").options].some(option => option.value === fields.grading_company.toUpperCase())) {
+      node("grader").value = fields.grading_company.toUpperCase(); node("grade").value = fields.grade || ""; node("certificate").value = fields.certificate_number || "";
+    }
+    node("notes").value = fields.label_notes || "";
+    node("cost").value = ""; node("price").value = "";
+    const missing = (result.uncertain_fields || []).filter(field => ["system_code", "series_title", "issue_number", "language", "publisher", "printing_number"].includes(field)).map(field => field.replaceAll("_", " "));
+    node("scan-message").textContent = "Book details read — confirm them below." + (missing.length ? " Check: " + missing.join(", ") + "." : "") + " " + (result.warnings || []).join(" ");
+    priceRevision++; node("market-result").textContent = "Confirm the printing and copy condition or grade, then check its market value.";
+  }
+
+  async function recognize() {
+    if (!photos.length || scanning || saving || pending || saved || actorId !== state.session?.user?.id) return;
+    const actor = actorId, revision = ++scanRevision;
+    scanning = true; scanController = new AbortController(); renderPhotos();
+    node("fields").disabled = true; node("save").disabled = true;
+    node("scan-message").textContent = "Reading the cover, printing details and any grading label…";
+    try {
+      const result = await apiRequest("/api/v1/owner/books/recognize", {method:"POST", signal:scanController.signal, body:JSON.stringify({images:[...photos]})}, false);
+      if (scanActive(actor, revision)) applySuggestion(result);
+    } catch (error) { if (scanActive(actor, revision)) node("scan-message").textContent = error.message || "Book scanning failed. Your photos are kept for another attempt."; }
+    finally { if (scanActive(actor, revision)) { scanning = false; scanController = null; node("fields").disabled = false; node("save").disabled = false; renderPhotos(); } }
+  }
+
+  async function checkMarket() {
+    if (scanning || saving || pending || saved || actorId !== state.session?.user?.id) return;
+    if (!node("form").reportValidity()) return;
+    const actor = actorId, revision = ++priceRevision, body = JSON.stringify(payload());
+    node("market-result").textContent = "Checking stored sales for this printing and condition…";
+    try {
+      const result = await apiRequest("/api/v1/owner/books/market-value", {method:"POST", body}, false);
+      if (!dialog.open || actor !== actorId || actor !== state.session?.user?.id || revision !== priceRevision) return;
+      node("market-result").textContent = result.market_value_minor == null
+        ? result.reason || "No matching market value is available yet."
+        : new Intl.NumberFormat("en-GB", {style:"currency",currency:"GBP"}).format(result.market_value_minor/100) + " · " + result.basis + " · UK sold reference";
+    } catch (error) {
+      if (dialog.open && actor === actorId && actor === state.session?.user?.id && revision === priceRevision) node("market-result").textContent = error.message || "Market value could not be checked.";
+    }
   }
 
   function payload() {
@@ -113,7 +242,7 @@
   async function save(event) {
     event.preventDefault();
     if (!actorId || state.session?.user?.id !== actorId) { dialog.close(); return; }
-    if (saving || !node("form").reportValidity()) return;
+    if (saving || scanning || saved || !node("form").reportValidity()) return;
     const savingActor = actorId;
     const body = pending ? submittedPayload : JSON.stringify(payload());
     if (submittedPayload && body !== submittedPayload) requestKey = crypto.randomUUID();
@@ -123,7 +252,7 @@
     try {
       const result = await apiRequest("/api/v1/owner/books/intake", {method: "POST", headers: {"Idempotency-Key": requestKey}, body});
       if (state.session?.user?.id !== savingActor) { dialog.close(); return; }
-      pending = false;
+      pending = false; saved = true; renderPhotos();
       node("message").textContent = `${result.catalogue.name} added to your collection as a draft.`;
       node("save").textContent = "Added to inventory";
       node("cancel").textContent = "Done";
@@ -140,15 +269,20 @@
     } finally { saving = false; }
   }
 
-  function open() {
+  function open(options = {}) {
     ensureDialog();
+    if (saving) return;
     if (pending && actorId === state.session?.user?.id) { dialog.showModal(); return; }
-    actorId = state.session?.user?.id; pending = false;
+    actorId = state.session?.user?.id; pending = false; saved = false;
+    cancelScan(); photos = [];
     node("form").reset(); requestKey = crypto.randomUUID(); submittedPayload = null;
     node("fields").disabled = false; node("save").disabled = false;
     node("save").textContent = "Add to my inventory"; node("cancel").textContent = "Cancel";
-    node("message").textContent = ""; update(); dialog.showModal(); node("category").focus();
+    node("message").textContent = "";
+    node("scan-message").textContent = "Up to 3 photos of the same book. You confirm the details before saving.";
+    node("market-result").textContent = "Complete the book and copy details to check matching sold evidence.";
+    update(); renderPhotos(); dialog.showModal(); (options.scan ? node("camera") : node("category")).focus();
   }
-  window.DropRateBooks = {open, reset() { if (dialog) dialog.close(); }};
+  window.DropRateBooks = {open, reset() { cancelScan(); photos = []; if (dialog) { dialog.close(); renderPhotos(); } }};
   document.querySelectorAll("[data-owner-add-book]").forEach(button => button.addEventListener("click", open));
 })();

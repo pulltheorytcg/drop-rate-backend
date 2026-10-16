@@ -93,7 +93,39 @@ lookups use its number-key index in batches, retaining every parallel candidate.
                         number_key=collector_key(p['card_number'])) for p in batch]
         references.extend(dict(r) for r in await connection.fetch(CACHE_SQL, json.dumps(lookups)))
         snapshots.extend(dict(r) for r in await connection.fetch(REFERENCE_VALUES_SQL, [p['id'] for p in batch], now))
-    return shared_prices(products, references, snapshots, now=now)
+    result=shared_prices(products, references, snapshots, now=now)
+    if rows is None or any(row.get('product_type')=='COMIC' for row in rows):
+        result.update(await read_book_prices(connection,rows,now=now))
+    return result
+
+
+async def read_book_prices(connection, rows=None, *, now):
+    """Shared raw book reference with its exact condition, never a graded quote."""
+    from .book_market import attach_book_printings
+    ids=None if rows is None else [r['catalogue_id'] for r in rows if r.get('product_type')=='COMIC' and r.get('catalogue_id')]
+    if ids == []: return {}
+    products=[dict(r) for r in await connection.fetch("""select p.id as catalogue_id,p.product_type,p.language
+        from tcg.catalogue_products p where p.product_type='COMIC'
+        and ($1::uuid[] is null or p.id=any($1::uuid[]))""",ids)]
+    await attach_book_printings(connection,products)
+    if not products: return {}
+    snapshots=[dict(r) for r in await connection.fetch(REFERENCE_VALUES_SQL,[p['catalogue_id'] for p in products],now)]
+    result={}
+    for product in products:
+        choices=[]
+        for row in snapshots:
+            if str(row['catalogue_id'])!=str(product['catalogue_id']) or row.get('grading_company') or row.get('grade'): continue
+            value=resolve_reference_value(dict(product,condition=row.get('basis_condition')), [row],now=now)
+            if value['status']=='AVAILABLE':
+                choices.append((row.get('basis_condition')=='Near Mint',value['checked_at'],value))
+        if not choices: continue
+        value=max(choices,key=lambda c:c[:2])[2]
+        value=dict(value,status='CONDITION_REFERENCE',label='Book sold reference',physical_valuation_eligible=False,
+                   recommended_retail_minor=None)
+        key='c:'+str(product['catalogue_id'])
+        result[key]=dict(key=key,market_value_minor=value['market_value_minor'],market_value_high_minor=None,
+            pricing_updated_at=value['checked_at'],basis_condition=value['basis'],market_value_source='SHARED_BOOK_SOLD',shared_price=value)
+    return result
 
 
 def with_shared_price(row, prices):
