@@ -187,7 +187,10 @@ async def test_sealed_only_refresh_updates_the_coverage_receipt(monkeypatch):
             revisions={'REFERENCE_PRICES':jobs.REFERENCE_JOB_REVISION,'SEALED_REFERENCE_PRICES':jobs.SEALED_MARKET_REVISION-1,
                        'CATALOGUE_VALUES':jobs.CATALOGUE_VALUE_REVISION,'CARDMARKET_VALUES':jobs.CARDMARKET_VALUE_REVISION,
                        'CATALOGUE_COVERAGE':1}
-            return [dict(job=j,status='COMPLETE',started_at=now,report={'importer_revision':r}) for j,r in revisions.items()]
+            return [dict(job=j,status='COMPLETE',
+                         started_at=(jobs.weekly_price_slot(now)-timedelta(seconds=1)
+                                     if j=='SEALED_REFERENCE_PRICES' else now),
+                         report={'importer_revision':r}) for j,r in revisions.items()]
     conn=DailyConnection()
     @asynccontextmanager
     async def user_connection(*args):yield conn
