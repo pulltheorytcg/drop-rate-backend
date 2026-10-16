@@ -69,7 +69,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    const tileText=await tile.innerText();
    assert.doesNotMatch(tileText,/INV-D715B0E9|\bLANGUAGE\b|\bSEAL\b|\bTYPE\b|\bGAME\b/i);
    assert.match(tileText,/Market value/);assert.match(tileText,/£8.66/);
-   assert.doesNotMatch(tileText,/Manage|Last known \\d{2}\\/\\d{2}\\/\\d{4}/);
+   assert.ok(!tileText.includes("Manage") && !tileText.includes("Last known"),"Tile must omit manage/date clutter");
    assert.equal(await tile.locator('.owner-card-open-overlay').count(),1,'The whole card must be one native button');
    assert.equal(await tile.locator('.owner-inventory-details').count(),0,'No redundant Manage CTA');
    const cardBox=await tile.boundingBox();
@@ -126,11 +126,12 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
        last_known_minor:866,checked_at:'2026-10-08T12:00:00Z'}};
      renderInventoryCards([window.fixtureItem]);
    },item);
-   assert.doesNotMatch(await page.locator('.owner-card-prices').innerText(),/Last known|08\\/10\\/2026/);
+   const smallPriceText=await page.locator('.owner-card-prices').innerText();
+   assert.ok(!smallPriceText.includes("Last known")&&!smallPriceText.includes("08/10/2026"));
    assert.match(await page.locator('.owner-card-prices').innerText(),/£8.66/);
    assert.match(await page.locator('.owner-card-historical-label').innerText(),/Historical reference/);
    await page.locator('.owner-card-open-overlay').click();
-   assert.match(await page.locator('.owner-item-values').innerText(),/Last known 08\\/10\\/2026/);
+   assert.ok((await page.locator('.owner-item-values').innerText()).includes("Last known 08/10/2026"));
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
    await page.evaluate(original=>{window.fixtureItem=original;renderInventoryCards([original]);},item);
    await page.evaluate(existing=>{window.fixtureItem={...existing,status:'APPROVED',
