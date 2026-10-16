@@ -307,7 +307,10 @@ function renderInventoryCards(items) {
       actions.append(refresh);
     }
 
-    card.append(imageWrap, body, actions, openDetails);
+    card.append(imageWrap, body, openDetails);
+    // An unrefreshable item has no action bar at all; do not leave an empty
+    // absolute wrapper that could appear clipped on 320px Safari layouts.
+    if(actions.children.length)card.append(actions);
     grid.append(card);
   }
 }
