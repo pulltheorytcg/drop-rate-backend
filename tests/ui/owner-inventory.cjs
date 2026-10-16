@@ -53,7 +53,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
     active_valued_count:0,active_unvalued_count:104,recorded_asking_count:0,
     active_recommended_count:0})+')');
   const get=id=>f.w.document.getElementById(id).textContent;
-  assert.equal(get('owner-market-value'),'Unavailable');
+  assert.equal(get('owner-market-value'),'Value unavailable');
   assert.match(get('owner-market-value-note'),/104 awaiting exact market evidence/);
   assert.equal(get('owner-store-value'),'Not set');
   assert.match(get('owner-recommendation-note'),/unavailable pending market evidence/);
