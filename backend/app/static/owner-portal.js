@@ -697,34 +697,55 @@ async function loadOwnerOverview() {
   const summary = data.summary || {};
   const total = Number(summary.total_inventory_count || 0);
   byId("owner-total-inventory").textContent = total.toLocaleString("en-GB");
+  const cardCount = summary.total_card_count, sealedCount = summary.total_sealed_count;
+  const kindNote = byId("owner-inventory-type-note");
+  if (kindNote) {
+    const validBreakdown = Number.isInteger(cardCount) && Number.isInteger(sealedCount)
+      && cardCount >= 0 && sealedCount >= 0 && cardCount + sealedCount <= total;
+    kindNote.textContent = total === 0 ? "No physical inventory added yet"
+      : validBreakdown && cardCount + sealedCount === total
+        ? `${cardCount} cards · ${sealedCount} sealed products`
+        : "Physical cards, sealed products and other collectibles";
+  }
   const unvalued = Number(summary.active_unvalued_count || 0);
   const valued = Number(summary.active_valued_count || 0);
-  byId("owner-market-value").textContent = unvalued && !valued
-    ? "Value unavailable" : formatMoney(summary.active_market_value_minor);
-  byId("owner-market-value").classList.toggle("owner-value-unavailable", Boolean(unvalued && !valued));
-  byId("owner-market-value-note").textContent = unvalued
-    ? `${valued} valued · ${unvalued} awaiting market data`
-    : "Latest available market prices";
-  if(summary.guide_estimate_count)byId("owner-market-value-note").textContent+=` · ${summary.guide_estimate_count} Cardmarket estimates`;
-  // Do not mix saved asking prices into the automatic recommendation total.
-  // An older response without the new fields must not fall back to that sum.
   const activeCount = Number.isInteger(summary.active_inventory_count) ? summary.active_inventory_count : total;
+  const marketIncomplete = activeCount > 0 && unvalued > 0;
+  const marketUnavailable = activeCount > 0 && valued === 0;
+  const marketLabel = byId("owner-market-value-label");
+  if (marketLabel) marketLabel.textContent = marketIncomplete ? "Known market value · partial" : "Market value";
+  byId("owner-market-value").textContent = marketUnavailable
+    ? "Unavailable" : formatMoney(summary.active_market_value_minor);
+  byId("owner-market-value").classList.toggle("owner-value-unavailable", marketUnavailable);
+  byId("owner-market-value-note").textContent = activeCount === 0
+    ? "Add stock to see sourced market valuations"
+    : marketIncomplete
+      ? `${valued} of ${activeCount} valued · ${unvalued} awaiting eligible prices`
+      : `${valued} of ${activeCount} valued from current evidence`;
+  if(summary.guide_estimate_count)
+    byId("owner-market-value-note").textContent += ` · ${summary.guide_estimate_count} guide estimate${summary.guide_estimate_count === 1 ? "" : "s"}`;
+
+  // Saved Store Prices represent real owner-entered asking prices. Never
+  // replace that headline with £1 automatic floor-priced recommendations.
+  const askingCount = Number(summary.recorded_asking_count || 0);
+  const askingTotal = summary.recorded_asking_value_minor;
+  const hasAsking = askingCount > 0 && Number.isInteger(askingTotal) && askingTotal > 0;
+  byId("owner-store-value").textContent = activeCount === 0 ? formatMoney(0)
+    : hasAsking ? formatMoney(askingTotal) : "Not set";
+  byId("owner-store-value").classList.toggle("owner-value-unavailable", activeCount > 0 && !hasAsking);
+  const askingNote = byId("owner-asking-price-note");
+  if (askingNote) askingNote.textContent = activeCount === 0 ? "No items available for pricing yet"
+    : hasAsking
+      ? `${askingCount} of ${activeCount} copies have saved Store Prices · incomplete total`
+      : `0 of ${activeCount} copies have saved Store Prices`;
   const recommendedCount = Number(summary.active_recommended_count || 0);
   const recommendationTotal = summary.active_recommended_retail_minor;
-  byId("owner-store-value").textContent = activeCount === 0 ? formatMoney(0)
-    : recommendedCount > 0 && Number.isInteger(recommendationTotal) && recommendationTotal > 0
-      ? formatMoney(recommendationTotal) : "Unavailable";
-  byId("owner-store-value").classList.toggle("owner-value-unavailable", activeCount > 0 && !(recommendedCount > 0 && Number.isInteger(recommendationTotal) && recommendationTotal > 0));
+  const hasRecommendation = recommendedCount > 0 && Number.isInteger(recommendationTotal) && recommendationTotal > 0;
   const recommendationNote = byId("owner-recommendation-note");
-  if (recommendationNote) recommendationNote.textContent = activeCount === 0
-    ? "Add cards to see automatic recommendations"
-    : `Automatic · ${recommendedCount} of ${activeCount} copies priced`
-      + (summary.recommendation_guide_count ? ` · ${summary.recommendation_guide_count} guide estimate${summary.recommendation_guide_count === 1 ? "" : "s"}` : "");
-  const askingNote = byId("owner-asking-price-note");
-  if (askingNote) askingNote.textContent = summary.recorded_asking_count > 0
-    && Number.isInteger(summary.recorded_asking_value_minor)
-    ? `Saved asking prices: ${formatMoney(summary.recorded_asking_value_minor)} (${summary.recorded_asking_count} copies)`
-    : "No asking prices saved · nothing listed by this calculation";
+  if (recommendationNote) recommendationNote.textContent = hasRecommendation
+    ? `Automatic suggestion: ${formatMoney(recommendationTotal)} on ${recommendedCount} of ${activeCount}`
+        + (summary.recommendation_guide_count ? ` · ${summary.recommendation_guide_count} guide estimate${summary.recommendation_guide_count === 1 ? "" : "s"}` : "")
+    : "Automatic recommendation unavailable · does not alter your asking prices";
   byId("owner-sold-count").textContent = Number(summary.sold_count || 0).toLocaleString("en-GB");
 
   const stages = {
