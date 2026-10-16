@@ -16,7 +16,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=tile-tap-v28" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=market-coverage-v29" defer></script>' in html
     assert '<script src="/assets/owner-recognition.js?v=shared-value-v2" defer></script>' in html
 
     for founder_script in (
