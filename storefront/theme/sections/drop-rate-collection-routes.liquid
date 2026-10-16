@@ -11,6 +11,10 @@
     assign game = 'pokemon'
   elsif h == 'one-piece' or h == 'one-piece-singles'
     assign game = 'one-piece'
+  elsif h == 'comics'
+    assign game = 'comics'
+  elsif h == 'manga'
+    assign game = 'manga'
   endif
 
   if pokemon_sets contains h
@@ -24,6 +28,8 @@
   assign all_cards = collections['trading-cards']
   assign pokemon = collections['pokemon']
   assign one_piece = collections['one-piece']
+  assign comics = collections['comics']
+  assign manga = collections['manga']
   assign all_singles = collections['singles']
   assign all_graded = collections['graded-cards']
   assign all_sealed = collections['sealed']
@@ -40,6 +46,15 @@
       {% endif %}
       {% if one_piece != blank and one_piece.all_products_count > 0 %}
         <a{% if game == 'one-piece' and h == 'one-piece' %} aria-current="page"{% endif %} href="{{ one_piece.url }}">{{ 'dr_brand.browse.one_piece' | t }}</a>
+      {% endif %}
+      {% comment %}Verified stock is currently empty. Keep discoverable category
+        routes; the smart collections populate ONLY from actual tagged listings.
+        This overlay remains on the unpublished Brand Redesign theme.{% endcomment %}
+      {% if comics != blank %}
+        <a{% if game == 'comics' %} aria-current="page"{% endif %} href="{{ comics.url }}">Comics</a>
+      {% endif %}
+      {% if manga != blank %}
+        <a{% if game == 'manga' %} aria-current="page"{% endif %} href="{{ manga.url }}">Manga</a>
       {% endif %}
       {% if all_singles != blank and all_singles.all_products_count > 0 %}
         <a{% if h == 'singles' %} aria-current="page"{% endif %} href="{{ all_singles.url }}">{{ 'dr_brand.browse.singles' | t }}</a>
