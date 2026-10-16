@@ -32,7 +32,9 @@ from .catalogue_display_prices import read_shared_prices, with_shared_price
 router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"])
 GAME_BY_SYSTEM = {system: game for game, system in SYSTEM_BY_GAME.items()}
 # A browse family only: printing identities retain their original system.
-BROWSE_FAMILIES = {"NARUTO": ("NARUTO_KAYOU", "NARUTO_BANDAI_LEGACY")}
+BROWSE_FAMILIES = {"NARUTO": ("NARUTO_KAYOU", "NARUTO_BANDAI_LEGACY"),
+                   "COMICS": ("MARVEL_COMICS", "DC_COMICS", "OTHER_COMICS"),
+                   "MANGA": ("MANGA",)}
 
 
 def one_piece_artwork_url(value):
@@ -78,7 +80,7 @@ def browse_games(rows) -> list[dict]:
         system = item["system_code"]
         family = next((key for key, members in BROWSE_FAMILIES.items() if system in members), system)
         if family not in groups:
-            groups[family] = {"system_code": family, "game": "Naruto" if family == "NARUTO" else GAME_BY_SYSTEM.get(system, item["game"]),
+            groups[family] = {"system_code": family, "game": {"NARUTO":"Naruto","COMICS":"Comics","MANGA":"Manga"}.get(family,GAME_BY_SYSTEM.get(system,item["game"])),
                               "languages": set(), "products": 0, "sets": 0}
         group = groups[family]
         group["languages"].update(item["languages"])
@@ -161,7 +163,10 @@ with reference_base as not materialized (
         coalesce(p.language,'Unknown'),null::text,pr.release_date,''::text,''::text,null::text,'CATALOGUE'::text,
         null::bigint,null::bigint,null::timestamptz,'[]'::jsonb,false
  from tcg.catalogue_products p left join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
- where (p.product_type in ('CARD','SEALED') or (p.product_type='COLLECTION' and pr.collectible_type='SEALED')) and (pr.release_date is null or pr.release_date<=current_date)
+ where (p.product_type in ('CARD','SEALED') or (p.product_type='COLLECTION' and pr.collectible_type='SEALED')
+          or (p.product_type='COMIC' and pr.collectible_type='COMIC'
+               and pr.system_code in ('MARVEL_COMICS','DC_COMICS','OTHER_COMICS','MANGA')))
+   and (pr.release_date is null or pr.release_date<=current_date)
    and not exists(select 1 from exact_links l where l.catalogue_id=p.id)
 ), owned as (
  select i.catalogue_id,count(*)::int as quantity,sum(i.market_value_minor) as owned_value_minor,
@@ -314,7 +319,13 @@ async def games(request: Request, user: Annotated[AuthenticatedUser, Depends(req
                 access: Annotated[dict, Depends(browser_access)]):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         rows = await connection.fetch(GAMES_SQL, access["owner_id"])
-    return jsonable_encoder({"items": browse_games(rows)})
+    items=browse_games(rows)
+    # These are two real catalogue sections even when the first physical
+    # seller books have not yet been added. A zero count is not fake stock.
+    for system,game in (("COMICS","Comics"),("MANGA","Manga")):
+        if not any(item["system_code"]==system for item in items):
+            items.append({"system_code":system,"game":game,"languages":[],"products":0,"sets":0})
+    return jsonable_encoder({"items": items})
 
 
 @router.get("/sets")
@@ -452,7 +463,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
                    access: Annotated[dict, Depends(browser_access)], q: str = Query(default="", max_length=160),
                    system_code: str = Query(default="", max_length=80), language: str = Query(default="", max_length=80),
                    set_id: str = Query(default="", max_length=200), provider: str | None = Query(default=None, max_length=80),
-                   product_type: Literal["", "CARD", "SEALED"] = "", owned: Literal["all", "owned", "not_owned"] = "all",
+                   product_type: Literal["", "CARD", "SEALED", "COMIC"] = "", owned: Literal["all", "owned", "not_owned"] = "all",
                    sort: Literal["name", "name_desc", "newest", "oldest", "number", "value_desc", "value_asc"] = "newest",
                    keys: str | None = Query(default=None, max_length=5000),
                    slab_number: str = Query(default="", max_length=80),
@@ -465,7 +476,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         # Value sorts include alias prices before pagination. Other searches
         # resolve only the missing values on their bounded visible page.
-        shared = await read_shared_prices(connection) if sort in ('value_desc', 'value_asc') and product_type != 'SEALED' else {}
+        shared = await read_shared_prices(connection) if sort in ('value_desc', 'value_asc') and product_type not in ('SEALED','COMIC') else {}
         query, params = product_query(owner_id=access["owner_id"], q=q, system_code=system_code, language=language,
             set_id=set_id, provider=provider, product_type=product_type, owned=owned, sort=sort, keys=key_list,
             limit=limit, offset=offset, shared_prices=shared)
