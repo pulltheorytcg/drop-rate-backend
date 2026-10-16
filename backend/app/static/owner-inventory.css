@@ -11,6 +11,10 @@
 .owner-portal-page .owner-card-historical-label{
  display:block;color:#6b7688;font-size:.64rem;line-height:1.35;margin-top:2px;
 }
+.owner-portal-page .owner-table-historical-label{
+ display:block;margin-top:2px;font-size:.67rem;line-height:1.4;
+ color:#66788e;font-weight:600;
+}
 .owner-portal-page .owner-card-value-coverage{
  display:block;color:#627589;font-size:.58rem;line-height:1.35;margin-top:3px;
 }

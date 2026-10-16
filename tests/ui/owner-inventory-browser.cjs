@@ -150,6 +150,18 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.deepEqual(headings,['Product','Status','Market value','Store / recommended']);
    assert.equal(await page.locator('#owner-inventory-body tr:first-child td').count(),4);
    assert.doesNotMatch(await page.locator('#owner-inventory-body').innerText(),/INV-D715B0E9|Japanese/);
+   // Historical source-date provenance lives in the details sheet, not the
+   // narrow table either. Keep its stale status obvious rather than implying
+   // a verified current price.
+   await page.evaluate(original=>renderInventoryRows([{
+     ...original,reference_value:{status:'STALE',last_known_minor:866,checked_at:'2026-10-08T12:00:00Z'}
+   }]),item);
+   const marketCell=page.locator('#owner-inventory-body tr:first-child td:nth-child(3)');
+   assert.match(await marketCell.innerText(),/£8.66/);
+   const historicalRowText=await marketCell.innerText();
+   assert.ok(!historicalRowText.includes("Last known")&&!historicalRowText.includes("08/10/2026"),"List must not display dated historical labels");
+   assert.match(await marketCell.locator('.owner-table-historical-label').innerText(),/Historical reference/);
+   await page.evaluate(original=>renderInventoryRows([original]),item);
    await page.locator('.owner-inventory-open').click();await page.locator('.owner-item-selling summary').waitFor();
    if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();
    await page.getByRole('button',{name:'Close item details',exact:true}).click();

@@ -73,12 +73,17 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
  {
   const old={...item,reference_value:{status:'STALE',last_known_minor:866,
     checked_at:'2026-10-08T12:00:00Z'},store_price_minor:1000};
-  const f=fixture(old);f.run(`renderInventoryCards([${JSON.stringify(old)}]);`);
+  const f=fixture(old);f.run(`renderInventoryCards([${JSON.stringify(old)}]);renderInventoryRows([${JSON.stringify(old)}]);`);
   const tile=f.w.document.querySelector('.owner-inventory-card');
   const prices=tile.querySelector('.owner-card-prices');
   assert.match(prices.textContent,/£8.66/);
   assert.ok(!prices.textContent.includes("Last known")&&!prices.textContent.includes("08/10/2026"));
   assert.match(prices.querySelector('.owner-card-historical-label').textContent,/Historical reference/);
+  const tableMarket=f.w.document.querySelector('#owner-inventory-body tr td:nth-child(3)');
+  assert.ok(tableMarket,'List view must retain a separate market value column');
+  assert.match(tableMarket.textContent,/£8.66/);
+  assert.ok(!tableMarket.textContent.includes("Last known")&&!tableMarket.textContent.includes("08/10/2026"));
+  assert.match(tableMarket.querySelector('.owner-table-historical-label').textContent,/Historical reference/);
   assert.equal(tile.querySelector('.owner-inventory-details'),null);
   tile.querySelector('.owner-card-open-overlay').click();await tick();
   assert.ok(f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent.includes("Last known 08/10/2026"));

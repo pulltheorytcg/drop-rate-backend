@@ -153,9 +153,17 @@ function renderInventoryRows(items) {
     statusCell.append(status);
 
     const marketCell = document.createElement("td");
-    marketCell.textContent = item.reference_value ? window.DropRateReferenceValue.text(item, formatMoney) : item.market_value_minor == null
+    marketCell.textContent = item.reference_value ? window.DropRateReferenceValue.compactText(item, formatMoney) : item.market_value_minor == null
       ? "Value pending"
       : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"");
+    // Keep source age discoverable without putting a long timestamp in a
+    // narrow inventory list cell. Full evidence/date remain in item details.
+    if(item.reference_value && window.DropRateReferenceValue?.isHistorical(item)){
+      const age=document.createElement("small");
+      age.className="owner-table-historical-label";
+      age.textContent="Historical reference";
+      marketCell.append(age);
+    }
     if((item.grouped_quantity||1)>1 && item.group_valued_count>0 && item.group_valued_count<item.grouped_quantity)
       marketCell.append(document.createTextNode(" · "+item.group_valued_count+"/"+item.grouped_quantity+" copies valued"));
     const storeCell = document.createElement("td");
