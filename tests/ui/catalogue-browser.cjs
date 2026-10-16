@@ -4,7 +4,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=17'), 'Seller Hub must load the fresh mobile sort script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=18'), 'Seller Hub must load the fresh mobile sort script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=4'), 'Seller Hub must load the fresh mobile sort styles');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -201,7 +201,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const f=fixture(async(url)=>url.endsWith('/market-values')?waiting.promise:{items:[ref]});
   f.browser.filters.q='Old search';await f.browser.open();f.browser.reset();
   waiting.resolve({items:[{key:ref.key,market_value_minor:900,market_refresh_needed:false}]});await tick();
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Browse card games/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Browse cards, comics & manga/);
   assert.equal(ref.market_value_minor,null);f.finish();checks++;
  }
  {
@@ -238,10 +238,10 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  }
 
  {
-  const f=fixture();await f.browser.open();assert.match(f.browser.find('.dr-browse-content').textContent,/Browse card games/);
+  const f=fixture();await f.browser.open();assert.match(f.browser.find('.dr-browse-content').textContent,/Browse cards, comics & manga/);
   assert.equal(f.calls.length,1);f.browser.filters.product_type='SEALED';await f.browser.load();
   assert.match(f.calls.at(-1).url,/product_type=SEALED/);assert.match(f.browser.find('.dr-browse-chips').textContent,/Sealed Only/);
-  f.browser.reset();assert.equal(f.browser.filters.product_type,'');assert.match(f.browser.find('.dr-browse-content').textContent,/Browse card games/);
+  f.browser.reset();assert.equal(f.browser.filters.product_type,'');assert.match(f.browser.find('.dr-browse-content').textContent,/Browse cards, comics & manga/);
   f.finish();checks++;
  }
  {
@@ -614,6 +614,56 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(panel.querySelector('img'),null);
   assert.ok(panel.classList.contains('dr-browse-reference-photo-pending'));
   assert.match(panel.textContent,/Reference only/);
+  f.finish();checks++;
+ }
+ // Comics and manga are first-class empty catalogue sections. Neither
+ // invents book stock or sends a CARD-intake request from the book UI.
+ {
+  const f=fixture(async()=>({items:[],has_more:false}));
+  f.browser.games=[{system_code:'COMICS',game:'Comics',languages:[],products:0,sets:0},
+    {system_code:'MANGA',game:'Manga',languages:[],products:0,sets:0}];
+  f.browser.gamesLoaded=true;
+  let opened=0;f.browser.options.books=()=>{opened++;};
+  await f.browser.open();
+  const tiles=f.browser.find('.dr-browse-game-grid');
+  assert.equal(tiles.querySelectorAll('button').length,2);
+  assert.match(tiles.textContent,/COMICS/);
+  assert.match(tiles.textContent,/MANGA/);
+  tiles.querySelector('button[data-system="COMICS"]').click();await tick();
+  const url=new URL(f.calls.at(-1).url,'https://example.test');
+  assert.equal(url.searchParams.get('system_code'),'COMICS');
+  assert.equal(url.searchParams.get('product_type'),'COMIC');
+  assert.match(f.browser.find('.dr-browse-status').textContent,/No books have been added yet/);
+  assert.match(f.browser.find('.dr-browse-chips').textContent,/Comics & Manga/);
+  const btn=[...f.browser.find('.dr-browse-content').querySelectorAll('button')]
+    .find(x=>x.textContent==='Add a comic or manga');
+  assert.ok(btn);btn.click();await tick();
+  assert.equal(opened,1);
+  assert.equal(f.calls.filter(x=>x.method==='POST').length,0);
+  f.finish();checks++;
+ }
+ {
+  const book={...card,key:'c:00000000-0000-0000-0000-000000000025',
+    product_type:'COMIC',system_code:'MANGA',game:'Manga',
+    name:'One Piece Volume 1',set_name:'One Piece',card_number:'1',
+    variant:'Manga',language:'English',market_value_minor:null,reference_value:null,
+    source_kind:'CATALOGUE'};
+  const f=fixture(async()=>({items:[book],has_more:false}));
+  let opened=0;f.browser.options.books=()=>opened++;
+  f.browser.filters.system_code='MANGA';f.browser.filters.product_type='COMIC';
+  await f.browser.open();
+  await f.browser.load();
+  assert.match(f.browser.find('.dr-browse-content').textContent,/One Piece Volume 1/);
+  const cardButton=f.browser.find('.dr-browse-product-open');
+  cardButton.click();
+  assert.match(f.browser.sheet.textContent,/Book identity and cover\/printing require confirmation/);
+  assert.equal(f.browser.sheet.querySelector('select[aria-label="Condition"]'),null,
+    'Book must never use CARD raw/graded intake');
+  assert.equal(f.browser.sheet.querySelector('[data-add]'),null);
+  const btn=[...f.browser.sheet.querySelectorAll('button')].find(x=>x.textContent==='Add a comic or manga');
+  assert.ok(btn);btn.click();await tick();
+  assert.equal(opened,1);
+  assert.equal(f.calls.filter(x=>x.url?.endsWith('/intake')).length,0);
   f.finish();checks++;
  }
  console.log('Catalogue browser: '+checks+' search, navigation, filter, ownership, session and retry scenarios passed.');

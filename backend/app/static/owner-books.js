@@ -149,6 +149,6 @@
     node("save").textContent = "Add to my inventory"; node("cancel").textContent = "Cancel";
     node("message").textContent = ""; update(); dialog.showModal(); node("category").focus();
   }
-  window.DropRateBooks = {reset() { if (dialog) dialog.close(); }};
+  window.DropRateBooks = {open, reset() { if (dialog) dialog.close(); }};
   document.querySelectorAll("[data-owner-add-book]").forEach(button => button.addEventListener("click", open));
 })();
