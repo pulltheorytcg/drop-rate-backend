@@ -158,7 +158,8 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    }]),item);
    const marketCell=page.locator('#owner-inventory-body tr:first-child td:nth-child(3)');
    assert.match(await marketCell.innerText(),/£8.66/);
-   assert.doesNotMatch(await marketCell.innerText(),/Last known|08\\/10\\/2026/);
+   const historicalRowText=await marketCell.innerText();
+   assert.ok(!historicalRowText.includes("Last known")&&!historicalRowText.includes("08/10/2026"),"List must not display dated historical labels");
    assert.match(await marketCell.locator('.owner-table-historical-label').innerText(),/Historical reference/);
    await page.evaluate(original=>renderInventoryRows([original]),item);
    await page.locator('.owner-inventory-open').click();await page.locator('.owner-item-selling summary').waitFor();
