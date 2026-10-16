@@ -4,7 +4,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=19'), 'Seller Hub must load the fresh book value script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=20'), 'Seller Hub must load the fresh book value script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=4'), 'Seller Hub must load the fresh mobile sort styles');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -647,15 +647,18 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
     product_type:'COMIC',system_code:'MANGA',game:'Manga',
     name:'One Piece Volume 1',set_name:'One Piece',card_number:'1',
     variant:'Manga',language:'English',market_value_minor:null,reference_value:null,
-    source_kind:'CATALOGUE'};
+    source_kind:'CATALOGUE',book_details:{system_code:'MANGA',series_title:'One Piece',issue_number:'1',barcode_gtin:'9781569319017',printing_number:null},
+    publisher_source_url:'https://www.viz.com/manga-books/manga/one-piece-volume-1/product/139'};
   const f=fixture(async()=>({items:[book],has_more:false}));
-  let opened=0;f.browser.options.books=()=>opened++;
+  let opened=0,bookOptions;f.browser.options.books=options=>{opened++;bookOptions=options;};
   f.browser.filters.system_code='MANGA';f.browser.filters.product_type='COMIC';
   await f.browser.open();
   await f.browser.load();
   assert.match(f.browser.find('.dr-browse-content').textContent,/One Piece Volume 1/);
   const cardButton=f.browser.find('.dr-browse-product-open');
   cardButton.click();
+  assert.match(f.browser.sheet.textContent,/9781569319017/);
+  assert.equal(f.browser.sheet.querySelector('a').href,book.publisher_source_url);
   assert.match(f.browser.sheet.textContent,/Confirm the printing and your copy's condition or grade/);
   assert.equal(f.browser.sheet.querySelector('select[aria-label="Condition"]'),null,
     'Book must never use CARD raw/graded intake');
@@ -663,6 +666,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const btn=[...f.browser.sheet.querySelectorAll('button')].find(x=>x.textContent==='Add a comic or manga');
   assert.ok(btn);btn.click();await tick();
   assert.equal(opened,1);
+  assert.deepEqual(bookOptions.book,book.book_details);
   assert.equal(f.calls.filter(x=>x.url?.endsWith('/intake')).length,0);
   f.finish();checks++;
  }
