@@ -17,10 +17,15 @@ def main():
         for engine in os.getenv('BROWSER_ENGINES','chromium,webkit').split(','):
             browser=getattr(p,engine).launch(headless=True)
             for width in (390,1440):
+                print(f'Book scanner browser: {engine} {width}',flush=True)
                 page=browser.new_page(viewport={'width':width,'height':900})
                 errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
                 html=re.sub(r'<script[^>]*>.*?</script>','',(ROOT/'owner.html').read_text(),flags=re.S)
-                page.route('**/*',lambda route:route.fulfill(body=html,content_type='text/html') if route.request.url=='https://book-scan.test/' else route.abort())
+                def route_request(route):
+                    if route.request.url=='https://book-scan.test/':route.fulfill(body=html,content_type='text/html')
+                    elif route.request.url.startswith(('blob:https://book-scan.test/','data:image/')):route.continue_()
+                    else:route.abort()
+                page.route('**/*',route_request)
                 page.goto('https://book-scan.test/')
                 for name in ('owner-portal.css','owner-imports.css','owner-books.css','scanner-flow.css'):
                     page.add_style_tag(content=(ROOT/name).read_text())
@@ -46,11 +51,15 @@ def main():
                 assert page.locator('#owner-book-camera-file').get_attribute('capture')=='environment'
                 data=page.evaluate("(()=>{const c=document.createElement('canvas');c.width=220;c.height=320;c.getContext('2d').fillRect(0,0,220,320);return c.toDataURL('image/png').split(',')[1]})()")
                 photo={'name':'fixture.png','mimeType':'image/png','buffer':base64.b64decode(data)}
+                def photo_count(count):
+                    try:page.wait_for_function('n=>document.querySelectorAll("#owner-book-photos img").length===n',arg=count,timeout=10000)
+                    except Exception as exc:
+                        raise AssertionError(f'{engine} {width}: photos={page.locator("#owner-book-photos img").count()}, status={page.locator("#owner-book-scan-message").inner_text()}, errors={errors}') from exc
                 def upload():
                     page.locator('#owner-book-gallery-file').set_input_files([photo])
-                    page.wait_for_function("document.querySelectorAll('#owner-book-photos img').length===1")
+                    photo_count(1)
                 page.locator('#owner-book-gallery-file').set_input_files([photo,photo,photo])
-                page.wait_for_function("document.querySelectorAll('#owner-book-photos img').length===3")
+                photo_count(3)
                 assert page.locator('#owner-book-gallery').is_disabled()
                 page.locator('#owner-book-recognize').click()
                 page.wait_for_function("document.querySelector('#owner-book-series').value==='Fixture Manga'")
