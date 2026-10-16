@@ -23,7 +23,10 @@ window.DropRateReferenceValue = Object.freeze({
   },
   isHistorical(item) {
     const ref = this.displayReference(item);
-    return ref != null && !["AVAILABLE", "REFERENCE_ESTIMATE", "CATALOGUE_GUIDE", "CONDITION_REFERENCE"].includes(ref.status)
+    // A dated, old Near Mint comparison can be wrapped as CONDITION_REFERENCE
+    // when the actual owned copy has no confirmed condition. Its status is a
+    // comparison label, NOT evidence that its underlying price is current.
+    return ref != null && !Number.isInteger(ref.market_value_minor)
       && Number.isInteger(ref.last_known_minor) && Boolean(ref.checked_at);
   },
   compactText(item, money) {
