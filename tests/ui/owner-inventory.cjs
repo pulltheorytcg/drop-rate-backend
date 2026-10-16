@@ -77,11 +77,11 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   const tile=f.w.document.querySelector('.owner-inventory-card');
   const prices=tile.querySelector('.owner-card-prices');
   assert.match(prices.textContent,/£8.66/);
-  assert.doesNotMatch(prices.textContent,/Last known|08\\/10\\/2026/);
+  assert.ok(!prices.textContent.includes("Last known")&&!prices.textContent.includes("08/10/2026"));
   assert.match(prices.querySelector('.owner-card-historical-label').textContent,/Historical reference/);
   assert.equal(tile.querySelector('.owner-inventory-details'),null);
   tile.querySelector('.owner-card-open-overlay').click();await tick();
-  assert.match(f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent,/Last known 08\\/10\\/2026/);
+  assert.ok(f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent.includes("Last known 08/10/2026"));
   f.finish();checks++;
  }
  // Clicking a refresh button must never open the detail sheet, even when it
