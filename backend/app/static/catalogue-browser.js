@@ -288,7 +288,12 @@ window.DropRateCatalogue = (() => {
         const artwork=window.DropRateTitleArt?.game(game.system_code);
         if(artwork){tile.prepend(this.titleImage(artwork,"dr-browse-game-logo",tile,"has-title-art"));
           if(artwork.caption)tile.append(node("small","dr-browse-publisher",artwork.caption));}
-        tile.setAttribute("aria-label",game.game);grid.append(tile);}
+        // Separate the two legitimate Dragon Ball games even when their
+        // publisher title artwork looks near-identical on a narrow phone.
+        const edition=game.system_code==="DRAGON_BALL_SUPER_MASTERS"?"SUPER MASTERS":
+          game.system_code==="DRAGON_BALL_SUPER_FUSION_WORLD"?"FUSION WORLD":null;
+        if(edition)tile.append(node("span","dr-browse-game-edition",edition));
+        tile.setAttribute("aria-label",edition?"Dragon Ball "+edition:game.game);grid.append(tile);}
       content.replaceChildren(node("h2","dr-browse-quick-heading","Browse card games"),grid);
       if(!this.games.length)content.append(node("p","dr-browse-empty","The catalogue is being prepared. Try scanning an item."));
     }

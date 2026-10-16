@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
   <link rel="stylesheet" href="/assets/scanner-flow.css?v=5">
-  <link rel="stylesheet" href="/assets/catalogue-browser.css?v=4">
+  <link rel="stylesheet" href="/assets/catalogue-browser.css?v=5">
   <link rel="stylesheet" href="/assets/workspace-shell.css?v=1">
   <link rel="stylesheet" href="/assets/collector-worlds.css?v=6">
 </head>
@@ -183,20 +183,20 @@
                 <div class="owner-kpi-icon inventory">▣</div>
                 <span>Total inventory</span>
                 <strong id="owner-total-inventory">—</strong>
-                <small>Physical cards linked to you</small>
+                <small>Physical inventory items linked to you</small>
               </article>
               <article class="owner-kpi-card">
                 <div class="owner-kpi-icon value">£</div>
-                <span>Active market value</span>
+                <span id="owner-market-value-label">Market value</span>
                 <strong id="owner-market-value">—</strong>
                 <small id="owner-market-value-note">Latest available market prices</small>
               </article>
               <article class="owner-kpi-card">
                 <div class="owner-kpi-icon store">↗</div>
-                <span>Recommended retail</span>
+                <span>Saved Store Value</span>
                 <strong id="owner-store-value">—</strong>
-                <small id="owner-recommendation-note">Automatic recommendations where market evidence is available</small>
-                <small id="owner-asking-price-note">Saved asking prices are separate from recommendations</small>
+                <small id="owner-asking-price-note">Saved asking prices are separate from market value</small>
+                <small id="owner-recommendation-note">Automatic recommendations are separate from saved Store Prices</small>
               </article>
               <article class="owner-kpi-card">
                 <div class="owner-kpi-icon sold">✓</div>
@@ -236,7 +236,7 @@
             <div class="owner-insights-grid">
               <section class="owner-panel owner-insight-panel">
                 <div class="owner-panel-heading">
-                  <div><span class="owner-section-kicker">Portfolio leaders</span><h3>Top valued cards</h3><p>Your highest current market-value physical cards.</p></div>
+                  <div><span class="owner-section-kicker">Portfolio leaders</span><h3>Currently valued cards</h3><p>Only cards with eligible price evidence appear here. Unpriced cards are not worth £0.</p></div>
                   <button type="button" class="owner-link-button" data-owner-jump="inventory">Inventory →</button>
                 </div>
                 <div id="owner-top-valued-cards" class="owner-insight-card-list">
@@ -890,10 +890,10 @@
     </template>
 
   <script src="/assets/hub-session.js?v=journey-v4" defer></script>
-  <script src="/assets/reference-value-display.js?v=catalogue-display-v4" defer></script>
+  <script src="/assets/reference-value-display.js?v=catalogue-display-v5" defer></script>
   <script src="/assets/inventory-groups.js?v=copy-quantities-v1" defer></script>
   <script src="/assets/owner-inventory.js?v=books-v13" defer></script>
-  <script src="/assets/owner-portal.js?v=tile-tap-v28" defer></script>
+  <script src="/assets/owner-portal.js?v=market-coverage-v29" defer></script>
   <script src="/assets/owner-books.js?v=2" defer></script>
   <script src="/assets/owner-imports.js?v=journey-v2" defer></script>
   <script src="/assets/owner-fulfillment.js?v=3" defer></script>
@@ -902,7 +902,7 @@
   <script src="/assets/owner-recognition.js?v=shared-value-v2" defer></script>
   <script src="/assets/reference-library.js?v=2" defer></script>
   <script src="/assets/catalogue-title-art.js?v=3" defer></script>
-  <script src="/assets/catalogue-browser.js?v=17" defer></script>
+  <script src="/assets/catalogue-browser.js?v=18" defer></script>
   <script src="/assets/catalogue-browser-entry.js?v=5" defer></script>
   <script src="/assets/workspace-shell.js?v=3" defer></script>
   <script src="/assets/collector-worlds.js?v=3" defer></script>
