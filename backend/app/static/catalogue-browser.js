@@ -145,7 +145,7 @@ window.DropRateCatalogue = (() => {
     game() { return this.games.find(game=>game.system_code===this.filters.system_code); }
     isHome() { const f=this.filters;return this.page!=="sets" && !f.q.trim()&&!f.system_code&&!f.language&&!f.product_type&&f.owned==="all"&&!f.watch; }
     isBookFamily(code=this.filters.system_code){ return ["COMICS","MANGA"].includes(code); }
-    openBookIntake(){this.closeSheet();this.close();if(typeof this.options.books==="function")this.options.books();else this.options.navigate("inventory");}
+    openBookIntake(){if(!this.find(".dr-browse-backdrop").hidden)this.closeSheet();this.close();if(typeof this.options.books==="function")this.options.books();else this.options.navigate("inventory");}
     pickGame(game) { this.filters.system_code=game.system_code;this.filters.language="";this.filters.product_type=this.isBookFamily(game.system_code)?"COMIC":"";this.set=null;this.page="products";this.load(); }
     showSets() { if(!this.filters.system_code)return;this.page="sets";this.setQuery="";this.set=null;
       this.filters.q="";this.filters.owned="all";this.filters.watch=false;this.filters.product_type="";
@@ -220,6 +220,11 @@ window.DropRateCatalogue = (() => {
         this.hasMore=Boolean(data.has_more);this.offset=nextOffset;
         if(!unchanged)this.renderRows(more?nextOffset:0);
         status.textContent=this.rows.length?"":"No matches. Try another search or clear the filters.";
+        if(this.page==="products"&&!this.rows.length&&this.isBookFamily()
+          && this.filters.owned==="all"&&!this.filters.watch&&!this.filters.q.trim()){
+          status.textContent=(this.filters.system_code==="MANGA"?"Manga":"Comics")+" catalogue is ready for your first verified book. No books have been added yet.";
+          this.find(".dr-browse-content").append(button("Add a comic or manga",()=>this.openBookIntake(),"dr-browse-empty-action"));
+        }
         if(this.page==="products" && !this.rows.length && this.filters.system_code==="NARUTO"
            && this.filters.product_type==="SEALED" && this.filters.owned==="all" && !this.filters.watch && !this.filters.q.trim()){
           status.textContent="Naruto sealed products are not yet indexed from a verified product source. Naruto cards are available.";
@@ -292,7 +297,7 @@ window.DropRateCatalogue = (() => {
         if(artwork){tile.prepend(this.titleImage(artwork,"dr-browse-game-logo",tile,"has-title-art"));
           if(artwork.caption)tile.append(node("small","dr-browse-publisher",artwork.caption));}
         tile.setAttribute("aria-label",game.game);grid.append(tile);}
-      content.replaceChildren(node("h2","dr-browse-quick-heading","Browse card games"),grid);
+      content.replaceChildren(node("h2","dr-browse-quick-heading","Browse cards, comics & manga"),grid);
       if(!this.games.length)content.append(node("p","dr-browse-empty","The catalogue is being prepared. Try scanning an item."));
     }
     titleImage(artwork,cls,host,loadedClass,onError) {
@@ -431,11 +436,11 @@ window.DropRateCatalogue = (() => {
         const open=button("",()=>this.openProduct(row),"dr-browse-product-open");open.append(this.productImage(row),node("strong","dr-browse-product-title",decode(row.name)));
         open.setAttribute("aria-label","View "+decode(row.name));
         const meta=[row.rarity,row.card_number].filter(Boolean).join(" · ");
-        open.append(node("small","",decode(row.set_name)),node("small","",meta),node("small","",row.language+" · "+(row.product_type==="SEALED"?"Sealed":printingMarker(row)||decode(row.variant))));
+        open.append(node("small","",decode(row.set_name)),node("small","",meta),node("small","",row.language+" · "+(row.product_type==="SEALED"?"Sealed":row.product_type==="COMIC"?"Collectible book":printingMarker(row)||decode(row.variant))));
         card.append(open);
         const footer=node("div","dr-browse-product-footer"),copy=node("div"),price=node("strong","",marketPrice(row));price.dataset.priceKey=row.key;
         copy.append(price,node("small","","Qty: "+row.owned_quantity));
-        const plus=button("+",()=>this.openProduct(row),"dr-browse-plus");plus.setAttribute("aria-label","Add "+decode(row.name));footer.append(copy,plus);card.append(footer);
+        const plus=button("+",()=>row.product_type==="COMIC"?this.openBookIntake():this.openProduct(row),"dr-browse-plus");plus.setAttribute("aria-label","Add "+decode(row.name));footer.append(copy,plus);card.append(footer);
         if(row.owned_quantity>0)card.append(node("span","dr-browse-owned","✓"));
         grid.append(card);
       }
@@ -480,6 +485,19 @@ window.DropRateCatalogue = (() => {
       try{localStorage.setItem(this.storageKey,JSON.stringify([...this.watchlist]));}catch(_){this.sheet.querySelector(".dr-browse-detail-message").textContent="Browser storage is unavailable. This watchlist lasts for this session.";}
     }
     openProduct(row) {
+      if(row.product_type==="COMIC"){
+        this.openSheet("Comic / manga details");
+        const content=node("div","dr-browse-product-details");
+        content.append(this.productImage(row,"dr-browse-detail-image"),
+          node("h3","",decode(row.name)),
+          node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
+        content.append(node("p","dr-browse-reference-note",
+          "Book identity and cover/printing require confirmation. No independently verified market price is available. Existing books remain in Draft until reviewed."));
+        const buttonRow=node("footer");
+        buttonRow.append(button("Add a comic or manga",()=>this.openBookIntake(),"dr-browse-primary"));
+        this.sheet.append(content,buttonRow);
+        return;
+      }
       this.openSheet("Product Details");
       let edit=this.pending.get(row.key);
       if(!edit){edit={row,condition:"",language:"",quantity:1,confirmed:false,requests:null};this.pending.set(row.key,edit);}
