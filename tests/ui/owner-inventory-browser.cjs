@@ -122,8 +122,9 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    // The date is deliberately removed from the scan grid, but not from
    // historic evidence in the full detail view.
    await page.evaluate(original=>{
-     renderInventoryCards([{...original,reference_value:{status:'STALE',
-       last_known_minor:866,checked_at:'2026-10-08T12:00:00Z'}}]);
+     window.fixtureItem={...original,reference_value:{status:'STALE',
+       last_known_minor:866,checked_at:'2026-10-08T12:00:00Z'}};
+     renderInventoryCards([window.fixtureItem]);
    },item);
    assert.doesNotMatch(await page.locator('.owner-card-prices').innerText(),/Last known|08\\/10\\/2026/);
    assert.match(await page.locator('.owner-card-prices').innerText(),/£8.66/);
@@ -131,7 +132,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    await page.locator('.owner-card-open-overlay').click();
    assert.match(await page.locator('.owner-item-values').innerText(),/Last known 08\\/10\\/2026/);
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
-   await page.evaluate(original=>{renderInventoryCards([original]);},item);
+   await page.evaluate(original=>{window.fixtureItem=original;renderInventoryCards([original]);},item);
    await page.evaluate(existing=>{window.fixtureItem={...existing,status:'APPROVED',
        sale_intent:'FOR_SALE',shopify_state:'PUBLISHED',seller_approval_available:true,
        store_price_minor:1000,is_consignment:true};},item);
