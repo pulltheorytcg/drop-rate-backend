@@ -123,7 +123,23 @@
 }
 
 /* Keep matching controls consistent with the collection modal. */
-.owner-import-resolver input,.owner-import-resolver select {font:inherit;background:#fff;color:#17385f;border:1px solid #c7d8ee;border-radius:9px;padding:10px;width:100%;}
+.owner-import-resolver input,.owner-import-resolver select {box-sizing:border-box;min-width:0;font:inherit;background:#fff;color:#17385f;border:1px solid #c7d8ee;border-radius:9px;padding:10px;width:100%;}
+.owner-import-dialog button {margin:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;}
 .owner-import-resolver button {font:inherit;background:#fff;color:#17385f;border:1px solid #c7d8ee;border-radius:8px;padding:9px 12px;cursor:pointer;}
 .owner-import-resolver button:disabled {opacity:.55;cursor:wait;}
 .owner-import-resolver label {display:grid;gap:6px;font-size:.8rem;}
+.owner-import-resolver-result>div {min-width:0;flex:1;}
+.owner-import-resolver-result button {flex-shrink:0;max-width:45%;}
+.owner-import-card-details {min-width:0;border:1px solid #dbe6f0;border-radius:10px;padding:12px;}
+.owner-import-card-details summary {cursor:pointer;font-size:.8rem;font-weight:750;}
+.owner-import-card-details[open] summary {margin-bottom:12px;}
+.owner-import-card-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0;}
+.owner-import-card-details [hidden] {display:none!important;}
+.owner-import-resolver .owner-import-correction-toggle {display:flex;align-items:center;gap:8px;}
+.owner-import-correction-toggle input {width:18px;height:18px;min-height:0;padding:0;margin:0;flex-shrink:0;}
+@media(max-width:660px){
+ .owner-import-card-fields {grid-template-columns:1fr;}
+ .owner-import-resolver input,.owner-import-resolver select {font-size:16px;}
+ .owner-import-resolver-result {align-items:stretch;flex-direction:column;}
+ .owner-import-resolver-result button {width:100%;max-width:100%;}
+}

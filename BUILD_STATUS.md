@@ -1,5 +1,18 @@
 # Build status
 
+## 17 October 2026 — Pending import corrections and clean session reset (release checks pending)
+
+Fixed the import-review dead end for unrecognised condition/grade and incomplete
+slab details through the existing owner-only confirmation route. Explicit card
+corrections preserve original CSV evidence, Collectr quantity identity, unrelated
+review issues and Draft-only admission. Duplicate slab certificates across a
+multi-copy row are rejected. Closing/leaving/signing out clears the upload form
+and hidden results; editing a search removes stale selectable matches. Mobile
+review controls are contained. Local Python/DOM checks pass; signed HTTP,
+PostgreSQL/RLS, Chromium/WebKit and deployed asset readback are release gates.
+No live customer import, stock rewrite, market-price change, migration or service.
+See [scope and verification](docs/IMPORT_PENDING_REVIEW_REPAIR_20261017.md).
+
 ## 17 October 2026 — Beginner book research and cover confirmation (PR #678)
 
 The real-book recording showed OCR followed by manual edition research. The book

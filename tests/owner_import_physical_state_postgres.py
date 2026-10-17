@@ -28,6 +28,7 @@ from fastapi import FastAPI
 
 from app import auth, imports, import_inventory, owner_auto_imports, owner_imports
 from app.db import _init_connection, user_connection
+from owner_import_review_fixture import verify_pending_card_review
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -202,6 +203,7 @@ async def main():
                 assert slab['grading_company'] == 'PSA' and slab['grade'] == '10'
                 assert slab['source_record']['Condition'] == 'Near Mint'
                 assert slab['source_record']['Certificate'] == 'TEST-CERT-123'
+                await verify_pending_card_review(client, db, headers, actor_b, actor_a)
         # Prove the patch did not weaken the real physical-state guard.
         raw_card = await db.fetchval("select id from tcg.catalogue_products where identity_key='synthetic:a'")
         try:

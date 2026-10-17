@@ -39,7 +39,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install --quiet -r requirements.txt -r requirements-dev.txt
-      - run: PYTHONPATH=backend pytest -q tests/test_import_admission.py tests/test_import_physical_condition.py
+      - run: PYTHONPATH=backend pytest -q tests/test_import_admission.py tests/test_import_physical_condition.py tests/test_import_physical_review.py
       - run: PYTHONPATH=backend python tests/owner_auto_import_postgres.py
       - name: Real JWT/JWKS authenticated HTTP acceptance on the disposable database
         run: PYTHONPATH=backend python tests/owner_import_http_acceptance.py

@@ -91,6 +91,42 @@ def main():
                 assert box['left'] >= -1 and box['right'] <= width + 1, (engine, width, box)
                 assert box['top'] >= -1 and box['bottom'] <= height + 1, (engine, width, height, box)
                 assert dialog.evaluate('el => el.scrollWidth <= el.clientWidth + 1'), (engine, width, 'dialog overflow')
+                # Render the real pending-row review, not hand-written form markup.
+                page.evaluate('''() => {
+                    const batch='2ac107db-2a16-4147-adf6-96be9db1a613';
+                    const card='b975c7e7-9d56-4414-856f-6629b2370e56';
+                    const candidate={id:'13b203a7-dbe7-4bfc-b671-acd3bf7e4332', source_row:2, quantity:1,
+                        status:'REVIEW', issues:['unrecognised_collectr_grade'], catalogue_id:card,
+                        normalized_record:{name:'Synthetic card needing slab confirmation',game:'Pokemon',set_name:'Synthetic Set',card_number:'001',product_type:'CARD',language:'English'}};
+                    window.__reviewWrites=0;
+                    window.apiRequest=async (url) => {
+                        if(url.endsWith('/resolve')) {window.__reviewWrites++; throw new Error('No save expected in layout check');}
+                        if(url.endsWith('/upload')) return {batch_id:batch,summary:{added_units:0,review_rows:1}};
+                        if(url.endsWith('/'+batch)) return {batch:{id:batch,status:'PREVIEW',version:1,automatic_intake:true,adapter:'COLLECTR',source_rows:1,physical_units:1},candidates:[candidate]};
+                        if(url.includes('/catalogue-search?')) return {items:[{id:card,...candidate.normalized_record}]};
+                        return {items:[]};
+                    };
+                }''')
+                page.locator('#owner-import-file').set_input_files({
+                    'name': 'synthetic-review.csv', 'mimeType': 'text/csv',
+                    'buffer': b'Name,Number\nSynthetic card,001\n',
+                })
+                page.wait_for_function("document.getElementById('owner-import-message').textContent.includes('headers detected')")
+                page.locator('#owner-import-preview').click()
+                page.locator('.owner-import-row-actions button').first.click()
+                page.locator('.owner-import-resolver-result button').wait_for()
+                page.get_by_label('Card format', exact=True).select_option('GRADED')
+                page.get_by_label('Grading company', exact=True).fill('BGS')
+                page.locator('.owner-import-resolver-result button').click()
+                assert page.evaluate('window.__reviewWrites') == 0, 'Incomplete grade submitted'
+                page.get_by_label('Grade on slab label', exact=True).fill('9.5')
+                for control in page.locator('.owner-import-resolver input:visible, .owner-import-resolver select:visible, .owner-import-resolver button:visible').all():
+                    bounds = rectangle(control)
+                    assert bounds['left'] >= box['left'] and bounds['right'] <= box['right'] + 1, (engine, width, 'review control overflow', bounds)
+                assert dialog.evaluate('el => el.scrollWidth <= el.clientWidth + 1')
+                if (width, height) in ((390, 844), (1440, 1000)):
+                    page.locator('.owner-import-card-details').scroll_into_view_if_needed()
+                    page.screenshot(path=str(OUT / f'{engine}-review-{width}.png'))
                 page.evaluate('''() => {
                     const results=document.getElementById('owner-import-preview-section'); results.hidden=false;
                     const rows=document.getElementById('owner-import-rows');
@@ -106,6 +142,10 @@ def main():
                     page.screenshot(path=str(OUT / f'{engine}-dialog-{width}.png'))
                 page.locator('#owner-import-close').click()
                 assert not dialog.is_visible()
+                assert page.locator('#owner-import-file').evaluate('el => el.files.length') == 0
+                assert page.locator('#owner-import-rows').inner_text() == ''
+                assert page.locator('#owner-import-summary').inner_text() == ''
+                assert page.locator('#owner-import-map-fields').inner_text() == ''
                 assert not errors, errors
                 results.append({'engine': engine, 'width': width, 'height': height, 'menu': menu_box, 'dialog': box, 'passed': True})
                 context.close()

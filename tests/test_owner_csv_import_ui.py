@@ -19,8 +19,8 @@ def test_inventory_import_menu_has_requested_sources_and_seller_view():
         assert f'data-owner-import-adapter="{adapter}"' in inventory
     for element in ('owner-import-template','owner-import-file','owner-import-map-fields','owner-import-commit'):
         assert f'id="{element}"' in html
-    assert 'owner-imports.js?v=journey-v2' in html
-    assert 'owner-imports.css?v=auto-intake-v1' in html
+    assert 'owner-imports.js?v=review-v3' in html
+    assert 'owner-imports.css?v=review-v2' in html
     assert '.csv,.tsv' in html
     assert 'Recognised cards are added to your Draft inventory.' in html
     assert 'owner-import-template' in JS.read_text()

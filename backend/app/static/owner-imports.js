@@ -29,6 +29,10 @@
     ["product_type", "Product type"],
   ];
   const KNOWN_ADAPTERS = new Set(["COLLECTR", "HOLODEX", "GENERIC_CSV", "AUTO"]);
+  const CARD_DETAIL_ISSUES = new Set([
+    "unrecognised_card_condition", "unrecognised_collectr_grade",
+    "incomplete_grading_pair", "certificate_without_grade",
+  ]);
   const state = {
     dialog: null, generation: 0, historyRevision: 0, busy: false, batch: null,
     candidates: [], summary: null, warnings: [], page: 0,
@@ -95,7 +99,7 @@
     $("owner-import-file").addEventListener("change", inspectFile);
     $("owner-import-commit").addEventListener("click", commitDrafts);
     $("owner-import-adapter").addEventListener("change", () => {
-      if (state.batch) resetPreview();
+      inspectFile();
       updateMappingHelp();
     });
     $("owner-import-filter").addEventListener("change", (event) => {
@@ -148,12 +152,24 @@
     }
     if ($("owner-import-filter")) $("owner-import-filter").value = "ALL";
     if ($("owner-import-rows")) $("owner-import-rows").replaceChildren();
+    for (const id of ["owner-import-summary", "owner-import-warnings", "owner-import-page"]) {
+      $(id)?.replaceChildren();
+    }
+  }
+
+  function clearUpload() {
+    state.fileContents = null;
+    state.headers = [];
+    $("owner-import-form")?.reset();
+    if ($("owner-import-file")) $("owner-import-file").value = "";
+    $("owner-import-map-fields")?.replaceChildren();
+    if ($("owner-import-map-details")) $("owner-import-map-details").open = false;
   }
 
   function closeDialog() {
     state.generation++;
-    state.fileContents = null;
-    state.headers = [];
+    state.historyRevision++;
+    clearUpload();
     resetPreview();
     setBusy(false);
     $("owner-import-history-list")?.replaceChildren();
@@ -166,17 +182,14 @@
     hideMenu();
     const dialog = ensureDialog();
     state.generation++;
-    state.fileContents = null;
-    state.headers = [];
-    $("owner-import-form").reset();
+    clearUpload();
     $("owner-import-adapter").value = adapter;
-    $("owner-import-map-fields").replaceChildren();
-    $("owner-import-map-details").open = false;
     resetPreview();
     setBusy(false);
     message("Upload your collection: verified matches are added as Draft; only uncertain rows need confirmation.");
     updateMappingHelp();
     if (!dialog.open) dialog.showModal();
+    dialog.querySelector(".owner-import-dialog-body").scrollTop = 0;
     await loadHistory();
   }
 
@@ -429,7 +442,7 @@
       if (candidate.status === "REVIEW" && state.batch.status === "PREVIEW") {
         const actions = document.createElement("div");
         actions.className = "owner-import-row-actions";
-        const resolve = node("button", "Find match");
+        const resolve = node("button", candidate.catalogue_id ? "Review details" : "Find match");
         resolve.type = "button";
         resolve.addEventListener("click", () => openCatalogueMatch(row, candidate));
         const skip = node("button", "Skip");
@@ -479,6 +492,92 @@
     }
   }
 
+  function cardDetailReview(candidate) {
+    if (candidate.normalized_record?.product_type !== "CARD") return null;
+    const normalized = candidate.normalized_record || {};
+    const issues = candidate.issues || [];
+    const needsCorrection = issues.some(issue => CARD_DETAIL_ISSUES.has(issue));
+    const details = document.createElement("details");
+    details.className = "owner-import-card-details";
+    details.open = needsCorrection;
+    details.append(node("summary", needsCorrection ? "Check condition or slab details" : "Condition and slab details"));
+    const enabledLabel = node("label", "");
+    enabledLabel.className = "owner-import-correction-toggle";
+    const enabled = document.createElement("input");
+    enabled.type = "checkbox";
+    enabled.checked = needsCorrection;
+    enabled.setAttribute("aria-label", "Correct card condition or slab details");
+    enabledLabel.append(enabled, node("span", "Correct these details"));
+    const fields = document.createElement("div");
+    fields.className = "owner-import-card-fields";
+    const selectField = (title, choices) => {
+      const label = node("label", title);
+      const control = document.createElement("select");
+      control.setAttribute("aria-label", title);
+      for (const [value, text] of choices) {
+        const option = node("option", text); option.value = value; control.append(option);
+      }
+      label.append(control); fields.append(label);
+      return control;
+    };
+    const textField = (title, maxLength, value) => {
+      const label = node("label", title);
+      const control = document.createElement("input");
+      control.type = "text"; control.maxLength = maxLength; control.value = value || "";
+      control.setAttribute("aria-label", title);
+      label.append(control); fields.append(label);
+      return control;
+    };
+    const cardState = selectField("Card format", [["", "Choose ungraded or graded"], ["RAW", "Ungraded card"], ["GRADED", "Graded slab"]]);
+    const gradeProblem = issues.some(issue => CARD_DETAIL_ISSUES.has(issue) && issue !== "unrecognised_card_condition");
+    cardState.value = gradeProblem ? "" : (normalized.grading_company && normalized.grade ? "GRADED" : "RAW");
+    const condition = selectField("Raw card condition", [
+      ["", "Choose a condition"], ["UNKNOWN", "Not assessed yet"],
+      ...["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"].map(value => [value, value]),
+    ]);
+    condition.value = issues.includes("unrecognised_card_condition") ? "" : (normalized.condition || "UNKNOWN");
+    const company = textField("Grading company", 40, normalized.grading_company);
+    const grade = textField("Grade on slab label", 40, normalized.grade);
+    const certificate = textField("Certificate number (optional)", 120, normalized.certificate_number);
+    const hint = node("small", "Use the condition of your own card or the details printed on its slab. Leave an unassessed condition as Not assessed yet.");
+    const update = () => {
+      const active = enabled.checked, graded = cardState.value === "GRADED";
+      fields.hidden = !active; hint.hidden = !active;
+      cardState.disabled = !active; cardState.required = active;
+      condition.parentElement.hidden = graded || !cardState.value;
+      condition.disabled = !active || graded || !cardState.value;
+      condition.required = active && cardState.value === "RAW";
+      for (const control of [company, grade, certificate]) {
+        control.parentElement.hidden = !graded; control.disabled = !active || !graded;
+      }
+      company.required = grade.required = active && graded;
+    };
+    enabled.addEventListener("change", update); cardState.addEventListener("change", update);
+    details.append(enabledLabel, fields, hint); update();
+    return {element: details, read() {
+      if (!enabled.checked) return {ok: true, value: null};
+      for (const control of [cardState, condition, company, grade, certificate]) {
+        if (!control.disabled && !control.checkValidity()) {
+          details.open = true; control.reportValidity(); return {ok: false};
+        }
+      }
+      const graded = cardState.value === "GRADED";
+      if (graded && (!company.value.trim() || !grade.value.trim())) {
+        message("Enter the grading company and grade from the slab label.", "error"); return {ok: false};
+      }
+      if (graded && certificate.value.trim() && Number(candidate.quantity) !== 1) {
+        message("A certificate identifies one slab. Split this source row into individual slabs before importing certificates.", "error"); return {ok: false};
+      }
+      return {ok: true, value: {
+        card_state: cardState.value,
+        condition: graded || condition.value === "UNKNOWN" ? null : condition.value,
+        grading_company: graded ? company.value.trim() : null,
+        grade: graded ? grade.value.trim() : null,
+        certificate_number: graded ? certificate.value.trim() || null : null,
+      }};
+    }};
+  }
+
   async function openCatalogueMatch(row, candidate) {
     if (row.querySelector(".owner-import-resolver")) return;
     const section = document.createElement("section");
@@ -499,6 +598,7 @@
       const option = node("option", text); option.value = value; language.append(option);
     }
     languageLabel.append(language);
+    const cardDetails = cardDetailReview(candidate);
     const results = document.createElement("div");
     results.className = "owner-import-resolver-results";
     const generation = state.generation, batchId = state.batch?.id;
@@ -535,7 +635,11 @@
           ].filter(Boolean).join(" · ")));
           const choose = node("button", state.batch.automatic_intake ? "Confirm and add" : "Confirm match");
           choose.type = "button";
-          choose.addEventListener("click", () => resolveCandidate(candidate, item.id, choose, language.value || null));
+          choose.addEventListener("click", () => {
+            if (!relevant()) return;
+            const correction = cardDetails?.read() || {ok: true, value: null};
+            if (correction.ok) resolveCandidate(candidate, item.id, choose, language.value || null, correction.value);
+          });
           itemRow.append(description, choose);
           results.append(itemRow);
         }
@@ -546,16 +650,23 @@
       }
     };
     search.addEventListener("click", runSearch);
+    input.addEventListener("input", () => {
+      searchRevision++;
+      search.disabled = false;
+      results.replaceChildren(node("small", "Search to see matches for the updated text."));
+    });
     input.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {event.preventDefault();runSearch();}
     });
-    section.append(input, search, languageLabel, results);
+    section.append(input, search, languageLabel);
+    if (cardDetails) section.append(cardDetails.element);
+    section.append(results);
     row.append(section);
     input.focus();
     await runSearch();
   }
 
-  async function resolveCandidate(candidate, catalogueId, button, language = null) {
+  async function resolveCandidate(candidate, catalogueId, button, language = null, cardDetails = null) {
     if (state.busy || !state.batch) return;
     const batchId = state.batch.id, generation = state.generation;
     button.disabled = true;
@@ -565,14 +676,17 @@
         `/api/v1/owner/imports/${encodeURIComponent(batchId)}/candidates/${encodeURIComponent(candidate.id)}/resolve`,
         {
           method: "POST",
-          body: JSON.stringify({version: state.batch.version, catalogue_id: catalogueId, language}),
+          body: JSON.stringify({version: state.batch.version, catalogue_id: catalogueId, language,
+            ...(cardDetails ? {card_details: cardDetails} : {})}),
         }
       );
       if (!current(generation, batchId) || !await updateCandidate(result, generation)) return;
       message(result.candidate?.status === "COMMITTED" ? "Confirmed card added to your Draft inventory." : "Match saved. Any remaining missing facts still need confirmation.", "success");
-    } catch (_error) {
+    } catch (error) {
       if (!current(generation, batchId)) return;
-      message("Confirmation could not finish. Refresh the import to check its current result before retrying.", "error");
+      const detail = [409, 422].includes(error.status) && typeof error.message === "string"
+        ? error.message.slice(0, 300) : "";
+      message(detail || "Confirmation could not finish. Refresh the import to check its current result before retrying.", "error");
     } finally {
       if (current(generation, batchId)) { setBusy(false); button.disabled = false; }
     }
