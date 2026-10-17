@@ -8,6 +8,7 @@ on:
       - 'backend/app/owner_inventory.py'
       - 'backend/app/owner_books.py'
       - 'backend/app/book_recognition.py'
+      - 'backend/app/book_research.py'
       - 'backend/app/recognition_vision.py'
       - 'backend/app/comic_identity.py'
       - 'backend/app/schemas.py'
@@ -68,6 +69,7 @@ jobs:
           python tests/ui/collection-selling.py
           python tests/ui/collection-books.py
           python tests/ui/collection-book-scanner.py
+          python tests/ui/collection-book-research.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

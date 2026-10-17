@@ -25,6 +25,7 @@ from fastapi import Depends, FastAPI
 from app import auth, inventory_intake, owner_portal_api, owner_books, seller_channel_sync, book_recognition
 from collection_books_fixture import prepare as prepare_books, exercise as exercise_books
 from collection_book_scanner_fixture import prepare as prepare_scanner, exercise as exercise_scanner
+from collection_book_research_fixture import exercise as exercise_book_research
 from book_catalogue_seed_fixture import exercise as exercise_book_catalogue_seed
 from app.access_control import require_platform_admin_request
 from app.db import _init_connection
@@ -139,12 +140,13 @@ async def main():
                 book_count = await exercise_books(client,db,headers,ua,ub,uf,a,b)
                 await prepare_scanner(db,ROOT,(ua,ub,uf))
                 await exercise_scanner(client,db,pool,headers,settings,ua,ub,uf,a,b)
+                await exercise_book_research(client,db,pool,headers,settings,ua,ub,a)
                 await db.execute('update tcg.owner_memberships set active=false where user_id=$1',ua)
                 assert (await client.post(endpoint,json=payload,headers=headers(ua,key))).status_code==403
                 assert no_pricing.await_count==0 and no_publish.await_count==0
         for table in ('shopify_inventory_links','ebay_inventory_links','financial_ledger_entries'):
             assert await db.fetchval(f'select count(*) from tcg.{table}')==0
-        assert await db.fetchval('select count(*) from tcg.catalogue_products')==2+book_count
+        assert await db.fetchval('select count(*) from tcg.catalogue_products')==3+book_count
         assert await db.fetchval("select pg_get_functiondef('tcg.validate_inventory_condition_state()'::regprocedure)")==guard
         assert not await db.fetchval('select rolbypassrls from pg_roles where rolname=$1','tcg_api')
         await exercise_book_catalogue_seed(db, (ub, uf))

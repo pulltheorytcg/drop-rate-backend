@@ -11,9 +11,11 @@ import json
 import re
 import time
 from typing import Annotated, Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from .access_control import require_owner_portal_request
@@ -25,6 +27,9 @@ from .recognition_images import RecognitionImageError, decode_image_data_url
 from .recognition_vision import OpenAIRecognitionVisionClient, RecognitionVisionError
 from .schemas import ManualInventoryCreate
 from .settings import get_settings
+from .book_research import research_book, prepare_research_result, public_result
+from .catalogue_artwork import reference_thumbnail
+from .book_artwork import publisher_cover_url
 
 router = APIRouter(prefix="/api/v1/owner/books", tags=["owner-books"])
 
@@ -168,7 +173,7 @@ async def recognize_book(payload: BookScanRequest, request: Request,
     digest = hashlib.sha256("|".join(image.sha256 for image in images).encode()).hexdigest()
     # Five-minute receipt slots permit provider-failure retries, not unbounded
     # force_refresh calls. An owner-wide lock makes limits safe across replicas.
-    key = f"book-scan:v1:{settings.recognition_model}:{digest}:{int(time.time())//300}"
+    key = f"book-scan:v2:{settings.recognition_model}:{digest}:{int(time.time())//300}"
     owner_id = access["owner_id"]
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
         await db.execute("select pg_advisory_xact_lock(hashtextextended($1,0))", f"book-scan:{owner_id}")
@@ -177,7 +182,7 @@ async def recognize_book(payload: BookScanRequest, request: Request,
             evidence = previous["provider_evidence"]
             if isinstance(evidence, str): evidence = json.loads(evidence)
             if previous["status"] in {"NEEDS_REVIEW", "NO_MATCH"}:
-                return jsonable_encoder({**evidence["book_result"], "run_id":previous["id"], "replayed":True})
+                return jsonable_encoder({**public_result(evidence["book_result"]), "run_id":previous["id"], "replayed":True})
             raise HTTPException(409, "This scan is processing or recently failed. Wait a few minutes or use manual entry.")
         count = await db.fetchval("""select count(*) from tcg.recognition_runs where owner_id=$1
             and idempotency_key like 'book-scan:%' and created_at>now()-interval '1 hour'""", owner_id)
@@ -190,6 +195,10 @@ async def recognize_book(payload: BookScanRequest, request: Request,
     try:
         response = await BookVisionClient(api_key=settings.openai_api_key, model=settings.recognition_model).observe_with_telemetry(payload.images)
         result = suggestion(response.observation)
+        if result["status"] == "NEEDS_REVIEW":
+            research = await research_book(result["fields"], payload.images,
+                                           api_key=settings.openai_api_key, model=settings.recognition_model)
+            result = prepare_research_result(result, research, run_id)
     except RecognitionVisionError as exc:
         async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
             await db.execute("""update tcg.recognition_runs set status='FAILED',decision='FAILED',error_code='BOOK_VISION_ERROR',
@@ -202,7 +211,27 @@ async def recognize_book(payload: BookScanRequest, request: Request,
             json.dumps({"book_result":result,"vision_telemetry":response.telemetry.to_dict()}),json.dumps(result["warnings"]),run_id,owner_id)
         if updated != "UPDATE 1":
             raise HTTPException(403, "Your access changed during this scan. Sign in again before continuing.")
-    return jsonable_encoder({**result,"run_id":run_id,"replayed":False})
+    return jsonable_encoder({**public_result(result),"run_id":run_id,"replayed":False})
+
+
+@router.get("/research/{run_id}/cover/{candidate_id}")
+async def research_cover(run_id: UUID, candidate_id: str, request: Request,
+                         user: Annotated[AuthenticatedUser, Depends(require_user)],
+                         access: Annotated[dict, Depends(require_owner_portal_request)]):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        evidence = await db.fetchval("""select provider_evidence from tcg.recognition_runs
+            where id=$1 and owner_id=$2 and status='NEEDS_REVIEW'""", run_id, access["owner_id"])
+    if isinstance(evidence, str):
+        evidence = json.loads(evidence)
+    candidates = (evidence or {}).get("book_result", {}).get("research", {}).get("candidates", [])
+    candidate = next((c for c in candidates if c["id"] == candidate_id), None)
+    if not candidate or not publisher_cover_url(candidate.get("image_url")):
+        raise HTTPException(404, "Publisher cover not available")
+    image = await reference_thumbnail(candidate["image_url"])
+    if image is None:
+        raise HTTPException(502, "Publisher cover could not load")
+    return Response(image.data, media_type=image.content_type,
+                    headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
 
 
 @router.post("/market-value")

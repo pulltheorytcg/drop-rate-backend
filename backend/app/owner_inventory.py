@@ -28,6 +28,7 @@ from .physical_state import CARD_CONDITIONS, validate_physical_state
 from .comic_identity import BOOK_CONDITIONS
 from .inventory_reference_values import add_shared_reference_values
 from .inventory_reference_media import add_shared_inventory_media
+from .book_research import add_saved_book_artwork
 
 router = APIRouter(prefix="/api/v1/owner/inventory", tags=["owner-inventory"])
 ACTIVE = {"DRAFT", "INSPECTION", "APPROVED"}
@@ -86,6 +87,7 @@ async def add_reference_artwork(connection, items):
         if len(urls) == 1 and _trusted_reference_url(urls[0]):
             item["reference_image_url"] = urls[0]
             item["reference_image_path"] = f"/api/v1/owner/inventory/{item['id']}/reference-image"
+    await add_saved_book_artwork(connection, items)
     return items
 
 
@@ -196,7 +198,9 @@ async def reference_image(inventory_id: UUID, request: Request,
                           user: Annotated[AuthenticatedUser, Depends(require_user)],
                           access: Annotated[dict, Depends(require_owner_portal_request)]):
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
-        row = await connection.fetchrow("select id,catalogue_id,language from tcg.inventory_items where id=$1 and owner_id=$2",
+        row = await connection.fetchrow("""select i.id,i.catalogue_id,i.language,p.product_type
+            from tcg.inventory_items i join tcg.catalogue_products p on p.id=i.catalogue_id
+            where i.id=$1 and i.owner_id=$2""",
                                         inventory_id, access["owner_id"])
         if row is None:
             raise HTTPException(404, "Inventory item not found")

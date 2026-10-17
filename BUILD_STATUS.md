@@ -1,5 +1,18 @@
 # Build status
 
+## 17 October 2026 — Beginner book research and cover confirmation (release checks pending)
+
+The real-book recording showed OCR followed by manual edition research. The book
+scanner now prepares publisher-sourced suggestions and cover choices through the
+existing recognition service. Supported details prefill a compact confirmation
+screen; ambiguous covers remain choices and unknown printing stays optional.
+An explicitly selected publisher cover follows the saved draft copy through an
+owner-bound, identity-checked reference receipt. No market values, identity/media
+approvals, stock publication or financial actions are inferred. Full local Python
+suite: 6,124 passing; 50 scanner interactions passing. Real PostgreSQL/browser CI,
+one actual provider probe and live release readback remain pending. See
+[implementation and release scope](docs/BOOK_RESEARCH_REVIEW_20261017.md).
+
 ## 17 October 2026 — Comics/manga live scanner repair (release checks pending)
 
 The reported iPhone flow was a form launcher: Comics / Manga closed the live scanner and opened a separate photo picker. It now selects a live `COMIC` mode using the same camera stream, shutter, gallery, auto-scan/removal gate and results tray. The existing book recognition endpoint reads the capture immediately; book review reuses that response and cover, and only an explicit book intake receipt marks the scan as added. Unknown identity/copy/price fields, owner guards, immutable save retry and the card/book intake boundary remain enforced. Local 50 scanner interactions and 75 focused Python checks pass. Chromium/WebKit, PostgreSQL, full CI and live readback remain required. See [scanner repair](docs/LIVE_BOOK_SCANNER_20261017.md).
