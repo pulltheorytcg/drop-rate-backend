@@ -22,7 +22,8 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi import Depends, FastAPI
 
-from app import auth, inventory_intake, owner_portal_api, owner_books, seller_channel_sync, book_recognition
+from app import catalogue_browser, auth, inventory_intake, owner_portal_api, owner_books, seller_channel_sync, book_recognition
+from collection_browse_fixture import prepare as prepare_browse, exercise as exercise_browse
 from collection_books_fixture import prepare as prepare_books, exercise as exercise_books
 from collection_book_scanner_fixture import prepare as prepare_scanner, exercise as exercise_scanner
 from collection_book_research_fixture import exercise as exercise_book_research
@@ -93,6 +94,8 @@ async def main():
         app=FastAPI();app.state.db_pool=pool
         @app.middleware('http')
         async def request_id(request,call_next):request.state.request_id='collection-http-fixture';return await call_next(request)
+        await prepare_browse(db)
+        app.include_router(catalogue_browser.router)
         app.include_router(owner_portal_api.router)
         app.include_router(owner_books.router)
         app.include_router(book_recognition.router)
@@ -137,6 +140,7 @@ async def main():
                 assert (await client.post('/api/v1/inventory/intake',json={'catalogue_id':str(card)},headers=headers(ua,uuid4()))).status_code==403
                 r=await client.post(f'/api/v1/owner/inventory/{saved["id"]}/channels/shopify/sync',json={'version':1},headers=headers(ua,uuid4()))
                 assert r.status_code==409,r.text
+                await exercise_browse(client,db,headers,ua,ub,a,b,card,pack)
                 book_count = await exercise_books(client,db,headers,ua,ub,uf,a,b)
                 await prepare_scanner(db,ROOT,(ua,ub,uf))
                 await exercise_scanner(client,db,pool,headers,settings,ua,ub,uf,a,b)

@@ -215,3 +215,7 @@
 .dr-scanner input, .dr-scanner select { font-size: 16px; min-width: 0; max-width: 100%; }
 
 .dr-scan-candidate-meta { display: block; max-width: 10rem; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+.dr-scan-optional{margin:12px 0;border-top:1px solid #dbe3ed;padding-top:6px}
+.dr-scan-optional>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:650;gap:12px}
+.dr-scan-optional>summary::after{content:'＋';margin-left:auto}
+.dr-scan-optional[open]>summary::after{content:'−'}

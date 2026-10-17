@@ -60,6 +60,7 @@ def main():
                 page.locator('#owner-book-number').fill('1')
                 page.locator('#owner-book-year').fill('2022')
                 page.locator('#owner-book-cover').fill('Cover A')
+                page.locator('#owner-book-copy-details').evaluate('e=>e.open=true')
                 page.locator('#owner-book-state').select_option('GRADED')
                 assert page.locator('#owner-book-grader option').evaluate_all('xs=>xs.map(x=>x.value)') == ['CGC']
                 page.locator('#owner-book-grade').fill('9.8')
@@ -76,7 +77,7 @@ def main():
                 page.evaluate("document.querySelector('[data-owner-add-book]').click()")
                 assert page.locator('#owner-book-series').input_value() == 'Amazing Spider-Man'
                 page.locator('#owner-book-save').click()
-                page.get_by_role('button', name='Added to inventory').wait_for()
+                page.get_by_role('button', name='Added to collection').wait_for()
                 writes = page.evaluate('calls')
                 assert len(writes) == 2 and writes[0]['body'] == writes[1]['body']
                 assert writes[0]['headers']['Idempotency-Key'] == writes[1]['headers']['Idempotency-Key']
@@ -90,13 +91,14 @@ def main():
                 page.locator('#owner-book-number').fill('2')
                 page.locator('#owner-book-publisher').fill('VIZ Media')
                 page.locator('#owner-book-language').fill('Japanese')
+                page.locator('#owner-book-copy-details').evaluate('e=>e.open=true')
                 page.locator('#owner-book-condition').select_option('Very Good')
                 page.locator('#owner-book-barcode').fill('978-1-234567-89-0')
                 assert page.locator('#owner-book-format').is_hidden()
                 assert page.locator('#owner-book-number-text').inner_text() == 'Volume number'
                 page.screenshot(path=str(OUT/f'{engine}-{width}-manga.png'))
                 page.locator('#owner-book-save').click()
-                page.get_by_role('button', name='Added to inventory').wait_for()
+                page.get_by_role('button', name='Added to collection').wait_for()
                 assert page.locator('#owner-book-save').is_disabled()
                 body = json.loads(page.evaluate('calls.at(-1).body'))
                 assert body['new_catalogue']['comic_printing']['book_format'] == 'MANGA'
@@ -106,6 +108,7 @@ def main():
                 for company, grade in (('CGC', '9.8'), ('BGS', '9.5')):
                     page.evaluate("document.querySelector('[data-owner-add-book]').click();mode='success'")
                     page.locator('#owner-book-category').select_option('MANGA')
+                    page.locator('#owner-book-copy-details').evaluate('e=>e.open=true')
                     page.locator('#owner-book-state').select_option('GRADED')
                     assert page.locator('#owner-book-grader option').evaluate_all('xs=>xs.map(x=>x.value)') == ['CGC', 'BGS']
                     if company == 'BGS':
@@ -129,7 +132,7 @@ def main():
                     page.locator('#owner-book-grade').fill(grade)
                     page.locator('#owner-book-certificate').fill(f'fixture-manga-{company}')
                     page.locator('#owner-book-save').click()
-                    page.get_by_role('button', name='Added to inventory').wait_for()
+                    page.get_by_role('button', name='Added to collection').wait_for()
                     body = json.loads(page.evaluate('calls.at(-1).body'))
                     assert body['new_catalogue']['comic_printing']['system_code'] == 'MANGA'
                     assert body['grading_company'] == company and body['grade'] == grade

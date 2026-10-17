@@ -26,7 +26,7 @@ def main():
                 def respond(route):
                     if route.request.url=='https://book-research.test/':
                         route.fulfill(body=html,content_type='text/html')
-                    elif '/books/research/' in route.request.url:
+                    elif '/books/research/' in route.request.url or '/catalogue-browser/reference-image?' in route.request.url:
                         assert route.request.headers.get('authorization')=='Bearer fixture-only'
                         route.fulfill(body=PNG,content_type='image/png')
                     elif route.request.url.startswith(('blob:','data:')):
@@ -71,7 +71,7 @@ def main():
                 assert page.locator('.owner-book-candidate').evaluate_all('(cards)=>cards.every(card => card.querySelector("button").getBoundingClientRect().right <= card.getBoundingClientRect().right)')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-book-cover-choice.png'))
                 page.locator('#owner-book-save').click()
-                page.get_by_role('button',name='Added to inventory').wait_for()
+                page.get_by_role('button',name='Added to collection').wait_for()
                 body=json.loads(page.evaluate('calls[0].body'))
                 assert body['research_candidate_id']=='bbbbbbbbbbbbbbbbbbbbbbbb' and body['research_run_id']==page.evaluate('run')
                 assert body['new_catalogue']['comic_printing']['cover_code']=='Cover B'
@@ -83,7 +83,7 @@ def main():
                 page.locator('.owner-book-candidate').first.get_by_role('button').click()
                 page.locator('#owner-book-details summary').click()
                 page.locator('#owner-book-printing').fill('3')
-                page.locator('#owner-book-save').click();page.get_by_role('button',name='Added to inventory').wait_for()
+                page.locator('#owner-book-save').click();page.get_by_role('button',name='Added to collection').wait_for()
                 body=json.loads(page.evaluate('calls.at(-1).body'))
                 assert 'research_candidate_id' not in body and body['new_catalogue']['comic_printing']['printing_number']==3
                 page.locator('#owner-book-cancel').click()
@@ -93,6 +93,22 @@ def main():
                 assert page.locator('#owner-book-photo-details').evaluate('(e)=>e.open')
                 assert 'save it as unknown' in page.locator('#owner-book-photo-help').inner_text()
                 assert page.locator('#owner-book-printing').input_value()==''
+                page.locator('#owner-book-close').click()
+                # A catalogue book keeps its cover in a short, prefilled confirmation.
+                page.evaluate("""() => {
+                  const id='22222222-2222-4222-8222-222222222222';
+                  const book={...fields,book_format:'SINGLE_ISSUE'};
+                  DropRateBooks.open({book,catalogue:{catalogue_id:id,name:'Fixture Adventure #1',
+                    reference_image_path:'/api/v1/catalogue-browser/reference-image?provider=Official+Publisher&system_code=MARVEL_COMICS&language=English&provider_id='+id+'&reference_kind=book'}});
+                }""")
+                assert page.locator('#owner-book-title').inner_text() == 'Is this your book?'
+                assert not page.locator('#owner-book-details').evaluate('e=>e.open')
+                assert not page.locator('#owner-book-copy-details').evaluate('e=>e.open')
+                page.wait_for_function('document.querySelector("#owner-book-selected img").naturalWidth===160')
+                assert page.locator('#owner-book-selected').is_visible()
+                page.locator('#owner-book-details summary').click()
+                page.locator('#owner-book-number').fill('2')
+                assert not page.locator('#owner-book-selected').is_visible(), 'An edited edition kept the prior cover'
                 # No foreign-owner cover fetches or stale source links survive reset.
                 page.evaluate("state.session.user.id='seller-b';DropRateBooks.reset()")
                 assert not page.locator('#owner-book-dialog').is_visible()

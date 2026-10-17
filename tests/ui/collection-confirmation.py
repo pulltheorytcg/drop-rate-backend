@@ -51,7 +51,7 @@ def main():
                         page.add_script_tag(content=(ROOT/'backend/app/static/scanner-flow.js').read_text())
                         page.evaluate(FIXTURE,{'mode':mode,'role':role})
                         confirm=page.locator('[data-details-save]')
-                        assert confirm.inner_text()=='Confirm & add'
+                        assert confirm.inner_text()=='Add to collection'
                         assert confirm.is_enabled()
                         assert page.evaluate('calls.length')==0
                         assert 'Japanese' in page.locator('.dr-scan-details').inner_text()
@@ -68,7 +68,7 @@ def main():
                         if mode=='RAW':assert payload['condition'] is None
                         assert payload['language']=='Japanese'
                         assert all('/refresh-market' not in c['url'] and '/sync' not in c['url'] and '/approval-request' not in c['url'] for c in summary['calls'])
-                        assert page.locator('.dr-scan-added').inner_text()=='Added to inventory'
+                        assert page.locator('.dr-scan-added').inner_text()=='Added to collection'
                         await_saves=len(saves);page.evaluate('scanner.saveAll()')
                         assert len(page.evaluate('calls.filter(c=>c.headers?.["Idempotency-Key"])'))==await_saves
                         assert not errors,errors

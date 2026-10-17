@@ -153,18 +153,19 @@ window.DropRateInventory = (() => {
 
   function render(data) {
     const item = data.item, copies = data.copies || [];
+    const sellingOpen = content.querySelector(".owner-item-selling")?.open === true;
     content.replaceChildren();
     const hero = el("section", "owner-item-hero"), figure = el("figure");
-    figure.append(image(item, "owner-item-art"), el("figcaption", "", item.image_url ? "Inventory / approved catalogue image" : "Catalogue reference · not a photo of your copy"));
+    figure.append(image(item, "owner-item-art"), el("figcaption", "", item.image_url ? "Item image" : "Reference image · not a photo of your copy"));
     const identity = el("div");
     identity.append(el("h3", "", item.name), el("p", "", inventoryCardSubtitle(item)),
-      el("span", `owner-status-pill ${statusClass(item.status)}`, item.status));
+      el("span", `owner-status-pill ${statusClass(item.status)}`, collectionStatus(item)));
     hero.append(figure, identity); content.append(hero);
 
     // The inventory grid shows only essentials. Exact copy metadata remains
     // available here, including untruncated IDs and grading certificates.
-    const facts = el("section", "owner-item-facts");
-    facts.append(el("h3", "", "Item information"));
+    const facts = el("details", "owner-item-facts owner-item-section");
+    facts.append(el("summary", "", "Item details"));
     const list = el("dl", "owner-item-facts-grid");
     const rows = [
       [item.product_type === "COMIC" ? "Category" : "Game", item.game],
@@ -202,14 +203,15 @@ window.DropRateInventory = (() => {
     const recommendationNote = el("p", "owner-item-note",
       "Recommended retail: " + (window.DropRateReferenceValue?.recommendationText(item, formatMoney) || "Recommendation unavailable"));
     recommendationNote.dataset.recommendedRetail = "true";
-    content.append(recommendationNote);
+
 
     const publishedOnShopify=item.shopify_state==="PUBLISHED";
     const approvedForSale=item.status==="APPROVED" && item.sale_intent==="FOR_SALE";
     const sale = el("details", "owner-item-section owner-item-selling");
-    sale.open = publishedOnShopify || approvedForSale || item.status === "INSPECTION";
-    sale.append(el("summary", "", publishedOnShopify ? "Manage listing" : "List for sale"));
-    sale.append(el("p", "owner-item-note", "Your item is already in inventory. Listing is optional and requires a separate selling request."));
+    sale.open = sellingOpen;
+    sale.append(el("summary", "", publishedOnShopify ? "Manage listing" : "Sell this item"));
+    sale.append(el("p", "owner-item-note", "Choose a price and condition when you’re ready to sell."));
+    sale.append(recommendationNote);
     let saleCondition;
     if (["CARD", "COMIC"].includes(item.product_type) && !item.grading_company && ["DRAFT", "INSPECTION"].includes(item.status)) {
       const label = el("label", "", "Condition when selling"); saleCondition = el("select");
@@ -283,7 +285,8 @@ window.DropRateInventory = (() => {
       if(item.approval_blockers?.length){
         sale.append(el("p","","Known next steps before selling (channel checks run again before publication):"));
         const list=el("ul");
-        item.approval_blockers.forEach(reason=>list.append(el("li","",reason)));
+        const wording={"Drop Rate intake review":"We need to check this item before it can be listed", "An approved listing photo":"Add a clear photo for the listing", "Identity confirmation":"Check that the item details are correct"};
+        item.approval_blockers.forEach(reason=>list.append(el("li","",wording[reason] || reason)));
         sale.append(list);
       }
       if(!approvedForSale) {
@@ -365,15 +368,15 @@ window.DropRateInventory = (() => {
 
     const stock = el("section", "owner-item-section"); stock.append(el("h3", "", "Quantity"));
     const savedQuantity = copies.length;
-    stock.append(el("p", "", `${savedQuantity} ${savedQuantity === 1 ? "copy" : "copies"} in your active inventory`));
+    stock.append(el("p", "", `${savedQuantity} ${savedQuantity === 1 ? "copy" : "copies"} in your collection`));
     const awaitingApproval = copies.filter(copy => ["DRAFT", "INSPECTION"].includes(copy.status)).length;
     const approvedPhysicalCopies = copies.filter(copy => copy.status === "APPROVED" && copy.sale_intent === "FOR_SALE").length;
-    if (awaitingApproval) stock.append(el("p", "owner-item-quantity-breakdown",
+    if (awaitingApproval) sale.append(el("p", "owner-item-quantity-breakdown",
       `${approvedPhysicalCopies} approved for sale · ${awaitingApproval} awaiting approval. Pending copies are not live on Shopify.`));
     if (copies.length > 1) {
       const label = el("label", "", "Choose the copy to manage"), select = el("select");
       select.setAttribute("aria-label", "Choose inventory copy");
-      copies.forEach(copy => { const option = el("option", "", `${copy.inventory_code} · ${copy.status}`); option.value = copy.id; select.append(option); });
+      copies.forEach(copy => { const option = el("option", "", `${copy.inventory_code} · ${collectionStatus(copy)}`); option.value = copy.id; select.append(option); });
       select.value = item.id; select.addEventListener("change", () => open({id: select.value})); label.append(select); stock.append(label);
     }
     // A tap changes the VISIBLE proposed number; only explicit confirmation
@@ -400,7 +403,7 @@ window.DropRateInventory = (() => {
       if (!delta) return;
       const actions = el("div", "owner-item-confirmation-actions");
       if (delta > 0) {
-        confirmation.append(el("p", "", `Add one more ${item.language} copy in the same condition? It will be a separate draft until you approve it for sale.`));
+        confirmation.append(el("p", "", `Add one more ${item.language} copy in the same condition? It will be added to your collection.`));
         actions.append(button("Confirm additional copy", () => {
           const storageKey = `drop_rate_copy:${account()}:${item.id}`;
           let pending; try { pending = JSON.parse(sessionStorage.getItem(storageKey)); } catch (_) { /* replace corrupt pending data */ }
@@ -413,7 +416,7 @@ window.DropRateInventory = (() => {
               body: JSON.stringify({version: pending.version, confirmed: true})
             });
             sessionStorage.removeItem(storageKey);
-            return {...result, message: `${result.message || "One copy added."} Shopify stock changes only after the new copy is approved and synced.`};
+            return {...result, message: "One copy added to your collection."};
           });
         }, "primary"));
       } else {
@@ -436,8 +439,9 @@ window.DropRateInventory = (() => {
     stock.append(el("p", "owner-item-note",
       item.grading_company
         ? (item.product_type === "COMIC" ? "Add each graded book through Comic / manga with its own certificate. Withdrawing a copy keeps its history." : "Add each graded slab through Scan with its own certificate. Withdrawing a copy keeps its history.")
-        : "Adjust one physical copy at a time, then confirm. New copies need their own sale approval; Shopify quantities update only after verified syncing."));
-    content.append(stock);
+        : "Change the quantity, then confirm to save it."));
+    content.insertBefore(values, facts);
+    content.insertBefore(stock, facts);
   }
   return {image, open, close, reset: () => close(true)};
 })();

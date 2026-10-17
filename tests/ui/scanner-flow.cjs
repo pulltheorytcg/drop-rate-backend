@@ -63,7 +63,7 @@ async function matched(scanner, quantity = 1) {
     assert.throws(()=>s.freeze(item),/book intake/);
     review.onSaved({catalogue:{name:'Confirmed manga'}});review.onClose();
     assert.equal(item.status,'added');assert.equal(item.photo,null);assert.ok(s.dialog.open);assert.equal(s.view,'review');
-    assert.equal(s.find('[data-action="save"]').textContent,'View inventory');
+    assert.equal(s.find('[data-action="save"]').textContent,'View collection');
     s.openDetails(item);assert.equal(item.status,'added');await s.saveAll();assert.equal(s.inventoryOpened,true);
     f.finish();checks++;
   }
@@ -142,7 +142,7 @@ async function matched(scanner, quantity = 1) {
     assert.equal(f.scanner.items[0].selected, null);
     assert.ok(f.scanner.find('[data-action="save"]').disabled);
     await f.scanner.saveAll(); assert.equal(f.calls.length, 1);
-    assert.match(f.scanner.find('.dr-scan-review-total').textContent, /—/);
+    assert.equal(f.scanner.find('.dr-scan-review-total').textContent, 'Market value unavailable');
     f.finish(); checks += 1;
   }
   // Both roles use their existing intake endpoint, never an owner supplied by the browser.
@@ -366,7 +366,7 @@ async function matched(scanner, quantity = 1) {
   {
     const f = fixture('seller', async () => result({candidates:[{...result().candidates[0],
       candidate_snapshot:{...result().candidates[0].candidate_snapshot, product_type:'SEALED'}}]}));
-    assert.deepEqual([...f.scanner.dialog.querySelectorAll('[data-mode]')].map(n => n.textContent), ['RAW','GRADED','SEALED']);
+    assert.deepEqual([...f.scanner.dialog.querySelectorAll('[data-mode]')].map(n => n.textContent), ['Cards','Graded','Sealed']);
     await f.scanner.recognise('photo'); assert.equal(f.scanner.items[0].selected, null);
     f.scanner.setMode('SEALED'); await f.scanner.recognise('photo');
     assert.equal(f.scanner.ready(f.scanner.items[1]), true);
@@ -426,7 +426,7 @@ async function matched(scanner, quantity = 1) {
     });
     await f.scanner.recognise('law-photo'); const item=f.scanner.items[0]; f.scanner.openDetails(item);
     const confirm=f.scanner.details.querySelector('[data-details-save]');
-    assert.equal(confirm.textContent,'Confirm & add');
+    assert.equal(confirm.textContent,'Add to collection');
     assert.equal(f.calls.length,1,'No write before explicit confirmation');
     assert.match(f.scanner.details.textContent,/Market value unavailable/);
     await f.scanner.confirmDetails(); f.scanner.showReview();

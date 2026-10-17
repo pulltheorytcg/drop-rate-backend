@@ -1,5 +1,19 @@
 # Build status
 
+## 17 October 2026 — Simple collection journey (release verification pending)
+
+Home now leads with the collection; selling/payout panels move to More → Selling.
+Search and scan use Add to collection with optional raw condition and quantity,
+plain status labels and separate selling controls. Book confirmation keeps optional
+copy details out of the main path and can show the chosen catalogue cover.
+Source identity, owner isolation, immutable retry, sealed/slab constraints and
+Draft PERSONAL_COLLECTION admission remain. No invented price or artwork:
+read-only coverage remains 40,443/67,060 physical references, 10,904 Pokémon image
+URLs missing and bulk pricing paused at 405.66 MB. An opt-in four-call CardTrader
+artwork probe provides evidence only. No new service, schema, paid source, live
+stock write or Shopify theme publication. See [scope and gaps](docs/SIMPLE_COLLECTION_JOURNEY_20261017.md).
+Final CI/deployment receipts will be recorded in the release PR.
+
 ## 17 October 2026 — Pending import corrections and clean session reset (PR #681)
 
 Fixed the import-review dead end for unrecognised condition/grade and incomplete

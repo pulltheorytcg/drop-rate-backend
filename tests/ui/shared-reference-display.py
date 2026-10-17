@@ -27,7 +27,7 @@ def main():
      if status=='STALE':item['reference_value']['last_known_minor']=9900
      page.evaluate('''item => {window.item=item;window.calls=[];window.state={session:{access_token:'synthetic',user:{id:'seller-fixture'}}};
        window.formatMoney=n=>n==null?'—':new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100);
-       window.inventoryCardSubtitle=x=>x.card_number;window.conditionLabel=x=>x.condition;window.inventoryTypeLabel=x=>x.product_type;window.statusClass=()=>'';
+       window.inventoryCardSubtitle=x=>x.card_number;window.conditionLabel=x=>x.condition;window.inventoryTypeLabel=x=>x.product_type;window.statusClass=()=>'';window.collectionStatus=x=>x.sale_intent==='PERSONAL_COLLECTION'?'In collection':x.status;
        window.apiRequest=async(path,options={})=>{calls.push({path,method:options.method||'GET'});return path.includes('market-values')?{items:[item]}:{item,copies:[item]}};
        window.renderInventory=data=>{document.getElementById('inventory-body').innerHTML='<tr><td>Exact card</td><td data-label="Store price">Not selling</td></tr>';};
      }''',item)

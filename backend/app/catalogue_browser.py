@@ -573,8 +573,8 @@ class BrowseIntake(BaseModel):
 
     @model_validator(mode="after")
     def physical(self):
-        if self.condition not in CARD_CONDITIONS and self.seal_status != "SEALED":
-            raise ValueError("Choose the card condition or confirm the sealed state")
+        if self.condition is not None and self.condition not in CARD_CONDITIONS:
+            raise ValueError("Choose a recognised card condition, or leave it unset")
         if self.condition and self.seal_status:
             raise ValueError("A sealed product cannot have a raw card condition")
         return self
@@ -595,8 +595,8 @@ def intake_payload(item: dict, payload: BrowseIntake) -> ManualInventoryCreate:
         item={**item,'language':payload.language}
     elif payload.language and item.get('language')!=payload.language:
         raise HTTPException(422,'Product language does not match this reference')
-    if item["product_type"] == "CARD" and payload.condition not in CARD_CONDITIONS:
-        raise HTTPException(422, "Choose a raw card condition")
+    if item["product_type"] == "CARD" and payload.seal_status:
+        raise HTTPException(422, "A card cannot have a sealed product state")
     if item["product_type"] == "SEALED" and payload.seal_status != "SEALED":
         raise HTTPException(422, "Confirm that the product is sealed")
     fields = {"condition": payload.condition, "seal_status": payload.seal_status, "identity_confirmed": False,

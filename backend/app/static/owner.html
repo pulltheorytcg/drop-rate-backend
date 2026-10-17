@@ -9,14 +9,14 @@
   <link rel="stylesheet" href="/assets/owner-portal.css?v=recommendation-v15">
   <link rel="stylesheet" href="/assets/owner-fulfillment.css?v=4">
   <link rel="stylesheet" href="/assets/owner-imports.css?v=review-v2">
-  <link rel="stylesheet" href="/assets/owner-books.css?v=3">
-  <link rel="stylesheet" href="/assets/owner-inventory.css?v=tile-tap-v9">
+  <link rel="stylesheet" href="/assets/owner-books.css?v=simple-v1">
+  <link rel="stylesheet" href="/assets/owner-inventory.css?v=simple-v1">
   <link rel="stylesheet" href="/assets/reference-library.css?v=2">
   <link rel="stylesheet" href="/assets/unified-app.css?v=1">
-  <link rel="stylesheet" href="/assets/scanner-flow.css?v=7">
-  <link rel="stylesheet" href="/assets/catalogue-browser.css?v=4">
+  <link rel="stylesheet" href="/assets/scanner-flow.css?v=simple-v1">
+  <link rel="stylesheet" href="/assets/catalogue-browser.css?v=simple-v1">
   <link rel="stylesheet" href="/assets/workspace-shell.css?v=1">
-  <link rel="stylesheet" href="/assets/collector-worlds.css?v=6">
+  <link rel="stylesheet" href="/assets/collector-worlds.css?v=simple-v1">
 </head>
 <body class="owner-portal-page hub-restoring">
   <div class="hub-loading" role="status"><span class="hub-loading-mark">D</span><strong>Opening Drop Rate…</strong><a href="/app">Back to sign in</a></div>
@@ -31,8 +31,8 @@
         </div>
         <div class="brand-copy">
           <p class="eyebrow">Drop Rate</p>
-          <h1>Your cards.<br><em>Your business.</em></h1>
-          <p class="lead">Scan and manage inventory, follow sales, track market value and see exactly what you’re due — all in one place.</p>
+          <h1>Your collection.<br><em>All in one place.</em></h1>
+          <p class="lead">Scan or search, find your item and add it to your collection. Follow its value and sell when you’re ready.</p>
         </div>
         <div class="trust-row"><span>One workspace</span><span>Transparent sales</span><span>Clear payouts</span></div>
       </div>
@@ -86,9 +86,9 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4Zm9 0h7v4h-7V4ZM4 13h7v7H4v-7Zm9-3h7v10h-7V10Z"/></svg>
               <span>Home</span>
             </button>
-            <button class="owner-nav-item" type="button" data-owner-view="inventory" aria-label="Inventory">
+            <button class="owner-nav-item" type="button" data-owner-view="inventory" aria-label="Collection">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5.5 3.5 13 0a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Zm1.5 4h10M7 12h10M7 16.5h6"/></svg>
-              <span>Inventory</span>
+              <span>Collection</span>
             </button>
             <button class="owner-nav-item" type="button" data-owner-view="scan" aria-label="Scan and add cards">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3m8 0h3a1 1 0 0 1 1 1v3M4 16v3a1 1 0 0 0 1 1h3m8 0h3a1 1 0 0 0 1-1v-3M8 12h8"/></svg>
@@ -115,14 +115,15 @@
               <p id="owner-page-subtitle" class="muted">Your inventory, values, sales and payouts in one place.</p>
             </div>
             <div class="owner-header-actions">
-              <button class="owner-header-action" type="button" data-owner-jump="inventory">View inventory</button>
-              <button class="owner-header-action primary" type="button" data-owner-jump="scan">Scan a card</button>
+              <button class="owner-header-action" type="button" data-owner-jump="inventory">View collection</button>
+              <button class="owner-header-action primary" type="button" data-owner-jump="scan">Scan an item</button>
             </div>
           </header>
 
           <section id="owner-view-search" class="owner-view hidden" data-owner-view-panel="search"></section>
           <section id="owner-view-more" class="owner-view hidden" data-owner-view-panel="more">
             <div class="app-more-grid">
+              <button class="app-more-link" type="button" data-owner-jump="selling" data-owner-view="selling">Selling →</button>
               <button class="app-more-link" type="button" data-owner-jump="sales" data-owner-view="sales">Sales →</button>
               <button class="app-more-link" type="button" data-owner-jump="balance" data-owner-view="balance">Payouts →</button>
               <button class="app-more-link" type="button" data-owner-jump="channels" data-owner-view="channels">Channels →</button>
@@ -131,21 +132,11 @@
               <button class="app-more-link" type="button" data-owner-jump="settings" data-owner-view="settings">Settings →</button>
             </div>
           </section>
-          <section id="owner-view-settings" class="owner-view hidden" data-owner-view-panel="settings"></section>
-          <section id="owner-view-overview" class="owner-view" data-owner-view-panel="overview">
-            <section id="owner-onboarding-welcome" class="owner-onboarding-banner hidden" aria-label="Onboarding complete">
-              <div class="owner-onboarding-check">✓</div>
-              <div class="owner-onboarding-copy">
-                <strong>Your Seller Hub is ready.</strong>
-                <span>Start by scanning or importing your cards, then connect payouts when you’re ready.</span>
-              </div>
-              <div class="owner-onboarding-actions">
-                <button id="owner-welcome-inventory" type="button">View inventory</button>
-                <button id="owner-welcome-payouts" type="button">Set up payouts</button>
-                <button id="owner-welcome-dismiss" class="icon-only" type="button" aria-label="Dismiss onboarding message">×</button>
-              </div>
-            </section>
 
+          <section id="owner-view-selling" class="owner-view hidden" data-owner-view-panel="selling">
+            <section class="owner-panel owner-selling-intro"><h2>Selling</h2><p>Choose an item from your collection when you're ready to sell.</p>
+              <div class="owner-hero-actions"><button type="button" class="owner-hero-primary" data-owner-jump="inventory">Choose an item to sell</button><button type="button" class="owner-hero-secondary" data-owner-jump="sales">View sales</button></div>
+            </section>
             <section class="owner-payout-tracker" aria-label="Next payout">
               <div class="owner-payout-tracker-icon">£</div>
               <div class="owner-payout-tracker-copy">
@@ -159,63 +150,32 @@
               </div>
               <button type="button" data-owner-jump="balance" data-owner-view="balance">Payout details <span>→</span></button>
             </section>
-
-            <section class="owner-hero">
-              <div class="owner-hero-copy">
-                <span class="owner-hero-kicker">Welcome back</span>
-                <h2><span id="owner-overview-name">Seller</span>, here’s your collection at a glance.</h2>
-                <p>Track what you own, what it’s worth, what’s live for sale and what’s ready to be paid out.</p>
-                <div class="owner-hero-actions">
-                  <button type="button" class="owner-hero-primary" data-owner-jump="scan">Scan & add a card</button>
-                  <button type="button" class="owner-hero-secondary" data-owner-jump="inventory">Browse my cards</button>
-                </div>
-              </div>
-              <div class="owner-hero-money">
+<div class="owner-selling-summary"><div class="owner-hero-money">
                 <span>Available to withdraw</span>
                 <strong id="owner-overview-balance">—</strong>
                 <small>Cleared owner proceeds</small>
                 <button type="button" data-owner-jump="balance" data-owner-view="balance">Payout settings <span>→</span></button>
-              </div>
-            </section>
-
-            <div class="owner-kpi-grid">
-              <article class="owner-kpi-card">
-                <div class="owner-kpi-icon inventory">▣</div>
-                <span>Total inventory</span>
-                <strong id="owner-total-inventory">—</strong>
-                <small id="owner-inventory-type-note">Physical inventory items</small>
-              </article>
-              <article class="owner-kpi-card">
-                <div class="owner-kpi-icon value">£</div>
-                <span id="owner-market-value-label">Known market value</span>
-                <strong id="owner-market-value">—</strong>
-                <small id="owner-market-value-note">Latest available market prices</small>
-              </article>
-              <article class="owner-kpi-card">
+              </div></div><div class="owner-kpi-grid"><article class="owner-kpi-card">
                 <div class="owner-kpi-icon store">↗</div>
                 <span>Saved Store Prices</span>
                 <strong id="owner-store-value">—</strong>
                 <small id="owner-asking-price-note">Only your saved asking prices are counted</small>
                 <small id="owner-recommendation-note">Automatic pricing suggestions are separate</small>
-              </article>
-              <article class="owner-kpi-card">
+              </article><article class="owner-kpi-card">
                 <div class="owner-kpi-icon sold">✓</div>
                 <span>Sold</span>
                 <strong id="owner-sold-count">—</strong>
                 <small>Completed through Drop Rate</small>
-              </article>
-            </div>
-
-            <div class="owner-overview-grid">
+              </article></div><div class="owner-overview-grid">
               <section class="owner-panel owner-pipeline-panel">
                 <div class="owner-panel-heading">
-                  <div><span class="owner-section-kicker">Inventory pipeline</span><h3>Where your cards are</h3></div>
-                  <button type="button" class="owner-link-button" data-owner-jump="inventory">Open inventory →</button>
+                  <div><span class="owner-section-kicker">Listing progress</span><h3>Preparing your listings</h3></div>
+                  <button type="button" class="owner-link-button" data-owner-jump="inventory">Open collection →</button>
                 </div>
                 <div class="owner-pipeline-list">
-                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot draft"></span><strong>Draft</strong></div><span id="owner-pipeline-draft">0</span><div class="owner-stage-bar"><i id="owner-pipeline-draft-bar"></i></div></div>
-                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot inspection"></span><strong>Inspection</strong></div><span id="owner-pipeline-inspection">0</span><div class="owner-stage-bar"><i id="owner-pipeline-inspection-bar"></i></div></div>
-                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot approved"></span><strong>Approved / live</strong></div><span id="owner-pipeline-approved">0</span><div class="owner-stage-bar"><i id="owner-pipeline-approved-bar"></i></div></div>
+                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot draft"></span><strong>Not listed</strong></div><span id="owner-pipeline-draft">0</span><div class="owner-stage-bar"><i id="owner-pipeline-draft-bar"></i></div></div>
+                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot inspection"></span><strong>Listing review</strong></div><span id="owner-pipeline-inspection">0</span><div class="owner-stage-bar"><i id="owner-pipeline-inspection-bar"></i></div></div>
+                  <div class="owner-pipeline-row"><div><span class="owner-stage-dot approved"></span><strong>Ready to sell</strong></div><span id="owner-pipeline-approved">0</span><div class="owner-stage-bar"><i id="owner-pipeline-approved-bar"></i></div></div>
                   <div class="owner-pipeline-row"><div><span class="owner-stage-dot reserved"></span><strong>Reserved</strong></div><span id="owner-pipeline-reserved">0</span><div class="owner-stage-bar"><i id="owner-pipeline-reserved-bar"></i></div></div>
                 </div>
               </section>
@@ -232,35 +192,84 @@
                 </div>
               </section>
             </div>
+          </section>
+          <section id="owner-view-settings" class="owner-view hidden" data-owner-view-panel="settings"></section>
+          <section id="owner-view-overview" class="owner-view" data-owner-view-panel="overview">
+            <section id="owner-onboarding-welcome" class="owner-onboarding-banner hidden" aria-label="Onboarding complete">
+              <div class="owner-onboarding-check">✓</div>
+              <div class="owner-onboarding-copy">
+                <strong>Your collection is ready.</strong>
+                <span>Scan or search for your first item, or import your existing collection.</span>
+              </div>
+              <div class="owner-onboarding-actions">
+                <button id="owner-welcome-inventory" type="button">View collection</button>
+                <button id="owner-welcome-search" type="button">Search & add</button>
+                <button id="owner-welcome-dismiss" class="icon-only" type="button" aria-label="Dismiss onboarding message">×</button>
+              </div>
+            </section>
+
+
+
+            <section class="owner-hero">
+              <div class="owner-hero-copy">
+                <span class="owner-hero-kicker">Welcome back</span>
+                <h2><span id="owner-overview-name">Seller</span>, here’s your collection.</h2>
+                <p>Find what you own, see its value and add your next find.</p>
+                <div class="owner-hero-actions">
+                  <button type="button" class="owner-hero-primary" data-owner-jump="scan">Scan an item</button>
+                  <button type="button" class="owner-hero-secondary" data-owner-jump="search">Search & add</button>
+                </div>
+              </div>
+
+            </section>
+
+            <div class="owner-kpi-grid">
+              <article class="owner-kpi-card">
+                <div class="owner-kpi-icon inventory">▣</div>
+                <span>Items collected</span>
+                <strong id="owner-total-inventory">—</strong>
+                <small id="owner-inventory-type-note">Physical inventory items</small>
+              </article>
+              <article class="owner-kpi-card">
+                <div class="owner-kpi-icon value">£</div>
+                <span id="owner-market-value-label">Known market value</span>
+                <strong id="owner-market-value">—</strong>
+                <small id="owner-market-value-note">Latest available market prices</small>
+              </article>
+
+
+            </div>
+
+
 
             <div class="owner-insights-grid">
               <section class="owner-panel owner-insight-panel">
                 <div class="owner-panel-heading">
-                  <div><span class="owner-section-kicker">Portfolio leaders</span><h3>Top valued cards</h3><p>Your highest current market-value physical cards.</p></div>
-                  <button type="button" class="owner-link-button" data-owner-jump="inventory">Inventory →</button>
+                  <div><span class="owner-section-kicker">Portfolio leaders</span><h3>Top valued items</h3><p>Items in your collection with the highest current values.</p></div>
+                  <button type="button" class="owner-link-button" data-owner-jump="inventory">Collection →</button>
                 </div>
                 <div id="owner-top-valued-cards" class="owner-insight-card-list">
-                  <div class="owner-empty-inline"><strong>No valuation data yet</strong><span>Cards appear here after the pricing engine produces a market value.</span></div>
+                  <div class="owner-empty-inline"><strong>No valuation data yet</strong><span>Items appear here when a current market value is available.</span></div>
                 </div>
               </section>
 
               <section class="owner-panel owner-insight-panel">
                 <div class="owner-panel-heading">
-                  <div><span class="owner-section-kicker">7-day movement</span><h3>Weekly top movers</h3><p>Largest verified market-value moves where we have comparable historical pricing.</p></div>
+                  <div><span class="owner-section-kicker">7-day movement</span><h3>Weekly top movers</h3><p>See how values have changed over the last week.</p></div>
                 </div>
                 <div id="owner-weekly-movers" class="owner-insight-card-list">
-                  <div class="owner-empty-inline"><strong>Building price history</strong><span>Weekly movers appear once a card has enough snapshot history for a real comparison.</span></div>
+                  <div class="owner-empty-inline"><strong>Building price history</strong><span>We need more price history before showing changes.</span></div>
                 </div>
               </section>
             </div>
 
             <section class="owner-panel owner-latest-panel">
               <div class="owner-panel-heading">
-                <div><span class="owner-section-kicker">Latest inventory</span><h3>Recently updated cards</h3></div>
+                <div><span class="owner-section-kicker">Your collection</span><h3>Recently added</h3></div>
                 <button type="button" class="owner-link-button" data-owner-jump="inventory">View all →</button>
               </div>
               <div id="owner-overview-latest" class="owner-latest-grid">
-                <div class="owner-empty-inline"><strong>No cards yet</strong><span>Your latest cards will appear here as soon as inventory is linked to your account.</span></div>
+                <div class="owner-empty-inline"><strong>No cards yet</strong><span>Scan or search to add your first item.</span></div>
               </div>
             </section>
           </section>
@@ -268,14 +277,14 @@
           <section id="owner-view-scan" class="owner-view hidden" data-owner-view-panel="scan">
             <section class="owner-scan-hero">
               <div>
-                <span class="owner-section-kicker">AI card recognition</span>
+                <span class="owner-section-kicker">Add to your collection</span>
                 <h2>Scan it. Confirm it. Add it.</h2>
-                <p>Use your camera or upload a clear card photo. Drop Rate will identify the exact printing, show the evidence, and only add it after you confirm.</p>
+                <p>Take a photo of a card, comic or manga. Check the match, then add it.</p>
                 <button class="owner-secondary-action owner-add-book" type="button" data-owner-add-book>Add a comic or manga</button>
               </div>
               <div class="owner-scan-guardrail">
-                <strong>Seller-safe workflow</strong>
-                <span>Cards enter as DRAFT and remain pending Drop Rate verification before they can be listed.</span>
+                <strong>Add now, sell later</strong>
+                <span>Your item goes into your collection. Selling is a separate step whenever you're ready.</span>
               </div>
             </section>
 
@@ -288,9 +297,9 @@
 
                 <div class="owner-scan-body">
                   <div class="owner-scan-state-toggle owner-scan-mode-toggle" role="radiogroup" aria-label="Scan type">
-                    <label><input type="radio" name="owner-scan-mode" value="raw" checked><span>RAW</span></label>
-                    <label><input type="radio" name="owner-scan-mode" value="graded"><span>GRADED</span></label>
-                    <label><input type="radio" name="owner-scan-mode" value="sealed"><span>SEALED</span></label>
+                    <label><input type="radio" name="owner-scan-mode" value="raw" checked><span>Cards</span></label>
+                    <label><input type="radio" name="owner-scan-mode" value="graded"><span>Graded</span></label>
+                    <label><input type="radio" name="owner-scan-mode" value="sealed"><span>Sealed</span></label>
                   </div>
 
                   <div id="owner-slab-tools" class="owner-slab-tools hidden">
@@ -484,16 +493,16 @@
             </section>
 
             <section id="owner-scan-success" class="owner-panel owner-scan-success hidden">
-              <div class="owner-scan-success-heading"><span>✓</span><div><strong>Card added to your inventory</strong><small>Seller-confirmed identity · pending Drop Rate verification</small></div></div>
+              <div class="owner-scan-success-heading"><span>✓</span><div><strong>Added to your collection</strong><small>Saved in your collection</small></div></div>
               <div class="owner-scan-value-grid">
                 <div><span>Market value</span><strong id="owner-scan-market-value">—</strong></div>
                 <div><span>Recommended retail</span><strong id="owner-scan-store-value">—</strong></div>
-                <div><span>Inventory ID</span><strong id="owner-scan-inventory-code">—</strong></div>
-                <div><span>Status</span><strong>DRAFT</strong></div>
+                <div><span>Item reference</span><strong id="owner-scan-inventory-code">—</strong></div>
+                <div><span>Status</span><strong>In collection</strong></div>
               </div>
               <div id="owner-scan-valuation-note" class="owner-scan-valuation-note"></div>
               <div class="owner-scan-success-actions">
-                <button type="button" class="owner-header-action primary" data-owner-jump="inventory">View in inventory</button>
+                <button type="button" class="owner-header-action primary" data-owner-jump="inventory">View collection</button>
                 <button id="owner-scan-another" type="button" class="owner-header-action">Scan another card</button>
               </div>
             </section>
@@ -503,8 +512,8 @@
             <section class="owner-panel owner-inventory-panel">
               <div class="owner-section-header">
                 <div>
-                  <h2>Inventory</h2>
-                  <p>Open an item to manage its copies and selling channels.</p>
+                  <h2>Collection</h2><div class="owner-collection-add"><button type="button" class="owner-secondary-action" data-owner-jump="scan">Scan</button><button type="button" class="owner-secondary-action" data-owner-jump="search">Search & add</button></div>
+                  <p>Your items, artwork and market values.</p>
                 </div>
                 <div class="owner-inventory-total"><strong id="owner-inventory-total-label">—</strong><span>items</span></div>
               </div>
@@ -512,12 +521,12 @@
               <div class="owner-inventory-toolbar">
                 <div class="owner-search-field">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 20-4.2-4.2m1.2-5.3a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z"/></svg>
-                  <input id="owner-inventory-search" type="search" placeholder="Search title, series, number or inventory ID" aria-label="Search inventory">
+                  <input id="owner-inventory-search" type="search" placeholder="Search your collection" aria-label="Search collection">
                 </div>
                 <select id="owner-inventory-status" aria-label="Filter inventory by status">
                   <option value="">All statuses</option>
-                  <option value="DRAFT">Draft</option>
-                  <option value="INSPECTION">Inspection</option>
+                  <option value="DRAFT">Not listed</option>
+                  <option value="INSPECTION">Listing review</option>
                   <option value="APPROVED">Approved</option>
                   <option value="RESERVED">Reserved</option>
                   <option value="SOLD">Sold</option>
@@ -545,7 +554,7 @@
 
               <div id="owner-inventory-table-wrap" class="owner-table-wrap hidden">
                 <table class="owner-table">
-                  <thead><tr><th>Product</th><th>Status</th><th>Market value</th><th>Store / recommended</th></tr></thead>
+                  <thead><tr><th>Product</th><th>Status</th><th>Market value</th><th>Selling price</th></tr></thead>
                   <tbody id="owner-inventory-body"><tr><td colspan="4" class="muted">Sign in to load your inventory.</td></tr></tbody>
                 </table>
               </div>
@@ -774,7 +783,7 @@
     <template id="owner-import-template">
       <dialog id="owner-import-dialog" class="owner-import-dialog" aria-labelledby="owner-import-dialog-title">
         <div class="owner-import-dialog-header">
-          <div><span class="owner-section-kicker">Drop Rate · Collection imports</span><h2 id="owner-import-dialog-title">Import collection</h2><p>Recognised cards are added to your Draft inventory. Only uncertain matches need confirmation.</p></div>
+          <div><span class="owner-section-kicker">Drop Rate · Collection imports</span><h2 id="owner-import-dialog-title">Import collection</h2><p>Recognised cards go straight into your collection. Check any matches we’re unsure about.</p></div>
           <button id="owner-import-close" type="button" aria-label="Close import" class="owner-import-close">✕</button>
         </div>
         <div class="owner-import-dialog-body">
@@ -821,7 +830,7 @@
             <div id="owner-import-message" class="owner-import-message" role="status">Select an export to begin.</div>
             <div class="owner-import-form-actions">
               <button id="owner-import-preview" class="owner-import-primary" type="submit">Preview collection</button>
-              <button id="owner-import-commit" class="owner-import-primary" type="button" disabled hidden>Import Draft inventory</button>
+              <button id="owner-import-commit" class="owner-import-primary" type="button" disabled hidden>Add to collection</button>
             </div>
           </form>
           <section id="owner-import-preview-section" class="owner-import-preview-section" aria-labelledby="owner-import-preview-title" hidden>
@@ -892,19 +901,19 @@
   <script src="/assets/hub-session.js?v=journey-v4" defer></script>
   <script src="/assets/reference-value-display.js?v=catalogue-display-v4" defer></script>
   <script src="/assets/inventory-groups.js?v=copy-quantities-v1" defer></script>
-  <script src="/assets/owner-inventory.js?v=books-v13" defer></script>
-  <script src="/assets/owner-portal.js?v=home-money-v29" defer></script>
-  <script src="/assets/owner-books.js?v=7" defer></script>
-  <script src="/assets/owner-imports.js?v=review-v3" defer></script>
+  <script src="/assets/owner-inventory.js?v=simple-v1" defer></script>
+  <script src="/assets/owner-portal.js?v=simple-v1" defer></script>
+  <script src="/assets/owner-books.js?v=simple-v1" defer></script>
+  <script src="/assets/owner-imports.js?v=simple-v1" defer></script>
   <script src="/assets/owner-fulfillment.js?v=3" defer></script>
   <script src="/assets/owner-fulfill-wizard.js?v=2" defer></script>
-  <script src="/assets/scanner-flow.js?v=book-research-v12" defer></script>
+  <script src="/assets/scanner-flow.js?v=simple-v1" defer></script>
   <script src="/assets/owner-recognition.js?v=books-v4" defer></script>
   <script src="/assets/reference-library.js?v=2" defer></script>
   <script src="/assets/catalogue-title-art.js?v=3" defer></script>
-  <script src="/assets/catalogue-browser.js?v=21" defer></script>
+  <script src="/assets/catalogue-browser.js?v=simple-v1" defer></script>
   <script src="/assets/catalogue-browser-entry.js?v=7" defer></script>
-  <script src="/assets/workspace-shell.js?v=3" defer></script>
-  <script src="/assets/collector-worlds.js?v=3" defer></script>
+  <script src="/assets/workspace-shell.js?v=simple-v1" defer></script>
+  <script src="/assets/collector-worlds.js?v=simple-v1" defer></script>
 </body>
 </html>

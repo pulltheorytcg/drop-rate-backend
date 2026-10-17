@@ -50,7 +50,7 @@ window.DropRateCatalogue = (() => {
         <nav class="dr-browse-types" aria-label="Product type"><button type="button" data-type="">All products</button><button type="button" data-type="CARD">Cards</button><button type="button" data-type="SEALED">Sealed products</button><button type="button" data-type="COMIC">Comics & manga</button></nav>
         <div class="dr-browse-chips"></div><div class="dr-browse-toolbar" role="group" aria-label="Catalogue sorting and filters"><button type="button" data-action="sort-visible" aria-label="Sort catalogue">Sort: Newest first</button><button type="button" data-action="filters-visible">Filters</button></div><nav class="dr-browse-languages" aria-label="Set language" hidden></nav><button type="button" class="dr-browse-pending" hidden></button></header>
         <div class="dr-browse-scroll"><p class="dr-browse-status" role="status"></p><div class="dr-browse-content"></div><button type="button" data-action="more" class="dr-browse-load" hidden>Load more</button><div class="dr-browse-sentinel"></div></div>
-        <nav class="dr-browse-nav" aria-label="App navigation"><button type="button" data-action="home"><span>⌂</span>Home</button><button type="button" class="active" data-action="search"><span>⌕</span>Search</button><button type="button" data-action="camera"><span>◎</span>Scan</button><button type="button" data-action="inventory"><span>▣</span>Inventory</button><button type="button" data-action="tools"><span>•••</span>More</button></nav>
+        <nav class="dr-browse-nav" aria-label="App navigation"><button type="button" data-action="home"><span>⌂</span>Home</button><button type="button" class="active" data-action="search"><span>⌕</span>Search</button><button type="button" data-action="camera"><span>◎</span>Scan</button><button type="button" data-action="inventory"><span>▣</span>Collection</button><button type="button" data-action="tools"><span>•••</span>More</button></nav>
         <div class="dr-browse-backdrop" hidden><section class="dr-browse-sheet" role="dialog" aria-modal="true"></section></div>`;
       (this.options.host || document.body).append(this.dialog);
       this.input = this.find("input[type=search]"); this.scroll = this.find(".dr-browse-scroll"); this.sheet = this.find(".dr-browse-sheet");
@@ -145,7 +145,7 @@ window.DropRateCatalogue = (() => {
     game() { return this.games.find(game=>game.system_code===this.filters.system_code); }
     isHome() { const f=this.filters;return this.page!=="sets" && !f.q.trim()&&!f.system_code&&!f.language&&!f.product_type&&f.owned==="all"&&!f.watch; }
     isBookFamily(code=this.filters.system_code){ return ["COMICS","MANGA"].includes(code); }
-    openBookIntake(row){if(!this.find(".dr-browse-backdrop").hidden)this.closeSheet();this.close();if(typeof this.options.books==="function")this.options.books({book:row?.book_details});else this.options.navigate("inventory");}
+    openBookIntake(row){if(!this.find(".dr-browse-backdrop").hidden)this.closeSheet();this.close();if(typeof this.options.books==="function")this.options.books({book:row?.book_details,catalogue:row});else this.options.navigate("inventory");}
     pickGame(game) { this.filters.system_code=game.system_code;this.filters.language="";this.filters.product_type=this.isBookFamily(game.system_code)?"COMIC":"";this.set=null;this.page="products";this.load(); }
     showSets() { if(!this.filters.system_code)return;this.page="sets";this.setQuery="";this.set=null;
       this.filters.q="";this.filters.owned="all";this.filters.watch=false;this.filters.product_type="";
@@ -176,7 +176,7 @@ window.DropRateCatalogue = (() => {
       if(this.set)chip(decode(this.set.set_name),()=>{this.set=null;});
       if(this.filters.language)chip(this.filters.language,()=>{this.filters.language="";this.set=null;});
       if(this.filters.product_type)chip(this.filters.product_type==="SEALED"?"Sealed Only":this.filters.product_type==="COMIC"?"Comics & Manga":"Cards Only",()=>{this.filters.product_type="";});
-      if(this.filters.owned!=="all")chip(this.filters.owned==="owned"?"Products Owned":"Products Not Owned",()=>{this.filters.owned="all";});
+      if(this.filters.owned!=="all")chip(this.filters.owned==="owned"?"Items you own":"Items you don’t own",()=>{this.filters.owned="all";});
       if(this.filters.watch)chip("Watchlist",()=>{this.filters.watch=false;});
       if(chips.childElementCount)chips.append(button("Clear filters",()=>this.reset(),"dr-browse-clear"));
       const languages=this.find(".dr-browse-languages");languages.hidden=!sets;languages.replaceChildren();
@@ -270,23 +270,24 @@ window.DropRateCatalogue = (() => {
     }
     renderMarketDetails(content,row) {
       content.replaceChildren(node("strong","dr-browse-detail-value",marketPrice(row)));
-      if(row.shared_price)content.append(node("p","dr-browse-reference-note",window.DropRateReferenceValue.description({reference_value:row.shared_price})));
-      if(row.market_value_minor==null && !row.shared_price?.last_known_minor)content.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
-      if(row.basis_condition)content.append(node("small","","Reference value: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
+      const evidence=node("details","dr-browse-extra dr-browse-price-details");evidence.append(node("summary","","About this value"));content.append(evidence);
+      if(row.shared_price)evidence.append(node("p","dr-browse-reference-note",window.DropRateReferenceValue.description({reference_value:row.shared_price})));
+      if(row.market_value_minor==null && !row.shared_price?.last_known_minor)evidence.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
+      if(row.basis_condition)evidence.append(node("small","","Reference value: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
       for(const quote of row.market_quotes||[]){
         const label=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer US context · "+new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(quote.original_minor/100):money(quote.price_gbp_minor);
         const source=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer":"Cardmarket";
-        const evidence=[quote.product_id?source+" #"+quote.product_id:"",quote.observed_at?new Date(quote.observed_at).toLocaleDateString("en-GB"):""].filter(Boolean).join(" · ");
-        content.append(node("p","dr-browse-reference-note",(quote.variant_label||quote.finish)+": "+label+(evidence?" · "+evidence:"")));
+        const quoteEvidence=[quote.product_id?source+" #"+quote.product_id:"",quote.observed_at?new Date(quote.observed_at).toLocaleDateString("en-GB"):""].filter(Boolean).join(" · ");
+        evidence.append(node("p","dr-browse-reference-note",(quote.variant_label||quote.finish)+": "+label+(quoteEvidence?" · "+quoteEvidence:"")));
       }
       if(["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(row.market_value_source)){
-        content.append(node("p","dr-browse-reference-note","Cardmarket reference via TCGdex, converted from EUR. This is separate from your collection’s eBay UK sold-market valuation."));
+        evidence.append(node("p","dr-browse-reference-note","Cardmarket reference via TCGdex, converted from EUR. This is separate from your collection’s eBay UK sold-market valuation."));
       }
-      if(row.market_value_source==="CARDMARKET_CATALOGUE")content.append(node("p","dr-browse-reference-note","Cardmarket catalogue guide, converted from EUR. Matched by a unique card name in both complete release checklists. The guide spans languages, conditions and foil treatments; it is not an exact physical-copy valuation."));
-      if((row.market_quotes||[]).some(q=>q.source==="TCGDEX_TCGPLAYER"))content.append(node("p","dr-browse-reference-note","TCGplayer is supporting US market context. Its dollar price is not used as a UK sold-market valuation."));
-      if(row.market_value_source==="CARDMARKET_BULK")content.append(node("p","dr-browse-reference-note","Cardmarket daily packaging guide, converted from EUR. This aggregate spans languages and conditions; confirm your exact package before valuing a physical item."));
-      if(row.market_value_source==="CARDMARKET_BULK_SINGLES")content.append(node("p","dr-browse-reference-note","Cardmarket daily guide for this printing’s release, converted from EUR. It combines languages and conditions; it is separate from a condition-adjusted eBay UK sold value."));
-      if(row.market_value_source==="CARDMARKET_ESTIMATE")content.append(node("p","dr-browse-reference-note","Cardmarket estimate for this printing and finish, converted from EUR. The guide combines languages and conditions; it is not a condition-adjusted UK sold value. Fresh exact eBay UK evidence takes priority."));
+      if(row.market_value_source==="CARDMARKET_CATALOGUE")evidence.append(node("p","dr-browse-reference-note","Cardmarket catalogue guide, converted from EUR. Matched by a unique card name in both complete release checklists. The guide spans languages, conditions and foil treatments; it is not an exact physical-copy valuation."));
+      if((row.market_quotes||[]).some(q=>q.source==="TCGDEX_TCGPLAYER"))evidence.append(node("p","dr-browse-reference-note","TCGplayer is supporting US market context. Its dollar price is not used as a UK sold-market valuation."));
+      if(row.market_value_source==="CARDMARKET_BULK")evidence.append(node("p","dr-browse-reference-note","Cardmarket daily packaging guide, converted from EUR. This aggregate spans languages and conditions; confirm your exact package before valuing a physical item."));
+      if(row.market_value_source==="CARDMARKET_BULK_SINGLES")evidence.append(node("p","dr-browse-reference-note","Cardmarket daily guide for this printing’s release, converted from EUR. It combines languages and conditions; it is separate from a condition-adjusted eBay UK sold value."));
+      if(row.market_value_source==="CARDMARKET_ESTIMATE")evidence.append(node("p","dr-browse-reference-note","Cardmarket estimate for this printing and finish, converted from EUR. The guide combines languages and conditions; it is not a condition-adjusted UK sold value. Fresh exact eBay UK evidence takes priority."));
     }
     renderGames() {
       const content=this.find(".dr-browse-content"),grid=node("div","dr-browse-game-grid");
@@ -474,7 +475,7 @@ window.DropRateCatalogue = (() => {
       this.openSheet("Filters");
       this.sheet.append(this.filterGroup("Watchlist","Saved products on this device.",[["watch","Watchlist"]],this.filters.watch?"watch":"",value=>{this.filters.watch=Boolean(value);}),
         this.filterGroup("Product Type","Filter by type of product.",[["CARD","Cards Only"],["SEALED","Sealed Only"]],this.filters.product_type,value=>{this.filters.product_type=value;}),
-        this.filterGroup("Product Status within Inventory","All products are shown unless you select a filter.",[["owned","Products Owned"],["not_owned","Products Not Owned"]],this.filters.owned,value=>{this.filters.owned=value||"all";}));
+        this.filterGroup("In your collection","All products are shown unless you select a filter.",[["owned","Items you own"],["not_owned","Items you don’t own"]],this.filters.owned,value=>{this.filters.owned=value||"all";}));
       const footer=node("footer");footer.append(button("Clear filters",()=>{this.defaults();this.closeSheet();this.load();},"dr-browse-secondary"),button("Show results",()=>this.closeSheet(),"dr-browse-primary"));this.sheet.append(footer);
     }
     openSort() { this.openSheet("Sort");const list=node("div","dr-browse-sort-list");
@@ -497,7 +498,7 @@ window.DropRateCatalogue = (() => {
             ? "Market value pending: the printing and cover need confirmation before matching sold prices."
             : "Market value pending: at least five matching recent sales are needed for this printing."
           : money(row.market_value_minor) + " · " + row.basis_condition + " · UK sold reference"));
-        content.append(node("p","dr-browse-reference-note","Confirm the printing and your copy's condition or grade before adding it. Selling remains a separate step."));
+        content.append(node("p","dr-browse-reference-note","Check the cover and edition. Condition can wait until you’re ready to sell."));
         if(row.book_details?.barcode_gtin)content.append(node("p","dr-browse-reference-note","ISBN / barcode: "+row.book_details.barcode_gtin));
         if(row.publisher_source_url && /^https:\/\/(?:www\.viz\.com\/manga-books\/manga\/|www\.dc\.com\/comics\/|www\.marvel\.com\/comics\/issue\/)[^?#]+$/.test(row.publisher_source_url)){
           const source=node("a","dr-browse-publisher-source","View publisher details and cover ↗");
@@ -509,67 +510,69 @@ window.DropRateCatalogue = (() => {
           sold.href=row.book_sold_search_url;sold.target="_blank";sold.rel="noopener noreferrer";content.append(sold);
         }
         const buttonRow=node("footer");
-        buttonRow.append(button("Add a comic or manga",()=>this.openBookIntake(row),"dr-browse-primary"));
+        buttonRow.append(button("Add to collection",()=>this.openBookIntake(row),"dr-browse-primary"));
         this.sheet.append(content,buttonRow);
         return;
       }
-      this.openSheet("Product Details");
+      this.openSheet("Is this your item?");
       let edit=this.pending.get(row.key);
       if(!edit){edit={row,condition:"",language:"",quantity:1,confirmed:false,requests:null};this.pending.set(row.key,edit);}
       this.edit=edit;
       const content=node("div","dr-browse-product-details");
       content.append(this.productImage(row,"dr-browse-detail-image"),node("h3","",decode(row.name)),node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
       if(row.provider&&row.provider_id){
-        const reference=node("div","dr-browse-reference-note");reference.dataset.cardReference=row.key;
+        const reference=node("details","dr-browse-reference-note dr-browse-extra");reference.dataset.cardReference=row.key;reference.append(node("summary","","Reference details"));
         reference.append(node("strong","","Card reference"),node("p","",row.provider+" · "+row.provider_id),node("small","","Set reference: "+row.set_id+" · "+row.language));
         content.append(reference);
-      } else if(row.catalogue_id)content.append(node("p","dr-browse-reference-note","Drop Rate reference: "+row.catalogue_id));
+      }
       const pricing=node("div");pricing.dataset.marketDetails=row.key;this.renderMarketDetails(pricing,row);content.append(pricing);
       const watch=button(this.watchlist.has(row.key)?"★ Saved":"☆ Watchlist",()=>this.toggleWatch(row,watch),"dr-browse-watch-product");watch.setAttribute("aria-pressed",String(this.watchlist.has(row.key)));content.append(watch);
-      if(row.source_kind==="REFERENCE")content.append(node("p","dr-browse-reference-note","Reference artwork · check the exact printing and finish against your copy. New inventory remains pending identity review."));
-      if(row.source_kind==='SEALED_REFERENCE')content.append(node('p','dr-browse-reference-note','Packaging reference · confirm the exact product, language, edition and pack count. Your item stays in review before it can be listed.'));
+      if(row.source_kind==="REFERENCE")content.append(node("p","dr-browse-reference-note","Check that the picture, edition and language match your item."));
+      if(row.source_kind==='SEALED_REFERENCE')content.append(node('p','dr-browse-reference-note','Check the packaging, edition, pack count and language. Add only if your product is still sealed.'));
       if(row.source_kind==="SEALED_REFERENCE"&&row.provider==="Kayou Official"
          && /^https:\/\/www\.kayouofficial\.com\/en-US\/series\/series-[a-z0-9]{8}$/.test(row.source_url||"")){
         const source=node("a","dr-browse-publisher-source","See official Kayou product details ↗");
         source.href=row.source_url;source.target="_blank";source.rel="noopener noreferrer";
         content.append(source);
       }
+      const optional=node("details","dr-browse-extra dr-browse-copy-details");optional.append(node("summary","","Quantity & condition (optional)"));
       const fields=node("div","dr-browse-physical");
       if(row.product_type==='SEALED' && row.language==='Unknown'){
         const label=node('label','','Product language'),select=node('select');select.setAttribute('aria-label','Product language');
         for(const language of ['','English','Japanese','Chinese','Korean','French','German','Italian','Spanish']){const option=node('option','',language||'Choose language');option.value=language;select.append(option);}
         select.value=edit.language;select.disabled=Boolean(edit.requests);
-        select.addEventListener('change',()=>{edit.language=select.value;this.validateAdd();});label.append(select);fields.append(label);
+        select.addEventListener('change',()=>{edit.language=select.value;this.validateAdd();});label.append(select);content.append(label);
       }
       const conditionLabel=node("label","",row.product_type==="SEALED"?"Seal status":"Condition"),condition=node("select");
-      for(const label of row.product_type==="SEALED"?["Sealed"]:["Choose condition",...conditions]){const option=node("option","",label);option.value=label==="Choose condition"?"":label;condition.append(option);}
+      for(const label of row.product_type==="SEALED"?["Sealed"]:["Not assessed yet",...conditions]){const option=node("option","",label);option.value=label==="Not assessed yet"?"":label;condition.append(option);}
       condition.value=row.product_type==="SEALED"?"Sealed":edit.condition;condition.setAttribute("aria-label","Condition");condition.disabled=Boolean(edit.requests)||row.product_type==="SEALED";
       condition.addEventListener("change",()=>{edit.condition=condition.value;this.validateAdd();});conditionLabel.append(condition);
       const quantityLabel=node("label","","Quantity"),quantity=node("input");quantity.type="number";quantity.min="1";quantity.max="50";quantity.step="1";quantity.inputMode="numeric";quantity.value=edit.quantity;quantity.setAttribute("aria-label","Quantity");quantity.disabled=Boolean(edit.requests);
-      quantity.addEventListener("input",()=>{edit.quantity=Number(quantity.value);this.validateAdd();});quantityLabel.append(quantity);fields.append(conditionLabel,quantityLabel);content.append(fields);
-      const confirm=node("label","dr-browse-confirm"),checkbox=node("input");checkbox.type="checkbox";checkbox.checked=edit.confirmed;checkbox.disabled=Boolean(edit.requests);checkbox.setAttribute("aria-label","Confirm exact product");
-      checkbox.addEventListener("change",()=>{edit.confirmed=checkbox.checked;this.validateAdd();});confirm.append(checkbox,node("span","",row.product_type==="SEALED"?"This is the exact product and it is still sealed.":"This is the exact card, printing and language I own."));content.append(confirm);
+      quantity.addEventListener("input",()=>{edit.quantity=Number(quantity.value);this.validateAdd();});quantityLabel.append(quantity);fields.append(conditionLabel,quantityLabel);optional.append(fields);content.append(optional);
+      content.append(node("p","dr-browse-confirm-note",row.product_type==="SEALED"
+        ? "Add confirms this is your sealed product."
+        : "Add confirms this is the item you own. Condition can wait."));
       if(row.product_type==="CARD")content.append(button("Adding a graded slab?",()=>{this.closeSheet();this.close();this.options.graded(row);},"dr-browse-graded-link"));
       content.append(node("p","dr-browse-detail-message",edit.error||""));this.sheet.append(content);
-      const footer=node("footer"),save=button("Add to Inventory",()=>this.save(),"dr-browse-primary");save.dataset.add="true";footer.append(save);this.sheet.append(footer);this.validateAdd();
+      const footer=node("footer"),save=button("Add to collection",()=>this.save(),"dr-browse-primary");save.dataset.add="true";footer.append(save);this.sheet.append(footer);this.validateAdd();
     }
     validateAdd() { const edit=this.edit;if(!edit)return;const done=edit.requests?.every(request=>request.result);
       const save=this.sheet.querySelector("[data-add]");if(!save)return;
-      save.textContent=this.saving?"Adding…":done?"Added · Done":edit.requests?"Retry remaining saves":"Add to Inventory";
-      save.disabled=this.saving||(!edit.requests&&(!edit.confirmed||!Number.isInteger(edit.quantity)||edit.quantity<1||edit.quantity>50||(edit.row.product_type!=="SEALED"&&!conditions.includes(edit.condition))||(edit.row.product_type==='SEALED'&&edit.row.language==='Unknown'&&!edit.language))); }
+      save.textContent=this.saving?"Adding…":done?"Done":edit.requests?"Retry remaining saves":"Add to collection";
+      save.disabled=this.saving||(!edit.requests&&(!Number.isInteger(edit.quantity)||edit.quantity<1||edit.quantity>50||(edit.row.product_type!=="SEALED"&&edit.condition&&!conditions.includes(edit.condition))||(edit.row.product_type==='SEALED'&&edit.row.language==='Unknown'&&!edit.language))); }
     async save() {
       const edit=this.edit;if(!edit||this.saving||this.sheet.querySelector("[data-add]").disabled||!this.active())return;
       if(edit.requests?.every(request=>request.result)){this.pending.delete(edit.row.key);this.edit=null;this.closeSheet();this.load();return;}
-      if(!edit.requests){const body=JSON.stringify({key:edit.row.key,condition:edit.row.product_type==="SEALED"?null:edit.condition,seal_status:edit.row.product_type==="SEALED"?"SEALED":null,confirmed:true,...(edit.row.product_type==='SEALED'&&edit.row.language==='Unknown'?{language:edit.language}:{})});
+      if(!edit.requests){edit.confirmed=true;const body=JSON.stringify({key:edit.row.key,condition:edit.row.product_type==="SEALED"?null:edit.condition||null,seal_status:edit.row.product_type==="SEALED"?"SEALED":null,confirmed:true,...(edit.row.product_type==='SEALED'&&edit.row.language==='Unknown'?{language:edit.language}:{})});
         edit.requests=Array.from({length:edit.quantity},()=>({key:crypto.randomUUID(),body,result:null}));}
       this.saving=true;this.sheet.querySelectorAll("button,input,select").forEach(control=>{control.disabled=true;});this.validateAdd();
       try {
         for(const request of edit.requests){if(request.result)continue;
           const result=await this.client.request("/api/v1/catalogue-browser/intake",{method:"POST",headers:{"Idempotency-Key":request.key},body:request.body});
           if(!result.inventory?.inventory_code)throw new Error("Save confirmation was incomplete. Retry this same addition.");request.result=result;this.pageCache.clear();}
-        edit.error=edit.quantity+" added to your inventory. Identity review is still required before approval.";
-        try{await this.options.afterSave();}catch(_){edit.error+=" Refresh inventory to update totals.";}
-      }catch(error){if(this.active())edit.error=error.message+" Retry uses the same requests to avoid duplicate copies.";}
+        edit.error=edit.quantity+" added to your collection.";
+        try{await this.options.afterSave();}catch(_){edit.error+=" Refresh your collection to update totals.";}
+      }catch(error){if(this.active())edit.error=error.message+" Retry to finish adding these copies.";}
       finally{if(this.active()){this.saving=false;this.openProduct(edit.row);}}
     }
   }

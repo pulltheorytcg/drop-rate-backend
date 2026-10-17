@@ -37,3 +37,12 @@
 .owner-portal-page .owner-book-actions .owner-primary-action{width:auto}
 @media(max-width:430px){.owner-book-candidate{grid-template-columns:100px minmax(0,1fr);gap:10px;padding:12px}.owner-book-cover img{height:160px}}
 @media(max-width:600px){.owner-book-dialog .owner-import-fields{grid-template-columns:1fr}.owner-book-actions button{flex:1}.owner-book-dialog .owner-import-dialog-body{padding:16px}}
+#owner-book-copy-details{margin-top:12px;border-top:1px solid #dbe3ed;padding-top:8px}
+#owner-book-copy-details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:650}
+#owner-book-copy-details>summary::after{content:'＋';margin-left:auto}
+#owner-book-copy-details[open]>summary::after{content:'−'}
+.owner-book-selected{display:grid;grid-template-columns:100px minmax(0,1fr);gap:8px 16px;align-items:center}
+.owner-book-selected .owner-book-cover{grid-row:1/3;min-height:140px}
+.owner-book-selected h3,.owner-book-selected p{margin:0;overflow-wrap:anywhere}
+.owner-book-selected p{font-size:.82rem;color:#5d7186}
+.owner-book-selected[hidden]{display:none}

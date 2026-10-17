@@ -108,6 +108,7 @@ def main():
                 assert len(page.evaluate('calls'))==2 and page.evaluate('calls[1].retry') is False
                 page.locator('#owner-book-language').fill('English')
                 page.locator('#owner-book-printing').fill('1')
+                page.locator('#owner-book-copy-details').evaluate('e=>e.open=true')
                 page.locator('#owner-book-condition').select_option('Near Mint')
                 page.locator('#owner-book-market-check').click()
                 page.wait_for_function("document.querySelector('#owner-book-market-result').textContent.includes('£12.34')")
@@ -115,7 +116,7 @@ def main():
                 assert page.locator('#owner-book-dialog').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-book-scanner.png'))
                 page.locator('#owner-book-save').click()
-                page.get_by_role('button',name='Added to inventory').wait_for()
+                page.get_by_role('button',name='Added to collection').wait_for()
                 writes=page.evaluate("calls.filter(x=>x.url.endsWith('/intake'))")
                 assert len(writes)==1
                 body=json.loads(writes[0]['body'])
@@ -126,7 +127,7 @@ def main():
                 page.wait_for_function('scanner.dialog.open && scanner.view === "review"')
                 assert page.evaluate('scanner.items[0].status')=='added'
                 assert page.evaluate('scanner.items[0].photo') is None
-                assert page.locator('[data-action="save"]').inner_text()=='View inventory'
+                assert page.locator('[data-action="save"]').inner_text()=='View collection'
                 assert page.locator('.dr-scan-review-item').get_by_role('button',name='Review book details').is_disabled()
                 assert page.evaluate('cameraStarts')==1, 'Returning from review must not reopen the camera'
                 page.evaluate('scanner.close()')
@@ -140,6 +141,7 @@ def main():
                 page.locator('#owner-book-recognize').click()
                 page.wait_for_function("document.querySelector('#owner-book-series').value==='Fixture Manga'")
                 page.locator('#owner-book-language').fill('English')
+                page.locator('#owner-book-copy-details').evaluate('e=>e.open=true')
                 page.locator('#owner-book-condition').select_option('Near Mint')
                 page.evaluate("mode='defer';release=null")
                 page.locator('#owner-book-market-check').click()

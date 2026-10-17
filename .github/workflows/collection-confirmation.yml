@@ -2,6 +2,8 @@ name: Collection-first confirmation
 on:
   pull_request:
     paths:
+      - 'backend/app/catalogue_browser.py'
+      - 'backend/app/static/catalogue-browser.*'
       - 'backend/app/owner_portal_api.py'
       - 'backend/app/inventory_intake.py'
       - 'backend/app/import_inventory.py'
@@ -65,6 +67,7 @@ jobs:
       - run: python -m playwright install --with-deps chromium webkit
       - name: Real scanner and selling controls with synthetic API data, no camera/production identity
         run: |
+          python tests/ui/collection-simplicity.py
           python tests/ui/collection-confirmation.py
           python tests/ui/collection-selling.py
           python tests/ui/collection-books.py

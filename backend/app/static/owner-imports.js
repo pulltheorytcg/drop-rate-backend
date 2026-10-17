@@ -301,7 +301,7 @@
     }
     const generation = state.generation;
     setBusy(true);
-    message("Checking exact matches and adding recognised Draft copies…");
+    message("Checking exact matches and adding recognised copies…");
     try {
       const preview = await apiRequest("/api/v1/owner/imports/upload", {
         method: "POST",
@@ -681,7 +681,7 @@
         }
       );
       if (!current(generation, batchId) || !await updateCandidate(result, generation)) return;
-      message(result.candidate?.status === "COMMITTED" ? "Confirmed card added to your Draft inventory." : "Match saved. Any remaining missing facts still need confirmation.", "success");
+      message(result.candidate?.status === "COMMITTED" ? "Confirmed card added to your collection." : "Match saved. Any remaining missing facts still need confirmation.", "success");
     } catch (error) {
       if (!current(generation, batchId)) return;
       const detail = [409, 422].includes(error.status) && typeof error.message === "string"
