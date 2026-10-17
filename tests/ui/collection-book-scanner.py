@@ -62,8 +62,8 @@ def main():
                   };
                   await scanner.open('RAW');
                 }''')
-                page.locator('[data-mode="COMIC"]').click()
-                assert page.locator('[data-mode="COMIC"]').get_attribute('aria-pressed')=='true'
+                page.locator('button[data-mode="COMIC"]').click()
+                assert page.locator('button[data-mode="COMIC"]').get_attribute('aria-pressed')=='true'
                 assert page.evaluate('scanner.dialog.open && scanner.view === "camera" && !!scanner.stream')
                 assert not page.locator('#owner-book-dialog').count()
                 assert page.evaluate('cameraStarts')==1 and page.evaluate('cameraStops')==0
