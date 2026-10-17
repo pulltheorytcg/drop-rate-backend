@@ -41,8 +41,10 @@ Local full Python suite: 6,124 passing before final release checks; scanner suit
 50 interactions passing. Added source/identity/SSRF/ambiguity tests, signed HTTP
 and real PostgreSQL owner-isolation/intake/cover-receipt scenarios, and Chromium +
 WebKit phone/desktop cover-choice tests in the existing collection workflow.
-Local browser downloads are unavailable in this execution environment; inspect
-the actual CI browser screenshots before declaring visual acceptance.
+All six PR #678 workflows passed. CI screenshots were inspected at phone and
+desktop sizes, including valid decoded artwork, contained cover buttons and
+collapsed additional-photo controls. The first browser runner had a screenshot
+protocol failure in an existing card scenario; the failed job passed on rerun.
 
 `backend/scripts/book_research_smoketest.py` is an explicitly invoked one-request
 probe using a public VIZ cover and the deployed OpenAI configuration. It performs
@@ -55,7 +57,16 @@ API/search/source/artwork contract, not real physical-book recognition accuracy.
 API reference checked: https://developers.openai.com/api/docs/guides/tools-web-search
 and https://developers.openai.com/api/reference/resources/responses/methods/create .
 
-Release status: prepared; CI, actual provider probe, deployment and live asset
-readback are pending. Rollback is the prior successful API deployment; no schema
-migration or production data rewrite is required. User-owned books still need a
-fresh real-device scan after release to evaluate recognition on their photos.
+Actual provider: the configured gpt-6.1-sol returned VIZ product 139, ISBN
+9781569319017, its exact publisher cover and a positive visual match. The initial
+probe was a false negative because VIZ returned the same print record at the
+verified `/paperback` URL. The probe now accepts only that specific format alias,
+requires the exact ISBN and image plus a positive visual match, and rejects digital
+URLs, other products, changed ISBNs and mismatched artwork. Seven regression cases
+cover the gate. No production database or account operation is performed by it.
+
+Deployment, temporary pre-deploy restoration and live asset readback receipts are
+maintained in [PR #678](https://github.com/pulltheorytcg/drop-rate-backend/pull/678).
+Rollback is the prior successful API deployment; no schema migration or production
+data rewrite is required. User-owned books still need a fresh real-device scan
+after release to evaluate recognition on their photographs.

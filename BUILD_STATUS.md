@@ -1,6 +1,6 @@
 # Build status
 
-## 17 October 2026 — Beginner book research and cover confirmation (release checks pending)
+## 17 October 2026 — Beginner book research and cover confirmation (PR #678)
 
 The real-book recording showed OCR followed by manual edition research. The book
 scanner now prepares publisher-sourced suggestions and cover choices through the
@@ -9,13 +9,18 @@ screen; ambiguous covers remain choices and unknown printing stays optional.
 An explicitly selected publisher cover follows the saved draft copy through an
 owner-bound, identity-checked reference receipt. No market values, identity/media
 approvals, stock publication or financial actions are inferred. Full local Python
-suite: 6,124 passing; 50 scanner interactions passing. Real PostgreSQL/browser CI,
-one actual provider probe and live release readback remain pending. See
-[implementation and release scope](docs/BOOK_RESEARCH_REVIEW_20261017.md).
+suite: 6,124 passing; 50 scanner interactions passing. All six PR workflows passed,
+including real PostgreSQL owner isolation and Chromium/WebKit phone/desktop checks.
+The configured provider returned the exact known One Piece ISBN and matching VIZ
+cover; the release probe initially rejected VIZ's valid `/paperback` URL alias.
+The corrected probe accepts that specific print alias and additionally requires
+the exact expected image and a visual match. Deployment and live readback receipts
+are maintained in [PR #678](https://github.com/pulltheorytcg/drop-rate-backend/pull/678).
+See [implementation and release scope](docs/BOOK_RESEARCH_REVIEW_20261017.md).
 
-## 17 October 2026 — Comics/manga live scanner repair (release checks pending)
+## 17 October 2026 — Comics/manga live scanner repair (live, PR #677)
 
-The reported iPhone flow was a form launcher: Comics / Manga closed the live scanner and opened a separate photo picker. It now selects a live `COMIC` mode using the same camera stream, shutter, gallery, auto-scan/removal gate and results tray. The existing book recognition endpoint reads the capture immediately; book review reuses that response and cover, and only an explicit book intake receipt marks the scan as added. Unknown identity/copy/price fields, owner guards, immutable save retry and the card/book intake boundary remain enforced. Local 50 scanner interactions and 75 focused Python checks pass. Chromium/WebKit, PostgreSQL, full CI and live readback remain required. See [scanner repair](docs/LIVE_BOOK_SCANNER_20261017.md).
+The reported iPhone flow was a form launcher: Comics / Manga closed the live scanner and opened a separate photo picker. It now selects a live `COMIC` mode using the same camera stream, shutter, gallery, auto-scan/removal gate and results tray. The existing book recognition endpoint reads the capture immediately; book review reuses that response and cover, and only an explicit book intake receipt marks the scan as added. Unknown identity/copy/price fields, owner guards, immutable save retry and the card/book intake boundary remain enforced. Released via main bd03cc8 and successful Railway deployment 84326318-f91b-414c-8148-204691ee8c54. The 50 scanner interactions, focused Python checks, Chromium/WebKit, PostgreSQL, full CI and live readback passed. See [scanner repair](docs/LIVE_BOOK_SCANNER_20261017.md).
 
 ## 17 October 2026 — Publisher covers for 14 books; explicit market-price status (live, PR #676)
 
