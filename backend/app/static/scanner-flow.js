@@ -800,14 +800,15 @@ window.DropRateScanner = (() => {
     async recogniseBook(photo, item, addItem) {
       const epoch = this.epoch;
       item.bookResult = null; item.status = "processing"; item.error = null;
-      item.guess = "Photo captured · reading book…";
+      item.guess = "Photo captured · identifying book…";
       if (addItem) this.items.push(item);
       this.inFlight += 1; this.status("Reading the book cover · you can capture the next book"); this.render();
       const controller = new AbortController(); this.controllers.add(controller);
-      const timeout = setTimeout(() => controller.abort(), 70000);
+      const timeout = setTimeout(() => controller.abort(), 100000);
       try {
         const result = await this.request("/api/v1/owner/books/recognize", {method: "POST", signal: controller.signal,
           body: JSON.stringify({images: [photo]})});
+        if (!this.active(epoch) || !this.items.includes(item)) return;
         item.bookResult = result; item.status = "unresolved";
         const fields = result.fields || {};
         item.guess = result.status === "NEEDS_REVIEW" ? [fields.series_title || "Book details read",
