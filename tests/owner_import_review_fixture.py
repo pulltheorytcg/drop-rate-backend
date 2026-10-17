@@ -1,5 +1,5 @@
 """Pending-card corrections through real authenticated HTTP and PostgreSQL."""
-from uuid import UUID
+from uuid import UUID, uuid4
 
 
 async def verify_pending_card_review(client, db, headers, actor, other_actor):
@@ -70,6 +70,12 @@ async def verify_pending_card_review(client, db, headers, actor, other_actor):
 
     # A correction does not rewrite the Collectr quantity identity or cause
     # corrected copies to be added again on an unchanged/increased export.
+    # Use a fresh synthetic account: the preceding generic exports deliberately
+    # contain different source identities and are not this Collectr snapshot.
+    # Mixing them correctly creates a separate missing-from-snapshot review.
+    collectr_owner, actor = uuid4(), uuid4()
+    await db.execute("insert into tcg.owners(id,display_name,owner_type,commission_bps) values($1,'Corrected Collectr fixture','CONSIGNOR',1000)", collectr_owner)
+    await db.execute("insert into tcg.owner_memberships(user_id,owner_id,role) values($1,$2,'OWNER')", actor, collectr_owner)
     collectr = {'filename': 'pending-collectr.csv', 'adapter': 'COLLECTR', 'content':
         'Portfolio Name,Category,Product Name,Set,Card Number,Rarity,Variance,Quantity,Card Condition,Language,Grade,Average Cost Paid\n'
         'Test,Pokemon,Known Card,Synthetic Set,001,C,Normal,2,Pristine,English,Ungraded,\n'}
@@ -81,6 +87,7 @@ async def verify_pending_card_review(client, db, headers, actor, other_actor):
     version = stored['batch']['version']
     saved = await client.post(route(row), json=correction(known, card_state='RAW', condition='Lightly Played'), headers=headers(actor))
     assert saved.status_code == 200 and saved.json()['created_count'] == 2, saved.text
+    assert saved.json()['status'] == 'COMMITTED', saved.text
     assert saved.json()['candidate']['normalized_record']['_collectr_source_identity'] == original_identity
     replay = await client.post(upload, json=collectr, headers=headers(actor))
     assert replay.status_code == 201 and replay.json()['created_count'] == 0

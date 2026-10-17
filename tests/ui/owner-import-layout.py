@@ -115,11 +115,11 @@ def main():
                 page.locator('#owner-import-preview').click()
                 page.locator('.owner-import-row-actions button').first.click()
                 page.locator('.owner-import-resolver-result button').wait_for()
-                page.get_by_label('Card format', exact=True).select_option('GRADED')
-                page.get_by_label('Grading company', exact=True).fill('BGS')
+                dialog.get_by_label('Card format', exact=True).select_option('GRADED')
+                dialog.get_by_label('Grading company', exact=True).fill('BGS')
                 page.locator('.owner-import-resolver-result button').click()
                 assert page.evaluate('window.__reviewWrites') == 0, 'Incomplete grade submitted'
-                page.get_by_label('Grade on slab label', exact=True).fill('9.5')
+                dialog.get_by_label('Grade on slab label', exact=True).fill('9.5')
                 for control in page.locator('.owner-import-resolver input:visible, .owner-import-resolver select:visible, .owner-import-resolver button:visible').all():
                     bounds = rectangle(control)
                     assert bounds['left'] >= box['left'] and bounds['right'] <= box['right'] + 1, (engine, width, 'review control overflow', bounds)
