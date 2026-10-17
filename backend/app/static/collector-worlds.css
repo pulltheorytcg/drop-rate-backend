@@ -187,3 +187,11 @@ body:has(#auth-view:not(.hidden)){background:#f8f6ef}.shell:has(>#auth-view:not(
  .collector-hero-actions .collector-button{padding:10px;font-size:10px}
  .collector-grail-grid{gap:9px}.collector-grail>span{font-size:8px}
 }
+
+/* A collector's home starts with their collection and two ways to add. */
+body.owner-portal-page.collector-workspace #owner-view-overview .collector-hero{grid-template-columns:minmax(0,1fr)!important;min-height:0!important;padding:24px!important;margin-bottom:20px!important}
+body.owner-portal-page.collector-workspace #owner-view-overview .collector-headline{font-size:clamp(26px,3vw,36px)!important}
+body.owner-portal-page.collector-workspace #owner-view-overview .collector-intro{max-width:560px!important}
+body.owner-portal-page .owner-kpi-card{min-width:0}
+body.owner-portal-page .owner-kpi-card>strong{overflow-wrap:anywhere}
+body.owner-portal-page.collector-workspace .owner-kpi-card>strong.owner-value-unavailable{font-size:16px!important;line-height:1.25!important}

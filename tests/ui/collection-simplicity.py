@@ -29,7 +29,7 @@ def main():
                         return route.fulfill(body=file.read_bytes(),content_type=mimetypes.guess_type(file.name)[0] or 'application/octet-stream')
                     route.abort()
                 page.route('**/*',serve);page.goto('https://collection.test/owner')
-                for file in ('hub-session.js','reference-value-display.js','inventory-groups.js','owner-inventory.js','owner-portal.js','catalogue-browser.js','workspace-shell.js'):
+                for file in ('hub-session.js','reference-value-display.js','inventory-groups.js','owner-inventory.js','owner-portal.js','catalogue-browser.js','workspace-shell.js','collector-worlds.js'):
                     code=(ROOT/file).read_text()
                     if file=='owner-portal.js':code=re.sub(r'\ninitialise\(\);\s*$','',code)
                     page.add_script_tag(content=code)
@@ -44,7 +44,7 @@ def main():
                     sale_intent:'PERSONAL_COLLECTION',status:'DRAFT',grouped_quantity:1};
                   apiRequest=async()=>({items:[],summary:{}});
                   activateOwnerView('overview',false);
-                  byId('owner-total-inventory').textContent='1';byId('owner-market-value').textContent='Unavailable';
+                  byId('owner-total-inventory').textContent='1';byId('owner-market-value').textContent='Unavailable';byId('owner-market-value').classList.add('owner-value-unavailable');
                   window.client={owner:'fixture-owner',active:()=>true,request:async(url,options)=>{
                     if(url.endsWith('/intake')){writes.push({url,...options});if(failOnce){failOnce=false;throw new Error('Connection interrupted');}
                       renderInventoryCards([sample]);return {inventory:{inventory_code:'INV-FIXTURE'}};}
@@ -57,8 +57,11 @@ def main():
                 assert not page.locator('#owner-store-value').is_visible()
                 assert page.locator('#owner-view-overview .owner-kpi-card').count()==2
                 assert 'payout' not in page.locator('#owner-view-overview').inner_text().lower()
-                assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
-                if width==390:page.screenshot(path=str(OUT/f'{engine}-simple-home.png'))
+                if width in (320,390):page.screenshot(path=str(OUT/f'{engine}-{width}-simple-home.png'))
+                overflow=page.evaluate('''()=>[...document.querySelectorAll('body *')].filter(e=>{
+                  const r=e.getBoundingClientRect();return r.width&&r.height&&(r.right>innerWidth+1||r.left<0);
+                }).slice(0,20).map(e=>({tag:e.tagName,id:e.id,cls:e.className,rect:e.getBoundingClientRect().toJSON()}))''')
+                assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),overflow
                 page.evaluate("activateOwnerView('more');")
                 page.locator('[data-owner-jump="selling"]').click()
                 assert page.locator('#owner-view-selling').is_visible()

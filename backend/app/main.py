@@ -122,7 +122,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/catalogue-browser.js?v=21" defer></script>',
         '<script src="/assets/catalogue-browser-entry.js?v=7" defer></script>',
         '<script src="/assets/workspace-shell.js?v=4" defer></script>',
-        '<script src="/assets/collector-worlds.js?v=3" defer></script>',
+        '<script src="/assets/collector-worlds.js?v=simple-v1" defer></script>',
     )
     for script in scripts:
         if script not in html:

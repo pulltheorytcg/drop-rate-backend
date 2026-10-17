@@ -21,10 +21,12 @@
   const copy = hero.querySelector(seller ? '.owner-hero-copy' : '.founder-hero-copy');
   hero.classList.add('collector-hero');
   const greeting=el('p','collector-greeting','WELCOME TO YOUR COLLECTOR HQ');
-  const title=el('h1','collector-headline');title.append('Find your',el('br',''),el('em','','next grail.'));
-  const intro=el('p','collector-intro','From your first pull to your dream collection. Discover the cards you love.');
+  const title=el('h1','collector-headline');
+  if(seller)title.textContent='Your collection.';
+  else title.append('Find your',el('br',''),el('em','','next grail.'));
+  const intro=el('p','collector-intro',seller?'Scan or search. Check the match. Add it to your collection.':'From your first pull to your dream collection. Discover the cards you love.');
   const buttons=el('div','collector-hero-actions');
-  buttons.append(action('Scan a card  ↗',()=>navigate('scan'),'collector-button collector-primary'),action('Explore cards  →',()=>browseGame(),'collector-button collector-secondary'));
+  buttons.append(action(seller?'Scan an item':'Scan a card  ↗',()=>navigate('scan'),'collector-button collector-primary'),action(seller?'Search & add':'Explore cards  →',()=>browseGame(),'collector-button collector-secondary'));
   const name=hero.querySelector('#owner-overview-name');
   if(name){const hello=el('span','collector-hello','Hey, ');hello.append(name,document.createTextNode(' ✦'));greeting.replaceChildren(hello);}
   copy.replaceChildren(greeting,title,intro,buttons);
@@ -44,7 +46,7 @@
     card.append(img,el('strong','',name),el('span','',printing));cards.append(card);
   }
   spotlight.append(el('p','collector-grail-heading','GRAIL SPOTLIGHT'),cards,el('p','collector-grail-hint','Reference artwork · Tap a card to explore ↗'));
-  hero.append(spotlight);
+  if(!seller)hero.append(spotlight);
   hero.querySelectorAll('[data-hero-view]').forEach(b=>b.remove());
 
   const explore=el('section','collector-explore');explore.setAttribute('aria-labelledby','collector-worlds-title');
@@ -60,13 +62,13 @@
     img.addEventListener('error',()=>{img.remove();art.append(el('strong','',label));});art.append(img);
     const caption=el('div','collector-world-caption');caption.append(el('span','',tagline),el('span','collector-world-arrow','↗'));tile.append(art,caption);grid.append(tile);
   }
-  explore.append(heading,grid);hero.after(explore);
+  explore.append(heading,grid);if(!seller)hero.after(explore);
 
   const games=el('nav','collector-games');games.setAttribute('aria-label','Browse games');games.append(el('span','','Browse games'));
   for(const [system,label] of [['','All games'],...worlds.map(([,label,system])=>[system,label])]){
     const b=action(label,()=>browseGame(system),'collector-game');b.dataset.systemCode=system;games.append(b);
   }
-  home.prepend(games);
+  if(!seller)home.prepend(games);
 
   const appearance=el('section','collector-appearance');appearance.setAttribute('aria-labelledby','collector-appearance-title');
   const appearanceTitle=el('h2','','Appearance');appearanceTitle.id='collector-appearance-title';
@@ -82,13 +84,10 @@
   let saved='all';try{saved=localStorage.getItem('drop-rate-collector-vibe')||'all';}catch(_){}setVibe(choices.some(([k])=>k===saved)?saved:'all');
 
   if(seller){
-    const kpis=home.querySelector('.owner-kpi-grid');explore.after(kpis);
-    const heading=el('div','collector-section-heading collector-stats-heading');heading.append(el('h2','','Your collection, at a glance'),action('Open inventory  →',()=>navigate('inventory'),'collector-text-button'));kpis.before(heading);
-    const money=hero.querySelector('.owner-hero-money'),payout=home.querySelector('.owner-payout-tracker');
-    const finances=el('section','collector-finance-row');finances.setAttribute('aria-label','Your balance and next payout');finances.append(money,payout);kpis.after(finances);
-    const latest=home.querySelector('.owner-latest-panel');finances.after(latest);
-    home.querySelector('.owner-kpi-card:nth-child(2) small').textContent='Latest available market prices';
-    document.getElementById('owner-page-subtitle').textContent='Welcome to your collecting adventure.';
+    const kpis=home.querySelector('.owner-kpi-grid');
+    const heading=el('div','collector-section-heading collector-stats-heading');heading.append(el('h2','','At a glance'),action('View collection →',()=>navigate('inventory'),'collector-text-button'));
+    const latest=home.querySelector('.owner-latest-panel');hero.after(heading,kpis,latest);
+    document.getElementById('owner-page-subtitle').textContent='Your collection, at a glance.';
   }
   const nav=document.querySelector(seller?'.owner-sidebar':'.seller-nav');
   if(nav){const foot=el('div','collector-nav-note');foot.append(el('span','collector-kicker','BUILT FOR COLLECTORS'),el('strong','','Chase the cards.\nEnjoy the journey.'),el('span','collector-nav-star','✦'));nav.append(foot);}

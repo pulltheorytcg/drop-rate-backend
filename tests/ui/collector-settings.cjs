@@ -37,6 +37,15 @@ function fixture(role,saved='electric'){
   settings.querySelector('[data-vibe="ninja"]').click();
   assert.equal(doc.body.dataset.collectorVibe,'ninja');assert.equal(w.localStorage.getItem('drop-rate-collector-vibe'),'ninja');
   assert.equal(settings.querySelectorAll('[aria-pressed="true"]').length,1);
+  if(seller){
+   assert.equal(home.querySelector('.collector-finance-row'),null);
+   assert.equal(home.querySelector('.collector-explore'),null);
+   assert.equal(home.querySelector('.collector-grails'),null);
+   assert.equal(home.querySelectorAll('.owner-kpi-card').length,2);
+   assert.ok(doc.querySelector('#owner-view-selling #owner-next-payout-amount'));
+   home.querySelector('.collector-secondary').click();await tick();await tick();
+   assert.equal(w.location.hash,'#search');
+  }
   for(const b of home.querySelectorAll('.collector-game[data-system-code]:not([data-system-code=""])')){
    b.click();await tick();await tick();
    assert.equal(w.location.hash,'#search');assert.equal(w.dropRateCatalogue.filters.system_code,b.dataset.systemCode);
@@ -45,7 +54,7 @@ function fixture(role,saved='electric'){
   }
   Object.assign(w.dropRateCatalogue.filters,{q:'stale',language:'Japanese',owned:'owned',product_type:'SEALED',watch:true});
   w.dropRateCatalogue.set={set_id:'old'};
-  home.querySelector('.collector-game[data-system-code=""]').click();await tick();await tick();
+  home.querySelector(seller?'.collector-secondary':'.collector-game[data-system-code=""]').click();await tick();await tick();
   assert.equal(w.dropRateCatalogue.filters.system_code,'');assert.equal(w.dropRateCatalogue.filters.q,'');
   assert.equal(w.dropRateCatalogue.filters.language,'');assert.equal(w.dropRateCatalogue.filters.owned,'all');
   assert.equal(w.dropRateCatalogue.filters.watch,false);assert.equal(w.dropRateCatalogue.filters.product_type,'');assert.equal(w.dropRateCatalogue.set,null);

@@ -59,9 +59,9 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.equal(await page.locator('#owner-inventory-status').evaluate(n=>getComputedStyle(n).colorScheme),'light',
      'Native inventory controls must use the light inventory surface in Safari');
    assert.equal(await page.locator('.owner-page-header').isVisible(),false,'Redundant inventory heading still occupies space');
-   assert.equal(await page.locator('#owner-view-inventory .owner-section-header h2').innerText(),'Inventory');
+   assert.equal(await page.locator('#owner-view-inventory .owner-section-header h2').innerText(),'Collection');
    assert.equal(await page.locator('#owner-view-inventory .owner-section-header p').innerText(),
-     'Open an item to manage its copies and selling channels.');
+     'Your items, artwork and market values.');
    const top=await page.locator('#owner-view-inventory').boundingBox();
    assert.ok(top && top.y<250,'Inventory layout still wastes height above search and filters');
    const tile=page.locator('.owner-inventory-card');
@@ -80,6 +80,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();
    const facts=page.locator('.owner-item-facts');
    await facts.waitFor();
+   await facts.locator('summary').click();
    const detail=await facts.innerText();
    for(const label of ['Game','One Piece','Language','Japanese','Seal','Sealed','Inventory ID',item.inventory_code])
     assert.ok(detail.includes(label),'Missing item detail: '+label);
@@ -147,7 +148,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
    await page.getByRole('button',{name:'List view',exact:true}).click();
    const headings=await page.locator('#owner-inventory-table-wrap thead th').allTextContents();
-   assert.deepEqual(headings,['Product','Status','Market value','Store / recommended']);
+   assert.deepEqual(headings,['Product','Status','Market value','Selling price']);
    assert.equal(await page.locator('#owner-inventory-body tr:first-child td').count(),4);
    assert.doesNotMatch(await page.locator('#owner-inventory-body').innerText(),/INV-D715B0E9|Japanese/);
    // Historical source-date provenance lives in the details sheet, not the
@@ -197,7 +198,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.equal(await page.locator('.owner-inventory-card').count(),4);
    assert.equal(await page.locator('.owner-card-quantity').innerText(),'×2');
    assert.match(await page.locator('.owner-inventory-card').first().innerText(),/£1.32/);
-   assert.match(await page.locator('.owner-inventory-card').first().innerText(),/Mixed status/i);
+   assert.match(await page.locator('.owner-inventory-card').first().innerText(),/Mixed availability/i);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Raw quantities overflow');
    await page.screenshot({path:path.join(out,`raw-copy-quantities-${viewport.width}.png`),fullPage:true});
 
