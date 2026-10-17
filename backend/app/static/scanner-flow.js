@@ -278,7 +278,7 @@ window.DropRateScanner = (() => {
         '<header class="dr-scan-topbar"><button type="button" data-action="close" aria-label="Close scanner">←</button>' +
         '<strong>Trading Card Games</strong><button type="button" data-action="settings" aria-label="Scanner settings">⚙</button></header>' +
         '<nav class="dr-scan-modes' + (this.options.openBooks ? ' dr-scan-modes-books' : '') + '" aria-label="Scan type">' +
-        ['RAW', 'GRADED', 'SEALED'].map(mode => '<button type="button" data-mode="' + mode + '" aria-pressed="false">' + mode + '</button>').join('') +
+        ['RAW', 'GRADED', 'SEALED'].map(mode => '<button type="button" data-mode="' + mode + '" aria-pressed="false">' + ({RAW:'Cards',GRADED:'Graded',SEALED:'Sealed'})[mode] + '</button>').join('') +
         (this.options.openBooks ? '<button type="button" data-mode="COMIC" aria-pressed="false">COMICS / MANGA</button>' : '') + '</nav>' +
         '<button type="button" class="dr-scan-certificate" data-action="certificate" hidden>Enter certificate</button>' +
         '<div class="dr-scan-guide" aria-hidden="true"></div><p class="dr-scan-status" role="status">Place a card inside the guide</p>' +
@@ -1049,7 +1049,7 @@ window.DropRateScanner = (() => {
         choice.dataset.grader = company;
         choice.setAttribute("aria-pressed", String(company ? graded(edit) && edit.grading_company === company : !graded(edit)));
         choice.disabled = !company && !usableRun(edit.item);
-        if (choice.disabled) choice.title = "Use RAW mode to scan an ungraded card";
+        if (choice.disabled) choice.title = "Choose Cards to scan an ungraded card";
         list.append(choice);
       }
       return list;

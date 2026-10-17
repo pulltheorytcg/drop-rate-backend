@@ -366,7 +366,7 @@ async function matched(scanner, quantity = 1) {
   {
     const f = fixture('seller', async () => result({candidates:[{...result().candidates[0],
       candidate_snapshot:{...result().candidates[0].candidate_snapshot, product_type:'SEALED'}}]}));
-    assert.deepEqual([...f.scanner.dialog.querySelectorAll('[data-mode]')].map(n => n.textContent), ['RAW','GRADED','SEALED']);
+    assert.deepEqual([...f.scanner.dialog.querySelectorAll('[data-mode]')].map(n => n.textContent), ['Cards','Graded','Sealed']);
     await f.scanner.recognise('photo'); assert.equal(f.scanner.items[0].selected, null);
     f.scanner.setMode('SEALED'); await f.scanner.recognise('photo');
     assert.equal(f.scanner.ready(f.scanner.items[1]), true);
