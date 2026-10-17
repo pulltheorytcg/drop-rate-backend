@@ -257,7 +257,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   f.run(`renderInventoryCards([${JSON.stringify({...item,status:'APPROVED',store_price_minor:1000,can_refresh_market:true})}]);`);
   const tile=f.w.document.querySelector('.owner-inventory-card');
   assert.match(tile.querySelector('.owner-card-prices').textContent,/£10.00/);
-  assert.match(tile.querySelector('.owner-status-pill').textContent,/APPROVED/);
+  assert.match(tile.querySelector('.owner-status-pill').textContent,/Ready to sell/);
   assert.ok(tile.querySelector('.owner-market-refresh'));
   tile.querySelector('.owner-card-open-overlay').click();await tick();
   assert.equal(f.w.document.querySelector('.owner-item-dialog').open,true);
@@ -308,7 +308,7 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.equal(counter().textContent,'3','Successful save must reflect server re-read, not optimistic state');
   assert.equal(counter().getAttribute('aria-label'),'Saved quantity 3');
   assert.match(f.w.document.querySelector('.owner-item-quantity-breakdown').textContent,/2 approved for sale · 1 awaiting approval/);
-  assert.match(f.w.document.querySelector('.owner-item-message').textContent,/Shopify stock changes only after/);
+  assert.match(f.w.document.querySelector('.owner-item-message').textContent,/One copy added to your collection/);
   assert.equal(f.w.document.querySelector('.owner-item-confirmation').textContent,'');
   f.finish();checks++;
  }

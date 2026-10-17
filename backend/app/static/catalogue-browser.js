@@ -50,7 +50,7 @@ window.DropRateCatalogue = (() => {
         <nav class="dr-browse-types" aria-label="Product type"><button type="button" data-type="">All products</button><button type="button" data-type="CARD">Cards</button><button type="button" data-type="SEALED">Sealed products</button><button type="button" data-type="COMIC">Comics & manga</button></nav>
         <div class="dr-browse-chips"></div><div class="dr-browse-toolbar" role="group" aria-label="Catalogue sorting and filters"><button type="button" data-action="sort-visible" aria-label="Sort catalogue">Sort: Newest first</button><button type="button" data-action="filters-visible">Filters</button></div><nav class="dr-browse-languages" aria-label="Set language" hidden></nav><button type="button" class="dr-browse-pending" hidden></button></header>
         <div class="dr-browse-scroll"><p class="dr-browse-status" role="status"></p><div class="dr-browse-content"></div><button type="button" data-action="more" class="dr-browse-load" hidden>Load more</button><div class="dr-browse-sentinel"></div></div>
-        <nav class="dr-browse-nav" aria-label="App navigation"><button type="button" data-action="home"><span>⌂</span>Home</button><button type="button" class="active" data-action="search"><span>⌕</span>Search</button><button type="button" data-action="camera"><span>◎</span>Scan</button><button type="button" data-action="inventory"><span>▣</span>Inventory</button><button type="button" data-action="tools"><span>•••</span>More</button></nav>
+        <nav class="dr-browse-nav" aria-label="App navigation"><button type="button" data-action="home"><span>⌂</span>Home</button><button type="button" class="active" data-action="search"><span>⌕</span>Search</button><button type="button" data-action="camera"><span>◎</span>Scan</button><button type="button" data-action="inventory"><span>▣</span>Collection</button><button type="button" data-action="tools"><span>•••</span>More</button></nav>
         <div class="dr-browse-backdrop" hidden><section class="dr-browse-sheet" role="dialog" aria-modal="true"></section></div>`;
       (this.options.host || document.body).append(this.dialog);
       this.input = this.find("input[type=search]"); this.scroll = this.find(".dr-browse-scroll"); this.sheet = this.find(".dr-browse-sheet");
@@ -524,7 +524,7 @@ window.DropRateCatalogue = (() => {
         const reference=node("details","dr-browse-reference-note dr-browse-extra");reference.dataset.cardReference=row.key;reference.append(node("summary","","Reference details"));
         reference.append(node("strong","","Card reference"),node("p","",row.provider+" · "+row.provider_id),node("small","","Set reference: "+row.set_id+" · "+row.language));
         content.append(reference);
-      } else if(row.catalogue_id)void 0;
+      }
       const pricing=node("div");pricing.dataset.marketDetails=row.key;this.renderMarketDetails(pricing,row);content.append(pricing);
       const watch=button(this.watchlist.has(row.key)?"★ Saved":"☆ Watchlist",()=>this.toggleWatch(row,watch),"dr-browse-watch-product");watch.setAttribute("aria-pressed",String(this.watchlist.has(row.key)));content.append(watch);
       if(row.source_kind==="REFERENCE")content.append(node("p","dr-browse-reference-note","Check that the picture, edition and language match your item."));

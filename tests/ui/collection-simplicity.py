@@ -63,7 +63,7 @@ def main():
                 page.locator('[data-owner-jump="selling"]').click()
                 assert page.locator('#owner-view-selling').is_visible()
                 assert page.locator('#owner-next-payout-amount').is_visible()
-                page.evaluate("activateOwnerView('search');browser.openProduct(sample)")
+                page.evaluate("async()=>{activateOwnerView('search');await browser.open();browser.openProduct(sample)}")
                 assert page.get_by_role('heading',name='Is this your item?').is_visible()
                 assert not page.get_by_label('Condition',exact=True).is_visible()
                 assert not page.get_by_label('Quantity',exact=True).is_visible()
@@ -85,7 +85,7 @@ def main():
                 assert 'DRAFT' not in page.locator('.owner-inventory-card').inner_text()
                 if width==390:page.screenshot(path=str(OUT/f'{engine}-simple-collection.png'))
                 # Lost responses freeze the same copy; Retry never sends a new idempotency key.
-                page.evaluate("activateOwnerView('search');browser.openProduct(sample);failOnce=true")
+                page.evaluate("async()=>{activateOwnerView('search');await browser.open();browser.openProduct(sample);failOnce=true}")
                 page.get_by_role('button',name='Add to collection',exact=True).click()
                 page.get_by_role('button',name='Retry remaining saves',exact=True).wait_for()
                 page.get_by_role('button',name='Retry remaining saves',exact=True).click()
