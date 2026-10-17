@@ -1,6 +1,6 @@
 # Build status
 
-## 17 October 2026 — Pending import corrections and clean session reset (release checks pending)
+## 17 October 2026 — Pending import corrections and clean session reset (PR #681)
 
 Fixed the import-review dead end for unrecognised condition/grade and incomplete
 slab details through the existing owner-only confirmation route. Explicit card
@@ -8,8 +8,10 @@ corrections preserve original CSV evidence, Collectr quantity identity, unrelate
 review issues and Draft-only admission. Duplicate slab certificates across a
 multi-copy row are rejected. Closing/leaving/signing out clears the upload form
 and hidden results; editing a search removes stale selectable matches. Mobile
-review controls are contained. Local Python/DOM checks pass; signed HTTP,
-PostgreSQL/RLS, Chromium/WebKit and deployed asset readback are release gates.
+review controls are contained, including a light native-control palette for Safari.
+Local Python/DOM, signed HTTP, PostgreSQL/RLS and responsive browser checks pass.
+Final deployment and asset readback receipts are tracked in
+[PR #681](https://github.com/pulltheorytcg/drop-rate-backend/pull/681).
 No live customer import, stock rewrite, market-price change, migration or service.
 See [scope and verification](docs/IMPORT_PENDING_REVIEW_REPAIR_20261017.md).
 

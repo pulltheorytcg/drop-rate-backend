@@ -22,6 +22,7 @@
 .owner-portal-page .owner-import-menu small{color:#697f97;font-size:.66rem}
 
 .owner-import-dialog{
+  color-scheme:light;
   box-sizing:border-box;width:min(94vw,860px);max-height:90dvh;overflow:hidden;
   padding:0;background:#fff;color:#152e4c;border:1px solid #d9e5f0;
   border-radius:18px;box-shadow:0 25px 85px rgba(11,30,61,.27);

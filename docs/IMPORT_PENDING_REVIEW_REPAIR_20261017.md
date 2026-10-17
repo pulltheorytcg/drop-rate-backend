@@ -28,7 +28,8 @@ default selections, mappings, results and history. Account/request generations
 still reject late completions. Editing a catalogue query immediately removes
 its old choices; late responses or detached buttons cannot confirm old results.
 Review controls have bounded mobile widths and validation failures retain a
-specific actionable message where the server supplies one.
+specific actionable message where the server supplies one. The dialog declares
+a light native-control palette so Safari dropdowns retain readable contrast.
 
 Verification includes local Python and DOM checks, plus the existing CI job's
 real PostgreSQL/RLS, signed HTTP and production physical-state constraints.
@@ -37,8 +38,14 @@ owners and duplicate certificates, retain original CSV evidence, replay without
 extra stock and reconcile a Collectr increase as exactly one new copy. Actual
 Chromium/WebKit fixtures cover the review controls at 320–1440 px, required
 grading input and file clearing after close. CI/deployment/live readback must
-pass before declaring this release live. No real customer CSV or inventory is
-submitted as a release test.
+pass before declaring this release live. Local and CI database/browser checks
+passed; initial fixture failures were corrected by isolating the Collectr
+snapshot account from unrelated generic history and scoping browser label
+selectors to the import dialog. Visual inspection then found Safari's dark
+native-select palette, corrected explicitly without changing field behaviour.
+Final verification and release receipts are tracked in
+[PR #681](https://github.com/pulltheorytcg/drop-rate-backend/pull/681).
+No real customer CSV or inventory is submitted as a release test.
 
 Rollback: revert this code release to the prior successful API deployment.
 No database migration or production data rewrite is needed.

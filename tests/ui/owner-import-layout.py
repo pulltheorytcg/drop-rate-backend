@@ -87,6 +87,7 @@ def main():
                 menu.locator('[data-owner-import-adapter="COLLECTR"]').click()
                 dialog = page.locator('#owner-import-dialog')
                 dialog.wait_for(state='visible')
+                assert dialog.evaluate("el => getComputedStyle(el).colorScheme") == 'light', 'Native Safari dropdowns must use the light dialog palette'
                 box = rectangle(dialog)
                 assert box['left'] >= -1 and box['right'] <= width + 1, (engine, width, box)
                 assert box['top'] >= -1 and box['bottom'] <= height + 1, (engine, width, height, box)
