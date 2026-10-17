@@ -19,10 +19,15 @@ window.DropRateScanner = (() => {
   }).format(value / 100);
   const snapshot = candidate => candidate?.candidate_snapshot || candidate || {};
   const selected = item => item.selected || item.suggested;
+  const book = item => item.mode === "COMIC";
   const sealed = item => [snapshot(selected(item)).product_type,
     snapshot(selected(item)).collectible_type].includes("SEALED");
   const name = item => snapshot(selected(item)).name || item.guess || "Check this match";
   const meta = item => {
+    if (book(item)) {
+      const fields = item.bookResult?.fields || {};
+      return [fields.publisher, fields.language, fields.volume_identifier].filter(Boolean).join(" · ");
+    }
     const card = snapshot(selected(item));
     return [card.game, card.set_name, card.product_code || card.card_number || card.base_card_id,
       card.language, card.variant || card.art_treatment].filter(Boolean).join(" · ");
@@ -197,7 +202,7 @@ window.DropRateScanner = (() => {
       this.epoch = 0;
       this.cameraRevision = 0;
       this.searchRevision = 0;
-      this.mode = ["RAW", "GRADED", "SEALED"].includes(options.mode) ? options.mode : "RAW";
+      this.mode = ["RAW", "GRADED", "SEALED", ...(options.openBooks ? ["COMIC"] : [])].includes(options.mode) ? options.mode : "RAW";
       this.auto = true;
       // Auto capture requires an observed EMPTY guide before it can arm.
       // This prevents a static textured desk/background from triggering on
@@ -267,20 +272,20 @@ window.DropRateScanner = (() => {
 
     build() {
       this.dialog = node("dialog", "dr-scanner");
-      this.dialog.setAttribute("aria-label", "Drop Rate card scanner");
+      this.dialog.setAttribute("aria-label", "Drop Rate scanner");
       this.dialog.innerHTML = '<section class="dr-scan-camera">' +
         '<video autoplay muted playsinline aria-label="Live camera"></video>' +
         '<header class="dr-scan-topbar"><button type="button" data-action="close" aria-label="Close scanner">←</button>' +
         '<strong>Trading Card Games</strong><button type="button" data-action="settings" aria-label="Scanner settings">⚙</button></header>' +
         '<nav class="dr-scan-modes' + (this.options.openBooks ? ' dr-scan-modes-books' : '') + '" aria-label="Scan type">' +
         ['RAW', 'GRADED', 'SEALED'].map(mode => '<button type="button" data-mode="' + mode + '" aria-pressed="false">' + mode + '</button>').join('') +
-        (this.options.openBooks ? '<button type="button" data-action="books">COMICS / MANGA</button>' : '') + '</nav>' +
+        (this.options.openBooks ? '<button type="button" data-mode="COMIC" aria-pressed="false">COMICS / MANGA</button>' : '') + '</nav>' +
         '<button type="button" class="dr-scan-certificate" data-action="certificate" hidden>Enter certificate</button>' +
         '<div class="dr-scan-guide" aria-hidden="true"></div><p class="dr-scan-status" role="status">Place a card inside the guide</p>' +
         '<button type="button" class="dr-scan-camera-resume" data-action="resume">Start camera</button>' +
         '<div class="dr-scan-settings" hidden><label><input type="checkbox" checked> Auto-scan</label>' +
         '<button type="button" data-action="switch">Switch camera</button><button type="button" data-action="torch" hidden>Torch off</button></div>' +
-        '<div class="dr-scan-tray"><div class="dr-scan-strip" aria-label="Scanned cards"></div>' +
+        '<div class="dr-scan-tray"><div class="dr-scan-strip" aria-label="Scanned items"></div>' +
         '<p class="dr-scan-total"></p><div class="dr-scan-controls">' +
         '<button type="button" data-action="gallery" class="dr-scan-gallery" aria-label="Choose a card photo">▧</button>' +
         '<button type="button" data-action="capture" class="dr-scan-shutter" aria-label="Scan this card"></button>' +
@@ -308,7 +313,6 @@ window.DropRateScanner = (() => {
           torch: () => this.toggleTorch(), certificate: () => this.manualSlab(),
           gallery: () => this.find(".dr-scan-file").click(), capture: () => this.capture(),
           next: () => this.showReview(), back: () => this.startCamera(), save: () => this.saveAll(),
-          books: () => { if (!this.processing && !this.saving && !this.editBusy) { this.close(); this.options.openBooks?.(); } },
         };
         actions[control.dataset.action]();
       }));
@@ -336,15 +340,17 @@ window.DropRateScanner = (() => {
 
     guideMessage() {
       return this.mode === "GRADED" ? "Show the full slab · keep the label and QR readable"
+        : this.mode === "COMIC" ? "Frame the whole book cover · include the label if graded"
         : this.mode === "SEALED" ? "Frame the whole pack, box or sealed set" : "Place a card inside the guide";
     }
 
     setMode(mode) {
-      if (!["RAW", "GRADED", "SEALED"].includes(mode) || this.processing || this.edit || this.saving) return;
+      if (!["RAW", "GRADED", "SEALED", ...(this.options.openBooks ? ["COMIC"] : [])].includes(mode) || this.processing || this.edit || this.saving) return;
       this.mode = mode; this.dialog.dataset.mode = mode;
+      this.find(".dr-scan-topbar strong").textContent = mode === "COMIC" ? "Comics & Manga" : "Trading Card Games";
       this.dialog.querySelectorAll("[data-mode]").forEach(control => control.setAttribute("aria-pressed", String(control.dataset.mode === mode)));
       this.find('[data-action="certificate"]').hidden = mode !== "GRADED";
-      this.find('[data-action="capture"]').setAttribute("aria-label", "Scan " + (mode === "GRADED" ? "graded slab" : mode === "SEALED" ? "sealed product" : "raw card"));
+      this.find('[data-action="capture"]').setAttribute("aria-label", "Scan " + (mode === "COMIC" ? "comic or manga" : mode === "GRADED" ? "graded slab" : mode === "SEALED" ? "sealed product" : "raw card"));
       this.find('[data-action="gallery"]').setAttribute("aria-label", "Choose an item photo");
       this.previous = null; this.stableFrames = 0; this.presenceFrames = 0;
       this.status(this.guideMessage());
@@ -476,18 +482,19 @@ window.DropRateScanner = (() => {
       finally { if (this.active()) { this.editBusy = false; this.renderDetails(); } }
     }
 
-    async open(mode, {preferCamera = false} = {}) {
+    async open(mode, {preferCamera = false, review = false} = {}) {
       if (mode) this.setMode(mode);
       if (!this.active()) throw new Error("Please sign in again before scanning.");
       // Repeated navigation cannot create a second dialog or camera stream.
       if (this.dialog.open) {
-        if (preferCamera && this.view !== "camera") await this.startCamera();
+        if (review) this.showReview();
+        else if (preferCamera && this.view !== "camera") await this.startCamera();
         return;
       }
       this.returnFocus = document.activeElement;
       this.dialog.showModal();
       document.body.classList.add("dr-scanner-open");
-      if (!preferCamera && this.items.some(item => item.requests)) this.showReview();
+      if (review || (!preferCamera && this.items.some(item => item.requests))) this.showReview();
       else await this.startCamera();
     }
 
@@ -572,7 +579,7 @@ window.DropRateScanner = (() => {
         this.presenceFrames = 0;
         this.absenceFrames = 0;
         // Preserve the removal gate when returning from details/review.
-        this.status(this.awaitingRemoval ? "Remove the scanned card before continuing" : this.guideMessage());
+        this.status(this.awaitingRemoval ? "Remove the scanned item before continuing" : this.guideMessage());
         this.timer = setInterval(() => this.tick(), 420);
       } catch (error) {
         if (revision !== this.cameraRevision || !this.active()) return;
@@ -645,13 +652,13 @@ window.DropRateScanner = (() => {
           this.autoArmed = true;
           this.awaitingRemoval = false;
         }
-        this.status(this.awaitingRemoval ? "Remove the scanned card to continue" : this.guideMessage());
+        this.status(this.awaitingRemoval ? "Remove the scanned item to continue" : this.guideMessage());
         return;
       }
       this.absenceFrames = 0;
       if (!this.auto) return; // Removal detection still re-arms deliberate manual captures.
       if (this.awaitingRemoval) {
-        this.status("Card scanned · show the next card after removing this one");
+        this.status("Photo captured · remove this item before scanning another copy");
         return;
       }
       if (!this.autoArmed) {
@@ -672,8 +679,8 @@ window.DropRateScanner = (() => {
         this.stableFrames = strong && movement <= 0.018 && aligned
           ? this.stableFrames + 1 : 0;
         if (this.presenceFrames < 5 || this.stableFrames < 4) {
-          this.status(strong ? "Card detected · hold steady inside the guide"
-            : "Clear the guide briefly, then place your card inside");
+          this.status(strong ? "Item detected · hold steady inside the guide"
+            : "Clear the guide briefly, then place your item inside");
           return;
         }
         this.autoArmed = true;
@@ -682,7 +689,7 @@ window.DropRateScanner = (() => {
         return;
       }
       this.presenceFrames += 1;
-      if (this.atCapacity()) { this.status("Two scans are recognising · keep the next card ready"); return; }
+      if (this.atCapacity()) { this.status("Two scans are recognising · keep the next item ready"); return; }
       const movement = fingerprintDelta(analysis.fingerprint, this.previous);
       const previousBox = this.previousBox, box = analysis.box;
       const aligned = !previousBox || !box || (
@@ -694,7 +701,7 @@ window.DropRateScanner = (() => {
       this.previousBox = box;
       this.stableFrames = movement <= 0.022 && aligned ? this.stableFrames + 1 : 0;
       if (this.presenceFrames < 3 || this.stableFrames < 3) {
-        this.status("Card detected · hold steady inside the guide");
+        this.status("Item detected · hold steady inside the guide");
         return;
       }
       if (this.mode === "GRADED" && !this.qrBusy) this.captureSlabQr();
@@ -751,6 +758,7 @@ window.DropRateScanner = (() => {
       if (this.atCapacity() || !this.active() || retryItem?.status === "processing" || retryItem?.requests || this.saving) return;
       const epoch = this.epoch;
       const item = retryItem || {id: crypto.randomUUID(), photo, mode: this.mode, quantity: 1, condition: "", selected: null};
+      if (book(item)) { await this.recogniseBook(photo, item, !retryItem); return; }
       if (graded(item)) { await this.recogniseSlab(photo, item, !retryItem); return; }
       item.run = null; item.selected = null; item.suggested = null; item.candidates = [];
       item.status = "processing"; item.error = null; item.guess = "Photo captured · identifying…";
@@ -785,6 +793,34 @@ window.DropRateScanner = (() => {
       } finally {
         clearTimeout(timeout); this.controllers.delete(controller);
         this.inFlight -= 1;
+        if (this.active(epoch)) this.render();
+      }
+    }
+
+    async recogniseBook(photo, item, addItem) {
+      const epoch = this.epoch;
+      item.bookResult = null; item.status = "processing"; item.error = null;
+      item.guess = "Photo captured · reading book…";
+      if (addItem) this.items.push(item);
+      this.inFlight += 1; this.status("Reading the book cover · you can capture the next book"); this.render();
+      const controller = new AbortController(); this.controllers.add(controller);
+      const timeout = setTimeout(() => controller.abort(), 70000);
+      try {
+        const result = await this.request("/api/v1/owner/books/recognize", {method: "POST", signal: controller.signal,
+          body: JSON.stringify({images: [photo]})});
+        item.bookResult = result; item.status = "unresolved";
+        const fields = result.fields || {};
+        item.guess = result.status === "NEEDS_REVIEW" ? [fields.series_title || "Book details read",
+          fields.issue_number ? (fields.system_code === "MANGA" ? "Vol. " : "#") + fields.issue_number : ""].filter(Boolean).join(" ") : "Book not recognised";
+        if (result.status !== "NEEDS_REVIEW") item.error = (result.warnings || []).join(" ") || "Try a clearer cover or barcode photo.";
+        this.status("Tap the book thumbnail to review its details");
+      } catch (error) {
+        if (!this.active(epoch)) return;
+        item.status = "unresolved"; item.guess = "Book scan needs another look";
+        item.error = error.name === "AbortError" ? "Book recognition timed out. Retry the photo in review." : error.message;
+        this.status("Couldn’t read this book · tap its thumbnail to retry");
+      } finally {
+        clearTimeout(timeout); this.controllers.delete(controller); this.inFlight -= 1;
         if (this.active(epoch)) this.render();
       }
     }
@@ -846,6 +882,7 @@ window.DropRateScanner = (() => {
     }
 
     thumb(item, className = "dr-scan-thumb", candidate = selected(item), captured = false) {
+      captured = captured || book(item);
       const wrap = node("div", className);
       const image = node("img"); image.alt = captured ? "Your scanned photo" : name({...item, selected: candidate});
       image.addEventListener("error", () => { image.hidden = true; });
@@ -865,8 +902,8 @@ window.DropRateScanner = (() => {
       return {value: unknown === copies && copies > 0 ? null : value, unknown, copies};
     }
 
-    editable(item) { return !this.saving && !this.editBusy && !item.requests && item.status !== "processing"; }
-    ready(item) { return Boolean(item.requests || (item.selected?.catalogue_id && item.status === "matched"
+    editable(item) { return !this.saving && !this.editBusy && !item.requests && item.status !== "processing" && !(book(item) && item.status === "added"); }
+    ready(item) { return !book(item) && Boolean(item.requests || (item.selected?.catalogue_id && item.status === "matched"
       && (graded(item) ? gradeValid(item) && item.quantity === 1 : usableRun(item) && (!item.condition || conditions.includes(item.condition))))); }
 
     render() {
@@ -875,14 +912,14 @@ window.DropRateScanner = (() => {
       if (!this.items.length) strip.append(node("p", "dr-scan-strip-empty", "Your scans will appear here"));
       for (const item of [...this.items].reverse()) {
         const tile = button("", () => this.openDetails(item), "dr-scan-tile " + item.status);
-        tile.disabled = item.status === "processing" || this.saving;
-        tile.setAttribute("aria-label", (item.status === "processing" ? "Recognising card" : "Review " + name(item)));
+        tile.disabled = !this.editable(item);
+        tile.setAttribute("aria-label", (item.status === "processing" ? "Recognising item" : "Review " + name(item)));
         tile.append(this.thumb(item));
         const copy = node("span", "dr-scan-tile-copy");
         copy.append(node("strong", "", item.status === "processing" ? item.guess : name(item)));
         const card = snapshot(selected(item));
         if (item.status !== "processing") copy.append(node("span", "", card.card_number || card.product_code || ""),
-          node("span", "", item.status === "unresolved" ? "Check match" : money(valueOf(item))));
+          node("span", "", book(item) ? (item.status === "added" ? "Added to inventory" : "Review book") : item.status === "unresolved" ? "Check match" : money(valueOf(item))));
         tile.append(copy); strip.append(tile);
       }
       this.find(".dr-scan-total").textContent = "Total: " + money(totals.value) + (totals.unknown ? " · " + totals.unknown + " pending" : "");
@@ -913,21 +950,28 @@ window.DropRateScanner = (() => {
         copy.append(node("strong", "dr-scan-card-value", valueOf(item) == null ? "Market value unavailable" : money(valueOf(item))));
         const fields = node("dl");
         const card = snapshot(selected(item));
-        for (const [label, value] of [["Variant", card.variant || card.art_treatment || card.sealed_product_type || "—"],
+        const bookFields = item.bookResult?.fields || {};
+        const details = book(item) ? [["Type", bookFields.system_code === "MANGA" ? "Manga" : "Comic / book"],
+          ["Printing", bookFields.printing_number || "Check your copy"],
+          ["Copy details", item.status === "added" ? "Confirmed in book review" : "Review edition, condition and any grading label"], ["Quantity", 1]] : [["Variant", card.variant || card.art_treatment || card.sealed_product_type || "—"],
           ["Type", graded(item) ? item.grading_company + " " + item.grade : sealed(item) ? "Sealed product" : "Raw card"],
-          [graded(item) ? "Certificate" : "Condition", graded(item) ? item.certificate_number : sealed(item) ? "Sealed" : item.condition || "Not recorded — needed when selling"], ["Quantity", item.quantity]]) {
+          [graded(item) ? "Certificate" : "Condition", graded(item) ? item.certificate_number : sealed(item) ? "Sealed" : item.condition || "Not recorded — needed when selling"], ["Quantity", item.quantity]];
+        for (const [label, value] of details) {
           fields.append(node("dt", "", label), node("dd", "", value));
         }
         copy.append(fields);
-        const edit = button(item.status === "unresolved" ? "Confirm match" : "Confirm & add", () => this.openDetails(item));
+        const edit = button(book(item) ? "Review book details" : item.status === "unresolved" ? "Confirm match" : "Confirm & add", () => this.openDetails(item));
         edit.disabled = !this.editable(item); copy.append(edit);
+        if (book(item) && item.status !== "added") {
+          const remove = button("Remove scan", () => this.remove(item)); remove.disabled = !this.editable(item); copy.append(remove);
+        }
         if (item.status === "added") copy.append(node("span", "dr-scan-added", "Added to inventory"));
         if (item.error) copy.append(node("p", "dr-scan-item-error", item.error));
         body.append(copy); row.append(body); list.append(row);
       }
       const totals = this.totals();
       this.find(".dr-scan-review-total").textContent = "Total: " + money(totals.value);
-      const unresolved = this.items.filter(item => !item.selected).length;
+      const unresolved = this.items.filter(item => !item.selected && item.status !== "added").length;
       const missingCondition = this.items.filter(item => item.selected && !graded(item) && !sealed(item) && !item.condition).length;
       const matched = this.items.length - unresolved;
       this.find(".dr-scan-review-count").textContent = matched + " matched " + (matched === 1 ? "scan" : "scans") +
@@ -936,20 +980,39 @@ window.DropRateScanner = (() => {
       const done = this.items.length && this.items.every(item => item.status === "added");
       const retry = this.items.some(item => item.requests && item.status !== "added");
       const save = this.find('[data-action="save"]');
-      save.textContent = this.saving ? "Adding…" : done ? "View inventory" : retry ? "Retry remaining saves" : "Confirm & add recognised";
-      save.disabled = this.saving || !this.items.length || (!done && !this.items.some(item => item.status !== "added" && this.ready(item)));
+      const reviewBook = this.items.find(item => book(item) && this.editable(item));
+      const ready = this.items.some(item => item.status !== "added" && this.ready(item));
+      save.textContent = this.saving ? "Adding…" : done ? "View inventory" : retry ? "Retry remaining saves" : !ready && reviewBook ? "Review book details" : "Confirm & add recognised";
+      save.disabled = this.saving || !this.items.length || (!done && !ready && !reviewBook);
       this.find('[data-action="back"]').disabled = this.saving;
       this.review.querySelector('[data-action="close"]').disabled = this.saving;
     }
 
     openDetails(item) {
       if (!this.editable(item)) return;
+      if (book(item)) { this.openBookDetails(item); return; }
       this.edit = {item, mode: item.mode, selected: item.selected || item.suggested, condition: item.condition,
         quantity: item.quantity, searchSelected: item.searchSelected || false,
         grading_company: item.grading_company ?? "PSA", grade: item.grade || "", certificate_number: item.certificate_number || "",
         slab: item.slab};
       this.sheet.hidden = false; this.camera.inert = true; this.review.inert = true;
       this.renderDetails();
+    }
+
+    openBookDetails(item) {
+      if (!this.active() || !this.options.openBooks || !this.items.includes(item)) return;
+      const epoch = this.epoch;
+      this.close();
+      const resume = () => { if (this.active(epoch)) this.open(null, {review: true}); };
+      const opened = this.options.openBooks({scanItemId: item.id, photos: item.photo ? [item.photo] : [],
+        recognition: item.bookResult || {status: "NO_MATCH", warnings: [item.error || "Read the photo again or enter the book details."]},
+        onSaved: (result, copy) => {
+          if (!this.active(epoch) || !this.items.includes(item)) return;
+          item.status = "added"; item.error = null; item.photo = null; item.guess = result.catalogue.name;
+          if (copy?.new_catalogue) item.bookResult = {fields: {...copy.new_catalogue.comic_printing, language: copy.language}};
+          this.render();
+        }, onClose: resume});
+      if (opened === false) resume();
     }
 
     closeDetails() {
@@ -1331,6 +1394,7 @@ window.DropRateScanner = (() => {
     }
 
     freeze(item) {
+      if (book(item)) throw new Error("Review and save books through book intake.");
       if (item.requests) return;
       const isSealed = sealed(item), card = snapshot(item.selected);
       if (graded(item)) {
@@ -1357,7 +1421,11 @@ window.DropRateScanner = (() => {
       if (this.items.every(item => item.status === "added")) { this.close(); this.options.viewInventory(); return; }
       const targets = (onlyItems || this.items).filter(item => this.items.includes(item)
         && item.status !== "added" && this.ready(item));
-      if (!targets.length) return;
+      if (!targets.length) {
+        const nextBook = (onlyItems || this.items).find(item => book(item) && this.editable(item));
+        if (nextBook) this.openDetails(nextBook);
+        return;
+      }
       this.saving = true; targets.forEach(item => this.freeze(item)); this.renderReview();
       const epoch = this.epoch;
       const message = this.find(".dr-scan-save-message");

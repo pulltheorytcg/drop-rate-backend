@@ -11,7 +11,7 @@ const deferred = () => {
 const tick = () => new Promise(resolve => setImmediate(resolve));
 let checks = 0;
 
-function fixture(role = 'seller', request = async () => ({})) {
+function fixture(role = 'seller', request = async () => ({}), options = {}) {
   const dom = new JSDOM('<button id="launch">Scan</button>', {url:'https://example.test', runScripts:'outside-only', pretendToBeVisual:true});
   const w = dom.window;
   w.HTMLDialogElement.prototype.showModal = function(){ this.open = true; };
@@ -25,7 +25,7 @@ function fixture(role = 'seller', request = async () => ({})) {
   const calls = [];
   const scanner = new w.DropRateScanner.Scanner({role, session: () => session.value,
     request: async (url, options) => { calls.push({url,...options}); return request(url, options); },
-    afterSave: async () => {}, viewInventory: () => { scanner.inventoryOpened = true; }});
+    afterSave: async () => {}, viewInventory: () => { scanner.inventoryOpened = true; }, ...options});
   return {dom, w, scanner, calls, session, finish: () => { scanner.destroy(); dom.window.close(); }};
 }
 
@@ -43,6 +43,75 @@ async function matched(scanner, quantity = 1) {
 }
 
 (async () => {
+  // Book mode stays in the live scanner; OCR suggestions never use card intake.
+  {
+    const pending=deferred();let review;
+    const f=fixture('seller',()=>pending.promise,{openBooks:options=>{review=options;return true;}});
+    const s=f.scanner;s.dialog.showModal();s.view='camera';const stream={getTracks:()=>[]};s.stream=stream;
+    s.find('[data-mode="COMIC"]').click();assert.equal(s.mode,'COMIC');assert.ok(s.dialog.open);
+    assert.equal(s.stream,stream);assert.equal(review,undefined);assert.match(s.find('.dr-scan-status').textContent,/book cover/);
+    const recognition=s.recognise('data:image/jpeg;base64,AA==');await tick();
+    assert.equal(f.calls[0].url,'/api/v1/owner/books/recognize');assert.deepEqual(JSON.parse(f.calls[0].body),{images:['data:image/jpeg;base64,AA==']});
+    s.setMode('RAW');assert.equal(s.mode,'COMIC','Mode stays locked during book recognition');
+    pending.resolve({status:'NEEDS_REVIEW',fields:{system_code:'MANGA',series_title:'Fixture Manga',issue_number:'2'},uncertain_fields:['printing_number']});await recognition;
+    const item=s.items[0];assert.equal(item.status,'unresolved');assert.equal(s.ready(item),false);
+    assert.match(s.find('.dr-scan-strip').textContent,/Fixture Manga Vol. 2/);
+    assert.equal(s.find('.dr-scan-thumb img').src,item.photo);assert.equal(f.calls.length,1);
+    s.showReview();assert.doesNotMatch(s.review.textContent,/Raw card/);await s.saveAll();
+    assert.ok(!s.dialog.open);assert.equal(review.recognition,item.bookResult);assert.equal(review.photos[0],item.photo);
+    assert.equal(f.calls.length,1,'Review is not a write or a second OCR request');
+    assert.throws(()=>s.freeze(item),/book intake/);
+    review.onSaved({catalogue:{name:'Confirmed manga'}});review.onClose();
+    assert.equal(item.status,'added');assert.equal(item.photo,null);assert.ok(s.dialog.open);assert.equal(s.view,'review');
+    assert.equal(s.find('[data-action="save"]').textContent,'View inventory');
+    s.openDetails(item);assert.equal(item.status,'added');await s.saveAll();assert.equal(s.inventoryOpened,true);
+    f.finish();checks++;
+  }
+  // Failed reads retain the cover for review/retry, with no guessed identity or price.
+  for(const response of ['NO_MATCH','error']) {
+    let review;const f=fixture('seller',async()=>{if(response==='error')throw new Error('Provider unavailable');return {status:'NO_MATCH',warnings:['No book visible']};},
+      {openBooks:options=>{review=options;return true;}});
+    f.scanner.setMode('COMIC');await f.scanner.recognise('photo');const item=f.scanner.items[0];
+    assert.equal(item.status,'unresolved');assert.equal(f.scanner.ready(item),false);assert.equal(f.scanner.totals().value,null);
+    f.scanner.openDetails(item);assert.equal(review.photos[0],'photo');assert.equal(review.recognition.status,'NO_MATCH');
+    assert.equal(f.calls.length,1);f.finish();checks++;
+  }
+  // Late book reads/review callbacks cannot populate a different account or a destroyed scanner.
+  for(const action of ['switch','destroy']) {
+    const pending=deferred();const f=fixture('seller',()=>pending.promise,{openBooks:()=>true});
+    f.scanner.setMode('COMIC');const reading=f.scanner.recognise('private-photo');await tick();
+    if(action==='switch')f.session.value={access_token:'b',user:{id:'account-b'}};else f.scanner.destroy();
+    pending.resolve({status:'NEEDS_REVIEW',fields:{series_title:'Private book'}});await reading;
+    assert.ok(!f.scanner.items.some(item=>item.bookResult));f.finish();checks++;
+  }
+  // An uncertain book save belongs to its original scan, even if the seller
+  // tries to review a different queued book before retrying that same request.
+  {
+    let fail=true;
+    const f=fixture('seller',async url=>{
+      if(url.endsWith('/recognize'))return {status:'NEEDS_REVIEW',fields:{system_code:'MANGA',series_title:'Fixture Manga',issue_number:'1',language:'English',publisher:'Fixture publisher',book_format:'MANGA'}};
+      if(url.endsWith('/intake')&&fail){fail=false;throw new Error('Response lost');}
+      return {catalogue:{name:'Saved manga'},inventory:{id:'book-copy'}};
+    },{openBooks:options=>f.w.DropRateBooks.open(options)});
+    f.w.state={session:f.session.value};f.w.apiRequest=f.scanner.options.request;
+    f.w.loadOwnerInventory=async()=>{};f.w.loadOwnerOverview=async()=>{};
+    f.w.eval(fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner-books.js'),'utf8'));
+    const s=f.scanner;s.setMode('COMIC');await s.recognise('photo-one');await s.recognise('photo-two');
+    const [first,second]=s.items;s.openDetails(first);
+    const doc=f.w.document,form=doc.getElementById('owner-book-form');
+    form.dispatchEvent(new f.w.Event('submit',{cancelable:true}));await tick();await tick();
+    assert.equal(doc.getElementById('owner-book-save').textContent,'Retry this book');
+    doc.getElementById('owner-book-close').click();s.openDetails(second);
+    assert.match(doc.getElementById('owner-book-message').textContent,/previous book save/);
+    assert.ok(doc.getElementById('owner-book-fields').disabled);
+    form.dispatchEvent(new f.w.Event('submit',{cancelable:true}));await tick();await tick();
+    assert.equal(first.status,'added');assert.equal(second.status,'unresolved');
+    const saves=f.calls.filter(call=>call.url.endsWith('/intake'));
+    assert.equal(saves.length,2);assert.equal(saves[0].body,saves[1].body);
+    assert.equal(saves[0].headers['Idempotency-Key'],saves[1].headers['Idempotency-Key']);
+    assert.ok(!f.calls.some(call=>call.url.includes('recognition-intake')||call.url.includes('/feedback')));
+    f.w.DropRateBooks.reset();f.finish();checks++;
+  }
   {
     const f=fixture();const imagePath='/api/v1/catalogue-browser/reference-image?provider_id=OP16-077';
     const blob=new f.w.Blob(['image'],{type:'image/png'});const calls=[];
@@ -194,9 +263,9 @@ async function matched(scanner, quantity = 1) {
     assert.equal(f.scanner.items.length, 1); assert.equal(item.run.id, 'run-1');
     f.finish(); checks += 1;
   }
-  // Stable empty backgrounds do not scan; physical removal is required between auto captures.
-  {
-    const f = fixture(); const s = f.scanner;
+  // Cards and books use the same stable-object/removal gate for auto captures.
+  for (const mode of ['RAW', 'COMIC']) {
+    const f = fixture('seller', async()=>({}), {openBooks:()=>true}); const s = f.scanner; s.setMode(mode);
     s.stream = {getTracks: () => []}; s.view = 'camera';
     Object.defineProperty(s.video, 'videoWidth', {value: 1920});
     let present = false, captured = 0;

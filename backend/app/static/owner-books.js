@@ -3,6 +3,7 @@
   const conditions = ["Mint", "Near Mint", "Very Fine", "Fine", "Very Good", "Good", "Fair", "Poor"];
   let dialog, requestKey, submittedPayload, actorId, saving = false, pending = false, saved = false;
   let photos = [], scanRevision = 0, scanning = false, scanController = null, priceRevision = 0;
+  let reviewContext = null;
   const node = id => document.getElementById(`owner-book-${id}`);
   const value = id => node(id).value.trim();
   const optional = id => value(id) || null;
@@ -62,7 +63,7 @@
         <fieldset id="owner-book-fields">
           <legend>Book details</legend>
           <div class="owner-import-fields">
-            <label>Category<select id="owner-book-category" required><option value="MARVEL_COMICS">Marvel Comics</option><option value="DC_COMICS">DC Comics</option><option value="OTHER_COMICS">Other comics</option><option value="MANGA">Manga</option></select></label>
+            <label>Category<select id="owner-book-category" required><option value="">Choose category</option><option value="MARVEL_COMICS" selected>Marvel Comics</option><option value="DC_COMICS">DC Comics</option><option value="OTHER_COMICS">Other comics</option><option value="MANGA">Manga</option></select></label>
             <label>Series title<input id="owner-book-series" maxlength="140" required></label>
             <label><span id="owner-book-number-text">Issue / book number</span><input id="owner-book-number" maxlength="40" placeholder="e.g. 1, Annual 1 or Omnibus 1" required></label>
             <label>Series volume / edition <span>(optional)</span><input id="owner-book-volume" maxlength="40" placeholder="e.g. Vol. 2 or Deluxe edition"></label>
@@ -105,7 +106,13 @@
     node("grader").addEventListener("change", clearGradingDetails);
     for (const id of ["close", "cancel"]) node(id).addEventListener("click", () => { if (!saving) { cancelScan(); dialog.close(); } });
     dialog.addEventListener("cancel", event => { if (saving) event.preventDefault(); });
-    dialog.addEventListener("close", () => { if (!dialog.open) cancelScan(); });
+    dialog.addEventListener("close", () => {
+      if (dialog.open) return;
+      cancelScan();
+      const resume = reviewContext?.onClose;
+      if (reviewContext) reviewContext.onClose = null;
+      resume?.();
+    });
     node("camera").addEventListener("click", () => node("camera-file").click());
     node("gallery").addEventListener("click", () => node("gallery-file").click());
     for (const id of ["camera-file", "gallery-file"]) node(id).addEventListener("change", addPhotos);
@@ -256,6 +263,10 @@
       node("message").textContent = `${result.catalogue.name} added to your collection as a draft.`;
       node("save").textContent = "Added to inventory";
       node("cancel").textContent = "Done";
+      // The scanner only receives a receipt after explicit, successful book intake.
+      // A presentation callback must never turn a committed save into a retry.
+      try { reviewContext?.onSaved?.(result, JSON.parse(body)); } catch (_) { /* Inventory already saved. */ }
+      if (reviewContext) reviewContext.onSaved = null;
       // A failed refresh must not turn a successful save into a second intake.
       await Promise.allSettled([loadOwnerInventory(), loadOwnerOverview()]);
     } catch (error) {
@@ -271,9 +282,17 @@
 
   function open(options = {}) {
     ensureDialog();
-    if (saving) return;
-    if (pending && actorId === state.session?.user?.id) { dialog.showModal(); return; }
+    if (saving) return false;
+    if (pending && actorId === state.session?.user?.id) {
+      // Preserve the original payload, key and receipt callback even when a
+      // different queued scan tries to open while the earlier save is uncertain.
+      if (options.scanItemId && options.scanItemId !== reviewContext?.scanItemId)
+        node("message").textContent = "Finish checking the previous book save before reviewing another book. Retry this same book safely.";
+      reviewContext = {...reviewContext, onClose: options.onClose};
+      dialog.showModal(); return true;
+    }
     actorId = state.session?.user?.id; pending = false; saved = false;
+    reviewContext = {...options};
     cancelScan(); photos = [];
     node("form").reset(); requestKey = crypto.randomUUID(); submittedPayload = null;
     node("fields").disabled = false; node("save").disabled = false;
@@ -281,6 +300,7 @@
     node("message").textContent = "";
     node("scan-message").textContent = "Up to 3 photos of the same book. You confirm the details before saving.";
     node("market-result").textContent = "Complete the book and copy details to check matching sold evidence.";
+    node("title").textContent = options.recognition ? "Review your comic or manga" : "Add a comic or manga";
     if (options.book) {
       const fields = options.book;
       const mapping = {system_code:"category", series_title:"series", issue_number:"number", volume_identifier:"volume",
@@ -291,8 +311,15 @@
       node("condition").value = "";
       node("scan-message").textContent = "Catalogue details filled in. Check these against your copy, including its printing and cover.";
     }
+    if (options.recognition) {
+      photos = (options.photos || []).slice(0, 3);
+      // A failed read cannot silently inherit the manual form's defaults.
+      for (const id of ["category", "language", "format"]) node(id).value = "";
+      applySuggestion(options.recognition);
+    }
     update(); renderPhotos(); dialog.showModal(); (options.scan ? node("camera") : node("category")).focus();
+    return true;
   }
-  window.DropRateBooks = {open, reset() { cancelScan(); photos = []; if (dialog) { dialog.close(); renderPhotos(); } }};
+  window.DropRateBooks = {open, reset() { reviewContext = null; cancelScan(); photos = []; if (dialog) { dialog.close(); renderPhotos(); } }};
   document.querySelectorAll("[data-owner-add-book]").forEach(button => button.addEventListener("click", open));
 })();
