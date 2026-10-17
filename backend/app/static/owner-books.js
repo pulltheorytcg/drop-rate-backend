@@ -52,7 +52,8 @@
         <button type="button" class="owner-import-close" id="owner-book-close" aria-label="Close add book">×</button>
       </div>
       <form id="owner-book-form" class="owner-import-dialog-body">
-        <section class="owner-book-scanner" aria-label="Comic and manga scanner">
+        <details id="owner-book-photo-details" class="owner-book-scanner" open>
+          <summary>Add a cover, barcode or inside-page photo</summary>
           <h3>Scan your comic or manga</h3>
           <p>Start with the front cover. If we need another clue, add the barcode or the small copyright text inside. For graded books, include the label.</p>
           <div class="owner-book-photo-actions">
@@ -64,7 +65,7 @@
           <div id="owner-book-photos" class="owner-book-photos"></div>
           <button type="button" id="owner-book-recognize" class="owner-primary-action" disabled>Identify my book</button>
           <p id="owner-book-scan-message" role="status" aria-live="polite">Up to 3 photos of the same book. You confirm the details before saving.</p>
-        </section>
+        </details>
         <section id="owner-book-research" class="owner-book-research" aria-label="Book identification" hidden>
           <h3>Is this your book?</h3>
           <p id="owner-book-research-message" role="status" aria-live="polite"></p>
@@ -225,7 +226,7 @@
       const link = document.createElement("a"); link.href = source; link.target = "_blank"; link.rel = "noopener noreferrer";
       link.textContent = "Publisher record";
       const choose = document.createElement("button"); choose.type = "button"; choose.className = "owner-secondary-action";
-      choose.textContent = selectedResearch === candidate.id ? "Selected · change below if needed" : candidate.image_path ? "This is my cover" : "Use these book details";
+      choose.textContent = selectedResearch === candidate.id ? "Selected cover" : candidate.image_path ? "This is my cover" : "Use these book details";
       choose.setAttribute("aria-pressed", String(selectedResearch === candidate.id));
       choose.disabled = pending || saved || saving;
       choose.addEventListener("click", () => {
@@ -309,9 +310,10 @@
     const missing = (result.uncertain_fields || []).filter(field => ["system_code", "series_title", "issue_number", "language", "publisher", "printing_number"].includes(field)).map(field => field.replaceAll("_", " "));
     research = result.research || null; researchRunId = result.run_id || null;
     selectedResearch = research?.selected_candidate_id || null;
-    node("scan-message").textContent = research ? "Cover read. We've looked for its publisher record below."
+    node("scan-message").textContent = research ? "Cover read. Publisher research is shown above."
       : "Book details read — confirm them below." + (missing.length ? " Check: " + missing.join(", ") + "." : "") + " " + (result.warnings || []).join(" ");
     node("details").open = !research || !bookDetailsComplete();
+    node("photo-details").open = !research?.candidates?.length;
     renderResearch();
     priceRevision++; node("market-result").textContent = "Confirm the printing and copy condition or grade, then check its market value.";
   }
@@ -415,7 +417,7 @@
     actorId = state.session?.user?.id; pending = false; saved = false;
     reviewContext = {...options};
     cancelScan(); photos = [];
-    research = null; researchRunId = null; selectedResearch = null; renderResearch(); node("details").open = true;
+    research = null; researchRunId = null; selectedResearch = null; renderResearch(); node("details").open = true; node("photo-details").open = true;
     node("form").reset(); requestKey = crypto.randomUUID(); submittedPayload = null;
     node("fields").disabled = false; node("save").disabled = false;
     node("save").textContent = "Add to my inventory"; node("cancel").textContent = "Cancel";
@@ -441,6 +443,7 @@
     }
     update(); renderPhotos(); dialog.showModal();
     (options.scan ? node("camera") : node("details").open ? node("category") : node("save")).focus({preventScroll:true});
+    node("form").scrollTop = 0;
     return true;
   }
   window.DropRateBooks = {open, reset() { reviewContext = null; cancelScan(); photos = []; if (dialog) { dialog.close(); renderPhotos(); } }};

@@ -31,5 +31,9 @@
 .owner-book-candidate a{font-size:.75rem;color:#205db8;display:inline-block;margin:7px 0}
 .owner-book-candidate button{display:block;width:100%;margin-top:10px;min-height:44px;white-space:normal!important}
 .owner-book-candidate button[aria-pressed=true]{background:#edf5ff;border-color:#2879df;color:#174d91}
+.owner-portal-page .owner-book-dialog .owner-primary-action,.owner-portal-page .owner-book-dialog .owner-secondary-action{box-sizing:border-box;margin:0;max-width:100%;justify-content:center}
+.owner-portal-page .owner-book-candidate button{margin-top:10px}
+.owner-portal-page .owner-book-scanner>.owner-primary-action{width:100%}
+.owner-portal-page .owner-book-actions .owner-primary-action{width:auto}
 @media(max-width:430px){.owner-book-candidate{grid-template-columns:100px minmax(0,1fr);gap:10px;padding:12px}.owner-book-cover img{height:160px}}
 @media(max-width:600px){.owner-book-dialog .owner-import-fields{grid-template-columns:1fr}.owner-book-actions button{flex:1}.owner-book-dialog .owner-import-dialog-body{padding:16px}}

@@ -202,7 +202,17 @@ async def research_book(fields, images, *, api_key, model, http_client=None):
             candidates = accepted_candidates(response.json(), fields)
     except (httpx.HTTPError, TimeoutError, ValueError, TypeError, KeyError, AttributeError) as exc:
         status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
-        logger.warning("Book publisher research unavailable error_type=%s provider_status=%s", type(exc).__name__, status)
+        diagnostic = {}
+        if status:
+            try:
+                error = exc.response.json().get("error", {})
+                diagnostic = {key: value for key in ("code", "param")
+                              if isinstance(value := error.get(key), str)
+                              and re.fullmatch(r"[A-Za-z0-9_.\[\]-]{1,100}", value)}
+            except (ValueError, TypeError, AttributeError):
+                pass
+        # Log only structured error identifiers, never request/response text or keys.
+        logger.warning("Book publisher research unavailable error_type=%s provider_status=%s diagnostic=%s", type(exc).__name__, status, diagnostic)
         return {**fallback, "reason": "PROVIDER_UNAVAILABLE" if status else "RESEARCH_INCOMPLETE", "provider_status": status}
     return {"status": "CANDIDATES" if candidates else "UNAVAILABLE", "candidates": candidates,
             "message": "We researched your book. Compare the publisher cover with your copy." if candidates else fallback["message"]}

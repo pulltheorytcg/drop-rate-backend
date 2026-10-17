@@ -58,6 +58,7 @@ def main():
                 assert page.locator('#owner-book-title').inner_text()=='Confirm your book'
                 assert page.locator('.owner-book-candidate').count()==2
                 assert not page.locator('#owner-book-details').evaluate('(e)=>e.open')
+                assert not page.locator('#owner-book-photo-details').evaluate('(e)=>e.open')
                 assert not page.evaluate('calls.length')
                 page.locator('.owner-book-candidate').nth(1).get_by_role('button').click()
                 assert page.locator('#owner-book-cover').input_value()=='Cover B'
@@ -67,6 +68,7 @@ def main():
                 assert page.locator('#owner-book-price').input_value()==''
                 page.wait_for_function('Array.from(document.querySelectorAll(".owner-book-cover img:not([hidden])")).filter(img => img.complete && img.naturalWidth === 160 && img.naturalHeight === 240).length === 2')
                 assert not page.evaluate('document.querySelector("#owner-book-dialog").scrollWidth > document.querySelector("#owner-book-dialog").clientWidth+2')
+                assert page.locator('.owner-book-candidate').evaluate_all('(cards)=>cards.every(card => card.querySelector("button").getBoundingClientRect().right <= card.getBoundingClientRect().right)')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-book-cover-choice.png'))
                 page.locator('#owner-book-save').click()
                 page.get_by_role('button',name='Added to inventory').wait_for()
@@ -88,6 +90,7 @@ def main():
                 # Research outage keeps usable OCR and doesn't require expertise.
                 page.evaluate("DropRateBooks.open({recognition:{...options,research:{status:'UNAVAILABLE',candidates:[],message:'Add a barcode photo to help.'}}})")
                 assert page.locator('#owner-book-series').input_value()=='Fixture Adventure'
+                assert page.locator('#owner-book-photo-details').evaluate('(e)=>e.open')
                 assert 'save it as unknown' in page.locator('#owner-book-photo-help').inner_text()
                 assert page.locator('#owner-book-printing').input_value()==''
                 # No foreign-owner cover fetches or stale source links survive reset.
