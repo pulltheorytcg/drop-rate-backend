@@ -127,7 +127,7 @@ def main():
                 page.wait_for_function('scanner.dialog.open && scanner.view === "review"')
                 assert page.evaluate('scanner.items[0].status')=='added'
                 assert page.evaluate('scanner.items[0].photo') is None
-                assert page.locator('[data-action="save"]').inner_text()=='View inventory'
+                assert page.locator('[data-action="save"]').inner_text()=='View collection'
                 assert page.locator('.dr-scan-review-item').get_by_role('button',name='Review book details').is_disabled()
                 assert page.evaluate('cameraStarts')==1, 'Returning from review must not reopen the camera'
                 page.evaluate('scanner.close()')
