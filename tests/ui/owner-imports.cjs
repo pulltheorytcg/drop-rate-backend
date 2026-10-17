@@ -15,7 +15,7 @@ const uncertain={...ready,id:"13b203a7-dbe7-4bfc-b671-acd3bf7e4332",source_row:3
 function fixture(records=[ready],options={}){
   const dom=new JSDOM(fs.readFileSync(path.join(root,"owner.html"),"utf8"),{url:"https://drop-rate.test/owner",runScripts:"outside-only",pretendToBeVisual:true});
   const w=dom.window,doc=w.document,context=dom.getInternalVMContext(),calls=[];
-  let rows=structuredClone(records),version=1,automatic=false,exists=Boolean(options.existing),added=0,lost=false,release;
+  let rows=structuredClone(records),version=1,automatic=false,exists=Boolean(options.existing),added=0,lost=false,release,releaseSearch;
   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   w.HTMLDialogElement.prototype.close=function(){this.open=false;};w.confirm=()=>true;
   const status=()=>rows.some(r=>["READY","REVIEW"].includes(r.status))?"PREVIEW":"COMMITTED";
@@ -38,9 +38,13 @@ function fixture(records=[ready],options={}){
     }
     if(url==="/api/v1/owner/imports/"+batchID)return {batch:{id:batchID,version,status:status(),automatic_intake:automatic,adapter:"COLLECTR",source_rows:rows.length,physical_units:records.reduce((n,r)=>n+r.quantity,0),filename:"collection.csv",warnings:[]},candidates:structuredClone(rows)};
     if(url.endsWith("/"+batchID+"/commit")&&method==="POST")return result(apply());
-    if(url.startsWith("/api/v1/owner/imports/catalogue-search?"))return {items:[{id:catalogueID,name:"Known Card",game:"One Piece",set_name:"OP01",card_number:"001",product_type:"CARD",language:"English"}]};
+    if(url.startsWith("/api/v1/owner/imports/catalogue-search?")){
+      if(options.delaySearch)await new Promise(resolve=>{releaseSearch=resolve;});
+      return {items:[{id:catalogueID,name:"Known Card",game:"One Piece",set_name:"OP01",card_number:"001",product_type:"CARD",language:"English"}]};
+    }
     const row=rows.find(r=>url.includes("/candidates/"+r.id+"/"));
     if(row&&url.endsWith("/resolve")&&method==="POST"){
+      if(options.resolveError)throw Object.assign(new Error(options.resolveError),{status:422});
       assert.equal(body.version,version);row.catalogue_id=body.catalogue_id;row.normalized_record.language=body.language||"English";row.issues=[];row.status=automatic?"COMMITTED":"READY";version++;
       const count=automatic?row.quantity:0;added+=count;return result(count,structuredClone(row));
     }
@@ -52,7 +56,7 @@ function fixture(records=[ready],options={}){
   w.__inventoryRefreshed=0;
   vm.runInContext("async function apiRequest(url,init){return window.__fakeApi(url,init)};async function loadOwnerInventory(){window.__inventoryRefreshed++};async function loadOwnerOverview(){};",context);
   vm.runInContext(fs.readFileSync(path.join(root,"owner-imports.js"),"utf8"),context);
-  return {w,doc,calls,get added(){return added},close:()=>w.close(),release:()=>release?.(),
+  return {w,doc,calls,get added(){return added},close:()=>w.close(),release:()=>release?.(),releaseSearch:()=>releaseSearch?.(),
     open:async(source="COLLECTR")=>{doc.getElementById("owner-import-trigger").click();doc.querySelector('[data-owner-import-adapter="'+source+'"]').click();await pause();},
     file:async(name="collection.csv",contents="Product Name,Game,Set,Number,Quantity\nKnown Card,One Piece,OP01,001,2")=>{const f=new w.File([contents],name,{type:"text/csv"});Object.defineProperty(f,"text",{value:async()=>contents});const input=doc.getElementById("owner-import-file");Object.defineProperty(input,"files",{configurable:true,value:[f]});input.dispatchEvent(new w.Event("change",{bubbles:true}));await pause();},
     upload:async()=>{doc.getElementById("owner-import-form").dispatchEvent(new w.Event("submit",{bubbles:true,cancelable:true}));await pause();}};
@@ -106,6 +110,70 @@ function fixture(records=[ready],options={}){
   }
   {
     const f=fixture([ready],{delay:true});await f.open();await f.file();await f.upload();f.doc.getElementById("owner-import-close").click();f.release();await pause();assert.equal(f.doc.getElementById("owner-import-dialog").open,false);assert.equal(f.w.__inventoryRefreshed,0,"A stale completion must not update a closed account view");f.close();checks++;
+  }
+  {
+    const badCondition={...uncertain,issues:["unrecognised_card_condition"]};
+    const f=fixture([badCondition]);await f.open();await f.file();await f.upload();
+    f.doc.querySelector(".owner-import-row-actions button").click();await pause();
+    assert.equal(f.doc.querySelector(".owner-import-card-details").open,true);
+    const choose=f.doc.querySelector(".owner-import-resolver-result button");choose.click();await pause();
+    assert.equal(f.calls.some(c=>c.url.endsWith("/resolve")),false,"An unrecognised condition cannot silently become Near Mint");
+    f.doc.querySelector('[aria-label="Raw card condition"]').value="Lightly Played";
+    choose.click();await pause();
+    assert.deepEqual(f.calls.find(c=>c.url.endsWith("/resolve")).body.card_details,{card_state:"RAW",condition:"Lightly Played",grading_company:null,grade:null,certificate_number:null});
+    assert.equal(f.added,1);f.close();checks++;
+  }
+  {
+    const slab={...uncertain,issues:["unrecognised_collectr_grade"]};
+    const f=fixture([slab]);await f.open();await f.file();await f.upload();
+    f.doc.querySelector(".owner-import-row-actions button").click();await pause();
+    const mode=f.doc.querySelector('[aria-label="Card format"]');assert.equal(mode.value,"","Unrecognised grading must not become raw automatically");
+    mode.value="GRADED";mode.dispatchEvent(new f.w.Event("change"));
+    f.doc.querySelector('[aria-label="Grading company"]').value="BGS";
+    const choose=f.doc.querySelector(".owner-import-resolver-result button");choose.click();await pause();
+    assert.equal(f.calls.some(c=>c.url.endsWith("/resolve")),false,"Incomplete slab label cannot be submitted");
+    f.doc.querySelector('[aria-label="Grade on slab label"]').value="9.5";
+    f.doc.querySelector('[aria-label="Certificate number (optional)"]').value="TEST-123";
+    choose.click();await pause();
+    const details=f.calls.find(c=>c.url.endsWith("/resolve")).body.card_details;
+    assert.equal(details.grade,"9.5");assert.equal(details.condition,null);assert.equal(details.certificate_number,"TEST-123");f.close();checks++;
+  }
+  {
+    const f=fixture([uncertain]);await f.open();await f.file();await f.upload();
+    f.doc.querySelector(".owner-import-row-actions button").click();await pause();
+    const old=f.doc.querySelector(".owner-import-resolver-result button"),input=f.doc.querySelector('.owner-import-resolver input[type="search"]');
+    input.value="different card";input.dispatchEvent(new f.w.Event("input"));
+    assert.equal(f.doc.querySelector(".owner-import-resolver-result"),null);
+    old.click();await pause();assert.equal(f.calls.some(c=>c.url.endsWith("/resolve")),false,"A stale result cannot confirm after editing the search");f.close();checks++;
+  }
+  {
+    const f=fixture([uncertain],{delaySearch:true});await f.open();await f.file();await f.upload();
+    f.doc.querySelector(".owner-import-row-actions button").click();await pause();
+    const input=f.doc.querySelector('.owner-import-resolver input[type="search"]');input.value="new query";input.dispatchEvent(new f.w.Event("input"));
+    f.releaseSearch();await pause();assert.equal(f.doc.querySelector(".owner-import-resolver-result"),null,"An old response cannot repopulate changed search results");f.close();checks++;
+  }
+  for(const action of ["close","session","navigation"]){
+    const f=fixture([uncertain]);await f.open("GENERIC_CSV");await f.file();await f.upload();
+    f.doc.getElementById("owner-import-game").value="Pokemon";
+    f.doc.getElementById("owner-import-language").value="Japanese";
+    f.doc.getElementById("owner-import-map-details").open=true;
+    if(action==="close")f.doc.getElementById("owner-import-close").click();
+    if(action==="session")f.w.dispatchEvent(new f.w.Event("hub-session-cleared"));
+    if(action==="navigation")f.doc.dispatchEvent(new f.w.CustomEvent("owner-view-changed",{detail:{view:"search"}}));
+    assert.equal(f.doc.getElementById("owner-import-game").value,"");assert.equal(f.doc.getElementById("owner-import-language").value,"");
+    for(const id of ["owner-import-map-fields","owner-import-rows","owner-import-summary","owner-import-warnings","owner-import-history-list"]){
+      assert.equal(f.doc.getElementById(id).childElementCount,0,`${action} must clear ${id}`);
+      assert.equal(f.doc.getElementById(id).textContent,"");
+    }
+    assert.equal(f.doc.getElementById("owner-import-map-details").open,false);
+    await f.open();const before=f.calls.filter(c=>c.url.endsWith("/upload")).length;await f.upload();
+    assert.equal(f.calls.filter(c=>c.url.endsWith("/upload")).length,before,"Closed upload contents cannot be reused by another session");f.close();checks++;
+  }
+  {
+    const f=fixture([uncertain],{resolveError:"Chosen language conflicts with the selected catalogue printing"});await f.open();await f.file();await f.upload();
+    f.doc.querySelector(".owner-import-row-actions button").click();await pause();f.doc.querySelector(".owner-import-resolver-result button").click();await pause();
+    assert.match(f.doc.getElementById("owner-import-message").textContent,/Chosen language conflicts/);
+    assert.equal(f.added,0);assert.equal(f.doc.querySelector(".owner-import-resolver-result button").disabled,false);f.close();checks++;
   }
   console.log(`Immediate Seller Hub intake: ${checks} mocked DOM scenarios passed (not a production login/checkout test).`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -26,10 +26,12 @@ from .import_inventory import lock_import_owner, create_draft_copies, json_objec
 from .import_admission import exact_admission, manual_admission_valid, identity_fingerprint, meets_threshold
 from .collectr_snapshot import collectr_source_snapshot_key as collectr_snapshot_key
 from .language import clean_language
+from .import_physical_review import ImportCardDetails, apply_card_details
 
 
 class ConfirmImportCandidate(ImportCandidateResolutionRequest):
     language: str | None = Field(default=None, max_length=80)
+    card_details: ImportCardDetails | None = None
 
     @field_validator("language")
     @classmethod
@@ -207,6 +209,13 @@ async def confirm_candidate(batch_id: UUID,candidate_id: UUID,payload: ConfirmIm
         if "language_conflict" in issues and payload.language is None:
             raise HTTPException(422,"Confirm the card language explicitly to resolve conflicting source information")
         normalized.setdefault("_collectr_source_identity",list(collectr_snapshot_key(normalized)))
+        if payload.card_details is not None:
+            try:
+                normalized, issues = apply_card_details(
+                    normalized, issues, payload.card_details, quantity=row["quantity"],
+                )
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from exc
         for key in ("game","name","set_name","card_number","variant","rarity"):
             normalized[key]=catalogue.get(key)
         normalized["language"]=language
