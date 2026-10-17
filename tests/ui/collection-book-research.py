@@ -9,7 +9,8 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2] / 'backend/app/static'
 OUT = Path(os.getenv('COLLECTION_LAYOUT_DIR', '/tmp/collection-confirmation'))
-PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==')
+# Valid synthetic cover with book proportions; never a customer/publisher image.
+PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAKAAAADwCAIAAAAII/iNAAAFC0lEQVR4nO3czXFcRRhG4c9AEs6DLJwGXhGACcEOgB0hkRJVLG7hkiVmdGdu/7x9+py1i+p+HzeSJdkfPn76XMbtp9kHsL4JDE9geALDExiewPAEhicwPIHhCQxPYHgCwxMY3i/nf+nfX/7pdw57tF+//Xzml/mC4QkMT2B4AsMTGJ7A8ASGJzA8geEJDE9geALDExiewPAEhicwPIHhCQxPYHgCwxMYnsDwBIYnMDyB4QkMT2B4AsMTGJ7A8ASGJzA8geEJDE9geALDExiewPAEhicwPIHhCQxPYHgCw3vgHyM9+a9fWlS+YHgCwxMYnsDwBIYnMDyB4QkMT2B4AsMTGJ7A8ASGJzA8geEJDE9geALD2w74j99/m32Eoe0FfOhuZbwR8EvXfYw3At6zXYDfPtlNHvEWwLcsdzDmA99XxBvzgTcPDnzmgbIfMRn4vBzYGAv8qBnVGAtsR0zg554j8hEDga848YxpwNeFYMY0YHsVCrjV4yM9Yg5wWxWMMQS4hwfDmADcTwJgTAC2Oy0P3PuRrf6I1wYes/7SxgsDj9x9XeOFge1MqwKPf1KLPuIlgWdtvaLxesBzV17OeD1ge6jFgBMeUMIZzrcScM6yOSd5t2WA0zZNO8+tlgG251oDOPO5ZJ7qVQsAJ++YfLajdOD8BcNPmA5sF4sGDn8c30s+Zy5w8mpviz1tKHDsXnfKPHMicOZSZwo8eSKwNSwOOPARPFTa+bOA09Z5rqhbBAFH7XKxnLsEAVuPUoBzfsu3KuRGEcAhWzQv4V7zgRNW6Nf0280Htq5NBp7+G3xAc+84E3gH3aOJN50GvI/u0az7+jEY3hzg3Z7v0ZRbTwDeU/do/N1HA++sezR4gaHA6h6N3MFPsuCNA/b5vmzYGoOA1X3bmE1GAKt7qwHL+DEYXndgn+/9eu/TF1jdM3VdqSOwuufrt5Ufg+H1Avb5PlqnxboAq/tcPXZrD6zulZqv58dgeI2Bfb7Xa7thS2B1W9VwyZbAX//8q+F/becaLtn4f9EaX6/thu0/ydL4Ss3X6/JZtMbP1WO3Xn9M0vjROi3W8c/BGp+v31Z9v9Ch8Zm6rtT9K1ka36/3PiO+VKnxrQYsM+hr0Rq/bcwm477ZoPHLhq0x9LtJGh+N3GH0tws1HrzAhO8H72w8/u5zvuG/p/GUW0/7iY7djGfdd+aP7OxjPPGmk38mawfjuXec/0N3bOPpt5sPXAErdCrhXhHAlbFF20JulAJcMYs0KecuQcCVtMuVom6RBVxh6zxR2vnjgCtvo/MFnjwRuCKXerfMM3/4+Onz7DPca4m/DpNJexT6gr+XvN1R+AnTgSt7weSzHS0AXKk7Zp7qVWsAV96aaee51TLAlbRpzknebSXgylg24QznWwy4Zu+7lm6tCFzzVl5OtxYFrhlbr6hb6wLX2MUX1a2lgWvU7uvq1urA1X/9pXULAFw9DVbXLQZw9ZEA6BYGuFp7MHSLBFztVDC6BQOuFjYk3eIB1zUhmG4hgetZJ55uUYHrcS2kboGB6xEzqm6xgeucHFi38MD1nh9bt3YArtuKeN3aBLj+z3IH3doHuH4U3US3tgKu/1z30a38v5tkF9vrBW+YwPAEhicwPIHhCQxPYHgCwxMYnsDwBIYnMDyB4QkMT2B4AsMTGJ7A8ASGJzA8geEJDE9geALDExiewPAEhicwPIHhCQxPYHgCwxMYnsDw/gWkiE9v2HWHHwAAAABJRU5ErkJggg==')
 
 
 def main():
@@ -64,7 +65,7 @@ def main():
                 assert page.locator('#owner-book-year').input_value()=='2025'
                 assert page.locator('#owner-book-condition').input_value()==''
                 assert page.locator('#owner-book-price').input_value()==''
-                page.wait_for_function('document.querySelectorAll(".owner-book-cover img:not([hidden])").length===2')
+                page.wait_for_function('Array.from(document.querySelectorAll(".owner-book-cover img:not([hidden])")).filter(img => img.complete && img.naturalWidth === 160 && img.naturalHeight === 240).length === 2')
                 assert not page.evaluate('document.querySelector("#owner-book-dialog").scrollWidth > document.querySelector("#owner-book-dialog").clientWidth+2')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-book-cover-choice.png'))
                 page.locator('#owner-book-save').click()
