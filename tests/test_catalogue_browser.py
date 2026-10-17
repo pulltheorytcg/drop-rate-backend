@@ -168,9 +168,19 @@ def test_browse_intake_rejects_authority_and_price_fields(extra):
 
 
 def test_browse_intake_needs_human_and_consistent_physical_details():
-    for payload in [{'confirmed':False,'condition':'Near Mint'}, {'confirmed':True},
+    for payload in [{'confirmed':False,'condition':'Near Mint'}, {'confirmed':True,'condition':'Perfect'},
                     {'confirmed':True,'condition':'Near Mint','seal_status':'SEALED'}]:
         with pytest.raises(ValidationError): browser.BrowseIntake(key='c:123',**payload)
+
+
+def test_search_add_keeps_unknown_condition_without_inventing_a_price():
+    payload=browser.BrowseIntake(key='c:123',confirmed=True)
+    result=browser.intake_payload({'catalogue_id':uuid4(),'product_type':'CARD'},payload)
+    assert result.condition is None and result.acquisition_cost_minor is None
+    assert result.identity_confirmed is False and result.grading_company is None
+    with pytest.raises(HTTPException):
+        browser.intake_payload({'catalogue_id':uuid4(),'product_type':'CARD'},
+            browser.BrowseIntake(key='c:123',seal_status='SEALED',confirmed=True))
 
 
 def test_reference_creates_only_server_facts_and_unconfirmed_draft():

@@ -293,11 +293,11 @@ window.DropRateScanner = (() => {
         '<input type="file" class="dr-scan-file" accept="image/jpeg,image/png,image/webp" hidden></section>' +
         '<section class="dr-scan-review" hidden aria-labelledby="dr-scan-review-title">' +
         '<header class="dr-scan-review-header"><button type="button" data-action="back" aria-label="Resume scanning">←</button>' +
-        '<h2 id="dr-scan-review-title">Review Your Matches</h2><button type="button" data-action="close" aria-label="Close review">×</button></header>' +
+        '<h2 id="dr-scan-review-title">Is this your item?</h2><button type="button" data-action="close" aria-label="Close review">×</button></header>' +
         '<p class="dr-scan-destination">Adding to: <strong>Your inventory</strong></p>' +
         '<div class="dr-scan-review-list"></div><footer class="dr-scan-review-footer">' +
         '<strong class="dr-scan-review-total"></strong><span class="dr-scan-review-count"></span>' +
-        '<p class="dr-scan-save-message" role="status"></p><button type="button" data-action="save" class="dr-scan-primary">Add to Inventory</button>' +
+        '<p class="dr-scan-save-message" role="status"></p><button type="button" data-action="save" class="dr-scan-primary">Add to collection</button>' +
         '</footer></section><div class="dr-scan-sheet-backdrop" hidden><section class="dr-scan-details" aria-labelledby="dr-scan-details-title"></section></div>';
       document.body.append(this.dialog);
       this.camera = this.find(".dr-scan-camera");
@@ -920,7 +920,7 @@ window.DropRateScanner = (() => {
         copy.append(node("strong", "", item.status === "processing" ? item.guess : name(item)));
         const card = snapshot(selected(item));
         if (item.status !== "processing") copy.append(node("span", "", card.card_number || card.product_code || ""),
-          node("span", "", book(item) ? (item.status === "added" ? "Added to inventory" : "Review book") : item.status === "unresolved" ? "Check match" : money(valueOf(item))));
+          node("span", "", book(item) ? (item.status === "added" ? "Added to collection" : "Review book") : item.status === "unresolved" ? "Check match" : money(valueOf(item))));
         tile.append(copy); strip.append(tile);
       }
       this.find(".dr-scan-total").textContent = "Total: " + money(totals.value) + (totals.unknown ? " · " + totals.unknown + " pending" : "");
@@ -955,23 +955,23 @@ window.DropRateScanner = (() => {
         const details = book(item) ? [["Type", bookFields.system_code === "MANGA" ? "Manga" : "Comic / book"],
           ["Printing", bookFields.printing_number || "Check your copy"],
           ["Copy details", item.status === "added" ? "Confirmed in book review" : "Review edition, condition and any grading label"], ["Quantity", 1]] : [["Variant", card.variant || card.art_treatment || card.sealed_product_type || "—"],
-          ["Type", graded(item) ? item.grading_company + " " + item.grade : sealed(item) ? "Sealed product" : "Raw card"],
+          ["Type", graded(item) ? item.grading_company + " " + item.grade : sealed(item) ? "Sealed product" : "Ungraded card"],
           [graded(item) ? "Certificate" : "Condition", graded(item) ? item.certificate_number : sealed(item) ? "Sealed" : item.condition || "Not recorded — needed when selling"], ["Quantity", item.quantity]];
         for (const [label, value] of details) {
           fields.append(node("dt", "", label), node("dd", "", value));
         }
         copy.append(fields);
-        const edit = button(book(item) ? "Review book details" : item.status === "unresolved" ? "Confirm match" : "Confirm & add", () => this.openDetails(item));
+        const edit = button(book(item) ? "Review book details" : item.status === "unresolved" ? "Confirm match" : "Add to collection", () => this.openDetails(item));
         edit.disabled = !this.editable(item); copy.append(edit);
         if (book(item) && item.status !== "added") {
           const remove = button("Remove scan", () => this.remove(item)); remove.disabled = !this.editable(item); copy.append(remove);
         }
-        if (item.status === "added") copy.append(node("span", "dr-scan-added", "Added to inventory"));
+        if (item.status === "added") copy.append(node("span", "dr-scan-added", "Added to collection"));
         if (item.error) copy.append(node("p", "dr-scan-item-error", item.error));
         body.append(copy); row.append(body); list.append(row);
       }
       const totals = this.totals();
-      this.find(".dr-scan-review-total").textContent = "Total: " + money(totals.value);
+      this.find(".dr-scan-review-total").textContent = totals.unknown === this.items.length ? "Market value unavailable" : (totals.unknown ? "Known value: " : "Total value: ") + money(totals.value);
       const unresolved = this.items.filter(item => !item.selected && item.status !== "added").length;
       const missingCondition = this.items.filter(item => item.selected && !graded(item) && !sealed(item) && !item.condition).length;
       const matched = this.items.length - unresolved;
@@ -983,7 +983,7 @@ window.DropRateScanner = (() => {
       const save = this.find('[data-action="save"]');
       const reviewBook = this.items.find(item => book(item) && this.editable(item));
       const ready = this.items.some(item => item.status !== "added" && this.ready(item));
-      save.textContent = this.saving ? "Adding…" : done ? "View inventory" : retry ? "Retry remaining saves" : !ready && reviewBook ? "Review book details" : "Confirm & add recognised";
+      save.textContent = this.saving ? "Adding…" : done ? "View collection" : retry ? "Retry remaining saves" : !ready && reviewBook ? "Review book details" : "Add to collection";
       save.disabled = this.saving || !this.items.length || (!done && !ready && !reviewBook);
       this.find('[data-action="back"]').disabled = this.saving;
       this.review.querySelector('[data-action="close"]').disabled = this.saving;
@@ -1068,7 +1068,7 @@ window.DropRateScanner = (() => {
       heading.append(title, close); this.details.append(heading);
       const content = node("div", "dr-scan-details-content");
       const pair = node("div", "dr-scan-photo-pair");
-      for (const [label, captured] of [["Your Picture", true], [item.status === "matched" ? "Selected printing" : "Candidate · confirm printing", false]]) {
+      for (const [label, captured] of [["Your Picture", true], [item.status === "matched" ? "Selected match" : "Suggested match", false]]) {
         const figure = node("figure"); figure.append(this.thumb(item, "dr-scan-detail-thumb", edit.selected, captured), node("figcaption", "", label)); pair.append(figure);
       }
       content.append(pair, node("p", "dr-scan-results-label", "Suggested matches · check the artwork"));
@@ -1108,7 +1108,7 @@ window.DropRateScanner = (() => {
       content.append(info);
       if (marketValue == null) content.append(node("p", "dr-scan-review-note", isGraded
         ? "No verified value is available here for this grader and grade. You can still add the slab."
-        : "No verified market valuation is stored for this printing yet. You can still confirm it and add it to inventory."));
+        : "A market value isn’t available yet. You can still add this item."));
       else if (edit.selected.recommended_retail_minor != null) content.append(node("p", "dr-scan-review-note",
         "Suggested retail: " + money(edit.selected.recommended_retail_minor) + " · reference value, not a live quote"));
       if (item.error) content.append(node("p", "dr-scan-item-error", item.error));
@@ -1118,8 +1118,10 @@ window.DropRateScanner = (() => {
       }
       const isSealed = sealed(candidateItem);
       content.append(isSealed ? node("span", "dr-scan-type-chip", "Sealed product") : this.graderChoices());
+      const optional = node("details", "dr-scan-optional");optional.open = isGraded;
+      optional.append(node("summary", "", isGraded ? "Grading details" : "Quantity & condition (optional)"));
       const fields = node("div", "dr-scan-detail-fields");
-      const conditionLabel = node("label", "", isGraded ? "Grade" : "Condition (optional until selling)");
+      const conditionLabel = node("label", "", isGraded ? "Grade" : "Condition (optional)");
       const condition = node("select"); condition.setAttribute("aria-label", isGraded ? "Grade" : "Condition");
       (isSealed ? ["Sealed"] : isGraded ? ["Choose grade", ...gradeOptions(edit.grading_company)] : ["Not recorded", ...conditions]).forEach((value, index) => {
         const label = isGraded && value === "10" ? (edit.grading_company === "BGS" ? "Pristine · 10" : "10") : value;
@@ -1136,7 +1138,7 @@ window.DropRateScanner = (() => {
       quantity.value = edit.quantity; quantity.inputMode = "numeric"; quantity.setAttribute("aria-label", "Quantity");
       quantity.disabled = isGraded;
       quantity.addEventListener("input", () => { edit.quantity = Number(quantity.value); this.updateDetailsSave(); });
-      quantityLabel.append(quantity); fields.append(conditionLabel, variant, quantityLabel); content.append(fields);
+      quantityLabel.append(quantity); fields.append(conditionLabel, variant, quantityLabel); optional.append(fields); content.append(optional);
       if (isGraded) {
         const certificateLabel = node("label", "", "Certificate number"), certificate = node("input");
         certificate.value = edit.certificate_number; certificate.maxLength = edit.grading_company === "TAG" ? 8 : 14;
@@ -1160,14 +1162,14 @@ window.DropRateScanner = (() => {
         if (item.photo && item.mode === "GRADED") content.append(button("Read slab photo again", () => { this.closeDetails(); this.recognise(item.photo, item); }));
       }
       if (edit.selected && !edit.selected.catalogue_id) content.append(node("p", "dr-scan-review-note",
-        isSealed ? "This sealed product needs Drop Rate identity review before inventory." : "This printing will be linked to Drop Rate for review when you confirm it."));
+        isSealed ? "This sealed product needs Drop Rate identity review before inventory." : "Check that the artwork, edition and language match your card."));
       content.append(node("p", "dr-scan-detail-message"));
       this.details.append(content);
       const footer = node("footer", "dr-scan-details-footer");
       const remove = button("⌫", () => this.remove(item), "dr-scan-delete"); remove.setAttribute("aria-label", "Remove this scan");
       remove.innerHTML = icons.trash;
-      content.append(node("p", "dr-scan-review-note", "Confirming saves this item to your collection, not a selling channel. Price, cost and shipping can wait."));
-      const save = button("Confirm & add", () => this.confirmDetails(), "dr-scan-primary"); save.dataset.detailsSave = "true";
+      content.append(node("p", "dr-scan-review-note", "Add confirms this is your item. You can set up selling later."));
+      const save = button("Add to collection", () => this.confirmDetails(), "dr-scan-primary"); save.dataset.detailsSave = "true";
       footer.append(remove, save); this.details.append(footer); this.updateDetailsSave();
       content.scrollTop = edit.detailScroll;
       close.focus();
@@ -1196,7 +1198,7 @@ window.DropRateScanner = (() => {
       const missingCondition = !isSealed && !conditions.includes(edit.condition);
       const save = this.details.querySelector("[data-details-save]");
       save.disabled = this.editBusy || !valid;
-      save.textContent = "Confirm & add";
+      save.textContent = "Add to collection";
       this.details.querySelector(".dr-scan-detail-message").textContent = !usableRun(edit.item)
         ? "Retry this photo before confirming a match." : !allowedSealed ? "This sealed product needs identity review."
         : !edit.selected ? "Choose a match or search for the correct card."
@@ -1465,7 +1467,7 @@ window.DropRateScanner = (() => {
       if (this.items.some(item => !item.requests && !this.ready(item))) message.textContent += " Uncertain matches remain for confirmation.";
       this.status(message.textContent);
       try { await this.options.afterSave(); }
-      catch (_) { if (this.active(epoch)) message.textContent += " Refresh inventory to see the latest totals."; }
+      catch (_) { if (this.active(epoch)) message.textContent += " Refresh your collection to see the latest totals."; }
     }
   }
 

@@ -40,7 +40,7 @@ function expiredSessionFixture(role,refreshResponse){
  {
   const f=fixture('seller');
   const tabs=[
-   ['inventory','.owner-inventory-panel .owner-section-header h2','Inventory'],
+   ['inventory','.owner-inventory-panel .owner-section-header h2','Collection'],
    ['sales','#owner-view-sales .owner-section-header h2','Your sold cards'],
    ['settlements','#owner-view-settlements .owner-section-header h2','Settlements'],
    ['scan','#owner-view-scan .owner-scan-hero h2','Scan it. Confirm it. Add it.'],
@@ -62,9 +62,9 @@ function expiredSessionFixture(role,refreshResponse){
    assert.equal(header.hidden,false,`Missing primary heading for ${view}`);
    assert.notEqual(f.w.document.getElementById('owner-page-title').textContent,'');
   }
-  assert.equal(f.w.document.querySelector('#owner-view-inventory .owner-section-header h2').textContent,'Inventory');
+  assert.equal(f.w.document.querySelector('#owner-view-inventory .owner-section-header h2').textContent,'Collection');
   assert.equal(f.w.document.querySelector('#owner-view-inventory .owner-section-header p').textContent,
-    'Open an item to manage its copies and selling channels.');
+    'Your items, artwork and market values.');
   assert.equal(f.w.document.querySelectorAll('#owner-view-inventory .owner-section-kicker').length,0);
   f.finish();checks++;
  }

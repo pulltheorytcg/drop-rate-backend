@@ -42,9 +42,19 @@ function statusClass(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function collectionStatus(item) {
+  if (item.group_status_label === "Mixed status") return "Mixed availability";
+  if (item.status === "SOLD") return "Sold";
+  if (item.status === "RESERVED") return "Reserved";
+  if (item.status === "WITHDRAWN") return "Removed";
+  if (item.shopify_state === "PUBLISHED") return "Listed";
+  if (item.sale_intent === "PERSONAL_COLLECTION") return "In collection";
+  return {DRAFT: "Not listed", INSPECTION: "Listing review", APPROVED: "Ready to sell"}[item.status] || "In collection";
+}
+
 function inventoryCardSubtitle(item) {
   return [
-    item.product_type === "CARD" ? (conditionLabel(item) === "—" ? "Condition not specified" : conditionLabel(item)) : "",
+    item.product_type === "CARD" && conditionLabel(item) !== "—" ? conditionLabel(item) : "",
     safeText(item.set_name, ""),
     item.card_number ? `#${item.card_number}` : "",
     safeText(item.variant, ""),
@@ -148,7 +158,7 @@ function renderInventoryRows(items) {
     const statusCell = document.createElement("td");
     const status = document.createElement("span");
     status.className = `owner-status-pill ${statusClass(item.group_status_label === "Mixed status" ? "mixed" : item.status)}`;
-    status.textContent = safeText(item.group_status_label || item.status);
+    status.textContent = collectionStatus(item);
     status.title = item.group_status_description || "";
     statusCell.append(status);
 
@@ -167,11 +177,11 @@ function renderInventoryRows(items) {
     if((item.grouped_quantity||1)>1 && item.group_valued_count>0 && item.group_valued_count<item.grouped_quantity)
       marketCell.append(document.createTextNode(" · "+item.group_valued_count+"/"+item.grouped_quantity+" copies valued"));
     const storeCell = document.createElement("td");
-    const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
+    const storeValue = item.store_price_minor;
     const storeText = (item.grouped_quantity || 1) > 1
       ? window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", formatMoney, "Not set")
       : storeValue == null ? "Not set" : formatMoney(storeValue);
-    storeCell.textContent = storeText;
+    storeCell.textContent = item.sale_intent === "PERSONAL_COLLECTION" ? "—" : storeText;
 
     row.append(cardCell, statusCell, marketCell, storeCell);
     body.append(row);
@@ -190,12 +200,12 @@ function renderInventoryCards(items) {
     icon.textContent = "▣";
     const title = document.createElement("strong");
     title.textContent = state.inventory.search || state.inventory.status
-      ? "No inventory items match these filters"
-      : "No inventory linked yet";
+      ? "No items match these filters"
+      : "Your collection starts here";
     const copy = document.createElement("span");
     copy.textContent = state.inventory.search || state.inventory.status
       ? "Try clearing your search or choosing another status."
-      : "Once Drop Rate links inventory to your seller account, every item will appear here automatically.";
+      : "Scan an item or search for it, then tap Add to collection.";
     empty.append(icon, title, copy);
     grid.append(empty);
     return;
@@ -233,23 +243,22 @@ function renderInventoryCards(items) {
     title.append(name, subtitle);
     const status = document.createElement("span");
     status.className = `owner-status-pill ${statusClass(item.group_status_label === "Mixed status" ? "mixed" : item.status)}`;
-    status.textContent = safeText(item.group_status_label || item.status);
+    status.textContent = collectionStatus(item);
     status.title = item.group_status_description || "";
     heading.append(title, status);
 
     const prices = document.createElement("div");
     prices.className = "owner-card-prices";
-    const storeValue = item.store_price_minor ?? item.recommended_retail_minor;
+    const storeValue = item.store_price_minor;
     const storeText = (item.grouped_quantity || 1) > 1
       ? window.DropRateInventoryGroups.moneyRange(item, "store_price_minor", formatMoney, "Not set")
       : storeValue == null ? "Not set" : formatMoney(storeValue);
-    const storeLabel = (item.grouped_quantity || 1) === 1 && item.store_price_minor == null && item.recommended_retail_minor != null
-      ? "Recommended retail"
-      : "Store price";
+    const storeLabel = "Selling price";
     for (const [labelText, valueText] of [
       ["Market value", item.reference_value ? window.DropRateReferenceValue.compactText(item, formatMoney) : item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"")],
       [storeLabel, storeText],
     ]) {
+      if (labelText === storeLabel && item.sale_intent === "PERSONAL_COLLECTION") continue;
       const box = document.createElement("div");
       const label = document.createElement("span");
       label.textContent = labelText === "Market value" && item.grouped_quantity > 1 ? "Market value · each" : labelText;
@@ -352,7 +361,7 @@ function renderOverviewLatestInventory(items) {
     const detail = document.createElement("span");
     detail.textContent = inventoryCardSubtitle(item);
     const status = document.createElement("small");
-    status.textContent = safeText(item.group_status_label || item.status);
+    status.textContent = collectionStatus(item);
     status.title = item.group_status_description || "";
     copy.append(name, detail, status);
     card.append(copy);
@@ -1323,15 +1332,16 @@ async function saveOwnerPayoutPreference() {
 
 function activateOwnerView(view, pushHistory = true, launchCameraFromClick = false) {
   const views = {
-    search: ["Search", "Discover cards and sets across the complete catalogue."],
-    overview: ["Home", "Everything you need to track your cards, sales and payouts."],
-    inventory: ["Inventory", "Browse and search every physical card linked to your seller account."],
-    scan: ["Scan cards", "Use Drop Rate recognition to identify a card, confirm it and add it safely to your inventory."],
+    search: ["Search", "Find a card, comic or manga and add it to your collection."],
+    overview: ["Home", "Your collection, at a glance."],
+    inventory: ["Collection", "Everything you've added, in one place."],
+    scan: ["Scan", "Take a photo, check the match and add it to your collection."],
+    selling: ["Selling", "List items and manage your sales when you're ready."],
     sales: ["Sales", "Understand every sale, deduction and penny allocated to you."],
     balance: ["Payouts", "Manage your payout account, balance and preferred payout schedule."],
     channels: ["Channels", "See exactly where your inventory is synced and whether each channel is healthy."],
     settlements: ["Settlements", "Follow order-by-order allocation and reconciliation."],
-    more: ["More", "Payouts, channels, settlements and your account."],
+    more: ["More", "Selling, payouts and your account."],
     profile: ["Profile", "Manage your Seller Hub identity, login email and password securely."],
     settings: ["Settings", "Make your workspace feel like yours."],
   };
@@ -1351,7 +1361,7 @@ function activateOwnerView(view, pushHistory = true, launchCameraFromClick = fal
 
   // One heading per section: content-led views already have a local title.
   // Keep the global title for Home, Payouts, Profile, Settings and More only.
-  const contentLed = new Set(["search", "inventory", "scan", "sales", "channels", "settlements"]);
+  const contentLed = new Set(["search", "inventory", "scan", "sales", "selling", "channels", "settlements"]);
   const pageHeader = document.querySelector(".owner-page-header");
   if (pageHeader) pageHeader.hidden = contentLed.has(target);
   document.querySelector(".owner-dashboard-content")?.setAttribute("data-active-owner-view", target);
@@ -1549,9 +1559,8 @@ function showOwnerOnboardingWelcome() {
   byId("owner-welcome-inventory").addEventListener("click", () => {
     activateOwnerView("inventory");
   }, {once: true});
-  byId("owner-welcome-payouts").addEventListener("click", () => {
-    activateOwnerView("balance");
-    byId("owner-stripe-connect-panel")?.scrollIntoView({behavior: "smooth", block: "start"});
+  byId("owner-welcome-search").addEventListener("click", () => {
+    activateOwnerView("search");
   }, {once: true});
   byId("owner-welcome-dismiss").addEventListener("click", () => {
     panel.classList.add("hidden");

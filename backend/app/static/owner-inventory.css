@@ -165,3 +165,18 @@
 .owner-item-selling>summary{font-size:1.05rem;font-weight:750;cursor:pointer;min-height:44px;display:list-item;padding:10px 0}
 .owner-item-selling>summary:focus-visible{outline:3px solid #198bcb;outline-offset:4px}
 .owner-item-selling select{width:100%;min-height:44px;padding:10px;border:1px solid #d4deeb;border-radius:10px;background:#fff;color:#14263f}
+
+/* Collection comes first. Selling has its own destination and explicit action. */
+.owner-portal-page #owner-view-overview .owner-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.owner-portal-page #owner-view-overview .owner-hero{grid-template-columns:minmax(0,1fr)}
+.owner-portal-page .owner-collection-add{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.owner-portal-page .owner-collection-add button{width:auto;margin:0;min-height:44px}
+.owner-portal-page .owner-selling-intro{margin-bottom:20px}
+.owner-portal-page .owner-selling-summary{margin:20px 0}
+.owner-portal-page .owner-selling-summary .owner-hero-money{max-width:500px}
+.owner-portal-page .owner-item-dialog{color-scheme:light}
+.owner-item-facts>summary{font-weight:750;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px}
+.owner-item-facts>summary::after{content:'＋';margin-left:auto}
+.owner-item-facts[open]>summary::after{content:'−'}
+.owner-portal-page .owner-card-prices>div:only-child{display:block}
+.owner-portal-page .owner-card-prices>div:only-child strong{display:block;font-size:1rem;white-space:normal}

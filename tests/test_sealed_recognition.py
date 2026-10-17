@@ -440,7 +440,7 @@ def test_inventory_ui_renders_sealed_state_identity_and_market_refresh_action() 
     assert 'item.market_value_minor == null' in js
     assert '? "—"' in js
     assert '/refresh-market' in js
-    assert '"No inventory linked yet"' in js
+    assert '"Your collection starts here"' in js
     assert '"Your latest cards and sealed products will appear here' in js
 
 

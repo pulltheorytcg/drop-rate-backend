@@ -16,7 +16,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
 
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
-    assert '<script src="/assets/owner-portal.js?v=home-money-v29" defer></script>' in html
+    assert '<script src="/assets/owner-portal.js?v=simple-v1" defer></script>' in html
     assert '<script src="/assets/owner-recognition.js?v=books-v4" defer></script>' in html
 
     for founder_script in (
@@ -61,8 +61,8 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
         assert f'"{value}"' in details
     assert ".owner-item-facts" in css
     assert ".owner-item-fact dd" in css
-    assert 'href="/assets/owner-inventory.css?v=tile-tap-v9"' in html
-    assert 'src="/assets/owner-inventory.js?v=books-v13"' in html
+    assert 'href="/assets/owner-inventory.css?v=simple-v1"' in html
+    assert 'src="/assets/owner-inventory.js?v=simple-v1"' in html
 
 
 def test_owner_portal_requires_owner_role_and_redirects_platform_admin() -> None:
@@ -143,7 +143,7 @@ def test_owner_inventory_ui_does_not_expose_internal_fields_or_actions() -> None
         assert label not in inventory
 
     for required in (
-        "Total inventory",
+        "Items collected",
         "Known market value",
         "Only your saved asking prices are counted",
         "Sold",
@@ -159,10 +159,10 @@ def test_new_owner_onboarding_redirect_has_a_guided_welcome_checklist() -> None:
 
     assert 'params.get("welcome") !== "1"' in js
     assert 'id="owner-onboarding-welcome"' in html
-    assert "Your Seller Hub is ready." in html
+    assert "Your collection is ready." in html
     assert "Set up payouts" in html
-    assert 'activateOwnerView("balance")' in js
-    assert 'byId("owner-stripe-connect-panel")' in js
+    assert 'activateOwnerView("search")' in js
+    assert 'byId("owner-welcome-search")' in js
     assert 'history.replaceState({}, document.title, "/owner")' in js
 
 
@@ -196,7 +196,7 @@ def test_owner_portal_scan_workspace_uses_shared_recognition_safely() -> None:
     assert 'id="owner-scan-file"' in html
     assert 'capture="environment"' in html
     assert 'id="owner-scan-video"' in html
-    assert "Scan & add a card" in html
+    assert "Scan an item" in html
 
     for path in (
         "/api/v1/recognition/status",
@@ -283,7 +283,7 @@ def test_scanner_autocapture_rejects_texture_only_card_presence() -> None:
     assert "present: detected?.present === true" in legacy
     assert "batch.absenceFrames >= 3" in legacy
     assert "|| deviation >= 0.18" not in legacy
-    assert 'src="/assets/scanner-flow.js?v=book-research-v12"' in html
+    assert 'src="/assets/scanner-flow.js?v=simple-v1"' in html
     assert 'src="/assets/owner-recognition.js?v=books-v4"' in html
 
 

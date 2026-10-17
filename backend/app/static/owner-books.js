@@ -37,6 +37,7 @@
     node("format").required = !manga;
     node("condition-label").hidden = graded;
     node("grading-fields").hidden = !graded;
+    if (graded) node("copy-details").open = true;
     for (const id of ["grader", "grade", "certificate"]) node(id).required = graded;
   }
 
@@ -72,6 +73,7 @@
           <div id="owner-book-candidates" class="owner-book-candidates"></div>
           <p id="owner-book-photo-help" class="owner-book-photo-help"></p>
         </section>
+        <section id="owner-book-selected" class="owner-book-selected" hidden></section>
         <fieldset id="owner-book-fields">
           <legend class="owner-book-sr-only">Book and copy details</legend>
           <details id="owner-book-details" open><summary>Book details · edit if needed</summary>
@@ -89,7 +91,7 @@
             <label>Cover artist <span>(optional)</span><input id="owner-book-artist" maxlength="100"></label>
             <label>ISBN / barcode <span>(optional)</span><input id="owner-book-barcode" maxlength="40"></label>
           </div></details>
-          <h3>Your copy</h3>
+          <details id="owner-book-copy-details"><summary>Your copy (optional)</summary>
           <div class="owner-import-fields">
             <label>State<select id="owner-book-state"><option value="RAW">Ungraded</option><option value="GRADED">Graded</option></select></label>
             <label id="owner-book-condition-label">Condition<select id="owner-book-condition"><option value="">Not assessed yet</option>${conditions.map(c => `<option>${c}</option>`).join("")}</select></label>
@@ -101,17 +103,18 @@
           </div>
           <div class="owner-import-fields owner-book-costs">
             <label>Cost paid (£) <span>(optional)</span><input id="owner-book-cost" type="number" min="0" step="0.01" inputmode="decimal"></label>
-            <label>Your selling price (£) <span>(optional)</span><input id="owner-book-price" type="number" min="1" step="0.01" inputmode="decimal"></label>
+            <input id="owner-book-price" type="hidden" value="">
           </div>
           <label class="owner-book-notes">Notes <span>(optional — signatures, label type, restoration or damage)</span><textarea id="owner-book-notes" rows="3" maxlength="2000"></textarea></label>
+          </details>
         </fieldset>
         <section class="owner-book-market" aria-label="Book market value">
           <strong>Market value</strong><p id="owner-book-market-result" role="status">Complete the book and copy details to check matching sold evidence.</p>
           <button type="button" id="owner-book-market-check" class="owner-secondary-action">Check market value</button>
         </section>
-        <p class="owner-book-explanation">Saved to your collection as a draft. Selling is a separate step. Market value appears only when matching evidence is available; certificate details are recorded for review.</p>
+        <p class="owner-book-explanation">Add confirms this is your book. You can add condition and cost later.</p>
         <p id="owner-book-message" role="status" aria-live="polite"></p>
-        <div class="owner-book-actions"><button type="button" id="owner-book-cancel" class="owner-secondary-action">Cancel</button><button type="submit" id="owner-book-save" class="owner-primary-action">Add to my inventory</button></div>
+        <div class="owner-book-actions"><button type="button" id="owner-book-cancel" class="owner-secondary-action">Cancel</button><button type="submit" id="owner-book-save" class="owner-primary-action">Add to collection</button></div>
       </form>
       <datalist id="owner-book-languages"><option value="English"><option value="Japanese"><option value="French"><option value="German"><option value="Spanish"><option value="Italian"></datalist>`;
     document.body.append(dialog);
@@ -135,8 +138,11 @@
     node("fields").addEventListener("input", () => { priceRevision++; node("market-result").textContent = "Details changed. Check the value for this exact copy again."; });
     node("fields").addEventListener("change", () => { priceRevision++; node("market-result").textContent = "Details changed. Check the value for this exact copy again."; });
     node("form").addEventListener("submit", save);
+    node("identity").addEventListener("input", () => { node("selected").hidden = true; });
+    node("identity").addEventListener("change", () => { node("selected").hidden = true; });
     node("form").addEventListener("invalid", event => {
       if (node("identity").contains(event.target)) node("details").open = true;
+      if (node("copy-details").contains(event.target)) node("copy-details").open = true;
     }, true);
     for (const type of ["input", "change"]) node("identity").addEventListener(type, () => {
       selectedResearch = null;
@@ -383,8 +389,8 @@
       const result = await apiRequest("/api/v1/owner/books/intake", {method: "POST", headers: {"Idempotency-Key": requestKey}, body});
       if (state.session?.user?.id !== savingActor) { dialog.close(); return; }
       pending = false; saved = true; renderPhotos();
-      node("message").textContent = `${result.catalogue.name} added to your collection as a draft.`;
-      node("save").textContent = "Added to inventory";
+      node("message").textContent = `${result.catalogue.name} added to your collection.`;
+      node("save").textContent = "Added to collection";
       node("cancel").textContent = "Done";
       // The scanner only receives a receipt after explicit, successful book intake.
       // A presentation callback must never turn a committed save into a retry.
@@ -399,7 +405,7 @@
         ? "We couldn't confirm the save. Retry this same book to check it safely. Your details have been kept."
         : error.message || "Unable to save. Check your details and try again.";
       node("fields").disabled = pending; node("save").disabled = false;
-      node("save").textContent = pending ? "Retry this book" : "Add to my inventory";
+      node("save").textContent = pending ? "Retry this book" : "Add to collection";
     } finally { saving = false; }
   }
 
@@ -418,9 +424,9 @@
     reviewContext = {...options};
     cancelScan(); photos = [];
     research = null; researchRunId = null; selectedResearch = null; renderResearch(); node("details").open = true; node("photo-details").open = true;
-    node("form").reset(); requestKey = crypto.randomUUID(); submittedPayload = null;
+    node("form").reset(); node("selected").hidden = true; node("selected").replaceChildren(); node("copy-details").open = false; requestKey = crypto.randomUUID(); submittedPayload = null;
     node("fields").disabled = false; node("save").disabled = false;
-    node("save").textContent = "Add to my inventory"; node("cancel").textContent = "Cancel";
+    node("save").textContent = "Add to collection"; node("cancel").textContent = "Cancel";
     node("message").textContent = "";
     node("scan-message").textContent = "Up to 3 photos of the same book. You confirm the details before saving.";
     node("market-result").textContent = "Complete the book and copy details to check matching sold evidence.";
@@ -433,7 +439,24 @@
       for (const [field,id] of Object.entries(mapping)) node(id).value = fields[field] ?? "";
       node("format").value = fields.book_format === "MANGA" ? "SINGLE_ISSUE" : fields.book_format || "";
       node("condition").value = "";
-      node("scan-message").textContent = "Catalogue details filled in. Check these against your copy, including its printing and cover.";
+      node("scan-message").textContent = "Check the cover and edition against your book.";
+      if (options.catalogue) {
+        const row = options.catalogue, preview = node("selected"); preview.hidden = false;
+        const title = document.createElement("h3"); title.textContent = row.name || value("series");
+        const caption = document.createElement("p"); caption.textContent = [value("language"),value("cover"),value("barcode")].filter(Boolean).join(" · ");
+        const art = document.createElement("div"); art.className = "owner-book-cover";
+        const placeholder = document.createElement("span"); placeholder.textContent = "Cover unavailable";
+        const img = document.createElement("img"); img.hidden = true; img.alt = title.textContent + " reference cover";
+        art.append(placeholder,img); preview.append(art,title,caption);
+        const path = "/api/v1/catalogue-browser/reference-image?" + new URLSearchParams({provider:"Official Publisher",
+          system_code:value("category"),language:value("language"),provider_id:row.catalogue_id,reference_kind:"book"});
+        if (/^[0-9a-f-]{36}$/i.test(row.catalogue_id || "") && row.reference_image_path === path) {
+          const revision = coverRevision, actor = actorId;
+          queueMicrotask(() => loadCover(img,placeholder,path,revision,actor));
+        }
+        node("details").open = !bookDetailsComplete(); node("photo-details").open = false;
+        node("title").textContent = "Is this your book?";
+      }
     }
     if (options.recognition) {
       photos = (options.photos || []).slice(0, 3);

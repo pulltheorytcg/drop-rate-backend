@@ -4,8 +4,8 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=21'), 'Seller Hub must load the fresh book value script');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=4'), 'Seller Hub must load the fresh mobile sort styles');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=simple-v1'), 'Seller Hub must load the fresh book value script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=simple-v1'), 'Seller Hub must load the fresh mobile sort styles');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
@@ -368,7 +368,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
    if(seen.size===2&&lose){lose=false;throw Error('Lost response');}
    return {inventory:{inventory_code:'INV-'+key}};
   });
-  await f.browser.open();f.browser.openProduct(card);assert.ok(f.browser.sheet.querySelector('[data-add]').disabled);
+  await f.browser.open();f.browser.openProduct(card);assert.equal(f.browser.sheet.querySelector('[data-add]').disabled,false);
   Object.assign(f.browser.edit,{confirmed:true,condition:'Near Mint',quantity:2});f.browser.validateAdd();
   const first=f.browser.save();await f.browser.save();await first;
   assert.equal(seen.size,2);assert.equal(f.browser.edit.requests.filter(r=>r.result).length,1);
@@ -398,7 +398,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const outside=[...f.w.document.querySelectorAll('.topbar,.seller-nav,.owner-sidebar,.owner-page-header')];
   outside.forEach((el,index)=>{el.inert=index===2;});
   f.browser.openFilters();
-  for(const label of ['Cards Only','Products Owned','Watchlist']){
+  for(const label of ['Cards Only','Items you own','Watchlist']){
    [...f.browser.sheet.querySelectorAll('input')].find(input=>input.getAttribute('aria-label')===label).click();await tick();
    assert.ok(outside.every(el=>el.inert===true));
   }
@@ -576,7 +576,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(link.rel,'noopener noreferrer');
   assert.equal(link.target,'_blank');
   assert.match(f.browser.sheet.textContent,/Packaging photo pending/);
-  assert.match(f.browser.sheet.textContent,/confirm the exact product, language, edition and pack count/);
+  assert.match(f.browser.sheet.textContent,/Check the packaging, edition, pack count and language/);
   assert.equal(f.browser.sheet.querySelector('[data-add]').disabled,true);
   f.finish();checks++;
  }
@@ -671,11 +671,11 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(f.browser.sheet.textContent,/printing and cover need confirmation/);
   assert.match(f.browser.sheet.textContent,/Publisher reference cover/);
   assert.equal([...f.browser.sheet.querySelectorAll('a')].find(a=>a.textContent.includes('sold listings')).href,book.book_sold_search_url);
-  assert.match(f.browser.sheet.textContent,/Confirm the printing and your copy's condition or grade/);
+  assert.match(f.browser.sheet.textContent,/Check the cover and edition/);
   assert.equal(f.browser.sheet.querySelector('select[aria-label="Condition"]'),null,
     'Book must never use CARD raw/graded intake');
   assert.equal(f.browser.sheet.querySelector('[data-add]'),null);
-  const btn=[...f.browser.sheet.querySelectorAll('button')].find(x=>x.textContent==='Add a comic or manga');
+  const btn=[...f.browser.sheet.querySelectorAll('button')].find(x=>x.textContent==='Add to collection');
   assert.ok(btn);btn.click();await tick();
   assert.equal(opened,1);
   assert.deepEqual(bookOptions.book,book.book_details);

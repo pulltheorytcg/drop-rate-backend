@@ -4,6 +4,7 @@
   const seller=Boolean(document.getElementById('owner-view-more'));
   const navigate=view=>seller?activateOwnerView(view):activateSellerView(view,true);
   const tools={
+    selling:['Selling','List an item, manage sales and see your earnings','↗'],
     verification:['Review cards','Confirm identities and prepare your stock','✓'],
     media:['Photos & condition','Check artwork, photos and physical condition','▧'],
     sales:['Sales','Orders, fees and owner proceeds','↗'],
@@ -15,7 +16,7 @@
     accounts:['Business','Company overview, sellers and stock ownership','◎'],
     profile:['Your account','Profile, contact details and sign-in settings','○']
   };
-  const groups=[['Selling & payouts',['sales','balance','channels','settlements']],['Collection tools',['verification','media','reports']],['Workspace',['accounts','settings','profile']]];
+  const groups=[['Selling & payouts',['selling','sales','balance','channels','settlements']],['Collection tools',['verification','media','reports']],['Workspace',['accounts','settings','profile']]];
   const more=document.getElementById(seller?'owner-view-more':'seller-view-more');
   const old=more?.querySelector('.app-more-grid');
   if(old){
