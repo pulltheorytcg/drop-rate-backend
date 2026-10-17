@@ -17,7 +17,7 @@ def test_owner_portal_is_served_separately_from_founder_hq() -> None:
     assert '@app.get("/owner", include_in_schema=False)' in main
     assert 'STATIC_DIR / "owner.html"' in main
     assert '<script src="/assets/owner-portal.js?v=home-money-v29" defer></script>' in html
-    assert '<script src="/assets/owner-recognition.js?v=books-v3" defer></script>' in html
+    assert '<script src="/assets/owner-recognition.js?v=books-v4" defer></script>' in html
 
     for founder_script in (
         "dashboard-shell.js",
@@ -273,8 +273,8 @@ def test_scanner_autocapture_rejects_texture_only_card_presence() -> None:
     assert "this.autoArmed = false;" in shared
     assert "this.absenceFrames >= 3" in shared
     assert "this.presenceFrames < 3 || this.stableFrames < 3" in shared
-    assert "Card detected · hold steady inside the guide" in shared
-    assert '"Clear the guide briefly, then place your card inside"' in shared
+    assert "Item detected · hold steady inside the guide" in shared
+    assert '"Clear the guide briefly, then place your item inside"' in shared
     assert "|| deviation >= 0.18" not in shared
 
     # The existing mobile fallback must never retain the old 'busy
@@ -283,8 +283,8 @@ def test_scanner_autocapture_rejects_texture_only_card_presence() -> None:
     assert "present: detected?.present === true" in legacy
     assert "batch.absenceFrames >= 3" in legacy
     assert "|| deviation >= 0.18" not in legacy
-    assert 'src="/assets/scanner-flow.js?v=book-scan-v10"' in html
-    assert 'src="/assets/owner-recognition.js?v=books-v3"' in html
+    assert 'src="/assets/scanner-flow.js?v=live-book-v11"' in html
+    assert 'src="/assets/owner-recognition.js?v=books-v4"' in html
 
 
 def test_mobile_batch_scanner_keeps_unresolved_cards_and_supports_search_correction() -> None:

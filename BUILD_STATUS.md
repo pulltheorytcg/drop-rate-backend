@@ -1,6 +1,12 @@
 # Build status
 
-## 17 October 2026 — Publisher covers for 14 books; explicit market-price status (release checks pending)
+## 17 October 2026 — Comics/manga live scanner repair (release checks pending)
+
+The reported iPhone flow was a form launcher: Comics / Manga closed the live scanner and opened a separate photo picker. It now selects a live `COMIC` mode using the same camera stream, shutter, gallery, auto-scan/removal gate and results tray. The existing book recognition endpoint reads the capture immediately; book review reuses that response and cover, and only an explicit book intake receipt marks the scan as added. Unknown identity/copy/price fields, owner guards, immutable save retry and the card/book intake boundary remain enforced. Local 50 scanner interactions and 75 focused Python checks pass. Chromium/WebKit, PostgreSQL, full CI and live readback remain required. See [scanner repair](docs/LIVE_BOOK_SCANNER_20261017.md).
+
+## 17 October 2026 — Publisher covers for 14 books; explicit market-price status (live, PR #676)
+
+Released on main e28d022 through successful Railway deployment 32474dea-b3b5-4e39-87bb-bdcb6ce78798. All seven PR workflows passed; deployed owner/founder browser asset v21 matched the reviewed bytes, readiness was healthy, anonymous artwork access was denied, and production counts remained 14 catalogue books / 614 physical copies / 0 physical books / 50,378 retained reference-history rows. Full release receipt is in PR #676.
 
 All 14 starter editions now have reviewed publisher cover references, including Marvel issue 112985. Search and details use the existing authenticated, bounded thumbnail transport, exact identity/language/source matching and approved-media priority. VIZ's missing Content-Type on the Jujutsu Kaisen JPEG is handled only after decoding a valid raster from a trusted publisher path. Book prices explicitly remain pending: production has 0 verified printings/physical book copies, and the eBay/Trawl HTTP 429 cooldown ends 17 October 17:00:42 UTC. PriceCharting cannot be adopted without redistribution permission and exact edition evidence. Added completed/sold comparison links; no numeric prices, media approvals, inventory/Shopify writes, new provider or paid plan. Both shells load browser asset v21. Local exact-identity/auth/SSRF/raster and UI checks pass; all 14 public covers were decoded through the thumbnail transport. See [artwork and price evidence](docs/BOOK_ARTWORK_AND_PRICE_STATUS_20261017.md).
 

@@ -1,4 +1,4 @@
-"""Real browser photo intake and late-response guards; synthetic API only."""
+"""Live scanner controls, book review and late responses; fixture camera/API only."""
 import base64
 import json
 import os
@@ -30,7 +30,7 @@ def main():
                 for name in ('owner-portal.css','owner-imports.css','owner-books.css','scanner-flow.css'):
                     page.add_style_tag(content=(ROOT/name).read_text())
                 page.add_script_tag(content='''
-                  const state={session:{user:{id:'seller-a'}}};window.calls=[];window.mode='ok';
+                  const state={session:{access_token:'fixture-token',user:{id:'seller-a'}}};window.calls=[];window.mode='ok';
                   window.scanResult={status:'NEEDS_REVIEW',fields:{system_code:'MANGA',book_format:'MANGA',series_title:'Fixture Manga',issue_number:'1',publisher:'VIZ Media'},uncertain_fields:['language','printing_number'],warnings:['Check the copyright page.']};
                   window.quote={status:'AVAILABLE',market_value_minor:1234,basis:'English · Near Mint'};
                   async function loadOwnerInventory(){} async function loadOwnerOverview(){}
@@ -44,10 +44,48 @@ def main():
                 ''')
                 page.add_script_tag(content=(ROOT/'owner-books.js').read_text())
                 page.add_script_tag(content=(ROOT/'scanner-flow.js').read_text())
-                page.evaluate('''window.scanner=new DropRateScanner.Scanner({role:'seller',session:()=>state.session,request:apiRequest,afterSave:async()=>{},viewInventory:()=>{},openBooks:()=>DropRateBooks.open({scan:true})});scanner.dialog.showModal();''')
-                page.locator('[data-action="books"]').click()
-                assert page.locator('#owner-book-dialog').is_visible()
-                assert page.evaluate('!scanner.dialog.open')
+                page.evaluate('''async()=>{
+                  window.cameraStarts=0;window.cameraStops=0;
+                  Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{
+                    cameraStarts++;return {getTracks:()=>[{stop(){cameraStops++;}}]};
+                  }}});
+                  window.scanner=new DropRateScanner.Scanner({role:'seller',session:()=>state.session,request:apiRequest,
+                    afterSave:async()=>{},viewInventory:()=>{},openBooks:options=>DropRateBooks.open(options)});
+                  Object.defineProperty(scanner.video,'srcObject',{configurable:true,writable:true,value:null});
+                  Object.defineProperty(scanner.video,'videoWidth',{value:1920});Object.defineProperty(scanner.video,'videoHeight',{value:1080});
+                  scanner.video.play=async()=>{};
+                  scanner.frame=()=>({present:false,fingerprint:new Uint8Array(560)});
+                  const draw=CanvasRenderingContext2D.prototype.drawImage;
+                  CanvasRenderingContext2D.prototype.drawImage=function(source,...args){
+                    if(source===scanner.video){this.fillStyle='#f3dfbb';this.fillRect(0,0,this.canvas.width,this.canvas.height);}
+                    else draw.call(this,source,...args);
+                  };
+                  await scanner.open('RAW');
+                }''')
+                page.locator('[data-mode="COMIC"]').click()
+                assert page.locator('[data-mode="COMIC"]').get_attribute('aria-pressed')=='true'
+                assert page.evaluate('scanner.dialog.open && scanner.view === "camera" && !!scanner.stream')
+                assert not page.locator('#owner-book-dialog').count()
+                assert page.evaluate('cameraStarts')==1 and page.evaluate('cameraStops')==0
+                assert 'book cover' in page.locator('.dr-scan-status').inner_text()
+                page.screenshot(path=str(OUT/f'{engine}-{width}-live-book-camera.png'))
+                # The shared shutter captures directly. There is no native file picker
+                # or separate Read button before the first book recognition request.
+                page.locator('[data-action="capture"]').click()
+                page.wait_for_function("scanner.items[0]?.status==='unresolved'")
+                assert len(page.evaluate('calls'))==1
+                first=page.evaluate('calls[0]')
+                assert first['url']=='/api/v1/owner/books/recognize'
+                assert json.loads(first['body'])['images'][0].startswith('data:image/jpeg;base64,')
+                assert 'Fixture Manga Vol. 1' in page.locator('.dr-scan-strip').inner_text()
+                assert page.locator('.dr-scan-thumb img').get_attribute('src').startswith('data:image/jpeg;base64,')
+                assert not page.locator('#owner-book-dialog').count()
+                page.locator('[data-action="next"]').click()
+                page.locator('.dr-scan-review-item').get_by_role('button',name='Review book details').click()
+                assert page.locator('#owner-book-dialog').is_visible() and page.evaluate('!scanner.dialog.open')
+                assert page.locator('#owner-book-series').input_value()=='Fixture Manga'
+                assert page.locator('#owner-book-photos img').count()==1
+                assert len(page.evaluate('calls'))==1, 'Opening review must reuse the existing read'
                 assert page.locator('#owner-book-camera-file').get_attribute('capture')=='environment'
                 data=page.evaluate("(()=>{const c=document.createElement('canvas');c.width=220;c.height=320;c.getContext('2d').fillRect(0,0,220,320);return c.toDataURL('image/png').split(',')[1]})()")
                 photo={'name':'fixture.png','mimeType':'image/png','buffer':base64.b64decode(data)}
@@ -58,7 +96,7 @@ def main():
                 def upload():
                     page.locator('#owner-book-gallery-file').set_input_files([photo])
                     photo_count(1)
-                page.locator('#owner-book-gallery-file').set_input_files([photo,photo,photo])
+                page.locator('#owner-book-gallery-file').set_input_files([photo,photo])
                 photo_count(3)
                 assert page.locator('#owner-book-gallery').is_disabled()
                 page.locator('#owner-book-recognize').click()
@@ -67,7 +105,7 @@ def main():
                 assert page.locator('#owner-book-printing').input_value()==''
                 assert page.locator('#owner-book-condition').input_value()==''
                 assert 'Check:' in page.locator('#owner-book-scan-message').inner_text()
-                assert len(page.evaluate('calls'))==1 and page.evaluate('calls[0].retry') is False
+                assert len(page.evaluate('calls'))==2 and page.evaluate('calls[1].retry') is False
                 page.locator('#owner-book-language').fill('English')
                 page.locator('#owner-book-printing').fill('1')
                 page.locator('#owner-book-condition').select_option('Near Mint')
@@ -85,6 +123,13 @@ def main():
                 assert body['new_catalogue']['comic_printing']['system_code']=='MANGA'
                 assert page.locator('#owner-book-recognize').is_disabled()
                 page.locator('#owner-book-cancel').click()
+                page.wait_for_function('scanner.dialog.open && scanner.view === "review"')
+                assert page.evaluate('scanner.items[0].status')=='added'
+                assert page.evaluate('scanner.items[0].photo') is None
+                assert page.locator('[data-action="save"]').inner_text()=='View inventory'
+                assert page.locator('.dr-scan-review-item').get_by_role('button',name='Review book details').is_disabled()
+                assert page.evaluate('cameraStarts')==1, 'Returning from review must not reopen the camera'
+                page.evaluate('scanner.close()')
                 page.evaluate("DropRateBooks.open();mode='defer'");upload()
                 page.locator('#owner-book-recognize').click()
                 page.wait_for_function("typeof release==='function'")
@@ -116,7 +161,7 @@ def main():
                 assert not errors,errors
                 page.close()
             browser.close()
-    print('PASS: book scanner launcher, real photo decoding, 3-photo limit, uncertain fields, market reference, explicit save, provider failure and late scan/price responses after edit, close or account change; synthetic API only.')
+    print('PASS: live comic/manga mode, shared shutter, captured cover/OCR handoff, no second read on review, explicit save/return receipt, real gallery decoding, 3-photo limit, market reference and stale-response guards; fixture camera/API only.')
 
 
 if __name__=='__main__':main()
