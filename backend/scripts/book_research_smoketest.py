@@ -20,6 +20,14 @@ async def main():
     try:
         result = await research_book(fields, [entry['cover_source_url']], api_key=settings.openai_api_key or '', model=settings.recognition_model)
         candidates = result.get('candidates', [])
+        # Public fixture metadata only: expose the precise mismatch without
+        # logging a real user's photographs, account, credentials or scan data.
+        print('BOOK_PUBLIC_PROBE_DETAILS ' + json.dumps({
+            'candidates': [{'source_url': c['source_url'],
+                'barcode': c['fields'].get('barcode_gtin'),
+                'image_url': c.get('image_url'),
+                'cover_matches_photo': c.get('cover_matches_photo')}
+                for c in candidates], 'database_writes': False}), flush=True)
         exact = [c for c in candidates if c['source_url'] == publisher_source(entry['source_url'])
                  and c['fields']['barcode_gtin'] == fields['barcode_gtin']]
         passed = bool(exact and any(c.get('image_url') for c in exact))
