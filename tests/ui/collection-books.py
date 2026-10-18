@@ -32,10 +32,12 @@ def main():
                     page.add_style_tag(content=(ROOT/name).read_text())
                 page.add_script_tag(content='''
                     const state={session:{user:{id:'seller-a'}}};
-                    window.calls=[];window.mode='success';
+                    window.calls=[];window.marketCalls=[];window.mode='success';
                     async function loadOwnerInventory(){if(mode==='refresh-error')throw new Error('Refresh failed');}
                     async function loadOwnerOverview(){}
-                    async function apiRequest(url,options){calls.push({url,...options});
+                    async function apiRequest(url,options){
+                      if(url.endsWith('/market-value')){marketCalls.push({url,...options});return {status:'UNAVAILABLE',market_value_minor:null,reason:'No stored value for this fixture.'};}
+                      calls.push({url,...options});
                       if(mode==='lost'){mode='success';throw new Error('Response lost');}
                       if(mode==='invalid'){const e=new Error('Check issue number');e.status=422;throw e;}
                       return {catalogue:{name:'Fixture comic'},inventory:{id:'fixture-copy'}};

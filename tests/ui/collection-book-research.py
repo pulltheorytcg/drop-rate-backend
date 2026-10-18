@@ -37,9 +37,11 @@ def main():
                 for name in ('owner-portal.css','owner-imports.css','owner-books.css'):
                     page.add_style_tag(content=(ROOT/name).read_text())
                 page.add_script_tag(content='''
-                  const state={session:{access_token:'fixture-only',user:{id:'seller-a'}}};window.calls=[];
+                  const state={session:{access_token:'fixture-only',user:{id:'seller-a'}}};window.calls=[];window.marketCalls=[];
                   async function loadOwnerInventory(){} async function loadOwnerOverview(){}
-                  async function apiRequest(url,options){calls.push({url,...options});return {catalogue:{name:'Fixture book'},inventory:{id:'fixture'}};}
+                  async function apiRequest(url,options){
+                    if(url.endsWith('/market-value')){marketCalls.push({url,...options});return {status:'UNAVAILABLE',market_value_minor:null,reason:'No stored value for this fixture.'};}
+                    calls.push({url,...options});return {catalogue:{name:'Fixture book'},inventory:{id:'fixture'}};}
                   window.run='11111111-1111-4111-8111-111111111111';
                   window.fields={system_code:'MARVEL_COMICS',series_title:'Fixture Adventure',issue_number:'1',
                     publisher:'Marvel',book_format:'SINGLE_ISSUE',language:'English',release_year:2025,printing_number:null,cover_code:'Cover A'};
@@ -117,7 +119,7 @@ def main():
                 # background results and retries, without a second physical copy.
                 page.evaluate('''() => {
                   window.normalRequest=apiRequest;window.saveAttempts=[];
-                  apiRequest=async (url,opts)=>{saveAttempts.push({url,...opts});if(saveAttempts.length===1)throw new Error('Disconnected');return normalRequest(url,opts)};
+                  apiRequest=async (url,opts)=>{if(url.endsWith('/market-value'))return normalRequest(url,opts);saveAttempts.push({url,...opts});if(saveAttempts.length===1)throw new Error('Disconnected');return normalRequest(url,opts)};
                   DropRateBooks.open({scanItemId:'pending',recognition:options});
                 }''')
                 page.locator('#owner-book-save').click()
@@ -130,7 +132,7 @@ def main():
                 assert page.evaluate('saveAttempts[0].body===saveAttempts[1].body && saveAttempts[0].headers["Idempotency-Key"]===saveAttempts[1].headers["Idempotency-Key"]')
                 assert json.loads(page.evaluate('saveAttempts[1].body'))['research_candidate_id']=='aaaaaaaaaaaaaaaaaaaaaaaa'
                 page.locator('#owner-book-cancel').click()
-                page.evaluate('apiRequest=normalRequest')
+                page.evaluate('() => { apiRequest=normalRequest; }')
                 # Background artwork is selected automatically without erasing copy details.
                 page.evaluate("DropRateBooks.open({scanItemId:'progressive',recognition:{...options,research:{status:'PENDING',candidates:[]}}})")
                 page.locator('#owner-book-copy-details').evaluate('e=>e.open=true')

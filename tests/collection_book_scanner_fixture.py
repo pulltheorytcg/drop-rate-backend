@@ -21,6 +21,8 @@ async def prepare(db,root,actors):
     await db.executemany('insert into auth.users values($1)',[(a,) for a in actors])
     sql=(root/'database/migrations/20260927184033_recognition_engine_v1.sql').read_text()
     await db.execute(re.search(r'create table tcg.recognition_runs \([\s\S]*?\n\);',sql).group())
+    visual=(root/'database/migrations/20260927205101_recognition_verified_learning.sql').read_text()
+    await db.execute(re.search(r'alter table tcg.recognition_runs\n[\s\S]*?;',visual).group())
     await db.execute('alter table tcg.recognition_runs enable row level security; alter table tcg.recognition_runs force row level security; grant select,insert,update on tcg.recognition_runs to tcg_api')
     await db.execute(re.search(r'create policy api_read on tcg.recognition_runs\n[\s\S]*?;',sql).group())
     access=(root/'database/migrations/20260928195408_owner_recognition_access.sql').read_text()

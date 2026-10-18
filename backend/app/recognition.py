@@ -70,10 +70,13 @@ from .recognition_vision import (
     RecognitionVisionError,
 )
 from .settings import get_settings
+from .book_observation import book_route
+from .book_recognition import finish_automatic_book_scan
+from .book_research import public_result
 
 
 router = APIRouter(prefix="/api/v1/recognition", tags=["recognition"])
-ENGINE_VERSION = "v1.9.0"
+ENGINE_VERSION = "v1.10.0"
 TERMINAL_STATUSES = {"EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH", "FAILED"}
 
 
@@ -186,6 +189,15 @@ async def _run_payload(connection, run_id: UUID) -> dict[str, Any]:
     )
     if run is None:
         raise HTTPException(status_code=404, detail="Recognition run not found")
+    run = dict(run)
+    evidence = run.get("provider_evidence") or {}
+    if isinstance(evidence, str):
+        evidence = json.loads(evidence)
+    if evidence.get("book_result"):
+        book_result = {**public_result(evidence["book_result"]), "run_id": str(run_id)}
+        run["provider_evidence"] = {**evidence, "book_result": book_result}
+        return {"run": run, "book_result": book_result, "candidates": [], "feedback": [],
+                "engine_version": ENGINE_VERSION, "auto_applied": False}
     candidates = await connection.fetch(
         """
         select
@@ -1098,6 +1110,12 @@ async def recognize_card(
             )
             result = await _run_payload(connection, run_id)
         return jsonable_encoder(result)
+
+    if book_route(observation):
+        await finish_automatic_book_scan(request, user, owner_id, run_id, observation, image,
+                                         payload.image_data_url, vision_telemetry)
+        async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+            return jsonable_encoder(await _run_payload(connection, run_id))
 
     if observation.object_type == "NONE" and observation.object_type_confidence >= 0.80:
         async with user_connection(

@@ -3,6 +3,7 @@
   const conditions = ["Mint", "Near Mint", "Very Fine", "Fine", "Very Good", "Good", "Fair", "Poor"];
   let dialog, requestKey, submittedPayload, actorId, saving = false, pending = false, saved = false;
   let photos = [], scanRevision = 0, scanning = false, scanController = null, priceRevision = 0;
+  let marketTimer = null;
   let reviewContext = null;
   let identityEdited = false;
   let research = null, researchRunId = null, selectedResearch = null, coverRevision = 0, choosingCover = false;
@@ -113,6 +114,7 @@
         <section class="owner-book-market" aria-label="Book market value">
           <strong>Market value</strong><p id="owner-book-market-result" role="status">Complete the book and copy details to check matching sold evidence.</p>
           <button type="button" id="owner-book-market-check" class="owner-secondary-action">Check market value</button>
+          <a id="owner-book-sold-search" class="owner-secondary-action" target="_blank" rel="noopener noreferrer" hidden>Compare sold listings</a>
         </section>
         <p class="owner-book-explanation">Add confirms this is your book. You can add condition and cost later.</p>
         <p id="owner-book-message" role="status" aria-live="polite"></p>
@@ -150,9 +152,9 @@
       node("photo-details").open = true; node("camera").focus();
       node("scan-message").textContent = "Replace or add a photo, then identify your book again.";
     });
-    node("market-check").addEventListener("click", checkMarket);
-    node("fields").addEventListener("input", () => { priceRevision++; node("market-result").textContent = "Details changed. Check the value for this exact copy again."; });
-    node("fields").addEventListener("change", () => { priceRevision++; node("market-result").textContent = "Details changed. Check the value for this exact copy again."; });
+    node("market-check").addEventListener("click", () => checkMarket());
+    node("fields").addEventListener("input", scheduleMarket);
+    node("fields").addEventListener("change", scheduleMarket);
     node("form").addEventListener("submit", save);
     node("identity").addEventListener("input", () => { node("selected").hidden = true; });
     node("identity").addEventListener("change", () => { node("selected").hidden = true; });
@@ -273,7 +275,7 @@
         fillBookFields(candidate.fields); selectedResearch = candidate.id; choosingCover = false; identityEdited = true;
         node("selected").hidden = true; node("details").open = !bookDetailsComplete();
         node("photo-details").open = false;
-        priceRevision++; node("market-result").textContent = "Book identified. Add your copy's condition or grade to check matching sales.";
+        scheduleMarket();
         renderResearch();
       });
       details.append(title,meta,edition,why,link,choose); card.append(art,details); node("candidates").append(card);
@@ -302,6 +304,7 @@
     node("details").open = true; node("photo-details").open = true;
     node("title").textContent = "Identify your book";
     priceRevision++;
+    clearTimeout(marketTimer); node("sold-search").hidden = true; node("sold-search").removeAttribute("href");
     node("market-result").textContent = "Identify this book to check its market value.";
   }
 
@@ -397,7 +400,7 @@
     node("photo-details").open = !bookDetailsComplete() && !research?.candidates?.length;
     renderResearch();
     renderReadSummary(fields);
-    priceRevision++; node("market-result").textContent = "Confirm the printing and copy condition or grade, then check its market value.";
+    scheduleMarket();
   }
 
   async function recognize() {
@@ -444,11 +447,29 @@
     renderResearch();
     node("scan-message").textContent = "Book details ready. Check the cover and add your copy below.";
     if (identityEdited) node("research-message").textContent = "Your edited details are kept. Choose a publisher cover to use its details.";
+    scheduleMarket();
   }
 
-  async function checkMarket() {
-    if (scanning || saving || pending || saved || actorId !== state.session?.user?.id) return;
-    if (!node("form").reportValidity()) return;
+  function scheduleMarket() {
+    priceRevision++; clearTimeout(marketTimer);
+    const link = node("sold-search");
+    link.hidden = !value("series") || !value("number");
+    if (!link.hidden) {
+      const query = [value("series"), value("category") === "MANGA" ? "Vol" : "Issue", value("number"),
+        value("publisher"), value("language"), value("year"), value("cover"),
+        value("printing") ? `printing ${value("printing")}` : "", value("condition"),
+        value("state") === "GRADED" ? `${value("grader")} ${value("grade")}` : ""].filter(Boolean).join(" ");
+      link.href = "https://www.ebay.co.uk/sch/i.html?" + new URLSearchParams({_nkw:query,LH_Sold:"1",LH_Complete:"1"});
+    } else link.removeAttribute("href");
+    node("market-result").textContent = bookDetailsComplete()
+      ? "Checking available market value…" : "Identify the book to check its market value.";
+    if (bookDetailsComplete()) marketTimer = setTimeout(() => checkMarket(true), 350);
+  }
+
+  async function checkMarket(automatic = false) {
+    clearTimeout(marketTimer);
+    if (!dialog.open || scanning || saving || pending || saved || actorId !== state.session?.user?.id) return;
+    if (!(automatic ? node("form").checkValidity() : node("form").reportValidity())) return;
     const actor = actorId, revision = ++priceRevision, body = JSON.stringify(payload());
     node("market-result").textContent = "Checking stored sales for this printing and condition…";
     try {
@@ -582,7 +603,7 @@
       for (const id of ["category", "language", "format"]) node(id).value = "";
       applySuggestion(options.recognition);
     }
-    update(); renderPhotos(); dialog.showModal();
+    update(); renderPhotos(); dialog.showModal(); scheduleMarket();
     (options.scan ? node("camera") : node("details").open ? node("category") : node("save")).focus({preventScroll:true});
     node("form").scrollTop = 0;
     return true;
