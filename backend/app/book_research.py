@@ -13,7 +13,9 @@ import logging
 import re
 import time
 from collections import OrderedDict
+from functools import lru_cache
 from html.parser import HTMLParser
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -36,10 +38,22 @@ PUBLISHERS = {
 }
 PUBLIC_FIELDS = frozenset(ComicPrintingCreate.model_fields) | {"language"}
 logger = logging.getLogger(__name__)
-IMAGE_HOSTS = {"www.marvel.com": {"cdn.marvel.com"}, "www.dc.com": {"static.dc.com"},
+IMAGE_HOSTS = {"www.marvel.com": {"cdn.marvel.com", "i.annihil.us"}, "www.dc.com": {"static.dc.com"},
                "www.dcuniverseinfinite.com": {"imgix-media.wbdndc.net"},
                "www.viz.com": {"dw9to29mmj727.cloudfront.net"}}
 _cover_cache = OrderedDict()
+
+
+def same_publisher_record(left, right):
+    """Marvel's issue ID survives renamed title slugs; other pages stay exact."""
+    left, right = publisher_source(left), publisher_source(right)
+    if not left or not right:
+        return False
+    if left == right:
+        return True
+    pattern = r"https://www\.marvel\.com/comics/issue/(\d+)/[^/]+"
+    a, b = re.fullmatch(pattern, left), re.fullmatch(pattern, right)
+    return bool(a and b and a[1] == b[1])
 
 
 def publisher_source(value: str) -> str | None:
@@ -171,7 +185,7 @@ async def publisher_page_cover(candidate, *, http_client=None):
         canonical = publisher_source(meta.get("og:url") or meta.get("canonical"))
         title = meta.get("og:title", "")
         issue = re.escape(str(fields["issue_number"]))
-        identity_ok = canonical == source and re.search(r"(?:#|Vol\.?\s*)" + issue + r"(?![\w.])", title, re.I)
+        identity_ok = same_publisher_record(canonical, source) and re.search(r"(?:#|Vol\.?\s*)" + issue + r"(?![\w.])", title, re.I)
         tokens = _title_tokens(fields["series_title"])
         identity_ok = identity_ok and tokens and len(tokens & _title_tokens(title)) / len(tokens) >= .75
         if identity_ok:
@@ -276,6 +290,10 @@ async def research_book(fields, images, *, api_key, model, http_client=None, ten
                 "message": "We read your cover, but could not confirm its publisher record yet. Add a clear barcode or inside copyright-page photo to help."}
     if not fields.get("series_title") or not (fields.get("issue_number") or fields.get("barcode_gtin") or images):
         return {**fallback, "status": "NEEDS_PHOTO"}
+    reviewed = reviewed_candidates(fields)
+    if reviewed:
+        return {"status":"CANDIDATES", "candidates":reviewed,
+                "message":"Publisher cover found. Check it against your copy before adding."}
     body = {
         "model": model, "store": False, "instructions": INSTRUCTIONS,
         "tools": [{"type": "web_search", "search_context_size": "low",
@@ -317,6 +335,47 @@ async def research_book(fields, images, *, api_key, model, http_client=None, ten
     await enrich_covers(candidates, http_client=http_client)
     return {"status": "CANDIDATES" if candidates else "UNAVAILABLE", "candidates": candidates,
             "message": "We researched your book. Compare the publisher cover with your copy." if candidates else fallback["message"]}
+
+
+@lru_cache(maxsize=1)
+def reviewed_scan_references():
+    from .book_artwork import reviewed_covers
+    data = Path(__file__).resolve().parents[1] / "data"
+    covers = reviewed_covers()
+    entries = [{"fields":{**row["book"], "language":row["language"]},
+                "source_url":row["source_url"], "source_title":row["catalogue"]["name"],
+                "image_url":covers[row["id"]]["image_url"]}
+               for row in json.loads((data / "book_catalogue_starter_20261016.json").read_text())["entries"]
+               if row["id"] in covers]
+    entries.extend(json.loads((data / "book_scan_reference_covers_20261018.json").read_text())["entries"])
+    return entries
+
+
+def reviewed_candidates(observed):
+    """Fast public edition references, never physical-printing or visual proof."""
+    if not observed.get("series_title") or not observed.get("issue_number") or not observed.get("system_code"):
+        return []
+    candidates = []
+    for row in reviewed_scan_references():
+        fields = row["fields"]
+        titles = [fields["series_title"], *row.get("title_aliases", [])]
+        if (_normal(observed["series_title"]) not in {_normal(title) for title in titles}
+                or _normal(observed["issue_number"]) != _normal(fields["issue_number"])
+                or observed["system_code"] != fields["system_code"]):
+            continue
+        if not publisher_source(row["source_url"]) or not source_cover_matches(row["source_url"], row["image_url"]):
+            continue
+        candidate = ResearchCandidate(fields={key:fields.get(key) for key in ResearchFields.model_fields},
+            source_url=row["source_url"], source_title=row["source_title"], image_url=row["image_url"],
+            cover_matches_photo=False, explanation="Publisher edition reference. Confirm the cover and your physical copy's printing.")
+        merged = candidate_fields(candidate, observed)
+        if merged is None:
+            continue
+        candidate = candidate.model_dump(); candidate["fields"] = merged
+        candidate["id"] = hashlib.sha256(json.dumps([merged,row["source_url"],row["image_url"]],sort_keys=True).encode()).hexdigest()[:24]
+        candidate["artwork_source"] = "REVIEWED_PUBLISHER_REFERENCE"
+        candidates.append(candidate)
+    return candidates[:4]
 
 
 def prepare_research_result(result, research, run_id):

@@ -23,6 +23,9 @@ def main():
                 html=re.sub(r'<script[^>]*>.*?</script>','',(ROOT/'owner.html').read_text(),flags=re.S)
                 def route_request(route):
                     if route.request.url=='https://book-scan.test/':route.fulfill(body=html,content_type='text/html')
+                    elif '/api/v1/owner/books/research/' in route.request.url:
+                        assert route.request.headers.get('authorization')=='Bearer fixture-token'
+                        route.fulfill(body=photo['buffer'],content_type='image/png')
                     elif route.request.url.startswith(('blob:https://book-scan.test/','data:image/')):route.continue_()
                     else:route.abort()
                 page.route('**/*',route_request)
@@ -182,6 +185,54 @@ def main():
                 assert page.locator('#owner-book-photos img').count()==0
                 assert page.locator('#owner-book-recognize').is_disabled()
                 assert len(page.evaluate("calls.filter(x=>x.url.endsWith('/intake'))"))==1
+                # Seven actual shutter captures queue behind two reads. The
+                # remove target belongs to the tile and stays usable at 390px.
+                page.locator('#owner-book-close').click()
+                page.evaluate('''async()=>{
+                  scanner.destroy();window.reads=[];window.lookups=[];
+                  state.session={access_token:'fixture-token',user:{id:'seller-b'}};
+                  window.scanner=new DropRateScanner.Scanner({role:'seller',session:()=>state.session,
+                    request:(url,opts)=>new Promise(resolve=>(url.endsWith('/recognize')?reads:lookups).push({url,opts,resolve})),
+                    openBooks:opts=>DropRateBooks.open(opts),afterSave:async()=>{},viewInventory:()=>{}});
+                  Object.defineProperty(scanner.video,'srcObject',{configurable:true,writable:true,value:null});
+                  Object.defineProperty(scanner.video,'videoWidth',{value:1920});Object.defineProperty(scanner.video,'videoHeight',{value:1080});
+                  scanner.video.play=async()=>{};scanner.frame=()=>({present:false,fingerprint:new Uint8Array(560)});
+                  await scanner.open('COMIC');
+                }''')
+                for _ in range(7):
+                    page.evaluate('scanner.awaitingRemoval=false')
+                    page.locator('[data-action="capture"]').click()
+                assert page.evaluate('scanner.items.length===7 && scanner.inFlight===2 && reads.length===2 && scanner.recognitionQueue.length===5')
+                assert not page.locator('[data-action="capture"]').is_disabled()
+                assert page.locator('.dr-scan-remove-queued').evaluate_all('(buttons)=>buttons.every(b=>b.getBoundingClientRect().width>=44 && b.getBoundingClientRect().height>=44)')
+                page.screenshot(path=str(OUT/f'{engine}-{width}-seven-scan-queue.png'))
+                page.locator('.dr-scan-remove-queued').first.click()
+                assert page.evaluate('scanner.items.length===6 && scanner.recognitionQueue.length===4')
+                page.evaluate('''()=>{
+                  window.run='11111111-1111-4111-8111-111111111111';
+                  window.early={run_id:run,status:'NEEDS_REVIEW',fields:{system_code:'MARVEL_COMICS',series_title:'Fixture book',issue_number:'528',publisher:'Marvel',book_format:'SINGLE_ISSUE',language:'English'},research:{status:'PENDING',candidates:[]}};
+                  reads[0].resolve(early);
+                }''')
+                page.wait_for_function('reads.length===3 && lookups.length===1 && scanner.items[0].status==="unresolved"')
+                page.evaluate('scanner.openDetails(scanner.items[0])')
+                assert page.locator('#owner-book-series').input_value()=='Fixture book'
+                assert not page.locator('#owner-book-save').is_disabled()
+                page.locator('#owner-book-details').evaluate('e=>e.open=true')
+                page.locator('#owner-book-series').fill('My edited title')
+                page.locator('#owner-book-copy-details').evaluate('e=>e.open=true')
+                page.locator('#owner-book-condition').select_option('Near Mint')
+                page.evaluate('''()=>{
+                  const fields={...early.fields,release_year:2006};
+                  lookups[0].resolve({...early,fields,research:{status:'CANDIDATES',candidates:[{
+                    id:'aaaaaaaaaaaaaaaaaaaaaaaa',fields,source_url:'https://www.marvel.com/comics/issue/3360/fixture',
+                    image_path:'/api/v1/owner/books/research/'+run+'/cover/aaaaaaaaaaaaaaaaaaaaaaaa'}]}});
+                }''')
+                page.wait_for_function('document.querySelectorAll(".owner-book-candidate").length===1')
+                assert page.locator('#owner-book-series').input_value()=='My edited title'
+                assert page.locator('#owner-book-condition').input_value()=='Near Mint'
+                page.wait_for_function('document.querySelector(".owner-book-candidate img").naturalWidth>0')
+                page.screenshot(path=str(OUT/f'{engine}-{width}-progressive-book-review.png'))
+                page.evaluate('scanner.destroy();DropRateBooks.reset();reads.forEach(r=>r.resolve({status:"NO_MATCH",fields:{}}))')
                 assert not errors,errors
                 page.close()
             browser.close()

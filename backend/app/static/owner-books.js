@@ -4,6 +4,7 @@
   let dialog, requestKey, submittedPayload, actorId, saving = false, pending = false, saved = false;
   let photos = [], scanRevision = 0, scanning = false, scanController = null, priceRevision = 0;
   let reviewContext = null;
+  let identityEdited = false;
   let research = null, researchRunId = null, selectedResearch = null, coverRevision = 0;
   const coverUrls = new Set(), coverControllers = new Set();
   const bookMapping = {system_code:"category", series_title:"series", issue_number:"number", volume_identifier:"volume",
@@ -150,6 +151,7 @@
       if (node("copy-details").contains(event.target)) node("copy-details").open = true;
     }, true);
     for (const type of ["input", "change"]) node("identity").addEventListener(type, () => {
+      identityEdited = true;
       selectedResearch = null;
       node("candidates").querySelectorAll("[aria-pressed]").forEach(button => button.setAttribute("aria-pressed", "false"));
       node("research-message").textContent = "Details edited. Choose a cover again to keep its publisher artwork, or save your own details.";
@@ -283,7 +285,7 @@
       remove.setAttribute("aria-label", `Remove book photo ${index + 1}`);
       remove.addEventListener("click", () => {
         if (scanning || saving || pending || saved) return;
-        photos.splice(index, 1); scanRevision++; clearIdentification(); renderPhotos();
+        cancelScan(); photos.splice(index, 1); clearIdentification(); renderPhotos();
         node("scan-message").textContent = photos.length ? "Photos changed. Identify your book again." : "Add a cover photo to identify your book.";
       });
       figure.append(image, remove); node("photos").append(figure);
@@ -329,6 +331,7 @@
   async function addPhotos(event) {
     const files = [...(event.target.files || [])]; event.target.value = "";
     if (scanning || saving || pending || saved) return;
+    cancelScan();
     const actor = actorId, revision = ++scanRevision;
     try {
       for (const file of files.slice(0, 3 - photos.length)) {
@@ -345,6 +348,7 @@
   function applySuggestion(result) {
     if (result.status !== "NEEDS_REVIEW") { clearIdentification(); node("scan-message").textContent = (result.warnings || ["No book could be read. Try a clearer photo."]).join(" "); return; }
     const fields = result.fields || {};
+    identityEdited = false;
     fillBookFields(fields);
     const graded = !!fields.grading_company;
     node("state").value = graded ? "GRADED" : "RAW"; node("condition").value = ""; clearGradingDetails(); update();
@@ -368,16 +372,48 @@
 
   async function recognize() {
     if (!photos.length || scanning || saving || pending || saved || actorId !== state.session?.user?.id) return;
+    cancelScan();
     const actor = actorId, revision = ++scanRevision;
     clearIdentification();
     scanning = true; scanController = new AbortController(); renderPhotos();
     node("fields").disabled = true; node("save").disabled = true;
-    node("scan-message").textContent = "Reading your cover and researching its edition and artwork…";
+    node("scan-message").textContent = "Reading your cover…";
+    const controller = scanController, images = [...photos];
+    const timeout = setTimeout(() => controller.abort(), 100000);
     try {
-      const result = await apiRequest("/api/v1/owner/books/recognize", {method:"POST", signal:scanController.signal, body:JSON.stringify({images:[...photos]})}, false);
-      if (scanActive(actor, revision)) applySuggestion(result);
-    } catch (error) { if (scanActive(actor, revision)) node("scan-message").textContent = error.message || "Book scanning failed. Your photos are kept for another attempt."; }
-    finally { if (scanActive(actor, revision)) { scanning = false; scanController = null; node("fields").disabled = false; node("save").disabled = false; renderPhotos(); } }
+      const result = await apiRequest("/api/v1/owner/books/recognize", {method:"POST", signal:controller.signal, body:JSON.stringify({images, defer_research:true})}, false);
+      if (!scanActive(actor, revision)) return;
+      applySuggestion(result);
+      scanning = false; node("fields").disabled = false; node("save").disabled = false; renderPhotos();
+      if (["PENDING", "RUNNING"].includes(result.research?.status)) {
+        const completed = await window.DropRateScanner.researchBook((url, options) => apiRequest(url, options, false), result, images, controller.signal);
+        if (scanActive(actor, revision)) applyResearch(completed);
+      }
+    } catch (error) { if (scanActive(actor, revision) && !saving && !pending && !saved) {
+      node("scan-message").textContent = error.message || "Book scanning failed. Your photos are kept for another attempt.";
+      if (["PENDING", "RUNNING"].includes(research?.status)) {
+        research = {status:"UNAVAILABLE", candidates:[], message:"Publisher lookup did not finish. Your book details are ready to review."};
+        renderResearch();
+      }
+    } }
+    finally { clearTimeout(timeout); if (scanActive(actor, revision)) { scanning = false; scanController = null;
+      if (!saving && !pending && !saved) { node("fields").disabled = false; node("save").disabled = false; }
+      renderPhotos(); } }
+  }
+
+  function applyResearch(result) {
+    if (saving || pending || saved || researchRunId !== result.run_id) return;
+    // Background metadata can fill identity blanks, but never undo the user's
+    // edits, condition, quantity, notes, costs or an in-flight save payload.
+    research = result.research || null;
+    if (!identityEdited) {
+      fillBookFields(result.fields || {}); selectedResearch = research?.selected_candidate_id || null;
+      node("details").open = !bookDetailsComplete();
+      renderReadSummary(result.fields || {});
+    }
+    renderResearch();
+    node("scan-message").textContent = "Book details ready. Check the cover and add your copy below.";
+    if (identityEdited) node("research-message").textContent = "Your edited details are kept. Choose a publisher cover to use its details.";
   }
 
   async function checkMarket() {
@@ -470,6 +506,7 @@
       dialog.showModal(); renderResearch(); return true;
     }
     actorId = state.session?.user?.id; pending = false; saved = false;
+    identityEdited = false;
     reviewContext = {...options};
     cancelScan(); photos = [];
     research = null; researchRunId = null; selectedResearch = null; renderResearch(); node("details").open = true; node("photo-details").open = true;
@@ -518,6 +555,8 @@
     node("form").scrollTop = 0;
     return true;
   }
-  window.DropRateBooks = {open, reset() { reviewContext = null; cancelScan(); photos = []; if (dialog) { dialog.close(); renderPhotos(); } }};
+  window.DropRateBooks = {open, updateScan(id, result) {
+    if (dialog?.open && reviewContext?.scanItemId === id && actorId === state.session?.user?.id) applyResearch(result);
+  }, reset() { reviewContext = null; cancelScan(); photos = []; if (dialog) { dialog.close(); renderPhotos(); } }};
   document.querySelectorAll("[data-owner-add-book]").forEach(button => button.addEventListener("click", open));
 })();

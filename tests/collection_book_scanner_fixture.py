@@ -5,7 +5,7 @@ import io
 import json
 import re
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 from uuid import UUID, uuid4
 
 from PIL import Image
@@ -80,6 +80,45 @@ async def exercise(client,db,pool,headers,settings,ua,ub,uf,owner_a,owner_b):
         r=await client.post(path,json={'images':[photo('green')]},headers=headers(ua,uuid4()))
         assert r.status_code==403 and 'fields' not in r.json(),r.text
         await db.execute('update tcg.owner_memberships set active=true where user_id=$1',ua);revoke=False
+        # OCR is returned while research is still pending. Receipt ownership,
+        # original-photo binding and a row lock permit exactly one paid lookup.
+        research_gate=asyncio.Event(); research_started=asyncio.Event()
+        async def research(*args,**kwargs):
+            research_started.set(); await research_gate.wait()
+            return {'status':'UNAVAILABLE','candidates':[],'message':'Fixture lookup finished.'}
+        lookup=AsyncMock(side_effect=research)
+        with patch.object(scanner,'research_book',lookup):
+            staged=await client.post(path,json={'images':[photo('orange')],'defer_research':True},headers=headers(ua,uuid4()))
+            assert staged.status_code==200 and staged.json()['research']['status']=='PENDING',staged.text
+            lookup.assert_not_awaited(); rid=staged.json()['run_id']
+            assert staged.json()['fields']['series_title']=='Fixture Manga'
+            receipt_path=f'{path}/{rid}'; research_path=f'/api/v1/owner/books/research/{rid}'
+            for actor,status in ((None,401),(ub,404),(ua,200)):
+                read=await client.get(receipt_path,headers=headers(actor,uuid4()) if actor else {})
+                assert read.status_code==status,read.text
+                if actor!=ua:
+                    denied=await client.post(research_path,json={'images':[photo('orange')]},headers=headers(actor,uuid4()) if actor else {})
+                    assert denied.status_code==status,denied.text
+            wrong=await client.post(research_path,json={'images':[photo('pink')]},headers=headers(ua,uuid4()))
+            assert wrong.status_code==422; lookup.assert_not_awaited()
+            first=asyncio.create_task(client.post(research_path,json={'images':[photo('orange')]},headers=headers(ua,uuid4())))
+            await asyncio.wait_for(research_started.wait(),3)
+            replay=await client.post(research_path,json={'images':[photo('orange')]},headers=headers(ua,uuid4()))
+            assert replay.status_code==200 and replay.json()['research']['status']=='RUNNING',replay.text
+            assert lookup.await_count==1
+            research_gate.set(); completed=await first
+            assert completed.status_code==200 and completed.json()['research']['status']=='UNAVAILABLE',completed.text
+            read=await client.get(receipt_path,headers=headers(ua,uuid4()))
+            assert read.json()==completed.json() and 'source_image_sha256' not in read.json()
+            await client.post(research_path,json={'images':[photo('orange')]},headers=headers(ua,uuid4()))
+            assert lookup.await_count==1
+        with patch.object(scanner,'research_book',AsyncMock(side_effect=RuntimeError('Fixture failure'))) as lookup:
+            staged=await client.post(path,json={'images':[photo('pink')],'defer_research':True},headers=headers(ua,uuid4()))
+            rid=staged.json()['run_id']
+            completed=await client.post(f'/api/v1/owner/books/research/{rid}',json={'images':[photo('pink')]},headers=headers(ua,uuid4()))
+            assert completed.status_code==200 and completed.json()['research']['status']=='UNAVAILABLE',completed.text
+            assert completed.json()['fields']['series_title']=='Fixture Manga'
+            lookup.assert_awaited_once()
         # Twenty actual receipt rows enforce a durable per-owner cap, including
         # failed runs. No external model/provider call occurs after the cap.
         await db.execute("""insert into tcg.recognition_runs(owner_id,idempotency_key,created_by_user_id)

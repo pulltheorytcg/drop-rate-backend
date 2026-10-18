@@ -175,6 +175,63 @@ def test_reference_identity_includes_printing_cover_and_language():
 
 
 @pytest.mark.asyncio
+async def test_reviewed_publisher_covers_skip_slow_search_without_approving_a_copy():
+    from app.book_research import reviewed_candidates, reviewed_scan_references
+    assert len(reviewed_scan_references()) == 19
+    for title, issue, system in [('Amazing Spider-Man','528','MARVEL_COMICS'),
+            ('The Amazing Spider-Man','795','MARVEL_COMICS'),('Batman','463','DC_COMICS'),
+            ('One Piece','1','MANGA'),('Peter Parker The Spectacular Spider-Man','114','MARVEL_COMICS'),
+            ('Peter Parker, The Spectacular Spider-Man','11','MARVEL_COMICS')]:
+        fields=dict(series_title=title,issue_number=issue,system_code=system,language='English')
+        def unexpected(_): raise AssertionError('Reviewed reference must not start another web search')
+        async with httpx.AsyncClient(transport=httpx.MockTransport(unexpected)) as http:
+            found=await research_book(fields,['photo'],api_key='fixture',model='fixture',http_client=http)
+        assert found['status']=='CANDIDATES' and len(found['candidates'])==1
+        cover=found['candidates'][0]
+        assert source_cover_matches(cover['source_url'],cover['image_url'])
+        assert cover['fields']['printing_number'] is None and not cover['cover_matches_photo']
+        ready=prepare_research_result(dict(fields=fields,uncertain_fields=['printing_number'],auto_save=False),found,uuid4())
+        assert 'selected_candidate_id' not in ready['research'] and not ready['auto_save']
+        assert not reviewed_candidates({**fields,'language':'Japanese'})
+        assert not reviewed_candidates({**fields,'release_year':2100})
+        assert not reviewed_candidates({**fields,'issue_number':'unreadable'})
+    assert not reviewed_candidates(dict(series_title='Amazing Spider-Man',system_code='MARVEL_COMICS'))
+
+
+@pytest.mark.asyncio
+async def test_marvel_slug_change_and_published_image_sizes_keep_exact_issue_binding():
+    from app.book_artwork import publisher_cover_url
+    from app.book_research import same_publisher_record
+    canonical='https://www.marvel.com/comics/issue/129606/deadpool-batman-2025-1'
+    image=COVER.replace('/clean.jpg','/portrait_uncanny.jpg')
+    assert publisher_cover_url(image.replace('cdn.marvel.com','i.annihil.us'))
+    assert not publisher_cover_url(image.replace('cdn.marvel.com','i.annihil.us.evil.test'))
+    assert publisher_cover_url(image) and publisher_cover_url(COVER.replace('/clean.jpg','/background.jpg'))
+    assert same_publisher_record(SOURCE,canonical)
+    assert not same_publisher_record(SOURCE,canonical.replace('/129606/','/129607/'))
+    for bad in ('?url=https://evil.test','#secret','/../private.jpg'):
+        assert not publisher_cover_url(image+bad)
+    page=f'<meta property="og:title" content="Deadpool/Batman #1"><meta property="og:url" content="{canonical}"><meta property="og:image" content="{image}">'
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _:httpx.Response(200,text=page,headers={'content-type':'text/html'}))) as http:
+        assert await publisher_page_cover(candidate(image_url=None),http_client=http)==image
+
+
+@pytest.mark.parametrize('fields',[
+    dict(series_title='Peter Parker, The Spectacular Spider-Man',issue_number='11',release_year=1977,cover_code='02199'),
+    dict(series_title='Peter Parker, The Spectacular Spider-Man',issue_number='114',cover_artist='Pollard'),
+    dict(series_title='The Amazing Spider-Man',issue_number='528',release_year=2006,volume_identifier='1999',cover_code='DIRECT EDITION'),
+    dict(series_title='The Amazing Spider-Man',issue_number='795',release_year=2018,volume_identifier='2015 series',barcode_gtin='75960608765579511',cover_artist='Alex Ross'),
+])
+def test_recorded_public_book_fields_resolve_cover_without_losing_copy_evidence(fields):
+    from app.book_research import reviewed_candidates
+    observed={**fields,'system_code':'MARVEL_COMICS','language':'English','publisher':'Marvel','book_format':'SINGLE_ISSUE'}
+    found=reviewed_candidates(observed)
+    assert len(found)==1 and found[0]['image_url'] and not found[0]['cover_matches_photo']
+    for key in ('issue_number','release_year','volume_identifier','cover_code','barcode_gtin','cover_artist'):
+        if key in fields: assert found[0]['fields'][key]==fields[key]
+
+
+@pytest.mark.asyncio
 async def test_cached_cover_cannot_be_reused_for_a_conflicting_issue(monkeypatch):
     from collections import OrderedDict
     from app import book_research

@@ -20,9 +20,36 @@ window.DropRateScanner = (() => {
   const snapshot = candidate => candidate?.candidate_snapshot || candidate || {};
   const selected = item => item.selected || item.suggested;
   const book = item => item.mode === "COMIC";
+  const researching = result => ["PENDING", "RUNNING"].includes(result?.research?.status);
+  async function researchBook(request, result, photos, signal) {
+    if (!researching(result) || !/^[0-9a-f-]{36}$/i.test(result.run_id || "")) return result;
+    const runId = result.run_id;
+    try {
+      result = await request(`/api/v1/owner/books/research/${runId}`, {
+        method: "POST", signal, body: JSON.stringify({images: photos}),
+      });
+    } catch (error) {
+      if (signal.aborted || [401, 403, 404, 422].includes(error.status)) throw error;
+      // A disconnected response may have completed. Read its receipt; never
+      // launch another paid lookup just because the transport was interrupted.
+      result = await request(`/api/v1/owner/books/recognize/${runId}`, {signal});
+    }
+    for (let attempt = 0; researching(result) && attempt < 40; attempt++) {
+      await new Promise((resolve, reject) => {
+        const abort = () => { clearTimeout(timer); reject(new DOMException("Cancelled", "AbortError")); };
+        const timer = setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, 1500);
+        signal.addEventListener("abort", abort, {once:true});
+        if (signal.aborted) abort();
+      });
+      result = await request(`/api/v1/owner/books/recognize/${runId}`, {signal});
+    }
+    if (researching(result)) throw new Error("Publisher lookup is taking longer. Your book details are ready to review.");
+    return result;
+  }
   const bookCover = item => {
     const result = item.bookResult, research = result?.research;
-    const candidate = research?.candidates?.find(c => c.id === research.selected_candidate_id);
+    const candidate = research?.candidates?.find(c => c.id === research.selected_candidate_id)
+      || (research?.candidates?.length === 1 ? research.candidates[0] : null);
     const path = candidate?.image_path;
     return candidate && /^[0-9a-f-]{36}$/i.test(result.run_id || "") && /^[a-f0-9]{24}$/.test(candidate.id)
       && path === `/api/v1/owner/books/research/${result.run_id}/cover/${candidate.id}` ? path : null;
@@ -205,6 +232,9 @@ window.DropRateScanner = (() => {
       this.owner = sessionId(options.session());
       this.items = [];
       this.inFlight = 0;
+      this.recognitionQueue = [];
+      this.bookResearchQueue = [];
+      this.researchInFlight = 0;
       this.captureBusy = false;
       this.epoch = 0;
       this.cameraRevision = 0;
@@ -343,8 +373,8 @@ window.DropRateScanner = (() => {
 
     find(selector) { return this.dialog.querySelector(selector); }
     status(text) { this.find(".dr-scan-status").textContent = text; }
-    get processing() { return this.captureBusy || this.inFlight > 0; }
-    atCapacity() { return this.captureBusy || this.inFlight >= 2; }
+    get processing() { return this.captureBusy || this.inFlight > 0 || this.recognitionQueue.length > 0; }
+    atCapacity() { return this.captureBusy || this.recognitionQueue.length >= 50; }
 
     guideMessage() {
       return this.mode === "GRADED" ? "Show the full slab · keep the label and QR readable"
@@ -525,6 +555,8 @@ window.DropRateScanner = (() => {
       this.searchRevision += 1;
       clearTimeout(this.searchTimer);
       this.controllers.forEach(controller => controller.abort());
+      this.recognitionQueue.splice(0).forEach(job => job.resolve());
+      this.bookResearchQueue = [];
       this.stopCamera();
       this.objectUrls.forEach(url => URL.revokeObjectURL(url));
       this.objectUrls.clear();
@@ -700,7 +732,7 @@ window.DropRateScanner = (() => {
         return;
       }
       this.presenceFrames += 1;
-      if (this.atCapacity()) { this.status("Two scans are recognising · keep the next item ready"); return; }
+      if (this.atCapacity()) { this.status("Your scan queue is full · review a few items before continuing"); return; }
       const movement = fingerprintDelta(analysis.fingerprint, this.previous);
       const previousBox = this.previousBox, box = analysis.box;
       const aligned = !previousBox || !box || (
@@ -766,16 +798,37 @@ window.DropRateScanner = (() => {
     }
 
     async recognise(photo, retryItem = null) {
-      if (this.atCapacity() || !this.active() || retryItem?.status === "processing" || retryItem?.requests || this.saving) return;
-      const epoch = this.epoch;
+      if (this.atCapacity() || !this.active() || ["processing", "queued"].includes(retryItem?.status) || retryItem?.requests || this.saving) return;
       const item = retryItem || {id: crypto.randomUUID(), photo, mode: this.mode, quantity: 1, condition: "", selected: null};
-      if (book(item)) { await this.recogniseBook(photo, item, !retryItem); return; }
-      if (graded(item)) { await this.recogniseSlab(photo, item, !retryItem); return; }
+      if (!retryItem) this.items.push(item);
+      item.photo = photo; item.status = "queued"; item.error = null; item.guess = "Queued · waiting to read";
+      item.researchController?.abort();
+      this.bookResearchQueue = this.bookResearchQueue.filter(job => job.item !== item);
+      item.run = null; item.bookResult = null; item.selected = null; item.suggested = null; item.candidates = [];
+      return new Promise(resolve => {
+        this.recognitionQueue.push({item, photo, resolve, epoch:this.epoch});
+        this.drainRecognition(); this.render();
+        if (item.status === "queued") this.status("Photo queued · keep scanning while we identify your items");
+      });
+    }
+
+    drainRecognition() {
+      if (!this.active()) return;
+      while (this.inFlight < 2 && this.recognitionQueue.length) {
+        const job = this.recognitionQueue.shift();
+        if (!this.active(job.epoch) || !this.items.includes(job.item)) { job.resolve(); continue; }
+        this.runRecognition(job.photo, job.item).finally(() => { job.resolve(); this.drainRecognition(); });
+      }
+    }
+
+    async runRecognition(photo, item) {
+      const epoch = this.epoch;
+      if (book(item)) { await this.recogniseBook(photo, item, false); return; }
+      if (graded(item)) { await this.recogniseSlab(photo, item, false); return; }
       item.run = null; item.selected = null; item.suggested = null; item.candidates = [];
       item.status = "processing"; item.error = null; item.guess = "Photo captured · identifying…";
-      if (!retryItem) this.items.push(item);
       this.inFlight += 1;
-      this.status(this.inFlight === 1 ? "Recognising · you can capture the next card" : "Recognising two cards…"); this.render();
+      this.status("Identifying your items · keep scanning"); this.render();
       const controller = new AbortController(); this.controllers.add(controller);
       item.recognitionController = controller;
       const timeout = setTimeout(() => controller.abort(), 70000);
@@ -821,7 +874,7 @@ window.DropRateScanner = (() => {
       const timeout = setTimeout(() => controller.abort(), 100000);
       try {
         const result = await this.request("/api/v1/owner/books/recognize", {method: "POST", signal: controller.signal,
-          body: JSON.stringify({images: [photo]})});
+          body: JSON.stringify({images: [photo], defer_research: true})});
         if (!this.active(epoch) || !this.items.includes(item)) return;
         item.bookResult = result; item.status = "unresolved";
         const fields = result.fields || {};
@@ -829,6 +882,9 @@ window.DropRateScanner = (() => {
           fields.issue_number ? (fields.system_code === "MANGA" ? "Vol. " : "#") + fields.issue_number : ""].filter(Boolean).join(" ") : "Book not recognised";
         if (result.status !== "NEEDS_REVIEW") item.error = (result.warnings || []).join(" ") || "Try a clearer cover or barcode photo.";
         this.status("Tap the book thumbnail to review its details");
+        if (researching(result)) {
+          this.bookResearchQueue.push({item, result, photo, epoch}); this.drainBookResearch();
+        }
       } catch (error) {
         if (!this.active(epoch) || !this.items.includes(item)) return;
         item.status = "unresolved"; item.guess = "Book scan needs another look";
@@ -837,6 +893,41 @@ window.DropRateScanner = (() => {
       } finally {
         clearTimeout(timeout); this.controllers.delete(controller); this.releaseRecognition(item, controller);
         if (this.active(epoch)) this.render();
+      }
+    }
+
+    drainBookResearch() {
+      while (this.active() && this.researchInFlight < 2 && this.bookResearchQueue.length) {
+        const job = this.bookResearchQueue.shift();
+        if (!this.items.includes(job.item) || job.item.bookResult !== job.result || job.item.status === "added") continue;
+        this.finishBookResearch(job);
+      }
+    }
+
+    async finishBookResearch({item, result, photo, epoch}) {
+      const controller = new AbortController(); this.controllers.add(controller);
+      item.researchController = controller; this.researchInFlight++;
+      const timeout = setTimeout(() => controller.abort(), 75000);
+      const active = () => this.active(epoch) && this.items.includes(item) && item.bookResult === result
+        && item.status !== "added" && !item.bookSavePending;
+      try {
+        const completed = await researchBook(this.request.bind(this), result, [photo], controller.signal);
+        if (!active()) return;
+        item.bookResult = completed;
+        const fields = completed.fields || {};
+        item.guess = [fields.series_title || "Book details read", fields.issue_number ?
+          (fields.system_code === "MANGA" ? "Vol. " : "#") + fields.issue_number : ""].filter(Boolean).join(" ");
+        window.DropRateBooks?.updateScan?.(item.id, completed);
+      } catch (_) {
+        if (!active()) return;
+        item.bookResult = {...result, research:{status:"UNAVAILABLE", candidates:[],
+          message:"Publisher cover lookup did not finish. Your book details are ready to review."}};
+        window.DropRateBooks?.updateScan?.(item.id, item.bookResult);
+      } finally {
+        clearTimeout(timeout); this.controllers.delete(controller);
+        if (item.researchController === controller) item.researchController = null;
+        this.researchInFlight = Math.max(0, this.researchInFlight - 1);
+        this.drainBookResearch(); if (this.active(epoch)) this.render();
       }
     }
 
@@ -919,11 +1010,14 @@ window.DropRateScanner = (() => {
       return {value: unknown === copies && copies > 0 ? null : value, unknown, copies};
     }
 
-    editable(item) { return !this.saving && !this.editBusy && !item.requests && item.status !== "processing" && !(book(item) && item.status === "added"); }
+    editable(item) { return !this.saving && !this.editBusy && !item.requests && !["processing", "queued"].includes(item.status) && !(book(item) && item.status === "added"); }
     removable(item) { return !this.saving && !this.editBusy && !item.bookSavePending
       && (!item.requests || item.status === "added") && this.items.includes(item); }
     releaseRecognition(item, controller) {
-      if (item.recognitionController === controller) { item.recognitionController = null; this.inFlight = Math.max(0, this.inFlight - 1); }
+      if (item.recognitionController === controller) {
+        item.recognitionController = null; this.inFlight = Math.max(0, this.inFlight - 1);
+        queueMicrotask(() => this.drainRecognition());
+      }
     }
     removeControl(item, className = "dr-scan-text-button") {
       const control = button(item.status === "added" ? "Dismiss scan" : "Remove scan", () => this.remove(item), className);
@@ -943,18 +1037,24 @@ window.DropRateScanner = (() => {
       for (const item of [...this.items].reverse()) {
         const tile = button("", () => this.openDetails(item), "dr-scan-tile " + item.status);
         tile.disabled = !this.editable(item);
-        tile.setAttribute("aria-label", (item.status === "processing" ? "Recognising item" : "Review " + name(item)));
+        tile.setAttribute("aria-label", (item.status === "queued" ? "Photo queued" : item.status === "processing" ? "Recognising item" : "Review " + name(item)));
         tile.append(this.thumb(item));
         const copy = node("span", "dr-scan-tile-copy");
         copy.append(node("strong", "", item.status === "processing" ? item.guess : name(item)));
         const card = snapshot(selected(item));
-        if (item.status !== "processing") copy.append(node("span", "", card.card_number || card.product_code || ""),
-          node("span", "", book(item) ? (item.status === "added" ? "Added to collection" : "Review book") : item.status === "unresolved" ? "Check match" : money(valueOf(item))));
+        if (!["processing", "queued"].includes(item.status)) copy.append(node("span", "", card.card_number || card.product_code || ""),
+          node("span", "", book(item) ? (item.status === "added" ? "Added to collection" : researching(item.bookResult) ? "Finding publisher cover…" : bookCover(item) ? "Check publisher cover" : "Review book") : item.status === "unresolved" ? "Check match" : money(valueOf(item))));
         tile.append(copy);
         const queued = node("div", "dr-scan-queued"), remove = this.removeControl(item, "dr-scan-remove-queued");
-        remove.textContent = "×"; queued.append(tile, remove); strip.append(queued);
+        remove.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg>';
+        queued.append(tile, remove); strip.append(queued);
       }
-      this.find(".dr-scan-total").textContent = "Total: " + money(totals.value) + (totals.unknown ? " · " + totals.unknown + " pending" : "");
+      this.find(".dr-scan-total").textContent = this.mode === "COMIC"
+        ? this.items.length + (this.items.length === 1 ? " scan" : " scans")
+          + (this.inFlight ? " · " + this.inFlight + " reading" : "")
+          + (this.recognitionQueue.length ? " · " + this.recognitionQueue.length + " queued" : "")
+          + (this.researchInFlight ? " · finding covers" : "")
+        : "Total: " + money(totals.value) + (totals.unknown ? " · " + totals.unknown + " pending" : "");
       this.find('[data-action="next"]').disabled = !this.items.length;
       this.find('[data-action="capture"]').disabled = this.atCapacity() || !this.stream;
       this.find('[data-action="gallery"]').disabled = this.atCapacity();
@@ -976,7 +1076,7 @@ window.DropRateScanner = (() => {
       const list = this.find(".dr-scan-review-list"); list.replaceChildren();
       for (const item of [...this.items].reverse()) {
         const row = node("article", "dr-scan-review-item " + item.status);
-        row.append(node("h3", "", item.status === "processing" ? "Recognising…" : name(item)), node("p", "dr-scan-card-meta", meta(item)));
+        row.append(node("h3", "", item.status === "queued" ? "Photo queued" : item.status === "processing" ? "Recognising…" : name(item)), node("p", "dr-scan-card-meta", meta(item)));
         const body = node("div", "dr-scan-review-body"); body.append(this.thumb(item, "dr-scan-review-thumb"));
         const copy = node("div", "dr-scan-review-copy");
         copy.append(node("strong", "dr-scan-card-value", valueOf(item) == null ? "Market value unavailable" : money(valueOf(item))));
@@ -1279,6 +1379,12 @@ window.DropRateScanner = (() => {
     remove(item) {
       if (!this.active() || !this.removable(item)) return;
       this.items = this.items.filter(row => row !== item);
+      item.researchController?.abort();
+      this.bookResearchQueue = this.bookResearchQueue.filter(job => job.item !== item);
+      this.recognitionQueue = this.recognitionQueue.filter(job => {
+        if (job.item !== item) return true;
+        job.resolve(); return false;
+      });
       if (item.recognitionController) {
         const controller = item.recognitionController; controller.abort(); this.releaseRecognition(item, controller);
       }
@@ -1507,5 +1613,5 @@ window.DropRateScanner = (() => {
     }
   }
 
-  return {Scanner, analyzeCardPresence, isMobile: () => window.matchMedia("(max-width: 900px)").matches};
+  return {Scanner, researchBook, analyzeCardPresence, isMobile: () => window.matchMedia("(max-width: 900px)").matches};
 })();

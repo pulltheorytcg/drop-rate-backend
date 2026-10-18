@@ -7,7 +7,9 @@ prefilled existing book form. Source photographs are never persisted here.
 from __future__ import annotations
 
 import hashlib
+import asyncio
 import json
+import logging
 import re
 import time
 from typing import Annotated, Literal
@@ -32,6 +34,7 @@ from .catalogue_artwork import reference_thumbnail
 from .book_artwork import publisher_cover_url
 
 router = APIRouter(prefix="/api/v1/owner/books", tags=["owner-books"])
+logger = logging.getLogger(__name__)
 
 
 class VisibleText(BaseModel):
@@ -157,6 +160,12 @@ def suggestion(observation: BookObservation) -> dict:
 class BookScanRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     images: list[Annotated[str, Field(min_length=100, max_length=4_000_000)]] = Field(min_length=1, max_length=3)
+    defer_research: bool = False
+
+
+def scan_digest(payload, settings):
+    images = [decode_image_data_url(url, max_bytes=min(settings.recognition_max_image_bytes, 3_000_000)) for url in payload.images]
+    return images, hashlib.sha256("|".join(image.sha256 for image in images).encode()).hexdigest()
 
 
 @router.post("/recognize")
@@ -167,13 +176,12 @@ async def recognize_book(payload: BookScanRequest, request: Request,
     if not settings.openai_api_key:
         raise HTTPException(409, "Book scanning is not configured. You can enter the details manually.")
     try:
-        images = [decode_image_data_url(url, max_bytes=min(settings.recognition_max_image_bytes, 3_000_000)) for url in payload.images]
+        images, digest = scan_digest(payload, settings)
     except RecognitionImageError as exc:
         raise HTTPException(422, str(exc)) from exc
-    digest = hashlib.sha256("|".join(image.sha256 for image in images).encode()).hexdigest()
     # Five-minute receipt slots permit provider-failure retries, not unbounded
     # force_refresh calls. An owner-wide lock makes limits safe across replicas.
-    key = f"book-scan:v3:{settings.recognition_model}:{digest}:{int(time.time())//300}"
+    key = f"book-scan:v4:{settings.recognition_model}:{digest}:{int(payload.defer_research)}:{int(time.time())//300}"
     owner_id = access["owner_id"]
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
         await db.execute("select pg_advisory_xact_lock(hashtextextended($1,0))", f"book-scan:{owner_id}")
@@ -199,9 +207,9 @@ async def recognize_book(payload: BookScanRequest, request: Request,
             tentative = {key: field.value for key, field in response.observation.fields
                          if key == "issue_number" and key not in result["fields"]
                          and field.visible_text and .5 <= field.confidence < .85}
-            research = await research_book(result["fields"], payload.images,
-                                           api_key=settings.openai_api_key, model=settings.recognition_model,
-                                           tentative_fields=tentative)
+            research = ({"status":"PENDING", "candidates":[], "message":"Book details read. Finding the publisher cover…"}
+                        if payload.defer_research else await research_book(result["fields"], payload.images,
+                            api_key=settings.openai_api_key, model=settings.recognition_model, tentative_fields=tentative))
             result = prepare_research_result(result, research, run_id)
     except RecognitionVisionError as exc:
         async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
@@ -216,6 +224,69 @@ async def recognize_book(payload: BookScanRequest, request: Request,
         if updated != "UPDATE 1":
             raise HTTPException(403, "Your access changed during this scan. Sign in again before continuing.")
     return jsonable_encoder({**public_result(result),"run_id":run_id,"replayed":False})
+
+
+@router.get("/recognize/{run_id}")
+async def book_scan_result(run_id: UUID, request: Request,
+                           user: Annotated[AuthenticatedUser, Depends(require_user)],
+                           access: Annotated[dict, Depends(require_owner_portal_request)]):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        evidence = await db.fetchval("select provider_evidence from tcg.recognition_runs where id=$1 and owner_id=$2 and idempotency_key like 'book-scan:%'", run_id, access["owner_id"])
+    if isinstance(evidence, str): evidence = json.loads(evidence)
+    if not evidence or not evidence.get("book_result"):
+        raise HTTPException(404, "Scan not available")
+    return jsonable_encoder({**public_result(evidence["book_result"]), "run_id":run_id})
+
+
+@router.post("/research/{run_id}")
+async def complete_book_research(run_id: UUID, payload: BookScanRequest, request: Request,
+                                 user: Annotated[AuthenticatedUser, Depends(require_user)],
+                                 access: Annotated[dict, Depends(require_owner_portal_request)]):
+    """Finish one scan in a second request; OCR is already available for review."""
+    settings = get_settings(); owner_id = access["owner_id"]
+    try:
+        _, digest = scan_digest(payload, settings)
+    except RecognitionImageError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        row = await db.fetchrow("""select provider_evidence,ai_observation,source_image_sha256
+            from tcg.recognition_runs where id=$1 and owner_id=$2 and status='NEEDS_REVIEW'
+            and idempotency_key like 'book-scan:%' for update""", run_id, owner_id)
+        if not row: raise HTTPException(404, "Scan not available")
+        if row["source_image_sha256"] != digest:
+            raise HTTPException(422, "Research must use this scan's original photos")
+        evidence = row["provider_evidence"]
+        if isinstance(evidence, str): evidence = json.loads(evidence)
+        result = evidence["book_result"]
+        # Exactly one request can claim research. Replays never launch paid work.
+        if result.get("research", {}).get("status") != "PENDING":
+            return jsonable_encoder({**public_result(result), "run_id":run_id})
+        observation = row["ai_observation"]
+        if isinstance(observation, str): observation = json.loads(observation)
+        result["research"] = {"status":"RUNNING", "candidates":[], "message":"Finding the publisher cover…"}
+        await db.execute("update tcg.recognition_runs set provider_evidence=$1::jsonb,updated_at=now(),version=version+1 where id=$2 and owner_id=$3", json.dumps(evidence), run_id, owner_id)
+    started = time.perf_counter()
+    tentative = {key: field.get("value") for key, field in observation.get("fields", {}).items()
+                 if key == "issue_number" and key not in result["fields"] and field.get("visible_text")
+                 and .5 <= field.get("confidence", 0) < .85}
+    cancelled = False
+    try:
+        research = await research_book(result["fields"], payload.images,
+            api_key=settings.openai_api_key or "", model=settings.recognition_model, tentative_fields=tentative)
+    except (Exception, asyncio.CancelledError) as exc:
+        cancelled = isinstance(exc, asyncio.CancelledError)
+        logger.warning("Book research stopped error_type=%s", type(exc).__name__)
+        research = {"status":"UNAVAILABLE", "candidates":[],
+                    "message":"Publisher lookup did not finish. Your book details are ready to review."}
+    result = prepare_research_result(result, research, run_id)
+    evidence["book_result"] = result
+    evidence["research_ms"] = round((time.perf_counter() - started) * 1000, 2)
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        updated = await db.execute("""update tcg.recognition_runs set provider_evidence=$1::jsonb,
+            completed_at=now(),updated_at=now(),version=version+1 where id=$2 and owner_id=$3""", json.dumps(evidence), run_id, owner_id)
+        if updated != "UPDATE 1": raise HTTPException(403, "Your access changed during this scan")
+    if cancelled: raise asyncio.CancelledError
+    return jsonable_encoder({**public_result(result), "run_id":run_id})
 
 
 @router.get("/research/{run_id}/cover/{candidate_id}")
