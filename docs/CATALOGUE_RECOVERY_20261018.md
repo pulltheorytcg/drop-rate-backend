@@ -74,7 +74,15 @@ full pricing audit was 40,443 / 67,060 physical references (60.31%), including
 labelled mixed-language guides. eBay/Trawl remains paused after HTTP 429 until
 18 October 17:39:35 UTC. No early retry or invented sold price is permitted.
 Book printings/condition still need confirmation before exact sold-value matching.
-Final artwork changes, source receipts, CI and deployment are recorded in the PR.
+PR #683 passed all six workflows on 7abc44e9, including real PostgreSQL admission
+and Chromium/WebKit rescan checks. Main 88971bec deployed successfully as Railway
+52e920cc-f008-490c-8644-c23bac3a76f7 at 02:05 UTC. The original predeploy command
+was restored. The first expanded artwork export exceeded Railway's ingestion
+rate and lost 1,271 log lines; an incomplete set must not be used to prove unique
+identity. The opt-in probe now pauses 25 ms per record, below 40 records/second,
+so its complete checklist can be retrieved and counted before matching. The
+90-second bound and read-only scope remain. No artwork writes use partial sets.
+Final artwork changes and source receipts are recorded in the follow-up PR.
 
 ## Physical iPhone check still required
 
