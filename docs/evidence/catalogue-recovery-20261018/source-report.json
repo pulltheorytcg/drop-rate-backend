@@ -1,0 +1,80 @@
+{
+  "deployment": "3b288017-dcf2-40be-aa26-74307e053710",
+  "at": "2026-10-18T02:10:56.235242169Z",
+  "status": "READ_ONLY_REVIEW",
+  "persisted": false,
+  "provider_calls": 12,
+  "sets": [
+    {
+      "title": "Shining Fates",
+      "expansion_id": 2126,
+      "records": 222
+    },
+    {
+      "title": "Crown Zenith",
+      "expansion_id": 3171,
+      "records": 294
+    },
+    {
+      "title": "Brilliant Stars",
+      "expansion_id": 2911,
+      "records": 243
+    },
+    {
+      "title": "Astral Radiance",
+      "expansion_id": 3007,
+      "records": 266
+    },
+    {
+      "title": "Lost Origin",
+      "expansion_id": 3108,
+      "records": 273
+    },
+    {
+      "title": "Silver Tempest",
+      "expansion_id": 3142,
+      "records": 271
+    },
+    {
+      "title": "Dragon Majesty",
+      "expansion_id": 1604,
+      "records": 92
+    },
+    {
+      "title": "Shining Legends",
+      "expansion_id": 1915,
+      "records": 98
+    },
+    {
+      "title": "Aquapolis",
+      "expansion_id": 1491,
+      "records": 190
+    },
+    {
+      "title": "Skyridge",
+      "expansion_id": 1492,
+      "records": 188
+    },
+    {
+      "title": "Sun & Moon Promos",
+      "status": "EXPANSION_UNRESOLVED"
+    },
+    {
+      "title": "Sword & Shield Promos",
+      "status": "EXPANSION_UNRESOLVED"
+    }
+  ],
+  "combined_source_sha256": "e3293fd6242a35d9913d699be93109627efcc7692f51d8a4d4008c0e871f58f5",
+  "source_order": [
+    "source-2126.json",
+    "source-3171.json",
+    "source-2911.json",
+    "source-3007.json",
+    "source-3108.json",
+    "source-3142.json",
+    "source-1604.json",
+    "source-1915.json",
+    "source-1491.json",
+    "source-1492.json"
+  ]
+}

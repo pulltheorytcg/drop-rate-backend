@@ -13,7 +13,16 @@ through the existing CardTrader connection. No source backfill is claimed before
 matching/visual verification. See [receipts and phone check](docs/CATALOGUE_RECOVERY_20261018.md).
 All six PR #683 workflows passed, including the forced PostgreSQL retry race and
 Chromium/WebKit rescan cases. Main 88971bec deployed successfully as Railway
-52e920cc-f008-490c-8644-c23bac3a76f7. Artwork changes remain separately verified.
+52e920cc-f008-490c-8644-c23bac3a76f7. Follow-up PR #684 retained all 2,137 public
+source records below the log-ingestion limit. Verified and applied 540 missing
+English Pokémon images across ten releases; all ten now have zero artwork gaps.
+PR #685 fixed explicit gender/Prism source labels and restored three dated,
+mixed-language guide references. Latest main 4a3cfe56 deployed successfully as
+cf4b00cd-2915-410c-8299-3b13f08291fc with 6,161 production predeploy tests passing;
+readiness and exact book-script bytes match. The original predeploy was restored.
+Remaining Pokémon image gaps: 10,364; physical reference/guide coverage:
+40,446/67,060 (60.31%). Exact eBay sold access and the physical comic phone test
+remain pending. See [source proofs and rollback](docs/evidence/catalogue-recovery-20261018/README.md).
 
 ## 17 October 2026 — Simple collection journey (live, PR #682)
 

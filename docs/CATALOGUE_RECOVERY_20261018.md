@@ -82,7 +82,26 @@ rate and lost 1,271 log lines; an incomplete set must not be used to prove uniqu
 identity. The opt-in probe now pauses 25 ms per record, below 40 records/second,
 so its complete checklist can be retrieved and counted before matching. The
 90-second bound and read-only scope remain. No artwork writes use partial sets.
-Final artwork changes and source receipts are recorded in the follow-up PR.
+The paced export completed with all 2,137 records across ten releases. All 540
+replacement image responses decoded successfully; 462 were visually reviewed
+and 78 independently showed multiple English OCR markers. Every source-label
+exception was individually checked against the image. Six guarded updates at
+02:29 UTC filled only previously empty reference URLs and recorded per-image
+provenance. Fresh readback matched every intended identity, URL and image hash.
+All ten target releases now have zero missing image URLs; total Pokémon gaps
+fell to 10,364 (1,240 English and 9,124 Japanese). Inventory and current physical
+price fingerprints were unchanged across the artwork repair.
+
+PR #685 additionally corrected explicit Nidoran gender and Prism diamond source
+labels without weakening duplicate/number/release checks. Three formerly empty
+catalogue guide rows now have dated Cardmarket values with official ECB FX;
+all six quotes remain ineligible for physical-copy valuation. Coverage is now
+40,446/67,060 physical references (60.31%), including mixed-language guides.
+Latest main 4a3cfe56 deployed successfully as Railway
+cf4b00cd-2915-410c-8299-3b13f08291fc; 6,161 predeploy tests passed and live
+readiness, owner HTML and exact book-script bytes were checked. Source exports,
+applied manifests, before/after receipts and guarded rollback instructions are
+in [the evidence record](evidence/catalogue-recovery-20261018/README.md).
 
 ## Physical iPhone check still required
 
