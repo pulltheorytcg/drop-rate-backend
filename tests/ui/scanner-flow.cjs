@@ -67,6 +67,44 @@ async function matched(scanner, quantity = 1) {
     s.openDetails(item);assert.equal(item.status,'added');await s.saveAll();assert.equal(s.inventoryOpened,true);
     f.finish();checks++;
   }
+  // Removing any queued scan works before/after recognition; late replies cannot resurrect it.
+  for (const mode of ['RAW','GRADED','SEALED','COMIC']) {
+    const pending=deferred();const f=fixture('seller',()=>pending.promise,{openBooks:()=>true});
+    const s=f.scanner;s.setMode(mode);const reading=s.recognise('photo');await tick();
+    const item=s.items[0],controller=item.recognitionController;
+    assert.equal(s.inFlight,1);assert.equal(s.removable(item),true);
+    const remove=s.find('.dr-scan-remove-queued');assert.equal(remove.disabled,false);remove.click();
+    assert.equal(s.items.length,0);assert.equal(s.inFlight,0);assert.equal(controller.signal.aborted,true);
+    pending.resolve(mode==='COMIC'?{status:'NEEDS_REVIEW',fields:{series_title:'Late book'}}:result());await reading;
+    assert.equal(s.items.length,0);assert.equal(s.inFlight,0);assert.equal(item.photo,null);f.finish();checks++;
+  }
+  {
+    const f=fixture('seller',async()=>result()),s=f.scanner;
+    const item=await matched(s);s.showReview();
+    assert.ok(s.review.querySelector('button[aria-label^="Remove scan:"]'));
+    item.requests=[{key:'pending'}];s.render();assert.equal(s.removable(item),false);s.remove(item);assert.equal(s.items.length,1);
+    item.status='added';s.render();s.review.querySelector('button[aria-label^="Dismiss saved scan:"]').click();
+    assert.equal(s.items.length,0);assert.equal(f.calls.length,1,'Dismissing a saved scan never deletes inventory');f.finish();checks++;
+  }
+  // Book artwork uses only the chosen owner-bound publisher path and survives its save receipt.
+  {
+    const run='11111111-1111-4111-8111-111111111111',id='aaaaaaaaaaaaaaaaaaaaaaaa';
+    const path='/api/v1/owner/books/research/'+run+'/cover/'+id;let review;const imageCalls=[];
+    const data={status:'NEEDS_REVIEW',run_id:run,fields:{series_title:'Book',issue_number:'1'},
+      research:{selected_candidate_id:id,candidates:[{id,image_path:path}]}};
+    const f=fixture('seller',async()=>data,{openBooks:opts=>{review=opts;return true;}}),s=f.scanner;
+    f.w.fetch=async url=>{imageCalls.push(url);return {ok:true,blob:async()=>new f.w.Blob(['cover'],{type:'image/png'})};};
+    s.setMode('COMIC');await s.recognise('photo');await tick();await tick();
+    assert.equal(s.find('.dr-scan-thumb img').src,'blob:preview');assert.deepEqual(imageCalls,[path]);
+    const item=s.items[0];s.openDetails(item);review.onSaveState(true);assert.equal(s.removable(item),false);
+    const newRun='22222222-2222-4222-8222-222222222222',newId='bbbbbbbbbbbbbbbbbbbbbbbb';
+    const newPath='/api/v1/owner/books/research/'+newRun+'/cover/'+newId;
+    review.onSaved({catalogue:{name:'Saved book'}},{new_catalogue:{comic_printing:{series_title:'Book'}},research_candidate_id:newId,language:'English'},
+      {run_id:newRun,research:{candidates:[{id:newId,image_path:newPath}]}});
+    review.onSaveState(false);assert.equal(s.removable(item),true);review.onClose();await tick();
+    assert.equal(s.find('.dr-scan-review-thumb img').src,'blob:preview');
+    assert.equal(item.bookResult.run_id,newRun);assert.ok(imageCalls.includes(newPath),'A rescan must keep its new cover receipt');f.finish();checks++;
+  }
   // Failed reads retain the cover for review/retry, with no guessed identity or price.
   for(const response of ['NO_MATCH','error']) {
     let review;const f=fixture('seller',async()=>{if(response==='error')throw new Error('Provider unavailable');return {status:'NO_MATCH',warnings:['No book visible']};},

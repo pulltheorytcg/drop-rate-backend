@@ -114,7 +114,7 @@
         </section>
         <p class="owner-book-explanation">Add confirms this is your book. You can add condition and cost later.</p>
         <p id="owner-book-message" role="status" aria-live="polite"></p>
-        <div class="owner-book-actions"><button type="button" id="owner-book-cancel" class="owner-secondary-action">Cancel</button><button type="submit" id="owner-book-save" class="owner-primary-action">Add to collection</button></div>
+        <div class="owner-book-actions"><button type="button" id="owner-book-remove" class="owner-secondary-action" hidden>Remove scan</button><button type="button" id="owner-book-cancel" class="owner-secondary-action">Cancel</button><button type="submit" id="owner-book-save" class="owner-primary-action">Add to collection</button></div>
       </form>
       <datalist id="owner-book-languages"><option value="English"><option value="Japanese"><option value="French"><option value="German"><option value="Spanish"><option value="Italian"></datalist>`;
     document.body.append(dialog);
@@ -122,6 +122,11 @@
     for (const id of ["category", "state"]) node(id).addEventListener("change", update);
     node("grader").addEventListener("change", clearGradingDetails);
     for (const id of ["close", "cancel"]) node(id).addEventListener("click", () => { if (!saving) { cancelScan(); dialog.close(); } });
+    node("remove").addEventListener("click", () => {
+      if (saving || pending || saved || actorId !== state.session?.user?.id || !reviewContext?.onRemove) return;
+      const remove = reviewContext.onRemove;
+      cancelScan(); photos = []; remove(); dialog.close();
+    });
     dialog.addEventListener("cancel", event => { if (saving) event.preventDefault(); });
     dialog.addEventListener("close", () => {
       if (dialog.open) return;
@@ -172,7 +177,7 @@
   function publisherLink(value) {
     try {
       const url = new URL(value);
-      const paths = {"www.marvel.com":["/comics/issue/"],"www.dc.com":["/comics/","/graphic-novels/"],
+      const paths = {"www.marvel.com":["/comics/issue/"],"www.dc.com":["/comics/","/graphic-novels/"],"www.dcuniverseinfinite.com":["/comics/book/"],
         "www.viz.com":["/manga-books/manga/"],"kodansha.us":["/product/"],"sevenseasentertainment.com":["/books/"],
         "yenpress.com":["/titles/"],"imagecomics.com":["/comics/releases/"],"www.darkhorse.com":["/Comics/","/Books/"]};
       return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash
@@ -285,6 +290,24 @@
     });
     node("recognize").disabled = !photos.length || scanning || saving || pending || saved;
     for (const id of ["camera", "gallery"]) node(id).disabled = photos.length >= 3 || scanning || saving || pending || saved;
+    node("remove").hidden = !reviewContext?.onRemove || saved;
+    node("remove").disabled = saving || pending;
+  }
+
+  function renderReadSummary(fields) {
+    const preview = node("selected"); preview.replaceChildren();
+    preview.hidden = !fields.series_title || !!research?.candidates?.length;
+    if (preview.hidden) return;
+    const art = document.createElement("div"); art.className = "owner-book-cover";
+    if (photos[0]) {
+      const img = document.createElement("img"); img.src = photos[0]; img.alt = "Your scanned cover"; art.append(img);
+    }
+    const title = document.createElement("h3");
+    title.textContent = [fields.series_title, fields.issue_number ? (fields.system_code === "MANGA" ? "Vol. " : "#") + fields.issue_number : ""].filter(Boolean).join(" ");
+    const caption = document.createElement("p");
+    caption.textContent = [fields.publisher,fields.language,fields.release_year].filter(Boolean).join(" · ")
+      + (photos[0] ? " · Your photo" : "");
+    preview.append(art,title,caption);
   }
 
   async function imageData(file) {
@@ -336,9 +359,10 @@
     node("title").textContent = "Is this your book?";
     node("scan-message").textContent = research ? "Cover read. Publisher research is shown above."
       : "Book details read — confirm them below." + (missing.length ? " Check: " + missing.join(", ") + "." : "") + " " + (result.warnings || []).join(" ");
-    node("details").open = !research || !bookDetailsComplete();
-    node("photo-details").open = !research?.candidates?.length;
+    node("details").open = !bookDetailsComplete();
+    node("photo-details").open = !bookDetailsComplete() && !research?.candidates?.length;
     renderResearch();
+    renderReadSummary(fields);
     priceRevision++; node("market-result").textContent = "Confirm the printing and copy condition or grade, then check its market value.";
   }
 
@@ -402,6 +426,8 @@
     const body = pending ? submittedPayload : JSON.stringify(payload());
     if (submittedPayload && body !== submittedPayload) requestKey = crypto.randomUUID();
     submittedPayload = body; saving = true;
+    reviewContext?.onSaveState?.(true);
+    node("remove").disabled = true;
     node("fields").disabled = true; node("save").disabled = true;
     node("message").textContent = "Saving your book…";
     try {
@@ -413,7 +439,7 @@
       node("cancel").textContent = "Done";
       // The scanner only receives a receipt after explicit, successful book intake.
       // A presentation callback must never turn a committed save into a retry.
-      try { reviewContext?.onSaved?.(result, JSON.parse(body)); } catch (_) { /* Inventory already saved. */ }
+      try { reviewContext?.onSaved?.(result, JSON.parse(body), {run_id:researchRunId,research}); } catch (_) { /* Inventory already saved. */ }
       if (reviewContext) reviewContext.onSaved = null;
       // A failed refresh must not turn a successful save into a second intake.
       await Promise.allSettled([loadOwnerInventory(), loadOwnerOverview()]);
@@ -425,7 +451,11 @@
         : error.message || "Unable to save. Check your details and try again.";
       node("fields").disabled = pending; node("save").disabled = false;
       node("save").textContent = pending ? "Retry this book" : "Add to collection";
-    } finally { saving = false; }
+    } finally {
+      saving = false;
+      reviewContext?.onSaveState?.(pending);
+      node("remove").disabled = pending || saved;
+    }
   }
 
   function open(options = {}) {

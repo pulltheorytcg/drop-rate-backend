@@ -173,7 +173,7 @@ async def recognize_book(payload: BookScanRequest, request: Request,
     digest = hashlib.sha256("|".join(image.sha256 for image in images).encode()).hexdigest()
     # Five-minute receipt slots permit provider-failure retries, not unbounded
     # force_refresh calls. An owner-wide lock makes limits safe across replicas.
-    key = f"book-scan:v2:{settings.recognition_model}:{digest}:{int(time.time())//300}"
+    key = f"book-scan:v3:{settings.recognition_model}:{digest}:{int(time.time())//300}"
     owner_id = access["owner_id"]
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
         await db.execute("select pg_advisory_xact_lock(hashtextextended($1,0))", f"book-scan:{owner_id}")
@@ -196,8 +196,12 @@ async def recognize_book(payload: BookScanRequest, request: Request,
         response = await BookVisionClient(api_key=settings.openai_api_key, model=settings.recognition_model).observe_with_telemetry(payload.images)
         result = suggestion(response.observation)
         if result["status"] == "NEEDS_REVIEW":
+            tentative = {key: field.value for key, field in response.observation.fields
+                         if key == "issue_number" and key not in result["fields"]
+                         and field.visible_text and .5 <= field.confidence < .85}
             research = await research_book(result["fields"], payload.images,
-                                           api_key=settings.openai_api_key, model=settings.recognition_model)
+                                           api_key=settings.openai_api_key, model=settings.recognition_model,
+                                           tentative_fields=tentative)
             result = prepare_research_result(result, research, run_id)
     except RecognitionVisionError as exc:
         async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
