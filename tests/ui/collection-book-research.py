@@ -91,7 +91,7 @@ def main():
                 assert page.locator('#owner-book-price').input_value()==''
                 assert page.locator('.owner-book-candidate').count()==1
                 assert page.locator('#owner-book-change-cover').get_attribute('aria-expanded')=='false'
-                page.wait_for_function('document.querySelector(".owner-book-candidate img:not([hidden])").naturalWidth === 160')
+                page.wait_for_function('document.querySelector(".owner-book-candidate img:not([hidden])")?.naturalWidth === 160')
                 assert not page.evaluate('document.querySelector("#owner-book-dialog").scrollWidth > document.querySelector("#owner-book-dialog").clientWidth+2')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-book-cover-choice.png'))
                 page.locator('#owner-book-save').click()
