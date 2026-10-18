@@ -61,6 +61,37 @@ Provider recovery alone cannot price an unverified printing without eligible sal
   schema has not been evaluated against the recording using the live vision key;
   connected infrastructure access exposes variable names only.
 
-Deployment and CI receipts will be appended after the release gates complete.
+## Release evidence
+
+PR [#693](https://github.com/pulltheorytcg/drop-rate-backend/pull/693) merged as
+`7558fd27374638f5dc8ad7548b330d5cbe97e661`. All six workflows passed on final PR
+head `60d5043ba2ba55979b31192e23fcd2095bbc72d4`:
+
+- Backend checks: run `39140626416`, including 6,196 Python tests and the complete
+  Node suite (64 scanner scenarios).
+- Collection-first confirmation: run `39140626453`, including real PostgreSQL
+  receipt/RLS/digest/quota/no-write checks and Chromium/WebKit at 390/1440 widths.
+- Shared inventory reference consistency: run `39140626420`.
+- Shared inventory images: run `39140626469`.
+- Immediate owner imports: run `39140626401`.
+- Seller inventory persistence: run `39140626417`.
+
+Final-head browser artifact `12141442654` was inspected: mobile Auto capture,
+populated book review and automatically selected artwork with visible Add and
+optional Change cover. Screens use synthetic test data, not new live OCR evidence.
+
+Railway deployment `c69c96da-0209-4665-975d-0ee200e5449e` reached SUCCESS at
+18 October 2026 15:34:05 UTC (16:34:05 BST), serving main `7558fd27`. Its predeploy
+suite passed all 6,196 tests. Independent production readback at 15:34:29 UTC
+confirmed all four scanner/book asset byte hashes match this release, both owner
+and founder entrypoints reference `book-auto-v6`, readiness reports the database
+connected, and anonymous book receipt/cover requests return 401.
+
+All three main workflows passed: Backend checks `39140944155`, Collection-first
+confirmation `39140944151` (including production readback), and Business production
+readback `39140944149`. These checks establish deployed code and guarded behavior;
+fresh phone OCR accuracy and live comic price coverage remain unverified/unavailable
+as described above. Earlier saved items are not rewritten.
+
 Rollback: revert this PR and redeploy through the unchanged pipeline. There is
 no schema migration or financial/ownership write to reverse.
