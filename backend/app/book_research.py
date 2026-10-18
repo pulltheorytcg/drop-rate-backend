@@ -2,7 +2,7 @@
 
 Reuse the configured recognition account. Only public book identifiers enter
 search queries; original photographs and certificate numbers are not journalled.
-Research is a suggestion with clickable sources and a visual confirmation step.
+Research is a suggestion with clickable sources; Add confirms the selected book.
 """
 from __future__ import annotations
 
@@ -379,20 +379,22 @@ def reviewed_candidates(observed):
 
 
 def prepare_research_result(result, research, run_id):
-    """Prefill anchored metadata; a cover choice and final save stay human."""
+    """Select the best compatible reference; the collector still explicitly adds it."""
+    research.pop("selected_candidate_id", None)
     for candidate in research["candidates"]:
         if candidate.get("image_url"):
             candidate["image_path"] = f"/api/v1/owner/books/research/{run_id}/cover/{candidate['id']}"
-    if len(research["candidates"]) == 1:
-        candidate = research["candidates"][0]
-        # Exact observed issue/ISBN anchors allow metadata suggestions even when
-        # the search provider cannot inspect a cover. Missing identity still
-        # requires a visual match or an explicit candidate choice.
-        anchored = result["fields"].get("issue_number") or result["fields"].get("barcode_gtin")
-        if anchored or candidate["cover_matches_photo"]:
-            result["fields"] = {**result["fields"], **{k: v for k, v in candidate["fields"].items() if v is not None}}
-            result["uncertain_fields"] = [key for key in result["uncertain_fields"] if not result["fields"].get(key)]
-        if candidate["cover_matches_photo"]:
+    # Candidates already passed publisher provenance and observed-identity
+    # conflict checks. Prefer a visual match, then available artwork, retaining
+    # provider order on ties. Selecting a reference is not visual/printing proof.
+    anchored = result["fields"].get("issue_number") or result["fields"].get("barcode_gtin")
+    eligible = [candidate for candidate in research["candidates"]
+                if anchored or candidate["cover_matches_photo"]]
+    if eligible:
+        candidate = max(eligible, key=lambda row: (bool(row["cover_matches_photo"]), bool(row.get("image_url"))))
+        result["fields"] = {**result["fields"], **{k: v for k, v in candidate["fields"].items() if v is not None}}
+        result["uncertain_fields"] = [key for key in result["uncertain_fields"] if not result["fields"].get(key)]
+        if candidate.get("image_url"):
             research["selected_candidate_id"] = candidate["id"]
     result["research"] = research
     return result

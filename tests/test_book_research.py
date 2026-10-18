@@ -75,8 +75,26 @@ def test_visual_suggestion_prefills_but_does_not_approve_save_or_price():
     assert result['research']['selected_candidate_id']==found[0]['id']
     assert 'image_url' not in public_result(result)['research']['candidates'][0]
     assert found[0]['image_url']==COVER
-    two=prepare_research_result({'fields':observed(),'uncertain_fields':[]},{'candidates':[deepcopy(found[0]),deepcopy(found[0])]},uuid4())
-    assert 'selected_candidate_id' not in two['research'] and 'release_year' not in two['fields']
+
+
+@pytest.mark.parametrize('visual_match', [False, True])
+def test_best_available_cover_is_selected_and_its_details_follow_the_selection(visual_match):
+    first = candidate(image_url=None, cover_matches_photo=False)
+    second = candidate(cover_matches_photo=False)
+    second['fields']['cover_code'] = 'Cover B'
+    third = candidate(cover_matches_photo=visual_match)
+    third['fields']['cover_code'] = 'Cover C'
+    found = accepted_candidates(response(first, second, third), observed())
+    result = prepare_research_result(dict(fields=observed(), uncertain_fields=['release_year'],
+        status='NEEDS_REVIEW', auto_save=False, market_value_minor=None), {'candidates':found}, uuid4())
+    chosen = found[2 if visual_match else 1]
+    assert result['research']['selected_candidate_id'] == chosen['id']
+    assert result['fields']['cover_code'] == chosen['fields']['cover_code']
+    assert result['fields']['release_year'] == 2025 and result['fields'].get('printing_number') is None
+    assert result['status'] == 'NEEDS_REVIEW' and result['auto_save'] is False
+    assert result['market_value_minor'] is None
+    assert chosen['cover_matches_photo'] is visual_match
+    assert len(result['research']['candidates']) == 3, 'Alternatives remain available for Change cover'
 
 
 @pytest.mark.asyncio
@@ -191,7 +209,9 @@ async def test_reviewed_publisher_covers_skip_slow_search_without_approving_a_co
         assert source_cover_matches(cover['source_url'],cover['image_url'])
         assert cover['fields']['printing_number'] is None and not cover['cover_matches_photo']
         ready=prepare_research_result(dict(fields=fields,uncertain_fields=['printing_number'],auto_save=False),found,uuid4())
-        assert 'selected_candidate_id' not in ready['research'] and not ready['auto_save']
+        assert ready['research']['selected_candidate_id'] == cover['id'] and not ready['auto_save']
+        assert not cover['cover_matches_photo'] and ready['fields'].get('printing_number') is None
+        assert identity_digest(ready['fields']) == identity_digest(cover['fields'])
         assert not reviewed_candidates({**fields,'language':'Japanese'})
         assert not reviewed_candidates({**fields,'release_year':2100})
         assert not reviewed_candidates({**fields,'issue_number':'unreadable'})

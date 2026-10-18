@@ -223,13 +223,14 @@ def main():
                 page.locator('#owner-book-condition').select_option('Near Mint')
                 page.evaluate('''()=>{
                   const fields={...early.fields,release_year:2006};
-                  lookups[0].resolve({...early,fields,research:{status:'CANDIDATES',candidates:[{
+                  lookups[0].resolve({...early,fields,research:{status:'CANDIDATES',selected_candidate_id:'aaaaaaaaaaaaaaaaaaaaaaaa',candidates:[{
                     id:'aaaaaaaaaaaaaaaaaaaaaaaa',fields,source_url:'https://www.marvel.com/comics/issue/3360/fixture',
                     image_path:'/api/v1/owner/books/research/'+run+'/cover/aaaaaaaaaaaaaaaaaaaaaaaa'}]}});
                 }''')
                 page.wait_for_function('document.querySelectorAll(".owner-book-candidate").length===1')
                 assert page.locator('#owner-book-series').input_value()=='My edited title'
                 assert page.locator('#owner-book-condition').input_value()=='Near Mint'
+                assert not page.locator('#owner-book-change-cover').is_visible(), 'Edited identity inherited a stale automatic cover'
                 page.wait_for_function('document.querySelector(".owner-book-candidate img").naturalWidth>0')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-progressive-book-review.png'))
                 page.evaluate('scanner.destroy();DropRateBooks.reset();reads.forEach(r=>r.resolve({status:"NO_MATCH",fields:{}}))')

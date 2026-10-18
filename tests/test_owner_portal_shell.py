@@ -283,7 +283,7 @@ def test_scanner_autocapture_rejects_texture_only_card_presence() -> None:
     assert "present: detected?.present === true" in legacy
     assert "batch.absenceFrames >= 3" in legacy
     assert "|| deviation >= 0.18" not in legacy
-    assert 'src="/assets/scanner-flow.js?v=book-queue-v4"' in html
+    assert 'src="/assets/scanner-flow.js?v=book-cover-v5"' in html
     assert 'src="/assets/owner-recognition.js?v=books-v4"' in html
 
 
