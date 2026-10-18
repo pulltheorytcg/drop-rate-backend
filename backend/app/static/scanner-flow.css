@@ -60,6 +60,10 @@
 .dr-scan-tray { position: absolute; z-index: 2; bottom: 0; left: 0; width: 100%; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); background: linear-gradient(transparent, #071b3f99); }
 .dr-scan-strip { display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding: 8px 18px; min-height: 86px; }
 .dr-scan-strip::-webkit-scrollbar { display: none; }
+.dr-scan-queued { position:relative; flex:0 0 184px; width:184px; padding-top:24px; }
+.dr-scan-queued .dr-scan-tile { width:100%; }
+.dr-scanner .dr-scan-remove-queued { position:absolute; right:0; top:0; z-index:2; width:44px; height:44px; min-height:44px; padding:0; border:0; border-radius:50%; background:#12213b; color:white; font-size:25px; line-height:1; touch-action:manipulation; }
+.dr-scanner .dr-scan-remove-queued:disabled { opacity:.4; }
 .dr-scanner .dr-scan-tile {
   display: flex; align-items: center; gap: 10px; flex: 0 0 164px; min-height: 70px; padding: 8px;
   text-align: left; background: #071b3fd9; border: 1px solid #28d7eb66; border-radius: 12px; backdrop-filter: blur(10px);

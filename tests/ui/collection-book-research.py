@@ -90,10 +90,18 @@ def main():
                 # Research outage keeps usable OCR and doesn't require expertise.
                 page.evaluate("DropRateBooks.open({recognition:{...options,research:{status:'UNAVAILABLE',candidates:[],message:'Add a barcode photo to help.'}}})")
                 assert page.locator('#owner-book-series').input_value()=='Fixture Adventure'
-                assert page.locator('#owner-book-photo-details').evaluate('(e)=>e.open')
+                assert not page.locator('#owner-book-photo-details').evaluate('(e)=>e.open')
+                assert not page.locator('#owner-book-details').evaluate('(e)=>e.open')
+                assert page.locator('#owner-book-selected').is_visible()
                 assert 'save it as unknown' in page.locator('#owner-book-photo-help').inner_text()
                 assert page.locator('#owner-book-printing').input_value()==''
                 page.locator('#owner-book-close').click()
+                # A scan can be removed directly from book review without any intake.
+                page.evaluate("window.removed=0;DropRateBooks.open({recognition:options,onRemove:()=>{removed++}})")
+                before=page.evaluate('calls.length')
+                page.locator('#owner-book-remove').click()
+                assert page.evaluate('removed')==1 and page.evaluate('calls.length')==before
+                assert not page.locator('#owner-book-dialog').is_visible()
                 # A catalogue book keeps its cover in a short, prefilled confirmation.
                 page.evaluate("""() => {
                   const id='22222222-2222-4222-8222-222222222222';

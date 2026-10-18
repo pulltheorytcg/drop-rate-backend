@@ -1,5 +1,27 @@
 # Build status
 
+## 18 October 2026 — Book recognition and scan removal repair (In review)
+
+The founder's 14:10 iPhone recording and eight owner-scoped recognition receipts
+from 13:08–13:16 UTC exposed two skipped publisher lookups for unreadable issues,
+four publisher candidates with no artwork, and book thumbnails forced to camera
+photos. Research now accepts the cover when the issue is unreadable, with uncertain
+OCR separated from confirmed fields. Added DC's official archive to the existing
+publisher research, exact-issue bounded metadata cover recovery, source-bound
+preview delivery, and metadata prefill even when a cover cannot be inspected.
+Recognised books show a compact confirmation; optional copy details stay optional.
+Queued scans have accessible remove controls, including during recognition and
+inside book review. Late responses cannot resurrect removed scans. Uncertain saves
+retain their original retry; dismissing a saved scan never deletes inventory.
+
+Verified locally: all 6,171 Python tests, 84 focused Python cases, 56 scanner
+interactions and the complete Node UI suite. The scratch runtime required its
+SOCKS transport dependency to run; no production dependency changed.
+Fetched/decoded the official DC Batman #463 cover and visually matched the supplied
+recording. Some Marvel publisher pages return HTTP 403; no bypass, substitute artwork
+or universal book coverage is claimed. CI/browser/RLS and deployment checks are In review.
+See [scope, source evidence and rollback](docs/BOOK_SCAN_REPAIR_20261018.md).
+
 ## 18 October 2026 — Verified storage recovery and safe book rescans
 
 Archived/restored/verified all 50,378 reference-history rows in the private Drop

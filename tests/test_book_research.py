@@ -6,7 +6,8 @@ import httpx
 import pytest
 
 from app.book_research import (ResearchAnswer, accepted_candidates, identity_digest,
-    prepare_research_result, public_result, publisher_source, research_book, add_saved_book_artwork)
+    prepare_research_result, public_result, publisher_source, research_book, add_saved_book_artwork,
+    publisher_page_cover, source_cover_matches)
 from app.owner_books import BookIntakeRequest
 
 SOURCE = 'https://www.marvel.com/comics/issue/129606/marveldc_deadpoolbatman_1_2025_1'
@@ -103,6 +104,67 @@ async def test_provider_failure_does_not_destroy_cover_ocr(code,payload):
     async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _:httpx.Response(code,json=payload))) as http:
         result=await research_book(observed(),[],api_key='fixture',model='fixture',http_client=http)
     assert result['status']=='UNAVAILABLE' and result['candidates']==[]
+
+
+@pytest.mark.asyncio
+async def test_unreadable_issue_is_researched_without_promoting_tentative_ocr():
+    calls = []
+    def reply(request):
+        calls.append(json.loads(request.content))
+        return httpx.Response(200, json=response())
+    fields = observed(); fields.pop('issue_number')
+    async with httpx.AsyncClient(transport=httpx.MockTransport(reply)) as http:
+        research = await research_book(fields, ['data:image/jpeg;base64,photo'], api_key='fixture',
+            model='fixture', tentative_fields={'issue_number':'304','certificate_number':'PRIVATE'}, http_client=http)
+    sent = json.loads(calls[0]['input'][0]['content'][0]['text'])
+    assert sent['tentative_fields'] == {'issue_number':'304'}
+    assert 'issue_number' not in sent['observed_fields']
+    assert research['status'] == 'CANDIDATES'
+    research['candidates'][0]['cover_matches_photo'] = False
+    result = prepare_research_result({'fields':fields,'uncertain_fields':['issue_number']}, research, uuid4())
+    assert 'issue_number' not in result['fields']
+    assert 'selected_candidate_id' not in result['research']
+
+
+def test_exact_issue_prefills_source_metadata_without_claiming_cover_confirmation():
+    result = dict(fields=observed(), uncertain_fields=['release_year'], auto_save=False)
+    found = accepted_candidates(response(candidate(image_url=None, cover_matches_photo=False)), observed())
+    result = prepare_research_result(result, {'candidates':found}, uuid4())
+    assert result['fields']['release_year'] == 2025
+    assert result['auto_save'] is False and 'selected_candidate_id' not in result['research']
+
+
+DC_SOURCE = 'https://www.dcuniverseinfinite.com/comics/book/batman-1940-463/cd396b6b-50f5-4741-99df-16c0f1f26fa9'
+DC_COVER = 'https://imgix-media.wbdndc.net/ingest/book/preview/cd396b6b-50f5-4741-99df-16c0f1f26fa9/d5d88c05-af46-42cc-b3eb-e33a4faab49b/0.jpg?auto=format%2Ccompress&fill=blur&fit=fill&h=576&sharp=50&w=375'
+
+
+def test_dc_archive_cover_is_bound_to_that_exact_issue_and_public_preview():
+    assert publisher_source(DC_SOURCE) == DC_SOURCE
+    assert source_cover_matches(DC_SOURCE, DC_COVER)
+    assert not source_cover_matches(DC_SOURCE.replace('cd396b6b','aa396b6b'), DC_COVER)
+    for url in (DC_COVER.replace('/0.jpg','/1.jpg'),DC_COVER+'&url=https://evil.test',
+                DC_COVER.replace('w=375','w=9999'),DC_COVER.replace('wbdndc.net','wbdndc.net.evil.test')):
+        assert not source_cover_matches(DC_SOURCE, url)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('bad', ['', 'wrong-issue', 'wrong-page', 'wrong-host', 'denied', 'redirect', 'huge'])
+async def test_publisher_metadata_recovers_exact_cover_and_rejects_unsafe_pages(bad):
+    row=candidate(); row['image_url']=None
+    title='Deadpool/Batman #1' if bad != 'wrong-issue' else 'Deadpool/Batman #2'
+    source=SOURCE if bad != 'wrong-page' else SOURCE.replace('/129606/', '/129607/')
+    image=COVER if bad != 'wrong-host' else 'https://evil.test/cover.jpg'
+    page=f'<meta property="og:title" content="{title}"><meta property="og:url" content="{source}"><meta property="og:image" content="{image}">'
+    if bad=='huge':page=' ' * 1_500_001 + page
+    calls=[]
+    def reply(request):
+        calls.append(request)
+        return httpx.Response(403 if bad=='denied' else 302 if bad=='redirect' else 200,
+            text=page,headers={'content-type':'text/html','location':'https://evil.test'})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(reply)) as http:
+        cover=await publisher_page_cover(row,http_client=http)
+    assert cover == (COVER if not bad else None)
+    assert len(calls)==1 and 'authorization' not in calls[0].headers
 
 
 def test_reference_identity_includes_printing_cover_and_language():

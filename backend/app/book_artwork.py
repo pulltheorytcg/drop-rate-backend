@@ -6,7 +6,7 @@ import re
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
 from .book_market import printing_digest
 
@@ -24,8 +24,17 @@ def publisher_cover_url(value):
         "dw9to29mmj727.cloudfront.net": r"/products/[0-9]{9}[0-9X]\.jpg",
         "static.dc.com": r"/[0-9]{4}-[0-9]{2}/[A-Za-z0-9_]+\.jpg",
         "cdn.marvel.com": r"/u/prod/marvel/i/mg/[a-f0-9]/[a-f0-9]{2}/[a-f0-9]+/clean\.jpg",
+        "imgix-media.wbdndc.net": r"/ingest/book/preview/[a-f0-9-]{36}/[a-f0-9-]{36}/0\.jpg",
     }
     pattern = patterns.get(url.netloc)
+    if url.netloc == "imgix-media.wbdndc.net":
+        # Only public cover previews, never interior pages or arbitrary transforms.
+        allowed = {"auto": {"format,compress"}, "fill": {"blur"}, "fit": {"fill"},
+                   "h": {"576"}, "w": {"375"}, "sharp": {"50"}}
+        pairs = parse_qsl(url.query, keep_blank_values=True)
+        return bool(pattern and re.fullmatch(pattern, url.path)
+                    and len(dict(pairs)) == len(pairs)
+                    and all(key in allowed and val in allowed[key] for key, val in pairs))
     return bool(pattern and re.fullmatch(pattern, url.path)
                 and (not url.query or (url.netloc == "static.dc.com" and url.query in {"w=160", "w=540"})))
 

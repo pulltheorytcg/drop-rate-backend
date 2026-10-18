@@ -20,6 +20,13 @@ window.DropRateScanner = (() => {
   const snapshot = candidate => candidate?.candidate_snapshot || candidate || {};
   const selected = item => item.selected || item.suggested;
   const book = item => item.mode === "COMIC";
+  const bookCover = item => {
+    const result = item.bookResult, research = result?.research;
+    const candidate = research?.candidates?.find(c => c.id === research.selected_candidate_id);
+    const path = candidate?.image_path;
+    return candidate && /^[0-9a-f-]{36}$/i.test(result.run_id || "") && /^[a-f0-9]{24}$/.test(candidate.id)
+      && path === `/api/v1/owner/books/research/${result.run_id}/cover/${candidate.id}` ? path : null;
+  };
   const sealed = item => [snapshot(selected(item)).product_type,
     snapshot(selected(item)).collectible_type].includes("SEALED");
   const name = item => snapshot(selected(item)).name || item.guess || "Check this match";
@@ -241,7 +248,8 @@ window.DropRateScanner = (() => {
       const epoch = this.epoch;
       if (!this.active(epoch)) throw new Error("Your account changed.");
       // Image transport stays on our authenticated API, never an arbitrary URL.
-      if (!path.startsWith('/api/v1/catalogue-browser/reference-image?')) throw new Error("Invalid artwork request.");
+      if (!path.startsWith('/api/v1/catalogue-browser/reference-image?')
+          && !/^\/api\/v1\/owner\/books\/research\/[0-9a-f-]{36}\/cover\/[a-f0-9]{24}$/i.test(path)) throw new Error("Invalid artwork request.");
       await this.ensureSession(epoch);
       if (!this.active(epoch)) throw new Error("Your account changed.");
       const response = await fetch(path, {signal, cache:"no-store",
@@ -434,25 +442,28 @@ window.DropRateScanner = (() => {
       if (isNew) this.items.push(item);
       this.inFlight += 1; this.status("Reading slab · you can capture the next item"); this.render();
       const controller = new AbortController(); this.controllers.add(controller);
+      item.recognitionController = controller;
       const timeout = setTimeout(() => controller.abort(), 70000);
       try {
         const data = await this.request("/api/v1/grading-certificates/scan", {method: "POST", signal: controller.signal,
           body: JSON.stringify({image_data_url: photo})});
+        if (!this.active(epoch) || !this.items.includes(item)) return;
         this.applySlabEvidence(item, data);
         item.guess = "Checking label against catalogue…"; this.render();
         await this.slabCandidates(item, controller.signal);
+        if (!this.active(epoch) || !this.items.includes(item)) return;
         item.selected = null;
         item.guess = data.observation?.card_name || "Slab needs review";
         if (!item.suggested && !item.error) item.error = "No catalogue suggestion agrees with the label. Search for the exact printing; a shared number is not enough.";
         this.status("Slab read · tap its thumbnail to confirm the card and grade");
       } catch (error) {
-        if (!this.active(epoch)) return;
+        if (!this.active(epoch) || !this.items.includes(item)) return;
         item.error = error.name === "AbortError" ? "Slab reading timed out. Retry the photo or enter the certificate." : error.message;
         this.status("Check slab details · certificate entry is available");
       } finally {
         clearTimeout(timeout); this.controllers.delete(controller);
-        this.inFlight -= 1;
-        if (this.active(epoch)) { item.status = "unresolved"; this.render(); }
+        this.releaseRecognition(item, controller);
+        if (this.active(epoch) && this.items.includes(item)) { item.status = "unresolved"; this.render(); }
       }
     }
 
@@ -766,10 +777,12 @@ window.DropRateScanner = (() => {
       this.inFlight += 1;
       this.status(this.inFlight === 1 ? "Recognising · you can capture the next card" : "Recognising two cards…"); this.render();
       const controller = new AbortController(); this.controllers.add(controller);
+      item.recognitionController = controller;
       const timeout = setTimeout(() => controller.abort(), 70000);
       try {
         const data = await this.request("/api/v1/recognition/resolve", {method: "POST", signal: controller.signal,
           body: JSON.stringify({image_data_url: photo, force_refresh: true})});
+        if (!this.active(epoch) || !this.items.includes(item)) return;
         item.run = data.run || {};
         item.candidates = (data.candidates || []).filter(candidate => !candidate.hard_rejected
           && (candidate.catalogue_id || candidate.source_kind === "PROVIDER"))
@@ -786,13 +799,13 @@ window.DropRateScanner = (() => {
         if (!usableRun(item)) item.error = "Recognition could not complete. Retry this photo before choosing a match.";
         this.status(item.selected ? "Match found · tap its thumbnail to check details" : "Check the match · tap its thumbnail");
       } catch (error) {
-        if (!this.active(epoch)) return;
+        if (!this.active(epoch) || !this.items.includes(item)) return;
         item.status = "unresolved"; item.guess = "Recognition failed";
         item.error = error.name === "AbortError" ? "Recognition timed out. Retry this photo." : error.message;
         this.status("Couldn’t recognise this card · tap its thumbnail to retry");
       } finally {
         clearTimeout(timeout); this.controllers.delete(controller);
-        this.inFlight -= 1;
+        this.releaseRecognition(item, controller);
         if (this.active(epoch)) this.render();
       }
     }
@@ -804,6 +817,7 @@ window.DropRateScanner = (() => {
       if (addItem) this.items.push(item);
       this.inFlight += 1; this.status("Reading the book cover · you can capture the next book"); this.render();
       const controller = new AbortController(); this.controllers.add(controller);
+      item.recognitionController = controller;
       const timeout = setTimeout(() => controller.abort(), 100000);
       try {
         const result = await this.request("/api/v1/owner/books/recognize", {method: "POST", signal: controller.signal,
@@ -816,12 +830,12 @@ window.DropRateScanner = (() => {
         if (result.status !== "NEEDS_REVIEW") item.error = (result.warnings || []).join(" ") || "Try a clearer cover or barcode photo.";
         this.status("Tap the book thumbnail to review its details");
       } catch (error) {
-        if (!this.active(epoch)) return;
+        if (!this.active(epoch) || !this.items.includes(item)) return;
         item.status = "unresolved"; item.guess = "Book scan needs another look";
         item.error = error.name === "AbortError" ? "Book recognition timed out. Retry the photo in review." : error.message;
         this.status("Couldn’t read this book · tap its thumbnail to retry");
       } finally {
-        clearTimeout(timeout); this.controllers.delete(controller); this.inFlight -= 1;
+        clearTimeout(timeout); this.controllers.delete(controller); this.releaseRecognition(item, controller);
         if (this.active(epoch)) this.render();
       }
     }
@@ -833,7 +847,7 @@ window.DropRateScanner = (() => {
       const direct = candidate?.image_url || card.display_image_url || card.image_url;
       const runPath = item.run?.id && candidate?.id
         ? "/api/v1/recognition/runs/" + encodeURIComponent(item.run.id) + "/candidates/" + encodeURIComponent(candidate.id) + "/image" : null;
-      const local = path?.startsWith("/api/v1/catalogue-browser/reference-image?") ? path : runPath;
+      const local = path?.startsWith("/api/v1/catalogue-browser/reference-image?") || (book(item) && path === bookCover(item)) ? path : runPath;
       const placeholder = image.parentElement?.querySelector(".dr-scan-image-placeholder");
       const missing = text => { image.hidden = true; if (placeholder) placeholder.textContent = text; };
       if (!local) {
@@ -883,7 +897,9 @@ window.DropRateScanner = (() => {
     }
 
     thumb(item, className = "dr-scan-thumb", candidate = selected(item), captured = false) {
-      captured = captured || book(item);
+      const cover = book(item) && bookCover(item);
+      if (cover) candidate = {reference_image_path: cover};
+      captured = captured || (book(item) && !cover);
       const wrap = node("div", className);
       const image = node("img"); image.alt = captured ? "Your scanned photo" : name({...item, selected: candidate});
       image.addEventListener("error", () => { image.hidden = true; });
@@ -904,6 +920,19 @@ window.DropRateScanner = (() => {
     }
 
     editable(item) { return !this.saving && !this.editBusy && !item.requests && item.status !== "processing" && !(book(item) && item.status === "added"); }
+    removable(item) { return !this.saving && !this.editBusy && !item.bookSavePending
+      && (!item.requests || item.status === "added") && this.items.includes(item); }
+    releaseRecognition(item, controller) {
+      if (item.recognitionController === controller) { item.recognitionController = null; this.inFlight = Math.max(0, this.inFlight - 1); }
+    }
+    removeControl(item, className = "dr-scan-text-button") {
+      const control = button(item.status === "added" ? "Dismiss scan" : "Remove scan", () => this.remove(item), className);
+      control.disabled = !this.removable(item);
+      control.setAttribute("aria-label", (item.status === "added" ? "Dismiss saved scan: " : "Remove scan: ") + name(item));
+      control.title = item.bookSavePending || (item.requests && item.status !== "added")
+        ? "Check the pending save before removing this scan" : item.status === "added" ? "Remove from this queue; your collection copy stays saved" : "Remove from scan queue";
+      return control;
+    }
     ready(item) { return !book(item) && Boolean(item.requests || (item.selected?.catalogue_id && item.status === "matched"
       && (graded(item) ? gradeValid(item) && item.quantity === 1 : usableRun(item) && (!item.condition || conditions.includes(item.condition))))); }
 
@@ -921,7 +950,9 @@ window.DropRateScanner = (() => {
         const card = snapshot(selected(item));
         if (item.status !== "processing") copy.append(node("span", "", card.card_number || card.product_code || ""),
           node("span", "", book(item) ? (item.status === "added" ? "Added to collection" : "Review book") : item.status === "unresolved" ? "Check match" : money(valueOf(item))));
-        tile.append(copy); strip.append(tile);
+        tile.append(copy);
+        const queued = node("div", "dr-scan-queued"), remove = this.removeControl(item, "dr-scan-remove-queued");
+        remove.textContent = "×"; queued.append(tile, remove); strip.append(queued);
       }
       this.find(".dr-scan-total").textContent = "Total: " + money(totals.value) + (totals.unknown ? " · " + totals.unknown + " pending" : "");
       this.find('[data-action="next"]').disabled = !this.items.length;
@@ -963,9 +994,7 @@ window.DropRateScanner = (() => {
         copy.append(fields);
         const edit = button(book(item) ? "Review book details" : item.status === "unresolved" ? "Confirm match" : "Add to collection", () => this.openDetails(item));
         edit.disabled = !this.editable(item); copy.append(edit);
-        if (book(item) && item.status !== "added") {
-          const remove = button("Remove scan", () => this.remove(item)); remove.disabled = !this.editable(item); copy.append(remove);
-        }
+        copy.append(this.removeControl(item));
         if (item.status === "added") copy.append(node("span", "dr-scan-added", "Added to collection"));
         if (item.error) copy.append(node("p", "dr-scan-item-error", item.error));
         body.append(copy); row.append(body); list.append(row);
@@ -1010,9 +1039,11 @@ window.DropRateScanner = (() => {
         onSaved: (result, copy) => {
           if (!this.active(epoch) || !this.items.includes(item)) return;
           item.status = "added"; item.error = null; item.photo = null; item.guess = result.catalogue.name;
-          if (copy?.new_catalogue) item.bookResult = {fields: {...copy.new_catalogue.comic_printing, language: copy.language}};
+          if (copy?.new_catalogue) item.bookResult = {...item.bookResult, fields: {...copy.new_catalogue.comic_printing, language: copy.language},
+            research: {...item.bookResult?.research, selected_candidate_id: copy.research_candidate_id || null}};
           this.render();
-        }, onClose: resume});
+        }, onSaveState: pending => { if (this.active(epoch) && this.items.includes(item)) item.bookSavePending = pending; },
+        onRemove: () => { if (this.active(epoch)) this.remove(item); }, onClose: resume});
       if (opened === false) resume();
     }
 
@@ -1245,10 +1276,14 @@ window.DropRateScanner = (() => {
     }
 
     remove(item) {
-      if (!this.editable(item)) return;
+      if (!this.active() || !this.removable(item)) return;
       this.items = this.items.filter(row => row !== item);
+      if (item.recognitionController) {
+        const controller = item.recognitionController; controller.abort(); this.releaseRecognition(item, controller);
+      }
       item.photo = null;
       this.closeDetails(); this.render();
+      this.status("Scan removed");
     }
 
     searchCandidate(row) {
