@@ -132,7 +132,7 @@ def main():
                 assert page.evaluate('saveAttempts[0].body===saveAttempts[1].body && saveAttempts[0].headers["Idempotency-Key"]===saveAttempts[1].headers["Idempotency-Key"]')
                 assert json.loads(page.evaluate('saveAttempts[1].body'))['research_candidate_id']=='aaaaaaaaaaaaaaaaaaaaaaaa'
                 page.locator('#owner-book-cancel').click()
-                page.evaluate('apiRequest=normalRequest')
+                page.evaluate('() => { apiRequest=normalRequest; }')
                 # Background artwork is selected automatically without erasing copy details.
                 page.evaluate("DropRateBooks.open({scanItemId:'progressive',recognition:{...options,research:{status:'PENDING',candidates:[]}}})")
                 page.locator('#owner-book-copy-details').evaluate('e=>e.open=true')

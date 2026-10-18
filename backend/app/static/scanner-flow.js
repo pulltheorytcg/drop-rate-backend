@@ -900,7 +900,8 @@ window.DropRateScanner = (() => {
       item.guess = result.status === "NEEDS_REVIEW" ? [fields.series_title || "Book details read",
         fields.issue_number ? (fields.system_code === "MANGA" ? "Vol. " : "#") + fields.issue_number : ""].filter(Boolean).join(" ") : "Book not recognised";
       if (result.status !== "NEEDS_REVIEW") item.error = (result.warnings || []).join(" ") || "Try a clearer cover or barcode photo.";
-      this.status("Book recognised · review the cover and add your copy");
+      this.status(result.status === "NEEDS_REVIEW" ? "Book recognised · review the cover and add your copy"
+        : "Couldn’t read this book · tap its thumbnail to retry");
       if (researching(result)) {
         this.bookResearchQueue.push({item, result, photo, epoch}); this.drainBookResearch();
       }
@@ -1111,10 +1112,12 @@ window.DropRateScanner = (() => {
       }
       const totals = this.totals();
       this.find(".dr-scan-review-total").textContent = totals.unknown === this.items.length ? "Market value unavailable" : (totals.unknown ? "Known value: " : "Total value: ") + money(totals.value);
-      const unresolved = this.items.filter(item => !item.selected && item.status !== "added").length;
+      const unresolved = this.items.filter(item => !item.selected && item.status !== "added"
+        && !(book(item) && item.bookResult?.status === "NEEDS_REVIEW"
+          && item.bookResult.fields?.series_title && item.bookResult.fields?.issue_number)).length;
       const missingCondition = this.items.filter(item => item.selected && !graded(item) && !sealed(item) && !item.condition).length;
       const matched = this.items.length - unresolved;
-      this.find(".dr-scan-review-count").textContent = matched + " matched " + (matched === 1 ? "scan" : "scans") +
+      this.find(".dr-scan-review-count").textContent = matched + " identified " + (matched === 1 ? "scan" : "scans") +
         (unresolved ? " · " + unresolved + " to review" : "") + (missingCondition ? " · condition can be added later" : "") +
         (totals.unknown ? " · " + totals.unknown + " without a market value" : "") + ".";
       const done = this.items.length && this.items.every(item => item.status === "added");

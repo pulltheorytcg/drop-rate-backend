@@ -62,7 +62,7 @@ async function matched(scanner, quantity = 1) {
     assert.equal(s.items.filter(item=>item.mode==='COMIC').length,7);
     assert.equal(s.items[3].mode,'RAW');assert.equal(s.items[3].status,'matched');
     assert.ok(s.items.filter(item=>item.mode==='COMIC').every(item=>!item.error && !item.selected));
-    s.showReview();s.openDetails(s.items[0]);
+    s.showReview();assert.match(s.find('.dr-scan-review-count').textContent,/8 identified scans/);s.openDetails(s.items[0]);
     assert.equal(review.recognition.fields.issue_number,'1');assert.equal(review.photos[0],'photo-0');
     assert.equal(f.calls.length,8,'No duplicate book OCR or card intake');
     assert.equal(s.items[0].bookResult.research.selected_candidate_id,'a'.repeat(24));

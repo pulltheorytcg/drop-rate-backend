@@ -140,7 +140,8 @@ async def finish_automatic_book_scan(request, user, owner_id, run_id, observatio
             and created_at>now()-interval '1 hour' and id<>$2""", owner_id, run_id)
         if count >= 20:
             await db.execute("""update tcg.recognition_runs set status='FAILED',decision='FAILED',
-                error_code='BOOK_SCAN_LIMIT',completed_at=now(),updated_at=now(),version=version+1
+                error_code='BOOK_SCAN_LIMIT',error_detail='Book scanning limit reached',
+                completed_at=now(),updated_at=now(),version=version+1
                 where id=$1 and owner_id=$2""", run_id, owner_id)
         else:
             await db.execute("""update tcg.recognition_runs set provider_evidence='{"book_route":true}'::jsonb,
@@ -152,7 +153,8 @@ async def finish_automatic_book_scan(request, user, owner_id, run_id, observatio
         if book_observation is None:
             # Compatibility recovery for the exact NONE/UNKNOWN failures seen
             # on the phone. Fresh BOOK results already contain all evidence.
-            response = await BookVisionClient(api_key=settings.openai_api_key, model=settings.recognition_model).observe_with_telemetry(photo)
+            response = await BookVisionClient(api_key=settings.openai_api_key, model=settings.recognition_model,
+                                            timeout_seconds=20).observe_with_telemetry(photo)
             book_observation = response.observation
             telemetry = {**telemetry, "book_fallback": response.telemetry.to_dict()}
         result = immediate_book_result(book_observation, run_id)
