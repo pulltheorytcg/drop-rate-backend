@@ -1,6 +1,6 @@
 # Build status
 
-## 18 October 2026 — Automatic book artwork selection (In progress)
+## 18 October 2026 — Automatic book artwork selection (Live verified, PR #691)
 
 Follow-up to the founder's Collectr/card-flow request: matched publisher artwork
 and its metadata are selected automatically, with a one-tap Add and optional
@@ -8,7 +8,16 @@ Change cover. The prior separate cover-confirmation step is removed. Selection
 uses the existing verified, non-conflicting candidates and does not claim visual
 proof or invent unknown printing, condition or value. Background results preserve
 edits; pending saves retain the original artwork receipt and idempotency key.
-No production data, schema or provider changes. Release checks are pending.
+The Add action stays visible while optional fields scroll. All six PR workflows
+passed, including 6,180 Python tests, the full Node suite, PostgreSQL ownership/
+artwork/retry checks and Chromium/WebKit at 390/1440 widths. Final default/alternative
+cover screenshots were inspected. Railway 8d7cc901-ced5-4121-8d20-c4aa3c7b0f37
+reached SUCCESS at 14:58:45 UTC with main fc439fe6; predeploy passed 6,180 tests.
+Live readback at 14:58:58 UTC verified all four book/scanner asset hashes,
+owner/founder book-cover-v5 URLs, healthy readiness and anonymous receipt/cover 401.
+No production data, schema or provider changes. Fresh scans use the new default;
+earlier saved copies are not rewritten. Physical-phone recognition timing remains
+unmeasured, and unavailable publisher artwork is not invented.
 See [scope, checks and rollback](docs/BOOK_DEFAULT_ARTWORK_20261018.md).
 
 
