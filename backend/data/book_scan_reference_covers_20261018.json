@@ -1,0 +1,73 @@
+{
+  "usage": "PUBLISHER_EDITION_REFERENCE",
+  "storefront_approved": false,
+  "entries": [
+    {
+      "fields": {
+        "system_code": "MARVEL_COMICS",
+        "series_title": "Amazing Spider-Man",
+        "issue_number": "528",
+        "publisher": "Marvel",
+        "language": "English",
+        "book_format": "SINGLE_ISSUE",
+        "release_year": 2006
+      },
+      "title_aliases": [
+        "Amazing Spider-Man",
+        "The Amazing Spider-Man"
+      ],
+      "source_url": "https://www.marvel.com/comics/issue/3360/amazing_spider-man_1999_528",
+      "source_title": "Amazing Spider-Man #528",
+      "image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/9/c0/57f806e1ce09d/portrait_uncanny.jpg",
+      "discovered_image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/9/c0/57f806e1ce09d/background.jpg",
+      "checked_at": "2026-10-18",
+      "observed_sha256": "658ef6e2a0061c138d542e2c68d57b8099433f5973678a4d157eb42a14b227cf",
+      "observed_width": 300,
+      "observed_height": 450,
+      "verification": "Publisher issue image found in the public image index; same asset portrait rendition fetched and visually checked. Edition preview only; physical printing and variant require collector confirmation."
+    },
+    {
+      "fields": {
+        "system_code": "MARVEL_COMICS",
+        "series_title": "The Amazing Spider-Man",
+        "issue_number": "795",
+        "publisher": "Marvel",
+        "language": "English",
+        "book_format": "SINGLE_ISSUE",
+        "release_year": 2018
+      },
+      "title_aliases": [
+        "Amazing Spider-Man",
+        "The Amazing Spider-Man"
+      ],
+      "source_url": "https://www.marvel.com/comics/issue/66083/the_amazing_spider-man_2015_795",
+      "source_title": "The Amazing Spider-Man #795",
+      "image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/6/03/5a724221d7369/portrait_uncanny.jpg",
+      "discovered_image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/6/03/5a724221d7369/background.jpg",
+      "checked_at": "2026-10-18",
+      "observed_sha256": "5aacbc2d98c45f1bd8420a034b21d7ac5e49b5495e241f42f1f976d564ba39c7",
+      "observed_width": 300,
+      "observed_height": 450,
+      "verification": "Publisher issue image found in the public image index; same asset portrait rendition fetched and visually checked. Edition preview only; physical printing and variant require collector confirmation."
+    },
+    {
+      "fields": {
+        "system_code": "DC_COMICS",
+        "series_title": "Batman",
+        "issue_number": "463",
+        "publisher": "DC Comics",
+        "language": "English",
+        "book_format": "SINGLE_ISSUE",
+        "release_year": 1991
+      },
+      "source_url": "https://www.dcuniverseinfinite.com/comics/book/batman-1940-463/cd396b6b-50f5-4741-99df-16c0f1f26fa9",
+      "source_title": "Batman (1940-) #463",
+      "image_url": "https://imgix-media.wbdndc.net/ingest/book/preview/cd396b6b-50f5-4741-99df-16c0f1f26fa9/d5d88c05-af46-42cc-b3eb-e33a4faab49b/0.jpg",
+      "checked_at": "2026-10-18",
+      "observed_sha256": "c2ef1e3e87f5ec744af4be243e0d43d7942f2fb3ba9e9241a31976128dda83f7",
+      "observed_width": 351,
+      "observed_height": 540,
+      "verification": "Public DC Universe Infinite issue metadata and cover preview fetched and visually checked. Digital record is not proof of physical printing or variant."
+    }
+  ]
+}

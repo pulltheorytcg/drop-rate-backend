@@ -43,6 +43,41 @@ async function matched(scanner, quantity = 1) {
 }
 
 (async () => {
+  // Slow publisher research never occupies a photo-reading slot. Removed,
+  // saved, or owner-switched items cannot accept its late response.
+  for (const outcome of ['complete','remove','saved','owner-change']) {
+    const jobs=[],updates=[];let nextRun=0;
+    const f=fixture('seller',async url=>{
+      if(url.endsWith('/recognize'))return {status:'NEEDS_REVIEW',run_id:'11111111-1111-4111-8111-'+String(++nextRun).padStart(12,'0'),
+        fields:{series_title:'Read book',issue_number:String(nextRun)},research:{status:'PENDING',candidates:[]}};
+      const job=deferred();jobs.push(job);return job.promise;
+    },{openBooks:()=>true});
+    f.w.DropRateBooks={updateScan:(id,result)=>updates.push({id,result})};
+    const s=f.scanner;s.setMode('COMIC');
+    await Promise.all(Array.from({length:5},(_,i)=>s.recognise('photo-'+i)));await tick();
+    assert.equal(nextRun,5);assert.equal(s.inFlight,0);assert.equal(jobs.length,2);assert.equal(s.bookResearchQueue.length,3);
+    assert.equal(s.items.length,5);assert.equal(s.editable(s.items[0]),true);assert.equal(s.atCapacity(),false);
+    const item=s.items[0],before=item.bookResult,controller=item.researchController;
+    if(outcome==='remove'){s.remove(item);assert.equal(controller.signal.aborted,true);}
+    if(outcome==='saved')item.bookSavePending=true;
+    if(outcome==='owner-change')f.session.value={access_token:'other',user:{id:'other'}};
+    const completed={...before,fields:{series_title:'Researched book',issue_number:'1'},research:{status:'CANDIDATES',candidates:[]}};
+    jobs[0].resolve(completed);await tick();await tick();
+    if(outcome==='complete'){assert.equal(item.bookResult,completed);assert.equal(updates.length,1);assert.equal(jobs.length,3);}
+    else{assert.equal(updates.length,0);assert.equal(item.bookResult,before);}
+    if(outcome==='remove')assert.ok(!s.items.includes(item));
+    f.finish();jobs.forEach(job=>job.resolve(completed));await tick();checks++;
+  }
+  {
+    const f=fixture(),controller=new f.w.AbortController();const calls=[];
+    const run='11111111-1111-4111-8111-111111111111',initial={run_id:run,research:{status:'PENDING',candidates:[]}};
+    const completed={...initial,research:{status:'UNAVAILABLE',candidates:[]}};
+    const result=await f.w.DropRateScanner.researchBook(async(url,options)=>{
+      calls.push({url,options});if(options.method==='POST')throw new Error('Connection interrupted');return completed;
+    },initial,['photo'],controller.signal);
+    assert.equal(result,completed);assert.equal(calls.length,2);assert.equal(calls[1].url,'/api/v1/owner/books/recognize/'+run);
+    assert.equal(calls.filter(x=>x.options.method==='POST').length,1);f.finish();checks++;
+  }
   // Book mode stays in the live scanner; OCR suggestions never use card intake.
   {
     const pending=deferred();let review;
@@ -51,7 +86,7 @@ async function matched(scanner, quantity = 1) {
     s.find('[data-mode="COMIC"]').click();assert.equal(s.mode,'COMIC');assert.ok(s.dialog.open);
     assert.equal(s.stream,stream);assert.equal(review,undefined);assert.match(s.find('.dr-scan-status').textContent,/book cover/);
     const recognition=s.recognise('data:image/jpeg;base64,AA==');await tick();
-    assert.equal(f.calls[0].url,'/api/v1/owner/books/recognize');assert.deepEqual(JSON.parse(f.calls[0].body),{images:['data:image/jpeg;base64,AA==']});
+    assert.equal(f.calls[0].url,'/api/v1/owner/books/recognize');assert.deepEqual(JSON.parse(f.calls[0].body),{images:['data:image/jpeg;base64,AA=='],defer_research:true});
     s.setMode('RAW');assert.equal(s.mode,'COMIC','Mode stays locked during book recognition');
     pending.resolve({status:'NEEDS_REVIEW',fields:{system_code:'MANGA',series_title:'Fixture Manga',issue_number:'2'},uncertain_fields:['printing_number']});await recognition;
     const item=s.items[0];assert.equal(item.status,'unresolved');assert.equal(s.ready(item),false);
@@ -523,23 +558,38 @@ async function matched(scanner, quantity = 1) {
     assert.equal(saved.url,role==='seller'?'/api/v1/owner/graded-certificate-intake':'/api/v1/inventory/graded-intake');
     f.finish();checks+=1;
   }
-  // A second photo starts before the first completes; results stay on their own thumbnails.
+  // Capture continues beyond two active reads; queued photos keep their own results.
   {
     const first=deferred(),second=deferred();let count=0;
     const f=fixture('seller',()=>++count===1?first.promise:second.promise);
     const p1=f.scanner.recognise('photo-one');await tick();
     assert.equal(f.scanner.find('[data-action="gallery"]').disabled,false);
     const p2=f.scanner.recognise('photo-two');await tick();
-    await f.scanner.recognise('over-capacity');
-    assert.equal(f.scanner.items.length,2);assert.equal(count,2);
-    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,true);
+    const p3=f.scanner.recognise('photo-three');
+    assert.equal(f.scanner.items.length,3);assert.equal(count,2);
+    assert.equal(f.scanner.items[2].status,'queued');
+    assert.equal(f.scanner.find('[data-action="gallery"]').disabled,false);
     second.resolve(result({run:{id:'run-two',decision:'EXACT_CANDIDATE',top_catalogue_id:'card-1'}}));await p2;
     assert.equal(f.scanner.items[1].run.id,'run-two');assert.equal(f.scanner.items[0].status,'processing');
     assert.equal(f.scanner.find('[data-action="gallery"]').disabled,false);
     f.scanner.openDetails(f.scanner.items[1]);assert.ok(f.scanner.edit);
     first.reject(new Error('First photo failed'));await p1;
     assert.equal(f.scanner.items[0].status,'unresolved');assert.equal(f.scanner.items[1].run.id,'run-two');
+    await p3;assert.equal(f.scanner.items[2].run.id,'run-two');
     assert.equal(f.scanner.inFlight,0);f.finish();checks+=1;
+  }
+  // Seven quick captures stay queued; removed photos never reach the API.
+  for (const mode of ['RAW','COMIC']) {
+    const waiting=[];const f=fixture('seller',()=>{const d=deferred();waiting.push(d);return d.promise;},{openBooks:()=>true});
+    const s=f.scanner;s.setMode(mode);
+    const reads=Array.from({length:7},(_,i)=>s.recognise('photo-'+i));await tick();
+    assert.equal(s.items.length,7);assert.equal(waiting.length,2);assert.equal(s.inFlight,2);
+    assert.equal(s.find('[data-action="gallery"]').disabled,false);
+    const removed=s.items[3];s.remove(removed);assert.equal(removed.photo,null);
+    assert.equal(s.recognitionQueue.length,4);
+    for(let i=0;i<6;i++) {waiting[i].resolve(mode==='COMIC'?{status:'NEEDS_REVIEW',fields:{series_title:'Book '+i}}:result());await tick();}
+    await Promise.all(reads);assert.equal(f.calls.length,6);assert.equal(s.inFlight,0);
+    assert.equal(s.items.length,6);assert.equal(s.recognitionQueue.length,0);f.finish();checks++;
   }
   // Failed retries discard old evidence; a previous successful run cannot be confirmed again.
   {
