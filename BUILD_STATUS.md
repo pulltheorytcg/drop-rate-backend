@@ -1,6 +1,6 @@
 # Build status
 
-## 18 October 2026 — Default-camera book handoff (release checks pending)
+## 18 October 2026 — Default-camera book handoff (live verified, PR #693)
 
 The new phone recording loaded current assets but all eight comics entered the
 Cards-only API/schema, returning NONE/UNKNOWN before any publisher lookup. The
@@ -12,6 +12,15 @@ Stored market values are checked automatically; missing data offers sold-listing
 comparison. Numeric book values are still blocked: zero production book snapshots,
 no verified book identities and the current eBay/Trawl HTTP 429 pause through
 18 October 17:39:35 UTC. No provider/config/schema or production data changes.
+All six final PR workflows passed, including 6,196 Python tests, the full Node
+suite (64 scanner cases), PostgreSQL receipt/RLS/retry/quota checks and Chromium/
+WebKit at 390/1440 widths. Final mobile Auto/book/artwork screenshots were inspected.
+Railway c69c96da-0209-4665-975d-0ee200e5449e reached SUCCESS at 15:34:05 UTC
+with main 7558fd27; predeploy passed all 6,196 tests. Live readback at 15:34:29 UTC
+verified all four book-auto-v6 asset hashes, owner/founder entrypoints, healthy
+readiness and anonymous receipt/cover 401. All three main workflows passed,
+including production readback. Fresh phone OCR accuracy remains unmeasured;
+the eight recorded failures are routing regression fixtures, not new model results.
 See [scope, evidence, limitations and rollback](docs/BOOK_AUTO_ROUTING_20261018.md).
 
 ## 18 October 2026 — Automatic book artwork selection (Live verified, PR #691)
