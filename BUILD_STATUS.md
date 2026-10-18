@@ -1,6 +1,6 @@
 # Build status
 
-## 18 October 2026 — Book recognition and scan removal repair (In review)
+## 18 October 2026 — Book recognition and scan removal repair (live, PR #687)
 
 The founder's 14:10 iPhone recording and eight owner-scoped recognition receipts
 from 13:08–13:16 UTC exposed two skipped publisher lookups for unreadable issues,
@@ -14,12 +14,17 @@ Queued scans have accessible remove controls, including during recognition and
 inside book review. Late responses cannot resurrect removed scans. Uncertain saves
 retain their original retry; dismissing a saved scan never deletes inventory.
 
-Verified locally: all 6,171 Python tests, 84 focused Python cases, 56 scanner
-interactions and the complete Node UI suite. The scratch runtime required its
-SOCKS transport dependency to run; no production dependency changed.
+Verified: all 6,172 Python tests in CI and production predeploy, 85 focused
+Python cases, 56 scanner interactions and the complete Node UI suite. All six
+PR workflows passed, including PostgreSQL RLS/retry and Chromium/WebKit browser
+checks at 390/1440 widths. No production dependency changed.
 Fetched/decoded the official DC Batman #463 cover and visually matched the supplied
 recording. Some Marvel publisher pages return HTTP 403; no bypass, substitute artwork
-or universal book coverage is claimed. CI/browser/RLS and deployment checks are In review.
+or universal book coverage is claimed. Main b3819857 deployed successfully as
+Railway c4c41407-aee4-49c9-9751-96fd9d9e5c99. Owner/founder entrypoints and all
+four scanner/book assets match the release; readiness is healthy and anonymous
+book artwork/inventory reads return 401. Physical-phone recognition remains
+unverified after release.
 See [scope, source evidence and rollback](docs/BOOK_SCAN_REPAIR_20261018.md).
 
 ## 18 October 2026 — Verified storage recovery and safe book rescans
