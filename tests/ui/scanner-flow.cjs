@@ -43,6 +43,31 @@ async function matched(scanner, quantity = 1) {
 }
 
 (async () => {
+  // The exact failing entry point: leave the default tab selected, then scan
+  // books and a card. A book result must never open the ungraded-card sheet.
+  {
+    let number=0,review;
+    const f=fixture('seller',async url=>{
+      assert.equal(url,'/api/v1/recognition/resolve');
+      number++;
+      if(number===4)return result();
+      const run='11111111-1111-4111-8111-'+String(number).padStart(12,'0'),id='a'.repeat(24);
+      return {run:{id:run,decision:'NEEDS_REVIEW'},candidates:[],book_result:{run_id:run,status:'NEEDS_REVIEW',
+        fields:{system_code:'MARVEL_COMICS',series_title:'Recognised comic',issue_number:String(number)},
+        research:{status:'CANDIDATES',selected_candidate_id:id,candidates:[{id,image_path:`/api/v1/owner/books/research/${run}/cover/${id}`} ]}}};
+    },{openBooks:options=>{review=options;return true;}});
+    const s=f.scanner;s.dialog.showModal();
+    await Promise.all(Array.from({length:8},(_,i)=>s.recognise('photo-'+i)));
+    assert.equal(s.mode,'RAW');assert.equal(s.items.length,8);assert.equal(s.inFlight,0);
+    assert.equal(s.items.filter(item=>item.mode==='COMIC').length,7);
+    assert.equal(s.items[3].mode,'RAW');assert.equal(s.items[3].status,'matched');
+    assert.ok(s.items.filter(item=>item.mode==='COMIC').every(item=>!item.error && !item.selected));
+    s.showReview();s.openDetails(s.items[0]);
+    assert.equal(review.recognition.fields.issue_number,'1');assert.equal(review.photos[0],'photo-0');
+    assert.equal(f.calls.length,8,'No duplicate book OCR or card intake');
+    assert.equal(s.items[0].bookResult.research.selected_candidate_id,'a'.repeat(24));
+    f.finish();checks++;
+  }
   // Slow publisher research never occupies a photo-reading slot. Removed,
   // saved, or owner-switched items cannot accept its late response.
   for (const outcome of ['complete','remove','saved','owner-change']) {
@@ -440,7 +465,7 @@ async function matched(scanner, quantity = 1) {
   {
     const f = fixture('seller', async () => result({candidates:[{...result().candidates[0],
       candidate_snapshot:{...result().candidates[0].candidate_snapshot, product_type:'SEALED'}}]}));
-    assert.deepEqual([...f.scanner.dialog.querySelectorAll('[data-mode]')].map(n => n.textContent), ['Cards','Graded','Sealed']);
+    assert.deepEqual([...f.scanner.dialog.querySelectorAll('[data-mode]')].map(n => n.textContent), ['Auto','Graded','Sealed']);
     await f.scanner.recognise('photo'); assert.equal(f.scanner.items[0].selected, null);
     f.scanner.setMode('SEALED'); await f.scanner.recognise('photo');
     assert.equal(f.scanner.ready(f.scanner.items[1]), true);

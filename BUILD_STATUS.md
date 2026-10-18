@@ -1,5 +1,19 @@
 # Build status
 
+## 18 October 2026 — Default-camera book handoff (release checks pending)
+
+The new phone recording loaded current assets but all eight comics entered the
+Cards-only API/schema, returning NONE/UNKNOWN before any publisher lookup. The
+default Auto camera now returns typed book evidence from the same vision request,
+uses the existing private book receipt/review, and includes compatible reviewed
+publisher artwork immediately. Explicit legacy comic observations get a bounded
+book-reader fallback. Mixed queues keep card/book types and removal behavior.
+Stored market values are checked automatically; missing data offers sold-listing
+comparison. Numeric book values are still blocked: zero production book snapshots,
+no verified book identities and the current eBay/Trawl HTTP 429 pause through
+18 October 17:39:35 UTC. No provider/config/schema or production data changes.
+See [scope, evidence, limitations and rollback](docs/BOOK_AUTO_ROUTING_20261018.md).
+
 ## 18 October 2026 — Automatic book artwork selection (Live verified, PR #691)
 
 Follow-up to the founder's Collectr/card-flow request: matched publisher artwork

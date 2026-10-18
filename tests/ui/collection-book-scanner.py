@@ -40,6 +40,7 @@ def main():
                   async function apiRequest(url,options,retry){calls.push({url,...options,retry});
                     if(mode==='defer')return await new Promise(resolve=>window.release=resolve);
                     if(mode==='fail')throw new Error('Fixture provider unavailable');
+                    if(url.endsWith('/recognition/resolve'))return {run:{id:'auto-book',decision:'NEEDS_REVIEW'},candidates:[],book_result:scanResult};
                     if(url.endsWith('/recognize'))return scanResult;
                     if(url.endsWith('/market-value'))return quote;
                     return {catalogue:{name:'Fixture Manga'},inventory:{id:'fixture'}};
@@ -65,12 +66,13 @@ def main():
                   };
                   await scanner.open('RAW');
                 }''')
-                page.locator('button[data-mode="COMIC"]').click()
-                assert page.locator('button[data-mode="COMIC"]').get_attribute('aria-pressed')=='true'
+                # Reproduce the phone recording: keep the default camera tab.
+                assert page.locator('button[data-mode="RAW"]').get_attribute('aria-pressed')=='true'
+                assert page.locator('button[data-mode="RAW"]').inner_text()=='Auto'
                 assert page.evaluate('scanner.dialog.open && scanner.view === "camera" && !!scanner.stream')
                 assert not page.locator('#owner-book-dialog').count()
                 assert page.evaluate('cameraStarts')==1 and page.evaluate('cameraStops')==0
-                assert 'book cover' in page.locator('.dr-scan-status').inner_text()
+                assert 'card or book' in page.locator('.dr-scan-status').inner_text()
                 page.screenshot(path=str(OUT/f'{engine}-{width}-live-book-camera.png'))
                 # The shared shutter captures directly. There is no native file picker
                 # or separate Read button before the first book recognition request.
@@ -78,8 +80,9 @@ def main():
                 page.wait_for_function("scanner.items[0]?.status==='unresolved'")
                 assert len(page.evaluate('calls'))==1
                 first=page.evaluate('calls[0]')
-                assert first['url']=='/api/v1/owner/books/recognize'
-                assert json.loads(first['body'])['images'][0].startswith('data:image/jpeg;base64,')
+                assert first['url']=='/api/v1/recognition/resolve'
+                assert json.loads(first['body'])['image_data_url'].startswith('data:image/jpeg;base64,')
+                assert page.evaluate('scanner.items[0].mode')=='COMIC'
                 assert 'Fixture Manga Vol. 1' in page.locator('.dr-scan-strip').inner_text()
                 assert page.locator('.dr-scan-thumb img').get_attribute('src').startswith('data:image/jpeg;base64,')
                 assert not page.locator('#owner-book-dialog').count()
@@ -113,8 +116,10 @@ def main():
                 page.locator('#owner-book-printing').fill('1')
                 page.locator('#owner-book-copy-details').evaluate('e=>e.open=true')
                 page.locator('#owner-book-condition').select_option('Near Mint')
-                page.locator('#owner-book-market-check').click()
+                # Condition edits refresh available values without another tap.
                 page.wait_for_function("document.querySelector('#owner-book-market-result').textContent.includes('£12.34')")
+                sold=page.locator('#owner-book-sold-search')
+                assert sold.is_visible() and 'LH_Sold=1' in sold.get_attribute('href')
                 assert page.locator('#owner-book-price').input_value()==''
                 assert page.locator('#owner-book-dialog').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-book-scanner.png'))

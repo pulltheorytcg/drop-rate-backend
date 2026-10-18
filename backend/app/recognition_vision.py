@@ -10,6 +10,7 @@ from typing import Any, Literal, Mapping
 import httpx
 from pydantic import BaseModel, Field, model_validator
 from .recognition_games import SYSTEM_BY_GAME
+from .book_observation import BookObservation, BOOK_VISION_INSTRUCTIONS
 
 
 logger = logging.getLogger(__name__)
@@ -126,7 +127,8 @@ class RecognitionVisionError(RuntimeError):
 
 
 class RecognitionObservation(BaseModel):
-    object_type: Literal["CARD", "GRADED_CARD", "SEALED_PRODUCT", "NONE", "UNKNOWN"] = "CARD"
+    object_type: Literal["CARD", "GRADED_CARD", "SEALED_PRODUCT", "BOOK", "NONE", "UNKNOWN"] = "CARD"
+    book: BookObservation | None = None
     object_type_confidence: float = Field(default=1.0, ge=0, le=1)
     sealed_product_type: Literal["BOOSTER_PACK", "BOOSTER_BOX", "STARTER_DECK", "COLLECTION", "TIN", "CASE", "OTHER", "UNKNOWN"] = "UNKNOWN"
     sealed_product_type_confidence: float = Field(default=0.0, ge=0, le=1)
@@ -304,7 +306,8 @@ OBSERVATION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
-        "object_type": {"type": "string", "enum": ["CARD", "GRADED_CARD", "SEALED_PRODUCT", "NONE", "UNKNOWN"]},
+        "object_type": {"type": "string", "enum": ["CARD", "GRADED_CARD", "SEALED_PRODUCT", "BOOK", "NONE", "UNKNOWN"]},
+        "book": {"anyOf": [{"$ref": "#/$defs/BookObservation"}, {"type": "null"}]},
         "object_type_confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "sealed_product_type": {"type": "string", "enum": ["BOOSTER_PACK", "BOOSTER_BOX", "STARTER_DECK", "COLLECTION", "TIN", "CASE", "OTHER", "UNKNOWN"]},
         "sealed_product_type_confidence": {"type": "number", "minimum": 0, "maximum": 1},
@@ -348,6 +351,7 @@ OBSERVATION_SCHEMA: dict[str, Any] = {
     },
     "required": [
         "object_type",
+        "book",
         "object_type_confidence",
         "sealed_product_type",
         "sealed_product_type_confidence",
@@ -390,13 +394,21 @@ OBSERVATION_SCHEMA: dict[str, Any] = {
         "notes",
     ],
 }
+_book_schema = BookObservation.model_json_schema()
+OBSERVATION_SCHEMA["$defs"] = {**_book_schema.pop("$defs"), "BookObservation": _book_schema}
 
 
 VISION_INSTRUCTIONS = """
 You are the evidence-extraction stage of Drop Rate's collectible recognition system.
 
 First classify the photographed object itself. object_type must be CARD, GRADED_CARD,
-SEALED_PRODUCT, NONE or UNKNOWN. A booster wrapper, booster box, starter deck,
+SEALED_PRODUCT, BOOK, NONE or UNKNOWN. Physical comics, manga volumes and graded
+comic books are BOOK even when the user opened the default card scanner. They
+are never NONE or UNKNOWN merely because they are not trading cards. For BOOK,
+fill the nested book evidence from this same photo, set game=Unknown and leave
+card-only fields empty/zero. Do not put a comic issue number in card_number.
+For all other object types, book must be null. Manga artwork on a trading card
+does not make that card a book. A booster wrapper, booster box, starter deck,
 collection box, tin or case is SEALED_PRODUCT and must never be interpreted as an
 individual card merely because card artwork or characters are printed on its packaging.
 Use NONE when no collectible is actually present in the scan guide.
@@ -452,7 +464,7 @@ layout or suspicious typography). Never state that a card is counterfeit from a
 photo alone.
 
 Return only the requested structured object.
-""".strip()
+""".strip() + "\n\nWhen object_type=BOOK, follow these book evidence rules:\n" + BOOK_VISION_INSTRUCTIONS
 
 
 def _output_text(payload: Mapping[str, Any]) -> str:
@@ -483,7 +495,7 @@ class OpenAIRecognitionVisionClient:
     instructions = VISION_INSTRUCTIONS
     observation_schema = OBSERVATION_SCHEMA
     schema_name = "tcg_recognition_observation"
-    max_output_tokens = 1800
+    max_output_tokens = 3000
 
     def parse_observation(self, parsed):
         return RecognitionObservation.model_validate(_repair_observation_payload(parsed))

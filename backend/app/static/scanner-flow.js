@@ -314,12 +314,12 @@ window.DropRateScanner = (() => {
       this.dialog.innerHTML = '<section class="dr-scan-camera">' +
         '<video autoplay muted playsinline aria-label="Live camera"></video>' +
         '<header class="dr-scan-topbar"><button type="button" data-action="close" aria-label="Close scanner">←</button>' +
-        '<strong>Trading Card Games</strong><button type="button" data-action="settings" aria-label="Scanner settings">⚙</button></header>' +
+        '<strong>Scan your collection</strong><button type="button" data-action="settings" aria-label="Scanner settings">⚙</button></header>' +
         '<nav class="dr-scan-modes' + (this.options.openBooks ? ' dr-scan-modes-books' : '') + '" aria-label="Scan type">' +
-        ['RAW', 'GRADED', 'SEALED'].map(mode => '<button type="button" data-mode="' + mode + '" aria-pressed="false">' + ({RAW:'Cards',GRADED:'Graded',SEALED:'Sealed'})[mode] + '</button>').join('') +
+        ['RAW', 'GRADED', 'SEALED'].map(mode => '<button type="button" data-mode="' + mode + '" aria-pressed="false">' + ({RAW:'Auto',GRADED:'Graded',SEALED:'Sealed'})[mode] + '</button>').join('') +
         (this.options.openBooks ? '<button type="button" data-mode="COMIC" aria-pressed="false">COMICS / MANGA</button>' : '') + '</nav>' +
         '<button type="button" class="dr-scan-certificate" data-action="certificate" hidden>Enter certificate</button>' +
-        '<div class="dr-scan-guide" aria-hidden="true"></div><p class="dr-scan-status" role="status">Place a card inside the guide</p>' +
+        '<div class="dr-scan-guide" aria-hidden="true"></div><p class="dr-scan-status" role="status">Place a card or book inside the guide</p>' +
         '<button type="button" class="dr-scan-camera-resume" data-action="resume">Start camera</button>' +
         '<div class="dr-scan-settings" hidden><label><input type="checkbox" checked> Auto-scan</label>' +
         '<button type="button" data-action="switch">Switch camera</button><button type="button" data-action="torch" hidden>Torch off</button></div>' +
@@ -379,16 +379,16 @@ window.DropRateScanner = (() => {
     guideMessage() {
       return this.mode === "GRADED" ? "Show the full slab · keep the label and QR readable"
         : this.mode === "COMIC" ? "Frame the whole book cover · include the label if graded"
-        : this.mode === "SEALED" ? "Frame the whole pack, box or sealed set" : "Place a card inside the guide";
+        : this.mode === "SEALED" ? "Frame the whole pack, box or sealed set" : "Place a card or book inside the guide";
     }
 
     setMode(mode) {
       if (!["RAW", "GRADED", "SEALED", ...(this.options.openBooks ? ["COMIC"] : [])].includes(mode) || this.processing || this.edit || this.saving) return;
       this.mode = mode; this.dialog.dataset.mode = mode;
-      this.find(".dr-scan-topbar strong").textContent = mode === "COMIC" ? "Comics & Manga" : "Trading Card Games";
+      this.find(".dr-scan-topbar strong").textContent = mode === "COMIC" ? "Comics & Manga" : "Scan your collection";
       this.dialog.querySelectorAll("[data-mode]").forEach(control => control.setAttribute("aria-pressed", String(control.dataset.mode === mode)));
       this.find('[data-action="certificate"]').hidden = mode !== "GRADED";
-      this.find('[data-action="capture"]').setAttribute("aria-label", "Scan " + (mode === "COMIC" ? "comic or manga" : mode === "GRADED" ? "graded slab" : mode === "SEALED" ? "sealed product" : "raw card"));
+      this.find('[data-action="capture"]').setAttribute("aria-label", "Scan " + (mode === "COMIC" ? "comic or manga" : mode === "GRADED" ? "graded slab" : mode === "SEALED" ? "sealed product" : "card or book"));
       this.find('[data-action="gallery"]').setAttribute("aria-label", "Choose an item photo");
       this.previous = null; this.stableFrames = 0; this.presenceFrames = 0;
       this.status(this.guideMessage());
@@ -837,6 +837,11 @@ window.DropRateScanner = (() => {
           body: JSON.stringify({image_data_url: photo, force_refresh: true})});
         if (!this.active(epoch) || !this.items.includes(item)) return;
         item.run = data.run || {};
+        if (data.book_result) {
+          item.mode = "COMIC";
+          this.acceptBookResult(item, data.book_result, photo, epoch);
+          return;
+        }
         item.candidates = (data.candidates || []).filter(candidate => !candidate.hard_rejected
           && (candidate.catalogue_id || candidate.source_kind === "PROVIDER"))
           .sort((a, b) => Number(a.rank || 9999) - Number(b.rank || 9999));
@@ -855,7 +860,7 @@ window.DropRateScanner = (() => {
         if (!this.active(epoch) || !this.items.includes(item)) return;
         item.status = "unresolved"; item.guess = "Recognition failed";
         item.error = error.name === "AbortError" ? "Recognition timed out. Retry this photo." : error.message;
-        this.status("Couldn’t recognise this card · tap its thumbnail to retry");
+        this.status("Couldn’t recognise this item · tap its thumbnail to retry");
       } finally {
         clearTimeout(timeout); this.controllers.delete(controller);
         this.releaseRecognition(item, controller);
@@ -876,15 +881,7 @@ window.DropRateScanner = (() => {
         const result = await this.request("/api/v1/owner/books/recognize", {method: "POST", signal: controller.signal,
           body: JSON.stringify({images: [photo], defer_research: true})});
         if (!this.active(epoch) || !this.items.includes(item)) return;
-        item.bookResult = result; item.status = "unresolved";
-        const fields = result.fields || {};
-        item.guess = result.status === "NEEDS_REVIEW" ? [fields.series_title || "Book details read",
-          fields.issue_number ? (fields.system_code === "MANGA" ? "Vol. " : "#") + fields.issue_number : ""].filter(Boolean).join(" ") : "Book not recognised";
-        if (result.status !== "NEEDS_REVIEW") item.error = (result.warnings || []).join(" ") || "Try a clearer cover or barcode photo.";
-        this.status("Tap the book thumbnail to review its details");
-        if (researching(result)) {
-          this.bookResearchQueue.push({item, result, photo, epoch}); this.drainBookResearch();
-        }
+        this.acceptBookResult(item, result, photo, epoch);
       } catch (error) {
         if (!this.active(epoch) || !this.items.includes(item)) return;
         item.status = "unresolved"; item.guess = "Book scan needs another look";
@@ -893,6 +890,19 @@ window.DropRateScanner = (() => {
       } finally {
         clearTimeout(timeout); this.controllers.delete(controller); this.releaseRecognition(item, controller);
         if (this.active(epoch)) this.render();
+      }
+    }
+
+    acceptBookResult(item, result, photo, epoch) {
+      item.bookResult = result; item.status = "unresolved"; item.error = null;
+      item.selected = null; item.suggested = null; item.candidates = [];
+      const fields = result.fields || {};
+      item.guess = result.status === "NEEDS_REVIEW" ? [fields.series_title || "Book details read",
+        fields.issue_number ? (fields.system_code === "MANGA" ? "Vol. " : "#") + fields.issue_number : ""].filter(Boolean).join(" ") : "Book not recognised";
+      if (result.status !== "NEEDS_REVIEW") item.error = (result.warnings || []).join(" ") || "Try a clearer cover or barcode photo.";
+      this.status("Book recognised · review the cover and add your copy");
+      if (researching(result)) {
+        this.bookResearchQueue.push({item, result, photo, epoch}); this.drainBookResearch();
       }
     }
 
@@ -1181,7 +1191,7 @@ window.DropRateScanner = (() => {
         choice.dataset.grader = company;
         choice.setAttribute("aria-pressed", String(company ? graded(edit) && edit.grading_company === company : !graded(edit)));
         choice.disabled = !company && !usableRun(edit.item);
-        if (choice.disabled) choice.title = "Choose Cards to scan an ungraded card";
+        if (choice.disabled) choice.title = "Choose Auto to scan an ungraded card";
         list.append(choice);
       }
       return list;

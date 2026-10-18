@@ -22,11 +22,12 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi import Depends, FastAPI
 
-from app import catalogue_browser, auth, inventory_intake, owner_portal_api, owner_books, seller_channel_sync, book_recognition
+from app import catalogue_browser, auth, inventory_intake, owner_portal_api, owner_books, seller_channel_sync, book_recognition, recognition
 from collection_browse_fixture import prepare as prepare_browse, exercise as exercise_browse
 from collection_books_fixture import prepare as prepare_books, exercise as exercise_books
 from collection_book_scanner_fixture import prepare as prepare_scanner, exercise as exercise_scanner
 from collection_book_research_fixture import exercise as exercise_book_research
+from collection_auto_book_fixture import exercise as exercise_auto_books
 from book_catalogue_seed_fixture import exercise as exercise_book_catalogue_seed
 from app.access_control import require_platform_admin_request
 from app.db import _init_connection
@@ -99,6 +100,7 @@ async def main():
         app.include_router(owner_portal_api.router)
         app.include_router(owner_books.router)
         app.include_router(book_recognition.router)
+        app.include_router(recognition.router)
         app.include_router(inventory_intake.router,dependencies=[Depends(require_platform_admin_request)])
         app.include_router(seller_channel_sync.router)
         no_pricing=AsyncMock(side_effect=AssertionError('Collection save waited for pricing'))
@@ -145,6 +147,7 @@ async def main():
                 await prepare_scanner(db,ROOT,(ua,ub,uf))
                 await exercise_scanner(client,db,pool,headers,settings,ua,ub,uf,a,b)
                 await exercise_book_research(client,db,pool,headers,settings,ua,ub,a)
+                await exercise_auto_books(client,db,headers,settings,ua,ub)
                 await db.execute('update tcg.owner_memberships set active=false where user_id=$1',ua)
                 assert (await client.post(endpoint,json=payload,headers=headers(ua,key))).status_code==403
                 assert no_pricing.await_count==0 and no_publish.await_count==0

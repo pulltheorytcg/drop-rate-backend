@@ -109,7 +109,7 @@ def test_vision_request_contract_remains_high_detail_and_semantically_unchanged(
     body = captured[0]
     assert body["model"] == "gpt-5.6-sol"
     assert body["store"] is False
-    assert body["max_output_tokens"] == 1800
+    assert body["max_output_tokens"] == 3000
     assert "reasoning" not in body
     image_part = body["input"][0]["content"][1]
     assert image_part["type"] == "input_image"
@@ -150,9 +150,9 @@ def test_transport_change_does_not_change_recognition_engine_version_or_gates() 
     recognition = RECOGNITION.read_text()
     vision = VISION.read_text()
 
-    assert 'ENGINE_VERSION = "v1.9.0"' in recognition
+    assert 'ENGINE_VERSION = "v1.10.0"' in recognition
     assert '"detail": "high"' in vision
-    assert OpenAIRecognitionVisionClient.max_output_tokens == 1800
+    assert OpenAIRecognitionVisionClient.max_output_tokens == 3000
     assert '"reasoning"' not in vision
 
 

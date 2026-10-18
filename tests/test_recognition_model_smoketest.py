@@ -21,6 +21,9 @@ SETTINGS = SimpleNamespace(recognition_model=MODEL, openai_api_key="synthetic-ke
 def observation():
     result = {}
     for key, schema in OBSERVATION_SCHEMA["properties"].items():
+        if key == "book":
+            result[key] = None
+            continue
         kind = schema["type"]
         if isinstance(kind, list): value = None
         elif kind == "array": value = []
@@ -69,7 +72,7 @@ def test_new_model_uses_existing_image_and_slab_adapters_without_storage_or_tool
         assert body["input"][0]["content"][1]["type"] == "input_image"
         assert body["input"][0]["content"][1]["detail"] == "high"
         assert "tools" not in body and "service_tier" not in body
-    assert calls[0]["max_output_tokens"] == 1800
+    assert calls[0]["max_output_tokens"] == 3000
     assert calls[1]["max_output_tokens"] == 900
     assert "synthetic-key-not-real" not in json.dumps(report)
 
