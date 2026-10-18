@@ -97,9 +97,13 @@ async function matched(scanner, quantity = 1) {
     s.setMode('COMIC');await s.recognise('photo');await tick();await tick();
     assert.equal(s.find('.dr-scan-thumb img').src,'blob:preview');assert.deepEqual(imageCalls,[path]);
     const item=s.items[0];s.openDetails(item);review.onSaveState(true);assert.equal(s.removable(item),false);
-    review.onSaved({catalogue:{name:'Saved book'}},{new_catalogue:{comic_printing:{series_title:'Book'}},research_candidate_id:id,language:'English'});
+    const newRun='22222222-2222-4222-8222-222222222222',newId='bbbbbbbbbbbbbbbbbbbbbbbb';
+    const newPath='/api/v1/owner/books/research/'+newRun+'/cover/'+newId;
+    review.onSaved({catalogue:{name:'Saved book'}},{new_catalogue:{comic_printing:{series_title:'Book'}},research_candidate_id:newId,language:'English'},
+      {run_id:newRun,research:{candidates:[{id:newId,image_path:newPath}]}});
     review.onSaveState(false);assert.equal(s.removable(item),true);review.onClose();await tick();
-    assert.equal(s.find('.dr-scan-review-thumb img').src,'blob:preview');f.finish();checks++;
+    assert.equal(s.find('.dr-scan-review-thumb img').src,'blob:preview');
+    assert.equal(item.bookResult.run_id,newRun);assert.ok(imageCalls.includes(newPath),'A rescan must keep its new cover receipt');f.finish();checks++;
   }
   // Failed reads retain the cover for review/retry, with no guessed identity or price.
   for(const response of ['NO_MATCH','error']) {

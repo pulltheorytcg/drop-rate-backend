@@ -439,7 +439,7 @@
       node("cancel").textContent = "Done";
       // The scanner only receives a receipt after explicit, successful book intake.
       // A presentation callback must never turn a committed save into a retry.
-      try { reviewContext?.onSaved?.(result, JSON.parse(body)); } catch (_) { /* Inventory already saved. */ }
+      try { reviewContext?.onSaved?.(result, JSON.parse(body), {run_id:researchRunId,research}); } catch (_) { /* Inventory already saved. */ }
       if (reviewContext) reviewContext.onSaved = null;
       // A failed refresh must not turn a successful save into a second intake.
       await Promise.allSettled([loadOwnerInventory(), loadOwnerOverview()]);

@@ -54,7 +54,7 @@ def main():
                   ]}};
                 ''')
                 page.add_script_tag(content=(ROOT/'owner-books.js').read_text())
-                page.evaluate('DropRateBooks.open({recognition:options})')
+                page.evaluate('DropRateBooks.open({recognition:options,onSaved:(result,copy,recognition)=>{window.savedRecognition=recognition}})')
                 assert page.locator('#owner-book-title').inner_text()=='Is this your book?'
                 assert page.locator('.owner-book-candidate').count()==2
                 assert not page.locator('#owner-book-details').evaluate('(e)=>e.open')
@@ -74,6 +74,7 @@ def main():
                 page.get_by_role('button',name='Added to collection').wait_for()
                 body=json.loads(page.evaluate('calls[0].body'))
                 assert body['research_candidate_id']=='bbbbbbbbbbbbbbbbbbbbbbbb' and body['research_run_id']==page.evaluate('run')
+                assert page.evaluate('savedRecognition.run_id===run && savedRecognition.research.candidates[1].id') == body['research_candidate_id']
                 assert body['new_catalogue']['comic_printing']['cover_code']=='Cover B'
                 assert body['condition'] is None and body['store_price_minor'] is None
                 assert 'image_url' not in json.dumps(body) and 'market_value' not in json.dumps(body)

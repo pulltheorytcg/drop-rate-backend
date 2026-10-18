@@ -1036,11 +1036,12 @@ window.DropRateScanner = (() => {
       const resume = () => { if (this.active(epoch)) this.open(null, {review: true}); };
       const opened = this.options.openBooks({scanItemId: item.id, photos: item.photo ? [item.photo] : [],
         recognition: item.bookResult || {status: "NO_MATCH", warnings: [item.error || "Read the photo again or enter the book details."]},
-        onSaved: (result, copy) => {
+        onSaved: (result, copy, recognition) => {
           if (!this.active(epoch) || !this.items.includes(item)) return;
           item.status = "added"; item.error = null; item.photo = null; item.guess = result.catalogue.name;
-          if (copy?.new_catalogue) item.bookResult = {...item.bookResult, fields: {...copy.new_catalogue.comic_printing, language: copy.language},
-            research: {...item.bookResult?.research, selected_candidate_id: copy.research_candidate_id || null}};
+          const receipt = recognition || item.bookResult;
+          if (copy?.new_catalogue) item.bookResult = {...receipt, fields: {...copy.new_catalogue.comic_printing, language: copy.language},
+            research: {...receipt?.research, selected_candidate_id: copy.research_candidate_id || null}};
           this.render();
         }, onSaveState: pending => { if (this.active(epoch) && this.items.includes(item)) item.bookSavePending = pending; },
         onRemove: () => { if (this.active(epoch)) this.remove(item); }, onClose: resume});

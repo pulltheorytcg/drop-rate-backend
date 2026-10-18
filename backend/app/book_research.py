@@ -147,7 +147,9 @@ async def publisher_page_cover(candidate, *, http_client=None):
     source = publisher_source(candidate.get("source_url"))
     if not source or urlsplit(source).netloc not in IMAGE_HOSTS:
         return None
-    cached = _cover_cache.get(source)
+    fields = candidate.get("fields", {})
+    cache_key = (source, fields.get("series_title"), fields.get("issue_number"))
+    cached = _cover_cache.get(cache_key)
     if http_client is None and cached and cached[0] > time.monotonic():
         return cached[1]
     image = None
@@ -167,7 +169,6 @@ async def publisher_page_cover(candidate, *, http_client=None):
         meta = parser.meta
         # A generic error/landing page must not donate its artwork.
         canonical = publisher_source(meta.get("og:url") or meta.get("canonical"))
-        fields = candidate["fields"]
         title = meta.get("og:title", "")
         issue = re.escape(str(fields["issue_number"]))
         identity_ok = canonical == source and re.search(r"(?:#|Vol\.?\s*)" + issue + r"(?![\w.])", title, re.I)
@@ -179,7 +180,7 @@ async def publisher_page_cover(candidate, *, http_client=None):
     except (httpx.HTTPError, TimeoutError, ValueError, TypeError, KeyError):
         pass
     if http_client is None:
-        _cover_cache[source] = (time.monotonic() + (21600 if image else 60), image)
+        _cover_cache[cache_key] = (time.monotonic() + (21600 if image else 60), image)
         while len(_cover_cache) > 128:
             _cover_cache.popitem(last=False)
     return image

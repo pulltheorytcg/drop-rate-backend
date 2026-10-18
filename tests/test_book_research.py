@@ -175,6 +175,25 @@ def test_reference_identity_includes_printing_cover_and_language():
 
 
 @pytest.mark.asyncio
+async def test_cached_cover_cannot_be_reused_for_a_conflicting_issue(monkeypatch):
+    from collections import OrderedDict
+    from app import book_research
+    monkeypatch.setattr(book_research, '_cover_cache', OrderedDict())
+    page=f'<meta property="og:title" content="Deadpool/Batman #1"><meta property="og:url" content="{SOURCE}"><meta property="og:image" content="{COVER}">'
+    calls=[]
+    def reply(request):
+        calls.append(request)
+        return httpx.Response(200,text=page,headers={'content-type':'text/html'})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(reply)) as http:
+        monkeypatch.setattr(book_research, '_shared_http_client', lambda: http)
+        assert await publisher_page_cover(candidate()) == COVER
+        wrong=candidate(); wrong['fields']['issue_number']='2'
+        assert await publisher_page_cover(wrong) is None
+        assert await publisher_page_cover(candidate()) == COVER
+    assert len(calls)==2
+
+
+@pytest.mark.asyncio
 async def test_saved_artwork_requires_current_identity_and_remains_reference_only():
     item=dict(id=uuid4(),catalogue_id=uuid4(),product_type='COMIC')
     fields=candidate()['fields']; row={**fields,'inventory_id':item['id'],
