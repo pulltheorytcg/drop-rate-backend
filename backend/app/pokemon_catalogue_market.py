@@ -73,7 +73,12 @@ def normalized(value):
 def product_card_name(product):
     # Attack text and printed numeric level are card metadata. Lv.X is a
     # distinct card type and must survive, along with edition/version suffixes.
-    name = re.sub(r' \[[^\[\]]+\]$', '', product.get('name', ''))
+    # Cardmarket spells Nidoran's printed gender as [F]/[M], before attack text.
+    # Convert that identity marker before removing the final metadata bracket.
+    name = re.sub(r'^Nidoran \[([FM])\](?= |$)',
+                  lambda m: 'Nidoran ' + ('♀' if m[1] == 'F' else '♂'),
+                  product.get('name', ''))
+    name = re.sub(r' \[[^\[\]]+\]$', '', name)
     # Cardmarket expands this printed symbol as "δ Delta Species". Retain δ:
     # removing the symbol would confuse ordinary and Delta Species printings.
     name = re.sub(r'δ Delta Species(?= |$)', 'δ', name)
