@@ -325,6 +325,12 @@ async def create_inventory_intake(
         # cannot prove that a reused key represents the same original request.
         existing = await _existing_intake(connection, owner["id"], request_key)
         if existing is not None:
+            # READ COMMITTED can observe the other request's atomic commit
+            # between the receipt lookup and this inventory lookup. Re-read
+            # its receipt before treating the row as an unverifiable legacy key.
+            receipt = await _existing_receipt(connection, owner["id"], request_key)
+            if receipt is not None:
+                return jsonable_encoder(_receipt_response(receipt, payload_hash))
             raise HTTPException(
                 status_code=409,
                 detail="Idempotency-Key already exists without a verifiable intake receipt",

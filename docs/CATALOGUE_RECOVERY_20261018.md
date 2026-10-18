@@ -53,6 +53,13 @@ NO_MATCH, removal of photos, stale value removal and no unintended intake writes
 The owner shell versions the changed book script. Publisher research and exact
 printing confirmation remain suggestions followed by explicit Add to collection.
 
+The real PostgreSQL gate also exposed a concurrent Add race: another request
+could commit between the initial receipt lookup and the inventory lookup, causing
+a false 409 despite an atomic copy+receipt commit. Intake now rereads the receipt
+in that case and checks the original payload hash/owner before replaying. A
+deterministic signed-HTTP test forces that exact interleaving and confirms one copy.
+Genuinely receiptless rows and changed payloads still fail closed.
+
 ## Source work and remaining limits
 
 The opt-in CardTrader review probe uses the existing credential internally to

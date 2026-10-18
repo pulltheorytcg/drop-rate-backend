@@ -47,6 +47,41 @@ async def exercise(client, db, headers, ua, ub, owner_a, owner_b, card, pack):
     other = await client.post(endpoint,json=payload,headers=headers(ub,key))
     assert other.status_code == 409, other.text
     assert str(inventory_id) not in other.text
+    # Deterministically commit B after A's first intake receipt SELECT but before
+    # A reads inventory. The receipt and copy commit atomically; A must replay.
+    from app import inventory_intake
+    original_receipt = inventory_intake._existing_receipt
+    race_key = uuid4()
+    entered, release = asyncio.Event(), asyncio.Event()
+    reads = 0
+    async def gated_receipt(connection, owner_id, request_key):
+        nonlocal reads
+        result = await original_receipt(connection, owner_id, request_key)
+        if request_key == race_key and owner_id == owner_a:
+            reads += 1
+            if reads == 2:  # Browse preflight is first; actual intake is second.
+                assert result is None
+                entered.set()
+                await asyncio.wait_for(release.wait(), timeout=10)
+        return result
+    inventory_intake._existing_receipt = gated_receipt
+    first = None
+    try:
+        first = asyncio.create_task(client.post(endpoint,json=payload,headers=headers(ua,race_key)))
+        await asyncio.wait_for(entered.wait(), timeout=10)
+        second = await client.post(endpoint,json=payload,headers=headers(ua,race_key))
+        assert second.status_code == 201, second.text
+        release.set()
+        replay = await first
+        assert replay.status_code == 201 and replay.json()['replayed'], replay.text
+        assert replay.json()['inventory']['id'] == second.json()['inventory']['id']
+        assert await db.fetchval('select count(*) from tcg.inventory_items where intake_request_key=$1',race_key)==1
+    finally:
+        release.set()
+        if first is not None and not first.done():
+            first.cancel()
+            await asyncio.gather(first,return_exceptions=True)
+        inventory_intake._existing_receipt = original_receipt
     assert (await client.post(endpoint,json={'key':'c:'+str(pack),'confirmed':True},headers=headers(ua,uuid4()))).status_code == 422
     assert (await client.post(endpoint,json={'key':'c:'+str(pack),'seal_status':'SEALED','confirmed':True},headers=headers(ua,uuid4()))).status_code == 201
     # A provider reference keeps the same exact catalogue, with no approvals.
