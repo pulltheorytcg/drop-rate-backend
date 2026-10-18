@@ -68,9 +68,33 @@ identity, compact confirmation, removal, late responses, pending save protection
 selected artwork and owner reset. Existing full backend, PostgreSQL owner isolation,
 immutable retries, browser phone/desktop and n8n build gates remain required.
 The local Playwright browser download was blocked; actual browser checks must run
-in the existing GitHub workflow before release. Deployment and readback evidence
-will be added to this entry after verification.
+in the existing GitHub workflow before release. Those checks passed; no local
+browser pass is claimed. Screenshots from the first PR run were inspected at
+phone and desktop sizes; the final run also passed the rescan-receipt assertion.
 
 Rollback: revert this code change or restore the previously successful API release
 `cf4b00cd-2915-410c-8299-3b13f08291fc` (4a3cfe56). No schema rollback or inventory
 rewrite is needed. Preserve all already-saved collection copies and receipts.
+
+## Release receipt — 18 October 2026
+
+- PR [#687](https://github.com/pulltheorytcg/drop-rate-backend/pull/687), tested head
+  `96382b6eab70a4e06250dbab7abbe27cf8a92692`, merged main
+  `b38198574abbf7ea904c34ee6c47b37993bcc113`. Final follow-up binds cache hits to
+  the candidate issue/title and carries the latest review rescan artwork receipt.
+- All six PR workflows passed. [Backend checks](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/39132283968)
+  reported 6,172 Python tests, complete Node UI checks and pinned n8n image checks.
+  [Collection confirmation](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/39132283843)
+  passed real PostgreSQL owner isolation, physical guards, immutable retry races,
+  and Chromium/WebKit at 390/1440 widths. Browser artifact: `12138770432`.
+- Railway API deployment `c4c41407-aee4-49c9-9751-96fd9d9e5c99` reached SUCCESS
+  at 13:41:06 UTC. The existing predeploy ran 6,172 passing Python tests and its
+  unchanged sandbox checks. No environment or predeploy configuration changed.
+- [Main production readback](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/39132459457)
+  passed exact scanner/inventory asset hashes, readiness and anonymous inventory
+  denial. An additional GET-only check verified owner and founder cache URLs,
+  exact scanner JS/CSS and book JS/CSS bytes, database readiness and anonymous
+  book-cover denial (401). See [readback JSON](evidence/book-scan-readback-20261018.json).
+- Refresh the app before trying a new scan. This release does not rewrite earlier
+  recognition receipts or collection copies. Recheck the physical comics on the
+  user's phone; publisher access failures and uncertain printing remain visible.
