@@ -5,7 +5,7 @@
   let photos = [], scanRevision = 0, scanning = false, scanController = null, priceRevision = 0;
   let reviewContext = null;
   let identityEdited = false;
-  let research = null, researchRunId = null, selectedResearch = null, coverRevision = 0;
+  let research = null, researchRunId = null, selectedResearch = null, coverRevision = 0, choosingCover = false;
   const coverUrls = new Set(), coverControllers = new Set();
   const bookMapping = {system_code:"category", series_title:"series", issue_number:"number", volume_identifier:"volume",
     publisher:"publisher", language:"language", release_year:"year", printing_number:"printing", cover_code:"cover",
@@ -69,9 +69,10 @@
           <p id="owner-book-scan-message" role="status" aria-live="polite">Up to 3 photos of the same book. You confirm the details before saving.</p>
         </details>
         <section id="owner-book-research" class="owner-book-research" aria-label="Book identification" hidden>
-          <h3>Is this your book?</h3>
+          <div class="owner-book-research-heading"><h3>Matched book</h3><button type="button" id="owner-book-change-cover" class="owner-secondary-action" aria-expanded="false" aria-controls="owner-book-candidates" hidden>Change cover</button></div>
           <p id="owner-book-research-message" role="status" aria-live="polite"></p>
           <div id="owner-book-candidates" class="owner-book-candidates"></div>
+          <button type="button" id="owner-book-another-photo" class="owner-secondary-action" hidden>Try another photo</button>
           <p id="owner-book-photo-help" class="owner-book-photo-help"></p>
         </section>
         <section id="owner-book-selected" class="owner-book-selected" hidden></section>
@@ -140,6 +141,15 @@
     node("gallery").addEventListener("click", () => node("gallery-file").click());
     for (const id of ["camera-file", "gallery-file"]) node(id).addEventListener("change", addPhotos);
     node("recognize").addEventListener("click", recognize);
+    node("change-cover").addEventListener("click", () => {
+      if (scanning || saving || pending || saved || actorId !== state.session?.user?.id) return;
+      choosingCover = !choosingCover; renderResearch();
+    });
+    node("another-photo").addEventListener("click", () => {
+      if (scanning || saving || pending || saved || actorId !== state.session?.user?.id) return;
+      node("photo-details").open = true; node("camera").focus();
+      node("scan-message").textContent = "Replace or add a photo, then identify your book again.";
+    });
     node("market-check").addEventListener("click", checkMarket);
     node("fields").addEventListener("input", () => { priceRevision++; node("market-result").textContent = "Details changed. Check the value for this exact copy again."; });
     node("fields").addEventListener("change", () => { priceRevision++; node("market-result").textContent = "Details changed. Check the value for this exact copy again."; });
@@ -152,9 +162,11 @@
     }, true);
     for (const type of ["input", "change"]) node("identity").addEventListener(type, () => {
       identityEdited = true;
+      const hadSelection = !!selectedResearch;
       selectedResearch = null;
-      node("candidates").querySelectorAll("[aria-pressed]").forEach(button => button.setAttribute("aria-pressed", "false"));
-      node("research-message").textContent = "Details edited. Choose a cover again to keep its publisher artwork, or save your own details.";
+      choosingCover = true;
+      if (hadSelection) renderResearch();
+      node("research-message").textContent = "Details changed. Pick a matching cover below, or add with your edited details.";
     });
   }
 
@@ -213,12 +225,23 @@
     clearCoverLoads(); node("candidates").replaceChildren();
     node("research").hidden = !research;
     if (!research) return;
-    node("research-message").textContent = research.message || "Compare these publisher covers with your book.";
+    const selected = (research.candidates || []).find(candidate => candidate.id === selectedResearch);
+    node("change-cover").hidden = !selected;
+    node("change-cover").disabled = pending || saved || saving;
+    node("change-cover").textContent = choosingCover ? "Keep selected cover" : "Change cover";
+    node("change-cover").setAttribute("aria-expanded", String(choosingCover));
+    node("another-photo").hidden = !choosingCover;
+    node("another-photo").disabled = pending || saved || saving;
+    node("research-message").textContent = selected && !choosingCover
+      ? "Artwork selected. Change it if it looks wrong."
+      : research.message || "Choose the cover that matches your book.";
     const revision = coverRevision, actor = actorId;
-    for (const candidate of (research.candidates || []).slice(0, 4)) {
+    const candidates = selected && !choosingCover ? [selected] : (research.candidates || []).slice(0, 4);
+    for (const candidate of candidates) {
       if (!/^[a-f0-9]{24}$/.test(candidate.id || "") || !candidate.fields) continue;
       const source = publisherLink(candidate.source_url); if (!source) continue;
       const card = document.createElement("article"); card.className = "owner-book-candidate";
+      card.classList.toggle("is-selected", candidate.id === selectedResearch);
       const art = document.createElement("div"); art.className = "owner-book-cover";
       const placeholder = document.createElement("span"); placeholder.textContent = "Publisher cover unavailable";
       const image = document.createElement("img"); image.hidden = true; image.alt = `${candidate.fields.series_title} publisher cover`;
@@ -234,17 +257,22 @@
       title.textContent = `${fields.series_title} ${fields.system_code === "MANGA" ? "Vol. " : "#"}${fields.issue_number}`;
       const meta = document.createElement("p"); meta.textContent = [fields.publisher,fields.release_year,fields.language].filter(Boolean).join(" · ");
       const edition = document.createElement("p"); edition.textContent = [fields.volume_identifier,fields.cover_code,
-        fields.cover_artist,fields.printing_number ? `Printing ${fields.printing_number}` : "Printing not confirmed"].filter(Boolean).join(" · ");
+        fields.cover_artist,fields.printing_number ? `Printing ${fields.printing_number}` : ""].filter(Boolean).join(" · ");
+      edition.hidden = !edition.textContent;
       const why = document.createElement("p"); why.textContent = candidate.explanation || "Check that the cover matches your copy.";
+      why.hidden = !!selected && !choosingCover;
       const link = document.createElement("a"); link.href = source; link.target = "_blank"; link.rel = "noopener noreferrer";
       link.textContent = "Publisher record";
       const choose = document.createElement("button"); choose.type = "button"; choose.className = "owner-secondary-action";
-      choose.textContent = selectedResearch === candidate.id ? "Selected cover" : candidate.image_path ? "This is my cover" : "Use these book details";
+      choose.textContent = selectedResearch === candidate.id ? "Keep this cover" : candidate.image_path ? "Use this cover" : "Use these book details";
+      choose.hidden = !!selected && !choosingCover;
       choose.setAttribute("aria-pressed", String(selectedResearch === candidate.id));
       choose.disabled = pending || saved || saving;
       choose.addEventListener("click", () => {
         if (scanning || saving || pending || saved || actorId !== state.session?.user?.id) return;
-        fillBookFields(candidate.fields); selectedResearch = candidate.id; node("details").open = !bookDetailsComplete();
+        fillBookFields(candidate.fields); selectedResearch = candidate.id; choosingCover = false; identityEdited = true;
+        node("selected").hidden = true; node("details").open = !bookDetailsComplete();
+        node("photo-details").open = false;
         priceRevision++; node("market-result").textContent = "Book identified. Add your copy's condition or grade to check matching sales.";
         renderResearch();
       });
@@ -252,6 +280,7 @@
     }
     node("photo-help").textContent = value("printing") ? "Check the cover, then add your copy below."
       : "Not sure which printing? Add a photo of the small copyright text inside the cover. You can also save it as unknown for now.";
+    node("photo-help").hidden = !!selected && !choosingCover;
   }
 
   function cancelScan() {
@@ -265,7 +294,7 @@
 
   function clearIdentification() {
     // A new photo set or failed reread cannot keep the previous book's match.
-    research = null; researchRunId = null; selectedResearch = null;
+    research = null; researchRunId = null; selectedResearch = null; choosingCover = false;
     renderResearch();
     node("selected").hidden = true; node("selected").replaceChildren();
     fillBookFields({});
@@ -360,7 +389,8 @@
     const missing = (result.uncertain_fields || []).filter(field => ["system_code", "series_title", "issue_number", "language", "publisher", "printing_number"].includes(field)).map(field => field.replaceAll("_", " "));
     research = result.research || null; researchRunId = result.run_id || null;
     selectedResearch = research?.selected_candidate_id || null;
-    node("title").textContent = "Is this your book?";
+    choosingCover = false;
+    node("title").textContent = "Add to collection";
     node("scan-message").textContent = research ? "Cover read. Publisher research is shown above."
       : "Book details read — confirm them below." + (missing.length ? " Check: " + missing.join(", ") + "." : "") + " " + (result.warnings || []).join(" ");
     node("details").open = !bookDetailsComplete();
@@ -462,6 +492,7 @@
     const body = pending ? submittedPayload : JSON.stringify(payload());
     if (submittedPayload && body !== submittedPayload) requestKey = crypto.randomUUID();
     submittedPayload = body; saving = true;
+    node("research").querySelectorAll("button").forEach(button => { button.disabled = true; });
     reviewContext?.onSaveState?.(true);
     node("remove").disabled = true;
     node("fields").disabled = true; node("save").disabled = true;
@@ -489,6 +520,7 @@
       node("save").textContent = pending ? "Retry this book" : "Add to collection";
     } finally {
       saving = false;
+      node("research").querySelectorAll("button").forEach(button => { button.disabled = pending || saved; });
       reviewContext?.onSaveState?.(pending);
       node("remove").disabled = pending || saved;
     }
@@ -509,7 +541,7 @@
     identityEdited = false;
     reviewContext = {...options};
     cancelScan(); photos = [];
-    research = null; researchRunId = null; selectedResearch = null; renderResearch(); node("details").open = true; node("photo-details").open = true;
+    research = null; researchRunId = null; selectedResearch = null; choosingCover = false; renderResearch(); node("details").open = true; node("photo-details").open = true;
     node("form").reset(); node("selected").hidden = true; node("selected").replaceChildren(); node("copy-details").open = false; requestKey = crypto.randomUUID(); submittedPayload = null;
     node("fields").disabled = false; node("save").disabled = false;
     node("save").textContent = "Add to collection"; node("cancel").textContent = "Cancel";

@@ -1,5 +1,17 @@
 # Build status
 
+## 18 October 2026 — Automatic book artwork selection (In progress)
+
+Follow-up to the founder's Collectr/card-flow request: matched publisher artwork
+and its metadata are selected automatically, with a one-tap Add and optional
+Change cover. The prior separate cover-confirmation step is removed. Selection
+uses the existing verified, non-conflicting candidates and does not claim visual
+proof or invent unknown printing, condition or value. Background results preserve
+edits; pending saves retain the original artwork receipt and idempotency key.
+No production data, schema or provider changes. Release checks are pending.
+See [scope, checks and rollback](docs/BOOK_DEFAULT_ARTWORK_20261018.md).
+
+
 ## 18 October 2026 — Continuous capture and progressive book review (live, PR #689)
 
 Follow-up to the founder's 14:58 recording: capture now queues beyond two active

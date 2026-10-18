@@ -1043,7 +1043,7 @@ window.DropRateScanner = (() => {
         copy.append(node("strong", "", item.status === "processing" ? item.guess : name(item)));
         const card = snapshot(selected(item));
         if (!["processing", "queued"].includes(item.status)) copy.append(node("span", "", card.card_number || card.product_code || ""),
-          node("span", "", book(item) ? (item.status === "added" ? "Added to collection" : researching(item.bookResult) ? "Finding publisher cover…" : bookCover(item) ? "Check publisher cover" : "Review book") : item.status === "unresolved" ? "Check match" : money(valueOf(item))));
+          node("span", "", book(item) ? (item.status === "added" ? "Added to collection" : researching(item.bookResult) ? "Finding publisher cover…" : item.bookResult?.research?.selected_candidate_id ? "Ready to add" : "Review book") : item.status === "unresolved" ? "Check match" : money(valueOf(item))));
         tile.append(copy);
         const queued = node("div", "dr-scan-queued"), remove = this.removeControl(item, "dr-scan-remove-queued");
         remove.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg>';

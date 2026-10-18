@@ -17,7 +17,7 @@ async def exercise(client,db,pool,headers,settings,ua,ub,owner_a):
         printing_number=2,cover_code='Cover A',cover_artist=None,volume_identifier=None,barcode_gtin=None)
     candidate=dict(id='a'*24,fields=fields,source_url='https://www.marvel.com/comics/issue/1/fixture',
         source_title='Fixture publisher record',image_url='https://cdn.marvel.com/u/prod/marvel/i/mg/9/03/abcd/clean.jpg',
-        cover_matches_photo=True,explanation='Synthetic publisher candidate.')
+        cover_matches_photo=False,explanation='Synthetic publisher edition reference.')
     values={key:dict(value='',visible_text='',confidence=0) for key in scanner.BookFields.model_fields}
     for key in ('series_title','issue_number','language'):
         values[key]=dict(value=str(fields[key]),visible_text=str(fields[key]),confidence=.99)
@@ -33,6 +33,7 @@ async def exercise(client,db,pool,headers,settings,ua,ub,owner_a):
     assert r.status_code==200,r.text
     result=r.json();run_id=UUID(result['run_id'])
     assert result['research']['selected_candidate_id']=='a'*24 and result['fields']['printing_number']==2
+    assert result['research']['candidates'][0]['cover_matches_photo'] is False
     assert 'image_url' not in result['research']['candidates'][0] and result['auto_save'] is False
     assert await db.fetchval('select count(*) from tcg.inventory_items')==before
     cover=result['research']['candidates'][0]['image_path']
@@ -40,7 +41,7 @@ async def exercise(client,db,pool,headers,settings,ua,ub,owner_a):
         for actor,status in ((None,401),(ub,404),(ua,200)):
             r=await client.get(cover,headers=headers(actor,uuid4()) if actor else {})
             assert r.status_code==status,r.text
-    payload=dict(research_run_id=str(run_id),research_candidate_id='a'*24,
+    payload=dict(research_run_id=str(run_id),research_candidate_id=result['research']['selected_candidate_id'],
         new_catalogue=dict(product_type='COMIC',game='Books',name=fields['series_title'],set_name=fields['series_title'],
             language='English',comic_printing={k:v for k,v in fields.items() if k!='language'}))
     path='/api/v1/owner/books/intake'

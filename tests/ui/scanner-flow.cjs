@@ -131,6 +131,7 @@ async function matched(scanner, quantity = 1) {
     f.w.fetch=async url=>{imageCalls.push(url);return {ok:true,blob:async()=>new f.w.Blob(['cover'],{type:'image/png'})};};
     s.setMode('COMIC');await s.recognise('photo');await tick();await tick();
     assert.equal(s.find('.dr-scan-thumb img').src,'blob:preview');assert.deepEqual(imageCalls,[path]);
+    assert.ok(s.find('.dr-scan-strip').textContent.includes('Ready to add'));
     const item=s.items[0];s.openDetails(item);review.onSaveState(true);assert.equal(s.removable(item),false);
     const newRun='22222222-2222-4222-8222-222222222222',newId='bbbbbbbbbbbbbbbbbbbbbbbb';
     const newPath='/api/v1/owner/books/research/'+newRun+'/cover/'+newId;

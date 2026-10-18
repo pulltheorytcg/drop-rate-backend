@@ -42,9 +42,9 @@ def main():
                   async function apiRequest(url,options){calls.push({url,...options});return {catalogue:{name:'Fixture book'},inventory:{id:'fixture'}};}
                   window.run='11111111-1111-4111-8111-111111111111';
                   window.fields={system_code:'MARVEL_COMICS',series_title:'Fixture Adventure',issue_number:'1',
-                    publisher:'Marvel',book_format:'SINGLE_ISSUE',language:'English',release_year:2025,printing_number:null};
+                    publisher:'Marvel',book_format:'SINGLE_ISSUE',language:'English',release_year:2025,printing_number:null,cover_code:'Cover A'};
                   window.options={run_id:run,status:'NEEDS_REVIEW',fields,uncertain_fields:['printing_number'],warnings:[],research:{
-                    status:'CANDIDATES',message:'Compare these publisher covers with your copy.',candidates:[
+                    status:'CANDIDATES',selected_candidate_id:'aaaaaaaaaaaaaaaaaaaaaaaa',message:'Choose the cover that matches your book.',candidates:[
                     {id:'aaaaaaaaaaaaaaaaaaaaaaaa',fields:{...fields,cover_code:'Cover A'},
                       source_url:'https://www.marvel.com/comics/issue/1/fixture',source_title:'Fixture A',
                       image_path:'/api/v1/owner/books/research/'+run+'/cover/aaaaaaaaaaaaaaaaaaaaaaaa',explanation:'First cover option.'},
@@ -55,24 +55,48 @@ def main():
                 ''')
                 page.add_script_tag(content=(ROOT/'owner-books.js').read_text())
                 page.evaluate('DropRateBooks.open({recognition:options,onSaved:(result,copy,recognition)=>{window.savedRecognition=recognition}})')
-                assert page.locator('#owner-book-title').inner_text()=='Is this your book?'
-                assert page.locator('.owner-book-candidate').count()==2
+                assert page.locator('#owner-book-title').inner_text()=='Add to collection'
+                assert page.locator('.owner-book-candidate').count()==1
+                assert page.locator('#owner-book-change-cover').is_visible()
+                assert page.locator('.owner-book-candidate button:visible').count()==0
                 assert not page.locator('#owner-book-details').evaluate('(e)=>e.open')
                 assert not page.locator('#owner-book-photo-details').evaluate('(e)=>e.open')
                 assert not page.evaluate('calls.length')
+                page.wait_for_function('document.querySelector(".owner-book-candidate img").naturalWidth === 160')
+                assert page.locator('#owner-book-cover').input_value()=='Cover A'
+                assert page.locator('#owner-book-printing').input_value()==''
+                page.screenshot(path=str(OUT/f'{engine}-{width}-book-default-cover.png'))
+                # The normal flow is one Add tap, with no separate cover approval.
+                page.locator('#owner-book-save').click()
+                page.get_by_role('button',name='Added to collection').wait_for()
+                body=json.loads(page.evaluate('calls[0].body'))
+                assert body['research_candidate_id']=='aaaaaaaaaaaaaaaaaaaaaaaa'
+                assert body['new_catalogue']['comic_printing']['cover_code']=='Cover A'
+                assert body['condition'] is None and body['store_price_minor'] is None
+                assert body['new_catalogue']['comic_printing']['printing_number'] is None
+                page.locator('#owner-book-cancel').click()
+                # Changing the cover is optional, and carries the chosen edition.
+                page.evaluate('DropRateBooks.open({recognition:options,onSaved:(result,copy,recognition)=>{window.savedRecognition=recognition}})')
+                page.locator('#owner-book-change-cover').click()
+                assert page.locator('.owner-book-candidate').count()==2
+                assert page.locator('#owner-book-another-photo').is_visible()
+                assert page.locator('#owner-book-change-cover').get_attribute('aria-expanded')=='true'
+                page.wait_for_function('Array.from(document.querySelectorAll(".owner-book-cover img:not([hidden])")).filter(img => img.complete && img.naturalWidth === 160 && img.naturalHeight === 240).length === 2')
+                page.screenshot(path=str(OUT/f'{engine}-{width}-book-cover-options.png'))
                 page.locator('.owner-book-candidate').nth(1).get_by_role('button').click()
                 assert page.locator('#owner-book-cover').input_value()=='Cover B'
                 assert page.locator('#owner-book-printing').input_value()=='2'
                 assert page.locator('#owner-book-year').input_value()=='2025'
                 assert page.locator('#owner-book-condition').input_value()==''
                 assert page.locator('#owner-book-price').input_value()==''
-                page.wait_for_function('Array.from(document.querySelectorAll(".owner-book-cover img:not([hidden])")).filter(img => img.complete && img.naturalWidth === 160 && img.naturalHeight === 240).length === 2')
+                assert page.locator('.owner-book-candidate').count()==1
+                assert page.locator('#owner-book-change-cover').get_attribute('aria-expanded')=='false'
+                page.wait_for_function('document.querySelector(".owner-book-candidate img:not([hidden])").naturalWidth === 160')
                 assert not page.evaluate('document.querySelector("#owner-book-dialog").scrollWidth > document.querySelector("#owner-book-dialog").clientWidth+2')
-                assert page.locator('.owner-book-candidate').evaluate_all('(cards)=>cards.every(card => card.querySelector("button").getBoundingClientRect().right <= card.getBoundingClientRect().right)')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-book-cover-choice.png'))
                 page.locator('#owner-book-save').click()
                 page.get_by_role('button',name='Added to collection').wait_for()
-                body=json.loads(page.evaluate('calls[0].body'))
+                body=json.loads(page.evaluate('calls.at(-1).body'))
                 assert body['research_candidate_id']=='bbbbbbbbbbbbbbbbbbbbbbbb' and body['research_run_id']==page.evaluate('run')
                 assert page.evaluate('savedRecognition.run_id===run && savedRecognition.research.candidates[1].id') == body['research_candidate_id']
                 assert body['new_catalogue']['comic_printing']['cover_code']=='Cover B'
@@ -81,13 +105,48 @@ def main():
                 page.locator('#owner-book-cancel').click()
                 # Editing a researched edition drops its artwork linkage.
                 page.evaluate('DropRateBooks.open({recognition:options})')
-                page.locator('.owner-book-candidate').first.get_by_role('button').click()
                 page.locator('#owner-book-details summary').click()
                 page.locator('#owner-book-printing').fill('3')
                 page.locator('#owner-book-save').click();page.get_by_role('button',name='Added to collection').wait_for()
                 body=json.loads(page.evaluate('calls.at(-1).body'))
                 assert 'research_candidate_id' not in body and body['new_catalogue']['comic_printing']['printing_number']==3
                 page.locator('#owner-book-cancel').click()
+                # A pending save retains its automatic selection across reopen,
+                # background results and retries, without a second physical copy.
+                page.evaluate('''() => {
+                  window.normalRequest=apiRequest;window.saveAttempts=[];
+                  apiRequest=async (url,opts)=>{saveAttempts.push({url,...opts});if(saveAttempts.length===1)throw new Error('Disconnected');return normalRequest(url,opts)};
+                  DropRateBooks.open({scanItemId:'pending',recognition:options});
+                }''')
+                page.locator('#owner-book-save').click()
+                page.get_by_role('button',name='Retry this book').wait_for()
+                page.locator('#owner-book-cancel').click()
+                page.evaluate("DropRateBooks.open({scanItemId:'different',recognition:{...options,fields:{...fields,issue_number:'2'}}});DropRateBooks.updateScan('pending',{...options,research:{status:'UNAVAILABLE',candidates:[]}})")
+                assert page.locator('#owner-book-change-cover').is_disabled()
+                page.locator('#owner-book-save').click()
+                page.get_by_role('button',name='Added to collection').wait_for()
+                assert page.evaluate('saveAttempts[0].body===saveAttempts[1].body && saveAttempts[0].headers["Idempotency-Key"]===saveAttempts[1].headers["Idempotency-Key"]')
+                assert json.loads(page.evaluate('saveAttempts[1].body'))['research_candidate_id']=='aaaaaaaaaaaaaaaaaaaaaaaa'
+                page.locator('#owner-book-cancel').click()
+                page.evaluate('apiRequest=normalRequest')
+                # Background artwork is selected automatically without erasing copy details.
+                page.evaluate("DropRateBooks.open({scanItemId:'progressive',recognition:{...options,research:{status:'PENDING',candidates:[]}}})")
+                page.locator('#owner-book-copy-details').evaluate('e=>e.open=true')
+                page.locator('#owner-book-condition').select_option('Near Mint')
+                page.evaluate("DropRateBooks.updateScan('progressive',options)")
+                assert page.locator('#owner-book-change-cover').is_visible()
+                assert page.locator('.owner-book-candidate').count()==1
+                page.locator('#owner-book-save').click()
+                page.get_by_role('button',name='Added to collection').wait_for()
+                body=json.loads(page.evaluate('calls.at(-1).body'))
+                assert body['research_candidate_id']=='aaaaaaaaaaaaaaaaaaaaaaaa' and body['condition']=='Near Mint'
+                page.locator('#owner-book-cancel').click()
+                # Single-cover lookup still offers another photo through Change cover.
+                page.evaluate("DropRateBooks.open({recognition:{...options,research:{...options.research,candidates:[options.research.candidates[0]]}}})")
+                page.locator('#owner-book-change-cover').click()
+                page.locator('#owner-book-another-photo').click()
+                assert page.locator('#owner-book-photo-details').evaluate('e=>e.open')
+                page.locator('#owner-book-close').click()
                 # Research outage keeps usable OCR and doesn't require expertise.
                 page.evaluate("DropRateBooks.open({recognition:{...options,research:{status:'UNAVAILABLE',candidates:[],message:'Add a barcode photo to help.'}}})")
                 assert page.locator('#owner-book-series').input_value()=='Fixture Adventure'
