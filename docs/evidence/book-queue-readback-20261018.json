@@ -1,0 +1,35 @@
+{
+  "commit": "cfbcb756917cd1e1ccbb8c3da4c334afbee4f1ce",
+  "checked_at": "2026-10-18T14:33:01.822947+00:00",
+  "assets": {
+    "scanner-flow.js": {
+      "url": "/assets/scanner-flow.js?v=book-queue-v4",
+      "matches": true,
+      "sha256": "80ff0be8f09df054e5070e0c7f349cb557f27d7519a58a7f9ea2ce9ec2a53385"
+    },
+    "scanner-flow.css": {
+      "url": "/assets/scanner-flow.css?v=book-queue-v4",
+      "matches": true,
+      "sha256": "6cdc8424e5d7789982cea109b7a6a184c0253eb23b68dbe9ffeb37fef808ef59"
+    },
+    "owner-books.js": {
+      "url": "/assets/owner-books.js?v=book-queue-v4",
+      "matches": true,
+      "sha256": "21a9ef037895775c1dd749d68aa4f6e90857f430a7e8108ea943ea69bebe7dfe"
+    },
+    "owner-books.css": {
+      "url": "/assets/owner-books.css?v=book-queue-v4",
+      "matches": true,
+      "sha256": "e777d909ea1175238ac0178de7ed6d64dc3ac23d29411096825ff26c89c60919"
+    }
+  },
+  "ready": {
+    "status": "ready",
+    "database": "connected"
+  },
+  "owner_entrypoint": true,
+  "founder_entrypoint": true,
+  "anonymous_book_cover_status": 401,
+  "anonymous_book_receipt_status": 401,
+  "verified": true
+}
