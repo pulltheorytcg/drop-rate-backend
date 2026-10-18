@@ -71,3 +71,28 @@ Cache versions are `book-queue-v4` in owner/founder entrypoints.
 Rollback: revert this change or restore successful API deployment
 `c4c41407-aee4-49c9-9751-96fd9d9e5c99` (main `b3819857`). No schema or inventory
 rewrite is needed. Keep existing collection copies and scan receipts.
+
+
+## Release receipt
+
+- PR [#689](https://github.com/pulltheorytcg/drop-rate-backend/pull/689), tested
+  head `bbec6533f79bdaa235888ebecaa3cad303d73550`, merged main
+  `cfbcb756917cd1e1ccbb8c3da4c334afbee4f1ce`.
+- All six PR workflows passed. [Backend checks](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/39136156740)
+  reported 6,178 passing Python tests and the complete Node suite (63 scanner
+  scenarios). [Collection confirmation](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/39136156663)
+  passed real PostgreSQL original-photo/owner isolation and concurrent research
+  claim, plus Chromium/WebKit at 390/1440 widths. Final artifact `12139886822`;
+  the mobile queue and progressive-review screenshots were inspected.
+- All five additional publisher URLs were fetched through the actual bounded
+  thumbnail service and decoded successfully. See [thumbnail receipts](evidence/book-queue-publisher-thumbnails-20261018.json).
+  Tests replay the exact public identity fields for the four Marvel issues from
+  the recorded receipts, including title aliases, cover codes and series runs.
+- Railway deployment `3b0dd56c-26e1-4e77-96de-9abf6af1060c` reached SUCCESS
+  at 14:32:24 UTC. The unchanged predeploy gates passed 6,178 Python tests.
+- GET-only live readback at 14:33 UTC verified all four scanner/book asset hashes,
+  owner/founder `book-queue-v4` URLs, ready/connected database status and 401 for
+  anonymous receipt/cover reads. See [live readback](evidence/book-queue-readback-20261018.json).
+- Refresh before a fresh scan. This release does not rewrite earlier saved copies
+  or scan receipts. A physical iPhone retest is still needed to measure actual
+  camera recognition timing. An unreadable Superman issue remains for confirmation.

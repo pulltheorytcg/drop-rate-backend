@@ -1,6 +1,6 @@
 # Build status
 
-## 18 October 2026 — Continuous capture and progressive book review (release checks)
+## 18 October 2026 — Continuous capture and progressive book review (live, PR #689)
 
 Follow-up to the founder's 14:58 recording: capture now queues beyond two active
 reads, with an integrated 44px remove control. Book OCR returns before publisher
@@ -11,8 +11,14 @@ Nineteen reviewed publisher references bypass repeat web searches, including
 verified covers for Amazing Spider-Man #528/#795, Spectacular #11/#114 and Batman
 #463. Marvel image formats, its older image host and same-issue canonical slug
 handling are repaired. No universal artwork or measured phone-speed claim.
-Local targeted checks pass; existing full CI/browser/RLS/deployment gates are
-required before release. No schema, production data or configuration changes.
+All six PR workflows passed: 6,178 Python tests, complete Node UI suite with 63
+scanner scenarios, PostgreSQL owner/digest/concurrency checks and Chromium/WebKit
+at 390/1440 widths. Final mobile queue screenshots were inspected. Railway
+3b0dd56c-26e1-4e77-96de-9abf6af1060c reached SUCCESS with main cfbcb756 at
+14:32:24 UTC. Owner/founder entrypoints and all four scanner/book assets match
+the release; readiness is healthy and anonymous book receipt/cover reads return
+401. No schema, production data or configuration changes. Physical-phone
+recognition timing after release remains unmeasured.
 See [scope, sources, checks and rollback](docs/BOOK_SCAN_QUEUE_20261018.md).
 
 ## 18 October 2026 — Book recognition and scan removal repair (live, PR #687)
