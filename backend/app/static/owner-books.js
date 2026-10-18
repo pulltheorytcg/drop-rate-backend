@@ -389,7 +389,13 @@
         const completed = await window.DropRateScanner.researchBook((url, options) => apiRequest(url, options, false), result, images, controller.signal);
         if (scanActive(actor, revision)) applyResearch(completed);
       }
-    } catch (error) { if (scanActive(actor, revision) && !saving && !pending && !saved) node("scan-message").textContent = error.message || "Book scanning failed. Your photos are kept for another attempt."; }
+    } catch (error) { if (scanActive(actor, revision) && !saving && !pending && !saved) {
+      node("scan-message").textContent = error.message || "Book scanning failed. Your photos are kept for another attempt.";
+      if (["PENDING", "RUNNING"].includes(research?.status)) {
+        research = {status:"UNAVAILABLE", candidates:[], message:"Publisher lookup did not finish. Your book details are ready to review."};
+        renderResearch();
+      }
+    } }
     finally { clearTimeout(timeout); if (scanActive(actor, revision)) { scanning = false; scanController = null;
       if (!saving && !pending && !saved) { node("fields").disabled = false; node("save").disabled = false; }
       renderPhotos(); } }

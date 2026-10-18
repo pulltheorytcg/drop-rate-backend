@@ -7,10 +7,10 @@ reads, with an integrated 44px remove control. Book OCR returns before publisher
 research; two bounded background lookups preserve user edits and pending saves.
 Owner-scoped original-photo receipts claim research once and recover disconnected
 responses without another paid lookup. Existing hourly caps remain unchanged.
-Seventeen reviewed publisher references bypass repeat web searches, including
-verified covers for Amazing Spider-Man #528/#795 and Batman #463. Marvel image
-formats and same-issue canonical slug handling are repaired. Spectacular #11/#114
-still lack verified publisher images; no universal artwork or phone-speed claim.
+Nineteen reviewed publisher references bypass repeat web searches, including
+verified covers for Amazing Spider-Man #528/#795, Spectacular #11/#114 and Batman
+#463. Marvel image formats, its older image host and same-issue canonical slug
+handling are repaired. No universal artwork or measured phone-speed claim.
 Local targeted checks pass; existing full CI/browser/RLS/deployment gates are
 required before release. No schema, production data or configuration changes.
 See [scope, sources, checks and rollback](docs/BOOK_SCAN_QUEUE_20261018.md).

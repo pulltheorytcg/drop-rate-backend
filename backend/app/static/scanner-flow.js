@@ -1049,7 +1049,12 @@ window.DropRateScanner = (() => {
         remove.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg>';
         queued.append(tile, remove); strip.append(queued);
       }
-      this.find(".dr-scan-total").textContent = "Total: " + money(totals.value) + (totals.unknown ? " · " + totals.unknown + " pending" : "");
+      this.find(".dr-scan-total").textContent = this.mode === "COMIC"
+        ? this.items.length + (this.items.length === 1 ? " scan" : " scans")
+          + (this.inFlight ? " · " + this.inFlight + " reading" : "")
+          + (this.recognitionQueue.length ? " · " + this.recognitionQueue.length + " queued" : "")
+          + (this.researchInFlight ? " · finding covers" : "")
+        : "Total: " + money(totals.value) + (totals.unknown ? " · " + totals.unknown + " pending" : "");
       this.find('[data-action="next"]').disabled = !this.items.length;
       this.find('[data-action="capture"]').disabled = this.atCapacity() || !this.stream;
       this.find('[data-action="gallery"]').disabled = this.atCapacity();

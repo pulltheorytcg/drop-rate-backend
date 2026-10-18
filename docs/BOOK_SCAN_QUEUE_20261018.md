@@ -24,12 +24,14 @@ pre-change timings, not a claim about post-change phone performance.
   repeated paid lookups. Existing owner authorization, RLS and 20/hour cap remain.
   No database migration or new subscription is required.
 - Publisher references already reviewed for the 14 catalogue books are available
-  without another model/web search. Three additional verified issue previews cover
-  Amazing Spider-Man #528, The Amazing Spider-Man #795, and Batman #463. Conflicting
+  without another model/web search. Five additional verified issue previews cover
+  Amazing Spider-Man #528/#795, Spectacular Spider-Man #11/#114, and Batman #463.
+  Conflicting
   year/language/identity rejects a suggestion. Physical printing, variant and final
   Add remain for collector confirmation; the preview alone never selects a cover.
 - Marvel portrait/detail/background image formats are accepted on the same narrow
-  publisher CDN path. Canonical slug changes retain their exact numeric issue ID;
+  publisher CDN path, including Marvel's original i.annihil.us host. Canonical
+  slug changes retain their exact numeric issue ID;
   other issue IDs, foreign hosts, arbitrary query strings and denial pages remain
   rejected. A sole reference can preview in the queue before the user selects it.
 
@@ -37,15 +39,16 @@ pre-change timings, not a claim about post-change phone performance.
 
 The additional JSON references store exact source/asset URLs, observation hashes
 and dimensions; no customer photos or publisher image binaries are committed.
-Marvel #528 and #795 images were found in the public image index tied to their
-publisher issue pages. The same publisher asset's portrait renditions returned
-HTTP 200, decoded at 300×450, and were visually checked. DC #463's public issue
+The four Marvel images were found in the public image index tied to their
+publisher issue pages. Amazing Spider-Man portrait renditions returned HTTP 200,
+decoded at 300×450, and were visually checked. Spectacular #114 returned its full
+397×610 cover; #11 returned 1804×2800 from Marvel's original CDN. DC #463's public issue
 metadata and UUID-bound cover were fetched and visually checked in the prior repair.
 The references are edition previews, not permission to publish listing media.
 
-Some Marvel HTML pages still return 403. Spectacular Spider-Man #11 and #114 do
-not have a verified publisher image in this reference set; those covers are not
-claimed fixed or substituted with seller photos. Superman's issue was uncertain
+Some Marvel HTML pages still return 403. The five independently verified public
+cover references avoid that HTML dependency for these issues. Superman's issue
+was uncertain
 in the recording, so no guessed issue or artwork was added. Other books continue
 through the bounded publisher lookup, with missing artwork reported honestly.
 

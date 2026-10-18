@@ -1,0 +1,67 @@
+[
+  {
+    "title": "Amazing Spider-Man #528",
+    "source_url": "https://www.marvel.com/comics/issue/3360/amazing_spider-man_1999_528",
+    "image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/9/c0/57f806e1ce09d/portrait_uncanny.jpg",
+    "decoded": true,
+    "content_type": "image/webp",
+    "bytes": 30500,
+    "dimensions": [
+      300,
+      450
+    ],
+    "sha256": "8376d2c5d4847479a7e14562fd533021f98923e570804ed0c4c2631dc4566f97"
+  },
+  {
+    "title": "The Amazing Spider-Man #795",
+    "source_url": "https://www.marvel.com/comics/issue/66083/the_amazing_spider-man_2015_795",
+    "image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/6/03/5a724221d7369/portrait_uncanny.jpg",
+    "decoded": true,
+    "content_type": "image/webp",
+    "bytes": 26318,
+    "dimensions": [
+      300,
+      450
+    ],
+    "sha256": "ec09178253420595acc6663bc0eacd942a338584a79b3eb7550822dfc3552b7a"
+  },
+  {
+    "title": "Batman (1940-) #463",
+    "source_url": "https://www.dcuniverseinfinite.com/comics/book/batman-1940-463/cd396b6b-50f5-4741-99df-16c0f1f26fa9",
+    "image_url": "https://imgix-media.wbdndc.net/ingest/book/preview/cd396b6b-50f5-4741-99df-16c0f1f26fa9/d5d88c05-af46-42cc-b3eb-e33a4faab49b/0.jpg",
+    "decoded": true,
+    "content_type": "image/webp",
+    "bytes": 56100,
+    "dimensions": [
+      351,
+      540
+    ],
+    "sha256": "c2ef1e3e87f5ec744af4be243e0d43d7942f2fb3ba9e9241a31976128dda83f7"
+  },
+  {
+    "title": "Spectacular Spider-Man (1976) #114",
+    "source_url": "https://www.marvel.com/comics/issue/14559/peter_parker_the_spectacular_spider-man_1976_114",
+    "image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/1/10/5d3875108594e/clean.jpg",
+    "decoded": true,
+    "content_type": "image/webp",
+    "bytes": 52102,
+    "dimensions": [
+      351,
+      540
+    ],
+    "sha256": "c8b6fc4834f81ee9ea4ad4447cae214bb2040030a76fc22daaaf060a65fee5f3"
+  },
+  {
+    "title": "Spectacular Spider-Man (1976) #11",
+    "source_url": "https://www.marvel.com/comics/issue/14554/peter_parker_the_spectacular_spider-man_1976_11",
+    "image_url": "https://i.annihil.us/u/prod/marvel/i/mg/6/10/5a06258c29ad2/clean.jpg",
+    "decoded": true,
+    "content_type": "image/webp",
+    "bytes": 72558,
+    "dimensions": [
+      348,
+      540
+    ],
+    "sha256": "d0b6b608c152728c4c8fde39b18afc0af157fa665c745572cc917d29c1e770db"
+  }
+]

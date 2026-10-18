@@ -68,6 +68,54 @@
       "observed_width": 351,
       "observed_height": 540,
       "verification": "Public DC Universe Infinite issue metadata and cover preview fetched and visually checked. Digital record is not proof of physical printing or variant."
+    },
+    {
+      "fields": {
+        "system_code": "MARVEL_COMICS",
+        "series_title": "Spectacular Spider-Man",
+        "issue_number": "114",
+        "publisher": "Marvel",
+        "language": "English",
+        "book_format": "SINGLE_ISSUE",
+        "release_year": 1986
+      },
+      "title_aliases": [
+        "The Spectacular Spider-Man",
+        "Peter Parker The Spectacular Spider-Man",
+        "Peter Parker, The Spectacular Spider-Man"
+      ],
+      "source_url": "https://www.marvel.com/comics/issue/14559/peter_parker_the_spectacular_spider-man_1976_114",
+      "source_title": "Spectacular Spider-Man (1976) #114",
+      "image_url": "https://cdn.marvel.com/u/prod/marvel/i/mg/1/10/5d3875108594e/clean.jpg",
+      "checked_at": "2026-10-18",
+      "observed_sha256": "5bd03670022b1cbc887ee8652151fff7e1a51f18d6f71e6cf0f964ddae50588e",
+      "observed_width": 397,
+      "observed_height": 610,
+      "verification": "Publisher issue image found in the public image index; fetched and visually checked. Edition preview only; physical printing and variant require collector confirmation."
+    },
+    {
+      "fields": {
+        "system_code": "MARVEL_COMICS",
+        "series_title": "Spectacular Spider-Man",
+        "issue_number": "11",
+        "publisher": "Marvel",
+        "language": "English",
+        "book_format": "SINGLE_ISSUE",
+        "release_year": 1977
+      },
+      "title_aliases": [
+        "The Spectacular Spider-Man",
+        "Peter Parker The Spectacular Spider-Man",
+        "Peter Parker, The Spectacular Spider-Man"
+      ],
+      "source_url": "https://www.marvel.com/comics/issue/14554/peter_parker_the_spectacular_spider-man_1976_11",
+      "source_title": "Spectacular Spider-Man (1976) #11",
+      "image_url": "https://i.annihil.us/u/prod/marvel/i/mg/6/10/5a06258c29ad2/clean.jpg",
+      "checked_at": "2026-10-18",
+      "observed_sha256": "99db70a62f0424f63b0d2b78f1bb9609ccf27b3526c3e8b30cab94a1a59a2b8d",
+      "observed_width": 1804,
+      "observed_height": 2800,
+      "verification": "Publisher issue image found in the public image index on Marvel original CDN; fetched HTTP 200 and visually checked. Edition preview only; physical printing and variant require collector confirmation."
     }
   ]
 }

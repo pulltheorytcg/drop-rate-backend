@@ -38,7 +38,7 @@ PUBLISHERS = {
 }
 PUBLIC_FIELDS = frozenset(ComicPrintingCreate.model_fields) | {"language"}
 logger = logging.getLogger(__name__)
-IMAGE_HOSTS = {"www.marvel.com": {"cdn.marvel.com"}, "www.dc.com": {"static.dc.com"},
+IMAGE_HOSTS = {"www.marvel.com": {"cdn.marvel.com", "i.annihil.us"}, "www.dc.com": {"static.dc.com"},
                "www.dcuniverseinfinite.com": {"imgix-media.wbdndc.net"},
                "www.viz.com": {"dw9to29mmj727.cloudfront.net"}}
 _cover_cache = OrderedDict()

@@ -26,6 +26,8 @@ def publisher_cover_url(value):
         "cdn.marvel.com": r"/u/prod/marvel/i/mg/[a-f0-9]/[a-f0-9]{2}/[a-f0-9]+/(?:clean|detail|background|portrait_uncanny|portrait_incredible|portrait_fantastic|portrait_xlarge)\.jpg",
         "imgix-media.wbdndc.net": r"/ingest/book/preview/[a-f0-9-]{36}/[a-f0-9-]{36}/0\.jpg",
     }
+    # Marvel's own older issue pages also publish this original CDN hostname.
+    patterns["i.annihil.us"] = patterns["cdn.marvel.com"]
     pattern = patterns.get(url.netloc)
     if url.netloc == "imgix-media.wbdndc.net":
         # Only public cover previews, never interior pages or arbitrary transforms.
