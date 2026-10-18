@@ -25,6 +25,33 @@ def fixture():
     return refs,expansion,blueprint,{'281337':product}
 
 
+@pytest.mark.parametrize('reference,blueprint_name,market_name',[
+    ('Nidoran ♀','Nidoran ♀','Nidoran [F] [Call for Family | Scratch | e-card]'),
+    ('Nidoran ♂','Nidoran ♂','Nidoran [M] [Peck | e-card]'),
+    ('Victini ◇','Victini ◇ Prism Star','Victini ◇ [Infinity | Prism]'),
+])
+def test_provider_gender_and_expanded_prism_labels_keep_exact_identity(reference,blueprint_name,market_name):
+    refs,expansion,blueprint,singles=fixture()
+    refs[0]['name']=reference;blueprint['name']=blueprint_name;singles['281337']['name']=market_name
+    assert list(match_blueprints(refs,[blueprint],expansion,{73},singles))==['xyp-XY01']
+    # An unpriced competing print is still ambiguous after name normalization.
+    assert not match_blueprints(refs,[blueprint,dict(blueprint,id=999,card_market_ids=[])],expansion,{73},singles)
+
+
+@pytest.mark.parametrize('reference,blueprint_name,market_name',[
+    ('Nidoran ♀','Nidoran ♀','Nidoran [M] [Peck | e-card]'),
+    ('Nidoran','Nidoran ♀','Nidoran [F] [Scratch | e-card]'),
+    ('Victini','Victini ◇ Prism Star','Victini ◇ [Infinity | Prism]'),
+    ('Victini ◇','Victini Prism Star','Victini ◇ [Infinity | Prism]'),
+    ('Victini ◇','Victini ◇ Prism Star','Victini [Infinity | Prism]'),
+    ('Victini ◇','Victini ◇ Prism Star (V.1)','Victini ◇ [Infinity | Prism]'),
+])
+def test_provider_label_normalization_cannot_change_gender_prism_or_version(reference,blueprint_name,market_name):
+    refs,expansion,blueprint,singles=fixture()
+    refs[0]['name']=reference;blueprint['name']=blueprint_name;singles['281337']['name']=market_name
+    assert not match_blueprints(refs,[blueprint],expansion,{73},singles)
+
+
 class Client:
     def __init__(self,expansion,blueprints):self.expansion=expansion;self.blueprints=blueprints
     async def list_games(self):return [dict(id=5,name='Pokémon')]

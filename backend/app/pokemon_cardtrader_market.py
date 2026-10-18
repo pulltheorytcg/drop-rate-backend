@@ -4,6 +4,7 @@ CardTrader supplies identity only. Prices still come from the existing dated
 Cardmarket export, and all resulting quotes remain mixed-language references.
 """
 import asyncio
+import re
 from collections import defaultdict
 
 from .cardtrader_client import CardTraderApiError
@@ -16,6 +17,11 @@ from .reference_sealed import cardmarket_product_id, normalized as game_name
 MATCH_BASIS = 'CARDTRADER_EXPLICIT_NUMBER_AND_SINGLETON_CARDMARKET_ID'
 SINGLE_CATEGORIES = {'pokemon single', 'pokemon singles', 'pokemon single card',
                      'pokemon single cards', 'single card', 'single cards'}
+
+
+def blueprint_card_name(blueprint):
+    # The source expands the printed diamond; keep the actual identity symbol.
+    return re.sub(r'(?<=◇) Prism Star$', '', str(blueprint.get('name') or ''))
 
 
 def match_blueprints(references, blueprints, expansion, single_categories, singles):
@@ -49,8 +55,10 @@ def match_blueprints(references, blueprints, expansion, single_categories, singl
                 str(product.get('idProduct'))!=product_id or
                 type(blueprint.get('id')) is not int or blueprint['id']<=0):
             continue
-        if not (normalized(ref['name'])==normalized(blueprint.get('name'))==
-                normalized(product_card_name(product))):
+        blueprint_name, product_name = blueprint_card_name(blueprint), product_card_name(product)
+        if not (normalized(ref['name'])==normalized(blueprint_name)==normalized(product_name)):
+            continue
+        if not (('◇' in ref['name']) == ('◇' in blueprint_name) == ('◇' in product_name)):
             continue
         proof = {'mapping_source':'CARDTRADER', 'cardtrader_blueprint_id':blueprint['id'],
                  'cardtrader_expansion_id':expansion['id'],
