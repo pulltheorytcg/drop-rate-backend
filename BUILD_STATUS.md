@@ -1,6 +1,19 @@
 # Build status
 
-## 17 October 2026 — Simple collection journey (release verification pending)
+## 18 October 2026 — Verified storage recovery and safe book rescans
+
+Archived/restored/verified all 50,378 reference-history rows in the private Drop
+Rate Drive, then used the existing atomic full-content guard to reclaim 77.05 MB.
+Production is writable at 328.61 MB; current-price and inventory fingerprints are
+unchanged. Bulk imports are below the 400 MB guard again; weekly timing is unchanged.
+Fixed host-timezone sensitivity in the disposable archive verifier. Prepared the
+book rescan fix so failed/new photo reads cannot retain the prior identity, artwork
+or value. Added browser regression cases and a bounded read-only artwork review
+through the existing CardTrader connection. No source backfill is claimed before
+matching/visual verification. See [receipts and phone check](docs/CATALOGUE_RECOVERY_20261018.md).
+Final browser CI, artwork changes and deployment receipts will be recorded in the PR.
+
+## 17 October 2026 — Simple collection journey (live, PR #682)
 
 Home now leads with the collection; selling/payout panels move to More → Selling.
 Search and scan use Add to collection with optional raw condition and quantity,
@@ -12,7 +25,11 @@ read-only coverage remains 40,443/67,060 physical references, 10,904 Pokémon im
 URLs missing and bulk pricing paused at 405.66 MB. An opt-in four-call CardTrader
 artwork probe provides evidence only. No new service, schema, paid source, live
 stock write or Shopify theme publication. See [scope and gaps](docs/SIMPLE_COLLECTION_JOURNEY_20261017.md).
-Final CI/deployment receipts will be recorded in the release PR.
+All eight PR workflows and four post-merge workflows passed. Main bfb1f688 deployed
+successfully as Railway 81a81489-b08a-480d-8bf9-874a2929a862; readiness, owner HTML,
+13 exact changed asset hashes, founder bundle versions and anonymous 401 were
+verified. The public artwork probe was read-only and the original predeploy was
+restored. Final receipts are recorded in PR #682; physical-phone timing is pending.
 
 ## 17 October 2026 — Pending import corrections and clean session reset (PR #681)
 

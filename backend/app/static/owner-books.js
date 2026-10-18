@@ -256,6 +256,19 @@
 
   function scanActive(actor, revision) { return dialog.open && actorId === actor && state.session?.user?.id === actor && scanRevision === revision; }
 
+  function clearIdentification() {
+    // A new photo set or failed reread cannot keep the previous book's match.
+    research = null; researchRunId = null; selectedResearch = null;
+    renderResearch();
+    node("selected").hidden = true; node("selected").replaceChildren();
+    fillBookFields({});
+    clearGradingDetails(); node("state").value = "RAW"; update();
+    node("details").open = true; node("photo-details").open = true;
+    node("title").textContent = "Identify your book";
+    priceRevision++;
+    node("market-result").textContent = "Identify this book to check its market value.";
+  }
+
   function renderPhotos() {
     node("photos").replaceChildren();
     photos.forEach((photo, index) => {
@@ -263,7 +276,11 @@
       image.src = photo; image.alt = `Book photo ${index + 1}`;
       remove.type = "button"; remove.textContent = "Remove"; remove.disabled = scanning || pending || saved;
       remove.setAttribute("aria-label", `Remove book photo ${index + 1}`);
-      remove.addEventListener("click", () => { photos.splice(index, 1); scanRevision++; renderPhotos(); });
+      remove.addEventListener("click", () => {
+        if (scanning || saving || pending || saved) return;
+        photos.splice(index, 1); scanRevision++; clearIdentification(); renderPhotos();
+        node("scan-message").textContent = photos.length ? "Photos changed. Identify your book again." : "Add a cover photo to identify your book.";
+      });
       figure.append(image, remove); node("photos").append(figure);
     });
     node("recognize").disabled = !photos.length || scanning || saving || pending || saved;
@@ -295,15 +312,15 @@
         const data = await imageData(file);
         if (!scanActive(actor, revision)) return;
         photos.push(data);
+        clearIdentification();
       }
-      selectedResearch = null; research = null; researchRunId = null; renderResearch();
       node("scan-message").textContent = "Photos ready. Identify my book will research the edition and matching artwork.";
     } catch (error) { if (scanActive(actor, revision)) node("scan-message").textContent = error.message; }
     if (scanActive(actor, revision)) renderPhotos();
   }
 
   function applySuggestion(result) {
-    if (result.status !== "NEEDS_REVIEW") { node("scan-message").textContent = (result.warnings || ["No book could be read. Try a clearer photo."]).join(" "); return; }
+    if (result.status !== "NEEDS_REVIEW") { clearIdentification(); node("scan-message").textContent = (result.warnings || ["No book could be read. Try a clearer photo."]).join(" "); return; }
     const fields = result.fields || {};
     fillBookFields(fields);
     const graded = !!fields.grading_company;
@@ -316,6 +333,7 @@
     const missing = (result.uncertain_fields || []).filter(field => ["system_code", "series_title", "issue_number", "language", "publisher", "printing_number"].includes(field)).map(field => field.replaceAll("_", " "));
     research = result.research || null; researchRunId = result.run_id || null;
     selectedResearch = research?.selected_candidate_id || null;
+    node("title").textContent = "Is this your book?";
     node("scan-message").textContent = research ? "Cover read. Publisher research is shown above."
       : "Book details read — confirm them below." + (missing.length ? " Check: " + missing.join(", ") + "." : "") + " " + (result.warnings || []).join(" ");
     node("details").open = !research || !bookDetailsComplete();
@@ -327,6 +345,7 @@
   async function recognize() {
     if (!photos.length || scanning || saving || pending || saved || actorId !== state.session?.user?.id) return;
     const actor = actorId, revision = ++scanRevision;
+    clearIdentification();
     scanning = true; scanController = new AbortController(); renderPhotos();
     node("fields").disabled = true; node("save").disabled = true;
     node("scan-message").textContent = "Reading your cover and researching its edition and artwork…";

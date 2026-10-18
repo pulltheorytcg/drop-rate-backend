@@ -55,7 +55,7 @@ def main():
                 ''')
                 page.add_script_tag(content=(ROOT/'owner-books.js').read_text())
                 page.evaluate('DropRateBooks.open({recognition:options})')
-                assert page.locator('#owner-book-title').inner_text()=='Confirm your book'
+                assert page.locator('#owner-book-title').inner_text()=='Is this your book?'
                 assert page.locator('.owner-book-candidate').count()==2
                 assert not page.locator('#owner-book-details').evaluate('(e)=>e.open')
                 assert not page.locator('#owner-book-photo-details').evaluate('(e)=>e.open')

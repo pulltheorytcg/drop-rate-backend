@@ -159,6 +159,28 @@ def main():
                 page.wait_for_function("document.querySelector('#owner-book-scan-message').textContent.includes('unavailable')")
                 assert page.locator('#owner-book-photos img').count()==1
                 assert not page.locator('#owner-book-fields').is_disabled()
+                # An unsuccessful reread must not leave the previous book/value.
+                page.evaluate("mode='ok'");page.locator('#owner-book-recognize').click()
+                page.wait_for_function("document.querySelector('#owner-book-series').value==='Fixture Manga'")
+                page.locator('#owner-book-language').fill('English')
+                page.locator('#owner-book-market-check').click()
+                page.wait_for_function("document.querySelector('#owner-book-market-result').textContent.includes('£12.34')")
+                page.evaluate("mode='fail'");page.locator('#owner-book-recognize').click()
+                page.wait_for_function("document.querySelector('#owner-book-scan-message').textContent.includes('unavailable')")
+                for field in ('series','number','category','language','printing'):
+                    assert page.locator('#owner-book-'+field).input_value()=='', 'Failed rescan retained '+field
+                assert '£12.34' not in page.locator('#owner-book-market-result').inner_text()
+                assert page.locator('#owner-book-photos img').count()==1
+                page.evaluate("mode='ok'");page.locator('#owner-book-recognize').click()
+                page.wait_for_function("document.querySelector('#owner-book-series').value==='Fixture Manga'")
+                page.evaluate("scanResult={status:'NO_MATCH',fields:{},warnings:['No book found.']}")
+                page.locator('#owner-book-recognize').click()
+                page.wait_for_function("document.querySelector('#owner-book-scan-message').textContent.includes('No book found')")
+                assert page.locator('#owner-book-series').input_value()==''
+                assert not page.locator('#owner-book-research').is_visible()
+                page.get_by_role('button',name='Remove book photo 1').click()
+                assert page.locator('#owner-book-photos img').count()==0
+                assert page.locator('#owner-book-recognize').is_disabled()
                 assert len(page.evaluate("calls.filter(x=>x.url.endsWith('/intake'))"))==1
                 assert not errors,errors
                 page.close()
