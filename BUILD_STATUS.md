@@ -6,12 +6,14 @@ Archived/restored/verified all 50,378 reference-history rows in the private Drop
 Rate Drive, then used the existing atomic full-content guard to reclaim 77.05 MB.
 Production is writable at 328.61 MB; current-price and inventory fingerprints are
 unchanged. Bulk imports are below the 400 MB guard again; weekly timing is unchanged.
-Fixed host-timezone sensitivity in the disposable archive verifier. Prepared the
+Fixed host-timezone sensitivity in the disposable archive verifier. Released the
 book rescan fix so failed/new photo reads cannot retain the prior identity, artwork
 or value. Added browser regression cases and a bounded read-only artwork review
 through the existing CardTrader connection. No source backfill is claimed before
 matching/visual verification. See [receipts and phone check](docs/CATALOGUE_RECOVERY_20261018.md).
-Final browser CI, artwork changes and deployment receipts will be recorded in the PR.
+All six PR #683 workflows passed, including the forced PostgreSQL retry race and
+Chromium/WebKit rescan cases. Main 88971bec deployed successfully as Railway
+52e920cc-f008-490c-8644-c23bac3a76f7. Artwork changes remain separately verified.
 
 ## 17 October 2026 — Simple collection journey (live, PR #682)
 

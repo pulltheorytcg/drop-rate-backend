@@ -53,6 +53,9 @@ async def review_records():
                        language_options=language.get('possible_values'))
             # One public record per log line avoids truncating an entire export.
             print('POKEMON_ARTWORK_RECORD ' + json.dumps(row, ensure_ascii=False), flush=True)
+            # Railway drops bursts above its log-ingestion limit. Keep a complete
+            # review export well below that ceiling, including shared log traffic.
+            await asyncio.sleep(0.025)
             count += 1
         report['sets'].append({'title': title, 'expansion_id': expansion['id'], 'records': count})
     return report
