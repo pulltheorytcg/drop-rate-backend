@@ -12,6 +12,9 @@ const watch=process.argv.includes('--watch');
 const pg=new PGlite(path.join(root,'disposable-restore-pgdata'));
 const hash=(data,algorithm='sha256')=>crypto.createHash(algorithm).update(data).digest('hex');
 try {
+ // Production export and the atomic archive guard serialize timestamps in UTC.
+ // PGlite inherits the host timezone unless it is set explicitly.
+ await pg.exec("set timezone='UTC'; set datestyle='ISO,YMD';");
  await pg.exec(`create schema tcg;
  create table tcg.reference_market_history (
  id uuid primary key,reference_kind text not null check(reference_kind in ('CARD','SEALED')),
