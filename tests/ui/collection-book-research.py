@@ -65,8 +65,9 @@ def main():
                 page.wait_for_function('document.querySelector(".owner-book-candidate img").naturalWidth === 160')
                 assert page.locator('#owner-book-cover').input_value()=='Cover A'
                 assert page.locator('#owner-book-printing').input_value()==''
-                assert page.locator('#owner-book-save').evaluate('(e)=>{const r=e.getBoundingClientRect();return r.height>=44 && r.top>=0 && r.bottom<=innerHeight}')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-book-default-cover.png'))
+                save_box=page.locator('#owner-book-save').evaluate('(e)=>{const r=e.getBoundingClientRect();return {height:r.height,top:r.top,bottom:r.bottom,viewport:innerHeight}}')
+                assert save_box['height']>=44 and save_box['top']>=0 and save_box['bottom']<=save_box['viewport'],save_box
                 # The normal flow is one Add tap, with no separate cover approval.
                 page.locator('#owner-book-save').click()
                 page.get_by_role('button',name='Added to collection').wait_for()
