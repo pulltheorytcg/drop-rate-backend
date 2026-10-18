@@ -65,6 +65,7 @@ def main():
                 page.wait_for_function('document.querySelector(".owner-book-candidate img").naturalWidth === 160')
                 assert page.locator('#owner-book-cover').input_value()=='Cover A'
                 assert page.locator('#owner-book-printing').input_value()==''
+                assert page.locator('#owner-book-save').evaluate('(e)=>{const r=e.getBoundingClientRect();return r.height>=44 && r.top>=0 && r.bottom<=innerHeight}')
                 page.screenshot(path=str(OUT/f'{engine}-{width}-book-default-cover.png'))
                 # The normal flow is one Add tap, with no separate cover approval.
                 page.locator('#owner-book-save').click()

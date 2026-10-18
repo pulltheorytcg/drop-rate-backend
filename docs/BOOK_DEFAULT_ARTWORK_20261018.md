@@ -19,7 +19,8 @@ This follow-up removes that extra step for a matched book.
   A single-cover result also offers another photo there. **Add to collection**
   carries the selected owner-bound research receipt into the saved copy without
   a separate cover confirmation. The scan queue labels a selected result Ready
-  to add. No additional network search or provider is introduced.
+  to add. The Add action stays visible while optional fields scroll. No additional
+  network search or provider is introduced.
 - Background artwork selects itself when the collector has not edited identity;
   copy condition/cost/notes remain intact. Editing identity clears stale artwork.
   An explicit cover change fills that cover's details and is retained. Uncertain
