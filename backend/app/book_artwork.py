@@ -59,13 +59,38 @@ def reviewed_covers():
 
 def book_cover_reference(book, language):
     """Only the reviewed edition can use a cover; no title/ISBN-only fallback."""
-    entry = reviewed_covers().get(str(book.get("catalogue_id")))
-    if not entry or language != entry["language"]:
-        return None
     attrs = book.get("attributes") or {}
     if isinstance(attrs, str):
         attrs = json.loads(attrs)
     if not isinstance(attrs, dict):
+        return None
+    entry = reviewed_covers().get(str(book.get("catalogue_id")))
+    if not entry:
+        # Only trusted importer records, never seller-entered attributes or a
+        # title/ISBN-only cover guess. RLS restricts STRUCTURED publisher writes
+        # to administrators; the private image route rechecks this on each read.
+        receipt = attrs.get("catalogue_import")
+        candidate = attrs.get("publisher_reference")
+        if (not isinstance(receipt, dict) or receipt.get("version") != "book-bulk-v1"
+                or receipt.get("provider") not in {"PRH", "PUBLISHER"}
+                or not re.fullmatch(r"[a-f0-9]{64}", str(receipt.get("record_digest", "")))
+                or not isinstance(candidate, dict)):
+            return None
+        from .book_research import publisher_source, source_cover_matches
+        if (candidate.get("catalogue_id") != str(book.get("catalogue_id"))
+                or not publisher_source(candidate.get("source_url"))
+                or not source_cover_matches(candidate["source_url"], candidate.get("image_url"))
+                or not re.fullmatch(r"[a-f0-9]{64}", str(candidate.get("observed_sha256", "")))
+                or any(type(candidate.get(k)) is not int or candidate[k] < 200
+                       for k in ("observed_width", "observed_height"))
+                or not {"language", "release_date", "book_identity_digest"}.issubset(candidate)):
+            return None
+        entry = candidate
+    if not entry or language != entry["language"]:
+        return None
+    try:
+        release = date.fromisoformat(entry["release_date"]) if entry["release_date"] else None
+    except (TypeError, ValueError):
         return None
     if (book.get("identity_status") not in {"STRUCTURED", "VERIFIED"}
             or book.get("profile_status") not in {"STRUCTURED", "VERIFIED"}
@@ -74,7 +99,7 @@ def book_cover_reference(book, language):
             or attrs.get("cover_rights_status") in {"REVOKED", "REJECTED"}
             or attrs.get("cover_source_status") in {"REVOKED", "INACTIVE"}
             or (str(book.get("profile_release_date")) if book.get("profile_release_date") else None) != entry["release_date"]
-            or (entry["release_date"] and date.fromisoformat(entry["release_date"]) > date.today())
+            or (release and release > date.today())
             or (not entry["release_date"] and (not book.get("release_year") or book["release_year"] >= date.today().year))
             or (attrs.get("publisher_reference") is not None and attrs["publisher_reference"] != entry)):
         return None

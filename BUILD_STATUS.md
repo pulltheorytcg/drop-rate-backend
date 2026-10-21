@@ -1,5 +1,29 @@
 # Build status
 
+## 21 October 2026 — Comic and manga bulk imports prepared for more storage
+
+The founder requested preparation now and the large data load after a storage
+upgrade. The new operator pipeline supports authorised GCD issue/series exports,
+PRH ISBN title feeds and publisher JSONL for both comics and manga. Download and
+staging checkpoints resume interrupted jobs; source mappings prevent duplicate
+products. Conflicting editions remain in review. Checked publisher covers connect
+to private catalogue thumbnails, scan research and saved-book Choose cover; GCD
+data retains source/CC BY-SA attribution without using its cover scans.
+
+No bulk production import or schedule is enabled. The preflight database size was
+402,304,147 bytes, above the unchanged decimal 400 MB bulk guard. A verified future
+quota can be supplied explicitly to the book job, retaining at least 20% / 100 MB
+headroom and all read-only checks. Real GCD/PRH account access and completed source
+snapshots are still required. The existing baseline remains 46 publisher editions
+(36 manga, 10 comics); no new stock, prices, ownership or listing-media approval.
+
+Local Python and Node suites pass, including 2,500-record staging/restart and both
+source/category adapters. Actual Postgres transaction/RLS/readback and existing
+mobile/desktop browser checks are release gates in the PR's collection workflow.
+The earlier artwork release remains subject to Railway deployment recovery; no
+live-artwork or full-catalogue claim is made. See the complete
+[source requirements, commands, activation and rollback runbook](docs/BOOK_BULK_IMPORT_20261021.md).
+
 ## 21 October 2026 — Comic/manga catalogue imported; artwork release blocked by Railway outage
 
 The missing saved-book artwork is traced to receipt-only inventory reads and a

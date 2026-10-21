@@ -500,7 +500,16 @@ window.DropRateCatalogue = (() => {
           : money(row.market_value_minor) + " · " + row.basis_condition + " · UK sold reference"));
         content.append(node("p","dr-browse-reference-note","Check the cover and edition. Condition can wait until you’re ready to sell."));
         if(row.book_details?.barcode_gtin)content.append(node("p","dr-browse-reference-note","ISBN / barcode: "+row.book_details.barcode_gtin));
-        if(row.publisher_source_url && /^https:\/\/(?:www\.viz\.com\/manga-books\/manga\/|www\.dc\.com\/comics\/|www\.marvel\.com\/comics\/issue\/)[^?#]+$/.test(row.publisher_source_url)){
+        const attribution=row.book_data_attribution;
+        if(attribution && /^https:\/\/www\.comics\.org\/issue\/[1-9][0-9]*\/$/.test(attribution.source_url) && attribution.license_url === "https://creativecommons.org/licenses/by-sa/4.0/"){
+          const credit=node("p","dr-browse-reference-note","Edition data adapted from ");
+          const source=node("a","","Grand Comics Database"),license=node("a","","CC BY-SA 4.0");
+          source.href=attribution.source_url;license.href=attribution.license_url;
+          for(const link of [source,license]){link.target="_blank";link.rel="noopener noreferrer";}
+          credit.append(source,document.createTextNode(" · "),license);content.append(credit);
+        }
+        if(row.publisher_source_url && (/^https:\/\/(?:www\.viz\.com\/manga-books\/manga\/|www\.dc\.com\/(?:comics|graphic-novels)\/|www\.marvel\.com\/comics\/issue\/)[^?#]+$/.test(row.publisher_source_url)
+          || /^https:\/\/prhcomics\.com\/book\/\?isbn=(?:[0-9]{13}|[0-9]{17})$/.test(row.publisher_source_url))){
           const source=node("a","dr-browse-publisher-source","View publisher details and cover ↗");
           source.href=row.publisher_source_url;source.target="_blank";source.rel="noopener noreferrer";content.append(source);
         }

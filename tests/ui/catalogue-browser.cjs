@@ -4,7 +4,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=simple-v1'), 'Seller Hub must load the fresh book value script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=book-bulk-v1'), 'Seller Hub must load the publisher and GCD attribution script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=simple-v1'), 'Seller Hub must load the fresh mobile sort styles');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -23,6 +23,18 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
  return {browser,w,calls,logout:()=>{alive=false;browser.destroy();},finish:()=>{browser.destroy();w.close();}};
 }
 (async()=>{
+ {
+  const f=fixture();
+  const book={...card,product_type:'COMIC',book_data_attribution:{source_url:'https://www.comics.org/issue/1/',license_url:'https://creativecommons.org/licenses/by-sa/4.0/'}};
+  f.browser.openProduct(book);
+  assert.equal(f.browser.sheet.querySelector('a').href,book.book_data_attribution.source_url);
+  assert.match(f.browser.sheet.textContent,/Edition data adapted from Grand Comics Database.*CC BY-SA 4.0/);
+  book.book_data_attribution.source_url='https://www.comics.org.evil.test/issue/1/';
+  f.browser.openProduct(book);assert.equal(f.browser.sheet.querySelector('a'),null);
+  book.publisher_source_url='https://prhcomics.com/book/?isbn=9781569319017';
+  f.browser.openProduct(book);assert.equal(f.browser.sheet.querySelector('a').href,book.publisher_source_url);
+  f.finish();checks++;
+ }
  // Mobile sort is visible before opening the overflow menu and is an actual
  // server-side paginated sort, not a client-only rearrangement of 40 tiles.
  {

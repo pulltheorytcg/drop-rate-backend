@@ -29,7 +29,7 @@ from .recognition_images import RecognitionImageError, decode_image_data_url
 from .recognition_vision import OpenAIRecognitionVisionClient, RecognitionVisionError
 from .schemas import ManualInventoryCreate
 from .settings import get_settings
-from .book_research import research_book, prepare_research_result, public_result, reviewed_candidates
+from .book_research import research_book, prepare_research_result, public_result, reviewed_candidates, catalogue_candidates
 from .book_observation import BookFields, BookObservation, VisibleText, BOOK_VISION_INSTRUCTIONS
 from .catalogue_artwork import reference_thumbnail
 from .book_artwork import publisher_cover_url
@@ -274,6 +274,7 @@ async def complete_book_research(run_id: UUID, payload: BookScanRequest, request
             return jsonable_encoder({**public_result(result), "run_id":run_id})
         observation = row["ai_observation"]
         if isinstance(observation, str): observation = json.loads(observation)
+        catalogue_matches = await catalogue_candidates(db, result["fields"])
         result["research"] = {"status":"RUNNING", "candidates":[], "message":"Finding the publisher cover…"}
         await db.execute("update tcg.recognition_runs set provider_evidence=$1::jsonb,updated_at=now(),version=version+1 where id=$2 and owner_id=$3", json.dumps(evidence), run_id, owner_id)
     started = time.perf_counter()
@@ -282,8 +283,10 @@ async def complete_book_research(run_id: UUID, payload: BookScanRequest, request
                  and .5 <= field.get("confidence", 0) < .85}
     cancelled = False
     try:
-        research = await research_book(result["fields"], payload.images,
-            api_key=settings.openai_api_key or "", model=settings.recognition_model, tentative_fields=tentative)
+        research = ({"status": "CANDIDATES", "candidates": catalogue_matches,
+                     "message": "Publisher cover found. Check it against your copy before adding."}
+                    if catalogue_matches else await research_book(result["fields"], payload.images,
+            api_key=settings.openai_api_key or "", model=settings.recognition_model, tentative_fields=tentative))
     except (Exception, asyncio.CancelledError) as exc:
         cancelled = isinstance(exc, asyncio.CancelledError)
         logger.warning("Book research stopped error_type=%s", type(exc).__name__)
