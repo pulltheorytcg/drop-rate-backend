@@ -25,6 +25,7 @@ def publisher_cover_url(value):
         "static.dc.com": r"/[0-9]{4}-[0-9]{2}/[A-Za-z0-9_]+\.jpg",
         "cdn.marvel.com": r"/u/prod/marvel/i/mg/[a-f0-9]/[a-f0-9]{2}/[a-f0-9]+/(?:clean|detail|background|portrait_uncanny|portrait_incredible|portrait_fantastic|portrait_xlarge)\.jpg",
         "imgix-media.wbdndc.net": r"/ingest/book/preview/[a-f0-9-]{36}/[a-f0-9-]{36}/0\.jpg",
+        "images.penguinrandomhouse.com": r"/cover/(?:[0-9]{13}|[0-9]{17})",
     }
     # Marvel's own older issue pages also publish this original CDN hostname.
     patterns["i.annihil.us"] = patterns["cdn.marvel.com"]
@@ -42,9 +43,18 @@ def publisher_cover_url(value):
 
 
 @lru_cache(maxsize=1)
+def reviewed_catalogue_entries():
+    data = Path(__file__).resolve().parents[1] / "data"
+    return [row for name in ("book_catalogue_starter_20261016.json", "book_catalogue_expansion_20261021.json")
+            for row in json.loads((data / name).read_text())["entries"]]
+
+
+@lru_cache(maxsize=1)
 def reviewed_covers():
     path = Path(__file__).resolve().parents[1] / "data/book_reference_covers_20261017.json"
-    return {row["catalogue_id"]: row for row in json.loads(path.read_text())["entries"]}
+    covers = {row["catalogue_id"]: row for row in json.loads(path.read_text())["entries"]}
+    covers.update({row["id"]: row["reference"] for row in reviewed_catalogue_entries() if row.get("reference")})
+    return covers
 
 
 def book_cover_reference(book, language):
@@ -63,8 +73,10 @@ def book_cover_reference(book, language):
             or attrs.get("source_url") != entry["source_url"]
             or attrs.get("cover_rights_status") in {"REVOKED", "REJECTED"}
             or attrs.get("cover_source_status") in {"REVOKED", "INACTIVE"}
-            or str(book.get("profile_release_date")) != entry["release_date"]
-            or date.fromisoformat(entry["release_date"]) > date.today()):
+            or (str(book.get("profile_release_date")) if book.get("profile_release_date") else None) != entry["release_date"]
+            or (entry["release_date"] and date.fromisoformat(entry["release_date"]) > date.today())
+            or (not entry["release_date"] and (not book.get("release_year") or book["release_year"] >= date.today().year))
+            or (attrs.get("publisher_reference") is not None and attrs["publisher_reference"] != entry)):
         return None
     fields = {**book, "publisher": attrs.get("publisher"), "book_format": attrs.get("book_format")}
     if printing_digest(fields) != entry["book_identity_digest"] or not publisher_cover_url(entry["image_url"]):

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode
 
 from pydantic import ValidationError
 
@@ -11,17 +11,8 @@ from .book_artwork import book_cover_reference
 
 
 def publisher_page(value):
-    if not isinstance(value, str):
-        return None
-    try:
-        url = urlsplit(value)
-    except ValueError:
-        return None
-    paths = {"www.viz.com": "/manga-books/manga/", "www.dc.com": "/comics/",
-             "www.marvel.com": "/comics/issue/"}
-    prefix = paths.get(url.netloc)
-    return value if (url.scheme == "https" and prefix and url.path.startswith(prefix)
-                     and not url.query and not url.fragment) else None
+    from .book_research import publisher_source
+    return value if isinstance(value, str) and publisher_source(value) else None
 
 
 async def with_book_details(connection, rows):

@@ -1,22 +1,108 @@
 """Owner-bound manual intake for comics, graded comics and manga."""
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 import json
 
 import asyncpg
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from pydantic import Field, model_validator
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, Query
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .access_control import require_owner_portal_request
 from .auth import AuthenticatedUser, require_user
 from .inventory_intake import create_inventory_intake
 from .schemas import ManualInventoryCreate
 from .db import user_connection
-from .book_research import identity_digest
+from .book_research import identity_digest, reviewed_candidates
+from .comic_identity import ComicPrintingCreate
+from .catalogue_artwork import reference_thumbnail
 
 router = APIRouter(prefix="/api/v1/owner/books", tags=["owner-books"])
+
+
+async def saved_cover_choices(db, inventory_id, owner_id):
+    row = await db.fetchrow("""select b.*,coalesce(i.language,p.language) as language
+        from tcg.inventory_items i join tcg.catalogue_products p on p.id=i.catalogue_id
+        join tcg.comic_printing_details b on b.catalogue_id=p.id
+        where i.id=$1 and i.owner_id=$2 and p.product_type='COMIC'
+          and coalesce(i.language,p.language)=p.language""", inventory_id, owner_id)
+    if row is None:
+        raise HTTPException(404, "Comic or manga not found")
+    attrs = row["attributes"]
+    if isinstance(attrs, str): attrs = json.loads(attrs)
+    fields = {key: row.get(key) for key in ComicPrintingCreate.model_fields}
+    fields.update(publisher=attrs.get("publisher"), book_format=attrs.get("book_format"), language=row["language"])
+    revoked = attrs.get("cover_rights_status") in {"REVOKED", "REJECTED"} or attrs.get("cover_source_status") in {"REVOKED", "INACTIVE"}
+    return fields, [] if revoked else reviewed_candidates(fields)
+
+
+@router.get("/inventory/{inventory_id}/covers")
+async def existing_book_covers(inventory_id: UUID, request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)]):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        fields, candidates = await saved_cover_choices(db, inventory_id, access["owner_id"])
+        version = await db.fetchval("select version from tcg.inventory_items where id=$1 and owner_id=$2", inventory_id, access["owner_id"])
+    return {"version": version, "identity_digest": identity_digest(fields), "candidates": [
+        {key: value for key, value in {**c, "image_path": f"/api/v1/owner/books/inventory/{inventory_id}/covers/{c['id']}?version={version}"}.items()
+         if key != "image_url"} for c in candidates]}
+
+
+@router.get("/inventory/{inventory_id}/covers/{candidate_id}")
+async def existing_book_cover_image(inventory_id: UUID, candidate_id: str, request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)], version: int = Query(ge=1)):
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        _, candidates = await saved_cover_choices(db, inventory_id, access["owner_id"])
+        current = await db.fetchval("select version from tcg.inventory_items where id=$1 and owner_id=$2", inventory_id, access["owner_id"])
+    candidate = next((c for c in candidates if c["id"] == candidate_id), None)
+    if current != version or candidate is None:
+        raise HTTPException(404, "Cover choice changed. Refresh the item.")
+    payload = await reference_thumbnail(candidate["image_url"])
+    if payload is None:
+        raise HTTPException(502, "Publisher cover temporarily unavailable")
+    return Response(payload.data, media_type=payload.content_type, headers={"Cache-Control": "private, no-store"})
+
+
+class SavedCoverChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    version: int = Field(ge=1, strict=True)
+    identity_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    candidate_id: str = Field(pattern=r"^[a-f0-9]{24}$")
+    confirmed: Literal[True]
+
+
+@router.post("/inventory/{inventory_id}/cover")
+async def choose_existing_book_cover(inventory_id: UUID, payload: SavedCoverChoice, request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+    access: Annotated[dict, Depends(require_owner_portal_request)]):
+    from .owner_inventory import locked_item, require_editable
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as db:
+        item = await locked_item(db, inventory_id, access["owner_id"])
+        fields, candidates = await saved_cover_choices(db, inventory_id, access["owner_id"])
+        digest = identity_digest(fields)
+        candidate = next((c for c in candidates if c["id"] == payload.candidate_id), None)
+        if digest != payload.identity_digest or candidate is None:
+            raise HTTPException(409, "Book details changed. Choose the cover again.")
+        key = f"book-reference:{inventory_id}"
+        prior = await db.fetchval("select provider_evidence from tcg.recognition_runs where owner_id=$1 and idempotency_key=$2", access["owner_id"], key)
+        if isinstance(prior, str): prior = json.loads(prior)
+        # A retry of an already committed choice is a no-op, including after a lost response.
+        if prior and prior.get("identity_digest") == digest and prior.get("book_reference", {}).get("id") == payload.candidate_id:
+            return {"message": "Cover saved.", "version": item["version"]}
+        require_editable(item, payload.version)
+        evidence = json.dumps({"book_reference": candidate, "identity_digest": digest,
+                               "collector_confirmed": True, "reference_only": True, "choice_origin": "SAVED_INVENTORY"})
+        # Keep every earlier receipt auditable; release only its active lookup key.
+        await db.execute("""update tcg.recognition_runs set idempotency_key='book-reference-history:'||id::text
+            where owner_id=$1 and idempotency_key=$2""", access["owner_id"], key)
+        await db.execute("""insert into tcg.recognition_runs
+            (owner_id,inventory_id,top_catalogue_id,idempotency_key,status,decision,provider_evidence,created_by_user_id,completed_at)
+            values($1,$2,$3,$4,'NEEDS_REVIEW','NEEDS_REVIEW',$5::jsonb,$6,now())""",
+            access["owner_id"], inventory_id, item["catalogue_id"], key, evidence, user.user_id)
+        await db.execute("update tcg.inventory_items set version=version+1,updated_at=clock_timestamp() where id=$1 and owner_id=$2", inventory_id, access["owner_id"])
+    return {"message": "Cover saved. Your copy’s details are unchanged.", "version": item["version"]+1}
 
 
 class BookIntakeRequest(ManualInventoryCreate):

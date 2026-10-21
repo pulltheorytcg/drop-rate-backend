@@ -10,6 +10,9 @@ from datetime import date
 from pathlib import Path
 
 from app.book_catalogue import publisher_page
+from app.book_artwork import publisher_cover_url
+from app.book_market import printing_digest
+from app.book_research import source_cover_matches
 from app.book_recognition import valid_book_barcode
 from app.comic_identity import ComicPrintingCreate
 from app.inventory_intake import _manual_identity_key
@@ -31,14 +34,26 @@ def load_seed(path=MANIFEST):
             raise ValueError("Noncanonical book fields")
         if row["identity_key"] != _manual_identity_key(product) or row["identity_key"] in identities:
             raise ValueError("Duplicate or incorrect identity key")
-        if not publisher_page(row["source_url"]) or date.fromisoformat(row["release_date"]) > date.today():
+        released = (date.fromisoformat(row["release_date"]) <= date.today() if row["release_date"]
+                    else bool(book.release_year and book.release_year < date.today().year))
+        if not publisher_page(row["source_url"]) or not released:
             raise ValueError("A released publisher edition is required")
         if row["identity_status"] != "STRUCTURED" or row["cover_rights_status"] != "PENDING":
             raise ValueError("A catalogue seed cannot approve a physical printing or cover rights")
-        if book.printing_number is not None or book.cover_code is not None or book.cover_artist is not None:
+        if (book.printing_number is not None or book.cover_code is not None or book.cover_artist is not None) and row.get("printing_evidence_url") != row["source_url"]:
             raise ValueError("This batch has no independently established printing or cover variant")
         if book.barcode_gtin and not valid_book_barcode(book.barcode_gtin):
             raise ValueError("Invalid book barcode")
+        reference = row.get("reference")
+        if reference and (reference["catalogue_id"] != row["id"] or reference["language"] != row["language"]
+                or row["language"] != row["catalogue"]["language"]
+                or reference["book_identity_digest"] != printing_digest(book.model_dump())
+                or reference["source_url"] != row["source_url"] or reference["release_date"] != row["release_date"]
+                or not publisher_cover_url(reference["image_url"])
+                or not source_cover_matches(row["source_url"], reference["image_url"])
+                or len(reference["observed_sha256"]) != 64
+                or min(reference["observed_width"], reference["observed_height"]) < 200):
+            raise ValueError("Artwork must have reviewed bytes and match the exact publisher edition")
         identities.add(row["identity_key"])
     return data
 
@@ -85,7 +100,8 @@ begin
       'identity_source','OFFICIAL_PUBLISHER_CATALOGUE','catalogue_seed_batch',manifest->>'batch_id',
       'source_url',seed_row->>'source_url','source_checked_at',seed_row->>'source_checked_at',
       'cover_source_url',seed_row->'cover_source_url','cover_rights_status','PENDING',
-      'verification_scope',seed_row->>'verification_scope');
+      'verification_scope',seed_row->>'verification_scope',
+      'publisher_reference',seed_row->'reference');
     insert into tcg.catalogue_products(id,identity_key,product_type,game,name,set_name,card_number,variant,rarity,language)
     select catalogue_uuid,seed_row->>'identity_key','COMIC',p.game,p.name,p.set_name,p.card_number,p.variant,p.rarity,p.language
     from jsonb_to_record(seed_row->'catalogue') p(game text,name text,set_name text,card_number text,variant text,rarity text,language text);
@@ -105,4 +121,7 @@ commit;
 
 
 if __name__ == "__main__":
-    print(seed_sql(load_seed()))
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("manifest", nargs="?", type=Path, default=MANIFEST)
+    print(seed_sql(load_seed(parser.parse_args().manifest)))

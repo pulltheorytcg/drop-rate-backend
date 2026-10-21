@@ -193,6 +193,8 @@
   function publisherLink(value) {
     try {
       const url = new URL(value);
+      if (url.protocol === "https:" && url.host === "prhcomics.com" && url.pathname === "/book/"
+          && !url.username && !url.password && !url.hash && /^\?isbn=(?:\d{13}|\d{17})$/.test(url.search)) return url.href;
       const paths = {"www.marvel.com":["/comics/issue/"],"www.dc.com":["/comics/","/graphic-novels/"],"www.dcuniverseinfinite.com":["/comics/book/"],
         "www.viz.com":["/manga-books/manga/"],"kodansha.us":["/product/"],"sevenseasentertainment.com":["/books/"],
         "yenpress.com":["/titles/"],"imagecomics.com":["/comics/releases/"],"www.darkhorse.com":["/Comics/","/Books/"]};

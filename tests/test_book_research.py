@@ -98,7 +98,8 @@ def test_best_available_cover_is_selected_and_its_details_follow_the_selection(v
 
 
 @pytest.mark.asyncio
-async def test_request_uses_existing_model_cited_bounded_search_and_no_private_identifiers():
+async def test_request_uses_existing_model_cited_bounded_search_and_no_private_identifiers(monkeypatch):
+    monkeypatch.setattr('app.book_research.reviewed_candidates', lambda _: [])
     requests=[]
     def reply(request):
         requests.append(json.loads(request.content)); return httpx.Response(200,json=response())
@@ -118,7 +119,8 @@ async def test_request_uses_existing_model_cited_bounded_search_and_no_private_i
 @pytest.mark.asyncio
 @pytest.mark.parametrize('code,payload',[(429,{}),(503,{}),(400,{}),(200,{'output_text':'invalid'}),
     (200,{'output_text':'{"candidates":[{"price":999}]}','output':[{'type':'web_search_call'}]})])
-async def test_provider_failure_does_not_destroy_cover_ocr(code,payload):
+async def test_provider_failure_does_not_destroy_cover_ocr(code,payload,monkeypatch):
+    monkeypatch.setattr('app.book_research.reviewed_candidates', lambda _: [])
     async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _:httpx.Response(code,json=payload))) as http:
         result=await research_book(observed(),[],api_key='fixture',model='fixture',http_client=http)
     assert result['status']=='UNAVAILABLE' and result['candidates']==[]
@@ -195,7 +197,7 @@ def test_reference_identity_includes_printing_cover_and_language():
 @pytest.mark.asyncio
 async def test_reviewed_publisher_covers_skip_slow_search_without_approving_a_copy():
     from app.book_research import reviewed_candidates, reviewed_scan_references
-    assert len(reviewed_scan_references()) == 19
+    assert len(reviewed_scan_references()) == 46
     for title, issue, system in [('Amazing Spider-Man','528','MARVEL_COMICS'),
             ('The Amazing Spider-Man','795','MARVEL_COMICS'),('Batman','463','DC_COMICS'),
             ('One Piece','1','MANGA'),('Peter Parker The Spectacular Spider-Man','114','MARVEL_COMICS'),

@@ -6,7 +6,7 @@ from uuid import UUID
 import pytest
 
 from app.book_catalogue import publisher_page, with_book_details
-from app.book_artwork import book_cover_reference, publisher_cover_url, reviewed_covers
+from app.book_artwork import book_cover_reference, publisher_cover_url, reviewed_covers, reviewed_catalogue_entries
 from app.book_market import eligibility
 from app.recognition_images import _trusted_reference_url
 from scripts.seed_book_catalogue import load_seed, seed_sql
@@ -73,9 +73,9 @@ def cover_book(row):
             'cover_rights_status': 'PENDING'}}
 
 
-def test_all_fourteen_reviewed_covers_match_exact_edition_and_safe_transport():
-    assert len(reviewed_covers()) == 14
-    for row in load_seed()['entries']:
+def test_all_reviewed_covers_match_exact_edition_and_safe_transport():
+    assert len(reviewed_covers()) == 46
+    for row in reviewed_catalogue_entries():
         cover = book_cover_reference(cover_book(row), row['language'])
         assert cover and cover['catalogue_id'] == row['id']
         assert publisher_cover_url(cover['image_url']) and _trusted_reference_url(cover['image_url'])

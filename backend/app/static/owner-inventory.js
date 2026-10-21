@@ -151,6 +151,56 @@ window.DropRateInventory = (() => {
     }
   }
 
+  async function chooseBookCover(item, target, trigger) {
+    const rev = revision, owner = account();
+    trigger.disabled = true; target.textContent = "Finding publisher covers…";
+    try {
+      const choices = await apiRequest(`/api/v1/owner/books/inventory/${item.id}/covers`);
+      if (!alive(rev, owner) || !target.isConnected) return;
+      target.replaceChildren();
+      target.append(el("p", "owner-item-note", choices.candidates.length
+        ? "Choose the cover that matches your copy. This saves reference artwork; your book details stay as entered."
+        : "No matching publisher cover is in the catalogue yet. Keep this item; you don’t need to add it again."));
+      for (const candidate of choices.candidates.slice(0, 4)) {
+        if (!/^[a-f0-9]{24}$/.test(candidate.id || "") || !Number.isInteger(choices.version)) continue;
+        const expected = `/api/v1/owner/books/inventory/${item.id}/covers/${candidate.id}?version=${choices.version}`;
+        if (candidate.image_path !== expected) continue;
+        const card = el("article", "owner-book-candidate"), art = el("div", "owner-book-cover");
+        const picture = el("img"), placeholder = el("span", "", "Loading cover…");
+        picture.alt = candidate.source_title || "Publisher cover"; picture.hidden = true;
+        art.append(placeholder, picture);
+        const copy = el("div", "owner-book-candidate-copy"), fields = candidate.fields || {};
+        copy.append(el("strong", "", candidate.source_title || fields.series_title),
+          el("p", "", [fields.language, fields.printing_number ? `Printing ${fields.printing_number}` : "", fields.cover_artist, fields.cover_code].filter(Boolean).join(" · ")));
+        const save = button("Use this cover", () => run(() => apiRequest(`/api/v1/owner/books/inventory/${item.id}/cover`, {
+          method: "POST", body: JSON.stringify({version: choices.version, identity_digest: choices.identity_digest,
+            candidate_id: candidate.id, confirmed: true})
+        })), "owner-primary-action");
+        save.disabled = true; copy.append(save); card.append(art, copy); target.append(card);
+        (async () => {
+          const current = () => alive(rev, owner) && picture.isConnected;
+          try {
+            let response = await fetch(expected, {headers: {Authorization: `Bearer ${state.session.access_token}`}, cache: "no-store"});
+            if (response.status === 401 && current()) {
+              const token = await refreshSession();
+              if (!current()) return;
+              response = await fetch(expected, {headers: {Authorization: `Bearer ${token}`}, cache: "no-store"});
+            }
+            if (!response.ok) throw new Error("Cover unavailable");
+            const blob = await response.blob();
+            if (!current()) return;
+            if (!/^image\/(png|jpeg|webp)$/.test(blob.type) || blob.size > 2_000_000) throw new Error("Invalid cover");
+            const url = URL.createObjectURL(blob);
+            picture.onload = () => { URL.revokeObjectURL(url); if (current()) { picture.hidden = false; placeholder.hidden = true; save.disabled = busy; } };
+            picture.onerror = () => { URL.revokeObjectURL(url); if (current()) placeholder.textContent = "Publisher cover temporarily unavailable"; };
+            picture.src = url;
+          } catch (_) { if (current()) placeholder.textContent = "Publisher cover temporarily unavailable"; }
+        })();
+      }
+    } catch (error) { if (alive(rev, owner)) target.textContent = error.message; }
+    finally { if (alive(rev, owner)) trigger.disabled = false; }
+  }
+
   function render(data) {
     const item = data.item, copies = data.copies || [];
     const sellingOpen = content.querySelector(".owner-item-selling")?.open === true;
@@ -161,6 +211,11 @@ window.DropRateInventory = (() => {
     identity.append(el("h3", "", item.name), el("p", "", inventoryCardSubtitle(item)),
       el("span", `owner-status-pill ${statusClass(item.status)}`, collectionStatus(item)));
     hero.append(figure, identity); content.append(hero);
+    if (item.product_type === "COMIC" && active(item) && !item.image_url) {
+      const choices = el("div", "owner-book-candidates"), covers = el("section", "owner-item-section");
+      const trigger = button(item.reference_image_path ? "Change cover" : "Choose cover", () => chooseBookCover(item, choices, trigger), "owner-secondary-action");
+      covers.append(trigger, choices); content.append(covers);
+    }
 
     // The inventory grid shows only essentials. Exact copy metadata remains
     // available here, including untruncated IDs and grading certificates.
