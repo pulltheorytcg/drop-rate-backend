@@ -1,5 +1,16 @@
 # Build status
 
+## 21 October 2026 — Comic/manga catalogue and saved artwork (release pending)
+
+The missing saved-book artwork is traced to receipt-only inventory reads and a
+14-edition catalogue. This change adds a reviewed 32-edition batch (46 publisher
+editions total), shares edition artwork with saved inventory, restores a unique
+barcode-matched legacy cover on read, and adds Choose cover for existing copies.
+The second legacy copy lacks variant/barcode evidence and requires that choice.
+Identity approval, ownership, physical copies, pricing and public listings are
+unchanged. CI, seed application, deployment and live readback are pending; see
+[scope, evidence, tests and rollback](docs/BOOK_CATALOGUE_LIBRARY_20261021.md).
+
 ## 18 October 2026 — Default-camera book handoff (live verified, PR #693)
 
 The new phone recording loaded current assets but all eight comics entered the

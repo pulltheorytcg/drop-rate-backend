@@ -11,6 +11,11 @@ on:
       - 'backend/app/owner_books.py'
       - 'backend/app/book_recognition.py'
       - 'backend/app/book_research.py'
+      - 'backend/app/book_artwork.py'
+      - 'backend/app/book_catalogue.py'
+      - 'backend/data/book_*.json'
+      - 'backend/scripts/seed_book_catalogue.py'
+      - 'tests/book_catalogue_seed_fixture.py'
       - 'backend/app/recognition_vision.py'
       - 'backend/app/comic_identity.py'
       - 'backend/app/schemas.py'
@@ -73,6 +78,7 @@ jobs:
           python tests/ui/collection-books.py
           python tests/ui/collection-book-scanner.py
           python tests/ui/collection-book-research.py
+          python tests/ui/collection-book-library.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

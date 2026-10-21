@@ -39,6 +39,7 @@ PUBLISHERS = {
 PUBLIC_FIELDS = frozenset(ComicPrintingCreate.model_fields) | {"language"}
 logger = logging.getLogger(__name__)
 IMAGE_HOSTS = {"www.marvel.com": {"cdn.marvel.com", "i.annihil.us"}, "www.dc.com": {"static.dc.com"},
+               "prhcomics.com": {"images.penguinrandomhouse.com"},
                "www.dcuniverseinfinite.com": {"imgix-media.wbdndc.net"},
                "www.viz.com": {"dw9to29mmj727.cloudfront.net"}}
 _cover_cache = OrderedDict()
@@ -59,6 +60,10 @@ def same_publisher_record(left, right):
 def publisher_source(value: str) -> str | None:
     try:
         url = urlsplit(value)
+        # PRH's official distributor record is addressed by exact ISBN/UPC.
+        if (url.scheme == "https" and url.netloc == "prhcomics.com" and url.path == "/book/"
+                and re.fullmatch(r"isbn=(?:[0-9]{13}|[0-9]{17})", url.query) and not url.fragment):
+            return value
         prefixes = PUBLISHERS.get(url.netloc, ())
         if (url.scheme != "https" or not prefixes or not url.path.startswith(prefixes)
                 or url.query or url.fragment or "/../" in url.path or "%" in url.path):
@@ -135,6 +140,8 @@ def source_cover_matches(source, image):
     page, cover = urlsplit(source), urlsplit(image)
     if cover.netloc not in IMAGE_HOSTS.get(page.netloc, set()):
         return False
+    if page.netloc == "prhcomics.com":
+        return publisher_source(source) is not None and page.query[5:] == cover.path.rsplit("/", 1)[-1]
     if page.netloc == "www.dcuniverseinfinite.com":
         return page.path.rstrip("/").rsplit("/", 1)[-1] == cover.path.split("/")[4]
     return True
@@ -246,7 +253,7 @@ def candidate_fields(candidate, observed):
     if tokens and (not source_tokens or len(tokens & source_tokens) / len(tokens | source_tokens) < .5):
         return None
     for key in ("system_code", "issue_number", "language", "release_year", "printing_number",
-                "barcode_gtin", "volume_identifier", "cover_code"):
+                "barcode_gtin", "volume_identifier", "cover_code", "cover_artist", "book_format"):
         if observed.get(key) and fields.get(key) and _normal(observed[key]) != _normal(fields[key]):
             return None
     merged = {**{k: v for k, v in observed.items() if k in PUBLIC_FIELDS}, **fields}
@@ -339,15 +346,17 @@ async def research_book(fields, images, *, api_key, model, http_client=None, ten
 
 @lru_cache(maxsize=1)
 def reviewed_scan_references():
-    from .book_artwork import reviewed_covers
+    from .book_artwork import reviewed_covers, reviewed_catalogue_entries
     data = Path(__file__).resolve().parents[1] / "data"
     covers = reviewed_covers()
     entries = [{"fields":{**row["book"], "language":row["language"]},
                 "source_url":row["source_url"], "source_title":row["catalogue"]["name"],
-                "image_url":covers[row["id"]]["image_url"]}
-               for row in json.loads((data / "book_catalogue_starter_20261016.json").read_text())["entries"]
+                "image_url":covers[row["id"]]["image_url"], "title_aliases":row.get("title_aliases", [])}
+               for row in reviewed_catalogue_entries()
                if row["id"] in covers]
-    entries.extend(json.loads((data / "book_scan_reference_covers_20261018.json").read_text())["entries"])
+    known = {row["source_url"] for row in entries}
+    entries.extend(row for row in json.loads((data / "book_scan_reference_covers_20261018.json").read_text())["entries"]
+                   if row["source_url"] not in known)
     return entries
 
 
@@ -415,25 +424,32 @@ def identity_digest(fields):
 
 
 async def add_saved_book_artwork(connection, items):
-    """Confirmed reference choice follows only that owner's exact physical copy."""
+    """One owner-scoped read for saved choices, catalogue covers and exact barcodes."""
+    from .book_artwork import book_cover_reference
     books = [item for item in items if item.get("product_type") == "COMIC" and item.get("id")]
     if not books:
         return
-    rows = await connection.fetch("""select r.inventory_id,r.provider_evidence,b.*,p.language
-        from tcg.recognition_runs r
-        join tcg.inventory_items i on i.id=r.inventory_id and i.owner_id=r.owner_id
+    rows = await connection.fetch("""select i.id as inventory_id,r.provider_evidence,b.*,p.language,
+          pr.identity_status as profile_status,pr.release_date as profile_release_date
+        from tcg.inventory_items i
         join tcg.catalogue_products p on p.id=i.catalogue_id and p.product_type='COMIC'
         join tcg.comic_printing_details b on b.catalogue_id=p.id
-        where r.inventory_id=any($1::uuid[]) and r.top_catalogue_id=p.id
-          and r.idempotency_key='book-reference:'||i.id::text
+        join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
+          and pr.system_code=b.system_code and pr.collectible_type='COMIC'
+        left join tcg.recognition_runs r on r.inventory_id=i.id and i.owner_id=r.owner_id
+          and r.top_catalogue_id=p.id and r.idempotency_key='book-reference:'||i.id::text
+        where i.id=any($1::uuid[])
           and coalesce(i.language,p.language)=p.language""", [item["id"] for item in books])
     by_id = {}
     for row in rows:
         evidence, attrs = row["provider_evidence"], row["attributes"]
         if isinstance(evidence, str): evidence = json.loads(evidence)
         if isinstance(attrs, str): attrs = json.loads(attrs)
-        if not isinstance(evidence, dict) or not isinstance(attrs, dict):
+        if not isinstance(attrs, dict):
             continue
+        if attrs.get("cover_rights_status") in {"REVOKED", "REJECTED"} or attrs.get("cover_source_status") in {"REVOKED", "INACTIVE"}:
+            continue
+        evidence = evidence if isinstance(evidence, dict) else {}
         fields = {k: row.get(k) for k in ComicPrintingCreate.model_fields}
         fields.update(publisher=attrs.get("publisher"), book_format=attrs.get("book_format"), language=row["language"])
         candidate = evidence.get("book_reference", {})
@@ -441,12 +457,24 @@ async def add_saved_book_artwork(connection, items):
             same_identity = evidence.get("identity_digest") == identity_digest(fields)
         except (ValueError, TypeError):
             continue
-        if same_identity and publisher_source(candidate.get("source_url")) and publisher_cover_url(candidate.get("image_url")):
-            by_id[row["inventory_id"]] = candidate
+        kind = "COLLECTOR_CONFIRMED_PUBLISHER_REFERENCE"
+        if not (same_identity and publisher_source(candidate.get("source_url"))
+                and source_cover_matches(candidate["source_url"], candidate.get("image_url"))):
+            candidate = book_cover_reference(dict(row), row["language"])
+            kind = "PUBLISHER_REFERENCE"
+            if not candidate and fields.get("barcode_gtin"):
+                matches = [c for c in reviewed_candidates(fields)
+                           if c["fields"].get("barcode_gtin") == fields["barcode_gtin"]]
+                if len(matches) == 1:
+                    candidate = matches[0]
+                    kind = "BARCODE_MATCHED_PUBLISHER_REFERENCE"
+        if candidate:
+            by_id[row["inventory_id"]] = (candidate, kind)
     for item in books:
-        candidate = by_id.get(item["id"])
-        if candidate and not item.get("reference_image_url"):
+        reference = by_id.get(item["id"])
+        if reference and not item.get("reference_image_url"):
+            candidate, kind = reference
             item["reference_image_url"] = candidate["image_url"]
             item["reference_image_path"] = f"/api/v1/owner/inventory/{item['id']}/reference-image"
-            item["artwork_kind"] = "COLLECTOR_CONFIRMED_PUBLISHER_REFERENCE"
+            item["artwork_kind"] = kind
             item["publisher_source_url"] = candidate["source_url"]

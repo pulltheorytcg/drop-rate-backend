@@ -1,5 +1,6 @@
 """Researched book -> explicit intake -> owner-scoped artwork, with real PG/RLS."""
 import json
+import asyncio
 from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -67,6 +68,35 @@ async def exercise(client,db,pool,headers,settings,ua,ub,owner_a):
         items=[dict(id=inventory_id,catalogue_id=catalogue_id,product_type='COMIC')]
         await book_research.add_saved_book_artwork(conn,items)
         assert 'reference_image_url' not in items[0]
+    # Existing copies can choose artwork without repeating intake or approving identity.
+    from app import owner_books
+    alternate = {**candidate, 'id': 'b'*24, 'source_title': 'Alternate reviewed reference'}
+    choices_path = f'/api/v1/owner/books/inventory/{inventory_id}/covers'
+    save_path = f'/api/v1/owner/books/inventory/{inventory_id}/cover'
+    with patch.object(owner_books, 'reviewed_candidates', return_value=[candidate, alternate]):
+        assert (await client.get(choices_path)).status_code == 401
+        assert (await client.get(choices_path, headers=headers(ub,uuid4()))).status_code == 404
+        choices = await client.get(choices_path, headers=headers(ua,uuid4()))
+        assert choices.status_code == 200, choices.text
+        choices = choices.json()
+        assert all('image_url' not in c for c in choices['candidates'])
+        cover_path = choices['candidates'][1]['image_path']
+        with patch.object(owner_books, 'reference_thumbnail', AsyncMock(return_value=None)):
+            assert (await client.get(cover_path, headers=headers(ua,uuid4()))).status_code == 502
+            assert (await client.get(cover_path, headers=headers(ub,uuid4()))).status_code == 404
+        choice = dict(version=choices['version'],identity_digest=choices['identity_digest'],candidate_id='b'*24,confirmed=True)
+        assert (await client.post(save_path,json=choice,headers=headers(ub,uuid4()))).status_code == 404
+        assert (await client.post(save_path,json={**choice,'version':choice['version']+1},headers=headers(ua,uuid4()))).status_code == 409
+        assert (await client.post(save_path,json={**choice,'identity_digest':'0'*64},headers=headers(ua,uuid4()))).status_code == 409
+        assert (await client.post(save_path,json={**choice,'candidate_id':'f'*24},headers=headers(ua,uuid4()))).status_code == 409
+        results = await asyncio.gather(*[client.post(save_path,json=choice,headers=headers(ua,uuid4())) for _ in range(2)])
+        assert all(r.status_code == 200 for r in results), [r.text for r in results]
+        assert await db.fetchval('select count(*) from tcg.inventory_items') == before+1
+        assert await db.fetchval("select count(*) from tcg.recognition_runs where inventory_id=$1 and idempotency_key like 'book-reference-history:%'",inventory_id) == 1
+        assert await db.fetchval("select count(*) from tcg.recognition_runs where idempotency_key=$1",f'book-reference:{inventory_id}') == 1
+        assert dict(await db.fetchrow('select status,sale_intent,identity_confirmed,market_value_minor from tcg.inventory_items where id=$1',inventory_id)) == dict(row)
+        assert (await client.post(save_path,json={**choice,'candidate_id':'a'*24},headers=headers(ua,uuid4()))).status_code == 409
+        assert (await client.get(cover_path,headers=headers(ua,uuid4()))).status_code == 404
     await db.execute('update tcg.comic_printing_details set printing_number=3 where catalogue_id=$1',catalogue_id)
     async with user_connection(pool,ua,'book-reference-stale') as conn:
         items=[dict(id=inventory_id,catalogue_id=catalogue_id,product_type='COMIC')]

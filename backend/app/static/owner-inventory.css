@@ -79,6 +79,7 @@
 .owner-item-dialog>header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:#0b2137;color:white}
 .owner-item-dialog>header h2{margin:0;font-size:1.1rem;color:white}
 .owner-item-dialog button,.owner-item-dialog input,.owner-item-dialog select{font:inherit;box-sizing:border-box;min-height:44px;border-radius:10px;border:1px solid #bac9d8;background:white;color:#10243a;padding:10px 14px;cursor:pointer}
+.owner-portal-page .owner-item-dialog .owner-primary-action,.owner-portal-page .owner-item-dialog .owner-secondary-action{min-height:44px}
 .owner-item-dialog button:disabled,.owner-item-dialog input:disabled{opacity:.5;cursor:not-allowed}
 .owner-item-dialog button.primary{background:#ffd455;border-color:#ffd455;font-weight:750}
 .owner-item-dialog button.danger{color:#a72828;border-color:#e8b2b2}
