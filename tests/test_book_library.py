@@ -38,6 +38,7 @@ async def test_exact_saved_barcode_gets_reviewed_cover_without_identity_or_stock
     {'barcode_gtin':None},{'barcode_gtin':'75960621349800122'},{'printing_number':3},
     {'cover_artist':'Frank Miller'},{'language':'Japanese'},{'release_year':2024},
     {'cover_code':'Virgin variant'}, {'issue_number':'2'},
+    {'attributes':{'publisher':'Marvel','book_format':'HARDCOVER'}},
     {'attributes':{'publisher':'Marvel','book_format':'SINGLE_ISSUE','cover_rights_status':'REVOKED'}},
 ])
 @pytest.mark.asyncio

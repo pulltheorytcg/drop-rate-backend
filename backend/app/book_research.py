@@ -253,7 +253,7 @@ def candidate_fields(candidate, observed):
     if tokens and (not source_tokens or len(tokens & source_tokens) / len(tokens | source_tokens) < .5):
         return None
     for key in ("system_code", "issue_number", "language", "release_year", "printing_number",
-                "barcode_gtin", "volume_identifier", "cover_code", "cover_artist"):
+                "barcode_gtin", "volume_identifier", "cover_code", "cover_artist", "book_format"):
         if observed.get(key) and fields.get(key) and _normal(observed[key]) != _normal(fields[key]):
             return None
     merged = {**{k: v for k, v in observed.items() if k in PUBLIC_FIELDS}, **fields}
