@@ -394,12 +394,17 @@ async def catalogue_candidates(connection, observed):
     fields again after retrieval; GCD-only metadata never becomes cover proof.
     """
     from .book_artwork import book_cover_reference
+    from .book_catalogue_sources import barcode_aliases
     candidates = reviewed_candidates(observed)
     barcode = "".join(str(observed.get("barcode_gtin") or "").replace("-", "").split()).upper()
     if not barcode and not all(observed.get(k) for k in ("system_code", "series_title", "issue_number")):
         return candidates
     if barcode:
-        condition, args = "b.barcode_gtin=$1", [barcode]
+        try:
+            aliases = barcode_aliases(barcode)
+        except ValueError:
+            return candidates
+        condition, args = "b.barcode_gtin=any($1::text[])", [aliases]
     else:
         condition, args = "b.system_code=$1 and b.series_title=$2 and b.issue_number=$3", [observed[k] for k in ("system_code", "series_title", "issue_number")]
     records = await connection.fetch("""select b.*,p.language,p.name,
@@ -425,7 +430,10 @@ async def catalogue_candidates(connection, observed):
         candidate = ResearchCandidate(fields=fields, source_url=cover["source_url"],
             source_title=book["name"], image_url=cover["image_url"], cover_matches_photo=False,
             explanation="Publisher edition reference. Confirm the cover and your physical copy's printing.")
-        merged = candidate_fields(candidate, observed)
+        # ISBN-10/13 and zero-prefixed UPC/EAN are equivalent identifiers, while
+        # the five-digit comic add-on remains part of the exact edition match.
+        comparison = {**observed, "barcode_gtin": book["barcode_gtin"]} if barcode and book["barcode_gtin"] in aliases else observed
+        merged = candidate_fields(candidate, comparison)
         if merged is None:
             continue
         candidate = candidate.model_dump(); candidate["fields"] = merged

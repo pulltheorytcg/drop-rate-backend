@@ -148,6 +148,9 @@ async def test_imported_cover_can_be_found_by_scan_and_conflicts_are_rejected():
     candidates = await catalogue_candidates(db, observed)
     assert len(candidates) == 1 and candidates[0]["image_url"] == row["image_url"]
     assert not candidates[0]["cover_matches_photo"]
+    legacy_isbn = next(value for value in barcode_aliases(row["book"]["barcode_gtin"]) if len(value) == 10)
+    equivalent = await catalogue_candidates(db, {**observed, "barcode_gtin": legacy_isbn})
+    assert len(equivalent) == 1 and equivalent[0]["fields"]["barcode_gtin"] == row["book"]["barcode_gtin"]
     assert await catalogue_candidates(db, {**observed, "printing_number": 2}) == []
     assert await catalogue_candidates(db, {**observed, "language": "Japanese"}) == []
 
