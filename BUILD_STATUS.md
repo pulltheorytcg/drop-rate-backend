@@ -1,6 +1,6 @@
 # Build status
 
-## 21 October 2026 — Comic/manga catalogue and saved artwork (release pending)
+## 21 October 2026 — Comic/manga catalogue imported; artwork release blocked by Railway outage
 
 The missing saved-book artwork is traced to receipt-only inventory reads and a
 14-edition catalogue. This change adds a reviewed 32-edition batch (46 publisher
@@ -8,7 +8,18 @@ editions total), shares edition artwork with saved inventory, restores a unique
 barcode-matched legacy cover on read, and adds Choose cover for existing copies.
 The second legacy copy lacks variant/barcode evidence and requires that choice.
 Identity approval, ownership, physical copies, pricing and public listings are
-unchanged. CI, seed application, deployment and live readback are pending; see
+unchanged. PR #695 is merged as `a0ae3add`; all six final PR workflows passed,
+including 6,216 Python tests and mobile/desktop Chromium/WebKit checks. The 32
+reviewed editions are now imported: 46 publisher editions (36 manga, 10 comics),
+48 book products including the two seller entries, zero duplicate identity keys.
+Both physical inventory rows have the same digest before and after the import.
+
+The artwork fix is **not live**. Railway's 21 October outage has paused new builds
+in every region; the attempted release returned `Deploys have been paused temporarily`.
+The healthy live API still serves deployment `c69c96da` / commit `7558fd27` from
+18 October. Main's browser/PostgreSQL jobs passed, but its two production asset
+readbacks correctly failed because the new assets are not deployed. Deployment,
+exact asset verification and authenticated seller acceptance remain outstanding; see
 [scope, evidence, tests and rollback](docs/BOOK_CATALOGUE_LIBRARY_20261021.md).
 
 ## 18 October 2026 — Default-camera book handoff (live verified, PR #693)
