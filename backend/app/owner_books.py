@@ -14,7 +14,7 @@ from .auth import AuthenticatedUser, require_user
 from .inventory_intake import create_inventory_intake
 from .schemas import ManualInventoryCreate
 from .db import user_connection
-from .book_research import identity_digest, reviewed_candidates
+from .book_research import identity_digest, catalogue_candidates
 from .comic_identity import ComicPrintingCreate
 from .catalogue_artwork import reference_thumbnail
 
@@ -34,7 +34,7 @@ async def saved_cover_choices(db, inventory_id, owner_id):
     fields = {key: row.get(key) for key in ComicPrintingCreate.model_fields}
     fields.update(publisher=attrs.get("publisher"), book_format=attrs.get("book_format"), language=row["language"])
     revoked = attrs.get("cover_rights_status") in {"REVOKED", "REJECTED"} or attrs.get("cover_source_status") in {"REVOKED", "INACTIVE"}
-    return fields, [] if revoked else reviewed_candidates(fields)
+    return fields, [] if revoked else await catalogue_candidates(db, fields)
 
 
 @router.get("/inventory/{inventory_id}/covers")

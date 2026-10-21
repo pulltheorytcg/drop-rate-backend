@@ -63,6 +63,20 @@ async def with_book_details(connection, rows):
             if source:
                 item["publisher_source_url"] = source
                 item["book_reference_scope"] = "PUBLISHER_EDITION"
+        receipt = attributes.get("catalogue_import")
+        if (book.get("identity_status") in {"STRUCTURED", "VERIFIED"}
+                and book.get("profile_status") in {"STRUCTURED", "VERIFIED"}
+                and attributes.get("identity_source") == "GCD_CATALOGUE"
+                and isinstance(receipt, dict) and receipt.get("provider") == "GCD"
+                and receipt.get("version") == "book-bulk-v1"
+                and receipt.get("metadata_license") == "https://creativecommons.org/licenses/by-sa/4.0/"):
+            import re
+            source = attributes.get("source_url", "")
+            if re.fullmatch(r"https://www\.comics\.org/issue/[1-9][0-9]*/", source):
+                item["book_data_attribution"] = {
+                    "text": "Adapted from the Grand Comics Database", "source_url": source,
+                    "license": "CC BY-SA 4.0", "license_url": receipt["metadata_license"],
+                    "changes": "Fields normalised to Drop Rate's edition catalogue. Cover images excluded."}
         cover = book_cover_reference(book, item.get("language"))
         if cover and not (item.get("display_image_url") or item.get("image_url")):
             item["reference_image_path"] = "/api/v1/catalogue-browser/reference-image?" + urlencode({

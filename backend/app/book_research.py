@@ -387,6 +387,63 @@ def reviewed_candidates(observed):
     return candidates[:4]
 
 
+async def catalogue_candidates(connection, observed):
+    """Use imported publisher references before requesting more paid research.
+
+    Both query paths use existing barcode/series indexes. Match known observed
+    fields again after retrieval; GCD-only metadata never becomes cover proof.
+    """
+    from .book_artwork import book_cover_reference
+    from .book_catalogue_sources import barcode_aliases
+    candidates = reviewed_candidates(observed)
+    barcode = "".join(str(observed.get("barcode_gtin") or "").replace("-", "").split()).upper()
+    if not barcode and not all(observed.get(k) for k in ("system_code", "series_title", "issue_number")):
+        return candidates
+    if barcode:
+        try:
+            aliases = barcode_aliases(barcode)
+        except ValueError:
+            return candidates
+        condition, args = "b.barcode_gtin=any($1::text[])", [aliases]
+    else:
+        condition, args = "b.system_code=$1 and b.series_title=$2 and b.issue_number=$3", [observed[k] for k in ("system_code", "series_title", "issue_number")]
+    records = await connection.fetch("""select b.*,p.language,p.name,
+          pr.identity_status as profile_status,pr.release_date as profile_release_date
+        from tcg.comic_printing_details b join tcg.catalogue_products p on p.id=b.catalogue_id
+        join tcg.catalogue_product_profiles pr on pr.catalogue_id=p.id
+          and pr.system_code=b.system_code and pr.collectible_type='COMIC'
+        where """ + condition + " order by b.catalogue_id limit 25", *args)
+    # Too many editions must not be arbitrarily reduced to an automatic choice.
+    if len(records) == 25:
+        return candidates
+    known = {c["id"] for c in candidates}
+    for record in records:
+        book = dict(record)
+        cover = book_cover_reference(book, book["language"])
+        if not cover or any(observed.get(k) and _normal(observed[k]) != _normal(book.get(k))
+                            for k in ("printing_number", "cover_code", "cover_artist")):
+            continue
+        attrs = book["attributes"]
+        if isinstance(attrs, str): attrs = json.loads(attrs)
+        fields = {k: book.get(k) for k in ResearchFields.model_fields}
+        fields.update(publisher=attrs.get("publisher"), book_format=attrs.get("book_format"))
+        candidate = ResearchCandidate(fields=fields, source_url=cover["source_url"],
+            source_title=book["name"], image_url=cover["image_url"], cover_matches_photo=False,
+            explanation="Publisher edition reference. Confirm the cover and your physical copy's printing.")
+        # ISBN-10/13 and zero-prefixed UPC/EAN are equivalent identifiers, while
+        # the five-digit comic add-on remains part of the exact edition match.
+        comparison = {**observed, "barcode_gtin": book["barcode_gtin"]} if barcode and book["barcode_gtin"] in aliases else observed
+        merged = candidate_fields(candidate, comparison)
+        if merged is None:
+            continue
+        candidate = candidate.model_dump(); candidate["fields"] = merged
+        candidate["id"] = hashlib.sha256(json.dumps([merged,cover["source_url"],cover["image_url"]],sort_keys=True).encode()).hexdigest()[:24]
+        candidate["artwork_source"] = "REVIEWED_PUBLISHER_REFERENCE"
+        if candidate["id"] not in known:
+            candidates.append(candidate); known.add(candidate["id"])
+    return candidates[:4]
+
+
 def prepare_research_result(result, research, run_id):
     """Select the best compatible reference; the collector still explicitly adds it."""
     research.pop("selected_candidate_id", None)
