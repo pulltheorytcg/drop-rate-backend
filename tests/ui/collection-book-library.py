@@ -22,9 +22,10 @@ def main():
                 html=re.sub(r'<script[^>]*>.*?</script>','',(ROOT/'owner.html').read_text(),flags=re.S)
                 def route(r):
                     if r.request.url=='https://book-library.test/':r.fulfill(body=html,content_type='text/html')
-                    elif '/covers/' in r.request.url or '/image' in r.request.url or '/reference-image' in r.request.url:
+                    elif '/covers/' in r.request.url or '/reference-image' in r.request.url:
                         assert r.request.headers.get('authorization')=='Bearer synthetic'
                         r.fulfill(body=PNG,content_type='image/png')
+                    elif r.request.url.endswith('/image'):r.fulfill(status=404,body='No physical photo')
                     elif r.request.url.startswith(('blob:','data:')):r.continue_()
                     else:r.abort()
                 page.route('**/*',route);page.goto('https://book-library.test/')
@@ -63,6 +64,7 @@ def main():
                 page.screenshot(path=str(OUT/f'{engine}-{width}-saved-book-cover-choice.png'))
                 save.click()
                 page.get_by_role('button',name='Change cover',exact=True).wait_for()
+                page.wait_for_function('document.querySelector(".owner-item-art img")?.naturalWidth === 160')
                 writes=page.evaluate('calls.filter(c=>c.method)')
                 assert len(writes)==1 and writes[0]['url'].endswith('/cover')
                 body=json.loads(writes[0]['body'])
