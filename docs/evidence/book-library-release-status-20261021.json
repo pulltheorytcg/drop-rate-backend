@@ -1,0 +1,70 @@
+{
+  "checked_at": "2026-10-21T09:52:16.341441+00:00",
+  "release_state": "BLOCKED_BY_RAILWAY_BUILD_PAUSE",
+  "base_url": "https://drop-rate-api-live-production.up.railway.app",
+  "target_main_commit": "a0ae3add367ff44b40b84ca3eb1e0e671573d3ab",
+  "pull_request": 695,
+  "owner_status": 200,
+  "assets": [
+    {
+      "name": "owner-inventory.js",
+      "expected_url": "/assets/owner-inventory.js?v=book-library-v1",
+      "deployed_url": "/assets/owner-inventory.js?v=simple-v1",
+      "status": 200,
+      "expected_sha256": "805125d05fcfdbef312750a8ea1732522135aef323ba3d29f5de70370a71a15b",
+      "deployed_sha256": "9ea4bef86747bba9702073e76d0854b7002f6f2198e89ff67b84270e5bb94a74",
+      "matches": false
+    },
+    {
+      "name": "owner-inventory.css",
+      "expected_url": "/assets/owner-inventory.css?v=book-library-v1",
+      "deployed_url": "/assets/owner-inventory.css?v=simple-v1",
+      "status": 200,
+      "expected_sha256": "0c14ca9ef59c3c98f0d8030d96303879e226941cbffe04d7420f56f9e61e7077",
+      "deployed_sha256": "a9ff412df19e3910c7b2c515d2f54bf6bf95900b381255c4c97e1c4f53351c2d",
+      "matches": false
+    },
+    {
+      "name": "owner-books.js",
+      "expected_url": "/assets/owner-books.js?v=book-library-v1",
+      "deployed_url": "/assets/owner-books.js?v=book-auto-v6",
+      "status": 200,
+      "expected_sha256": "4c7642986802b2cbb5fd22bf861ca3de26163156c85a03d2bc1cf127a591136b",
+      "deployed_sha256": "b999e3b1c13baa134682e2dc1f77f4ac6f9dd754644fe7906b4d27ec22ec1980",
+      "matches": false
+    }
+  ],
+  "health_status": 200,
+  "health": {
+    "status": "ready",
+    "database": "connected"
+  },
+  "active_deployment_id": "c69c96da-0209-4665-975d-0ee200e5449e",
+  "active_commit": "7558fd27374638f5dc8ad7548b330d5cbe97e661",
+  "deployment_attempt": {
+    "result": "REJECTED_BY_PROVIDER",
+    "message": "Deploys have been paused temporarily",
+    "source": "Railway connect_service_source",
+    "incident_url": "https://status.railway.com/",
+    "incident_latest_update": "2026-10-21T09:28:00Z"
+  },
+  "database": {
+    "batch_id": "publisher-books-20261021-v1",
+    "sql_sha256": "7891c9ebd9fc904725c9045d59df4d41fdd57dfb09d4a33d5c3049b49747a038",
+    "inserted_editions": 32,
+    "official_editions_before": 14,
+    "official_editions_after": 46,
+    "manga_editions": 36,
+    "comic_editions": 10,
+    "total_book_products": 48,
+    "physical_book_copies_before": 2,
+    "physical_book_copies_after": 2,
+    "inventory_digest_before": "a667a4d499a44a780951a7a840ee2535",
+    "inventory_digest_after": "a667a4d499a44a780951a7a840ee2535",
+    "new_editions_with_reviewed_reference": 32,
+    "new_editions_structured_pending_media_approval": 32,
+    "duplicate_identity_groups": 0,
+    "db_bytes_after": 402295955
+  },
+  "limitations": "New code is merged and tested but not deployed. This is a GET-only diagnostic of the older live build. No authenticated production seller session was impersonated. Cover restoration is pending deployment."
+}

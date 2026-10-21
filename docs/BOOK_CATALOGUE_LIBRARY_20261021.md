@@ -77,8 +77,54 @@ Disposable PostgreSQL runs both seed batches twice and verifies shared restricte
 reads. Browser tests exercise saved-copy choice/readback at 390/1440 widths in
 Chromium and WebKit. Existing scan/save and full Python/Node gates also apply.
 
-Release is pending CI, production seed, deployment and readback. Append the final
-receipt here after verification. Cache version for changed JS: `book-library-v1`.
+### Release receipt: database applied, deployment blocked
+
+[PR #695](https://github.com/pulltheorytcg/drop-rate-backend/pull/695) merged as
+`a0ae3add367ff44b40b84ca3eb1e0e671573d3ab`. Its final head
+`a7e6f11035b6accf1e47193675f9c82b36e6d13d` passed all six PR workflows:
+Backend checks, Collection-first confirmation, Seller inventory persistence,
+Shared inventory images, Immediate owner imports and Shared reference consistency.
+The complete Python suite passed 6,216 tests. Browser checks passed in Chromium
+and WebKit at both widths; inspected screenshots show saved reference artwork
+after the physical-photo route returns 404. Those images use synthetic fixtures,
+not an authenticated live seller session.
+
+Final browser artifact `12335747037` (workflow `39578836803`) has SHA-256
+`7d2b2312a5be3a3a56d137b93f2843d58663148dc9d109466a4821e7fe877b12`.
+The reviewed 32-edition transaction was applied to the existing database on
+21 October. Rendered SQL SHA-256:
+`7891c9ebd9fc904725c9045d59df4d41fdd57dfb09d4a33d5c3049b49747a038`.
+Readback found 46 official editions (36 manga, six Marvel, four DC), 48 total book
+products, and 32/32 new references with source/hash evidence. All new identities
+remain STRUCTURED with pending storefront media approval. Duplicate identity
+groups: zero. Both physical inventory rows are unchanged, with before/after
+digest `a667a4d499a44a780951a7a840ee2535`. Database size is 402,295,955 bytes.
+
+**The new artwork code is not deployed.** Railway reported `Deploys have been
+paused temporarily` when the existing API service's same repository/main source
+was asked to build. Its [status page](https://status.railway.com/) reported an
+active outage, with all-region builds paused (latest update 21 October 09:28 UTC).
+No new deployment was created. The API remains on the healthy 18 October build
+`c69c96da-0209-4665-975d-0ee200e5449e`, commit
+`7558fd27374638f5dc8ad7548b330d5cbe97e661`. The newer catalogue metadata is stored,
+but the new artwork registry and saved-copy picker need the pending app release.
+
+Main Backend checks passed. Main Shared inventory images (`39579357110`) and
+Collection-first confirmation (`39579357163`) passed their PostgreSQL/browser
+jobs but failed their production readbacks on expected/deployed asset mismatch.
+Those failures are retained; they have not been bypassed or labelled successful.
+The [production diagnostic](evidence/book-library-release-status-20261021.json)
+records current/expected asset hashes, readiness and database counts.
+
+After Railway restores builds: build the merged main source through the existing
+API service, preserve all predeploy gates, wait for SUCCESS, verify readiness and
+all three `book-library-v1` asset hashes/entrypoint URLs, then rerun the two failed
+production readback jobs. Verify anonymous cover/image denial and inspect the
+seller's actual inventory using their normal session. The barcode-bearing saved
+copy should receive its reference cover on read; the other requires **Item
+details → Choose cover** because its variant remains unknown. Do not rescan,
+duplicate or silently infer the second physical copy. The imported seed needs no
+repeat application. Update this receipt only after the release is verified live.
 
 Rollback: revert the code PR or restore Railway deployment
 `c69c96da-0209-4665-975d-0ee200e5449e`. Keep additive catalogue rows and evidence
