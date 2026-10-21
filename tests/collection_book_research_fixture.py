@@ -73,7 +73,7 @@ async def exercise(client,db,pool,headers,settings,ua,ub,owner_a):
     alternate = {**candidate, 'id': 'b'*24, 'source_title': 'Alternate reviewed reference'}
     choices_path = f'/api/v1/owner/books/inventory/{inventory_id}/covers'
     save_path = f'/api/v1/owner/books/inventory/{inventory_id}/cover'
-    with patch.object(owner_books, 'reviewed_candidates', return_value=[candidate, alternate]):
+    with patch.object(owner_books, 'catalogue_candidates', AsyncMock(return_value=[candidate, alternate])):
         assert (await client.get(choices_path)).status_code == 401
         assert (await client.get(choices_path, headers=headers(ub,uuid4()))).status_code == 404
         choices = await client.get(choices_path, headers=headers(ua,uuid4()))
