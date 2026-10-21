@@ -64,6 +64,21 @@ def _barcode(value):
     return result
 
 
+def barcode_aliases(value):
+    """Find legacy ISBN-10 / zero-prefixed UPC rows without dropping add-ons."""
+    canonical = _barcode(value)
+    aliases = {canonical} if canonical else set()
+    if canonical and len(canonical) == 13 and canonical.startswith("978"):
+        base = canonical[3:12]
+        check = (-sum(int(n) * (10 - i) for i, n in enumerate(base))) % 11
+        aliases.add(base + ("X" if check == 10 else str(check)))
+    elif canonical and len(canonical) == 12:
+        aliases.add("0" + canonical)
+    elif canonical and len(canonical) == 13 and canonical.startswith("0"):
+        aliases.add(canonical[1:])
+    return sorted(aliases)
+
+
 def from_gcd(row):
     """One joined API issue/series/publisher record; rules are per series.
 

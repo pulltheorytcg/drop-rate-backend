@@ -10,7 +10,7 @@ from pathlib import Path
 from uuid import UUID
 
 from .book_catalogue_sources import (IMPORT_VERSION, ReviewRequired, canonical_json,
-                                    normalise, validate_entry)
+                                    normalise, validate_entry, barcode_aliases)
 from .database_capacity import FREE_DATABASE_LIMIT_BYTES, REFRESH_PAUSE_BYTES, check_database_capacity
 
 MAX_LINE_BYTES = 2_000_000
@@ -158,7 +158,7 @@ async def _apply_one(connection, entry, batch):
     if not existing and book.get("barcode_gtin"):
         collisions = await connection.fetch("""select b.cover_code,b.printing_number,b.series_title,b.issue_number,b.system_code
             from tcg.comic_printing_details b join tcg.catalogue_products p on p.id=b.catalogue_id
-            where b.barcode_gtin=$1 and p.language=$2""", book["barcode_gtin"], product["language"])
+            where b.barcode_gtin=any($1::text[]) and p.language=$2""", barcode_aliases(book["barcode_gtin"]), product["language"])
         for collision in collisions:
             # Documented variants/reprints may share an ISBN. An unknown printing
             # or a changed title/issue under the same barcode needs human review.

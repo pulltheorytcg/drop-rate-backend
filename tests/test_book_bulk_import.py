@@ -12,7 +12,7 @@ from PIL import Image
 from app.book_artwork import book_cover_reference
 from app.book_bulk_import import (ImportPaused, apply_batch, capacity_plan, open_stage,
                                   source_attributes, stage_file, stage_report, import_capacity)
-from app.book_catalogue_sources import ReviewRequired, normalise, validate_entry
+from app.book_catalogue_sources import ReviewRequired, normalise, validate_entry, barcode_aliases
 from app.book_research import catalogue_candidates
 from scripts.fetch_book_catalogue import (PRH_URL, export_download, fetch_gcd, fetch_prh,
     get, open_download, provider_json)
@@ -59,6 +59,12 @@ def test_isbn10_is_canonicalised_and_unknown_dates_relations_not_invented():
     source = prh(); source["title"]["title"] = "86"; source["title"]["seriesNumber"] = None
     with pytest.raises(ReviewRequired, match="VOLUME_NUMBER_REQUIRED"):
         normalise("PRH", source)
+
+
+def test_barcode_aliases_protect_legacy_rows_without_merging_comic_addons():
+    assert barcode_aliases("1-56931-901-4") == ["1569319014", "9781569319017"]
+    assert barcode_aliases("75960621349800112") == ["75960621349800112"]
+    assert barcode_aliases("759606213498") == ["0759606213498", "759606213498"]
 
 
 @pytest.mark.parametrize("change", [

@@ -10,7 +10,7 @@ import asyncpg
 
 from app.book_bulk_import import ImportPaused, apply_batch, _apply_one
 from app.book_catalogue import with_book_details
-from app.book_catalogue_sources import normalise
+from app.book_catalogue_sources import normalise, barcode_aliases
 from app.book_research import catalogue_candidates
 from book_bulk_samples import entry, gcd, publisher
 
@@ -35,6 +35,18 @@ async def exercise(db, users):
     assert all(r[0] == 'IMPORTED' for r in results), results
     assert all(r[0] == 'EXISTING' for r in await apply_batch(db, rows, 'fixture-retry'))
     assert await db.fetchval('select count(*) from tcg.catalogue_products') == baseline + 4
+
+    # Legacy manual rows can use ISBN-10. The ISBN-13 feed must not duplicate
+    # them; reconciliation belongs in review rather than a stock rewrite.
+    legacy = db.transaction(); await legacy.start()
+    try:
+        await db.execute("update tcg.catalogue_products set identity_key='fixture:legacy-isbn10' where id=$1", UUID(rows[0]['id']))
+        isbn10 = next(b for b in barcode_aliases(rows[0]['book']['barcode_gtin']) if len(b) == 10)
+        await db.execute('update tcg.comic_printing_details set barcode_gtin=$1 where catalogue_id=$2', isbn10, UUID(rows[0]['id']))
+        alternate = publisher(9101); alternate['record_id'] = 'isbn13-new-source'
+        assert (await apply_batch(db, [normalise('PUBLISHER', alternate)], 'legacy-alias'))[0][2] == 'BARCODE_IDENTITY_CONFLICT'
+    finally:
+        await legacy.rollback()
     assert await db.fetchval('select count(*) from tcg.provider_catalogue_mappings') == 4
 
     # A later publisher snapshot may change the source record, not the existing
