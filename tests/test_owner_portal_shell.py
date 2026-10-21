@@ -61,7 +61,7 @@ def test_compact_inventory_grid_moves_metadata_into_details() -> None:
         assert f'"{value}"' in details
     assert ".owner-item-facts" in css
     assert ".owner-item-fact dd" in css
-    assert 'href="/assets/owner-inventory.css?v=simple-v1"' in html
+    assert 'href="/assets/owner-inventory.css?v=book-library-v1"' in html
     assert 'src="/assets/owner-inventory.js?v=book-library-v1"' in html
 
 
