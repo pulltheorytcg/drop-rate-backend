@@ -239,7 +239,7 @@ window.DropRateCatalogue = (() => {
       finally{if(revision===this.revision)this.loading=false;}
     }
     async refreshPrices(rows,revision) {
-      const pending=rows.filter(row=>row.market_refresh_needed && !row.shared_price && !["STORED_SNAPSHOT","CARDMARKET_ESTIMATE"].includes(row.market_value_source));
+      const pending=rows.filter(row=>row.market_refresh_needed && (!row.shared_price || (row.shared_price.status === "STALE" && Number.isInteger(row.shared_price.last_known_minor))) && !["STORED_SNAPSHOT","CARDMARKET_ESTIMATE"].includes(row.market_value_source));
       if(!pending.length)return;
       try {
         const data=await this.client.request("/api/v1/catalogue-browser/market-values",{method:"POST",body:JSON.stringify({keys:pending.slice(0,40).map(row=>row.key)}),signal:this.controller?.signal});
@@ -248,7 +248,14 @@ window.DropRateCatalogue = (() => {
         for(const row of pending.slice(0,40)){
           const update=updates.get(row.key);if(!update)continue;
           changed=changed||row.market_value_minor!==update.market_value_minor;
+          const historical = row.shared_price?.status === "STALE" ? row.shared_price : null;
           Object.assign(row,update,{market_refresh_failed:Boolean(update.provider_refresh_failed)});
+          // A failed/empty refresh must not erase the dated guide already shown.
+          // Fresh prices take precedence and cannot retain a historical badge.
+          if (historical) {
+            if (Number.isInteger(update.market_value_minor) && update.market_value_minor > 0) delete row.shared_price;
+            else row.shared_price = historical;
+          }
           this.dialog.querySelectorAll('[data-price-key]').forEach(el=>{if(el.dataset.priceKey===row.key)el.textContent=marketPrice(row);});
           const detail=this.sheet.querySelector('[data-market-details]');
           if(detail?.dataset.marketDetails===row.key)this.renderMarketDetails(detail,row);

@@ -14,7 +14,7 @@ def main():
    if engine=='chromium' and os.environ.get('CHROMIUM_EXECUTABLE'):kwargs['executable_path']=os.environ['CHROMIUM_EXECUTABLE']
    browser=getattr(p,engine).launch(**kwargs)
    for width in (320,390,1440):
-    for status in ('AVAILABLE','REFERENCE_ESTIMATE','STALE','NEEDS_DETAILS','UNAVAILABLE','CATALOGUE_GUIDE','CONDITION_REFERENCE'):
+    for status in ('AVAILABLE','REFERENCE_ESTIMATE','STALE','NEEDS_DETAILS','UNAVAILABLE','CATALOGUE_GUIDE','CONDITION_REFERENCE','HISTORICAL_GUIDE'):
      page=browser.new_page(viewport={'width':width,'height':1000});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
      page.route('**/*',lambda r:r.fulfill(status=404,body='Synthetic image unavailable'))
      page.set_content('<html><head><meta name="viewport" content="width=device-width"></head><body><table><thead><tr><th>Card</th><th>Store price</th></tr></thead><tbody id="inventory-body"></tbody></table></body></html>')
@@ -25,6 +25,9 @@ def main():
       item['reference_value']['status']='NEEDS_DETAILS'
       item['catalogue_reference']={'status':status,'market_value_minor':132,'market_value_high_minor':170 if status=='CATALOGUE_GUIDE' else None,'label':'Catalogue guide' if status=='CATALOGUE_GUIDE' else 'Near-mint reference','basis':'English · Raw reference','reason':'Display only; copy details unconfirmed.','checked_at':'2026-10-15T12:00:00Z'}
      if status=='STALE':item['reference_value']['last_known_minor']=9900
+     if status=='HISTORICAL_GUIDE':
+      item['reference_value']['status']='NEEDS_DETAILS'
+      item['catalogue_reference']={'status':'STALE','market_value_minor':None,'last_known_minor':800,'last_known_high_minor':1200,'checked_at':'2026-10-14T12:00:00Z','basis':'English · Raw catalogue reference','source':'Cardmarket','reason':'Last recorded Cardmarket catalogue guide. Refresh unavailable; not a current value.','physical_valuation_eligible':False}
      page.evaluate('''item => {window.item=item;window.calls=[];window.state={session:{access_token:'synthetic',user:{id:'seller-fixture'}}};
        window.formatMoney=n=>n==null?'—':new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100);
        window.inventoryCardSubtitle=x=>x.card_number;window.conditionLabel=x=>x.condition;window.inventoryTypeLabel=x=>x.product_type;window.statusClass=()=>'';window.collectionStatus=x=>x.sale_intent==='PERSONAL_COLLECTION'?'In collection':x.status;
@@ -35,7 +38,7 @@ def main():
      page.evaluate('renderInventory({items:[item]})');page.wait_for_function("document.querySelector('[data-market-value-cell]')?.textContent!=='—'")
      assert page.evaluate('calls.length')==0,'Inventory prices must render from the initial payload without another request'
      founder=page.locator('[data-market-value-cell]').inner_text().strip()
-     if status in ('CATALOGUE_GUIDE','CONDITION_REFERENCE','STALE'):
+     if status in ('CATALOGUE_GUIDE','CONDITION_REFERENCE','STALE','HISTORICAL_GUIDE'):
       page.add_style_tag(content=(ROOT/'backend/app/static/catalogue-browser.css').read_text())
       page.add_script_tag(content=(ROOT/'backend/app/static/catalogue-browser.js').read_text())
       page.evaluate('''async()=>{
@@ -51,6 +54,10 @@ def main():
        sharedBrowse.filters.q='OP11-101';await sharedBrowse.load();
       }''')
       assert page.locator('[data-price-key]').inner_text().strip()==founder
+      if status=='HISTORICAL_GUIDE':
+       assert '£8.00–£12.00 · Last known 14/10/2026' == founder
+       assert page.evaluate('sharedBrowse.rows[0].market_value_minor') is None
+       if width in (390,1440):page.screenshot(path=str(OUT/f'{engine}-historical-search-{width}.png'),full_page=True)
       page.evaluate('''async()=>{sharedBrowse.filters.q='';sharedBrowse.filters.system_code='ONE_PIECE_CARD_GAME';
        sharedBrowse.set={system_code:'ONE_PIECE_CARD_GAME',set_id:'OP11',provider:'Punk Records'};await sharedBrowse.load()}''')
       assert page.locator('[data-price-key]').inner_text().strip()==founder
@@ -65,6 +72,7 @@ def main():
      elif status=='CATALOGUE_GUIDE':assert '£1.32–£1.70 · Catalogue guide' == seller
      elif status=='CONDITION_REFERENCE':assert '£1.32 · Near-mint reference' == seller
      elif status=='STALE':assert '£99.00 · Last known 11/10/2026' == seller
+     elif status=='HISTORICAL_GUIDE':assert '£8.00–£12.00 · Last known 14/10/2026' == seller
      else:assert '£0' not in seller and 'pending' not in seller.lower()
      assert all(call['method']=='GET' for call in page.evaluate('calls'))
      assert not errors,errors

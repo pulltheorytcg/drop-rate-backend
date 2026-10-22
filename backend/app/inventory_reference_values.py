@@ -178,7 +178,8 @@ async def add_shared_reference_values(connection, items: list[dict], *, now: dat
             comparison = resolve_reference_value(dict(item, condition='Near Mint'),
                 by_catalogue[str(item.get('catalogue_id'))], now=now)
             if comparison['status'] in {'AVAILABLE', 'STALE'}:
-                item['catalogue_reference'] = dict(comparison, status='CONDITION_REFERENCE',
+                item['catalogue_reference'] = dict(comparison,
+                    status='STALE' if comparison['status'] == 'STALE' else 'CONDITION_REFERENCE',
                     label='Near-mint reference', physical_valuation_eligible=False,
                     recommended_retail_minor=None,
                     reason='Shared near-mint reference. Record this copy’s condition before valuing it.')

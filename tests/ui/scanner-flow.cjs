@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const source = fs.readFileSync(path.join(__dirname, '../../backend/app/static/scanner-flow.js'), 'utf8');
+const priceSource = fs.readFileSync(path.join(__dirname, '../../backend/app/static/reference-value-display.js'), 'utf8');
 const deferred = () => {
   let resolve, reject;
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
@@ -20,7 +21,7 @@ function fixture(role = 'seller', request = async () => ({}), options = {}) {
   w.URL.createObjectURL = () => 'blob:preview';
   w.URL.revokeObjectURL = () => {};
   w.fetch = async () => ({ok:false});
-  w.eval(source);
+  w.eval(priceSource); w.eval(source);
   const session = {value:{access_token:'test-token',user:{id:'account-a'}}};
   const calls = [];
   const scanner = new w.DropRateScanner.Scanner({role, session: () => session.value,
@@ -649,6 +650,38 @@ async function matched(scanner, quantity = 1) {
     await f.scanner.confirmDetails();assert.equal(item.selected.catalogue_id,'buggy');
     assert.ok(f.calls.some(call=>call.url.endsWith('/references/select')));
     f.finish();checks+=1;
+  }
+  // A catalogue correction retains dated reference evidence throughout scanner
+  // review. Historical raw prices never count toward totals or value a slab.
+  for (const role of ['seller', 'founder']) {
+    const historical = {status:'STALE',market_value_minor:null,last_known_minor:1250,
+      checked_at:'2026-10-10T12:00:00Z',label:'Historical catalogue guide',
+      reason:'Last recorded guide; not a current value.',basis:'English · Raw catalogue reference',
+      physical_valuation_eligible:false,recommended_retail_minor:null};
+    const row = {key:'c:historical-card',catalogue_id:'historical-card',source_kind:'CATALOGUE',
+      name:'Historical card',card_number:'OP01-001',language:'English',product_type:'CARD',
+      market_value_minor:null,shared_price:historical};
+    const f = fixture(role, async url => url.endsWith('/resolve') ? result()
+      : url.endsWith('/games') ? {items:[]}
+      : url.includes('/products?') ? {items:[row],has_more:false}
+      : url.endsWith('/feedback') ? {} : {inventory:{inventory_code:'INV-HISTORY'}});
+    const s=f.scanner,item=await matched(s);s.openDetails(item);s.openSearch();
+    const input=s.details.querySelector('.dr-scan-search-input');input.value='Historical';
+    s.refreshSearch(true);await tick();
+    assert.match(s.details.querySelector('.dr-scan-search-result').textContent,/£12\.50 · Last known 10\/10\/2026/);
+    s.details.querySelector('.dr-scan-search-result').click();
+    assert.match(s.details.querySelector('.dr-scan-detail-identity').textContent,/£12\.50 · Last known 10\/10\/2026/);
+    assert.match(s.details.textContent,/not a current value/);
+    s.chooseGrader('PSA');
+    assert.doesNotMatch(s.details.textContent,/£12\.50|Last known/,'A raw historical guide is not a slab value');
+    s.chooseGrader('');await s.confirmDetails();s.showReview();
+    assert.equal(item.status,'added');
+    assert.match(s.review.querySelector('.dr-scan-card-value').textContent,/£12\.50 · Last known 10\/10\/2026/);
+    assert.match(s.find('.dr-scan-strip').textContent,/£12\.50 · Last known/);
+    assert.equal(s.totals().value,null);assert.equal(s.totals().unknown,1);
+    const intake=f.calls.find(call=>call.headers?.['Idempotency-Key']);
+    assert.ok(intake);assert.doesNotMatch(intake.body,/last_known|shared_price|market_value/);
+    f.finish();checks++;
   }
   // Slabs without a raw recognition run can select a released reference before certificate intake.
   for (const role of ['seller','founder']) {

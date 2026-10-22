@@ -84,6 +84,11 @@ window.DropRateScanner = (() => {
     && !item.slab?.conflicts?.length;
   // A raw reference valuation is never a quote for a different grader/grade.
   const valueOf = item => graded(item) ? item.savedGradedValue ?? null : selected(item)?.market_value_minor ?? null;
+  // Catalogue guides and historical quotes remain labelled display evidence;
+  // valueOf deliberately excludes historical amounts from scan totals.
+  const priceText = item => !graded(item) && selected(item)?.shared_price && window.DropRateReferenceValue
+    ? window.DropRateReferenceValue.text({reference_value: selected(item).shared_price}, money)
+    : valueOf(item) == null ? "Market value unavailable" : money(valueOf(item));
   const usableRun = item => item.run?.id && ["EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"].includes(item.run.decision || item.run.status);
   const icons = {
     photo: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="currentColor"/><circle cx="8" cy="8" r="2" fill="#465050"/><path d="m4 18 5-6 3 3 4-6 5 9" fill="#465050"/></svg>',
@@ -1054,7 +1059,7 @@ window.DropRateScanner = (() => {
         copy.append(node("strong", "", item.status === "processing" ? item.guess : name(item)));
         const card = snapshot(selected(item));
         if (!["processing", "queued"].includes(item.status)) copy.append(node("span", "", card.card_number || card.product_code || ""),
-          node("span", "", book(item) ? (item.status === "added" ? "Added to collection" : researching(item.bookResult) ? "Finding publisher cover…" : item.bookResult?.research?.selected_candidate_id ? "Ready to add" : "Review book") : item.status === "unresolved" ? "Check match" : money(valueOf(item))));
+          node("span", "", book(item) ? (item.status === "added" ? "Added to collection" : researching(item.bookResult) ? "Finding publisher cover…" : item.bookResult?.research?.selected_candidate_id ? "Ready to add" : "Review book") : item.status === "unresolved" ? "Check match" : priceText(item)));
         tile.append(copy);
         const queued = node("div", "dr-scan-queued"), remove = this.removeControl(item, "dr-scan-remove-queued");
         remove.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg>';
@@ -1090,7 +1095,7 @@ window.DropRateScanner = (() => {
         row.append(node("h3", "", item.status === "queued" ? "Photo queued" : item.status === "processing" ? "Recognising…" : name(item)), node("p", "dr-scan-card-meta", meta(item)));
         const body = node("div", "dr-scan-review-body"); body.append(this.thumb(item, "dr-scan-review-thumb"));
         const copy = node("div", "dr-scan-review-copy");
-        copy.append(node("strong", "dr-scan-card-value", valueOf(item) == null ? "Market value unavailable" : money(valueOf(item))));
+        copy.append(node("strong", "dr-scan-card-value", priceText(item)));
         const fields = node("dl");
         const card = snapshot(selected(item));
         const bookFields = item.bookResult?.fields || {};
@@ -1248,14 +1253,16 @@ window.DropRateScanner = (() => {
       const candidateItem = {...item, ...edit, selected: edit.selected, savedGradedValue: null};
       const marketValue = valueOf(candidateItem);
       const info = node("div", "dr-scan-detail-identity");
-      info.append(node("h3", "", name(candidateItem)), node("strong", "", marketValue == null ? "Market value unavailable" : money(marketValue)),
+      info.append(node("h3", "", name(candidateItem)), node("strong", "", priceText(candidateItem)),
         node("p", "", meta(candidateItem)));
       content.append(info);
       if (marketValue == null) content.append(node("p", "dr-scan-review-note", isGraded
         ? "No verified value is available here for this grader and grade. You can still add the slab."
-        : "A market value isn’t available yet. You can still add this item."));
+        : "A current market value isn’t available yet. You can still add this item."));
       else if (edit.selected.recommended_retail_minor != null) content.append(node("p", "dr-scan-review-note",
         "Suggested retail: " + money(edit.selected.recommended_retail_minor) + " · reference value, not a live quote"));
+      if (!isGraded && edit.selected?.shared_price && window.DropRateReferenceValue) content.append(node("p", "dr-scan-review-note",
+        window.DropRateReferenceValue.description({reference_value: edit.selected.shared_price})));
       if (item.error) content.append(node("p", "dr-scan-item-error", item.error));
       if (!usableRun(item) && !isGraded) {
         const retry = button("Retry this photo", () => { this.closeDetails(); this.recognise(item.photo, item); });
@@ -1525,7 +1532,7 @@ window.DropRateScanner = (() => {
           const candidate = this.searchCandidate(row), choice = button("", () => this.chooseSearch(row), "dr-scan-search-result");
           choice.append(this.thumb({selected: candidate}, "dr-scan-search-art", candidate));
           const copy = node("span"); copy.append(node("strong", "", row.name), node("small", "", meta({selected: candidate})),
-            node("small", "", graded(edit) ? "Choose grader in details" : row.market_value_minor == null ? "Market value unavailable" : money(row.market_value_minor)));
+            node("small", "", graded(edit) ? "Choose grader in details" : priceText({selected: candidate})));
           choice.append(copy); results.append(choice);
         }
         if (data.has_more) {

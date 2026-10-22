@@ -77,7 +77,7 @@ async def read_shared_prices(connection, rows=None, *, now=None):
 The canonical directory is small compared with the provider catalogue. Reference
 lookups use its number-key index in batches, retaining every parallel candidate.
 """
-    if rows is not None and not any(row.get('card_number') for row in rows):
+    if rows is not None and not any(row.get('card_number') or row.get('product_type') == 'COMIC' for row in rows):
         return {}
     now = now or datetime.now(timezone.utc)
     products = [dict(p) for p in await connection.fetch(PRODUCTS)]

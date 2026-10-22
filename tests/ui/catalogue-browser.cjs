@@ -4,7 +4,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=book-bulk-v1'), 'Seller Hub must load the publisher and GCD attribution script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=catalogue-history-v1'), 'Seller Hub must load the publisher and GCD attribution script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=simple-v1'), 'Seller Hub must load the fresh mobile sort styles');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -206,6 +206,31 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.equal(f.browser.sheet.querySelector('select'),select);assert.equal(select.value,'Near Mint');
   const request=f.calls.find(call=>call.url.endsWith('/market-values'));
   assert.equal(request.method,'POST');assert.deepEqual(JSON.parse(request.body).keys,[ref.key]);
+  f.finish();checks++;
+ }
+ for (const outcome of ['empty', 'failed', 'current']) {
+  const waiting=deferred(),history={status:'STALE',last_known_minor:800,last_known_high_minor:1200,
+    checked_at:'2026-10-01T12:00:00Z',physical_valuation_eligible:false,reason:'Historical catalogue guide'};
+  const ref={...card,key:'r:'+'e'.repeat(32),provider:'TCGdex',source_kind:'REFERENCE',
+    market_refresh_needed:true,shared_price:history};
+  const f=fixture(async url=>url.endsWith('/market-values')?waiting.promise:{items:[ref]});
+  f.browser.filters.q='Stored guide';await f.browser.open();f.browser.openProduct(ref);
+  assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,1,'Historical display must not suppress refresh');
+  assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/£8.00–£12.00 · Last known 01\/10\/2026/);
+  waiting.resolve({items:[{key:ref.key,market_value_minor:outcome==='current'?1500:null,
+    market_value_high_minor:outcome==='current'?1800:null,market_value_source:'TCGDEX_CARDMARKET',
+    shared_price:null,provider_refresh_failed:outcome==='failed',market_refresh_needed:false}]});
+  await tick();
+  if(outcome==='current') {
+    assert.equal(ref.shared_price,undefined);
+    assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Reference: £15.00–£18.00/);
+    assert.doesNotMatch(f.browser.find('[data-price-key]').textContent,/Last known/);
+  } else {
+    assert.equal(ref.market_value_minor,null,'History cannot become current money');
+    assert.equal(ref.shared_price,history);
+    assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Last known 01\/10\/2026/);
+    assert.match(f.browser.find('[data-price-key]').textContent,/£8.00–£12.00/);
+  }
   f.finish();checks++;
  }
  {

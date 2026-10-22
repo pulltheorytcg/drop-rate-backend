@@ -91,6 +91,21 @@ async function click(w,text){const b=btn(w,text);assert.ok(b,`Missing ${text}`);
   assert.ok(f.w.document.querySelector('.owner-item-dialog .owner-item-values').textContent.includes("Last known 08/10/2026"));
   f.finish();checks++;
  }
+ // A stale near-mint comparison for an unfinished copy keeps its history badge.
+ {
+  const old={...item,market_value_minor:null,condition:null,product_type:'CARD',seal_status:null,
+    reference_value:{status:'NEEDS_DETAILS',market_value_minor:null},
+    catalogue_reference:{status:'STALE',last_known_minor:800,last_known_high_minor:1200,
+      checked_at:'2026-10-14T12:00:00Z',physical_valuation_eligible:false}};
+  const f=fixture(old);f.run(`renderInventoryCards([${JSON.stringify(old)}]);renderInventoryRows([${JSON.stringify(old)}]);`);
+  assert.equal(f.w.DropRateReferenceValue.isHistorical(old),true);
+  assert.match(f.w.document.querySelector('.owner-card-prices').textContent,/£8.00–£12.00/);
+  assert.match(f.w.document.querySelector('.owner-card-historical-label').textContent,/Historical reference/);
+  assert.match(f.w.document.querySelector('.owner-table-historical-label').textContent,/Historical reference/);
+  f.w.document.querySelector('.owner-card-open-overlay').click();await tick();
+  assert.match(f.w.document.querySelector('.owner-item-values').textContent,/£8.00–£12.00 · Last known 14\/10\/2026/);
+  assert.equal(old.market_value_minor,null);f.finish();checks++;
+ }
  // Clicking a refresh button must never open the detail sheet, even when it
  // is laid above the stretched tile button.
  {

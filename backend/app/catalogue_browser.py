@@ -29,6 +29,7 @@ from .catalogue_set_artwork import resolve_set_artwork, artwork_coverage
 from .cardtrader_recognition import _cardtrader_image_url
 from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 from .catalogue_display_prices import read_shared_prices, with_shared_price
+from .catalogue_price_history import add_reference_history
 from .book_catalogue import with_book_details
 
 router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"])
@@ -487,6 +488,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
             missing = [dict(row) for row in rows[:limit] if row.get('market_value_minor') is None]
             shared = await read_shared_prices(connection, missing)
             rows = [with_shared_price(row, shared) for row in rows]
+        rows = await add_reference_history(connection, rows)
         rows = await with_book_details(connection, rows)
     # This bounded page is a suggestion pool, never a verified match. Filtering
     # is deliberately server-side and separate from ordinary manual search.

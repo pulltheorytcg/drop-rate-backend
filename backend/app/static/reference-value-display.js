@@ -17,7 +17,9 @@ window.DropRateReferenceValue = Object.freeze({
     }
     if (Number.isInteger(ref.last_known_minor) && ref.checked_at) {
       const date = new Date(ref.checked_at);
-      if (!Number.isNaN(date.getTime())) return money(ref.last_known_minor) + " · Last known " + date.toLocaleDateString("en-GB");
+      if (!Number.isNaN(date.getTime())) return money(ref.last_known_minor)
+        + (Number.isInteger(ref.last_known_high_minor) && ref.last_known_high_minor > ref.last_known_minor ? "–" + money(ref.last_known_high_minor) : "")
+        + " · Last known " + date.toLocaleDateString("en-GB");
     }
     return ({STALE: "Stale evidence — value unavailable", NEEDS_DETAILS: "Confirm details for value"})[ref.status] || "No exact market evidence";
   },
@@ -29,7 +31,10 @@ window.DropRateReferenceValue = Object.freeze({
   compactText(item, money) {
     // The exact observation date remains visible in details, not the mobile
     // two-column grid. A visual historical label is added by the tile itself.
-    return this.isHistorical(item) ? money(this.displayReference(item).last_known_minor) : this.text(item, money);
+    if (!this.isHistorical(item)) return this.text(item, money);
+    const ref = this.displayReference(item);
+    return money(ref.last_known_minor)
+      + (Number.isInteger(ref.last_known_high_minor) && ref.last_known_high_minor > ref.last_known_minor ? "–" + money(ref.last_known_high_minor) : "");
   },
   recommendedMinor(item) {
     const ref = item?.reference_value;
