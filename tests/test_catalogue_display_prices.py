@@ -88,6 +88,21 @@ def test_cached_reference_price_and_identity_take_precedence_over_alias_fallback
     assert with_shared_price(row, prices) == row
 
 
+@pytest.mark.asyncio
+async def test_book_only_page_without_card_number_still_resolves_book_price(monkeypatch):
+    from app import catalogue_display_prices as display
+    book = dict(catalogue_id=uuid4(), product_type='COMIC', card_number=None)
+    expected = {'c:' + str(book['catalogue_id']): {'market_value_minor': 1200}}
+    class Connection:
+        async def fetch(self, sql, *args):
+            return []
+    async def book_prices(connection, rows, *, now):
+        assert rows == [book] and now == NOW
+        return expected
+    monkeypatch.setattr(display, 'read_book_prices', book_prices)
+    assert await display.read_shared_prices(Connection(), [book], now=NOW) == expected
+
+
 @pytest.mark.parametrize('sort', ['value_asc', 'value_desc'])
 def test_value_sort_includes_shared_price_before_pagination(sort):
     import json

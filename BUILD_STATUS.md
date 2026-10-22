@@ -1,5 +1,39 @@
 # Build status
 
+## 22 October 2026 — Catalogue price visibility recovery (release verification pending)
+
+The founder requested live app polish, prioritising missing artwork and prices.
+A read-only audit measured 37,504 / 67,060 physical reference records with recent
+supported values or labelled guides, with 3,060 English Pokémon records classed
+as stale. Missing Pokémon image URLs remain 10,364 (1,240 English including
+159 digital Pocket entries, 9,124 Japanese); this patch does not claim to fill
+those source gaps.
+
+Catalogue browsing now returns eligible dated Cardmarket guides as explicitly
+last-known ranges when current evidence is unavailable. They keep original source,
+identity, currency conversion and observation dates; current valuation fields,
+retail recommendations, portfolio totals and value sorting stay unchanged. The
+existing on-demand refresh continues, preserves the dated display on empty/failed
+responses and replaces it when a current value arrives. Search, scanner review,
+founder and seller views share the same labels. Book-only lookups no longer skip
+shared-price resolution; stale near-mint comparisons retain their historical label.
+
+No schema, owner, stock, Shopify listing, provider credential or paid-plan change.
+All 6,276 Python tests and the full Node UI suite passed before final review;
+PostgreSQL and Chromium/WebKit CI release gates must pass on the final PR head.
+Local browser binary downloads were blocked by the network gateway. Railway
+project discovery did not respond, so a live deployment is not claimed here.
+The saved comic/manga artwork release still requires exact live asset readback.
+Capacity recovery completed through the existing full-content-guarded helper:
+42,724 history rows were exported, restored with exact row/quote digests, uploaded
+to the verified private Drop Rate Drive, downloaded and checksum/ZIP-CRC checked.
+The committed archive reclaimed 66,281,472 bytes; fresh database size is
+336,047,251 bytes (previously 402,328,723), writable and below the unchanged
+400 MB guard. Inventory and all three current-price-cache digests are unchanged.
+Drive archive: `1IkHkFIN3EeJXxFvGZDZI0vNazqJL9pwW`; package SHA-256:
+`7c923dbec50db19c60abf02ec973538f3410e9750a31869ba998c245849aea81`.
+Fresh pricing jobs and improved coverage still need live observation.
+
 ## 21 October 2026 — Comic and manga bulk imports prepared for more storage
 
 The founder requested preparation now and the large data load after a storage

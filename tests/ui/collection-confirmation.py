@@ -48,8 +48,17 @@ def main():
                         page.route('**/*',lambda route:route.abort())
                         page.set_content('<html><head><meta name="viewport" content="width=device-width"></head><body></body></html>')
                         page.add_style_tag(content=(ROOT/'backend/app/static/scanner-flow.css').read_text())
+                        page.add_script_tag(content=(ROOT/'backend/app/static/reference-value-display.js').read_text())
                         page.add_script_tag(content=(ROOT/'backend/app/static/scanner-flow.js').read_text())
                         page.evaluate(FIXTURE,{'mode':mode,'role':role})
+                        if mode=='RAW' and role=='seller':
+                            page.evaluate('''item.selected.shared_price={status:'STALE',market_value_minor:null,
+                                last_known_minor:1250,checked_at:'2026-10-10T12:00:00Z',
+                                basis:'Japanese · Raw catalogue reference',
+                                reason:'Last recorded guide; not a current value.',physical_valuation_eligible:false};
+                                scanner.renderDetails();''')
+                            assert '£12.50 · Last known 10/10/2026' in page.locator('.dr-scan-detail-identity').inner_text()
+                            assert page.evaluate('scanner.totals().value') is None
                         confirm=page.locator('[data-details-save]')
                         assert confirm.inner_text()=='Add to collection'
                         assert confirm.is_enabled()
@@ -69,6 +78,9 @@ def main():
                         assert payload['language']=='Japanese'
                         assert all('/refresh-market' not in c['url'] and '/sync' not in c['url'] and '/approval-request' not in c['url'] for c in summary['calls'])
                         assert page.locator('.dr-scan-added').inner_text()=='Added to collection'
+                        if mode=='RAW' and role=='seller':
+                            assert '£12.50 · Last known 10/10/2026' in page.locator('.dr-scan-review-item.added .dr-scan-card-value').inner_text()
+                            assert page.evaluate('scanner.totals().value') is None
                         await_saves=len(saves);page.evaluate('scanner.saveAll()')
                         assert len(page.evaluate('calls.filter(c=>c.headers?.["Idempotency-Key"])'))==await_saves
                         assert not errors,errors

@@ -66,6 +66,27 @@ def test_reference_totals_and_groups_do_not_promote_unknowns():
     assert reference_totals([data[2]])['total_minor'] is None
     groups=reference_top_groups(data);assert len(groups)==1 and groups[0]['holding_value_minor']==2400 and groups[0]['quantity']==2
 
+
+@pytest.mark.asyncio
+async def test_unknown_condition_comparison_preserves_stale_status_and_excludes_portfolio(monkeypatch):
+    from app.inventory_reference_values import add_shared_reference_values, REFERENCE_VALUES_SQL
+    from app import inventory_catalogue_reference
+    raw = item(); raw['condition'] = None
+    evidence = snapshot(evidence_checked_at=NOW-timedelta(days=8))
+    class Connection:
+        async def fetch(self, sql, *args):
+            assert sql == REFERENCE_VALUES_SQL
+            return [evidence]
+    async def no_guide(connection, items, *, now):
+        return items
+    monkeypatch.setattr(inventory_catalogue_reference, 'add_catalogue_references', no_guide)
+    await add_shared_reference_values(Connection(), [raw], now=NOW)
+    assert raw['catalogue_reference']['status'] == 'STALE'
+    assert raw['catalogue_reference']['last_known_minor'] == 1200
+    assert raw['catalogue_reference']['checked_at'] == evidence['evidence_checked_at']
+    assert raw['market_value_minor'] is None
+    assert reference_totals([raw])['total_minor'] is None
+
 @pytest.mark.parametrize('url',['https://cdn.shopify.com/x.png','https://assets.tcgdex.net/en/x.png'])
 def test_direct_image_url_safe_hosts(url):assert direct_image_url(url)==url
 @pytest.mark.parametrize('url',['http://cdn.shopify.com/x','https://cdn.shopify.com.evil.test/x','https://user:pass@cdn.shopify.com/x','https://127.0.0.1/x','https://cdn.shopify.com:81/x','javascript:alert(1)'])

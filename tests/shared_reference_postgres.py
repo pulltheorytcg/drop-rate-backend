@@ -209,6 +209,48 @@ async def main():
     assert shown['shared_price']['checked_at'].isoformat()==displays[n]['checked_at']
     assert shown['catalogue_id'] is None and shown['owned_quantity']==0
   assert before==await state(),'Search pricing changed stock, shared prices or ownership'
+  # The new page-scoped historical query executes as the restricted app role,
+  # including catalogue-only references with no canonical product or owner stock.
+  from app.catalogue_price_history import add_reference_history
+  for price_table in ('reference_market_prices','reference_catalogue_prices'):
+   await db.execute(f"alter table tcg.{price_table} add column market_value_minor bigint,add column market_value_high_minor bigint,add column pricing_updated_at timestamptz")
+  await db.execute("insert into tcg.reference_sets(provider,system_code,language,set_id,name) values('TCGdex','POKEMON_TCG','English','history','History fixture')")
+  await db.execute("insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number) values('TCGdex','POKEMON_TCG','English','history-001','history','Historical card','001')")
+  history_now=datetime.now(timezone.utc);history_date=history_now-timedelta(days=8)
+  history_quotes=[dict(source='TCGDEX_CARDMARKET',reference_language='English',finish='Normal',
+    price_gbp_minor=800,original_minor=1000,original_currency='EUR',fx_source='ECB_EURO_REFERENCE_RATES',
+    fx_rate_to_gbp='0.8',observed_at=history_date.isoformat())]
+  history_quotes.append(dict(history_quotes[0],finish='Reverse Holofoil',price_gbp_minor=1200,original_minor=1500))
+  await db.execute("""insert into tcg.reference_market_prices(provider,system_code,language,provider_id,quotes,
+    market_value_minor,market_value_high_minor,pricing_updated_at)
+    values('TCGdex','POKEMON_TCG','English','history-001',$1::jsonb,800,1200,$2)""",history_quotes,history_date)
+  history_row=dict(provider='TCGdex',system_code='POKEMON_TCG',language='English',provider_id='history-001',
+    source_kind='REFERENCE',market_value_minor=None,market_refresh_needed=True,catalogue_id=None,owned_quantity=0)
+  history_row['key']=reference_key(history_row)
+  current_row=dict(history_row,key='current',market_value_minor=1500)
+  history_before=await state()
+  price_before=await db.fetchval("select jsonb_agg(to_jsonb(x) order by provider_id) from tcg.reference_market_prices x")
+  shown_history=[]
+  for n in range(2):
+   async with user_connection(pool,actors[n],'historical-browse') as c:
+    assert await c.fetchval('select current_user')=='tcg_api'
+    assert not await c.fetchval("select has_table_privilege(current_user,'tcg.reference_market_prices','INSERT')")
+    result=await add_reference_history(c,[current_row,history_row],now=history_now)
+    assert result[0]==current_row and result[1]['market_value_minor'] is None
+    assert result[1]['market_refresh_needed'] is True
+    assert result[1]['catalogue_id'] is None and result[1]['owned_quantity']==0
+    historical=result[1]['shared_price'];shown_history.append(historical)
+    assert historical['last_known_minor']==800 and historical['last_known_high_minor']==1200
+    assert historical['checked_at']==history_date and historical['status']=='STALE'
+    assert historical['physical_valuation_eligible'] is False and historical['recommended_retail_minor'] is None
+    wrong_language=dict(history_row,language='Japanese')
+    assert await add_reference_history(c,[wrong_language],now=history_now)==[wrong_language]
+  assert shown_history[0]==shown_history[1]
+  assert history_before==await state(),'Historical GET changed stock, snapshots or owner state'
+  assert price_before==await db.fetchval("select jsonb_agg(to_jsonb(x) order by provider_id) from tcg.reference_market_prices x"),'Historical GET changed source evidence'
+  await db.execute("update tcg.reference_sets set release_date=current_date+1 where set_id='history'")
+  async with user_connection(pool,actors[1],'unreleased-history') as c:
+   assert await add_reference_history(c,[history_row],now=history_now)==[history_row]
   await db.execute("insert into tcg.provider_catalogue_mappings(catalogue_id,provider_language,match_status) values($1,'English','REJECTED')",guide_card)
   async with user_connection(pool,actors[1],'rejected-guide') as c:
    value=next(r for r in await reference_portfolio(c,[owners[1]]) if r['id']==guide_items[1])
