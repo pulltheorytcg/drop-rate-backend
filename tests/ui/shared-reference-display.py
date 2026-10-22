@@ -1,4 +1,4 @@
-"""Actual owner details and founder market column; synthetic read-only API.
+"""Actual owner details and founder market column; synthetic API responses.
 Not production login, camera recognition, or live provider-price acceptance.
 """
 import json,os
@@ -49,7 +49,10 @@ def main():
         source_kind:'REFERENCE',variant:'OP11-101',card_number:'OP11-101',catalogue_id:null,owned_quantity:0,
         market_value_minor:ref.market_value_minor,shared_price:ref,market_refresh_needed:true};
        window.browseCalls=[];window.sharedBrowse=new DropRateCatalogue.Browser({host,
-        client:{owner:'synthetic',active:()=>true,request:async(path,options={})=>{browseCalls.push({path,method:options.method||'GET'});return {items:[row]}}},
+        client:{owner:'synthetic',active:()=>true,request:async(path,options={})=>{
+         browseCalls.push({path,method:options.method||'GET'});
+         return path.endsWith('/market-values')?{items:[{key:row.key,market_value_minor:null,provider_refresh_failed:true}]}:{items:[row]};
+        }},
         navigate:()=>{},scan:()=>{}});
        sharedBrowse.filters.q='OP11-101';await sharedBrowse.load();
       }''')
@@ -61,7 +64,10 @@ def main():
       page.evaluate('''async()=>{sharedBrowse.filters.q='';sharedBrowse.filters.system_code='ONE_PIECE_CARD_GAME';
        sharedBrowse.set={system_code:'ONE_PIECE_CARD_GAME',set_id:'OP11',provider:'Punk Records'};await sharedBrowse.load()}''')
       assert page.locator('[data-price-key]').inner_text().strip()==founder
-      assert all(call['method']=='GET' and '/market-values' not in call['path'] for call in page.evaluate('browseCalls'))
+      browse_calls=page.evaluate('browseCalls')
+      refreshes=[call for call in browse_calls if call['path'].endswith('/market-values')]
+      assert all(call['method']=='GET' or (call['method']=='POST' and call['path'].endswith('/market-values')) for call in browse_calls)
+      assert len(refreshes)==(2 if status in ('STALE','HISTORICAL_GUIDE') else 0),'Only dated guides should request a refresh; no inventory writes'
       assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(engine,width,status,'catalogue')
       if width==390 and status=='CONDITION_REFERENCE':page.screenshot(path=str(OUT/f'{engine}-search-set-immediate-390.png'),full_page=True)
       page.evaluate('sharedBrowse.destroy()')
@@ -81,5 +87,5 @@ def main():
       page.screenshot(path=str(OUT/f'{engine}-{width}-{status}.png'),full_page=True)
      results.append({'engine':engine,'width':width,'status':status,'same_display':True});page.close()
    browser.close()
- (OUT/'results.json').write_text(json.dumps(results,indent=2));print(f'PASS {len(results)} paired founder/seller display cases; API responses synthetic and GET-only.')
+ (OUT/'results.json').write_text(json.dumps(results,indent=2));print(f'PASS {len(results)} paired founder/seller display cases; synthetic responses, bounded stale-guide refresh and no inventory writes.')
 if __name__=='__main__':main()
