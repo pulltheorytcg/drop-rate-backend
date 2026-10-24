@@ -6,6 +6,7 @@ No product order, price order, parallel suffix or translated name is guessed.
 from __future__ import annotations
 
 import asyncio
+import html
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -32,6 +33,11 @@ REFERENCE_RELEASE_ALIASES = {
     (MASTERS, '428301', 'Series 1 Starter -THE AWAKING-'): 'The Awakening',
     (FUSION, '583011', 'BOOSTER PACK -BRIGHTNESS OF HOPE- [FB11]'): 'Brigtness Of Hope',
 }
+
+# Starter checklists publish two-digit numbers (FS01-03), whereas booster
+# numbers have three digits. Compare the supplied strings exactly: never pad
+# numbers, borrow another release, or translate printing/parallel suffixes.
+FUSION_NUMBER = r'(?:(?:FB|SB|ST)\d{2}-\d{3}|FS\d{2}-\d{2,3})'
 
 
 def reference_expansion(ref, expansions):
@@ -148,7 +154,7 @@ def numbered_fusion_matches(references, singles, packaging):
                 1049, 'Dragon Ball Super Singles'):
             continue
         label = str(product.get('name') or '')
-        numbers = re.findall(r'\b(?:FB|FS|SB|ST)\d{2}-\d{3}\b', label)
+        numbers = re.findall(rf'\b{FUSION_NUMBER}\b', label)
         for number in set(numbers):
             # Count extra suffixes too. They cannot silently disappear from
             # uniqueness checks merely because only the base row has a price.
@@ -165,9 +171,12 @@ def numbered_fusion_matches(references, singles, packaging):
         if len(candidates) != 1:
             continue
         product = candidates[0]
-        match = re.fullmatch(r'(.+) \(((?:FB|FS|SB|ST)\d{2}-\d{3})\) \[Fusion World\]',
+        match = re.fullmatch(rf'(.+) \(({FUSION_NUMBER})\) \[Fusion World\]',
                              product.get('name', ''))
-        if match and match[2] == number and normalized(match[1]) == normalized(ref['name']):
+        # Some official alt labels retain escaped apostrophes. Decode HTML
+        # text once on both sides; keep the original identity in the quote.
+        if (match and match[2] == number and
+                normalized(html.unescape(match[1])) == normalized(html.unescape(ref['name']))):
             result[(FUSION, ref['provider_id'])] = product
     return result
 

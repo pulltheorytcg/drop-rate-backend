@@ -1,5 +1,24 @@
 # Build status
 
+## 24 October 2026 - Remaining pricing recovery (release verification pending)
+
+Live baseline: 40,548 / 67,065 physical reference cards have supported dated
+GBP values or labelled guides (60.46%). Database size is 395,906,195 bytes,
+close to the unchanged 400 MB bulk-refresh guard. Verified archival and a
+bounded new-price backfill are being prepared; neither is claimed complete.
+
+This patch fixes Fusion starter collector-number parsing and escaped names,
+revalidates existing Pokémon CardTrader guides even with detailed coverage,
+and keeps original cached evidence through provider outages. Current values,
+historical display, exact-copy pricing and source ambiguity remain separate.
+Reference importer revision 23 retains the weekly schedule and capacity guard.
+See [scope, validation and recovery](docs/PRICING_RECOVERY_20261024.md).
+
+The preceding PR #698 release is verified live: Railway deployment
+771e99ad-bb33-4817-b5a2-03ed1ed6b4d8 reached SUCCESS, readiness is healthy,
+and source asset readbacks matched main 73a07bd. Its earlier pending status
+below records the state when that patch was committed.
+
 ## 22 October 2026 — Catalogue price visibility recovery (release verification pending)
 
 The founder requested live app polish, prioritising missing artwork and prices.

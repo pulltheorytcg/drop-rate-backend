@@ -195,3 +195,26 @@ async def test_same_source_product_cannot_silently_price_different_releases():
         async def list_blueprints(self,*,expansion_id):return [dict(blueprint,id=expansion_id,expansion_id=expansion_id)]
     matches,report,failed=await cardtrader_matches(ReusedId(expansion,[blueprint]),refs,singles,{})
     assert not matches and not failed and report['cross_release_conflicts']==2
+
+@pytest.mark.asyncio
+async def test_existing_bridge_is_revalidated_even_when_detailed_quote_covers_card():
+    refs,expansion,blueprint,singles=fixture()
+    refs[0].update(current_detail_priced=True, existing_match_basis=MATCH_BASIS)
+    matches,report,failed=await cardtrader_matches(Client(expansion,[blueprint]),refs,singles,{})
+    assert list(matches)==['xyp-XY01']
+    assert report['sets_checked']==1 and report['provider_calls']==4 and not failed
+
+    # Conflicting new printings must still invalidate the bridge.
+    duplicate=dict(blueprint,id=999,card_market_ids=[])
+    matches,report,failed=await cardtrader_matches(Client(expansion,[blueprint,duplicate]),refs,singles,{})
+    assert not matches and report['sets_checked']==1 and not failed
+
+
+@pytest.mark.asyncio
+async def test_existing_covered_bridge_outage_is_reported_for_cache_preservation():
+    refs,expansion,blueprint,singles=fixture()
+    refs[0].update(current_detail_priced=True, existing_match_basis=MATCH_BASIS)
+    class Outage(Client):
+        async def list_blueprints(self,**kwargs):raise CardTraderApiError('Unavailable',status_code=503)
+    matches,report,failed=await cardtrader_matches(Outage(expansion,[blueprint]),refs,singles,{})
+    assert not matches and report['provider_failures']==1 and failed=={'xyp'}

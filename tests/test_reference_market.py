@@ -141,6 +141,123 @@ async def test_cache_retry_and_provider_failure_preserve_recent_quote_without_ho
     assert len(writes)==1 and fetches==1
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize('cached', ['stale', 'mixed_age', 'empty'])
+async def test_failed_refresh_retains_complete_cache_but_never_returns_expired_quotes(monkeypatch, cached):
+    now = datetime.now(timezone.utc)
+    quotes = []
+    if cached != 'empty':
+        quote = (await market.tcgdex_quotes(PAYLOAD, REFERENCE, FX(), now=NOW))[0]
+        quote['observed_at'] = (now-timedelta(days=8)).isoformat()
+        quotes.append(quote)
+        if cached == 'mixed_age':
+            quotes.append(dict(quote, variant_id='recent', price_gbp_minor=10,
+                               observed_at=now.isoformat()))
+    previous = deepcopy(quotes)
+    rows = [{**REFERENCE, 'quotes': quotes, 'expires_at': now-timedelta(minutes=1)}]
+    writes = []
+    class Connection:
+        async def fetch(self, sql, keys): return rows
+        async def execute(self, sql, *args): writes.append((sql, args))
+    @asynccontextmanager
+    async def connection(*args): yield Connection()
+    async def failed(*args, **kwargs): raise httpx.ReadTimeout('provider down')
+    monkeypatch.setattr(market, 'user_connection', connection)
+    monkeypatch.setattr(market, 'fetch_quotes', failed)
+    view = (await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY]))[0]
+    assert view['provider_refresh_failed'] is True
+    assert view['market_value_minor'] == (10 if cached == 'mixed_age' else None)
+    assert view['market_quotes'] == (quotes[1:] if cached == 'mixed_age' else [])
+    assert quotes == previous
+    assert len(writes) == 1 and writes[0][0] == market.FAILED_REFRESH_SQL
+    identity = tuple(REFERENCE[key] for key in ('provider', 'system_code', 'language', 'provider_id'))
+    assert writes[0][1][:4] == identity
+    assert writes[0][1][-1]-writes[0][1][-2] == timedelta(minutes=5)
+    # An initial failure's empty cache entry must back off like existing entries.
+    rows[0]['expires_at'] = writes[0][1][-1]
+    await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY])
+    assert len(writes) == 1
+
+
+@pytest.mark.asyncio
+async def test_old_revision_failure_backs_off_without_marking_evidence_validated(monkeypatch):
+    now = datetime.now(timezone.utc)
+    quote = (await market.tcgdex_quotes(PAYLOAD, REFERENCE, FX(), now=NOW))[0]
+    row = {**REFERENCE, 'quotes': [quote], 'refresh_revision': market.REVISION-1,
+           'checked_at': now-timedelta(hours=1), 'expires_at': now+timedelta(hours=23)}
+    fetches = 0
+    writes = []
+    class Connection:
+        async def fetch(self, sql, keys): return [row]
+        async def execute(self, sql, *args):
+            assert sql == market.FAILED_REFRESH_SQL
+            writes.append((sql, args))
+            row.update(checked_at=args[-2], expires_at=args[-1])
+    @asynccontextmanager
+    async def connection(*args): yield Connection()
+    async def failed(*args, **kwargs):
+        nonlocal fetches
+        fetches += 1
+        raise httpx.ReadTimeout('provider down')
+    monkeypatch.setattr(market, 'user_connection', connection)
+    monkeypatch.setattr(market, 'fetch_quotes', failed)
+    # A previous revision's normal long TTL must not suppress revalidation.
+    await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY])
+    assert fetches == 1 and len(writes) == 1
+    assert row['refresh_revision'] == market.REVISION-1 and row['quotes'] == [quote]
+    # The failed revalidation gets the same five-minute retry protection.
+    await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY])
+    assert fetches == 1 and len(writes) == 1
+    # An explicit forced refresh retains its existing bypass behavior.
+    await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY], force=True)
+    assert fetches == 2 and len(writes) == 2
+    assert row['refresh_revision'] == market.REVISION-1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('checked_delta, expires_delta', [(None, 4), (1, 4), (-1, 5), (-6, -1)])
+async def test_old_revision_only_honors_valid_short_retry_interval(monkeypatch, checked_delta, expires_delta):
+    now = datetime.now(timezone.utc)
+    row = {**REFERENCE, 'quotes': [], 'refresh_revision': market.REVISION-1,
+           'checked_at': now+timedelta(minutes=checked_delta) if checked_delta is not None else None,
+           'expires_at': now+timedelta(minutes=expires_delta)}
+    fetches = 0
+    class Connection:
+        async def fetch(self, sql, keys): return [row]
+        async def execute(self, *args): pass
+    @asynccontextmanager
+    async def connection(*args): yield Connection()
+    async def no_quotes(*args, **kwargs):
+        nonlocal fetches
+        fetches += 1
+        return []
+    monkeypatch.setattr(market, 'user_connection', connection)
+    monkeypatch.setattr(market, 'fetch_quotes', no_quotes)
+    await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY])
+    assert fetches == 1
+
+
+@pytest.mark.asyncio
+async def test_successful_empty_response_still_clears_previous_evidence(monkeypatch):
+    now = datetime.now(timezone.utc)
+    quote = (await market.tcgdex_quotes(PAYLOAD, REFERENCE, FX(), now=NOW))[0]
+    writes = []
+    class Connection:
+        async def fetch(self, sql, keys):
+            return [{**REFERENCE, 'quotes': [quote], 'expires_at': now-timedelta(minutes=1)}]
+        async def execute(self, sql, *args): writes.append((sql, args))
+    @asynccontextmanager
+    async def connection(*args): yield Connection()
+    async def no_quotes(*args, **kwargs): return []
+    monkeypatch.setattr(market, 'user_connection', connection)
+    monkeypatch.setattr(market, 'fetch_quotes', no_quotes)
+    view = (await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY]))[0]
+    assert view['market_value_minor'] is None and view['provider_refresh_failed'] is False
+    assert writes[0][0] == market.WRITE_SQL
+    assert writes[0][1][4:8] == ([], None, None, None)
+    assert writes[0][1][-1]-writes[0][1][-2] == timedelta(hours=6)
+
+
 @pytest.mark.parametrize('payload',[{'keys':[KEY],'price':100},{'keys':[KEY],'owner_id':str(uuid4())},
     {'keys':['https://attacker.invalid']},{'keys':['c:'+str(uuid4())]},{'keys':[]},{'keys':[KEY]*41}])
 def test_price_route_accepts_only_bounded_reference_keys(payload):
