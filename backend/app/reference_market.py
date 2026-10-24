@@ -56,6 +56,15 @@ set quotes=excluded.quotes,market_value_minor=excluded.market_value_minor,
     refresh_revision=excluded.refresh_revision
 where tcg.reference_market_prices.checked_at<=excluded.checked_at
 """
+FAILED_REFRESH_SQL = """
+insert into tcg.reference_market_prices
+ (provider,system_code,language,provider_id,quotes,market_value_minor,market_value_high_minor,
+  pricing_updated_at,checked_at,expires_at,refresh_revision)
+values($1,$2,$3,$4,'[]'::jsonb,null,null,null,$5,$6,3)
+on conflict(provider,system_code,language,provider_id) do update
+set checked_at=excluded.checked_at,expires_at=excluded.expires_at
+where tcg.reference_market_prices.checked_at<=excluded.checked_at
+"""
 
 
 def _text(value) -> str:
@@ -302,15 +311,21 @@ async def refresh_reference_prices(pool, user_id, request_id, keys: list[str], *
     async with httpx.AsyncClient(timeout=6, follow_redirects=False) as client:
         async def refresh(reference):
             previous = reference.get("quotes") or []
-            if not force and reference.get("refresh_revision", REVISION) == REVISION and reference.get("expires_at") and reference["expires_at"] > now:
+            checked, expires = reference.get("checked_at"), reference.get("expires_at")
+            # A failed refresh deliberately leaves the evidence revision alone.
+            # Its short retry interval must still apply to old-revision entries.
+            retry_backoff = bool(checked and expires and checked <= now < expires <= checked + timedelta(minutes=5))
+            current_revision = reference.get("refresh_revision", REVISION) == REVISION
+            if not force and expires and expires > now and (current_revision or retry_backoff):
                 return reference, price_view(reference["key"], previous, now=now), None
             try:
                 quotes = await asyncio.wait_for(fetch_quotes(client, reference, fx, now=now), timeout=15)
                 expires = now + timedelta(hours=24 if quotes else 6)
                 failed = False
             except (httpx.HTTPError, ValueError, RuntimeError, TypeError, AttributeError, asyncio.TimeoutError):
-                # A provider outage doesn't erase a recent known quote. Retry
-                # after five minutes, and always keep the source's original date.
+                # An outage is not negative pricing evidence. The response may
+                # filter old quotes, but persistence must retain their complete
+                # original range/date for the dated catalogue guide.
                 quotes = previous
                 expires = now + timedelta(minutes=5)
                 failed = True
@@ -321,9 +336,15 @@ async def refresh_reference_prices(pool, user_id, request_id, keys: list[str], *
     async with user_connection(pool, user_id, request_id) as connection:
         for reference, view, expires in results:
             if expires is not None:
-                await connection.execute(WRITE_SQL, reference["provider"], reference["system_code"], reference["language"],
-                    reference["provider_id"], view["market_quotes"], view["market_value_minor"], view["market_value_high_minor"],
-                    view["pricing_updated_at"], now, expires)
+                identity = (reference["provider"], reference["system_code"], reference["language"], reference["provider_id"])
+                if view.get('provider_refresh_failed'):
+                    # Update retry metadata only, atomically retaining even a
+                    # quote written after the read above. A first failure still
+                    # creates an empty cache entry to enforce retry backoff.
+                    await connection.execute(FAILED_REFRESH_SQL, *identity, now, expires)
+                else:
+                    await connection.execute(WRITE_SQL, *identity, view["market_quotes"], view["market_value_minor"],
+                        view["market_value_high_minor"], view["pricing_updated_at"], now, expires)
     output = []
     for reference,view,_ in results:
         identity = {key:reference[key] for key in ('name','set_id','card_number','set_name')}

@@ -102,6 +102,66 @@ async def main():
         await db.execute(CARD_PRICE_SQL,'TCGdex','POKEMON_TCG','Japanese','fixture',support,None,None,now,now,now+timedelta(days=1))
         assert await db.fetchval('select market_value_minor from tcg.reference_market_prices') is None
         assert await db.fetchval('select count(*) from tcg.reference_market_history')==2
+        # Failed refreshes retain complete source evidence even when the web
+        # response filters it as old. Exercise the real upsert and history trigger
+        # under the restricted app role; roll fixtures back to isolate counts.
+        from app.reference_market import FAILED_REFRESH_SQL
+        await db.execute('begin')
+        failure_identity = ('TCGdex', 'POKEMON_TCG', 'English', 'failed-refresh')
+        await db.execute("""insert into tcg.reference_sets(provider,system_code,language,set_id,name)
+          values('TCGdex','POKEMON_TCG','English','outage','Outage Test Set');
+          insert into tcg.reference_cards(provider,system_code,language,provider_id,set_id,name,card_number)
+          values('TCGdex','POKEMON_TCG','English','failed-refresh','outage','Outage test card','001'),
+                ('TCGdex','POKEMON_TCG','English','first-failure','outage','No prior evidence','002')""")
+        source_date = now-timedelta(days=8)
+        old_quote = {'source':'TCGDEX_CARDMARKET', 'price_gbp_minor':1000,
+                     'original_minor':1000, 'original_currency':'EUR', 'fx_rate_to_gbp':'1',
+                     'fx_source':'ECB_EURO_REFERENCE_RATES', 'observed_at':source_date.isoformat(),
+                     'reference_language':'English'}
+        original_args = (*failure_identity, [old_quote], 1000, 1000, source_date,
+                         now-timedelta(hours=1), now-timedelta(minutes=1))
+        await db.execute(CARD_PRICE_SQL, *original_args)
+        await db.execute("update tcg.reference_market_prices set refresh_revision=2 where provider_id='failed-refresh'")
+        read_failure = "select * from tcg.reference_market_prices where provider_id='failed-refresh'"
+        original = dict(await db.fetchrow(read_failure))
+        history_count = await db.fetchval('select count(*) from tcg.reference_market_history')
+        retry_args = (*failure_identity, now, now+timedelta(minutes=5))
+        await db.execute(FAILED_REFRESH_SQL, *retry_args)
+        await db.execute(FAILED_REFRESH_SQL, *retry_args)
+        retained = dict(await db.fetchrow(read_failure))
+        assert {k:v for k,v in retained.items() if k not in {'checked_at','expires_at'}} == {
+            k:v for k,v in original.items() if k not in {'checked_at','expires_at'}}, 'Outage erased original pricing evidence'
+        assert retained['checked_at'] == now and retained['expires_at'] == now+timedelta(minutes=5)
+        assert await db.fetchval('select count(*) from tcg.reference_market_history') == history_count, 'Retry metadata created price history'
+        from app.catalogue_price_history import add_reference_history
+        pending = dict(zip(('provider','system_code','language','provider_id'), failure_identity),
+                       key='r:outage', source_kind='REFERENCE', market_value_minor=None, market_refresh_needed=True)
+        displayed = (await add_reference_history(db, [pending], now=now))[0]
+        assert displayed['market_value_minor'] is None and displayed['market_refresh_needed'] is True
+        assert displayed['shared_price']['status'] == 'STALE'
+        assert displayed['shared_price']['last_known_minor'] == 1000
+        assert displayed['shared_price']['checked_at'] == source_date
+        # A first failure creates a bounded retry entry without fabricating a value.
+        first_args = (*failure_identity[:3], 'first-failure', now, now+timedelta(minutes=5))
+        await db.execute(FAILED_REFRESH_SQL, *first_args)
+        first = await db.fetchrow("select * from tcg.reference_market_prices where provider_id='first-failure'")
+        assert first['quotes'] == [] and first['market_value_minor'] is None and first['pricing_updated_at'] is None
+        assert first['expires_at'] == now+timedelta(minutes=5) and first['refresh_revision'] == 3
+        # A completed empty response remains negative evidence and clears the cache.
+        checked = now+timedelta(minutes=1)
+        await db.execute(CARD_PRICE_SQL, *failure_identity, [], None, None, None, checked, checked+timedelta(hours=6))
+        cleared = dict(await db.fetchrow(read_failure))
+        assert cleared['quotes'] == [] and cleared['market_value_minor'] is None
+        # Fresh evidence replaces the old guide; a delayed failure cannot change
+        # either its values or the successful refresh's longer cache interval.
+        checked = now+timedelta(minutes=2)
+        new_quote = dict(old_quote, observed_at=now.isoformat(), price_gbp_minor=1500, original_minor=1500)
+        await db.execute(CARD_PRICE_SQL, *failure_identity, [new_quote], 1500, 1500, now, checked, checked+timedelta(days=1))
+        fresh = dict(await db.fetchrow(read_failure))
+        await db.execute(FAILED_REFRESH_SQL, *retry_args)
+        assert dict(await db.fetchrow(read_failure)) == fresh, 'Delayed failure rewrote newer success'
+        assert await db.fetchval('select count(*) from tcg.inventory_items') == 0
+        await db.execute('rollback')
         # Replay the phone search against real Postgres. A set name containing
         # EB04 must not make OP14-007 appear for the exact query EB04 007.
         await db.execute("insert into tcg.collectible_systems values('ONE_PIECE_CARD_GAME')")

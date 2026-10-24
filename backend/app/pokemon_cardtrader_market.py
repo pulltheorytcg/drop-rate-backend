@@ -99,7 +99,12 @@ async def cardtrader_matches(client, references, singles, base_matches):
             raise ValueError('Single-card categories unavailable')
         selected = []
         for set_id, refs in groups.items():
-            if not any(r['provider_id'] not in base_matches and not r.get('current_detail_priced') for r in refs):
+            # A detailed quote can temporarily cover the same card, but its
+            # independent catalogue bridge still needs revalidation. Skipping
+            # it here would clear a proven guide without checking its source.
+            if not any(r['provider_id'] not in base_matches and
+                       (not r.get('current_detail_priced') or r.get('existing_match_basis') == MATCH_BASIS)
+                       for r in refs):
                 continue
             declared = refs[0].get('declared_card_count')
             if type(declared) is not int or declared<=0 or len({r['provider_id'] for r in refs})<declared:
