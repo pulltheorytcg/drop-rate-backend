@@ -22,6 +22,20 @@ SYSTEM = "ONE_PIECE_CARD_GAME"
 JP_PROVIDER = "Punk Records"
 JP_REGION_MARKERS = ("Non-English", "Japanese", "Asia Region Legal")
 JP_MATCH_BASIS = "OFFICIAL_JP_EN_BASE_ID_AND_UNIQUE_NONENGLISH_MARKET_PRODUCT"
+# Bandai's newer English checklist abbreviates rarity, while the independent
+# Japanese checklist spells it out. Only these observed publisher labels are
+# considered equivalent; unknown grades and parallel treatments fail closed.
+OFFICIAL_EN_RARITIES = {
+    "C": "Common", "UC": "Uncommon", "R": "Rare",
+    "SR": "SuperRare", "L": "Leader", "SEC": "SecretRare",
+}
+# Add publisher release pairs only after an exact live-source replay. The
+# official English OP15/EB04 combined checklist includes the OP15 Japanese
+# booster; it must not become a generic translation rule for other releases.
+BANDAI_EN_JP_RELEASES = {
+    "BOOSTER PACK -ADVENTURE ON KAMI’S ISLAND- [OP15-EB04]":
+        ("OP15", "ブースターパック 神の島の冒険【OP-15】"),
+}
 
 
 def japanese_release_code(ref: dict) -> str | None:
@@ -51,17 +65,34 @@ def japanese_release_code(ref: dict) -> str | None:
 
 def _english_release_code(ref: dict) -> tuple[str, str] | None:
     if (
-        ref.get("provider") != JP_PROVIDER
+        ref.get("provider") not in {JP_PROVIDER, "Bandai Official"}
         or ref.get("system_code") != SYSTEM
         or ref.get("language") != "English"
         or ref.get("provider_id") != ref.get("card_number")
         or not re.fullmatch(r"(?:OP|EB)\d{2}-\d{3}", str(ref.get("card_number") or ""))
     ):
         return None
+    if (ref["provider"] == "Bandai Official" and
+            ref.get("set_name") not in BANDAI_EN_JP_RELEASES):
+        return None
     release = release_identity(ref.get("set_name", ""), include_starters=False)
     if not release or ref["card_number"].split("-", 1)[0] != release[1]:
         return None
+    if (ref["provider"] == "Bandai Official" and
+            release[1] != BANDAI_EN_JP_RELEASES[ref["set_name"]][0]):
+        return None
     return release
+
+
+def _rarity_agrees(english: dict, japanese: dict) -> bool:
+    if english.get("provider") == "Bandai Official":
+        release = BANDAI_EN_JP_RELEASES.get(english.get("set_name"))
+        if release is None or japanese.get("set_name") != release[1]:
+            return False
+        official = OFFICIAL_EN_RARITIES.get(str(english.get("rarity") or ""))
+        return bool(official and normalized(official) == normalized(japanese.get("rarity")))
+    return bool(normalized(english.get("rarity")) and
+                normalized(english.get("rarity")) == normalized(japanese.get("rarity")))
 
 
 def _market_expansions(packaging: dict) -> dict[str, tuple[int, str]]:
@@ -118,7 +149,7 @@ def matched_japanese_products(references: list[dict], singles: dict, packaging: 
         # Same printed number AND published rarity in independent publisher
         # checklists; a reprint in another set must never be silently borrowed.
         if (
-            normalized(en.get("rarity")) != normalized(jp.get("rarity"))
+            not _rarity_agrees(en, jp)
             or not normalized(en.get("name"))
             or (en.get("set_id") == jp.get("set_id"))
         ):
@@ -137,6 +168,7 @@ def matched_japanese_products(references: list[dict], singles: dict, packaging: 
             "product": market_candidates[0],
             "english_provider_id": en["provider_id"],
             "english_set_id": en["set_id"],
+            "english_checklist_provider": en["provider"],
             "region_marker": region_marker,
         })
     return {key: rows[0] for key, rows in candidates.items() if len(rows) == 1}
@@ -189,6 +221,7 @@ def japanese_nonenglish_quote(
         },
         "english_checklist_provider_id": match["english_provider_id"],
         "english_checklist_set_id": match["english_set_id"],
+        "english_checklist_provider": match["english_checklist_provider"],
         "fx_rate_to_gbp": str(conversion.rate),
         "fx_source": conversion.source,
         "fx_effective_at": conversion.effective_at.isoformat(),
