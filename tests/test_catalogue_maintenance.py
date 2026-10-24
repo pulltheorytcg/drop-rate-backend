@@ -207,3 +207,56 @@ async def test_sealed_only_refresh_updates_the_coverage_receipt(monkeypatch):
     monkeypatch.setattr(jobs,'check_database_capacity',safe_capacity)
     await jobs.daily_pass(Pool(conn),SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4())))
     assert events==['sealed','coverage']
+
+
+@pytest.mark.asyncio
+async def test_pokewallet_free_job_once_daily_then_switches_from_trial_to_apply(monkeypatch):
+    now=datetime.now(timezone.utc)
+    state={'prior':None,'calls':[],'receipts':[]}
+    class DailyConnection(Connection):
+        async def fetch(self,sql,*args):
+            if 'reference_sync_runs' in sql:
+                return [dict(source=s,status='COMPLETE',started_at=now,
+                             report={'importer_revision':jobs.SOURCE_REVISIONS.get(s,1)})
+                        for s in jobs.SOURCES]
+            revisions={'REFERENCE_PRICES':jobs.REFERENCE_JOB_REVISION,
+                       'SEALED_REFERENCE_PRICES':jobs.SEALED_MARKET_REVISION,
+                       'CATALOGUE_VALUES':jobs.CATALOGUE_VALUE_REVISION,
+                       'CARDMARKET_VALUES':jobs.CARDMARKET_VALUE_REVISION,
+                       'CATALOGUE_COVERAGE':1}
+            result=[dict(job=j,status='COMPLETE',started_at=now,
+                         report={'importer_revision':r}) for j,r in revisions.items()]
+            if state['prior']:
+                result.append(dict(job='POKEWALLET_PRICES',status='COMPLETE',
+                                   started_at=now,report=state['prior']))
+            return result
+    conn=DailyConnection()
+    @asynccontextmanager
+    async def user_connection(*args):yield conn
+    async def authorized(*args):pass
+    async def refresh(*args,**kwargs):
+        state['calls'].append(kwargs)
+        return {'requests':3,'eligible_quotes':12,'writes_attempted':0,'cursor':'Japanese:-88'}
+    async def receipt(*args):state['receipts'].append(args)
+    async def safe_capacity(_):
+        from app.database_capacity import assess_capacity
+        return assess_capacity(321_334_419,'off')
+    monkeypatch.setattr(jobs,'user_connection',user_connection)
+    monkeypatch.setattr(jobs,'require_platform_admin',authorized)
+    monkeypatch.setattr(jobs,'refresh_pokewallet_one_piece',refresh)
+    monkeypatch.setattr(jobs,'receipt',receipt)
+    monkeypatch.setattr(jobs,'check_database_capacity',safe_capacity)
+    settings=SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4()),
+        pokewallet_api_key='pk_live_hidden',pokewallet_pricing_apply_enabled=False,
+        pokewallet_pricing_request_limit=60)
+    await jobs.daily_pass(Pool(conn),settings)
+    assert len(state['calls'])==1 and state['calls'][0]['dry_run'] is True
+    assert any(r[2]=='POKEWALLET_PRICES' and r[3]=='COMPLETE' for r in state['receipts'])
+    state['prior']={'importer_revision':10,'cursor':'Japanese:-88'}
+    await jobs.daily_pass(Pool(conn),settings)
+    assert len(state['calls'])==1  # never spend free quota every five minutes
+    settings.pokewallet_pricing_apply_enabled=True
+    await jobs.daily_pass(Pool(conn),settings)
+    assert len(state['calls'])==2
+    assert state['calls'][-1]['dry_run'] is False
+    assert state['calls'][-1]['previous_cursor']=='Japanese:-88'
