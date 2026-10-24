@@ -110,6 +110,24 @@ def test_cross_source_ambiguities_fail_closed():
     ]}})
 
 
+def test_japanese_locale_suffix_maps_to_the_same_numbered_release_only_in_japanese():
+    assert market.source_release_code('OP-01-JP','Japanese')=='OP01'
+    assert market.source_release_code('EB-02-JP','Japanese')=='EB02'
+    assert market.source_release_code('OP-01-JP','English') is None
+    assert market.source_release_code('OP-01-JP-SPECIAL','Japanese') is None
+    sources=market.unique_source_sets({'Japanese':{'success':True,'data':[
+        {'set_code':'OP-01-JP','group_id':'-88','language':'jp'}]},
+        'English':{'success':True,'data':[]}})
+    assert sources[('Japanese','OP01')]['group_id']=='-88'
+    total,products=market.unique_market_products(
+        set_response(card(),group_id='-88') | {
+            'set':{'set_code':'OP-01-JP','group_id':'-88','language':'jp'}},
+        'Japanese','-88','OP01')
+    assert total==1 and len(products)==1
+    assert market.matches_for_complete_set(market.collect_reference_groups([jp()],NOW),
+        'Japanese','OP01',products)
+
+
 def test_source_list_quality_reveals_ambiguous_release_groups_without_guessing():
     report=market.source_list_diagnostics({'Japanese':{'success':True,'data':[
         {'set_code':'OP01','group_id':'-1','language':'jp'},
@@ -128,6 +146,21 @@ def test_alternate_printing_collisions_block_price_assignment():
     assert not market.matches_for_complete_set(groups,'English','OP01',[card(name='Different Person')])
     assert not market.matches_for_complete_set(groups,'English','OP01',[card(rarity='SEC')])
     assert not market.matches_for_complete_set(groups,'English','OP01',[card(sub_type_name='Alternate Art')])
+
+
+def test_single_explicit_normal_can_be_separated_from_labelled_parallel_art():
+    groups=market.collect_reference_groups([en()],NOW)
+    base=card()
+    alt=card(id='op_different_print',sub_type_name='Alternate Art',
+        cardmarket={'product_url':'https://www.cardmarket.com/en/OnePiece/Products/Singles/Other',
+                    'prices':{'trend':1999.99}})
+    counts={}
+    assert market.matches_for_complete_set(groups,'English','OP01',[base,alt],counts)==[(en(),base)]
+    assert counts['parallel_number_collisions']==1 and counts['base_art_disambiguated']==1
+    assert not market.matches_for_complete_set(groups,'English','OP01',[
+        base,card(id='op_unlabelled',sub_type_name='Unknown Special')])
+    assert not market.matches_for_complete_set(groups,'English','OP01',[
+        base,card(id='op_second_normal')])
 
 
 def test_only_cardmarket_trend_yields_nonphysical_eur_guide():

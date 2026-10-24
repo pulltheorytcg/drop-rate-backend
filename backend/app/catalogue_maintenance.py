@@ -40,7 +40,7 @@ log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
 REFERENCE_JOB_REVISION=25
-POKEWALLET_JOB_REVISION=3
+POKEWALLET_JOB_REVISION=4
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
