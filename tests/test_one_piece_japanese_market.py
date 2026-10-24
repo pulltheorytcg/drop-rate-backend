@@ -77,6 +77,75 @@ def test_official_printing_and_marketplace_region_are_proven_independently():
     assert q['marketplace_region_label']=='Non-English'
 
 
+def op15_sources():
+    """Live-shaped official English abbreviations and JP full rarity labels."""
+    en={
+        'provider':'Bandai Official','system_code':'ONE_PIECE_CARD_GAME',
+        'language':'English','provider_id':'OP15-079','card_number':'OP15-079',
+        'set_id':'569115','set_name':'BOOSTER PACK -ADVENTURE ON KAMI’S ISLAND- [OP15-EB04]',
+        'name':'Absalom','rarity':'C'
+    }
+    jp={
+        **en,'provider':'Punk Records','language':'Japanese','set_id':'550115',
+        'set_name':'ブースターパック 神の島の冒険【OP-15】',
+        'name':'アブサロム','rarity':'Common'
+    }
+    product={
+        'idProduct':875000,'name':'Absalom (OP15-079)','idCategory':1621,
+        'categoryName':'One Piece Single','idExpansion':6504
+    }
+    pack={
+        'idProduct':860000,'name':"Adventure on Kami's Island Booster (Asia Region Legal)",
+        'idCategory':1622,'categoryName':'One Piece Booster','idExpansion':6504
+    }
+    return en,jp,{'single':product},{'region':pack}
+
+
+def test_bandai_english_base_and_japanese_base_recover_only_region_guide():
+    en,jp,singles,packs=op15_sources()
+    match=matched_japanese_products([en,jp],singles,packs)['OP15-079']
+    assert match['english_checklist_provider']=='Bandai Official'
+    assert match['english_provider_id']=='OP15-079'
+    assert match['region_marker']=='Asia Region Legal'
+    quote=japanese_nonenglish_quote(jp,match,{
+        'idProduct':875000,'idCategory':1621,'trend':'1.00'
+    },NOW,fx())
+    assert quote['price_gbp_minor']==85
+    assert quote['english_checklist_provider']=='Bandai Official'
+    assert quote['valuation_role']=='MIXED_NON_ENGLISH_REFERENCE'
+    assert quote['physical_valuation_eligible'] is False
+    assert quote['physical_language_confirmed'] is False
+    assert quote['condition_specific'] is False
+
+
+@pytest.mark.parametrize('mutation',[
+    'Unknown English rarity','Wrong English rarity','Wrong Japanese rarity',
+    'English parallel','Japanese parallel','Wrong release code',
+    'Wrong English release title','Wrong Japanese release title',
+    'Marketplace duplicate','Marketplace English-only','Conflicting regional expansions',
+    'Second English counterpart','Wrong English provider',
+])
+def test_bandai_english_bridge_fails_closed_on_unknown_identity(mutation):
+    en,jp,singles,packs=op15_sources()
+    refs=[en,jp]
+    if mutation=='Unknown English rarity':en['rarity']='ALT'
+    if mutation=='Wrong English rarity':en['rarity']='R'
+    if mutation=='Wrong Japanese rarity':jp['rarity']='Rare'
+    if mutation=='English parallel':en['provider_id']='OP15-079_p1'
+    if mutation=='Japanese parallel':jp['provider_id']='OP15-079_p1'
+    if mutation=='Wrong release code':en['card_number']=en['provider_id']='OP14-079'
+    if mutation=='Wrong English release title':en['set_name']='BOOSTER PACK -UNRELATED- [OP15-EB04]'
+    if mutation=='Wrong Japanese release title':jp['set_name']='ブースターパック WRONG【OP-15】'
+    if mutation=='Marketplace duplicate':
+        singles['second']={**singles['single'],'idProduct':875001}
+    if mutation=='Marketplace English-only':packs['region']['name']="Adventure on Kami's Island Booster"
+    if mutation=='Conflicting regional expansions':
+        packs['second']={**packs['region'],'idProduct':860001,'idExpansion':9999}
+    if mutation=='Second English counterpart':refs.append({**en,'provider':'Punk Records'})
+    if mutation=='Wrong English provider':en['provider']='Unknown Provider'
+    assert not matched_japanese_products(refs,singles,packs), mutation
+
+
 @pytest.mark.parametrize('mutation',[
     'Japanese is parallel','Japanese is reprint','Different set','Different printed number',
     'Wrong JP title','Different Japanese rarity','Wrong English rarity',
