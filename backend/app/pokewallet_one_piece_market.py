@@ -43,6 +43,10 @@ RARITIES = {
     "c": "common", "uc": "uncommon", "r": "rare", "sr": "superrare",
     "sec": "secretrare", "l": "leader", "sp": "special",
 }
+ALTERNATE_PRINT_LABELS = {
+    "alternate art", "alt art", "parallel", "special", "sp", "manga",
+    "super parallel", "foil", "holofoil", "textured",
+}
 
 READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,r.set_id,
  r.card_number,r.rarity,s.name as set_name,
@@ -153,6 +157,19 @@ def collect_reference_groups(refs: list[dict], now: datetime):
     return valid
 
 
+def source_release_code(value: object, language: str) -> str | None:
+    """Treat the provider's `-JP` locale suffix as metadata, not a card set.
+
+    A Japanese entry must *also* be returned by the explicit JP-language API
+    filter and carry JP language metadata; an English entry cannot claim it.
+    """
+    literal=str(value or "").strip().upper()
+    match=re.fullmatch(r"((?:OP|EB|PRB|ST)-?\d{2})(-JP)?",literal)
+    if match is None or (language=="English" and match[2]):
+        return None
+    return match[1].replace("-","")
+
+
 def unique_source_sets(payloads: dict[str, dict]) -> dict[tuple[str, str], dict]:
     groups = defaultdict(list)
     for lang, body in payloads.items():
@@ -161,9 +178,9 @@ def unique_source_sets(payloads: dict[str, dict]) -> dict[tuple[str, str], dict]
         for record in body["data"]:
             if not isinstance(record, dict) or record.get("language") not in ({"en"} if lang=="English" else {"jp"}):
                 continue
-            code = str(record.get("set_code") or "").replace("-", "").upper()
+            code = source_release_code(record.get("set_code"),lang)
             group_id = str(record.get("group_id") or "")
-            if re.fullmatch(r"(?:OP|EB|PRB|ST)\d{2}",code) and re.fullmatch(r"-?\d+",group_id):
+            if code and re.fullmatch(r"-?\d+",group_id):
                 groups[(lang,code)].append(record)
     return {key:rows[0] for key,rows in groups.items() if len(rows)==1}
 
@@ -177,8 +194,8 @@ def source_list_diagnostics(payloads: dict[str,dict], refs_by_number: dict) -> d
         for row in rows:
             if not isinstance(row,dict) or row.get("language") != ("jp" if lang=="Japanese" else "en"):
                 continue
-            code=str(row.get("set_code") or "").replace("-","").upper()
-            if re.fullmatch(r"(?:OP|EB|PRB|ST)\d{2}",code):
+            code=source_release_code(row.get("set_code"),lang)
+            if code:
                 names[code].add(str(row.get("group_id")))
         wanted={key[1] for key in refs_by_number if key[0]==lang}
         ambiguous={code for code in wanted if len(names.get(code,()))>1}
@@ -193,7 +210,7 @@ def unique_market_products(body: dict, lang: str, group_id: str, code: str):
     meta = body.get("set")
     if (body.get("success") is not True or not isinstance(meta, dict)
             or str(meta.get("group_id")) != group_id
-            or str(meta.get("set_code") or "").replace("-", "").upper() != code
+            or source_release_code(meta.get("set_code"),lang) != code
             or meta.get("language") != ("jp" if lang=="Japanese" else "en")):
         raise ProviderResponseError("SET_IDENTITY_SCHEMA")
     total = body.get("total")
@@ -224,7 +241,19 @@ def matches_for_complete_set(refs_by_number: dict, lang: str, code: str, product
         candidates = by_number.get(number,())
         if candidates:counts["source_number_overlap"]+=1
         if len(candidates)>1:counts["parallel_number_collisions"]+=1
-        if len(candidates) != 1:  # one quoted art never resolves a parallel collision
+        if len(candidates)>1:
+            # A publisher base printing may coexist with clearly labelled
+            # alternate artworks under the same printed card number. It is
+            # safe ONLY when a single source item is explicitly Normal, and
+            # every competitor has an explicit non-base printing label.
+            normals=[p for p in candidates if str(p.get("sub_type_name") or "").strip().casefold()=="normal"]
+            competitors=[p for p in candidates if p not in normals]
+            if (len(normals)==1 and len(competitors)==len(candidates)-1 and
+                    all(str(p.get("sub_type_name") or "").strip().casefold() in ALTERNATE_PRINT_LABELS
+                        for p in competitors)):
+                candidates=normals
+                counts["base_art_disambiguated"]=counts.get("base_art_disambiguated",0)+1
+        if len(candidates) != 1:
             continue
         counts["unique_number_candidates"]+=1
         product=candidates[0]
