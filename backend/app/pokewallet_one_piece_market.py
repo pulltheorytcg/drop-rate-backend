@@ -168,6 +168,26 @@ def unique_source_sets(payloads: dict[str, dict]) -> dict[tuple[str, str], dict]
     return {key:rows[0] for key,rows in groups.items() if len(rows)==1}
 
 
+def source_list_diagnostics(payloads: dict[str,dict], refs_by_number: dict) -> dict:
+    """Count release-identity conflicts without guessing which entry is right."""
+    summary={}
+    for lang, body in payloads.items():
+        names=defaultdict(set)
+        rows=body.get("data",[])
+        for row in rows:
+            if not isinstance(row,dict) or row.get("language") != ("jp" if lang=="Japanese" else "en"):
+                continue
+            code=str(row.get("set_code") or "").replace("-","").upper()
+            if re.fullmatch(r"(?:OP|EB|PRB|ST)\d{2}",code):
+                names[code].add(str(row.get("group_id")))
+        wanted={key[1] for key in refs_by_number if key[0]==lang}
+        ambiguous={code for code in wanted if len(names.get(code,()))>1}
+        summary[lang]={"raw_records":len(rows),"valid_release_codes":len(names),
+            "wanted_release_codes":len(wanted),"unmatched_release_codes":sum(code not in names for code in wanted),
+            "multiple_group_ids":len(ambiguous),"ambiguous_code_sample":sorted(ambiguous)[:10]}
+    return summary
+
+
 def unique_market_products(body: dict, lang: str, group_id: str, code: str):
     """Reject incomplete sets; variants may be on a later page."""
     meta = body.get("set")
@@ -185,7 +205,7 @@ def unique_market_products(body: dict, lang: str, group_id: str, code: str):
     return total,items
 
 
-def matches_for_complete_set(refs_by_number: dict, lang: str, code: str, products: list[dict]):
+def matches_for_complete_set(refs_by_number: dict, lang: str, code: str, products: list[dict], diagnostics=None):
     by_number = defaultdict(list)
     for item in products:
         if not isinstance(item,dict):
@@ -194,21 +214,35 @@ def matches_for_complete_set(refs_by_number: dict, lang: str, code: str, product
         if number.startswith(code + "-") and BASE_NUMBER.fullmatch(number):
             by_number[number].append(item)
     matches=[]
+    counts={key:0 for key in ("wanted_reference_numbers","source_number_overlap",
+        "parallel_number_collisions","unique_number_candidates","valid_product_ids",
+        "matching_rarities","matching_subtypes","matching_english_names")}
     for (ref_lang, ref_code, number), refs in refs_by_number.items():
         if (ref_lang, ref_code) != (lang,code):
             continue
+        counts["wanted_reference_numbers"]+=1
         candidates = by_number.get(number,())
+        if candidates:counts["source_number_overlap"]+=1
+        if len(candidates)>1:counts["parallel_number_collisions"]+=1
         if len(candidates) != 1:  # one quoted art never resolves a parallel collision
             continue
+        counts["unique_number_candidates"]+=1
         product=candidates[0]
-        if (not str(product.get("id") or "").startswith("op_")
-                or rarity(product.get("rarity")) != rarity(refs[0].get("rarity"))
-                or str(product.get("sub_type_name") or "Normal").casefold() not in
-                   {"normal", "foil", "holofoil"}):
+        if not str(product.get("id") or "").startswith("op_"):
             continue
+        counts["valid_product_ids"]+=1
+        if rarity(product.get("rarity")) != rarity(refs[0].get("rarity")):
+            continue
+        counts["matching_rarities"]+=1
+        if str(product.get("sub_type_name") or "Normal").casefold() not in {"normal", "foil", "holofoil"}:
+            continue
+        counts["matching_subtypes"]+=1
         if lang == "English" and normalized(html.unescape(product.get("name") or "")) != normalized(html.unescape(refs[0]["name"])):
             continue
+        counts["matching_english_names"]+=1
         matches.extend((ref,product) for ref in refs)
+    if diagnostics is not None:
+        diagnostics.update(counts)
     return matches
 
 
@@ -298,7 +332,8 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
     budget=min(request_limit,12 if dry_run else MAX_FREE_REQUESTS_PER_RUN)
     result={"source":SOURCE,"dry_run":dry_run,"requests":0,"set_pages":0,
             "checked_references":0,"wanted_base_printings":0,"source_groups":0,
-            "target_groups":0,"targets_by_language":{},"sampled_sets":[],
+            "target_groups":0,"targets_by_language":{},"source_list_diagnostics":{},
+            "sampled_sets":[],"collapsed_identical_duplicate_rows":0,
             "skipped_invalid_sets":0,"invalid_set_samples":[],
             "matching_printings":0,"eligible_quotes":0,
             "writes_attempted":0,"provider_failures":0,"cursor":previous_cursor}
@@ -323,6 +358,7 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                 lists[lang]=await client.get("/op/sets",{"language":"jp" if lang=="Japanese" else "en"})
             sources=unique_source_sets(lists)
             result["source_groups"]=len(sources)
+            result["source_list_diagnostics"]=source_list_diagnostics(lists,groups)
             targets=sorted(((lang,code,str(item["group_id"])) for (lang,code),item in sources.items()
                             if any(key[:2]==(lang,code) for key in groups)),
                            key=lambda row:(row[0]!="Japanese",row[1],row[2]))
@@ -358,9 +394,18 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                             raise ProviderResponseError("PAGE_IDENTITY_CHANGED")
                         complete.extend(new_items)
                         result["set_pages"]+=1
-                    if (len(complete)!=total or not all(isinstance(p,dict) for p in complete)
-                            or len({str(p.get("id")) for p in complete})!=total):
+                    if len(complete)!=total or not all(isinstance(p,dict) for p in complete):
                         raise ProviderResponseError("INCOMPLETE_OR_DUPLICATE_SET")
+                    by_id={}
+                    for item in complete:
+                        source_id=str(item.get("id") or "")
+                        if not source_id or (source_id in by_id and by_id[source_id]!=item):
+                            # Repeated IDs with conflicting data might be two
+                            # distinct market variants; never infer a price.
+                            raise ProviderResponseError("INCOMPLETE_OR_DUPLICATE_SET")
+                        by_id[source_id]=item
+                    result["collapsed_identical_duplicate_rows"]+=len(complete)-len(by_id)
+                    complete=list(by_id.values())
                 except ProviderResponseError as exc:
                     # Invalid set pages are quarantined *in full*, then the
                     # daily cursor moves on to other legitimate releases.
@@ -379,12 +424,13 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                             "unique_product_ids":len({str(p.get("id")) for p in complete if isinstance(p,dict)})})
                     result["cursor"]=f"{lang}:{group_id}"
                     continue
-                matches=matches_for_complete_set(groups,lang,code,complete)
+                set_diagnostics={}
+                matches=matches_for_complete_set(groups,lang,code,complete,set_diagnostics)
                 result["matching_printings"]+=len(matches)
                 if len(result["sampled_sets"])<8:
                     result["sampled_sets"].append({"language":lang,"set_code":code,
                         "group_id":group_id,"source_products":len(complete),
-                        "matched_reference_printings":len(matches)})
+                        "matched_reference_printings":len(matches),**set_diagnostics})
                 if matches:
                     if converted is None:
                         converted=await fx.quote(base_currency="EUR",quote_currency="GBP",at=now)
