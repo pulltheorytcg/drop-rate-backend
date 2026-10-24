@@ -297,7 +297,10 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
     now=datetime.now(timezone.utc)
     budget=min(request_limit,12 if dry_run else MAX_FREE_REQUESTS_PER_RUN)
     result={"source":SOURCE,"dry_run":dry_run,"requests":0,"set_pages":0,
-            "checked_references":0,"matching_printings":0,"eligible_quotes":0,
+            "checked_references":0,"wanted_base_printings":0,"source_groups":0,
+            "target_groups":0,"targets_by_language":{},"sampled_sets":[],
+            "skipped_invalid_sets":0,"invalid_set_samples":[],
+            "matching_printings":0,"eligible_quotes":0,
             "writes_attempted":0,"provider_failures":0,"cursor":previous_cursor}
     client=FreePokewalletOnePieceClient(api_key,request_limit=budget)
     try:
@@ -305,6 +308,7 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
             refs=[dict(r) for r in await connection.fetch(READ_SQL)]
         result["checked_references"]=len(refs)
         groups=collect_reference_groups(refs,now)
+        result["wanted_base_printings"]=sum(map(len,groups.values()))
         if not groups:
             return result
         if http_client is None:
@@ -318,9 +322,13 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
             for lang in ("Japanese","English"):
                 lists[lang]=await client.get("/op/sets",{"language":"jp" if lang=="Japanese" else "en"})
             sources=unique_source_sets(lists)
+            result["source_groups"]=len(sources)
             targets=sorted(((lang,code,str(item["group_id"])) for (lang,code),item in sources.items()
                             if any(key[:2]==(lang,code) for key in groups)),
                            key=lambda row:(row[0]!="Japanese",row[1],row[2]))
+            result["target_groups"]=len(targets)
+            result["targets_by_language"]={lang:sum(t[0]==lang for t in targets)
+                                            for lang in ("Japanese","English")}
             if previous_cursor:
                 index=next((i+1 for i,x in enumerate(targets) if f"{x[0]}:{x[2]}"==previous_cursor),0)
                 targets=targets[index:]+targets[:index]
@@ -328,27 +336,55 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
             for lang,code,group_id in targets:
                 if client.requests>=budget:
                     break
-                first=await client.get(f"/op/sets/{group_id}",{"page":1,"limit":PAGE_SIZE})
-                total,items=unique_market_products(first,lang,group_id,code)
-                pages=ceil(total/PAGE_SIZE)
-                if pages>budget-client.requests+1:
-                    # No prices based on the incomplete first page: later pages
-                    # may contain competing alternate arts.
-                    result["deferred_large_sets"]=result.get("deferred_large_sets",0)+1
-                    continue
-                result["set_pages"]+=1
-                complete=list(items)
-                for page in range(2,pages+1):
-                    body=await client.get(f"/op/sets/{group_id}",{"page":page,"limit":PAGE_SIZE})
-                    expected,new_items=unique_market_products(body,lang,group_id,code)
-                    if expected!=total or body.get("page")!=page:
-                        raise ProviderResponseError("PAGE_IDENTITY_CHANGED")
-                    complete.extend(new_items)
+                total=0
+                complete=[]
+                bad_set=None
+                try:
+                    first=await client.get(f"/op/sets/{group_id}",{"page":1,"limit":PAGE_SIZE})
+                    total,items=unique_market_products(first,lang,group_id,code)
+                    pages=ceil(total/PAGE_SIZE)
+                    if pages>budget-client.requests+1:
+                        # A partial set cannot prove that a base printing is
+                        # unique; resume after it rather than getting stuck.
+                        result["deferred_large_sets"]=result.get("deferred_large_sets",0)+1
+                        result["cursor"]=f"{lang}:{group_id}"
+                        continue
                     result["set_pages"]+=1
-                if len(complete)!=total or len({str(p.get("id")) for p in complete})!=total:
-                    raise ProviderResponseError("INCOMPLETE_OR_DUPLICATE_SET")
+                    complete=list(items)
+                    for page in range(2,pages+1):
+                        body=await client.get(f"/op/sets/{group_id}",{"page":page,"limit":PAGE_SIZE})
+                        expected,new_items=unique_market_products(body,lang,group_id,code)
+                        if expected!=total or body.get("page")!=page:
+                            raise ProviderResponseError("PAGE_IDENTITY_CHANGED")
+                        complete.extend(new_items)
+                        result["set_pages"]+=1
+                    if (len(complete)!=total or not all(isinstance(p,dict) for p in complete)
+                            or len({str(p.get("id")) for p in complete})!=total):
+                        raise ProviderResponseError("INCOMPLETE_OR_DUPLICATE_SET")
+                except ProviderResponseError as exc:
+                    # Invalid set pages are quarantined *in full*, then the
+                    # daily cursor moves on to other legitimate releases.
+                    # Rate limits and upstream outages stop the entire pass.
+                    if str(exc) not in {"SET_IDENTITY_SCHEMA","SET_PAGINATION_SCHEMA",
+                                        "PAGE_IDENTITY_CHANGED","INCOMPLETE_OR_DUPLICATE_SET"}:
+                        raise
+                    bad_set=str(exc)
+                if bad_set is not None:
+                    result["skipped_invalid_sets"]+=1
+                    result["provider_failures"]+=1
+                    if len(result["invalid_set_samples"])<8:
+                        result["invalid_set_samples"].append({
+                            "language":lang,"set_code":code,"group_id":group_id,
+                            "reason":bad_set,"declared":total,"received":len(complete),
+                            "unique_product_ids":len({str(p.get("id")) for p in complete if isinstance(p,dict)})})
+                    result["cursor"]=f"{lang}:{group_id}"
+                    continue
                 matches=matches_for_complete_set(groups,lang,code,complete)
                 result["matching_printings"]+=len(matches)
+                if len(result["sampled_sets"])<8:
+                    result["sampled_sets"].append({"language":lang,"set_code":code,
+                        "group_id":group_id,"source_products":len(complete),
+                        "matched_reference_printings":len(matches)})
                 if matches:
                     if converted is None:
                         converted=await fx.quote(base_currency="EUR",quote_currency="GBP",at=now)
