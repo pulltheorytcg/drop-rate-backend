@@ -362,6 +362,7 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
     result={"source":SOURCE,"dry_run":dry_run,"requests":0,"set_pages":0,
             "checked_references":0,"wanted_base_printings":0,"source_groups":0,
             "target_groups":0,"targets_by_language":{},"source_list_diagnostics":{},
+            "input_cursor":previous_cursor,"japanese_number_examples":[],
             "sampled_sets":[],"collapsed_identical_duplicate_rows":0,
             "skipped_invalid_sets":0,"invalid_set_samples":[],
             "matching_printings":0,"eligible_quotes":0,
@@ -453,6 +454,10 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                             "unique_product_ids":len({str(p.get("id")) for p in complete if isinstance(p,dict)})})
                     result["cursor"]=f"{lang}:{group_id}"
                     continue
+                if lang=="Japanese" and not result["japanese_number_examples"]:
+                    result["japanese_number_examples"]=sorted({
+                        str(item.get("card_number")) for item in complete
+                        if item.get("card_number") is not None})[:5]
                 set_diagnostics={}
                 matches=matches_for_complete_set(groups,lang,code,complete,set_diagnostics)
                 result["matching_printings"]+=len(matches)
