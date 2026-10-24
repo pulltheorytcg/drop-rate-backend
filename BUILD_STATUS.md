@@ -1,22 +1,36 @@
 # Build status
 
-## 24 October 2026 - Remaining pricing recovery (release verification pending)
+## 24 October 2026 - Pricing recovery (live verified, PR #699)
 
-Live baseline: 40,548 / 67,065 physical reference cards have supported dated
-GBP values or labelled guides (60.46%). Database size is 395,906,195 bytes,
-close to the unchanged 400 MB bulk-refresh guard. Verified archival and a
-bounded new-price backfill are being prepared; neither is claimed complete.
+PR #699 is merged as 7b22901e0b90ad4d377a00048bbae6d9c30a0159.
+Railway deployment 0b08188e-f4dd-4597-80f6-0510a6773123 reached SUCCESS at
+17:34:07 UTC; public readiness is HTTP 200 with the database connected, one
+running replica and no active failures. All five final PR workflows passed,
+including restricted-role PostgreSQL checks. The full local Python suite and
+all 6,307 Railway predeploy tests passed.
 
-This patch fixes Fusion starter collector-number parsing and escaped names,
-revalidates existing Pokémon CardTrader guides even with detailed coverage,
-and keeps original cached evidence through provider outages. Current values,
-historical display, exact-copy pricing and source ambiguity remain separate.
-Reference importer revision 23 retains the weekly schedule and capacity guard.
-See [scope, validation and recovery](docs/PRICING_RECOVERY_20261024.md).
+Recovered 80 previously unpriced Fusion references: 56 starter records and
+24 records in other releases with escaped names. The guarded backfill used
+exact reference identities, current Cardmarket source data and verified ECB
+conversion; it committed exactly 80 new immutable history records. All guides
+remain labelled mixed-language reference context, ineligible for physical-copy
+valuation. No inventory, ownership, Store Price or Shopify changes.
 
-The preceding PR #698 release is verified live: Railway deployment
-771e99ad-bb33-4817-b5a2-03ed1ed6b4d8 reached SUCCESS, readiness is healthy,
-and source asset readbacks matched main 73a07bd. Its earlier pending status
+Catalogue coverage is now 40,628 / 67,065 physical references (60.58%), up from
+40,548. English Fusion coverage is 1,319 / 4,365. The overall 95% target is not
+met: 26,437 physical references still lack supported values or labelled guides.
+Missing source access, exact variant mappings and absent quotes remain explicit.
+
+Verified private archival preserved all 35,802 preceding history rows and
+reclaimed 56,606,720 bytes. Typed restore, full-field/quote digests, private
+upload, complete download SHA-256 and ZIP CRC passed. Inventory and all three
+current-price-cache fingerprints were unchanged. After the new price backfill,
+the database is 339,471,507 bytes, writable and below the unchanged 400 MB guard.
+Archive receipt: drop-rate-reference-history-20261024-172650.
+Coverage receipt: 66b0b505-498d-4267-96bf-181300289e09.
+See [scope, evidence and remaining gaps](docs/PRICING_RECOVERY_20261024.md).
+
+The preceding PR #698 release is also verified live. Its older pending wording
 below records the state when that patch was committed.
 
 ## 22 October 2026 — Catalogue price visibility recovery (release verification pending)
