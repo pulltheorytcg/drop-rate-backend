@@ -110,6 +110,15 @@ def test_cross_source_ambiguities_fail_closed():
     ]}})
 
 
+def test_source_list_quality_reveals_ambiguous_release_groups_without_guessing():
+    report=market.source_list_diagnostics({'Japanese':{'success':True,'data':[
+        {'set_code':'OP01','group_id':'-1','language':'jp'},
+        {'set_code':'OP01','group_id':'-2','language':'jp'},
+    ]}},market.collect_reference_groups([jp()],NOW))
+    assert report['Japanese']['multiple_group_ids']==1
+    assert report['Japanese']['ambiguous_code_sample']==['OP01']
+
+
 def test_alternate_printing_collisions_block_price_assignment():
     groups=market.collect_reference_groups([en()],NOW)
     assert len(market.matches_for_complete_set(groups,'English','OP01',[card()]))==1
@@ -265,3 +274,28 @@ async def test_incomplete_provider_set_is_quarantined_then_next_set_is_used(monk
     assert result['eligible_quotes']==1 and result['writes_attempted']==1
     assert result['cursor']=='Japanese:-89' and result['requests']==4
     assert len(writes)==1 and writes[0][3]=='OP02-001'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('conflicting,expected_writes',[(False,1),(True,0)])
+async def test_duplicate_provider_ids_only_collapse_identical_rows(monkeypatch,conflicting,expected_writes):
+    writes=[]
+    @asynccontextmanager
+    async def connection(*args):
+        class Conn:
+            async def fetch(self,*args):return [jp()]
+            async def executemany(self,sql,rows):writes.extend(rows)
+        yield Conn()
+    monkeypatch.setattr(market,'user_connection',connection)
+    first=card()
+    duplicate=card(name='Other Artist') if conflicting else dict(first)
+    http=FakeHttp(first=set_response(first,duplicate,total=2))
+    class FX:
+        async def quote(self,**kwargs):
+            return FxQuote('EUR','GBP',Decimal('.86'),NOW,NOW,'ECB_EURO_REFERENCE_RATES')
+    result=await market.refresh_pokewallet_one_piece(object(),uuid4(),FX(),
+        'pk_live_secret_fixture',dry_run=False,http_client=http)
+    assert result['writes_attempted']==expected_writes
+    assert len(writes)==expected_writes
+    assert result['collapsed_identical_duplicate_rows']==(0 if conflicting else 1)
+    assert result['skipped_invalid_sets']==int(conflicting)

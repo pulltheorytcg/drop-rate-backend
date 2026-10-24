@@ -8,6 +8,7 @@
 - Official ECB spot-rate conversion and timestamp are recorded per quote. Values are **mixed-language indicative catalogue guides**, not exact UK sold comparables and **not** physical-copy valuation or selling-price authority.
 - Exact release code, language, card number, rarity and unique *complete-set* product are required. English names must also agree. Japanese publisher names may not transliterate into the English source label; their prices remain explicitly non-physical. Parallel identifiers (`_p1`, etc.) and duplicate artwork products cannot inherit a base price.
 - If PokéWallet returns a set with inconsistent pagination, duplicate printing IDs or incorrect totals, quarantine **that entire set** with bounded diagnostic counts. The daily cursor moves on to other sets, and no product from the problematic release receives a guide.
+- Repeated rows with exactly the same source printing ID **and identical data** can safely be collapsed into one source printing. If duplicate IDs disagree in any field, the whole set is quarantined. Bounded, price-free counters record release-code ambiguity, parallel number collisions, rarity and name mismatch reasons; they do not relax exact-printing identity.
 - No customer, owner, physical inventory, cost, Store Price or Shopify writes. The existing `tcg.reference_catalogue_prices` history trigger appends immutable history.
 
 ## Free limits
