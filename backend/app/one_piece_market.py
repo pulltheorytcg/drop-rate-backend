@@ -7,6 +7,7 @@ by price, array order or a guessed V1/V2 suffix. No inventory writes occur here.
 from __future__ import annotations
 
 import asyncio
+import html
 import re
 import unicodedata
 from collections import defaultdict
@@ -137,7 +138,11 @@ def matched_products(references, singles, packaging):
         ref = refs[0]
         expansion = expansions.get(release_identity(ref['set_name']))
         candidates = cards.get((expansion, number), []) if expansion else []
-        if len(candidates) == 1 and candidates[0][0] == normalized(ref['name']):
+        # Bandai's published catalogue occasionally HTML-escapes ampersands
+        # ("&amp;") while Cardmarket's export uses the visible card name.
+        # Decode text only for comparison; preserve the original reference
+        # identity and require a single product in the exact release.
+        if len(candidates) == 1 and candidates[0][0] == normalized(html.unescape(ref['name'])):
             if ref['provider_id'] in result and result[ref['provider_id']]['idProduct'] != candidates[0][1]['idProduct']:
                 conflicts.add(ref['provider_id'])
             result[ref['provider_id']] = candidates[0][1]
