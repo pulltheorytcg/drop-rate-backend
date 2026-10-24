@@ -49,6 +49,31 @@ def test_older_checklists_and_known_release_title_spelling_are_supported():
     assert not market.matched_products([ref,other],singles,packaging)
 
 
+@pytest.mark.parametrize('reference_name,market_name', [
+    ('Yosaku &amp; Johnny', 'Yosaku & Johnny'),
+    ('Chaka &amp; Pell', 'Chaka & Pell'),
+    ('Law &#38; Bepo', 'Law & Bepo'),
+])
+def test_html_entities_are_decoded_only_for_unique_exact_printing_matches(reference_name,market_name):
+    ref={**reference(),'provider_id':'OP03-053','card_number':'OP03-053',
+         'name':reference_name,'set_id':'real-set',
+         'set_name':'BOOSTER PACK -PILLARS OF STRENGTH- [OP-03]'}
+    product={'idProduct':720003,'name':f'{market_name} (OP03-053)',
+             'idCategory':1621,'categoryName':'One Piece Single','idExpansion':5533}
+    pack={'idCategory':1623,'categoryName':'One Piece Lots',
+          'name':'Common Set - Pillars of Strength (OP03)','idExpansion':5533}
+    assert market.matched_products([ref],{'one':product},{'one':pack})['OP03-053']==product
+    assert ref['name']==reference_name  # original identity is never rewritten
+    assert not market.matched_products([ref],{
+        'one':product,'parallel':{**product,'idProduct':720004}}, {'one':pack})
+    assert not market.matched_products([ref],{'one':product},{
+        'one':{**pack,'idExpansion':5534}})
+    assert not market.matched_products([ref],{
+        'one':{**product,'name':'Different & Character (OP03-053)'}},{'one':pack})
+    assert not market.matched_products([ref],{
+        'one':{**product,'name':f'{market_name} (OP03-054)'}},{'one':pack})
+
+
 @pytest.mark.parametrize('change',['valid','japanese','prerelease','different_title','duplicate_expansion','parallel','wrong_number'])
 def test_starter_deck_requires_exact_full_release_and_unique_print(change):
     ref={**reference(),'provider_id':'ST05-008','card_number':'ST05-008','name':'Shiki',
