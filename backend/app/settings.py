@@ -115,6 +115,9 @@ class Settings:
     catalogue_daily_refresh_enabled: bool = False
     catalogue_maintenance_actor_user_id: str | None = None
     catalogue_price_refresh_limit: int = 20000
+    pokewallet_api_key: str | None = None
+    pokewallet_pricing_apply_enabled: bool = False
+    pokewallet_pricing_request_limit: int = 60
     shopify_auto_sync_enabled: bool = False
     ebay_deletion_verification_token: str | None = None
     ebay_deletion_endpoint: str | None = None
@@ -212,6 +215,11 @@ class Settings:
             catalogue_daily_refresh_enabled=_boolean("TCG_CATALOGUE_DAILY_REFRESH_ENABLED", False),
             catalogue_maintenance_actor_user_id=_optional("TCG_CATALOGUE_MAINTENANCE_ACTOR_USER_ID"),
             catalogue_price_refresh_limit=_bounded_int("TCG_CATALOGUE_PRICE_REFRESH_LIMIT", 20000, minimum=1, maximum=30000),
+            pokewallet_api_key=_optional("TCG_POKEWALLET_API_KEY"),
+            pokewallet_pricing_apply_enabled=_boolean("TCG_POKEWALLET_PRICING_APPLY_ENABLED", False),
+            pokewallet_pricing_request_limit=_bounded_int(
+                "TCG_POKEWALLET_PRICING_REQUEST_LIMIT", 60, minimum=3, maximum=60
+            ),
             shopify_auto_sync_enabled=_boolean("TCG_SHOPIFY_AUTO_SYNC_ENABLED", False),
             ebay_deletion_verification_token=_optional("TCG_EBAY_DELETION_VERIFICATION_TOKEN"),
             ebay_deletion_endpoint=_optional("TCG_EBAY_DELETION_ENDPOINT"),
