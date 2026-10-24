@@ -252,7 +252,7 @@ async def test_pokewallet_free_job_once_daily_then_switches_from_trial_to_apply(
     await jobs.daily_pass(Pool(conn),settings)
     assert len(state['calls'])==1 and state['calls'][0]['dry_run'] is True
     assert any(r[2]=='POKEWALLET_PRICES' and r[3]=='COMPLETE' for r in state['receipts'])
-    state['prior']={'importer_revision':10,'cursor':'Japanese:-88'}
+    state['prior']={'importer_revision':jobs.POKEWALLET_JOB_REVISION*10,'cursor':'Japanese:-88'}
     await jobs.daily_pass(Pool(conn),settings)
     assert len(state['calls'])==1  # never spend free quota every five minutes
     settings.pokewallet_pricing_apply_enabled=True

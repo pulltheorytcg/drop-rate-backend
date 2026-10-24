@@ -7,6 +7,7 @@
 - The source is PokéWallet's API with Cardmarket EUR `trend` as the underlying market guide. No TCGPlayer USD context, low asks, provider-set averages, artificial minimums, or sales estimates are promoted to a GBP card price.
 - Official ECB spot-rate conversion and timestamp are recorded per quote. Values are **mixed-language indicative catalogue guides**, not exact UK sold comparables and **not** physical-copy valuation or selling-price authority.
 - Exact release code, language, card number, rarity and unique *complete-set* product are required. English names must also agree. Japanese publisher names may not transliterate into the English source label; their prices remain explicitly non-physical. Parallel identifiers (`_p1`, etc.) and duplicate artwork products cannot inherit a base price.
+- If PokéWallet returns a set with inconsistent pagination, duplicate printing IDs or incorrect totals, quarantine **that entire set** with bounded diagnostic counts. The daily cursor moves on to other sets, and no product from the problematic release receives a guide.
 - No customer, owner, physical inventory, cost, Store Price or Shopify writes. The existing `tcg.reference_catalogue_prices` history trigger appends immutable history.
 
 ## Free limits

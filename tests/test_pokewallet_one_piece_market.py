@@ -226,3 +226,42 @@ async def test_ecb_outage_reports_bounded_failure_without_writing(monkeypatch):
         'pk_live_secret_fixture',dry_run=False,http_client=FakeHttp())
     assert result['provider_failures']==1 and result['writes_attempted']==0
     assert result['reason']=='RuntimeError' and result['requests']==3
+
+
+@pytest.mark.asyncio
+async def test_incomplete_provider_set_is_quarantined_then_next_set_is_used(monkeypatch):
+    next_ref=jp(provider_id='OP02-001',card_number='OP02-001',name='エドワード・ニューゲート',
+        set_id='jp-set-2',set_name='ブースターパック 頂上決戦【OP-02】')
+    writes=[]
+    @asynccontextmanager
+    async def connection(*args):
+        class Conn:
+            async def fetch(self,*args):return [jp(),next_ref]
+            async def executemany(self,sql,rows):writes.extend(rows)
+        yield Conn()
+    monkeypatch.setattr(market,'user_connection',connection)
+    class TwoSetHttp:
+        async def get(self,url,params=None,headers=None):
+            if url.endswith('/op/sets'):
+                data=[{'set_code':'OP01','group_id':'-88','language':'jp'},
+                      {'set_code':'OP02','group_id':'-89','language':'jp'}]
+                return FakeHttpResponse({'success':True,'data':data if params['language']=='jp' else []})
+            if url.endswith('/-88'):
+                return FakeHttpResponse(set_response(card(),total=2))
+            if url.endswith('/-89'):
+                next_card=card(id='op_second',card_number='OP02-001',
+                    cardmarket={'product_url':'https://www.cardmarket.com/en/OnePiece/Products/Singles/Paramount-War/Edward-Newgate',
+                                'prices':{'trend':2.50}})
+                return FakeHttpResponse(set_response(next_card,group_id='-89',language='jp') | {
+                    'set':{'set_code':'OP02','group_id':'-89','language':'jp'}})
+            raise AssertionError('Unexpected endpoint')
+    class FX:
+        async def quote(self,**kwargs):
+            return FxQuote('EUR','GBP',Decimal('.86'),NOW,NOW,'ECB_EURO_REFERENCE_RATES')
+    result=await market.refresh_pokewallet_one_piece(object(),uuid4(),FX(),
+        'pk_live_secret_fixture',dry_run=False,request_limit=10,http_client=TwoSetHttp())
+    assert result['skipped_invalid_sets']==1 and result['provider_failures']==1
+    assert result['invalid_set_samples'][0]['reason']=='INCOMPLETE_OR_DUPLICATE_SET'
+    assert result['eligible_quotes']==1 and result['writes_attempted']==1
+    assert result['cursor']=='Japanese:-89' and result['requests']==4
+    assert len(writes)==1 and writes[0][3]=='OP02-001'
