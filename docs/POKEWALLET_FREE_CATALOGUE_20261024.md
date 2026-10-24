@@ -25,6 +25,7 @@ Official docs: https://pokewallet.io/api-docs/one-piece and terms: https://pokew
 2. Keep the existing production secret `TCG_POKEWALLET_API_KEY` only in Railway's `drop-rate-api-live` service; **never** expose or commit its value.
 3. Release with `TCG_POKEWALLET_PRICING_APPLY_ENABLED` unset/false. The daily worker makes a **dry-run** request budget of 12, logs only bounded aggregate counts and records a `POKEWALLET_PRICES` receipt.
 4. Verify source schemas, exact-print candidates, no unexpected failures, healthy database capacity, and the observed free request count. For live guide writes set `TCG_POKEWALLET_PRICING_APPLY_ENABLED=true` on the same service; the importer revision forces one new pass without waiting until tomorrow. That change will redeploy the service.
+   - The **apply** run must replay the successful trial's *input cursor*, not its final output cursor. Otherwise it skips every verified quote. A bounded read of immutable `POKEWALLET_PRICES` receipts supports one-time recovery if the first apply pass advanced without writing any guides; a `replayed_trial_started_at` audit marker prevents indefinite retries.
 5. Run the official coverage query and verify that positive guides have identity/provenance and **no** inventory/Store Price/Shopify changes. Export new immutable `tcg.reference_market_history` entries to the correct Drop Rate Google Drive and verify the file before considering history archived.
 
 ## Expected limitations

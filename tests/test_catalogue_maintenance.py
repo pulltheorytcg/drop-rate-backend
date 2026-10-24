@@ -260,3 +260,72 @@ async def test_pokewallet_free_job_once_daily_then_switches_from_trial_to_apply(
     assert len(state['calls'])==2
     assert state['calls'][-1]['dry_run'] is False
     assert state['calls'][-1]['previous_cursor']=='Japanese:-88'
+
+
+def test_unapplied_positive_trial_replays_from_before_the_dry_run():
+    at=datetime.now(timezone.utc)
+    rows=[{'started_at':at,'report':{'dry_run':False,'writes_attempted':0,
+               'cursor':'Japanese:-58','eligible_quotes':0}},
+          {'started_at':at,'report':{'dry_run':True,'eligible_quotes':66,
+               'cursor':'Japanese:-8','writes_attempted':0}},
+          {'started_at':at,'report':{'dry_run':True,'eligible_quotes':1,
+               'cursor':'English:24305'}}]
+    replay=jobs.unapplied_trial_cursor(rows)
+    assert replay['cursor']=='English:24305'
+    assert replay['replayed_trial_started_at']==at.isoformat()
+    assert jobs.unapplied_trial_cursor([{**rows[0],
+        'report':{**rows[0]['report'],'writes_attempted':23}},*rows[1:]]) is None
+    assert jobs.unapplied_trial_cursor([{**rows[0],
+        'report':{**rows[0]['report'],'replayed_trial_started_at':at.isoformat()}},*rows[1:]]) is None
+
+
+@pytest.mark.asyncio
+async def test_apply_mode_uses_successful_trials_input_cursor(monkeypatch):
+    now=datetime.now(timezone.utc)
+    state={'called':[],'receipt':[]}
+    class TrialConnection(Connection):
+        async def fetch(self,sql,*args):
+            if 'reference_sync_runs' in sql:
+                return [dict(source=s,status='COMPLETE',started_at=now,
+                    report={'importer_revision':jobs.SOURCE_REVISIONS.get(s,1)}) for s in jobs.SOURCES]
+            if 'order by started_at desc limit 8' in sql:
+                return [{'started_at':now,'report':{'dry_run':False,'writes_attempted':0,
+                            'cursor':'Japanese:-58','eligible_quotes':0}},
+                        {'started_at':now,'report':{'dry_run':True,'eligible_quotes':66,
+                            'cursor':'Japanese:-8'}},
+                        {'started_at':now,'report':{'dry_run':True,'eligible_quotes':1,
+                            'cursor':'English:24305'}}]
+            revisions={'REFERENCE_PRICES':jobs.REFERENCE_JOB_REVISION,
+                       'SEALED_REFERENCE_PRICES':jobs.SEALED_MARKET_REVISION,
+                       'CATALOGUE_VALUES':jobs.CATALOGUE_VALUE_REVISION,
+                       'CARDMARKET_VALUES':jobs.CARDMARKET_VALUE_REVISION}
+            return [dict(job=j,status='COMPLETE',started_at=now,
+                         report={'importer_revision':r}) for j,r in revisions.items()]+[
+                         dict(job='CATALOGUE_COVERAGE',status='COMPLETE',started_at=now,report={}),
+                         dict(job='POKEWALLET_PRICES',status='COMPLETE',started_at=now,
+                              report={'dry_run':False,'writes_attempted':0,'cursor':'Japanese:-58',
+                                      'importer_revision':41})]
+    conn=TrialConnection()
+    @asynccontextmanager
+    async def user_connection(*args):yield conn
+    async def authorized(*args):pass
+    async def refresh(*args,**kwargs):
+        state['called'].append(kwargs)
+        return {'writes_attempted':23,'eligible_quotes':23,'cursor':'English:3189'}
+    async def receipt(*args):state['receipt'].append(args)
+    async def capacity(_):
+        from app.database_capacity import assess_capacity
+        return assess_capacity(321_334_419,'off')
+    monkeypatch.setattr(jobs,'user_connection',user_connection)
+    monkeypatch.setattr(jobs,'require_platform_admin',authorized)
+    monkeypatch.setattr(jobs,'refresh_pokewallet_one_piece',refresh)
+    monkeypatch.setattr(jobs,'receipt',receipt)
+    monkeypatch.setattr(jobs,'check_database_capacity',capacity)
+    monkeypatch.setattr(jobs,'record_coverage',authorized)
+    await jobs.daily_pass(Pool(conn),SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4()),
+        pokewallet_api_key='pk_live_secret_fixture',pokewallet_pricing_apply_enabled=True,
+        pokewallet_pricing_request_limit=15))
+    assert len(state['called'])==1
+    assert state['called'][0]['previous_cursor']=='English:24305'
+    assert state['called'][0]['request_limit']==15
+    assert state['receipt'][-1][-1]['replayed_trial_started_at']==now.isoformat()

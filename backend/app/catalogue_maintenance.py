@@ -40,7 +40,30 @@ log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
 REFERENCE_JOB_REVISION=25
-POKEWALLET_JOB_REVISION=4
+POKEWALLET_JOB_REVISION=5
+
+
+def unapplied_trial_cursor(rows):
+    """Return the *input* cursor of a positive dry-run never yet written.
+
+    A dry-run's output cursor is the last visited release. Passing it to the
+    next apply run silently skips every verified quote. Read the preceding
+    immutable job receipt to replay the exact trial window one time only.
+    """
+    if not rows:
+        return None
+    current=rows[0]['report'] or {}
+    if (current.get('dry_run') is not False
+            or current.get('writes_attempted')
+            or current.get('replayed_trial_started_at')):
+        return None
+    for i in range(1,len(rows)):
+        trial=rows[i]['report'] or {}
+        if trial.get('dry_run') is True and int(trial.get('eligible_quotes') or 0)>0:
+            previous=rows[i+1]['report'] if i+1<len(rows) else {}
+            return {'cursor':(previous or {}).get('cursor'),
+                    'replayed_trial_started_at':rows[i]['started_at'].isoformat()}
+    return None
 SHOPIFY_CANDIDATES="""
 select i.id,i.owner_id,i.version from tcg.inventory_items i
 join tcg.owners o on o.id=i.owner_id and o.active
@@ -287,6 +310,16 @@ async def daily_pass(pool,settings):
                 if (prior is None or prior['started_at']<daily_slot(now)
                         or (prior.get('report') or {}).get('importer_revision')!=importer_revision):
                     last_cursor=(prior.get('report') or {}).get('cursor') if prior else None
+                    replay=None
+                    if (getattr(settings,'pokewallet_pricing_apply_enabled',False)
+                            and prior and not (prior.get('report') or {}).get('writes_attempted')):
+                        async with user_connection(pool,actor,str(uuid4())) as connection:
+                            history=await connection.fetch('''select started_at,report
+                              from tcg.catalogue_job_runs where job='POKEWALLET_PRICES'
+                              and status='COMPLETE' order by started_at desc limit 8''')
+                        replay=unapplied_trial_cursor(history)
+                        if replay is not None:
+                            last_cursor=replay['cursor']
                     result=await refresh_pokewallet_one_piece(
                         pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),
                         pokewallet_key,
@@ -294,7 +327,9 @@ async def daily_pass(pool,settings):
                         request_limit=getattr(settings,'pokewallet_pricing_request_limit',60),
                         previous_cursor=last_cursor)
                     await receipt(pool,actor,'POKEWALLET_PRICES','COMPLETE',
-                                  {'importer_revision':importer_revision,**result})
+                                  {'importer_revision':importer_revision,**result,
+                                   **({'replayed_trial_started_at':replay['replayed_trial_started_at']}
+                                      if replay is not None else {})})
                     if result['writes_attempted']:
                         await record_coverage(pool,actor)
                         coverage_recorded=True
