@@ -5,10 +5,18 @@ const crypto = require('node:crypto');
 async function main() {
   const secret = String(process.env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();
   const receipt = String(process.env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();
-  if (secret.length < 32 || !/^https:\/\/[^/]+\/api\/v1\/automation\/control\/receipt$/.test(receipt)
-      && !/^http:\/\/[^/]+\.railway\.internal:\d+\/api\/v1\/automation\/control\/receipt$/.test(receipt)) {
-    throw new Error('bridge_configuration_invalid');
+  if (secret.length < 32) throw new Error('bridge_secret_not_configured');
+  let parsed;
+  try {
+    parsed = new URL(receipt);
+  } catch {
+    throw new Error('bridge_control_url_invalid');
   }
+  const validTarget = parsed.pathname === '/api/v1/automation/control/receipt'
+    && !parsed.search && !parsed.hash && !parsed.username && !parsed.password
+    && ((parsed.protocol === 'https:' && Boolean(parsed.hostname))
+      || (parsed.protocol === 'http:' && parsed.hostname.endsWith('.railway.internal')));
+  if (!validTarget) throw new Error('bridge_control_target_not_allowed');
   const endpoint = receipt.replace('/control/receipt', '/commands/storage/mirror-approved-media');
   const body = JSON.stringify({
     schema_version: 1,
