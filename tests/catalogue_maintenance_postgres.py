@@ -46,6 +46,10 @@ async def main():
           create table tcg.audit_events(actor text,request_id text,action text,entity_type text,entity_id uuid,old_values jsonb,new_values jsonb);
           create table tcg.media_assets(catalogue_id uuid,shopify_cdn_url text,public_source_url text,scope text,side text,media_kind text,
             approval_status text,rights_status text,rights_tier text,source_status text,revoked_at timestamptz,approved_at timestamptz,created_at timestamptz,id uuid);
+          -- Minimal R2 metadata fixture for the live catalogue join. The
+          -- production migration adds its foreign key, rights RLS and audit
+          -- trigger against the full (non-fixture) media_assets schema.
+          create table tcg.media_object_mirrors(id uuid,media_asset_id uuid,source_url text,object_key text);
           create function tcg.catalogue_reference_value_v2(uuid,text) returns table(market_value_minor bigint,basis_condition text,pricing_updated_at timestamptz,valuation_source text)
             language sql stable as $$select null::bigint,null::text,null::timestamptz,null::text where false$$;
           grant usage on schema tcg to tcg_api;grant select,insert,update on all tables in schema tcg to tcg_api;
