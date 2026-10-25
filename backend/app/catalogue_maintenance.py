@@ -43,6 +43,10 @@ SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
 REFERENCE_JOB_REVISION=25
 POKEWALLET_JOB_REVISION=7
 POKEWALLET_DBS_JOB_REVISION=3
+# At most 20 free DBS searches per UTC hour = 480/day; the scheduled One
+# Piece source uses at most 25/day. Leave the majority of the provider's
+# 1,000/day shared free allowance untouched for other application activity.
+DBS_HOURLY_REQUEST_BUDGET=20
 
 
 def unapplied_trial_cursor(rows):
@@ -95,6 +99,11 @@ def daily_slot(now):
     slot=local.replace(hour=3,minute=0,second=0,microsecond=0)
     if local<slot:slot-=timedelta(days=1)
     return slot.astimezone(timezone.utc)
+
+
+def hourly_slot(now):
+    """UTC hour boundary: unambiguous during UK daylight-saving changes."""
+    return now.astimezone(timezone.utc).replace(minute=0,second=0,microsecond=0)
 
 
 def weekly_price_slot(now):
@@ -351,7 +360,7 @@ async def daily_pass(pool,settings):
                 prior=latest.get('POKEWALLET_DBS_PRICES')
                 importer_revision=(POKEWALLET_DBS_JOB_REVISION*10 +
                     int(getattr(settings,'pokewallet_dragon_ball_apply_enabled',False)))
-                if (prior is None or prior['started_at']<daily_slot(now)
+                if (prior is None or prior['started_at']<hourly_slot(now)
                         or (prior.get('report') or {}).get('importer_revision')!=importer_revision):
                     last_cursor=(prior.get('report') or {}).get('cursor') if prior else None
                     replay=None
@@ -368,7 +377,8 @@ async def daily_pass(pool,settings):
                         pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),
                         pokewallet_key,
                         dry_run=not getattr(settings,'pokewallet_dragon_ball_apply_enabled',False),
-                        request_limit=getattr(settings,'pokewallet_dragon_ball_request_limit',35),
+                        request_limit=min(DBS_HOURLY_REQUEST_BUDGET,
+                            getattr(settings,'pokewallet_dragon_ball_request_limit',35)),
                         previous_cursor=last_cursor)
                     await receipt(pool,actor,'POKEWALLET_DBS_PRICES','COMPLETE',
                                   {'importer_revision':importer_revision,**result,
