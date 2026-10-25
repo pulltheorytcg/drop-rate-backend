@@ -130,7 +130,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    const smallPriceText=await page.locator('.owner-card-prices').innerText();
    assert.ok(!smallPriceText.includes("Last known")&&!smallPriceText.includes("08/10/2026"));
    assert.match(await page.locator('.owner-card-prices').innerText(),/£8.66/);
-   assert.match(await page.locator('.owner-card-historical-label').innerText(),/Historical reference/);
+   assert.match(await page.locator('.owner-card-historical-label').innerText(),/Historical value/);
    await page.locator('.owner-card-open-overlay').click();
    assert.ok((await page.locator('.owner-item-values').innerText()).includes("Last known 08/10/2026"));
    await page.getByRole('button',{name:'Close item details',exact:true}).click();
@@ -161,7 +161,7 @@ const item={id:'d715b0e9-b3c4-451b-a909-5fa233f8a0e5',catalogue_id:'verified-op1
    assert.match(await marketCell.innerText(),/£8.66/);
    const historicalRowText=await marketCell.innerText();
    assert.ok(!historicalRowText.includes("Last known")&&!historicalRowText.includes("08/10/2026"),"List must not display dated historical labels");
-   assert.match(await marketCell.locator('.owner-table-historical-label').innerText(),/Historical reference/);
+   assert.match(await marketCell.locator('.owner-table-historical-label').innerText(),/Historical value/);
    await page.evaluate(original=>renderInventoryRows([original]),item);
    await page.locator('.owner-inventory-open').click();await page.locator('.owner-item-selling summary').waitFor();
    if(!await page.locator('.owner-item-selling').evaluate(e=>e.open))await page.locator('.owner-item-selling summary').click();

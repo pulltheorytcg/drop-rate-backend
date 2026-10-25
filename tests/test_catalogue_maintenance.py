@@ -210,7 +210,7 @@ async def test_sealed_only_refresh_updates_the_coverage_receipt(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_pokewallet_free_job_once_daily_then_switches_from_trial_to_apply(monkeypatch):
+async def test_pokewallet_free_job_once_hourly_then_switches_from_trial_to_apply(monkeypatch):
     now=datetime.now(timezone.utc)
     state={'prior':None,'calls':[],'receipts':[]}
     class DailyConnection(Connection):
@@ -251,6 +251,7 @@ async def test_pokewallet_free_job_once_daily_then_switches_from_trial_to_apply(
         pokewallet_pricing_request_limit=60)
     await jobs.daily_pass(Pool(conn),settings)
     assert len(state['calls'])==1 and state['calls'][0]['dry_run'] is True
+    assert state['calls'][0]['request_limit']==jobs.ONE_PIECE_HOURLY_REQUEST_BUDGET
     assert any(r[2]=='POKEWALLET_PRICES' and r[3]=='COMPLETE' for r in state['receipts'])
     state['prior']={'importer_revision':jobs.POKEWALLET_JOB_REVISION*10,'cursor':'Japanese:-88'}
     await jobs.daily_pass(Pool(conn),settings)

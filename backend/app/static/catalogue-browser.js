@@ -6,11 +6,11 @@ window.DropRateCatalogue = (() => {
   const money = value => value == null ? "Value pending" : new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"}).format(value / 100);
   const marketPrice = row => row.shared_price
     ? window.DropRateReferenceValue.text({reference_value:row.shared_price}, money)
-    : row.market_value_minor==null?(row.product_type==="COMIC"?"Market value pending":row.market_refresh_failed?"Price temporarily unavailable":row.market_refresh_needed?"Checking price…":"Price unavailable"):(row.market_value_source==="CARDMARKET_ESTIMATE"?"Estimate: ":["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT","CARDMARKET_CATALOGUE","CARDMARKET_BULK","CARDMARKET_BULK_SINGLES"].includes(row.market_value_source)?"Reference: ":"")+money(row.market_value_minor)+(row.market_value_high_minor>row.market_value_minor?"–"+money(row.market_value_high_minor):"");
+    : row.market_value_minor==null?(row.product_type==="COMIC"?"Value pending":row.market_refresh_failed?"Value temporarily unavailable":row.market_refresh_needed?"Checking value…":"Value unavailable"):"Value: "+money(row.market_value_minor);
   const conditions = ["Near Mint", "Lightly Played", "Moderately Played", "Heavily Played", "Damaged"];
   const decode = value => { const el = document.createElement("textarea"); el.innerHTML = String(value || ""); return el.value; };
   const sorts = {newest:"Newest first", oldest:"Oldest first", name:"Name A–Z", name_desc:"Name Z–A",
-    number:"Card number", value_desc:"Market value: high to low", value_asc:"Market value: low to high"};
+    number:"Card number", value_desc:"Value: high to low", value_asc:"Value: low to high"};
   // Bandai's _pN is a distinct publisher reference: show it without assuming
   // a grade, rarity or market value from the base card.
   const printingMarker = row => {
@@ -280,7 +280,7 @@ window.DropRateCatalogue = (() => {
       const evidence=node("details","dr-browse-extra dr-browse-price-details");evidence.append(node("summary","","About this value"));content.append(evidence);
       if(row.shared_price)evidence.append(node("p","dr-browse-reference-note",window.DropRateReferenceValue.description({reference_value:row.shared_price})));
       if(row.market_value_minor==null && !row.shared_price?.last_known_minor)evidence.append(node("p","dr-browse-reference-note","No verified market value is available for this exact product yet. This does not mean the card is worth £0."));
-      if(row.basis_condition)evidence.append(node("small","","Reference value: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
+      if(row.basis_condition)evidence.append(node("small","","Price basis: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
       for(const quote of row.market_quotes||[]){
         const label=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer US context · "+new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(quote.original_minor/100):money(quote.price_gbp_minor);
         const source=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer":"Cardmarket";

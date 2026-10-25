@@ -304,7 +304,7 @@ async def test_daily_scheduler_dragon_ball_is_flagged_quota_bounded_and_idempote
                        "cursor":"BT2","writes_attempted":0}
     await jobs.daily_pass(Pool(),settings)
     assert len(calls)==1
-    # Only DBS, not One Piece, rotates to the next hourly budget slot.
+    # Only the stale DBS job rotates; the One Piece job remains current.
     state["dbs_started_at"]=now-timedelta(hours=2)
     await jobs.daily_pass(Pool(),settings)
     assert len(calls)==2 and calls[-1]["request_limit"]==8

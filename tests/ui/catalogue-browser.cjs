@@ -50,9 +50,9 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(f.calls.at(-1).url,/sort=name_desc/);
   assert.match(sort.textContent,/Name Z–A/);
   sort.click();
-  [...f.browser.sheet.querySelectorAll('button')].find(b=>b.textContent.startsWith('Market value: high to low')).click();await tick();
+  [...f.browser.sheet.querySelectorAll('button')].find(b=>b.textContent.startsWith('Value: high to low')).click();await tick();
   assert.match(f.calls.at(-1).url,/sort=value_desc/);
-  assert.match(sort.textContent,/Market value: high to low/);
+  assert.match(sort.textContent,/Value: high to low/);
   sort.click();
   [...f.browser.sheet.querySelectorAll('button')].find(b=>b.textContent.startsWith('Oldest first')).click();await tick();
   assert.match(f.calls.at(-1).url,/sort=oldest/);
@@ -95,7 +95,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(results[0].textContent,/RIVALS CLASH/);
   assert.match(results[1].textContent,/Release Event Pack/);
   assert.match(results[1].textContent,/Printing variant p1/);
-  assert.match(results[1].textContent,/Price unavailable/);
+  assert.match(results[1].textContent,/Value unavailable/);
   assert.equal(f.browser.rows[0].provider_id,base.provider_id);
   assert.equal(f.browser.rows[1].provider_id,alt.provider_id);
   f.finish();checks++;
@@ -109,9 +109,9 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   if(view==='search')f.browser.filters.q='OP11-101';
   else {f.browser.filters.system_code=card.system_code;f.browser.set={set_id:'OP11',provider:'Punk Records',system_code:card.system_code};}
   await f.browser.load();
-  assert.equal(f.browser.find('[data-price-key]').textContent,'£1.32 · Near-mint reference');
+  assert.equal(f.browser.find('[data-price-key]').textContent,'Value: £1.32');
   f.browser.openProduct(ref);
-  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'£1.32 · Near-mint reference');
+  assert.equal(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,'Value: £1.32');
   assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,0,'Shared price is in the first response, no second fetch');
   assert.equal(ref.catalogue_id,null,'Displaying a value must not create an intake mapping');
   f.finish();checks++;
@@ -148,17 +148,17 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   grid.querySelector('img').dispatchEvent(new f.w.Event('error'));
   assert.equal(grid.querySelector('img').src,row.image_url,'A missing thumbnail must retain the exact original fallback');
   f.browser.openProduct({...row,market_value_source:'CARDMARKET_BULK_SINGLES',market_value_minor:1234});
-  assert.match(f.browser.sheet.textContent,/Reference: £12.34/);assert.match(f.browser.sheet.textContent,/combines languages and conditions/);
+  assert.match(f.browser.sheet.textContent,/Value: £12.34/);assert.match(f.browser.sheet.textContent,/combines languages and conditions/);
   f.finish();checks++;
  }
  {
   const f=fixture();
   f.browser.openProduct({...card,market_value_source:'TCGDEX_TCGPLAYER',market_quotes:[{source:'TCGDEX_TCGPLAYER',finish:'Normal',original_minor:42}]});
   assert.match(f.browser.sheet.textContent,/TCGplayer US context · \$0.42/);
-  assert.match(f.browser.sheet.textContent,/Price unavailable/);
+  assert.match(f.browser.sheet.textContent,/Value unavailable/);
   assert.doesNotMatch(f.browser.sheet.textContent,/£0.42/);
   f.browser.openProduct({...card,key:'s:guide',product_type:'SEALED',market_value_source:'CARDMARKET_BULK',market_value_minor:8000,market_quotes:[]});
-  assert.match(f.browser.sheet.textContent,/Reference: £80.00/);
+  assert.match(f.browser.sheet.textContent,/Value: £80.00/);
   assert.match(f.browser.sheet.textContent,/spans languages and conditions/);
   f.finish();checks++;
  }
@@ -195,12 +195,12 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const waiting=deferred(),ref={...card,key:'r:'+'a'.repeat(32),provider:'TCGdex',source_kind:'REFERENCE',market_refresh_needed:true};
   const f=fixture(async(url,options)=>url.endsWith('/market-values')?waiting.promise:{items:[ref]});
   f.browser.filters.q='Seel';await f.browser.open();
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Checking price/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Checking value/);
   f.browser.openProduct(ref);const select=f.browser.sheet.querySelector('select');select.value='Near Mint';select.dispatchEvent(new f.w.Event('change'));
   waiting.resolve({items:[{key:ref.key,market_value_minor:7,market_value_high_minor:19,market_value_source:'TCGDEX_CARDMARKET',market_refresh_needed:false,
     basis_condition:'Raw · Cardmarket',pricing_updated_at:'2026-10-08T12:00:00Z',market_quotes:[{finish:'Normal',price_gbp_minor:7},{finish:'Reverse Holofoil',price_gbp_minor:19}]}]});
   await tick();
-  assert.match(f.browser.find('.dr-browse-content').textContent,/£0.07–£0.19/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Value: £0.07/);
   assert.match(f.browser.sheet.textContent,/Reverse Holofoil: £0.19/);
   assert.match(f.browser.sheet.textContent,/converted from EUR/);
   assert.equal(f.browser.sheet.querySelector('select'),select);assert.equal(select.value,'Near Mint');
@@ -216,20 +216,20 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const f=fixture(async url=>url.endsWith('/market-values')?waiting.promise:{items:[ref]});
   f.browser.filters.q='Stored guide';await f.browser.open();f.browser.openProduct(ref);
   assert.equal(f.calls.filter(c=>c.url.endsWith('/market-values')).length,1,'Historical display must not suppress refresh');
-  assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/£8.00–£12.00 · Last known 01\/10\/2026/);
+  assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Value: £8.00/);
   waiting.resolve({items:[{key:ref.key,market_value_minor:outcome==='current'?1500:null,
     market_value_high_minor:outcome==='current'?1800:null,market_value_source:'TCGDEX_CARDMARKET',
     shared_price:null,provider_refresh_failed:outcome==='failed',market_refresh_needed:false}]});
   await tick();
   if(outcome==='current') {
     assert.equal(ref.shared_price,undefined);
-    assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Reference: £15.00–£18.00/);
+    assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Value: £15.00/);
     assert.doesNotMatch(f.browser.find('[data-price-key]').textContent,/Last known/);
   } else {
     assert.equal(ref.market_value_minor,null,'History cannot become current money');
     assert.equal(ref.shared_price,history);
-    assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Last known 01\/10\/2026/);
-    assert.match(f.browser.find('[data-price-key]').textContent,/£8.00–£12.00/);
+    assert.match(f.browser.sheet.querySelector('.dr-browse-detail-value').textContent,/Value: £8.00/);
+    assert.match(f.browser.find('[data-price-key]').textContent,/Value: £8.00/);
   }
   f.finish();checks++;
  }
@@ -246,7 +246,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const f=fixture(async(url)=>{if(url.endsWith('/market-values'))throw new Error('Provider down');return {items:[ref]};});
   f.browser.filters.q='Card';await f.browser.open();await tick();
   assert.match(f.browser.find('.dr-browse-content').textContent,/Luffy/);
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Price temporarily unavailable/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Value temporarily unavailable/);
   f.finish();checks++;
  }
  {
@@ -289,7 +289,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(f.calls.at(-1).url,/language=Japanese/);
   f.browser.find('.dr-browse-set').click();await tick();
   assert.match(f.calls.at(-1).url,/set_id=OP11/);assert.match(f.calls.at(-1).url,/provider=Punk\+Records/);
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Price unavailable/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Value unavailable/);
   f.finish();checks++;
  }
  {
@@ -503,7 +503,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   const estimate={...card,market_value_minor:170,market_value_source:'CARDMARKET_ESTIMATE',market_refresh_needed:true,
     basis_condition:'Cardmarket guide · mixed languages and conditions',pricing_updated_at:'2026-10-09T10:00:00Z'};
   const f=fixture(async()=>({items:[estimate]}));f.browser.games=games;f.browser.filters.q='card';await f.browser.open();
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Estimate: £1.70/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Value: £1.70/);
   f.browser.openProduct(estimate);assert.match(f.browser.sheet.textContent,/not a condition-adjusted UK sold value/);
   assert.equal(f.calls.filter(c=>c.url.includes('/market-values')).length,0);
   f.finish();checks++;
@@ -513,7 +513,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
    market_value_minor:1200,market_value_source:kind,market_quotes:[{source:kind,variant_label:'Holofoil · unlimited',
     finish:'Holofoil',product_id:'273699',price_gbp_minor:1200,observed_at:'2026-10-10T00:00:00Z'}]};
   const f=fixture();f.browser.openProduct(row);
-  assert.match(f.browser.sheet.textContent,/Reference: £12.00/);
+  assert.match(f.browser.sheet.textContent,/Value: £12.00/);
   assert.match(f.browser.sheet.textContent,/Card referenceTCGdex · base1-4/);
   assert.match(f.browser.sheet.textContent,/Set reference: base1 · English/);
   assert.match(f.browser.sheet.textContent,/Holofoil · unlimited: £12.00 · Cardmarket #273699/);
@@ -604,7 +604,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   f.browser.filters.system_code='NARUTO';f.browser.filters.product_type='SEALED';
   await f.browser.load();
   assert.match(f.browser.find('.dr-browse-content').textContent,/Verified Kayou product/);
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Price unavailable/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Value unavailable/);
   assert.equal(f.browser.find('.dr-browse-status').textContent,'');
   f.browser.openProduct(manufacturer);
   const link=f.browser.sheet.querySelector('.dr-browse-publisher-source');
@@ -697,7 +697,7 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   await f.browser.open();
   await f.browser.load();
   assert.match(f.browser.find('.dr-browse-content').textContent,/One Piece Volume 1/);
-  assert.match(f.browser.find('.dr-browse-content').textContent,/Market value pending/);
+  assert.match(f.browser.find('.dr-browse-content').textContent,/Value pending/);
   assert.ok(images.some(entry=>entry.path===book.reference_image_path+'&size=grid'));
   assert.match(images[0].image.alt,/publisher reference cover/);
   const cardButton=f.browser.find('.dr-browse-product-open');

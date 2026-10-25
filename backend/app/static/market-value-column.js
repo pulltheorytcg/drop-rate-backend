@@ -16,8 +16,8 @@
 
     const marketValueHeader = document.createElement("th");
     marketValueHeader.dataset.marketValueColumn = "true";
-    marketValueHeader.textContent = "Market value";
-    marketValueHeader.title = "Drop Rate valuation; Cardmarket guide estimates are labelled separately";
+    marketValueHeader.textContent = "Value";
+    marketValueHeader.title = "Drop Rate valuation; source and evidence details are available in each item";
     headerRow.insertBefore(marketValueHeader, storePriceHeader);
   }
 
@@ -31,7 +31,7 @@
       if (!cell) {
         cell = document.createElement("td");
         cell.dataset.marketValueCell = "true";
-        cell.dataset.label = "Market value";
+        cell.dataset.label = "Value";
         row.insertBefore(cell, storePriceCell);
       }
       const item = (data.display_items || data.items)[index];

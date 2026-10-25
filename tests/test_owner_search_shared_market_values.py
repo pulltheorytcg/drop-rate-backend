@@ -33,7 +33,9 @@ def test_owner_manual_search_requires_exact_reference_evidence_and_explicit_sour
     assert "item[\"recommended_retail_minor\"] = None" in section
     assert "from tcg.inventory_items" not in section
     ui = (ROOT / "backend/app/static/owner-recognition.js").read_text()
-    assert ui.count('"Shared guide" : "Market"') == 2
+    # A card has a single customer-facing GBP label, irrespective of source.
+    # The API still retains its exact evidence and source classification.
+    assert ui.count('`Value: ${formatMoney(row.market_value_minor)}`') == 2
 
 
 @pytest.mark.asyncio
