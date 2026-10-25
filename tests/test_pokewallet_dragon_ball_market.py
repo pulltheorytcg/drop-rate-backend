@@ -1,7 +1,7 @@
 """Offline free Dragon Ball pricing tests: no live key, no paid endpoints."""
 import json
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -80,6 +80,21 @@ def test_search_shards_are_bounded_by_printed_number_not_just_set():
     assert len(groups["BT1-05"])==1
     assert "FB01" not in groups
     assert "BT1" not in groups
+
+
+def test_only_our_expired_market_details_are_eligible_for_daily_refresh():
+    older=NOW-timedelta(days=2)
+    fresh=NOW-timedelta(hours=12)
+    own=dbs.SOURCE_CM
+    assert dbs.eligible(fusion(has_detail_value=True,
+        existing_detail_source=own,existing_detail_pricing_updated_at=older),NOW)
+    assert not dbs.eligible(fusion(has_detail_value=True,
+        existing_detail_source=own,existing_detail_pricing_updated_at=fresh),NOW)
+    assert not dbs.eligible(fusion(has_detail_value=True,
+        existing_detail_source="CARDTRADER_DETAIL",
+        existing_detail_pricing_updated_at=older),NOW)
+    assert not dbs.eligible(fusion(has_detail_value=True,
+        existing_detail_source=own,existing_detail_pricing_updated_at=None),NOW)
 
 
 def test_unique_release_number_name_and_variant_or_fail_closed():

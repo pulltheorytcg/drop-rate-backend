@@ -51,6 +51,8 @@ SOURCE_ID = re.compile(r"(?:dbs_[0-9a-f]{32,128}|[0-9a-f]{64})")
 READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,
  r.set_id,r.card_number,r.rarity,s.name as set_name,
  coalesce(p.market_value_minor,0)>0 as has_detail_value,
+ p.quotes->0->>'source' as existing_detail_source,
+ p.pricing_updated_at as existing_detail_pricing_updated_at,
  coalesce(b.market_value_minor,0) as existing_catalogue_value,
  b.quotes->0->>'source' as existing_source,
  b.pricing_updated_at as existing_pricing_updated_at
@@ -94,7 +96,13 @@ def reference_release(ref: dict) -> str | None:
 
 def eligible(ref: dict, now: datetime) -> bool:
     if ref.get("has_detail_value"):
-        return False
+        # Our own reference guide lives in reference_market_prices via the
+        # canonical guarded writer. Never overwrite another provider's
+        # detail value; refresh our own only after the daily freshness window.
+        checked=ref.get("existing_detail_pricing_updated_at")
+        return (ref.get("existing_detail_source") in SOURCES
+                and isinstance(checked,datetime)
+                and checked < now-timedelta(days=1))
     current = int(ref.get("existing_catalogue_value") or 0)
     if current <= 0:
         return True
