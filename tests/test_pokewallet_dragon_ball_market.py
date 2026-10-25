@@ -141,6 +141,15 @@ def test_indicative_guide_eur_and_usd_are_never_physical_values():
     assert dbs.source_guide(fusion(),duplicate,{"EUR":eur},NOW) is None
 
 
+def test_writer_is_catalogue_only_and_guards_original_source_and_printing():
+    # The legacy reference detail writer accepts only 14 arguments; this
+    # adapter builds 16 to carry rarity and source-conflict protection.
+    assert "insert into tcg.reference_catalogue_prices" in dbs.WRITE_SQL
+    assert "insert into tcg.reference_market_prices" not in dbs.WRITE_SQL
+    assert "r.rarity is not distinct from $15" in dbs.WRITE_SQL
+    assert "quotes->0->>'source'=$16" in dbs.WRITE_SQL
+
+
 class HttpResponse:
     def __init__(self,payload,status=200):
         self.payload,self.status_code=payload,status
