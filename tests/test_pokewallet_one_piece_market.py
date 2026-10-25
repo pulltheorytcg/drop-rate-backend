@@ -43,6 +43,53 @@ def card(**fields):
     return row
 
 
+def japanese_cardmarket_card(*, printed='OP01-001', version=1, ordinal='1.0', **fields):
+    label=f' (V.{version})' if version is not None else ''
+    suffix=f'-V{version}' if version is not None else ''
+    row=card(card_number=ordinal,rarity='Leader',sub_type_name=None,
+        cardmarket={'product_name':f'Roronoa Zoro ({printed}){label}',
+            'product_url':f'https://www.cardmarket.com/en/OnePiece/Products/Singles/Romance-Dawn-Japanese/Roronoa-Zoro-{printed}{suffix}',
+            'prices':{'trend':12.34}})
+    row.update(fields)
+    return row
+
+
+def test_japanese_ordinals_require_printing_in_cardmarket_title_and_url():
+    base=japanese_cardmarket_card()
+    assert market.japanese_cardmarket_printing(base,'OP01')==('OP01-001',1)
+    matches=market.matches_for_complete_set(
+        market.collect_reference_groups([jp()],NOW),'Japanese','OP01',[base])
+    assert matches==[(jp(),base)]
+    assert market.japanese_cardmarket_printing(
+        japanese_cardmarket_card(printed='OP02-001'),'OP01') is None
+    assert market.japanese_cardmarket_printing(
+        japanese_cardmarket_card(cardmarket=base['cardmarket'] |
+            {'product_url':base['cardmarket']['product_url'].replace('Romance-Dawn-Japanese','Romance-Dawn')}),'OP01') is None
+    assert market.japanese_cardmarket_printing(
+        japanese_cardmarket_card(cardmarket=base['cardmarket'] |
+            {'product_name':'Roronoa Zoro (OP01-002) (V.1)'}),'OP01') is None
+    assert market.japanese_cardmarket_printing(
+        japanese_cardmarket_card(cardmarket=base['cardmarket'] |
+            {'product_url':base['cardmarket']['product_url'].replace('-V1','-V2')}),'OP01') is None
+    assert market.japanese_cardmarket_printing(
+        japanese_cardmarket_card(cardmarket=base['cardmarket'] |
+            {'product_url':'https://not-cardmarket.example/en/OnePiece/Products/Singles/Romance-Dawn-Japanese/Roronoa-Zoro-OP01-001-V1'}),'OP01') is None
+
+
+def test_japanese_v1_disambiguates_explicit_parallel_but_not_unknown():
+    groups=market.collect_reference_groups([jp()],NOW)
+    base=japanese_cardmarket_card()
+    v2=japanese_cardmarket_card(version=2,id='op_other')
+    counts={}
+    assert market.matches_for_complete_set(groups,'Japanese','OP01',[base,v2],counts)==[(jp(),base)]
+    assert counts['japanese_v1_disambiguated']==1
+    assert market.matches_for_complete_set(groups,'Japanese','OP01',[v2])==[]
+    assert market.matches_for_complete_set(groups,'Japanese','OP01',[
+        base,japanese_cardmarket_card(version=None,id='op_unversioned')])==[]
+    assert market.matches_for_complete_set(groups,'Japanese','OP01',[
+        base,japanese_cardmarket_card(id='op_duplicate_v1')])==[]
+
+
 def lists():
     return {
         'Japanese':{'success':True,'data':[{'set_code':'OP01','group_id':'-88','language':'jp'}]},
