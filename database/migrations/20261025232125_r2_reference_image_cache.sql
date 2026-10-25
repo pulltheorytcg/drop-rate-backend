@@ -1,4 +1,5 @@
 -- In-app reference-card image cache, separate from licensed/approved storefront
+-- Supabase production migration registry version: 20261025232125.
 -- media. This table does not claim copyright ownership or approve a Shopify
 -- listing. The source reference remains authoritative for identity and URL.
 -- No customer scans, private inventory, pricing or account data are stored.

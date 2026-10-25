@@ -186,7 +186,7 @@ def test_reference_cache_signing_is_independent_and_private(monkeypatch):
 
 def test_reference_cache_migration_is_backend_only_and_non_destructive():
     path = Path(__file__).resolve().parents[1]
-    sql = (path / 'database/migrations/20261025224820_r2_reference_image_cache.sql').read_text()
+    sql = (path / 'database/migrations/20261025232125_r2_reference_image_cache.sql').read_text()
     assert 'force row level security' in sql
     assert 'revoke all on table tcg.reference_image_mirrors from public,anon,authenticated' in sql
     assert 'grant select,insert,update on tcg.reference_image_mirrors to tcg_api' in sql

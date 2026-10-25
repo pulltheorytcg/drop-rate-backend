@@ -59,7 +59,7 @@ artwork path while licence questions are resolved.
 
 ## Operational readiness
 
-1. Install `database/migrations/20261025224820_r2_reference_image_cache.sql`
+1. Install `database/migrations/20261025232125_r2_reference_image_cache.sql`
    **before** deploying the code that joins the new table. No live table is
    deleted or altered; all RLS policies use private `tcg_api` only.
 2. Run `PYTHONPATH=backend python -m pytest -q tests/test_r2_reference_images.py`
