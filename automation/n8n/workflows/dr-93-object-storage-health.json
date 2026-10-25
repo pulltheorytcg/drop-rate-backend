@@ -1,0 +1,74 @@
+{
+  "id": "DR93ObjectStorageHealthV1",
+  "name": "DR-93 Private Object Storage Health",
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "nodes": [
+    {
+      "id": "dr93-schedule",
+      "name": "Hourly Storage Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-620, 0],
+      "parameters": {
+        "rule": {"interval": [{"field": "hours", "hoursInterval": 1}]}
+      }
+    },
+    {
+      "id": "dr93-sign",
+      "name": "Sign Storage Probe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-340, 0],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst controlUrl = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nif (secret.length < 32) throw new Error('command_secret_not_configured');\nif (!/\\/api\\/v1\\/automation\\/control\\/receipt$/.test(controlUrl)) throw new Error('control_url_invalid');\nconst executionId = String($execution.id || '').trim();\nif (!executionId) throw new Error('missing_execution_id');\nconst body = JSON.stringify({schema_version:1,action:'CHECK_PRIVATE_BUCKET',execution_id:executionId.slice(0,120),occurred_at:new Date().toISOString()});\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256',secret).update(timestamp + '.' + body,'utf8').digest('hex');\nreturn [{json:{health_url:controlUrl.replace(/\\/control\\/receipt$/, '/commands/storage/health'),health_body:body,health_timestamp:timestamp,health_signature:signature}}];"
+      }
+    },
+    {
+      "id": "dr93-http",
+      "name": "Probe Storage via FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-60, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.health_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "X-Drop-Rate-Timestamp", "value": "={{ $json.health_timestamp }}"},
+            {"name": "X-Drop-Rate-Signature", "value": "={{ $json.health_signature }}"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.health_body }}",
+        "options": {
+          "timeout": 15000,
+          "response": {"response": {"fullResponse": true, "neverError": true, "responseFormat": "json"}}
+        }
+      }
+    },
+    {
+      "id": "dr93-verify",
+      "name": "Storage Reachable?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "jsCode": "const response = $input.first().json || {};\nconst status = Number(response.statusCode || 0);\nif (status < 200 || status >= 300) throw new Error('object_storage_unreachable_http_' + status);\nconst body = response.body || {};\nif (body.accepted !== true || body.storage_status !== 'REACHABLE') throw new Error('object_storage_probe_unverified');\nreturn [{json:{storage_status:'REACHABLE',execution_id:body.execution_id,checked_at:body.checked_at}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Hourly Storage Check": {"main": [[{"node": "Sign Storage Probe", "type": "main", "index": 0}]]},
+    "Sign Storage Probe": {"main": [[{"node": "Probe Storage via FastAPI", "type": "main", "index": 0}]]},
+    "Probe Storage via FastAPI": {"main": [[{"node": "Storage Reachable?", "type": "main", "index": 0}]]}
+  },
+  "pinData": {},
+  "meta": {"dropRate": {
+    "contract": "DR-93", "version": 1, "role": "private-object-store-hourly-health",
+    "activationGate": "Keep inactive until scoped object storage credentials, signed FastAPI probe, manual execution, failure routing through DR-90 and a restored archival file test are verified."
+  }}
+}

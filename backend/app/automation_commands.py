@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
+import asyncio
+from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from .automation_dispatcher import verify_signed_body
 from .settings import get_settings
+from .object_storage import ObjectStorageConfig, ObjectStorageError, S3ObjectStorage
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
 
@@ -35,6 +37,13 @@ class ShopifyProductUpdatesCommand(BaseModel):
     idempotency_key: str = Field(min_length=1, max_length=255)
     occurred_at: datetime
     limit: int = Field(default=50, ge=1, le=100)
+
+
+class StorageHealthCommand(BaseModel):
+    schema_version: Literal[1] = 1
+    action: Literal["CHECK_PRIVATE_BUCKET"]
+    execution_id: str = Field(min_length=1, max_length=120)
+    occurred_at: datetime
 
 
 class InventoryApprovedEvent(BaseModel):
@@ -191,6 +200,42 @@ async def publish_inventory_approved_to_shopify(
             request_id=request.state.request_id,
             test_mode=False,
         )
+
+
+@router.post("/storage/health")
+async def check_private_object_storage(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(default=None, alias="X-Drop-Rate-Timestamp"),
+    x_drop_rate_signature: str | None = Header(default=None, alias="X-Drop-Rate-Signature"),
+) -> dict:
+    """Read-only, signed n8n bucket probe; never receives S3 credentials."""
+    raw_body = await _verified_command_body(
+        request,
+        timestamp_header=x_drop_rate_timestamp,
+        signature_header=x_drop_rate_signature,
+    )
+    try:
+        command = StorageHealthCommand.model_validate_json(raw_body)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail="Invalid storage health command") from exc
+    if command.occurred_at.tzinfo is None:
+        raise HTTPException(status_code=422, detail="Storage command timestamp must be timezone-aware")
+    try:
+        config = ObjectStorageConfig.from_env()
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=503, detail="Private object storage is misconfigured") from exc
+    if config is None:
+        raise HTTPException(status_code=409, detail="Private object storage is not enabled")
+    try:
+        await asyncio.to_thread(S3ObjectStorage(config).connectivity)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Private object storage is unavailable") from exc
+    return {
+        "accepted": True,
+        "storage_status": "REACHABLE",
+        "execution_id": command.execution_id,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 # The marketing router reuses the raw-body HMAC verifier above. Its feature gate
