@@ -342,5 +342,5 @@ async def test_apply_mode_uses_successful_trials_input_cursor(monkeypatch):
         pokewallet_pricing_request_limit=15))
     assert len(state['called'])==1
     assert state['called'][0]['previous_cursor']=='English:24305'
-    assert state['called'][0]['request_limit']==15
+    assert state['called'][0]['request_limit']==jobs.ONE_PIECE_HOURLY_REQUEST_BUDGET
     assert state['receipt'][-1][-1]['replayed_trial_started_at']==now.isoformat()
