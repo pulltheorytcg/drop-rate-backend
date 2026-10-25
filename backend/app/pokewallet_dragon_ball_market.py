@@ -25,7 +25,8 @@ import httpx
 
 from .db import user_connection
 from .dragon_ball_market import FUSION, MASTERS, REFERENCE_RELEASE_ALIASES
-from .one_piece_market import WRITE_SQL, normalized
+from .one_piece_market import normalized
+from .pokewallet_one_piece_market import WRITE_SQL
 from .reference_market import _minor
 
 log = logging.getLogger(__name__)
