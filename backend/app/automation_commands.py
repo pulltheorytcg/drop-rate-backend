@@ -12,6 +12,7 @@ from .automation_dispatcher import verify_signed_body
 from .settings import get_settings
 from .object_storage import ObjectStorageConfig, ObjectStorageError, S3ObjectStorage
 from .r2_media import mirror_approved_media
+from .r2_reference_images import PENDING_REFERENCE_IMAGES_SQL, mirror_reference_images
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
 
@@ -53,6 +54,15 @@ class MirrorApprovedMediaCommand(BaseModel):
     execution_id: str = Field(min_length=1, max_length=120)
     occurred_at: datetime
     limit: int = Field(default=3, ge=1, le=5)
+
+
+class MirrorReferenceMediaCommand(BaseModel):
+    schema_version: Literal[1] = 1
+    action: Literal['MIRROR_EXACT_REFERENCE_MEDIA']
+    execution_id: str = Field(min_length=1, max_length=120)
+    occurred_at: datetime
+    limit: int = Field(default=10, ge=1, le=20)
+    apply: bool = False
 
 
 class InventoryApprovedEvent(BaseModel):
@@ -275,6 +285,45 @@ async def mirror_approved_catalogue_media(
             'retryable': True, 'result': result,
         })
     return {'accepted': True, 'execution_id': command.execution_id, **result}
+
+
+@router.post('/storage/mirror-reference-media')
+async def mirror_exact_reference_media(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(default=None, alias='X-Drop-Rate-Timestamp'),
+    x_drop_rate_signature: str | None = Header(default=None, alias='X-Drop-Rate-Signature'),
+) -> dict:
+    """Signed, small catalogue cache command; dry-run unless separately enabled."""
+    raw = await _verified_command_body(
+        request, timestamp_header=x_drop_rate_timestamp, signature_header=x_drop_rate_signature,
+    )
+    try:
+        command = MirrorReferenceMediaCommand.model_validate_json(raw)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail='Invalid reference image mirror command') from exc
+    if command.occurred_at.tzinfo is None:
+        raise HTTPException(status_code=422, detail='Reference mirror timestamp needs timezone')
+    if not command.apply:
+        async with request.app.state.db_pool.acquire() as connection:
+            rows = await connection.fetch(PENDING_REFERENCE_IMAGES_SQL, command.limit)
+        return {'accepted': True, 'execution_id': command.execution_id,
+                'mode': 'DRY_RUN', 'examined': len(rows), 'mirrored': 0,
+                'remaining_possible': len(rows) == command.limit}
+    if not get_settings().r2_reference_cache_apply_enabled:
+        raise HTTPException(status_code=409, detail='Reference image cache writes are disabled')
+    try:
+        result = await mirror_reference_images(
+            request.app.state.db_pool, limit=command.limit, request_id=request.state.request_id,
+        )
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=503, detail='Private reference cache storage unavailable') from exc
+    if result['failed']:
+        raise HTTPException(status_code=502, detail={
+            'message': 'One or more reference cache entries failed verification',
+            'retryable': True, 'result': result,
+        })
+    return {'accepted': True, 'execution_id': command.execution_id,
+            'mode': 'APPLIED', **result}
 
 
 # The marketing router reuses the raw-body HMAC verifier above. Its feature gate

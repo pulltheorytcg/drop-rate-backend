@@ -273,6 +273,17 @@ MEDIA_SQL = """
  and m.rights_tier='STOREFRONT_ALLOWED' and m.source_status='ACTIVE' and m.revoked_at is null
  order by m.approved_at desc nulls last,m.created_at desc,m.id limit 1
 """
+# Reference-cache rows are never approved store media. Join only the exact
+# current provider printing/source URL, and only after the page is bounded.
+REFERENCE_MIRROR_JOIN_SQL = """
+left join tcg.reference_image_mirrors reference_mirror
+  on page.source_kind='REFERENCE'
+ and (reference_mirror.provider,reference_mirror.system_code,
+      reference_mirror.language,reference_mirror.provider_id)=
+     (page.provider,page.system_code,page.language,page.provider_id)
+ and reference_mirror.source_url=page.image_url
+ and reference_mirror.status='VERIFIED'
+"""
 SORTS = {
     "name": "lower(e.name),e.key", "name_desc": "lower(e.name) desc,e.key",
     "newest": "e.release_date desc nulls last,lower(e.name),e.key",
@@ -471,8 +482,11 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
       {shared_join}
       where {clause} order by {order} limit {page_limit} offset {page_offset}
     ) select page.*,coalesce(nullif(btrim(page.image_url),''),media.url) as display_image_url,
-             media.url as fallback_image_url,media.r2_object_key
-      from page left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null order by page.ordinal
+             media.url as fallback_image_url,media.r2_object_key,
+             reference_mirror.object_key as r2_reference_object_key
+      from page left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null
+      {REFERENCE_MIRROR_JOIN_SQL}
+      order by page.ordinal
         """
     else:
         query = source_cte + f""", selected_page as materialized (
@@ -483,13 +497,16 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
           select e.*,row_number() over(order by {order})+{page_offset} as ordinal from selected_page e
         ) select page.*,{price_columns('page')},
                  coalesce(nullif(btrim(page.image_url),''),media.url) as display_image_url,
-                 media.url as fallback_image_url,media.r2_object_key
+                 media.url as fallback_image_url,media.r2_object_key,
+                 reference_mirror.object_key as r2_reference_object_key
           from page left join lateral (
             select value.* from tcg.catalogue_products p
             cross join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) value
             where p.id=page.catalogue_id and p.product_type<>'COMIC'
           ) v on page.catalogue_id is not null
-          left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null order by page.ordinal
+          left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null
+          {REFERENCE_MIRROR_JOIN_SQL}
+          order by page.ordinal
         """
     return query, params
 

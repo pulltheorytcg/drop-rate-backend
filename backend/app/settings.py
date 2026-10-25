@@ -158,6 +158,9 @@ class Settings:
     shopify_test_publish_enabled: bool = False
     shopify_publish_enabled: bool = False
     automation_command_secret: str | None = None
+    # Bulk reference caching is deliberately independent of licensed media
+    # publication, and off until provider reproduction terms are assessed.
+    r2_reference_cache_apply_enabled: bool = False
     shopify_catalogue_bootstrap_enabled: bool = False
     shopify_catalogue_bootstrap_actor_user_id: str | None = None
     shopify_linked_draft_reconciliation_enabled: bool = False
@@ -281,6 +284,9 @@ class Settings:
             shopify_test_publish_enabled=_boolean("TCG_SHOPIFY_TEST_PUBLISH_ENABLED", False),
             shopify_publish_enabled=_boolean("TCG_SHOPIFY_PUBLISH_ENABLED", False),
             automation_command_secret=_optional("TCG_AUTOMATION_COMMAND_SECRET"),
+            r2_reference_cache_apply_enabled=_boolean(
+                "TCG_R2_REFERENCE_CACHE_APPLY_ENABLED", False
+            ),
             shopify_catalogue_bootstrap_enabled=_boolean(
                 "TCG_SHOPIFY_CATALOGUE_BOOTSTRAP_ENABLED", False
             ),
