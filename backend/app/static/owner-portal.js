@@ -165,13 +165,13 @@ function renderInventoryRows(items) {
     const marketCell = document.createElement("td");
     marketCell.textContent = item.reference_value ? window.DropRateReferenceValue.compactText(item, formatMoney) : item.market_value_minor == null
       ? "Value pending"
-      : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"");
+      : "Value: " + formatMoney(item.market_value_minor);
     // Keep source age discoverable without putting a long timestamp in a
     // narrow inventory list cell. Full evidence/date remain in item details.
     if(item.reference_value && window.DropRateReferenceValue?.isHistorical(item)){
       const age=document.createElement("small");
       age.className="owner-table-historical-label";
-      age.textContent="Historical reference";
+      age.textContent="Historical value";
       marketCell.append(age);
     }
     if((item.grouped_quantity||1)>1 && item.group_valued_count>0 && item.group_valued_count<item.grouped_quantity)
@@ -255,7 +255,7 @@ function renderInventoryCards(items) {
       : storeValue == null ? "Not set" : formatMoney(storeValue);
     const storeLabel = "Selling price";
     for (const [labelText, valueText] of [
-      ["Market value", item.reference_value ? window.DropRateReferenceValue.compactText(item, formatMoney) : item.market_value_minor == null ? "Value pending" : formatMoney(item.market_value_minor)+(item.pricing_method==="CARDMARKET_GUIDE_V1"?" · Cardmarket estimate":"")],
+      ["Market value", item.reference_value ? window.DropRateReferenceValue.compactText(item, formatMoney) : item.market_value_minor == null ? "Value pending" : "Value: " + formatMoney(item.market_value_minor)],
       [storeLabel, storeText],
     ]) {
       if (labelText === storeLabel && item.sale_intent === "PERSONAL_COLLECTION") continue;
@@ -270,7 +270,7 @@ function renderInventoryCards(items) {
       if(labelText==="Market value" && item.reference_value && window.DropRateReferenceValue?.isHistorical(item)){
         const historical=document.createElement("small");
         historical.className="owner-card-historical-label";
-        historical.textContent="Historical reference";
+        historical.textContent="Historical value";
         box.append(historical);
       }
       if(labelText==="Market value" && (item.grouped_quantity||1)>1 && item.group_valued_count>0){

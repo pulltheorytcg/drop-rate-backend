@@ -34,8 +34,8 @@ run(`renderInventory({total:1,owner:{display_name:'Fixture'},items:[{
  catalogue_reference:{status:'CONDITION_REFERENCE',market_value_minor:132,label:'Near-mint reference',
   checked_at:'2026-10-15T12:00:00Z',basis:'English · Near Mint'}
 }]});`);
-assert.equal(doc.querySelector('[data-market-value-cell]').textContent,'£1.32 · Near-mint reference','Table price is synchronous');
-assert.match(doc.getElementById('inventory-visual-grid').textContent,/£1.32 · Near-mint reference/,'Grid uses the same shared display');
+assert.equal(doc.querySelector('[data-market-value-cell]').textContent,'Value: £1.32','Table price is synchronous');
+assert.match(doc.getElementById('inventory-visual-grid').textContent,/Value: £1.32/,'Grid uses the same shared display');
 assert.equal(run(`window.inventoryRequests.filter(url=>url.includes('/market-values')).length`),0,'No duplicate pricing request');
 // Grouped rows must keep price alignment and select/edit the actual copies.
 run(`window.copyFixture={id:'00000000-0000-4000-8000-000000000101',catalogue_id:'raw-printing',
@@ -49,7 +49,7 @@ assert.equal(doc.querySelectorAll('#inventory-body tr').length,2);
 assert.equal(doc.querySelectorAll('.inventory-visual-card').length,2);
 assert.match(doc.querySelector('.inventory-visual-card').textContent,/Qty 2/);
 assert.match(doc.querySelector('.inventory-visual-card').textContent,/Mixed status/);
-assert.deepEqual([...doc.querySelectorAll('[data-market-value-cell]')].map(n=>n.textContent),['£1.32 · Near-mint reference','£9.99']);
+assert.deepEqual([...doc.querySelectorAll('[data-market-value-cell]')].map(n=>n.textContent),['Value: £1.32','Value: £9.99']);
 doc.querySelector('.inventory-card-select input').click();
 assert.equal(run('state.selected.size'),2);
 assert.equal(run('state.selected.get(copyFixture.id) === copyFixture'),true,'Select original physical records');

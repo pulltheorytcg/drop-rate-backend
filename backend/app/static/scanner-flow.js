@@ -88,7 +88,7 @@ window.DropRateScanner = (() => {
   // valueOf deliberately excludes historical amounts from scan totals.
   const priceText = item => !graded(item) && selected(item)?.shared_price && window.DropRateReferenceValue
     ? window.DropRateReferenceValue.text({reference_value: selected(item).shared_price}, money)
-    : valueOf(item) == null ? "Market value unavailable" : money(valueOf(item));
+    : valueOf(item) == null ? "Value unavailable" : "Value: " + money(valueOf(item));
   const usableRun = item => item.run?.id && ["EXACT_CANDIDATE", "NEEDS_REVIEW", "NO_MATCH"].includes(item.run.decision || item.run.status);
   const icons = {
     photo: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" fill="currentColor"/><circle cx="8" cy="8" r="2" fill="#465050"/><path d="m4 18 5-6 3 3 4-6 5 9" fill="#465050"/></svg>',
@@ -1260,7 +1260,7 @@ window.DropRateScanner = (() => {
         ? "No verified value is available here for this grader and grade. You can still add the slab."
         : "A current market value isn’t available yet. You can still add this item."));
       else if (edit.selected.recommended_retail_minor != null) content.append(node("p", "dr-scan-review-note",
-        "Suggested retail: " + money(edit.selected.recommended_retail_minor) + " · reference value, not a live quote"));
+        "Suggested retail: " + money(edit.selected.recommended_retail_minor) + " · guide only, not a live quote"));
       if (!isGraded && edit.selected?.shared_price && window.DropRateReferenceValue) content.append(node("p", "dr-scan-review-note",
         window.DropRateReferenceValue.description({reference_value: edit.selected.shared_price})));
       if (item.error) content.append(node("p", "dr-scan-item-error", item.error));

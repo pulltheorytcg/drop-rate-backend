@@ -250,7 +250,12 @@ def japanese_cardmarket_printing(product: dict, release: str) -> tuple[str, int 
             or parsed.query or parsed.fragment or len(parts) != 7
             or parts[1].casefold() not in {"en", "it", "fr", "de", "es", "pt"}
             or [p.casefold() for p in parts[2:5]] != ["onepiece", "products", "singles"]
-            or not parts[5].casefold().endswith("-japanese")):
+            # Cardmarket has begun grouping some otherwise explicitly indexed
+            # Japanese cards under a mixed "Non-English" release. Accept that
+            # *catalogue* identity only when the provider's JP locale and the
+            # independently printed title + URL card numbers agree. The quote
+            # remains a mixed-language guide, never a Japanese physical sale.
+            or not parts[5].casefold().endswith(("-japanese", "-non-english"))):
         return None
     slug = parts[6]
     path_match = re.fullmatch(r".+-" + re.escape(number) + r"(?:-V([1-9]\d*))?", slug, re.I)

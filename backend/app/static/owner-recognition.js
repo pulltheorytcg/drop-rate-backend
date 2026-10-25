@@ -366,8 +366,8 @@ function ownerSlabSearchResultCard(row) {
   ].filter(Boolean).join(" · ");
   const value = document.createElement("small");
   value.textContent = row.market_value_minor == null
-    ? "Reference value unavailable"
-    : `${["CARDMARKET_ESTIMATE", "TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT", "CARDMARKET_BULK_SINGLES", "CARDMARKET_CATALOGUE"].includes(row.market_value_source) ? "Shared guide" : "Market"} ${formatMoney(row.market_value_minor)}`;
+    ? "Value unavailable"
+    : `Value: ${formatMoney(row.market_value_minor)}`;
   copy.append(name, meta, value);
   const choose = document.createElement("em");
   choose.textContent = "Confirm";
@@ -1797,8 +1797,8 @@ function ownerBatchSearchResultCard(row) {
   ].filter(Boolean).join(" · ");
   const value = document.createElement("small");
   value.textContent = row.market_value_minor == null
-    ? "Reference value unavailable"
-    : `${["CARDMARKET_ESTIMATE", "TCGDEX_CARDMARKET", "TCGDEX_CARDMARKET_VARIANT", "CARDMARKET_BULK_SINGLES", "CARDMARKET_CATALOGUE"].includes(row.market_value_source) ? "Shared guide" : "Market"} ${formatMoney(row.market_value_minor)}`;
+    ? "Value unavailable"
+    : `Value: ${formatMoney(row.market_value_minor)}`;
   copy.append(name, meta, value);
 
   const choose = document.createElement("em");
@@ -1928,7 +1928,7 @@ function ownerBatchRenderReview() {
     const value = document.createElement("small");
     value.textContent = item.status === "unresolved"
       ? "Needs review before inventory"
-      : `Reference market value ${ownerBatchFormatValue(ownerBatchMarketValue(item))}`;
+      : `Value: ${ownerBatchFormatValue(ownerBatchMarketValue(item))}`;
     copy.append(name, meta, value);
 
     const actions = document.createElement("div");

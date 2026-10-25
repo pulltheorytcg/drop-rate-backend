@@ -76,6 +76,27 @@ def test_japanese_ordinals_require_printing_in_cardmarket_title_and_url():
             {'product_url':'https://not-cardmarket.example/en/OnePiece/Products/Singles/Romance-Dawn-Japanese/Roronoa-Zoro-OP01-001-V1'}),'OP01') is None
 
 
+def test_non_english_cardmarket_release_requires_exact_jp_printing_evidence():
+    """Real PokéWallet JP rows use `Non-English`; they stay mixed guides only."""
+    base=japanese_cardmarket_card(rarity=None)
+    base['cardmarket']['product_url']=base['cardmarket']['product_url'].replace(
+        'Romance-Dawn-Japanese','Romance-Dawn-Non-English')
+    assert market.japanese_cardmarket_printing(base,'OP01')==('OP01-001',1)
+    assert market.matches_for_complete_set(
+        market.collect_reference_groups([jp()],NOW),'Japanese','OP01',[base])==[(jp(),base)]
+    altered=base['cardmarket'].copy()
+    altered['product_url']=altered['product_url'].replace('OP01-001','OP01-002')
+    assert market.japanese_cardmarket_printing(japanese_cardmarket_card(cardmarket=altered),'OP01') is None
+    altered=base['cardmarket'].copy()
+    altered['product_url']=altered['product_url'].replace('Non-English','English')
+    assert market.japanese_cardmarket_printing(japanese_cardmarket_card(cardmarket=altered),'OP01') is None
+    fx=FxQuote('EUR','GBP',Decimal('.86'),NOW,NOW,'ECB_EURO_REFERENCE_RATES')
+    quote=market.catalogue_guide(jp(),base,'-88',fx,NOW)
+    assert quote['valuation_role']=='MIXED_NON_ENGLISH_REFERENCE'
+    assert quote['physical_language_confirmed'] is False
+    assert quote['physical_valuation_eligible'] is False
+
+
 def test_japanese_cardmarket_italian_locale_and_unreported_rarity_are_not_false_mismatches():
     base=japanese_cardmarket_card(rarity=None)
     base['cardmarket']['product_url']=base['cardmarket']['product_url'].replace(

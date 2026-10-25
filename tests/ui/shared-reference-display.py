@@ -58,7 +58,7 @@ def main():
       }''')
       assert page.locator('[data-price-key]').inner_text().strip()==founder
       if status=='HISTORICAL_GUIDE':
-       assert '£8.00–£12.00 · Last known 14/10/2026' == founder
+       assert 'Value: £8.00' == founder
        assert page.evaluate('sharedBrowse.rows[0].market_value_minor') is None
        if width in (390,1440):page.screenshot(path=str(OUT/f'{engine}-historical-search-{width}.png'),full_page=True)
       page.evaluate('''async()=>{sharedBrowse.filters.q='';sharedBrowse.filters.system_code='ONE_PIECE_CARD_GAME';
@@ -73,12 +73,9 @@ def main():
       page.evaluate('sharedBrowse.destroy()')
      page.evaluate('DropRateInventory.open(item)');page.wait_for_selector('.owner-item-values strong')
      seller=page.locator('.owner-item-values strong').inner_text().strip();assert founder==seller,(status,founder,seller)
-     if status=='AVAILABLE':assert '£99.00' in seller
-     elif status=='REFERENCE_ESTIMATE':assert 'Guide estimate' in seller
-     elif status=='CATALOGUE_GUIDE':assert '£1.32–£1.70 · Catalogue guide' == seller
-     elif status=='CONDITION_REFERENCE':assert '£1.32 · Near-mint reference' == seller
-     elif status=='STALE':assert '£99.00 · Last known 11/10/2026' == seller
-     elif status=='HISTORICAL_GUIDE':assert '£8.00–£12.00 · Last known 14/10/2026' == seller
+     if status in ('AVAILABLE','REFERENCE_ESTIMATE','STALE'):assert 'Value: £99.00' == seller
+     elif status in ('CATALOGUE_GUIDE','CONDITION_REFERENCE'):assert 'Value: £1.32' == seller
+     elif status=='HISTORICAL_GUIDE':assert 'Value: £8.00' == seller
      else:assert '£0' not in seller and 'pending' not in seller.lower()
      assert all(call['method']=='GET' for call in page.evaluate('calls'))
      assert not errors,errors

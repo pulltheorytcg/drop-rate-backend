@@ -41,12 +41,14 @@ log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
 REFERENCE_JOB_REVISION=25
-POKEWALLET_JOB_REVISION=7
+POKEWALLET_JOB_REVISION=8
 POKEWALLET_DBS_JOB_REVISION=3
-# At most 20 free DBS searches per UTC hour = 480/day; the scheduled One
-# Piece source uses at most 25/day. Leave the majority of the provider's
-# 1,000/day shared free allowance untouched for other application activity.
+# At most 20 DBS + 15 One Piece free requests per UTC hour. Continuous
+# service consumes <=840/day of the provider's shared 1,000/day allowance,
+# leaving >=160/day for other legitimate application activity. Both clients
+# independently honour upstream remaining-hour/day headers.
 DBS_HOURLY_REQUEST_BUDGET=20
+ONE_PIECE_HOURLY_REQUEST_BUDGET=15
 
 
 def unapplied_trial_cursor(rows):
@@ -328,8 +330,8 @@ async def daily_pass(pool,settings):
                     int(getattr(settings,'pokewallet_pricing_apply_enabled',False)))
                 # The quota is shared across games and must never be spent in
                 # the five-minute loop. A failed or partial pass waits until
-                # the next UK day; switching from trial to apply runs once now.
-                if (prior is None or prior['started_at']<daily_slot(now)
+                # the next UTC hour; switching from trial to apply runs once.
+                if (prior is None or prior['started_at']<hourly_slot(now)
                         or (prior.get('report') or {}).get('importer_revision')!=importer_revision):
                     last_cursor=(prior.get('report') or {}).get('cursor') if prior else None
                     replay=None
@@ -346,7 +348,8 @@ async def daily_pass(pool,settings):
                         pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),
                         pokewallet_key,
                         dry_run=not getattr(settings,'pokewallet_pricing_apply_enabled',False),
-                        request_limit=getattr(settings,'pokewallet_pricing_request_limit',60),
+                        request_limit=min(ONE_PIECE_HOURLY_REQUEST_BUDGET,
+                            getattr(settings,'pokewallet_pricing_request_limit',60)),
                         previous_cursor=last_cursor)
                     await receipt(pool,actor,'POKEWALLET_PRICES','COMPLETE',
                                   {'importer_revision':importer_revision,**result,

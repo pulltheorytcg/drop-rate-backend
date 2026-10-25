@@ -6,20 +6,16 @@ window.DropRateReferenceValue = Object.freeze({
   },
   text(item, money) {
     const ref = this.displayReference(item);
-    if (!ref) return item?.market_value_minor == null ? "Value unavailable" : money(item.market_value_minor);
+    if (!ref) return item?.market_value_minor == null ? "Value unavailable" : "Value: " + money(item.market_value_minor);
     if (["AVAILABLE", "REFERENCE_ESTIMATE"].includes(ref.status) && Number.isInteger(ref.market_value_minor)) {
-      return money(ref.market_value_minor) + (ref.status === "REFERENCE_ESTIMATE" ? " · Guide estimate" : "");
+      return "Value: " + money(ref.market_value_minor);
     }
     if (["CATALOGUE_GUIDE", "CONDITION_REFERENCE"].includes(ref.status) && Number.isInteger(ref.market_value_minor)) {
-      const high = ref.market_value_high_minor;
-      return money(ref.market_value_minor) + (Number.isInteger(high) && high > ref.market_value_minor ? "–" + money(high) : "")
-        + " · " + ref.label;
+      return "Value: " + money(ref.market_value_minor);
     }
     if (Number.isInteger(ref.last_known_minor) && ref.checked_at) {
       const date = new Date(ref.checked_at);
-      if (!Number.isNaN(date.getTime())) return money(ref.last_known_minor)
-        + (Number.isInteger(ref.last_known_high_minor) && ref.last_known_high_minor > ref.last_known_minor ? "–" + money(ref.last_known_high_minor) : "")
-        + " · Last known " + date.toLocaleDateString("en-GB");
+      if (!Number.isNaN(date.getTime())) return "Value: " + money(ref.last_known_minor);
     }
     return ({STALE: "Stale evidence — value unavailable", NEEDS_DETAILS: "Confirm details for value"})[ref.status] || "No exact market evidence";
   },
@@ -33,8 +29,7 @@ window.DropRateReferenceValue = Object.freeze({
     // two-column grid. A visual historical label is added by the tile itself.
     if (!this.isHistorical(item)) return this.text(item, money);
     const ref = this.displayReference(item);
-    return money(ref.last_known_minor)
-      + (Number.isInteger(ref.last_known_high_minor) && ref.last_known_high_minor > ref.last_known_minor ? "–" + money(ref.last_known_high_minor) : "");
+    return "Value: " + money(ref.last_known_minor);
   },
   recommendedMinor(item) {
     const ref = item?.reference_value;
@@ -51,6 +46,7 @@ window.DropRateReferenceValue = Object.freeze({
     const ref = this.displayReference(item);
     if (!ref) return "";
     const time = ref.checked_at ? new Date(ref.checked_at) : null;
-    return [ref.basis, ref.reason, time && !Number.isNaN(time.getTime()) ? "Evidence checked " + time.toLocaleDateString("en-GB") : null].filter(Boolean).join(" · ");
+    const history = this.isHistorical(item) && time && !Number.isNaN(time.getTime()) ? "Last known " + time.toLocaleDateString("en-GB") : null;
+    return [ref.label, history, ref.basis, ref.reason, time && !Number.isNaN(time.getTime()) ? "Evidence checked " + time.toLocaleDateString("en-GB") : null].filter(Boolean).join(" · ");
   }
 });
