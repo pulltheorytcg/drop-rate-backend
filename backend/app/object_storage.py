@@ -97,7 +97,12 @@ class S3ObjectStorage:
         self.client = client
 
     def connectivity(self) -> None:
-        self.client.head_bucket(Bucket=self.config.bucket)
+        """Verify bucket-scoped object listing without requiring account-level admin rights."""
+        self.client.list_objects_v2(
+            Bucket=self.config.bucket,
+            Prefix=f"{self.config.prefix}/",
+            MaxKeys=1,
+        )
 
     def _verify_remote_file(self, key: str, expected_sha256: str, expected_size: int) -> None:
         """Read the *actual remote bytes*, not just untrusted ETag or metadata."""
