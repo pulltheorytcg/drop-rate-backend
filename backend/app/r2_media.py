@@ -101,15 +101,24 @@ def optimized_media_bytes(payload: ReferenceImagePayload) -> bytes:
 
 
 def with_signed_mirror(row: Any) -> dict:
-    """Use only the DB-selected rights-verified mirror, with source fallback."""
+    """Sign only DB-selected mirrors; keep the provider URL as fallback.
+
+    Reference-only caches are separately gated and never promote a reference
+    image into the rights-approved canonical media path.
+    """
     item = dict(row)
     key = item.pop('r2_object_key', None)
-    if not key or os.getenv('TCG_R2_MEDIA_DELIVERY_ENABLED', 'false').lower() not in ('true', '1'):
+    reference_key = item.pop('r2_reference_object_key', None)
+    approved_enabled = os.getenv('TCG_R2_MEDIA_DELIVERY_ENABLED', 'false').lower() in ('true', '1')
+    reference_enabled = os.getenv('TCG_R2_REFERENCE_CACHE_DELIVERY_ENABLED','false').lower() in ('true','1')
+    selected = (key if key and approved_enabled else None) or (
+        reference_key if reference_key and reference_enabled else None)
+    if not selected:
         return item
     try:
         store = configured_object_storage()
         if store is not None:
-            item['r2_image_url'] = store.signed_media_url(key)
+            item['r2_image_url'] = store.signed_media_url(selected)
     except Exception as exc:
         # An R2 outage or a configuration issue must not break catalogue JSON.
         logger.warning('R2 image signing unavailable; falling back to provider (%s)',type(exc).__name__)
