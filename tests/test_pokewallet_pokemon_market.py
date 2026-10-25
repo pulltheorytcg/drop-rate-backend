@@ -24,7 +24,7 @@ def reference(**fields):
 
 def card(**fields):
     row = dict(id='pk_'+'a'*64,
-        card_info={'card_number':'1/86', 'set_code':'23599',
+        card_info={'card_number':'1/86', 'set_code':'23599', 'set_id':'23599',
                    'product_type':'card', 'name':'Pikachu - 001/086'},
         cardmarket={'product_name':'Pikachu',
             'product_url':'https://www.cardmarket.com/en/Pokemon/Products/Singles/Black-Bolt/Pikachu-SV11B1',
@@ -40,10 +40,10 @@ def sets():
         'language':'jap','name':'SV11B Black Bolt','card_count':1}]}
 
 
-def set_page(*items, total=None, page=1):
-    return {'success':True,'set':{'set_code':'SV11B','set_id':'23599',
-        'language':'jap','total_cards':len(items) if total is None else total},
-        'cards':list(items),'page':page}
+def search_page(*items, total=None, page=1):
+    return {'query':'SV11B','results':list(items),
+        'pagination':{'total':len(items) if total is None else total,
+                      'page':page,'total_pages':1}}
 
 
 def fx():
@@ -91,9 +91,20 @@ def test_card_printing_must_be_unique_within_entire_japanese_set():
     assert pokemon.matching_printings(wanted,'sv11b','23599',[
         card(card_info=card()['card_info'] | {'set_code':'other'})])==[]
     assert pokemon.matching_printings(wanted,'sv11b','23599',[
+        card(card_info=card()['card_info'] | {'set_id':'23600'})])==[]
+    assert pokemon.matching_printings(wanted,'sv11b','23599',[
         card(card_info=card()['card_info'] | {'card_number':'001/087'})])==[]
     assert pokemon.matching_printings(wanted,'sv11b','23599',[
         card(card_info=card()['card_info'] | {'product_type':'sealed'})])==[]
+
+
+def test_search_requires_all_pages_and_recognised_exact_query():
+    assert pokemon.complete_search_page(search_page(card()),'sv11b',1)[2]==[card()]
+    with pytest.raises(pokemon.ProviderResponseError,match='SEARCH_SCHEMA'):
+        pokemon.complete_search_page(search_page(card()) | {'query':'other'},'sv11b',1)
+    with pytest.raises(pokemon.ProviderResponseError,match='INCOMPLETE_SEARCH'):
+        pokemon.complete_search_page(search_page(card()) | {
+            'pagination':{'total':2,'page':1,'total_pages':1}},'sv11b',1)
 
 
 def test_only_exact_public_cardmarket_guide_can_be_quoted():
@@ -139,7 +150,7 @@ class FakeHttp:
         assert url.startswith(pokemon.BASE_URL)
         assert headers['X-API-Key']=='pk_live_test_fixture'
         self.calls.append((url,params))
-        data=sets() if url.endswith('/sets') else set_page(*self.items)
+        data=sets() if url.endswith('/sets') else search_page(*self.items)
         return Response(data,status=self.status,headers=self.headers)
 
 
@@ -167,7 +178,8 @@ async def test_dry_run_then_guarded_apply_without_physical_repricing(monkeypatch
         'pk_live_test_fixture',dry_run=True,http_client=http)
     assert trial['requests']==2 and trial['eligible_quotes']==1
     assert trial['writes_attempted']==0 and captures==[]
-    assert [url.rsplit('/',1)[-1] for url,_ in http.calls]==['sets','23599']
+    assert [url.rsplit('/',1)[-1] for url,_ in http.calls]==['sets','search']
+    assert http.calls[-1][1]=={'q':'sv11b','page':1,'limit':100}
     applied=await pokemon.refresh_pokewallet_pokemon(None,uuid4(),Fx(),
         'pk_live_test_fixture',dry_run=False,http_client=FakeHttp())
     assert applied['writes_attempted']==1
@@ -245,7 +257,7 @@ async def test_scheduler_is_opt_in_hourly_and_replays_trial_when_enabled(monkeyp
     assert not calls
     settings.pokewallet_pokemon_enabled=True
     await jobs.daily_pass(pool,settings)
-    assert len(calls)==1 and calls[0]['request_limit']==5 and calls[0]['dry_run'] is True
+    assert len(calls)==1 and calls[0]['request_limit']==7 and calls[0]['dry_run'] is True
     assert jobs.DBS_HOURLY_REQUEST_BUDGET+jobs.ONE_PIECE_HOURLY_REQUEST_BUDGET+jobs.POKEMON_HOURLY_REQUEST_BUDGET==35
     state['prior']={'importer_revision':jobs.POKEWALLET_POKEMON_JOB_REVISION*10,
         'dry_run':True,'input_cursor':'23599','cursor':'23600'}

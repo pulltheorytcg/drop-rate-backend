@@ -318,6 +318,6 @@ async def test_daily_scheduler_dragon_ball_is_flagged_quota_bounded_and_idempote
 
 def test_hourly_budget_is_bounded_and_utc_unambiguous_through_dst():
     from app import catalogue_maintenance as jobs
-    assert jobs.DBS_HOURLY_REQUEST_BUDGET==20
+    assert jobs.DBS_HOURLY_REQUEST_BUDGET==18
     assert jobs.hourly_slot(datetime(2026,10,25,0,45,tzinfo=timezone.utc)) == datetime(2026,10,25,0,tzinfo=timezone.utc)
     assert jobs.hourly_slot(datetime(2026,10,25,1,45,tzinfo=timezone.utc)) == datetime(2026,10,25,1,tzinfo=timezone.utc)

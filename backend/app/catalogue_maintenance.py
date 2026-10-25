@@ -44,14 +44,14 @@ SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
 REFERENCE_JOB_REVISION=25
 POKEWALLET_JOB_REVISION=9
 POKEWALLET_DBS_JOB_REVISION=3
-# At most 20 DBS + 10 One Piece + 5 Japanese Pokémon free requests/hour.
+# At most 18 DBS + 10 One Piece + 7 Japanese Pokémon free requests/hour.
 # service consumes <=840/day of the provider's shared 1,000/day allowance,
 # leaving >=160/day for other legitimate application activity. All clients
 # independently honour upstream remaining-hour/day headers.
-DBS_HOURLY_REQUEST_BUDGET=20
+DBS_HOURLY_REQUEST_BUDGET=18
 ONE_PIECE_HOURLY_REQUEST_BUDGET=10
-POKEMON_HOURLY_REQUEST_BUDGET=5
-POKEWALLET_POKEMON_JOB_REVISION=1
+POKEMON_HOURLY_REQUEST_BUDGET=7
+POKEWALLET_POKEMON_JOB_REVISION=2
 
 
 def unapplied_trial_cursor(rows):
