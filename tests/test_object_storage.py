@@ -28,8 +28,11 @@ class FakeS3:
         self.puts = 0
         self.fail_read = False
 
-    def head_bucket(self, *, Bucket):
+    def list_objects_v2(self, *, Bucket, Prefix, MaxKeys):
         assert Bucket == "drop-rate-private"
+        assert Prefix == "drop-rate/"
+        assert MaxKeys == 1
+        return {"KeyCount": 0}
 
     def get_object(self, *, Bucket, Key):
         assert Bucket == "drop-rate-private"
@@ -56,6 +59,30 @@ def config():
         access_key_id="key",
         secret_access_key="secret",
     )
+
+
+def test_scoped_r2_connectivity_uses_readonly_object_listing(config):
+    calls = []
+
+    class ObjectOnlyS3:
+        def list_objects_v2(self, *, Bucket, Prefix, MaxKeys):
+            calls.append((Bucket, Prefix, MaxKeys))
+            return {"KeyCount": 0}
+
+        def head_bucket(self, **kwargs):
+            raise AssertionError("Bucket-level administration must not be required")
+
+    S3ObjectStorage(config, client=ObjectOnlyS3()).connectivity()
+    assert calls == [("drop-rate-private", "drop-rate/", 1)]
+
+
+def test_scoped_r2_connectivity_fails_closed_on_denied_listing(config):
+    class DeniedS3:
+        def list_objects_v2(self, **kwargs):
+            raise PermissionError("access denied")
+
+    with pytest.raises(PermissionError, match="access denied"):
+        S3ObjectStorage(config, client=DeniedS3()).connectivity()
 
 
 def test_disabled_by_default_and_incomplete_configuration_fails_closed(monkeypatch):
