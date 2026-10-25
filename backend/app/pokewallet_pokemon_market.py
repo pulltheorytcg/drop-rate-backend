@@ -1,7 +1,8 @@
 """Free-tier Japanese Pokémon Cardmarket *catalogue* guides.
 
-PokéWallet's free `/sets` and `/sets/:id` endpoints expose Japanese releases
-and per-printing Cardmarket aggregates. Neither these mixed-language guides
+PokéWallet's free `/sets` endpoint identifies Japanese releases, and its
+paginated free `/search` endpoint exposes per-printing Cardmarket aggregates.
+Set-detail card listings explicitly contain empty price arrays. Neither these mixed-language guides
 nor an exact catalogue identifier prices a particular seller's physical card.
 
 Require a unique JP release code on both checklists, an identical complete
@@ -31,8 +32,8 @@ SOURCE = "POKEWALLET_POKEMON_CARDMARKET_CATALOGUE"
 SYSTEM = "POKEMON_TCG"
 PROVIDER = "TCGdex"
 BASE_URL = "https://api.pokewallet.io"
-PAGE_SIZE = 200
-MAX_REQUESTS_PER_HOUR = 5
+PAGE_SIZE = 100
+MAX_REQUESTS_PER_HOUR = 7
 COLLECTOR = re.compile(r"0*([1-9]\d{0,3})/0*([1-9]\d{0,3})\Z")
 SET_CODE = re.compile(r"[a-zA-Z][a-zA-Z0-9]{0,17}\Z")
 NUMERIC_SET_ID = re.compile(r"\d{1,10}\Z")
@@ -108,33 +109,54 @@ def unique_japanese_sets(data: dict) -> dict[str, dict]:
     return {code: rows[0] for code, rows in groups.items() if len(rows) == 1}
 
 
-def complete_set_page(payload: dict, code: str, set_id: str):
-    meta = payload.get("set")
-    if (payload.get("success") is not True or not isinstance(meta, dict)
-            or meta.get("language") != "jap"
-            or str(meta.get("set_id")) != set_id
-            or str(meta.get("set_code") or "").casefold() != code):
-        raise ProviderResponseError("SET_IDENTITY_SCHEMA")
-    total = meta.get("total_cards")
-    cards = payload.get("cards")
-    if (type(total) is not int or not 0 <= total <= 10_000
-            or not isinstance(cards, list) or len(cards) > PAGE_SIZE):
-        raise ProviderResponseError("SET_PAGINATION_SCHEMA")
-    return total, cards
+def complete_search_page(payload: dict, code: str, page: int):
+    pagination = payload.get("pagination")
+    cards = payload.get("results")
+    if (not isinstance(pagination, dict) or not isinstance(cards, list)
+            or str(payload.get("query") or "").casefold() != code):
+        raise ProviderResponseError("SEARCH_SCHEMA")
+    total, pages = pagination.get("total"), pagination.get("total_pages")
+    if (type(total) is not int or type(pages) is not int
+            or type(pagination.get("page")) is not int
+            or pagination["page"] != page or not 0 <= total <= 100_000
+            or pages != ceil(total / PAGE_SIZE)
+            or (isinstance(payload.get("metadata"), dict)
+                and payload["metadata"].get("truncated") is True)
+            or len(cards) != min(PAGE_SIZE, max(0, total - (page-1)*PAGE_SIZE))
+            or any(not isinstance(item, dict) for item in cards)):
+        raise ProviderResponseError("INCOMPLETE_SEARCH")
+    return total, pages, cards
 
 
 def matching_printings(wanted: dict, code: str, set_id: str, cards: list[dict], diagnostics=None):
     """No uniqueness decision may depend on prices or row order."""
     by_number = defaultdict(list)
+    shape = Counter()
     for item in cards:
-        if not isinstance(item, dict) or not SOURCE_ID.fullmatch(str(item.get("id") or "")):
+        if not isinstance(item, dict):
             continue
+        shape["rows"] += 1
+        if not SOURCE_ID.fullmatch(str(item.get("id") or "")):
+            continue
+        shape["valid_ids"] += 1
         info = item.get("card_info")
-        if (not isinstance(info, dict) or info.get("product_type") != "card"
-                or str(info.get("set_code") or "").casefold() not in {code, set_id}):
+        if not isinstance(info, dict):
             continue
+        shape["card_info"] += 1
+        if info.get("product_type") != "card":
+            continue
+        shape["card_type"] += 1
+        if str(info.get("set_id") or "") != set_id:
+            continue
+        shape["set_id"] += 1
+        if str(info.get("set_code") or "").casefold() not in {code, set_id}:
+            continue
+        shape["set_code"] += 1
+        if str(info.get("card_number") or "").strip().isdigit():
+            shape["numeric_only_number"] += 1
         fraction = collector_fraction(info.get("card_number"))
         if fraction:
+            shape["full_collector_fraction"] += 1
             by_number[fraction].append(item)
     results = []
     ambiguous = 0
@@ -148,7 +170,8 @@ def matching_printings(wanted: dict, code: str, set_id: str, cards: list[dict], 
             results.append((ref, candidates[0]))
     if diagnostics is not None:
         diagnostics.update(source_number_count=len(by_number),
-            duplicate_printing_numbers=ambiguous, unique_matched=len(results))
+            duplicate_printing_numbers=ambiguous, unique_matched=len(results),
+            source_shape=dict(shape))
     return results
 
 
@@ -210,7 +233,7 @@ class FreePokewalletPokemonClient:
     async def get(self, path: str, params=None):
         if self.requests >= self.limit:
             raise ProviderResponseError("REQUEST_BUDGET_EXHAUSTED")
-        if path != "/sets" and not re.fullmatch(r"/sets/\d+", path):
+        if path not in {"/sets", "/search"}:
             raise ProviderResponseError("PAID_OR_UNKNOWN_ENDPOINT")
         self.requests += 1
         response = await self.http.get(BASE_URL+path, params=params,
@@ -275,9 +298,8 @@ async def refresh_pokewallet_pokemon(pool, actor, fx, api_key: str, *,
             cards = []
             total = 0
             try:
-                first = await client.get(f"/sets/{set_id}", {"page": 1, "limit": PAGE_SIZE})
-                total, batch = complete_set_page(first, code, set_id)
-                pages = ceil(total / PAGE_SIZE)
+                first = await client.get("/search", {"q": code, "page": 1, "limit": PAGE_SIZE})
+                total, pages, batch = complete_search_page(first, code, 1)
                 if pages > budget-client.requests+1:
                     result["deferred_large_sets"] = result.get("deferred_large_sets", 0)+1
                     result["cursor"] = set_id
@@ -285,23 +307,34 @@ async def refresh_pokewallet_pokemon(pool, actor, fx, api_key: str, *,
                 cards.extend(batch)
                 result["set_pages"] += 1
                 for page in range(2, pages+1):
-                    more = await client.get(f"/sets/{set_id}", {"page": page, "limit": PAGE_SIZE})
-                    expected, batch = complete_set_page(more, code, set_id)
-                    if expected != total:
+                    more = await client.get("/search", {"q": code, "page": page, "limit": PAGE_SIZE})
+                    expected, expected_pages, batch = complete_search_page(more, code, page)
+                    if expected != total or expected_pages != pages:
                         raise ProviderResponseError("PAGE_IDENTITY_CHANGED")
                     cards.extend(batch)
                     result["set_pages"] += 1
                 if len(cards) != total or len({str(p.get("id")) for p in cards if isinstance(p, dict)}) != total:
-                    raise ProviderResponseError("INCOMPLETE_SET")
+                    raise ProviderResponseError("INCOMPLETE_SEARCH")
+                # A set-code query must cover *all* printings in that exact
+                # provider set. Otherwise a variant on another page or an
+                # incomplete search could be misread as a unique printing.
+                exact_cards = [p for p in cards if isinstance(p.get("card_info"),dict)
+                               and p["card_info"].get("product_type") == "card"
+                               and str(p["card_info"].get("set_id") or "") == set_id]
+                expected_cards = available[code].get("card_count")
+                if (type(expected_cards) is not int or expected_cards < 0
+                        or len(exact_cards) != expected_cards):
+                    raise ProviderResponseError("SET_SEARCH_INCOMPLETE")
             except ProviderResponseError as exc:
-                if str(exc) not in {"SET_IDENTITY_SCHEMA", "SET_PAGINATION_SCHEMA",
-                                    "PAGE_IDENTITY_CHANGED", "INCOMPLETE_SET"}:
+                if str(exc) not in {"SEARCH_SCHEMA", "INCOMPLETE_SEARCH",
+                                    "PAGE_IDENTITY_CHANGED", "SET_SEARCH_INCOMPLETE"}:
                     raise
                 result["skipped_invalid_sets"] += 1
                 result["cursor"] = set_id
                 continue
-            diagnostics = {"code": code, "set_id": set_id, "cards": len(cards)}
-            matches = matching_printings(wanted, code, set_id, cards, diagnostics)
+            diagnostics = {"code": code, "set_id": set_id, "cards": len(exact_cards),
+                           "search_results": len(cards)}
+            matches = matching_printings(wanted, code, set_id, exact_cards, diagnostics)
             result["matched_printings"] += len(matches)
             if len(result["sampled_sets"]) < 8:
                 result["sampled_sets"].append(diagnostics)
