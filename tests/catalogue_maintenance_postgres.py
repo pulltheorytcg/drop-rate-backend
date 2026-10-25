@@ -61,6 +61,12 @@ async def main():
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261014122734_reference_history_fx_refresh_guard.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20261014152708_reference_history_archive_registry.sql').read_text())
         await db.execute((Path(__file__).parents[1]/'database/migrations/20260930124000_shopify_price_reconciliation.sql').read_text())
+        # Catalogue search now joins this additive exact-print cache. Exercise
+        # the real migration in the disposable integration DB, including RLS.
+        await db.execute((Path(__file__).parents[1]/'database/migrations/20261025224820_r2_reference_image_cache.sql').read_text())
+        assert await db.fetchval("select relrowsecurity and relforcerowsecurity from pg_class where oid='tcg.reference_image_mirrors'::regclass")
+        assert not await db.fetchval("select has_table_privilege('anon','tcg.reference_image_mirrors','select')")
+        assert not await db.fetchval("select has_table_privilege('authenticated','tcg.reference_image_mirrors','insert')")
         actor=UUID('00000000-0000-0000-0000-000000000001');owner=uuid4()
         await db.execute("set role tcg_api")
         await db.execute("select set_config('tcg.user_id',$1,false)",str(actor))
