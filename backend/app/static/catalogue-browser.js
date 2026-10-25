@@ -355,7 +355,9 @@ window.DropRateCatalogue = (() => {
     }
     productImage(row,cls="dr-browse-product-image") {
       const wrap=node("div",cls);
-      const urls=[...new Set([row.display_image_url,row.image_url,row.fallback_image_url]
+      // R2 mirrors are signed, short-lived object links for rights-approved
+      // canonical media. Keep the original provider source as a fallback.
+      const urls=[...new Set([row.r2_image_url,row.display_image_url,row.image_url,row.fallback_image_url]
         .filter(url=>typeof url==="string").map(url=>url.trim())
         .filter(url=>/^https:\/\//.test(url)||/^\/(?!\/)/.test(url)))];
       // TCGdex serves a grid-sized asset for the exact same card. Keep the
@@ -375,7 +377,8 @@ window.DropRateCatalogue = (() => {
         if(row.artwork_kind==="PUBLISHER_REFERENCE")image.alt+=" — publisher reference cover";
         if(cls==="dr-browse-detail-image")image.loading="eager";
         image.addEventListener("load",()=>{placeholder.hidden=true;});
-        let proxyTried=Boolean(referencePath);
+        const useReferenceFirst=Boolean(referencePath&&!row.r2_image_url);
+        let proxyTried=useReferenceFirst;
         const fallback=()=>{if(urls.length)image.src=urls.shift();else {image.remove();placeholder.textContent=missingPokemonSource?"Card image not yet available · Reference only":"Image unavailable";placeholder.hidden=false;if(missingPokemonSource)wrap.classList.add("dr-browse-reference-photo-pending");}};
         image.addEventListener("error",()=>{
           if(!proxyTried && row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')){
@@ -384,7 +387,7 @@ window.DropRateCatalogue = (() => {
         });
         // These official hosts reject cross-site <img> loads. Use the exact,
         // authenticated reference route first instead of waiting for a failure.
-        if(referencePath){const source=urls.indexOf(row.image_url);if(source>=0)urls.splice(source,1);this.loadReferenceImage(image,referencePath,fallback);}
+        if(useReferenceFirst){const source=urls.indexOf(row.image_url);if(source>=0)urls.splice(source,1);this.loadReferenceImage(image,referencePath,fallback);}
         else image.src=urls.shift();wrap.append(image);
       }
       return wrap;

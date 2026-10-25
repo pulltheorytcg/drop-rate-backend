@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -81,6 +82,7 @@ from .shopify_published_pooling import router as shopify_published_pooling_route
 from .shopify_readiness import router as shopify_readiness_router
 from .storage_locations import router as storage_locations_router
 from .object_storage_api import router as object_storage_router
+from .object_storage import ObjectStorageConfig, ObjectStorageError
 
 logger = logging.getLogger(__name__)
 from .stripe_connect import router as stripe_connect_router
@@ -174,6 +176,13 @@ def _database_error_response(exc: asyncpg.PostgresError, request_id: str) -> JSO
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    try:
+        mirror_config = ObjectStorageConfig.from_env()
+    except ObjectStorageError:
+        mirror_config = None
+    r2_img_origin = (" " + mirror_config.endpoint.rstrip("/")) if (
+        mirror_config and os.getenv('TCG_R2_MEDIA_DELIVERY_ENABLED', 'false').lower() in ('true', '1')
+    ) else ""
     configure_market_adapters(settings)
 
     @asynccontextmanager
@@ -328,7 +337,7 @@ def create_app() -> FastAPI:
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self'; style-src 'self'; "
-            "img-src 'self' data: blob: https://assets.tcgdex.net https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://www.dbs-cardgame.com https://narutocardgame.gg https://cardtrader.com https://www.cardtrader.com https://upload.wikimedia.org https://images.prismic.io https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net; "
+            f"img-src 'self' data: blob: https://assets.tcgdex.net https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://www.dbs-cardgame.com https://narutocardgame.gg https://cardtrader.com https://www.cardtrader.com https://upload.wikimedia.org https://images.prismic.io https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net{r2_img_origin}; "
             f"connect-src 'self' {settings.supabase_url}; "
             "font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )

@@ -7,7 +7,10 @@ public image delivery needs a separate rights and CDN approval workflow.
 from __future__ import annotations
 
 import hashlib
+import io
 import os
+import re
+from functools import lru_cache
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -165,3 +168,65 @@ class S3ObjectStorage:
                 )
             self._verify_remote_file(key, digest, size)
         return {"key": key, "size_bytes": size, "sha256": digest, "verified": True}
+
+    def put_verified_media(self, data: bytes) -> dict[str, str | int | bool]:
+        """Upload a bounded, already decoded WebP to the *private* media area.
+
+        Source ownership and reproduction rights must be checked by the caller;
+        neither a successful upload nor an R2 object ever grants publication.
+        """
+        if not isinstance(data, bytes) or not 0 < len(data) <= 10_000_000:
+            raise ObjectStorageError("Media bytes must be nonempty and at most 10 MB")
+        if not data.startswith(b"RIFF") or data[8:12] != b"WEBP":
+            raise ObjectStorageError("Only validated WebP media may be mirrored")
+        digest = hashlib.sha256(data).hexdigest()
+        key = f"{self.config.prefix}/private-media/{digest}.webp"
+        try:
+            self._verify_remote_file(key, digest, len(data))
+        except ObjectStorageError:
+            raise
+        except Exception as exc:
+            response = getattr(exc, "response", {})
+            code = response.get("Error", {}).get("Code") if isinstance(response, dict) else None
+            if str(code) not in {"NoSuchKey", "404", "NotFound"}:
+                raise ObjectStorageError("Unable to establish private media object state") from exc
+            self.client.put_object(
+                Bucket=self.config.bucket,
+                Key=key,
+                Body=io.BytesIO(data),
+                ContentType="image/webp",
+                ContentDisposition="inline",
+                CacheControl="private, max-age=3600",
+                Metadata={"sha256": digest},
+            )
+            self._verify_remote_file(key, digest, len(data))
+        return {"key": key, "size_bytes": len(data), "sha256": digest, "verified": True}
+
+    def signed_media_url(self, key: str, *, expires_seconds: int = 3600) -> str:
+        """Temporary GET for one content-addressed media object, never a bucket.
+
+        Returned URLs are bearer links for approved *public-facing* catalogue
+        media only. Do not sign scans, archives or arbitrary client-supplied keys.
+        """
+        prefix = re.escape(f"{self.config.prefix}/private-media/")
+        if not isinstance(key, str) or not re.fullmatch(prefix + r"[0-9a-f]{64}\.webp", key):
+            raise ObjectStorageError("Refusing to sign an unrecognised media object key")
+        if not isinstance(expires_seconds, int) or not 60 <= expires_seconds <= 3600:
+            raise ObjectStorageError("Media link lifetime must be between 1 and 60 minutes")
+        url = self.client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": self.config.bucket, "Key": key},
+            ExpiresIn=expires_seconds,
+        )
+        destination = urlsplit(url)
+        allowed = urlsplit(self.config.endpoint)
+        if destination.scheme != "https" or destination.hostname != allowed.hostname:
+            raise ObjectStorageError("Storage client produced an untrusted signed URL")
+        return url
+
+
+@lru_cache(maxsize=1)
+def configured_object_storage() -> S3ObjectStorage | None:
+    """One SDK client per app process; R2 configuration changes restart Railway."""
+    config = ObjectStorageConfig.from_env()
+    return S3ObjectStorage(config) if config else None

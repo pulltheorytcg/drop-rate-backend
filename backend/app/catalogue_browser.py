@@ -31,6 +31,7 @@ from .schemas import ManualCatalogueCreate, ManualInventoryCreate
 from .catalogue_display_prices import read_shared_prices, with_shared_price
 from .catalogue_price_history import add_reference_history
 from .book_catalogue import with_book_details
+from .r2_media import with_signed_mirror
 
 router = APIRouter(prefix="/api/v1/catalogue-browser", tags=["catalogue-browser"])
 GAME_BY_SYSTEM = {system: game for game, system in SYSTEM_BY_GAME.items()}
@@ -233,8 +234,12 @@ SETS_SQL = SET_CTE + """
 # Only approved canonical media appears in catalogue results. Reference artwork
 # remains clearly labelled and is never promoted into storefront media here.
 MEDIA_SQL = """
- select coalesce(m.shopify_cdn_url,m.public_source_url) as url
- from tcg.media_assets m where m.catalogue_id=page.catalogue_id
+ select coalesce(m.shopify_cdn_url,m.public_source_url) as url,
+        mirror.object_key as r2_object_key
+ from tcg.media_assets m
+ left join tcg.media_object_mirrors mirror
+   on mirror.media_asset_id=m.id and mirror.source_url=m.public_source_url
+ where m.catalogue_id=page.catalogue_id
  and m.scope in ('CANONICAL_CARD','CANONICAL_PRODUCT') and m.side='FRONT' and m.media_kind='IMAGE'
  and m.approval_status='APPROVED' and m.rights_status='VERIFIED'
  and m.rights_tier='STOREFRONT_ALLOWED' and m.source_status='ACTIVE' and m.revoked_at is null
@@ -438,7 +443,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
       {shared_join}
       where {clause} order by {order} limit {page_limit} offset {page_offset}
     ) select page.*,coalesce(nullif(btrim(page.image_url),''),media.url) as display_image_url,
-             media.url as fallback_image_url
+             media.url as fallback_image_url,media.r2_object_key
       from page left join lateral ({MEDIA_SQL}) media on page.catalogue_id is not null order by page.ordinal
         """
     else:
@@ -450,7 +455,7 @@ def product_query(*, owner_id, q="", system_code="", language="", set_id="", pro
           select e.*,row_number() over(order by {order})+{page_offset} as ordinal from selected_page e
         ) select page.*,{price_columns('page')},
                  coalesce(nullif(btrim(page.image_url),''),media.url) as display_image_url,
-                 media.url as fallback_image_url
+                 media.url as fallback_image_url,media.r2_object_key
           from page left join lateral (
             select value.* from tcg.catalogue_products p
             cross join lateral tcg.catalogue_reference_value_v2(p.id,nullif(p.language,'')) value
@@ -498,7 +503,7 @@ async def products(request: Request, user: Annotated[AuthenticatedUser, Depends(
     if slab_search:
         selected_rows = [row for row in selected_rows if slab_candidate_supported(
             row, card_name=slab_name, card_number=slab_number, set_name=slab_set)]
-    return jsonable_encoder({"items": [with_artwork_path(row) for row in selected_rows],
+    return jsonable_encoder({"items": [with_artwork_path(with_signed_mirror(row)) for row in selected_rows],
         "has_more": len(rows) > limit, "offset": offset,
         "slab_review_required": slab_search,
         "slab_search_bounded": slab_search and len(rows) > limit})

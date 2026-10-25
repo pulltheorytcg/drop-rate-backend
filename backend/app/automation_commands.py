@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 from .automation_dispatcher import verify_signed_body
 from .settings import get_settings
 from .object_storage import ObjectStorageConfig, ObjectStorageError, S3ObjectStorage
+from .r2_media import mirror_approved_media
 from .shopify_pipeline import publish_inventory_to_shopify, reconcile_shopify_product_prices
 
 
@@ -44,6 +45,14 @@ class StorageHealthCommand(BaseModel):
     action: Literal["CHECK_PRIVATE_BUCKET"]
     execution_id: str = Field(min_length=1, max_length=120)
     occurred_at: datetime
+
+
+class MirrorApprovedMediaCommand(BaseModel):
+    schema_version: Literal[1] = 1
+    action: Literal['MIRROR_APPROVED_CANONICAL_MEDIA']
+    execution_id: str = Field(min_length=1, max_length=120)
+    occurred_at: datetime
+    limit: int = Field(default=3, ge=1, le=5)
 
 
 class InventoryApprovedEvent(BaseModel):
@@ -236,6 +245,36 @@ async def check_private_object_storage(
         "execution_id": command.execution_id,
         "checked_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@router.post('/storage/mirror-approved-media')
+async def mirror_approved_catalogue_media(
+    request: Request,
+    x_drop_rate_timestamp: str | None = Header(default=None, alias='X-Drop-Rate-Timestamp'),
+    x_drop_rate_signature: str | None = Header(default=None, alias='X-Drop-Rate-Signature'),
+) -> dict:
+    """Small HMAC-protected n8n batch; provider rights and hashes verified."""
+    raw = await _verified_command_body(
+        request, timestamp_header=x_drop_rate_timestamp, signature_header=x_drop_rate_signature,
+    )
+    try:
+        command = MirrorApprovedMediaCommand.model_validate_json(raw)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail='Invalid R2 media mirror command') from exc
+    if command.occurred_at.tzinfo is None:
+        raise HTTPException(status_code=422, detail='Media mirror command timestamp needs timezone')
+    try:
+        result = await mirror_approved_media(
+            request.app.state.db_pool, limit=command.limit, request_id=request.state.request_id,
+        )
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=503, detail='Private R2 mirror storage unavailable') from exc
+    if result['failed']:
+        raise HTTPException(status_code=502, detail={
+            'message': 'One or more rights-approved images could not be mirrored',
+            'retryable': True, 'result': result,
+        })
+    return {'accepted': True, 'execution_id': command.execution_id, **result}
 
 
 # The marketing router reuses the raw-body HMAC verifier above. Its feature gate
