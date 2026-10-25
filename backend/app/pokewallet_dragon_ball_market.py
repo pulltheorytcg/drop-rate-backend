@@ -37,6 +37,12 @@ PAGE_SIZE = 100
 MAX_FREE_REQUESTS_PER_RUN = 35  # 25 One Piece + 35 DBS leaves 40/hour shared headroom.
 MASTERS_NUMBER = re.compile(r"(?:BT\d{1,2}|TB\d{1,2}|DB\d{1,2})-\d{3}")
 FUSION_NUMBER = re.compile(r"(?:FB|FS|SB|ST)\d{2}-\d{2,3}")
+# PokéWallet search results are explicitly truncated for broad card-number
+# prefixes (e.g. FB09: 196 matches, only the first 100 available). Never
+# attribute one of those partial results to a physical printing. Search at
+# most ten adjacent numbers at a time, keeping variants available for the
+# source-identity uniqueness check.
+SEARCH_SHARD = re.compile(r"[A-Z]{1,3}\d{1,2}-\d{2,3}")
 # Cardmarket-only IDs are 64 hex characters. PokéWallet documents
 # `dbs_` + hex for TCGplayer-linked products, but does NOT guarantee the
 # same fixed digest length; its published example is longer.
@@ -108,7 +114,15 @@ def wanted_groups(refs: list[dict], now: datetime) -> dict[str,list[dict]]:
         key=(ref["system_code"],ref["set_id"],ref["card_number"])
         all_keys[key].append(ref)
         if eligible(ref,now):
-            wants[ref["card_number"].split("-")[0]].append(ref)
+            number=ref["card_number"]
+            set_prefix,printed_number=number.split("-",1)
+            # The vendor indexes both name and number. The first two printed
+            # digits limit a normal three-digit range to ten cards; already
+            # two-digit numbers are queried exactly. A narrower shard cannot
+            # make an incomplete response complete: truncated pages remain
+            # rejected below regardless of query length.
+            query=f"{set_prefix}-{printed_number[:2]}"
+            wants[query].append(ref)
     # Another base identity for the same publisher printing is ambiguous.
     collisions={key for key, group in all_keys.items() if len(group)!=1}
     return {prefix:[ref for ref in group if
@@ -266,7 +280,7 @@ class FreeDragonBallClient:
         self.requests=0
 
     async def search(self,query: str,page: int) -> dict:
-        if not re.fullmatch(r"[A-Z]{1,3}\d{1,2}",query) or self.requests>=self.limit:
+        if not SEARCH_SHARD.fullmatch(query) or self.requests>=self.limit:
             raise FreeSourceError("INVALID_QUERY_OR_BUDGET")
         self.requests+=1
         response=await self.http.get(BASE_URL+"/dbs/search",
