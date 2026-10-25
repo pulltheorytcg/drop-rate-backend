@@ -1,7 +1,7 @@
 """Offline free Dragon Ball pricing tests: no live key, no paid endpoints."""
 import json
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -252,7 +252,7 @@ async def test_daily_scheduler_dragon_ball_is_flagged_quota_bounded_and_idempote
     now=datetime.now(timezone.utc)
     calls=[]
     receipts=[]
-    state={"previous":None}
+    state={"previous":None,"dbs_started_at":now}
     class Conn:
         async def fetchval(self,*args):return True
         async def execute(self,*args):return None
@@ -271,7 +271,7 @@ async def test_daily_scheduler_dragon_ball_is_flagged_quota_bounded_and_idempote
                     "POKEWALLET_PRICES":jobs.POKEWALLET_JOB_REVISION*10+1,
                     "CATALOGUE_COVERAGE":1}.items()]
             if state["previous"] is not None:
-                base.append(dict(job="POKEWALLET_DBS_PRICES",started_at=now,
+                base.append(dict(job="POKEWALLET_DBS_PRICES",started_at=state["dbs_started_at"],
                                  status="COMPLETE",report=state["previous"]))
             return base
     @asynccontextmanager
@@ -304,8 +304,20 @@ async def test_daily_scheduler_dragon_ball_is_flagged_quota_bounded_and_idempote
                        "cursor":"BT2","writes_attempted":0}
     await jobs.daily_pass(Pool(),settings)
     assert len(calls)==1
+    # Only DBS, not One Piece, rotates to the next hourly budget slot.
+    state["dbs_started_at"]=now-timedelta(hours=2)
+    await jobs.daily_pass(Pool(),settings)
+    assert len(calls)==2 and calls[-1]["request_limit"]==8
+    state["dbs_started_at"]=now
     # Applying a verified trial is a separate revision, not another
     # unbounded request in the five-minute loop.
     settings.pokewallet_dragon_ball_apply_enabled=True
     await jobs.daily_pass(Pool(),settings)
-    assert len(calls)==2 and calls[-1]["dry_run"] is False
+    assert len(calls)==3 and calls[-1]["dry_run"] is False
+
+
+def test_hourly_budget_is_bounded_and_utc_unambiguous_through_dst():
+    from app import catalogue_maintenance as jobs
+    assert jobs.DBS_HOURLY_REQUEST_BUDGET==20
+    assert jobs.hourly_slot(datetime(2026,10,25,0,45,tzinfo=timezone.utc)) == datetime(2026,10,25,0,tzinfo=timezone.utc)
+    assert jobs.hourly_slot(datetime(2026,10,25,1,45,tzinfo=timezone.utc)) == datetime(2026,10,25,1,tzinfo=timezone.utc)
