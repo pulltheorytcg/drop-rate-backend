@@ -27,6 +27,7 @@ from .reference_market import REVISION, refresh_reference_prices
 from .one_piece_market import refresh_one_piece_prices
 from .pokewallet_one_piece_market import refresh_pokewallet_one_piece
 from .pokewallet_dragon_ball_market import refresh_pokewallet_dragon_ball
+from .pokewallet_pokemon_market import refresh_pokewallet_pokemon
 from .dragon_ball_market import refresh_dragon_ball_prices
 from .pokemon_catalogue_market import refresh_pokemon_catalogue_prices
 from .reference_sealed import save_sealed_set, sealed_feed
@@ -41,14 +42,16 @@ log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
 REFERENCE_JOB_REVISION=25
-POKEWALLET_JOB_REVISION=8
+POKEWALLET_JOB_REVISION=9
 POKEWALLET_DBS_JOB_REVISION=3
-# At most 20 DBS + 15 One Piece free requests per UTC hour. Continuous
+# At most 20 DBS + 10 One Piece + 5 Japanese Pokémon free requests/hour.
 # service consumes <=840/day of the provider's shared 1,000/day allowance,
-# leaving >=160/day for other legitimate application activity. Both clients
+# leaving >=160/day for other legitimate application activity. All clients
 # independently honour upstream remaining-hour/day headers.
 DBS_HOURLY_REQUEST_BUDGET=20
-ONE_PIECE_HOURLY_REQUEST_BUDGET=15
+ONE_PIECE_HOURLY_REQUEST_BUDGET=10
+POKEMON_HOURLY_REQUEST_BUDGET=5
+POKEWALLET_POKEMON_JOB_REVISION=1
 
 
 def unapplied_trial_cursor(rows):
@@ -279,7 +282,7 @@ def coverage_lags_pricing(latest):
         run is not None and run['status']=='COMPLETE' and run['started_at']>checkpoint
         for name in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES',
                      'CARDMARKET_VALUES','CATALOGUE_VALUES','POKEWALLET_PRICES',
-                     'POKEWALLET_DBS_PRICES')
+                     'POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES')
         for run in (latest.get(name),)
     )
 
@@ -299,7 +302,7 @@ async def daily_pass(pool,settings):
                     log.error('CATALOGUE_BULK_REFRESH_DEFERRED %s', json.dumps(capacity.report(), sort_keys=True))
                     return
                 runs=await connection.fetch('select distinct on(source) source,started_at,status,report from tcg.reference_sync_runs order by source,started_at desc')
-                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES','POKEWALLET_DBS_PRICES') order by job,started_at desc")
+                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES','POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES') order by job,started_at desc")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
             latest={r['job']:r for r in jobs}
             if weekly_price_due(latest.get('CATALOGUE_VALUES'),now,revision=CATALOGUE_VALUE_REVISION):
@@ -387,6 +390,28 @@ async def daily_pass(pool,settings):
                                   {'importer_revision':importer_revision,**result,
                                    **({'replayed_trial_started_at':replay['replayed_trial_started_at']}
                                       if replay is not None else {})})
+                    if result['writes_attempted']:
+                        await record_coverage(pool,actor)
+                        coverage_recorded=True
+            if (pokewallet_key and getattr(settings,'pokewallet_pokemon_enabled',False)):
+                prior=latest.get('POKEWALLET_POKEMON_PRICES')
+                revision=(POKEWALLET_POKEMON_JOB_REVISION*10 +
+                          int(getattr(settings,'pokewallet_pokemon_apply_enabled',False)))
+                if (prior is None or prior['started_at']<hourly_slot(now)
+                        or (prior.get('report') or {}).get('importer_revision')!=revision):
+                    last_cursor=(prior.get('report') or {}).get('cursor') if prior else None
+                    if (getattr(settings,'pokewallet_pokemon_apply_enabled',False)
+                            and prior and (prior.get('report') or {}).get('dry_run') is True
+                            and not (prior.get('report') or {}).get('writes_attempted')):
+                        # Replay the trial's input cursor once on enabling writes.
+                        last_cursor=(prior.get('report') or {}).get('input_cursor')
+                    result=await refresh_pokewallet_pokemon(
+                        pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),pokewallet_key,
+                        dry_run=not getattr(settings,'pokewallet_pokemon_apply_enabled',False),
+                        request_limit=POKEMON_HOURLY_REQUEST_BUDGET,
+                        previous_cursor=last_cursor)
+                    await receipt(pool,actor,'POKEWALLET_POKEMON_PRICES','COMPLETE',
+                                  {'importer_revision':revision,**result})
                     if result['writes_attempted']:
                         await record_coverage(pool,actor)
                         coverage_recorded=True
