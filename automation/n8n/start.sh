@@ -90,4 +90,25 @@ $workflow_id"
   done
 fi
 
+# A dedicated, opt-in switch may publish only the reviewed R2 artwork
+# mirroring schedule. Other customer, marketing and finance workflows remain
+# inactive unless explicitly approved through their existing processes.
+# n8n 2.x uses publish:workflow rather than the deprecated --active toggle.
+case "${DROP_RATE_R2_MEDIA_WORKFLOW_PUBLISH_ON_BOOT:-false}" in
+  true)
+    reviewed_id='DR94R2ApprovedMediaMirrorV1'
+    if ! printf '%s\n' "$installed_ids" | grep -Fxq "$reviewed_id"; then
+      echo "Drop Rate n8n: approved-media workflow is missing; refusing publication." >&2
+      exit 1
+    fi
+    echo "Drop Rate n8n: publishing reviewed DR-94 R2 media schedule."
+    n8n publish:workflow --id="$reviewed_id"
+    ;;
+  false|'') ;;
+  *)
+    echo "Drop Rate n8n: invalid R2 media publication setting; expected true/false." >&2
+    exit 1
+    ;;
+esac
+
 exec n8n start

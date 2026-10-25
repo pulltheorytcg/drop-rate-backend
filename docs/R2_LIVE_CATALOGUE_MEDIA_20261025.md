@@ -73,7 +73,12 @@ Signed n8n command → FastAPI rights check → provider image → vetted WebP
    R2 origin, not wildcard providers. Check real handset performance.
 7. Expand batches gradually and verify per-source/provider coverage and errors.
    Import DR-94 inactive, test a signed execution and DR-90 failure handling,
-   then activate its hourly trigger. Nonsuccess receives an alert; no purge.
+   then activate its hourly trigger. On the n8n Railway service, set
+   `DROP_RATE_R2_MEDIA_WORKFLOW_PUBLISH_ON_BOOT=true` **only after** those
+   checks pass. The startup provisioner uses n8n 2.x `publish:workflow` on
+   `DR94R2ApprovedMediaMirrorV1` before starting the scheduler; it cannot
+   publish unrelated workflows. Leave this flag unset during validation.
+   Nonsuccess receives an alert; no purge.
 
 ## Explicit limitations and next work
 
