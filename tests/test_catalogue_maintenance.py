@@ -279,6 +279,20 @@ def test_unapplied_positive_trial_replays_from_before_the_dry_run():
         'report':{**rows[0]['report'],'replayed_trial_started_at':at.isoformat()}},*rows[1:]]) is None
 
 
+def test_unapplied_positive_trial_direct_apply_uses_recorded_input_cursor():
+    at=datetime.now(timezone.utc)
+    trial={'started_at':at,'report':{'dry_run':True,'writes_attempted':0,
+        'eligible_quotes':65,'input_cursor':'BT27', 'cursor':'BT7-04'}}
+    replay=jobs.unapplied_trial_cursor([trial])
+    assert replay=={'cursor':'BT27','replayed_trial_started_at':at.isoformat()}
+    assert jobs.unapplied_trial_cursor([{**trial,'report':{
+        **trial['report'],'eligible_quotes':0}}]) is None
+    assert jobs.unapplied_trial_cursor([{**trial,'report':{
+        **trial['report'],'input_cursor':None}}])['cursor'] is None
+    assert jobs.unapplied_trial_cursor([{**trial,'report':{
+        'dry_run':True,'eligible_quotes':65,'cursor':'BT7-04'}}]) is None
+
+
 @pytest.mark.asyncio
 async def test_apply_mode_uses_successful_trials_input_cursor(monkeypatch):
     now=datetime.now(timezone.utc)
