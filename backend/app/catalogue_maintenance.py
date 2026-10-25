@@ -26,6 +26,7 @@ from .reference_library import save_reference_set
 from .reference_market import REVISION, refresh_reference_prices
 from .one_piece_market import refresh_one_piece_prices
 from .pokewallet_one_piece_market import refresh_pokewallet_one_piece
+from .pokewallet_dragon_ball_market import refresh_pokewallet_dragon_ball
 from .dragon_ball_market import refresh_dragon_ball_prices
 from .pokemon_catalogue_market import refresh_pokemon_catalogue_prices
 from .reference_sealed import save_sealed_set, sealed_feed
@@ -41,6 +42,7 @@ SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_m
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
 REFERENCE_JOB_REVISION=25
 POKEWALLET_JOB_REVISION=7
+POKEWALLET_DBS_JOB_REVISION=1
 
 
 def unapplied_trial_cursor(rows):
@@ -255,7 +257,8 @@ def coverage_lags_pricing(latest):
     return any(
         run is not None and run['status']=='COMPLETE' and run['started_at']>checkpoint
         for name in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES',
-                     'CARDMARKET_VALUES','CATALOGUE_VALUES','POKEWALLET_PRICES')
+                     'CARDMARKET_VALUES','CATALOGUE_VALUES','POKEWALLET_PRICES',
+                     'POKEWALLET_DBS_PRICES')
         for run in (latest.get(name),)
     )
 
@@ -275,7 +278,7 @@ async def daily_pass(pool,settings):
                     log.error('CATALOGUE_BULK_REFRESH_DEFERRED %s', json.dumps(capacity.report(), sort_keys=True))
                     return
                 runs=await connection.fetch('select distinct on(source) source,started_at,status,report from tcg.reference_sync_runs order by source,started_at desc')
-                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES') order by job,started_at desc")
+                jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES','POKEWALLET_DBS_PRICES') order by job,started_at desc")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
             latest={r['job']:r for r in jobs}
             if weekly_price_due(latest.get('CATALOGUE_VALUES'),now,revision=CATALOGUE_VALUE_REVISION):
@@ -327,6 +330,37 @@ async def daily_pass(pool,settings):
                         request_limit=getattr(settings,'pokewallet_pricing_request_limit',60),
                         previous_cursor=last_cursor)
                     await receipt(pool,actor,'POKEWALLET_PRICES','COMPLETE',
+                                  {'importer_revision':importer_revision,**result,
+                                   **({'replayed_trial_started_at':replay['replayed_trial_started_at']}
+                                      if replay is not None else {})})
+                    if result['writes_attempted']:
+                        await record_coverage(pool,actor)
+                        coverage_recorded=True
+            if (pokewallet_key and
+                    getattr(settings,'pokewallet_dragon_ball_enabled',False)):
+                prior=latest.get('POKEWALLET_DBS_PRICES')
+                importer_revision=(POKEWALLET_DBS_JOB_REVISION*10 +
+                    int(getattr(settings,'pokewallet_dragon_ball_apply_enabled',False)))
+                if (prior is None or prior['started_at']<daily_slot(now)
+                        or (prior.get('report') or {}).get('importer_revision')!=importer_revision):
+                    last_cursor=(prior.get('report') or {}).get('cursor') if prior else None
+                    replay=None
+                    if (getattr(settings,'pokewallet_dragon_ball_apply_enabled',False)
+                            and prior and not (prior.get('report') or {}).get('writes_attempted')):
+                        async with user_connection(pool,actor,str(uuid4())) as connection:
+                            history=await connection.fetch("""select started_at,report
+                              from tcg.catalogue_job_runs where job='POKEWALLET_DBS_PRICES'
+                              and status='COMPLETE' order by started_at desc limit 8""")
+                        replay=unapplied_trial_cursor(history)
+                        if replay is not None:
+                            last_cursor=replay['cursor']
+                    result=await refresh_pokewallet_dragon_ball(
+                        pool,actor,EcbHistoricalFxProvider(timeout_seconds=6),
+                        pokewallet_key,
+                        dry_run=not getattr(settings,'pokewallet_dragon_ball_apply_enabled',False),
+                        request_limit=getattr(settings,'pokewallet_dragon_ball_request_limit',35),
+                        previous_cursor=last_cursor)
+                    await receipt(pool,actor,'POKEWALLET_DBS_PRICES','COMPLETE',
                                   {'importer_revision':importer_revision,**result,
                                    **({'replayed_trial_started_at':replay['replayed_trial_started_at']}
                                       if replay is not None else {})})
