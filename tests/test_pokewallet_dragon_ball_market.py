@@ -48,7 +48,7 @@ def product(**fields):
     return row
 
 
-def body(*results, query="FB01", page=1, total=None, truncated=False):
+def body(*results, query="FB01-00", page=1, total=None, truncated=False):
     count=len(results) if total is None else total
     return dict(query=query,results=list(results),
         pagination=dict(page=page,limit=100,total=count,
@@ -65,8 +65,21 @@ def test_bandaibase_identity_excludes_variants_and_unknown_releases():
     assert dbs.reference_release(fusion(language="Japanese")) is None
     assert dbs.reference_release(masters(card_number="BT1-053_PR")) is None
     groups=dbs.wanted_groups([fusion(),fusion(provider_id="583001:FB01-001_p1")],NOW)
-    assert len(groups["FB01"])==1
+    assert len(groups["FB01-00"])==1
     assert dbs.wanted_groups([fusion(has_detail_value=True)],NOW)=={}
+
+
+def test_search_shards_are_bounded_by_printed_number_not_just_set():
+    refs=[fusion(card_number="FB01-001",provider_id="583001:FB01-001"),
+          fusion(card_number="FB01-002",provider_id="583001:FB01-002"),
+          fusion(card_number="FB01-011",provider_id="583001:FB01-011"),
+          masters()]
+    groups=dbs.wanted_groups(refs,NOW)
+    assert len(groups["FB01-00"])==2
+    assert len(groups["FB01-01"])==1
+    assert len(groups["BT1-05"])==1
+    assert "FB01" not in groups
+    assert "BT1" not in groups
 
 
 def test_unique_release_number_name_and_variant_or_fail_closed():
@@ -99,13 +112,13 @@ def test_unique_release_number_name_and_variant_or_fail_closed():
 
 
 def test_complete_pages_bounded_and_invalid_search_rejected():
-    assert len(dbs.complete_search_page(body(product()),"FB01",1)[0])==1
-    for bad in [body(product(),query="FB02"),
+    assert len(dbs.complete_search_page(body(product()),"FB01-00",1)[0])==1
+    for bad in [body(product(),query="FB02-00"),
                 body(product(),truncated=True),
                 body(product(),total=201),
                 body(product(),page=2)]:
         with pytest.raises(dbs.FreeSourceError):
-            dbs.complete_search_page(bad,"FB01",1)
+            dbs.complete_search_page(bad,"FB01-00",1)
 
 
 def test_indicative_guide_eur_and_usd_are_never_physical_values():
@@ -143,7 +156,7 @@ class FakeHttp:
         self.status=status
     async def get(self,url,params,headers):
         assert url==dbs.BASE_URL+"/dbs/search"  # never paywalled endpoint
-        assert params["q"]=="FB01"
+        assert params["q"]=="FB01-00"
         assert params["limit"]==100
         assert headers["X-API-Key"]=="pk_live_fixture"
         self.calls.append((url,params))
