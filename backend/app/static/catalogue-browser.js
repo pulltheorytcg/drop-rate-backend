@@ -377,12 +377,16 @@ window.DropRateCatalogue = (() => {
         if(row.artwork_kind==="PUBLISHER_REFERENCE")image.alt+=" — publisher reference cover";
         if(cls==="dr-browse-detail-image")image.loading="eager";
         image.addEventListener("load",()=>{placeholder.hidden=true;});
-        const useReferenceFirst=Boolean(referencePath&&!row.r2_image_url);
+        // One Piece's publisher blocks direct cross-site card images. Other
+        // reference providers first load from their own origin so Railway only
+        // relays an image if the browser could not load the source URL.
+        const directProviderFirst=new Set(["POKEMON_TCG","DRAGON_BALL_SUPER_MASTERS","DRAGON_BALL_SUPER_FUSION_WORLD"]).has(row.system_code);
+        const useReferenceFirst=Boolean(referencePath&&!row.r2_image_url&&!directProviderFirst);
         let proxyTried=useReferenceFirst;
         const fallback=()=>{if(urls.length)image.src=urls.shift();else {image.remove();placeholder.textContent=missingPokemonSource?"Card image not yet available · Reference only":"Image unavailable";placeholder.hidden=false;if(missingPokemonSource)wrap.classList.add("dr-browse-reference-photo-pending");}};
         image.addEventListener("error",()=>{
-          if(!proxyTried && row.reference_image_path?.startsWith('/api/v1/catalogue-browser/reference-image?')){
-            proxyTried=true;this.loadReferenceImage(image,row.reference_image_path,fallback);
+          if(!proxyTried && referencePath){
+            proxyTried=true;this.loadReferenceImage(image,referencePath,fallback);
           } else fallback();
         });
         // These official hosts reject cross-site <img> loads. Use the exact,

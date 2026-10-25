@@ -151,6 +151,25 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   assert.match(f.browser.sheet.textContent,/Value: £12.34/);assert.match(f.browser.sheet.textContent,/combines languages and conditions/);
   f.finish();checks++;
  }
+ // Pokémon/Dragon Ball load from the provider first; when cross-site loading
+ // fails, use the exact signed-in reference route with a bounded grid image.
+ {
+  const f=fixture(),calls=[];
+  f.w.URL.createObjectURL=()=> 'blob:provider-relay';f.w.URL.revokeObjectURL=()=>{};
+  f.browser.client.requestImage=async path=>{calls.push(path);return new f.w.Blob(['image'],{type:'image/webp'});};
+  const row={...card,source_kind:'REFERENCE',provider:'TCGdex',system_code:'POKEMON_TCG',
+    image_url:'https://assets.tcgdex.net/en/me/30th/001/high.webp',
+    reference_image_path:'/api/v1/catalogue-browser/reference-image?provider=TCGdex&system_code=POKEMON_TCG&provider_id=me30-1'};
+  const picture=f.browser.productImage(row);f.w.document.body.append(picture);
+  const img=picture.querySelector('img');
+  assert.equal(img.src,'https://assets.tcgdex.net/en/me/30th/001/low.webp');
+  assert.equal(calls.length,0,'Do not proxy an image that loads from the provider');
+  img.dispatchEvent(new f.w.Event('error'));await tick();await tick();
+  assert.equal(calls.length,1);
+  assert.ok(calls[0].endsWith('&size=grid'),'The fallback must not download the detail-size asset');
+  assert.equal(img.src,'blob:provider-relay');
+  f.finish();checks++;
+ }
  {
   const f=fixture();
   f.browser.openProduct({...card,market_value_source:'TCGDEX_TCGPLAYER',market_quotes:[{source:'TCGDEX_TCGPLAYER',finish:'Normal',original_minor:42}]});

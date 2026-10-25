@@ -52,10 +52,38 @@ def one_piece_artwork_url(value):
             and not url.fragment and re.fullmatch(r'/images/cardlist/card/[A-Za-z0-9_-]+\.(png|webp|jpg|jpeg)',url.path) is not None)
 
 
+# Reference art remains distinct from approved seller/Shopify photography.
+# Provider + game are fixed by the exact database identity, never by client URL.
+# Do not relay card marketplace listings or fan-archive scans through this path.
+REFERENCE_IMAGE_PROVIDER_HOSTS = {
+    ('TCGdex', 'POKEMON_TCG'): frozenset({'assets.tcgdex.net'}),
+    ('Bandai Official', 'DRAGON_BALL_SUPER_MASTERS'): frozenset({'www.dbs-cardgame.com'}),
+    ('Bandai Official', 'DRAGON_BALL_SUPER_FUSION_WORLD'): frozenset({'www.dbs-cardgame.com'}),
+}
+
+
+def provider_reference_artwork_url(value, provider: str, system_code: str) -> bool:
+    if system_code == 'ONE_PIECE_CARD_GAME' and provider in {'Punk Records', 'Bandai Official'}:
+        return one_piece_artwork_url(value)
+    allowed = REFERENCE_IMAGE_PROVIDER_HOSTS.get((provider, system_code))
+    if not allowed or not isinstance(value, str):
+        return False
+    try:
+        parsed = urlsplit(value)
+        return (parsed.scheme == 'https' and parsed.hostname in allowed
+                and parsed.port in (None, 443) and parsed.username is None
+                and parsed.password is None and not parsed.fragment
+                and re.fullmatch(r'/[A-Za-z0-9_./-]+\.(?:png|webp|jpg|jpeg)', parsed.path, flags=re.I) is not None
+                and '..' not in parsed.path.split('/') and not parsed.query)
+    except (TypeError, ValueError):
+        return False
+
+
 def with_artwork_path(row):
     item = dict(row)
     sealed=item.get('source_kind')=='SEALED_REFERENCE'
-    if ((item.get('source_kind') == 'REFERENCE' and one_piece_artwork_url(item.get('image_url')))
+    if ((item.get('source_kind') == 'REFERENCE' and provider_reference_artwork_url(
+            item.get('image_url'), item.get('provider'), item.get('system_code')))
             or (sealed and _cardtrader_image_url(item.get('image_url')))):
         item['reference_image_path'] = '/api/v1/catalogue-browser/reference-image?' + urlencode({
             field:item[field] for field in ('provider','system_code','language','provider_id')})
@@ -548,12 +576,16 @@ async def reference_image(request: Request, user: Annotated[AuthenticatedUser, D
           join tcg.reference_sets s using(provider,system_code,language,set_id)
           where r.provider=$1 and r.system_code=$2 and r.language=$3 and r.provider_id=$4
           and (s.release_date is null or s.release_date<=current_date)''',provider,system_code,language,provider_id)
-    if not (_cardtrader_image_url(url) if reference_kind=='sealed' else one_piece_artwork_url(url)):
+    if not (_cardtrader_image_url(url) if reference_kind=='sealed' else
+            provider_reference_artwork_url(url,provider,system_code)):
         raise HTTPException(404,'Reference artwork not available')
     payload = await (reference_thumbnail(url) if size == 'grid' else reference_image_bytes(url))
     if payload is None:
         raise HTTPException(502,'Reference artwork could not load')
-    return Response(payload.data,media_type=payload.content_type,headers={'Content-Disposition':'inline'})
+    return Response(payload.data,media_type=payload.content_type,headers={
+        'Content-Disposition':'inline','Cache-Control':'private, max-age=1800',
+        'X-Content-Type-Options':'nosniff',
+    })
 
 
 class ReferencePriceRequest(BaseModel):
