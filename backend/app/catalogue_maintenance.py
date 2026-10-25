@@ -55,6 +55,16 @@ def unapplied_trial_cursor(rows):
     if not rows:
         return None
     current=rows[0]['report'] or {}
+    # The normal transition is directly from a positive trial to its first
+    # apply run (different job revision). Both source adapters persist their
+    # input_cursor, so no older receipt or guessed predecessor is needed.
+    if current.get('dry_run') is True:
+        if (int(current.get('eligible_quotes') or 0)>0 and
+                not current.get('writes_attempted') and
+                'input_cursor' in current):
+            return {'cursor':current['input_cursor'],
+                    'replayed_trial_started_at':rows[0]['started_at'].isoformat()}
+        return None
     if (current.get('dry_run') is not False
             or current.get('writes_attempted')
             or current.get('replayed_trial_started_at')):
