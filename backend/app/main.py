@@ -80,6 +80,7 @@ from .shopify_pooling import router as shopify_pooling_router
 from .shopify_published_pooling import router as shopify_published_pooling_router
 from .shopify_readiness import router as shopify_readiness_router
 from .storage_locations import router as storage_locations_router
+from .object_storage_api import router as object_storage_router
 
 logger = logging.getLogger(__name__)
 from .stripe_connect import router as stripe_connect_router
@@ -437,6 +438,7 @@ def create_app() -> FastAPI:
     app.include_router(shopify_readiness_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(purchase_lots_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(storage_locations_router, dependencies=[Depends(require_platform_admin_request)])
+    app.include_router(object_storage_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(stripe_connect_router)
     app.include_router(tcggraph_media_router, dependencies=[Depends(require_platform_admin_request)])
     return app
