@@ -42,7 +42,7 @@ SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_m
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
 REFERENCE_JOB_REVISION=25
 POKEWALLET_JOB_REVISION=7
-POKEWALLET_DBS_JOB_REVISION=1
+POKEWALLET_DBS_JOB_REVISION=2
 
 
 def unapplied_trial_cursor(rows):

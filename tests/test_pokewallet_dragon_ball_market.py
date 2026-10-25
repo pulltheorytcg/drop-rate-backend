@@ -199,6 +199,31 @@ async def test_rate_limit_stops_run_without_any_writes(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_bad_free_search_diagnostics_are_bounded_and_never_log_cards(monkeypatch):
+    @asynccontextmanager
+    async def connection(*args):
+        class Conn:
+            async def fetch(self,*args):return [fusion()]
+            async def executemany(self,*args):
+                raise AssertionError("Invalid provider page must never be stored")
+        yield Conn()
+    monkeypatch.setattr(dbs,"user_connection",connection)
+    class MalformedSearch(FakeHttp):
+        async def get(self,url,params,headers):
+            return HttpResponse(body(product(),total=201))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        object(),uuid4(),object(),"pk_live_fixture",
+        dry_run=False,request_limit=4,http_client=MalformedSearch())
+    assert report["requests"]==1 and report["writes_attempted"]==0
+    assert report["invalid_queries"]==1
+    sample=report["invalid_samples"][0]
+    assert sample["reason"]=="INCOMPLETE_SEARCH"
+    assert sample["pagination"]["total"]==201
+    assert sample["result_count"]==1
+    assert "card_info" not in str(sample) and "prices" not in str(sample)
+
+
+@pytest.mark.asyncio
 async def test_daily_scheduler_dragon_ball_is_flagged_quota_bounded_and_idempotent(monkeypatch):
     from app import catalogue_maintenance as jobs
     from types import SimpleNamespace

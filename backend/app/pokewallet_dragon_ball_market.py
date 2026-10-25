@@ -297,7 +297,8 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
     report={"source":"POKEWALLET_DBS_FREE","dry_run":dry_run,"requests":0,
             "checked_references":0,"target_prefixes":0,"matches":0,
             "eligible_quotes":0,"writes_attempted":0,"cursor":previous_cursor,
-            "input_cursor":previous_cursor,"sampled_queries":[],"provider_failures":0}
+            "input_cursor":previous_cursor,"sampled_queries":[],"invalid_samples":[],
+            "provider_failures":0}
     client=None
     owns_http=False
     try:
@@ -319,6 +320,7 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
             if client.requests>=budget:
                 break
             report["cursor"]=prefix
+            first=None
             try:
                 first=await client.search(prefix,1)
                 products,pages=complete_search_page(first,prefix,1)
@@ -372,6 +374,25 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                 if str(exc) in {"INCOMPLETE_SEARCH","PAGINATION_CHANGED",
                                 "DUPLICATE_SOURCE_ID","SEARCH_SCHEMA"}:
                     report["invalid_queries"]=report.get("invalid_queries",0)+1
+                    # Provider-specific pagination/metadata diagnostics only.
+                    # Never retain API keys, source price arrays, card text,
+                    # customer data or a full raw response in job receipts.
+                    if len(report["invalid_samples"])<8:
+                        head=first if isinstance(first,dict) else {}
+                        paging=head.get("pagination")
+                        paging=paging if isinstance(paging,dict) else {}
+                        meta=head.get("metadata")
+                        meta=meta if isinstance(meta,dict) else {}
+                        items=head.get("results")
+                        report["invalid_samples"].append({
+                            "prefix":prefix,"reason":str(exc),
+                            "response_fields":sorted(str(k)[:40] for k in head)[:15],
+                            "source_query":str(head.get("query") or "")[:32],
+                            "pagination":{k:paging.get(k) for k in
+                                          ("page","limit","total","total_pages")},
+                            "result_count":len(items) if isinstance(items,list) else None,
+                            "truncated":meta.get("truncated"),
+                        })
                     continue
                 raise
     except (httpx.HTTPError,FreeSourceError,ValueError,TypeError,KeyError,RuntimeError) as exc:
