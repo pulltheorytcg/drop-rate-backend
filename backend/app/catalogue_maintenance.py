@@ -40,7 +40,7 @@ log=logging.getLogger(__name__)
 SOURCES=('cardtrader_sealed','tcgdex','punk','one_piece_official','dragon_ball_masters','dragon_ball_fusion','naruto_kayou','naruto_bandai')
 SOURCE_REVISIONS={'cardtrader_sealed':4,'one_piece_official':2,'punk':2}
 REFERENCE_JOB_REVISION=25
-POKEWALLET_JOB_REVISION=6
+POKEWALLET_JOB_REVISION=7
 
 
 def unapplied_trial_cursor(rows):
