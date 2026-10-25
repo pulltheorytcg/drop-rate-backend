@@ -98,6 +98,16 @@ def test_card_printing_must_be_unique_within_entire_japanese_set():
         card(card_info=card()['card_info'] | {'product_type':'sealed'})])==[]
 
 
+def test_provider_id_formats_include_long_tcgplayer_hashes():
+    wanted=pokemon.reference_groups([reference()])
+    for item_id in ['pk_'+'a'*88,'pk_'+'b'*96,'c'*64]:
+        assert len(pokemon.matching_printings(wanted,'sv11b','23599',
+            [card(id=item_id)]))==1
+    for item_id in ['pk_'+'z'*88,'d'*80,'pk_'+'f'*129,'random']:
+        assert pokemon.matching_printings(wanted,'sv11b','23599',
+            [card(id=item_id)])==[]
+
+
 def test_search_requires_all_pages_and_recognised_exact_query():
     assert pokemon.complete_search_page(search_page(card()),'sv11b',1)[2]==[card()]
     with pytest.raises(pokemon.ProviderResponseError,match='SEARCH_SCHEMA'):

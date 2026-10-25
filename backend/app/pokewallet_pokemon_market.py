@@ -37,7 +37,10 @@ MAX_REQUESTS_PER_HOUR = 7
 COLLECTOR = re.compile(r"0*([1-9]\d{0,3})/0*([1-9]\d{0,3})\Z")
 SET_CODE = re.compile(r"[a-zA-Z][a-zA-Z0-9]{0,17}\Z")
 NUMERIC_SET_ID = re.compile(r"\d{1,10}\Z")
-SOURCE_ID = re.compile(r"(?:pk_)?[a-fA-F0-9]{32,80}\Z")
+# Provider examples include a `pk_` TCGPlayer digest longer than 80 hex
+# characters; Cardmarket-only identifiers are unprefixed 64-hex hashes.
+# This is format validation, never a substitute for a full print match.
+SOURCE_ID = re.compile(r"(?:pk_[a-fA-F0-9]{32,128}|[a-fA-F0-9]{64})\Z")
 
 READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,r.set_id,
  r.card_number,r.rarity,s.name as set_name,
