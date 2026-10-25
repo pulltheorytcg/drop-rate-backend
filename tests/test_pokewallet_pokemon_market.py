@@ -64,6 +64,9 @@ def test_reference_identity_requires_exact_japanese_set_and_collector_fraction()
 
 
 def test_only_unique_unpriced_canonical_numbers_are_eligible():
+    # A source price older than the coverage freshness window is not a
+    # present-day value: the SQL reader treats it as eligible for a new guide.
+    assert "p.pricing_updated_at>=now()-interval '7 days'" in pokemon.READ_SQL
     refs=[reference(),reference(provider_id='SV11B-001')]
     assert not pokemon.reference_groups(refs)
     assert not pokemon.reference_groups([reference(has_detail_value=True)])
