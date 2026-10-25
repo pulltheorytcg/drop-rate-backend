@@ -28,6 +28,69 @@ def test_artwork_transport_carries_only_exact_reference_identity():
     assert 'reference_image_path' not in browser.with_artwork_path(dict(row,source_kind='CATALOGUE'))
 
 
+@pytest.mark.parametrize('provider,system,url,expected', [
+    ('TCGdex','POKEMON_TCG','https://assets.tcgdex.net/en/me/30th/001/high.webp',True),
+    ('TCGdex','POKEMON_TCG','https://cardtrader.com/uploads/blueprints/image/4/photo.png',False),
+    ('TCGdex','POKEMON_TCG','https://assets.tcgdex.net.evil.test/card.png',False),
+    ('TCGdex','POKEMON_TCG','https://assets.tcgdex.net:8080/en/card.png',False),
+    ('TCGdex','POKEMON_TCG','http://assets.tcgdex.net/en/card.png',False),
+    ('Bandai Official','DRAGON_BALL_SUPER_MASTERS','https://www.dbs-cardgame.com/images/cardlist/cardimg/BT1-001_b.png',True),
+    ('Bandai Official','DRAGON_BALL_SUPER_FUSION_WORLD','https://www.dbs-cardgame.com/fw/images/cards/card/en/FB01-001_f.webp',True),
+    ('Bandai Official','POKEMON_TCG','https://www.dbs-cardgame.com/images/card.png',False),
+    ('Naruto Card Game Archive','NARUTO_KAYOU','https://narutocardgame.gg/images/kayou/123.webp',False),
+    ('Punk Records','ONE_PIECE_CARD_GAME',ART,True),
+    ('Bandai Official','ONE_PIECE_CARD_GAME',ART,True),
+    ('Punk Records','ONE_PIECE_CARD_GAME','https://en.onepiece-cardgame.com/other.png',False),
+])
+def test_source_artwork_relay_is_bound_to_known_provider_and_game(provider,system,url,expected):
+    assert browser.provider_reference_artwork_url(url,provider,system) is expected
+    row={'provider':provider,'system_code':system,'language':'English',
+         'provider_id':'exact-printing','source_kind':'REFERENCE','image_url':url}
+    assert ('reference_image_path' in browser.with_artwork_path(row)) is expected
+
+
+@pytest.mark.asyncio
+async def test_pokemon_reference_relay_fetches_only_database_url(monkeypatch):
+    user_id,owner_id=uuid4(),uuid4()
+    image_url='https://assets.tcgdex.net/en/me/30th/001/high.webp'
+    identity={'provider':'TCGdex','system_code':'POKEMON_TCG','language':'English','provider_id':'me30-1'}
+    fetches=[]
+
+    class Connection:
+        async def fetch(self,sql,*args):
+            return [{'user_id':user_id,'owner_id':owner_id,'role':'OWNER','founder_authorized':False,
+                     'display_name':'Test','owner_type':'CONSIGNOR','founder_slot':None}]
+
+        async def fetchval(self,sql,*args):
+            assert args == tuple(identity.values())
+            assert 'tcg.reference_cards' in sql
+            return image_url
+
+    @asynccontextmanager
+    async def connection(pool,actor,request_id):
+        assert actor==user_id
+        yield Connection()
+
+    async def thumbnail(url):
+        fetches.append(url)
+        return ReferenceImagePayload('image/webp',b'bounded-thumbnail')
+
+    monkeypatch.setattr(browser,'user_connection',connection)
+    monkeypatch.setattr(browser,'reference_thumbnail',thumbnail)
+    app=FastAPI();app.state.db_pool=object();app.include_router(browser.router)
+    app.dependency_overrides[require_user]=lambda:SimpleNamespace(user_id=user_id)
+    @app.middleware('http')
+    async def request_id(request,call_next):request.state.request_id='test';return await call_next(request)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://test') as client:
+        response=await client.get('/api/v1/catalogue-browser/reference-image',params={
+            **identity,'size':'grid','url':'https://evil.test/image.png'})
+    assert response.status_code==200
+    assert response.content==b'bounded-thumbnail'
+    assert response.headers['cache-control']=='private, max-age=1800'
+    assert response.headers['x-content-type-options']=='nosniff'
+    assert fetches==[image_url]
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize('signed_in,member,url,available,status',[
     (False,False,ART,True,401),(True,False,ART,True,403),
