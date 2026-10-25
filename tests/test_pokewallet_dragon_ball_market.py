@@ -91,6 +91,11 @@ def test_unique_release_number_name_and_variant_or_fail_closed():
     assert dbs.verified_matches([masters()],[product(card_info={
         **src["card_info"],"name":"Senzu Bean","set_name":"Galactic Battle",
         "card_number":"053"})])[0]==[]  # No inference from ordinal.
+    # Unlike Cardmarket-only 64-character IDs, TCGplayer-linked dbs_ IDs
+    # do not have one fixed documented digest size.
+    extended=product(id="dbs_"+"a"*94)
+    assert dbs.verified_matches([ref],[extended])[0]==[(ref,extended)]
+    assert dbs.verified_matches([ref],[product(id="dbs_not_hex")])[0]==[]
 
 
 def test_complete_pages_bounded_and_invalid_search_rejected():

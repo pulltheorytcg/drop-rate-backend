@@ -37,7 +37,10 @@ PAGE_SIZE = 100
 MAX_FREE_REQUESTS_PER_RUN = 35  # 25 One Piece + 35 DBS leaves 40/hour shared headroom.
 MASTERS_NUMBER = re.compile(r"(?:BT\d{1,2}|TB\d{1,2}|DB\d{1,2})-\d{3}")
 FUSION_NUMBER = re.compile(r"(?:FB|FS|SB|ST)\d{2}-\d{2,3}")
-SOURCE_ID = re.compile(r"(?:dbs_)?[0-9a-f]{64}")
+# Cardmarket-only IDs are 64 hex characters. PokéWallet documents
+# `dbs_` + hex for TCGplayer-linked products, but does NOT guarantee the
+# same fixed digest length; its published example is longer.
+SOURCE_ID = re.compile(r"(?:dbs_[0-9a-f]{32,128}|[0-9a-f]{64})")
 
 READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,
  r.set_id,r.card_number,r.rarity,s.name as set_name,
