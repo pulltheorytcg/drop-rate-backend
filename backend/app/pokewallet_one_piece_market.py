@@ -35,6 +35,10 @@ BASE_URL = "https://api.pokewallet.io"
 MAX_FREE_REQUESTS_PER_RUN = 60  # 100/hour, 1,000/day across all PokéWallet games
 PAGE_SIZE = 200
 BASE_NUMBER = re.compile(r"(?:OP|EB|PRB|ST)\d{2}-\d{3}")
+JP_CARDMARKET_NAME = re.compile(
+    r"^.+\(((?:OP|EB|PRB|ST)\d{2}-\d{3})\)(?:\s*\(V\.\s*([1-9]\d*)\))?$",
+    re.I,
+)
 SET_MARKER = re.compile(r"\[((?:OP|EB|PRB|ST)-?\d{2})(?:-?EB\d{2})?\]$")
 JP_MARKER = re.compile(r"【((?:OP|EB|PRB|ST)-?\d{2})】$")
 JP_SET_PREFIXES = ("ブースターパック ", "エクストラブースター ",
@@ -222,14 +226,57 @@ def unique_market_products(body: dict, lang: str, group_id: str, code: str):
     return total,items
 
 
+def japanese_cardmarket_printing(product: dict, release: str) -> tuple[str, int | None] | None:
+    """Recover a *printed* ID independently from Cardmarket's name and URL.
+
+    PokéWallet's Japanese CM-only rows sometimes contain ordinal values such
+    as ``1.0`` in ``card_number``. An ordinal is never an identity. Both the
+    Cardmarket listing title and canonical product URL must explicitly print
+    the same Bandai card number, in a Japanese release, with the same variant.
+    """
+    market = product.get("cardmarket")
+    if not isinstance(market, dict):
+        return None
+    title = html.unescape(str(market.get("product_name") or "")).strip()
+    name = JP_CARDMARKET_NAME.fullmatch(title)
+    if name is None:
+        return None
+    number, title_version = name[1].upper(), name[2]
+    if not number.startswith(release + "-"):
+        return None
+    parsed = urlsplit(str(market.get("product_url") or ""))
+    parts = parsed.path.split("/")
+    if (parsed.scheme != "https" or parsed.hostname not in {"cardmarket.com", "www.cardmarket.com"}
+            or parsed.query or parsed.fragment or len(parts) != 7
+            or [p.casefold() for p in parts[1:5]] != ["en", "onepiece", "products", "singles"]
+            or not parts[5].casefold().endswith("-japanese")):
+        return None
+    slug = parts[6]
+    path_match = re.fullmatch(r".+-" + re.escape(number) + r"(?:-V([1-9]\d*))?", slug, re.I)
+    if path_match is None:
+        return None
+    path_version = path_match[1]
+    if (title_version is None) != (path_version is None):
+        return None
+    if title_version is not None and int(title_version) != int(path_version):
+        return None
+    return number, int(title_version) if title_version is not None else None
+
+
 def matches_for_complete_set(refs_by_number: dict, lang: str, code: str, products: list[dict], diagnostics=None):
     by_number = defaultdict(list)
+    jp_printings = {}
     for item in products:
         if not isinstance(item,dict):
             continue
         number = str(item.get("card_number") or "")
         if number.startswith(code + "-") and BASE_NUMBER.fullmatch(number):
             by_number[number].append(item)
+        elif lang == "Japanese":
+            identity = japanese_cardmarket_printing(item, code)
+            if identity is not None:
+                jp_printings[id(item)] = identity
+                by_number[identity[0]].append(item)
     matches=[]
     counts={key:0 for key in ("wanted_reference_numbers","source_number_overlap",
         "parallel_number_collisions","unique_number_candidates","valid_product_ids",
@@ -253,10 +300,19 @@ def matches_for_complete_set(refs_by_number: dict, lang: str, code: str, product
                         for p in competitors)):
                 candidates=normals
                 counts["base_art_disambiguated"]=counts.get("base_art_disambiguated",0)+1
+            elif lang=="Japanese":
+                # V.1 is the only labelled base. Never choose V.2+, a sole
+                # quoted product, or an unversioned product among variants.
+                versions=[jp_printings.get(id(p),(None,None))[1] for p in candidates]
+                if versions.count(1)==1 and all(v is not None for v in versions):
+                    candidates=[candidates[versions.index(1)]]
+                    counts["japanese_v1_disambiguated"]=counts.get("japanese_v1_disambiguated",0)+1
         if len(candidates) != 1:
             continue
         counts["unique_number_candidates"]+=1
         product=candidates[0]
+        if lang=="Japanese" and jp_printings.get(id(product),(None,None))[1] not in (None,1):
+            continue
         if not str(product.get("id") or "").startswith("op_"):
             continue
         counts["valid_product_ids"]+=1
@@ -271,6 +327,8 @@ def matches_for_complete_set(refs_by_number: dict, lang: str, code: str, product
         counts["matching_english_names"]+=1
         matches.extend((ref,product) for ref in refs)
     if diagnostics is not None:
+        if lang=="Japanese":
+            counts["japanese_cardmarket_ids_recovered"]=len(jp_printings)
         diagnostics.update(counts)
     return matches
 
@@ -300,7 +358,9 @@ def catalogue_guide(ref: dict, product: dict, group_id: str, fx, observed: datet
         "valuation_role":"MIXED_NON_ENGLISH_REFERENCE" if ref["language"]=="Japanese" else "MIXED_LANGUAGE_REFERENCE",
         "physical_valuation_eligible":False,"physical_language_confirmed":False,
         "condition_specific":False,"sold_comparable":False,
-        "match_basis":"EXACT_RELEASE_NUMBER_RARITY_UNIQUE_POKEWALLET_BASE_PRINTING",
+        "match_basis":("EXACT_JP_CARDMARKET_TITLE_URL_RELEASE_RARITY_BASE_VARIANT"
+                       if ref["language"]=="Japanese" else
+                       "EXACT_RELEASE_NUMBER_RARITY_UNIQUE_POKEWALLET_BASE_PRINTING"),
         "reference_printing_id":ref["provider_id"],"reference_rarity":ref.get("rarity"),
         "reference_language":ref["language"],
         "reference_identity":{field:ref[field] for field in ("name","set_id","card_number","set_name")},
@@ -363,6 +423,7 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
             "checked_references":0,"wanted_base_printings":0,"source_groups":0,
             "target_groups":0,"targets_by_language":{},"source_list_diagnostics":{},
             "input_cursor":previous_cursor,"japanese_number_examples":[],
+            "japanese_product_examples":[],
             "sampled_sets":[],"collapsed_identical_duplicate_rows":0,
             "skipped_invalid_sets":0,"invalid_set_samples":[],
             "matching_printings":0,"eligible_quotes":0,
@@ -458,6 +519,22 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                     result["japanese_number_examples"]=sorted({
                         str(item.get("card_number")) for item in complete
                         if item.get("card_number") is not None})[:5]
+                    # Bounded public metadata only; never log API keys,
+                    # full provider payloads or customer/inventory records.
+                    examples=[]
+                    for item in complete[:3]:
+                        if not isinstance(item,dict):
+                            continue
+                        market=item.get("cardmarket")
+                        market=market if isinstance(market,dict) else {}
+                        examples.append({
+                            "card_number":str(item.get("card_number"))[:24],
+                            "product_name":str(market.get("product_name"))[:130],
+                            "product_path":urlsplit(str(market.get("product_url") or "")).path[:180],
+                            "rarity":str(item.get("rarity"))[:30],
+                            "subtype":str(item.get("sub_type_name"))[:30],
+                        })
+                    result["japanese_product_examples"]=examples
                 set_diagnostics={}
                 matches=matches_for_complete_set(groups,lang,code,complete,set_diagnostics)
                 result["matching_printings"]+=len(matches)
