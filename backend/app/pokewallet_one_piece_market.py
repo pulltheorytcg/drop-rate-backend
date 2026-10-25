@@ -248,7 +248,8 @@ def japanese_cardmarket_printing(product: dict, release: str) -> tuple[str, int 
     parts = parsed.path.split("/")
     if (parsed.scheme != "https" or parsed.hostname not in {"cardmarket.com", "www.cardmarket.com"}
             or parsed.query or parsed.fragment or len(parts) != 7
-            or [p.casefold() for p in parts[1:5]] != ["en", "onepiece", "products", "singles"]
+            or parts[1].casefold() not in {"en", "it", "fr", "de", "es", "pt"}
+            or [p.casefold() for p in parts[2:5]] != ["onepiece", "products", "singles"]
             or not parts[5].casefold().endswith("-japanese")):
         return None
     slug = parts[6]
@@ -316,7 +317,10 @@ def matches_for_complete_set(refs_by_number: dict, lang: str, code: str, product
         if not str(product.get("id") or "").startswith("op_"):
             continue
         counts["valid_product_ids"]+=1
-        if rarity(product.get("rarity")) != rarity(refs[0].get("rarity")):
+        source_rarity=rarity(product.get("rarity"))
+        reference_rarity=rarity(refs[0].get("rarity"))
+        if source_rarity != reference_rarity and not (
+                lang=="Japanese" and not source_rarity and id(product) in jp_printings):
             continue
         counts["matching_rarities"]+=1
         if str(product.get("sub_type_name") or "Normal").casefold() not in {"normal", "foil", "holofoil"}:
@@ -358,9 +362,11 @@ def catalogue_guide(ref: dict, product: dict, group_id: str, fx, observed: datet
         "valuation_role":"MIXED_NON_ENGLISH_REFERENCE" if ref["language"]=="Japanese" else "MIXED_LANGUAGE_REFERENCE",
         "physical_valuation_eligible":False,"physical_language_confirmed":False,
         "condition_specific":False,"sold_comparable":False,
-        "match_basis":("EXACT_JP_CARDMARKET_TITLE_URL_RELEASE_RARITY_BASE_VARIANT"
+        "match_basis":("EXACT_JP_CARDMARKET_TITLE_URL_RELEASE_BASE_VARIANT"
                        if ref["language"]=="Japanese" else
                        "EXACT_RELEASE_NUMBER_RARITY_UNIQUE_POKEWALLET_BASE_PRINTING"),
+        "source_rarity_confirmed":bool(rarity(product.get("rarity"))) and
+            rarity(product.get("rarity"))==rarity(ref.get("rarity")),
         "reference_printing_id":ref["provider_id"],"reference_rarity":ref.get("rarity"),
         "reference_language":ref["language"],
         "reference_identity":{field:ref[field] for field in ("name","set_id","card_number","set_name")},

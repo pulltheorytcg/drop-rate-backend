@@ -76,6 +76,27 @@ def test_japanese_ordinals_require_printing_in_cardmarket_title_and_url():
             {'product_url':'https://not-cardmarket.example/en/OnePiece/Products/Singles/Romance-Dawn-Japanese/Roronoa-Zoro-OP01-001-V1'}),'OP01') is None
 
 
+def test_japanese_cardmarket_italian_locale_and_unreported_rarity_are_not_false_mismatches():
+    base=japanese_cardmarket_card(rarity=None)
+    base['cardmarket']['product_url']=base['cardmarket']['product_url'].replace(
+        '/en/OnePiece/', '/it/OnePiece/')
+    assert market.japanese_cardmarket_printing(base,'OP01')==('OP01-001',1)
+    groups=market.collect_reference_groups([jp()],NOW)
+    counts={}
+    assert market.matches_for_complete_set(groups,'Japanese','OP01',[base],counts)==[(jp(),base)]
+    assert counts['matching_rarities']==1
+    assert market.matches_for_complete_set(groups,'Japanese','OP01',[
+        japanese_cardmarket_card(rarity='SR',cardmarket=base['cardmarket'])])==[]
+    assert market.matches_for_complete_set(groups,'Japanese','OP01',[
+        japanese_cardmarket_card(cardmarket=base['cardmarket'] | {
+            'product_url':base['cardmarket']['product_url'].replace('/it/', '/ja/')})])==[]
+    fx=FxQuote('EUR','GBP',Decimal('.86'),NOW,NOW,'ECB_EURO_REFERENCE_RATES')
+    quote=market.catalogue_guide(jp(),base,'-88',fx,NOW)
+    assert quote['source_rarity_confirmed'] is False
+    assert quote['physical_valuation_eligible'] is False
+    assert 'RARITY' not in quote['match_basis']
+
+
 def test_japanese_v1_disambiguates_explicit_parallel_but_not_unknown():
     groups=market.collect_reference_groups([jp()],NOW)
     base=japanese_cardmarket_card()
