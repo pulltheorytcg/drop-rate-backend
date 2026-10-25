@@ -74,6 +74,11 @@ Signed n8n command → FastAPI rights check → provider image → vetted WebP
 7. Expand batches gradually and verify per-source/provider coverage and errors.
    Import DR-94 inactive, test a signed execution and DR-90 failure handling,
    then activate its hourly trigger. On the n8n Railway service, set
+   `DROP_RATE_R2_MEDIA_SIGNED_BRIDGE_PROBE_ON_BOOT=true` for a **single**
+   redeployment to test n8n's real HMAC key against the live FastAPI worker.
+   Require `R2_SIGNED_BRIDGE_PASS` in that deployment's logs, then immediately
+   return the probe flag to `false`; do not leave one-shot media writes on every
+   restart. This probe cannot activate any schedule by itself. Set
    `DROP_RATE_R2_MEDIA_WORKFLOW_PUBLISH_ON_BOOT=true` **only after** those
    checks pass. The startup provisioner uses n8n 2.x `publish:workflow` on
    `DR94R2ApprovedMediaMirrorV1` before starting the scheduler; it cannot

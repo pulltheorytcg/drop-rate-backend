@@ -90,6 +90,21 @@ $workflow_id"
   done
 fi
 
+# An operator-controlled one-shot bridge test runs with n8n's actual Railway
+# secret and endpoint, not with API service credentials. This is the evidence
+# required before considering the separate DR-94 scheduling switch.
+case "${DROP_RATE_R2_MEDIA_SIGNED_BRIDGE_PROBE_ON_BOOT:-false}" in
+  true)
+    echo "Drop Rate n8n: testing signed R2 mirror bridge (one approved image maximum)."
+    node /opt/drop-rate/pilot/verify-r2-signed-bridge.cjs
+    ;;
+  false|'') ;;
+  *)
+    echo "Drop Rate n8n: invalid signed R2 media probe setting." >&2
+    exit 1
+    ;;
+esac
+
 # A dedicated, opt-in switch may publish only the reviewed R2 artwork
 # mirroring schedule. Other customer, marketing and finance workflows remain
 # inactive unless explicitly approved through their existing processes.
