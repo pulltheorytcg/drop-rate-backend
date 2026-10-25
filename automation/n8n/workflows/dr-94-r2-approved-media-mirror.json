@@ -1,0 +1,71 @@
+{
+  "id": "DR94R2ApprovedMediaMirrorV1",
+  "name": "DR-94 Verified Catalogue Artwork to Private R2",
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "nodes": [
+    {
+      "id": "dr94-schedule",
+      "name": "Hourly Rights-Approved Media Batch",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-620, 0],
+      "parameters": {"rule": {"interval": [{"field": "hours", "hoursInterval": 1}]}}
+    },
+    {
+      "id": "dr94-sign",
+      "name": "Sign Small Mirror Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-330, 0],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst secret = String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET || '').trim();\nconst controlUrl = String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL || '').trim();\nif (secret.length < 32) throw new Error('command_secret_not_configured');\nif (!/\\/api\\/v1\\/automation\\/control\\/receipt$/.test(controlUrl)) throw new Error('control_url_invalid');\nconst executionId = String($execution.id || '').trim();\nif (!executionId) throw new Error('missing_execution_id');\nconst body = JSON.stringify({schema_version:1,action:'MIRROR_APPROVED_CANONICAL_MEDIA',execution_id:executionId.slice(0,120),occurred_at:new Date().toISOString(),limit:3});\nconst timestamp = String(Math.floor(Date.now()/1000));\nconst signature = 'sha256=' + crypto.createHmac('sha256',secret).update(timestamp + '.' + body,'utf8').digest('hex');\nreturn [{json:{mirror_url:controlUrl.replace(/\\/control\\/receipt$/, '/commands/storage/mirror-approved-media'),mirror_body:body,mirror_timestamp:timestamp,mirror_signature:signature}}];"
+      }
+    },
+    {
+      "id": "dr94-http",
+      "name": "Mirror via Drop Rate API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-40, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.mirror_url }}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "X-Drop-Rate-Timestamp", "value": "={{ $json.mirror_timestamp }}"},
+          {"name": "X-Drop-Rate-Signature", "value": "={{ $json.mirror_signature }}"}
+        ]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.mirror_body }}",
+        "options": {
+          "timeout": 90000,
+          "response": {"response": {"fullResponse": true, "neverError": true, "responseFormat": "json"}}
+        }
+      }
+    },
+    {
+      "id": "dr94-verify",
+      "name": "Verify R2 Batch Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 0],
+      "parameters": {
+        "jsCode": "const response = $input.first().json || {};\nconst status = Number(response.statusCode || 0);\nif (status < 200 || status >= 300) throw new Error('r2_mirror_http_' + status);\nconst body = response.body || {};\nif (body.accepted !== true || typeof body.mirrored !== 'number' || Number(body.failed || 0) !== 0) throw new Error('r2_mirror_receipt_not_verified');\nreturn [{json:{execution_id:body.execution_id,mirrored:body.mirrored,skipped:body.skipped,examined:body.examined,remaining_possible:body.remaining_possible}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Hourly Rights-Approved Media Batch": {"main": [[{"node": "Sign Small Mirror Command", "type": "main", "index": 0}]]},
+    "Sign Small Mirror Command": {"main": [[{"node": "Mirror via Drop Rate API", "type": "main", "index": 0}]]},
+    "Mirror via Drop Rate API": {"main": [[{"node": "Verify R2 Batch Receipt", "type": "main", "index": 0}]]}
+  },
+  "pinData": {},
+  "meta": {"dropRate": {
+    "contract": "DR-94", "version": 1,
+    "role": "rights-verified-canonical-media-private-r2",
+    "activationGate": "Keep inactive until Supabase migration, R2 write/readback, signed FastAPI pilot, image fallback, real-user preview and DR-90 alert routing all pass. Never auto-mirror seller scans or unapproved sources."
+  }}
+}
