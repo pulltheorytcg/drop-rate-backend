@@ -7,6 +7,7 @@ date; do not make provider requests while rendering an account.
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -29,6 +30,8 @@ from .reference_market import _text, _time
 # reference_candidates() + catalogue_guide() also reject ambiguous printings
 # and quote/source/FX/age mismatches. Neither supplies retail recommendations.
 PRODUCTS_SQL = """select p.*,
+ (select profile.system_code from tcg.catalogue_product_profiles profile
+  where profile.catalogue_id=p.id) as profile_system_code,
  exists(select 1 from tcg.provider_catalogue_mappings m where m.catalogue_id=p.id
    and m.match_status in ('REVIEW','REJECTED')
    and not (
@@ -100,12 +103,104 @@ def catalogue_number_key(product):
     return collector_key(product.get('card_number'))
 
 
+
+MASTERS_SYSTEM = "DRAGON_BALL_SUPER_MASTERS"
+# Reviewed ordinary booster imports only. Pre-release labels and combined leader
+# faces cannot inherit a guide from the ordinary base checklist.
+LEGACY_MASTERS_RELEASES = {
+    "supreme rivalry": ("428013","UW04 Booster -Supreme Rivalry-","BT13"),
+    "dawn of the z-legends": ("428018","Z01 Booster -DAWN OF THE Z-LEGENDS-","BT18"),
+    "power absorbed": ("428020","Z03 Booster -POWER ABSORBED-","BT20"),
+    "perfect combination": ("428023","Z06 Booster -PERFECT COMBINATION-","BT23"),
+    "prismatic clash": ("428028","UB01 Booster -PRISMATIC CLASH-","BT28"),
+    "three glorious fighters": ("428030","UB03 Booster -THREE GLORIOUS FIGHTERS-","BT30"),
+}
+
+
+def catalogue_system(product):
+    if product.get("game")=="Dragon Ball Super":
+        return MASTERS_SYSTEM if product.get("profile_system_code")==MASTERS_SYSTEM else None
+    return SYSTEM_BY_GAME.get(product.get("game"))
+
+
+def _legacy_masters(product):
+    return product.get("game")=="Dragon Ball Super" and catalogue_system(product)==MASTERS_SYSTEM
+
+
+def _masters_candidates(product,rows,language):
+    from .masters_cardtrader_market import rarity_key as masters_rarity
+    release=LEGACY_MASTERS_RELEASES.get(_text(product.get("set_name")))
+    number=product.get("card_number")
+    finish=product.get("variant")
+    rarity=masters_rarity(product.get("rarity"))
+    if (language!="English" or clean_language(product.get("language"))!="English"
+            or not release or not isinstance(number,str)
+            or not re.fullmatch(release[2]+r"-[0-9]{3}",number)
+            or not product.get("name") or "//" in product["name"]
+            or finish not in {"Normal","Foil","Holofoil"} or not rarity
+            or (finish=="Normal" and rarity not in {"common","uncommon","rare"})):
+        return []
+    same_number=[r for r in rows if r.get("provider")=="Bandai Official"
+        and r.get("language")=="English" and r.get("set_id")==release[0]
+        and r.get("set_name")==release[1] and r.get("card_number")==number]
+    if any(masters_rarity(r.get("rarity")) is None for r in same_number):
+        return []
+    choices=[r for r in same_number if masters_rarity(r.get("rarity"))==rarity]
+    if len(choices)!=1:
+        return []
+    row=choices[0]
+    if (row.get("provider_id")!=release[0]+":"+number+".png"
+            or bandai_name(product["name"],number)!=bandai_name(row.get("name"),number)):
+        return []
+    return choices
+
+
+def _masters_quote_matches(product,row,quote):
+    from .masters_cardtrader_market import MATCH_BASIS,rarity_key as masters_rarity
+    identity={k:row[k] for k in ("name","set_id","card_number","set_name")}
+    finish="Normal" if product.get("variant")=="Normal" else "Holofoil"
+    field=quote.get("source_field")
+    fields={"trend","avg30"} if finish=="Normal" else {"trend-foil","avg30-foil"}
+    if (quote.get("source")!="CARDMARKET_BULK_SINGLES"
+            or quote.get("reference_identity")!=identity
+            or quote.get("reference_printing_id")!=row["provider_id"]
+            or quote.get("reference_rarity")!=row.get("rarity")
+            or quote.get("reference_language","English")!="English"
+            or quote.get("finish")!=finish or field not in fields
+            or quote.get("valuation_role")!="MIXED_LANGUAGE_REFERENCE"
+            or quote.get("condition_specific") is not False
+            or quote.get("physical_language_confirmed") is not False
+            or (quote.get("physical_valuation_eligible") is not None
+                and quote.get("physical_valuation_eligible") is not False)
+            or not str(quote.get("product_id") or "").isdigit()
+            or int(quote["product_id"])<=0
+            or type(quote.get("expansion_id")) is not int or quote["expansion_id"]<=0
+            or (field.startswith("avg30") and quote.get("guide_window_days")!=30)):
+        return False
+    basis=quote.get("match_basis")
+    if basis=="UNIQUE_RELEASE_AND_PRINTING_IN_BOTH_CHECKLISTS":
+        return True
+    if basis!=MATCH_BASIS:
+        return False
+    collector=str(quote.get("cardtrader_collector_number") or "")
+    return (quote.get("mapping_source")=="CARDTRADER"
+        and quote.get("physical_valuation_eligible") is False
+        and type(quote.get("cardtrader_blueprint_id")) is int and quote["cardtrader_blueprint_id"]>0
+        and type(quote.get("cardtrader_expansion_id")) is int and quote["cardtrader_expansion_id"]>0
+        and quote.get("cardtrader_rarity_source")=="rarity"
+        and masters_rarity(quote.get("cardtrader_rarity"))==masters_rarity(row.get("rarity"))
+        and masters_rarity(quote.get("cardtrader_version"))==masters_rarity(row.get("rarity"))
+        and re.fullmatch(re.escape(row["card_number"])+r"[A-Za-z]{0,3}",collector) is not None)
+
+
 def reference_candidates(product, rows, language):
     """Exact selected reference, or a uniquely identified ordinary import."""
-    system = SYSTEM_BY_GAME.get(product.get('game'))
+    system = catalogue_system(product)
     if not system or product.get('blocked'):
         return []
     rows = [r for r in rows if r['system_code'] == system]
+    if _legacy_masters(product):
+        return _masters_candidates(product,rows,language)
     if _legacy_unlimited_reference(product, language):
         return [r for r in rows if r['provider'] == 'TCGdex' and r['language'] == 'English'
                 and r['provider_id'] == 'base1-58' and r['set_id'] == 'base1'
@@ -208,7 +303,14 @@ def catalogue_guide(product, rows, language, *, now):
     identity = {key: row[key] for key in ('name', 'set_id', 'card_number', 'set_name')}
     eligible = []
     legacy_unlimited = _legacy_unlimited_reference(product, language)
+    legacy_masters = _legacy_masters(product)
     quotes = (row.get('quotes') or []) + (row.get('catalogue_quotes') or [])
+    if legacy_masters:
+        quotes=[q for q in quotes if isinstance(q,dict) and _masters_quote_matches(product,row,q)]
+        # A second source product or unpriced competing quote cannot lose an
+        # identity conflict merely because only one happens to have a value.
+        if len(quotes)!=1:
+            return None
     if legacy_unlimited:
         # Unlimited and Poketour share the same base ID. Match the complete
         # declared treatment, then reject duplicate/ambiguous source products
@@ -274,8 +376,9 @@ def catalogue_guide(product, rows, language, *, now):
             'market_value_minor': min(v[0] for v in eligible),
             'market_value_high_minor': max(v[0] for v in eligible),
             'checked_at': min(v[1] for v in eligible), 'basis': language + ' · Raw catalogue reference',
-            'label': 'Unlimited edition guide' if legacy_unlimited else 'Regional guide' if regional else 'All-finish guide' if all_finishes else 'Catalogue guide',
-            'reason': ('Cardmarket guide for the Normal unlimited treatment only; not a condition-specific valuation of this copy.' if legacy_unlimited
+            'label': ('Normal finish guide' if product['variant']=='Normal' else 'Foil finish guide') if legacy_masters else 'Unlimited edition guide' if legacy_unlimited else 'Regional guide' if regional else 'All-finish guide' if all_finishes else 'Catalogue guide',
+            'reason': ('Cardmarket guide for the declared finish across conditions and languages; not a valuation of this copy.' if legacy_masters
+                       else 'Cardmarket guide for the Normal unlimited treatment only; not a condition-specific valuation of this copy.' if legacy_unlimited
                        else 'Non-English regional Cardmarket guide via PokéWallet; not a Japanese condition-specific sale.' if regional and pokewallet
                        else 'Non-English regional guide; not a Japanese condition-specific sale.' if regional
                        else 'Catalogue range across finishes, conditions and languages; not a valuation of this copy.' if all_finishes
@@ -299,7 +402,7 @@ async def add_catalogue_references(connection, items, *, now):
         lookups = []
         for product in batch:
             products[str(product['id'])] = product
-            system = SYSTEM_BY_GAME.get(product.get('game'))
+            system = catalogue_system(product)
             key = catalogue_number_key(product)
             if system and key and not product.get('blocked'):
                 lookups.append({'catalogue_id': str(product['id']), 'system_code': system, 'number_key': key})
