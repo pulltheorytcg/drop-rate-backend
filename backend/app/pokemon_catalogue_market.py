@@ -291,6 +291,10 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
         conversion = await fx.quote(base_currency='EUR',quote_currency='GBP',at=observed)
         values = []
         for ref in references:
+            if ref["set_id"]=="g1" and "g1" in failed_bridge_sets:
+                # An incomplete partition cannot invalidate an existing exact
+                # guide or replace it with a weaker name-only bulk match.
+                continue
             product = matches.get(ref['provider_id'])
             price = prices.get(str(product['idProduct'])) if product else None
             quotes = quotes_for(ref,product,price,observed,conversion)

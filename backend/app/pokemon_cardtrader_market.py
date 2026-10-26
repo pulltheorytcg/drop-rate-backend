@@ -238,6 +238,12 @@ async def cardtrader_matches(client, references, singles, base_matches):
                 if not blueprints or len(blueprints)>10000:
                     raise ValueError('Blueprint count invalid')
                 if set_id=="g1":
+                    if expansion["name"]=="Generations":
+                        base_numbers={number_key(_collector_number(b)) for b in blueprints
+                            if b.get("game_id")==game_id and b.get("expansion_id")==expansion["id"]
+                            and b.get("category_id") in single_categories}
+                        if not {("",n,"") for n in range(1,84)}<=base_numbers:
+                            raise ValueError("Incomplete Generations base identity export")
                     if expansion["name"]==GENERATIONS_RADIANT:
                         exact=[b for b in blueprints if b.get("game_id")==5 and b.get("expansion_id")==1907
                                and b.get("category_id") in single_categories]

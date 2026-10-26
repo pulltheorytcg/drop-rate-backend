@@ -65,12 +65,12 @@ def test_leading_zero_correction_requires_exact_independent_metadata(change):
 @pytest.fixture
 def environment(monkeypatch):
     state=SimpleNamespace(rows=references(),writes=[],receipts=[],claims=[],claim_reads=0,
-        fail_base=False,provider_reads=0,omit_price=None,unlocks=0,base_extra=[],rc=[blueprint(n) for n in range(1,33)])
+        fail_base=False,truncate_base=False,provider_reads=0,omit_price=None,unlocks=0,base_extra=[],rc=[blueprint(n) for n in range(1,33)])
     now=datetime.now(timezone.utc)
     products={str(288509+n):dict(idProduct=288509+n,idCategory=51,categoryName="Pokémon Single",
         idExpansion=1907,name=blueprint(n)["name"]) for n in range(1,33)}
-    base=dict(id=999001,game_id=5,expansion_id=1906,category_id=73,name="Fixture 1",
-        fixed_properties={"collector_number":"1/83"},card_market_ids=[811001])
+    base=[dict(id=999000+n,game_id=5,expansion_id=1906,category_id=73,name=f"Fixture {n}",
+        fixed_properties={"collector_number":f"{n}/83"},card_market_ids=[811000+n]) for n in range(1,84)]
     products["811001"]=dict(idProduct=811001,idCategory=51,categoryName="Pokémon Single",idExpansion=1906,name="Fixture 1")
 
     class Client:
@@ -80,13 +80,13 @@ def environment(monkeypatch):
         async def list_blueprints(self,*,expansion_id):
             if expansion_id==1906:
                 if state.fail_base:raise CardTraderApiError("private provider detail")
-                return [base]+state.base_extra
+                return (base[:1] if state.truncate_base else base)+state.base_extra
             return state.rc
 
     class Connection:
         async def fetch(self,sql,*args):
             if sql.startswith(pricing.READ_SQL):
-                assert args==("g1",)
+                assert args in (("g1",),())
                 return deepcopy(state.rows)
             if sql==pricing.OUTSIDE_SCOPE_CLAIMS_SQL:
                 state.claim_reads+=1
@@ -168,10 +168,11 @@ async def test_unpriced_base_claim_blocks_radiant_candidate(environment,multi):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure",["base","duplicate_rc","missing_rc","malformed_claim"])
+@pytest.mark.parametrize("failure",["base","truncated_base","duplicate_rc","missing_rc","malformed_claim"])
 async def test_incomplete_source_preserves_all_prices(environment,failure):
     e=environment
     if failure=="base":e.fail_base=True
+    elif failure=="truncated_base":e.truncate_base=True
     elif failure=="duplicate_rc":e.rc.append(deepcopy(e.rc[0]))
     elif failure=="missing_rc":e.rc.pop()
     else:e.base_extra=[dict(id=999002,game_id=5,expansion_id=1906,category_id=73,card_market_ids="invalid")]
@@ -191,3 +192,13 @@ async def test_partial_canonical_checklist_stops_before_provider_reads(environme
     e=environment;e.rows.pop()
     result=await runner.refresh_generations_radiant(e.pool,e.actor,e.client,e.fx,apply=True)
     assert result["status"]=="INCOMPLETE" and not e.writes and e.provider_reads==0
+
+
+@pytest.mark.asyncio
+async def test_daily_failed_partition_cannot_overwrite_with_name_only_prices(environment,monkeypatch):
+    e=environment;e.fail_base=True
+    old=deepcopy(e.rows)
+    monkeypatch.setattr(pricing,"matched_products",lambda *args:{"g1-RC6":dict(idProduct=288515)})
+    result=await pricing.refresh_pokemon_catalogue_prices(e.pool,e.actor,e.fx,cardtrader_client=e.client)
+    assert result["provider_failures"] and not e.writes
+    assert e.rows==old
