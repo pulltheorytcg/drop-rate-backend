@@ -228,17 +228,23 @@ def reviewed_fusion_base(ref: dict, candidates: list[dict]) -> dict | None:
 
 def verified_matches(refs: list[dict], products: list[dict]) -> tuple[list[tuple[dict,dict]],dict]:
     grouped = defaultdict(list)
+    invalid_candidates = set()
     for product in products:
         info=product.get("card_info")
-        if (not SOURCE_ID.fullmatch(str(product.get("id") or ""))
-                or not isinstance(info,dict)
-                or info.get("product_type")!="card"
-                or not isinstance(info.get("set_id"),str) or not info["set_id"]):
+        if not isinstance(info,dict):
             continue
         number=str(info.get("card_number") or "")
         if not (MASTERS_NUMBER.fullmatch(number) or FUSION_NUMBER.fullmatch(number)):
             continue
-        grouped[(number,normalized(html.unescape(info.get("set_name") or "")))].append(product)
+        key=(number,normalized(html.unescape(info.get("set_name") or "")))
+        if (not SOURCE_ID.fullmatch(str(product.get("id") or ""))
+                or info.get("product_type")!="card"
+                or not isinstance(info.get("set_id"),str) or not info["set_id"]):
+            # A malformed same-number/release competitor cannot disappear and
+            # manufacture uniqueness for the reviewed special releases.
+            invalid_candidates.add(key)
+            continue
+        grouped[key].append(product)
     matches=[]
     diagnostic={"considered":len(refs),"candidate_numbers":0,"unique_sources":0,
                 "matching_release":0,"matching_name":0,"matching_rarity":0}
@@ -255,6 +261,8 @@ def verified_matches(refs: list[dict], products: list[dict]) -> tuple[list[tuple
         # variants under the same number. Never pick the one with a price.
         reviewed = REVIEWED_FUSION_RELEASES.get((ref.get("set_id"), ref.get("set_name")))
         if ref.get("system_code") == FUSION and reviewed:
+            if any((ref["card_number"],release) in invalid_candidates for release in releases):
+                continue
             source = reviewed_fusion_base(ref, candidates)
             if source is None:
                 continue

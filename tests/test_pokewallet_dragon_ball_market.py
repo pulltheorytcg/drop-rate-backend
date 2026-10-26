@@ -422,3 +422,15 @@ async def test_unknown_special_release_scope_rejected_before_io():
     with pytest.raises(ValueError,match="UNREVIEWED_REFERENCE_SET"):
         await dbs.refresh_pokewallet_dragon_ball(None,uuid4(),None,"fixture",
             reference_set_id="583202")
+
+
+@pytest.mark.parametrize("field,value",[("product_type",None),("set_id",None),("id","invalid")])
+def test_malformed_same_number_release_competitor_cannot_manufacture_unique_base(field,value):
+    from copy import deepcopy
+    products=[deepcopy(p) for p in special_products() if p["card_info"]["card_number"]=="ST01-002"]
+    competitor=deepcopy(products[1])
+    competitor["id"]="dbs_"+"b"*64
+    if field=="id":competitor["id"]=value
+    else:competitor["card_info"][field]=value
+    products.append(competitor)
+    assert not dbs.verified_matches([special_ref()],products)[0]

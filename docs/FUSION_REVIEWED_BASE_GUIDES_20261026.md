@@ -56,3 +56,21 @@ are preserved. No scheduling or quota increases are included.
 
 The public identity fixtures retain only probe identity fields; their 1.23 EUR
 values are synthetic unit-test prices, not claimed live market values.
+
+
+A reproducible operator implements those guards, dry-run by default:
+
+```sh
+python backend/scripts/refresh_fusion_special_prices.py --from-settings --reference-set-id 583301 --max-seconds 90
+python backend/scripts/refresh_fusion_special_prices.py --from-settings --reference-set-id 583201 --max-seconds 90
+```
+
+Inspect each FUSION_SPECIAL_PRICE_PREVIEW row before explicitly adding --apply.
+Every invocation has its own maximum of eight requests; previews and applies
+must share the existing allocation. Apply creates a durable
+fusion_special_catalogue_prices receipt and attributes quotes to its UUID, then
+reports only committed database readback as written. Incomplete/truncated
+provider pages, deferred queries, interrupted work and readback mismatches retain
+an INCOMPLETE receipt. Each committed public-card identity is printed separately.
+The provider refresh timeout is at most 90 seconds; bounded preflight, readback,
+receipt finalisation and pool cleanup run outside that timeout.
