@@ -163,24 +163,75 @@ def quotes_for(ref, product, price, observed, conversion):
     return quotes
 
 
-async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client=None):
+
+
+def validate_hidden_fates_scope(references):
+    """The bounded operator path accepts the complete physical English subset."""
+    expected = {f'sma-SV{number}' for number in range(1, 95)}
+    if len(references) != 94 or {r.get('provider_id') for r in references} != expected:
+        raise ValueError('Hidden Fates Shiny Vault requires exactly 94 distinct cards')
+    for ref in references:
+        suffix = ref['provider_id'][4:]
+        if ((ref.get('provider'), ref.get('system_code'), ref.get('language'),
+             ref.get('set_id'), ref.get('set_name'), ref.get('declared_card_count')) !=
+                ('TCGdex', 'POKEMON_TCG', 'English', 'sma', 'Hidden Fates Shiny Vault', 94)
+                or ref.get('card_number') != suffix + '/94'):
+            raise ValueError('Hidden Fates Shiny Vault identity changed')
+
+
+OUTSIDE_SCOPE_CLAIMS_SQL = """select distinct q->>'product_id' as product_id
+ from tcg.reference_catalogue_prices p
+ cross join lateral jsonb_array_elements(p.quotes) q
+ where p.provider='TCGdex' and p.system_code='POKEMON_TCG' and p.language='English'
+ and p.provider_id<>all($1::text[]) and coalesce(p.market_value_minor,0)>0
+ and q->>'source'='CARDMARKET_CATALOGUE' and q->>'product_id'=any($2::text[])"""
+
+
+async def outside_scope_claims(connection, references, matches):
+    if not matches:
+        return set()
+    rows = await connection.fetch(OUTSIDE_SCOPE_CLAIMS_SQL,
+        [ref['provider_id'] for ref in references],
+        sorted({str(match['idProduct']) for match in matches.values()}))
+    return {row['product_id'] for row in rows}
+
+async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client=None,
+                                          reference_set_id=None, dry_run=False):
+    # The scheduled default is unchanged. The bounded operator path is
+    # deliberately restricted to the one reviewed complete subset.
+    if reference_set_id not in (None, 'sma') or type(dry_run) is not bool:
+        raise ValueError('Unsupported bounded Pokemon pricing scope')
+
     report = {'checked':0,'matched':0,'priced':0,'provider_failures':0,'inventory_rows_read':0}
     now = datetime.now(timezone.utc)
+    scoped = reference_set_id is not None
+    if scoped:
+        report.update(reference_set_id='sma', dry_run=dry_run, writes_attempted=0,
+                      written=0, outside_scope_conflicts=0, preview=[])
     try:
+        references = None
+        if scoped:
+            async with user_connection(pool,actor,str(uuid4())) as connection:
+                references = [dict(row) for row in await connection.fetch(
+                    READ_SQL + " and r.set_id=$1", reference_set_id)]
+            validate_hidden_fates_scope(references)
+            if cardtrader_client is None:
+                raise ValueError('Hidden Fates requires its explicit CardTrader identity bridge')
         async with httpx.AsyncClient(timeout=45,follow_redirects=False) as client:
             exports = await asyncio.gather(
                 download(client,'productList/products_singles_6.json',rows_key='products',now=now),
                 download(client,'productList/products_nonsingles_6.json',rows_key='products',now=now),
                 download(client,'priceGuide/price_guide_6.json',rows_key='priceGuides',now=now))
         (singles,_),(packaging,_),(prices,observed) = exports
-        async with user_connection(pool,actor,str(uuid4())) as connection:
-            references = [dict(row) for row in await connection.fetch(READ_SQL)]
+        if references is None:
+            async with user_connection(pool,actor,str(uuid4())) as connection:
+                references = [dict(row) for row in await connection.fetch(READ_SQL)]
         matches = matched_products(references,singles,packaging)
         bridged, failed_bridge_sets = {}, set()
         from .pokemon_cardtrader_market import MATCH_BASIS, cardtrader_matches
         if cardtrader_client is not None:
             bridged, bridge_report, failed_bridge_sets = await cardtrader_matches(
-                cardtrader_client, references, singles, matches)
+                cardtrader_client, references, singles, {} if scoped else matches)
             conflicts = {key for key,value in bridged.items() if key in matches and
                          matches[key]['idProduct']!=value['product']['idProduct']}
             for key in conflicts:
@@ -193,6 +244,19 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
                 matches.setdefault(key,value['product'])
         else:
             failed_bridge_sets = {r['set_id'] for r in references}
+        if scoped:
+            # This targeted fill requires the reviewed explicit-number bridge.
+            matches = {key: product for key, product in matches.items() if key in bridged}
+            if report['provider_failures']:
+                raise ValueError('Bounded pricing source did not complete')
+            async with user_connection(pool,actor,str(uuid4())) as connection:
+                conflicts = await outside_scope_claims(connection, references, matches)
+            excluded = {key for key, product in matches.items()
+                        if str(product['idProduct']) in conflicts}
+            report['outside_scope_conflicts'] = len(excluded)
+            for key in excluded:
+                matches.pop(key, None)
+                bridged.pop(key, None)
         report.update(checked=len(references),matched=len(matches))
         if references and not matches:
             raise ValueError('No unambiguous Cardmarket release matches')
@@ -210,14 +274,45 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
                 # A failed identity source is not proof of a missing quote.
                 # Leave its original price, dates and expiry untouched.
                 continue
+            if scoped and not quotes:
+                # A targeted fill never clears an existing price or evidence.
+                continue
             amounts = [q['price_gbp_minor'] for q in quotes]
             values.append((ref['provider'],ref['system_code'],ref['language'],ref['provider_id'],
                 quotes,min(amounts) if amounts else None,max(amounts) if amounts else None,
                 observed if quotes else None,now,now+timedelta(days=1),
                 ref['name'],ref['set_id'],ref['card_number'],ref['set_name']))
-        for start in range(0,len(values),100):
-            async with user_connection(pool,actor,str(uuid4())) as connection:
-                await connection.executemany(WRITE_SQL,values[start:start+100])
+        if scoped:
+            report['preview'] = [
+                {'provider_id': row[3], 'name': row[10], 'card_number': row[12],
+                 'market_value_minor': row[5], 'market_value_high_minor': row[6],
+                 'quotes': row[4]} for row in values]
+            if not dry_run and values:
+                from .access_control import require_platform_admin
+                from .database_capacity import check_database_capacity
+                async with user_connection(pool,actor,str(uuid4())) as connection:
+                    await require_platform_admin(connection)
+                    capacity = await check_database_capacity(connection)
+                    if not capacity.refresh_allowed:
+                        raise ValueError('Database capacity blocks bounded pricing writes')
+                    current = [dict(row) for row in await connection.fetch(
+                        READ_SQL + " and r.set_id=$1", reference_set_id)]
+                    validate_hidden_fates_scope(current)
+                    # Recheck all outside claims inside the same transaction as
+                    # persistence; the CLI holds the scheduled maintenance lock.
+                    if await outside_scope_claims(connection, current, matches):
+                        raise ValueError('Outside-scope pricing claim changed before write')
+                    await connection.executemany(WRITE_SQL, values)
+                    report['writes_attempted'] = len(values)
+                    written = await connection.fetch("""select provider_id from tcg.reference_catalogue_prices
+                        where provider='TCGdex' and system_code='POKEMON_TCG' and language='English'
+                        and provider_id=any($1::text[]) and checked_at=$2
+                        and market_value_minor>0""", [row[3] for row in values], now)
+                    report['written'] = len(written)
+        elif not dry_run:
+            for start in range(0,len(values),100):
+                async with user_connection(pool,actor,str(uuid4())) as connection:
+                    await connection.executemany(WRITE_SQL,values[start:start+100])
         report['priced'] = sum(row[5] is not None for row in values)
         if 'cardtrader_bridge' in report:
             report['cardtrader_bridge']['priced'] = sum(
@@ -225,3 +320,5 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
     except (httpx.HTTPError,ValueError,KeyError,TypeError,RuntimeError) as exc:
         report.update(provider_failures=1,reason=type(exc).__name__)
     return report
+
+

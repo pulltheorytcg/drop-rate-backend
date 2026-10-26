@@ -42,14 +42,30 @@ def match_blueprints(references, blueprints, expansion, single_categories, singl
            ('TCGdex','POKEMON_TCG','English') for r in references):
         return {}
     refs_by_number, blueprints_by_number = defaultdict(list), defaultdict(list)
+    source_product_claims = defaultdict(set)
+    invalid_source_claims = False
     for ref in references:
         refs_by_number[number_key(ref.get('card_number'))].append(ref)
-    for blueprint in blueprints:
+    for source_index, blueprint in enumerate(blueprints):
         if (blueprint.get('game_id')==expansion['game_id'] and
                 blueprint.get('expansion_id')==expansion['id'] and
                 blueprint.get('category_id') in single_categories):
             # Unpriced and unmapped prints still count as ambiguity.
             blueprints_by_number[number_key(_collector_number(blueprint))].append(blueprint)
+            # A bounded subset must still see claims made by unpriced base
+            # cards and competing multi-ID blueprints in the full export.
+            cross_ids = blueprint.get('card_market_ids')
+            cross_ids = [] if cross_ids is None else cross_ids
+            if not isinstance(cross_ids, list) or len(cross_ids) > 40:
+                invalid_source_claims = True
+                continue
+            legacy = blueprint.get('cardmarket_id')
+            cross_ids = cross_ids + ([legacy] if legacy is not None else [])
+            for value in cross_ids:
+                if isinstance(value, bool) or not str(value).isdigit() or int(value) <= 0:
+                    invalid_source_claims = True
+                    continue
+                source_product_claims[str(int(value))].add(source_index)
     matches = {}
     claims = defaultdict(list)
     for number, refs in refs_by_number.items():
@@ -69,6 +85,9 @@ def match_blueprints(references, blueprints, expansion, single_categories, singl
                 number_key(ref['provider_id'][len(prefix):])!=number):
             continue
         product_id = cardmarket_product_id(blueprint)
+        if ref.get('set_id') == HIDDEN_FATES_SUBSET[0] and (
+                invalid_source_claims or len(source_product_claims.get(product_id, set())) != 1):
+            continue
         product = singles.get(product_id)
         if (not product or product.get('idCategory')!=51 or
                 product.get('categoryName')!='Pokémon Single' or
@@ -176,4 +195,5 @@ async def cardtrader_matches(client, references, singles, base_matches):
         report.update(status='UNAVAILABLE',provider_failures=1,reason=type(exc).__name__)
         failed_sets.update(groups)
     return result, report, failed_sets
+
 

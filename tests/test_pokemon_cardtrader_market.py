@@ -305,3 +305,12 @@ async def test_hidden_fates_parent_selection_requires_complete_canonical_subset(
     assert list(matches) == (['sma-SV49'] if complete else [])
     assert client.requests == (1 if complete else 0)
     assert report['sets_checked'] == (1 if complete else 0)
+
+
+@pytest.mark.parametrize('competing_ids', [[999001], [999001, 999003]])
+def test_hidden_fates_rejects_unpriced_outside_subset_product_claims(competing_ids):
+    refs, expansion, shiny, singles = hidden_fates_fixture()
+    base = dict(shiny, id=121245, version='Full Art | 009/068',
+                fixed_properties={'collector_number': '009/068'}, card_market_ids=competing_ids)
+    # No base reference or positive cached price is present in this bounded pass.
+    assert not match_blueprints(refs, [base, shiny], expansion, {73}, singles)
