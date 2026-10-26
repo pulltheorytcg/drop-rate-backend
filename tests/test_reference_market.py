@@ -215,8 +215,8 @@ async def test_old_revision_failure_backs_off_without_marking_evidence_validated
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('checked_delta, expires_delta', [(None, 4), (1, 4), (-1, 5), (-6, -1)])
-async def test_old_revision_only_honors_valid_short_retry_interval(monkeypatch, checked_delta, expires_delta):
+@pytest.mark.parametrize('checked_delta, expires_delta', [(None, 4), (1, 4), (-1, 360), (-6, -1)])
+async def test_old_revision_only_honors_valid_bounded_retry_interval(monkeypatch, checked_delta, expires_delta):
     now = datetime.now(timezone.utc)
     row = {**REFERENCE, 'quotes': [], 'refresh_revision': market.REVISION-1,
            'checked_at': now+timedelta(minutes=checked_delta) if checked_delta is not None else None,
@@ -402,7 +402,7 @@ async def test_detail_refresh_keeps_independent_catalogue_fallback_out_of_tcgdex
     writes=[]
     class Connection:
         async def fetch(self,*args):return [{**REFERENCE,'catalogue_quotes':[quote]}]
-        async def execute(self,sql,*args):writes.append(args)
+        async def execute(self,sql,*args):writes.append((sql,args))
     @asynccontextmanager
     async def connection(*args):yield Connection()
     async def no_quotes(*args,**kwargs):return []
@@ -410,6 +410,8 @@ async def test_detail_refresh_keeps_independent_catalogue_fallback_out_of_tcgdex
     monkeypatch.setattr(market,'fetch_quotes',no_quotes)
     view=(await market.refresh_reference_prices(object(),uuid4(),'test',[KEY]))[0]
     assert view['market_value_minor']==100 and view['market_value_source']==market.CATALOGUE_SOURCE
-    assert writes[0][4]==[] and writes[0][5] is None
+    assert writes[0][0] == market.FAILED_REFRESH_SQL
+    assert len(writes[0][1]) == 6  # identity plus retry timestamps; no quotes or values
+    assert writes[0][1][5] - writes[0][1][4] == timedelta(hours=6)
     quote['reference_identity']['name']='Wrong card'
     assert (await market.refresh_reference_prices(object(),uuid4(),'test',[KEY]))[0]['market_value_minor'] is None

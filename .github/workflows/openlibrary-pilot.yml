@@ -6,6 +6,9 @@ on:
       - 'backend/app/book_catalogue_sources.py'
       - 'backend/scripts/select_openlibrary_books.py'
       - 'tests/test_book_openlibrary.py'
+      - 'tests/test_book_bulk_import.py'
+      - 'backend/scripts/import_book_catalogue.py'
+      - 'backend/app/data/book_openlibrary_pilot_20261026*' 
       - '.github/workflows/openlibrary-pilot.yml'
 permissions:
   contents: read

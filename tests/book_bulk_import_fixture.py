@@ -13,6 +13,7 @@ from app.book_catalogue import with_book_details
 from app.book_catalogue_sources import normalise, barcode_aliases
 from app.book_research import catalogue_candidates
 from book_bulk_samples import entry, gcd, publisher, openlibrary
+from scripts.import_book_catalogue import database_access
 
 
 async def exercise(db, users):
@@ -28,6 +29,10 @@ async def exercise(db, users):
         grant select,insert,update on tcg.provider_catalogue_mappings to tcg_api;''')
     for policy in re.findall(r'create policy \w+ on tcg\.provider_catalogue_mappings\n[\s\S]*?;', sql):
         await db.execute(policy)
+    access = await database_access(db)
+    assert access["database_role"] and access["table_grants_do_not_override_rls"]
+    assert all(access[k] for k in ("catalogue_insert","profile_insert","edition_insert","source_mapping_insert"))
+    assert not any("dsn" in k or "password" in k for k in access)
     stock = await db.fetch('select * from tcg.inventory_items order by id')
     baseline = await db.fetchval('select count(*) from tcg.catalogue_products')
     rows = [entry(9101, True), entry(9102, False), normalise('GCD', gcd(9103, True)), normalise('GCD', gcd(9104, False))]

@@ -253,3 +253,42 @@ def test_open_library_dump_adapter_is_metadata_only(manga):
     with pytest.raises(ReviewRequired):
         validate_entry(forged)
 
+
+
+def test_import_credentials_use_settings_only_when_explicit(monkeypatch):
+    from scripts.import_book_catalogue import database_dsn
+    monkeypatch.setenv("BOOK_IMPORT_DATABASE_URL","fixture-dedicated-dsn")
+    monkeypatch.setattr("app.settings.get_settings",lambda:SimpleNamespace(database_url="fixture-runtime-dsn"))
+    assert database_dsn(SimpleNamespace(from_settings=True))=="fixture-runtime-dsn"
+    assert database_dsn(SimpleNamespace(from_settings=False))=="fixture-dedicated-dsn"
+    monkeypatch.delenv("BOOK_IMPORT_DATABASE_URL")
+    monkeypatch.setenv("TCG_DATABASE_URL","fixture-runtime-dsn")
+    with pytest.raises(ImportPaused,match="BOOK_IMPORT_DATABASE_URL_REQUIRED"):
+        database_dsn(SimpleNamespace(from_settings=False))
+
+
+def test_settings_failure_never_exposes_configuration_payload(monkeypatch):
+    from scripts.import_book_catalogue import database_dsn
+    def invalid_settings():
+        raise RuntimeError("sensitive-fixture-must-not-be-returned")
+    monkeypatch.setattr("app.settings.get_settings",invalid_settings)
+    with pytest.raises(ImportPaused) as error:
+        database_dsn(SimpleNamespace(from_settings=True))
+    assert str(error.value)=="BOOK_IMPORT_SETTINGS_UNAVAILABLE"
+
+
+def test_reviewed_openlibrary_pilot_is_immutable_and_excludes_held_editions():
+    import hashlib
+    from pathlib import Path
+    root=Path(__file__).resolve().parents[1]
+    data=(root/"backend/app/data/book_openlibrary_pilot_20261026.jsonl").read_bytes()
+    receipt=json.loads((root/"backend/app/data/book_openlibrary_pilot_20261026.review.json").read_text())
+    assert hashlib.sha256(data).hexdigest()==receipt["reviewed_snapshot_sha256"]
+    rows=[json.loads(line) for line in data.splitlines()]
+    assert len(rows)==receipt["reviewed_records"]==32
+    assert not set(receipt["held_records"]).intersection(r["edition"]["key"] for r in rows)
+    for record in rows:
+        candidate=normalise("OPEN_LIBRARY",record)
+        validate_entry(candidate)
+        assert candidate["image_url"] is None and candidate["reference"] is None
+        assert candidate["book"]["printing_number"] is None

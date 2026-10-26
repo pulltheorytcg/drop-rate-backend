@@ -16,7 +16,7 @@ async def main():
             500::bigint reference_value_high_minor,$2::timestamptz reference_pricing_updated_at,
             $1::jsonb market_quotes) e
           cross join (select $3::bigint market_value_minor,
-            'Near Mint'::text basis_condition,$4::timestamptz pricing_updated_at,
+            case when $3::bigint is not null then 'Near Mint'::text end as basis_condition,$4::timestamptz pricing_updated_at,
             'STORED_SNAPSHOT'::text valuation_source) v"""
         stamp = datetime(2026,10,20,tzinfo=timezone.utc)
         cases = [

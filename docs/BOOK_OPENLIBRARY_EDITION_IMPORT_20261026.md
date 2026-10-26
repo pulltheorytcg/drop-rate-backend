@@ -1,4 +1,4 @@
-# Comics and manga factual edition import — 26 October 2026
+# Comics and manga factual edition import - 26 October 2026
 
 The live starting catalogue has 48 book products: 36 structured manga editions,
 10 structured Marvel/DC editions, and 2 seller-entered books. PRH/GCD provider
@@ -70,4 +70,62 @@ no implicit cover/market value, and unchanged physical inventory.
 CI produces the actual selected snapshot and report for review. Deployment and
 production application must be verified independently; code completion alone does
 not mean any new editions or covers have been added.
+
+
+## Measured pilot and reviewed input
+
+PR 736 CI run 40404355523 completed the read-only pilot successfully. It scanned
+246,645 edition records, structurally accepted 39, and rejected 246,606. It stopped
+at the 256 MiB uncompressed ceiling after reading 54,403,072 compressed bytes.
+All 39 accepted records passed the canonical normalizer again. The estimated
+database footprint for that full candidate set was 494,652 bytes.
+
+The original candidate snapshot SHA256 is
+9d92b11cc2f754b0fa00d6073f0b9653549bca8d8abae3a0000ec0e9bfff306d.
+The CI artifact preserves the original snapshot and selector report:
+https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40404355523
+
+Review held 7 candidates with unresolved classification, format or edition facts.
+For example, the Spanish Savage Dragon record has an inconsistent manga subject;
+the Transformers ISBN identifies a limited edition on Titan's own catalogue whose
+edition wording and release year differ from the dump. Walking Dead release dates
+also conflict across the dump, publisher and distributor. These records were
+excluded without silently replacing their source facts.
+
+The committed reviewed input is
+backend/app/data/book_openlibrary_pilot_20261026.jsonl. Its adjacent review manifest
+records every held OL ID/reason and the evidence links. The remaining 32 records
+comprise 15 manga, 4 Marvel, 2 DC and 11 other comics; 30 are English and 2 Spanish.
+They remain bibliographic records attributed to Open Library, not independently
+verified printings or market/cover approvals. No field values were changed during
+selection. The reviewed input SHA256 is
+66fee0a07e5c43b3cf957f36f54e9382be4eaed2a1b8eb6fc3bc239235653b03.
+
+## Existing-runtime operator commands
+
+An authorised operator can reuse the deployed runtime's existing application
+settings explicitly. This does not request, print, copy or modify a secret:
+
+```sh
+PYTHONPATH=backend python -m scripts.import_book_catalogue --state /tmp/ol-20261026.sqlite stage --provider OPEN_LIBRARY --input backend/app/data/book_openlibrary_pilot_20261026.jsonl
+PYTHONPATH=backend python -m scripts.import_book_catalogue --state /tmp/ol-20261026.sqlite report
+PYTHONPATH=backend python -m scripts.import_book_catalogue --state /tmp/ol-20261026.sqlite plan --from-settings
+```
+
+Plan returns the current database role, insert-grant booleans and whether the role
+bypasses RLS, alongside capacity. It never returns a DSN. Table grants do not
+override RLS; a restricted application role can correctly refuse trusted catalogue
+inserts. Do not broaden grants to force the pilot through. Without --from-settings,
+the existing dedicated BOOK_IMPORT_DATABASE_URL behavior is unchanged.
+
+Only after reviewing the exact snapshot, plan, runtime role and capacity:
+
+```sh
+PYTHONPATH=backend python -m scripts.import_book_catalogue --state /tmp/ol-20261026.sqlite apply --from-settings --batch-size 50 --max-batches 1
+PYTHONPATH=backend python -m scripts.import_book_catalogue --state /tmp/ol-20261026.sqlite report
+```
+
+The source mapping/digest makes replay idempotent. A conflicting existing edition
+must remain REVIEW; success is measured from actual imported/existing/review counts,
+then a separate database readback. No production import is claimed in this document.
 

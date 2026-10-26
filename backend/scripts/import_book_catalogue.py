@@ -28,7 +28,7 @@ async def check_covers(state, limit=100, fetch=reference_image_bytes):
     No background retry, generated artwork, or GCD image hotlinking.
     """
     if not 1 <= limit <= 1000:
-        raise ValueError("Cover limit must be 1–1000")
+        raise ValueError("Cover limit must be 1-1000")
     checked = failed = 0
     for row in state.execute("select line,entry from records where status='READY' and cover_attempted=0 order by line"):
         entry = json.loads(row["entry"])
@@ -57,6 +57,33 @@ async def check_covers(state, limit=100, fetch=reference_image_bytes):
     return {**stage_report(state), "cover_checks": {"checked": checked, "pending": failed}}
 
 
+def database_dsn(args):
+    """Select an existing secret in-process; never print or mutate it."""
+    if getattr(args,"from_settings",False):
+        from app.settings import get_settings
+        try:
+            return get_settings().database_url
+        except RuntimeError:
+            raise ImportPaused("BOOK_IMPORT_SETTINGS_UNAVAILABLE") from None
+    dsn = os.environ.get("BOOK_IMPORT_DATABASE_URL","").strip()
+    if not dsn:
+        raise ImportPaused("BOOK_IMPORT_DATABASE_URL_REQUIRED")
+    return dsn
+
+
+async def database_access(connection):
+    """Diagnostic only: table grants do not bypass row-level security."""
+    row = await connection.fetchrow("""
+        select current_user as database_role,
+          exists(select 1 from pg_roles where rolname=current_user and (rolsuper or rolbypassrls)) as bypasses_rls,
+          has_table_privilege(current_user,'tcg.catalogue_products','INSERT') as catalogue_insert,
+          has_table_privilege(current_user,'tcg.catalogue_product_profiles','INSERT') as profile_insert,
+          has_table_privilege(current_user,'tcg.comic_printing_details','INSERT') as edition_insert,
+          has_table_privilege(current_user,'tcg.provider_catalogue_mappings','INSERT') as source_mapping_insert
+    """)
+    return {**dict(row),"table_grants_do_not_override_rls":True}
+
+
 async def run(args):
     state = open_stage(args.state)
     try:
@@ -66,21 +93,20 @@ async def run(args):
             return stage_report(state)
         if args.command == "review":
             if not 1 <= args.limit <= 1000:
-                raise ValueError("Review limit must be 1–1000")
+                raise ValueError("Review limit must be 1-1000")
             return [dict(row) for row in state.execute("select line,source_key,reason from records where status='REVIEW' order by line limit ?", (args.limit,))]
         if args.command == "covers":
             if args.retry_failed:
                 with state:
                     state.execute("update records set cover_attempted=0 where json_extract(entry,'$.reference') is null")
             return await check_covers(state, args.limit)
-        # This separate operator DSN is never read from user input or logged.
-        dsn = os.environ.get("BOOK_IMPORT_DATABASE_URL")
-        if not dsn:
-            raise ImportPaused("BOOK_IMPORT_DATABASE_URL_REQUIRED")
-        db = await asyncpg.connect(dsn, command_timeout=45)
+        # Runtime credentials are reused only with explicit --from-settings.
+        db = await asyncpg.connect(database_dsn(args), command_timeout=45)
         try:
             if args.command == "plan":
-                return await capacity_plan(db, state, args.database_limit_bytes)
+                report = await capacity_plan(db, state, args.database_limit_bytes)
+                report["database_access"] = await database_access(db)
+                return report
             return await apply_stage(db, state, batch_size=args.batch_size, max_batches=args.max_batches,
                                      database_limit_bytes=args.database_limit_bytes)
         finally:
@@ -107,6 +133,9 @@ def main():
     apply = commands.add_parser("apply")
     apply.add_argument("--batch-size", type=int, default=50)
     apply.add_argument("--max-batches", type=int, default=20)
+    for command in (plan,apply):
+        command.add_argument("--from-settings",action="store_true",
+            help="Explicitly reuse this runtime's existing TCG_DATABASE_URL via app settings; never changes credentials or grants")
     apply.add_argument("--database-limit-bytes", type=int, default=500_000_000, help="Same verified quota used for plan; does not change or purchase storage")
     args = parser.parse_args()
     try:

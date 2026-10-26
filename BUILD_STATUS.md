@@ -1,10 +1,10 @@
 ## 26 October 2026 - Catalogue coverage, artwork and book import repairs (validation pending)
 
-The user requested90% physical-card pricing coverage, visible values/artwork and
-improved comics/manga data. Verified baseline:42,482/67,065 priced or labelled
-guide references (63.34%),10,364 blank Pokémon image URLs and48 book records.
-90% requires17,877 more supported values; even pricing all non-Naruto references
-would reach only89.32%. No invented values, denominator changes, unlicensed data
+The user requested 90% physical-card pricing coverage, visible values/artwork and
+improved comics/manga data. Verified baseline: 42,482/67,065 priced or labelled
+guide references (63.34%), 10,364 blank Pokémon image URLs and 48 book records.
+90% requires 17,877 more supported values; even pricing all non-Naruto references
+would reach only 89.32%. No invented values, denominator changes, unlicensed data
 imports or incorrect print/language matches are used to claim the target.
 
 This release preserves dated evidence when a valid provider response has no quote,
@@ -17,7 +17,7 @@ sparse syncs must retain the complete identity before preserving repaired artwor
 
 A bounded Open Library monthly-dump adapter adds exact factual book-edition
 metadata with source attribution, not publisher approval, prices or cover rights.
-Pilot cap:200 accepted editions,64MiB compressed,256MiB raw and240seconds.
+Pilot cap: 200 accepted editions, 64 MiB compressed, 256 MiB raw and 240 seconds.
 API bulk harvesting is not used. Conflicting source IDs/ISBNs are rejected and
 existing inventory remains separate. No migration or new Railway service.
 
