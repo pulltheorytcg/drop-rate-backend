@@ -9,7 +9,7 @@ import pytest
 
 from app import pokemon_catalogue_market as pk
 from app.cardtrader_client import CardTraderApiError
-from app.pokemon_cardtrader_market import MATCH_BASIS, cardtrader_matches, match_blueprints
+from app.pokemon_cardtrader_market import MATCH_BASIS, cardtrader_matches, match_blueprints, cardtrader_release_titles
 
 
 def fixture():
@@ -218,3 +218,90 @@ async def test_existing_covered_bridge_outage_is_reported_for_cache_preservation
         async def list_blueprints(self,**kwargs):raise CardTraderApiError('Unavailable',status_code=503)
     matches,report,failed=await cardtrader_matches(Outage(expansion,[blueprint]),refs,singles,{})
     assert not matches and report['provider_failures']==1 and failed=={'xyp'}
+
+
+def hidden_fates_fixture():
+    refs = [dict(provider='TCGdex', system_code='POKEMON_TCG', language='English',
+                 provider_id='sma-SV49', set_id='sma', set_name='Hidden Fates Shiny Vault',
+                 name='Charizard-GX', card_number='SV49/94', declared_card_count=94)]
+    expansion = dict(id=1800, game_id=5, name='Hidden Fates')
+    blueprint = dict(id=121421, game_id=5, expansion_id=1800, category_id=73,
+                     name='Charizard GX', version='Shiny Rare | SV49/SV94',
+                     fixed_properties={'collector_number': 'SV49/SV94'},
+                     card_market_ids=[999001])
+    singles = {'999001': dict(idProduct=999001, idCategory=51,
+                             categoryName='Pokémon Single', idExpansion=1800,
+                             name='Charizard GX [Wing Attack | Crimson Storm | Raging Out GX]')}
+    return refs, expansion, blueprint, singles
+
+
+def test_hidden_fates_parent_alias_is_exclusive_to_exact_cardtrader_subset():
+    refs, _, _, _ = hidden_fates_fixture()
+    assert cardtrader_release_titles(refs[0]) == {'Hidden Fates'}
+    # Name-only bulk mapping must still see the subset, never its parent.
+    assert pk.release_titles(refs[0]) == {'Hidden Fates Shiny Vault'}
+    assert cardtrader_release_titles(dict(refs[0], set_id='other')) == {'Hidden Fates Shiny Vault'}
+    assert cardtrader_release_titles(dict(refs[0], set_name='Hidden Fates Shiny Vault (Japanese)')) == {
+        'Hidden Fates Shiny Vault (Japanese)'}
+
+
+def test_hidden_fates_exact_sv_number_does_not_collide_with_base_charizard():
+    refs, expansion, shiny, singles = hidden_fates_fixture()
+    base = dict(shiny, id=121245, version='Full Art | 009/068',
+                fixed_properties={'collector_number': '009/068'}, card_market_ids=[999002])
+    singles['999002'] = dict(singles['999001'], idProduct=999002)
+    matches = match_blueprints(refs, [base, shiny], expansion, {73}, singles)
+    assert list(matches) == ['sma-SV49']
+    assert matches['sma-SV49']['product']['idProduct'] == 999001
+    assert matches['sma-SV49']['proof']['cardtrader_parent_release'] == 'Hidden Fates'
+    assert matches['sma-SV49']['proof']['physical_valuation_eligible'] is False
+
+
+@pytest.mark.parametrize('mutation', [
+    'duplicate_blueprint', 'unmapped_duplicate', 'multiple_market_ids', 'base_number',
+    'out_of_range_number', 'wrong_subset_title', 'regional_parent', 'wrong_name',
+])
+def test_hidden_fates_parent_alias_keeps_printing_ambiguity_guards(mutation):
+    refs, expansion, blueprint, singles = hidden_fates_fixture()
+    blueprints = [blueprint]
+    if mutation == 'duplicate_blueprint':
+        blueprints.append(dict(blueprint, id=999))
+    elif mutation == 'unmapped_duplicate':
+        blueprints.append(dict(blueprint, id=999, card_market_ids=[]))
+    elif mutation == 'multiple_market_ids':
+        blueprint['card_market_ids'] = [999001, 999002]
+    elif mutation in {'base_number', 'out_of_range_number'}:
+        number = '9' if mutation == 'base_number' else 'SV95'
+        refs[0].update(provider_id='sma-' + number, card_number=number + '/94')
+        blueprint['fixed_properties']['collector_number'] = number
+    elif mutation == 'wrong_subset_title':
+        refs[0]['set_name'] = 'Hidden Fates'
+    elif mutation == 'regional_parent':
+        expansion['name'] = 'Hidden Fates (Japanese)'
+    elif mutation == 'wrong_name':
+        blueprint['name'] = 'Charizard'
+    assert not match_blueprints(refs, blueprints, expansion, {73}, singles)
+
+
+
+@pytest.mark.parametrize('complete', [True, False])
+@pytest.mark.asyncio
+async def test_hidden_fates_parent_selection_requires_complete_canonical_subset(complete):
+    refs, expansion, blueprint, singles = hidden_fates_fixture()
+    exemplar = refs[0]
+    refs = [dict(exemplar, provider_id='sma-SV' + str(number),
+                 card_number='SV' + str(number) + '/94', name='Fixture ' + str(number))
+            for number in range(1, 95 if complete else 94)]
+    refs[48] = exemplar
+    class CountedClient(Client):
+        requests = 0
+        async def list_blueprints(self, *, expansion_id):
+            self.requests += 1
+            assert complete, 'A partial checklist cannot request a parent expansion'
+            return await super().list_blueprints(expansion_id=expansion_id)
+    client = CountedClient(expansion, [blueprint])
+    matches, report, failed = await cardtrader_matches(client, refs, singles, {})
+    assert not failed
+    assert list(matches) == (['sma-SV49'] if complete else [])
+    assert client.requests == (1 if complete else 0)
+    assert report['sets_checked'] == (1 if complete else 0)

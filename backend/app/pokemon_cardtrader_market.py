@@ -19,6 +19,19 @@ SINGLE_CATEGORIES = {'pokemon single', 'pokemon singles', 'pokemon single card',
                      'pokemon single cards', 'single card', 'single cards'}
 
 
+# CardTrader keeps the Shiny Vault in its parent expansion. Only its explicit
+# SV collector numbers may bridge this subset; name-only bulk matching must not
+# inherit this alias (the base release also contains Charizard GX).
+HIDDEN_FATES_SUBSET = ('sma', 'Hidden Fates Shiny Vault')
+HIDDEN_FATES_PARENT = 'Hidden Fates'
+
+
+def cardtrader_release_titles(ref):
+    if (ref.get('set_id'), ref.get('set_name')) == HIDDEN_FATES_SUBSET:
+        return {HIDDEN_FATES_PARENT}
+    return release_titles(ref)
+
+
 def blueprint_card_name(blueprint):
     # The source expands the printed diamond; keep the actual identity symbol.
     return re.sub(r'(?<=◇) Prism Star$', '', str(blueprint.get('name') or ''))
@@ -44,6 +57,13 @@ def match_blueprints(references, blueprints, expansion, single_categories, singl
         if number is None or len(refs)!=1 or len(candidates)!=1:
             continue
         ref, blueprint = refs[0], candidates[0]
+        if ref.get('set_id') == HIDDEN_FATES_SUBSET[0]:
+            # Keep the parent mapping confined to the known complete subset.
+            # A base numeric card or a similarly named release cannot enter it.
+            if ((ref.get('set_id'), ref.get('set_name')) != HIDDEN_FATES_SUBSET
+                    or expansion.get('name') != HIDDEN_FATES_PARENT
+                    or number[0] != 'SV' or number[2] or not 1 <= number[1] <= 94):
+                continue
         prefix = ref['set_id']+'-'
         if (not ref['provider_id'].startswith(prefix) or
                 number_key(ref['provider_id'][len(prefix):])!=number):
@@ -66,6 +86,10 @@ def match_blueprints(references, blueprints, expansion, single_categories, singl
                  'cardtrader_version':blueprint.get('version'),
                  'collector_number_source':'CARDTRADER', 'match_basis':MATCH_BASIS,
                  'physical_valuation_eligible':False}
+        if (ref.get('set_id'), ref.get('set_name')) == HIDDEN_FATES_SUBSET:
+            proof.update(cardtrader_parent_release=HIDDEN_FATES_PARENT,
+                         canonical_subset=HIDDEN_FATES_SUBSET[1],
+                         release_match_basis='EXACT_HIDDEN_FATES_SHINY_VAULT_SV_NUMBER')
         matches[ref['provider_id']] = {'product':product, 'proof':proof}
         claims[product_id].append(ref['provider_id'])
     return {key:match for key,match in matches.items()
@@ -109,7 +133,7 @@ async def cardtrader_matches(client, references, singles, base_matches):
             declared = refs[0].get('declared_card_count')
             if type(declared) is not int or declared<=0 or len({r['provider_id'] for r in refs})<declared:
                 continue
-            titles = {normalized(title) for title in release_titles(refs[0])}
+            titles = {normalized(title) for title in cardtrader_release_titles(refs[0])}
             candidates = [e for e in expansions if e.get('game_id')==game_id and
                           normalized(e.get('name')) in titles]
             if len(candidates)==1 and type(candidates[0].get('id')) is int and candidates[0]['id']>0:
@@ -152,3 +176,4 @@ async def cardtrader_matches(client, references, singles, base_matches):
         report.update(status='UNAVAILABLE',provider_failures=1,reason=type(exc).__name__)
         failed_sets.update(groups)
     return result, report, failed_sets
+
