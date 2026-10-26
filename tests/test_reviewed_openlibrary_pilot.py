@@ -35,7 +35,7 @@ def test_operator_rejects_modified_snapshot_before_database_access(tmp_path,monk
         state.close()
 
 
-def operator_fakes(monkeypatch, *, deny=False, commit_failure=False, capacity=True):
+def operator_fakes(monkeypatch, *, deny=False, commit_failure=False, capacity=True,expected_count=32):
     events=[];states=[]
     original_open=pilot.open_stage
     def open_stage(path):
@@ -58,9 +58,9 @@ def operator_fakes(monkeypatch, *, deny=False, commit_failure=False, capacity=Tr
             raise HTTPException(403,"denied")
         return {"access_role":"PLATFORM_ADMIN"}
     async def apply(conn,state,*,batch_size,max_batches):
-        assert batch_size==32 and max_batches==1
+        assert batch_size==expected_count and max_batches==1
         events.append("apply")
-        return {"statuses":{"IMPORTED":32}}
+        return {"statuses":{"IMPORTED":expected_count}}
     monkeypatch.setattr(pilot,"open_stage",open_stage)
     monkeypatch.setattr(pilot,"user_connection",connection)
     monkeypatch.setattr(pilot,"require_platform_admin",admin)
@@ -121,3 +121,27 @@ async def test_missing_configured_actor_never_opens_database(monkeypatch):
         await pilot.run(apply=True)
     pool.assert_not_called()
 
+
+
+
+
+def test_registered_expansion_is_exactly_fifteen_reviewed_editions():
+    state=pilot.open_stage(":memory:")
+    try:
+        assert pilot.stage_reviewed_snapshot(state,"expansion")["statuses"]=={"READY":15}
+    finally:
+        state.close()
+
+@pytest.mark.asyncio
+async def test_registered_expansion_commits_fifteen_without_changing_pilot(monkeypatch):
+    events,states=operator_fakes(monkeypatch,expected_count=15)
+    report=await pilot.run_with_pool(object(),uuid4(),apply=True,snapshot="expansion")
+    assert report["reviewed_records"]==15 and report["result"]["statuses"]=={"IMPORTED":15}
+    assert events==["begin","admin","apply","commit"]
+    assert pilot.REVIEWED_COUNT==32
+    assert_closed(states)
+
+@pytest.mark.asyncio
+async def test_unregistered_snapshot_never_opens_database():
+    with pytest.raises(ImportPaused,match="SNAPSHOT_NOT_REGISTERED"):
+        await pilot.run_with_pool(None,uuid4(),snapshot="../../unreviewed")
