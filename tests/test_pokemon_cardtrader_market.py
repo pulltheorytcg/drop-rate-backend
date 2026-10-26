@@ -282,3 +282,26 @@ def test_hidden_fates_parent_alias_keeps_printing_ambiguity_guards(mutation):
         blueprint['name'] = 'Charizard'
     assert not match_blueprints(refs, blueprints, expansion, {73}, singles)
 
+
+
+@pytest.mark.parametrize('complete', [True, False])
+@pytest.mark.asyncio
+async def test_hidden_fates_parent_selection_requires_complete_canonical_subset(complete):
+    refs, expansion, blueprint, singles = hidden_fates_fixture()
+    exemplar = refs[0]
+    refs = [dict(exemplar, provider_id='sma-SV' + str(number),
+                 card_number='SV' + str(number) + '/94', name='Fixture ' + str(number))
+            for number in range(1, 95 if complete else 94)]
+    refs[48] = exemplar
+    class CountedClient(Client):
+        requests = 0
+        async def list_blueprints(self, *, expansion_id):
+            self.requests += 1
+            assert complete, 'A partial checklist cannot request a parent expansion'
+            return await super().list_blueprints(expansion_id=expansion_id)
+    client = CountedClient(expansion, [blueprint])
+    matches, report, failed = await cardtrader_matches(client, refs, singles, {})
+    assert not failed
+    assert list(matches) == (['sma-SV49'] if complete else [])
+    assert client.requests == (1 if complete else 0)
+    assert report['sets_checked'] == (1 if complete else 0)
