@@ -125,13 +125,14 @@ async def capacity_plan(connection, state, database_limit_bytes=FREE_DATABASE_LI
 
 def source_attributes(entry, batch):
     return dict(publisher=entry["book"]["publisher"], book_format=entry["book"]["book_format"],
-                identity_source="GCD_CATALOGUE" if entry["provider"] == "GCD" else "OFFICIAL_PUBLISHER_CATALOGUE",
+                identity_source={"GCD":"GCD_CATALOGUE", "OPEN_LIBRARY":"OPEN_LIBRARY_CATALOGUE"}.get(entry["provider"],"OFFICIAL_PUBLISHER_CATALOGUE"),
                 source_url=entry["source_url"], source_checked_at=entry["observed_on"],
                 cover_rights_status="PENDING", publisher_reference=entry["reference"],
                 catalogue_import=dict(version=IMPORT_VERSION, batch=batch, provider=entry["provider"],
                                       record_id=entry["record_id"], record_digest=entry["record_digest"],
                                       metadata_license=entry["metadata_license"],
-                                      attribution="Adapted from the Grand Comics Database" if entry["provider"] == "GCD" else None))
+                                      attribution="Adapted from the Grand Comics Database" if entry["provider"] == "GCD" else "Edition metadata from Open Library" if entry["provider"] == "OPEN_LIBRARY" else None,
+                                      source_snapshot=entry.get("evidence_url") if entry["provider"] == "OPEN_LIBRARY" else None))
 
 
 def _object(value):
@@ -158,7 +159,8 @@ async def _apply_one(connection, entry, batch):
     if not existing and book.get("barcode_gtin"):
         collisions = await connection.fetch("""select b.cover_code,b.printing_number,b.series_title,b.issue_number,b.system_code
             from tcg.comic_printing_details b join tcg.catalogue_products p on p.id=b.catalogue_id
-            where b.barcode_gtin=any($1::text[]) and p.language=$2""", barcode_aliases(book["barcode_gtin"]), product["language"])
+            where b.barcode_gtin=any($1::text[]) and ($2::text is null or p.language=$2)""",
+            barcode_aliases(book["barcode_gtin"]), None if entry["provider"]=="OPEN_LIBRARY" else product["language"])
         for collision in collisions:
             # Documented variants/reprints may share an ISBN. An unknown printing
             # or a changed title/issue under the same barcode needs human review.
@@ -234,3 +236,4 @@ async def apply_stage(connection, state, *, batch_size=50, max_batches=20, datab
             state.executemany("update records set status=?,catalogue_id=?,reason=? where line=?",
                               [(*result, row["line"]) for row, result in zip(rows, results)])
     return stage_report(state)
+

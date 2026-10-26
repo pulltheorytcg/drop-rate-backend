@@ -168,6 +168,12 @@ def normalise(provider, row):
         row = from_gcd(row)
     elif provider == "PRH":
         row = from_prh(row)
+    elif provider == "OPEN_LIBRARY":
+        from .book_openlibrary import edition_facts, EditionReviewRequired
+        try:
+            row = edition_facts(row)
+        except EditionReviewRequired as exc:
+            raise ReviewRequired(str(exc)) from exc
     elif provider == "PUBLISHER":
         row = {**row, "provider": provider, "metadata_license": "PROVIDER_TERMS"}
     else:
@@ -177,7 +183,7 @@ def normalise(provider, row):
 
 def _normalise_adapted(row):
     provider = row["provider"]
-    if provider not in {"GCD", "PRH", "PUBLISHER"}:
+    if provider not in {"GCD", "PRH", "PUBLISHER", "OPEN_LIBRARY"}:
         raise ReviewRequired("UNKNOWN_PROVIDER")
     book = ComicPrintingCreate.model_validate(row["book"])
     language = language_name(row["language"])
@@ -195,6 +201,14 @@ def _normalise_adapted(row):
         if (not re.fullmatch(r"[1-9][0-9]*", str(row["record_id"]))
                 or source != f"https://www.comics.org/issue/{row['record_id']}/"):
             raise ReviewRequired("UNTRUSTED_SOURCE")
+    elif provider == "OPEN_LIBRARY":
+        from .book_openlibrary import dump_source
+        if (not re.fullmatch(r"OL[1-9][0-9]*M", str(row["record_id"]))
+                or source != f"https://openlibrary.org/books/{row['record_id']}"
+                or row.get("image_url") is not None
+                or any((book.printing_number, book.cover_code, book.cover_artist))):
+            raise ReviewRequired("UNTRUSTED_OPEN_LIBRARY_EDITION")
+        dump_source(row.get("evidence_url"))
     elif not publisher_source(source):
         raise ReviewRequired("UNTRUSTED_SOURCE")
     if any((book.printing_number, book.cover_code, book.cover_artist)) and row.get("evidence_url") != source:
@@ -216,7 +230,7 @@ def _normalise_adapted(row):
                  catalogue=product.model_dump(exclude={"comic_printing"}), book=book.model_dump(),
                  provider=provider, record_id=record_id, source_url=source,
                  release_date=released.isoformat() if released else None, observed_on=observed.isoformat(),
-                 metadata_license=GCD_LICENSE if provider == "GCD" else "PROVIDER_TERMS", evidence_url=row.get("evidence_url"),
+                 metadata_license=GCD_LICENSE if provider == "GCD" else "https://openlibrary.org/developers/licensing" if provider == "OPEN_LIBRARY" else "PROVIDER_TERMS", evidence_url=row.get("evidence_url"),
                  image_url=image, reference=None, import_version=IMPORT_VERSION)
     entry["record_digest"] = record_digest(entry)
     return entry
@@ -251,5 +265,6 @@ def validate_entry(entry):
         raise ReviewRequired("STAGING_INTEGRITY_MISMATCH")
     if entry.get("reference"):
         ref = entry["reference"]
-        if provider == "GCD" or ref != cover_receipt(entry, ref["observed_sha256"], ref["observed_width"], ref["observed_height"]):
+        if provider in {"GCD", "OPEN_LIBRARY"} or ref != cover_receipt(entry, ref["observed_sha256"], ref["observed_width"], ref["observed_height"]):
             raise ReviewRequired("STAGING_COVER_MISMATCH")
+

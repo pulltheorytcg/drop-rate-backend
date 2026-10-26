@@ -215,8 +215,8 @@ async def test_old_revision_failure_backs_off_without_marking_evidence_validated
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('checked_delta, expires_delta', [(None, 4), (1, 4), (-1, 5), (-6, -1)])
-async def test_old_revision_only_honors_valid_short_retry_interval(monkeypatch, checked_delta, expires_delta):
+@pytest.mark.parametrize('checked_delta, expires_delta', [(None, 4), (1, 4), (-1, 360), (-6, -1)])
+async def test_old_revision_only_honors_valid_bounded_retry_interval(monkeypatch, checked_delta, expires_delta):
     now = datetime.now(timezone.utc)
     row = {**REFERENCE, 'quotes': [], 'refresh_revision': market.REVISION-1,
            'checked_at': now+timedelta(minutes=checked_delta) if checked_delta is not None else None,
@@ -238,13 +238,16 @@ async def test_old_revision_only_honors_valid_short_retry_interval(monkeypatch, 
 
 
 @pytest.mark.asyncio
-async def test_successful_empty_response_still_clears_previous_evidence(monkeypatch):
+@pytest.mark.parametrize('previous_age,expected_value', [(1, 7), (8, None), (None, None)])
+async def test_empty_refresh_keeps_original_evidence_and_only_updates_retry_metadata(monkeypatch, previous_age, expected_value):
     now = datetime.now(timezone.utc)
-    quote = (await market.tcgdex_quotes(PAYLOAD, REFERENCE, FX(), now=NOW))[0]
+    quote = dict(source=market.SOURCE, price_gbp_minor=7,
+                 observed_at=(now-timedelta(days=previous_age or 1)).isoformat(), finish='Normal')
+    prior = [quote] if previous_age is not None else []
     writes = []
     class Connection:
         async def fetch(self, sql, keys):
-            return [{**REFERENCE, 'quotes': [quote], 'expires_at': now-timedelta(minutes=1)}]
+            return [{**REFERENCE, 'quotes': prior, 'expires_at': now-timedelta(minutes=1)}]
         async def execute(self, sql, *args): writes.append((sql, args))
     @asynccontextmanager
     async def connection(*args): yield Connection()
@@ -252,10 +255,36 @@ async def test_successful_empty_response_still_clears_previous_evidence(monkeypa
     monkeypatch.setattr(market, 'user_connection', connection)
     monkeypatch.setattr(market, 'fetch_quotes', no_quotes)
     view = (await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY]))[0]
-    assert view['market_value_minor'] is None and view['provider_refresh_failed'] is False
-    assert writes[0][0] == market.WRITE_SQL
-    assert writes[0][1][4:8] == ([], None, None, None)
+    assert view['market_value_minor'] == expected_value
+    assert view['provider_refresh_failed'] is False and view['provider_refresh_empty'] is True
+    assert writes[0][0] == market.FAILED_REFRESH_SQL
+    # The only write arguments after identity are retry timestamps: no new
+    # quote/value/range/date is supplied, so a concurrent newer price is retained.
+    assert len(writes[0][1]) == 6
     assert writes[0][1][-1]-writes[0][1][-2] == timedelta(hours=6)
+    if expected_value:
+        assert view['pricing_updated_at'] == datetime.fromisoformat(quote['observed_at'])
+        assert view['market_quotes'] == prior
+
+
+@pytest.mark.asyncio
+async def test_empty_refresh_backoff_also_protects_old_revision(monkeypatch):
+    now = datetime.now(timezone.utc)
+    quote = dict(source=market.SOURCE, price_gbp_minor=7,
+                 observed_at=(now-timedelta(days=1)).isoformat(), finish='Normal')
+    writes = []
+    class Connection:
+        async def fetch(self, sql, keys):
+            return [{**REFERENCE, 'quotes': [quote], 'checked_at': now-timedelta(minutes=10),
+                     'expires_at': now+timedelta(hours=5,minutes=50), 'refresh_revision': 2}]
+        async def execute(self, *args): writes.append(args)
+    @asynccontextmanager
+    async def connection(*args): yield Connection()
+    async def forbidden(*args, **kwargs): raise AssertionError('Six-hour retry window must be respected')
+    monkeypatch.setattr(market, 'user_connection', connection)
+    monkeypatch.setattr(market, 'fetch_quotes', forbidden)
+    view = (await market.refresh_reference_prices(object(), uuid4(), 'test', [KEY]))[0]
+    assert view['market_value_minor'] == 7 and not writes
 
 
 @pytest.mark.parametrize('payload',[{'keys':[KEY],'price':100},{'keys':[KEY],'owner_id':str(uuid4())},
@@ -373,7 +402,7 @@ async def test_detail_refresh_keeps_independent_catalogue_fallback_out_of_tcgdex
     writes=[]
     class Connection:
         async def fetch(self,*args):return [{**REFERENCE,'catalogue_quotes':[quote]}]
-        async def execute(self,sql,*args):writes.append(args)
+        async def execute(self,sql,*args):writes.append((sql,args))
     @asynccontextmanager
     async def connection(*args):yield Connection()
     async def no_quotes(*args,**kwargs):return []
@@ -381,6 +410,8 @@ async def test_detail_refresh_keeps_independent_catalogue_fallback_out_of_tcgdex
     monkeypatch.setattr(market,'fetch_quotes',no_quotes)
     view=(await market.refresh_reference_prices(object(),uuid4(),'test',[KEY]))[0]
     assert view['market_value_minor']==100 and view['market_value_source']==market.CATALOGUE_SOURCE
-    assert writes[0][4]==[] and writes[0][5] is None
+    assert writes[0][0] == market.FAILED_REFRESH_SQL
+    assert len(writes[0][1]) == 6  # identity plus retry timestamps; no quotes or values
+    assert writes[0][1][5] - writes[0][1][4] == timedelta(hours=6)
     quote['reference_identity']['name']='Wrong card'
     assert (await market.refresh_reference_prices(object(),uuid4(),'test',[KEY]))[0]['market_value_minor'] is None

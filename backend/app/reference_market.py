@@ -312,15 +312,20 @@ async def refresh_reference_prices(pool, user_id, request_id, keys: list[str], *
         async def refresh(reference):
             previous = reference.get("quotes") or []
             checked, expires = reference.get("checked_at"), reference.get("expires_at")
-            # A failed refresh deliberately leaves the evidence revision alone.
-            # Its short retry interval must still apply to old-revision entries.
-            retry_backoff = bool(checked and expires and checked <= now < expires <= checked + timedelta(minutes=5))
+            # Failed or empty refreshes leave the evidence revision alone.
+            # Their retry interval also applies to old-revision entries.
+            retry_backoff = bool(checked and expires and checked <= now < expires <= checked + timedelta(hours=6))
             current_revision = reference.get("refresh_revision", REVISION) == REVISION
             if not force and expires and expires > now and (current_revision or retry_backoff):
                 return reference, price_view(reference["key"], previous, now=now), None
             try:
                 quotes = await asyncio.wait_for(fetch_quotes(client, reference, fx, now=now), timeout=15)
-                expires = now + timedelta(hours=24 if quotes else 6)
+                empty = not quotes
+                expires = now + timedelta(hours=6 if empty else 24)
+                if empty:
+                    # No current quote is not evidence that a prior observation
+                    # was wrong. Retain it without advancing its evidence date.
+                    quotes = previous
                 failed = False
             except (httpx.HTTPError, ValueError, RuntimeError, TypeError, AttributeError, asyncio.TimeoutError):
                 # An outage is not negative pricing evidence. The response may
@@ -328,16 +333,17 @@ async def refresh_reference_prices(pool, user_id, request_id, keys: list[str], *
                 # original range/date for the dated catalogue guide.
                 quotes = previous
                 expires = now + timedelta(minutes=5)
-                failed = True
+                failed, empty = True, False
             view = price_view(reference["key"], quotes, now=now)
             view['provider_refresh_failed'] = failed
+            view['provider_refresh_empty'] = empty
             return reference, view, expires
         results = await asyncio.gather(*(refresh(reference) for reference in references))
     async with user_connection(pool, user_id, request_id) as connection:
         for reference, view, expires in results:
             if expires is not None:
                 identity = (reference["provider"], reference["system_code"], reference["language"], reference["provider_id"])
-                if view.get('provider_refresh_failed'):
+                if view.get('provider_refresh_failed') or view.get('provider_refresh_empty'):
                     # Update retry metadata only, atomically retaining even a
                     # quote written after the read above. A first failure still
                     # creates an empty cache entry to enforce retry backoff.

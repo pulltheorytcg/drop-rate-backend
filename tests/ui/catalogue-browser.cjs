@@ -4,7 +4,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=catalogue-history-v1'), 'Seller Hub must load the publisher and GCD attribution script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=catalogue-coverage-v2'), 'Seller Hub must load the publisher and GCD attribution script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=simple-v1'), 'Seller Hub must load the fresh mobile sort styles');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -33,6 +33,41 @@ function fixture(handler=async()=>({items:[card],has_more:false}),owner='account
   f.browser.openProduct(book);assert.equal(f.browser.sheet.querySelector('a'),null);
   book.publisher_source_url='https://prhcomics.com/book/?isbn=9781569319017';
   f.browser.openProduct(book);assert.equal(f.browser.sheet.querySelector('a').href,book.publisher_source_url);
+  f.finish();checks++;
+ }
+ // Open Library attribution never implies publisher approval or cover rights.
+ {
+  const f=fixture(),book={...card,product_type:'COMIC',book_data_attribution:{
+    source_url:'https://openlibrary.org/books/OL123M',
+    license_url:'https://openlibrary.org/developers/licensing'}};
+  f.browser.openProduct(book);
+  assert.match(f.browser.sheet.textContent,/Edition metadata from Open Library.*Data licensing/);
+  assert.doesNotMatch(f.browser.sheet.textContent,/CC0|CC BY-SA|Official publisher/);
+  const links=[...f.browser.sheet.querySelectorAll('a')];
+  assert.equal(links[0].href,book.book_data_attribution.source_url);
+  assert.equal(links[1].href,book.book_data_attribution.license_url);
+  assert.ok(links.every(link=>link.target==='_blank'&&link.rel==='noopener noreferrer'));
+  for(const url of ['https://openlibrary.org.evil.test/books/OL123M',
+    'http://openlibrary.org/books/OL123M','https://openlibrary.org/books/OL123M?next=x',
+    'https://openlibrary.org/works/OL123W','javascript:alert(1)']){
+    book.book_data_attribution.source_url=url;f.browser.openProduct(book);
+    assert.equal(f.browser.sheet.querySelector('a'),null);
+  }
+  book.book_data_attribution.source_url='https://openlibrary.org/books/OL123M';
+  book.book_data_attribution.license_url='https://creativecommons.org/publicdomain/zero/1.0/';
+  f.browser.openProduct(book);assert.equal(f.browser.sheet.querySelector('a'),null);
+  f.finish();checks++;
+ }
+ // A regional guide must retain its actual provider and limitations.
+ {
+  const f=fixture(),row={...card,market_value_minor:425,
+    market_value_source:'POKEWALLET_POKEMON_CARDMARKET_CATALOGUE',
+    market_quotes:[],basis_condition:'Raw · Cardmarket Non-English regional guide'};
+  f.browser.openProduct(row);
+  assert.match(f.browser.sheet.textContent,/Value: £4.25/);
+  assert.match(f.browser.sheet.textContent,/Cardmarket Non-English regional guide via PokéWallet/);
+  assert.match(f.browser.sheet.textContent,/Japanese language.*not verified/);
+  assert.doesNotMatch(f.browser.sheet.textContent,/Cardmarket reference via TCGdex/);
   f.finish();checks++;
  }
  // Mobile sort is visible before opening the overflow menu and is an actual

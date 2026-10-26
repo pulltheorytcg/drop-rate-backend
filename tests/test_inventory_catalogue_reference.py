@@ -210,3 +210,96 @@ def test_actual_jp_op14_regional_cardmarket_guide_requires_original_print_link()
     ):
         jp['quotes']=[dict(valid,**change)]
         assert catalogue_guide(product,[en,jp],'Japanese',now=now) is None,change
+
+
+def pokewallet_fixture():
+    product, ref, _ = fixtures()
+    product.update(language='Japanese', card_number='043/098', variant='sv10-043')
+    ref.update(language='Japanese', card_number='043/098', quotes=[])
+    quote = dict(source='POKEWALLET_POKEMON_CARDMARKET_CATALOGUE',
+        aggregator='POKEWALLET', market='CARDMARKET', reference_language='Japanese',
+        reference_printing_id=ref['provider_id'],
+        reference_identity={k: ref[k] for k in ('name','set_id','card_number','set_name')},
+        match_basis='EXACT_JAPANESE_SET_AND_UNIQUE_COMPLETE_COLLECTOR_FRACTION',
+        valuation_role='MIXED_NON_ENGLISH_REFERENCE',
+        condition_specific=False, sold_comparable=False,
+        physical_language_confirmed=False, physical_valuation_eligible=False,
+        source_card_id='a'*64, source_set_id='1001',
+        source_product_url='https://www.cardmarket.com/en/Pokemon/Products/Singles/Test-Japanese/Heat-Rotom',
+        source_field='trend', finish='normal',
+        price_gbp_minor=85, original_minor=100, original_currency='EUR',
+        fx_source='ECB_EURO_REFERENCE_RATES', fx_rate_to_gbp='0.85',
+        observed_at=(NOW-timedelta(hours=1)).isoformat())
+    ref['catalogue_quotes']=[quote]
+    return product, ref, quote
+
+
+def test_pokewallet_japanese_guide_displays_without_valuing_physical_copy():
+    product, ref, quote = pokewallet_fixture()
+    before = deepcopy((product, ref))
+    value = catalogue_guide(product, [ref], 'Japanese', now=NOW)
+    assert value['market_value_minor'] == value['market_value_high_minor'] == 85
+    assert value['status'] == 'CATALOGUE_GUIDE' and value['label'] == 'Regional guide'
+    assert 'via PokéWallet' in value['reason'] and 'not a Japanese condition-specific sale' in value['reason']
+    assert value['physical_valuation_eligible'] is False and value['recommended_retail_minor'] is None
+    assert value['checked_at'] == datetime.fromisoformat(quote['observed_at'])
+    assert (product, ref) == before
+
+
+@pytest.mark.parametrize('change', [
+    {'reference_printing_id':'sv10-044'}, {'reference_identity':{}},
+    {'reference_language':'English'}, {'match_basis':'GUESSED_NAME'},
+    {'aggregator':'OTHER'}, {'market':'TCGPLAYER'}, {'source_field':'asking'},
+    {'valuation_role':'EXACT_JAPANESE'}, {'condition_specific':True},
+    {'sold_comparable':True}, {'physical_language_confirmed':True},
+    {'physical_valuation_eligible':True}, {'physical_valuation_eligible':None},
+    {'source_card_id':'unverified'}, {'source_set_id':'not-numeric'},
+    {'source_product_url':'https://www.cardmarket.com.evil.test/en/Pokemon/Products/Singles/Test'},
+    {'source_product_url':'http://www.cardmarket.com/en/Pokemon/Products/Singles/Test'},
+    {'source_product_url':'https://user@www.cardmarket.com/en/Pokemon/Products/Singles/Test'},
+    {'source_product_url':'https://www.cardmarket.com:443/en/Pokemon/Products/Singles/Test'},
+    {'source_product_url':'https://www.cardmarket.com/en/Pokemon/Products/Singles/Test?x=1'},
+    {'source_product_url':'https://www.cardmarket.com/en/Pokemon/Products/Booster-Boxes/Test'},
+    {'finish':'reverse'}, {'original_currency':'USD'}, {'fx_source':'GUESSED'},
+    {'fx_rate_to_gbp':'NaN'}, {'price_gbp_minor':999}, {'price_gbp_minor':True},
+    {'observed_at':(NOW-timedelta(days=8)).isoformat()},
+    {'observed_at':(NOW+timedelta(seconds=1)).isoformat()},
+])
+def test_pokewallet_guide_refuses_identity_provenance_region_and_fx_mismatch(change):
+    product, ref, quote = pokewallet_fixture()
+    quote.update(change)
+    assert catalogue_guide(product, [ref], 'Japanese', now=NOW) is None
+
+
+def test_pokewallet_guide_does_not_cross_legacy_finishes_or_ambiguous_printings():
+    product, ref, quote = pokewallet_fixture()
+    product['variant']='Normal'
+    assert catalogue_guide(product, [ref], 'Japanese', now=NOW)
+    product['variant']='Holofoil'
+    assert catalogue_guide(product, [ref], 'Japanese', now=NOW) is None
+    quote['finish']='holo'
+    assert catalogue_guide(product, [ref], 'Japanese', now=NOW)
+    product['variant']='Reverse Holofoil'
+    assert catalogue_guide(product, [ref], 'Japanese', now=NOW) is None
+    product['variant']='Normal'; quote['finish']='normal'
+    duplicate=dict(ref, provider_id='sv10-alt', quotes=[], catalogue_quotes=[])
+    assert catalogue_guide(product, [ref, duplicate], 'Japanese', now=NOW) is None
+
+
+def test_pokewallet_guide_keeps_existing_review_and_provider_guards():
+    product, ref, quote = pokewallet_fixture()
+    product['blocked']=True
+    assert catalogue_guide(product, [ref], 'Japanese', now=NOW) is None
+    product['blocked']=False; ref['provider']='Other'
+    assert catalogue_guide(product, [ref], 'Japanese', now=NOW) is None
+
+
+def test_detailed_quote_still_wins_over_pokewallet_regional_guide():
+    product, ref, _ = pokewallet_fixture()
+    ref['quotes']=[dict(source='TCGDEX_CARDMARKET', reference_language='Japanese',
+        price_gbp_minor=170, original_minor=200, original_currency='EUR',
+        fx_source='ECB_EURO_REFERENCE_RATES', fx_rate_to_gbp='0.85',
+        observed_at=(NOW-timedelta(hours=2)).isoformat(), finish='Normal')]
+    value=catalogue_guide(product, [ref], 'Japanese', now=NOW)
+    assert value['market_value_minor'] == value['market_value_high_minor'] == 170
+    assert value['label'] == 'Catalogue guide' and 'PokéWallet' not in value['reason']

@@ -290,6 +290,7 @@ window.DropRateCatalogue = (() => {
       if(["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(row.market_value_source)){
         evidence.append(node("p","dr-browse-reference-note","Cardmarket reference via TCGdex, converted from EUR. This is separate from your collection’s eBay UK sold-market valuation."));
       }
+      if(row.market_value_source==="POKEWALLET_POKEMON_CARDMARKET_CATALOGUE")evidence.append(node("p","dr-browse-reference-note","Cardmarket Non-English regional guide via PokéWallet, converted from EUR. Japanese language and your copy’s condition are not verified by this guide; it is not an exact UK sold valuation."));
       if(row.market_value_source==="CARDMARKET_CATALOGUE")evidence.append(node("p","dr-browse-reference-note","Cardmarket catalogue guide, converted from EUR. Matched by a unique card name in both complete release checklists. The guide spans languages, conditions and foil treatments; it is not an exact physical-copy valuation."));
       if((row.market_quotes||[]).some(q=>q.source==="TCGDEX_TCGPLAYER"))evidence.append(node("p","dr-browse-reference-note","TCGplayer is supporting US market context. Its dollar price is not used as a UK sold-market valuation."));
       if(row.market_value_source==="CARDMARKET_BULK")evidence.append(node("p","dr-browse-reference-note","Cardmarket daily packaging guide, converted from EUR. This aggregate spans languages and conditions; confirm your exact package before valuing a physical item."));
@@ -518,6 +519,14 @@ window.DropRateCatalogue = (() => {
         if(attribution && /^https:\/\/www\.comics\.org\/issue\/[1-9][0-9]*\/$/.test(attribution.source_url) && attribution.license_url === "https://creativecommons.org/licenses/by-sa/4.0/"){
           const credit=node("p","dr-browse-reference-note","Edition data adapted from ");
           const source=node("a","","Grand Comics Database"),license=node("a","","CC BY-SA 4.0");
+          source.href=attribution.source_url;license.href=attribution.license_url;
+          for(const link of [source,license]){link.target="_blank";link.rel="noopener noreferrer";}
+          credit.append(source,document.createTextNode(" · "),license);content.append(credit);
+        }
+        if(attribution && /^https:\/\/openlibrary\.org\/books\/OL[1-9][0-9]*M$/.test(attribution.source_url)
+          && attribution.license_url === "https://openlibrary.org/developers/licensing"){
+          const credit=node("p","dr-browse-reference-note","Edition metadata from ");
+          const source=node("a","","Open Library"),license=node("a","","Data licensing");
           source.href=attribution.source_url;license.href=attribution.license_url;
           for(const link of [source,license]){link.target="_blank";link.rel="noopener noreferrer";}
           credit.append(source,document.createTextNode(" · "),license);content.append(credit);

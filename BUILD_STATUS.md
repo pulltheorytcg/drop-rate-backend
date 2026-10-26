@@ -1,3 +1,33 @@
+## 26 October 2026 - Catalogue coverage, artwork and book import repairs (validation pending)
+
+The user requested 90% physical-card pricing coverage, visible values/artwork and
+improved comics/manga data. Verified baseline: 42,482/67,065 priced or labelled
+guide references (63.34%), 10,364 blank Pokémon image URLs and 48 book records.
+90% requires 17,877 more supported values; even pricing all non-Naruto references
+would reach only 89.32%. No invented values, denominator changes, unlicensed data
+imports or incorrect print/language matches are used to claim the target.
+
+This release preserves dated evidence when a valid provider response has no quote,
+without renewing its evidence date; corrects PokéWallet guide provenance; runs the
+existing bounded hourly pricing batches before the long bulk pricing pass; and
+admits existing PokéWallet regional guides to raw owner displays only after exact
+identity/provenance/FX validation; and adds a default-dry-run repair for documented TCGdex image-manifest omissions.
+Artwork writes require exact identity, verified decoded CDN bytes and blank-only
+conditional updates. Misnumbered M1S and future releases are excluded; subsequent
+sparse syncs must retain the complete identity before preserving repaired artwork.
+
+A bounded Open Library monthly-dump adapter adds exact factual book-edition
+metadata with source attribution, not publisher approval, prices or cover rights.
+Pilot cap: 200 accepted editions, 64 MiB compressed, 256 MiB raw and 240 seconds.
+API bulk harvesting is not used. Conflicting source IDs/ISBNs are rejected and
+existing inventory remains separate. No migration or new Railway service.
+
+CI, actual artwork counts and book import are pending at this implementation
+commit. Record production receipts before claiming coverage or media completion.
+Existing nonblank image URLs are not proof that all artwork loads. Refer to
+POKEMON_ARTWORK_REPAIR_20261026.md and BOOK_OPENLIBRARY_EDITION_IMPORT_20261026.md
+in docs for source evidence, limits and recovery.
+
 ## 26 October 2026 - R2 history archival live verified
 
 PR #734 is merged as 8f5bf7955bf8a825c1df999cd70649783153c36a. All six

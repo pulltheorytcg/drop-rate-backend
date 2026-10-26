@@ -77,6 +77,20 @@ async def with_book_details(connection, rows):
                     "text": "Adapted from the Grand Comics Database", "source_url": source,
                     "license": "CC BY-SA 4.0", "license_url": receipt["metadata_license"],
                     "changes": "Fields normalised to Drop Rate's edition catalogue. Cover images excluded."}
+        if (book.get("identity_status") in {"STRUCTURED", "VERIFIED"}
+                and book.get("profile_status") in {"STRUCTURED", "VERIFIED"}
+                and attributes.get("identity_source") == "OPEN_LIBRARY_CATALOGUE"
+                and isinstance(receipt, dict) and receipt.get("provider") == "OPEN_LIBRARY"
+                and receipt.get("version") == "book-bulk-v1"
+                and receipt.get("metadata_license") == "https://openlibrary.org/developers/licensing"):
+            import re
+            source = attributes.get("source_url", "")
+            if re.fullmatch(r"https://openlibrary[.]org/books/OL[1-9][0-9]*M", source):
+                item["book_data_attribution"] = {
+                    "text": "Edition metadata from Open Library", "source_url": source,
+                    "license": "Open Library data licensing",
+                    "license_url": receipt["metadata_license"],
+                    "changes": "Factual edition metadata normalised; covers and market values excluded."}
         cover = book_cover_reference(book, item.get("language"))
         if cover and not (item.get("display_image_url") or item.get("image_url")):
             item["reference_image_path"] = "/api/v1/catalogue-browser/reference-image?" + urlencode({
@@ -86,3 +100,4 @@ async def with_book_details(connection, rows):
             item["artwork_kind"] = "PUBLISHER_REFERENCE"
         # Covers never become approved inventory/Shopify media or proof of a copy.
     return items
+

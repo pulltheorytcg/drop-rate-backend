@@ -40,3 +40,14 @@ def prh(index=1, manga=True):
         format=dict(code="TR"), formatFamily="Paperback", consumerImprint="Fixture Publisher", language="E",
         onsale="2020-01-02", seriesNumber=None, version="Regular Edition",
         _links=[dict(rel="icon", href=f"https://images.randomhouse.com/cover/{isbn(index)}")]), observed_on="2026-10-21")
+
+
+def openlibrary(index=9401,manga=True):
+    return dict(edition=dict(key=f"/books/OL{index}M",type={"key":"/type/edition"},
+        title=f"Fixture Open Library {'Manga' if manga else 'Comic'} Vol. {index}",
+        publishers=["Fixture Publisher"],languages=[{"key":"/languages/eng"}],
+        isbn_13=[isbn(index)],physical_format="Paperback",publish_date="January 2, 2020",
+        subjects=["Comics & Graphic Novels / Manga" if manga else "Comics"]),
+        observed_on="2026-10-26",
+        dump_source="https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz")
+

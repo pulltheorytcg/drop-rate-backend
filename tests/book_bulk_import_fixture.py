@@ -12,7 +12,8 @@ from app.book_bulk_import import ImportPaused, apply_batch, _apply_one
 from app.book_catalogue import with_book_details
 from app.book_catalogue_sources import normalise, barcode_aliases
 from app.book_research import catalogue_candidates
-from book_bulk_samples import entry, gcd, publisher
+from book_bulk_samples import entry, gcd, publisher, openlibrary
+from scripts.import_book_catalogue import database_access
 
 
 async def exercise(db, users):
@@ -28,6 +29,10 @@ async def exercise(db, users):
         grant select,insert,update on tcg.provider_catalogue_mappings to tcg_api;''')
     for policy in re.findall(r'create policy \w+ on tcg\.provider_catalogue_mappings\n[\s\S]*?;', sql):
         await db.execute(policy)
+    access = await database_access(db)
+    assert access["database_role"] and access["table_grants_do_not_override_rls"]
+    assert all(access[k] for k in ("catalogue_insert","profile_insert","edition_insert","source_mapping_insert"))
+    assert not any("dsn" in k or "password" in k for k in access)
     stock = await db.fetch('select * from tcg.inventory_items order by id')
     baseline = await db.fetchval('select count(*) from tcg.catalogue_products')
     rows = [entry(9101, True), entry(9102, False), normalise('GCD', gcd(9103, True)), normalise('GCD', gcd(9104, False))]
@@ -78,6 +83,33 @@ async def exercise(db, users):
     assert not await db.fetchval('select exists(select 1 from tcg.catalogue_products where id=$1)', UUID(entry(9201)['id']))
     assert await db.fetchval('select count(*) from tcg.provider_catalogue_mappings') == 5
 
+
+    # Open Library stays a factual edition source, never publisher/price/media approval.
+    pilot = db.transaction(); await pilot.start()
+    try:
+        editions = [normalise("OPEN_LIBRARY",openlibrary(9401,True)),
+                    normalise("OPEN_LIBRARY",openlibrary(9402,False))]
+        assert all(r[0]=="IMPORTED" for r in await apply_batch(db,editions,"ol-pilot"))
+        assert all(r[0]=="EXISTING" for r in await apply_batch(db,editions,"ol-replay"))
+        for edition in editions:
+            attrs = await db.fetchval("select attributes from tcg.comic_printing_details where catalogue_id=$1",UUID(edition["id"]))
+            attrs = json.loads(attrs) if isinstance(attrs,str) else attrs
+            assert attrs["identity_source"]=="OPEN_LIBRARY_CATALOGUE"
+            assert attrs["cover_rights_status"]=="PENDING" and attrs["publisher_reference"] is None
+        products = await db.fetch("select id as catalogue_id,product_type,language,name from tcg.catalogue_products where id=any($1::uuid[])",[UUID(e["id"]) for e in editions])
+        observed = await with_book_details(db,products)
+        assert all(b["book_data_attribution"]["source_url"].startswith("https://openlibrary.org/books/OL") for b in observed)
+        assert all(not b.get("reference_image_path") and b.get("market_value_minor") is None for b in observed)
+        conflict = openlibrary(9403); conflict["edition"]["isbn_13"]=openlibrary(9401)["edition"]["isbn_13"]
+        assert (await apply_batch(db,[normalise("OPEN_LIBRARY",conflict)],"ol-conflict"))[0][2]=="BARCODE_IDENTITY_CONFLICT"
+        cross_language = openlibrary(9404)
+        cross_language["edition"]["isbn_13"] = openlibrary(9401)["edition"]["isbn_13"]
+        cross_language["edition"]["languages"] = [{"key":"/languages/jpn"}]
+        assert (await apply_batch(db,[normalise("OPEN_LIBRARY",cross_language)],"ol-language-conflict"))[0][2]=="BARCODE_IDENTITY_CONFLICT"
+        assert stock == await db.fetch("select * from tcg.inventory_items order by id")
+    finally:
+        await pilot.rollback()
+
     ids = [UUID(r['id']) for r in rows]
     for user in users:
         async with db.transaction():
@@ -117,3 +149,4 @@ async def exercise(db, users):
     assert stock == await db.fetch('select * from tcg.inventory_items order by id')
     assert await db.fetchval('select count(*) from tcg.catalogue_products') == baseline + 4
     print('PASS: bulk comics + manga, exact artwork/attribution across owners, replay, source conflicts, barcode collision, transactional rollback, read-only guard and seller RLS; inventory unchanged.')
+

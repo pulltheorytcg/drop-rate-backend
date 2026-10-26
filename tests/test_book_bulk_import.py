@@ -236,3 +236,59 @@ async def test_gcd_issue_download_resume_both_classifications(tmp_path):
     output = tmp_path / "gcd.jsonl"; export_download(state, output)
     assert normalise("GCD", json.loads(output.read_text()))["book"]["system_code"] == "MANGA"
     state.close()
+
+
+@pytest.mark.parametrize("manga",[True,False])
+def test_open_library_dump_adapter_is_metadata_only(manga):
+    from book_bulk_samples import openlibrary
+    row=normalise("OPEN_LIBRARY",openlibrary(manga=manga))
+    validate_entry(row)
+    attrs=source_attributes(row,"test-snapshot")
+    assert attrs["identity_source"]=="OPEN_LIBRARY_CATALOGUE"
+    assert attrs["catalogue_import"]["source_snapshot"].startswith("https://archive.org/download/ol_dump_")
+    assert attrs["cover_rights_status"]=="PENDING" and attrs["publisher_reference"] is None
+    assert row["book"]["system_code"]==("MANGA" if manga else "OTHER_COMICS")
+    assert row["image_url"] is None and row["book"]["printing_number"] is None
+    forged=deepcopy(row);forged["image_url"]="https://images.penguinrandomhouse.com/cover/9781591168522"
+    with pytest.raises(ReviewRequired):
+        validate_entry(forged)
+
+
+
+def test_import_credentials_use_settings_only_when_explicit(monkeypatch):
+    from scripts.import_book_catalogue import database_dsn
+    monkeypatch.setenv("BOOK_IMPORT_DATABASE_URL","fixture-dedicated-dsn")
+    monkeypatch.setattr("app.settings.get_settings",lambda:SimpleNamespace(database_url="fixture-runtime-dsn"))
+    assert database_dsn(SimpleNamespace(from_settings=True))=="fixture-runtime-dsn"
+    assert database_dsn(SimpleNamespace(from_settings=False))=="fixture-dedicated-dsn"
+    monkeypatch.delenv("BOOK_IMPORT_DATABASE_URL")
+    monkeypatch.setenv("TCG_DATABASE_URL","fixture-runtime-dsn")
+    with pytest.raises(ImportPaused,match="BOOK_IMPORT_DATABASE_URL_REQUIRED"):
+        database_dsn(SimpleNamespace(from_settings=False))
+
+
+def test_settings_failure_never_exposes_configuration_payload(monkeypatch):
+    from scripts.import_book_catalogue import database_dsn
+    def invalid_settings():
+        raise RuntimeError("sensitive-fixture-must-not-be-returned")
+    monkeypatch.setattr("app.settings.get_settings",invalid_settings)
+    with pytest.raises(ImportPaused) as error:
+        database_dsn(SimpleNamespace(from_settings=True))
+    assert str(error.value)=="BOOK_IMPORT_SETTINGS_UNAVAILABLE"
+
+
+def test_reviewed_openlibrary_pilot_is_immutable_and_excludes_held_editions():
+    import hashlib
+    from pathlib import Path
+    root=Path(__file__).resolve().parents[1]
+    data=(root/"backend/app/data/book_openlibrary_pilot_20261026.jsonl").read_bytes()
+    receipt=json.loads((root/"backend/app/data/book_openlibrary_pilot_20261026.review.json").read_text())
+    assert hashlib.sha256(data).hexdigest()==receipt["reviewed_snapshot_sha256"]
+    rows=[json.loads(line) for line in data.splitlines()]
+    assert len(rows)==receipt["reviewed_records"]==32
+    assert not set(receipt["held_records"]).intersection(r["edition"]["key"] for r in rows)
+    for record in rows:
+        candidate=normalise("OPEN_LIBRARY",record)
+        validate_entry(candidate)
+        assert candidate["image_url"] is None and candidate["reference"] is None
+        assert candidate["book"]["printing_number"] is None

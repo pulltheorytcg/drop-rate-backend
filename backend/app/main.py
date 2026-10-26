@@ -122,7 +122,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/founder-workspace.js" defer></script>',
         '<script src="/assets/founder-accounts.js?v=shared-reference-v2" defer></script>',
         '<script src="/assets/catalogue-title-art.js?v=3" defer></script>',
-        '<script src="/assets/catalogue-browser.js?v=catalogue-history-v1" defer></script>',
+        '<script src="/assets/catalogue-browser.js?v=catalogue-coverage-v2" defer></script>',
         '<script src="/assets/catalogue-browser-entry.js?v=7" defer></script>',
         '<script src="/assets/workspace-shell.js?v=simple-v1" defer></script>',
         '<script src="/assets/collector-worlds.js?v=simple-v1" defer></script>',
