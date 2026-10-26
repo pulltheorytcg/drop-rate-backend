@@ -13,10 +13,11 @@ import os
 from typing import Any
 from urllib.parse import urlsplit
 
+import httpx
 from PIL import ImageOps
 
 from .object_storage import ObjectStorageError, configured_object_storage
-from .recognition_images import RecognitionImageError, ReferenceImagePayload, _open_image, reference_image_bytes
+from .recognition_images import RecognitionImageError, ReferenceImagePayload, _open_image, _reference_http_client
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ where m.id=$1 and m.public_source_url=$2
   and m.source_status='ACTIVE' and m.revoked_at is null
   and m.source_type in ('OFFICIAL_PROVIDER','LICENSED_PROVIDER')
   and m.source_provider=any($6::text[])
+  and m.source_provider=$7 and m.source_type=$8
 on conflict (media_asset_id) do update
   set source_url=excluded.source_url,object_key=excluded.object_key,
       content_sha256=excluded.content_sha256,size_bytes=excluded.size_bytes,
@@ -84,6 +86,42 @@ def approved_source_url(url: str, provider: str, source_type: str) -> bool:
                 and parts.password is None and not parts.fragment and bool(parts.path))
     except (TypeError, ValueError):
         return False
+
+
+
+async def reference_image_bytes(url: str, *, max_bytes: int = 4_000_000,
+                                timeout_seconds: float = 12.0) -> ReferenceImagePayload | None:
+    """R2 reproduction never follows a redirect beyond the approved source URL."""
+    if (type(max_bytes) is not int or not 1 <= max_bytes <= 4_000_000
+            or not 0 < timeout_seconds <= 12
+            or not any(approved_source_url(url,p,"LICENSED_PROVIDER") for p in MIRROR_PROVIDERS)):
+        return None
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            async with _reference_http_client().stream(
+                "GET",url,follow_redirects=False,timeout=httpx.Timeout(timeout_seconds),
+                headers={"Accept":"image/webp,image/png,image/jpeg,image/avif"}) as response:
+                if response.status_code != 200:
+                    return None
+                content_type=response.headers.get("content-type","").split(";",1)[0].lower()
+                if content_type not in {"image/jpeg","image/png","image/webp","image/avif"}:
+                    return None
+                length=response.headers.get("content-length")
+                if length is not None and (not length.isdigit() or int(length)>max_bytes):
+                    return None
+                chunks=[]
+                size=0
+                async for chunk in response.aiter_bytes():
+                    size+=len(chunk)
+                    if size>max_bytes:
+                        return None
+                    chunks.append(chunk)
+                data=b"".join(chunks)
+                if not data:
+                    return None
+                return ReferenceImagePayload(content_type=content_type,data=data)
+    except (httpx.HTTPError,TimeoutError):
+        return None
 
 
 def optimized_media_bytes(payload: ReferenceImagePayload) -> bytes:
@@ -125,7 +163,8 @@ def with_signed_mirror(row: Any) -> dict:
     return item
 
 
-async def mirror_approved_media(pool: Any, *, limit: int, request_id: str) -> dict:
+async def mirror_approved_media(pool: Any, *, limit: int, request_id: str,
+                                candidate_ids: list | None = None) -> dict:
     """Idempotent, small HMAC-command batch; no owner or price mutations."""
     if not 1 <= limit <= 5:
         raise ValueError('Mirroring batch must contain between 1 and 5 assets')
@@ -133,8 +172,14 @@ async def mirror_approved_media(pool: Any, *, limit: int, request_id: str) -> di
     if store is None:
         raise ObjectStorageError('Private object storage is disabled')
     async with pool.acquire() as connection:
-        candidates = await connection.fetch(PENDING_MIRRORS_SQL,sorted(MIRROR_PROVIDERS),limit,
-                                            sorted(MIRROR_HOSTS))
+        query=PENDING_MIRRORS_SQL
+        args=[sorted(MIRROR_PROVIDERS),limit,sorted(MIRROR_HOSTS)]
+        if candidate_ids is not None:
+            if not 1 <= len(candidate_ids) <= 5:
+                raise ValueError("Operator candidate batch must contain 1 to 5 IDs")
+            query=query.replace("and mirror.id is null","and mirror.id is null and m.id=any($4::uuid[])")
+            args.append(candidate_ids)
+        candidates = await connection.fetch(query,*args)
     result = {'examined': len(candidates), 'mirrored': 0, 'skipped': 0, 'failed': 0,
               'remaining_possible': len(candidates) == limit}
     for candidate in candidates:
@@ -157,6 +202,7 @@ async def mirror_approved_media(pool: Any, *, limit: int, request_id: str) -> di
                     saved = await connection.fetchval(
                         RECORD_MIRROR_SQL, candidate['id'], url, receipt['key'],
                         receipt['sha256'], receipt['size_bytes'], sorted(MIRROR_PROVIDERS),
+                        candidate['source_provider'],candidate['source_type'],
                     )
             if saved:
                 result['mirrored'] += 1
