@@ -139,3 +139,22 @@ def test_manganese_is_not_manga():
     row=sample();row["edition"]["subjects"]=["Manganese chemistry"]
     with pytest.raises(EditionReviewRequired,match="COMICS_OR_MANGA_SUBJECT_REQUIRED"):
         edition_facts(row)
+
+
+@pytest.mark.parametrize("kwargs",[
+    {"max_bytes":256*1024*1024+1},{"max_raw_bytes":1024*1024*1024+1},
+    {"max_bytes":True},{"max_raw_bytes":0},{"max_rows":201},{"max_seconds":241},
+])
+def test_expansion_hard_limits_cannot_be_bypassed(kwargs):
+    with pytest.raises(ValueError,match="BOUNDED_SELECTION_REQUIRED"):
+        select_dump(dump(sample()),DUMP,**kwargs)
+
+def test_expansion_accepts_explicit_bounds_without_changing_defaults():
+    import inspect
+    from scripts.select_openlibrary_books import MAX_COMPRESSED,MAX_RAW
+    signature=inspect.signature(select_dump)
+    assert signature.parameters["max_bytes"].default==MAX_COMPRESSED==64*1024*1024
+    assert signature.parameters["max_raw_bytes"].default==MAX_RAW==256*1024*1024
+    data,report=select_dump(dump(sample()),DUMP,max_bytes=256*1024*1024,
+        max_raw_bytes=1024*1024*1024)
+    assert report["accepted_records"]==1 and report["complete_dump_read"]
