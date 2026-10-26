@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from math import ceil
 from urllib.parse import urlsplit
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 
@@ -48,6 +48,20 @@ SEARCH_SHARD = re.compile(r"[A-Z]{1,3}\d{1,2}-\d{2,3}")
 # `dbs_` + hex for TCGplayer-linked products, but does NOT guarantee the
 # same fixed digest length; its published example is longer.
 SOURCE_ID = re.compile(r"(?:dbs_[0-9a-f]{32,128}|[0-9a-f]{64})")
+
+# Publisher checklist + observed free-provider release identity; no generic SB/ST alias.
+# https://www.dbs-cardgame.com/fw/en/products/01_190.html
+# https://www.dbs-cardgame.com/fw/en/products/01_401.html
+REVIEWED_FUSION_RELEASES = {
+    ("583201", "MANGA BOOSTER 01 [SB01]"):
+        ("SB01", "Manga Booster 01", "24335", "Manga-Booster-01-Fusion-World"),
+    ("583301", "STORY BOOSTER 01 [ST01]"):
+        ("ST01", "Story Booster 01", "24680", "Story-Booster-01-Fusion-World"),
+}
+BASE_RARITY_PATHS = {
+    "common": "Common", "uncommon": "Uncommon", "rare": "Rare",
+    "superrare": "Super-Rare", "secretrare": "Secret-Rare", "leader": "Leader",
+}
 
 READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,
  r.set_id,r.card_number,r.rarity,s.name as set_name,
@@ -86,6 +100,9 @@ def reference_release(ref: dict) -> str | None:
         if (not FUSION_NUMBER.fullmatch(number) or
                 ref.get("provider_id") != f"{ref.get('set_id')}:{number}"):
             return None
+        reviewed = REVIEWED_FUSION_RELEASES.get((ref.get("set_id"), ref.get("set_name")))
+        if reviewed:
+            return normalized(reviewed[1]) if number.startswith(reviewed[0] + "-") else None
         match = re.fullmatch(r"BOOSTER PACK -(.+)- \[FB\d{2}\]",
                              str(ref.get("set_name") or ""), re.I)
     else:
@@ -154,6 +171,61 @@ def complete_search_page(body: dict, query: str, page: int) -> tuple[list[dict],
     return results,pages
 
 
+def reviewed_fusion_base(ref: dict, candidates: list[dict]) -> dict | None:
+    """Resolve only an explicit V1 base; every other candidate must prove its variant."""
+    reviewed = REVIEWED_FUSION_RELEASES.get((ref.get("set_id"), ref.get("set_name")))
+    if ref.get("system_code") != FUSION or reviewed is None or not candidates:
+        return None
+    _, release_name, source_set_id, release_slug = reviewed
+    number = ref["card_number"]
+    base = []
+    for candidate in candidates:
+        info = candidate["card_info"]
+        if (info.get("set_id") != source_set_id or
+                info.get("set_name") != release_name or info.get("card_number") != number):
+            return None
+        market = candidate.get("cardmarket")
+        if not isinstance(market, dict):
+            return None
+        parsed = urlsplit(str(market.get("product_url") or ""))
+        prefix = "/en/DragonBallSuper/Products/Singles/" + release_slug + "/"
+        if (parsed.scheme != "https" or parsed.hostname not in {"www.cardmarket.com", "cardmarket.com"}
+                or not parsed.path.startswith(prefix) or parsed.query or parsed.fragment):
+            return None
+        product_path = parsed.path[len(prefix):]
+        if "/" in product_path:
+            return None
+        rarity = BASE_RARITY_PATHS.get(normalized(info.get("rarity") or ""))
+        if rarity is None:
+            return None
+        name = html.unescape(info.get("name") or "")
+        exact_name = normalized(html.unescape(ref["name"]))
+        # Only the separately verified, literal printed-number suffix is metadata.
+        def same_base_name(value):
+            suffix = " - " + number
+            value = value[:-len(suffix)] if value.endswith(suffix) else value
+            return normalized(value) == exact_name
+        base_suffix = "-" + number + "-Fusion-World-V1-" + rarity
+        if product_path.endswith(base_suffix) and same_base_name(name):
+            base.append(candidate)
+            continue
+        alternate = next((label for label in ("Alternate Art", "Dragon Ball Pattern", "Gold")
+                          if name.endswith(" (" + label + ")")), None)
+        if alternate is None:
+            return None
+        if not same_base_name(name[:-(len(alternate) + 3)]):
+            return None
+        variant_suffixes = (
+            "-" + number + "-Fusion-World-V2-" + rarity,
+            "-" + number + "-Fusion-World-V2-Alternate-Art",
+            "-" + number + "-Fusion-World-V2-Feature-Rare",
+            "-" + number + "-Fusion-World-V2-Special-Rare",
+        )
+        if not product_path.endswith(variant_suffixes):
+            return None
+    return base[0] if len(base) == 1 else None
+
+
 def verified_matches(refs: list[dict], products: list[dict]) -> tuple[list[tuple[dict,dict]],dict]:
     grouped = defaultdict(list)
     for product in products:
@@ -181,16 +253,26 @@ def verified_matches(refs: list[dict], products: list[dict]) -> tuple[list[tuple
             diagnostic["candidate_numbers"]+=1
         # Some Cardmarket and TCGplayer source IDs represent different art
         # variants under the same number. Never pick the one with a price.
-        if len(candidates)!=1:
-            continue
+        reviewed = REVIEWED_FUSION_RELEASES.get((ref.get("set_id"), ref.get("set_name")))
+        if ref.get("system_code") == FUSION and reviewed:
+            source = reviewed_fusion_base(ref, candidates)
+            if source is None:
+                continue
+        else:
+            if len(candidates)!=1:
+                continue
+            source=candidates[0]
         diagnostic["unique_sources"]+=1
-        source=candidates[0]
         info=source["card_info"]
         source_release=normalized(html.unescape(info.get("set_name") or ""))
         if source_release not in releases:
             continue
         diagnostic["matching_release"]+=1
-        if normalized(html.unescape(info.get("name") or "")) != normalized(html.unescape(ref["name"])):
+        source_name = html.unescape(info.get("name") or "")
+        suffix = " - " + ref["card_number"]
+        if reviewed and source_name.endswith(suffix):
+            source_name = source_name[:-len(suffix)]
+        if normalized(source_name) != normalized(html.unescape(ref["name"])):
             continue
         diagnostic["matching_name"]+=1
         source_rarity=normalized(info.get("rarity") or "")
@@ -263,7 +345,9 @@ def source_guide(ref: dict, product: dict, rates: dict, observed: datetime) -> d
         "finish":finish,"guide_scope":"Indicative base-printing marketplace guide",
         "valuation_role":"MIXED_LANGUAGE_REFERENCE","physical_valuation_eligible":False,
         "physical_language_confirmed":False,"condition_specific":False,"sold_comparable":False,
-        "match_basis":"EXACT_BANDAI_RELEASE_NUMBER_NAME_UNIQUE_BASE_PRINTING",
+        "match_basis":("EXACT_BANDAI_RELEASE_SOURCE_SET_NUMBER_NAME_EXPLICIT_V1_BASE"
+                       if (ref.get("set_id"),ref.get("set_name")) in REVIEWED_FUSION_RELEASES
+                       else "EXACT_BANDAI_RELEASE_NUMBER_NAME_UNIQUE_BASE_PRINTING"),
         "reference_printing_id":ref["provider_id"],"reference_rarity":ref.get("rarity"),
         "reference_language":ref["language"],
         "reference_identity":{k:ref[k] for k in ("name","set_id","card_number","set_name")},
@@ -305,15 +389,25 @@ class FreeDragonBallClient:
 
 async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                                          dry_run=True,request_limit=MAX_FREE_REQUESTS_PER_RUN,
-                                         previous_cursor=None,http_client=None) -> dict:
+                                         previous_cursor=None,http_client=None,
+                                         reference_set_id=None,operator_run_id=None) -> dict:
     """Free, round-robin search batches; full query pages or no quote."""
+    if reference_set_id not in (None, "583201", "583301"):
+        raise ValueError("UNREVIEWED_REFERENCE_SET")
+    if operator_run_id is not None:
+        if reference_set_id is None or str(UUID(operator_run_id)) != operator_run_id:
+            raise ValueError("INVALID_OPERATOR_RUN_ID")
     now=datetime.now(timezone.utc)
     budget=min(request_limit,8 if dry_run else MAX_FREE_REQUESTS_PER_RUN)
+    if reference_set_id is not None:
+        budget=min(budget,8)
     report={"source":"POKEWALLET_DBS_FREE","dry_run":dry_run,"requests":0,
             "checked_references":0,"target_prefixes":0,"matches":0,
             "eligible_quotes":0,"writes_attempted":0,"cursor":previous_cursor,
             "input_cursor":previous_cursor,"sampled_queries":[],"invalid_samples":[],
             "provider_failures":0}
+    if reference_set_id is not None:
+        report.update(reference_set_id=reference_set_id,preview=[])
     client=None
     owns_http=False
     try:
@@ -321,6 +415,9 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
             refs=[dict(r) for r in await connection.fetch(READ_SQL)]
         report["checked_references"]=len(refs)
         groups=wanted_groups(refs,now)
+        if reference_set_id is not None:
+            groups={key:[ref for ref in rows if ref["set_id"]==reference_set_id]
+                    for key,rows in groups.items()}
         targets=sorted((k for k,v in groups.items() if v),key=lambda k:(-len(groups[k]),k))
         report["target_prefixes"]=len(targets)
         if previous_cursor in targets:
@@ -375,6 +472,15 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                     if quote is None:
                         continue
                     report["eligible_quotes"]+=1
+                    if operator_run_id is not None:
+                        quote["operator_run_id"]=operator_run_id
+                    if reference_set_id is not None:
+                        report["preview"].append({"provider_id":ref["provider_id"],
+                            "name":ref["name"],"card_number":ref["card_number"],
+                            "source_card_id":product["id"],"source_set_id":product["card_info"]["set_id"],
+                            "source_product_url":quote["source_product_url"],
+                            "price_gbp_minor":quote["price_gbp_minor"],
+                            "physical_valuation_eligible":False})
                     values.append((ref["provider"],ref["system_code"],ref["language"],
                         ref["provider_id"],[quote],quote["price_gbp_minor"],
                         quote["price_gbp_minor"],now,now,now+timedelta(days=1),

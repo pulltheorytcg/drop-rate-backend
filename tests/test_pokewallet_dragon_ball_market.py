@@ -321,3 +321,104 @@ def test_hourly_budget_is_bounded_and_utc_unambiguous_through_dst():
     assert jobs.DBS_HOURLY_REQUEST_BUDGET==18
     assert jobs.hourly_slot(datetime(2026,10,25,0,45,tzinfo=timezone.utc)) == datetime(2026,10,25,0,tzinfo=timezone.utc)
     assert jobs.hourly_slot(datetime(2026,10,25,1,45,tzinfo=timezone.utc)) == datetime(2026,10,25,1,tzinfo=timezone.utc)
+
+
+def special_ref(set_id="583301",number="ST01-002",name="Krillin",**fields):
+    row=fusion(set_id=set_id,set_name={"583301":"STORY BOOSTER 01 [ST01]",
+        "583201":"MANGA BOOSTER 01 [SB01]"}[set_id],card_number=number,
+        provider_id=set_id+":"+number,name=name)
+    row.update(fields)
+    return row
+
+
+def special_products(key="st01"):
+    from pathlib import Path
+    return json.loads((Path(__file__).parent/"fixtures"/"fusion_special_identity.json").read_text())[key]
+
+
+@pytest.mark.parametrize("set_id,number,name,key",[
+    ("583201","SB01-001","Cell","sb01"),("583201","SB01-002","Android 16","sb01"),
+    ("583201","SB01-003","Android 17","sb01"),("583201","SB01-009","Cell","sb01"),
+    ("583301","ST01-001","Son Goten","st01"),("583301","ST01-002","Krillin","st01"),
+    ("583301","ST01-003","Son Goku","st01"),("583301","ST01-004","Son Goku","st01"),
+    ("583301","ST01-005","Son Goten","st01"),("583301","ST01-006","Son Goten","st01"),
+    ("583301","ST01-007","Son Goten","st01"),
+    ("583301","ST01-008","Son Goten/Son Gohan : Adolescence","st01"),
+    ("583301","ST01-009","Son Gohan : Adolescence","st01")])
+def test_observed_special_release_variants_require_one_explicit_v1_base(set_id,number,name,key):
+    ref=special_ref(set_id,number,name)
+    matches,_=dbs.verified_matches([ref],special_products(key))
+    assert len(matches)==1
+    assert "-V1-" in matches[0][1]["cardmarket"]["product_url"]
+    assert not any(label in matches[0][1]["card_info"]["name"]
+                   for label in ("(Alternate Art)","(Gold)","(Dragon Ball Pattern)"))
+
+
+@pytest.mark.parametrize("change",["unknown_competitor","two_bases","wrong_set_id",
+                                  "wrong_release_path","unlabelled_v2","no_v1",
+                                  "wrong_number","wrong_base_name","no_source_rarity"])
+def test_special_release_identity_rejects_ambiguous_or_changed_sources(change):
+    from copy import deepcopy
+    products=[deepcopy(p) for p in special_products() if p["card_info"]["card_number"]=="ST01-002"]
+    if change=="unknown_competitor":
+        products.append(product(id="dbs_"+"b"*64,card_info=products[0]["card_info"]))
+    elif change=="two_bases":
+        extra=deepcopy(products[0]);extra["id"]="dbs_"+"b"*64;products.append(extra)
+    elif change=="wrong_set_id":products[0]["card_info"]["set_id"]="other"
+    elif change=="wrong_release_path":
+        products[0]["cardmarket"]["product_url"]=products[0]["cardmarket"]["product_url"].replace("Story-Booster-01","Other")
+    elif change=="unlabelled_v2":products[1]["card_info"]["name"]="Krillin"
+    elif change=="no_v1":products=products[1:]
+    elif change=="wrong_number":products[0]["card_info"]["card_number"]="ST01-003"
+    elif change=="wrong_base_name":products[0]["card_info"]["name"]="Vegeta"
+    elif change=="no_source_rarity":products[0]["card_info"]["rarity"]=None
+    assert not dbs.verified_matches([special_ref()],products)[0]
+
+
+def test_special_release_scope_does_not_admit_promos_reprints_or_sb02_misfiles():
+    for ref in (special_ref(set_id="583301",provider_id="583301:ST01-002_p1"),
+                special_ref(set_id="583301",set_name="Other [ST01]"),
+                special_ref(set_id="583301",number="FB01-002"),
+                special_ref(set_id="583301",language="Japanese"),
+                special_ref(set_id="583301",provider="Other")):
+        assert dbs.reference_release(ref) is None
+    sb02=fusion(set_id="583202",set_name="MANGA BOOSTER 02 [SB02]",
+        card_number="SB02-002",provider_id="583202:SB02-002",name="North Kai")
+    assert dbs.reference_release(sb02) is None
+    assert not dbs.verified_matches([sb02],special_products("sb02"))[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dry_run,expected_writes",[(True,0),(False,1)])
+async def test_scoped_special_release_returns_preview_and_tags_only_requested_set(monkeypatch,dry_run,expected_writes):
+    writes=[]
+    @asynccontextmanager
+    async def connection(*args):
+        class Conn:
+            async def fetch(self,sql):return [fusion(),special_ref()]
+            async def executemany(self,sql,rows):writes.extend(rows)
+        yield Conn()
+    monkeypatch.setattr(dbs,"user_connection",connection)
+    class Client:
+        async def get(self,url,params,headers):
+            assert params["q"]=="ST01-00"
+            return HttpResponse(body(*special_products(),query="ST01-00"))
+    class FX:
+        async def quote(self,**kwargs):
+            return FxQuote(kwargs["base_currency"],"GBP",Decimal(".86"),NOW,NOW,"ECB")
+    run_id=str(uuid4())
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        object(),uuid4(),FX(),"pk_live_fixture",dry_run=dry_run,request_limit=35,
+        http_client=Client(),reference_set_id="583301",operator_run_id=run_id)
+    assert report["requests"]==1 and report["target_prefixes"]==1
+    assert report["preview"][0]["provider_id"]=="583301:ST01-002"
+    assert report["writes_attempted"]==expected_writes and len(writes)==expected_writes
+    assert all(row[4][0]["operator_run_id"]==run_id for row in writes)
+    assert all(row[4][0]["physical_valuation_eligible"] is False for row in writes)
+
+
+@pytest.mark.asyncio
+async def test_unknown_special_release_scope_rejected_before_io():
+    with pytest.raises(ValueError,match="UNREVIEWED_REFERENCE_SET"):
+        await dbs.refresh_pokewallet_dragon_ball(None,uuid4(),None,"fixture",
+            reference_set_id="583202")
