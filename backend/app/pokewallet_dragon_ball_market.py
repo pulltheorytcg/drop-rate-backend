@@ -298,10 +298,44 @@ def verified_matches(refs: list[dict], products: list[dict]) -> tuple[list[tuple
     return matches,diagnostic
 
 
-def source_guide(ref: dict, product: dict, rates: dict, observed: datetime) -> dict | None:
+def reviewed_cardmarket_finish(market: object) -> tuple[tuple[int,str] | None,str | None]:
+    """Select a proved V1 product's unambiguous positive normal, then foil guide."""
+    if not isinstance(market,dict) or not isinstance(market.get("prices"),list):
+        return None,"NO_CARDMARKET_PRICES"
+    rows=market["prices"]
+    if any(not isinstance(row,dict) or not isinstance(row.get("variant_type"),str)
+           or row["variant_type"] not in {"normal","foil"}
+           for row in rows):
+        return None,"UNRECOGNISED_CARDMARKET_FINISH"
+    normal=[row for row in rows if row["variant_type"]=="normal"]
+    foil=[row for row in rows if row["variant_type"]=="foil"]
+    # Never use an apparent quote to resolve duplicate/ambiguous finish records,
+    # including duplicate unpriced rows or a duplicate finish we would not pick.
+    if len(normal)>1 or len(foil)>1:
+        return None,"AMBIGUOUS_CARDMARKET_FINISH"
+    for candidates,finish in ((normal,"Normal"),(foil,"Holofoil")):
+        if len(candidates)==1:
+            try:
+                return (_minor(candidates[0].get("trend")),finish),None
+            except (ValueError,TypeError,ArithmeticError):
+                pass
+    return None,"NO_POSITIVE_CARDMARKET_QUOTE"
+
+
+def source_guide(ref: dict, product: dict, rates: dict, observed: datetime, *,
+                 diagnostics: dict | None=None) -> dict | None:
     selected=None
+    reviewed = (ref.get("system_code") == FUSION and
+                (ref.get("set_id"),ref.get("set_name")) in REVIEWED_FUSION_RELEASES)
     cm=product.get("cardmarket")
-    if isinstance(cm,dict) and isinstance(cm.get("prices"),list):
+    if reviewed:
+        guide,reason=reviewed_cardmarket_finish(cm)
+        if guide is not None:
+            value,finish=guide
+            selected=(SOURCE_CM,"CARDMARKET","EUR","trend",value,cm.get("product_url"),finish)
+        elif diagnostics is not None:
+            diagnostics["no_quote_reason"]=reason
+    elif isinstance(cm,dict) and isinstance(cm.get("prices"),list):
         normal=[p for p in cm["prices"] if isinstance(p,dict) and
                 p.get("variant_type")=="normal"]
         finish="Normal"
@@ -318,8 +352,6 @@ def source_guide(ref: dict, product: dict, rates: dict, observed: datetime) -> d
                     selected=(SOURCE_CM,"CARDMARKET","EUR","trend",value,cm.get("product_url"),finish)
             except (ValueError,TypeError,ArithmeticError):
                 pass
-    reviewed = (ref.get("system_code") == FUSION and
-                (ref.get("set_id"),ref.get("set_name")) in REVIEWED_FUSION_RELEASES)
     if reviewed and selected is None:
         # V1 identity is independently proved only for the Cardmarket product.
         # A merged aggregator row does not prove its TCGplayer variant.
@@ -427,7 +459,8 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
             "input_cursor":previous_cursor,"sampled_queries":[],"invalid_samples":[],
             "provider_failures":0}
     if reference_set_id is not None:
-        report.update(reference_set_id=reference_set_id,preview=[])
+        report.update(reference_set_id=reference_set_id,preview=[],
+                      quote_finish_counts={},no_quote_reasons={})
     client=None
     owns_http=False
     try:
@@ -485,7 +518,8 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                     if "EUR" not in rates:
                         rates["EUR"]=await fx.quote(base_currency="EUR",
                                                      quote_currency="GBP",at=now)
-                    quote=source_guide(ref,product,rates,now)
+                    quote_diagnostics={}
+                    quote=source_guide(ref,product,rates,now,diagnostics=quote_diagnostics)
                     reviewed = (ref.get("system_code") == FUSION and
                                 (ref.get("set_id"),ref.get("set_name")) in REVIEWED_FUSION_RELEASES)
                     if quote is None and not reviewed and "USD" not in rates:
@@ -493,15 +527,21 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                                                      quote_currency="GBP",at=now)
                         quote=source_guide(ref,product,rates,now)
                     if quote is None:
+                        if reference_set_id is not None:
+                            reason=quote_diagnostics.get("no_quote_reason","NO_USABLE_GUIDE")
+                            report["no_quote_reasons"][reason]=report["no_quote_reasons"].get(reason,0)+1
                         continue
                     report["eligible_quotes"]+=1
                     if operator_run_id is not None:
                         quote["operator_run_id"]=operator_run_id
                     if reference_set_id is not None:
+                        finish=quote["finish"]
+                        report["quote_finish_counts"][finish]=report["quote_finish_counts"].get(finish,0)+1
                         report["preview"].append({"provider_id":ref["provider_id"],
                             "name":ref["name"],"card_number":ref["card_number"],
                             "source_card_id":product["id"],"source_set_id":product["card_info"]["set_id"],
                             "source_product_url":quote["source_product_url"],
+                            "finish":quote["finish"],"source_field":quote["source_field"],
                             "price_gbp_minor":quote["price_gbp_minor"],
                             "physical_valuation_eligible":False})
                     values.append((ref["provider"],ref["system_code"],ref["language"],
