@@ -1,32 +1,46 @@
-## 26 October 2026 - Catalogue coverage, artwork and book import repairs (validation pending)
+## 26 October 2026 — Catalogue recovery deployed and verified
 
-The user requested 90% physical-card pricing coverage, visible values/artwork and
-improved comics/manga data. Verified baseline: 42,482/67,065 priced or labelled
-guide references (63.34%), 10,364 blank Pokémon image URLs and 48 book records.
-90% requires 17,877 more supported values; even pricing all non-Naruto references
-would reach only 89.32%. No invented values, denominator changes, unlicensed data
-imports or incorrect print/language matches are used to claim the target.
+The live implementation pass added **480 supported card values/guides**, restored
+**3,331 missing artwork links**, expanded comic/manga edition metadata from
+**48 to 95**, and cleared the approved R2 queue: **401 verified mirrors, zero
+eligible backlog**. Actual catalogue-query signing and private image delivery
+passed HTTP/WebP/SHA-256 verification.
 
-This release preserves dated evidence when a valid provider response has no quote,
-without renewing its evidence date; corrects PokéWallet guide provenance; runs the
-existing bounded hourly pricing batches before the long bulk pricing pass; and
-admits existing PokéWallet regional guides to raw owner displays only after exact
-identity/provenance/FX validation; and adds a default-dry-run repair for documented TCGdex image-manifest omissions.
-Artwork writes require exact identity, verified decoded CDN bytes and blank-only
-conditional updates. Misnumbered M1S and future releases are excluded; subsequent
-sparse syncs must retain the complete identity before preserving repaired artwork.
+Final physical-card pricing coverage is **42,962 / 67,065 (64.06%)**. The user’s
+90% target is **not achieved**: 17,397 additional supported values are required.
+Coverage includes explicitly labelled marketplace guides, not just
+condition-specific UK sold comparables. The 2,480 documented Pokémon Pocket
+digital references remain excluded consistently. Sealed guides cover
+2,740 / 3,890 (70.44%).
 
-A bounded Open Library monthly-dump adapter adds exact factual book-edition
-metadata with source attribution, not publisher approval, prices or cover rights.
-Pilot cap: 200 accepted editions, 64 MiB compressed, 256 MiB raw and 240 seconds.
-API bulk harvesting is not used. Conflicting source IDs/ISBNs are rejected and
-existing inventory remains separate. No migration or new Railway service.
+Artwork URLs are populated for **62,512 / 69,545 references**; **7,033 remain
+blank**. Every newly repaired image was decoded and verified, but this does not
+assert that every pre-existing external URL loads. The 95 book editions contain
+reviewed factual metadata; comprehensive books, covers and values remain open.
 
-CI, actual artwork counts and book import are pending at this implementation
-commit. Record production receipts before claiming coverage or media completion.
-Existing nonblank image URLs are not proof that all artwork loads. Refer to
-POKEMON_ARTWORK_REPAIR_20261026.md and BOOK_OPENLIBRARY_EDITION_IMPORT_20261026.md
-in docs for source evidence, limits and recovery.
+PRs #736–#747 implement source-date preservation, bounded hourly refresh order,
+exact display/mapping repairs, reviewed book imports, safe R2 backfill, exact
+Hidden Fates/Generations/OP-16/Fusion guides and explicit V1 foil selection.
+The final backend suite passed **6,880 tests**, dashboard checks and n8n build;
+independent reviews cleared source/variant and operator safeguards.
+
+The final foil import committed **36 of 46 previewed guides** before the
+existing provider `SHARED_QUOTA_LOW` guard stopped it. Ten SB01 guides remain
+unapplied. Their identities and durable complete/incomplete receipts are saved
+in the implementation report. No quota bypass or paid feed was introduced.
+
+Normal deployment `cef03cbd-f59b-4815-abbc-22b9cc19abf6` is **SUCCESS**, readiness
+**HTTP 200**, with the original predeploy checks restored and no one-off import
+command. All 616 inventory rows retain their full-row checksum. Current prices,
+ownership and Store Prices remain authoritative in Supabase.
+
+Private R2 history contains **39,045 verified rows across nine archives**.
+Database size is **356,215,955 bytes**, below the unchanged refresh guard.
+Recurring DR94 remains inactive pending actual scheduler/error-routing proof;
+the broad reference-image cache remains source-permission gated.
+
+See [production receipts, final counts and resume order](docs/CATALOGUE_COMPLETION_RUN_20261026.md)
+and [machine-readable checkpoint](docs/CATALOGUE_COMPLETION_COUNTS_20261026.json).
 
 ## 26 October 2026 - R2 history archival live verified
 

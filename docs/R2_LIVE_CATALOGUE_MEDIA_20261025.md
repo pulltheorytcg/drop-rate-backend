@@ -1,5 +1,34 @@
 # Drop Rate — live catalogue artwork from private R2 (25 October 2026)
 
+## 26 October 2026 — verified production checkpoint
+
+The approved backlog is complete: **401 eligible assets have verified private R2
+mirrors and zero eligible assets remain pending**. This run transferred the 398
+assets remaining after the three-image pilot, in bounded passes of 5, 155, 165
+and 73 with zero failures. Provider breakdown: TCGdex 175, Punk Records 214,
+Bandai Official 6, Bandai One Piece Official 6.
+
+Live delivery is enabled and verified through the actual catalogue-product query
+and signing helper. A signed image GET returned HTTP 200/WebP and matched the
+stored SHA-256 and byte count; the JSON retained its original-source fallback
+and stripped raw object keys. The bucket remains private.
+
+PR740 added redirect rejection, strict download size/time limits and a bounded
+administrator backfill operator that releases database leases before network
+work, rechecks current rights/source identity and reports committed outcomes.
+PR745 connects the **inactive** DR94 export to DR90. Recurring DR94 activation
+still awaits stored-workflow, actual scheduler execution and controlled
+failure-routing proof; copying the approved backlog does not prove recurrence.
+
+The broad reference-image mirror count remains zero. Approval for these 401
+canonical assets does not authorize caching every reference image. The full
+reference catalogue remains in Supabase; artwork repair separately restored
+3,331 verified links, leaving 7,033 blank URLs. Current market values also
+remain in Supabase; R2 history archival is a separate verified process.
+
+See [the implementation receipts and remaining gaps](CATALOGUE_COMPLETION_RUN_20261026.md).
+The rollout steps below remain the runbook; this checkpoint records what is live.
+
 ## Architecture and scope
 
 The 69,545-reference-card Postgres/Supabase catalogue remains the **live search,
