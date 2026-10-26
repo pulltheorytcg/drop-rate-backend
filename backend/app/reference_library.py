@@ -51,10 +51,16 @@ async def save_reference_set(connection, record, cards):
                 set_id=excluded.set_id,name=excluded.name,card_number=excluded.card_number,
                 number_key=excluded.number_key,finish=excluded.finish,rarity=excluded.rarity,
                 image_url=case when tcg.reference_cards.set_id=excluded.set_id and tcg.reference_cards.name=excluded.name
+                  and tcg.reference_cards.card_number=excluded.card_number
+                  and tcg.reference_cards.source_url=excluded.source_url
+                  and (tcg.reference_cards.evidence->>'provider_local_id') is not distinct from (excluded.evidence->>'provider_local_id')
                   then coalesce(excluded.image_url,tcg.reference_cards.image_url) else excluded.image_url end,
                 source_url=excluded.source_url,
                 evidence=case when excluded.image_url is null
                   and tcg.reference_cards.set_id=excluded.set_id and tcg.reference_cards.name=excluded.name
+                  and tcg.reference_cards.card_number=excluded.card_number
+                  and tcg.reference_cards.source_url=excluded.source_url
+                  and (tcg.reference_cards.evidence->>'provider_local_id') is not distinct from (excluded.evidence->>'provider_local_id')
                   and tcg.reference_cards.image_url is not null and tcg.reference_cards.evidence ? 'image_reference'
                   then excluded.evidence || jsonb_build_object('image_reference',tcg.reference_cards.evidence->'image_reference')
                   else excluded.evidence end,refreshed_at=clock_timestamp()

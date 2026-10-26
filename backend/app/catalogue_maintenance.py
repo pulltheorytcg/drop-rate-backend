@@ -318,15 +318,8 @@ async def daily_pass(pool,settings):
                 await refresh_sealed_prices(pool,actor)
                 sealed_refreshed=True
             coverage_recorded=False
-            if weekly_price_due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION):
-                # Record the complete database scope before a potentially long
-                # first fill; the final receipt then reflects its progress.
-                await record_coverage(pool,actor)
-                await warm_prices(pool,actor,settings.catalogue_price_refresh_limit,
-                                  getattr(settings,'cardtrader_api_token',''))
-                await refresh_cardmarket_values(pool,actor)
-                await record_coverage(pool,actor)
-                coverage_recorded=True
+            # Bounded hourly feeds must run before the long bulk backfill.
+            # The same lock, capacity guard, hour receipts and quotas still apply.
             pokewallet_key=getattr(settings,'pokewallet_api_key',None)
             if pokewallet_key:
                 prior=latest.get('POKEWALLET_PRICES')
@@ -416,6 +409,15 @@ async def daily_pass(pool,settings):
                     if result['writes_attempted']:
                         await record_coverage(pool,actor)
                         coverage_recorded=True
+            if weekly_price_due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION):
+                # Record the complete database scope before a potentially long
+                # first fill; the final receipt then reflects its progress.
+                await record_coverage(pool,actor)
+                await warm_prices(pool,actor,settings.catalogue_price_refresh_limit,
+                                  getattr(settings,'cardtrader_api_token',''))
+                await refresh_cardmarket_values(pool,actor)
+                await record_coverage(pool,actor)
+                coverage_recorded=True
             if (not coverage_recorded and
                 (sealed_refreshed or due(latest.get('CATALOGUE_COVERAGE'),now)
                   or coverage_lags_pricing(latest))):

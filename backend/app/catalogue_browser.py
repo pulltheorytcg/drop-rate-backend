@@ -308,13 +308,14 @@ def price_columns(entry: str, shared: bool = False) -> str:
           then case when {entry}.source_kind='SEALED_REFERENCE' then 'Sealed · Cardmarket mixed-language guide'
             when {entry}.market_quotes->0->>'valuation_role'='MIXED_NON_ENGLISH_REFERENCE'
               then 'Raw · Cardmarket Non-English regional guide (Japanese language not verified)'
-            when {entry}.market_quotes->0->>'source' in ('CARDMARKET_BULK_SINGLES','CARDMARKET_CATALOGUE') then 'Raw · Cardmarket mixed-language guide'
+            when {entry}.market_quotes->0->>'source' in ('CARDMARKET_BULK_SINGLES','CARDMARKET_CATALOGUE','POKEWALLET_POKEMON_CARDMARKET_CATALOGUE') then 'Raw · Cardmarket mixed-language guide'
             else 'Raw · Cardmarket' end end{basis}) as basis_condition,
         {stamp} as pricing_updated_at,
         case when v.market_value_minor is not null then v.valuation_source
              when {entry}.reference_value_minor is not null then case when {entry}.source_kind='SEALED_REFERENCE' then 'CARDMARKET_BULK'
                when {entry}.market_quotes->0->>'source'='CARDMARKET_BULK_SINGLES' then 'CARDMARKET_BULK_SINGLES'
                when {entry}.market_quotes->0->>'source'='CARDMARKET_CATALOGUE' then 'CARDMARKET_CATALOGUE'
+               when {entry}.market_quotes->0->>'source'='POKEWALLET_POKEMON_CARDMARKET_CATALOGUE' then 'POKEWALLET_POKEMON_CARDMARKET_CATALOGUE'
                when {entry}.market_quotes->0->>'source'='TCGDEX_CARDMARKET_VARIANT' then 'TCGDEX_CARDMARKET_VARIANT'
                else 'TCGDEX_CARDMARKET' end
              {source}

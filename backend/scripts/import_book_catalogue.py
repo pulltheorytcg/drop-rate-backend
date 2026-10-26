@@ -94,7 +94,7 @@ def main():
     parser.add_argument("--state", required=True, help="Durable SQLite staging/checkpoint path")
     commands = parser.add_subparsers(dest="command", required=True)
     stage = commands.add_parser("stage")
-    stage.add_argument("--provider", choices=["GCD", "PRH", "PUBLISHER"], required=True)
+    stage.add_argument("--provider", choices=["GCD", "PRH", "PUBLISHER", "OPEN_LIBRARY"], required=True)
     stage.add_argument("--input", required=True, help="Immutable UTF-8 JSONL snapshot")
     commands.add_parser("report")
     review = commands.add_parser("review")
@@ -122,3 +122,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -236,3 +236,20 @@ async def test_gcd_issue_download_resume_both_classifications(tmp_path):
     output = tmp_path / "gcd.jsonl"; export_download(state, output)
     assert normalise("GCD", json.loads(output.read_text()))["book"]["system_code"] == "MANGA"
     state.close()
+
+
+@pytest.mark.parametrize("manga",[True,False])
+def test_open_library_dump_adapter_is_metadata_only(manga):
+    from book_bulk_samples import openlibrary
+    row=normalise("OPEN_LIBRARY",openlibrary(manga=manga))
+    validate_entry(row)
+    attrs=source_attributes(row,"test-snapshot")
+    assert attrs["identity_source"]=="OPEN_LIBRARY_CATALOGUE"
+    assert attrs["catalogue_import"]["source_snapshot"].startswith("https://archive.org/download/ol_dump_")
+    assert attrs["cover_rights_status"]=="PENDING" and attrs["publisher_reference"] is None
+    assert row["book"]["system_code"]==("MANGA" if manga else "OTHER_COMICS")
+    assert row["image_url"] is None and row["book"]["printing_number"] is None
+    forged=deepcopy(row);forged["image_url"]="https://images.penguinrandomhouse.com/cover/9781591168522"
+    with pytest.raises(ReviewRequired):
+        validate_entry(forged)
+
