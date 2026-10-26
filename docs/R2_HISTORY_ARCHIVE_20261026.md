@@ -89,3 +89,55 @@ A live one-image n8n signed-bridge test succeeded at 20:19 UTC and increased
 verified approved-media mirrors from 2 to 3. The one-shot flag was reset. Recurring
 DR94 activation remains off pending persistent-workflow review and DR90 failure
 routing. This release does not claim a full artwork migration.
+
+## Restore an existing archive
+
+Read the selected archive_id from tcg.reference_history_r2_archives. Privately
+download both objects using the receipt's endpoint, bucket and immutable keys.
+Check each SHA-256 against the registry before trusting the manifest, then check
+manifest format, row count, content root, archive digest and storage location.
+
+Preserve the original UTF-8 NDJSON lines when decompressing. Never deserialize
+and reserialize quote payloads through Python floats or JavaScript numbers:
+precise numeric values can change. Restore into an isolated PostgreSQL 17 database
+with the exact 12-column history type, timezone UTC and datestyle ISO,YMD. Build
+bounded batch JSON directly by joining original lines, and pass it as a parameter
+to json_populate_recordset, as the worker does. Keep batches at 200 rows / 2 MB.
+
+Before accepting recovery, check every canonical row_to_json(row)::text against
+its original line, md5(quotes::text) against quote_digest, total count, and the
+SHA-256 root of ordered per-row hexadecimal SHA-256 hashes. Retain original IDs
+and observation timestamps. Keep recovered records separate until all checks pass;
+recovery must not overwrite current prices, inventory or ownership.
+
+The existing verify_restore helper validates a downloaded archive through
+disposable PostgreSQL batches. archive_reference_history(cleanup=False) creates
+a new live snapshot; it does not restore an existing archive. The older Drive
+restore script accepts a different chunked-directory format.
+
+## Live verification
+
+- Implementation: [PR #734](https://github.com/pulltheorytcg/drop-rate-backend/pull/734),
+  merged commit 8f5bf7955bf8a825c1df999cd70649783153c36a.
+- Supabase migration: 20261026204421_reference_history_r2_archive. Forced RLS and
+  restricted function/table privileges read back successfully; no new security
+  advisor finding was introduced.
+- All six CI workflows passed on the final code commit, including 6,493 backend
+  tests and the PostgreSQL 17 archive integration job. Railway pre-deploy tests
+  also passed. API readiness returned HTTP 200 for both rollout stages.
+- Copy-only deployment: 3a27785b-bd0c-403e-b93f-50ad2d1010d5. Live report at
+  20:50:21 UTC was BYTES_AND_RESTORE_VERIFIED for 33,702 rows; the unchanged source
+  count and root were independently read back before enabling cleanup.
+- Cleanup deployment: 6cb32a73-5d43-4335-a57f-22ebf2dfc4ff. Receipt committed at
+  20:53:36 UTC with 33,702 rows and 54,050,816 bytes reclaimed. History relation
+  bytes fell from 54,083,584 to 32,768. Immediate database size was 353,127,571 bytes.
+- Archive ID: r2-reference-history-2881bf674573c9e2f42dd0c60e485a9d670f8812ca199db8035b365486763b37.
+  The suffix is the full-row content root; receipt stores both immutable object keys.
+- All 616 inventory records retained fingerprint b37b9df22b5ca5b6a525bc5a684d9d3c.
+  A new REFERENCE_PRICES job started at 20:53:55 UTC after the guard cleared.
+  Fresh observations can now accumulate; zero live history rows was an immediate
+  post-cleanup observation, not a permanent expectation.
+- Both archive flags are enabled. The capacity guard remains 400,000,000 bytes.
+  Cloudflare public URL is disabled, no custom domain exists, and completed objects
+  have no lifecycle expiry. Logs emitted on stderr may appear with Railway error
+  severity; interpret the structured status (ARCHIVED vs failure), not severity alone.
