@@ -179,6 +179,31 @@ def validate_hidden_fates_scope(references):
             raise ValueError('Hidden Fates Shiny Vault identity changed')
 
 
+def validate_generations_scope(references):
+    """Require the complete observed117-card g1 checklist before partitioning."""
+    suffixes={str(n) for n in range(1,84)} | {"28a","73a"} | {f"RC{n}" for n in range(1,33)}
+    expected={"g1-"+suffix for suffix in suffixes}
+    if len(references)!=117 or {r.get("provider_id") for r in references}!=expected:
+        raise ValueError("Generations requires exactly117 distinct cards")
+    for ref in references:
+        suffix=ref["provider_id"][3:]
+        if ((ref.get("provider"),ref.get("system_code"),ref.get("language"),
+             ref.get("set_id"),ref.get("set_name"),ref.get("declared_card_count")) !=
+            ("TCGdex","POKEMON_TCG","English","g1","Generations",117)
+            or ref.get("card_number")!=suffix+"/83"):
+            raise ValueError("Generations identity changed")
+
+
+def bounded_references(references, set_id):
+    if set_id=="sma":
+        validate_hidden_fates_scope(references)
+        return references
+    if set_id=="g1":
+        validate_generations_scope(references)
+        return [r for r in references if r["provider_id"].startswith("g1-RC")]
+    raise ValueError("Unsupported bounded Pokemon pricing scope")
+
+
 OUTSIDE_SCOPE_CLAIMS_SQL = """select distinct q->>'product_id' as product_id
  from tcg.reference_catalogue_prices p
  cross join lateral jsonb_array_elements(p.quotes) q
@@ -199,14 +224,14 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
                                           reference_set_id=None, dry_run=False):
     # The scheduled default is unchanged. The bounded operator path is
     # deliberately restricted to the one reviewed complete subset.
-    if reference_set_id not in (None, 'sma') or type(dry_run) is not bool:
+    if reference_set_id not in (None, 'sma', 'g1') or type(dry_run) is not bool:
         raise ValueError('Unsupported bounded Pokemon pricing scope')
 
     report = {'checked':0,'matched':0,'priced':0,'provider_failures':0,'inventory_rows_read':0}
     now = datetime.now(timezone.utc)
     scoped = reference_set_id is not None
     if scoped:
-        report.update(reference_set_id='sma', dry_run=dry_run, writes_attempted=0,
+        report.update(reference_set_id=reference_set_id, dry_run=dry_run, writes_attempted=0,
                       written=0, outside_scope_conflicts=0, preview=[])
     try:
         references = None
@@ -214,9 +239,9 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
             async with user_connection(pool,actor,str(uuid4())) as connection:
                 references = [dict(row) for row in await connection.fetch(
                     READ_SQL + " and r.set_id=$1", reference_set_id)]
-            validate_hidden_fates_scope(references)
+            bounded_references(references,reference_set_id)
             if cardtrader_client is None:
-                raise ValueError('Hidden Fates requires its explicit CardTrader identity bridge')
+                raise ValueError('Bounded pricing requires its explicit CardTrader identity bridge')
         async with httpx.AsyncClient(timeout=45,follow_redirects=False) as client:
             exports = await asyncio.gather(
                 download(client,'productList/products_singles_6.json',rows_key='products',now=now),
@@ -245,8 +270,11 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
         else:
             failed_bridge_sets = {r['set_id'] for r in references}
         if scoped:
+            report['source_checked']=len(references)
+            references=bounded_references(references,reference_set_id)
             # This targeted fill requires the reviewed explicit-number bridge.
-            matches = {key: product for key, product in matches.items() if key in bridged}
+            scope_ids={r['provider_id'] for r in references}
+            matches = {key: product for key, product in matches.items() if key in bridged and key in scope_ids}
             if report['provider_failures']:
                 raise ValueError('Bounded pricing source did not complete')
             async with user_connection(pool,actor,str(uuid4())) as connection:
@@ -263,6 +291,10 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
         conversion = await fx.quote(base_currency='EUR',quote_currency='GBP',at=observed)
         values = []
         for ref in references:
+            if ref["set_id"]=="g1" and "g1" in failed_bridge_sets:
+                # An incomplete partition cannot invalidate an existing exact
+                # guide or replace it with a weaker name-only bulk match.
+                continue
             product = matches.get(ref['provider_id'])
             price = prices.get(str(product['idProduct'])) if product else None
             quotes = quotes_for(ref,product,price,observed,conversion)
@@ -297,7 +329,7 @@ async def refresh_pokemon_catalogue_prices(pool, actor, fx, *, cardtrader_client
                         raise ValueError('Database capacity blocks bounded pricing writes')
                     current = [dict(row) for row in await connection.fetch(
                         READ_SQL + " and r.set_id=$1", reference_set_id)]
-                    validate_hidden_fates_scope(current)
+                    current=bounded_references(current,reference_set_id)
                     # Recheck all outside claims inside the same transaction as
                     # persistence; the CLI holds the scheduled maintenance lock.
                     if await outside_scope_claims(connection, current, matches):

@@ -14,11 +14,21 @@ MAINTENANCE_LOCK = 847220092
 
 
 async def refresh_hidden_fates(pool, actor, cardtrader_client, fx, *, apply=False, max_seconds=120):
+    return await _refresh_subset(pool,actor,cardtrader_client,fx,apply=apply,max_seconds=max_seconds,
+        set_id="sma",version=VERSION,receipt_source="hidden_fates_catalogue_prices")
+
+
+async def refresh_generations_radiant(pool, actor, cardtrader_client, fx, *, apply=False, max_seconds=120):
+    return await _refresh_subset(pool,actor,cardtrader_client,fx,apply=apply,max_seconds=max_seconds,
+        set_id="g1",version="GENERATIONS_RADIANT_PRICE_FILL_V1",receipt_source="generations_radiant_catalogue_prices")
+
+
+async def _refresh_subset(pool,actor,cardtrader_client,fx,*,apply,max_seconds,set_id,version,receipt_source):
     if not isinstance(actor, UUID) or type(apply) is not bool:
         raise ValueError('A UUID administrator and boolean apply are required')
     if type(max_seconds) is not int or not 1 <= max_seconds <= 240:
         raise ValueError('Time budget must be between 1 and 240 seconds')
-    report = {'version': VERSION, 'apply': apply, 'reference_set_id': 'sma',
+    report = {'version': version, 'apply': apply, 'reference_set_id': set_id,
               'status': 'NOT_STARTED', 'written': 0, 'max_seconds': max_seconds}
     request_id = str(uuid4())
     async with pool.acquire() as lock:
@@ -36,11 +46,11 @@ async def refresh_hidden_fates(pool, actor, cardtrader_client, fx, *, apply=Fals
                     return report
                 if apply:
                     run_id = await connection.fetchval("""insert into tcg.reference_sync_runs(source,status)
-                        values('hidden_fates_catalogue_prices','RUNNING') returning id""")
+                        values($1,'RUNNING') returning id""",receipt_source)
             try:
                 result = await asyncio.wait_for(refresh_pokemon_catalogue_prices(
                     pool, actor, fx, cardtrader_client=cardtrader_client,
-                    reference_set_id='sma', dry_run=not apply), timeout=max_seconds)
+                    reference_set_id=set_id, dry_run=not apply), timeout=max_seconds)
                 report.update(result)
                 failed = bool(result.get('provider_failures'))
                 incomplete = apply and result.get('written', 0) != result.get('priced', 0)
