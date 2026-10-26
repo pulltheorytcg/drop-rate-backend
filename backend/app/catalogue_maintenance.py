@@ -21,6 +21,7 @@ from .db import user_connection
 from .fx import EcbHistoricalFxProvider
 from .database_capacity import check_database_capacity
 from .archive_backlog import archive_check_window, check_archive_backlog
+from .reference_history_archive import archive_reference_history
 from .reference_feeds import ReferenceFeeds
 from .reference_library import save_reference_set
 from .reference_market import REVISION, refresh_reference_prices
@@ -471,11 +472,28 @@ async def shopify_pass(pool,settings):
 
 async def run_loop(pool,settings,*,shopify=False,wakeup=None):
     last_archive_window_checked = None
+    next_r2_archive_check = 0.0
     while True:
         # Clear BEFORE scanning: an approval during a pass must cause another
         # pass, not disappear into a subsequent clear/sleep race.
         if wakeup is not None:wakeup.clear()
         if not shopify:
+            # This executes before the capacity guard, including on startup.
+            # Bound retries to once/hour per process; DB advisory locking and
+            # content receipts protect overlapping deployments and retries.
+            loop_time = asyncio.get_running_loop().time()
+            if (getattr(settings, "history_r2_archive_enabled", False)
+                    and loop_time >= next_r2_archive_check):
+                next_r2_archive_check = loop_time + 3600
+                try:
+                    result = await archive_reference_history(
+                        pool, UUID(settings.catalogue_maintenance_actor_user_id),
+                        cleanup=getattr(settings, "history_r2_archive_cleanup_enabled", False))
+                    log.warning("CATALOGUE_R2_HISTORY_ARCHIVE %s", json.dumps(result, sort_keys=True))
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    log.error("CATALOGUE_R2_HISTORY_ARCHIVE_FAILED type=%s", type(exc).__name__)
             # Observe once per eligible UK day without making *any* history
             # changes. Works even when the 400 MB price guard defers imports.
             window = archive_check_window(datetime.now(timezone.utc))

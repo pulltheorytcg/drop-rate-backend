@@ -181,7 +181,8 @@ def create_app() -> FastAPI:
     except ObjectStorageError:
         mirror_config = None
     r2_img_origin = (" " + mirror_config.endpoint.rstrip("/")) if (
-        mirror_config and os.getenv('TCG_R2_MEDIA_DELIVERY_ENABLED', 'false').lower() in ('true', '1')
+        mirror_config and any(os.getenv(flag, 'false').lower() in ('true', '1') for flag in (
+            'TCG_R2_MEDIA_DELIVERY_ENABLED', 'TCG_R2_REFERENCE_CACHE_DELIVERY_ENABLED'))
     ) else ""
     configure_market_adapters(settings)
 
