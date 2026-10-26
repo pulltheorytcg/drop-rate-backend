@@ -32,7 +32,7 @@ async def main():
       create function tcg.is_platform_admin() returns boolean language sql stable as
        $$select exists(select 1 from tcg.owner_memberships where user_id=tcg.current_user_id() and active and role='PLATFORM_ADMIN')$$;
       create table tcg.catalogue_products(id uuid primary key,product_type text,game text,name text,set_name text,card_number text,variant text,rarity text,language text);
-      create table tcg.catalogue_product_profiles(catalogue_id uuid,set_code text,identity_status text);
+      create table tcg.catalogue_product_profiles(catalogue_id uuid,set_code text,identity_status text,system_code text);
       create table tcg.sealed_product_details(catalogue_id uuid,identity_status text);
       create table tcg.catalogue_taxonomy_assignments(catalogue_id uuid,value_code text,scope_kind text,dimension_code text,verification_status text,created_at timestamptz);
       create table tcg.inventory_items(id uuid primary key,owner_id uuid,inventory_code text,catalogue_id uuid,version int,status text,identity_confirmed boolean,
