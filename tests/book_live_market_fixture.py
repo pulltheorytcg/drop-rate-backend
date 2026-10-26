@@ -11,7 +11,7 @@ from app.inventory_reference_values import add_shared_reference_values
 
 
 async def exercise(db,pool,actor,other):
-    await db.execute('''alter table tcg.catalogue_product_profiles add column system_code text,add column collectible_type text;
+    await db.execute('''alter table tcg.catalogue_product_profiles add column collectible_type text;
         alter table tcg.inventory_items add column notes text;
         alter table tcg.market_observations add column ingested_at timestamptz default now();
         create table tcg.comic_printing_details(catalogue_id uuid primary key,system_code text,series_title text,
