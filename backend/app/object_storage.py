@@ -124,6 +124,38 @@ class S3ObjectStorage:
         if size != expected_size or digest.hexdigest() != expected_sha256:
             raise ObjectStorageError("Remote object failed byte-for-byte SHA-256 verification")
 
+    def download_verified_file(self, key: str, target: Path, *, expected_sha256: str, expected_size: int) -> None:
+        """Download a bounded private history object for typed restore verification.
+
+        Only trusted worker-created paths and content-addressed history keys are
+        accepted. Never use this as a public arbitrary-object download endpoint.
+        """
+        prefix = re.escape(f"{self.config.prefix}/reference-history/")
+        if (not isinstance(expected_sha256, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256)
+                or not isinstance(key, str)
+                or not re.fullmatch(prefix + re.escape(expected_sha256) + r"\.(?:ndjson\.gz|manifest\.json|json)", key)):
+            raise ObjectStorageError("Invalid private archive object identity")
+        if type(expected_size) is not int or not 0 < expected_size <= 130_000_000:
+            raise ObjectStorageError("Invalid bounded archive size")
+        if target.exists() or target.is_symlink():
+            raise ObjectStorageError("Archive download destination must be new")
+        digest, size = hashlib.sha256(), 0
+        response = self.client.get_object(Bucket=self.config.bucket, Key=key)
+        body = response["Body"]
+        try:
+            with target.open("xb") as output:
+                for block in iter(lambda: body.read(1024 * 1024), b""):
+                    size += len(block)
+                    if size > expected_size:
+                        raise ObjectStorageError("Downloaded archive length differs")
+                    digest.update(block)
+                    output.write(block)
+            if size != expected_size or digest.hexdigest() != expected_sha256:
+                raise ObjectStorageError("Downloaded archive failed SHA-256 verification")
+        finally:
+            body.close()
+
     def put_verified_file(
         self,
         path: Path,
@@ -230,3 +262,4 @@ def configured_object_storage() -> S3ObjectStorage | None:
     """One SDK client per app process; R2 configuration changes restart Railway."""
     config = ObjectStorageConfig.from_env()
     return S3ObjectStorage(config) if config else None
+

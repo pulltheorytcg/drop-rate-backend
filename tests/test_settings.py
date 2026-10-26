@@ -163,3 +163,25 @@ def test_automation_command_secret_is_optional_server_side(monkeypatch):
 
     monkeypatch.setenv("TCG_AUTOMATION_COMMAND_SECRET", "x" * 32)
     assert Settings.from_env().automation_command_secret == "x" * 32
+
+def test_r2_archive_rollout_defaults_to_disabled_and_copy_only(monkeypatch):
+    _base_env(monkeypatch)
+    monkeypatch.delenv("TCG_HISTORY_R2_ARCHIVE_ENABLED", raising=False)
+    monkeypatch.delenv("TCG_HISTORY_R2_ARCHIVE_CLEANUP_ENABLED", raising=False)
+    settings=Settings.from_env()
+    assert settings.history_r2_archive_enabled is False
+    assert settings.history_r2_archive_cleanup_enabled is False
+    monkeypatch.setenv("TCG_HISTORY_R2_ARCHIVE_ENABLED","true")
+    settings=Settings.from_env()
+    assert settings.history_r2_archive_enabled is True
+    assert settings.history_r2_archive_cleanup_enabled is False
+
+
+@pytest.mark.parametrize("flag", [
+    "TCG_HISTORY_R2_ARCHIVE_ENABLED","TCG_HISTORY_R2_ARCHIVE_CLEANUP_ENABLED"
+])
+def test_r2_archive_flags_reject_ambiguous_configuration(monkeypatch,flag):
+    _base_env(monkeypatch)
+    monkeypatch.setenv(flag,"maybe")
+    with pytest.raises(RuntimeError,match="must be a boolean"):
+        Settings.from_env()

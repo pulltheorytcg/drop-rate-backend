@@ -130,3 +130,67 @@ async def test_failed_archive_probe_does_not_disable_shopify_or_existing_catalog
     assert events==["archive-probe-failed","existing-guarded-pass"]
     assert "CATALOGUE_ARCHIVE_BACKLOG_CHECK_FAILED type=PermissionError" in caplog.text
     assert "Do not expose DB role" not in caplog.text
+
+@pytest.mark.asyncio
+async def test_r2_archive_runs_before_capacity_guard_and_only_once_per_hour(monkeypatch):
+    events=[]
+    async def archive(_pool, actor, *, cleanup):
+        events.append(("archive", cleanup))
+        return {"status":"BYTES_AND_RESTORE_VERIFIED","row_count":3}
+    async def daily(*args):
+        events.append(("capacity-guarded-pass", None))
+    sleeps=0
+    async def no_sleep(*args):
+        nonlocal sleeps
+        sleeps+=1
+        if sleeps==2:
+            raise asyncio.CancelledError
+    monkeypatch.setattr(maintenance,"archive_reference_history",archive)
+    monkeypatch.setattr(maintenance,"daily_pass",daily)
+    monkeypatch.setattr(maintenance,"archive_check_window",lambda _:None)
+    monkeypatch.setattr(maintenance.asyncio,"sleep",no_sleep)
+    settings=SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4()),
+        history_r2_archive_enabled=True,history_r2_archive_cleanup_enabled=False)
+    with pytest.raises(asyncio.CancelledError):
+        await maintenance.run_loop(object(),settings)
+    assert events==[("archive",False),("capacity-guarded-pass",None),("capacity-guarded-pass",None)]
+
+
+@pytest.mark.asyncio
+async def test_r2_archive_failure_preserves_capacity_guard_and_redacts_error(monkeypatch,caplog):
+    events=[]
+    async def archive(*args,**kwargs):
+        events.append("archive")
+        raise RuntimeError("SECRET-credential-host")
+    async def daily(*args):
+        events.append("guarded-pass")
+    async def no_sleep(*args):
+        raise asyncio.CancelledError
+    monkeypatch.setattr(maintenance,"archive_reference_history",archive)
+    monkeypatch.setattr(maintenance,"daily_pass",daily)
+    monkeypatch.setattr(maintenance,"archive_check_window",lambda _:None)
+    monkeypatch.setattr(maintenance.asyncio,"sleep",no_sleep)
+    settings=SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4()),
+        history_r2_archive_enabled=True,history_r2_archive_cleanup_enabled=True)
+    with pytest.raises(asyncio.CancelledError):
+        await maintenance.run_loop(object(),settings)
+    assert events==["archive","guarded-pass"]
+    assert "CATALOGUE_R2_HISTORY_ARCHIVE_FAILED type=RuntimeError" in caplog.text
+    assert "SECRET" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_shopify_loop_never_runs_r2_archive(monkeypatch):
+    async def forbidden(*args,**kwargs):
+        pytest.fail("Shopify reconciliation attempted history archival")
+    async def shopify(*args):
+        pass
+    async def no_sleep(*args):
+        raise asyncio.CancelledError
+    monkeypatch.setattr(maintenance,"archive_reference_history",forbidden)
+    monkeypatch.setattr(maintenance,"shopify_pass",shopify)
+    monkeypatch.setattr(maintenance.asyncio,"sleep",no_sleep)
+    settings=SimpleNamespace(catalogue_maintenance_actor_user_id=str(uuid4()),
+        history_r2_archive_enabled=True,history_r2_archive_cleanup_enabled=True)
+    with pytest.raises(asyncio.CancelledError):
+        await maintenance.run_loop(object(),settings,shopify=True)

@@ -1,5 +1,41 @@
 # Build status
 
+## 26 October 2026 - Verified R2 history archival (release verification pending)
+
+The founder requested continuation of the latest Polish App Blockers/R2 work.
+Live audit confirmed API release 80cb515a, Supabase at 405,613,715 bytes, and
+33,702 new immutable history rows after today's verified 49,290-row Drive archive.
+The 400 MB capacity guard is correctly deferring bulk catalogue refreshes; it is
+not being relaxed. Railway API has no persistent volume; n8n storage is not full.
+
+This release adds a bounded, opt-in R2 archive cycle to the existing catalogue
+worker before the capacity guard. It exports canonical PostgreSQL row JSON,
+verifies downloaded object bytes, performs typed restore/hash checks, verifies
+the manifest, and only then may invoke a private admin-gated cleanup function.
+The final fresh READ COMMITTED transaction locks and rechecks the entire history
+table; concurrent changes refuse cleanup. Receipt insertion and verified
+truncation are atomic. Retries never truncate subsequently recorded history.
+Current prices, owners, inventory, Store Prices and settlements remain unchanged
+by the archive operation. Both archive flags default off for staged verification.
+
+An independent CSP defect is fixed: either R2 delivery mode can permit its
+configured HTTPS image origin. Broad reference-artwork caching remains gated;
+R2 cannot supply missing source images or permission to reproduce them.
+
+The live n8n signed bridge probe passed at 20:19 UTC, mirrored one already-approved
+asset, and verified mirror count increased from 2 to 3. Probe flag was reset and
+n8n deployment 5506d06d-9a4b-4453-a77b-11020fd4b625 reached SUCCESS. Recurring DR94
+publication remains disabled pending persistent-workflow and error-route checks.
+
+Pricing receipt at 17:39 UTC: 42,482 / 67,065 physical references have a supported
+value or explicitly labelled guide (63.34%). Full card index: 69,545 including
+2,480 digital records. Neither 90% nor the existing 95% coverage target is met.
+Do not describe archive completion as new pricing or artwork coverage.
+Tests, production migration, deployment and archive receipt are pending at this
+commit and must be read back before marking the release live verified.
+See [archive contract and rollout](docs/R2_HISTORY_ARCHIVE_20261026.md).
+
+
 ## 24 October 2026 - Pricing recovery (live verified, PR #699)
 
 PR #699 is merged as 7b22901e0b90ad4d377a00048bbae6d9c30a0159.
