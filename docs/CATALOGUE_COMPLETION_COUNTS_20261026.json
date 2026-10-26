@@ -1,0 +1,55 @@
+{
+  "audited_at": "2026-10-26 23:44:45.346033+00",
+  "coverage": [
+    {
+      "kind": "CARD",
+      "priced": 42962,
+      "eligible": 67065
+    },
+    {
+      "kind": "SEALED",
+      "priced": 2740,
+      "eligible": 3890
+    }
+  ],
+  "book_editions": 95,
+  "approved_r2_mirrors": 401,
+  "broad_reference_mirrors": 0,
+  "reference_cards": 69545,
+  "missing_artwork_urls": 7033,
+  "r2_history": {
+    "archives": 9,
+    "archived_rows": 39045,
+    "latest_archive": "2026-10-26 23:45:26.559087+00"
+  },
+  "database_bytes": 356215955,
+  "inventory_rows": 616,
+  "inventory_fingerprint": "07764a89893ce22080b0659ea63a4def",
+  "generations_base85_fingerprint": "d9c85dbc52b978c9fcaed0122c987e24",
+  "archive_audited_at": "2026-10-26 23:45:35.359534+00",
+  "pricing_includes_labelled_guides": true,
+  "card_pricing_percent": 64.06,
+  "card_pricing_gain": 480,
+  "additional_values_required_for_90_percent": 17397,
+  "artwork_url_presence_is_not_full_remote_load_proof": true,
+  "approved_r2_backlog": 0,
+  "r2_backlog_audited_at": "2026-10-26T23:42:17.035586+00:00",
+  "normal_deployment": "cef03cbd-f59b-4815-abbc-22b9cc19abf6",
+  "normal_deployment_status": "SUCCESS",
+  "readiness_http_status": 200,
+  "original_predeploy_restored": true,
+  "operator_commands_in_normal_deployment": false,
+  "code_commit": "f20ab44755fbe11e03869c280c6c9f3a817edd79",
+  "remaining_foil_ids": [
+    "583201:SB01-036",
+    "583201:SB01-030",
+    "583201:SB01-033",
+    "583201:SB01-057",
+    "583201:SB01-050",
+    "583201:SB01-051",
+    "583201:SB01-018",
+    "583201:SB01-019",
+    "583201:SB01-045",
+    "583201:SB01-049"
+  ]
+}
