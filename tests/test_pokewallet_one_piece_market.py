@@ -421,3 +421,76 @@ async def test_duplicate_provider_ids_only_collapse_identical_rows(monkeypatch,c
     assert len(writes)==expected_writes
     assert result['collapsed_identical_duplicate_rows']==(0 if conflicting else 1)
     assert result['skipped_invalid_sets']==int(conflicting)
+
+def op16(**fields):
+    row=en(provider_id="OP16-032",card_number="OP16-032",name="Boa Hancock",
+           set_id="569116",set_name="The Time of Battle [OP-16]",rarity="SR")
+    row.update(fields)
+    return row
+
+
+def test_reviewed_prefixless_release_requires_exact_official_identity():
+    assert market.code_from_reference(op16())=="OP16"
+    for ref in (op16(provider="Punk Records"),op16(set_id="other"),
+                op16(set_name="Other Printing [OP-16]"),
+                op16(provider_id="OP16-032_p1"),op16(card_number="OP15-032"),
+                op16(language="Japanese")):
+        assert market.code_from_reference(ref) is None
+    assert market.code_from_reference(en(set_name="Other [OP-01]")) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dry_run,expected_writes",[(True,0),(False,1)])
+async def test_op16_scope_never_fetches_or_writes_other_releases(monkeypatch,dry_run,expected_writes):
+    writes=[]
+    @asynccontextmanager
+    async def connection(*args):
+        class Conn:
+            async def fetch(self,sql):return [en(),op16()]
+            async def executemany(self,sql,rows):writes.extend(rows)
+        yield Conn()
+    monkeypatch.setattr(market,"user_connection",connection)
+    product=card(id="op_boa",card_number="OP16-032",name="Boa Hancock",rarity="SR")
+    payload=set_response(product,language="en",group_id="16") | {
+        "set":{"set_code":"OP16","group_id":"16","language":"en"}}
+    http=FakeHttp(first=payload,second={
+        "Japanese":{"success":True,"data":[]},
+        "English":{"success":True,"data":[
+            {"set_code":"OP01","group_id":"1","language":"en"},
+            {"set_code":"OP16","group_id":"16","language":"en"}]}})
+    class FX:
+        async def quote(self,**kwargs):
+            return FxQuote("EUR","GBP",Decimal(".86"),NOW,NOW,"ECB_EURO_REFERENCE_RATES")
+    run_id=str(uuid4())
+    result=await market.refresh_pokewallet_one_piece(object(),uuid4(),FX(),"pk_live_secret_fixture",
+        dry_run=dry_run,request_limit=60,http_client=http,reference_set_id="569116",
+        operator_run_id=run_id)
+    assert result["requests"]==3 and result["target_groups"]==1
+    assert result["preview"][0]["provider_id"]=="OP16-032"
+    assert result["preview"][0]["physical_valuation_eligible"] is False
+    assert result["writes_attempted"]==expected_writes and len(writes)==expected_writes
+    assert all(row[3]=="OP16-032" for row in writes)
+    assert all(row[4][0]["operator_run_id"]==run_id for row in writes)
+    assert not any(url.endswith("/1") for url,_ in http.calls)
+
+
+@pytest.mark.asyncio
+async def test_unknown_operator_scope_rejected_before_any_database_call():
+    with pytest.raises(ValueError,match="UNREVIEWED_REFERENCE_SET"):
+        await market.refresh_pokewallet_one_piece(None,uuid4(),None,"fixture",
+            reference_set_id="other")
+
+
+def test_op16_scope_does_not_resolve_conflicting_catalogue_printings():
+    competing=op16(set_id="other",set_name="BOOSTER PACK -OTHER PRINTING- [OP-16]")
+    assert not market.collect_reference_groups([op16(),competing],NOW)
+    assert not market.quote_eligible(op16(has_detail_value=True),NOW)
+    assert not market.quote_eligible(op16(existing_catalogue_value=500,existing_source="OTHER"),NOW)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scope,run_id",[(None,str(uuid4())),("569116","not-a-uuid")])
+async def test_operator_attribution_requires_exact_scope_and_uuid(scope,run_id):
+    with pytest.raises(ValueError):
+        await market.refresh_pokewallet_one_piece(None,uuid4(),None,"fixture",
+            reference_set_id=scope,operator_run_id=run_id)

@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from math import ceil
 from urllib.parse import urlsplit
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 
@@ -41,6 +41,12 @@ JP_CARDMARKET_NAME = re.compile(
 )
 SET_MARKER = re.compile(r"\[((?:OP|EB|PRB|ST)-?\d{2})(?:-?EB\d{2})?\]$")
 JP_MARKER = re.compile(r"【((?:OP|EB|PRB|ST)-?\d{2})】$")
+# Exact locally imported official checklist whose title omits the product prefix.
+# https://en.onepiece-cardgame.com/products/op16.html
+# https://en.onepiece-cardgame.com/cardlist/?series=569116
+PREFIXLESS_ENGLISH_RELEASES = {
+    ("Bandai Official", "569116", "The Time of Battle [OP-16]"): "OP16",
+}
 JP_SET_PREFIXES = ("ブースターパック ", "エクストラブースター ",
                    "プレミアムブースター ", "スタートデッキ ", "アルティメットデッキ ")
 RARITIES = {
@@ -108,8 +114,9 @@ def code_from_reference(ref: dict) -> str | None:
     else:
         # The full Bandai/Punk release identity must be recognised; the
         # bracketed OP/ST code alone is not proof for an arbitrary promo.
-        if (not re.match(r"^(?:BOOSTER PACK|EXTRA BOOSTER|PREMIUM BOOSTER|STARTER DECK|ULTRA DECK)\b",name,re.I)
-                or release_identity(name) is None):
+        reviewed = PREFIXLESS_ENGLISH_RELEASES.get((ref.get("provider"),ref.get("set_id"),name))
+        prefixed = re.match(r"^(?:BOOSTER PACK|EXTRA BOOSTER|PREMIUM BOOSTER|STARTER DECK|ULTRA DECK)\b",name,re.I)
+        if ((not prefixed and not reviewed) or release_identity(name) is None):
             return None
         marker = SET_MARKER.search(name)
     if marker is None:
@@ -422,12 +429,19 @@ class FreePokewalletOnePieceClient:
 async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                                        dry_run: bool=True, request_limit: int=MAX_FREE_REQUESTS_PER_RUN,
                                        previous_cursor: str | None=None,
-                                       http_client=None) -> dict:
+                                       http_client=None,
+                                       reference_set_id: str | None=None,
+                                       operator_run_id: str | None=None) -> dict:
     """One bounded free API pass, with dry-run by default and a round-robin cursor.
 
     The caller holds the existing global catalogue advisory lock and records
     the daily receipt. Nothing touches inventory, Store Price or Shopify.
     """
+    if reference_set_id not in (None,"569116"):
+        raise ValueError("UNREVIEWED_REFERENCE_SET")
+    if operator_run_id is not None:
+        if reference_set_id != "569116" or str(UUID(operator_run_id)) != operator_run_id:
+            raise ValueError("INVALID_OPERATOR_RUN_ID")
     now=datetime.now(timezone.utc)
     budget=min(request_limit,12 if dry_run else MAX_FREE_REQUESTS_PER_RUN)
     result={"source":SOURCE,"dry_run":dry_run,"requests":0,"set_pages":0,
@@ -439,12 +453,22 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
             "skipped_invalid_sets":0,"invalid_set_samples":[],
             "matching_printings":0,"eligible_quotes":0,
             "writes_attempted":0,"provider_failures":0,"cursor":previous_cursor}
+    if reference_set_id is not None:
+        budget=min(budget,10)
+        result.update(reference_set_id=reference_set_id,preview=[])
     client=FreePokewalletOnePieceClient(api_key,request_limit=budget)
     try:
         async with user_connection(pool,actor,str(uuid4())) as connection:
             refs=[dict(r) for r in await connection.fetch(READ_SQL)]
         result["checked_references"]=len(refs)
         groups=collect_reference_groups(refs,now)
+        if reference_set_id is not None:
+            # First retain complete-catalogue identity collision checks, then
+            # restrict writes to the reviewed English OP-16 base references.
+            groups={key:rows for key,rows in groups.items()
+                    if key[:2]==("English","OP16") and
+                    all(r["provider"]=="Bandai Official" and r["set_id"]==reference_set_id
+                        and r["set_name"]=="The Time of Battle [OP-16]" for r in rows)}
         result["wanted_base_printings"]=sum(map(len,groups.values()))
         if not groups:
             return result
@@ -562,6 +586,14 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                         if quote is None:
                             continue
                         result["eligible_quotes"]+=1
+                        if operator_run_id is not None:
+                            quote["operator_run_id"]=operator_run_id
+                        if reference_set_id is not None:
+                            result["preview"].append({"provider_id":ref["provider_id"],
+                                "name":ref["name"],"card_number":ref["card_number"],
+                                "source_card_id":product["id"],"price_gbp_minor":quote["price_gbp_minor"],
+                                "source_product_url":quote["source_product_url"],
+                                "physical_valuation_eligible":False})
                         values.append((ref["provider"],ref["system_code"],ref["language"],
                             ref["provider_id"],[quote],quote["price_gbp_minor"],quote["price_gbp_minor"],
                             now,now,now+timedelta(days=1),ref["name"],ref["set_id"],
