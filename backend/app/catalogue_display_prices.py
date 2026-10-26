@@ -12,7 +12,7 @@ import json
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from .inventory_catalogue_reference import PRODUCTS_SQL, CACHE_SQL, catalogue_guide, reference_candidates
+from .inventory_catalogue_reference import PRODUCTS_SQL, CACHE_SQL, catalogue_guide, reference_candidates, catalogue_number_key
 from .inventory_reference_values import REFERENCE_VALUES_SQL, resolve_reference_value
 from .language import clean_language
 from .recognition_games import SYSTEM_BY_GAME, collector_key
@@ -83,14 +83,14 @@ lookups use its number-key index in batches, retaining every parallel candidate.
     products = [dict(p) for p in await connection.fetch(PRODUCTS)]
     if rows is not None:
         keys = {collector_key(r.get('card_number')) for r in rows}
-        products = [p for p in products if collector_key(p.get('card_number')) in keys]
+        products = [p for p in products if collector_key(p.get('card_number')) in keys or catalogue_number_key(p) in keys]
     products = [p for p in products if not p.get('blocked') and p.get('game') in SYSTEM_BY_GAME
                 and collector_key(p.get('card_number'))]
     references, snapshots = [], []
     for start in range(0, len(products), 100):
         batch = products[start:start+100]
         lookups = [dict(catalogue_id=str(p['id']), system_code=SYSTEM_BY_GAME[p['game']],
-                        number_key=collector_key(p['card_number'])) for p in batch]
+                        number_key=catalogue_number_key(p)) for p in batch]
         references.extend(dict(r) for r in await connection.fetch(CACHE_SQL, json.dumps(lookups)))
         snapshots.extend(dict(r) for r in await connection.fetch(REFERENCE_VALUES_SQL, [p['id'] for p in batch], now))
     result=shared_prices(products, references, snapshots, now=now)

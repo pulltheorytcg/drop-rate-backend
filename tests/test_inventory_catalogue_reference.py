@@ -303,3 +303,113 @@ def test_detailed_quote_still_wins_over_pokewallet_regional_guide():
     value=catalogue_guide(product, [ref], 'Japanese', now=NOW)
     assert value['market_value_minor'] == value['market_value_high_minor'] == 170
     assert value['label'] == 'Catalogue guide' and 'PokéWallet' not in value['reason']
+
+
+def legacy_pikachu_fixture():
+    product=dict(id=uuid4(),product_type='CARD',game='Pokemon',name='Pikachu',
+        set_name='Base Set (Unlimited)',card_number='58',variant='Normal',
+        rarity='Common',language=None,blocked=False)
+    quote=dict(source='TCGDEX_CARDMARKET_VARIANT',finish='Normal',
+        reference_language='English',variant_label='Normal · unlimited',
+        variant_id='3a83wf50tz7q114spsx7dw6v5',product_id='273753',source_field='trend',
+        valuation_role='VARIANT_REFERENCE',physical_valuation_eligible=False,
+        price_gbp_minor=1140,original_minor=1362,original_currency='EUR',
+        fx_source='ECB_EURO_REFERENCE_RATES',fx_rate_to_gbp='0.83728',
+        observed_at=(NOW-timedelta(hours=1)).isoformat())
+    stamped=dict(quote,variant_label='Normal · unlimited · poketour-99',
+        variant_id='jnhspmmj4h1e7ohhxunqpao96lgmqwtl2ts1',product_id='275586',
+        price_gbp_minor=31318,original_minor=37405)
+    ref=dict(provider='TCGdex',system_code='POKEMON_TCG',language='English',
+        provider_id='base1-58',set_id='base1',name='Pikachu',set_name='Base Set',
+        card_number='58/102',rarity=None,quotes=[quote,stamped],catalogue_quotes=[])
+    return product,ref,quote
+
+
+def test_observed_unlimited_pikachu_uses_only_explicit_unstamped_treatment():
+    from app.inventory_catalogue_reference import catalogue_number_key
+    product,ref,quote=legacy_pikachu_fixture()
+    before=deepcopy((product,ref))
+    value=catalogue_guide(product,[ref],'English',now=NOW)
+    assert catalogue_number_key(product)=='58:/:102'
+    assert value['market_value_minor']==value['market_value_high_minor']==1140
+    assert value['label']=='Unlimited edition guide'
+    assert value['checked_at']==datetime.fromisoformat(quote['observed_at'])
+    assert value['physical_valuation_eligible'] is False and value['recommended_retail_minor'] is None
+    assert 'Normal unlimited treatment only' in value['reason']
+    assert (product,ref)==before
+
+
+@pytest.mark.parametrize('change',[
+    {'name':'Raichu'},{'card_number':'59'},{'card_number':'58/102'},
+    {'set_name':'Base Set (1st Edition)'},{'set_name':'Base Set'},
+    {'variant':'Holofoil'},{'variant':'Reverse Holofoil'},
+    {'rarity':'Rare'},{'rarity':'Unknown'},{'language':'Japanese'},
+    {'game':'One Piece'},{'blocked':True},
+])
+def test_legacy_edition_rule_never_generalizes_other_imports(change):
+    product,ref,_=legacy_pikachu_fixture();product.update(change)
+    assert catalogue_guide(product,[ref],'English',now=NOW) is None
+
+
+@pytest.mark.parametrize('change',[
+    {'provider':'Other'},{'system_code':'OTHER'},{'language':'Japanese'},
+    {'provider_id':'base2-58'},{'set_id':'base2'},{'card_number':'58/130'},
+    {'set_name':'Base Set 2'},{'name':'Raichu'},{'rarity':'Rare'},
+])
+def test_legacy_unlimited_reference_requires_all_master_identity_fields(change):
+    product,ref,_=legacy_pikachu_fixture();ref.update(change)
+    assert catalogue_guide(product,[ref],'English',now=NOW) is None
+
+
+@pytest.mark.parametrize('change',[
+    {'variant_label':'Normal · 1st-edition'},
+    {'variant_label':'Normal · unlimited · poketour-99'},
+    {'finish':'Holofoil'},{'reference_language':'Japanese'},
+    {'valuation_role':'EXACT_VALUE'},{'physical_valuation_eligible':True},
+    {'variant_id':None},{'variant_id':''},{'product_id':None},{'product_id':'0'},
+    {'source':'TCGDEX_CARDMARKET'},{'source_field':'low'},
+    {'original_currency':'USD'},{'fx_rate_to_gbp':'NaN'},
+    {'price_gbp_minor':31318},{'observed_at':(NOW-timedelta(days=8)).isoformat()},
+])
+def test_legacy_unlimited_quote_refuses_wrong_edition_and_invalid_evidence(change):
+    product,ref,quote=legacy_pikachu_fixture();quote.update(change)
+    assert catalogue_guide(product,[ref],'English',now=NOW) is None
+
+
+def test_legacy_unlimited_ambiguity_is_price_independent_and_broad_guide_cannot_fill_it():
+    product,ref,quote=legacy_pikachu_fixture()
+    duplicate=dict(quote,variant_id='other-variant',product_id='999999',price_gbp_minor=None)
+    ref['quotes'].append(duplicate)
+    assert catalogue_guide(product,[ref],'English',now=NOW) is None
+    ref['quotes']=[ref['quotes'][1]]
+    ref['catalogue_quotes']=[dict(quote,source='CARDMARKET_CATALOGUE',
+        reference_identity={k:ref[k] for k in ('name','set_id','card_number','set_name')})]
+    assert catalogue_guide(product,[ref],'English',now=NOW) is None
+
+
+def test_number_lookup_expansion_is_not_global():
+    from app.inventory_catalogue_reference import catalogue_number_key
+    product,_,_=legacy_pikachu_fixture()
+    product['set_name']='Another Set'
+    assert catalogue_number_key(product)=='58'
+
+
+@pytest.mark.asyncio
+async def test_legacy_unlimited_owner_display_does_not_change_copy_values_or_totals():
+    import json
+    product,ref,_=legacy_pikachu_fixture();ref['catalogue_id']=str(product['id'])
+    class Connection:
+        async def fetch(self,sql,*args):
+            if 'snapshot_id' in sql:return []
+            if 'jsonb_to_recordset' in sql:
+                assert json.loads(args[0])[0]['number_key']=='58:/:102'
+                return [ref]
+            return [product]
+    item=dict(catalogue_id=product['id'],product_type='CARD',language='English',
+        condition='Near Mint',store_price_minor=1600)
+    await add_shared_reference_values(Connection(),[item],now=NOW)
+    assert item['catalogue_reference']['market_value_minor']==1140
+    assert item['market_value_minor'] is None and item['recommended_retail_minor'] is None
+    assert item['store_price_minor']==1600 and item['condition']=='Near Mint'
+    assert reference_totals([item])['total_minor'] is None
+    assert recommended_totals([item])['active_recommended_retail_minor'] is None

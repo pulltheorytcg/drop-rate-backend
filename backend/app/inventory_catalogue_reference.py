@@ -82,12 +82,36 @@ CACHE_SQL = """select k.catalogue_id,r.provider,r.system_code,r.language,r.provi
  where s.release_date is null or s.release_date<=current_date"""
 
 
+
+def _legacy_unlimited_reference(product, language):
+    """One observed legacy import; no general numerator or edition guessing."""
+    return (language == 'English'
+            and clean_language(product.get('language')) in {None, 'English'}
+            and all(_text(product.get(key)) == value for key, value in {
+                'game': 'pokemon', 'name': 'pikachu', 'set_name': 'base set (unlimited)',
+                'card_number': '58', 'variant': 'normal', 'rarity': 'common',
+            }.items()))
+
+
+def catalogue_number_key(product):
+    """Expand only the explicit legacy printing before its indexed lookup."""
+    if _legacy_unlimited_reference(product, 'English'):
+        return collector_key('58/102')
+    return collector_key(product.get('card_number'))
+
+
 def reference_candidates(product, rows, language):
     """Exact selected reference, or a uniquely identified ordinary import."""
     system = SYSTEM_BY_GAME.get(product.get('game'))
     if not system or product.get('blocked'):
         return []
     rows = [r for r in rows if r['system_code'] == system]
+    if _legacy_unlimited_reference(product, language):
+        return [r for r in rows if r['provider'] == 'TCGdex' and r['language'] == 'English'
+                and r['provider_id'] == 'base1-58' and r['set_id'] == 'base1'
+                and _text(r['name']) == 'pikachu' and _text(r['set_name']) == 'base set'
+                and collector_key(r['card_number']) == collector_key('58/102')
+                and _text(r.get('rarity')) in {'', 'common'}]
     selected = [r for r in rows if r['language'] == language
                 and (product.get('variant'), product.get('name'), product.get('set_name'),
                      product.get('card_number'), product.get('rarity')) ==
@@ -183,10 +207,30 @@ def catalogue_guide(product, rows, language, *, now):
     row = candidates[0]
     identity = {key: row[key] for key in ('name', 'set_id', 'card_number', 'set_name')}
     eligible = []
-    for quote in (row.get('quotes') or []) + (row.get('catalogue_quotes') or []):
+    legacy_unlimited = _legacy_unlimited_reference(product, language)
+    quotes = (row.get('quotes') or []) + (row.get('catalogue_quotes') or [])
+    if legacy_unlimited:
+        # Unlimited and Poketour share the same base ID. Match the complete
+        # declared treatment, then reject duplicate/ambiguous source products
+        # before considering prices. A broad catalogue guide is not sufficient.
+        quotes = [q for q in quotes if isinstance(q, dict)
+                  and q.get('source') == 'TCGDEX_CARDMARKET_VARIANT'
+                  and q.get('variant_label') == 'Normal · unlimited']
+        if len(quotes) != 1:
+            return None
+    for quote in quotes:
         if not isinstance(quote, dict):
             continue
         source = quote.get('source')
+        if legacy_unlimited and (
+                quote.get('finish') != 'Normal' or quote.get('reference_language') != 'English'
+                or quote.get('valuation_role') != 'VARIANT_REFERENCE'
+                or quote.get('physical_valuation_eligible') is not False
+                or not isinstance(quote.get('variant_id'), str) or not quote['variant_id'].strip()
+                or not str(quote.get('product_id') or '').isdigit()
+                or int(quote['product_id']) <= 0
+                or quote.get('source_field') != 'trend'):
+            continue
         if source not in {'TCGDEX_CARDMARKET', 'TCGDEX_CARDMARKET_VARIANT', 'CARDMARKET_CATALOGUE', 'CARDMARKET_BULK_SINGLES', POKEWALLET_POKEMON_SOURCE}:
             continue
         if quote.get('reference_language', language) != language:
@@ -201,7 +245,7 @@ def catalogue_guide(product, rows, language, *, now):
                 continue
         # An imported finish is known: do not show its alternate foil's price.
         finish = product.get('variant')
-        if source.startswith('TCGDEX_') and finish in {'Normal', 'Holofoil', 'Reverse Holofoil'}:
+        if source.startswith('TCGDEX_') and not legacy_unlimited and finish in {'Normal', 'Holofoil', 'Reverse Holofoil'}:
             if source != 'TCGDEX_CARDMARKET' or quote.get('finish') != finish:
                 continue
         if language == 'Japanese' and source == 'CARDMARKET_BULK_SINGLES' and quote.get('valuation_role') != 'MIXED_NON_ENGLISH_REFERENCE':
@@ -230,8 +274,9 @@ def catalogue_guide(product, rows, language, *, now):
             'market_value_minor': min(v[0] for v in eligible),
             'market_value_high_minor': max(v[0] for v in eligible),
             'checked_at': min(v[1] for v in eligible), 'basis': language + ' · Raw catalogue reference',
-            'label': 'Regional guide' if regional else 'All-finish guide' if all_finishes else 'Catalogue guide',
-            'reason': ('Non-English regional Cardmarket guide via PokéWallet; not a Japanese condition-specific sale.' if regional and pokewallet
+            'label': 'Unlimited edition guide' if legacy_unlimited else 'Regional guide' if regional else 'All-finish guide' if all_finishes else 'Catalogue guide',
+            'reason': ('Cardmarket guide for the Normal unlimited treatment only; not a condition-specific valuation of this copy.' if legacy_unlimited
+                       else 'Non-English regional Cardmarket guide via PokéWallet; not a Japanese condition-specific sale.' if regional and pokewallet
                        else 'Non-English regional guide; not a Japanese condition-specific sale.' if regional
                        else 'Catalogue range across finishes, conditions and languages; not a valuation of this copy.' if all_finishes
                        else 'Cardmarket catalogue guide across conditions and languages; not a valuation of this copy.'),
@@ -255,7 +300,7 @@ async def add_catalogue_references(connection, items, *, now):
         for product in batch:
             products[str(product['id'])] = product
             system = SYSTEM_BY_GAME.get(product.get('game'))
-            key = collector_key(product.get('card_number'))
+            key = catalogue_number_key(product)
             if system and key and not product.get('blocked'):
                 lookups.append({'catalogue_id': str(product['id']), 'system_code': system, 'number_key': key})
         if lookups:

@@ -1,4 +1,4 @@
-# Comics and manga factual edition import - 26 October 2026
+# Comics and manga factual edition import — 26 October 2026
 
 The live starting catalogue has 48 book products: 36 structured manga editions,
 10 structured Marvel/DC editions, and 2 seller-entered books. PRH/GCD provider
@@ -128,4 +128,29 @@ PYTHONPATH=backend python -m scripts.import_book_catalogue --state /tmp/ol-20261
 The source mapping/digest makes replay idempotent. A conflicting existing edition
 must remain REVIEW; success is measured from actual imported/existing/review counts,
 then a separate database readback. No production import is claimed in this document.
+
+
+## Restricted application-role operator
+
+The production diagnostic reports role tcg_api without RLS bypass. Its existing
+table INSERT grants still require an authorised administrator context for trusted
+catalogue provenance. The fixed pilot operator reuses the configured catalogue
+maintenance actor through the normal user_connection and require_platform_admin
+checks:
+
+```sh
+PYTHONPATH=backend python -m scripts.apply_reviewed_openlibrary_pilot
+PYTHONPATH=backend python -m scripts.apply_reviewed_openlibrary_pilot --apply
+```
+
+Run from the repository root. This operator accepts no alternate source, actor,
+quota or credential. It binds the reviewed32 SHA above, uses an immutable temporary
+copy of those public metadata bytes, and stages only in SQLite memory. Default mode
+checks the existing admin context and capacity without applying. Apply uses the
+existing bounded importer in the same outer administrator transaction.
+
+A successful result is returned and printed only after the outer transaction
+commits. Failed commits discard the ephemeral checkpoint, making a later source
+mapping replay safe. No database grants, policies, owner records, prices or artwork
+permissions are changed by this operator.
 
