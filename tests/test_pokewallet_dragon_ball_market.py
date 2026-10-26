@@ -473,3 +473,102 @@ def test_known_source_set_competitor_with_contradictory_title_cannot_disappear(t
     products=[deepcopy(p) for p in special_products() if p["card_info"]["card_number"]=="ST01-002"]
     products[1]["card_info"]["set_name"]=title
     assert not dbs.verified_matches([special_ref()],products)[0]
+
+
+@pytest.mark.parametrize("normal_value",[None,0,-1,"invalid","NaN","Infinity",True])
+def test_reviewed_v1_unusable_normal_uses_sole_positive_foil(normal_value):
+    from copy import deepcopy
+    ref=special_ref()
+    source=deepcopy(dbs.verified_matches([ref],special_products())[0][0][1])
+    source["cardmarket"]["prices"]=[
+        {"variant_type":"normal","trend":normal_value},
+        {"variant_type":"foil","trend":2.50}]
+    source["tcgplayer"]={"url":"https://www.tcgplayer.com/product/other",
+        "prices":[{"sub_type_name":"Normal","market_price":999}]}
+    rates={"EUR":FxQuote("EUR","GBP",Decimal(".86"),NOW,NOW,"ECB")}
+    quote=dbs.source_guide(ref,source,rates,NOW)
+    assert quote["finish"]=="Holofoil"
+    assert quote["source"]==dbs.SOURCE_CM and quote["source_field"]=="trend"
+    assert quote["source_card_id"]==source["id"]
+    assert quote["source_product_url"]==source["cardmarket"]["product_url"]
+    assert quote["original_currency"]=="EUR" and quote["original_minor"]==250
+    assert quote["price_gbp_minor"]==215
+    assert quote["physical_valuation_eligible"] is False
+    assert quote["physical_language_confirmed"] is False
+    assert quote["condition_specific"] is False and quote["sold_comparable"] is False
+
+
+@pytest.mark.parametrize("prices,expected",[
+    ([{"variant_type":"normal","trend":1},{"variant_type":"foil","trend":2}],(100,"Normal")),
+    ([{"variant_type":"foil","trend":2}],(200,"Holofoil")),
+    ([{"variant_type":"normal","trend":None},{"variant_type":"foil","trend":0}],None),
+    ([{"variant_type":"normal","trend":0},{"variant_type":"foil","trend":"NaN"}],None),
+    ([{"variant_type":"normal","trend":0},{"variant_type":"foil","trend":"Infinity"}],None),
+    ([{"variant_type":"normal","trend":0},{"variant_type":"foil","trend":True}],None),
+])
+def test_reviewed_finish_prefers_positive_normal_and_rejects_invalid_foil(prices,expected):
+    selected,reason=dbs.reviewed_cardmarket_finish({"prices":prices})
+    assert selected==expected
+    assert reason==("NO_POSITIVE_CARDMARKET_QUOTE" if expected is None else None)
+
+
+@pytest.mark.parametrize("normal,foil",[
+    ([None,None],[2]),([0,1],[2]),([1],[None,None]),([1],[0,2]),([],[2,2])
+])
+def test_reviewed_duplicate_finish_rows_fail_closed_even_when_another_finish_is_positive(normal,foil):
+    prices=[{"variant_type":"normal","trend":value} for value in normal]
+    prices += [{"variant_type":"foil","trend":value} for value in foil]
+    selected,reason=dbs.reviewed_cardmarket_finish({"prices":prices})
+    assert selected is None and reason=="AMBIGUOUS_CARDMARKET_FINISH"
+
+
+@pytest.mark.parametrize("extra",[None,{},{"variant_type":[]},{"variant_type":"etched","trend":2}])
+def test_reviewed_unknown_finish_shape_cannot_supply_a_fallback(extra):
+    selected,reason=dbs.reviewed_cardmarket_finish({"prices":[
+        {"variant_type":"normal","trend":0},{"variant_type":"foil","trend":2},extra]})
+    assert selected is None and reason=="UNRECOGNISED_CARDMARKET_FINISH"
+
+
+def test_foil_fallback_change_does_not_expand_unreviewed_releases():
+    source=product()
+    source["cardmarket"]["prices"]=[
+        {"variant_type":"normal","trend":0},{"variant_type":"foil","trend":2}]
+    rates={"EUR":FxQuote("EUR","GBP",Decimal(".86"),NOW,NOW,"ECB")}
+    assert dbs.source_guide(fusion(),source,rates,NOW) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("foil,expected_count",[(2.50,1),(0,0)])
+async def test_scoped_preview_reports_exact_foil_finish_or_no_quote_reason(monkeypatch,foil,expected_count):
+    from copy import deepcopy
+    @asynccontextmanager
+    async def connection(*args):
+        class Conn:
+            async def fetch(self,sql):return [special_ref()]
+            async def executemany(self,*args):raise AssertionError("Dry run must not write")
+        yield Conn()
+    monkeypatch.setattr(dbs,"user_connection",connection)
+    products=deepcopy(special_products())
+    for source in products:
+        if source["card_info"]["card_number"]=="ST01-002":
+            source["cardmarket"]["prices"]=[
+                {"variant_type":"normal","trend":None},{"variant_type":"foil","trend":foil}]
+    class Client:
+        async def get(self,url,params,headers):
+            return HttpResponse(body(*products,query="ST01-00"))
+    class FX:
+        async def quote(self,**kwargs):
+            assert kwargs["base_currency"]=="EUR"  # no merged TCGplayer/USD borrowing
+            return FxQuote("EUR","GBP",Decimal(".86"),NOW,NOW,"ECB")
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        object(),uuid4(),FX(),"pk_live_fixture",dry_run=True,request_limit=8,
+        http_client=Client(),reference_set_id="583301")
+    assert report["eligible_quotes"]==expected_count and report["writes_attempted"]==0
+    if expected_count:
+        assert report["preview"][0]["finish"]=="Holofoil"
+        assert report["preview"][0]["source_field"]=="trend"
+        assert report["quote_finish_counts"]=={"Holofoil":1}
+        assert report["no_quote_reasons"]=={}
+    else:
+        assert report["preview"]==[] and report["quote_finish_counts"]=={}
+        assert report["no_quote_reasons"]=={"NO_POSITIVE_CARDMARKET_QUOTE":1}
