@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from math import ceil
 from urllib.parse import urlsplit
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 
@@ -430,7 +430,8 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                                        dry_run: bool=True, request_limit: int=MAX_FREE_REQUESTS_PER_RUN,
                                        previous_cursor: str | None=None,
                                        http_client=None,
-                                       reference_set_id: str | None=None) -> dict:
+                                       reference_set_id: str | None=None,
+                                       operator_run_id: str | None=None) -> dict:
     """One bounded free API pass, with dry-run by default and a round-robin cursor.
 
     The caller holds the existing global catalogue advisory lock and records
@@ -438,6 +439,9 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
     """
     if reference_set_id not in (None,"569116"):
         raise ValueError("UNREVIEWED_REFERENCE_SET")
+    if operator_run_id is not None:
+        if reference_set_id != "569116" or str(UUID(operator_run_id)) != operator_run_id:
+            raise ValueError("INVALID_OPERATOR_RUN_ID")
     now=datetime.now(timezone.utc)
     budget=min(request_limit,12 if dry_run else MAX_FREE_REQUESTS_PER_RUN)
     result={"source":SOURCE,"dry_run":dry_run,"requests":0,"set_pages":0,
@@ -582,6 +586,8 @@ async def refresh_pokewallet_one_piece(pool, actor, fx, api_key: str, *,
                         if quote is None:
                             continue
                         result["eligible_quotes"]+=1
+                        if operator_run_id is not None:
+                            quote["operator_run_id"]=operator_run_id
                         if reference_set_id is not None:
                             result["preview"].append({"provider_id":ref["provider_id"],
                                 "name":ref["name"],"card_number":ref["card_number"],

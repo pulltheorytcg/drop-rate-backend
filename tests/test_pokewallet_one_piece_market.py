@@ -461,13 +461,16 @@ async def test_op16_scope_never_fetches_or_writes_other_releases(monkeypatch,dry
     class FX:
         async def quote(self,**kwargs):
             return FxQuote("EUR","GBP",Decimal(".86"),NOW,NOW,"ECB_EURO_REFERENCE_RATES")
+    run_id=str(uuid4())
     result=await market.refresh_pokewallet_one_piece(object(),uuid4(),FX(),"pk_live_secret_fixture",
-        dry_run=dry_run,request_limit=60,http_client=http,reference_set_id="569116")
+        dry_run=dry_run,request_limit=60,http_client=http,reference_set_id="569116",
+        operator_run_id=run_id)
     assert result["requests"]==3 and result["target_groups"]==1
     assert result["preview"][0]["provider_id"]=="OP16-032"
     assert result["preview"][0]["physical_valuation_eligible"] is False
     assert result["writes_attempted"]==expected_writes and len(writes)==expected_writes
     assert all(row[3]=="OP16-032" for row in writes)
+    assert all(row[4][0]["operator_run_id"]==run_id for row in writes)
     assert not any(url.endswith("/1") for url,_ in http.calls)
 
 
@@ -483,3 +486,11 @@ def test_op16_scope_does_not_resolve_conflicting_catalogue_printings():
     assert not market.collect_reference_groups([op16(),competing],NOW)
     assert not market.quote_eligible(op16(has_detail_value=True),NOW)
     assert not market.quote_eligible(op16(existing_catalogue_value=500,existing_source="OTHER"),NOW)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scope,run_id",[(None,str(uuid4())),("569116","not-a-uuid")])
+async def test_operator_attribution_requires_exact_scope_and_uuid(scope,run_id):
+    with pytest.raises(ValueError):
+        await market.refresh_pokewallet_one_piece(None,uuid4(),None,"fixture",
+            reference_set_id=scope,operator_run_id=run_id)

@@ -29,3 +29,37 @@ platform administrator and database capacity, run with `dry_run=True`, inspect
 the returned preview, then explicitly apply and verify database readback.
 No schedule or hourly quota changes are included. The default unspecialised
 hourly refresh will also benefit from the corrected identity gate.
+
+## Bounded operator
+
+Run the default preview first, using the existing configured administrator:
+
+```sh
+python backend/scripts/refresh_op16_prices.py --from-settings --max-seconds 90
+```
+
+After reviewing every OP16_PRICE_PREVIEW row and ensuring remaining shared quota
+can support a second pass, apply explicitly:
+
+```sh
+python backend/scripts/refresh_op16_prices.py --from-settings --max-seconds 90 --apply
+```
+
+Both commands acquire advisory lock 847220092, verify platform-admin access and
+the existing database-capacity guard, and cap the provider at ten free requests.
+Each pass consumes its own requests; it does not increase the scheduler budget.
+The refresh operation is cancelled after at most 90 seconds; bounded database
+preflight, readback, receipt finalisation and pool cleanup run outside that
+refresh timeout.
+
+Apply creates a durable op16_catalogue_prices reference_sync_runs receipt before
+requesting provider data. A unique operator_run_id is attached to each accepted
+quote. Readback counts persisted rows with that exact UUID, source and official
+set, including after a provider timeout. The written count is committed readback,
+never writes_attempted. The receipt stores the count and committed public-card
+identities; OP16_PRICE_COMMITTED logs list each persisted guide. A count mismatch,
+interruption or unreadable outcome remains INCOMPLETE rather than claiming
+success. No provider keys or customer/inventory data are printed.
+
+The Fusion source-identity probe is a separate readonly operation so its three
+requests remain within the existing Dragon Ball allocation.
