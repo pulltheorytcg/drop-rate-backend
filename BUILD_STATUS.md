@@ -10,7 +10,8 @@ imports or incorrect print/language matches are used to claim the target.
 This release preserves dated evidence when a valid provider response has no quote,
 without renewing its evidence date; corrects PokéWallet guide provenance; runs the
 existing bounded hourly pricing batches before the long bulk pricing pass; and
-adds a default-dry-run repair for documented TCGdex image-manifest omissions.
+admits existing PokéWallet regional guides to raw owner displays only after exact
+identity/provenance/FX validation; and adds a default-dry-run repair for documented TCGdex image-manifest omissions.
 Artwork writes require exact identity, verified decoded CDN bytes and blank-only
 conditional updates. Misnumbered M1S and future releases are excluded; subsequent
 sparse syncs must retain the complete identity before preserving repaired artwork.

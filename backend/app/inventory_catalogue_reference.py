@@ -136,6 +136,45 @@ def reference_candidates(product, rows, language):
                     for q in r.get('quotes') or [] if isinstance(q, dict))]
 
 
+
+POKEWALLET_POKEMON_SOURCE = "POKEWALLET_POKEMON_CARDMARKET_CATALOGUE"
+
+
+def _pokewallet_guide_matches(product, row, quote):
+    """Admit only the existing exact-print Japanese regional guide contract."""
+    from urllib.parse import urlsplit
+    from .pokewallet_pokemon_market import SOURCE_ID, NUMERIC_SET_ID, reference_code
+    if (reference_code(row) is None
+            or quote.get('reference_language') != 'Japanese'
+            or quote.get('reference_printing_id') != row['provider_id']
+            or quote.get('reference_identity') != {k: row[k] for k in ('name','set_id','card_number','set_name')}
+            or quote.get('match_basis') != 'EXACT_JAPANESE_SET_AND_UNIQUE_COMPLETE_COLLECTOR_FRACTION'
+            or quote.get('aggregator') != 'POKEWALLET' or quote.get('market') != 'CARDMARKET'
+            or quote.get('valuation_role') != 'MIXED_NON_ENGLISH_REFERENCE'
+            or any(quote.get(field) is not False for field in (
+                'condition_specific','sold_comparable','physical_language_confirmed','physical_valuation_eligible'))
+            or quote.get('source_field') != 'trend'
+            or not SOURCE_ID.fullmatch(str(quote.get('source_card_id') or ''))
+            or not NUMERIC_SET_ID.fullmatch(str(quote.get('source_set_id') or ''))
+            or quote.get('finish') not in {'normal','holo'}):
+        return False
+    # This guide selects one disclosed finish, not an all-finish price range.
+    known_finish = product.get('variant')
+    if known_finish in {'Normal','Holofoil','Reverse Holofoil'}:
+        if {'Normal':'normal','Holofoil':'holo'}.get(known_finish) != quote['finish']:
+            return False
+    try:
+        url = urlsplit(str(quote.get('source_product_url') or ''))
+        return (url.scheme == 'https' and url.hostname in {'cardmarket.com','www.cardmarket.com'}
+                and url.username is None and url.password is None and url.port is None
+                and not url.query and not url.fragment
+                and url.path.casefold().startswith((
+                    '/en/pokemon/products/singles/','/it/pokemon/products/singles/',
+                    '/de/pokemon/products/singles/','/fr/pokemon/products/singles/',
+                    '/es/pokemon/products/singles/')))
+    except ValueError:
+        return False
+
 def catalogue_guide(product, rows, language, *, now):
     candidates = reference_candidates(product, rows, language)
     identities = {(r['provider'], r['system_code'], r['language'], r['provider_id']) for r in candidates}
@@ -148,9 +187,11 @@ def catalogue_guide(product, rows, language, *, now):
         if not isinstance(quote, dict):
             continue
         source = quote.get('source')
-        if source not in {'TCGDEX_CARDMARKET', 'TCGDEX_CARDMARKET_VARIANT', 'CARDMARKET_CATALOGUE', 'CARDMARKET_BULK_SINGLES'}:
+        if source not in {'TCGDEX_CARDMARKET', 'TCGDEX_CARDMARKET_VARIANT', 'CARDMARKET_CATALOGUE', 'CARDMARKET_BULK_SINGLES', POKEWALLET_POKEMON_SOURCE}:
             continue
         if quote.get('reference_language', language) != language:
+            continue
+        if source == POKEWALLET_POKEMON_SOURCE and not _pokewallet_guide_matches(product, row, quote):
             continue
         if source in {'CARDMARKET_CATALOGUE', 'CARDMARKET_BULK_SINGLES'}:
             if quote.get('reference_identity') != identity:
@@ -184,12 +225,14 @@ def catalogue_guide(product, rows, language, *, now):
     eligible = detailed or eligible
     regional = any(v[2].get('valuation_role') == 'MIXED_NON_ENGLISH_REFERENCE' for v in eligible)
     all_finishes = any(v[2]['source'] == 'CARDMARKET_CATALOGUE' for v in eligible)
+    pokewallet = any(v[2]['source'] == POKEWALLET_POKEMON_SOURCE for v in eligible)
     return {'status': 'CATALOGUE_GUIDE', 'currency': 'GBP',
             'market_value_minor': min(v[0] for v in eligible),
             'market_value_high_minor': max(v[0] for v in eligible),
             'checked_at': min(v[1] for v in eligible), 'basis': language + ' · Raw catalogue reference',
             'label': 'Regional guide' if regional else 'All-finish guide' if all_finishes else 'Catalogue guide',
-            'reason': ('Non-English regional guide; not a Japanese condition-specific sale.' if regional
+            'reason': ('Non-English regional Cardmarket guide via PokéWallet; not a Japanese condition-specific sale.' if regional and pokewallet
+                       else 'Non-English regional guide; not a Japanese condition-specific sale.' if regional
                        else 'Catalogue range across finishes, conditions and languages; not a valuation of this copy.' if all_finishes
                        else 'Cardmarket catalogue guide across conditions and languages; not a valuation of this copy.'),
             'reference_id': ':'.join(next(iter(identities))),
