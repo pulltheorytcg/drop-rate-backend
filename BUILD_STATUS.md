@@ -1,40 +1,50 @@
+## 26 October 2026 - R2 history archival live verified
+
+PR #734 is merged as 8f5bf7955bf8a825c1df999cd70649783153c36a. All six
+CI workflows passed, including 6,493 backend tests, dashboard/browser checks,
+and real PostgreSQL 17 archive/concurrency/security/rollback tests. Migration
+20261026204421_reference_history_r2_archive is registered in Supabase; permission
+readback confirms forced RLS, no anonymous execution, no API receipt-table access
+and no general API TRUNCATE grant. No new security advisor finding was introduced.
+
+Copy-only deployment 3a27785b-bd0c-403e-b93f-50ad2d1010d5 reached SUCCESS;
+HTTP readiness returned 200. At 20:50:21 UTC the downloaded R2 snapshot passed
+full typed restoration for all 33,702 rows. Supabase still retained the identical
+count and content root before cleanup was enabled.
+
+Cleanup deployment 6cb32a73-5d43-4335-a57f-22ebf2dfc4ff reached SUCCESS with
+readiness 200. Durable receipt committed at 20:53:36 UTC: 33,702 rows archived,
+54,050,816 bytes reclaimed. Archive ID is r2-reference-history-
+2881bf674573c9e2f42dd0c60e485a9d670f8812ca199db8035b365486763b37
+(join the wrapped line); its suffix is the canonical full-row content root.
+The history relation fell from 54,083,584 to 32,768 bytes. Immediate database
+readback was 353,127,571 bytes, below the unchanged 400,000,000-byte refresh guard.
+All 616 inventory rows retained checksum b37b9df22b5ca5b6a525bc5a684d9d3c.
+A new REFERENCE_PRICES job was RUNNING at 20:53:55 UTC, proving the capacity
+blocker cleared; this does not assert that every provider or pricing gap is fixed.
+
+Both archive flags are enabled on the API service. Each attempt still downloads,
+restores and verifies before guarded cleanup; failures preserve the live history.
+The worker attempts at startup and at most hourly per process. Current prices,
+ownership, acquisition costs, Store Prices and settlements are not archival targets.
+Supabase remains their authority; previous Drive archives remain retained.
+
+Cloudflare's private bucket has public URL disabled, no custom domain and no
+completed-object expiry. A one-image approved-media signed bridge probe succeeded,
+increasing verified mirrors from 2 to 3; the one-shot flag was reset. Recurring
+DR94 remains off pending stored-workflow validation, DR90 routing and actual n8n
+execution proof. Broad reference-image caching remains source-permission gated.
+The R2 image CSP defect is fixed for either independent delivery switch.
+
+Latest pre-resumption coverage was 42,482 / 67,065 physical references (63.34%),
+including explicitly labelled guides. The 90% user target and 95% software target
+remain unmet. Live R2 price-cache delivery, a history-reading API for R2 archives,
+missing artwork/source permissions and the full comics/manga import remain
+separate unfinished work. Do not describe archiving as new pricing coverage.
+
+See [archive, recovery and live evidence](docs/R2_HISTORY_ARCHIVE_20261026.md).
+
 # Build status
-
-## 26 October 2026 - Verified R2 history archival (release verification pending)
-
-The founder requested continuation of the latest Polish App Blockers/R2 work.
-Live audit confirmed API release 80cb515a, Supabase at 405,613,715 bytes, and
-33,702 new immutable history rows after today's verified 49,290-row Drive archive.
-The 400 MB capacity guard is correctly deferring bulk catalogue refreshes; it is
-not being relaxed. Railway API has no persistent volume; n8n storage is not full.
-
-This release adds a bounded, opt-in R2 archive cycle to the existing catalogue
-worker before the capacity guard. It exports canonical PostgreSQL row JSON,
-verifies downloaded object bytes, performs typed restore/hash checks, verifies
-the manifest, and only then may invoke a private admin-gated cleanup function.
-The final fresh READ COMMITTED transaction locks and rechecks the entire history
-table; concurrent changes refuse cleanup. Receipt insertion and verified
-truncation are atomic. Retries never truncate subsequently recorded history.
-Current prices, owners, inventory, Store Prices and settlements remain unchanged
-by the archive operation. Both archive flags default off for staged verification.
-
-An independent CSP defect is fixed: either R2 delivery mode can permit its
-configured HTTPS image origin. Broad reference-artwork caching remains gated;
-R2 cannot supply missing source images or permission to reproduce them.
-
-The live n8n signed bridge probe passed at 20:19 UTC, mirrored one already-approved
-asset, and verified mirror count increased from 2 to 3. Probe flag was reset and
-n8n deployment 5506d06d-9a4b-4453-a77b-11020fd4b625 reached SUCCESS. Recurring DR94
-publication remains disabled pending persistent-workflow and error-route checks.
-
-Pricing receipt at 17:39 UTC: 42,482 / 67,065 physical references have a supported
-value or explicitly labelled guide (63.34%). Full card index: 69,545 including
-2,480 digital records. Neither 90% nor the existing 95% coverage target is met.
-Do not describe archive completion as new pricing or artwork coverage.
-Tests, production migration, deployment and archive receipt are pending at this
-commit and must be read back before marking the release live verified.
-See [archive contract and rollout](docs/R2_HISTORY_ARCHIVE_20261026.md).
-
 
 ## 24 October 2026 - Pricing recovery (live verified, PR #699)
 
