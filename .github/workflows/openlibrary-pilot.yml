@@ -28,7 +28,7 @@ jobs:
         run: >-
           timeout 250s env PYTHONPATH=backend python -m scripts.select_openlibrary_books
           --source https://archive.org/download/ol_dump_2026-09-30/ol_dump_editions_2026-09-30.txt.gz
-          --output openlibrary-pilot.jsonl --report openlibrary-pilot-report.json --max-rows 200
+          --output openlibrary-pilot.jsonl --report openlibrary-pilot-report.json --max-rows 200 --max-compressed-bytes 268435456 --max-raw-bytes 1073741824
       - name: Revalidate selected factual metadata and emit review artifact
         run: |
           PYTHONPATH=backend python - <<'PY'
@@ -36,17 +36,30 @@ jobs:
           from pathlib import Path
           from app.book_catalogue_sources import normalise,validate_entry
           from app.book_bulk_import import estimated_bytes
+          from app.book_openlibrary import canonical_isbn,edition_facts
           data=Path('openlibrary-pilot.jsonl').read_bytes()
+          original=Path('backend/app/data/book_openlibrary_pilot_20261026.jsonl').read_bytes()
+          assert hashlib.sha256(original).hexdigest()=='66fee0a07e5c43b3cf957f36f54e9382be4eaed2a1b8eb6fc3bc239235653b03'
+          prior=[json.loads(line) for line in original.splitlines()]
+          excluded_ids={row['edition']['key'] for row in prior}
+          excluded_ids.update(json.loads(Path('backend/app/data/book_openlibrary_pilot_20261026.review.json').read_text())['held_records'])
+          excluded_isbns={canonical_isbn(isbn) for row in prior for field in ('isbn_10','isbn_13') for isbn in row['edition'].get(field,[])}
+          candidates=[json.loads(line) for line in data.splitlines()]
+          novel=[row for row in candidates if row['edition']['key'] not in excluded_ids and edition_facts(row)['book']['barcode_gtin'] not in excluded_isbns]
+          data=''.join(json.dumps(row,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n' for row in novel).encode()
+          Path('openlibrary-expansion.jsonl').write_bytes(data)
           entries=[normalise('OPEN_LIBRARY',json.loads(line)) for line in data.splitlines()]
           for entry in entries: validate_entry(entry)
           print(json.dumps({'validated_records':len(entries),'estimated_database_bytes':estimated_bytes(entries),'snapshot_sha256':hashlib.sha256(data).hexdigest(),'production_writes':0,'cover_fetches':0,'market_values_added':0},sort_keys=True))
-          print('OPENLIBRARY_REVIEW_SNAPSHOT_GZIP_BASE64='+base64.b64encode(gzip.compress(data,mtime=0)).decode())
+          print('OPENLIBRARY_EXPANSION_SNAPSHOT_GZIP_BASE64='+base64.b64encode(gzip.compress(data,mtime=0)).decode())
+          for row in novel: print('OPENLIBRARY_EXPANSION_ROW='+json.dumps(row,ensure_ascii=True,sort_keys=True,separators=(',',':')))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: openlibrary-pilot-review
+          name: openlibrary-expansion-review
           path: |
             openlibrary-pilot.jsonl
             openlibrary-pilot-report.json
+            openlibrary-expansion.jsonl
           retention-days: 7
 

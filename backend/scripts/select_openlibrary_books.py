@@ -20,6 +20,8 @@ from app.book_openlibrary import EditionReviewRequired, dump_source, edition_fac
 
 MAX_COMPRESSED = 64 * 1024 * 1024
 MAX_RAW = 256 * 1024 * 1024
+HARD_MAX_COMPRESSED = 256 * 1024 * 1024
+HARD_MAX_RAW = 1024 * 1024 * 1024
 MAX_LINE = 2_000_000
 MAX_SECONDS = 240
 MAX_ROWS = 200
@@ -87,10 +89,10 @@ class BoundedReader(io.RawIOBase):
 def select_dump(stream, source, *, observed_on=None, max_bytes=MAX_COMPRESSED,
                 max_rows=MAX_ROWS, max_seconds=MAX_SECONDS, max_raw_bytes=MAX_RAW):
     dump_source(source)
-    if (type(max_bytes) is not int or not 1 <= max_bytes <= MAX_COMPRESSED
+    if (type(max_bytes) is not int or not 1 <= max_bytes <= HARD_MAX_COMPRESSED
             or type(max_rows) is not int or not 1 <= max_rows <= MAX_ROWS
             or type(max_seconds) is not int or not 1 <= max_seconds <= MAX_SECONDS
-            or type(max_raw_bytes) is not int or not 1 <= max_raw_bytes <= MAX_RAW):
+            or type(max_raw_bytes) is not int or not 1 <= max_raw_bytes <= HARD_MAX_RAW):
         raise ValueError("BOUNDED_SELECTION_REQUIRED")
     observed_on = observed_on or date.today().isoformat()
     reader = BoundedReader(stream,max_bytes,time.monotonic()+max_seconds)
@@ -194,9 +196,12 @@ def main():
     parser.add_argument("--output",required=True)
     parser.add_argument("--report",required=True)
     parser.add_argument("--max-rows",type=int,default=MAX_ROWS)
+    parser.add_argument("--max-compressed-bytes",type=int,default=MAX_COMPRESSED)
+    parser.add_argument("--max-raw-bytes",type=int,default=MAX_RAW)
     args=parser.parse_args()
     with open_dump(args.source) as response:
-        snapshot,report=select_dump(response,args.source,max_rows=args.max_rows)
+        snapshot,report=select_dump(response,args.source,max_rows=args.max_rows,
+            max_bytes=args.max_compressed_bytes,max_raw_bytes=args.max_raw_bytes)
     Path(args.output).write_bytes(snapshot)
     Path(args.report).write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
     print(json.dumps(report,sort_keys=True))
