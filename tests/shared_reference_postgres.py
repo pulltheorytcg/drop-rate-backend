@@ -27,7 +27,7 @@ create table tcg.owners(id uuid primary key,display_name text,owner_type text,fo
 create table tcg.owner_memberships(id uuid default gen_random_uuid(),user_id uuid,owner_id uuid,role text,active bool default true,created_at timestamptz default now());
 create function tcg.current_user_id() returns uuid language sql stable as $$select nullif(current_setting('tcg.user_id',true),'')::uuid$$;
 create table tcg.catalogue_products(id uuid primary key,product_type text,game text,name text,set_name text,card_number text,variant text,rarity text,language text);
-create table tcg.catalogue_product_profiles(catalogue_id uuid,identity_status text,attributes jsonb default '{}');
+create table tcg.catalogue_product_profiles(catalogue_id uuid,identity_status text,attributes jsonb default '{}',system_code text);
 create table tcg.inventory_items(id uuid primary key,inventory_code text,owner_id uuid,catalogue_id uuid,language text,condition text,grading_company text,grade text,seal_status text,certificate_number text,
  status text default 'DRAFT',sale_intent text default 'PERSONAL_COLLECTION',version int default 1,
  market_value_minor bigint,recommended_retail_minor bigint,store_price_minor bigint,pricing_updated_at timestamptz,latest_pricing_snapshot_id uuid,identity_confirmed bool default false,
