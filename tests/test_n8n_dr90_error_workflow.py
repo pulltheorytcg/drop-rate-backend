@@ -58,3 +58,17 @@ def test_dr90_contains_no_secret_or_hardcoded_backend_hostname() -> None:
     assert ".railway.internal" not in source
     assert "api_key" not in source.lower()
     assert "password" not in source.lower()
+
+
+
+def test_dr94_routes_failures_to_the_existing_nonrecursive_dr90_definition() -> None:
+    target = _workflow()
+    mirror = json.loads((ROOT / "automation" / "n8n" / "workflows" /
+                         "dr-94-r2-approved-media-mirror.json").read_text())
+    assert mirror["settings"]["errorWorkflow"] == target["id"]
+    assert mirror["id"] != target["id"]
+    assert not target["settings"].get("errorWorkflow")
+    assert any(node["type"] == "n8n-nodes-base.errorTrigger" and
+               node.get("disabled") is not True for node in target["nodes"])
+    # Export routing is not proof of persistent state or operational readiness.
+    assert mirror["active"] is False and target["active"] is False

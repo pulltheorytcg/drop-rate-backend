@@ -2,7 +2,7 @@
   "id": "DR94R2ApprovedMediaMirrorV1",
   "name": "DR-94 Verified Catalogue Artwork to Private R2",
   "active": false,
-  "settings": {"executionOrder": "v1"},
+  "settings": {"executionOrder": "v1", "errorWorkflow": "DR90GlobalErrorV1"},
   "nodes": [
     {
       "id": "dr94-schedule",
