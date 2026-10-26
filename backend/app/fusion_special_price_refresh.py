@@ -50,7 +50,8 @@ async def refresh_fusion_special(pool, actor, fx, api_key, *, reference_set_id,
                     return report
                 if apply:
                     run_id = await connection.fetchval("""insert into tcg.reference_sync_runs
-                        (source,status) values('fusion_special_catalogue_prices','RUNNING') returning id""")
+                        (source,status,report) values('fusion_special_catalogue_prices','RUNNING',$1::jsonb)
+                        returning id""", dict(report))
                     report["receipt_id"] = str(run_id)
             try:
                 result = await asyncio.wait_for(refresh_pokewallet_dragon_ball(
@@ -59,7 +60,7 @@ async def refresh_fusion_special(pool, actor, fx, api_key, *, reference_set_id,
                     timeout=max_seconds)
                 report.update(result)
                 report["status"] = ("INCOMPLETE" if (result.get("provider_failures") or result.get("invalid_queries") or
-                                        result.get("deferred_queries")) else
+                                        result.get("deferred_queries") or result.get("unattempted_queries")) else
                                     "COMPLETE" if apply else "VERIFIED")
             except TimeoutError:
                 report.update(status="INTERRUPTED", error_type="TimeoutError")

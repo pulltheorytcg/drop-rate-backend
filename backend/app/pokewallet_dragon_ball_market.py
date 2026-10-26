@@ -236,15 +236,21 @@ def verified_matches(refs: list[dict], products: list[dict]) -> tuple[list[tuple
         number=str(info.get("card_number") or "")
         if not (MASTERS_NUMBER.fullmatch(number) or FUSION_NUMBER.fullmatch(number)):
             continue
-        key=(number,normalized(html.unescape(info.get("set_name") or "")))
+        keys={(number,normalized(html.unescape(info.get("set_name") or "")))}
+        for prefix, title, source_set_id, _ in REVIEWED_FUSION_RELEASES.values():
+            if info.get("set_id") == source_set_id and number.startswith(prefix + "-"):
+                # A contradictory/missing title on the known source release
+                # remains a competitor and must fail the explicit classifier.
+                keys.add((number,normalized(title)))
         if (not SOURCE_ID.fullmatch(str(product.get("id") or ""))
                 or info.get("product_type")!="card"
                 or not isinstance(info.get("set_id"),str) or not info["set_id"]):
             # A malformed same-number/release competitor cannot disappear and
             # manufacture uniqueness for the reviewed special releases.
-            invalid_candidates.add(key)
+            invalid_candidates.update(keys)
             continue
-        grouped[key].append(product)
+        for key in keys:
+            grouped[key].append(product)
     matches=[]
     diagnostic={"considered":len(refs),"candidate_numbers":0,"unique_sources":0,
                 "matching_release":0,"matching_name":0,"matching_rarity":0}
@@ -312,6 +318,12 @@ def source_guide(ref: dict, product: dict, rates: dict, observed: datetime) -> d
                     selected=(SOURCE_CM,"CARDMARKET","EUR","trend",value,cm.get("product_url"),finish)
             except (ValueError,TypeError,ArithmeticError):
                 pass
+    reviewed = (ref.get("system_code") == FUSION and
+                (ref.get("set_id"),ref.get("set_name")) in REVIEWED_FUSION_RELEASES)
+    if reviewed and selected is None:
+        # V1 identity is independently proved only for the Cardmarket product.
+        # A merged aggregator row does not prove its TCGplayer variant.
+        return None
     tcg=product.get("tcgplayer")
     if selected is None and isinstance(tcg,dict) and isinstance(tcg.get("prices"),list):
         normal=[p for p in tcg["prices"] if isinstance(p,dict) and
@@ -438,6 +450,7 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
         rates={}
         for prefix in targets:
             if client.requests>=budget:
+                report["unattempted_queries"]=len(targets)-targets.index(prefix)
                 break
             report["cursor"]=prefix
             first=None
@@ -473,7 +486,9 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                         rates["EUR"]=await fx.quote(base_currency="EUR",
                                                      quote_currency="GBP",at=now)
                     quote=source_guide(ref,product,rates,now)
-                    if quote is None and "USD" not in rates:
+                    reviewed = (ref.get("system_code") == FUSION and
+                                (ref.get("set_id"),ref.get("set_name")) in REVIEWED_FUSION_RELEASES)
+                    if quote is None and not reviewed and "USD" not in rates:
                         rates["USD"]=await fx.quote(base_currency="USD",
                                                      quote_currency="GBP",at=now)
                         quote=source_guide(ref,product,rates,now)

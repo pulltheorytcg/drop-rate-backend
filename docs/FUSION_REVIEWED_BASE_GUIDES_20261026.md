@@ -74,3 +74,8 @@ provider pages, deferred queries, interrupted work and readback mismatches retai
 an INCOMPLETE receipt. Each committed public-card identity is printed separately.
 The provider refresh timeout is at most 90 seconds; bounded preflight, readback,
 receipt finalisation and pool cleanup run outside that timeout.
+
+The reviewed special releases use Cardmarket quotes only: the merged TCGplayer
+product is not independently proved by a Cardmarket V1 URL and cannot serve as
+fallback. A request-budget stop reports unattempted_queries and leaves the
+operator/receipt INCOMPLETE, even when its successfully matched subset committed.

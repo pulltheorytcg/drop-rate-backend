@@ -27,7 +27,9 @@ def arrange(monkeypatch, *, allowed=True, committed=(), result=None, failure=Non
     @asynccontextmanager
     async def connection(*args):
         class Conn:
-            async def fetchval(self, sql):
+            async def fetchval(self, sql, initial_report):
+                assert initial_report['operator_run_id']
+                assert initial_report['reference_set_id']=='583301'
                 assert "reference_sync_runs" in sql and "'fusion_special_catalogue_prices'" in sql
                 state["receipts"].append(sql)
                 return 123
@@ -134,6 +136,16 @@ async def test_unreviewed_operator_set_rejected_before_database_or_http():
 async def test_partial_provider_page_never_reports_complete(monkeypatch):
     state=arrange(monkeypatch,result={"eligible_quotes":0,"writes_attempted":0,
         "provider_failures":0,"invalid_queries":1})
+    report=await operator.refresh_fusion_special(Pool(),uuid4(),object(),"fixture",
+        reference_set_id="583301",apply=True)
+    assert report["status"]=="INCOMPLETE" and report["written"]==0
+    assert state["updates"][0][:3]==(123,"INCOMPLETE",0)
+
+
+@pytest.mark.asyncio
+async def test_budget_limited_subset_never_reports_complete(monkeypatch):
+    state=arrange(monkeypatch,result={"eligible_quotes":0,"writes_attempted":0,
+        "provider_failures":0,"unattempted_queries":1,"target_prefixes":9,"requests":8})
     report=await operator.refresh_fusion_special(Pool(),uuid4(),object(),"fixture",
         reference_set_id="583301",apply=True)
     assert report["status"]=="INCOMPLETE" and report["written"]==0

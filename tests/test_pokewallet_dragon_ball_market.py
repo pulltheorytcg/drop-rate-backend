@@ -434,3 +434,42 @@ def test_malformed_same_number_release_competitor_cannot_manufacture_unique_base
     else:competitor["card_info"][field]=value
     products.append(competitor)
     assert not dbs.verified_matches([special_ref()],products)[0]
+
+
+def test_reviewed_v1_proof_cannot_fall_back_to_unproved_tcgplayer_variant():
+    from copy import deepcopy
+    ref=special_ref()
+    product=deepcopy(dbs.verified_matches([ref],special_products())[0][0][1])
+    product["cardmarket"]["prices"]=[]
+    product["tcgplayer"]={"url":"https://www.tcgplayer.com/product/707947/dragon-ball-super-fusion-world-story-booster-01-krillin-dragon-ball-pattern",
+        "prices":[{"sub_type_name":"Normal","market_price":99}]}
+    rates={currency:FxQuote(currency,"GBP",Decimal(".86"),NOW,NOW,"ECB")
+           for currency in ("EUR","USD")}
+    assert dbs.source_guide(ref,product,rates,NOW) is None
+
+
+@pytest.mark.asyncio
+async def test_scoped_budget_reports_unattempted_prefixes_without_extra_requests(monkeypatch):
+    refs=[special_ref(number=f"ST01-{n:03}",name="Krillin") for n in range(1,82,10)]
+    @asynccontextmanager
+    async def connection(*args):
+        class Conn:
+            async def fetch(self,sql):return refs
+        yield Conn()
+    monkeypatch.setattr(dbs,"user_connection",connection)
+    class Client:
+        async def get(self,url,params,headers):
+            return HttpResponse(body(query=params["q"]))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        object(),uuid4(),object(),"pk_live_fixture",dry_run=True,request_limit=35,
+        http_client=Client(),reference_set_id="583301")
+    assert report["target_prefixes"]==9
+    assert report["requests"]==8 and report["unattempted_queries"]==1
+
+
+@pytest.mark.parametrize("title",[None,"Other Release"])
+def test_known_source_set_competitor_with_contradictory_title_cannot_disappear(title):
+    from copy import deepcopy
+    products=[deepcopy(p) for p in special_products() if p["card_info"]["card_number"]=="ST01-002"]
+    products[1]["card_info"]["set_name"]=title
+    assert not dbs.verified_matches([special_ref()],products)[0]
