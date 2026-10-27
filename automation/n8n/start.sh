@@ -90,6 +90,20 @@ $workflow_id"
   done
 fi
 
+# Opt-in metadata inspection only. The helper reads SQLite without n8n/ORM
+# initialization, emits a strict summary, and has a 15-second child deadline.
+# A diagnostic failure must never prevent this service from starting.
+case "${DROP_RATE_N8N_METADATA_INSPECT_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/inspect-stored-metadata.cjs 2>/dev/null ||
+      echo '{"event":"DROP_RATE_N8N_METADATA_INSPECTION","schema_version":1,"status":"UNAVAILABLE","reason":"INSPECTOR_PROCESS_FAILED"}'
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_METADATA_INSPECTION","schema_version":1,"status":"UNAVAILABLE","reason":"INVALID_OPERATOR_FLAG"}'
+    ;;
+esac
+
 # An operator-controlled one-shot bridge test runs with n8n's actual Railway
 # secret and endpoint, not with API service credentials. This is the evidence
 # required before considering the separate DR-94 scheduling switch.

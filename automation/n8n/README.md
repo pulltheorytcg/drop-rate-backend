@@ -114,6 +114,88 @@ The 30 September cutover proved persistent state was retained: DR-00 and DR-90 w
 
 The provisioner never wipes/recreates the persistent database and never imports credentials. The volume-local copy protects the source/provisioning rollback path; it does not replace normal platform-level backups.
 
+## Read-only stored workflow and Drive credential inspection
+
+`ops/inspect-stored-metadata.cjs` provides a bounded inspection on the next normal
+startup when the operator explicitly sets
+`DROP_RATE_N8N_METADATA_INSPECT_ON_BOOT=true`. It is disabled by default. The
+startup hook runs after additive import verification and does not import,
+overwrite, execute or publish a workflow. Remove or disable the flag after the
+required evidence has been collected.
+
+The helper uses Node's read-only SQLite connection directly. It does not start
+the n8n CLI/ORM, run migrations, export credentials, read the credential `data`
+column, or load the encryption key. The pinned n8n 2.32.6 image uses Node 24.18.0,
+which supplies the required `node:sqlite` API. A separate child receives only the
+database-location settings, has a 15-second hard deadline and a 64 KiB output
+limit, and never receives application secrets or `NODE_OPTIONS`. Inspection
+failure emits a fixed diagnostic and remains nonfatal to n8n startup.
+
+One JSON log event, `DROP_RATE_N8N_METADATA_INSPECTION`, reports:
+
+- Only `DR90GlobalErrorV1`, `DR92RuntimeHeartbeatV1`,
+  `DR93ObjectStorageHealthV1`, and `DR94R2ApprovedMediaMirrorV1`.
+- Normalized source, stored-draft and (when present) published-version SHA-256
+  hashes, comparison results, source/stored `errorWorkflow`, and separate
+  `active` and `published` states. In n8n 2.32.6, `activeVersionId` determines
+  publication; the legacy `active` flag alone is not sufficient.
+- At most 50 credential records containing **only** `id`, `name`, and `type`,
+  restricted to `googleDriveOAuth2Api` and `googleApi`. The latter can be a Google
+  service-account credential; its presence does not prove Drive access, usable
+  scopes, or ownership of the intended account/folder. A truncation indicator
+  prevents a partial result from being presented as a complete inventory.
+
+Normalization `drop-rate-workflow-definition-v1` sorts object keys and hashes
+`id`, `name`, `nodes`, `connections`, `settings`, and `nodeGroups` (empty by
+default), preserving array order. It excludes generated timestamps/version IDs,
+publication state, editor metadata, pinned data and static execution state. All
+node parameters and credential references affect the hash, but their contents
+are never logged. Published hashing follows n8n's export behaviour: nodes,
+connections and node groups come from the referenced workflow-history version;
+shared workflow settings come from the workflow entity. Each JSON column is
+limited to 1 MiB. All reads share one read-only SQLite snapshot.
+
+The helper follows the upstream database-path rule: append `.n8n` to
+`N8N_USER_FOLDER` (or `HOME`, then the working directory), and resolve
+`DB_SQLITE_DATABASE` relative to it. It supports a bounded alphanumeric/underscore
+`DB_TABLE_PREFIX`. Unsupported database types, external config files, env-file
+configuration, absent databases and schema mismatches produce fixed unavailable
+or partial results; the helper never searches for another database or creates a
+replacement file. It does not read or print configuration-file contents, paths,
+environment values, raw errors, workflow code or credential data.
+
+Source DR92 and DR93 now declare `DR90GlobalErrorV1` as their error workflow and
+remain inactive. Existing stored copies are intentionally preserved, so a hash
+mismatch is expected when their older stored definitions lack this setting.
+Inspect and review that difference before choosing an explicit versioned update.
+This inspection flag does not enable the existing DR94 publication switch.
+
+Activation still requires the DR90 error-routing and heartbeat gates. n8n's
+Error Trigger handler itself does not need publication, and manually running a
+workflow does not invoke its error workflow: prove routing with a controlled
+automatic failure before enabling the reviewed recurring jobs.
+
+Run the offline fixture tests with Node 24:
+
+```sh
+node --no-warnings --test tests/n8n_stored_metadata.test.cjs
+```
+
+The pytest wrapper includes these tests in the existing backend CI job. They use
+disposable SQLite databases, deny credential-data reads with a SQLite authorizer,
+verify that the database file is unchanged, compare stored/published versions,
+exercise malformed and oversized data, and prove startup survives an inspector
+failure. They make no network calls.
+
+Primary compatibility references:
+
+- [Pinned n8n image and Node version](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/docker/images/n8n/Dockerfile)
+- [Pinned workflow entity and publication field](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/%40n8n/db/src/entities/workflow-entity.ts)
+- [Pinned published workflow export behaviour](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/cli/src/commands/export/workflow.ts)
+- [Pinned n8n folder resolution](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/%40n8n/config/src/utils/utils.ts)
+- [Node SQLite read-only connection](https://nodejs.org/docs/latest-v24.x/api/sqlite.html)
+- [n8n Error Trigger testing and publication rules](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.errortrigger/)
+
 ## DR-91 durable success receipt
 
 `DR91SuccessReceiptV1` is a reusable inactive sub-workflow for parent workflows that have completed and verified their governed action.

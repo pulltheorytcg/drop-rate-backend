@@ -3,7 +3,8 @@
   "name": "DR-92 n8n Runtime Heartbeat",
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "errorWorkflow": "DR90GlobalErrorV1"
   },
   "nodes": [
     {

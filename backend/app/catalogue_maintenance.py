@@ -22,6 +22,7 @@ from .fx import EcbHistoricalFxProvider
 from .database_capacity import check_database_capacity
 from .archive_backlog import archive_check_window, check_archive_backlog
 from .reference_history_archive import archive_reference_history
+from .catalogue_source_archives import archive_reviewed_openlibrary_sources
 from .reference_feeds import ReferenceFeeds
 from .reference_library import save_reference_set
 from .reference_market import REVISION, refresh_reference_prices
@@ -501,6 +502,7 @@ async def shopify_pass(pool,settings):
 async def run_loop(pool,settings,*,shopify=False,wakeup=None):
     last_archive_window_checked = None
     next_r2_archive_check = 0.0
+    next_source_archive_check = 0.0
     while True:
         # Clear BEFORE scanning: an approval during a pass must cause another
         # pass, not disappear into a subsequent clear/sleep race.
@@ -543,6 +545,23 @@ async def run_loop(pool,settings,*,shopify=False,wakeup=None):
         try:await (shopify_pass if shopify else daily_pass)(pool,settings)
         except asyncio.CancelledError:raise
         except Exception as exc:log.error('Catalogue maintenance job=%s failed type=%s','SHOPIFY' if shopify else 'DAILY',type(exc).__name__)
+        # Private, immutable source evidence follows the existing pricing jobs.
+        # No new provider requests, database job labels or import writes. Content
+        # addresses make overlapping deployments/retries safe to reuse.
+        loop_time = asyncio.get_running_loop().time()
+        if (not shopify and getattr(settings, 'catalogue_source_archive_enabled', False)
+                and loop_time >= next_source_archive_check):
+            next_source_archive_check = loop_time + 3600
+            try:
+                source_report = await archive_reviewed_openlibrary_sources(apply=True)
+                summary = {key: source_report[key] for key in (
+                    'archive_id', 'status', 'uploaded', 'file_count', 'source_bytes', 'manifest_object')}
+                log.warning('CATALOGUE_R2_SOURCE_ARCHIVE %s', json.dumps(summary, sort_keys=True))
+                next_source_archive_check = asyncio.get_running_loop().time() + 86400
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log.error('CATALOGUE_R2_SOURCE_ARCHIVE_FAILED type=%s', type(exc).__name__)
         if wakeup is None:
             await asyncio.sleep(60 if shopify else 300)
         else:
