@@ -1,3 +1,25 @@
+## 27 October 2026 — R2 source archive and n8n runtime inspection
+
+The founder authorized addressing the remaining work one item at a time.
+The first bounded release adds a private, hash-pinned archive of fourteen
+recovered book source/audit artifacts (6,228,589 source bytes), preserving the
+1,495 historical imports, 909 deferred records and 57 exact review holds.
+Every upload and the final manifest require actual remote-byte verification.
+The existing catalogue worker can run this after pricing with daily success
+and hourly failure bounds; its flag defaults off.
+
+A separate optional n8n startup inspector reads stored/published workflow
+metadata and Google Drive credential id/name/type only. It never reads tokens,
+changes stored workflows or publishes schedules. Source DR92/DR93 now link the
+existing error handler; actual stored definitions still require verification.
+
+Implementation/offline checks are complete for these bounded components;
+current-head CI, deployment, flag activation and runtime/storage readback are
+separate pending gates. Full R2 catalogue delivery, broad artwork migration and
+weekly Drive transfer are not claimed complete. See the
+[completion sequence](docs/DROP_RATE_COMPLETION_PLAN_20261027.md) and
+[source archive contract](docs/R2_CATALOGUE_SOURCE_ARCHIVE_20261027.md).
+
 ## 27 October 2026 — Recovered book pipeline and historical comic image correction
 
 The interrupted final workspace is recovered: all code, workflow, tests and
