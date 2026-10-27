@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
-from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
 
-from app.automation_control import AutomationExecutionReceipt, _workflow_entity_id
+from app.automation_control import AutomationExecutionReceipt
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "backend" / "app" / "automation_control.py"
 MAIN = ROOT / "backend" / "app" / "main.py"
+REPAIR = ROOT / "database" / "migrations" / "20261027164716_automation_control_runtime_repair.sql"
 
 
 def _receipt(**overrides) -> dict:
@@ -47,31 +47,25 @@ def test_automation_receipt_contract_is_bounded_and_failure_requires_context() -
         )
 
 
-def test_workflow_action_required_entity_id_is_deterministic() -> None:
-    first = _workflow_entity_id("inventory-intelligence")
-    second = _workflow_entity_id("inventory-intelligence")
-    other = _workflow_entity_id("operational-monitoring")
-    assert isinstance(first, UUID)
-    assert first == second
-    assert first != other
-
-
 def test_control_endpoint_is_signed_idempotent_and_business_state_safe() -> None:
     source = SOURCE.read_text()
     main = MAIN.read_text()
+    sql = REPAIR.read_text()
 
     assert "TCG_AUTOMATION_COMMAND_SECRET" not in source
     assert "automation_command_secret" in source
     assert "verify_signed_body" in source
     assert "MAX_AUTOMATION_CONTROL_BODY_BYTES = 64 * 1024" in source
-    assert "on conflict(owner_id,job_type,run_key) do nothing" in source
-    assert "insert into tcg.automation_runs" in source
+    assert "on conflict(owner_id,job_type,run_key) do nothing" in sql
+    assert "insert into tcg.automation_runs" in sql
     assert "receipt.idempotency_key" in source
-    assert "upsert_action_required(" in source
-    assert 'category="AUTOMATION"' in source
-    assert 'code="N8N_WORKFLOW_FAILED"' in source
-    assert 'severity="HIGH"' in source
-    assert "owner_type='FOUNDER'" in source
+    assert "tcg_private.record_automation_execution_receipt" in source
+    assert "insert into tcg.action_required_items" in sql
+    assert "'AUTOMATION','N8N_WORKFLOW_FAILED','HIGH','OWNER'" in sql
+    assert "owner_type='FOUNDER'" in sql
+    assert "from tcg.owners" not in source
+    assert "set_config(" not in source
+    assert "insert into" not in source.lower()
     assert "update tcg.inventory_items" not in source.lower()
     assert "financial_ledger_entries" not in source.lower()
     assert "shopify" not in source.lower()

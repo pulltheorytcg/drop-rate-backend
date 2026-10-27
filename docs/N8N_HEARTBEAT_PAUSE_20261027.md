@@ -95,3 +95,24 @@ an already-current published DR93 is a no-op in that phase. Keep the pause flag
 false for resumption. Observe an actual successful automatic heartbeat and its
 durable acceptance before claiming recovery. No manual probe or permission
 bypass is part of this pause/recovery path.
+
+## Production pause proof
+
+PR [#761](https://github.com/pulltheorytcg/drop-rate-backend/pull/761) merged as
+`47b56af19ac8bb11677063c30c41a602538febfd`. Its exact-head
+[native job](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40544576561/job/122331604339)
+proved the one-ID pause and preserved state at 16:50:54 UTC. The default-off
+n8n release `cbc252e6-3504-44d0-be7c-cd16ae8d825c` succeeded at 16:53:51 UTC.
+
+The subsequent production pause deployment
+`f85935ed-6da5-46d7-8cdb-700ca0908e67` succeeded. Its receipt at
+`2026-10-27T16:55:16.064077651Z` reported `PAUSE_VERIFIED`, `changed_count:1`,
+and a verified 2,748,416-byte backup with SHA-256
+`04dbe14417b3f4106c7f4d2486adc6017ea49870470a25315b8422c3355c0481`.
+
+The operation and independent five-ID inspection at 16:55:16 UTC both showed
+DR92 inactive and unpublished at its reviewed stored hash. DR90 and DR93
+remained active/published, DR94 remained inactive/unpublished, and DR91 retained
+its prior inactive/unpublished definition. No database repair is implied by
+this pause. The pause flag was then cleared for the separate inactive DR91
+source repair; clearing it does not republish DR92.
