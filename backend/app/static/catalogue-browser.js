@@ -283,14 +283,16 @@ window.DropRateCatalogue = (() => {
       if(row.basis_condition)evidence.append(node("small","","Price basis: "+row.basis_condition+" · "+(row.pricing_updated_at?new Date(row.pricing_updated_at).toLocaleDateString("en-GB"):"stored snapshot")));
       for(const quote of row.market_quotes||[]){
         const label=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer US context · "+new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(quote.original_minor/100):money(quote.price_gbp_minor);
-        const source=quote.source==="TCGDEX_TCGPLAYER"?"TCGplayer":"Cardmarket";
-        const quoteEvidence=[quote.product_id?source+" #"+quote.product_id:"",quote.observed_at?new Date(quote.observed_at).toLocaleDateString("en-GB"):""].filter(Boolean).join(" · ");
+        const source=quote.source==="TCGDEX_TCGPLAYER"||quote.market==="TCGPLAYER"?"TCGplayer":"Cardmarket";
+        const productId=quote.product_id||quote.source_product_id;
+        const quoteEvidence=[productId?source+" #"+productId:"",quote.observed_at?new Date(quote.observed_at).toLocaleDateString("en-GB"):""].filter(Boolean).join(" · ");
         evidence.append(node("p","dr-browse-reference-note",(quote.variant_label||quote.finish)+": "+label+(quoteEvidence?" · "+quoteEvidence:"")));
       }
       if(["TCGDEX_CARDMARKET","TCGDEX_CARDMARKET_VARIANT"].includes(row.market_value_source)){
         evidence.append(node("p","dr-browse-reference-note","Cardmarket reference via TCGdex, converted from EUR. This is separate from your collection’s eBay UK sold-market valuation."));
       }
       if(row.market_value_source==="POKEWALLET_POKEMON_CARDMARKET_CATALOGUE")evidence.append(node("p","dr-browse-reference-note","Cardmarket Non-English regional guide via PokéWallet, converted from EUR. Japanese language and your copy’s condition are not verified by this guide; it is not an exact UK sold valuation."));
+      if(row.market_value_source==="TCGCSV_TCGPLAYER_CATALOGUE")evidence.append(node("p","dr-browse-reference-note","TCGplayer US marketplace guide via TCGCSV, converted from USD. Matched to the exact release, card number and unique source product. This is not a UK sold price or a valuation of your copy’s condition."));
       if(row.market_value_source==="CARDMARKET_CATALOGUE")evidence.append(node("p","dr-browse-reference-note","Cardmarket catalogue guide, converted from EUR. Matched by a unique card name in both complete release checklists. The guide spans languages, conditions and foil treatments; it is not an exact physical-copy valuation."));
       if((row.market_quotes||[]).some(q=>q.source==="TCGDEX_TCGPLAYER"))evidence.append(node("p","dr-browse-reference-note","TCGplayer is supporting US market context. Its dollar price is not used as a UK sold-market valuation."));
       if(row.market_value_source==="CARDMARKET_BULK")evidence.append(node("p","dr-browse-reference-note","Cardmarket daily packaging guide, converted from EUR. This aggregate spans languages and conditions; confirm your exact package before valuing a physical item."));
