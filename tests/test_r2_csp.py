@@ -66,3 +66,27 @@ async def test_bad_storage_config_cannot_expand_csp(monkeypatch,endpoint):
     result=await middleware()(Request({"type":"http","method":"GET","path":"/","headers":[]}),response)
     assert endpoint not in result.headers["Content-Security-Policy"]
     assert "password" not in result.headers["Content-Security-Policy"]
+
+
+@pytest.mark.asyncio
+async def test_book_reference_redirects_and_listing_photos_are_images_only():
+    """Medium Open Library covers can redirect twice through Internet Archive."""
+    async def response(_):
+        return Response("ok")
+
+    result = await middleware()(Request({"type": "http", "method": "GET", "path": "/owner", "headers": []}), response)
+    policy = result.headers["Content-Security-Policy"]
+    directives = {part.split()[0]: part.split()[1:] for part in policy.split(";") if part.strip()}
+    destinations = {
+        "https://covers.openlibrary.org",
+        "https://archive.org/download/",
+        "https://*.us.archive.org/view_archive.php",
+        "https://i.ebayimg.com",
+    }
+    assert destinations <= set(directives["img-src"])
+    assert "*" not in directives["img-src"]
+    assert "https://*.archive.org" not in directives["img-src"]
+    assert "https://archive.org" not in directives["img-src"]
+    for directive, sources in directives.items():
+        if directive != "img-src":
+            assert not destinations.intersection(sources), directive

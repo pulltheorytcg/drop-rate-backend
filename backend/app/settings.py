@@ -154,6 +154,11 @@ class Settings:
     ebay_shipping_carrier_code: str = "RoyalMail"
     ebay_shipping_service_code: str = "UK_RoyalMailTracked"
     market_ingestion_enabled: bool = False
+    # Display-only official eBay listing context. This never supplies sold
+    # observations, physical-copy values, portfolio totals or retail prices.
+    book_ebay_context_enabled: bool = False
+    book_ebay_context_daily_call_limit: int = 500
+    book_ebay_context_probe_isbn: str | None = None
     shopify_shop_domain: str | None = None
     shopify_client_id: str | None = None
     shopify_client_secret: str | None = None
@@ -286,6 +291,11 @@ class Settings:
                 or "UK_RoyalMailTracked"
             ),
             market_ingestion_enabled=_boolean("TCG_MARKET_INGESTION_ENABLED", False),
+            book_ebay_context_enabled=_boolean("TCG_BOOK_EBAY_CONTEXT_ENABLED", False),
+            book_ebay_context_daily_call_limit=_bounded_int(
+                "TCG_BOOK_EBAY_CONTEXT_DAILY_CALL_LIMIT", 500, minimum=1, maximum=4000
+            ),
+            book_ebay_context_probe_isbn=_optional("TCG_BOOK_EBAY_CONTEXT_PROBE_ISBN"),
             shopify_shop_domain=_shopify_domain("TCG_SHOPIFY_SHOP_DOMAIN"),
             shopify_client_id=_optional("TCG_SHOPIFY_CLIENT_ID"),
             shopify_client_secret=_optional("TCG_SHOPIFY_CLIENT_SECRET"),

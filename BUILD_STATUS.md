@@ -1,3 +1,23 @@
+## 27 October 2026 — Book image redirects and eBay asking-price context
+
+The remaining artwork audit found an actual browser policy failure: four of
+twelve sampled medium Open Library covers redirect through Internet Archive.
+The corrected image policy loads all four in a real Chromium before/after
+comparison (zero before, four after). Other resource policies remain unchanged;
+this sample is not an assertion of full catalogue coverage.
+
+An opt-in, authenticated catalogue endpoint and display now provide exact-ISBN
+active eBay listing context through the official Browse API. Prices are labelled
+asking prices, with source condition, links and postage information. Matching
+listing photos can replace a failed source image and remain labelled references.
+The integration is bounded, cached, read-only and independent of sold pricing.
+It defaults off pending the bounded production provider probe. No book sold
+values, inventory values, physical printing status or approved media are created.
+
+See [the feature contract](docs/BOOK_EBAY_LISTING_CONTEXT_20261027.md) and
+[the real cover redirect check](docs/evidence/book-cover-redirect-browser-20261027.json).
+The associated PR records normal CI, deployment, provider and activation results.
+
 ## 27 October 2026 — Comic/manga cover references and ISBN price matching repair
 
 The new book catalogue contained metadata without an artwork display path for

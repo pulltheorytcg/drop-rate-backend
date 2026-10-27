@@ -56,10 +56,15 @@ Eligible catalogue and saved-inventory items receive a `community_cover` object:
 }
 ```
 
-The medium thumbnail is used in grids and detail views. It is the documented
-size for detail pages and avoids requesting historical large/original images
-that may redirect to archive-hosted files outside the image CSP. Only the exact
-`https://covers.openlibrary.org` image origin is added to CSP.
+The medium thumbnail is used in grids and detail views. Medium images can also
+redirect through Internet Archive. A later live check on 27 October reproduced
+four failures caused by the original image CSP: the source redirected first to
+`https://archive.org/download/` and then to a regional
+`https://*.us.archive.org/view_archive.php` host. Both destinations are now
+allowed for images only. In Chromium, the same four public source requests
+changed from zero decoded images with the deployed policy to four decoded
+images with the corrected policy. Script and connection permissions are unchanged.
+See [the browser evidence](evidence/book-cover-redirect-browser-20261027.json).
 
 Catalogue browsing, its detail panel, the selected-book intake preview, saved
 collection views and the founder inventory grid render this separate field.

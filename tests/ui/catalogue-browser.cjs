@@ -4,7 +4,7 @@ const path=require('node:path');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-browser.js'),'utf8');
 const ownerShell=fs.readFileSync(path.join(__dirname,'../../backend/app/static/owner.html'),'utf8');
-assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=book-community-covers-v1'), 'Seller Hub must load the current book cover and attribution script');
+assert.ok(ownerShell.includes('/assets/catalogue-browser.js?v=book-ebay-context-v1'), 'Seller Hub must load the current book artwork and listing-context script');
 assert.ok(ownerShell.includes('/assets/catalogue-browser.css?v=simple-v1'), 'Seller Hub must load the fresh mobile sort styles');
 const titleArt=fs.readFileSync(path.join(__dirname,'../../backend/app/static/catalogue-title-art.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));

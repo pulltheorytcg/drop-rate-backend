@@ -38,6 +38,7 @@ from .inventory_intake import router as inventory_intake_router
 from .owner_books import router as owner_books_router
 from .book_recognition import router as book_recognition_router
 from .catalogue_browser import router as catalogue_browser_router
+from .book_ebay_context import router as book_ebay_context_router
 from .inventory_intelligence import router as inventory_intelligence_router
 from .inventory_market_values import router as inventory_market_values_router
 from .inventory_state import router as inventory_state_router
@@ -123,7 +124,7 @@ def _dashboard_html() -> str:
         '<script src="/assets/founder-workspace.js" defer></script>',
         '<script src="/assets/founder-accounts.js?v=shared-reference-v2" defer></script>',
         '<script src="/assets/catalogue-title-art.js?v=3" defer></script>',
-        '<script src="/assets/catalogue-browser.js?v=book-community-covers-v1" defer></script>',
+        '<script src="/assets/catalogue-browser.js?v=book-ebay-context-v1" defer></script>',
         '<script src="/assets/catalogue-browser-entry.js?v=7" defer></script>',
         '<script src="/assets/workspace-shell.js?v=simple-v1" defer></script>',
         '<script src="/assets/collector-worlds.js?v=simple-v1" defer></script>',
@@ -340,7 +341,7 @@ def create_app() -> FastAPI:
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self'; style-src 'self'; "
-            f"img-src 'self' data: blob: https://assets.tcgdex.net https://covers.openlibrary.org https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://www.dbs-cardgame.com https://narutocardgame.gg https://cardtrader.com https://www.cardtrader.com https://upload.wikimedia.org https://images.prismic.io https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net{r2_img_origin}; "
+            f"img-src 'self' data: blob: https://assets.tcgdex.net https://covers.openlibrary.org https://archive.org/download/ https://*.us.archive.org/view_archive.php https://i.ebayimg.com https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://www.dbs-cardgame.com https://narutocardgame.gg https://cardtrader.com https://www.cardtrader.com https://upload.wikimedia.org https://images.prismic.io https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net{r2_img_origin}; "
             f"connect-src 'self' {settings.supabase_url}; "
             "font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         )
@@ -441,6 +442,7 @@ def create_app() -> FastAPI:
     app.include_router(recognition_router)
     app.include_router(reference_library_router)
     app.include_router(catalogue_browser_router)
+    app.include_router(book_ebay_context_router)
     app.include_router(condition_review_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(competitive_intelligence_router, dependencies=[Depends(require_platform_admin_request)])
     app.include_router(competitive_intelligence_automation_router)
