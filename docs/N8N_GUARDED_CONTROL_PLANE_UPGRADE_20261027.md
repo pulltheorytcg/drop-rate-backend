@@ -2,27 +2,49 @@
 
 ## Scope and evidence
 
-This operation repairs the missing DR90 error-handler links in the three
-existing, inactive control-plane workflows. It preserves the n8n SQLite volume,
-workflow IDs and ownership. Publication is a separate operator phase.
+This operation repairs JSON response parsing in four observed, inactive
+control-plane workflows and adds the three missing DR90 error-handler links.
+It preserves the n8n SQLite volume, workflow IDs, signed request bytes and
+ownership. Publication is a separate operator phase.
 
 The metadata inspection on deployment
 `166e3937-4c17-4f7d-9b36-be94d380ccfa` at
 `2026-10-27T14:02:40.995663898Z` reported all four workflows inactive and
-unpublished. DR90 already matched the source. Removing only
-`settings.errorWorkflow` from each reviewed DR92, DR93 and DR94 source exactly
-reproduces its observed stored hash.
+unpublished. DR90 matched the source at that observation. The subsequent native
+canary exposed a real parser defect in that definition: the signed receipt was
+accepted by the local receiver, but `Control Receipt Accepted?` failed because
+the HTTP response body was still a stream object.
+The bounded diagnostic from [CI run 40525381921](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40525381921)
+at `2026-10-27T14:55:23Z` recorded one accepted receipt, zero rejected receipts,
+and the final-node classification `RECEIPT_RESPONSE_NOT_ACCEPTED`. The success
+gate remains a completed successful handler and exactly one accepted receipt.
+
+Pinned `HttpRequestV3` sets `useStream: true` for raw request bodies. The explicit
+JSON response branch only parses strings, while `autodetect` consumes the stream
+and parses an `application/json` response. The backend-network adapter confirms
+that `useStream` selects Axios `responseType: stream` and keeps its
+`IncomingMessage` body. The reviewed fix changes only the response format to
+`autodetect`; it retains raw request serialization, full status/body responses,
+and strict status/boolean acceptance checks. The fixture receiver is unchanged.
+Compatibility references are the pinned
+[HTTP Request implementation](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/nodes-base/nodes/HttpRequest/V3/HttpRequestV3.node.ts),
+[Axios adapter](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/%40n8n/backend-network/src/http/axios/legacy.ts),
+and [legacy response adapter](https://github.com/n8n-io/n8n/blob/n8n%402.32.6/packages/%40n8n/backend-network/src/http/legacy-request.ts).
+
+Reversing that one response-format change in each target and removing the
+DR92/DR93/DR94 `settings.errorWorkflow` links exactly reproduces every actually
+observed stored hash.
 
 | Workflow ID | Reviewed update | First rollout state |
 | --- | --- | --- |
-| `DR90GlobalErrorV1` | No definition change; exact invariant hash required | Inactive, unpublished |
-| `DR92RuntimeHeartbeatV1` | Set `settings.errorWorkflow` to DR90 | Inactive, unpublished |
-| `DR93ObjectStorageHealthV1` | Set `settings.errorWorkflow` to DR90 | Inactive, unpublished |
-| `DR94R2ApprovedMediaMirrorV1` | Set `settings.errorWorkflow` to DR90 | Inactive, unpublished |
+| `DR90GlobalErrorV1` | Parse streamed JSON response with `autodetect` | Inactive, unpublished |
+| `DR92RuntimeHeartbeatV1` | Same response repair; set `settings.errorWorkflow` to DR90 | Inactive, unpublished |
+| `DR93ObjectStorageHealthV1` | Same response repair; set `settings.errorWorkflow` to DR90 | Inactive, unpublished |
+| `DR94R2ApprovedMediaMirrorV1` | Same response repair; set `settings.errorWorkflow` to DR90 | Inactive, unpublished |
 
 The full observed and reviewed SHA-256 values are committed in
 [`control-plane-upgrade-20261027.json`](../automation/n8n/ops/control-plane-upgrade-20261027.json).
-Its plan ID is `control-plane-error-links-20261027-v1`. The normalization is the
+Its plan ID is `control-plane-stream-response-and-error-links-20261027-v2`. The normalization is the
 existing inspector's definition hash over ID, name, nodes, connections,
 settings and node groups. Runtime-generated version IDs and execution state do
 not affect that hash. No workflow code or credential values are logged.
@@ -31,6 +53,19 @@ The same inspection found no records of the supported Drive credential types
 `googleDriveOAuth2Api` and `googleApi`. This is metadata evidence for those
 types, not proof about other generic credentials or Drive authorization. This
 release does not create or modify credentials.
+
+DR91 has the same source-only response repair and is now included in the
+read-only inspector. Its prior source hash is
+`8f8b466d808171b2458fc0bcfc7a64a3ae8271221e084353d7eaf35198981296`;
+its reviewed new source hash is
+`1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568`.
+The prior hash is **expected from the repository, not yet observed in production**.
+DR91 is explicitly excluded from this four-ID import/publication plan. A fresh
+metadata receipt must establish its actual hash and inactive/unpublished state
+before a separately reviewed DR91 upgrade. DR95 cannot be activated on the
+basis of a corrected DR91 source file alone. The parked DR01, DR01 V2 and DR02
+raw JSON command nodes share this response-format issue and remain a separate
+recorded repair task.
 
 ## Why the update runs before the server starts
 
@@ -50,6 +85,16 @@ The database path follows n8n's actual `N8N_USER_FOLDER` and
 `DB_SQLITE_DATABASE` rules. The older one-time pre-provision copy remains
 unchanged; this operation creates and verifies its own backup at the resolved
 database location.
+
+## Phase 0: deploy inspection with mutations disabled
+
+Deploy this release with `DROP_RATE_N8N_CONTROL_PLANE_UPGRADE_ON_BOOT=false`,
+`DROP_RATE_N8N_CONTROL_PLANE_PUBLISH_ON_BOOT=false`,
+`DROP_RATE_R2_MEDIA_WORKFLOW_PUBLISH_ON_BOOT=false` and the existing metadata
+inspection flag true. Review a fresh receipt for DR90 through DR94. The planned
+four targets must still have their exact observed old hashes and remain inactive
+and unpublished. Treat the DR91 record as newly collected evidence, not as
+permission for this plan to write it.
 
 ## Phase 1: update the inactive definitions
 
@@ -77,7 +122,7 @@ On the next normal startup, the upgrade:
 3. Rechecks the source, offline state and stored metadata immediately before
    mutation. Unexpected changes stop the operation.
 4. Runs one supported `n8n import:workflow --input=... --activeState=false`
-   command containing only the pending reviewed DR92, DR93 and DR94 definitions.
+   command containing only the pending reviewed DR90, DR92, DR93 and DR94 definitions.
 5. Rereads each stored definition and its current draft history version. It
    requires exact reviewed hashes, DR90 error routing, and continued inactivity.
 
@@ -86,9 +131,9 @@ Expected event:
 ```json
 {
   "event": "DROP_RATE_N8N_REVIEWED_UPGRADE",
-  "plan_id": "control-plane-error-links-20261027-v1",
+  "plan_id": "control-plane-stream-response-and-error-links-20261027-v2",
   "status": "SOURCE_MATCH_VERIFIED",
-  "changed_count": 3
+  "changed_count": 4
 }
 ```
 
@@ -267,7 +312,7 @@ The existing `n8n-image` CI job builds the exact `2.32.6` image and then runs tw
 sequential checks with `--network none`:
 
 1. Real n8n import/publication against a new disposable database: recreate the
-   observed hashes, upgrade exactly three inactive definitions, verify backup
+   observed hashes, upgrade exactly four inactive definitions, preserve DR91, verify backup
    and ownership, retry without history growth, then exercise the separate
    error-handler, health-only and media-only publication commands, proving DR94
    remains unpublished after the health phase.

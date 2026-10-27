@@ -1,29 +1,34 @@
 {
   "schema_version": 1,
-  "plan_id": "control-plane-error-links-20261027-v1",
+  "plan_id": "control-plane-stream-response-and-error-links-20261027-v2",
   "n8n_version": "2.32.6",
   "observed_at": "2026-10-27T14:02:40.995663898Z",
   "observation_deployment_id": "166e3937-4c17-4f7d-9b36-be94d380ccfa",
   "normalization": "drop-rate-workflow-definition-v1",
   "error_workflow": {
     "id": "DR90GlobalErrorV1",
-    "sha256": "c804be158c4447fcf9d10104fc5a93730d8475a0e513d8d8ee9a24cb65fb4ab8"
+    "sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011"
   },
   "targets": [
     {
+      "id": "DR90GlobalErrorV1",
+      "observed_stored_sha256": "c804be158c4447fcf9d10104fc5a93730d8475a0e513d8d8ee9a24cb65fb4ab8",
+      "source_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011"
+    },
+    {
       "id": "DR92RuntimeHeartbeatV1",
       "observed_stored_sha256": "9b752807ff38dcca623dbc3c4be9c20ab9f4a9d2ec4c7ec7b2cf58fdcd7b211b",
-      "source_sha256": "9c4a71bb007e9ebcd0781e627b770ec9976162fe184f7a6fc35e062fa4573d17"
+      "source_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e"
     },
     {
       "id": "DR93ObjectStorageHealthV1",
       "observed_stored_sha256": "95dd5cc4a8adebd17fe0e85b16258d898dd5021e8e3f1f523539483aca66fa80",
-      "source_sha256": "a92acce19d0bd87bfbdd3adff54825bf25dc28d4aa9ad1062014c8c8e3b7dd3e"
+      "source_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919"
     },
     {
       "id": "DR94R2ApprovedMediaMirrorV1",
       "observed_stored_sha256": "ffc56dc0c7bd7cc6f90b82173dc894d6db02fa0eddecc5ccdec70d6ffd4a6150",
-      "source_sha256": "d0b5daad2176ae2200dcac3c88d79261975297f4c0f991c3d0264f0dbc60a8f2"
+      "source_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba"
     }
   ]
 }

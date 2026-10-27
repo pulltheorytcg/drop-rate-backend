@@ -15,6 +15,7 @@ const MAX_DEFINITION_BYTES = 1024 * 1024;
 const MAX_CREDENTIALS = 50;
 const WORKFLOWS = Object.freeze([
   ['DR90GlobalErrorV1', 'dr-90-global-error.json'],
+  ['DR91SuccessReceiptV1', 'dr-91-success-receipt.json'],
   ['DR92RuntimeHeartbeatV1', 'dr-92-runtime-heartbeat.json'],
   ['DR93ObjectStorageHealthV1', 'dr-93-object-storage-health.json'],
   ['DR94R2ApprovedMediaMirrorV1', 'dr-94-r2-approved-media-mirror.json'],

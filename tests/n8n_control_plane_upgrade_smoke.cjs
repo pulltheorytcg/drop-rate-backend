@@ -49,9 +49,12 @@ let operatorFailure = null;
     stage = 'SEED_OBSERVED_DEFINITIONS';
     const prior = inspector.WORKFLOWS.map(([id, file]) => {
       const workflow = JSON.parse(fs.readFileSync(path.join(SOURCES, file), 'utf8'));
-      delete workflow.settings.errorWorkflow;
-      const expected = id === upgrade.PLAN.error_workflow.id ? upgrade.PLAN.error_workflow.sha256
-        : upgrade.PLAN.targets.find(x => x.id === id).observed_stored_sha256;
+      const target = upgrade.PLAN.targets.find(x => x.id === id);
+      if (target) delete workflow.settings.errorWorkflow;
+      workflow.nodes.find(node => node.type === 'n8n-nodes-base.httpRequest')
+        .parameters.options.response.response.responseFormat = 'json';
+      const expected = target ? target.observed_stored_sha256
+        : '8f8b466d808171b2458fc0bcfc7a64a3ae8271221e084353d7eaf35198981296';
       assert.equal(inspector.definitionHash(workflow), expected);
       return workflow;
     });
@@ -60,12 +63,13 @@ let operatorFailure = null;
     await cli(['import:workflow', '--input=' + seed, '--activeState=false']);
     const beforeDb = inspector.openDatabase(env.DB_SQLITE_DATABASE);
     const ownership = beforeDb.prepare('SELECT * FROM shared_workflow ORDER BY workflowId').all();
+    const dr91Before = beforeDb.prepare('SELECT * FROM workflow_entity WHERE id=?').get('DR91SuccessReceiptV1');
     beforeDb.close();
     env[upgrade.FLAG] = 'true';
     stage = 'INACTIVE_UPGRADE';
     const changed = await operator();
     assert.equal(changed.status, 'SOURCE_MATCH_VERIFIED');
-    assert.equal(changed.changed_count, 3);
+    assert.equal(changed.changed_count, 4);
     assert.ok(changed.workflows.every(x => x.source_matches_stored && !x.active && !x.published));
     stage = 'BACKUP_AND_OWNERSHIP_READBACK';
     const backupFile = path.join(root, 'drop-rate-control-plane-backups', changed.backup.id, 'database.sqlite');
@@ -77,6 +81,7 @@ let operatorFailure = null;
     copy.close();
     const afterDb = inspector.openDatabase(env.DB_SQLITE_DATABASE);
     assert.deepEqual(afterDb.prepare('SELECT * FROM shared_workflow ORDER BY workflowId').all(), ownership);
+    assert.deepEqual(afterDb.prepare('SELECT * FROM workflow_entity WHERE id=?').get('DR91SuccessReceiptV1'), dr91Before);
     const historyCount = afterDb.prepare('SELECT count(*) AS count FROM workflow_history').get().count;
     afterDb.close();
     stage = 'IDEMPOTENT_RETRY';
@@ -85,7 +90,7 @@ let operatorFailure = null;
     const repeatedDb = inspector.openDatabase(env.DB_SQLITE_DATABASE);
     assert.equal(repeatedDb.prepare('SELECT count(*) AS count FROM workflow_history').get().count, historyCount);
     repeatedDb.close();
-    console.log('PASS: pinned n8n 2.32.6 real importer upgraded exactly three inactive definitions, preserved ownership, verified SQLite backup and made retry a no-op');
+    console.log('PASS: pinned n8n 2.32.6 real importer upgraded exactly four inactive definitions, preserved DR91 and ownership, verified SQLite backup and made retry a no-op');
 
     // Publication is exercised only in this disposable, network-isolated DB.
     env[upgrade.FLAG] = 'false';
@@ -109,6 +114,9 @@ let operatorFailure = null;
     assert.equal(media.status, 'PUBLICATION_VERIFIED');
     assert.equal(media.changed_count, 1);
     assert.ok(media.workflows.every(x => x.published && x.source_matches_published));
+    const finalDb = inspector.openDatabase(env.DB_SQLITE_DATABASE);
+    assert.deepEqual(finalDb.prepare('SELECT * FROM workflow_entity WHERE id=?').get('DR91SuccessReceiptV1'), dr91Before);
+    finalDb.close();
     console.log('PASS: separate pinned-version publication verified exact DR90, then health schedules, then approved media; no workflow executions or external requests');
   } finally {
     // Only this newly created disposable CI directory is removed.

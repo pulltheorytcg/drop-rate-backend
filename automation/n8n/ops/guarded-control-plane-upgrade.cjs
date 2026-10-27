@@ -1,6 +1,6 @@
 'use strict';
 
-// Explicit, pre-start upgrade of three already-installed inactive workflows.
+// Explicit, pre-start upgrade of four already-observed inactive workflows.
 // Supported n8n CLI writes the workflow/history rows; SQLite is read-only here.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -14,7 +14,7 @@ const FLAG = 'DROP_RATE_N8N_CONTROL_PLANE_UPGRADE_ON_BOOT';
 const PUBLISH_FLAG = 'DROP_RATE_N8N_CONTROL_PLANE_PUBLISH_ON_BOOT';
 const EVENT = 'DROP_RATE_N8N_REVIEWED_UPGRADE';
 const SOURCE_DIRECTORY = path.resolve(__dirname, '..', 'workflows');
-const EXPECTED_IDS = ['DR92RuntimeHeartbeatV1', 'DR93ObjectStorageHealthV1', 'DR94R2ApprovedMediaMirrorV1'];
+const EXPECTED_IDS = ['DR90GlobalErrorV1', 'DR92RuntimeHeartbeatV1', 'DR93ObjectStorageHealthV1', 'DR94R2ApprovedMediaMirrorV1'];
 const HEALTH_IDS = ['DR92RuntimeHeartbeatV1', 'DR93ObjectStorageHealthV1'];
 const MEDIA_IDS = ['DR94R2ApprovedMediaMirrorV1'];
 const SAFE_CODES = new Set(['PLAN_INVALID', 'SOURCE_DRIFT', 'STORED_DRIFT', 'WORKFLOW_NOT_INACTIVE',
@@ -37,6 +37,7 @@ function validatePlan() {
   if (PLAN.schema_version !== 1 || PLAN.n8n_version !== '2.32.6'
     || PLAN.error_workflow.id !== 'DR90GlobalErrorV1'
     || PLAN.targets.map(x => x.id).join(',') !== EXPECTED_IDS.join(',')
+    || PLAN.targets[0].source_sha256 !== PLAN.error_workflow.sha256
     || !/^[a-z0-9-]{1,80}$/.test(PLAN.plan_id)
     || ![PLAN.error_workflow.sha256, ...PLAN.targets.flatMap(x => [x.source_sha256, x.observed_stored_sha256])]
       .every(x => /^[a-f0-9]{64}$/.test(x))) fail('PLAN_INVALID');
@@ -44,24 +45,31 @@ function validatePlan() {
 function readSources(sourceDirectory) {
   validatePlan();
   const sources = new Map();
-  for (const [id, file] of inspector.WORKFLOWS) {
+  // DR91 is inspected separately, but has no observed production definition in
+  // this plan. Neither read-only inspection nor a source fix authorizes its write.
+  for (const [id, file] of inspector.WORKFLOWS.filter(([id]) => EXPECTED_IDS.includes(id))) {
     const filename = path.join(sourceDirectory, file);
     const stat = fs.lstatSync(filename);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 1024 * 1024) fail('SOURCE_DRIFT');
     const source = JSON.parse(fs.readFileSync(filename, 'utf8'));
-    const expected = id === PLAN.error_workflow.id ? PLAN.error_workflow.sha256
-      : PLAN.targets.find(x => x.id === id)?.source_sha256;
+    const target = PLAN.targets.find(x => x.id === id);
+    const expected = target.source_sha256;
     if (source.id !== id || source.active !== false || source.activeVersionId != null
       || inspector.definitionHash(source) !== expected) fail('SOURCE_DRIFT');
     if (id === PLAN.error_workflow.id) {
       if (source.settings?.errorWorkflow) fail('SOURCE_DRIFT');
     } else {
       if (source.settings?.errorWorkflow !== PLAN.error_workflow.id) fail('SOURCE_DRIFT');
-      const previous = structuredClone(source);
-      delete previous.settings.errorWorkflow;
-      if (inspector.definitionHash(previous)
-        !== PLAN.targets.find(x => x.id === id).observed_stored_sha256) fail('SOURCE_DRIFT');
     }
+    const previous = structuredClone(source);
+    delete previous.settings.errorWorkflow;
+    const requests = previous.nodes.filter(node => node.type === 'n8n-nodes-base.httpRequest');
+    if (requests.length !== 1 || requests[0].parameters.contentType !== 'raw'
+      || requests[0].parameters.options?.response?.response?.responseFormat !== 'autodetect') fail('SOURCE_DRIFT');
+    // Exactly undo the reviewed response parser repair and the three routing
+    // links. The resulting bytes must match the actually observed old hash.
+    requests[0].parameters.options.response.response.responseFormat = 'json';
+    if (inspector.definitionHash(previous) !== target.observed_stored_sha256) fail('SOURCE_DRIFT');
     sources.set(id, source);
   }
   return sources;
@@ -73,7 +81,8 @@ function readState(databasePath, sourceDirectory, prefix) {
     if (!stat.isFile() || stat.isSymbolicLink()) fail('DATABASE_UNAVAILABLE');
     db = inspector.openDatabase(databasePath);
     db.exec('BEGIN');
-    return inspector.inspectDatabase(db, sourceDirectory, prefix).workflows;
+    return inspector.inspectDatabase(db, sourceDirectory, prefix).workflows
+      .filter(item => EXPECTED_IDS.includes(item.id));
   } finally {
     try { db?.exec('ROLLBACK'); } catch {}
     try { db?.close(); } catch {}
@@ -87,15 +96,11 @@ function assess(workflows, { requireCurrent = false, allowPublished = false } = 
     if (!allowPublished && (item.active !== false || item.published !== false)) fail('WORKFLOW_NOT_INACTIVE');
     if (allowPublished && ((item.active && !item.published)
       || (item.published && item.published_sha256 !== item.source_sha256))) fail('SOURCE_NOT_VERIFIED');
-    if (item.id === PLAN.error_workflow.id) {
-      if (item.source_sha256 !== PLAN.error_workflow.sha256
-        || item.stored_sha256 !== PLAN.error_workflow.sha256 || item.errorWorkflow !== null) fail('STORED_DRIFT');
-      continue;
-    }
     const target = PLAN.targets.find(x => x.id === item.id);
     if (!target || item.source_sha256 !== target.source_sha256) fail('SOURCE_DRIFT');
+    const expectedHandler = item.id === PLAN.error_workflow.id ? null : PLAN.error_workflow.id;
     if (item.stored_sha256 === target.source_sha256
-      && item.errorWorkflow === PLAN.error_workflow.id) continue;
+      && item.errorWorkflow === expectedHandler) continue;
     if (requireCurrent) fail('SOURCE_NOT_VERIFIED');
     if (item.stored_sha256 !== target.observed_stored_sha256 || item.errorWorkflow !== null) fail('STORED_DRIFT');
     pending.push(item.id);
@@ -106,14 +111,11 @@ function stateIdentity(workflows) {
   return JSON.stringify(workflows.map(x => [x.id, x.source_sha256, x.stored_sha256,
     x.errorWorkflow, x.active, x.published]));
 }
-function verifyDraftHistory(databasePath, prefix, includeHandler = false) {
+function verifyDraftHistory(databasePath, prefix) {
   const db = inspector.openDatabase(databasePath);
   try {
     db.exec('BEGIN');
-    const targets = includeHandler
-      ? [{ id: PLAN.error_workflow.id, source_sha256: PLAN.error_workflow.sha256 }, ...PLAN.targets]
-      : PLAN.targets;
-    for (const target of targets) {
+    for (const target of PLAN.targets) {
       const row = db.prepare('SELECT e.id, e.name, e.settings, h.nodes, h.connections, h.nodeGroups'
         + ' FROM "' + prefix + 'workflow_entity" e JOIN "' + prefix + 'workflow_history" h'
         + ' ON h.workflowId=e.id AND h.versionId=e.versionId WHERE e.id=?'
@@ -260,7 +262,7 @@ async function applyPublication({ env = process.env, sourceDirectory = SOURCE_DI
     await offline(env);
     const before = readState(config.databasePath, sourceDirectory, config.tablePrefix);
     assess(before, { requireCurrent: true, allowPublished: true });
-    verifyDraftHistory(config.databasePath, config.tablePrefix, true);
+    verifyDraftHistory(config.databasePath, config.tablePrefix);
     if (mode !== 'error-handler' && before.find(x => x.id === PLAN.error_workflow.id)?.published !== true) {
       fail('ERROR_HANDLER_UNPUBLISHED');
     }
@@ -314,7 +316,7 @@ function verifyBeforePublish(env = process.env, sourceDirectory = SOURCE_DIRECTO
     assess(workflows, { requireCurrent: true, allowPublished: true });
     if (workflows.find(x => x.id === PLAN.error_workflow.id)?.published !== true) fail('ERROR_HANDLER_UNPUBLISHED');
     if (HEALTH_IDS.some(id => workflows.find(x => x.id === id)?.published !== true)) fail('HEALTH_SCHEDULES_UNPUBLISHED');
-    verifyDraftHistory(config.databasePath, config.tablePrefix, true);
+    verifyDraftHistory(config.databasePath, config.tablePrefix);
     return result('SOURCE_MATCH_VERIFIED', { changed_count: 0, workflows });
   } catch (error) { return safeFailure(error, 'VERIFY'); }
 }

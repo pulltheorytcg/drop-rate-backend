@@ -34,7 +34,9 @@ function fixture() {
     const original = fs.readFileSync(path.join(ROOT, 'automation/n8n/workflows', file), 'utf8');
     fs.writeFileSync(path.join(sourceDirectory, file), original);
     const old = JSON.parse(original);
-    delete old.settings.errorWorkflow;
+    if (upgrade.PLAN.targets.some(target => target.id === id)) delete old.settings.errorWorkflow;
+    old.nodes.find(node => node.type === 'n8n-nodes-base.httpRequest')
+      .parameters.options.response.response.responseFormat = 'json';
     const version = 'old-' + id;
     db.prepare('INSERT INTO workflow_entity VALUES (?,?,0,NULL,?,?,?,?,?)').run(
       id, old.name, version, JSON.stringify(old.nodes), JSON.stringify(old.connections), JSON.stringify(old.settings), '[]');
@@ -73,10 +75,13 @@ function fixture() {
   return { root, databasePath, sourceDirectory, db, calls, env, options };
 }
 
-test('exact observed differences are only the DR90 link and match the pinned plan', () => {
+test('exact observed differences are the raw response parser repair and three DR90 links', () => {
   const sources = upgrade.readSources(path.join(ROOT, 'automation/n8n/workflows'));
   assert.equal(sources.size, 4);
-  assert.equal(upgrade.PLAN.error_workflow.sha256, 'c804be158c4447fcf9d10104fc5a93730d8475a0e513d8d8ee9a24cb65fb4ab8');
+  assert.equal(upgrade.PLAN.error_workflow.sha256, '84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011');
+  assert.equal(upgrade.PLAN.targets[0].observed_stored_sha256,
+    'c804be158c4447fcf9d10104fc5a93730d8475a0e513d8d8ee9a24cb65fb4ab8');
+  assert.ok(!sources.has('DR91SuccessReceiptV1'));
 });
 
 test('offline guard denies a live local server and ignores unrelated platform PORT', async t => {
@@ -113,7 +118,7 @@ test('WAL-aware backup precedes one inactive import, preserves unrelated state, 
     const ownership = f.db.prepare('SELECT * FROM shared_workflow ORDER BY workflowId').all();
     const report = await upgrade.applyUpgrade(f.options);
     assert.equal(report.status, 'SOURCE_MATCH_VERIFIED');
-    assert.equal(report.changed_count, 3);
+    assert.equal(report.changed_count, 4);
     assert.equal(report.backup.verified, true);
     assert.ok(!JSON.stringify(report).includes(PRIVATE));
     assert.equal(f.calls.filter(x => x[0] === 'import:workflow').length, 1);
@@ -155,7 +160,8 @@ test('unobserved drift, active or published state, and source drift block before
       if (change === 'published') f.db.prepare('UPDATE workflow_entity SET activeVersionId=versionId WHERE id=?').run(target);
       if (change === 'handler') f.db.prepare('UPDATE workflow_entity SET settings=? WHERE id=?').run('{"executionOrder":"v0"}', upgrade.PLAN.error_workflow.id);
       if (change === 'source') {
-        const file = path.join(f.sourceDirectory, inspector.WORKFLOWS[1][1]);
+        const file = path.join(f.sourceDirectory,
+          inspector.WORKFLOWS.find(([id]) => id === 'DR92RuntimeHeartbeatV1')[1]);
         const value = JSON.parse(fs.readFileSync(file));
         value.nodes[1].parameters.jsCode += PRIVATE;
         fs.writeFileSync(file, JSON.stringify(value));
@@ -167,6 +173,27 @@ test('unobserved drift, active or published state, and source drift block before
       assert.ok(!JSON.stringify(report).includes(PRIVATE));
     } finally { f.db.close(); }
   }
+});
+
+test('DR91 is inspected but never imported or published by the four-ID repair plan', async () => {
+  const f = fixture();
+  try {
+    const prior = f.db.prepare('SELECT * FROM workflow_entity WHERE id=?').get('DR91SuccessReceiptV1');
+    const before = inspector.inspectDatabase(f.db, f.sourceDirectory).workflows.find(x => x.id === prior.id);
+    assert.equal(before.stored_sha256,
+      '8f8b466d808171b2458fc0bcfc7a64a3ae8271221e084353d7eaf35198981296');
+    assert.equal(before.source_matches_stored, false);
+    assert.equal(before.active, false);
+    assert.equal(before.published, false);
+    const upgraded = await upgrade.applyUpgrade(f.options);
+    assert.equal(upgraded.status, 'SOURCE_MATCH_VERIFIED');
+    assert.ok(!upgraded.workflows.some(x => x.id === prior.id));
+    const env = { ...f.env, [upgrade.FLAG]: 'false', [upgrade.PUBLISH_FLAG]: 'error-handler' };
+    assert.equal((await upgrade.applyPublication({ ...f.options, env })).status, 'PUBLICATION_VERIFIED');
+    assert.deepEqual(f.db.prepare('SELECT * FROM workflow_entity WHERE id=?').get(prior.id), prior);
+    assert.equal(f.db.prepare('SELECT count(*) AS count FROM workflow_history WHERE workflowId=?')
+      .get(prior.id).count, 1);
+  } finally { f.db.close(); }
 });
 
 test('backup failure and changes during backup cannot reach the importer', async () => {

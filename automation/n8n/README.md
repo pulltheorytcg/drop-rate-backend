@@ -132,7 +132,7 @@ failure emits a fixed diagnostic and remains nonfatal to n8n startup.
 
 One JSON log event, `DROP_RATE_N8N_METADATA_INSPECTION`, reports:
 
-- Only `DR90GlobalErrorV1`, `DR92RuntimeHeartbeatV1`,
+- Only `DR90GlobalErrorV1`, `DR91SuccessReceiptV1`, `DR92RuntimeHeartbeatV1`,
   `DR93ObjectStorageHealthV1`, and `DR94R2ApprovedMediaMirrorV1`.
 - Normalized source, stored-draft and (when present) published-version SHA-256
   hashes, comparison results, source/stored `errorWorkflow`, and separate
@@ -203,16 +203,25 @@ Primary compatibility references:
 
 ## Guarded control-plane upgrade and publication
 
-The observed 27 October stored copies of DR92, DR93 and DR94 are inactive and
-unpublished. Each differs from the reviewed source only by the missing
-`settings.errorWorkflow = DR90GlobalErrorV1`. The explicit plan in
-`ops/control-plane-upgrade-20261027.json` pins both the observed and reviewed
-hashes. DR90 is unchanged.
+The observed 27 October stored copies of DR90, DR92, DR93 and DR94 are inactive
+and unpublished. The explicit plan in `ops/control-plane-upgrade-20261027.json`
+pins both their observed and reviewed hashes. All four receive a response
+parser correction: n8n 2.32.6 streams responses to raw requests, so
+`responseFormat: autodetect` consumes the JSON response before the existing
+strict acceptance checks. Raw HMAC-signed request bytes stay unchanged. DR92,
+DR93 and DR94 also gain `settings.errorWorkflow = DR90GlobalErrorV1`.
+
+DR91 receives the same source parser correction and read-only inspection, but
+is excluded from this write/publication plan. Its old source hash is an expected
+definition, not an observed production state. Deploy first with both mutation
+flags false, collect fresh stored/publication metadata for all five workflows,
+and review it before enabling the four-ID repair. DR91 requires its own reviewed
+upgrade after its actual stored state is observed.
 
 `DROP_RATE_N8N_CONTROL_PLANE_UPGRADE_ON_BOOT=true` enables only this reviewed
 inactive update. Before the server starts, the helper verifies the exact
 runtime, source and stored hashes, confirms inactivity, takes a private,
-WAL-aware SQLite backup, rechecks the state, and imports the three definitions
+WAL-aware SQLite backup, rechecks the state, and imports the four definitions
 with `--activeState=false`. A retry with already-matching inactive definitions
 does not import again. A failed requested upgrade stops startup with a bounded,
 metadata-only diagnostic. The ordinary metadata inspector remains nonfatal.

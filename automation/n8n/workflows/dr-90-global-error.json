@@ -78,7 +78,7 @@
             "response": {
               "fullResponse": true,
               "neverError": true,
-              "responseFormat": "json"
+              "responseFormat": "autodetect"
             }
           }
         }

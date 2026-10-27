@@ -76,6 +76,21 @@ test('both committed workflow definitions are exact, inactive and nonrecursive',
   ]);
 });
 
+test('the exact DR90 acceptance node still requires a successful parsed boolean receipt', () => {
+  const dr90 = canary.readSources()[0];
+  const code = dr90.nodes.find(node => node.name === 'Control Receipt Accepted?').parameters.jsCode;
+  const invoke = json => new Function('$input', code)({ first: () => ({ json }) });
+  const body = { accepted: true, workflow_key: 'fixture', execution_id: '17' };
+  assert.deepEqual(invoke({ statusCode: 200, body }),
+    [{ json: { recorded: true, workflow_key: 'fixture', execution_id: '17' } }]);
+  for (const response of [{ statusCode: 500, body }, { statusCode: 200, body: {} },
+    { statusCode: 200, body: JSON.stringify(body) },
+    { statusCode: 200, body: { accepted: 'true' } },
+    { statusCode: 200, body: { readable: true } }]) {
+    assert.throws(() => invoke(response), /automation_control_receipt_/);
+  }
+});
+
 test('the real fixture rejects missing, wrong, multibyte and malformed tokens before failing', () => {
   const code = canary.readSources()[1].nodes[1].parameters.jsCode;
   function invoke(token, body = { canary: 'DR90_AUTOMATIC_ROUTING' }, expected = TOKEN) {
