@@ -273,14 +273,52 @@ function diagnosticExecutionState(database) {
   try {
     const modes = new Set(['webhook', 'error', 'manual', 'cli', 'trigger', 'integrated']);
     const statuses = new Set(['new', 'running', 'success', 'error', 'canceled', 'crashed', 'waiting', 'unknown']);
-    return database.prepare(`SELECT workflowId,mode,status,stoppedAt FROM execution_entity
+    return database.prepare(`SELECT id,workflowId,mode,status,stoppedAt FROM execution_entity
       ORDER BY id LIMIT 5`).all().map(row => ({
       workflow: row.workflowId === CANARY_ID ? 'CANARY' : row.workflowId === ERROR_ID ? 'DR90' : 'UNEXPECTED',
       mode: modes.has(row.mode) ? row.mode : 'UNEXPECTED',
       status: statuses.has(row.status) ? row.status : 'UNEXPECTED',
       stopped: Boolean(row.stoppedAt),
+      ...(row.status === 'error' ? diagnosticErrorMetadata(database, row.id) : {}),
     }));
   } catch { return []; }
+}
+
+function diagnosticErrorMetadata(database, executionId) {
+  // n8n stores a flatted value table. Select only its fixed result/error metadata
+  // paths, bounded to a small temporary record. Never select runData, node inputs,
+  // node outputs, descriptions, stacks, request bodies or the complete data blob.
+  try {
+    const query = database.prepare(`SELECT json_extract(data, ?) AS value FROM execution_data
+      WHERE executionId=? AND length(CAST(data AS BLOB))<=524288 AND json_valid(data) LIMIT 1`);
+    const read = jsonPath => query.get(jsonPath, executionId)?.value;
+    const reference = value => typeof value === 'string' && /^(0|[1-9][0-9]{0,5})$/.test(value)
+      ? Number(value) : null;
+    const valueAt = value => {
+      const index = reference(value);
+      return index === null ? null : read('$[' + index + ']');
+    };
+    const resultIndex = reference(read('$[0].resultData'));
+    if (resultIndex === null) return {};
+    const lastNode = valueAt(read('$[' + resultIndex + '].lastNodeExecuted'));
+    const errorIndex = reference(read('$[' + resultIndex + '].error'));
+    const errorName = errorIndex === null ? null : valueAt(read('$[' + errorIndex + '].name'));
+    const errorMessage = errorIndex === null ? null : valueAt(read('$[' + errorIndex + '].message'));
+    const nodes = new Set(['Local Canary Webhook', 'Authenticate Local Canary', 'Expected Isolated Failure',
+      'Workflow Error', 'Normalize Failure', 'Sign Control Receipt', 'Record Failure in FastAPI', 'Control Receipt Accepted?']);
+    const names = new Set(['Error', 'TypeError', 'NodeApiError', 'NodeOperationError', 'ExpressionError',
+      'WorkflowOperationError', 'SubworkflowOperationError', 'TaskExecutionTimeoutError', 'TaskRequestTimeoutError']);
+    let signal = 'UNCLASSIFIED';
+    if (typeof errorMessage === 'string' && errorMessage.length <= 2048) {
+      if (/automation_control_receipt_failed_http_/.test(errorMessage)) signal = 'RECEIPT_HTTP_STATUS';
+      else if (/automation_control_receipt_not_accepted/.test(errorMessage)) signal = 'RECEIPT_RESPONSE_NOT_ACCEPTED';
+      else if (/CANARY_NETWORK_BLOCKED/.test(errorMessage)) signal = 'NETWORK_GUARD';
+      else if (/Task.*timed out/i.test(errorMessage)) signal = 'RUNNER_TIMEOUT';
+      else if (/execution timed out|workflow timeout/i.test(errorMessage)) signal = 'WORKFLOW_TIMEOUT';
+    }
+    return { error_metadata: { last_node: nodes.has(lastNode) ? lastNode : 'UNEXPECTED',
+      name: names.has(errorName) ? errorName : 'UNEXPECTED', signal } };
+  } catch { return {}; }
 }
 
 function validateReceipt(body, headers, secret, rows, now = Date.now()) {

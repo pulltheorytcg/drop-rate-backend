@@ -174,6 +174,21 @@ test('failure diagnostics expose only bounded execution modes/statuses and fixed
       { workflow: 'UNEXPECTED', mode: 'UNEXPECTED', status: 'UNEXPECTED', stopped: false },
     ]);
     assert.ok(!JSON.stringify(report).includes(privateValue));
+    database.exec('DROP VIEW execution_data; CREATE TABLE execution_data(executionId INTEGER,data TEXT)');
+    const flattened = [{ resultData: '1' }, { lastNodeExecuted: '2', error: '3', runData: '4' },
+      'Control Receipt Accepted?', { name: '5', message: '6', description: '7', stack: '7' },
+      { private_node_outputs: privateValue }, 'NodeOperationError',
+      'automation_control_receipt_not_accepted', privateValue];
+    database.prepare('INSERT INTO execution_data VALUES (?,?)').run(2, JSON.stringify(flattened));
+    database.prepare('UPDATE execution_entity SET status=?,stoppedAt=? WHERE id=2').run('error', '2026-10-27');
+    const diagnostic = canary.diagnosticExecutionState(database);
+    assert.deepEqual(diagnostic[1].error_metadata, { last_node: 'Control Receipt Accepted?',
+      name: 'NodeOperationError', signal: 'RECEIPT_RESPONSE_NOT_ACCEPTED' });
+    assert.ok(!JSON.stringify(diagnostic).includes(privateValue));
+    flattened[2] = privateValue; flattened[5] = privateValue; flattened[6] = privateValue;
+    database.prepare('UPDATE execution_data SET data=? WHERE executionId=2').run(JSON.stringify(flattened));
+    assert.deepEqual(canary.diagnosticExecutionState(database)[1].error_metadata,
+      { last_node: 'UNEXPECTED', name: 'UNEXPECTED', signal: 'UNCLASSIFIED' });
   } finally { database.close(); }
   const state = canary.createTemporaryState();
   try {
