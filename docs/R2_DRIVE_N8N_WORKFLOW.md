@@ -187,11 +187,24 @@ transport, bounds and item linking; they do not establish production archive
 eligibility, Google concurrency semantics, account access or real R2 receipts.
 The fixture deliberately uses loopback TLS and synthetic ownership evidence.
 
-**The native runtime gate is prepared but has not yet run in this workspace:**
-neither Docker nor an n8n executable is installed here. Its result must be
-recorded from the pinned-image CI job. Independent review, deliberate binding
-of the verified OAuth credential, production child-retention settings and one
-bounded actual create/download/readback with a durable backend completion
-receipt remain activation gates. DR90 and DR91 must be published and their
-receipt paths proven. No activation, production credential binding, Drive
-write or source-rights change is included in this implementation.
+**The pinned native runtime gate passed on 2026-10-27 at 15:01:41 UTC** in
+[PR #759's dedicated CI job](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40526508462/job/122267448635),
+at commit `dd49785ecc6e0a035ab37a897a46855b331c6cca`. The result was
+`NATIVE_SYNTHETIC_DR95_VERIFIED`: three automatic runs, one runtime restart,
+three archives and seven objects. Native download, resumable creation, binary
+disposal, durable static-data resume and completion-receipt replay all passed;
+temporary-state cleanup completed. The checked DR95 definition hash was
+`0fda958802b80f28a3675869137347994c5c1efb23177c4764837104ef9efbc5`.
+The exact corrected DR91 definition was pinned to
+`1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568`.
+The result explicitly reports real Google API, real OAuth and production
+backend verification as **false**. Independent source/fixture review found no
+additional concrete blocker.
+
+Deliberate binding of the verified OAuth credential, production child-retention
+settings and one bounded actual create/download/readback with a durable backend
+completion receipt remain activation gates. DR90 and DR91 must be published
+with their verified definitions and receipt paths proven; the fixture does not
+repair or activate either stored production workflow. No activation,
+production credential binding, Drive write or source-rights change is included
+in this implementation.

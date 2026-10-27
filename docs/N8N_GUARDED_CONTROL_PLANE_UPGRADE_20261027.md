@@ -59,11 +59,14 @@ read-only inspector. Its prior source hash is
 `8f8b466d808171b2458fc0bcfc7a64a3ae8271221e084353d7eaf35198981296`;
 its reviewed new source hash is
 `1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568`.
-The prior hash is **expected from the repository, not yet observed in production**.
-DR91 is explicitly excluded from this four-ID import/publication plan. A fresh
-metadata receipt must establish its actual hash and inactive/unpublished state
-before a separately reviewed DR91 upgrade. DR95 cannot be activated on the
-basis of a corrected DR91 source file alone. The parked DR01, DR01 V2 and DR02
+At the initial release review, the prior hash was expected from the repository
+and had not yet been observed in production. The fresh receipt at
+`2026-10-27T15:07:24.645509857Z` subsequently confirmed that exact stored hash and
+inactive/unpublished state. The separate
+[DR91 repair plan](N8N_SUCCESS_RECEIPT_UPGRADE_20261027.md) uses that observation;
+DR91 remains explicitly excluded from this four-ID import/publication plan.
+DR95 cannot be activated on the basis of a corrected DR91 source file alone.
+The parked DR01, DR01 V2 and DR02
 raw JSON command nodes share this response-format issue and remain a separate
 recorded repair task.
 

@@ -250,6 +250,26 @@ for the phases, expected receipts, backup handling and remaining live gates.
 
 ## DR-91 durable success receipt
 
+The 27 October live inspector confirmed DR91's old raw-response definition was
+inactive and unpublished. Its separate, default-off operator is documented in
+[`N8N_SUCCESS_RECEIPT_UPGRADE_20261027.md`](../../docs/N8N_SUCCESS_RECEIPT_UPGRADE_20261027.md).
+`DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE_ON_BOOT=true` upgrades only that exact
+observed DR91 definition, after all four core definitions are current. Existing
+core publication is preserved. The later
+`DROP_RATE_N8N_SUCCESS_RECEIPT_PUBLISH_ON_BOOT=true` phase publishes only the
+source-matching DR91 and requires the exact DR90 handler already published.
+These two flags are mutually exclusive with each other and the core/media
+mutation flags. Both default off. Neither runs a workflow, binds a credential,
+enables DR95, or proves a live success receipt.
+
+The separate `DROP_RATE_N8N_HEARTBEAT_PAUSE_ON_BOOT=true` operation unpublishes
+only DR92 before startup, with the same source/offline/lock/backup guards. It is
+mutually exclusive with all upgrade/publication flags and leaves DR90, DR93,
+DR94 and DR91 unchanged. See
+[`N8N_HEARTBEAT_PAUSE_20261027.md`](../../docs/N8N_HEARTBEAT_PAUSE_20261027.md).
+Clearing that pause flag does not republish the persisted workflow. Keep DR91
+publication and Drive activation off while the backend receipt repair is blocked.
+
 `DR91SuccessReceiptV1` is a reusable inactive sub-workflow for parent workflows that have completed and verified their governed action.
 
 Inputs:

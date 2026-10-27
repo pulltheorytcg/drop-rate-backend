@@ -9,7 +9,11 @@ const { promisify } = require('node:util');
 const exec = promisify(require('node:child_process').execFile);
 const inspector = require('/opt/drop-rate/ops/inspect-stored-metadata.cjs');
 const upgrade = require('/opt/drop-rate/ops/guarded-control-plane-upgrade.cjs');
+const success = require('/opt/drop-rate/ops/guarded-success-receipt-upgrade.cjs');
+const pause = require('/opt/drop-rate/ops/guarded-heartbeat-pause.cjs');
 const SCRIPT = '/opt/drop-rate/ops/guarded-control-plane-upgrade.cjs';
+const SUCCESS_SCRIPT = '/opt/drop-rate/ops/guarded-success-receipt-upgrade.cjs';
+const PAUSE_SCRIPT = '/opt/drop-rate/ops/guarded-heartbeat-pause.cjs';
 const SOURCES = '/opt/drop-rate/workflows';
 let stage = 'PREFLIGHT';
 let operatorFailure = null;
@@ -26,16 +30,18 @@ let operatorFailure = null;
     N8N_DIAGNOSTICS_ENABLED: 'false', N8N_VERSION_NOTIFICATIONS_ENABLED: 'false',
     N8N_TEMPLATES_ENABLED: 'false', N8N_PORT: '5678' });
   const cli = args => exec('n8n', args, { env, timeout: 60000, maxBuffer: 1024 * 1024 });
-  const operator = async (operation = '--apply') => {
+  const operator = async (operation = '--apply', script = SCRIPT) => {
     try {
-      const answer = await exec(process.execPath, ['--no-warnings', SCRIPT, operation],
+      const answer = await exec(process.execPath, ['--no-warnings', script, operation],
         { env, timeout: 70000, maxBuffer: 65536 });
       return JSON.parse(answer.stdout);
     } catch (error) {
       // Only fixed helper categories may escape; never print raw CLI output.
       try {
         const report = JSON.parse(error.stdout);
-        if (report.event === 'DROP_RATE_N8N_REVIEWED_UPGRADE' && report.status === 'BLOCKED'
+        if (['DROP_RATE_N8N_REVIEWED_UPGRADE', 'DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE',
+          'DROP_RATE_N8N_HEARTBEAT_PAUSE'].includes(report.event)
+          && report.status === 'BLOCKED'
           && /^[A-Z_]{1,40}$/.test(report.reason) && /^[A-Z_]{1,40}$/.test(report.phase)) {
           operatorFailure = { phase: report.phase, reason: report.reason };
         }
@@ -118,6 +124,82 @@ let operatorFailure = null;
     assert.deepEqual(finalDb.prepare('SELECT * FROM workflow_entity WHERE id=?').get('DR91SuccessReceiptV1'), dr91Before);
     finalDb.close();
     console.log('PASS: separate pinned-version publication verified exact DR90, then health schedules, then approved media; no workflow executions or external requests');
+
+    stage = 'DR91_PRESERVE_PUBLISHED_CORE';
+    const readCore = db => db.prepare('SELECT * FROM workflow_entity WHERE id<>? ORDER BY id').all(success.PLAN.id);
+    const readCoreHistory = db => db.prepare('SELECT * FROM workflow_history WHERE workflowId<>? ORDER BY workflowId,versionId')
+      .all(success.PLAN.id);
+    const coreDb = inspector.openDatabase(env.DB_SQLITE_DATABASE);
+    const publishedCore = readCore(coreDb);
+    const publishedCoreHistory = readCoreHistory(coreDb);
+    const priorCount = coreDb.prepare('SELECT count(*) AS count FROM workflow_history WHERE workflowId=?')
+      .get(success.PLAN.id).count;
+    coreDb.close();
+    env[upgrade.PUBLISH_FLAG] = 'false';
+    env[success.FLAG] = 'true';
+    stage = 'DR91_ONE_ID_UPGRADE';
+    const receiptUpgrade = await operator('--apply', SUCCESS_SCRIPT);
+    assert.equal(receiptUpgrade.status, 'SOURCE_MATCH_VERIFIED');
+    assert.equal(receiptUpgrade.changed_count, 1);
+    assert.equal(receiptUpgrade.backup.verified, true);
+    const dr91 = receiptUpgrade.workflows.find(x => x.id === success.PLAN.id);
+    assert.equal(dr91.source_matches_stored, true);
+    assert.equal(dr91.active, false); assert.equal(dr91.published, false);
+    const dr91Db = inspector.openDatabase(env.DB_SQLITE_DATABASE);
+    assert.deepEqual(readCore(dr91Db), publishedCore);
+    assert.deepEqual(readCoreHistory(dr91Db), publishedCoreHistory);
+    const repairedCount = dr91Db.prepare('SELECT count(*) AS count FROM workflow_history WHERE workflowId=?')
+      .get(success.PLAN.id).count;
+    assert.equal(repairedCount, priorCount + 1);
+    dr91Db.close();
+    stage = 'DR91_NO_OP_RETRY';
+    assert.equal((await operator('--apply', SUCCESS_SCRIPT)).changed_count, 0);
+    env[success.FLAG] = 'false';
+    env[success.PUBLISH_FLAG] = 'true';
+    stage = 'DR91_SEPARATE_PUBLICATION';
+    const receiptPublication = await operator('--publish', SUCCESS_SCRIPT);
+    assert.equal(receiptPublication.status, 'PUBLICATION_VERIFIED');
+    assert.equal(receiptPublication.changed_count, 1);
+    assert.equal(receiptPublication.workflows.find(x => x.id === success.PLAN.id).published_sha256,
+      success.PLAN.source_sha256);
+    assert.equal((await operator('--publish', SUCCESS_SCRIPT)).changed_count, 0);
+    const verifiedDb = inspector.openDatabase(env.DB_SQLITE_DATABASE);
+    assert.deepEqual(readCore(verifiedDb), publishedCore);
+    assert.deepEqual(readCoreHistory(verifiedDb), publishedCoreHistory);
+    assert.equal(verifiedDb.prepare('SELECT count(*) AS count FROM workflow_history WHERE workflowId=?')
+      .get(success.PLAN.id).count, repairedCount);
+    assert.equal(verifiedDb.prepare('SELECT count(*) AS count FROM execution_entity').get().count, 0);
+    verifiedDb.close();
+    console.log('PASS: pinned DR91 one-ID repair and separate publication preserved all published core rows, verified backup and made both retries no-ops; zero executions');
+
+    stage = 'DR92_CAPTURE_PAUSE_BOUNDARY';
+    const pauseDb = inspector.openDatabase(env.DB_SQLITE_DATABASE);
+    const otherEntities = db => db.prepare('SELECT * FROM workflow_entity WHERE id<>? ORDER BY id').all(pause.TARGET);
+    const allHistory = db => db.prepare('SELECT * FROM workflow_history ORDER BY workflowId,versionId').all();
+    const allOwnership = db => db.prepare('SELECT * FROM shared_workflow ORDER BY workflowId,projectId').all();
+    const preservedEntities = otherEntities(pauseDb);
+    const preservedHistory = allHistory(pauseDb);
+    const preservedOwnership = allOwnership(pauseDb);
+    pauseDb.close();
+    env[success.PUBLISH_FLAG] = 'false';
+    env[pause.FLAG] = 'true';
+    stage = 'DR92_EXACT_ONE_ID_PAUSE';
+    const paused = await operator('--apply', PAUSE_SCRIPT);
+    assert.equal(paused.status, 'PAUSE_VERIFIED'); assert.equal(paused.changed_count, 1);
+    assert.equal(paused.backup.verified, true);
+    const heartbeat = paused.workflows.find(x => x.id === pause.TARGET);
+    assert.equal(heartbeat.active, false); assert.equal(heartbeat.published, false);
+    assert.equal(heartbeat.source_matches_stored, true);
+    assert.ok(paused.workflows.filter(x => x.id !== pause.TARGET).every(x => x.published && x.source_matches_published));
+    stage = 'DR92_NO_OP_PAUSE_RETRY';
+    assert.equal((await operator('--apply', PAUSE_SCRIPT)).changed_count, 0);
+    const pausedDb = inspector.openDatabase(env.DB_SQLITE_DATABASE);
+    assert.deepEqual(otherEntities(pausedDb), preservedEntities);
+    assert.deepEqual(allHistory(pausedDb), preservedHistory);
+    assert.deepEqual(allOwnership(pausedDb), preservedOwnership);
+    assert.equal(pausedDb.prepare('SELECT count(*) AS count FROM execution_entity').get().count, 0);
+    pausedDb.close();
+    console.log('PASS: pinned DR92-only unpublish preserved all other entities, all history and ownership; verified backup, inactive readback and no-op retry; zero executions');
   } finally {
     // Only this newly created disposable CI directory is removed.
     fs.rmSync(root, { recursive: true, force: true });

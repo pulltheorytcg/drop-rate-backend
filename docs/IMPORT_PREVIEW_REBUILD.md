@@ -165,9 +165,27 @@ Local verification on 27 October 2026 passed with PostgreSQL 17.6:
 
 The production migration and feature flag remain unapplied by this work.
 
-The live metadata preflight on 27 October returned no result within 45 seconds
-from `execute_sql`; it queried only system catalogues and migration presence.
-No production DDL or data writes were submitted. A separate purpose-built
+## Production release and connector block
+
+PR #760 is merged as `683979fb207016f4d1f562d082e5b0c32d2354d2`.
+API deployment `ebea8e5c-07d8-452e-bd8c-8d7e47106b21` succeeded at
+15:12:29 UTC on 27 October. The exact release head passed all four CI workflows:
+the dedicated PostgreSQL 17 rebuild suite, existing backend/dashboard checks,
+shared reference consistency and immediate owner imports (including real
+JWT/JWKS fixtures and responsive browser checks).
+
+The reviewed migration was submitted through the governed Supabase migration
+tool after refreshing table metadata/advisors and confirming ledger absence.
+The connector returned JSON-RPC -32602, `Invalid or expired requestState`, with
+reason `invalid_request_state`. A subsequent migration-list read still returned
+135 entries and no `founder_import_preview_rebuild` migration. No successful
+installation is claimed. `TCG_IMPORT_PREVIEW_REBUILD_ENABLED` is explicitly
+false. Resolve the connector request-state error before another installation
+attempt, then verify live readiness before enabling the UI action.
+
+The earlier live metadata preflight on 27 October returned no result within 45
+seconds from `execute_sql`; that call queried only system catalogues and
+migration presence and submitted no DDL or data writes. A separate purpose-built
 migration-list read returned 135 ledger entries in 815 ms: the new rebuild
 migration is absent; `unified_founder_app_access` (20261002031304),
 `owner_incremental_import_intake` (20261011154138) and

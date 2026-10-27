@@ -17,6 +17,8 @@ const SOURCE_DIRECTORY = path.resolve(__dirname, '..', 'workflows');
 const EXPECTED_IDS = ['DR90GlobalErrorV1', 'DR92RuntimeHeartbeatV1', 'DR93ObjectStorageHealthV1', 'DR94R2ApprovedMediaMirrorV1'];
 const HEALTH_IDS = ['DR92RuntimeHeartbeatV1', 'DR93ObjectStorageHealthV1'];
 const MEDIA_IDS = ['DR94R2ApprovedMediaMirrorV1'];
+const OTHER_MUTATION_FLAGS = ['DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE_ON_BOOT',
+  'DROP_RATE_N8N_SUCCESS_RECEIPT_PUBLISH_ON_BOOT', 'DROP_RATE_N8N_HEARTBEAT_PAUSE_ON_BOOT'];
 const SAFE_CODES = new Set(['PLAN_INVALID', 'SOURCE_DRIFT', 'STORED_DRIFT', 'WORKFLOW_NOT_INACTIVE',
   'SOURCE_NOT_VERIFIED', 'DRAFT_HISTORY_UNVERIFIED', 'DATABASE_UNAVAILABLE', 'DATABASE_CONFIGURATION_UNSUPPORTED',
   'INSTANCE_RUNNING', 'OFFLINE_STATE_UNVERIFIED', 'RUNTIME_VERSION_MISMATCH', 'CLI_FAILED',
@@ -74,7 +76,7 @@ function readSources(sourceDirectory) {
   }
   return sources;
 }
-function readState(databasePath, sourceDirectory, prefix) {
+function readState(databasePath, sourceDirectory, prefix, ids = EXPECTED_IDS) {
   let db;
   try {
     const stat = fs.lstatSync(databasePath);
@@ -82,7 +84,7 @@ function readState(databasePath, sourceDirectory, prefix) {
     db = inspector.openDatabase(databasePath);
     db.exec('BEGIN');
     return inspector.inspectDatabase(db, sourceDirectory, prefix).workflows
-      .filter(item => EXPECTED_IDS.includes(item.id));
+      .filter(item => ids.includes(item.id));
   } finally {
     try { db?.exec('ROLLBACK'); } catch {}
     try { db?.close(); } catch {}
@@ -111,11 +113,11 @@ function stateIdentity(workflows) {
   return JSON.stringify(workflows.map(x => [x.id, x.source_sha256, x.stored_sha256,
     x.errorWorkflow, x.active, x.published]));
 }
-function verifyDraftHistory(databasePath, prefix) {
+function verifyDraftHistory(databasePath, prefix, targets = PLAN.targets) {
   const db = inspector.openDatabase(databasePath);
   try {
     db.exec('BEGIN');
-    for (const target of PLAN.targets) {
+    for (const target of targets) {
       const row = db.prepare('SELECT e.id, e.name, e.settings, h.nodes, h.connections, h.nodeGroups'
         + ' FROM "' + prefix + 'workflow_entity" e JOIN "' + prefix + 'workflow_history" h'
         + ' ON h.workflowId=e.id AND h.versionId=e.versionId WHERE e.id=?'
@@ -134,12 +136,16 @@ async function digestFile(filename) {
   for await (const chunk of fs.createReadStream(filename)) hash.update(chunk);
   return hash.digest('hex');
 }
-async function createBackup(config, sourceDirectory, before) {
+async function createBackup(config, sourceDirectory, before,
+  { ids = EXPECTED_IDS, planId = PLAN.plan_id } = {}) {
+  if (!/^[a-z0-9-]{1,80}$/.test(planId) || !Array.isArray(ids) || !ids.length
+    || new Set(ids).size !== ids.length
+    || ids.some(id => !inspector.WORKFLOWS.some(([known]) => id === known))) fail('BACKUP_UNVERIFIED');
   const parent = path.join(path.dirname(config.databasePath), 'drop-rate-control-plane-backups');
   if (!fs.existsSync(parent)) fs.mkdirSync(parent, { mode: 0o700 });
   const parentStat = fs.lstatSync(parent);
   if (!parentStat.isDirectory() || parentStat.isSymbolicLink() || (parentStat.mode & 0o077)) fail('BACKUP_UNVERIFIED');
-  const directory = fs.mkdtempSync(path.join(parent, PLAN.plan_id + '-'));
+  const directory = fs.mkdtempSync(path.join(parent, planId + '-'));
   fs.chmodSync(directory, 0o700);
   const filename = path.join(directory, 'database.sqlite');
   fs.closeSync(fs.openSync(filename, 'wx', 0o600));
@@ -155,14 +161,14 @@ async function createBackup(config, sourceDirectory, before) {
     const check = copy.prepare('PRAGMA quick_check(1)').get();
     if (Object.values(check).join() !== 'ok') fail('BACKUP_UNVERIFIED');
     copy.close(); copy = null;
-    const backedUp = readState(filename, sourceDirectory, config.tablePrefix);
+    const backedUp = readState(filename, sourceDirectory, config.tablePrefix, ids);
     if (stateIdentity(backedUp) !== stateIdentity(before)) fail('BACKUP_UNVERIFIED');
     const handle = fs.openSync(filename, 'r');
     try { fs.fsyncSync(handle); } finally { fs.closeSync(handle); }
     const receipt = { id: path.basename(directory), verified: true,
       sha256: await digestFile(filename), size_bytes: fs.statSync(filename).size };
     fs.writeFileSync(path.join(directory, 'manifest.json'), JSON.stringify({
-      plan_id: PLAN.plan_id, created_at: new Date().toISOString(), ...receipt,
+      plan_id: planId, created_at: new Date().toISOString(), ...receipt,
       workflows: before.map(x => ({ id: x.id, stored_sha256: x.stored_sha256,
         active: x.active, published: x.published })),
     }, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
@@ -203,7 +209,8 @@ async function applyUpgrade({ env = process.env, sourceDirectory = SOURCE_DIRECT
   try {
     if (env[FLAG] !== 'true') fail('INVALID_OPERATOR_FLAG');
     if ((env[PUBLISH_FLAG] && env[PUBLISH_FLAG] !== 'false')
-      || env.DROP_RATE_R2_MEDIA_WORKFLOW_PUBLISH_ON_BOOT === 'true') fail('PHASE_CONFLICT');
+      || env.DROP_RATE_R2_MEDIA_WORKFLOW_PUBLISH_ON_BOOT === 'true'
+      || OTHER_MUTATION_FLAGS.some(key => env[key] && env[key] !== 'false')) fail('PHASE_CONFLICT');
     const config = inspector.runtimeConfig(env);
     if (config.reason) fail('DATABASE_CONFIGURATION_UNSUPPORTED');
     readSources(sourceDirectory);
@@ -255,7 +262,8 @@ async function applyPublication({ env = process.env, sourceDirectory = SOURCE_DI
   try {
     const mode = env[PUBLISH_FLAG];
     if (!['error-handler', 'health-schedules', 'media-schedule'].includes(mode)) fail('INVALID_OPERATOR_FLAG');
-    if (env[FLAG] === 'true' || env.DROP_RATE_R2_MEDIA_WORKFLOW_PUBLISH_ON_BOOT === 'true') fail('PHASE_CONFLICT');
+    if (env[FLAG] === 'true' || env.DROP_RATE_R2_MEDIA_WORKFLOW_PUBLISH_ON_BOOT === 'true'
+      || OTHER_MUTATION_FLAGS.some(key => env[key] && env[key] !== 'false')) fail('PHASE_CONFLICT');
     const config = inspector.runtimeConfig(env);
     if (config.reason) fail('DATABASE_CONFIGURATION_UNSUPPORTED');
     readSources(sourceDirectory);
@@ -360,4 +368,4 @@ if (require.main === module) {
   }).catch(() => { process.stdout.write(JSON.stringify(safeFailure(null, 'WORKER')) + '\n'); process.exitCode = 1; });
 }
 module.exports = { PLAN, FLAG, PUBLISH_FLAG, readSources, readState, assess, createBackup, ensureOffline,
-  applyUpgrade, applyPublication, verifyBeforePublish };
+  applyUpgrade, applyPublication, verifyBeforePublish, cli, stateIdentity, verifyDraftHistory };
