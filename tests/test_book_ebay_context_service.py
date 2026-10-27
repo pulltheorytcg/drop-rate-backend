@@ -84,7 +84,7 @@ def compact_detail(number=1, **updates):
 
 
 @pytest.mark.asyncio
-async def test_one_gtin_search_and_at_most_three_details_without_a_sold_value():
+async def test_one_isbn_keyword_search_stops_at_three_valid_references_without_a_sold_value():
     client = FakeClient()
     svc = service(client)
     result = await svc.get(context.edition_target(ROW), diagnostics=True)
@@ -92,13 +92,14 @@ async def test_one_gtin_search_and_at_most_three_details_without_a_sold_value():
     assert result["item_count"] == len(result["items"]) == 3
     assert (result["asking_low_minor"], result["asking_high_minor"]) == (1100, 1300)
     assert result["items"][0]["shipping_minor"] == 899
-    assert client.calls[0] == ("search", {"gtin": "9781427800022", "limit": 10, "item_location_country": "GB", "fixed_price_only": True})
+    assert client.calls[0] == ("search", {"query": "(9781427800022,1427800022)", "limit": 50, "item_location_country": "GB", "fixed_price_only": True})
     assert svc.calls_used == len(client.calls) == 4
     assert result["observation_type"] == "ACTIVE"
     assert result["physical_valuation_eligible"] is False
     assert "market_value_minor" not in result
     assert datetime.fromisoformat(result["expires_at"]) - NOW == timedelta(hours=1)
     assert result["diagnostics"]["detail_count"] == 3
+    assert result["diagnostics"]["search_mode"] == "ISBN_KEYWORD_OR"
 
 
 @pytest.mark.asyncio
@@ -117,6 +118,102 @@ async def test_three_compact_fallbacks_share_the_existing_budget_and_stop_at_sev
         assert candidate["compact_identity"]["gtin"] == "9781427800022"
         assert candidate["compact_identity"]["revision_matched"] is True
     assert result["physical_valuation_eligible"] is False
+
+
+@pytest.mark.asyncio
+async def test_progressive_reads_skip_rejected_candidates_and_preserve_two_matches_at_local_limit():
+    rows = [{**detail(i), "title": "+Anima Volume 2 Paperback"} if i <= 4 else detail(i)
+            for i in range(1, 9)]
+    client = FakeClient(details=rows)
+    svc = service(client)
+    result = await svc.get(context.edition_target(ROW), diagnostics=True)
+    assert result["status"] == "AVAILABLE" and result["item_count"] == 2
+    assert [item["item_id"] for item in result["items"]] == [detail(i)["itemId"] for i in (5, 6)]
+    assert (result["asking_low_minor"], result["asking_high_minor"]) == (1500, 1600)
+    assert len(client.calls) == svc.calls_used == 7
+    assert result["diagnostics"]["detail_count"] == 6
+    assert result["diagnostics"]["lookup_limit_reached"] is True
+    assert result["diagnostics"]["lookup_call_slots_used"] == 7
+    assert svc.blocked_until == 0
+
+
+@pytest.mark.asyncio
+async def test_zero_local_slots_skip_compact_without_discarding_a_valid_reference():
+    rows = [{**detail(i), "title": "+Anima Volume 2 Paperback"} for i in range(1, 5)]
+    rows += [detail(5), missing_isbn_detail(6), detail(7)]
+    client = FakeClient(details=rows, compact_details=[compact_detail(6)])
+    svc = service(client)
+    result = await svc.get(context.edition_target(ROW), diagnostics=True)
+    assert result["status"] == "AVAILABLE" and result["item_count"] == 1
+    assert result["items"][0]["item_id"] == detail(5)["itemId"]
+    assert result["diagnostics"]["candidates"][-1]["compact_identity"] == {
+        "requested": False, "reason": "LOOKUP_CALL_LIMIT"}
+    assert result["diagnostics"]["compact_count"] == 0
+    assert len(client.calls) == svc.calls_used == 7
+    assert not any(call[0] == "compact" for call in client.calls)
+    assert svc.blocked_until == 0
+
+
+@pytest.mark.asyncio
+async def test_404_attempts_consume_local_slots_before_a_later_valid_listing():
+    rows = [{**detail(i), "error": EbayApiError("gone", status_code=404)} if i <= 5 else detail(i)
+            for i in range(1, 8)]
+    client = FakeClient(details=rows)
+    result = await service(client).get(context.edition_target(ROW), diagnostics=True)
+    assert result["status"] == "AVAILABLE" and result["item_count"] == 1
+    assert result["items"][0]["item_id"] == detail(6)["itemId"]
+    assert len(client.calls) == result["diagnostics"]["lookup_call_slots_used"] == 7
+    assert result["diagnostics"]["detail_count"] == 6
+
+
+@pytest.mark.asyncio
+async def test_concurrent_edition_lookups_each_keep_their_own_seven_call_limit():
+    targets = [context.edition_target(ROW), context.edition_target({**ROW, "barcode_gtin": "9781598163476"})]
+    rows = []
+    by_query = {}
+    for target_index, target in enumerate(targets):
+        group = [{**detail(target_index * 10 + i), "title": "+Anima Volume 2 Paperback",
+                  "product": {"gtins": [target.isbn]}} for i in range(1, 8)]
+        rows.extend(group)
+        by_query[context._isbn_query(target.isbn)] = group
+    class InterleavedClient(FakeClient):
+        async def search_items(self, **kwargs):
+            await self._before_browse_request()
+            self.calls.append(("search", kwargs))
+            await asyncio.sleep(0)
+            return {"itemSummaries": [{"itemId": row["itemId"]} for row in by_query[kwargs["query"]]]}
+
+        async def get_item(self, item_id, *, fieldgroups="PRODUCT"):
+            result = await super().get_item(item_id, fieldgroups=fieldgroups)
+            await asyncio.sleep(0)
+            return result
+    client = InterleavedClient(details=rows)
+    svc = service(client)
+    results = await asyncio.gather(*(svc.get(target, diagnostics=True) for target in targets))
+    assert len(client.calls) == svc.calls_used == 14
+    assert all(result["status"] == "UNAVAILABLE" and result["items"] == [] for result in results)
+    assert all(result["diagnostics"]["detail_count"] == 6 for result in results)
+    assert all(result["diagnostics"]["lookup_call_slots_used"] == 7 for result in results)
+    assert all(result["diagnostics"]["lookup_limit_reached"] for result in results)
+
+
+def test_summary_window_is_bounded_to_fifty_and_does_not_take_a_later_provider_row():
+    rows = [{"itemId": f"v1|{100000000000 + i}|0", "title": "+Anima Volume 1 Paperback"} for i in range(51)]
+    rows[50]["title"] = "+Anima Volume 1 English Paperback ISBN 9781427800022"
+    candidates, summaries = context._summary_candidates(rows, context.edition_target(ROW))
+    assert len(candidates) == len(summaries) == 50
+    assert rows[50]["itemId"] not in candidates
+    assert all(set(summary) == {"item_id", "title"} for summary in summaries)
+
+
+def test_positive_edition_hints_outrank_isbn_text_and_explicit_title_conflicts():
+    titles = ["+Anima ISBN 9781427800022", "+Anima Volume 1 Paperback ISBN 9781427800022",
+              "+Anima Volume 1 English Paperback", "+Anima Volume 1 English Paperback (2007)",
+              "+Anima Volumes 1,2 English Paperback", "+Anima Vol. 1 & Vol. 2 English Paperback",
+              "+Anima Volume 1 English Paperback Omnibus"]
+    rows = [{"itemId": f"v1|{100000000000 + i}|0", "title": title} for i, title in enumerate(titles)]
+    candidates, _ = context._summary_candidates(rows, context.edition_target(ROW))
+    assert candidates[:3] == [rows[i]["itemId"] for i in (2, 1, 0)]
 
 
 @pytest.mark.asyncio
@@ -245,7 +342,7 @@ async def test_summary_ranking_considers_ten_hints_but_only_fetches_three_actual
                                       for row, title in zip(rows, titles)]}
     client = SummaryClient(details=rows)
     result = await service(client).get(context.edition_target(ROW), diagnostics=True)
-    assert [call[1] for call in client.calls if call[0] == "detail"] == [rows[i]["itemId"] for i in (4, 3, 7)]
+    assert [call[1] for call in client.calls if call[0] == "detail"] == [rows[i]["itemId"] for i in (7, 4, 3)]
     assert result["status"] == "AVAILABLE" and len(client.calls) == 4
     assert len(result["diagnostics"]["search_summaries"]) == 10
     assert all(set(row) == {"item_id", "title"} for row in result["diagnostics"]["search_summaries"])
@@ -477,7 +574,7 @@ async def test_three_targets_admission_timeout_does_not_back_off_healthy_provide
                 both_started.set()
             await release.wait()
             return {"itemSummaries": [{"itemId": d["itemId"]} for d in self.details
-                                      if d["product"]["gtins"] == [kwargs["gtin"]]]}
+                                      if context._isbn_query(d["product"]["gtins"][0]) == kwargs["query"]]}
 
     rows = [ROW, {**ROW, "catalogue_id": str(UUID(int=2)), "barcode_gtin": "9781598163476"},
             {**ROW, "catalogue_id": str(UUID(int=3)), "barcode_gtin": "9781569319000",

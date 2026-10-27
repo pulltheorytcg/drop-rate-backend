@@ -35,6 +35,8 @@ SUCCESS_TTL = 3600
 NEGATIVE_TTL = 300
 BUSY_TTL = 5
 MAX_ITEMS = 3
+MAX_SUMMARIES = 50
+MAX_LOOKUP_CALLS = 7
 IDENTIFIER_FIELDS = ("gtin", "gtins", "isbn", "isbn10", "isbn13", "ean", "eans", "upc")
 IDENTIFIER_ASPECTS = {"isbn", "isbn 10", "isbn 13", "isbn10", "isbn13", "ean", "ean 13", "gtin", "upc"}
 LANGUAGES = {
@@ -64,6 +66,23 @@ def normalize_isbn(value: object) -> str | None:
         return canonical_isbn(value)
     except (ValueError, TypeError):
         return None
+
+
+def _isbn_aliases(isbn: str) -> list[str]:
+    identifiers = [isbn]
+    if isbn.startswith("978"):
+        body = isbn[3:12]
+        digit = (-sum(int(n) * (10-i) for i, n in enumerate(body))) % 11
+        identifiers.append(body + ("X" if digit == 10 else str(digit)))
+    return identifiers
+
+
+def _isbn_query(isbn: str) -> str:
+    """One documented keyword OR query built only from a valid canonical ISBN."""
+    if not isinstance(isbn, str) or normalize_isbn(isbn) != isbn:
+        raise ValueError("A canonical ISBN13 is required")
+    identifiers = _isbn_aliases(isbn)
+    return "(" + ",".join(identifiers) + ")" if len(identifiers) > 1 else isbn
 
 
 def _object(value: object) -> dict:
@@ -274,12 +293,7 @@ def _identifiers(detail: dict, aspects: dict[str, list[str]]) -> list[str]:
 
 
 def _mask_isbn(text: str, isbn: str) -> str:
-    identifiers = [isbn]
-    if isbn.startswith("978"):
-        body = isbn[3:12]
-        digit = (-sum(int(n) * (10-i) for i, n in enumerate(body))) % 11
-        identifiers.append(body + ("X" if digit == 10 else str(digit)))
-    for identifier in identifiers:
+    for identifier in _isbn_aliases(isbn):
         text = re.sub(r"(?<!\d)" + r"[\s-]*".join(re.escape(c) for c in identifier) + r"(?!\d)", "", text, flags=re.I)
     return text
 
@@ -429,9 +443,9 @@ def _compact_detail(detail: dict, compact: dict, target: BookEdition, *, now: da
 
 
 def _summary_candidates(rows: list, target: BookEdition) -> tuple[list[str], list[dict]]:
-    """Rank at most ten discovery hints; none can establish a listing match."""
+    """Rank at most fifty discovery hints; none can establish a listing match."""
     candidates, summaries, seen = [], [], set()
-    for index, row in enumerate(rows[:10]):
+    for index, row in enumerate(rows[:MAX_SUMMARIES]):
         if not isinstance(row, dict):
             continue
         item_id = row.get("itemId")
@@ -445,16 +459,28 @@ def _summary_candidates(rows: list, target: BookEdition) -> tuple[list[str], lis
         normalized = _normal(masked)
         volumes = set(str(int(value)) for value in VOLUME_RE.findall(masked))
         bindings = _binding_mentions(masked)
+        language_match = bool(re.search(r"\b" + target.language.casefold() + r"\b", normalized))
+        year_conflict = bool(target.release_year and any(
+            int(year) != target.release_year for year in re.findall(r"\b((?:19|20|21)\d{2})\b", masked)))
+        bundle_conflict = bool(re.search(
+            r"\b\d+\s*(?:books|comics|volumes|issues|copies)\b|\bx\s*\d+\b|\b\d+\s*[x×]\b|\b\d+\s*(?:-|–|to)\s*\d+\b"
+            r"|(?:\bvol(?:ume)?s?\.?\s*|\bissues?\s*|#\s*)\d+\s*(?:&|and|\+|,|/)\s*(?:vol(?:ume)?s?\.?\s*)?\d+\b",
+            masked, re.I))
+        edition_conflict = any(marker in normalized and marker not in _normal(target.title) for marker in (
+            "omnibus", "deluxe", "library edition", "collector edition", "collectors edition",
+            "colour edition", "color edition", "anniversary edition", "variant", "exclusive"))
         conflict = bool(UNSAFE_COPY.search(normalized) or (volumes and volumes != {target.volume})
                         or len(bindings) > 1 or (target.binding and bindings - {target.binding})
+                        or year_conflict or bundle_conflict or edition_conflict
                         or any(language != target.language and re.search(r"\b" + language.casefold() + r"\b", normalized)
                                for language in set(LANGUAGES.values())))
-        score = (not conflict, masked != title,
-                 set(_normal(target.title).split()).issubset(set(normalized.split())),
-                 volumes == {target.volume}, len(bindings) == 1)
+        # Complete edition hints are more useful than an ISBN pasted into an
+        # otherwise vague title. All hints still require actual detail proof.
+        score = (not conflict, set(_normal(target.title).split()).issubset(set(normalized.split())),
+                 volumes == {target.volume}, len(bindings) == 1, language_match, masked != title)
         candidates.append((score, index, item_id))
     candidates.sort(key=lambda candidate: (candidate[0], -candidate[1]), reverse=True)
-    return [candidate[2] for candidate in candidates[:MAX_ITEMS]], summaries
+    return [candidate[2] for candidate in candidates], summaries
 
 
 def _assess_listing(detail: dict, target: BookEdition, *, checked_at: datetime, expected_item_id: str) -> tuple[dict | None, str]:
@@ -607,6 +633,23 @@ class ContextUnavailable(RuntimeError):
     pass
 
 
+@dataclass
+class _LookupBudget:
+    """Conservative request slots for this lookup, independent of other owners."""
+    limit: int
+    used: int = 0
+
+    @property
+    def remaining(self) -> int:
+        return self.limit - self.used
+
+    def take(self) -> bool:
+        if self.remaining <= 0:
+            return False
+        self.used += 1
+        return True
+
+
 class BookListingContextService:
     """One process-wide client, budget, semaphore, LRU and in-flight registry."""
 
@@ -687,7 +730,11 @@ class BookListingContextService:
             raise ValueError("Invalid pinned item ID")
         return copy.deepcopy(await self._run(target, pinned_item_id=item_id))
 
-    async def _read_candidate(self, target: BookEdition, item_id: str, diagnostic: dict) -> dict | None:
+    async def _read_candidate(self, target: BookEdition, item_id: str, diagnostic: dict,
+                              budget: _LookupBudget) -> dict | None:
+        if not budget.take():
+            diagnostic["lookup_limit_reached"] = True
+            return None
         try:
             detail = await self.client.get_item(item_id)
         except EbayApiError as exc:
@@ -707,6 +754,10 @@ class BookListingContextService:
             return None
         if _revision(detail) is None:
             candidate["compact_identity"] = {"requested": False, "reason": "PRODUCT_REVISION_REQUIRED"}
+            return None
+        if not budget.take():
+            candidate["compact_identity"] = {"requested": False, "reason": "LOOKUP_CALL_LIMIT"}
+            diagnostic["lookup_limit_reached"] = True
             return None
         diagnostic["compact_count"] += 1
         try:
@@ -732,7 +783,8 @@ class BookListingContextService:
         now = self.utcnow()
         result = _empty(target, status="UNAVAILABLE", reason="NO_EXACT_ACTIVE_LISTINGS", now=now)
         diagnostic = {"search_count": 0, "candidate_count": 0, "detail_count": 0,
-                      "compact_count": 0, "search_summaries": [], "candidates": []}
+                      "compact_count": 0, "search_summaries": [], "candidates": [], "lookup_limit_reached": False}
+        budget = _LookupBudget(MAX_LOOKUP_CALLS if pinned_item_id is None else 2)
         acquired = False
         try:
             if self.client is None:
@@ -749,22 +801,29 @@ class BookListingContextService:
                     raise ContextUnavailable(self.block_reason)
                 async with asyncio.timeout(45):
                     if pinned_item_id is None:
-                        payload = await self.client.search_items(gtin=target.isbn, limit=10,
+                        budget.take()
+                        payload = await self.client.search_items(query=_isbn_query(target.isbn), limit=MAX_SUMMARIES,
                             item_location_country="GB", fixed_price_only=True)
                         diagnostic["search_count"] = 1
+                        diagnostic["search_mode"] = "ISBN_KEYWORD_OR"
                         rows = payload.get("itemSummaries", [])
                         if not isinstance(rows, list):
                             raise ValueError("INVALID_SEARCH_SHAPE")
-                        diagnostic["candidate_count"] = len(rows)
+                        diagnostic["candidate_count"] = min(len(rows), MAX_SUMMARIES)
                         candidates, diagnostic["search_summaries"] = _summary_candidates(rows, target)
                     else:
                         candidates = [pinned_item_id]
                         diagnostic["candidate_count"] = 1
                     items = []
                     for item_id in candidates:
-                        item = await self._read_candidate(target, item_id, diagnostic)
+                        if budget.remaining <= 0:
+                            diagnostic["lookup_limit_reached"] = True
+                            break
+                        item = await self._read_candidate(target, item_id, diagnostic, budget)
                         if item:
                             items.append(item)
+                            if len(items) == MAX_ITEMS:
+                                break
                     items = [item for item in items if not item["ends_at"] or _date(item["ends_at"]) > self.utcnow()]
                     if items:
                         expires = min([now + timedelta(seconds=SUCCESS_TTL)] +
@@ -790,6 +849,8 @@ class BookListingContextService:
         finally:
             if acquired:
                 self.semaphore.release()
+            diagnostic["lookup_call_limit"] = budget.limit
+            diagnostic["lookup_call_slots_used"] = budget.used
             result["diagnostics"] = diagnostic
             ttl = max(0.0, (_date(result["expires_at"]) - self.utcnow()).total_seconds())
             if pinned_item_id is None:

@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from app.book_ebay_context import edition_target, listing_reference, normalize_isbn
+from app.book_ebay_context import _isbn_query, edition_target, listing_reference, normalize_isbn
 
 
 NOW = datetime(2026, 10, 27, 20, 0, tzinfo=timezone.utc)
@@ -84,6 +84,22 @@ def set_aspect(row, name, value):
         item for item in row["localizedAspects"] if item["name"] != name
     ] + [{"name": name, "value": value}]
     return row
+
+
+@pytest.mark.parametrize("isbn,query", [
+    ("9781569319000", "(9781569319000,1569319006)"),
+    ("9781598163476", "(9781598163476,1598163477)"),
+    ("9781591168522", "(9781591168522,159116852X)"),
+    ("9791234567896", "9791234567896"),
+])
+def test_keyword_query_uses_only_checksum_valid_equivalent_isbn_forms(isbn, query):
+    assert _isbn_query(isbn) == query
+
+
+@pytest.mark.parametrize("isbn", [None, True, "", "1569319006", "9781569319001", "9781569319000) OR anything", "978-1-56931-900-0"])
+def test_keyword_query_rejects_noncanonical_or_arbitrary_input(isbn):
+    with pytest.raises(ValueError):
+        _isbn_query(isbn)
 
 
 def product_aspect(name, *values):

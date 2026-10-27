@@ -44,10 +44,17 @@ request. The two responses must refer to the same item and seller revision;
 changed price, availability or other contradictory data prevents a combined
 reference. Search words and ranking do not count as identifier evidence.
 
-Requests examine at most ten search summaries and select up to three item
-details, prioritising consistent edition hints. The normal lookup uses at most
-one GTIN search, three PRODUCT details and three conditional COMPACT checks:
-seven Browse calls in total. The process shares
+Discovery searches the ISBN13 and its valid ISBN10 equivalent in one documented
+OR keyword query, with no GTIN or ePID parameter. A 979 ISBN uses only its ISBN13.
+The live comparison found only fifteen GTIN results while ISBN keyword searches
+found thirty-five and thirty-three, including the independently validated offer
+that GTIN omitted. Search results remain hints; their prices and identifier text
+never establish an accepted quote.
+
+Requests rank at most fifty search summaries and inspect details progressively,
+stopping after three accepted listings or seven Browse calls in total. The one
+search, PRODUCT reads and conditional COMPACT checks share a per-lookup counter;
+concurrent lookups cannot consume each other's allowance. The process shares
 in-flight requests, a concurrency limit of two, a bounded cache, a one-hour
 maximum positive TTL and a five-minute negative TTL. An earlier listing end
 shortens expiry. Credential and rate-limit failures stop further provider work
@@ -116,3 +123,18 @@ identifier fields were empty. This confirmed working source access, not usable
 quote coverage. The original predeploy command was restored and display stayed
 off. The follow-up extends the documented PRODUCT paths and adds the conditional
 COMPACT identity check; it keeps the same match, access and valuation boundaries.
+
+At 21:37 UTC, PR #767's pinned probe accepted the exact Naruto offer at £5.03,
+Good condition, Paperback, English, with zero quoted postage. Its source photo
+loaded in Chromium and visibly matched Naruto volume 1. The normal first ten
+summaries omitted that listing, and its three selected candidates correctly
+failed edition or ISBN checks. A wider GTIN request still omitted both reviewed
+offers; the ISBN keyword comparison found them. This led to the bounded keyword
+discovery and progressive detail follow-up. The display remains off until the
+ordinary application lookup returns usable, validated source context.
+
+The [live offer receipt](evidence/book-ebay-discovery-gap-20261027.json),
+[returned photo check](evidence/book-ebay-naruto-image-delivery-20261027.json) and
+[actual search comparison](evidence/book-ebay-isbn-search-comparison-20261027.json)
+record the measured results. Summary prices differed from detail prices on some
+rejected candidates; summaries are never used in the displayed price range.
