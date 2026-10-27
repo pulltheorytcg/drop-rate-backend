@@ -294,6 +294,7 @@ def create_app() -> FastAPI:
         openapi_url=None,
         lifespan=lifespan,
     )
+    app.state.settings = settings
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
