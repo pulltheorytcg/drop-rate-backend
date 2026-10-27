@@ -10,12 +10,14 @@ pricing jobs continue while these bounded releases are implemented.
    hashes, preserved review status, actual remote byte verification and an
    immutable manifest. Complete: production `BYTES_VERIFIED` receipt at
    14:14:49 UTC, 14 files / 6,228,589 source bytes. See the linked source contract.
-2. Inspect and repair stored n8n definitions. Complete for DR90/92/93/94:
+2. Inspect and repair stored n8n definitions. Complete for DR90/91/92/93/94:
    exact four-ID upgrade at 15:09:36 UTC with a verified SQLite backup. The
    native runtime exposed and verified a raw HTTP response parser correction;
    DR92/93/94 now have their reviewed DR90 error links. DR90 was published at
-   15:13:36 and both health schedules at 15:17:38. Fresh inspection still shows
-   no supported Google Drive OAuth credential.
+   15:13:36 and both health schedules at 15:17:38. The separate DR91 source
+   repair completed at 16:57:03 with a verified backup, retaining its inactive,
+   unpublished state. All five stored definitions now match reviewed source.
+   Fresh inspection still shows no supported Google Drive OAuth credential.
 3. Add an owner-free, exact-set reference-input cache with current Supabase
    identity, pricing eligibility, ownership and media checks. Live after native
    PostgreSQL 17 CI and actual R2/query parity: first 20 sets / 1,966 references
@@ -24,14 +26,17 @@ pricing jobs continue while these bounded releases are implemented.
 4. Verify actual scheduled controls before approved media. DR93's signed
    storage-health command returned HTTP 200 at 16:00:23 UTC. DR92's heartbeat
    returned 500 at 16:00:34 and its DR90 failure receipt returned 503. Those
-   backend/database failures are being repaired; DR94 remains unpublished.
+   backend/database failures are being repaired. The exact DR92 pause was
+   verified at 16:55:16 with a backup; DR90 and DR93 remain published, while
+   DR91 and DR94 remain unpublished. All one-time operator flags are cleared.
    Publication alone is not proof of successful scheduled execution.
 5. Weekly private Drive copy: release #759 is merged and deployed behind
    disabled backend/workflow gates. Its real pinned n8n smoke passed at
    15:01:41 UTC: three automatic runs, one restart, three synthetic archives,
    seven objects, independent byte readback, saved continuation, receipt replay
-   and cleanup. Real Google OAuth, production DR91 alignment and a bounded real
-   copy remain activation requirements. No live Drive copy has been claimed.
+   and cleanup. Real Google OAuth, durable production receipt acceptance,
+   DR91 publication and a bounded real copy remain activation requirements.
+   No live Drive copy has been claimed.
 6. Founder import recovery: release #760 is merged and deployed; all four CI
    workflows passed, including PostgreSQL 17, authenticated owner intake and
    responsive layouts. The rebuild gate remains false. Supabase's governed
@@ -56,7 +61,7 @@ Broad image caching still requires the recorded source permissions.
 | Seller fulfilment | Carrier label, dispatch confirmation and tracking sync disabled | Verified actual label/reprint, parcel allocation, cost, dispatch and tracking journey |
 | Seller payouts | Prepared balances/approvals; complete live bank-payout journey unverified | Funding, recipient readiness, transfer/bank payout, reversals/refunds and settlement reconciliation |
 | Storefront | Current published-site acceptance needs a new dated pass | Mobile/desktop search, filters, stock, checkout delivery and refund/replay evidence |
-| Operations | R2 health succeeds; live heartbeat and receipt database paths fail; DR91 repair prepared; media and Drive held | Repair and verify durable heartbeat/receipt writes, then prove scheduled media and the separately authorized Drive copy |
+| Operations | R2 health succeeds; failed heartbeat paused; all five stored control definitions repaired; receipt/database repair prepared; media and Drive held | Install and verify durable heartbeat/receipt writes, resume heartbeat, then prove scheduled media and the separately authorized Drive copy |
 
 Exact catalogue counts are dated 12:03–12:04 UTC on 27 October. Later table
 statistics and price refresh writes must not be relabelled as newer coverage.
@@ -84,3 +89,13 @@ and [founder preview rebuild #760](https://github.com/pulltheorytcg/drop-rate-ba
 The latter two feature gates are still false. API deployment
 `ebea8e5c-07d8-452e-bd8c-8d7e47106b21` succeeded at 15:12:29 UTC on
 `683979fb207016f4d1f562d082e5b0c32d2354d2`.
+
+[Guarded heartbeat pause and receipt recovery #761](https://github.com/pulltheorytcg/drop-rate-backend/pull/761)
+merged as `47b56af19ac8bb11677063c30c41a602538febfd`. Its pinned-runtime and
+Drive smoke gates passed. Production n8n verified the DR92-only pause at
+16:55:16 and the inactive DR91 source repair at 16:57:03. See the dedicated
+[pause](N8N_HEARTBEAT_PAUSE_20261027.md) and
+[receipt recovery](N8N_SUCCESS_RECEIPT_UPGRADE_20261027.md) receipts.
+The first #761 API build failed in Railway's BuildKit service before tests;
+the previous successful API remained live. No application regression is claimed
+from that build-service failure.

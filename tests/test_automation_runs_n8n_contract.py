@@ -11,6 +11,7 @@ MIGRATION = (
     / "20260930050000_automation_runs_n8n_contract.sql"
 )
 CONTROL = ROOT / "backend" / "app" / "automation_control.py"
+REPAIR = ROOT / "database" / "migrations" / "20261027164716_automation_control_runtime_repair.sql"
 
 
 def test_automation_runs_keeps_legacy_values_and_adds_bounded_n8n_values() -> None:
@@ -26,9 +27,11 @@ def test_automation_runs_keeps_legacy_values_and_adds_bounded_n8n_values() -> No
 
 def test_receipt_contract_fits_automation_runs_constraints() -> None:
     source = CONTROL.read_text()
+    sql = REPAIR.read_text()
 
-    assert 'f"N8N:{receipt.workflow_key}"' in source
-    assert "'N8N'" in source
+    assert "'N8N:' || p_workflow_key" in sql
+    assert "'N8N'" in sql
+    assert "tcg_private.record_automation_execution_receipt" in source
     assert "receipt.execution_id" in source or "receipt.idempotency_key" in source
     assert "workflow_key: str = Field(pattern=" in source
     assert "max_length=255" in source

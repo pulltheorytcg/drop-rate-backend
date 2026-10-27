@@ -114,3 +114,26 @@ metadata output cap. Raw n8n stdout/stderr and credential data are never logged.
 A requested failure blocks startup with a fixed reason and retains the backup.
 Do not restore a SQLite backup over a running writer; retain current database
 and WAL state and review the specific failure before recovery.
+
+## Production source repair proof
+
+PR [#761](https://github.com/pulltheorytcg/drop-rate-backend/pull/761) merged as
+`47b56af19ac8bb11677063c30c41a602538febfd`. Its exact-head pinned-runtime
+[job](https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40544576561/job/122331604339)
+proved the DR91 repair, separate publication and no-op retries at 16:50:51 UTC.
+
+Production deployment `5543dc3b-fcff-419c-b4cf-920d1049a278` succeeded. The
+receipt at `2026-10-27T16:57:03.585791308Z` reported `SOURCE_MATCH_VERIFIED`,
+`changed_count:1`, and a verified 2,748,416-byte backup with SHA-256
+`215280dc84fb0982d76f270fb358db55090f2fd51d2528cc7e658cd290eee017`.
+DR91's stored hash is now
+`1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568`,
+matching the reviewed source. It remains inactive and unpublished.
+
+The independent five-ID inspection at 16:57:03 UTC confirmed every stored
+definition matches source. DR90 and DR93 remain published; DR92 remains paused
+and DR94 remains unpublished. No supported Google Drive credential was present.
+All one-time mutation flags were then cleared for the next deployment. No
+production DR91 execution or durable backend receipt has been claimed: the
+database repair and successful signed acceptance remain prerequisites to
+publication and Drive activation.
