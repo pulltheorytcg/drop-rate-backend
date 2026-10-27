@@ -75,3 +75,23 @@ files as well as `backend/app/data/`; the normal API source build includes them.
 
 This source archive does not add live R2 catalogue cache delivery or a weekly
 Drive copy. Those are separate steps in the current completion plan.
+
+## Initial deployment evidence
+
+PR #755 passed the five applicable CI workflows. Its n8n deployment
+`166e3937-4c17-4f7d-9b36-be94d380ccfa` reached SUCCESS at 14:02:50 UTC on
+27 October. The read-only metadata inspection completed and found DR92, DR93
+and DR94 stored definitions behind the reviewed source, all unpublished. It
+found no supported Google Drive credential in the inspected n8n database.
+
+The API deployment `be332302-01ce-49cb-b669-f1c7e67a9d99` stopped at its normal
+pre-deploy test gate: 7,067 passed, 18 skipped, one failed. The new privacy test
+assumed `node:sqlite` exposed `setAuthorizer`, which the API's Node runtime did
+not provide. The serving API stayed on its previous successful deployment.
+The follow-up changes only the test to require a poison-data SQLite view to
+reject credential-data reads on both runtimes, retaining the additional
+authorizer assertions where supported. All nine Node tests pass without skips.
+
+No source-archive runtime completion is claimed by this initial deployment
+record. A successful API deployment and `BYTES_VERIFIED` manifest receipt are
+still required.

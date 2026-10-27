@@ -74,37 +74,54 @@ test('normalization ignores generated state, preserves executable changes and ke
 });
 
 test('reads only approved credential metadata, keeps database read-only, and reports four exact IDs', () => {
-  const f = fixture();
-  f.db.close();
-  const before = fileHash(f.filename);
-  const db = inspector.openDatabase(f.filename);
-  const credentialColumns = new Set();
-  db.setAuthorizer((action, table, column) => {
-    if (action === constants.SQLITE_READ && table === 'credentials_entity') {
-      credentialColumns.add(column);
-      if (column === 'data') return constants.SQLITE_DENY;
+  // The API pre-deploy Node runtime supports SQLite but not setAuthorizer.
+  // A poison projection proves data-read denial on both runtimes. Exercise
+  // that path explicitly even when the local runtime supplies the authorizer.
+  for (const hideAuthorizer of [true, false]) {
+    const f = fixture();
+    f.db.exec(`ALTER TABLE credentials_entity RENAME TO credential_rows;
+      CREATE VIEW credentials_entity AS
+        SELECT id, name, type, json_extract('credential data access forbidden', '$') AS data
+        FROM credential_rows;`);
+    f.db.close();
+    const before = fileHash(f.filename);
+    const db = inspector.openDatabase(f.filename);
+    if (hideAuthorizer) Object.defineProperty(db, 'setAuthorizer', { value: undefined });
+    const hasAuthorizer = typeof db.setAuthorizer === 'function';
+    if (hideAuthorizer) assert.equal(hasAuthorizer, false);
+    const credentialColumns = new Set();
+    if (hasAuthorizer) {
+      db.setAuthorizer((action, table, column) => {
+        if (action === constants.SQLITE_READ && table === 'credentials_entity') {
+          credentialColumns.add(column);
+          if (column === 'data') return constants.SQLITE_DENY;
+        }
+        return constants.SQLITE_OK;
+      });
     }
-    return constants.SQLITE_OK;
-  });
-  const report = inspector.inspectDatabase(db, SOURCES);
-  assert.equal(report.status, 'COMPLETE');
-  assert.deepEqual(report.workflows.map(w => w.id), inspector.WORKFLOWS.map(([id]) => id));
-  for (const workflow of report.workflows) {
-    assert.match(workflow.source_sha256, /^[a-f0-9]{64}$/);
-    assert.equal(workflow.source_matches_stored, true);
-    assert.equal(workflow.active, false);
-    assert.equal(workflow.published, false);
+    const report = inspector.inspectDatabase(db, SOURCES);
+    assert.equal(report.status, 'COMPLETE');
+    assert.deepEqual(report.workflows.map(w => w.id), inspector.WORKFLOWS.map(([id]) => id));
+    for (const workflow of report.workflows) {
+      assert.match(workflow.source_sha256, /^[a-f0-9]{64}$/);
+      assert.equal(workflow.source_matches_stored, true);
+      assert.equal(workflow.active, false);
+      assert.equal(workflow.published, false);
+    }
+    assert.deepEqual(report.drive_credentials.credentials, [
+      { id: 'drive-credential', name: 'Drop Rate Drive', type: 'googleDriveOAuth2Api' },
+      { id: 'google-service-account', name: 'Google service account', type: 'googleApi' },
+    ]);
+    if (hasAuthorizer) assert.deepEqual([...credentialColumns].sort(), ['id', 'name', 'type']);
+    assert.ok(!JSON.stringify(report).includes(PRIVATE));
+    assert.throws(() => db.prepare('SELECT data FROM credentials_entity').all(),
+      /malformed JSON|prohibited|not authorized/i);
+    assert.throws(() => db.prepare('SELECT * FROM credentials_entity').all(),
+      /malformed JSON|prohibited|not authorized/i);
+    assert.throws(() => db.exec("UPDATE workflow_entity SET active = 1"), /readonly/i);
+    db.close();
+    assert.equal(fileHash(f.filename), before);
   }
-  assert.deepEqual(report.drive_credentials.credentials, [
-    { id: 'drive-credential', name: 'Drop Rate Drive', type: 'googleDriveOAuth2Api' },
-    { id: 'google-service-account', name: 'Google service account', type: 'googleApi' },
-  ]);
-  assert.deepEqual([...credentialColumns].sort(), ['id', 'name', 'type']);
-  assert.ok(!JSON.stringify(report).includes(PRIVATE));
-  assert.throws(() => db.prepare('SELECT data FROM credentials_entity').all());
-  assert.throws(() => db.exec("UPDATE workflow_entity SET active = 1"), /readonly/i);
-  db.close();
-  assert.equal(fileHash(f.filename), before);
 });
 
 test('distinguishes stale stored settings and published history from the current draft', () => {
