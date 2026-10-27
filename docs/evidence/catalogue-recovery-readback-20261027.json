@@ -178,11 +178,44 @@
     "verified_profile_identities": 0
   },
   "release": {
-    "status": "AWAITING_ISOLATED_CARD_RELEASE_CHECKS",
-    "backed_up_source_commit": "8944b736ded8fb14c2669039e50a1519b64d2d27",
-    "original_pr": 751,
+    "status": "CARD_FIXES_DEPLOYED_BOOK_PIPELINE_RECOVERY_PENDING",
+    "source_head": "0152025bf3836bad755c8b7811fa88c287ca8009",
+    "merged_commit": "7f98b9c803daec7bad8a404000f0ed2cac8e6f89",
+    "pr": 752,
+    "ci_workflows": [
+      {
+        "id": 40501879245,
+        "name": "Reference artwork persistence",
+        "conclusion": "success"
+      },
+      {
+        "id": 40501879250,
+        "name": "Pokemon artwork repair persistence",
+        "conclusion": "success"
+      },
+      {
+        "id": 40501879265,
+        "name": "Backend checks",
+        "conclusion": "success"
+      },
+      {
+        "id": 40501879362,
+        "name": "Shared inventory reference consistency",
+        "conclusion": "success"
+      }
+    ],
+    "backend_tests_passed": 6985,
+    "railway_deployment": "ad845201-ebaf-4d56-aa9c-1953742c2ea8",
+    "railway_status": "SUCCESS",
+    "runtime_healthcheck": {
+      "at": "2026-10-27T12:15:22.236185987Z",
+      "path": "/health/ready",
+      "http_status": 200,
+      "evidence": "Railway deploy log from the new deployment"
+    },
+    "external_probe": "Unavailable through web fetch helper; no independent public HTTP probe claimed",
     "workspace_status": "UNAVAILABLE",
-    "full_book_pipeline_release": "FINAL_LOCAL_CHANGES_UNAVAILABLE",
+    "full_book_pipeline_release": "FINAL_LOCAL_CHANGES_UNAVAILABLE_PR751_DRAFT",
     "scanner": "DESIGN_ONLY_NOT_IMPLEMENTED"
   }
 }

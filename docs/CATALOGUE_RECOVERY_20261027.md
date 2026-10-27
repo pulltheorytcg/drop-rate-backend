@@ -1,5 +1,13 @@
 # Catalogue recovery checkpoint — 27 October 2026
 
+## Card fixes deployed
+
+PR [#752](https://github.com/pulltheorytcg/drop-rate-backend/pull/752) merged as `7f98b9c803daec7bad8a404000f0ed2cac8e6f89`. All **four current-head workflows passed**, including **6,985 backend tests**, dashboard/browser checks and real PostgreSQL artwork/reference persistence checks.
+
+Railway deployment `ad845201-ebaf-4d56-aa9c-1953742c2ea8` is **SUCCESS**. Its normal predeploy suite also passed all **6,985 tests**. Application startup completed; the new runtime logged `GET /health/ready` **200 OK at 12:15:22 UTC**. This is runtime/hosted healthcheck evidence. The web-fetch helper could not access this API host, so a separate external HTTP probe is not claimed.
+
+No Railway configuration, provider quota, daily scheduler revision or one-off operator was changed. The social evidence probe reported SKIPPED under its existing configuration. The original book work remains in draft PR #751 pending recovery of its final local code and data.
+
 ## Verified live data
 
 Read directly from Supabase at **12:03–12:04 UTC (UK time)** after the workspace interruption. All three production run receipts remain COMPLETE. These changes are already committed; they do not depend on the pending code release.
@@ -57,7 +65,7 @@ The independently reviewed card-fix subset can be released from the exact backed
 - Existing request caps, shared quota reserve, daily scheduler revision and source permissions remain unchanged.
 - Real PostgreSQL artwork persistence checks and relevant regressions.
 
-The isolated release needs its own current-head CI and normal Railway deployment verification. At this checkpoint it is **not yet deployed**. It introduces no new source, one-off price import or new pricing coverage claim. The original book PR remains available as a backup.
+The isolated release passed its own current-head CI and normal Railway deployment verification and is **live**, as recorded above. It introduces no new source, one-off price import or new pricing coverage claim. The original book PR remains available as a draft backup.
 
 ## Remaining catalogue blockers
 
@@ -77,6 +85,6 @@ Its proposed median-under-2-second and p95-under-4-second timings are targets, n
 
 ## Resume
 
-Finish and verify the isolated card release. Recover final book files without repeating applied batches. Then continue exact-source mapping, publisher cover review and book valuation evidence. Keep the scanner as a proposal until the user requests implementation.
+Read the next normal hourly pricing receipts after this release; attempted refreshes are not new covered references. Recover final book files without repeating applied batches. Then continue exact-source mapping, publisher cover review and book valuation evidence. Keep the scanner as a proposal until the user requests implementation.
 
 Machine-readable production checkpoint: [catalogue-recovery-readback-20261027.json](evidence/catalogue-recovery-readback-20261027.json).
