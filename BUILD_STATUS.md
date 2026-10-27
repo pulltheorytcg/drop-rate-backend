@@ -1,3 +1,56 @@
+## 27 October 2026 — Automation database repair and live heartbeat recovery
+
+Supabase SQL reads are responding again. The reviewed automation migration from
+[PR #762](https://github.com/pulltheorytcg/drop-rate-backend/pull/762) is installed
+as `20261027173335_automation_control_runtime_repair`. Catalogue readback at
+17:57:21 UTC verifies both control functions against their reviewed body hashes,
+signatures, owners, settings and restricted execution grants. Table privileges,
+RLS and required index shapes are unchanged. The import migration has a separate
+remaining connector failure, described below.
+
+The API remains on `fb19e7e8477779577736d90e745ddc171374627a`, deployment
+`a91487a5-7e2b-42d8-809b-0439fdb01562`, which reached SUCCESS at 17:05:20 UTC
+after **7,256 passed, 18 skipped, 1 warning** and readiness 200. The earlier
+Railway BuildKit failure did not recur. Native PostgreSQL 17.6 regressions also
+passed with the captured production audit function and schema details overlaid
+in disposable local databases. Those checks used synthetic data and did not
+execute production business writes.
+
+Heartbeat recovery is **Live verified**: the first accepted scheduled execution
+was `41` at 17:45:34 UTC; the durable row advanced to execution `43`, count `3`,
+received at 17:55:34.490942 UTC. The ordinary R2 storage-health schedule then
+returned HTTP 200 at 18:00:23 UTC, followed by heartbeat HTTP 200 at 18:00:34.
+DR91 publication was independently verified at 17:55:12 UTC with a verified
+SQLite backup on successful n8n deployment
+`d20f969c-e663-4f84-b1ba-8546f908dfa2`; its one-time publication flag is cleared.
+DR94 approved-media publication was verified at 18:02:25 UTC, with another
+verified backup, on n8n deployment `73b85d89-b5a5-4931-bd16-eef34757c1cc`
+(SUCCESS at 18:02:42.855). Independent metadata confirms all five DR90–94
+definitions are active/published and match source. All six one-time boot
+mutation flags were cleared with `skipDeploys:true`. The first normal DR94
+opportunity is 19:00:03 London time (UTC on this date); its scheduled execution
+and live receipt fanout have not yet been observed.
+
+The R2 source archive is complete: fourteen reviewed files, 6,228,589 source
+bytes, with the earlier 14:14:49 UTC `BYTES_VERIFIED` receipt. A fresh, deduplicated
+cache checkpoint from the current deployment's 17:05–17:26 UTC warming logs is
+**100 sets / 14,297 references / 855,888 compressed bytes**. This is partial
+reference-input coverage, not the whole catalogue or additional database space.
+
+Founder preview rebuilding remains **Deployed, not enabled**. Two resumed
+governed import-migration attempts returned `Invalid or expired requestState`.
+The 17:57:21 UTC catalogue/ledger read confirms its function and migration are
+absent; the final migration list contains 136 entries, including only the
+automation repair of the two pending migrations. Existing advisor warnings are
+unchanged. `TCG_IMPORT_PREVIEW_REBUILD_ENABLED` remains false; no further retry
+or import replay was made. Weekly Drive transfer also remains disabled: native n8n
+Google OAuth is absent, and real receipt acceptance plus a bounded actual
+create/download/readback remain activation requirements. Existing source holds,
+historical imports, catalogue coverage counts and customer records are preserved.
+
+See the [recovery evidence](docs/evidence/automation-import-recovery-20261027.json)
+and [current completion sequence](docs/DROP_RATE_COMPLETION_PLAN_20261027.md).
+
 ## 27 October 2026 — R2 source archive and n8n runtime inspection
 
 The founder authorized addressing the remaining work one item at a time.

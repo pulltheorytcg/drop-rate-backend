@@ -1,0 +1,998 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-27T18:04:57.496081+00:00",
+  "user_facing_timezone": "Europe/London",
+  "scope": "Production recovery of reviewed automation capabilities and schedules; no customer import or fabricated execution was performed.",
+  "repository": "pulltheorytcg/drop-rate-backend",
+  "application_commit": "fb19e7e8477779577736d90e745ddc171374627a",
+  "application_tree": "aa8015eef401d9a34c731fa37c8c96d6f411773c",
+  "api_deployment": {
+    "id": "a91487a5-7e2b-42d8-809b-0439fdb01562",
+    "status": "SUCCESS",
+    "succeeded_at": "2026-10-27T17:05:20.625Z",
+    "tests": {
+      "passed": 7256,
+      "skipped": 18,
+      "warnings": 1
+    },
+    "changed_in_this_recovery": false
+  },
+  "automation_database_repair": {
+    "source_migration": "database/migrations/20261027164716_automation_control_runtime_repair.sql",
+    "source_sha256": "0c1f1cb77de238b6fc0b58d055559c2d6dedc2ad16e1487fecdaed6ff7c2d7f9",
+    "installed_ledger": [
+      {
+        "version": "20261027173335",
+        "name": "automation_control_runtime_repair"
+      }
+    ],
+    "preflight_at": "2026-10-27T17:31:04.692307+00:00",
+    "postflight_at": "2026-10-27T17:33:50.480649+00:00",
+    "unchanged_catalogue_state": {
+      "tables": true,
+      "index_shapes": true,
+      "required_unique_keys": true,
+      "runtime_role": true,
+      "runtime_direct_memberships": true,
+      "private_schema": true
+    },
+    "final_capability_check_at": "2026-10-27T17:57:21.458501+00:00",
+    "verified_functions": [
+      {
+        "label": "execution_receipt",
+        "identity": "tcg_private.record_automation_execution_receipt(text,text,text,text,text,timestamp with time zone,uuid,uuid,text,text)",
+        "present": true,
+        "actual_body_sha256": "530e80103350c16be8f384ad5d2c4b62291d6ca33c1370a81a7aeff1555e3852",
+        "body_matches_reviewed": true,
+        "owner": "postgres",
+        "security_definer": true,
+        "configuration": [
+          "search_path=pg_catalog",
+          "lock_timeout=2s"
+        ],
+        "configuration_matches_reviewed": true,
+        "result_signature": "TABLE(owner_receipts_inserted integer, duplicate_owner_receipts integer, action_required_ids uuid[])",
+        "result_matches_reviewed": true,
+        "acl": "{postgres=X/postgres,tcg_api=X/postgres}",
+        "unexpected_execute_acl_count": 0,
+        "role_access": [
+          {
+            "role": "anon",
+            "role_present": true,
+            "schema_usage": false,
+            "schema_create": false,
+            "actual_execute": false,
+            "expected_execute": false
+          },
+          {
+            "role": "authenticated",
+            "role_present": true,
+            "schema_usage": false,
+            "schema_create": false,
+            "actual_execute": false,
+            "expected_execute": false
+          },
+          {
+            "role": "service_role",
+            "role_present": true,
+            "schema_usage": false,
+            "schema_create": false,
+            "actual_execute": false,
+            "expected_execute": false
+          },
+          {
+            "role": "tcg_api",
+            "role_present": true,
+            "schema_usage": true,
+            "schema_create": false,
+            "actual_execute": true,
+            "expected_execute": true
+          },
+          {
+            "role": "tcg_auditor",
+            "role_present": true,
+            "schema_usage": false,
+            "schema_create": false,
+            "actual_execute": false,
+            "expected_execute": false
+          }
+        ]
+      },
+      {
+        "label": "heartbeat",
+        "identity": "tcg.record_automation_heartbeat(text,text,text,timestamp with time zone)",
+        "present": true,
+        "actual_body_sha256": "028005a3d4f43255a040aa6cb4af142aaaaa54dd07bcf03f0170690fa008060e",
+        "body_matches_reviewed": true,
+        "owner": "postgres",
+        "security_definer": true,
+        "configuration": [
+          "search_path=pg_catalog"
+        ],
+        "configuration_matches_reviewed": true,
+        "result_signature": "TABLE(heartbeat_key text, received_at timestamp with time zone, beat_count bigint, duplicate boolean)",
+        "result_matches_reviewed": true,
+        "acl": "{postgres=X/postgres,tcg_api=X/postgres}",
+        "unexpected_execute_acl_count": 0,
+        "role_access": [
+          {
+            "role": "anon",
+            "role_present": true,
+            "schema_usage": false,
+            "schema_create": false,
+            "actual_execute": false,
+            "expected_execute": false
+          },
+          {
+            "role": "authenticated",
+            "role_present": true,
+            "schema_usage": false,
+            "schema_create": false,
+            "actual_execute": false,
+            "expected_execute": false
+          },
+          {
+            "role": "service_role",
+            "role_present": true,
+            "schema_usage": false,
+            "schema_create": false,
+            "actual_execute": false,
+            "expected_execute": false
+          },
+          {
+            "role": "tcg_api",
+            "role_present": true,
+            "schema_usage": true,
+            "schema_create": false,
+            "actual_execute": true,
+            "expected_execute": true
+          },
+          {
+            "role": "tcg_auditor",
+            "role_present": true,
+            "schema_usage": true,
+            "schema_create": false,
+            "actual_execute": false,
+            "expected_execute": false
+          }
+        ]
+      }
+    ],
+    "migration_invoked_business_functions": false,
+    "audit_dependencies": {
+      "captured_at": "2026-10-27T17:42:41.235268+00:00",
+      "auditor": {
+        "name": "tcg_auditor",
+        "inherits": false,
+        "can_login": false,
+        "superuser": false,
+        "bypass_rls": false,
+        "schema_usage": true,
+        "table_insert": true,
+        "any_column_insert": true
+      },
+      "audit_table": {
+        "acl": "{postgres=arwdDxtm/postgres,tcg_auditor=a/postgres}",
+        "rls": true,
+        "owner": "postgres",
+        "force_rls": true
+      },
+      "policies": [
+        {
+          "name": "admin_access",
+          "check": "true",
+          "roles": [
+            "postgres"
+          ],
+          "using": "true",
+          "command": "ALL",
+          "permissive": "PERMISSIVE",
+          "expression_withheld": false
+        },
+        {
+          "name": "audit_insert",
+          "check": "true",
+          "roles": [
+            "tcg_auditor"
+          ],
+          "using": null,
+          "command": "INSERT",
+          "permissive": "PERMISSIVE",
+          "expression_withheld": false
+        }
+      ],
+      "identity_sequence_usage": [
+        {
+          "name": "id",
+          "sequence": "tcg.audit_events_id_seq",
+          "auditor_sequence_usage": true
+        }
+      ],
+      "additional_trigger": "Existing immutable-audit trigger applies only to DELETE/UPDATE/TRUNCATE."
+    }
+  },
+  "heartbeat": {
+    "first_natural_http": {
+      "timestamp": "2026-10-27T17:45:34.603059624Z",
+      "path": "/api/v1/automation/control/heartbeat",
+      "status": 200,
+      "duration_ms": 182
+    },
+    "first_durable_read": {
+      "checked_at": "2026-10-27T17:46:59.368006Z",
+      "execution_id": "41",
+      "observed_at": "2026-10-27T17:45:34.226Z",
+      "received_at": "2026-10-27T17:45:34.566992Z",
+      "beat_count": 1
+    },
+    "progression_read": [
+      {
+        "checked_at": "2026-10-27 17:59:15.984633+00",
+        "heartbeat_key": "n8n-runtime",
+        "workflow_version": "v1",
+        "execution_id": "43",
+        "observed_at": "2026-10-27 17:55:34.213+00",
+        "received_at": "2026-10-27 17:55:34.490942+00",
+        "beat_count": 3
+      }
+    ],
+    "natural_http_at_1800": {
+      "deploymentId": "a91487a5-7e2b-42d8-809b-0439fdb01562",
+      "status": "SUCCESS",
+      "entries": [
+        {
+          "timestamp": "2026-10-27T18:00:23.427994796Z",
+          "method": "POST",
+          "path": "/api/v1/automation/commands/storage/health",
+          "httpStatus": 200,
+          "totalDuration": 153
+        },
+        {
+          "timestamp": "2026-10-27T18:00:34.218703331Z",
+          "method": "POST",
+          "path": "/api/v1/automation/control/heartbeat",
+          "httpStatus": 200,
+          "totalDuration": 23
+        }
+      ]
+    },
+    "manual_probe_generated": false
+  },
+  "workflow_publication": {
+    "heartbeat": {
+      "deployment_id": "50a339c8-b5c1-49e6-84dc-14c0981d3908",
+      "commit": "fb19e7e8477779577736d90e745ddc171374627a",
+      "deployment": null,
+      "verified_success_at": "2026-10-27T17:43:36.581Z",
+      "receipt": {
+        "timestamp": "2026-10-27T17:43:28.028626380Z",
+        "level": "info",
+        "event": "DROP_RATE_N8N_REVIEWED_UPGRADE",
+        "schema_version": 1,
+        "plan_id": "control-plane-stream-response-and-error-links-20261027-v2",
+        "status": "PUBLICATION_VERIFIED",
+        "publication_mode": "health-schedules",
+        "changed_count": 1,
+        "backup": {
+          "id": "control-plane-stream-response-and-error-links-20261027-v2-GpiaaC",
+          "verified": true,
+          "sha256": "07c3c942a26b4553b6cffbafcaf75524448d625b601ae6b77268c44c5daaf882",
+          "size_bytes": 2760704
+        },
+        "workflows": [
+          {
+            "id": "DR90GlobalErrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "stored_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "published_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": null,
+            "errorWorkflow": null,
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR92RuntimeHeartbeatV1",
+            "status": "COMPLETE",
+            "source_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "stored_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "published_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR93ObjectStorageHealthV1",
+            "status": "COMPLETE",
+            "source_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "stored_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "published_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR94R2ApprovedMediaMirrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "stored_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "published_sha256": null,
+            "source_matches_stored": true,
+            "source_matches_published": null,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": false,
+            "published": false
+          }
+        ]
+      },
+      "independent_metadata": {
+        "timestamp": "2026-10-27T17:43:28.104537911Z",
+        "level": "info",
+        "event": "DROP_RATE_N8N_METADATA_INSPECTION",
+        "schema_version": 1,
+        "status": "COMPLETE",
+        "normalization": "drop-rate-workflow-definition-v1",
+        "workflows": [
+          {
+            "id": "DR90GlobalErrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "stored_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "published_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": null,
+            "errorWorkflow": null,
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR91SuccessReceiptV1",
+            "status": "COMPLETE",
+            "source_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568",
+            "stored_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568",
+            "published_sha256": null,
+            "source_matches_stored": true,
+            "source_matches_published": null,
+            "source_errorWorkflow": null,
+            "errorWorkflow": null,
+            "active": false,
+            "published": false
+          },
+          {
+            "id": "DR92RuntimeHeartbeatV1",
+            "status": "COMPLETE",
+            "source_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "stored_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "published_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR93ObjectStorageHealthV1",
+            "status": "COMPLETE",
+            "source_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "stored_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "published_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR94R2ApprovedMediaMirrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "stored_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "published_sha256": null,
+            "source_matches_stored": true,
+            "source_matches_published": null,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": false,
+            "published": false
+          }
+        ],
+        "drive_credentials": {
+          "status": "COMPLETE",
+          "credentials": [],
+          "truncated": false
+        }
+      },
+      "observed_terminal_status": "SUCCESS"
+    },
+    "success_receipt": {
+      "deployment_id": "d20f969c-e663-4f84-b1ba-8546f908dfa2",
+      "commit": "fb19e7e8477779577736d90e745ddc171374627a",
+      "deployment": null,
+      "verified_success_at": "2026-10-27T17:55:24.926Z",
+      "receipt": {
+        "timestamp": "2026-10-27T17:55:12.343360696Z",
+        "level": "info",
+        "event": "DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE",
+        "schema_version": 1,
+        "plan_id": "success-receipt-stream-response-20261027-v1",
+        "status": "PUBLICATION_VERIFIED",
+        "publication_mode": "success-receipt",
+        "changed_count": 1,
+        "backup": {
+          "id": "success-receipt-stream-response-20261027-v1-gHOemJ",
+          "verified": true,
+          "sha256": "b90d8df1e3ce3af7e6fed9f27c8761f16822782335aebf6325aafce3758a6e9f",
+          "size_bytes": 2785280
+        },
+        "workflows": [
+          {
+            "id": "DR90GlobalErrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "stored_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "published_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": null,
+            "errorWorkflow": null,
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR91SuccessReceiptV1",
+            "status": "COMPLETE",
+            "source_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568",
+            "stored_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568",
+            "published_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": null,
+            "errorWorkflow": null,
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR92RuntimeHeartbeatV1",
+            "status": "COMPLETE",
+            "source_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "stored_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "published_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR93ObjectStorageHealthV1",
+            "status": "COMPLETE",
+            "source_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "stored_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "published_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR94R2ApprovedMediaMirrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "stored_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "published_sha256": null,
+            "source_matches_stored": true,
+            "source_matches_published": null,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": false,
+            "published": false
+          }
+        ],
+        "message": ""
+      },
+      "independent_metadata": {
+        "timestamp": "2026-10-27T17:55:12.476372136Z",
+        "level": "info",
+        "event": "DROP_RATE_N8N_METADATA_INSPECTION",
+        "schema_version": 1,
+        "status": "COMPLETE",
+        "normalization": "drop-rate-workflow-definition-v1",
+        "workflows": [
+          {
+            "id": "DR90GlobalErrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "stored_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "published_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": null,
+            "errorWorkflow": null,
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR91SuccessReceiptV1",
+            "status": "COMPLETE",
+            "source_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568",
+            "stored_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568",
+            "published_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": null,
+            "errorWorkflow": null,
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR92RuntimeHeartbeatV1",
+            "status": "COMPLETE",
+            "source_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "stored_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "published_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR93ObjectStorageHealthV1",
+            "status": "COMPLETE",
+            "source_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "stored_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "published_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR94R2ApprovedMediaMirrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "stored_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "published_sha256": null,
+            "source_matches_stored": true,
+            "source_matches_published": null,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": false,
+            "published": false
+          }
+        ],
+        "drive_credentials": {
+          "status": "COMPLETE",
+          "credentials": [],
+          "truncated": false
+        },
+        "message": ""
+      },
+      "observed_terminal_status": "SUCCESS"
+    },
+    "approved_media": {
+      "deployment_id": "73b85d89-b5a5-4931-bd16-eef34757c1cc",
+      "commit": "fb19e7e8477779577736d90e745ddc171374627a",
+      "deployment": {
+        "id": "73b85d89-b5a5-4931-bd16-eef34757c1cc",
+        "status": "SUCCESS",
+        "created_at": "2026-10-27T18:01:36.200Z",
+        "updated_at": "2026-10-27T18:02:42.855Z",
+        "commit": "fb19e7e8477779577736d90e745ddc171374627a"
+      },
+      "verified_success_at": "2026-10-27T18:02:42.855Z",
+      "receipt": {
+        "timestamp": "2026-10-27T18:02:25.262046528Z",
+        "level": "info",
+        "event": "DROP_RATE_N8N_REVIEWED_UPGRADE",
+        "schema_version": 1,
+        "plan_id": "control-plane-stream-response-and-error-links-20261027-v2",
+        "status": "PUBLICATION_VERIFIED",
+        "publication_mode": "media-schedule",
+        "changed_count": 1,
+        "backup": {
+          "id": "control-plane-stream-response-and-error-links-20261027-v2-OinAnE",
+          "verified": true,
+          "sha256": "5d9db0b27cd452c221796f8907b4f6fcbe0e41a560287e8b56cee93379996420",
+          "size_bytes": 2805760
+        },
+        "workflows": [
+          {
+            "id": "DR90GlobalErrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "stored_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "published_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": null,
+            "errorWorkflow": null,
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR92RuntimeHeartbeatV1",
+            "status": "COMPLETE",
+            "source_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "stored_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "published_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR93ObjectStorageHealthV1",
+            "status": "COMPLETE",
+            "source_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "stored_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "published_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR94R2ApprovedMediaMirrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "stored_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "published_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          }
+        ]
+      },
+      "independent_metadata": {
+        "timestamp": "2026-10-27T18:02:25.264940233Z",
+        "level": "info",
+        "event": "DROP_RATE_N8N_METADATA_INSPECTION",
+        "schema_version": 1,
+        "status": "COMPLETE",
+        "normalization": "drop-rate-workflow-definition-v1",
+        "workflows": [
+          {
+            "id": "DR90GlobalErrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "stored_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "published_sha256": "84d3d6db4fefe07890da33bbae543dc69369826e56fe64cca20d69c43060a011",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": null,
+            "errorWorkflow": null,
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR91SuccessReceiptV1",
+            "status": "COMPLETE",
+            "source_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568",
+            "stored_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568",
+            "published_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": null,
+            "errorWorkflow": null,
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR92RuntimeHeartbeatV1",
+            "status": "COMPLETE",
+            "source_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "stored_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "published_sha256": "08c04d8a6b35e48ea7605f57a3db8910ebd7d0932f99d65c03ac239f773bb28e",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR93ObjectStorageHealthV1",
+            "status": "COMPLETE",
+            "source_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "stored_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "published_sha256": "d765d91d6a27f2409bc09c10dbc1eadd9c2c8b3d73d8af6c57fa8c6a85d34919",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          },
+          {
+            "id": "DR94R2ApprovedMediaMirrorV1",
+            "status": "COMPLETE",
+            "source_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "stored_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "published_sha256": "3c4981b07f73c17e85452d0945ca8cf26e2e36a8006895977ccfff1aed6beaba",
+            "source_matches_stored": true,
+            "source_matches_published": true,
+            "source_errorWorkflow": "DR90GlobalErrorV1",
+            "errorWorkflow": "DR90GlobalErrorV1",
+            "active": true,
+            "published": true
+          }
+        ],
+        "drive_credentials": {
+          "status": "COMPLETE",
+          "credentials": [],
+          "truncated": false
+        }
+      },
+      "observed_terminal_status": "SUCCESS"
+    }
+  },
+  "one_time_mutation_flags": {
+    "service_id": "7af25db2-b2a0-4146-9a05-93845c9215c3",
+    "all_six_boot_mutation_flags": "false",
+    "metadata_inspection": true,
+    "skipDeploys": true,
+    "tool_result": {
+      "environment": {
+        "id": "6f00816c-b630-4d0b-bcc1-26ac71fa712d",
+        "name": "production"
+      },
+      "serviceId": "7af25db2-b2a0-4146-9a05-93845c9215c3",
+      "variableNames": [
+        "DROP_RATE_N8N_CONTROL_PLANE_PUBLISH_ON_BOOT",
+        "DROP_RATE_N8N_CONTROL_PLANE_UPGRADE_ON_BOOT",
+        "DROP_RATE_N8N_HEARTBEAT_PAUSE_ON_BOOT",
+        "DROP_RATE_N8N_SUCCESS_RECEIPT_PUBLISH_ON_BOOT",
+        "DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE_ON_BOOT",
+        "DROP_RATE_R2_MEDIA_WORKFLOW_PUBLISH_ON_BOOT"
+      ],
+      "skippedDeploys": true,
+      "staged": null
+    }
+  },
+  "approved_media_schedule": {
+    "limit": 3,
+    "first_ordinary_opportunity": "2026-10-27T19:00:03+00:00",
+    "execution_observed": false,
+    "new_upload_claimed": false,
+    "requires": "Existing approved/verified/active official-or-licensed canonical front imagery; existing private R2 byte/hash and live-rights rechecks remain enforced."
+  },
+  "native_audit_regressions": {
+    "status": "CAPTURED_AUDIT_NATIVE_REGRESSIONS_PASSED",
+    "verified_at": "2026-10-27T17:47:20.626592+00:00",
+    "database": "PostgreSQL 17.6",
+    "runtime": "actual tcg_api login/session in both suites",
+    "production_database_accessed": false,
+    "reports": {
+      "automation": [
+        {
+          "status": "ACTUAL_RESTRICTED_LOGIN_VERIFIED",
+          "suite": "automation",
+          "role": "tcg_api",
+          "login": "tcg_api"
+        },
+        {
+          "native_checks": [
+            "migration_fail_closed",
+            "unique_index_shapes",
+            "catalogue_preflight",
+            "ledger_name_and_version",
+            "unchanged_acl_rls",
+            "restricted_real_login",
+            "no_actor_impersonation",
+            "heartbeat_monotonic_replay",
+            "signed_routes",
+            "private_grants",
+            "founder_fanout",
+            "existing_alert_identity",
+            "immutable_duplicate",
+            "eight_concurrent_first_writes",
+            "all_founder_atomic_rollback",
+            "inactive_missing_owner",
+            "no_founders",
+            "explicit_active_owner"
+          ],
+          "original_failures_reproduced": [
+            "heartbeat_42702",
+            "owner_rls_empty",
+            "alert_entity_23514"
+          ],
+          "postgres": "17.6",
+          "production_database_accessed": false,
+          "status": "PASS"
+        },
+        {
+          "audit_function_sha256": "0c61664864d3ec69f6a5ebfe6d1bf52d416d312d58889245ec806c93554eaed7",
+          "audit_identity_bigint": true,
+          "audit_rls_forced": true,
+          "audit_sequence_privilege_verified": true,
+          "auditor_restricted_role": true,
+          "matching_insert_audits": 9,
+          "production_database_accessed": false,
+          "rebuild_adapter_change_audits": null,
+          "receipt_runtime_actor_rows": 9,
+          "runtime_general_audit_insert": false,
+          "source_rows": 9,
+          "status": "CAPTURED_AUDIT_NATIVE_VERIFIED",
+          "suite": "automation"
+        }
+      ],
+      "import": [
+        {
+          "status": "ACTUAL_RESTRICTED_LOGIN_VERIFIED",
+          "suite": "import",
+          "role": "tcg_api",
+          "login": "tcg_api"
+        },
+        {
+          "status": "PASS",
+          "postgres": "PostgreSQL 17.6 on x86_64-pc-linux-gnu",
+          "proofs": [
+            "restricted grants preserved",
+            "real founder authority",
+            "owner isolation",
+            "same-file rebuild and review reset",
+            "source evidence immutable",
+            "fresh Collectr baseline",
+            "synthetic row removal",
+            "full persisted totals beyond 5000 display rows",
+            "no inventory/catalogue writes during rebuild",
+            "FK and outer-transaction rollback",
+            "two-session stale-version race",
+            "commit/rebuild serialization",
+            "automatic/committed rejection",
+            "private capability lock timeout"
+          ]
+        },
+        {
+          "audit_function_sha256": "0c61664864d3ec69f6a5ebfe6d1bf52d416d312d58889245ec806c93554eaed7",
+          "audit_identity_bigint": true,
+          "audit_rls_forced": true,
+          "audit_sequence_privilege_verified": true,
+          "auditor_restricted_role": true,
+          "matching_insert_audits": 7,
+          "production_database_accessed": false,
+          "rebuild_adapter_change_audits": 1,
+          "receipt_runtime_actor_rows": null,
+          "runtime_general_audit_insert": false,
+          "source_rows": 7,
+          "status": "CAPTURED_AUDIT_NATIVE_VERIFIED",
+          "suite": "import"
+        }
+      ]
+    },
+    "limits": [
+      "Full production migration history was not replayed.",
+      "Only metadata was taken from production; all data was synthetic.",
+      "Existing synthetic import commit-event marker remained; production outbox enqueue is not claimed as executed.",
+      "Expected rejection logging in the automation suite is deliberate negative-test output."
+    ],
+    "raw_log_sha256": {
+      "native-automation-audit-result.log": "10a54c35273ed22916cae3db3800bed315dab74843dedd6346227c082ea224da",
+      "native-import-audit-result.log": "f97ea251ac7595dcc5aeba8a84e0403e28d1e6635b3a7038f743e350fdb71932"
+    }
+  },
+  "import_preview_rebuild": {
+    "source_migration": "database/migrations/20261027143430_founder_import_preview_rebuild.sql",
+    "source_sha256": "ae3f42a305370cdd7898580dace5a114b7bb4f5f3341f5843a58ff4dd149fbeb",
+    "flag": "TCG_IMPORT_PREVIEW_REBUILD_ENABLED",
+    "recorded_flag_value": false,
+    "attempts_this_resumption": 2,
+    "tool_error": "McpServerError: Invalid or expired requestState",
+    "error_reason": "invalid_request_state",
+    "final_checked_at": "2026-10-27T17:57:21.458501+00:00",
+    "function_present": false,
+    "migration_name_present": false,
+    "final_total_migration_count": 136,
+    "new_preview_or_inventory_written": false,
+    "further_retry_made_after_reconciliation": false,
+    "next_step": "Recover the governed connector request state, reconcile function and ledger again, apply the exact reviewed migration, verify ownership/ACL/RLS/function state, then enable the existing feature flag."
+  },
+  "drive": {
+    "api_flag_recorded_false": true,
+    "workflow_flag_recorded_false": true,
+    "native_credential_scan": {
+      "status": "COMPLETE",
+      "credentials": [],
+      "truncated": false
+    },
+    "live_copy_performed": false,
+    "remaining": [
+      "Native n8n Google OAuth bound to the approved Drop Rate account and private folder.",
+      "Actual durable receipt acceptance.",
+      "One bounded actual create/download/hash-readback and completion receipt before recurring activation."
+    ]
+  },
+  "r2_reference_cache_checkpoint": {
+    "deployment_id": "a91487a5-7e2b-42d8-809b-0439fdb01562",
+    "window": "2026-10-27T17:05:38.315Z/2026-10-27T17:26:18.476Z",
+    "distinct_exact_scopes": 100,
+    "reference_rows": 14297,
+    "compressed_bytes": 855888,
+    "deduplicated_within_one_deployment": true,
+    "object_readbacks_verified": true,
+    "database_writes": 0,
+    "failures": 0,
+    "skips": 0,
+    "coverage": "partial",
+    "sql_parity_probes": 5,
+    "rows_per_parity_probe": 20,
+    "whole_catalogue_or_latency_claim": false
+  },
+  "advisors": {
+    "migration_count": 136,
+    "migrations": [
+      {
+        "version": "20261027173335",
+        "name": "automation_control_runtime_repair"
+      }
+    ],
+    "security": [
+      {
+        "name": "rls_enabled_no_policy",
+        "level": "INFO",
+        "count": 7
+      },
+      {
+        "name": "auth_leaked_password_protection",
+        "level": "WARN",
+        "count": 1
+      }
+    ],
+    "performance": [
+      {
+        "name": "unindexed_foreign_keys",
+        "level": "INFO",
+        "count": 12
+      },
+      {
+        "name": "auth_rls_initplan",
+        "level": "WARN",
+        "count": 4
+      },
+      {
+        "name": "unused_index",
+        "level": "INFO",
+        "count": 94
+      },
+      {
+        "name": "multiple_permissive_policies",
+        "level": "WARN",
+        "count": 5
+      }
+    ]
+  },
+  "limits": [
+    "DR90/DR91 production receipt fanout/replay has not yet been observed; native verification and publication are distinct.",
+    "The governed SQL connection denied SET ROLE tcg_api, so the attempted null-input runtime guard check did not reach either function; no grants or permissions were changed to bypass it.",
+    "Actual restricted-runtime behavior was verified using native PostgreSQL17.6 login plus live effective-grant readback.",
+    "OAuth variable reads reveal names only; recorded disabled flags are preserved settings, not a fresh secret-value comparison.",
+    "The unrelated API staged patch06e57c47-c3fc-486d-83ea-ff1f262d883b remained STAGED.",
+    "The next hourly media execution is pending; this receipt proves publication, not a completed upload."
+  ]
+}
