@@ -1,3 +1,43 @@
+## 27 October 2026 — Card fixes live; 1,495 book editions imported
+
+PR [#752](https://github.com/pulltheorytcg/drop-rate-backend/pull/752) is merged as
+`7f98b9c803daec7bad8a404000f0ed2cac8e6f89`. All four current-head workflows
+passed, including **6,985 backend tests**. Railway deployment
+`ad845201-ebaf-4d56-aa9c-1953742c2ea8` is **SUCCESS**; its normal predeploy
+suite passed the same tests and the new runtime logged readiness **200 OK at
+12:15:22 UTC**.
+
+The release preserves reviewed M1S artwork through provider refreshes and adds
+bounded exact-number recovery for explicitly truncated Dragon Ball searches.
+Existing source permissions, quotas and scheduler revision remain unchanged.
+
+Already committed and independently read back: **92 Japanese Pokémon artwork
+repairs**, **one exact VIZ manga cover**, and **1,495 comic/manga metadata imports
+in 30 batches**. All three durable run receipts are COMPLETE. Live totals at
+12:03–12:04 UTC: **785 comics + 805 manga = 1,590 editions**, **43,135 / 67,065
+physical cards priced or carrying labelled guides (64.32%)**, and **38,919
+(58.03%)** with basic identity, artwork URL and a supported value/guide together.
+Physical artwork URL coverage is **60,283 / 67,065 (89.89%)**. The 90% pricing
+goal remains unmet by **17,224 references**.
+
+**Books still have zero positive shared market snapshots** and zero VERIFIED
+profile identities. Metadata growth is not complete artwork/printing/value
+coverage. Inventory remains 616 rows; the completed imports preserved its
+full-row checksum. Database size at readback is 370,625,683 bytes, writable and
+below the unchanged 400,000,000-byte guard.
+
+**Remaining release blocker:** the coding workspace disconnected before the
+final book subject-preservation/57-hold-registry patch and review datasets were
+uploaded. Draft PR [#751](https://github.com/pulltheorytcg/drop-rate-backend/pull/751)
+preserves the earlier version. Recover final local files before releasing that
+pipeline; do not rerun the already committed 1,495 imports. Another 909 novel
+records were staged, not imported. GitHub/Supabase/Railway connections still work.
+
+The live auction scanner is **design and research only, not implemented**.
+See [current production checkpoint and resume order](docs/CATALOGUE_RECOVERY_20261027.md),
+[machine-readable evidence](docs/evidence/catalogue-recovery-readback-20261027.json)
+and [scanner proposal](docs/LIVE_AUCTION_SCANNER_PROPOSAL.md).
+
 ## 27 October 2026 — Catalogue scheduling fixes deployed and verified
 
 PR [#749](https://github.com/pulltheorytcg/drop-rate-backend/pull/749) is merged
