@@ -17,7 +17,7 @@ spec.loader.exec_module(probe)
 
 
 def args(**updates):
-    values = dict(isbn=None, title=None, volume=None, language=None, binding=None, publisher=None)
+    values = dict(isbn=None, title=None, volume=None, language=None, binding=None, publisher=None, listing_id=None)
     return SimpleNamespace(**{**values, **updates})
 
 
@@ -143,6 +143,67 @@ async def test_each_selected_pilot_is_one_bounded_lookup_without_fallback_to_oth
     assert result["result"]["isbn"] == isbn
     assert result["result"]["diagnostics"]["search_count"] == 1
     assert result["result"]["diagnostics"]["detail_count"] == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("isbn,listing_id", [
+    ("9781569319000", "123456789012"), ("9781427800022", "298583744784"),
+    ("9781569319000", "v1|298583744784|0"), ("9781569319000", "https://www.ebay.co.uk/itm/298583744784"),
+    ("9781569319000", "298583744784?redirect=anything"), ("9781569319000", []),
+])
+async def test_pinned_listing_probe_rejects_any_other_id_or_edition_before_settings(monkeypatch, isbn, listing_id):
+    monkeypatch.setattr(probe, "get_settings", lambda: (_ for _ in ()).throw(AssertionError("no settings or provider")))
+    result = await probe.run_probe(args(isbn=isbn, listing_id=listing_id))
+    assert result["status"] == "UNAVAILABLE" and result["reason"] == "PINNED_LISTING_ID_REQUIRED"
+    assert result["browse_calls"] == 0
+
+
+@pytest.mark.asyncio
+async def test_pinned_listing_id_does_not_replace_the_exact_isbn_opt_in(monkeypatch):
+    monkeypatch.setattr(probe, "get_settings", lambda: (_ for _ in ()).throw(AssertionError("no settings or provider")))
+    result = await probe.run_probe(args(listing_id="298583744784"))
+    assert result["status"] == "SKIPPED" and result["browse_calls"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("listing_id", ["298583744784", "800761400014"])
+async def test_each_pinned_naruto_listing_uses_shared_validation_with_at_most_two_calls(monkeypatch, listing_id):
+    calls = []
+    item_id = f"v1|{listing_id}|0"
+    product = {"itemId": item_id, "title": "Naruto Volume 1 Paperback", "product": {},
+               "sellerItemRevision": "12", "price": {"currency": "GBP", "value": "5.03"},
+               "itemWebUrl": f"https://www.ebay.co.uk/itm/{listing_id}",
+               "buyingOptions": ["FIXED_PRICE"], "condition": "Good", "itemLocation": {"country": "GB"},
+               "localizedAspects": [{"name": "Language", "value": "English"},
+                                    {"name": "Format", "value": "Paperback"},
+                                    {"name": "Publisher", "value": "VIZ Media"},
+                                    {"name": "Publication Year", "value": "2003"}],
+               "estimatedAvailabilities": [{"estimatedAvailabilityStatus": "IN_STOCK", "estimatedAvailableQuantity": 2}]}
+    compact = {key: product[key] for key in ("itemId", "sellerItemRevision", "price", "itemWebUrl", "estimatedAvailabilities")}
+    compact["gtin"] = "9781569319000"
+
+    class Client:
+        async def search_items(self, **query):
+            raise AssertionError("pinned probe must not search")
+
+        async def get_item(self, requested, *, fieldgroups="PRODUCT"):
+            await self._before_browse_request()
+            assert requested == item_id
+            calls.append((requested, fieldgroups))
+            return product if fieldgroups == "PRODUCT" else compact
+
+    service = BookListingContextService(Client())
+    monkeypatch.setattr(probe, "service_from_settings", lambda _: service)
+    result = await probe.run_probe(args(isbn="9781569319000", listing_id=listing_id), settings=object())
+    assert result["status"] == "AVAILABLE" and result["browse_calls"] == 2
+    assert result["requested_listing_id"] == listing_id
+    assert calls == [(item_id, "PRODUCT"), (item_id, "COMPACT")]
+    assert result["result"]["items"][0]["price_minor"] == 503
+    assert result["result"]["diagnostics"]["search_count"] == 0
+    assert result["result"]["diagnostics"]["compact_count"] == 1
+    assert result["result"]["edition"]["binding"] is None
+    assert result["physical_valuation_eligible"] is False and result["persisted"] is False
+    assert not service.cache
 
 
 @pytest.mark.asyncio

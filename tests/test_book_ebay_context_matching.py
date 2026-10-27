@@ -86,6 +86,75 @@ def set_aspect(row, name, value):
     return row
 
 
+def product_aspect(name, *values):
+    return {"localizedName": name, "localizedValues": list(values)}
+
+
+@pytest.mark.parametrize("product", [
+    {"additionalProductIdentities": [{"productIdentity": [{"identifierType": "ISBN", "identifierValue": ISBN}]}]},
+    {"additionalProductIdentities": [{"productIdentity": [
+        {"identifierType": "ISBN-10", "identifierValue": ISBN10},
+        {"identifierType": "EAN", "identifierValue": ISBN}]}]},
+    {"aspectGroups": [{"localizedGroupName": "Product Identifiers",
+                       "aspects": [product_aspect("ISBN-13", ISBN)]}]},
+])
+def test_documented_nested_product_identifier_paths_prove_the_same_edition(product):
+    assert match(detail(product=product)) is not None
+
+
+def test_nested_product_aspects_can_supply_explicit_listing_edition_facts():
+    product = {"aspectGroups": [{"localizedGroupName": "Product Details", "aspects": [
+        product_aspect("ISBN", ISBN10, ISBN), product_aspect("Language", "English"),
+        product_aspect("Format", "Paperback"), product_aspect("Volume", "1"),
+        product_aspect("Publisher", "Tokyopop"), product_aspect("Publication Year", "2006")]}]}
+    assert match(detail(product=product, localizedAspects=[])) is not None
+
+
+@pytest.mark.parametrize("name,value", [
+    ("ISBN", OTHER_ISBN), ("Language", "Japanese"), ("Format", "Hardcover"),
+    ("Volume", "2"), ("Publisher", "VIZ Media"), ("Publication Year", "2007"),
+    ("Signed", "Yes"), ("Features", "Omnibus signed edition"),
+])
+def test_product_aspects_never_overwrite_conflicting_item_facts(name, value):
+    row = detail(product={"gtins": [ISBN], "aspectGroups": [{"aspects": [product_aspect(name, value)]}]})
+    assert match(row) is None
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_conflicts_between_product_groups_remain_visible_regardless_of_order(reverse):
+    groups = [{"aspects": [product_aspect("Language", "English")]},
+              {"aspects": [product_aspect("Language", "Japanese")]}]
+    if reverse:
+        groups.reverse()
+    assert match(detail(product={"gtins": [ISBN], "aspectGroups": groups})) is None
+
+
+def test_conflicting_nested_identifier_cannot_hide_behind_matching_flat_identifier():
+    product = {"gtins": [ISBN], "additionalProductIdentities": [{"productIdentity": [
+        {"identifierType": "ISBN", "identifierValue": OTHER_ISBN}]}]}
+    assert match(detail(product=product)) is None
+
+
+@pytest.mark.parametrize("product", [
+    None, [], {"aspectGroups": None}, {"aspectGroups": [{}]},
+    {"aspectGroups": [{"aspects": [product_aspect("ISBN", ISBN), {"localizedName": "Language", "localizedValues": "English"}]}]},
+    {"aspectGroups": [{"aspects": [{"localizedName": "ISBN", "localizedValues": [ISBN, 123]}]}]},
+    {"aspectGroups": [{"aspects": [{"localizedName": "ISBN", "localizedValues": []}]}]},
+    {"aspectGroups": [{"aspects": [product_aspect("ISBN", "x" * 501)]}]},
+    {"aspectGroups": [{"aspects": [product_aspect("Language", "English")]}] * 21},
+    {"additionalProductIdentities": {}},
+    {"additionalProductIdentities": [{"productIdentity": {}}]},
+    {"additionalProductIdentities": [{"productIdentity": [{"identifierType": "ISBN", "identifierValue": 9781598163476}]}]},
+    {"additionalProductIdentities": [{"productIdentity": [{"identifierType": "ISBN", "identifierValue": "x" * 501}]}]},
+])
+def test_malformed_or_excessive_product_containers_cannot_match(product):
+    assert match(detail(gtin=ISBN, product=product)) is None
+
+
+def test_title_isbn_alone_is_still_insufficient_identity_evidence():
+    assert match(detail(title=f"+Anima Volume 1 Paperback ISBN {ISBN}", product={})) is None
+
+
 @pytest.mark.parametrize(
     "value, expected",
     [

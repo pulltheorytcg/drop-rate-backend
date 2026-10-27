@@ -36,10 +36,11 @@ def detail(number=1):
 
 
 class FakeClient:
-    def __init__(self, *, error=None, details=None):
+    def __init__(self, *, error=None, details=None, compact_details=None):
         self.calls = []
         self.error = error
         self.details = details or [detail(i) for i in range(1, 5)]
+        self.compact_details = compact_details or []
         self.started = asyncio.Event()
         self.release = None
 
@@ -53,10 +54,12 @@ class FakeClient:
             raise self.error
         return {"itemSummaries": [{"itemId": d["itemId"]} for d in self.details]}
 
-    async def get_item(self, item_id):
+    async def get_item(self, item_id, *, fieldgroups="PRODUCT"):
         await self._before_browse_request()
-        self.calls.append(("detail", item_id))
-        row = next(d for d in self.details if d["itemId"] == item_id)
+        assert fieldgroups in {"PRODUCT", "COMPACT"}
+        self.calls.append(("compact" if fieldgroups == "COMPACT" else "detail", item_id))
+        rows = self.compact_details if fieldgroups == "COMPACT" else self.details
+        row = next(d for d in rows if d.get("expected_item_id", d["itemId"]) == item_id)
         if isinstance(row.get("error"), Exception):
             raise row["error"]
         return copy.deepcopy(row)
@@ -64,6 +67,20 @@ class FakeClient:
 
 def service(client=None, **kwargs):
     return context.BookListingContextService(client or FakeClient(), utcnow=lambda: NOW, **kwargs)
+
+
+def missing_isbn_detail(number=1, **updates):
+    return {**detail(number), "product": {}, "sellerItemRevision": "7",
+            "estimatedAvailabilities": [{"estimatedAvailabilityStatus": "IN_STOCK", "estimatedAvailableQuantity": 2}],
+            **updates}
+
+
+def compact_detail(number=1, **updates):
+    original = detail(number)
+    return {"itemId": original["itemId"], "gtin": "9781427800022", "sellerItemRevision": "7",
+            "price": original["price"], "itemWebUrl": original["itemWebUrl"],
+            "estimatedAvailabilities": [{"estimatedAvailabilityStatus": "IN_STOCK", "estimatedAvailableQuantity": 2}],
+            **updates}
 
 
 @pytest.mark.asyncio
@@ -82,6 +99,182 @@ async def test_one_gtin_search_and_at_most_three_details_without_a_sold_value():
     assert "market_value_minor" not in result
     assert datetime.fromisoformat(result["expires_at"]) - NOW == timedelta(hours=1)
     assert result["diagnostics"]["detail_count"] == 3
+
+
+@pytest.mark.asyncio
+async def test_three_compact_fallbacks_share_the_existing_budget_and_stop_at_seven_calls():
+    client = FakeClient(details=[missing_isbn_detail(i) for i in range(1, 5)],
+                        compact_details=[compact_detail(i) for i in range(1, 5)])
+    svc = service(client)
+    result = await svc.get(context.edition_target(ROW), diagnostics=True)
+    assert result["status"] == "AVAILABLE" and result["item_count"] == 3
+    assert len(client.calls) == svc.calls_used == 7
+    assert [call[0] for call in client.calls] == ["search", "detail", "compact", "detail", "compact", "detail", "compact"]
+    assert result["diagnostics"]["detail_count"] == result["diagnostics"]["compact_count"] == 3
+    for candidate in result["diagnostics"]["candidates"]:
+        assert candidate["identity_evidence"] == "COMPACT_GTIN_SAME_REVISION"
+        assert candidate["identifiers"] == []
+        assert candidate["compact_identity"]["gtin"] == "9781427800022"
+        assert candidate["compact_identity"]["revision_matched"] is True
+    assert result["physical_valuation_eligible"] is False
+
+
+@pytest.mark.asyncio
+async def test_compact_fallback_daily_budget_exhaustion_discards_partial_matches():
+    client = FakeClient(details=[missing_isbn_detail(i) for i in range(1, 4)],
+                        compact_details=[compact_detail(i) for i in range(1, 4)])
+    svc = service(client, daily_call_limit=6)
+    result = await svc.get(context.edition_target(ROW))
+    assert result["reason"] == "DAILY_CALL_LIMIT" and result["items"] == []
+    assert len(client.calls) == svc.calls_used == 6
+    assert result["asking_low_minor"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("updates", [
+    {"product": {"gtins": ["9781598163476"]}},
+    {"product": {"gtins": ["invalid ISBN"]}},
+    {"product": {"additionalProductIdentities": [{"productIdentity": [
+        {"identifierType": "ISBN", "identifierValue": "9781598163476"}]}]}},
+    {"localizedAspects": [{"name": "Language", "value": "Japanese"}, {"name": "Format", "value": "Paperback"}]},
+    {"localizedAspects": [{"name": "Language", "value": "English"}]},
+    {"title": "+Anima Volume 2 Paperback"},
+    {"condition": "Signed restored copy"},
+    {"buyingOptions": ["FIXED_PRICE", "AUCTION"]},
+    {"estimatedAvailabilities": [{"estimatedAvailabilityStatus": "OUT_OF_STOCK"}]},
+])
+async def test_compact_is_never_requested_for_a_conflict_or_other_failed_gate(updates):
+    client = FakeClient(details=[missing_isbn_detail(**updates)], compact_details=[compact_detail()])
+    result = await service(client).get(context.edition_target(ROW), diagnostics=True)
+    assert result["status"] == "UNAVAILABLE"
+    assert result["diagnostics"]["compact_count"] == 0
+    assert [call[0] for call in client.calls] == ["search", "detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("revision", [None, "", " ", 7, True, "x" * 129])
+async def test_product_revision_is_required_before_spending_a_compact_call(revision):
+    client = FakeClient(details=[missing_isbn_detail(sellerItemRevision=revision)], compact_details=[compact_detail()])
+    result = await service(client).get(context.edition_target(ROW), diagnostics=True)
+    assert result["status"] == "UNAVAILABLE"
+    assert result["diagnostics"]["candidates"][0]["compact_identity"] == {
+        "requested": False, "reason": "PRODUCT_REVISION_REQUIRED"}
+    assert len(client.calls) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("updates,reason", [
+    ({"itemId": "v1|123456789012|0", "expected_item_id": detail()["itemId"]}, "COMPACT_ITEM_ID_MISMATCH"),
+    ({"sellerItemRevision": "8"}, "COMPACT_REVISION_CHANGED"),
+    ({"sellerItemRevision": None}, "COMPACT_REVISION_REQUIRED"),
+    ({"sellerItemRevision": ""}, "COMPACT_REVISION_REQUIRED"),
+    ({"gtin": "9781598163476"}, "COMPACT_ISBN_MISSING_OR_CONFLICT"),
+    ({"gtin": "9781427800020"}, "COMPACT_IDENTIFIER_INVALID"),
+    ({"gtin": None}, "COMPACT_IDENTIFIER_INVALID"),
+    ({"price": {"currency": "USD", "value": "11"}}, "COMPACT_PRICE_CHANGED_OR_INVALID"),
+    ({"price": {"currency": "GBP", "value": "12"}}, "COMPACT_PRICE_CHANGED_OR_INVALID"),
+    ({"price": {"currency": "GBP", "value": "11.001"}}, "COMPACT_PRICE_CHANGED_OR_INVALID"),
+    ({"estimatedAvailabilities": []}, "COMPACT_AVAILABILITY_REQUIRED"),
+    ({"estimatedAvailabilities": None}, "COMPACT_INVALID_AVAILABILITY"),
+    ({"estimatedAvailabilities": [{"estimatedAvailabilityStatus": "OUT_OF_STOCK"}]}, "COMPACT_UNAVAILABLE_ITEM"),
+    ({"estimatedAvailabilities": [{"estimatedAvailabilityStatus": "IN_STOCK", "estimatedRemainingQuantity": 0}]}, "COMPACT_UNAVAILABLE_QUANTITY"),
+    ({"availabilityStatus": {"bad": "shape"}}, "COMPACT_UNAVAILABLE_ITEM"),
+    ({"itemEndDate": "2026-10-27T20:00:00Z"}, "COMPACT_ENDED_OR_INVALID_DATE"),
+    ({"itemEndDate": "invalid-date"}, "COMPACT_ENDED_OR_INVALID_DATE"),
+    ({"currentBidPrice": {"currency": "GBP", "value": "1"}}, "COMPACT_AUCTION_STATE"),
+    ({"bidCount": 1}, "COMPACT_AUCTION_STATE"),
+    ({"itemWebUrl": "https://www.ebay.co.uk/itm/123456789012"}, "COMPACT_ITEM_URL_CONFLICT"),
+])
+async def test_compact_cannot_merge_inconsistent_identity_or_current_offer_state(updates, reason):
+    client = FakeClient(details=[missing_isbn_detail()], compact_details=[compact_detail(**updates)])
+    result = await service(client).get(context.edition_target(ROW), diagnostics=True)
+    assert result["status"] == "UNAVAILABLE" and result["items"] == []
+    candidate = result["diagnostics"]["candidates"][0]
+    assert candidate["reason"] == candidate["compact_identity"]["reason"] == reason
+    assert len(client.calls) == 3
+
+
+@pytest.mark.asyncio
+async def test_compact_end_date_caps_expiry_and_conflicting_end_dates_are_rejected():
+    end = NOW + timedelta(seconds=30)
+    client = FakeClient(details=[missing_isbn_detail()], compact_details=[compact_detail(itemEndDate=end.isoformat())])
+    result = await service(client).get(context.edition_target(ROW))
+    assert result["status"] == "AVAILABLE" and result["expires_at"] == end.isoformat()
+    client = FakeClient(details=[missing_isbn_detail(itemEndDate=(end + timedelta(seconds=10)).isoformat())],
+                        compact_details=[compact_detail(itemEndDate=end.isoformat())])
+    result = await service(client).get(context.edition_target(ROW), diagnostics=True)
+    assert result["status"] == "UNAVAILABLE"
+    assert result["diagnostics"]["candidates"][0]["reason"] == "COMPACT_END_DATE_CHANGED"
+
+
+@pytest.mark.asyncio
+async def test_compact_provider_refusal_triggers_shared_backoff_without_retry():
+    client = FakeClient(details=[missing_isbn_detail()], compact_details=[compact_detail(
+        error=EbayApiError("private token", status_code=429, retry_after_seconds=1200))])
+    svc = service(client, monotonic=lambda: 100.0)
+    result = await svc.get(context.edition_target(ROW), diagnostics=True)
+    assert result["reason"] == "PROVIDER_RATE_LIMIT" and svc.blocked_until == 1300
+    assert len(client.calls) == svc.calls_used == 3
+    assert "private token" not in json.dumps(result)
+    assert (await svc.get(context.edition_target({**ROW, "version": 2})))["reason"] == "PROVIDER_RATE_LIMIT"
+    assert len(client.calls) == 3
+
+
+@pytest.mark.asyncio
+async def test_compact_404_rejects_the_gone_item_without_blocking_another_listing():
+    client = FakeClient(details=[missing_isbn_detail(), detail(2)],
+                        compact_details=[compact_detail(error=EbayApiError("gone", status_code=404))])
+    svc = service(client)
+    result = await svc.get(context.edition_target(ROW), diagnostics=True)
+    assert result["item_count"] == 1 and result["items"][0]["item_id"] == detail(2)["itemId"]
+    assert result["diagnostics"]["candidates"][0]["reason"] == "COMPACT_ITEM_NO_LONGER_AVAILABLE"
+    assert svc.blocked_until == 0
+
+
+@pytest.mark.asyncio
+async def test_summary_ranking_considers_ten_hints_but_only_fetches_three_actual_items():
+    titles = ["+Anima", "+Anima Volume 2 Paperback", "+Anima Volume 1 Kindle",
+              "+Anima Volume 1 Paperback", "+Anima Volume 1 Paperback ISBN 9781427800022",
+              "Unrelated English book", "+Anima Volume 1 Hardcover", "+Anima Volume 1 English Paperback",
+              "+Anima Bundle ISBN 9781427800022", "+Anima Volume 1"]
+    rows = [detail(i) for i in range(1, 11)]
+    class SummaryClient(FakeClient):
+        async def search_items(self, **kwargs):
+            await super().search_items(**kwargs)
+            return {"itemSummaries": [{"itemId": row["itemId"], "title": title, "access_token": "must-not-leak"}
+                                      for row, title in zip(rows, titles)]}
+    client = SummaryClient(details=rows)
+    result = await service(client).get(context.edition_target(ROW), diagnostics=True)
+    assert [call[1] for call in client.calls if call[0] == "detail"] == [rows[i]["itemId"] for i in (4, 3, 7)]
+    assert result["status"] == "AVAILABLE" and len(client.calls) == 4
+    assert len(result["diagnostics"]["search_summaries"]) == 10
+    assert all(set(row) == {"item_id", "title"} for row in result["diagnostics"]["search_summaries"])
+    assert "must-not-leak" not in json.dumps(result)
+
+
+@pytest.mark.asyncio
+async def test_exact_isbn_summary_hint_never_supplies_missing_detail_identity():
+    class SummaryClient(FakeClient):
+        async def search_items(self, **kwargs):
+            response = await super().search_items(**kwargs)
+            response["itemSummaries"][0]["title"] = "+Anima Volume 1 Paperback ISBN 9781427800022"
+            return response
+    client = SummaryClient(details=[missing_isbn_detail(sellerItemRevision=None)])
+    result = await service(client).get(context.edition_target(ROW))
+    assert result["status"] == "UNAVAILABLE" and result["items"] == []
+    assert len(client.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_pinned_probe_reuses_strict_validation_without_search_or_discovery_cache():
+    client = FakeClient(details=[missing_isbn_detail()], compact_details=[compact_detail()])
+    svc = service(client)
+    target = context.edition_target(ROW)
+    result = await svc.probe_listing(target, detail()["itemId"])
+    assert result["status"] == "AVAILABLE"
+    assert [call[0] for call in client.calls] == ["detail", "compact"]
+    assert result["diagnostics"]["search_count"] == 0
+    assert svc.calls_used == 2 and not svc.cache and not svc.inflight
 
 
 @pytest.mark.asyncio
@@ -362,6 +555,24 @@ def test_raw_identifier_diagnostics_are_bounded_strings_from_fixed_public_fields
     diagnostic = context._diagnostic(row, row["itemId"], "INVALID_IDENTIFIERS")
     assert diagnostic["raw_identifiers"] == {
         "product.gtins": ["x" * 80, "9781427800022"], "aspects.isbn": ["z" * 80]}
+    assert "must-not-leak" not in json.dumps(diagnostic)
+
+
+def test_nested_product_diagnostics_expose_supported_identity_paths_and_revision_only():
+    row = missing_isbn_detail(product={
+        "additionalProductIdentities": [{"productIdentity": [
+            {"identifierType": "ISBN", "identifierValue": "9781427800022"},
+            {"identifierType": "private_token", "identifierValue": "must-not-leak"}]}],
+        "aspectGroups": [{"aspects": [
+            {"localizedName": "ISBN-13", "localizedValues": ["9781427800022"]},
+            {"localizedName": "Language", "localizedValues": ["English"]},
+            {"localizedName": "private_token", "localizedValues": ["must-not-leak"]}]}],
+        "private_token": "must-not-leak"})
+    diagnostic = context._diagnostic(row, row["itemId"], "MATCHED")
+    assert diagnostic["seller_item_revision"] == "7"
+    assert diagnostic["raw_identifiers"]["product.additionalProductIdentities.isbn"] == ["9781427800022"]
+    assert diagnostic["product_aspects"] == {"isbn 13": ["9781427800022"], "language": ["English"]}
+    assert set(diagnostic["identifiers"]) == {"9781427800022"}
     assert "must-not-leak" not in json.dumps(diagnostic)
 
 

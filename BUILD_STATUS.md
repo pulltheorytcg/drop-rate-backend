@@ -1,3 +1,25 @@
+## 27 October 2026 — eBay book identifier compatibility follow-up
+
+PR #766 is deployed successfully on API release
+`27d746c03ebe203e2458d159cb073ffe67932ef9`. Public health and assets match the
+reviewed release, and all four previously blocked covers load using its actual
+image policy. All seven PR workflows passed; Python CI and Railway each passed
+7,550 tests, with 18 optional skips and one warning.
+
+The first live Naruto probe confirmed official Browse access with four calls,
+ten summaries and three examined details. None exposed an ISBN through the
+initially supported fields, so no quote was accepted and the display stayed
+disabled. The temporary probe command was removed after the run.
+
+The follow-up reads documented nested PRODUCT identifiers/aspects and supports
+a conditional COMPACT identity check tied to the same item and seller revision.
+It ranks the ten returned summaries before spending at most three detail slots.
+Normal requests remain bounded to seven Browse calls, and explicit pinned-item
+diagnostics require at most two. Conflicts still reject the quote; no sold or
+physical values are created. Activation requires a usable live source result.
+See [the contract](docs/BOOK_EBAY_LISTING_CONTEXT_20261027.md) and
+[the first source result](docs/evidence/book-ebay-first-production-probe-20261027.json).
+
 ## 27 October 2026 — Book image redirects and eBay asking-price context
 
 The remaining artwork audit found an actual browser policy failure: four of

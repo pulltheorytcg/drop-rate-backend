@@ -37,11 +37,13 @@ NARUTO_PILOT = {
         "source_url": "https://www.viz.com/manga-books/manga/naruto-volume-1-0/product/91"},
 }
 PINNED_PILOTS = {PILOT_ISBN: PILOT, NARUTO_PILOT_ISBN: NARUTO_PILOT}
+PINNED_NARUTO_LISTING_IDS = {"298583744784", "800761400014"}
 
 
 def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--isbn", default=os.getenv("TCG_BOOK_EBAY_CONTEXT_PROBE_ISBN"))
+    parser.add_argument("--listing-id", help="Optional reviewed Naruto listing ID; never used by the catalogue endpoint")
     parser.add_argument("--title")
     parser.add_argument("--volume")
     parser.add_argument("--language")
@@ -59,6 +61,10 @@ async def run_probe(args, *, settings=None):
     pilot = PINNED_PILOTS.get(normalize_isbn(args.isbn))
     if pilot is None:
         return {**report, "status": "UNAVAILABLE", "reason": "PINNED_PILOT_ISBN_REQUIRED"}
+    listing_id = getattr(args, "listing_id", None)
+    if listing_id is not None and (not isinstance(listing_id, str) or pilot is not NARUTO_PILOT
+                                   or listing_id not in PINNED_NARUTO_LISTING_IDS):
+        return {**report, "status": "UNAVAILABLE", "reason": "PINNED_LISTING_ID_REQUIRED"}
     expected = {"title": pilot["series_title"], "volume": pilot["issue_number"],
                 "language": pilot["language"], "binding": pilot["volume_identifier"],
                 "publisher": pilot["attributes"]["publisher"]}
@@ -70,10 +76,12 @@ async def run_probe(args, *, settings=None):
     try:
         settings = settings or get_settings()
         service = service_from_settings(settings)
-        result = await service.get(target, diagnostics=True)
+        result = (await service.probe_listing(target, f"v1|{listing_id}|0") if listing_id is not None
+                  else await service.get(target, diagnostics=True))
         return {**report, "status": result["status"], "reason": result["reason"],
                 "target_source": "PINNED_PUBLIC_CATALOGUE_FIXTURE_20261027",
                 "source_url": pilot["attributes"]["source_url"],
+                "requested_listing_id": listing_id,
                 "browse_calls": service.calls_used, "result": result}
     except Exception:
         # Settings failures and provider exceptions must never print tokens,

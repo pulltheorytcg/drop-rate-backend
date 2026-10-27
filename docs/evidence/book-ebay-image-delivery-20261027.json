@@ -1,0 +1,60 @@
+{
+  "checked_at": "2026-10-27T21:25:39.746Z",
+  "source_listing_url": "https://www.ebay.co.uk/itm/800761400014",
+  "observed_image_url": "https://i.ebayimg.com/images/g/LOQAAeSw4OJq3~iA/s-l1600.webp",
+  "source_web_reference": "turn85view0",
+  "requested_origin": "https://drop-rate-api-live-production.up.railway.app",
+  "browser": "140.0.7339.186",
+  "test_environment": "Fresh isolated Chromium context. Only the HTML document is locally fulfilled at the production origin; no production app, login, API or account request. ignoreHTTPSErrors is confined to this test context for the local certificate interception; no production TLS setting changes.",
+  "production_image_csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://assets.tcgdex.net https://covers.openlibrary.org https://archive.org/download/ https://*.us.archive.org/view_archive.php https://i.ebayimg.com https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://www.dbs-cardgame.com https://narutocardgame.gg https://cardtrader.com https://www.cardtrader.com https://upload.wikimedia.org https://images.prismic.io https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net https://e4d4b363540e991048d2e1812d5ef53e.eu.r2.cloudflarestorage.com; connect-src 'self' https://ozrxenrdladkooixutmm.supabase.co; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+  "requested_image_settings": {
+    "crossOrigin": "anonymous",
+    "referrerPolicy": "no-referrer",
+    "loading": "lazy"
+  },
+  "image_requests": [
+    {
+      "url": "https://i.ebayimg.com/images/g/LOQAAeSw4OJq3~iA/s-l1600.webp",
+      "method": "GET",
+      "origin": "https://drop-rate-api-live-production.up.railway.app",
+      "referrer_present": false,
+      "authorization_present": false,
+      "cookie_present": false,
+      "sec_fetch_mode": null,
+      "sec_fetch_dest": null
+    }
+  ],
+  "responses": [
+    {
+      "url": "https://i.ebayimg.com/images/g/LOQAAeSw4OJq3~iA/s-l1600.webp",
+      "status": 200,
+      "content_type": "image/webp",
+      "access_control_allow_origin": "*",
+      "access_control_allow_credentials": null,
+      "content_length": "321952",
+      "received_bytes": 321952,
+      "cross_origin_resource_policy": null
+    }
+  ],
+  "console_errors": [],
+  "request_failures": [],
+  "image": {
+    "loaded": true,
+    "width": 1000,
+    "height": 1494,
+    "current_src": "https://i.ebayimg.com/images/g/LOQAAeSw4OJq3~iA/s-l1600.webp",
+    "cross_origin": "anonymous",
+    "referrer_policy": "no-referrer",
+    "canvas_readable": true
+  },
+  "csp_violations": [],
+  "status": "passed",
+  "completed_at": "2026-10-27T21:25:40.306Z",
+  "initial_harness_status": "failed",
+  "initial_harness_error": "Expected values to be strictly equal:\n\nnull !== 'cors'\n",
+  "local_validation": {
+    "validated_at": "2026-10-27T21:26:07.199Z",
+    "network_requests_added": 0,
+    "explanation": "Post-run validation of recorded Chromium measurements passes the requested delivery checks. The original harness failed only because it additionally asserted the optional Sec-Fetch-Mode header, which was absent from the observed request. Origin was sent, crossOrigin was anonymous, no credentials or referrer were sent, image decoded, and canvas pixel access succeeded. Original harness output is preserved in ebay-image-cors-20261027-original-harness.json."
+  }
+}
