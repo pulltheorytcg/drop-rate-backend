@@ -7,7 +7,7 @@ import pytest
 from app.recognition_games import collector_key
 from app.reference_feeds import ReferenceFeedError
 from app.reference_public import archive_page, bandai_cards, bandai_sets
-from app.reference_library import reference_candidates
+from app.reference_library import reference_candidates, save_reference_set
 from app.recognition_engine import _provider_identity_fingerprint, resolve_candidates, score_candidate
 from test_recognition_engine import observation, candidate
 
@@ -26,6 +26,31 @@ def test_application_registers_library_with_valid_configuration(monkeypatch):
         assert '/api/v1/recognition/resolve' in {r.path for r in app.routes}
     finally:
         get_settings.cache_clear()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("incoming,expected", [
+    (None, None), ("", None), (" \t\n", None),
+    (" https://assets.tcgdex.net/ja/M/M1S/001/high.webp ",
+     "https://assets.tcgdex.net/ja/M/M1S/001/high.webp"),
+])
+async def test_sparse_image_spellings_reach_upsert_as_null(incoming, expected):
+    from contextlib import asynccontextmanager
+    class Connection:
+        @asynccontextmanager
+        async def transaction(self):
+            yield
+        async def execute(self, *args):
+            pass
+        async def executemany(self, sql, rows):
+            self.rows = rows
+    connection = Connection()
+    await save_reference_set(connection, {
+        "provider": "TCGdex", "system_code": "POKEMON_TCG", "language": "Japanese",
+        "set_id": "M1S", "name": "Set", "source_url": "https://api.tcgdex.net/v2/ja/sets/M1S",
+    }, [{"provider_id": "M1S-001", "name": "モンジャラ", "card_number": "001/63",
+         "source_url": "https://api.tcgdex.net/v2/ja/cards/M1S-001", "image_url": incoming}])
+    assert connection.rows[0][10] == expected
 
 
 @pytest.mark.parametrize('a,b',[('OP05-001','OP5-1'),('001/102','1/102'),('BT01-009','BT1-9')])

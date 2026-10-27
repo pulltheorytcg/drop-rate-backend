@@ -28,6 +28,33 @@ def number_key(value):
     return collector_key(value)
 
 
+def _reference_image_url(value):
+    # Sparse provider feeds can spell an absent image as null, "" or whitespace.
+    # Normalize them before the exact-identity upsert so blank strings cannot
+    # erase a verified repair or its provenance on the next scheduled refresh.
+    return (value.strip() or None) if isinstance(value, str) else value
+
+
+# These two M1S reviews bind image bytes to individually read printed identities.
+# A provider manifest can later expose the known misnumbered nominal URL. Keep
+# intact reviewed proof until an explicit new review, only for unchanged identity.
+_PINNED_M1S_ARTWORK_SQL = """
+    tcg.reference_cards.provider='TCGdex'
+    and tcg.reference_cards.system_code='POKEMON_TCG'
+    and tcg.reference_cards.language='Japanese' and tcg.reference_cards.set_id='M1S'
+    and ((tcg.reference_cards.evidence->'image_reference'->>'verification'='TCGDEX_REVIEWED_IMAGE_BYTES_V1'
+          and tcg.reference_cards.evidence->'image_reference'->>'review_manifest_sha256'=
+            'b9b4155be39e71acc6c9985060f501906a463161f3ec35b0c45b3cfd4d8b8a1d')
+      or (tcg.reference_cards.evidence->'image_reference'->>'verification'='TCGDEX_REVIEWED_ASSET_OVERRIDE_V1'
+          and tcg.reference_cards.evidence->'image_reference'->>'review_manifest_sha256'=
+            '040d59d5c8b992cc8ea5e4fbd85b3e16f5a328151f236c4e33be45184398b99d'))
+    and tcg.reference_cards.evidence->'image_reference'->>'image_url'=tcg.reference_cards.image_url
+    and tcg.reference_cards.evidence->'image_reference'->>'source_url'=tcg.reference_cards.source_url
+    and tcg.reference_cards.evidence->'image_reference'->>'scope'='REFERENCE_ONLY_NOT_APPROVED_MEDIA'
+    and tcg.reference_cards.evidence->'image_reference'->>'content_sha256' ~ '^[0-9a-f]{64}$'
+"""
+
+
 async def save_reference_set(connection, record, cards):
     """Atomic upsert of one provider set. No deletes or canonical writes."""
     async with connection.transaction():
@@ -43,7 +70,7 @@ async def save_reference_set(connection, record, cards):
             record['name'],record.get('release_date'),record.get('declared_card_count'),record['source_url'])
         # A provider can repeat the same record on overlapping pages.
         unique = {str(card['provider_id']): card for card in cards}
-        await connection.executemany("""
+        await connection.executemany(f"""
             insert into tcg.reference_cards(provider,system_code,language,provider_id,
                 set_id,name,card_number,number_key,finish,rarity,image_url,source_url,evidence)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
@@ -54,9 +81,11 @@ async def save_reference_set(connection, record, cards):
                   and tcg.reference_cards.card_number=excluded.card_number
                   and tcg.reference_cards.source_url=excluded.source_url
                   and (tcg.reference_cards.evidence->>'provider_local_id') is not distinct from (excluded.evidence->>'provider_local_id')
-                  then coalesce(excluded.image_url,tcg.reference_cards.image_url) else excluded.image_url end,
+                  then case when {_PINNED_M1S_ARTWORK_SQL} then tcg.reference_cards.image_url
+                    else coalesce(excluded.image_url,tcg.reference_cards.image_url) end
+                  else excluded.image_url end,
                 source_url=excluded.source_url,
-                evidence=case when excluded.image_url is null
+                evidence=case when (excluded.image_url is null or ({_PINNED_M1S_ARTWORK_SQL}))
                   and tcg.reference_cards.set_id=excluded.set_id and tcg.reference_cards.name=excluded.name
                   and tcg.reference_cards.card_number=excluded.card_number
                   and tcg.reference_cards.source_url=excluded.source_url
@@ -66,7 +95,7 @@ async def save_reference_set(connection, record, cards):
                   else excluded.evidence end,refreshed_at=clock_timestamp()
         """, [(record['provider'],record['system_code'],record['language'],card['provider_id'],
                 record['set_id'],card['name'],str(card['card_number']),number_key(card['card_number']),
-                card.get('finish'),card.get('rarity'),card.get('image_url'),card['source_url'],
+                card.get('finish'),card.get('rarity'),_reference_image_url(card.get('image_url')),card['source_url'],
                 json.dumps(card.get('evidence') or {})) for card in unique.values()])
 
 

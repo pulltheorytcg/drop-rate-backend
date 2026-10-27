@@ -1,12 +1,13 @@
 """Disposable PostgreSQL contract for exact Pokémon image repair."""
 import asyncio
+import hashlib
 import json
 import os
 from urllib.parse import urlsplit
 
 import asyncpg
 
-from app.pokemon_artwork_repair import READ_SQL, WRITE_SQL, SETS, candidate
+from app.pokemon_artwork_repair import READ_SQL, WRITE_SQL, SETS, candidate, M1S_REVIEW_PATH, M1S_REVIEW_SHA256
 from app.reference_library import save_reference_set
 
 
@@ -85,8 +86,10 @@ async def main():
         assert not await db.fetch(WRITE_SQL, json.dumps([six]))
         await db.execute("update tcg.reference_sets set release_date=null where language='Japanese'")
         # Existing sparse-sync rules preserve this evidence for the unchanged exact printing.
-        await save_reference_set(db, record, [card("001")])
-        assert await db.fetchval("select evidence->'image_reference'->>'verification' from tcg.reference_cards where language='Japanese' and provider_id='SM12a-001'") == "fixture"
+        for blank in (None, "", " \t\n"):
+            await save_reference_set(db, record, [card("001", image_url=blank)])
+            assert await db.fetchval("select image_url from tcg.reference_cards where language='Japanese' and provider_id='SM12a-001'") == "https://assets.tcgdex.net/ja/SM/SM12a/001/high.webp"
+            assert await db.fetchval("select evidence->'image_reference'->>'verification' from tcg.reference_cards where language='Japanese' and provider_id='SM12a-001'") == "fixture"
         await save_reference_set(db, record, [card("001", name="Reassigned identity")])
         assert await db.fetchval("select image_url from tcg.reference_cards where language='Japanese' and provider_id='SM12a-001'") is None
         # Same-name identity changes must also discard a previous image.
@@ -98,10 +101,49 @@ async def main():
             image = candidate(dict(original))
             image["image_reference"] = {"verification": "identity"}
             assert len(await db.fetch(WRITE_SQL, json.dumps([image]))) == 1
-            await save_reference_set(db, record, [card("001", **changed_fields)])
+            await save_reference_set(db, record, [card("001", image_url=" \t\n", **changed_fields)])
             changed_identity = await db.fetchrow("select * from tcg.reference_cards where language='Japanese' and provider_id='SM12a-001'")
             assert changed_identity["image_url"] is None
             assert "image_reference" not in json.loads(changed_identity["evidence"])
+
+        # Individually reviewed M1S corrections must survive a provider later
+        # returning the known misnumbered nominal path for unchanged identity.
+        reviewed_record = dict(record, set_id="M1S")
+        override_sha = hashlib.sha256(M1S_REVIEW_PATH.with_name("pokemon_artwork_m1s_overrides_20261027.json").read_bytes()).hexdigest()
+        for local, name, asset, verification, manifest_sha in (
+            ("001", "モンジャラ", "001", "TCGDEX_REVIEWED_IMAGE_BYTES_V1", M1S_REVIEW_SHA256),
+            ("057", "あやしい時計", "078", "TCGDEX_REVIEWED_ASSET_OVERRIDE_V1", override_sha),
+        ):
+            reviewed_url = f"https://assets.tcgdex.net/ja/M/M1S/{asset}/high.webp"
+            nominal_url = f"https://assets.tcgdex.net/ja/M/M1S/{local}/low.webp"
+            reviewed_card = {"provider_id": f"M1S-{local}", "name": name, "card_number": f"{local}/63",
+                             "source_url": f"https://api.tcgdex.net/v2/ja/cards/M1S-{local}",
+                             "evidence": {"provider_local_id": local}}
+            proof = {"verification": verification, "image_url": reviewed_url,
+                     "source_url": reviewed_card["source_url"], "scope": "REFERENCE_ONLY_NOT_APPROVED_MEDIA",
+                     "content_sha256": "a" * 64, "review_manifest_sha256": manifest_sha}
+            reviewed_proof = dict(proof)
+            await save_reference_set(db, reviewed_record, [dict(reviewed_card, image_url=reviewed_url,
+                evidence={"provider_local_id": local, "image_reference": reviewed_proof})])
+            for incoming in (None, " \t\n", nominal_url):
+                await save_reference_set(db, reviewed_record, [dict(reviewed_card, image_url=incoming)])
+                stored = await db.fetchrow("select image_url,evidence from tcg.reference_cards where language='Japanese' and provider_id=$1", f"M1S-{local}")
+                assert stored["image_url"] == reviewed_url
+                assert json.loads(stored["evidence"])["image_reference"] == reviewed_proof
+            await save_reference_set(db, reviewed_record, [dict(reviewed_card, name="Different identity", image_url=nominal_url)])
+            stored = await db.fetchrow("select image_url,evidence from tcg.reference_cards where language='Japanese' and provider_id=$1", f"M1S-{local}")
+            assert stored["image_url"] == nominal_url and "image_reference" not in json.loads(stored["evidence"])
+        # Incomplete proof or ordinary provider art must not acquire this pin.
+        for mutation in ({"verification": "fixture"}, {"image_url": nominal_url},
+                         {"content_sha256": "invalid"}, {"review_manifest_sha256": "invalid"},
+                         {"review_manifest_sha256": "b" * 64},
+                         {"review_manifest_sha256": M1S_REVIEW_SHA256},
+                         {"source_url": "https://api.tcgdex.net/v2/ja/cards/M1S-999"},
+                         {"scope": "UNREVIEWED"}):
+            await save_reference_set(db, reviewed_record, [dict(reviewed_card, image_url=reviewed_url,
+                evidence={"provider_local_id": "057", "image_reference": {**proof, **mutation}})])
+            await save_reference_set(db, reviewed_record, [dict(reviewed_card, image_url=nominal_url)])
+            assert await db.fetchval("select image_url from tcg.reference_cards where language='Japanese' and provider_id='M1S-057'") == nominal_url
     finally:
         await db.close()
     print("PASS: exact image repair, identity races, replay, rollback, release guard, sparse-sync preservation, unchanged inventory/current prices")

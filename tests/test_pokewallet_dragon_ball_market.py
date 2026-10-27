@@ -572,3 +572,357 @@ async def test_scoped_preview_reports_exact_foil_finish_or_no_quote_reason(monke
     else:
         assert report["preview"]==[] and report["quote_finish_counts"]=={}
         assert report["no_quote_reasons"]=={"NO_POSITIVE_CARDMARKET_QUOTE":1}
+
+
+def install_search_refs(monkeypatch, refs):
+    writes=[]
+    @asynccontextmanager
+    async def connection(*args):
+        class Conn:
+            async def fetch(self,sql):
+                assert sql==dbs.READ_SQL
+                return refs
+            async def executemany(self,sql,rows):
+                assert sql==dbs.WRITE_SQL
+                writes.extend(rows)
+        yield Conn()
+    monkeypatch.setattr(dbs,"user_connection",connection)
+    return writes
+
+
+def numbered_ref(number):
+    return fusion(card_number=number,provider_id="583001:"+number)
+
+
+def numbered_product(number, identifier=1, **fields):
+    return product(id="dbs_"+format(identifier,"064x"),
+                   card_info=product()["card_info"]|{"card_number":number},**fields)
+
+
+class SearchFX:
+    async def quote(self,**kwargs):
+        return FxQuote(kwargs["base_currency"],"GBP",Decimal(".86"),NOW,NOW,"ECB")
+
+
+class ScriptedSearch:
+    def __init__(self,respond):
+        self.respond,self.calls=respond,[]
+    async def get(self,url,params,headers):
+        assert url==dbs.BASE_URL+"/dbs/search"  # same free endpoint for every fallback/page
+        assert params["limit"]==100 and params["page"]>=1
+        assert headers["X-API-Key"]=="pk_live_fixture"
+        self.calls.append((params["q"],params["page"]))
+        result=self.respond(params["q"],params["page"])
+        return result if isinstance(result,HttpResponse) else HttpResponse(result)
+
+
+@pytest.mark.asyncio
+async def test_explicitly_truncated_shard_discards_partial_prices_and_resolves_only_complete_exact_queries(monkeypatch):
+    refs=[numbered_ref("FB01-001"),numbered_ref("FB01-002")]
+    writes=install_search_refs(monkeypatch,refs)
+    def respond(query,page):
+        if query=="FB01-00":
+            # A usable-looking quote in a partial shard is never written.
+            return body(numbered_product("FB01-002"),query=query,truncated=True)
+        if query=="FB01-001":
+            return body(numbered_product(query),query=query)
+        return body(query=query)
+    client=ScriptedSearch(respond)
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),SearchFX(),"pk_live_fixture",dry_run=False,request_limit=3,http_client=client)
+    assert client.calls==[("FB01-00",1),("FB01-001",1),("FB01-002",1)]
+    assert report["requests"]==3 and report["expanded_prefixes"]==1
+    assert report["exact_queries"]==2 and report["exact_eligible_quotes"]==1
+    assert report["eligible_quotes"]==report["writes_attempted"]==len(writes)==1
+    assert writes[0][3]=="583001:FB01-001"
+    quote=writes[0][4][0]
+    assert quote["source_search_query"]=="FB01-001" and quote["source_search_complete"] is True
+    assert quote["physical_valuation_eligible"] is False
+    assert report["pending_exact_queries"]==0 and report["cursor"]=="FB01-00"
+
+
+@pytest.mark.asyncio
+async def test_exact_fallback_keeps_unpriced_competitor_on_final_page(monkeypatch):
+    writes=install_search_refs(monkeypatch,[fusion()])
+    first=[product()]+[numbered_product(f"FB01-{n:03}",n) for n in range(100,199)]
+    competitor=numbered_product("FB01-001",999,cardmarket=None,tcgplayer=None)
+    client=ScriptedSearch(lambda query,page:
+        body(product(),query=query,truncated=True) if query=="FB01-00" else
+        body(*(first if page==1 else [competitor]),query=query,page=page,total=101))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=3,http_client=client)
+    assert client.calls==[("FB01-00",1),("FB01-001",1),("FB01-001",2)]
+    assert report["matches"]==report["eligible_quotes"]==0 and writes==[]
+    assert report["sampled_queries"][0]["source_rows"]==101
+
+
+@pytest.mark.asyncio
+async def test_exact_response_still_truncated_never_recurses_or_uses_any_quote(monkeypatch):
+    writes=install_search_refs(monkeypatch,[fusion()])
+    client=ScriptedSearch(lambda query,page:body(product(),query=query,truncated=True))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=8,http_client=client)
+    assert report["requests"]==2 and report["invalid_queries"]==2
+    assert report["expanded_prefixes"]==1 and report["exact_queries"]==1
+    assert report["eligible_quotes"]==0 and writes==[]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind",["query","count","page","limit","shape"])
+async def test_malformed_truncated_parent_cannot_trigger_new_queries(monkeypatch,kind):
+    writes=install_search_refs(monkeypatch,[fusion()])
+    payload=body(product(),truncated=True)
+    if kind=="query":payload["query"]="BT11-03"
+    elif kind=="count":payload["pagination"]["total"]=2
+    elif kind=="page":payload["pagination"]["page"]=2
+    elif kind=="limit":payload["pagination"]["limit"]=50
+    elif kind=="shape":payload["results"]=[None]
+    client=ScriptedSearch(lambda query,page:payload)
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=8,http_client=client)
+    assert report["requests"]==1 and report["expanded_prefixes"]==0
+    assert report["eligible_quotes"]==0 and writes==[]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field",["id","product_type","set_id","set_name","card_number","card_info"])
+async def test_exact_fallback_does_not_drop_malformed_same_number_competitors(monkeypatch,field):
+    writes=install_search_refs(monkeypatch,[fusion()])
+    competitor=numbered_product("FB01-001",2,cardmarket=None,tcgplayer=None)
+    if field=="id":competitor["id"]="invalid"
+    elif field=="card_info":competitor["card_info"]=None
+    else:competitor["card_info"][field]=None
+    client=ScriptedSearch(lambda query,page:
+        body(product(),query=query,truncated=True) if query=="FB01-00" else
+        body(product(),competitor,query=query))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=3,http_client=client)
+    assert report["requests"]==2 and report["eligible_quotes"]==0 and writes==[]
+
+
+@pytest.mark.asyncio
+async def test_one_request_budget_resumes_every_exact_number_then_other_shards(monkeypatch):
+    refs=[numbered_ref(f"FB01-{n:03}") for n in (1,2,3,11)]
+    writes=install_search_refs(monkeypatch,refs)
+    client=ScriptedSearch(lambda query,page:
+        body(product(),query=query,truncated=True) if query=="FB01-00" else
+        body(numbered_product(query),query=query) if len(query.split("-")[1])==3 else
+        body(query=query))
+    cursor=None
+    pending=[]
+    for _ in range(5):
+        report=await dbs.refresh_pokewallet_dragon_ball(
+            None,uuid4(),SearchFX(),"pk_live_fixture",dry_run=False,request_limit=1,
+            previous_cursor=cursor,http_client=client)
+        assert report["requests"]==1
+        cursor=report["cursor"]
+        pending.append(report["pending_exact_queries"])
+    assert client.calls==[("FB01-00",1),("FB01-001",1),("FB01-002",1),("FB01-003",1),("FB01-01",1)]
+    assert pending==[3,2,1,0,0]
+    assert len(writes)==3
+
+
+@pytest.mark.asyncio
+async def test_pending_number_priced_elsewhere_skips_to_next_current_eligible_number(monkeypatch):
+    refs=[numbered_ref(f"FB01-{n:03}") for n in (1,2,3)]
+    install_search_refs(monkeypatch,refs)
+    refs[1]["has_detail_value"]=True
+    client=ScriptedSearch(lambda query,page:body(query=query))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=1,
+        previous_cursor=dbs.exact_cursor("FB01-00","FB01-002"),http_client=client)
+    assert client.calls==[("FB01-003",1)]
+    assert report["cursor"]=="FB01-00" and report["pending_exact_queries"]==0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cursor",[
+    "dbs-exact-v1|BT11-03|BT11-031",
+    "dbs-exact-v1|FB01-00|BT11-031",
+    "dbs-exact-v1|FB01-00|FB01-001 extra",
+    "dbs-exact-v1|FB01-00|"+"0"*100,
+    {"query":"FB01-001"},
+])
+async def test_invalid_or_unrelated_cursor_never_supplies_a_provider_query(monkeypatch,cursor):
+    install_search_refs(monkeypatch,[fusion()])
+    client=ScriptedSearch(lambda query,page:body(query=query))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=True,request_limit=1,
+        previous_cursor=cursor,http_client=client)
+    assert client.calls==[("FB01-00",1)] and report["writes_attempted"]==0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dry_run,limit,expected",[(True,35,8),(False,100,35),(False,18,18)])
+async def test_exact_fallback_never_increases_existing_request_caps(monkeypatch,dry_run,limit,expected):
+    install_search_refs(monkeypatch,[numbered_ref(f"FB01-{n:03}") for n in range(1,51)])
+    client=ScriptedSearch(lambda query,page:
+        body(product(),query=query,truncated=True) if len(query.split("-")[1])==2 else body(query=query))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=dry_run,request_limit=limit,http_client=client)
+    assert report["requests"]==len(client.calls)==expected
+    assert report["unattempted_queries"]>0 and report["writes_attempted"]==0
+
+
+@pytest.mark.asyncio
+async def test_scoped_fallback_retains_eight_request_cap_and_requested_set(monkeypatch):
+    refs=[special_ref(number=f"ST01-{n:03}") for n in range(1,10)]+[fusion()]
+    install_search_refs(monkeypatch,refs)
+    client=ScriptedSearch(lambda query,page:
+        body(product(),query=query,truncated=True) if query=="ST01-00" else body(query=query))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=35,
+        reference_set_id="583301",http_client=client)
+    assert report["requests"]==8 and report["pending_exact_queries"]==2
+    assert all(query.startswith("ST01-") for query,_ in client.calls)
+
+
+@pytest.mark.asyncio
+async def test_exact_pagination_that_does_not_fit_remaining_budget_restarts_complete_next_run(monkeypatch):
+    writes=install_search_refs(monkeypatch,[fusion(),numbered_ref("FB01-002")])
+    rows=[product()]+[numbered_product(f"FB01-{n:03}",n) for n in range(100,200)]
+    def respond(query,page):
+        if query=="FB01-00":return body(product(),query=query,truncated=True)
+        if query=="FB01-001":return body(*rows[(page-1)*100:page*100],query=query,page=page,total=101)
+        return body(query=query)
+    client=ScriptedSearch(respond)
+    first=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),SearchFX(),"pk_live_fixture",dry_run=False,request_limit=2,http_client=client)
+    assert first["requests"]==2 and first["deferred_queries"]==1 and writes==[]
+    assert first["cursor"]==dbs.exact_cursor("FB01-00","FB01-001")
+    assert first["pending_exact_queries"]==2
+    second=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),SearchFX(),"pk_live_fixture",dry_run=False,request_limit=3,
+        previous_cursor=first["cursor"],http_client=client)
+    assert client.calls==[("FB01-00",1),("FB01-001",1),
+                         ("FB01-001",1),("FB01-001",2),("FB01-002",1)]
+    assert second["writes_attempted"]==len(writes)==1 and second["pending_exact_queries"]==0
+
+
+@pytest.mark.asyncio
+async def test_irreducibly_oversized_exact_query_cannot_starve_following_number(monkeypatch):
+    install_search_refs(monkeypatch,[fusion(),numbered_ref("FB01-002")])
+    rows=[numbered_product(f"FB01-{n:03}",n) for n in range(100,200)]
+    def respond(query,page):
+        if query=="FB01-00":return body(product(),query=query,truncated=True)
+        if query=="FB01-001":return body(*rows,query=query,total=201)
+        return body(query=query)
+    client=ScriptedSearch(respond)
+    first=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=2,http_client=client)
+    assert first["oversized_exact_queries"]==1
+    assert first["cursor"]==dbs.exact_cursor("FB01-00","FB01-002")
+    await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=1,
+        previous_cursor=first["cursor"],http_client=client)
+    assert client.calls==[("FB01-00",1),("FB01-001",1),("FB01-002",1)]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure",["duplicate","changed_total","truncated_page"])
+async def test_exact_fallback_requires_every_page_complete_and_consistent(monkeypatch,failure):
+    writes=install_search_refs(monkeypatch,[fusion()])
+    first=[product()]+[numbered_product(f"FB01-{n:03}",n) for n in range(100,199)]
+    def respond(query,page):
+        if query=="FB01-00":return body(product(),query=query,truncated=True)
+        if page==1:return body(*first,query=query,total=101)
+        if failure=="duplicate":return body(product(),query=query,page=2,total=101)
+        if failure=="changed_total":
+            return body(numbered_product("FB01-201",201),numbered_product("FB01-202",202),
+                        query=query,page=2,total=102)
+        return body(numbered_product("FB01-201",201),query=query,page=2,total=101,truncated=True)
+    client=ScriptedSearch(respond)
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=3,http_client=client)
+    assert report["requests"]==3 and report["eligible_quotes"]==0 and writes==[]
+    assert report["invalid_queries"]==2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure",["timeout","rate_limit","quota"])
+async def test_exact_failure_returns_current_checkpoint_without_bypassing_quota(monkeypatch,failure):
+    import httpx
+    writes=install_search_refs(monkeypatch,[fusion(),numbered_ref("FB01-002")])
+    def respond(query,page):
+        if query=="FB01-00":return body(product(),query=query,truncated=True)
+        if failure=="timeout":raise httpx.ReadTimeout("fixture timeout")
+        response=HttpResponse(body(product(),query=query),status=429 if failure=="rate_limit" else 200)
+        if failure=="quota":response.headers["X-RateLimit-Remaining-Day"]="4"
+        return response
+    client=ScriptedSearch(respond)
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=8,http_client=client)
+    assert report["requests"]==2 and report["provider_failures"]==1 and writes==[]
+    assert report["cursor"]==dbs.exact_cursor("FB01-00","FB01-001")
+    assert report["pending_exact_queries"]==2
+    assert report["reason"]=={"timeout":"ReadTimeout","rate_limit":"RATE_LIMITED","quota":"SHARED_QUOTA_LOW"}[failure]
+
+
+@pytest.mark.asyncio
+async def test_task_cancellation_is_not_swallowed_or_used_to_write_partial_source_data(monkeypatch):
+    import asyncio
+    writes=install_search_refs(monkeypatch,[fusion()])
+    def respond(query,page):
+        if query=="FB01-00":return body(product(),query=query,truncated=True)
+        raise asyncio.CancelledError()
+    client=ScriptedSearch(respond)
+    with pytest.raises(asyncio.CancelledError):
+        await dbs.refresh_pokewallet_dragon_ball(
+            None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=8,http_client=client)
+    assert client.calls==[("FB01-00",1),("FB01-001",1)] and writes==[]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("number,total",[("BT11-031",36),("BT11-061",38)])
+async def test_masters_truncated_shard_below_page_size_can_recover_only_complete_exact_identity(monkeypatch,number,total):
+    ref=masters(set_id="428011",set_name="Series 11 Booster -VERMILION BLOODLINE-",
+                card_number=number,provider_id=f"428011:{number}.png")
+    writes=install_search_refs(monkeypatch,[ref])
+    source=product(card_info=product()["card_info"]|{
+        "card_number":number,"name":"Senzu Bean","set_name":"Vermilion Bloodline",
+        "set_id":"9111","rarity":"Common"})
+    # Reproduce the live failure shape: count < 100 is not proof of completeness
+    # when the provider explicitly declares truncation.
+    partial=[source]+[numbered_product(f"BT11-{n:03}",n) for n in range(100,99+total)]
+    prefix=number[:-1]
+    client=ScriptedSearch(lambda query,page:
+        body(*partial,query=query,truncated=True) if query==prefix else body(source,query=query))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),SearchFX(),"pk_live_fixture",dry_run=False,request_limit=2,http_client=client)
+    assert client.calls==[(prefix,1),(number,1)]
+    assert report["invalid_samples"][0]["pagination"]["total"]==total
+    assert report["exact_eligible_quotes"]==report["writes_attempted"]==len(writes)==1
+    assert writes[0][1]==dbs.MASTERS and writes[0][3]==ref["provider_id"]
+    assert writes[0][4][0]["source_search_query"]==number
+
+
+@pytest.mark.asyncio
+async def test_two_digit_printed_number_has_no_invented_narrower_queries(monkeypatch):
+    install_search_refs(monkeypatch,[numbered_ref("FB01-01")])
+    client=ScriptedSearch(lambda query,page:body(product(),query=query,truncated=True))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=8,http_client=client)
+    assert client.calls==[("FB01-01",1)]
+    assert report["expanded_prefixes"]==0 and report["eligible_quotes"]==0
+
+
+@pytest.mark.asyncio
+async def test_legacy_prefix_cursor_keeps_existing_round_robin_order(monkeypatch):
+    install_search_refs(monkeypatch,[fusion(),numbered_ref("FB01-011")])
+    client=ScriptedSearch(lambda query,page:body(query=query))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=1,
+        previous_cursor="FB01-00",http_client=client)
+    assert client.calls==[("FB01-01",1)] and report["cursor"]=="FB01-01"
+
+
+@pytest.mark.asyncio
+async def test_finished_pending_shard_reenters_rotation_without_sticky_resume_cursor(monkeypatch):
+    refs=[fusion(),numbered_ref("FB01-011")]
+    install_search_refs(monkeypatch,refs)
+    client=ScriptedSearch(lambda query,page:body(query=query))
+    report=await dbs.refresh_pokewallet_dragon_ball(
+        None,uuid4(),object(),"pk_live_fixture",dry_run=False,request_limit=2,
+        previous_cursor=dbs.exact_cursor("FB01-00","FB01-009"),http_client=client)
+    assert client.calls==[("FB01-01",1),("FB01-00",1)]
+    assert report["cursor"]=="FB01-00"

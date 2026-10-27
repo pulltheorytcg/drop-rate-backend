@@ -24,12 +24,120 @@ def webp(color="navy", size=(600, 825)):
     return out.getvalue()
 
 
+def m1s_row(local="001", **changes):
+    reviewed = repair.M1S_REVIEWED_CARDS.get(local, {})
+    return row(set_id="M1S", provider_id=f"M1S-{local}",
+               source_url=f"https://api.tcgdex.net/v2/ja/cards/M1S-{local}",
+               name=reviewed.get("name", "Unreviewed"), card_number=f"{local}/63",
+               evidence={"provider_local_id": local}, **changes)
+
+
 def test_exact_same_language_and_local_id_path():
     item = repair.candidate(row())
     assert item["image_url"] == "https://assets.tcgdex.net/ja/SM/SM12a/001/high.webp"
     assert repair.candidate(row(evidence=json.dumps({"provider_local_id": "001"}))) == item
-    assert "M1S" not in repair.SETS["Japanese"]
     assert "P-A" not in repair.SETS["English"]
+
+
+def test_m1s_manifest_contains_only_individually_reviewed_identity_and_bytes():
+    reviewed = repair.M1S_REVIEWED_CARDS
+    assert set(reviewed) == {f"{n:03}" for n in range(1, 57)}
+    assert len({r["content_sha256"] for r in reviewed.values()}) == 56
+    for local, entry in reviewed.items():
+        item = repair.candidate(m1s_row(local))
+        assert item and item["image_url"] == f"https://assets.tcgdex.net/ja/M/M1S/{local}/high.webp"
+        assert entry["printed_card_number"] == f"{local}/063"
+        assert entry["width"] == 600 and entry["height"] == 825
+        assert len(entry["content_sha256"]) == 64
+        assert len(entry["visual_review_page_sha256"]) == 64
+
+
+def test_separate_override_review_never_relaxes_the_normal_matcher():
+    path = repair.M1S_REVIEW_PATH.with_name("pokemon_artwork_m1s_overrides_20261027.json")
+    manifest = json.loads(path.read_text())
+    entries = manifest["cards"]
+    assert len(entries) == 36
+    assert {entry["local_id"] for entry in entries} == {f"{n:03}" for n in range(57, 93)}
+    assert len({entry["asset_local_id"] for entry in entries}) == 36
+    assert len({entry["content_sha256"] for entry in entries}) == 36
+    assert not ({entry["content_sha256"] for entry in entries}
+                & {entry["content_sha256"] for entry in repair.M1S_REVIEWED_CARDS.values()})
+    for entry in entries:
+        local, asset = entry["local_id"], entry["asset_local_id"]
+        assert entry["provider_id"] == f"M1S-{local}"
+        assert entry["card_number"] == f"{local}/63"
+        assert entry["printed_card_number"] == f"{local}/063"
+        assert entry["image_url"] == f"https://assets.tcgdex.net/ja/M/M1S/{asset}/high.webp"
+        assert local != asset
+        assert repair.candidate({**m1s_row(local), "name": entry["name"]}) is None
+    # This was absent in the original upstream report. It was independently
+    # observed and reviewed on 27 October, never inferred from a numeric offset.
+    assert next(entry for entry in entries if entry["local_id"] == "080")["asset_local_id"] == "073"
+
+
+@pytest.mark.parametrize("local", ["000", "057", "064", "092", "001a", "1", "056-1"])
+def test_m1s_unreviewed_and_misnumbered_remainder_stays_blocked(local):
+    assert repair.candidate(m1s_row(local)) is None
+
+
+@pytest.mark.parametrize("changes", [
+    {"name": "Different printing"}, {"card_number": "001/999"},
+    {"source_url": "https://api.tcgdex.net/v2/en/cards/M1S-001"},
+    {"language": "English"}, {"provider_id": "M1S-002"},
+])
+def test_m1s_review_does_not_transfer_between_names_numbers_or_languages(changes):
+    assert repair.candidate({**m1s_row(), **changes}) is None
+
+
+@pytest.mark.asyncio
+async def test_m1s_different_valid_raster_fails_closed():
+    async def handler(request):
+        return httpx.Response(200, headers={"content-type": "image/webp"}, content=webp())
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        verified, report = await repair.probe_rows([m1s_row()], client=client)
+    assert not verified
+    assert report["failure_counts"] == {"REVIEWED_IMAGE_BYTES_CHANGED": 1}
+
+
+@pytest.mark.asyncio
+async def test_m1s_exact_reviewed_bytes_record_individual_review(monkeypatch):
+    data = webp()
+    original = repair.M1S_REVIEWED_CARDS["001"]
+    monkeypatch.setitem(repair.M1S_REVIEWED_CARDS, "001", {
+        **original, "content_sha256": repair.decoded_image(data)["content_sha256"]})
+    async def handler(request):
+        return httpx.Response(200, headers={"content-type": "image/webp"}, content=data)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        verified, report = await repair.probe_rows([m1s_row()], client=client)
+    assert report["verified"] == 1
+    proof = verified[0]["image_reference"]
+    assert proof["verification"] == "TCGDEX_REVIEWED_IMAGE_BYTES_V1"
+    assert proof["provider_issue_url"].endswith("/2395")
+    assert proof["printed_card_number"] == "001/063"
+    assert proof["review_manifest_sha256"] == repair.M1S_REVIEW_SHA256
+    assert proof["visual_review_page_sha256"] == original["visual_review_page_sha256"]
+
+
+@pytest.mark.asyncio
+async def test_m1s_does_not_fallback_to_unreviewed_encoding():
+    calls = []
+    async def handler(request):
+        calls.append(str(request.url))
+        return httpx.Response(404)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        metadata, code = await repair.probe(client, repair.candidate(m1s_row()))
+    assert metadata is None and code == "HTTP_404" and len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_m1s_probe_rechecks_reviewed_identity_after_candidate_mutation():
+    item = repair.candidate(m1s_row())
+    item["name"] = "Different printing"
+    async def handler(request):
+        pytest.fail("Unreviewed identity reached the network")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        metadata, code = await repair.probe(client, item)
+    assert metadata is None and code == "UNSAFE_IDENTITY"
 
 
 @pytest.mark.parametrize("changes", [
@@ -282,7 +390,7 @@ async def test_partial_scan_persists_explicit_incomplete_receipt(monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("after", [
     [], ["Japanese"], ["French", "SM12a", "SM12a-001"],
-    ["Japanese", "M1S", "M1S-001"], ["Japanese", "SM12a", ""],
+    ["Japanese", "M1X", "M1X-001"], ["Japanese", "SM12a", ""],
     ["Japanese", "SM12a", "x" * 201], ["Japanese", "SM12a", chr(0)]
 ])
 async def test_invalid_cursor_refuses_before_database(after):

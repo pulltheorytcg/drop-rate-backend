@@ -3,9 +3,11 @@ on:
   pull_request:
     paths:
       - 'backend/app/pokemon_artwork_repair.py'
+      - 'backend/data/pokemon_artwork_m1s_*.json'
       - 'backend/scripts/repair_pokemon_artwork.py'
       - 'backend/app/reference_library.py'
       - 'tests/*pokemon_artwork*'
+      - 'tests/test_reference_library.py'
       - 'backend/app/catalogue_browser.py'
       - 'tests/catalogue_price_sources_postgres.py'
       - '.github/workflows/pokemon-artwork-repair.yml'
