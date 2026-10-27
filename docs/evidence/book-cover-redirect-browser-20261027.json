@@ -1,0 +1,160 @@
+{
+  "checked_at": "2026-10-27T20:53:50.544Z",
+  "browser": "140.0.7339.186",
+  "source_requests": "Four observed medium-cover redirect paths; public images only",
+  "test_environment": "Chromium ignoreHTTPSErrors for local intercepted certificate; production TLS settings unchanged",
+  "phases": [
+    {
+      "phase": "before",
+      "images": [
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL11822124M-M.jpg?default=false",
+          "loaded": false,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL26952993M-M.jpg?default=false",
+          "loaded": false,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL26925225M-M.jpg?default=false",
+          "loaded": false,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL11842321M-M.jpg?default=false",
+          "loaded": false,
+          "width": 0,
+          "height": 0
+        }
+      ],
+      "violations": [
+        {
+          "directive": "img-src",
+          "blocked": "https://covers.openlibrary.org/b/olid/OL26952993M-M.jpg?default=false"
+        },
+        {
+          "directive": "img-src",
+          "blocked": "https://covers.openlibrary.org/b/olid/OL11842321M-M.jpg?default=false"
+        },
+        {
+          "directive": "img-src",
+          "blocked": "https://covers.openlibrary.org/b/olid/OL26925225M-M.jpg?default=false"
+        },
+        {
+          "directive": "img-src",
+          "blocked": "https://covers.openlibrary.org/b/olid/OL11822124M-M.jpg?default=false"
+        }
+      ],
+      "errors": [
+        "Refused to load the image 'https://archive.org/download/m_covers_0011/m_covers_0011_88.zip/0011888252-M.jpg'",
+        "Refused to load the image 'https://archive.org/download/m_covers_0013/m_covers_0013_53.zip/0013538353-M.jpg'",
+        "Refused to load the image 'https://archive.org/download/m_covers_0011/m_covers_0011_88.zip/0011888186-M.jpg'",
+        "Refused to load the image 'https://archive.org/download/m_covers_0012/m_covers_0012_85.zip/0012856568-M.jpg'"
+      ],
+      "responses": [
+        {
+          "url": "https://cover-check.invalid/",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "phase": "after",
+      "images": [
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL11822124M-M.jpg?default=false",
+          "loaded": true,
+          "width": 180,
+          "height": 270
+        },
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL26952993M-M.jpg?default=false",
+          "loaded": true,
+          "width": 180,
+          "height": 270
+        },
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL26925225M-M.jpg?default=false",
+          "loaded": true,
+          "width": 180,
+          "height": 270
+        },
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL11842321M-M.jpg?default=false",
+          "loaded": true,
+          "width": 180,
+          "height": 253
+        }
+      ],
+      "violations": [],
+      "errors": [],
+      "responses": [
+        {
+          "url": "https://cover-check.invalid/",
+          "status": 200
+        },
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL11822124M-M.jpg?default=false",
+          "status": 302
+        },
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL26952993M-M.jpg?default=false",
+          "status": 302
+        },
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL26925225M-M.jpg?default=false",
+          "status": 302
+        },
+        {
+          "url": "https://covers.openlibrary.org/b/olid/OL11842321M-M.jpg?default=false",
+          "status": 302
+        },
+        {
+          "url": "https://archive.org/download/m_covers_0011/m_covers_0011_88.zip/0011888186-M.jpg",
+          "status": 302
+        },
+        {
+          "url": "https://archive.org/download/m_covers_0011/m_covers_0011_88.zip/0011888252-M.jpg",
+          "status": 302
+        },
+        {
+          "url": "https://ia800505.us.archive.org/view_archive.php?archive=/10/items/m_covers_0011/m_covers_0011_88.zip&file=0011888252-M.jpg",
+          "status": 200
+        },
+        {
+          "url": "https://ia800505.us.archive.org/view_archive.php?archive=/10/items/m_covers_0011/m_covers_0011_88.zip&file=0011888186-M.jpg",
+          "status": 200
+        },
+        {
+          "url": "https://archive.org/download/m_covers_0012/m_covers_0012_85.zip/0012856568-M.jpg",
+          "status": 302
+        },
+        {
+          "url": "https://archive.org/download/m_covers_0013/m_covers_0013_53.zip/0013538353-M.jpg",
+          "status": 302
+        },
+        {
+          "url": "https://ia600502.us.archive.org/view_archive.php?archive=/31/items/m_covers_0013/m_covers_0013_53.zip&file=0013538353-M.jpg",
+          "status": 200
+        },
+        {
+          "url": "https://ia600505.us.archive.org/view_archive.php?archive=/5/items/m_covers_0012/m_covers_0012_85.zip&file=0012856568-M.jpg",
+          "status": 200
+        }
+      ]
+    }
+  ],
+  "status": "passed",
+  "source_sample_summary": {
+    "checked": 12,
+    "decoded_jpegs": 11,
+    "http_404": 1,
+    "archive_redirects": 4,
+    "scope": "Bounded public image sample, not a full catalogue coverage estimate."
+  }
+}

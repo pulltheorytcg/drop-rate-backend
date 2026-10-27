@@ -56,6 +56,33 @@ def test_ebay_settings_read_production_credentials(monkeypatch):
     assert settings.ebay_marketplace_id == "EBAY_GB"
 
 
+def test_book_listing_context_defaults_off_and_is_independent_of_market_ingestion(monkeypatch):
+    _base_env(monkeypatch)
+    for name in ("TCG_BOOK_EBAY_CONTEXT_ENABLED", "TCG_BOOK_EBAY_CONTEXT_DAILY_CALL_LIMIT",
+                 "TCG_BOOK_EBAY_CONTEXT_PROBE_ISBN"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("TCG_MARKET_INGESTION_ENABLED", "true")
+    settings = Settings.from_env()
+    assert not settings.book_ebay_context_enabled
+    assert settings.book_ebay_context_daily_call_limit == 500
+    assert settings.book_ebay_context_probe_isbn is None
+    monkeypatch.setenv("TCG_MARKET_INGESTION_ENABLED", "false")
+    monkeypatch.setenv("TCG_BOOK_EBAY_CONTEXT_ENABLED", "true")
+    monkeypatch.setenv("TCG_BOOK_EBAY_CONTEXT_DAILY_CALL_LIMIT", "100")
+    settings = Settings.from_env()
+    assert settings.book_ebay_context_enabled
+    assert not settings.market_ingestion_enabled
+    assert settings.book_ebay_context_daily_call_limit == 100
+
+
+@pytest.mark.parametrize("limit", ["0", "4001", "not-a-number"])
+def test_book_listing_context_call_budget_is_bounded(monkeypatch, limit):
+    _base_env(monkeypatch)
+    monkeypatch.setenv("TCG_BOOK_EBAY_CONTEXT_DAILY_CALL_LIMIT", limit)
+    with pytest.raises(RuntimeError, match="TCG_BOOK_EBAY_CONTEXT_DAILY_CALL_LIMIT"):
+        Settings.from_env()
+
+
 def test_shopify_settings_are_optional_and_publishing_defaults_off(monkeypatch):
     _base_env(monkeypatch)
     for name in (

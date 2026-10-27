@@ -7,7 +7,7 @@
   let reviewContext = null;
   let identityEdited = false;
   let research = null, researchRunId = null, selectedResearch = null, coverRevision = 0, choosingCover = false;
-  const coverUrls = new Set(), coverControllers = new Set();
+  const coverUrls = new Set(), coverControllers = new Set(), coverCleanups = new Set();
   const bookMapping = {system_code:"category", series_title:"series", issue_number:"number", volume_identifier:"volume",
     publisher:"publisher", language:"language", release_year:"year", printing_number:"printing", cover_code:"cover",
     cover_artist:"artist", barcode_gtin:"barcode"};
@@ -174,6 +174,7 @@
 
   function clearCoverLoads() {
     coverRevision++;
+    coverCleanups.forEach(cleanup => cleanup()); coverCleanups.clear();
     coverControllers.forEach(controller => controller.abort()); coverControllers.clear();
     coverUrls.forEach(url => URL.revokeObjectURL(url)); coverUrls.clear();
   }
@@ -203,7 +204,7 @@
     } catch (_) { return null; }
   }
 
-  async function loadCover(image, placeholder, path, revision, actor) {
+  async function loadCover(image, placeholder, path, revision, actor, fallback) {
     const controller = new AbortController(); coverControllers.add(controller);
     const active = () => revision === coverRevision && actor === actorId && actor === state.session?.user?.id && dialog.open && image.isConnected;
     try {
@@ -219,9 +220,9 @@
       if (!/^image\/(png|jpeg|webp)$/.test(blob.type) || blob.size > 2_000_000) throw new Error("Invalid cover");
       const url = URL.createObjectURL(blob); coverUrls.add(url);
       image.onload = () => { if (active()) { image.hidden = false; placeholder.hidden = true; } };
-      image.onerror = () => { if (active()) { image.hidden = true; placeholder.textContent = "Publisher cover could not load"; } };
+      image.onerror = () => { if (active()) { image.hidden = true; placeholder.textContent = "Publisher cover could not load"; fallback?.(); } };
       image.src = url;
-    } catch (_) { if (active()) placeholder.textContent = "Publisher cover unavailable · open the source below"; }
+    } catch (_) { if (active()) {placeholder.textContent = "Publisher cover unavailable · open the source below";fallback?.();} }
     finally { coverControllers.delete(controller); }
   }
 
@@ -589,21 +590,48 @@
         const placeholder = document.createElement("span"); placeholder.textContent = "Cover unavailable";
         const img = document.createElement("img"); img.hidden = true; img.alt = title.textContent + " reference cover";
         art.append(placeholder,img); preview.append(art,title,caption);
+        // Reuse only the fresh authenticated catalogue context already shown.
+        // Selecting a book never starts another listing lookup or copies the
+        // seller's condition, binding, asking price or printing into this form.
+        const revision = coverRevision, actor = actorId;
+        const active = () => revision === coverRevision && actor === actorId && actor === state.session?.user?.id
+          && dialog.open && preview.isConnected && !preview.hidden && !identityEdited;
+        const listingContext = window.DropRateBookEbay?.context(row), tried = new Set();
+        let listingImage = null, listingNote = null, communityNote = null, expiryTimer = null;
+        const clearListing = () => { listingImage?.remove(); listingImage = null; listingNote?.remove(); listingNote = null; clearTimeout(expiryTimer); };
+        coverCleanups.add(clearListing);
+        const listingFallback = () => {
+          if (!active()) return;
+          const item = window.DropRateBookEbay?.photos(row, listingContext).find(item => !tried.has(item.item_id));
+          if (!item) return;
+          tried.add(item.item_id); clearListing(); img.remove();
+          const photo = document.createElement("img"); listingImage = photo;
+          photo.alt = title.textContent + " eBay listing photo; copy may vary";
+          photo.loading = "lazy"; photo.decoding = "async"; photo.referrerPolicy = "no-referrer"; photo.crossOrigin = "anonymous";
+          photo.addEventListener("load", () => {
+            if (!active() || listingImage !== photo || !window.DropRateBookEbay?.validate(row, listingContext)) { photo.remove(); return; }
+            placeholder.hidden = true; if (communityNote) communityNote.hidden = true;
+            listingNote = window.DropRateBookEbay.photoCredit(item); preview.append(listingNote);
+          });
+          photo.addEventListener("error", () => { if (active() && listingImage === photo) {clearListing();placeholder.hidden = false;listingFallback();} });
+          placeholder.hidden = false; art.append(photo); photo.src = item.image_url;
+          expiryTimer = setTimeout(() => {clearListing();if (active()) {placeholder.hidden = false;placeholder.textContent = "Cover unavailable";}},
+            Math.max(1, Date.parse(listingContext.expires_at) - Date.now()));
+        };
         const path = "/api/v1/catalogue-browser/reference-image?" + new URLSearchParams({provider:"Official Publisher",
           system_code:value("category"),language:value("language"),provider_id:row.catalogue_id,reference_kind:"book"});
         if (/^[0-9a-f-]{36}$/i.test(row.catalogue_id || "") && row.reference_image_path === path) {
-          const revision = coverRevision, actor = actorId;
-          queueMicrotask(() => loadCover(img,placeholder,path,revision,actor));
+          queueMicrotask(() => loadCover(img,placeholder,path,revision,actor,listingFallback));
         } else {
           const community = window.DropRateBookArtwork?.reference(row, true);
           if (community) {
             img.alt = title.textContent + " community cover reference; cover may vary";
             img.loading = "lazy"; img.decoding = "async"; img.referrerPolicy = "no-referrer";
             img.addEventListener("load", () => {img.hidden = false; placeholder.hidden = true;}, {once:true});
-            img.addEventListener("error", () => {img.remove(); placeholder.hidden = false;}, {once:true});
+            img.addEventListener("error", () => {img.remove(); placeholder.hidden = false;listingFallback();}, {once:true});
             img.hidden = false; img.src = community.image_url;
-            preview.append(window.DropRateBookArtwork.credit(community));
-          }
+            communityNote = window.DropRateBookArtwork.credit(community); preview.append(communityNote);
+          } else queueMicrotask(listingFallback);
         }
         node("details").open = !bookDetailsComplete(); node("photo-details").open = false;
         node("title").textContent = "Is this your book?";

@@ -36,6 +36,8 @@ window.DropRateCatalogue = (() => {
         if (Array.isArray(saved)) this.watchlist = new Set(saved.filter(x => typeof x === "string" && /^[crs]:[a-f0-9-]+$/.test(x)).slice(0,100));
       } catch (_) { /* Private browsing may disable storage. */ }
       this.build();
+      this.bookContexts = window.DropRateBookEbay && new window.DropRateBookEbay.Session({client:this.client, root:this.scroll,
+        active:()=>this.active() && !this.dialog.hidden && (this.embedded || this.dialog.open)});
     }
     active() { return !this.destroyed && this.client.active(); }
     defaults() { this.filters = {q:"",system_code:"",language:"",product_type:"",owned:"all",sort:"newest",watch:false}; this.set = null; this.page = "products"; this.setQuery = ""; this.rows = []; this.offset = 0; }
@@ -64,7 +66,7 @@ window.DropRateCatalogue = (() => {
         this.filters.product_type=control.dataset.type;this.set=null;this.page='products';this.load();
       }));
       this.input.addEventListener("input",()=>{
-        clearTimeout(this.timer); this.revision += 1; this.controller?.abort(); this.loading=false;
+        clearTimeout(this.timer); this.revision += 1; this.controller?.abort(); this.bookContexts?.reset(); this.loading=false;
         if (this.page === "sets") this.setQuery=this.input.value; else this.filters.q=this.input.value;
         this.find(".dr-browse-status").textContent="Searching…";
         this.timer=setTimeout(()=>this.load(),260);
@@ -138,7 +140,7 @@ window.DropRateCatalogue = (() => {
       document.body.classList.remove("dr-browser-open");if(!this.embedded)this.returnFocus?.focus();
     }
     restoreOuter() { (this.outerInert||[]).forEach(([el,was])=>{el.inert=was;});this.outerInert=null; }
-    destroy() { this.restoreOuter();this.destroyed=true;this.clearArtwork();this.artworkCache.clear();this.artworkBytes=0;this.pageCache.clear();this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.observer?.disconnect();this.pending.clear();this.dialog.remove();document.body.classList.remove("dr-browser-open"); }
+    destroy() { this.restoreOuter();this.destroyed=true;this.bookContexts?.destroy();this.clearArtwork();this.artworkCache.clear();this.artworkBytes=0;this.pageCache.clear();this.revision+=1;this.controller?.abort();clearTimeout(this.timer);this.observer?.disconnect();this.pending.clear();this.dialog.remove();document.body.classList.remove("dr-browser-open"); }
     navigate(view) { if(this.saving)return;this.close();this.options.navigate(view); }
     scan(mode="RAW") { if(this.saving)return;this.close();this.options.scan(typeof mode === "string" ? mode : "RAW"); }
     reset() { if(this.saving)return;this.defaults();this.input.value="";this.load(); }
@@ -320,6 +322,7 @@ window.DropRateCatalogue = (() => {
     }
     clearArtwork() {
       this.artworkEpoch++;this.artworkQueue=[];
+      this.bookContexts?.reset();
       this.artworkObserver?.disconnect();this.artworkWaiting.clear();
       for(const controller of this.artworkControllers)controller.abort();
       for(const url of this.artworkUrls.values())URL.revokeObjectURL(url);
@@ -356,8 +359,10 @@ window.DropRateCatalogue = (() => {
         })();
       }
     }
-    productImage(row,cls="dr-browse-product-image") {
+    productImage(row,cls="dr-browse-product-image",listingCredit=null) {
       const wrap=node("div",cls);
+      const epoch=this.artworkEpoch;
+      const current=()=>this.active() && epoch===this.artworkEpoch && wrap.isConnected;
       const community=window.DropRateBookArtwork?.reference(row,cls==="dr-browse-detail-image");
       // R2 mirrors are signed, short-lived object links for rights-approved
       // canonical media. Keep the original provider source as a fallback.
@@ -377,6 +382,31 @@ window.DropRateCatalogue = (() => {
       if(publisherReference&&!urls.length)wrap.classList.add("dr-browse-publisher-photo-pending");
       if(missingPokemonSource&&!urls.length)wrap.classList.add("dr-browse-reference-photo-pending");
       wrap.append(placeholder);
+      let exhausted=!(urls.length||referencePath),listingData=null,listingImage=null,attempted=new Set();
+      const clearListing=()=>{listingImage?.remove();listingImage=null;listingCredit?.replaceChildren();wrap.dispatchEvent(new CustomEvent("listing-photo-change",{detail:false}));};
+      const listingFallback=()=>{
+        if(!exhausted || !listingCredit || !current())return;
+        const item=window.DropRateBookEbay?.photos(row,listingData).find(item=>!attempted.has(item.item_id));
+        if(!item)return;
+        attempted.add(item.item_id);clearListing();
+        const photo=node("img");listingImage=photo;photo.loading="lazy";photo.decoding="async";
+        photo.referrerPolicy="no-referrer";photo.crossOrigin="anonymous";
+        photo.alt=decode(row.name)+" — eBay listing photo; copy may vary";
+        placeholder.hidden=false;placeholder.textContent="Loading listing photo…";
+        photo.addEventListener("load",()=>{
+          if(!current() || listingImage!==photo || !window.DropRateBookEbay?.validate(row,listingData)){photo.remove();return;}
+          placeholder.hidden=true;listingCredit.replaceChildren(window.DropRateBookEbay.photoCredit(item));wrap.dispatchEvent(new CustomEvent("listing-photo-change",{detail:true}));
+        });
+        photo.addEventListener("error",()=>{
+          if(!current() || listingImage!==photo)return;
+          clearListing();placeholder.hidden=false;placeholder.textContent="Image unavailable";listingFallback();
+        });
+        wrap.append(photo);photo.src=item.image_url;
+      };
+      wrap.setListingContext=data=>{
+        listingData=window.DropRateBookEbay?.validate(row,data);attempted=new Set();clearListing();
+        if(exhausted){placeholder.hidden=false;placeholder.textContent="Image unavailable";listingFallback();}
+      };
       if(urls.length||referencePath){
         const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.decoding="async";image.referrerPolicy="no-referrer";
         if(row.artwork_kind==="PUBLISHER_REFERENCE")image.alt+=" — publisher reference cover";
@@ -389,7 +419,7 @@ window.DropRateCatalogue = (() => {
         const directProviderFirst=new Set(["POKEMON_TCG","DRAGON_BALL_SUPER_MASTERS","DRAGON_BALL_SUPER_FUSION_WORLD"]).has(row.system_code);
         const useReferenceFirst=Boolean(referencePath&&!row.r2_image_url&&!directProviderFirst);
         let proxyTried=useReferenceFirst;
-        const fallback=()=>{if(urls.length)image.src=urls.shift();else {image.remove();placeholder.textContent=missingPokemonSource?"Card image not yet available · Reference only":"Image unavailable";placeholder.hidden=false;if(missingPokemonSource)wrap.classList.add("dr-browse-reference-photo-pending");}};
+        const fallback=()=>{if(!this.active() || epoch!==this.artworkEpoch)return;if(urls.length)image.src=urls.shift();else {image.remove();exhausted=true;placeholder.textContent=missingPokemonSource?"Card image not yet available · Reference only":"Image unavailable";placeholder.hidden=false;if(missingPokemonSource)wrap.classList.add("dr-browse-reference-photo-pending");listingFallback();}};
         image.addEventListener("error",()=>{
           if(!proxyTried && referencePath){
             proxyTried=true;this.loadReferenceImage(image,referencePath,fallback);
@@ -401,6 +431,12 @@ window.DropRateCatalogue = (() => {
         else image.src=urls.shift();wrap.append(image);
       }
       return wrap;
+    }
+    watchBookContext(row,target,panel,artwork,{detail=false,current=()=>true}={}) {
+      if(!this.bookContexts || !window.DropRateBookEbay.identity(row))return ()=>{};
+      return this.bookContexts.watch(row,target,(data,options)=>{
+        window.DropRateBookEbay.render(panel,row,data,{...options,detail});artwork.setListingContext?.(data);
+      },{immediate:detail,current,allowPriced:detail});
     }
     renderRows(start=0) {
       const content=this.find(".dr-browse-content");
@@ -455,13 +491,19 @@ window.DropRateCatalogue = (() => {
           tile.setAttribute("aria-label",decode(row.set_name)+" · "+row.language);grid.append(tile);continue;
         }
         const card=node("article","dr-browse-product");
-        const open=button("",()=>this.openProduct(row),"dr-browse-product-open");open.append(this.productImage(row),node("strong","dr-browse-product-title",decode(row.name)));
+        const listingCredit=node("div","book-ebay-credit-slot"),artwork=this.productImage(row,"dr-browse-product-image",listingCredit);
+        const open=button("",()=>this.openProduct(row),"dr-browse-product-open");open.append(artwork,node("strong","dr-browse-product-title",decode(row.name)));
         open.setAttribute("aria-label","View "+decode(row.name));
         const meta=[row.rarity,row.card_number].filter(Boolean).join(" · ");
         open.append(node("small","",decode(row.set_name)),node("small","",meta),node("small","",row.language+" · "+(row.product_type==="SEALED"?"Sealed":row.product_type==="COMIC"?"Collectible book":printingMarker(row)||decode(row.variant))));
         card.append(open);
         const community=window.DropRateBookArtwork?.reference(row);
-        if(community)card.append(window.DropRateBookArtwork.credit(community,"dr-browse-reference-note"));
+        if(community){const note=window.DropRateBookArtwork.credit(community,"dr-browse-reference-note");card.append(note);artwork.addEventListener("listing-photo-change",event=>{note.hidden=event.detail;});}
+        card.append(listingCredit);
+        if(row.product_type==="COMIC" && row.market_value_minor==null && window.DropRateBookEbay?.identity(row)){
+          const panel=node("div");card.append(panel);
+          queueMicrotask(()=>{if(card.isConnected)this.watchBookContext(row,card,panel,artwork);});
+        }
         const footer=node("div","dr-browse-product-footer"),copy=node("div"),price=node("strong","",marketPrice(row));price.dataset.priceKey=row.key;
         copy.append(price,node("small","","Qty: "+row.owned_quantity));
         const plus=button("+",()=>row.product_type==="COMIC"?this.openBookIntake(row):this.openProduct(row),"dr-browse-plus");plus.setAttribute("aria-label","Add "+decode(row.name));footer.append(copy,plus);card.append(footer);
@@ -471,6 +513,7 @@ window.DropRateCatalogue = (() => {
       if(!previous)content.replaceChildren(grid);
     }
     openSheet(title) {
+      this.stopBookDetail?.();this.stopBookDetail=null;this.bookDetailEpoch=(this.bookDetailEpoch||0)+1;
       this.sheetReturn=document.activeElement;this.sheet.replaceChildren(node("div","dr-browse-handle"));
       const header=node("header"),heading=node("h2","",title);heading.id="dr-browse-sheet-title";
       const close=button("×",()=>this.closeSheet());close.setAttribute("aria-label","Close "+title);
@@ -485,6 +528,7 @@ window.DropRateCatalogue = (() => {
       close.focus();this.find(".dr-browse-menu").hidden=true;
     }
     closeSheet(restoreFocus=true) { if(this.saving)return;this.restoreOuter();this.find(".dr-browse-backdrop").hidden=true;
+      this.stopBookDetail?.();this.stopBookDetail=null;this.bookDetailEpoch=(this.bookDetailEpoch||0)+1;
       for(const cls of [".dr-browse-header",".dr-browse-scroll",".dr-browse-nav"])this.find(cls).inert=false;
       if(restoreFocus){if(this.sheetReturn?.isConnected)this.sheetReturn.focus();else this.input.focus();}this.header(); }
     filterGroup(title,hint,choices,current,onChange) {
@@ -512,7 +556,8 @@ window.DropRateCatalogue = (() => {
       if(row.product_type==="COMIC"){
         this.openSheet("Comic / manga details");
         const content=node("div","dr-browse-product-details");
-        content.append(this.productImage(row,"dr-browse-detail-image"),
+        const listingCredit=node("div","book-ebay-credit-slot"),artwork=this.productImage(row,"dr-browse-detail-image",listingCredit);
+        content.append(artwork,listingCredit,
           node("h3","",decode(row.name)),
           node("p","",[decode(row.set_name),row.card_number,row.language,decode(row.variant)].filter(Boolean).join(" · ")));
         content.append(node("p","dr-browse-reference-note", row.market_value_minor == null
@@ -543,16 +588,21 @@ window.DropRateCatalogue = (() => {
           const source=node("a","dr-browse-publisher-source","View publisher details and cover ↗");
           source.href=row.publisher_source_url;source.target="_blank";source.rel="noopener noreferrer";content.append(source);
         }
-        if(row.artwork_kind==="PUBLISHER_REFERENCE")content.append(node("p","dr-browse-reference-note","Publisher reference cover. Your copy's printing or cover may differ."));
+        if(row.artwork_kind==="PUBLISHER_REFERENCE"){const note=node("p","dr-browse-reference-note","Publisher reference cover. Your copy's printing or cover may differ.");content.append(note);artwork.addEventListener("listing-photo-change",event=>{note.hidden=event.detail;});}
         const community=window.DropRateBookArtwork?.reference(row,true);
-        if(community)content.append(window.DropRateBookArtwork.credit(community,"dr-browse-reference-note"));
+        if(community){const note=window.DropRateBookArtwork.credit(community,"dr-browse-reference-note");content.append(note);artwork.addEventListener("listing-photo-change",event=>{note.hidden=event.detail;});}
         if(row.book_sold_search_url?.startsWith("https://www.ebay.co.uk/sch/i.html?")){
           const sold=node("a","dr-browse-publisher-source","Compare sold listings on eBay UK ↗");
           sold.href=row.book_sold_search_url;sold.target="_blank";sold.rel="noopener noreferrer";content.append(sold);
         }
         const buttonRow=node("footer");
         buttonRow.append(button("Add to collection",()=>this.openBookIntake(row),"dr-browse-primary"));
+        const contextPanel=node("section");
+        if(window.DropRateBookEbay?.identity(row))content.append(contextPanel);
         this.sheet.append(content,buttonRow);
+        const detailEpoch=this.bookDetailEpoch;
+        this.stopBookDetail=this.watchBookContext(row,contextPanel,contextPanel,artwork,{detail:true,
+          current:()=>this.bookDetailEpoch===detailEpoch && !this.find(".dr-browse-backdrop").hidden});
         return;
       }
       this.openSheet("Is this your item?");
