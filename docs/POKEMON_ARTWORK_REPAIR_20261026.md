@@ -15,7 +15,10 @@ approve canonical media, create inventory, change prices or copy images into R2.
   fixed affected sets and independently observed assets.
 - [English promo manifest omissions, issue 2362](https://github.com/tcgdex/cards-database/issues/2362).
 - [Misnumbered Japanese M1S assets, issue 2395](https://github.com/tcgdex/cards-database/issues/2395):
-  the entire set is excluded from this repair.
+  only 001–056 are now eligible, after individual visual name/set/printed-number
+  review on 27 October. Their exact raster hashes are pinned in
+  `backend/data/pokemon_artwork_m1s_20261027.json`. The shifted 057–092 range is
+  excluded. See [the review record](POKEMON_ARTWORK_REVIEW_20261027.md).
 
 These are reference URLs on the existing provider origin, consistent with its
 documented display interface. Software licensing does not grant artwork rights.
@@ -39,12 +42,18 @@ HTML and malformed responses fail. After a 404 only, the same card's documented
 low WebP or high PNG sibling is tried. Duplicate image bytes across candidates
 are rejected to avoid installing a generic placeholder.
 
+M1S is stricter: only the 56 individually reviewed names/numbers and exact
+`high.webp` SHA-256 values pass. A changed raster fails with
+`REVIEWED_IMAGE_BYTES_CHANGED`; a 404 has no unreviewed format fallback. The
+reviewed subset does not authorize shifting file numbers for the rest of M1S.
+
 Updates recheck identity, source/local ID, release eligibility and blank old URL.
 Only image_url and image_reference provenance change. The provenance records the
 original source, actual returned URL, SHA-256, dimensions, byte count, timestamp,
 actor and run ID. The existing sparse-sync contract preserves the repair while
 the same exact identity still lacks provider imagery. A changed identity cannot
-inherit the previous image.
+inherit the previous image. Null, empty and whitespace-only incoming image URLs
+all count as sparse, so the daily refresh cannot erase the repair with `""`.
 
 ## Run and inspect
 

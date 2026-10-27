@@ -1,0 +1,188 @@
+{
+  "database": {
+    "checked_at": "2026-10-27T12:03:27.322476+00:00",
+    "completed_runs": [
+      {
+        "id": "0a14df93-ddb0-4120-b5b7-220d4fe9fb34",
+        "report": {
+          "image_url": "https://dw9to29mmj727.cloudfront.net/products/1421509857.jpg",
+          "source_url": "https://www.viz.com/manga-books/manga/boys-over-flowers-volume-22-0/product/897",
+          "catalogue_id": "3633ec5e-6545-5eb6-b11f-95560f190d8a",
+          "books_updated": 1,
+          "database_bytes": 357682323,
+          "payload_sha256": "d88f82cd8b26db5cb3f40aebd78826a6771fe927535988aaa05f0a86bbcc9708",
+          "identity_status": "STRUCTURED",
+          "observed_sha256": "82ae73acfe14e2c75117dda71641d2fe088c513546613c26d214980959fcc542",
+          "market_values_added": 0,
+          "approved_media_added": 0,
+          "original_mapping_preserved": true
+        },
+        "source": "publisher_book_reference_reconciliation",
+        "status": "COMPLETE",
+        "finished_at": "2026-10-27T11:34:07.678293+00:00",
+        "cards_loaded": 0
+      },
+      {
+        "id": "7cae446f-9f7b-4c22-ad42-037b53e60275",
+        "report": {
+          "apply": true,
+          "status": "VERIFIED",
+          "updated": 92,
+          "version": "TCGDEX_MANIFEST_ARTWORK_V1",
+          "verified": 92,
+          "requested": 92,
+          "repair_batch": "pokemon-m1s-artwork-20261027",
+          "database_bytes": 358386835,
+          "payload_sha256": "440a730a77941ac31dc102d805e61f6279f20ca29f5d1e7dbfb99e214807c4f7",
+          "inventory_after": {
+            "md5": "9ce22ee09a38670d505253da278d1b68",
+            "rows": 616
+          },
+          "inventory_before": {
+            "md5": "9ce22ee09a38670d505253da278d1b68",
+            "rows": 616
+          },
+          "review_manifests": {
+            "pokemon_artwork_m1s_20261027.json": "b9b4155be39e71acc6c9985060f501906a463161f3ec35b0c45b3cfd4d8b8a1d",
+            "pokemon_artwork_m1s_overrides_20261027.json": "040d59d5c8b992cc8ea5e4fbd85b3e16f5a328151f236c4e33be45184398b99d"
+          },
+          "image_sha256_unique": 92,
+          "reviewed_same_number": 56,
+          "reviewed_explicit_overrides": 36
+        },
+        "source": "tcgdex_artwork_repair",
+        "status": "COMPLETE",
+        "finished_at": "2026-10-27T11:11:25.289386+00:00",
+        "cards_loaded": 92
+      },
+      {
+        "id": "fb47fea2-ff75-4e46-b468-468288d6de17",
+        "report": {
+          "database_bytes": 370617491,
+          "inventory_after": {
+            "md5": "9ce22ee09a38670d505253da278d1b68",
+            "rows": 616
+          },
+          "new_book_values": 0,
+          "planned_batches": 30,
+          "planned_records": 1495,
+          "snapshot_sha256": "dc10814daac57325fa766b730c92567b4da5454487e67ef8fe5cdf9802d5def3",
+          "last_readback_at": "2026-10-27T11:41:20.147373+00:00",
+          "committed_records": 1495,
+          "completed_batches": 30,
+          "new_approved_media": 0,
+          "reviewed_isbn_holds": 57,
+          "inventory_before_md5": "9ce22ee09a38670d505253da278d1b68",
+          "inventory_before_rows": 616,
+          "source_records_scanned": 56827250,
+          "additional_novel_staged": 909,
+          "quality_held_candidates": 117,
+          "normalized_snapshot_sha256": "d2829f0d62ff504ef30885aed87a20067e3ac1fd218053eb904f3b80104ba54d"
+        },
+        "source": "openlibrary_full_metadata_import",
+        "status": "COMPLETE",
+        "finished_at": "2026-10-27T11:41:20.147372+00:00",
+        "cards_loaded": 0
+      }
+    ],
+    "database_bytes": 370625683,
+    "inventory_rows": 616,
+    "catalogue_groups": [
+      {
+        "records": 5,
+        "system_code": "DRAGON_BALL_SUPER_FUSION_WORLD",
+        "collectible_type": "CARD",
+        "verified_identity": 0,
+        "with_positive_market_value": 0
+      },
+      {
+        "records": 28,
+        "system_code": "DRAGON_BALL_SUPER_MASTERS",
+        "collectible_type": "CARD",
+        "verified_identity": 0,
+        "with_positive_market_value": 15
+      },
+      {
+        "records": 230,
+        "system_code": "ONE_PIECE_CARD_GAME",
+        "collectible_type": "CARD",
+        "verified_identity": 0,
+        "with_positive_market_value": 107
+      },
+      {
+        "records": 199,
+        "system_code": "POKEMON_TCG",
+        "collectible_type": "CARD",
+        "verified_identity": 0,
+        "with_positive_market_value": 175
+      },
+      {
+        "records": 100,
+        "system_code": "DC_COMICS",
+        "collectible_type": "COMIC",
+        "verified_identity": 0,
+        "with_positive_market_value": 0
+      },
+      {
+        "records": 805,
+        "system_code": "MANGA",
+        "collectible_type": "COMIC",
+        "verified_identity": 0,
+        "with_positive_market_value": 0
+      },
+      {
+        "records": 138,
+        "system_code": "MARVEL_COMICS",
+        "collectible_type": "COMIC",
+        "verified_identity": 0,
+        "with_positive_market_value": 0
+      },
+      {
+        "records": 547,
+        "system_code": "OTHER_COMICS",
+        "collectible_type": "COMIC",
+        "verified_identity": 0,
+        "with_positive_market_value": 0
+      },
+      {
+        "records": 3,
+        "system_code": "ONE_PIECE_CARD_GAME",
+        "collectible_type": "SEALED",
+        "verified_identity": 3,
+        "with_positive_market_value": 1
+      }
+    ],
+    "transaction_read_only": "off"
+  },
+  "cards": {
+    "basis": "Production source, identity and seven-day recency joins; artwork URL presence; digital Pocket excluded",
+    "priced": 43135,
+    "digital": 2480,
+    "physical": 67065,
+    "checked_at": "2026-10-27T12:04:44.804073+00:00",
+    "all_references": 69545,
+    "priced_missing_art": 4216,
+    "physical_artwork_urls": 60283,
+    "physical_core_fields_art_and_value": 38919
+  },
+  "card_pricing_percent": 64.32,
+  "card_core_percent": 58.03,
+  "card_artwork_url_percent": 89.89,
+  "additional_for_user_90_percent_target": 17224,
+  "books": {
+    "comics": 785,
+    "manga": 805,
+    "total": 1590,
+    "new_imports": 1495,
+    "positive_book_market_values": 0,
+    "verified_profile_identities": 0
+  },
+  "release": {
+    "status": "AWAITING_ISOLATED_CARD_RELEASE_CHECKS",
+    "backed_up_source_commit": "8944b736ded8fb14c2669039e50a1519b64d2d27",
+    "original_pr": 751,
+    "workspace_status": "UNAVAILABLE",
+    "full_book_pipeline_release": "FINAL_LOCAL_CHANGES_UNAVAILABLE",
+    "scanner": "DESIGN_ONLY_NOT_IMPLEMENTED"
+  }
+}

@@ -44,6 +44,7 @@ FUSION_NUMBER = re.compile(r"(?:FB|FS|SB|ST)\d{2}-\d{2,3}")
 # most ten adjacent numbers at a time, keeping variants available for the
 # source-identity uniqueness check.
 SEARCH_SHARD = re.compile(r"[A-Z]{1,3}\d{1,2}-\d{2,3}")
+EXACT_CURSOR_VERSION = "dbs-exact-v1"
 # Cardmarket-only IDs are 64 hex characters. PokéWallet documents
 # `dbs_` + hex for TCGplayer-linked products, but does NOT guarantee the
 # same fixed digest length; its published example is longer.
@@ -80,6 +81,10 @@ READ_SQL = """select r.provider,r.system_code,r.language,r.provider_id,r.name,
 
 class FreeSourceError(ValueError):
     """Invalid free result, insufficient quota, or incomplete pagination."""
+
+
+class TruncatedSearchError(FreeSourceError):
+    """An otherwise valid page explicitly reports omitted source competitors."""
 
 
 def reference_release(ref: dict) -> str | None:
@@ -148,9 +153,55 @@ def wanted_groups(refs: list[dict], now: datetime) -> dict[str,list[dict]]:
             for prefix,group in wants.items()}
 
 
+def exact_queries(prefix: str, refs: list[dict]) -> list[str]:
+    """Derive narrower queries from eligible official numbers, never source rows."""
+    return sorted({ref["card_number"] for ref in refs
+                   if ref["card_number"].startswith(prefix)
+                   and len(ref["card_number"]) == len(prefix) + 1})
+
+
+def exact_cursor(prefix: str, next_number: str) -> str:
+    """Checkpoint the next query, including a partially fetched exact query."""
+    return f"{EXACT_CURSOR_VERSION}|{prefix}|{next_number}"
+
+
+def search_work(groups: dict[str,list[dict]], previous_cursor) -> list[tuple[str,str]]:
+    """Legacy round robin plus a bounded, resumable truncated-shard expansion.
+
+    A cursor never supplies a provider query: all work is rebuilt from current
+    eligible official references. If a previously pending number has since
+    been priced/removed, continue with the next eligible number in that shard.
+    """
+    targets=sorted((key for key,rows in groups.items() if rows),
+                   key=lambda key:(-len(groups[key]),key))
+    if isinstance(previous_cursor,str) and len(previous_cursor)<=64:
+        parts=previous_cursor.split("|")
+        if (len(parts)==3 and parts[0]==EXACT_CURSOR_VERSION
+                and parts[1] in targets and SEARCH_SHARD.fullmatch(parts[2])
+                and parts[2].startswith(parts[1])
+                and len(parts[2])==len(parts[1])+1):
+            prefix,number=parts[1:]
+            remaining=[query for query in exact_queries(prefix,groups[prefix]) if query>=number]
+            index=targets.index(prefix)
+            # Do not repeat the same broad query after completing its pending
+            # exact work in this run. Other shards retain their round-robin turn.
+            rest=targets[index+1:]+targets[:index]
+            if not remaining:
+                # All pending numbers disappeared or were priced elsewhere.
+                # Finish the old turn and let this shard re-enter the next sweep.
+                return [(key,key) for key in rest+[prefix]]
+            return [(prefix,query) for query in remaining]+[(key,key) for key in rest]
+        if previous_cursor in targets:
+            index=targets.index(previous_cursor)+1
+            targets=targets[index:]+targets[:index]
+    return [(key,key) for key in targets]
+
+
 def complete_search_page(body: dict, query: str, page: int) -> tuple[list[dict],int]:
+    if not isinstance(body,dict):
+        raise FreeSourceError("SEARCH_SCHEMA")
     pagination=body.get("pagination")
-    if (not isinstance(body,dict) or not isinstance(pagination,dict)
+    if (not isinstance(pagination,dict)
             or str(body.get("query") or "").casefold()!=query.casefold()
             or not isinstance(body.get("results"),list)):
         raise FreeSourceError("SEARCH_SCHEMA")
@@ -159,15 +210,18 @@ def complete_search_page(body: dict, query: str, page: int) -> tuple[list[dict],
     if (type(total) is not int or type(pages) is not int or
             type(pagination.get("page")) is not int or
             pagination["page"]!=page or total<0 or pages<0 or
-            pages != ceil(total/PAGE_SIZE) or total>100_000 or
-            (isinstance(body.get("metadata"),dict) and
-             body["metadata"].get("truncated") is True)):
+            type(pagination.get("limit")) is not int or pagination["limit"]!=PAGE_SIZE or
+            pages != ceil(total/PAGE_SIZE) or total>100_000):
         raise FreeSourceError("INCOMPLETE_SEARCH")
     results=body["results"]
     expected_count=min(PAGE_SIZE,max(0,total-(page-1)*PAGE_SIZE))
     if (len(results)!=expected_count or
             any(not isinstance(r,dict) for r in results)):
         raise FreeSourceError("INCOMPLETE_SEARCH")
+    if isinstance(body.get("metadata"),dict) and body["metadata"].get("truncated") is True:
+        # None of these products may contribute a quote. Only this narrowly
+        # identified failure permits new exact-number searches of official refs.
+        raise TruncatedSearchError("INCOMPLETE_SEARCH")
     return results,pages
 
 
@@ -229,6 +283,7 @@ def reviewed_fusion_base(ref: dict, candidates: list[dict]) -> dict | None:
 def verified_matches(refs: list[dict], products: list[dict]) -> tuple[list[tuple[dict,dict]],dict]:
     grouped = defaultdict(list)
     invalid_candidates = set()
+    unknown_release_numbers = set()
     for product in products:
         info=product.get("card_info")
         if not isinstance(info,dict):
@@ -236,6 +291,10 @@ def verified_matches(refs: list[dict], products: list[dict]) -> tuple[list[tuple
         number=str(info.get("card_number") or "")
         if not (MASTERS_NUMBER.fullmatch(number) or FUSION_NUMBER.fullmatch(number)):
             continue
+        if not isinstance(info.get("set_name"),str) or not normalized(info["set_name"]):
+            # A same-number row with no release cannot be proved unrelated to
+            # the wanted printing, even when another row has a usable price.
+            unknown_release_numbers.add(number)
         keys={(number,normalized(html.unescape(info.get("set_name") or "")))}
         for prefix, title, source_set_id, _ in REVIEWED_FUSION_RELEASES.values():
             if info.get("set_id") == source_set_id and number.startswith(prefix + "-"):
@@ -246,7 +305,7 @@ def verified_matches(refs: list[dict], products: list[dict]) -> tuple[list[tuple
                 or info.get("product_type")!="card"
                 or not isinstance(info.get("set_id"),str) or not info["set_id"]):
             # A malformed same-number/release competitor cannot disappear and
-            # manufacture uniqueness for the reviewed special releases.
+            # manufacture uniqueness for any release, including Masters.
             invalid_candidates.update(keys)
             continue
         for key in keys:
@@ -263,12 +322,13 @@ def verified_matches(refs: list[dict], products: list[dict]) -> tuple[list[tuple
                     grouped.get((ref["card_number"],release),[])]
         if candidates:
             diagnostic["candidate_numbers"]+=1
+        if (ref["card_number"] in unknown_release_numbers or
+                any((ref["card_number"],release) in invalid_candidates for release in releases)):
+            continue
         # Some Cardmarket and TCGplayer source IDs represent different art
         # variants under the same number. Never pick the one with a price.
         reviewed = REVIEWED_FUSION_RELEASES.get((ref.get("set_id"), ref.get("set_name")))
         if ref.get("system_code") == FUSION and reviewed:
-            if any((ref["card_number"],release) in invalid_candidates for release in releases):
-                continue
             source = reviewed_fusion_base(ref, candidates)
             if source is None:
                 continue
@@ -457,12 +517,14 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
             "checked_references":0,"target_prefixes":0,"matches":0,
             "eligible_quotes":0,"writes_attempted":0,"cursor":previous_cursor,
             "input_cursor":previous_cursor,"sampled_queries":[],"invalid_samples":[],
-            "provider_failures":0}
+            "provider_failures":0,"expanded_prefixes":0,"exact_queries":0,
+            "exact_matches":0,"exact_eligible_quotes":0,"pending_exact_queries":0}
     if reference_set_id is not None:
         report.update(reference_set_id=reference_set_id,preview=[],
                       quote_finish_counts={},no_quote_reasons={})
     client=None
     owns_http=False
+    pending_work=[]
     try:
         async with user_connection(pool,actor,str(uuid4())) as connection:
             refs=[dict(r) for r in await connection.fetch(READ_SQL)]
@@ -471,33 +533,35 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
         if reference_set_id is not None:
             groups={key:[ref for ref in rows if ref["set_id"]==reference_set_id]
                     for key,rows in groups.items()}
-        targets=sorted((k for k,v in groups.items() if v),key=lambda k:(-len(groups[k]),k))
-        report["target_prefixes"]=len(targets)
-        if previous_cursor in targets:
-            index=targets.index(previous_cursor)+1
-            targets=targets[index:]+targets[:index]
+        work=search_work(groups,previous_cursor)
+        pending_work=work
+        report["target_prefixes"]=sum(bool(rows) for rows in groups.values())
         if http_client is None:
             http_client=httpx.AsyncClient(timeout=18,follow_redirects=False)
             owns_http=True
         client=FreeDragonBallClient(api_key,budget,http_client)
         rates={}
-        for prefix in targets:
+        for position,(prefix,query) in enumerate(work):
+            pending_work=work[position:]
             if client.requests>=budget:
-                report["unattempted_queries"]=len(targets)-targets.index(prefix)
+                report["unattempted_queries"]=len(pending_work)
                 break
-            report["cursor"]=prefix
+            is_exact=query!=prefix
+            report["cursor"]=exact_cursor(prefix,query) if is_exact else prefix
+            report["exact_queries"]+=int(is_exact)
             first=None
+            last_page=None
+            pages=0
             try:
-                first=await client.search(prefix,1)
-                products,pages=complete_search_page(first,prefix,1)
+                first=last_page=await client.search(query,1)
+                products,pages=complete_search_page(first,query,1)
                 if pages>budget-client.requests+1:
-                    report["deferred_queries"]=report.get("deferred_queries",0)+1
-                    continue
+                    raise FreeSourceError("QUERY_BUDGET_DEFERRED")
                 complete=list(products)
                 for page in range(2,pages+1):
-                    next_body=await client.search(prefix,page)
-                    chunk,count=complete_search_page(next_body,prefix,page)
-                    if count!=pages:
+                    next_body=last_page=await client.search(query,page)
+                    chunk,count=complete_search_page(next_body,query,page)
+                    if count!=pages or next_body["pagination"]["total"]!=first["pagination"]["total"]:
                         raise FreeSourceError("PAGINATION_CHANGED")
                     complete.extend(chunk)
                 if len(complete)!=(first["pagination"]["total"]):
@@ -505,11 +569,23 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                 ids=[str(p.get("id")) for p in complete]
                 if len(ids)!=len(set(ids)):
                     raise FreeSourceError("DUPLICATE_SOURCE_ID")
-                matches,counts=verified_matches(groups[prefix],complete)
+                if is_exact and any(
+                        not isinstance(product.get("card_info"),dict) or
+                        not (MASTERS_NUMBER.fullmatch(str(product["card_info"].get("card_number") or ""))
+                             or FUSION_NUMBER.fullmatch(str(product["card_info"].get("card_number") or "")))
+                        for product in complete):
+                    # An unclassifiable exact-search row might be a missing
+                    # competitor. Do not manufacture a singleton by dropping it.
+                    raise FreeSourceError("SEARCH_SCHEMA")
+                wanted=[ref for ref in groups[prefix] if ref["card_number"]==query] if is_exact else groups[prefix]
+                matches,counts=verified_matches(wanted,complete)
                 report["matches"]+=len(matches)
+                report["exact_matches"]+=len(matches) if is_exact else 0
                 if len(report["sampled_queries"])<10:
                     report["sampled_queries"].append({
-                        "prefix":prefix,"source_rows":len(complete),
+                        "prefix":query,"parent_prefix":prefix,
+                        "query_kind":"EXACT_PRINTED_NUMBER" if is_exact else "NUMBER_SHARD",
+                        "source_rows":len(complete),
                         "matched":len(matches),**counts})
                 values=[]
                 for ref,product in matches:
@@ -532,6 +608,9 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                             report["no_quote_reasons"][reason]=report["no_quote_reasons"].get(reason,0)+1
                         continue
                     report["eligible_quotes"]+=1
+                    report["exact_eligible_quotes"]+=int(is_exact)
+                    quote.update(source_search_query=query,source_search_complete=True,
+                                 source_search_rows=len(complete))
                     if operator_run_id is not None:
                         quote["operator_run_id"]=operator_run_id
                     if reference_set_id is not None:
@@ -555,21 +634,32 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                             await connection.executemany(WRITE_SQL,values[start:start+100])
                     report["writes_attempted"]+=len(values)
             except FreeSourceError as exc:
-                if str(exc) in {"INCOMPLETE_SEARCH","PAGINATION_CHANGED",
+                if str(exc)=="QUERY_BUDGET_DEFERRED":
+                    report["deferred_queries"]=report.get("deferred_queries",0)+1
+                    if is_exact and pages<=budget:
+                        # A fresh run can fetch this whole query. Keep its next-
+                        # query checkpoint; never persist or reuse partial pages.
+                        report["unattempted_queries"]=len(work)-position-1
+                        break
+                    if is_exact:
+                        # An irreducibly oversized query must not starve every
+                        # later card. Reject it for this sweep within the same cap.
+                        report["oversized_exact_queries"]=report.get("oversized_exact_queries",0)+1
+                elif str(exc) in {"INCOMPLETE_SEARCH","PAGINATION_CHANGED",
                                 "DUPLICATE_SOURCE_ID","SEARCH_SCHEMA"}:
                     report["invalid_queries"]=report.get("invalid_queries",0)+1
                     # Provider-specific pagination/metadata diagnostics only.
                     # Never retain API keys, source price arrays, card text,
                     # customer data or a full raw response in job receipts.
                     if len(report["invalid_samples"])<8:
-                        head=first if isinstance(first,dict) else {}
+                        head=last_page if isinstance(last_page,dict) else {}
                         paging=head.get("pagination")
                         paging=paging if isinstance(paging,dict) else {}
                         meta=head.get("metadata")
                         meta=meta if isinstance(meta,dict) else {}
                         items=head.get("results")
                         report["invalid_samples"].append({
-                            "prefix":prefix,"reason":str(exc),
+                            "prefix":query,"parent_prefix":prefix,"reason":str(exc),
                             "response_fields":sorted(str(k)[:40] for k in head)[:15],
                             "source_query":str(head.get("query") or "")[:32],
                             "pagination":{k:paging.get(k) for k in
@@ -577,12 +667,26 @@ async def refresh_pokewallet_dragon_ball(pool,actor,fx,api_key: str, *,
                             "result_count":len(items) if isinstance(items,list) else None,
                             "truncated":meta.get("truncated"),
                         })
-                    continue
-                raise
+                    if not is_exact and isinstance(exc,TruncatedSearchError):
+                        narrower=exact_queries(prefix,groups[prefix])
+                        if narrower:
+                            # Source rows from the truncated query are discarded.
+                            # Each new full-number query is charged to the same
+                            # client/budget and still retains every source variant.
+                            work[position+1:position+1]=[(prefix,number) for number in narrower]
+                            report["expanded_prefixes"]+=1
+                else:
+                    raise
+            pending_work=work[position+1:]
+            if pending_work and pending_work[0][0]==prefix and pending_work[0][1]!=prefix:
+                report["cursor"]=exact_cursor(*pending_work[0])
+            else:
+                report["cursor"]=prefix
     except (httpx.HTTPError,FreeSourceError,ValueError,TypeError,KeyError,RuntimeError) as exc:
         report["provider_failures"]+=1
         report["reason"]=str(exc) if isinstance(exc,FreeSourceError) else type(exc).__name__
     finally:
+        report["pending_exact_queries"]=sum(query!=prefix for prefix,query in pending_work)
         if client is not None:
             report["requests"]=client.requests
         if owns_http:
