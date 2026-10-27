@@ -90,6 +90,33 @@ $workflow_id"
   done
 fi
 
+# A separate reviewed operation may update only the three observed inactive
+# control-plane definitions. Its backup, exact-hash guards and readback are
+# mandatory; failure stops this requested upgrade before n8n starts.
+case "${DROP_RATE_N8N_CONTROL_PLANE_UPGRADE_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-control-plane-upgrade.cjs 2>/dev/null
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_REVIEWED_UPGRADE","status":"BLOCKED","reason":"INVALID_OPERATOR_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
+# Publication is a later, separate operator phase. The error handler is
+# published first, then the health workflows, then the approved-media schedule.
+case "${DROP_RATE_N8N_CONTROL_PLANE_PUBLISH_ON_BOOT:-false}" in
+  error-handler|health-schedules|media-schedule)
+    node --no-warnings /opt/drop-rate/ops/guarded-control-plane-upgrade.cjs --publish 2>/dev/null
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_REVIEWED_UPGRADE","status":"BLOCKED","reason":"INVALID_OPERATOR_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
 # Opt-in metadata inspection only. The helper reads SQLite without n8n/ORM
 # initialization, emits a strict summary, and has a 15-second child deadline.
 # A diagnostic failure must never prevent this service from starting.
@@ -130,6 +157,8 @@ case "${DROP_RATE_R2_MEDIA_WORKFLOW_PUBLISH_ON_BOOT:-false}" in
       echo "Drop Rate n8n: approved-media workflow is missing; refusing publication." >&2
       exit 1
     fi
+    # ID presence is not proof that an older persistent definition was updated.
+    node --no-warnings /opt/drop-rate/ops/guarded-control-plane-upgrade.cjs --verify 2>/dev/null
     echo "Drop Rate n8n: publishing reviewed DR-94 R2 media schedule."
     n8n publish:workflow --id="$reviewed_id"
     ;;

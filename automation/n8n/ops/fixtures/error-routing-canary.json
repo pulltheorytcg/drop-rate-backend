@@ -1,0 +1,93 @@
+{
+  "id": "DR90IsolatedRoutingCanaryV1",
+  "name": "DR-90 Isolated Routing Canary",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "DR90GlobalErrorV1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": false,
+    "executionTimeout": 30
+  },
+  "nodes": [
+    {
+      "id": "canary-webhook",
+      "name": "Local Canary Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "drop-rate-isolated-error-canary",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "drop-rate-isolated-error-canary",
+        "responseMode": "onReceived",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    },
+    {
+      "id": "canary-auth",
+      "name": "Authenticate Local Canary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst input = $input.first().json || {};\nconst expected = String($env.DROP_RATE_CANARY_TOKEN || '');\nconst supplied = String((input.headers || {})['x-drop-rate-canary-token'] || '');\nif (!/^[a-f0-9]{64}$/.test(expected) || !/^[a-f0-9]{64}$/.test(supplied)) return [];\nif (!crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) return [];\nif (input.body?.canary !== 'DR90_AUTOMATIC_ROUTING' || Object.keys(input.body || {}).length !== 1) return [];\nreturn [{json:{authenticated:true}}];"
+      }
+    },
+    {
+      "id": "canary-failure",
+      "name": "Expected Isolated Failure",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "DROP_RATE_ISOLATED_ERROR_ROUTING_CANARY"
+      }
+    }
+  ],
+  "connections": {
+    "Local Canary Webhook": {
+      "main": [
+        [
+          {
+            "node": "Authenticate Local Canary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authenticate Local Canary": {
+      "main": [
+        [
+          {
+            "node": "Expected Isolated Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "role": "isolated-automatic-error-routing-test-only",
+      "productionBackendVerified": false,
+      "activationGate": "Publish only inside the disposable, loopback-only runtime created by run-isolated-error-canary.cjs; never import into persistent production state."
+    }
+  }
+}
