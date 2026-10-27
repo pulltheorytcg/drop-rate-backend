@@ -8,12 +8,15 @@ pricing jobs continue while these bounded releases are implemented.
 
 1. Copy the reviewed book source checkpoint to private R2 with fixed input
    hashes, preserved review status, actual remote byte verification and an
-   immutable manifest. Implemented and offline-tested; production proof pending.
+   immutable manifest. Complete: production `BYTES_VERIFIED` receipt at
+   14:14:49 UTC, 14 files / 6,228,589 source bytes. See the linked source contract.
 2. Inspect stored n8n workflow and Google Drive credential metadata read-only
-   before changing schedules. The operator never reads credential secret data,
-   overwrites stored workflows or publishes them. Runtime readback pending.
+   before changing schedules. Complete: read-only inspection at 14:02:40 UTC.
+   DR92/93/94 lack the reviewed DR90 error links and remain unpublished. No
+   supported Google Drive credential exists in the inspected n8n database.
 3. Add an owner-free, exact-set reference-input cache with current Supabase
-   identity, pricing eligibility, ownership and media checks. In development.
+   identity, pricing eligibility, ownership and media checks. Implemented;
+   native PostgreSQL 17 CI and production build/readback gates pending.
 4. Finish proven scheduled approved-media runs and weekly R2-to-private-Drive
    transfer with independent byte verification. Not complete.
 

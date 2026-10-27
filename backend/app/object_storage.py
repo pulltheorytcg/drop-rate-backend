@@ -1,12 +1,14 @@
 """Optional S3-compatible cold storage for verified Drop Rate files.
 
-This module never stores login details, inventory ownership or current prices.
-It never deletes an object or a database row. All uploads are private by default;
+This module never stores login details or inventory ownership. Current prices
+remain authoritative in Postgres; bounded reference-input copies can support
+verified catalogue delivery. It never deletes an object or a database row. All uploads are private by default;
 public image delivery needs a separate rights and CDN approval workflow.
 """
 from __future__ import annotations
 
 import hashlib
+import gzip
 import io
 import os
 import re
@@ -78,6 +80,8 @@ class S3ObjectStorage:
     def __init__(self, config: ObjectStorageConfig, *, client: Any = None):
         config.validate()
         self.config = config
+        self._injected_client = client is not None
+        self._reference_read_client = None
         if client is None:
             # Import only for enabled storage, so existing deployments stay inert.
             import boto3
@@ -98,6 +102,94 @@ class S3ObjectStorage:
                 ),
             )
         self.client = client
+
+    def _bounded_reference_client(self):
+        """A short, non-retrying read budget for optional catalogue delivery."""
+        if self._injected_client:
+            return self.client
+        if self._reference_read_client is None:
+            import boto3
+            from botocore.config import Config
+            self._reference_read_client = boto3.client(
+                's3', endpoint_url=self.config.endpoint, region_name=self.config.region,
+                aws_access_key_id=self.config.access_key_id,
+                aws_secret_access_key=self.config.secret_access_key,
+                config=Config(signature_version='s3v4',
+                    s3={'addressing_style': 'path'}, connect_timeout=1, read_timeout=2,
+                    retries={'total_max_attempts': 1, 'mode': 'standard'}))
+        return self._reference_read_client
+
+    def _reference_snapshot_key(self, digest: str) -> str:
+        if not isinstance(digest, str) or not re.fullmatch(r'[0-9a-f]{64}', digest):
+            raise ObjectStorageError('Invalid reference snapshot digest')
+        return f'{self.config.prefix}/catalogue-reference-inputs/{digest}.json.gz'
+
+    def put_verified_reference_snapshot(self, payload: bytes) -> dict:
+        """Store a trusted owner-free projection at its uncompressed content hash.
+
+        The cache producer validates the closed schema. No caller-selected key,
+        public URL, arbitrary local path or database mutation is accepted here.
+        """
+        if not isinstance(payload, bytes) or not 0 < len(payload) <= 4_000_000:
+            raise ObjectStorageError('Reference snapshot exceeds the raw byte bound')
+        digest = hashlib.sha256(payload).hexdigest()
+        key = self._reference_snapshot_key(digest)
+        output = io.BytesIO()
+        with gzip.GzipFile(filename='', fileobj=output, mode='wb', compresslevel=6, mtime=0) as archive:
+            archive.write(payload)
+        compressed = output.getvalue()
+        if len(compressed) > 2_000_000:
+            raise ObjectStorageError('Reference snapshot exceeds the compressed byte bound')
+        compressed_digest = hashlib.sha256(compressed).hexdigest()
+        try:
+            self._verify_remote_file(key, compressed_digest, len(compressed))
+        except ObjectStorageError:
+            raise
+        except Exception as exc:
+            response = getattr(exc, 'response', {})
+            code = response.get('Error', {}).get('Code') if isinstance(response, dict) else None
+            if str(code) not in {'NoSuchKey', '404', 'NotFound'}:
+                raise ObjectStorageError('Unable to establish reference snapshot state') from exc
+            self.client.put_object(Bucket=self.config.bucket, Key=key,
+                Body=io.BytesIO(compressed), ContentType='application/gzip',
+                Metadata={'sha256': compressed_digest, 'payload-sha256': digest})
+            self._verify_remote_file(key, compressed_digest, len(compressed))
+        return {'key': key, 'sha256': digest, 'size_bytes': len(compressed),
+                'compressed_sha256': compressed_digest, 'verified': True}
+
+    def read_verified_reference_snapshot(self, expected_sha256: str) -> bytes:
+        """Read only the raw content hash selected by a current database check.
+
+        The authenticated route receives bytes, never a signed archive URL.
+        Decompression is bounded and the complete raw payload must match the
+        independently obtained database fingerprint before it can be used.
+        """
+        key = self._reference_snapshot_key(expected_sha256)
+        try:
+            response = self._bounded_reference_client().get_object(
+                Bucket=self.config.bucket, Key=key)
+            body = response['Body']
+            compressed = bytearray()
+            try:
+                while True:
+                    chunk = body.read(min(65536, 2_000_001 - len(compressed)))
+                    if not chunk:
+                        break
+                    compressed.extend(chunk)
+                    if len(compressed) > 2_000_000:
+                        raise ObjectStorageError('Reference snapshot exceeds the compressed byte bound')
+            finally:
+                body.close()
+            with gzip.GzipFile(fileobj=io.BytesIO(compressed), mode='rb') as archive:
+                payload = archive.read(4_000_001)
+            if (not 0 < len(payload) <= 4_000_000
+                    or hashlib.sha256(payload).hexdigest() != expected_sha256):
+                raise ObjectStorageError('Reference snapshot failed raw SHA-256 verification')
+            return payload
+        except ObjectStorageError:
+            raise
+        except Exception as exc:
+            raise ObjectStorageError('Reference snapshot unavailable or invalid') from exc
 
     def connectivity(self) -> None:
         """Verify bucket-scoped object listing without requiring account-level admin rights."""

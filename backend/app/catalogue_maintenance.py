@@ -23,6 +23,7 @@ from .database_capacity import check_database_capacity
 from .archive_backlog import archive_check_window, check_archive_backlog
 from .reference_history_archive import archive_reference_history
 from .catalogue_source_archives import archive_reviewed_openlibrary_sources
+from .catalogue_r2_cache import warm_reference_snapshots
 from .reference_feeds import ReferenceFeeds
 from .reference_library import save_reference_set
 from .reference_market import REVISION, refresh_reference_prices
@@ -503,6 +504,8 @@ async def run_loop(pool,settings,*,shopify=False,wakeup=None):
     last_archive_window_checked = None
     next_r2_archive_check = 0.0
     next_source_archive_check = 0.0
+    next_reference_cache_check = 0.0
+    reference_cache_cursor = None
     while True:
         # Clear BEFORE scanning: an approval during a pass must cause another
         # pass, not disappear into a subsequent clear/sleep race.
@@ -562,6 +565,28 @@ async def run_loop(pool,settings,*,shopify=False,wakeup=None):
                 raise
             except Exception as exc:
                 log.error('CATALOGUE_R2_SOURCE_ARCHIVE_FAILED type=%s', type(exc).__name__)
+        if (not shopify and getattr(settings, 'catalogue_r2_cache_build_enabled', False)
+                and asyncio.get_running_loop().time() >= next_reference_cache_check):
+            next_reference_cache_check = asyncio.get_running_loop().time() + 300
+            # Four batches of five exact sets, after normal pricing. The cursor
+            # advances past oversized sets; misses always retain live DB delivery.
+            # No provider quota or database mutation is involved in warming.
+            for _ in range(4):
+                try:
+                    cache_report = await warm_reference_snapshots(pool,
+                        UUID(settings.catalogue_maintenance_actor_user_id),
+                        cursor=reference_cache_cursor, limit=5,
+                        verify_query_parity=(_ == 0))
+                    reference_cache_cursor = cache_report['next_cursor']
+                    log.warning('CATALOGUE_R2_REFERENCE_CACHE_BUILD %s',
+                        json.dumps(cache_report, sort_keys=True))
+                    if not cache_report['has_more']:
+                        break
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    log.error('CATALOGUE_R2_REFERENCE_CACHE_BUILD_FAILED type=%s', type(exc).__name__)
+                    break
         if wakeup is None:
             await asyncio.sleep(60 if shopify else 300)
         else:
