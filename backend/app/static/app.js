@@ -48,7 +48,7 @@ function setBusy(form, busy) {
 }
 async function readJson(response) {
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) { const error = new Error(errorMessage(data)); error.status = response.status; error.code = data.code || data.error_code; throw error; }
+  if (!response.ok) { const error = new Error(errorMessage(data)); error.status = response.status; error.code = data.code || data.error_code; error.detail = data.detail; throw error; }
   return data;
 }
 async function authRequest(path, options = {}) {

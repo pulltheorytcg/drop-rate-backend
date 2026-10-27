@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Annotated, Any, Literal
@@ -20,6 +21,7 @@ from .auth import AuthenticatedUser, require_user
 from .db import user_connection
 from .import_inventory import lock_import_owner, create_draft_copies
 from .import_admission import manual_admission_valid
+from .import_preview_rebuild import rebuild_enabled, replace_preview, validate_rebuild_batch
 from .language import clean_language, parse_title_language
 from .collectr_snapshot import (
     collectr_adapter_headers,
@@ -60,6 +62,10 @@ class ImportPreviewRequest(BaseModel):
             if len(header) > 200:
                 raise ValueError("Mapped CSV header is too long")
         return self
+
+
+class ImportPreviewRebuildRequest(ImportPreviewRequest):
+    version: int = Field(ge=1)
 
 
 class ImportCommitRequest(BaseModel):
@@ -545,12 +551,15 @@ async def _ensure_collectr_catalogue(
     return catalogue_id
 
 
-@router.post("/preview", status_code=201)
-async def preview_import(
-    payload: ImportPreviewRequest,
-    request: Request,
-    user: Annotated[AuthenticatedUser, Depends(require_user)],
-) -> dict:
+@dataclass(frozen=True, slots=True)
+class _PreviewSource:
+    source_sha256: str
+    rows: list[dict]
+    mapping: dict[str, str]
+    adapter: str
+
+
+def _parse_preview_source(payload: ImportPreviewRequest) -> _PreviewSource:
     encoded = payload.content.encode("utf-8")
     source_sha256 = hashlib.sha256(encoded).hexdigest()
     try:
@@ -586,11 +595,244 @@ async def preview_import(
         raise HTTPException(status_code=422, detail={"message": "Could not identify a product/card name column", "headers": headers})
     adapter = _detect_adapter(headers, payload.adapter)
 
+    return _PreviewSource(source_sha256, rows, mapping, adapter)
+
+
+async def _build_preview(connection: asyncpg.Connection, owner: Any,
+                         payload: ImportPreviewRequest, source: _PreviewSource) -> dict:
+    """Use one normalizer/baseline/matcher for new previews and rebuilds."""
+    rows, mapping, adapter = source.rows, source.mapping, source.adapter
+    candidates: list[dict] = []
+    physical_units = 0
+    ready_units = 0
+    review_rows = 0
+    skipped_rows = 0
+
+    prepared: list[tuple[int, dict[str, str], dict[str, Any], list[str]]] = []
+    seen_collectr_keys: set[tuple[str, ...]] = set()
+    for source_row, raw in enumerate(rows, start=2):
+        normalized, issues = _normalized_row(
+            raw,
+            mapping,
+            payload.default_game,
+            payload.default_language,
+            adapter=adapter,
+        )
+        if adapter == "COLLECTR":
+            identity = collectr_snapshot_key(normalized)
+            if identity in seen_collectr_keys:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "message": "Collectr snapshot contains duplicate logical identity rows",
+                        "source_row": source_row,
+                    },
+                )
+            seen_collectr_keys.add(identity)
+        prepared.append((source_row, raw, normalized, issues))
+
+    collectr_baseline_id: UUID | None = None
+    collectr_baseline: dict[tuple[str, ...], dict[str, Any]] = {}
+    if adapter == "COLLECTR":
+        collectr_baseline_id, collectr_baseline = await _collectr_previous_snapshot(
+            connection,
+            owner["id"],
+        )
+
+    current_collectr_keys: set[tuple[str, ...]] = set()
+    collectr_new_identities = 0
+    collectr_increased_identities = 0
+    collectr_unchanged_identities = 0
+    collectr_delta_units = 0
+
+    for source_row, raw, normalized, issues in prepared:
+        catalogue_id = None
+        blocking_identity = {"missing_name", "missing_game", "missing_set", "missing_card_number"}
+        if not blocking_identity.intersection(issues):
+            catalogue_id, match_issues = await _catalogue_match(connection, normalized)
+            issues.extend(match_issues)
+
+        snapshot_quantity = int(normalized["quantity"])
+        physical_units += snapshot_quantity
+        candidate_quantity = snapshot_quantity
+
+        if adapter == "COLLECTR":
+            identity = collectr_snapshot_key(normalized)
+            current_collectr_keys.add(identity)
+            previous = collectr_baseline.get(identity)
+            previous_quantity = int(previous["quantity"]) if previous else 0
+            delta_quantity = snapshot_quantity - previous_quantity
+            normalized["collectr_baseline_batch_id"] = (
+                str(collectr_baseline_id) if collectr_baseline_id else None
+            )
+            normalized["previous_quantity"] = previous_quantity
+            normalized["snapshot_quantity"] = snapshot_quantity
+            normalized["delta_quantity"] = delta_quantity
+            normalized["reconciliation"] = "SNAPSHOT_DELTA"
+
+            if previous and catalogue_id is None and previous.get("catalogue_id"):
+                catalogue_id = previous["catalogue_id"]
+                issues = [issue for issue in issues if issue != "catalogue_not_found"]
+
+            # Reuse a recorded human decision only for the identical source
+            # key and an unchanged catalogue identity. This is a mapping,
+            # not a fabricated model confidence or a new canonical record.
+            if previous and previous.get("catalogue_id"):
+                prior_record = previous.get("normalized_record") or {}
+                prior_confirmation = prior_record.get("import_identity_confirmation") or {}
+                if prior_confirmation.get("method") == "MANUAL":
+                    chosen = await connection.fetchrow(
+                        "select * from tcg.catalogue_products where id=$1",
+                        previous["catalogue_id"],
+                    )
+                    if "language_conflict" not in issues and manual_admission_valid(prior_record, dict(chosen) if chosen else None):
+                        catalogue_id = previous["catalogue_id"]
+                        for identity_field in ("game", "name", "set_name", "card_number", "variant", "rarity", "language"):
+                            normalized[identity_field] = prior_record.get(identity_field)
+                        normalized["import_identity_confirmation"] = prior_confirmation
+                        resolved = {"missing_name", "missing_game", "missing_set", "missing_card_number",
+                                    "catalogue_not_found", "catalogue_admin_review_required",
+                                    "ambiguous_catalogue_match", "manual_identity_confirmation_required"}
+                        if normalized.get("language"):
+                            resolved.update({"missing_language", "language_conflict"})
+                        issues = [issue for issue in issues if issue not in resolved]
+
+            if delta_quantity < 0:
+                issues.append("collectr_quantity_decrease")
+            elif delta_quantity == 0:
+                collectr_unchanged_identities += 1
+            else:
+                candidate_quantity = delta_quantity
+                collectr_delta_units += delta_quantity
+                if previous_quantity:
+                    collectr_increased_identities += 1
+                else:
+                    collectr_new_identities += 1
+                if "catalogue_not_found" in issues:
+                    issues = [issue for issue in issues if issue != "catalogue_not_found"]
+                    normalized["collectr_create_catalogue"] = True
+
+        # Third-party sellers own their physical copies but must never
+        # silently extend the platform-wide canonical card catalogue.
+        # A founder/admin can still use the established Collectr path.
+        if (
+            adapter == "COLLECTR"
+            and normalized.get("collectr_create_catalogue") is True
+            and owner["role"] != "PLATFORM_ADMIN"
+        ):
+            normalized.pop("collectr_create_catalogue", None)
+            issues.extend(["catalogue_not_found", "catalogue_admin_review_required"])
+
+        issues = sorted(set(issues))
+        if adapter == "COLLECTR" and normalized.get("delta_quantity") == 0 and not issues:
+            status = "SKIPPED"
+            skipped_rows += 1
+        else:
+            can_create_collectr = (
+                adapter == "COLLECTR"
+                and normalized.get("delta_quantity", 0) > 0
+                and normalized.get("collectr_create_catalogue") is True
+            )
+            status = "READY" if not issues and (catalogue_id is not None or can_create_collectr) else "REVIEW"
+            if status == "READY":
+                ready_units += candidate_quantity
+            elif status == "REVIEW":
+                review_rows += 1
+
+        candidates.append({
+            "source_row": source_row,
+            "quantity": candidate_quantity,
+            "raw_record": raw,
+            "normalized_record": normalized,
+            "catalogue_id": catalogue_id,
+            "status": status,
+            "issues": issues,
+        })
+
+    if adapter == "COLLECTR":
+        synthetic_row = len(rows) + 2
+        for identity, previous in collectr_baseline.items():
+            if identity in current_collectr_keys:
+                continue
+            normalized = dict(previous["normalized_record"])
+            previous_quantity = int(previous["quantity"])
+            normalized["collectr_baseline_batch_id"] = (
+                str(collectr_baseline_id) if collectr_baseline_id else None
+            )
+            normalized["previous_quantity"] = previous_quantity
+            normalized["snapshot_quantity"] = 0
+            normalized["delta_quantity"] = -previous_quantity
+            normalized["reconciliation"] = "SNAPSHOT_DELTA"
+            candidates.append({
+                "source_row": synthetic_row,
+                "quantity": previous_quantity,
+                "raw_record": previous["raw_record"],
+                "normalized_record": normalized,
+                "catalogue_id": previous.get("catalogue_id"),
+                "status": "REVIEW",
+                "issues": ["collectr_identity_missing_from_snapshot"],
+            })
+            synthetic_row += 1
+            review_rows += 1
+
+    warnings: list[str] = []
+    if adapter == "COLLECTR":
+        baseline_units = sum(int(item["quantity"]) for item in collectr_baseline.values())
+        warnings.append(
+            "Collectr snapshot reconciliation: "
+            f"baseline {len(collectr_baseline)} identities / {baseline_units} units; "
+            f"current {len(prepared)} identities / {physical_units} units; "
+            f"net new units {collectr_delta_units}."
+        )
+        warnings.append(
+            f"{collectr_unchanged_identities} identities unchanged; "
+            f"{collectr_increased_identities} increased; "
+            f"{collectr_new_identities} new."
+        )
+    if adapter == "HOLODEX":
+        warnings.append("HoloDex export format is not publicly documented; verify mapped fields carefully before commit.")
+    if "game" not in mapping and not payload.default_game:
+        warnings.append("No game column was detected; affected rows require review.")
+
+    return {
+        "adapter": adapter,
+        "filename": payload.filename,
+        "source_rows": len(rows),
+        "physical_units": physical_units,
+        "ready_units": ready_units,
+        "review_rows": review_rows,
+        "skipped_rows": skipped_rows,
+        "warnings": warnings,
+        "detected_columns": mapping,
+        "candidates": candidates,
+        "preview_truncated": len(candidates) > 200,
+    }
+
+
+def _preview_response(preview: dict, *, batch_id: UUID, version: int,
+                      request: Request, rebuilt: bool = False) -> dict:
+    return jsonable_encoder({
+        **preview,
+        "batch_id": batch_id,
+        "version": version,
+        "candidates": preview["candidates"][:200],
+        "rebuild_enabled": rebuild_enabled(request),
+        **({"rebuilt": True, "review_edits_reset": True, "created_count": 0} if rebuilt else {}),
+    })
+
+
+@router.post("/preview", status_code=201)
+async def preview_import(
+    payload: ImportPreviewRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    source = _parse_preview_source(payload)
     async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
         owner = await _owner(connection)
         existing = await connection.fetchrow(
             "select id, status, created_at from tcg.import_batches where owner_id = $1 and source_sha256 = $2",
-            owner["id"], source_sha256,
+            owner["id"], source.source_sha256,
         )
         if existing is not None:
             raise HTTPException(status_code=409, detail={
@@ -598,200 +840,8 @@ async def preview_import(
                 "batch_id": str(existing["id"]),
                 "status": existing["status"],
             })
-
         batch_id = uuid4()
-        candidates: list[dict] = []
-        physical_units = 0
-        ready_units = 0
-        review_rows = 0
-        skipped_rows = 0
-
-        prepared: list[tuple[int, dict[str, str], dict[str, Any], list[str]]] = []
-        seen_collectr_keys: set[tuple[str, ...]] = set()
-        for source_row, raw in enumerate(rows, start=2):
-            normalized, issues = _normalized_row(
-                raw,
-                mapping,
-                payload.default_game,
-                payload.default_language,
-                adapter=adapter,
-            )
-            if adapter == "COLLECTR":
-                identity = collectr_snapshot_key(normalized)
-                if identity in seen_collectr_keys:
-                    raise HTTPException(
-                        status_code=422,
-                        detail={
-                            "message": "Collectr snapshot contains duplicate logical identity rows",
-                            "source_row": source_row,
-                        },
-                    )
-                seen_collectr_keys.add(identity)
-            prepared.append((source_row, raw, normalized, issues))
-
-        collectr_baseline_id: UUID | None = None
-        collectr_baseline: dict[tuple[str, ...], dict[str, Any]] = {}
-        if adapter == "COLLECTR":
-            collectr_baseline_id, collectr_baseline = await _collectr_previous_snapshot(
-                connection,
-                owner["id"],
-            )
-
-        current_collectr_keys: set[tuple[str, ...]] = set()
-        collectr_new_identities = 0
-        collectr_increased_identities = 0
-        collectr_unchanged_identities = 0
-        collectr_delta_units = 0
-
-        for source_row, raw, normalized, issues in prepared:
-            catalogue_id = None
-            blocking_identity = {"missing_name", "missing_game", "missing_set", "missing_card_number"}
-            if not blocking_identity.intersection(issues):
-                catalogue_id, match_issues = await _catalogue_match(connection, normalized)
-                issues.extend(match_issues)
-
-            snapshot_quantity = int(normalized["quantity"])
-            physical_units += snapshot_quantity
-            candidate_quantity = snapshot_quantity
-
-            if adapter == "COLLECTR":
-                identity = collectr_snapshot_key(normalized)
-                current_collectr_keys.add(identity)
-                previous = collectr_baseline.get(identity)
-                previous_quantity = int(previous["quantity"]) if previous else 0
-                delta_quantity = snapshot_quantity - previous_quantity
-                normalized["collectr_baseline_batch_id"] = (
-                    str(collectr_baseline_id) if collectr_baseline_id else None
-                )
-                normalized["previous_quantity"] = previous_quantity
-                normalized["snapshot_quantity"] = snapshot_quantity
-                normalized["delta_quantity"] = delta_quantity
-                normalized["reconciliation"] = "SNAPSHOT_DELTA"
-
-                if previous and catalogue_id is None and previous.get("catalogue_id"):
-                    catalogue_id = previous["catalogue_id"]
-                    issues = [issue for issue in issues if issue != "catalogue_not_found"]
-
-                # Reuse a recorded human decision only for the identical source
-                # key and an unchanged catalogue identity. This is a mapping,
-                # not a fabricated model confidence or a new canonical record.
-                if previous and previous.get("catalogue_id"):
-                    prior_record = previous.get("normalized_record") or {}
-                    prior_confirmation = prior_record.get("import_identity_confirmation") or {}
-                    if prior_confirmation.get("method") == "MANUAL":
-                        chosen = await connection.fetchrow(
-                            "select * from tcg.catalogue_products where id=$1",
-                            previous["catalogue_id"],
-                        )
-                        if "language_conflict" not in issues and manual_admission_valid(prior_record, dict(chosen) if chosen else None):
-                            catalogue_id = previous["catalogue_id"]
-                            for identity_field in ("game", "name", "set_name", "card_number", "variant", "rarity", "language"):
-                                normalized[identity_field] = prior_record.get(identity_field)
-                            normalized["import_identity_confirmation"] = prior_confirmation
-                            resolved = {"missing_name", "missing_game", "missing_set", "missing_card_number",
-                                        "catalogue_not_found", "catalogue_admin_review_required",
-                                        "ambiguous_catalogue_match", "manual_identity_confirmation_required"}
-                            if normalized.get("language"):
-                                resolved.update({"missing_language", "language_conflict"})
-                            issues = [issue for issue in issues if issue not in resolved]
-
-                if delta_quantity < 0:
-                    issues.append("collectr_quantity_decrease")
-                elif delta_quantity == 0:
-                    collectr_unchanged_identities += 1
-                else:
-                    candidate_quantity = delta_quantity
-                    collectr_delta_units += delta_quantity
-                    if previous_quantity:
-                        collectr_increased_identities += 1
-                    else:
-                        collectr_new_identities += 1
-                    if "catalogue_not_found" in issues:
-                        issues = [issue for issue in issues if issue != "catalogue_not_found"]
-                        normalized["collectr_create_catalogue"] = True
-
-            # Third-party sellers own their physical copies but must never
-            # silently extend the platform-wide canonical card catalogue.
-            # A founder/admin can still use the established Collectr path.
-            if (
-                adapter == "COLLECTR"
-                and normalized.get("collectr_create_catalogue") is True
-                and owner["role"] != "PLATFORM_ADMIN"
-            ):
-                normalized.pop("collectr_create_catalogue", None)
-                issues.extend(["catalogue_not_found", "catalogue_admin_review_required"])
-
-            issues = sorted(set(issues))
-            if adapter == "COLLECTR" and normalized.get("delta_quantity") == 0 and not issues:
-                status = "SKIPPED"
-                skipped_rows += 1
-            else:
-                can_create_collectr = (
-                    adapter == "COLLECTR"
-                    and normalized.get("delta_quantity", 0) > 0
-                    and normalized.get("collectr_create_catalogue") is True
-                )
-                status = "READY" if not issues and (catalogue_id is not None or can_create_collectr) else "REVIEW"
-                if status == "READY":
-                    ready_units += candidate_quantity
-                elif status == "REVIEW":
-                    review_rows += 1
-
-            candidates.append({
-                "source_row": source_row,
-                "quantity": candidate_quantity,
-                "raw_record": raw,
-                "normalized_record": normalized,
-                "catalogue_id": catalogue_id,
-                "status": status,
-                "issues": issues,
-            })
-
-        if adapter == "COLLECTR":
-            synthetic_row = len(rows) + 2
-            for identity, previous in collectr_baseline.items():
-                if identity in current_collectr_keys:
-                    continue
-                normalized = dict(previous["normalized_record"])
-                previous_quantity = int(previous["quantity"])
-                normalized["collectr_baseline_batch_id"] = (
-                    str(collectr_baseline_id) if collectr_baseline_id else None
-                )
-                normalized["previous_quantity"] = previous_quantity
-                normalized["snapshot_quantity"] = 0
-                normalized["delta_quantity"] = -previous_quantity
-                normalized["reconciliation"] = "SNAPSHOT_DELTA"
-                candidates.append({
-                    "source_row": synthetic_row,
-                    "quantity": previous_quantity,
-                    "raw_record": previous["raw_record"],
-                    "normalized_record": normalized,
-                    "catalogue_id": previous.get("catalogue_id"),
-                    "status": "REVIEW",
-                    "issues": ["collectr_identity_missing_from_snapshot"],
-                })
-                synthetic_row += 1
-                review_rows += 1
-
-        warnings: list[str] = []
-        if adapter == "COLLECTR":
-            baseline_units = sum(int(item["quantity"]) for item in collectr_baseline.values())
-            warnings.append(
-                "Collectr snapshot reconciliation: "
-                f"baseline {len(collectr_baseline)} identities / {baseline_units} units; "
-                f"current {len(prepared)} identities / {physical_units} units; "
-                f"net new units {collectr_delta_units}."
-            )
-            warnings.append(
-                f"{collectr_unchanged_identities} identities unchanged; "
-                f"{collectr_increased_identities} increased; "
-                f"{collectr_new_identities} new."
-            )
-        if adapter == "HOLODEX":
-            warnings.append("HoloDex export format is not publicly documented; verify mapped fields carefully before commit.")
-        if "game" not in mapping and not payload.default_game:
-            warnings.append("No game column was detected; affected rows require review.")
-
+        preview = await _build_preview(connection, owner, payload, source)
         async with connection.transaction():
             await connection.execute(
                 """
@@ -800,10 +850,11 @@ async def preview_import(
                     filename, adapter, status, warnings, version
                 ) values ($1, $2, $3, $4, $5, $6, $7, $8, 'PREVIEW', $9::jsonb, 1)
                 """,
-                batch_id, owner["id"], adapter, source_sha256, len(rows), physical_units,
-                payload.filename, adapter, json.dumps(warnings),
+                batch_id, owner["id"], preview["adapter"], source.source_sha256,
+                preview["source_rows"], preview["physical_units"], payload.filename,
+                preview["adapter"], json.dumps(preview["warnings"]),
             )
-            for candidate in candidates:
+            for candidate in preview["candidates"]:
                 await connection.execute(
                     """
                     insert into tcg.import_candidates(
@@ -815,22 +866,57 @@ async def preview_import(
                     json.dumps(candidate["raw_record"]), json.dumps(candidate["normalized_record"]),
                     candidate["catalogue_id"], candidate["status"], json.dumps(candidate["issues"]),
                 )
+        return _preview_response(preview, batch_id=batch_id, version=1, request=request)
 
-        return jsonable_encoder({
-            "batch_id": batch_id,
-            "version": 1,
-            "adapter": adapter,
-            "filename": payload.filename,
-            "source_rows": len(rows),
-            "physical_units": physical_units,
-            "ready_units": ready_units,
-            "review_rows": review_rows,
-            "skipped_rows": skipped_rows,
-            "warnings": warnings,
-            "detected_columns": mapping,
-            "candidates": candidates[:200],
-            "preview_truncated": len(candidates) > 200,
-        })
+
+@router.post("/{batch_id}/rebuild")
+async def rebuild_import_preview(
+    batch_id: UUID,
+    payload: ImportPreviewRebuildRequest,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_user)],
+) -> dict:
+    if not rebuild_enabled(request):
+        raise HTTPException(status_code=404, detail="Import preview rebuild is not enabled")
+    source_sha256 = hashlib.sha256(payload.content.encode("utf-8")).hexdigest()
+    try:
+        async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+            if not await connection.fetchval("select tcg.is_platform_admin()"):
+                raise HTTPException(status_code=403, detail="Platform administrator required")
+            owner = await _owner(connection)
+            await connection.execute("select set_config('lock_timeout','2s',true)")
+            await lock_import_owner(connection, owner["id"])
+            batch = await connection.fetchrow(
+                "select * from tcg.import_batches where id=$1 and owner_id=$2 for update",
+                batch_id, owner["id"],
+            )
+            validate_rebuild_batch(batch, version=payload.version, source_sha256=source_sha256)
+            has_copies = await connection.fetchval(
+                """select exists(select 1 from tcg.inventory_items where import_batch_id=$1)
+                     or exists(select 1 from tcg.import_candidates where batch_id=$1 and status='COMMITTED')""",
+                batch_id,
+            )
+            if has_copies:
+                raise HTTPException(status_code=409, detail="Import batches with added copies cannot be rebuilt")
+            # Keep the source filename and delimiter immutable, even if the user
+            # selects a renamed local copy containing exactly the same bytes.
+            original = payload.model_copy(update={"filename": batch["filename"]})
+            source = _parse_preview_source(original)
+            preview = await _build_preview(connection, owner, original, source)
+            result = await replace_preview(
+                connection, actor_id=user.user_id, owner_id=owner["id"], batch_id=batch_id,
+                version=payload.version, source_sha256=source_sha256, preview=preview,
+            )
+            return _preview_response(preview, batch_id=batch_id, version=result["version"],
+                                     request=request, rebuilt=True)
+    except asyncpg.InsufficientPrivilegeError as exc:
+        raise HTTPException(status_code=403, detail="Platform administrator required") from exc
+    except asyncpg.LockNotAvailableError as exc:
+        raise HTTPException(status_code=409, detail="Import is busy; reload it before rebuilding") from exc
+    except asyncpg.ObjectNotInPrerequisiteStateError as exc:
+        raise HTTPException(status_code=409, detail="Import changed or is not eligible for rebuilding") from exc
+    except asyncpg.InvalidParameterValueError as exc:
+        raise HTTPException(status_code=422, detail="Rebuilt preview did not pass source and candidate validation") from exc
 
 
 @router.get("")
@@ -883,7 +969,12 @@ async def get_import_batch(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_user)],
 ) -> dict:
-    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id) as connection:
+    # import_review uses the shared owner helper in this module; resolve its
+    # existing summary helper at request time to avoid a module import cycle.
+    from .import_review import _batch_summary
+
+    async with user_connection(request.app.state.db_pool, user.user_id, request.state.request_id,
+                               readonly_snapshot=True) as connection:
         owner = await _owner(connection)
         batch = await connection.fetchrow(
             "select * from tcg.import_batches where id = $1 and owner_id = $2",
@@ -891,6 +982,7 @@ async def get_import_batch(
         )
         if batch is None:
             raise HTTPException(status_code=404, detail="Import batch not found")
+        summary = await _batch_summary(connection, batch_id=batch_id, owner_id=owner["id"])
         candidates = await connection.fetch(
             """
             select id, source_row, quantity, normalized_record, catalogue_id, status, issues
@@ -907,7 +999,10 @@ async def get_import_batch(
             )
             item["issues"] = _json_value(item.get("issues"), expected_type=list, fallback=[])
             candidate_payloads.append(item)
-        return jsonable_encoder({"batch": dict(batch), "candidates": candidate_payloads})
+        return jsonable_encoder({"batch": dict(batch), "candidates": candidate_payloads,
+                                 "summary": summary,
+                                 "preview_truncated": summary["candidate_count"] > len(candidate_payloads),
+                                 "rebuild_enabled": rebuild_enabled(request)})
 
 
 @router.post("/{batch_id}/commit")
