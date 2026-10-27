@@ -184,13 +184,17 @@ class EbayOfficialClient:
             params["filter"] = ",".join(filters)
         return await self._browse_get("/buy/browse/v1/item_summary/search", params=params)
 
-    async def get_item(self, item_id: str) -> dict[str, Any]:
+    async def get_item(self, item_id: str, *, fieldgroups: str = "PRODUCT") -> dict[str, Any]:
         """Read one returned REST item ID; never follow a caller-supplied URL."""
         if not isinstance(item_id, str) or not re.fullmatch(r"v1\|[1-9][0-9]{0,19}\|(?:0|[1-9][0-9]{0,19})", item_id):
             raise ValueError("Invalid eBay REST item ID")
+        # Browse requires COMPACT to be sent alone. It supplies the listing
+        # GTIN and revision; PRODUCT supplies full listing and product facts.
+        if not isinstance(fieldgroups, str) or fieldgroups not in {"PRODUCT", "COMPACT"}:
+            raise ValueError("Unsupported eBay item field group")
         return await self._browse_get(
             "/buy/browse/v1/item/" + quote(item_id, safe=""),
-            params={"fieldgroups": "PRODUCT"},
+            params={"fieldgroups": fieldgroups},
         )
 
     async def _browse_get(self, path: str, *, params: dict[str, str | int]) -> dict[str, Any]:

@@ -125,6 +125,34 @@ async def test_exact_gtin_search_and_encoded_item_details_share_cached_token_and
 
 
 @pytest.mark.asyncio
+async def test_compact_identity_read_uses_the_same_fixed_item_url_and_separate_budget_attempt(monkeypatch):
+    FakeAsyncClient.calls = []
+    monkeypatch.setattr("app.ebay_official_client.httpx.AsyncClient", FakeAsyncClient)
+    counted = []
+    async def count():
+        counted.append(True)
+    client = EbayOfficialClient(client_id="client", client_secret="secret", before_browse_request=count)
+    await client.get_item("v1|298583744784|0")
+    await client.get_item("v1|298583744784|0", fieldgroups="COMPACT")
+    gets = [call for call in FakeAsyncClient.calls if call["method"] == "GET"]
+    assert len(counted) == len(gets) == 2
+    assert len([call for call in FakeAsyncClient.calls if call["method"] == "POST"]) == 1
+    assert gets[0]["url"] == gets[1]["url"] == "https://api.ebay.com/buy/browse/v1/item/v1%7C298583744784%7C0"
+    assert [call["params"] for call in gets] == [{"fieldgroups": "PRODUCT"}, {"fieldgroups": "COMPACT"}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fieldgroups", ["COMPACT,PRODUCT", "PRODUCT,COMPACT", "", "OTHER", None, True, []])
+async def test_unsupported_or_combined_field_groups_are_rejected_before_oauth(monkeypatch, fieldgroups):
+    FakeAsyncClient.calls = []
+    monkeypatch.setattr("app.ebay_official_client.httpx.AsyncClient", FakeAsyncClient)
+    client = EbayOfficialClient(client_id="client", client_secret="secret")
+    with pytest.raises(ValueError):
+        await client.get_item("v1|298583744784|0", fieldgroups=fieldgroups)
+    assert FakeAsyncClient.calls == []
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("item_id", ["https://evil.test/item", "v1|123/../456|0", "v1|123|0?url=evil", "v1%7C123%7C0", "v1|123|0#secret", "v1|123|", "v1|123|0\n", None, True])
 async def test_get_item_rejects_arbitrary_urls_and_encoded_path_tricks_before_oauth(monkeypatch, item_id):
     FakeAsyncClient.calls = []

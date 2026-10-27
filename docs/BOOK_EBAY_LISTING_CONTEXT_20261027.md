@@ -37,7 +37,17 @@ canonical binding or confirm a physical printing. Existing metadata review
 holds remain enforced. A cover-only exclusion does not invalidate an otherwise
 eligible ISBN reference from a different source.
 
-Requests use at most one GTIN search and three item details. The process shares
+Identifiers and aspects are read from the documented item and nested PRODUCT
+containers without discarding conflicts between them. An otherwise eligible
+item whose full response omits an ISBN can be checked with a separate COMPACT
+request. The two responses must refer to the same item and seller revision;
+changed price, availability or other contradictory data prevents a combined
+reference. Search words and ranking do not count as identifier evidence.
+
+Requests examine at most ten search summaries and select up to three item
+details, prioritising consistent edition hints. The normal lookup uses at most
+one GTIN search, three PRODUCT details and three conditional COMPACT checks:
+seven Browse calls in total. The process shares
 in-flight requests, a concurrency limit of two, a bounded cache, a one-hour
 maximum positive TTL and a five-minute negative TTL. An earlier listing end
 shortens expiry. Credential and rate-limit failures stop further provider work
@@ -75,6 +85,10 @@ ISBN, volume and release year are confirmed by the
 The older +Anima fixture, ISBN 9781427800022, is a Scholastic Exclusive edition;
 an explicit exclusive listing remains rejected until that qualifier is reconciled
 in the canonical identity. It is not interchangeable with ISBN 9781598163476.
+The probe can also check either of two explicitly pinned public Naruto offers
+to distinguish discovery quality from detail-response compatibility. That
+diagnostic accepts no arbitrary listing, performs at most two Browse calls,
+and is not an application price fallback or a hard-coded production offer.
 The probe makes no database or media writes,
 does not call Trawl or Parse, and skips when no exact probe flag is supplied.
 
@@ -88,4 +102,17 @@ remain unavailable; it is not evidence of a zero price.
 The artwork comparison is recorded in
 [the browser evidence](evidence/book-cover-redirect-browser-20261027.json).
 Provider behavior is based on eBay's
-[inventory discovery guide](https://developer.ebay.com/develop/guides/buy/inventory-discovery-and-refresh-guide).
+[inventory discovery guide](https://developer.ebay.com/develop/guides/buy/inventory-discovery-and-refresh-guide)
+and the documented identifier/aspect fields in the
+[official Browse OpenAPI schema](https://developer.ebay.com/api-docs/master/buy/browse/openapi/3/buy_browse_v1_oas3.json)
+(v1.20.4 at review). COMPACT must be requested alone, separately from PRODUCT.
+
+## First live probe and follow-up
+
+PR #766 deployed the artwork repair successfully. At 21:16 UTC the first live
+Naruto probe made four official Browse calls and received ten search summaries.
+Its three examined item details were rejected because the then-supported
+identifier fields were empty. This confirmed working source access, not usable
+quote coverage. The original predeploy command was restored and display stayed
+off. The follow-up extends the documented PRODUCT paths and adds the conditional
+COMPACT identity check; it keeps the same match, access and valuation boundaries.
