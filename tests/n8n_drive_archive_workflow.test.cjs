@@ -122,6 +122,12 @@ test('workflow stays disabled, credential-unbound, serial and execution-data sav
       assert.equal(node.typeVersion, 3); assert.equal(node.parameters.authentication, 'oAuth2');
       assert.ok(['download'].includes(node.parameters.operation));
     }
+    // Pinned HTTP4.2 forces a response stream for a raw request body. Explicit
+    // JSON response mode does not consume that stream; autodetect does.
+    if (node.type === 'n8n-nodes-base.httpRequest' && node.parameters.contentType === 'raw') {
+      assert.ok(['autodetect', 'file'].includes(node.parameters.options.response.response.responseFormat));
+      assert.equal(node.parameters.options.response.response.fullResponse, true);
+    }
   }
   for (const paths of Object.values(workflow.connections)) {
     for (const output of paths.main) assert.equal(output.length, 1);

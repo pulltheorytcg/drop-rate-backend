@@ -35,6 +35,13 @@ readback carries that signed JSON as a bounded base64url header while its body
 contains the downloaded bytes. The FastAPI service independently hashes those
 bytes against its verified R2 manifest.
 
+Raw JSON request nodes keep the exact signed request string and use response
+autodetection with full response metadata. In pinned n8n 2.32.6, a raw request
+forces a response stream; explicit JSON response mode does not consume that
+stream, while autodetection parses the backend's JSON Content-Type. Strict
+HTTP-status and `accepted` checks remain in place. DR91 needs the same separately
+reviewed response-format correction before it can be used in production.
+
 ## Copy and retry sequence
 
 For each manifest member, the serial workflow performs these steps:

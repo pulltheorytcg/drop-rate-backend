@@ -18,8 +18,8 @@ const FLAG = 'DROP_RATE_DR95_NATIVE_SMOKE';
 const DR95 = 'DR95R2DriveArchiveV1';
 const DR91 = 'DR91SuccessReceiptV1';
 const CREDENTIAL = 'DR95SyntheticOAuthOnly';
-const DR95_HASH = '3b05c263d6348471922fea7367e1ac76bc3ab0232b9aedca04adb00c6ef4a093';
-const DR91_HASH = '8f8b466d808171b2458fc0bcfc7a64a3ae8271221e084353d7eaf35198981296';
+const DR95_HASH = '0fda958802b80f28a3675869137347994c5c1efb23177c4764837104ef9efbc5';
+const DR91_HASH = '1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568';
 const ACCOUNT = 'dropratetcg@gmail.com';
 const FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';
 const PERMISSION = 'synthetic-owner-permission';
@@ -532,6 +532,7 @@ async function run(environment = process.env) {
     state = temporaryState();
     const keys = Object.fromEntries(['encryption', 'runner', 'hmac', 'oauth']
       .map(key => [key, crypto.randomBytes(32).toString('hex')]));
+    stage = 'SETUP_SYNTHETIC_TLS_TRANSPORT';
     fs.copyFileSync('/fixture-tls/cert.pem', path.join(state.root, 'mock-ca.crt'));
     transport = syntheticTransport(fixtureDataset(), keys, path.join(state.root, 'binary'));
     googleServer = https.createServer({ key: fs.readFileSync('/fixture-tls/key.pem'),
@@ -539,6 +540,7 @@ async function run(environment = process.env) {
     backendServer = http.createServer(transport.backend);
     for (const server of [googleServer, backendServer]) { server.requestTimeout = 65000; server.headersTimeout = 5000; }
     await listen(googleServer, 443);
+    stage = 'RESERVE_LOCAL_PORTS';
     const ports = { backend: await listen(backendServer) };
     mainReserve = net.createServer(); brokerReserve = net.createServer();
     ports.main = await listen(mainReserve); ports.broker = await listen(brokerReserve);
@@ -644,7 +646,9 @@ async function run(environment = process.env) {
       completion_receipt_replay_verified: true, production_backend_verified: false,
       real_google_api_verified: false, real_oauth_verified: false };
   } catch (error) {
-    const safe = /^[A-Z0-9_]{1,80}$/.test(error.message) ? error.message : 'FIXTURE_ASSERTION_FAILED';
+    const osCodes = ['EACCES', 'EPERM', 'ENOENT', 'EADDRINUSE', 'EADDRNOTAVAIL'];
+    const safe = osCodes.includes(error.code) ? 'FIXTURE_OS_' + error.code
+      : /^[A-Z0-9_]{1,80}$/.test(error.message) ? error.message : 'FIXTURE_ASSERTION_FAILED';
     result = { status: 'NATIVE_SYNTHETIC_DR95_FAILED', stage, reason: safe,
       production_backend_verified: false, real_google_api_verified: false, real_oauth_verified: false };
     if (transport) result.counters = { ...transport.counters };
