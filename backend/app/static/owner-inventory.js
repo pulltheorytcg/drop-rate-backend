@@ -23,6 +23,7 @@ window.DropRateInventory = (() => {
     img.loading = "lazy"; img.decoding = "async"; img.referrerPolicy = "no-referrer";
     wrap.append(placeholder, img);
     const owner = account(), attempts = [];
+    const community = window.DropRateBookArtwork?.reference(item, cls === "owner-item-art");
     const inventoryId = item.inventory_id || item.id;
     const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inventoryId || "");
     const directUrl = (value) => {
@@ -37,11 +38,17 @@ window.DropRateInventory = (() => {
     // in a browser. Send credentials ONLY to our owned-item API, never a CDN.
     const direct = directUrl(item.image_url);
     if (direct) attempts.push({url: direct});
-    if (validId) attempts.push({path: `/api/v1/inventory/${inventoryId}/image`});
+    if (validId && (!community || item.image_url || item.reference_image_url)) attempts.push({path: `/api/v1/inventory/${inventoryId}/image`});
     const reference = directUrl(item.reference_image_url);
     if (reference && reference !== direct) attempts.push({url: reference});
     const referencePath = `/api/v1/owner/inventory/${inventoryId}/reference-image`;
     if (validId && item.reference_image_path === referencePath) attempts.push({path: referencePath});
+    if (community) {
+      attempts.push({url: community.image_url});
+      if (!item.image_url && !item.reference_image_path && cls !== "owner-item-art") {
+        wrap.title = "Open Library cover reference · Cover may vary";
+      }
+    }
     let index = 0, objectUrl = null, loading = false, started = false;
     const current = () => owner === account() && wrap.isConnected;
     const release = () => {if (objectUrl) {URL.revokeObjectURL(objectUrl); objectUrl = null;}};
@@ -51,7 +58,10 @@ window.DropRateInventory = (() => {
       release();
       while (index < attempts.length && current()) {
         const attempt = attempts[index++];
-        if (attempt.url) {img.src = attempt.url; return;}
+        if (attempt.url) {
+          if (community && attempt.url === community.image_url) img.alt = `${item.name || "Book"} community cover reference; cover may vary`;
+          img.src = attempt.url; return;
+        }
         loading = true;
         try {
           const get = token => fetch(attempt.path, {headers: {Authorization: `Bearer ${token}`}, cache: "no-store"});
@@ -207,6 +217,8 @@ window.DropRateInventory = (() => {
     content.replaceChildren();
     const hero = el("section", "owner-item-hero"), figure = el("figure");
     figure.append(image(item, "owner-item-art"), el("figcaption", "", item.image_url ? "Item image" : "Reference image · not a photo of your copy"));
+    const community = window.DropRateBookArtwork?.reference(item, true);
+    if (community && !item.image_url && !item.reference_image_path) figure.append(window.DropRateBookArtwork.credit(community));
     const identity = el("div");
     identity.append(el("h3", "", item.name), el("p", "", inventoryCardSubtitle(item)),
       el("span", `owner-status-pill ${statusClass(item.status)}`, collectionStatus(item)));

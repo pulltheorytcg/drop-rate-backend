@@ -100,11 +100,19 @@ def exact_match(row, target):
     b=target["book_printing"]; title=str(row.get("title") or ""); text=_normal(title)
     if re.search(r"\b(?:bundle|lot|joblot|set of|collection of|choose|pick|poster|facsimile|replica|digital|kindle|ebook)\b",text) or re.search(SPECIAL_STATE,text):
         return False
-    if re.search(r"\b\d+\s*(?:books|comics|volumes|issues|copies)\b|\bx\s*\d+\b|\b\d+\s*(?:-|–|to)\s*\d+\b",title,re.I):
+    # A hyphenated ISBN/UPC is an identifier, not a range of volumes or a
+    # publication year. Mask only this printing's exact barcode before those
+    # checks; the original title must still contain the complete barcode.
+    title_without_barcode = title
+    if b.get("barcode_gtin"):
+        digits = re.sub(r"[\s-]", "", str(b["barcode_gtin"]))
+        barcode_pattern = r"(?<!\d)" + r"[\s-]*".join(re.escape(c) for c in digits) + r"(?!\d)"
+        title_without_barcode = re.sub(barcode_pattern, "", title_without_barcode)
+    if re.search(r"\b\d+\s*(?:books|comics|volumes|issues|copies)\b|\bx\s*\d+\b|\b\d+\s*(?:-|–|to)\s*\d+\b",title_without_barcode,re.I):
         return False
-    if not all(_contains(title,b[k]) for k in ("series_title","publisher","release_year")):
+    if not all(_contains(title_without_barcode,b[k]) for k in ("series_title","publisher","release_year")):
         return False
-    if any(int(y)!=b["release_year"] for y in re.findall(r"\b((?:19|20|21)\d{2})\b",title)):
+    if any(int(y)!=b["release_year"] for y in re.findall(r"\b((?:19|20|21)\d{2})\b",title_without_barcode)):
         return False
     # No title-name-only, absent-language or ISBN-only inference.
     if not _contains(title,target.get("language")): return False

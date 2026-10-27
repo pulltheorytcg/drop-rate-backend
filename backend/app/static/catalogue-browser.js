@@ -358,11 +358,13 @@ window.DropRateCatalogue = (() => {
     }
     productImage(row,cls="dr-browse-product-image") {
       const wrap=node("div",cls);
+      const community=window.DropRateBookArtwork?.reference(row,cls==="dr-browse-detail-image");
       // R2 mirrors are signed, short-lived object links for rights-approved
       // canonical media. Keep the original provider source as a fallback.
       const urls=[...new Set([row.r2_image_url,row.display_image_url,row.image_url,row.fallback_image_url]
         .filter(url=>typeof url==="string").map(url=>url.trim())
         .filter(url=>/^https:\/\//.test(url)||/^\/(?!\/)/.test(url)))];
+      if(community)urls.push(community.image_url);
       // TCGdex serves a grid-sized asset for the exact same card. Keep the
       // original as fallback and use it unchanged in the detail sheet.
       if(cls!=="dr-browse-detail-image" && /^https:\/\/assets\.tcgdex\.net\/[^?#]+\/high\.webp(?:\?|$)/.test(urls[0]||"")){
@@ -378,7 +380,8 @@ window.DropRateCatalogue = (() => {
       if(urls.length||referencePath){
         const image=node("img");image.alt=decode(row.name);image.loading="lazy";image.decoding="async";image.referrerPolicy="no-referrer";
         if(row.artwork_kind==="PUBLISHER_REFERENCE")image.alt+=" — publisher reference cover";
-        if(cls==="dr-browse-detail-image")image.loading="eager";
+        if(community)image.alt+=" — community cover reference; cover may vary";
+        if(cls==="dr-browse-detail-image"&&!community)image.loading="eager";
         image.addEventListener("load",()=>{placeholder.hidden=true;});
         // One Piece's publisher blocks direct cross-site card images. Other
         // reference providers first load from their own origin so Railway only
@@ -457,6 +460,8 @@ window.DropRateCatalogue = (() => {
         const meta=[row.rarity,row.card_number].filter(Boolean).join(" · ");
         open.append(node("small","",decode(row.set_name)),node("small","",meta),node("small","",row.language+" · "+(row.product_type==="SEALED"?"Sealed":row.product_type==="COMIC"?"Collectible book":printingMarker(row)||decode(row.variant))));
         card.append(open);
+        const community=window.DropRateBookArtwork?.reference(row);
+        if(community)card.append(window.DropRateBookArtwork.credit(community,"dr-browse-reference-note"));
         const footer=node("div","dr-browse-product-footer"),copy=node("div"),price=node("strong","",marketPrice(row));price.dataset.priceKey=row.key;
         copy.append(price,node("small","","Qty: "+row.owned_quantity));
         const plus=button("+",()=>row.product_type==="COMIC"?this.openBookIntake(row):this.openProduct(row),"dr-browse-plus");plus.setAttribute("aria-label","Add "+decode(row.name));footer.append(copy,plus);card.append(footer);
@@ -539,6 +544,8 @@ window.DropRateCatalogue = (() => {
           source.href=row.publisher_source_url;source.target="_blank";source.rel="noopener noreferrer";content.append(source);
         }
         if(row.artwork_kind==="PUBLISHER_REFERENCE")content.append(node("p","dr-browse-reference-note","Publisher reference cover. Your copy's printing or cover may differ."));
+        const community=window.DropRateBookArtwork?.reference(row,true);
+        if(community)content.append(window.DropRateBookArtwork.credit(community,"dr-browse-reference-note"));
         if(row.book_sold_search_url?.startsWith("https://www.ebay.co.uk/sch/i.html?")){
           const sold=node("a","dr-browse-publisher-source","Compare sold listings on eBay UK ↗");
           sold.href=row.book_sold_search_url;sold.target="_blank";sold.rel="noopener noreferrer";content.append(sold);

@@ -576,7 +576,8 @@ function inventoryImageFigure(item) {
   figure.setAttribute("aria-label", `Review ${item.name}`);
   figure.addEventListener("click", () => openInventoryCopies(item));
 
-  if (!item.card_image_url) {
+  const community = window.DropRateBookArtwork?.reference(item);
+  if (!item.card_image_url && !community) {
     const empty = document.createElement("div");
     empty.className = "inventory-card-art-empty";
     empty.innerHTML = "<span>◇</span><strong>No image yet</strong><small>Exact image not assigned yet</small>";
@@ -588,6 +589,22 @@ function inventoryImageFigure(item) {
   image.alt = [item.name, item.set_name, item.card_number, item.language || item.catalogue_language]
     .filter(Boolean).join(" · ");
   image.decoding = "async";
+  image.referrerPolicy = "no-referrer";
+
+  if (!item.card_image_url && community) {
+    image.loading = "lazy";
+    image.alt += " · Community cover reference; cover may vary";
+    image.addEventListener("error", () => {
+      image.remove();
+      const empty = document.createElement("div"); empty.className = "inventory-card-art-empty";
+      empty.textContent = "Cover unavailable"; figure.append(empty);
+    }, {once:true});
+    figure.append(image); image.src = community.image_url;
+    const badge = document.createElement("span"); badge.className = "inventory-image-badge";
+    badge.textContent = "Cover reference · Cover may vary"; figure.append(badge);
+    figure.dataset.imageState = "community-reference";
+    return figure;
+  }
 
   const showFailure = () => {
     if (image.isConnected) image.remove();
@@ -682,6 +699,8 @@ function inventoryVisualCard(item) {
   });
   selectWrap.append(checkbox);
   card.append(selectWrap, inventoryImageFigure(item));
+  const community = window.DropRateBookArtwork?.reference(item);
+  if (community && !item.card_image_url) card.append(window.DropRateBookArtwork.credit(community));
 
   const body = document.createElement("div");
   body.className = "inventory-visual-card-body";

@@ -1,0 +1,18 @@
+{
+  "source_rows": 1541,
+  "accepted_reference_paths": 1540,
+  "accepted_by_system": {
+    "OTHER_COMICS": 547,
+    "MANGA": 767,
+    "MARVEL_COMICS": 130,
+    "DC_COMICS": 96
+  },
+  "rejected": [
+    {
+      "catalogue_id": "9f20f0c4-9480-5dd5-bd50-7e373db8eaba",
+      "name": "50 Rules For Teenagers Volume 2",
+      "edition_id": "OL9465913M"
+    }
+  ],
+  "note": "Read-only application-helper validation using actual database rows. Accepted paths are not an assertion that all source images load or are visually correct."
+}
