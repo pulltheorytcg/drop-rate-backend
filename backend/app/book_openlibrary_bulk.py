@@ -298,6 +298,9 @@ def classification_hold(row):
     edition = row["edition"]
     title = str(edition.get("title", ""))
     subjects = " | ".join(edition.get("subjects", []))
+    if (edition.get("publishers") == ["Adventure House"]
+            and re.match(r"^(?:G-8 And His Battle Aces|High Adventure)\s+#", title, re.I)):
+        return "PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED"
     if re.search(r"\b(?:history\s+and\s+criticism|study\s+and\s+teaching|bibliograph\w*|"
                  r"handbooks?|manuals?|dictionaries|encyclop\w*|drawing\s+techniques?)\b", subjects, re.I):
         return "ABOUT_COMICS_NONFICTION_REVIEW_REQUIRED"

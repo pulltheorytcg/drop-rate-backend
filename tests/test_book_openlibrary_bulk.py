@@ -198,6 +198,17 @@ def test_export_audits_about_comics_and_provisional_title_holds(tmp_path, title,
         assert again["export_quality"] == report["export_quality"]
 
 
+@pytest.mark.parametrize("title", ["G-8 And His Battle Aces #21", "High Adventure #90"])
+def test_reviewed_pulp_series_require_form_review_despite_generic_graphic_subjects(tmp_path, title):
+    row = edition(); row.update(title=title, publishers=["Adventure House"], subjects=["Graphic Novels"])
+    path, spec = make_dump(tmp_path, row)
+    with open_selection(":memory:") as state:
+        assert scan_dump(path, spec, state)["accepted_records"] == 1
+        report = export_selection(state, tmp_path / "out.jsonl")
+    assert report["exported_records"] == 0
+    assert report["export_quality"]["hold_reasons"] == {"PULP_OR_GRAPHIC_FORM_REVIEW_REQUIRED": 1}
+
+
 def test_download_resumes_exact_ranges_then_verifies_full_manifest_hash(tmp_path):
     data = b"a verified official compressed payload fixture"
     spec = {"source": DUMP, "size": len(data), "sha1": hashlib.sha1(data).hexdigest()}
