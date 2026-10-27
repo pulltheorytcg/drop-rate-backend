@@ -14,7 +14,19 @@ rejecting the five identified historical publisher comic references merely
 because their exact release date is NULL; strict past-year and existing
 publisher/identity/digest checks still apply.
 
-Release state: current-head CI and Railway deployment verification pending.
+Release state: **LIVE**. PR #751 merged as
+`e79ca7efadf6aa396e214ce93864052f6c43c472`. All seven current-head workflows
+passed: 7,047 backend tests plus the dedicated 80-case import/artwork suite
+with isolated PostgreSQL enabled. Railway deployment
+`39868c24-1d43-431d-a665-c3dcd06598a3` is **SUCCESS** at 12:50:44 UTC; its
+normal predeploy suite passed 7,047 tests, startup completed, and the new
+runtime logged readiness **200 OK at 12:50:41 UTC**.
+See the [release receipt](docs/evidence/catalogue-recovery-release-20261027.json).
+
+Detailed Supabase SQL reads stalled in this continuation. The last exact
+coverage checkpoint remains 12:03–12:04 UTC, and no newer percentage is claimed.
+No live authenticated owner image request is claimed; the actual SQL and all
+five reviewed identities passed the focused SQL/route tests.
 No provider, quota, scheduler revision, schema, inventory, ownership, market
 value or Store Price is changed by this code release. Auction scanning remains
 design only. See [recovered handover](docs/CATALOGUE_RECOVERY_20261027.md),

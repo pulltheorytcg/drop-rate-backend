@@ -8,8 +8,13 @@ workflow, tests and datasets match their recorded SHA-256 and byte length:
 runbook, which gained the completed production and staging reconciliation
 receipts after the original manifest was written. The exact comparisons are in
 [evidence/book-recovery-file-integrity-20261027.json](evidence/book-recovery-file-integrity-20261027.json).
-The current recovery is being released through the existing PR #751; deployment
-verification will be appended after the release completes.
+The recovery is **live** through [PR #751](https://github.com/pulltheorytcg/drop-rate-backend/pull/751),
+merged as `e79ca7efadf6aa396e214ce93864052f6c43c472`. All seven current-head
+workflows passed, including 7,047 backend tests and the 80-case dedicated
+import/artwork suite with isolated PostgreSQL enabled. Railway deployment
+`39868c24-1d43-431d-a665-c3dcd06598a3` reached **SUCCESS at 12:50:44 UTC**.
+Its predeploy suite passed 7,047 tests and the new runtime returned readiness
+**200 OK at 12:50:41 UTC**. See the [release receipt](evidence/catalogue-recovery-release-20261027.json).
 
 The recovered immutable source snapshots, original subject audit, 57-entry exact
 hold registry and all 30 production receipts are now part of that release. The
@@ -45,9 +50,9 @@ Railway deployment `ad845201-ebaf-4d56-aa9c-1953742c2ea8` is **SUCCESS**. Its no
 
 No Railway configuration, provider quota, daily scheduler revision or one-off operator was changed. The social evidence probe reported SKIPPED under its existing configuration. At that checkpoint, the original book work remained in draft PR #751 pending recovery of its final local code and data; the continuation above records that recovery.
 
-## Verified live data
+## Last exact database checkpoint
 
-Read directly from Supabase at **12:03–12:04 UTC (UK time)** after the workspace interruption. All three production run receipts remain COMPLETE. These changes are already committed; they do not depend on the pending code release.
+Read directly from Supabase at **12:03–12:04 UTC (UK time)** after the workspace interruption. The later continuation recovered and released code, but its detailed SQL reads stalled, so these figures are not relabelled as a fresh 12:50 measurement. All three production run receipts remain COMPLETE. These changes are already committed; they do not depend on the pending code release.
 
 | Measure | Verified state |
 | --- | ---: |
@@ -110,7 +115,7 @@ The isolated release passed its own current-head CI and normal Railway deploymen
 2. **Artwork and printing evidence.** 6,782 physical card URLs remain missing. Book cover/printing work is separate from the newly imported edition metadata. The last accepted publisher-cover audit was 47 references after the VIZ repair; it is not a claim of 47 newly approved media assets.
 3. **Free-source capacity.** Existing approved hourly jobs continue within the established 35-request hourly allocation and shared quota reserve. Refresh/write counts must not be described as newly covered cards.
 4. **R2 scope.** The previous verified checkpoint has 401 approved-media mirrors and zero eligible backlog, while broad reference-image mirroring remains source-permission gated. Current prices remain authoritative in Supabase. Adding R2 capacity alone does not create missing values, exact mappings or reproduction rights.
-5. **Workspace recovery resolved.** Final code, datasets and receipts have been recovered and hash-checked. The continuation release must complete current-head CI and production verification; GitHub, Supabase and Railway access is working.
+5. **Workspace recovery resolved.** Final code, datasets and receipts have been recovered and hash-checked. The continuation release passed all seven current-head workflows and production startup/readiness verification. Detailed Supabase SQL reads stalled and were interrupted; project metadata reports healthy, but no fresh joined coverage count is claimed.
 
 TCGCSV remains disabled. The separate earlier Railway one-off preview was declined and has not been retried or bypassed. There is no need for new paid-feed authorization to release the reviewed card fixes.
 
@@ -122,6 +127,6 @@ Its proposed median-under-2-second and p95-under-4-second timings are targets, n
 
 ## Resume
 
-Read the next normal hourly pricing receipts after this release; attempted refreshes are not new covered references. Complete the recovered book release without repeating applied batches. Then continue exact-source mapping, publisher cover review, review of the deferred cohort and book valuation evidence. Keep the scanner as a proposal until the user requests implementation.
+Read the next normal hourly pricing receipts after this release; attempted refreshes are not new covered references. The recovered book release is complete. Continue exact-source mapping, publisher cover review, review of the deferred cohort and book valuation evidence without repeating applied batches. Obtain a fresh joined coverage readback when the SQL connector responds; do not turn table row estimates or refresh counts into new coverage claims. Keep the scanner as a proposal until the user requests implementation.
 
 Machine-readable production checkpoint: [catalogue-recovery-readback-20261027.json](evidence/catalogue-recovery-readback-20261027.json).

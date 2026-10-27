@@ -1,0 +1,116 @@
+{
+  "schema_version": "catalogue-recovery-release-v1",
+  "date": "2026-10-27",
+  "repository": "pulltheorytcg/drop-rate-backend",
+  "pull_request": 751,
+  "tested_head": "f0036609d19b3147b678aaedac36f1a696c1a183",
+  "merge_commit": "e79ca7efadf6aa396e214ce93864052f6c43c472",
+  "git_tree": "0e042a0d771854c05230dcea6367e55880969b19",
+  "recovery": {
+    "manifest_files": 21,
+    "exact_matches": 20,
+    "code_workflow_tests_and_data_all_match": true,
+    "only_mismatch": "docs/BOOK_MONTHLY_CATALOGUE_20261027.md contained later production/reconciliation notes",
+    "duplicate_production_imports": 0,
+    "deferred_candidates": 909
+  },
+  "ci": {
+    "workflows": [
+      {
+        "id": 40506318950,
+        "name": "Catalogue maintenance persistence",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40506318950"
+      },
+      {
+        "id": 40506318913,
+        "name": "Pokemon artwork repair persistence",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40506318913"
+      },
+      {
+        "id": 40506318857,
+        "name": "Open Library factual metadata and connector SQL",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40506318857"
+      },
+      {
+        "id": 40506319194,
+        "name": "Backend checks",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40506319194"
+      },
+      {
+        "id": 40506319147,
+        "name": "Immediate owner imports",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40506319147"
+      },
+      {
+        "id": 40506319177,
+        "name": "Shared inventory reference consistency",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40506319177"
+      },
+      {
+        "id": 40506318868,
+        "name": "Collection-first confirmation",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/pulltheorytcg/drop-rate-backend/actions/runs/40506318868"
+      }
+    ],
+    "backend_passed": 7047,
+    "backend_optional_sql_skipped": 18,
+    "dedicated_import_artwork_checks": 80,
+    "dedicated_sql_enabled": true,
+    "new_cover_route_local": {
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "railway": {
+    "project_id": "9329767b-b092-495c-bf18-75cf69c28536",
+    "environment_id": "6f00816c-b630-4d0b-bcc1-26ac71fa712d",
+    "service_id": "6aa92310-153f-4fc9-9e22-dc338282605b",
+    "deployment_id": "39868c24-1d43-431d-a665-c3dcd06598a3",
+    "status": "SUCCESS",
+    "deployed_commit": "e79ca7efadf6aa396e214ce93864052f6c43c472",
+    "created_at": "2026-10-27T12:49:09.652Z",
+    "status_updated_at": "2026-10-27T12:50:44.729Z",
+    "predeploy_tests_passed": 7047,
+    "readiness": {
+      "status": 200,
+      "observed_at": "2026-10-27T12:50:41.744576703Z",
+      "basis": "new deployment runtime healthcheck log"
+    },
+    "startup_archive": {
+      "status": "NO_HISTORY",
+      "rows_archived": 0,
+      "bytes_reclaimed": 0
+    }
+  },
+  "verification_limits": {
+    "fresh_joined_database_coverage": "UNAVAILABLE: bounded Supabase SQL reads stalled and were interrupted; no new coverage measurement claimed",
+    "live_comic_image_http": "Not independently probed with a live authenticated owner; actual query and five exact reviewed identities covered by passing isolated SQL/route tests",
+    "external_api_http": "Not claimed; readiness verified through Railway new-runtime log",
+    "data_checkpoint_reference": "catalogue-recovery-readback-20261027.json",
+    "data_checkpoint_time": "2026-10-27T12:03:00Z"
+  },
+  "scope": {
+    "new_book_imports": 0,
+    "source_registry_changes": 0,
+    "provider_quota_changes": 0,
+    "schema_changes": 0,
+    "inventory_mutations": 0,
+    "store_price_changes": 0,
+    "auction_scanner_implemented": false
+  }
+}
