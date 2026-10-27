@@ -1,0 +1,1167 @@
+{
+  "id": "DR95R2DriveArchiveV1",
+  "name": "DR-95 Weekly Private R2 Archive Copy",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/London",
+    "errorWorkflow": "DR90GlobalErrorV1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "executionTimeout": 900
+  },
+  "nodes": [
+    {
+      "id": "dr95-1",
+      "name": "Weekly Private Archive Scan",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                0
+              ],
+              "triggerAtHour": 4,
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dr95-2",
+      "name": "Manual Review Run",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "dr95-3",
+      "name": "Initialize Weekly Scan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nneed($env.DROP_RATE_DRIVE_ARCHIVE_ENABLED==='true','drive_archive_disabled');\nconst execution_id=String($execution.id||'');\nneed(/^[A-Za-z0-9_.:-]{1,120}$/.test(execution_id),'execution_id_invalid');\nconst stored=$getWorkflowStaticData('global').dr95_checkpoint;\nconst checkpoint=stored ? copy(stored) : emptyCheckpoint();\nvalidateCheckpoint(checkpoint);\nreturn output({execution_id,started_at_ms:Date.now(),phase:'ADVANCE',checkpoint,\n  counters:{pages:0,objects:0,bytes:0,archives:0,previously_recorded:0},destination:null,authorized_phase:null});\n"
+      }
+    },
+    {
+      "id": "dr95-4",
+      "name": "Advance Serial Work",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst input=$input.first(); const ctx=copy(input.json.ctx); validateCheckpoint(ctx.checkpoint);\nconst c=ctx.checkpoint;\nwhile(ctx.phase==='ADVANCE') {\n  if(c.kind_index===2) { ctx.phase='FINISH'; ctx.finish_reason=c.blocked_count?'BLOCKED_ARCHIVES':'SWEEP_FINISHED'; break; }\n  if(Date.now()-ctx.started_at_ms>=600000) { ctx.phase='FINISH';ctx.finish_reason='TIME_BUDGET';break; }\n  if(c.page===null) {\n    if(ctx.counters.pages>=40) { ctx.phase='FINISH';ctx.finish_reason='PAGE_BUDGET';break; }\n    ctx.phase='PLAN';break;\n  }\n  const p=c.page;\n  if(p.archive_index>=p.archives.length) {\n    c.cursors[c.kind_index]=p.next_cursor;\n    if(!p.has_more) { c.cursors[c.kind_index]=null;c.kind_index+=1; }\n    c.page=null;continue;\n  }\n  const a=currentArchive(ctx);\n  // /complete may have succeeded before DR91 failed. Replay the same durable\n  // completion and DR91 idempotency key rather than skipping that receipt.\n  if(a.copy_status==='RECORDED_BYTES_VERIFIED') { ctx.counters.previously_recorded+=1;ctx.phase='COMPLETE';break; }\n  if(p.object_index>=a.objects.length) { ctx.phase='COMPLETE';break; }\n  const m=currentMember(ctx);\n  if(ctx.counters.objects>=32 || ctx.counters.bytes+m.size_bytes>32000000) { ctx.phase='FINISH';ctx.finish_reason='OBJECT_BUDGET';break; }\n  clearMember(ctx);ctx.phase='GENERATE_ID';break;\n}\nif(['PLAN','RESERVE','OBJECT','VERIFY','COMPLETE'].includes(ctx.phase)) {\n  if(ctx.authorized_phase!==ctx.phase || !ctx.destination || Date.now()-Date.parse(ctx.destination.checked_at)>120000) {\n    ctx.pending_phase=ctx.phase;ctx.phase='DESTINATION';\n  }\n}\nconst actions=['DESTINATION','PLAN','GENERATE_ID','RESERVE','LOOKUP','CREATE','OBJECT','UPLOAD','DOWNLOAD','VERIFY','COMPLETE','SUCCESS','FINISH'];\nconst route=actions.indexOf(ctx.phase);need(route>=0,'archive_phase_invalid');\nreturn [{json:{ctx,route},...(input.binary?{binary:input.binary}:{})}];\n"
+      }
+    },
+    {
+      "id": "dr95-5",
+      "name": "Route Operation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 13,
+        "output": "={{ $json.route }}"
+      }
+    },
+    {
+      "id": "dr95-6",
+      "name": "Google Account Identity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/drive/v3/about?fields=user(emailAddress,permissionId)",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "options": {
+          "timeout": 30000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr95-7",
+      "name": "Google Private Folder Identity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        200
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/drive/v3/files/1NhFIsWesgxlf059UMdx65ps9kFMqQeO9?fields=id,name,mimeType,trashed,shared,owners(emailAddress,permissionId),permissions(role,type,emailAddress),capabilities(canAddChildren)",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "options": {
+          "timeout": 30000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr95-8",
+      "name": "Verify Current Destination",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst source=$('Advance Serial Work').item;\nconst ctx=copy(source.json.ctx);\nconst about=responseBody($('Google Account Identity').item.json);\nconst folder=responseBody($input.first().json);\nneed(about?.user?.emailAddress===ACCOUNT && typeof about.user.permissionId==='string' && about.user.permissionId.length>=1 && about.user.permissionId.length<=200,'drive_account_mismatch');\nneed(folder?.id===FOLDER && folder.name===FOLDER_NAME && folder.mimeType==='application/vnd.google-apps.folder' && folder.trashed===false && folder.shared===false && folder.capabilities?.canAddChildren===true,'drive_folder_mismatch');\nneed(Array.isArray(folder.owners) && folder.owners.length===1 && folder.owners[0].emailAddress===ACCOUNT && folder.owners[0].permissionId===about.user.permissionId,'drive_folder_owner_mismatch');\nneed(Array.isArray(folder.permissions) && folder.permissions.length===1 && folder.permissions[0].role==='owner' && folder.permissions[0].type==='user' && folder.permissions[0].emailAddress===ACCOUNT,'drive_folder_not_private');\nctx.destination={account_email:about.user.emailAddress,account_permission_id:about.user.permissionId,folder_id:folder.id,\n  folder_name:folder.name,folder_mime_type:folder.mimeType,folder_trashed:folder.trashed,folder_shared:folder.shared,\n  folder_owner_email:folder.owners[0].emailAddress,folder_owner_permission_id:folder.owners[0].permissionId,\n  permission_roles:folder.permissions.map(p=>p.role),checked_at:new Date().toISOString()};\nneed(['PLAN','RESERVE','OBJECT','VERIFY','COMPLETE'].includes(ctx.pending_phase),'destination_phase_invalid');\nctx.phase=ctx.pending_phase;ctx.authorized_phase=ctx.phase;delete ctx.pending_phase;\nreturn output(ctx,source.binary);\n"
+      }
+    },
+    {
+      "id": "dr95-9",
+      "name": "Sign Bounded Backend Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst crypto=require('crypto');const input=$input.first();const ctx=copy(input.json.ctx);\nneed(ctx.authorized_phase===ctx.phase && ctx.destination && Date.now()-Date.parse(ctx.destination.checked_at)<=120000,'destination_evidence_stale');\nconst secret=String($env.DROP_RATE_AUTOMATION_COMMAND_SECRET||'').trim();\nconst control=String($env.DROP_RATE_API_AUTOMATION_CONTROL_URL||'').trim();\nneed(secret.length>=32,'archive_secret_not_configured');\nconst originMatch=/^(https?:\\/\\/[A-Za-z0-9.-]+(?::[0-9]{1,5})?)\\/api\\/v1\\/automation\\/control\\/receipt$/.exec(control);\nneed(originMatch,'archive_control_url_invalid');\nconst endpoints={PLAN:['plan','PLAN_DRIVE_ARCHIVE_COPY'],RESERVE:['reserve','RESERVE_DRIVE_ARCHIVE_FILE'],OBJECT:['object','READ_DRIVE_ARCHIVE_OBJECT'],VERIFY:['verify-readback','VERIFY_DRIVE_ARCHIVE_READBACK'],COMPLETE:['complete','COMPLETE_DRIVE_ARCHIVE_COPY']};\nneed(Object.hasOwn(endpoints,ctx.phase),'archive_command_invalid');\nconst [endpoint,action]=endpoints[ctx.phase];\nconst command={schema_version:1,action,execution_id:ctx.execution_id,occurred_at:new Date().toISOString(),destination:ctx.destination};\nif(ctx.phase==='PLAN') Object.assign(command,{kind:KINDS[ctx.checkpoint.kind_index],cursor:ctx.checkpoint.cursors[ctx.checkpoint.kind_index],limit:2});\nelse { const a=currentArchive(ctx);Object.assign(command,{kind:a.kind,manifest_sha256:a.manifest_sha256});\n  if(ctx.phase!=='COMPLETE') command.object_sha256=currentMember(ctx).sha256;\n  if(ctx.phase==='RESERVE') { need(FILE_ID.test(ctx.proposed_file_id),'generated_file_id_invalid');command.proposed_file_id=ctx.proposed_file_id; }\n  if(ctx.phase==='VERIFY') { need(input.binary?.download && ctx.have_download===true,'download_missing');command.drive_file=ctx.drive_file; }\n}\nconst body=JSON.stringify(command),timestamp=String(Math.floor(Date.now()/1000));\nneed(Buffer.byteLength(body)<=6000,'archive_command_too_large');\nconst signature='sha256='+crypto.createHmac('sha256',secret).update(timestamp+'.'+body,'utf8').digest('hex');\nconst command_url=originMatch[1]+'/api/v1/automation/commands/storage/drive-archive/'+endpoint;\nconst envelope=Buffer.from(body).toString('base64url');need(envelope.length<=8192,'archive_envelope_too_large');\nreturn [{json:{ctx,command_url,command_body:body,command_timestamp:timestamp,command_signature:signature,command_envelope:envelope,\n  transport:ctx.phase==='OBJECT'?1:ctx.phase==='VERIFY'?2:0},...(input.binary?{binary:input.binary}:{})}];\n"
+      }
+    },
+    {
+      "id": "dr95-10",
+      "name": "Route Backend Transport",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        880,
+        200
+      ],
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 3,
+        "output": "={{ $json.transport }}"
+      }
+    },
+    {
+      "id": "dr95-11",
+      "name": "Send Signed Metadata Command",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.command_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.command_timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.command_signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "options": {
+          "timeout": 90000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "autodetect"
+            }
+          }
+        },
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.command_body }}"
+      }
+    },
+    {
+      "id": "dr95-12",
+      "name": "Accept Backend Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst ctx=copy($('Sign Bounded Backend Command').item.json.ctx);const body=responseBody($input.first().json);\nneed(body?.accepted===true && body.execution_id===ctx.execution_id,'archive_command_not_accepted');ctx.authorized_phase=null;\nif(ctx.phase==='PLAN') {\n  const c=ctx.checkpoint,kind=KINDS[c.kind_index];\n  need(body.scan_scope==='PAGE' && body.history_cleanup_authorised===false && body.drive_current_availability==='NOT_ASSESSED','archive_plan_scope_invalid');\n  need(Array.isArray(body.archives) && body.archives.length<=2 && Array.isArray(body.blocked_archives) && body.blocked_archives.length<=40 && typeof body.has_more==='boolean' && validCursor(body.next_cursor),'archive_plan_invalid');\n  need(body.has_more ? body.next_cursor!==null && body.next_cursor!==c.cursors[c.kind_index] : body.next_cursor===null,'archive_plan_not_advancing');\n  body.archives.forEach(a=>validateArchive(a,kind));need(new Set(body.archives.map(a=>a.manifest_sha256)).size===body.archives.length,'duplicate_archive');\n  for(const issue of body.blocked_archives) {\n    need(issue && SHA.test(issue.manifest_sha256) && typeof issue.reason==='string' && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'blocked_archive_invalid');\n    c.blocked_count+=1;\n    if(c.blocked_sample.length<20) c.blocked_sample.push({kind,manifest_sha256:issue.manifest_sha256,reason:issue.reason,\n      ...(Number.isSafeInteger(issue.declared_size_bytes)?{declared_size_bytes:issue.declared_size_bytes,maximum_object_bytes:issue.maximum_object_bytes}:{})});\n  }\n  c.page={kind,archives:copy(body.archives),archive_index:0,object_index:0,has_more:body.has_more,next_cursor:body.next_cursor};\n  ctx.counters.pages+=1;ctx.phase='ADVANCE';\n} else if(ctx.phase==='RESERVE') {\n  const m=currentMember(ctx);\n  need(FILE_ID.test(body.file_id) && body.file_name===m.file_name && equalProperties(body.app_properties,expectedProperties(ctx)),'archive_reservation_invalid');\n  ctx.reservation={file_id:body.file_id,file_name:body.file_name,app_properties:copy(body.app_properties)};\n  delete ctx.proposed_file_id;ctx.phase='LOOKUP';\n} else if(ctx.phase==='COMPLETE') {\n  const a=currentArchive(ctx);\n  need(body.status==='ARCHIVE_COPY_RECORDED' && body.manifest_sha256===a.manifest_sha256 && body.archive_id===a.archive_id && body.objects_verified===a.objects.length && SHA.test(body.receipt_sha256) && body.history_cleanup_authorised===false && Number.isFinite(Date.parse(body.completed_at)),'archive_completion_unverified');\n  ctx.completion={manifest_sha256:body.manifest_sha256,receipt_sha256:body.receipt_sha256,completed_at:body.completed_at};ctx.phase='SUCCESS';\n} else throw new Error('backend_metadata_phase_invalid');\nreturn output(ctx);\n"
+      }
+    },
+    {
+      "id": "dr95-13",
+      "name": "Generate Drive File ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        400
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/drive/v3/files/generateIds?count=1&space=drive&type=files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "options": {
+          "timeout": 30000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr95-14",
+      "name": "Accept Generated Drive ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst ctx=copy($('Advance Serial Work').item.json.ctx);const body=responseBody($input.first().json);\nneed(Array.isArray(body?.ids) && body.ids.length===1 && FILE_ID.test(body.ids[0]),'drive_generated_id_invalid');\nctx.proposed_file_id=body.ids[0];ctx.phase='RESERVE';return output(ctx);\n"
+      }
+    },
+    {
+      "id": "dr95-15",
+      "name": "Read Exact Reserved File Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        400
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent($json.ctx.reservation.file_id) + '?fields=id,name,mimeType,size,sha256Checksum,parents,owners(emailAddress,permissionId),permissions(role,type,emailAddress),shared,trashed,appProperties' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "options": {
+          "timeout": 30000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "dr95-16",
+      "name": "Verify Reserved File Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        600
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst source=$('Advance Serial Work').item;const ctx=copy(source.json.ctx);const response=$input.first().json;\nif(response?.statusCode===404) {\n  need(!ctx.create_attempted && !ctx.have_download && !ctx.uploaded,'reserved_file_missing_after_creation');\n  ctx.phase=ctx.source_ready?'CREATE':'OBJECT';return output(ctx,source.binary);\n}\nconst file=driveFile(ctx,responseBody(response));ctx.drive_file=file;\n// Empty files are held. There is no PATCH/update path for an existing file.\nneed(file.size_bytes>0,'drive_existing_empty_file_held');\nif(ctx.have_download) { need(file.size_bytes===currentMember(ctx).size_bytes,'drive_readback_metadata_mismatch');ctx.phase='VERIFY';return output(ctx,source.binary); }\n// Existing nonempty files are never overwritten. Their actual downloaded bytes\n// must still match both here and independently at the backend before completion.\nctx.source_ready=false;ctx.phase='DOWNLOAD';return output(ctx);\n"
+      }
+    },
+    {
+      "id": "dr95-17",
+      "name": "Begin Reserved-ID Resumable Create",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "options": {
+          "timeout": 30000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "autodetect"
+            }
+          }
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({id:$json.ctx.reservation.file_id,name:$json.ctx.reservation.file_name,mimeType:$json.ctx.checkpoint.page.archives[$json.ctx.checkpoint.page.archive_index].objects[$json.ctx.checkpoint.page.object_index].mime_type,parents:['1NhFIsWesgxlf059UMdx65ps9kFMqQeO9'],appProperties:$json.ctx.reservation.app_properties}) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Upload-Content-Type",
+              "value": "={{ $json.ctx.checkpoint.page.archives[$json.ctx.checkpoint.page.archive_index].objects[$json.ctx.checkpoint.page.object_index].mime_type }}"
+            },
+            {
+              "name": "X-Upload-Content-Length",
+              "value": "={{ String($json.ctx.checkpoint.page.archives[$json.ctx.checkpoint.page.archive_index].objects[$json.ctx.checkpoint.page.object_index].size_bytes) }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dr95-18",
+      "name": "Accept Resumable Creation Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        600
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst source=$('Advance Serial Work').item;const ctx=copy(source.json.ctx);const response=$input.first().json;\nneed(ctx.source_ready===true && source.binary?.source,'drive_create_source_missing');\nneed(response && ([200,201].includes(response.statusCode) || response.statusCode===409),'drive_resumable_create_failed');\nctx.create_attempted=true;\nif(response.statusCode===409) {ctx.phase='LOOKUP';return output(ctx);}\nconst location=response.headers?.location;\nneed(typeof location==='string' && /^https:\\/\\/www\\.googleapis\\.com\\/upload\\/drive\\/v3\\/files\\?uploadType=resumable&upload_id=[A-Za-z0-9_-]{1,2048}$/.test(location),'drive_upload_session_location_invalid');\nctx.upload_url=location;ctx.phase='UPLOAD';return output(ctx,source.binary);\n"
+      }
+    },
+    {
+      "id": "dr95-19",
+      "name": "Read Verified R2 Source Bytes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.command_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.command_timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.command_signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "options": {
+          "timeout": 90000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "file",
+              "outputPropertyName": "source"
+            }
+          }
+        },
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.command_body }}"
+      }
+    },
+    {
+      "id": "dr95-20",
+      "name": "Verify Source Bytes Before Creation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        600
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst crypto=require('crypto');const ctx=copy($('Sign Bounded Backend Command').item.json.ctx);const input=$input.first();const m=currentMember(ctx);\nneed(input.json?.statusCode===200 && input.binary?.source,'archive_source_response_invalid');\nconst headers=input.json.headers||{};\nneed(String(headers['content-length'])===String(m.size_bytes) && headers['x-drop-rate-content-sha256']===m.sha256 && headers['cache-control']==='no-store','archive_source_headers_invalid');\nconst bytes=await this.helpers.getBinaryDataBuffer(0,'source');\nneed(bytes.length===m.size_bytes && bytes.length<=MAX_OBJECT && crypto.createHash('sha256').update(bytes).digest('hex')===m.sha256,'archive_source_bytes_invalid');\nneed(input.binary.source.mimeType===m.mime_type,'archive_source_mime_invalid');\nctx.authorized_phase=null;ctx.source_ready=true;ctx.phase='LOOKUP';\n// Re-read the reserved ID before CREATE. A concurrent successful CREATE returns\n// 409 and is inspected; this path never changes existing file content.\nreturn output(ctx,{source:input.binary.source});\n"
+      }
+    },
+    {
+      "id": "dr95-21",
+      "name": "Upload Reserved-ID Creation Bytes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        800
+      ],
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $json.ctx.upload_url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "options": {
+          "timeout": 60000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "source",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "={{ $json.ctx.checkpoint.page.archives[$json.ctx.checkpoint.page.archive_index].objects[$json.ctx.checkpoint.page.object_index].mime_type }}"
+            },
+            {
+              "name": "Content-Range",
+              "value": "={{ 'bytes 0-' + ($json.ctx.checkpoint.page.archives[$json.ctx.checkpoint.page.archive_index].objects[$json.ctx.checkpoint.page.object_index].size_bytes - 1) + '/' + $json.ctx.checkpoint.page.archives[$json.ctx.checkpoint.page.archive_index].objects[$json.ctx.checkpoint.page.object_index].size_bytes }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dr95-22",
+      "name": "Accept Reserved-ID Content Creation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        800
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst ctx=copy($('Advance Serial Work').item.json.ctx);const response=$input.first().json;\nneed(ctx.source_ready===true && ctx.create_attempted===true && typeof ctx.upload_url==='string','drive_upload_state_invalid');\nneed(response && ([200,201].includes(response.statusCode) || response.statusCode===409),'drive_content_create_failed');\nif(response.statusCode!==409 && response.body?.id) need(response.body.id===ctx.reservation.file_id,'drive_created_file_id_mismatch');\ndelete ctx.upload_url;ctx.uploaded=response.statusCode!==409;ctx.phase='LOOKUP';return output(ctx);\n"
+      }
+    },
+    {
+      "id": "dr95-23",
+      "name": "Native Download Exact Reserved File",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        440,
+        800
+      ],
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "file",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.ctx.reservation.file_id }}"
+        },
+        "options": {
+          "binaryPropertyName": "download"
+        }
+      }
+    },
+    {
+      "id": "dr95-24",
+      "name": "Verify Fresh Drive Download",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        800
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst crypto=require('crypto');const ctx=copy($('Advance Serial Work').item.json.ctx);const input=$input.first();const m=currentMember(ctx);\nneed(input.binary?.download,'drive_download_missing');\nconst bytes=await this.helpers.getBinaryDataBuffer(0,'download');\nneed(bytes.length===m.size_bytes && bytes.length<=MAX_OBJECT && crypto.createHash('sha256').update(bytes).digest('hex')===m.sha256,'drive_download_bytes_mismatch');\nctx.have_download=true;ctx.phase='LOOKUP';return output(ctx,{download:input.binary.download});\n"
+      }
+    },
+    {
+      "id": "dr95-25",
+      "name": "Verify Download With FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        800
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.command_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Drop-Rate-Timestamp",
+              "value": "={{ $json.command_timestamp }}"
+            },
+            {
+              "name": "X-Drop-Rate-Signature",
+              "value": "={{ $json.command_signature }}"
+            },
+            {
+              "name": "X-Drop-Rate-Command",
+              "value": "={{ $json.command_envelope }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/octet-stream"
+            }
+          ]
+        },
+        "sendBody": true,
+        "options": {
+          "timeout": 130000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "contentType": "binaryData",
+        "inputDataFieldName": "download"
+      }
+    },
+    {
+      "id": "dr95-26",
+      "name": "Accept Durable Object Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1000
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst ctx=copy($('Sign Bounded Backend Command').item.json.ctx);const body=responseBody($input.first().json);const m=currentMember(ctx);\nneed(body?.accepted===true && body.execution_id===ctx.execution_id && body.status==='BYTES_VERIFIED' && body.file_id===ctx.reservation.file_id && body.object_sha256===m.sha256 && body.size_bytes===m.size_bytes && SHA.test(body.receipt_sha256) && Number.isFinite(Date.parse(body.verified_at)),'drive_object_receipt_unverified');\nctx.checkpoint.page.object_index+=1;ctx.counters.objects+=1;ctx.counters.bytes+=m.size_bytes;\nctx.authorized_phase=null;clearMember(ctx);ctx.phase='ADVANCE';return output(ctx);\n"
+      }
+    },
+    {
+      "id": "dr95-27",
+      "name": "Prepare Completed Archive Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        1000
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst ctx=copy($input.first().json.ctx);const a=currentArchive(ctx);\nneed(ctx.phase==='SUCCESS' && ctx.completion?.manifest_sha256===a.manifest_sha256 && SHA.test(ctx.completion.receipt_sha256),'durable_archive_receipt_required');\nreturn [{json:{ctx,workflow_key:'dr-95-r2-drive-archive',workflow_version:'v1',execution_id:ctx.execution_id,\n  idempotency_key:'drive-archive:'+a.kind.toLowerCase()+':'+a.manifest_sha256,occurred_at:new Date().toISOString(),owner_id:'',event_id:''}}];\n"
+      }
+    },
+    {
+      "id": "dr95-28",
+      "name": "Record DR91 Archive Success",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        1000
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "DR91SuccessReceiptV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow_key": "={{ $json.workflow_key }}",
+            "workflow_version": "={{ $json.workflow_version }}",
+            "execution_id": "={{ $json.execution_id }}",
+            "idempotency_key": "={{ $json.idempotency_key }}",
+            "occurred_at": "={{ $json.occurred_at }}",
+            "owner_id": "={{ $json.owner_id }}",
+            "event_id": "={{ $json.event_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "workflow_key",
+              "displayName": "workflow_key",
+              "type": "string"
+            },
+            {
+              "id": "workflow_version",
+              "displayName": "workflow_version",
+              "type": "string"
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "type": "string"
+            },
+            {
+              "id": "idempotency_key",
+              "displayName": "idempotency_key",
+              "type": "string"
+            },
+            {
+              "id": "occurred_at",
+              "displayName": "occurred_at",
+              "type": "string"
+            },
+            {
+              "id": "owner_id",
+              "displayName": "owner_id",
+              "type": "string"
+            },
+            {
+              "id": "event_id",
+              "displayName": "event_id",
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "dr95-29",
+      "name": "Accept DR91 Receipt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        1000
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst ctx=copy($('Prepare Completed Archive Receipt').item.json.ctx);const result=$input.first().json;\nneed(result?.recorded===true && result.workflow_key==='dr-95-r2-drive-archive' && result.execution_id===ctx.execution_id,'durable_success_receipt_not_accepted');\nctx.counters.archives+=1;ctx.checkpoint.page.archive_index+=1;ctx.checkpoint.page.object_index=0;\nclearMember(ctx);ctx.phase='ADVANCE';return output(ctx);\n"
+      }
+    },
+    {
+      "id": "dr95-30",
+      "name": "Save Bounded Resume Checkpoint",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1000
+      ],
+      "parameters": {
+        "jsCode": "const ACCOUNT = 'dropratetcg@gmail.com';\nconst FOLDER = '1NhFIsWesgxlf059UMdx65ps9kFMqQeO9';\nconst FOLDER_NAME = 'Drop Rate - Pricing History Archives';\nconst KINDS = ['REFERENCE_HISTORY','OPENLIBRARY_REVIEWED'];\nconst SHA = /^[a-f0-9]{64}$/;\nconst FILE_ID = /^[A-Za-z0-9_-]{10,200}$/;\nconst MAX_OBJECT = 16000000;\nfunction need(ok, code) { if (!ok) throw new Error(code); }\nfunction copy(value) { return JSON.parse(JSON.stringify(value)); }\nfunction exactKeys(value, keys) { return value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key)); }\nfunction output(ctx, binary) { const item = {json:{ctx}}; if (binary && Object.keys(binary).length) item.binary=binary; return [item]; }\nfunction currentArchive(ctx) { const p=ctx.checkpoint.page; need(p && p.archive_index < p.archives.length,'archive_state_invalid'); return p.archives[p.archive_index]; }\nfunction currentMember(ctx) { const a=currentArchive(ctx); const i=ctx.checkpoint.page.object_index; need(i<a.objects.length,'member_state_invalid'); return a.objects[i]; }\nfunction validCursor(value) { return value===null || (typeof value==='string' && /^[A-Za-z0-9_.:-]{1,1500}$/.test(value)); }\nfunction validateArchive(a, kind) {\n  need(exactKeys(a,['kind','manifest_sha256','archive_id','copy_status','last_recorded_verification_at','objects']),'archive_schema_invalid');\n  need(a && a.kind===kind && SHA.test(a.manifest_sha256) && typeof a.archive_id==='string' && a.archive_id.length<=200,'archive_identity_invalid');\n  need(['PENDING','RECORDED_BYTES_VERIFIED'].includes(a.copy_status) && Array.isArray(a.objects) && a.objects.length>=2 && a.objects.length<=16,'archive_members_invalid');\n  const hashes=new Set();\n  for (const m of a.objects) {\n    need(exactKeys(m,['sha256','size_bytes','file_name','mime_type','role']),'archive_member_schema_invalid');\n    need(m && SHA.test(m.sha256) && !hashes.has(m.sha256) && Number.isSafeInteger(m.size_bytes) && m.size_bytes>0 && m.size_bytes<=MAX_OBJECT,'archive_member_invalid');\n    hashes.add(m.sha256);\n    need(['application/gzip','application/json'].includes(m.mime_type) && typeof m.role==='string' && m.role.length<=100,'archive_member_type_invalid');\n    need(typeof m.file_name==='string' && m.file_name.startsWith('drop-rate-'+kind.toLowerCase()+'-'+m.sha256+'.') && /^[a-z0-9_.-]{1,200}$/.test(m.file_name),'archive_member_name_invalid');\n  }\n  need(hashes.has(a.manifest_sha256),'archive_manifest_member_missing');\n}\nfunction emptyCheckpoint() { return {version:1,kind_index:0,cursors:[null,null],page:null,blocked_count:0,blocked_sample:[]}; }\nfunction validateCheckpoint(c) {\n  need(exactKeys(c,['version','kind_index','cursors','page','blocked_count','blocked_sample']),'checkpoint_schema_invalid');\n  need(c && c.version===1 && Number.isInteger(c.kind_index) && c.kind_index>=0 && c.kind_index<=2,'checkpoint_invalid');\n  need(Array.isArray(c.cursors) && c.cursors.length===2 && c.cursors.every(validCursor),'checkpoint_cursor_invalid');\n  need(Number.isSafeInteger(c.blocked_count) && c.blocked_count>=0 && Array.isArray(c.blocked_sample) && c.blocked_sample.length<=20,'checkpoint_blocked_invalid');\n  for(const issue of c.blocked_sample) {\n    need(exactKeys(issue,['kind','manifest_sha256','reason']) || exactKeys(issue,['kind','manifest_sha256','reason','declared_size_bytes','maximum_object_bytes']),'checkpoint_issue_schema_invalid');\n    need(KINDS.includes(issue.kind) && SHA.test(issue.manifest_sha256) && /^[A-Z0-9_]{1,120}$/.test(issue.reason),'checkpoint_issue_invalid');\n    if(Object.hasOwn(issue,'declared_size_bytes')) need(Number.isSafeInteger(issue.declared_size_bytes) && issue.declared_size_bytes>0 && issue.maximum_object_bytes===MAX_OBJECT,'checkpoint_issue_size_invalid');\n  }\n  if (c.page!==null) {\n    const p=c.page;\n    need(exactKeys(p,['kind','archives','archive_index','object_index','has_more','next_cursor']),'checkpoint_page_schema_invalid');\n    need(c.kind_index<2 && p.kind===KINDS[c.kind_index] && Array.isArray(p.archives) && p.archives.length<=2 && typeof p.has_more==='boolean' && validCursor(p.next_cursor),'checkpoint_page_invalid');\n    need(!p.has_more || (p.next_cursor!==null && p.next_cursor!==c.cursors[c.kind_index]),'checkpoint_progress_invalid');\n    need(p.has_more || p.next_cursor===null,'checkpoint_end_invalid');\n    p.archives.forEach(a=>validateArchive(a,p.kind));\n    need(Number.isInteger(p.archive_index) && p.archive_index>=0 && p.archive_index<=p.archives.length && Number.isInteger(p.object_index) && p.object_index>=0 && p.object_index<=16,'checkpoint_member_invalid');\n    if(p.archive_index<p.archives.length) need(p.object_index<=p.archives[p.archive_index].objects.length,'checkpoint_member_invalid');\n  }\n  need(JSON.stringify(c).length<=40000,'checkpoint_too_large');\n}\nfunction expectedProperties(ctx) { const a=currentArchive(ctx),m=currentMember(ctx); return {drSchema:'drive-copy-v1',drKind:a.kind,drManifest:a.manifest_sha256,drObject:m.sha256}; }\nfunction equalProperties(a,b) { return a && typeof a==='object' && Object.keys(a).length===Object.keys(b).length && Object.keys(b).every(k=>a[k]===b[k]); }\nfunction driveFile(ctx, value) {\n  const m=currentMember(ctx),r=ctx.reservation,d=ctx.destination;\n  need(value && value.id===r.file_id && value.name===r.file_name && value.mimeType===m.mime_type && value.trashed===false && value.shared===false,'drive_file_identity_mismatch');\n  need(Array.isArray(value.parents) && value.parents.length===1 && value.parents[0]===FOLDER,'drive_file_parent_mismatch');\n  need(Array.isArray(value.owners) && value.owners.length===1 && value.owners[0].emailAddress===ACCOUNT && value.owners[0].permissionId===d.account_permission_id,'drive_file_owner_mismatch');\n  need(Array.isArray(value.permissions) && value.permissions.length===1 && value.permissions[0].role==='owner' && value.permissions[0].type==='user' && value.permissions[0].emailAddress===ACCOUNT,'drive_file_permissions_mismatch');\n  need(equalProperties(value.appProperties,r.app_properties) && /^\\d+$/.test(String(value.size)),'drive_file_properties_mismatch');\n  const size=Number(value.size); need(Number.isSafeInteger(size) && size>=0 && size<=MAX_OBJECT,'drive_file_size_invalid');\n  if(size>0) need(size===m.size_bytes && (!value.sha256Checksum || value.sha256Checksum===m.sha256),'drive_nonempty_file_mismatch');\n  return {id:value.id,name:value.name,parents:[FOLDER],owner_email:value.owners[0].emailAddress,\n    owner_permission_id:value.owners[0].permissionId,shared:value.shared,trashed:value.trashed,\n    mime_type:value.mimeType,size_bytes:size,app_properties:copy(value.appProperties)};\n}\nfunction responseBody(response) { need(response && Number.isInteger(response.statusCode) && response.statusCode>=200 && response.statusCode<300,'archive_http_failed'); return response.body; }\nfunction clearMember(ctx) { delete ctx.reservation; delete ctx.proposed_file_id; delete ctx.drive_file; delete ctx.source_ready; delete ctx.have_download; delete ctx.uploaded; delete ctx.create_attempted; delete ctx.upload_url; delete ctx.completion; }\n\nconst ctx=copy($input.first().json.ctx);validateCheckpoint(ctx.checkpoint);\nneed(ctx.phase==='FINISH','finish_phase_invalid');\nconst completedSweep=ctx.checkpoint.kind_index===2;\nconst blocked=ctx.checkpoint.blocked_count;\n// Static data contains source manifests/cursors only: no OAuth identities,\n// credentials, HMACs, request envelopes, URLs or source/download bytes.\nconst next=completedSweep?emptyCheckpoint():copy(ctx.checkpoint);\n$getWorkflowStaticData('global').dr95_checkpoint=next;\nconst summary={status:completedSweep && blocked===0?'COMPLETE':'INCOMPLETE',reason:ctx.finish_reason,\n  execution_id:ctx.execution_id,completed_sweep:completedSweep,resumable:!completedSweep,\n  counters:ctx.counters,blocked_archives:blocked,blocked_sample:ctx.checkpoint.blocked_sample,\n  drive_current_availability:'NOT_ASSESSED',history_cleanup_authorised:false,\n  source_authority:'SUPABASE_AND_VERIFIED_R2_MANIFESTS',checked_at:new Date().toISOString()};\n$getWorkflowStaticData('global').dr95_last_run=copy(summary);\nreturn [{json:summary}];\n"
+      }
+    }
+  ],
+  "connections": {
+    "Weekly Private Archive Scan": {
+      "main": [
+        [
+          {
+            "node": "Initialize Weekly Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Review Run": {
+      "main": [
+        [
+          {
+            "node": "Initialize Weekly Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Weekly Scan": {
+      "main": [
+        [
+          {
+            "node": "Advance Serial Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Advance Serial Work": {
+      "main": [
+        [
+          {
+            "node": "Route Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Operation": {
+      "main": [
+        [
+          {
+            "node": "Google Account Identity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sign Bounded Backend Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate Drive File ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sign Bounded Backend Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Exact Reserved File Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Begin Reserved-ID Resumable Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sign Bounded Backend Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload Reserved-ID Creation Bytes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Native Download Exact Reserved File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sign Bounded Backend Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sign Bounded Backend Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Completed Archive Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Bounded Resume Checkpoint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Account Identity": {
+      "main": [
+        [
+          {
+            "node": "Google Private Folder Identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Private Folder Identity": {
+      "main": [
+        [
+          {
+            "node": "Verify Current Destination",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Bounded Backend Command": {
+      "main": [
+        [
+          {
+            "node": "Route Backend Transport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Signed Metadata Command": {
+      "main": [
+        [
+          {
+            "node": "Accept Backend Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Drive File ID": {
+      "main": [
+        [
+          {
+            "node": "Accept Generated Drive ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Exact Reserved File Metadata": {
+      "main": [
+        [
+          {
+            "node": "Verify Reserved File Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Begin Reserved-ID Resumable Create": {
+      "main": [
+        [
+          {
+            "node": "Accept Resumable Creation Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Verified R2 Source Bytes": {
+      "main": [
+        [
+          {
+            "node": "Verify Source Bytes Before Creation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Reserved-ID Creation Bytes": {
+      "main": [
+        [
+          {
+            "node": "Accept Reserved-ID Content Creation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Native Download Exact Reserved File": {
+      "main": [
+        [
+          {
+            "node": "Verify Fresh Drive Download",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Download With FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Accept Durable Object Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Completed Archive Receipt": {
+      "main": [
+        [
+          {
+            "node": "Record DR91 Archive Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record DR91 Archive Success": {
+      "main": [
+        [
+          {
+            "node": "Accept DR91 Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Backend Transport": {
+      "main": [
+        [
+          {
+            "node": "Send Signed Metadata Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Verified R2 Source Bytes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Verify Download With FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Current Destination": {
+      "main": [
+        [
+          {
+            "node": "Advance Serial Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept Backend Metadata": {
+      "main": [
+        [
+          {
+            "node": "Advance Serial Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept Generated Drive ID": {
+      "main": [
+        [
+          {
+            "node": "Advance Serial Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Reserved File Metadata": {
+      "main": [
+        [
+          {
+            "node": "Advance Serial Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept Resumable Creation Session": {
+      "main": [
+        [
+          {
+            "node": "Advance Serial Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Source Bytes Before Creation": {
+      "main": [
+        [
+          {
+            "node": "Advance Serial Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept Reserved-ID Content Creation": {
+      "main": [
+        [
+          {
+            "node": "Advance Serial Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Fresh Drive Download": {
+      "main": [
+        [
+          {
+            "node": "Advance Serial Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept Durable Object Receipt": {
+      "main": [
+        [
+          {
+            "node": "Advance Serial Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept DR91 Receipt": {
+      "main": [
+        [
+          {
+            "node": "Advance Serial Work",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "dropRate": {
+      "contract": "DR-95",
+      "version": 1,
+      "role": "private-reviewed-r2-drive-archive-copy",
+      "activationGate": "Inactive and credential-unbound. Require exact OAuth account/folder ownership proof, signed backend transfer flag, pinned n8n import/fixture execution, DR90/DR91 publication and durable receipt proof, then one bounded readback canary before schedule activation.",
+      "account": "dropratetcg@gmail.com",
+      "folderId": "1NhFIsWesgxlf059UMdx65ps9kFMqQeO9",
+      "sourceKinds": [
+        "REFERENCE_HISTORY",
+        "OPENLIBRARY_REVIEWED"
+      ],
+      "maxObjectBytes": 16000000,
+      "maxBytesPerRun": 32000000,
+      "maxObjectsPerRun": 32,
+      "maxPlanPagesPerRun": 40,
+      "runBudgetSeconds": 600,
+      "hardExecutionTimeoutSeconds": 900,
+      "historyCleanupAuthorised": false,
+      "sourceArchiveDoesNotGrantPublicationRights": true,
+      "deferredOpenLibraryRecordsRemainHeld": 909
+    }
+  }
+}

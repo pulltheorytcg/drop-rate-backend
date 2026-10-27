@@ -1,0 +1,39 @@
+name: R2 private Drive archive runtime
+
+on:
+  pull_request:
+    paths:
+      - 'automation/n8n/workflows/dr-95-r2-drive-archive.json'
+      - 'automation/n8n/workflows/dr-91-success-receipt.json'
+      - 'automation/n8n/ops/inspect-stored-metadata.cjs'
+      - 'backend/app/drive_archive_api.py'
+      - 'backend/app/drive_archive_transfer.py'
+      - 'tests/*drive_archive*'
+      - 'tests/run_n8n_drive_archive_native_smoke.sh'
+      - 'docs/R2_DRIVE_N8N_WORKFLOW.md'
+      - 'Dockerfile.n8n'
+      - '.github/workflows/r2-drive-archive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build pinned n8n 2.32.6 image
+        run: docker build --file Dockerfile.n8n --tag drop-rate-n8n:ci .
+      - name: Check isolated fixture safeguards
+        run: |
+          docker run --rm --pull never --network none --entrypoint node \
+            -v "$PWD/tests:/source/tests:ro" \
+            -v "$PWD/automation/n8n/workflows:/source/automation/n8n/workflows:ro" \
+            -v "$PWD/automation/n8n/ops:/source/automation/n8n/ops:ro" \
+            drop-rate-n8n:ci --no-warnings --test \
+            /source/tests/n8n_drive_archive_workflow.test.cjs \
+            /source/tests/n8n_drive_archive_native_smoke.test.cjs
+      - name: Execute native creation, readback, restart and receipt replay without network
+        run: sh tests/run_n8n_drive_archive_native_smoke.sh drop-rate-n8n:ci

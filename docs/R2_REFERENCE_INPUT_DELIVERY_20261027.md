@@ -95,3 +95,31 @@ Python Playwright 1.57.0 pin. The image supplies the browser binaries and system
 dependencies. All Chromium/WebKit test scripts and their time limits remain.
 See the [official image contract](https://playwright.dev/python/docs/docker).
 The updated browser checks must pass before release.
+
+## Production release and readback
+
+PR #757's updated head `61cb4433803e73d61dff6e2e4c505a06d46a0dbd` passed all
+ten applicable CI workflows, including both complete browser suites and native
+PostgreSQL 17.6 parity. It merged as
+`ca2082499d275b366657dafd6029c45aa14bd4d1`.
+
+Build-only API deployment `1a83d9f4-037f-4705-914d-c78b3f4dc64d` passed its
+normal gate (7,160 tests passed, 18 skipped) and reached SUCCESS. Between
+14:33:59 and 14:34:07 UTC on 27 October, its worker verified the first twenty
+set objects: 1,966 card references, 114,898 compressed bytes, zero SQL writes,
+zero failed/skipped scopes in those four batches. This is an initial checkpoint,
+not whole-catalogue cache coverage.
+
+The first batch's production probe bypassed the process cache, read actual R2
+bytes and compared twenty full original/cached result rows in the same
+authorized snapshot. It reported `MATCH`, `equal=true`, `source_changed=false`.
+SQL execution was 292.329 ms for the original query and 90.653 ms for the cached
+query; these single-probe timings exclude fingerprint/R2 transfer time and are
+not an end-to-end latency benchmark. No private result rows were logged.
+
+After that gate, `TCG_R2_CATALOGUE_CACHE_DELIVERY_ENABLED=true` was applied to
+the existing API service. Deployment `a4667f6c-50e7-4110-8a49-931e2254636c`
+reached SUCCESS at **14:38:45 UTC**. Both snapshot building and eligible set
+delivery are enabled. Unsupported requests and missing current snapshots retain
+the normal SQL path. Authenticated customer-browser acceptance and a measured
+whole-catalogue cache-coverage count are not claimed by these runtime receipts.
