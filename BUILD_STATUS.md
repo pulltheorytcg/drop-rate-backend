@@ -1,26 +1,50 @@
-## 27 October 2026 — Free catalogue automation expansion
+## 27 October 2026 — Catalogue scheduling fixes deployed and verified
 
-The independent **Drop Rate Catalogue Watch** is enabled hourly for real job
-receipts, stalled imports, primary-source new releases and free-data opportunities.
-The existing archive watch remains enabled separately.
+PR [#749](https://github.com/pulltheorytcg/drop-rate-backend/pull/749) is merged
+as `674bcb56d4df35420e6bba3c6b01c6bffa16f72a`. Railway API deployment
+`95ca326e-10cb-4030-8a55-262be89b6fde` reached **SUCCESS**; public readiness
+returned **HTTP 200**, with the database connected. All **6,924 backend tests**
+passed locally and during deployment; all eight GitHub workflows passed on the
+corrected PR head.
 
-This change prepares a daily, bounded TCGCSV Dragon Ball guide importer with exact
-release/number/name collision checks and verified private R2 snapshots before
-price writes. Prices retain USD originals and ECB conversion, and the interface
-labels them as TCGplayer US guides converted to GBP. Existing hourly price jobs
-now run before daily metadata and report provider failures as INCOMPLETE. Daily
-reference receipts expose newly discovered set identities.
+Existing hourly price jobs now precede daily metadata, provider failures record
+INCOMPLETE, and discovery receipts distinguish newly added set identities from
+refreshes. The prepared TCGCSV importer rejects additional variant collisions
+and reports verified committed writes rather than attempted writes.
 
-TCGCSV remains **disabled**. The 27 October source review found that TCGCSV's
-access permission does not establish permission under TCGplayer's upstream
-restrictions on third-party and commercial data reuse. The runbook records the
-primary-source conflict. Technical validation alone must not enable this feed.
-The existing-source scheduling and receipt improvements remain independent.
+TCGCSV remains **disabled**, with zero source-tagged price rows. Its upstream
+commercial permission is unresolved; free access and passing technical checks
+do not clear that hold. The existing approved-source jobs remain active. The
+hourly **Drop Rate Catalogue Watch** now explicitly carries the source hold and
+committed-count rule; the separate archive watch is unchanged.
 
-Pre-deployment baseline: **43,033 / 67,065 physical cards (64.17%)**. This change
-does not claim the 90% target, complete artwork, Naruto legacy/Kayou coverage,
-or a completed full Open Library bulk pipeline. The source hold and required
-live readback are recorded in [the automation runbook](docs/FREE_CATALOGUE_AUTOMATION.md).
+The live database readback at **10:25 UTC** contained a **10:07 UTC** coverage
+receipt: **43,033 / 67,065 physical cards (64.17%)**. This is 71 more covered
+references than the previous handover, from existing imports before this release.
+The user's 90% target remains unmet: **17,326** additional supported values or
+labelled guides are required. The 2,480 digital Pocket references remain excluded.
+
+A separate **10:32 UTC** intersection query found **38,819 / 67,065 (57.88%)**
+with basic identity fields, an artwork URL and a supported value/guide on the
+same record. This is core data presence, not full image/printing verification.
+
+Artwork URLs remain missing for **7,033 / 69,545** references. Approved R2 media
+has **401 verified mirrors and zero eligible backlog**; the broad reference-image
+mirror count remains zero. Comics/manga remains at **95 editions (37 comics,
+58 manga)**. Neither category has a positive shared catalogue market snapshot;
+**0%** of these imported editions has identity, cover and supported value complete.
+R2 history
+has **39,542 verified rows across 20 archives**. Database size is **357,608,595
+bytes**, writable and below the unchanged 400,000,000-byte guard.
+
+Four of the ten previously pending Fusion SB01 guides were filled by the existing
+importer; six remain. Railway's approval step declined the separate one-off
+preview, reporting that approval was not granted. The normal predeploy checks
+were restored before the successful scheduler release. No manual price addition
+or new-feed activation is claimed for this continuation.
+
+See [verified production checkpoint and resume order](docs/CATALOGUE_CONTINUATION_20261027.md)
+and [source rules and automation runbook](docs/FREE_CATALOGUE_AUTOMATION.md).
 
 ## 26 October 2026 — Catalogue recovery deployed and verified
 

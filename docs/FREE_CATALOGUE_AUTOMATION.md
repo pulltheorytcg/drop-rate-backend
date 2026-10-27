@@ -100,6 +100,12 @@ the 7,166 missing legacy/Kayou values automatically.
 
 ## Verification and monitoring
 
+PR #749 was deployed successfully on 27 October. All 6,924 backend tests and all
+eight GitHub workflows passed; live readiness returned HTTP 200. TCGCSV remains
+disabled, with zero source-tagged price rows. See the [production checkpoint](CATALOGUE_CONTINUATION_20261027.md)
+for dated database readback, remaining gaps and the separate one-off preview's
+approval outcome.
+
 Before this change, at 27 October 08:52 UTC, coverage was **43,033 / 67,065
 physical references (64.17%)**, leaving **17,326** additional supported guides
 to reach 90%. This is a baseline, not a promise of completion from automation.
