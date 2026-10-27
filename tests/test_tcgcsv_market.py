@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+import asyncio
 import gzip
 import json
 from types import SimpleNamespace
@@ -64,6 +65,22 @@ def test_missing_price_never_resolves_an_identity_collision(change):
     assert not feed.matched_printings(refs, products, GROUP, NOW)
 
 
+@pytest.mark.parametrize("number", ["?", "N/A", "sb01-045", "SB01-046"])
+def test_malformed_variant_number_cannot_hide_number_in_product_name(number):
+    competitor = dict(PRODUCT, productId=634529,
+        name="Bulma - SB01-045 (Alternate Art)",
+        extendedData=[dict(name="Number", value=number)])
+    assert not feed.matched_printings([REF], [PRODUCT, competitor], GROUP, NOW)
+
+
+def test_lowercase_number_counts_for_collisions_but_is_not_an_exact_match():
+    lowercase = dict(PRODUCT, productId=634529, name="Bulma (Alternate Art)",
+                     extendedData=[dict(name="Number", value="sb01-045")])
+    assert not feed.matched_printings([REF], [PRODUCT, lowercase], GROUP, NOW)
+    assert not feed.matched_printings([REF], [dict(PRODUCT,
+        extendedData=[dict(name="Number", value="sb01-045")])], GROUP, NOW)
+
+
 def test_wrong_game_release_and_incomplete_exports_fail_closed():
     assert not feed.release_targets([REF], [dict(GROUP, abbreviation="FB01")], 80)
     assert not feed.release_targets([REF], [GROUP, dict(GROUP, groupId=999)], 80)
@@ -94,9 +111,13 @@ def test_price_validation_and_existing_other_provider_preservation():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure", [None, "snapshot", "changed_build", "rate_limit"])
+@pytest.mark.parametrize("failure", [None, "snapshot", "changed_build", "rate_limit",
+                                     "write_noop", "write_rollback", "readback",
+                                     "lost_commit_ack", "cancelled_write"])
 async def test_real_worker_requires_verified_snapshot_before_any_price_write(monkeypatch, failure):
     events, final, calls = [], [], []
+    receipt_id = uuid4()
+    committed = []
     stamp = (NOW-timedelta(hours=1)).isoformat()
 
     def handler(request):
@@ -118,21 +139,42 @@ async def test_real_worker_requires_verified_snapshot_before_any_price_write(mon
         raise AssertionError(request.url)
 
     class Connection:
-        async def fetchval(self, *args):
-            events.append("running_receipt")
-            return uuid4()
+        pending = None
+        async def fetchval(self, sql, *args):
+            if "insert into tcg.reference_sync_runs" in sql:
+                events.append("running_receipt")
+                return receipt_id
+            assert sql == feed.READBACK_SQL
+            assert args == (feed.SOURCE, str(receipt_id))
+            events.append("readback")
+            if failure == "readback":
+                raise RuntimeError("Readback unavailable")
+            return len(committed)
         async def fetch(self, *args):
             return [REF]
         async def executemany(self, sql, rows):
             events.append("write")
             assert "reference_catalogue_prices" in sql
             assert len(rows) == 1 and rows[0][5] == 440
+            assert rows[0][4][0]["import_run_id"] == str(receipt_id)
+            self.pending = list(rows)
+            if failure == "write_rollback":
+                raise RuntimeError("Write rolled back")
+            if failure == "cancelled_write":
+                raise asyncio.CancelledError
         async def execute(self, sql, *args):
-            final.append((args[1], json.loads(args[-1])))
+            final.append((args[1], args[3], json.loads(args[-1])))
 
     @asynccontextmanager
     async def connection(*args):
-        yield Connection()
+        conn = Connection()
+        yield conn
+        # A transaction only commits after its context exits successfully.
+        if conn.pending and failure != "write_noop":
+            committed.extend(conn.pending)
+            events.append("commit")
+            if failure == "lost_commit_ack":
+                raise RuntimeError("Commit acknowledgement lost")
     async def noop(*args):
         pass
     class FXProvider:
@@ -143,6 +185,7 @@ async def test_real_worker_requires_verified_snapshot_before_any_price_write(mon
         def put_verified_file(self, path, **kwargs):
             snapshot = json.loads(gzip.decompress(path.read_bytes()))
             assert len(snapshot["quotes"]) == 1
+            assert snapshot["quotes"][0]["quote"]["import_run_id"] == str(receipt_id)
             assert "Description" not in json.dumps(snapshot)
             events.append("snapshot")
             return dict(verified=failure != "snapshot", sha256="a"*64, key="test", size_bytes=100)
@@ -150,14 +193,38 @@ async def test_real_worker_requires_verified_snapshot_before_any_price_write(mon
     monkeypatch.setattr(feed, "require_platform_admin", noop)
     monkeypatch.setattr(feed.asyncio, "sleep", noop)
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
-        result = await feed.refresh_exports(None, uuid4(), http_client=http, storage=Storage(), fx=FXProvider())
-    assert result["writes_attempted"] == (0 if failure else 1)
+        if failure == "cancelled_write":
+            with pytest.raises(asyncio.CancelledError):
+                await feed.refresh_exports(None, uuid4(), http_client=http, storage=Storage(), fx=FXProvider())
+            result = final[-1][2]
+        else:
+            result = await feed.refresh_exports(None, uuid4(), http_client=http, storage=Storage(), fx=FXProvider())
+    before_writes = failure in {"snapshot", "changed_build", "rate_limit"}
+    assert result["writes_attempted"] == (0 if before_writes else 1)
     assert final[-1][0] == ("INCOMPLETE" if failure else "COMPLETE")
     assert events[0] == "running_receipt"
-    if failure:
+    if before_writes:
         assert "write" not in events
     else:
         assert events.index("snapshot") < events.index("write")
+        assert events.index("write") < events.index("readback")
+    assert result["import_run_id"] == str(receipt_id)
+    if failure == "readback":
+        assert result["written"] is None
+        assert result["write_outcome_unknown"] is True
+        assert result["readback_verified"] is False
+        assert result["reason"] == "WRITE_READBACK_FAILED"
+        assert final[-1][1] == 0
+    else:
+        assert result["written"] == len(committed)
+        assert final[-1][1] == len(committed)
+        assert result["write_outcome_unknown"] is False
+        if not before_writes:
+            assert result["readback_verified"] is True
+    if failure == "write_noop":
+        assert result["reason"] == "WRITE_READBACK_MISMATCH"
+    if failure == "cancelled_write":
+        assert result["reason"] == "INTERRUPTED"
 
 
 @pytest.mark.asyncio

@@ -1,8 +1,10 @@
-"""Daily free TCGplayer export ingestion, with exact Dragon Ball identities.
+"""Prepared, disabled TCGCSV adapter with exact Dragon Ball identities.
 
-TCGCSV permits backend ingestion (https://tcgcsv.com/docs). Never poll product
-files more than once per day. Prices are US marketplace guides converted to
-GBP, not UK sold comparables or physical inventory valuations.
+TCGCSV permits access to its endpoints, but upstream TCGplayer downstream
+commercial rights remain unresolved; see docs/FREE_CATALOGUE_AUTOMATION.md.
+Keep the production flag off until that access is resolved. If authorised,
+never poll product files more than once per day. Prices are US marketplace
+guides converted to GBP, not UK sold comparables or physical valuations.
 """
 from __future__ import annotations
 
@@ -39,6 +41,9 @@ MAX_GROUPS = 100
 MAX_REQUESTS = 2 * MAX_GROUPS + 4
 MAX_RESPONSE_BYTES = 8_000_000
 MAX_RUN_BYTES = 64_000_000
+READBACK_SQL = """select count(*) from tcg.reference_catalogue_prices
+ where market_value_minor>0 and quotes->0->>'source'=$1
+ and quotes->0->>'import_run_id'=$2"""
 
 
 class SourceError(ValueError):
@@ -126,7 +131,12 @@ def matched_printings(refs, products, group, now):
         number = extended(product, "Number")
         # A malformed/suffixed number or an unnumbered variant must not vanish
         # from collision checks just because the base product is well formed.
-        numbers = set(re.findall(r"[A-Z]{1,3}\d{1,2}-\d{2,3}", number or str(product.get("name") or "")))
+        # Scan both independent fields: a nonempty malformed Number cannot
+        # hide an explicit card number in the product name. Normalise only
+        # collision candidates; acceptance below still requires exact spelling.
+        numbers = {token.upper()
+                   for value in (number or "", str(product.get("name") or ""))
+                   for token in re.findall(r"[A-Z]{1,3}\d{1,2}-\d{2,3}", value, re.I)}
         for candidate_number in numbers:
             by_number[candidate_number].append(product)
     for ref in refs:
@@ -238,10 +248,13 @@ async def refresh_exports(pool, actor, *, previous=None, http_client=None, stora
     if previous and previous["started_at"] > now-timedelta(hours=24):
         return None
     report = dict(importer_revision=REVISION, requests=0, matched=0, eligible_quotes=0,
-                  writes_attempted=0, groups_checked=0, source=SOURCE, provider_failures=0)
+                  writes_attempted=0, written=0, readback_verified=False,
+                  write_outcome_unknown=False, groups_checked=0, source=SOURCE,
+                  provider_failures=0)
     async with user_connection(pool, actor, str(uuid4())) as connection:
         await require_platform_admin(connection)
         run = await connection.fetchval("insert into tcg.reference_sync_runs(source,status) values($1,'RUNNING') returning id", JOB)
+    report["import_run_id"] = str(run)
     status, client = "INCOMPLETE", None
     owns_http = http_client is None
     try:
@@ -286,6 +299,9 @@ async def refresh_exports(pool, actor, *, previous=None, http_client=None, stora
                 quote = guide_quote(ref, product, prices, observed, conversion)
                 if quote is None:
                     continue
+                # The durable receipt UUID ties immutable evidence and committed
+                # prices to this invocation, including interrupted writes.
+                quote["import_run_id"] = str(run)
                 evidence.append(dict(provider=ref["provider"], system_code=ref["system_code"],
                     language=ref["language"], provider_id=ref["provider_id"], quote=quote))
                 values.append((ref["provider"], ref["system_code"], ref["language"], ref["provider_id"],
@@ -307,8 +323,8 @@ async def refresh_exports(pool, actor, *, previous=None, http_client=None, stora
         for start in range(0, len(values), 100):
             async with user_connection(pool, actor, str(uuid4())) as connection:
                 await require_platform_admin(connection)
+                report["writes_attempted"] += len(values[start:start+100])
                 await connection.executemany(WRITE_SQL, values[start:start+100])
-            report["writes_attempted"] += len(values[start:start+100])
         status = "COMPLETE"
     except asyncio.CancelledError:
         report.update(reason="INTERRUPTED", provider_failures=1)
@@ -318,10 +334,29 @@ async def refresh_exports(pool, actor, *, previous=None, http_client=None, stora
     finally:
         if client:
             report.update(requests=client.requests, downloaded_bytes=client.bytes)
+        if report["writes_attempted"]:
+            try:
+                async with user_connection(pool, actor, str(uuid4())) as connection:
+                    await require_platform_admin(connection)
+                    written = await connection.fetchval(READBACK_SQL, SOURCE, str(run))
+                report.update(written=written, readback_verified=True,
+                              write_outcome_unknown=False)
+                if status == "COMPLETE" and written != report["eligible_quotes"]:
+                    status = "INCOMPLETE"
+                    report["reason"] = "WRITE_READBACK_MISMATCH"
+            except Exception as exc:
+                status = "INCOMPLETE"
+                report.update(written=None, readback_verified=False,
+                              write_outcome_unknown=True,
+                              readback_error_type=type(exc).__name__)
+                report.setdefault("reason", "WRITE_READBACK_FAILED")
         if owns_http and http_client:
             await http_client.aclose()
         async with user_connection(pool, actor, str(uuid4())) as connection:
             await connection.execute("""update tcg.reference_sync_runs set status=$2,finished_at=now(),
                 sets_loaded=$3,cards_loaded=$4,report=$5::jsonb where id=$1""",
-                run, status, report["groups_checked"], report["writes_attempted"], json.dumps(report))
+                # The schema requires a nonnegative cards_loaded count. On an
+                # unknown outcome retain zero as the verified lower bound; the
+                # report explicitly records written=null and the uncertainty.
+                run, status, report["groups_checked"], report["written"] or 0, json.dumps(report))
     return report

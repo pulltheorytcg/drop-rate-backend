@@ -10,7 +10,7 @@ The watch does not itself trigger deployments or duplicate provider requests.
 | --- | --- | --- |
 | PokéWallet missing-price backfill | Each UTC hour: 10 One Piece, 18 Dragon Ball, 7 Pokémon requests; at most 840/day under normal scheduling | `tcg.catalogue_job_runs`, three `POKEWALLET_*` jobs, persisted cursors, requests and writes |
 | Official/community reference discovery | Daily after 03:00 Europe/London | `tcg.reference_sync_runs`: TCGdex, Punk Records, official Bandai and Naruto archive feeds |
-| TCGCSV Dragon Ball bulk guides | Once per rolling 24 hours, maximum 100 release groups / 204 requests; 250ms pacing | `tcg.reference_sync_runs.source='tcgcsv_dragon_ball'`, verified R2 snapshot receipt, source build timestamp |
+| TCGCSV Dragon Ball bulk guides — disabled pending source permission | Prepared cadence: once per rolling 24 hours, maximum 100 release groups / 204 requests; 250ms pacing | No production activation; prepared receipts use `tcg.reference_sync_runs.source='tcgcsv_dragon_ball'` and verified R2 evidence |
 | Existing broad Cardmarket guide refresh | Weekly, with incomplete batches resumed | `REFERENCE_PRICES` and existing valuation receipts |
 | R2 history archival | Existing hourly maintenance check | Verified archive registry; existing archive watch retained |
 | Independent catalogue/source watch | Hourly | ChatGPT **Drop Rate Catalogue Watch**, enabled 27 October |
@@ -31,6 +31,17 @@ also searches primary publisher announcements for releases not yet in a feed.
 
 Sources: <https://tcgcsv.com/docs>, <https://tcgcsv.com/faq>,
 <https://tcgcsv.com/tcgplayer/categories>.
+
+**Production rights hold, reviewed 27 October 2026:** TCGCSV permits access to
+its exports and says their contents come directly from TCGplayer's API. That
+does not establish downstream commercial rights for Drop Rate. TCGplayer's
+[API Terms and Conditions](https://help.tcgplayer.com/hc/en-us/articles/360061115874-TCGplayer-API-Terms-Conditions),
+under "Use" and "Restricted Activities", restrict obtaining its API data from
+third parties, combining pricing sources and commercial/competitive reuse
+without written permission. No permission covering this use has been verified.
+Keep `TCG_TCGCSV_FREE_ENABLED=false`. Passing technical checks, free access and
+successful R2 readback do not clear this hold. Existing approved-source jobs
+and the independent scheduling/receipt fixes can continue separately.
 
 The free backend export refreshes daily. Read `last-updated.txt`, skip an
 unchanged completed build, use an identifying User-Agent, respect pacing and
@@ -59,9 +70,11 @@ ambiguous identity or quota error prevents the affected import from completing.
 The worker records RUNNING before its first provider request; restarts, failures
 and interruptions wait 24 hours before retrying this daily-only source.
 
-`TCG_TCGCSV_FREE_ENABLED` defaults to false and is enabled explicitly for the
-production API after validation. No schema migration or extra Railway service
-is needed. The existing R2 configuration and maintenance administrator are used.
+`TCG_TCGCSV_FREE_ENABLED` defaults to false and must remain false until explicit
+upstream permission for Drop Rate's intended use is verified and recorded here.
+No schema migration or extra Railway service is needed. If permission is later
+established, use the existing R2 configuration and maintenance administrator,
+then verify committed counts independently from attempted writes.
 
 ## Other free sources and limits
 
@@ -70,7 +83,7 @@ is needed. The existing R2 configuration and maintenance administrator are used.
 | TCGdex | Pokémon checklists, artwork references, provider prices | Existing import; cache bulk requests, do not invent absent artwork |
 | Official Bandai checklists | One Piece / Dragon Ball cards and release identities | Existing daily import; checklist metadata alone is not a market quote |
 | PokéWallet free API | Current per-card marketplace guides across supported games | Shared allowance: 100/hour and 1,000/day; paid analytics not called |
-| TCGCSV | Daily TCGplayer product/price exports | New Dragon Ball integration; other games need separately validated matching |
+| TCGCSV | Daily TCGplayer product/price exports | Prepared Dragon Ball integration remains disabled: upstream commercial permission unresolved |
 | Open Library monthly dumps | Comic/manga edition metadata and ISBNs | Existing 95-edition catalogue; full monthly-dump automation is **not yet deployed** |
 | Grand Comics Database | Comic publication/issue facts | Candidate source; verify export access and attribution before expanding |
 
@@ -100,7 +113,8 @@ found 115 unique Awakened Pulse matches, 121 Blazing Aura matches and six Manga
 Booster 01 matches. One Awakened Pulse match lacked a current value and had a
 positive source quote; the rest were already covered or excluded as ambiguous.
 
-After enabling, verify the actual source receipt, source-tagged row count and
+Only after the source-permission hold is resolved and activation is authorised,
+verify the actual source receipt, committed source-tagged row count and
 API readiness. Inspect `report.reason` on INCOMPLETE; never claim scheduled
 imports added data without database readback. The independent watch alerts on
 hourly imports stale for over three hours, daily imports stale for over 30 hours,
