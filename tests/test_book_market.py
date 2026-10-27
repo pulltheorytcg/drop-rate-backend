@@ -61,6 +61,60 @@ def test_manga_requires_volume_printing_language_edition_and_isbn():
     assert books.exact_match(sale(title=title.replace('Near Mint','BGS 9.5')),t)
 
 
+@pytest.mark.parametrize('isbn', ['9781566199094', '978-1-56619-909-4', '978 1 56619 909 4'])
+def test_exact_formatted_isbn_is_not_mistaken_for_a_multi_volume_range(isbn):
+    t=target();t['book_printing'].update(system_code='MANGA',series_title='Fixture Manga',publisher='VIZ Media',
+        book_format='MANGA',cover_code=None,release_year=2003,barcode_gtin='9781566199094')
+    title=f'Fixture Manga Volume 1 VIZ Media 2003 English first printing ISBN {isbn} Near Mint'
+    assert books.exact_match(sale(title=title),t)
+    for bad_title in (title+' volumes 1-5', title+' 1-2', title+' x2', title+' bundle',
+                      title.replace('Volume 1', 'Volume 1-2'), title.replace('English', 'Japanese'),
+                      title.replace('first printing', 'second printing')):
+        assert not books.exact_match(sale(title=bad_title),t)
+
+
+@pytest.mark.parametrize('isbn', ['978-1-56619-908-7', '978-1-56619-909-4-9', '9-978-1-56619-909-4'])
+def test_formatted_barcode_exception_never_accepts_a_different_or_longer_identifier(isbn):
+    t=target();t['book_printing'].update(system_code='MANGA',series_title='Fixture Manga',publisher='VIZ Media',
+        book_format='MANGA',cover_code=None,release_year=2003,barcode_gtin='9781566199094')
+    title=f'Fixture Manga Volume 1 VIZ Media 2003 English first printing ISBN {isbn} Near Mint'
+    assert not books.exact_match(sale(title=title),t)
+
+
+def test_formatted_isbn_keeps_the_same_five_sale_v4_value_and_duplicate_rejection():
+    t=target();t['book_printing'].update(system_code='MANGA',series_title='Fixture Manga',publisher='VIZ Media',
+        book_format='MANGA',cover_code=None,release_year=2003,barcode_gtin='9781566199094')
+    plain='Fixture Manga Volume 1 VIZ Media 2003 English first printing ISBN 9781566199094 Near Mint'
+    formatted=plain.replace('9781566199094','978-1-56619-909-4')
+    values=[]
+    for title in (plain,formatted):
+        rows=[sale(n,title=title) for n in range(1,6)]
+        payload=dict(site='EBAY_GB',currency='GBP',results=rows)
+        comps=market.select_comps(payload,t,NOW)
+        assert len(comps)==5
+        values.append(market.value_comps(comps,t,now=NOW).market_value_minor)
+        assert not books.select_comps(dict(payload,results=rows+rows),t,NOW)
+    assert values[0]==values[1] and values[0]>0
+
+
+@pytest.mark.parametrize('isbn', ['9781421520032', '978-1-4215-2003-2', '978 1 4215 2003 2'])
+def test_isbn_year_segment_cannot_supply_a_missing_publication_year(isbn):
+    t=target();t['book_printing'].update(system_code='MANGA',series_title='Fixture Manga',publisher='VIZ Media',
+        book_format='MANGA',cover_code=None,release_year=2003,barcode_gtin='9781421520032')
+    title=f'Fixture Manga Volume 1 VIZ Media English first printing ISBN {isbn} Near Mint'
+    assert not books.exact_match(sale(title=title),t)
+    assert books.exact_match(sale(title=title.replace('English','2003 English')),t)
+
+
+@pytest.mark.parametrize('isbn', ['9781421520032', '978-1-4215-2003-2', '978 1 4215 2003 2'])
+def test_isbn_year_segment_does_not_conflict_with_the_explicit_publication_year(isbn):
+    t=target();t['book_printing'].update(system_code='MANGA',series_title='Fixture Manga',publisher='VIZ Media',
+        book_format='MANGA',cover_code=None,release_year=2009,barcode_gtin='9781421520032')
+    title=f'Fixture Manga Volume 1 VIZ Media 2009 English first printing ISBN {isbn} Near Mint'
+    assert books.exact_match(sale(title=title),t)
+    assert not books.exact_match(sale(title=title+' published 2003'),t)
+
+
 def test_comic_series_volume_is_distinct_from_its_issue_number():
     t=target();title=TITLE+' Vol. 2'
     assert not books.exact_match(sale(title=title),t)

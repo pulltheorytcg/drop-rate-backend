@@ -85,7 +85,7 @@ Broad image caching still requires the recorded source permissions.
 | --- | --- | --- |
 | Card values | Fresh 19:34 UTC checkpoint: 43,208/67,065 physical references, 64.43%, including labelled guides | Supported current values or clearly labelled guides; 17,151 more needed for 90%; no invented prices |
 | Artwork | 6,782 physical reference URLs missing; existing URLs are not all load-verified | Correct image visibly loads across search, sets and collection; exact printing and source checks retained |
-| Comics/manga | Fresh 19:36 UTC checkpoint: 785 comics + 805 manga; zero positive shared market snapshots and zero verified product profiles | Reviewed editions/covers/printing evidence and supported market values; 909 staged records stay held until reviewed |
+| Comics/manga | 785 comics + 805 manga; source-attributed community cover display added for 1,540 unchanged imported edition bindings, with actual source availability varying; zero positive shared market snapshots and zero verified product profiles | Verify the release and visible covers; retain known incorrect-cover exclusions; obtain exact printing and supported sold-price evidence; 909 staged records stay held until reviewed |
 | Phone scanner | Old deletion/two-item queue bugs repaired; representative device acceptance outstanding | Exact result, useful artwork/value, reliable saving and measured phone latency |
 | Import recovery | Exact reviewed migration installed and verified; flag true; targeted deployment SUCCESS and runtime readiness 200; authenticated founder UI acceptance pending | Verify the founder journey with the exact original file; preserve source identity and avoid duplicate copies |
 | Seller fulfilment | Carrier label, dispatch confirmation and tracking sync disabled | Verified actual label/reprint, parcel allocation, cost, dispatch and tracking journey |
@@ -105,6 +105,18 @@ There are 4,216 priced references without artwork URLs. The database readback
 is 370,740,371 bytes, below the existing 400 MB guard. Full queries, definitions
 and results are preserved in the
 [current catalogue readback](evidence/catalogue-continuation-readback-20261027.json).
+
+The later comic/manga artwork repair adds direct, labelled Open Library cover
+references without changing canonical media approval, physical-printing identity
+or prices. A real-data helper check accepted 1,540 of 1,541 source editions and
+excluded one observed wrong-language/wrong-volume cover. Five of six bounded
+source requests decoded as images, but one of those five was incorrect and is
+excluded; URL construction is not image coverage. The book ISBN sale matcher
+also no longer rejects valid hyphenated identifiers as volume ranges. Actual
+market values remain blocked by missing verified printing/sale evidence and the
+existing sold-provider 429 pause. See the
+[artwork contract](BOOK_COMMUNITY_COVER_REFERENCES_20261027.md) and
+[current source/provider evidence](evidence/comic-manga-artwork-values-20261027.json).
 
 ## Deliberately deferred
 

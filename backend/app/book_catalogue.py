@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from .comic_identity import ComicPrintingCreate
 from .book_artwork import book_cover_reference
+from .book_community_artwork import KIND, community_book_covers, eligible_import
 
 
 def publisher_page(value):
@@ -16,7 +17,7 @@ def publisher_page(value):
 
 
 async def with_book_details(connection, rows):
-    """One bounded read; return book fields only, never private source metadata."""
+    """Bounded page reads; return book fields only, never private source metadata."""
     items = [dict(row) for row in rows]
     books = [row for row in items if row.get("product_type") == "COMIC" and row.get("catalogue_id")]
     if not books:
@@ -27,6 +28,7 @@ async def with_book_details(connection, rows):
         and pr.system_code=b.system_code and pr.collectible_type='COMIC'
         where b.catalogue_id=any($1::uuid[])""", list({row["catalogue_id"] for row in books}))
     by_id = {str(row["catalogue_id"]): dict(row) for row in records}
+    community_ids = set()
     for item in books:
         book = by_id.get(str(item["catalogue_id"]))
         if not book:
@@ -90,7 +92,7 @@ async def with_book_details(connection, rows):
                     "text": "Edition metadata from Open Library", "source_url": source,
                     "license": "Open Library data licensing",
                     "license_url": receipt["metadata_license"],
-                    "changes": "Factual edition metadata normalised; covers and market values excluded."}
+                    "changes": "Factual edition metadata normalised; source cover references are separate from metadata licensing."}
         cover = book_cover_reference(book, item.get("language"))
         if cover and not (item.get("display_image_url") or item.get("image_url")):
             item["reference_image_path"] = "/api/v1/catalogue-browser/reference-image?" + urlencode({
@@ -98,6 +100,13 @@ async def with_book_details(connection, rows):
                 "language": item["language"], "provider_id": str(item["catalogue_id"]),
                 "reference_kind": "book"})
             item["artwork_kind"] = "PUBLISHER_REFERENCE"
+        elif not (item.get("display_image_url") or item.get("image_url") or item.get("reference_image_path")) and eligible_import(book):
+            community_ids.add(item["catalogue_id"])
         # Covers never become approved inventory/Shopify media or proof of a copy.
+    community = await community_book_covers(connection, community_ids)
+    for item in books:
+        cover = community.get(str(item["catalogue_id"]))
+        if cover and cover["language"] == item.get("language"):
+            item["community_cover"] = cover
+            item["artwork_kind"] = KIND
     return items
-

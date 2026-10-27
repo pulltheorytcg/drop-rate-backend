@@ -594,6 +594,16 @@
         if (/^[0-9a-f-]{36}$/i.test(row.catalogue_id || "") && row.reference_image_path === path) {
           const revision = coverRevision, actor = actorId;
           queueMicrotask(() => loadCover(img,placeholder,path,revision,actor));
+        } else {
+          const community = window.DropRateBookArtwork?.reference(row, true);
+          if (community) {
+            img.alt = title.textContent + " community cover reference; cover may vary";
+            img.loading = "lazy"; img.decoding = "async"; img.referrerPolicy = "no-referrer";
+            img.addEventListener("load", () => {img.hidden = false; placeholder.hidden = true;}, {once:true});
+            img.addEventListener("error", () => {img.remove(); placeholder.hidden = false;}, {once:true});
+            img.hidden = false; img.src = community.image_url;
+            preview.append(window.DropRateBookArtwork.credit(community));
+          }
         }
         node("details").open = !bookDetailsComplete(); node("photo-details").open = false;
         node("title").textContent = "Is this your book?";

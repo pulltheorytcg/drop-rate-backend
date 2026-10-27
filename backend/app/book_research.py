@@ -481,8 +481,9 @@ def identity_digest(fields):
 
 
 async def add_saved_book_artwork(connection, items):
-    """One owner-scoped read for saved choices, catalogue covers and exact barcodes."""
+    """Owner-scoped saved choices, publisher covers and separate community references."""
     from .book_artwork import book_cover_reference
+    from .book_community_artwork import KIND, community_book_covers, eligible_import
     books = [item for item in items if item.get("product_type") == "COMIC" and item.get("id")]
     if not books:
         return
@@ -497,7 +498,7 @@ async def add_saved_book_artwork(connection, items):
           and r.top_catalogue_id=p.id and r.idempotency_key='book-reference:'||i.id::text
         where i.id=any($1::uuid[])
           and coalesce(i.language,p.language)=p.language""", [item["id"] for item in books])
-    by_id = {}
+    by_id, community_items = {}, {}
     for row in rows:
         evidence, attrs = row["provider_evidence"], row["attributes"]
         if isinstance(evidence, str): evidence = json.loads(evidence)
@@ -527,6 +528,11 @@ async def add_saved_book_artwork(connection, items):
                     kind = "BARCODE_MATCHED_PUBLISHER_REFERENCE"
         if candidate:
             by_id[row["inventory_id"]] = (candidate, kind)
+        elif eligible_import(row):
+            community_items[row["inventory_id"]] = (row["catalogue_id"], row["language"])
+    # This remains a separate public reference. The authenticated image route
+    # and scanner evidence must never fetch or consume community cover bytes.
+    community = await community_book_covers(connection, {value[0] for value in community_items.values()})
     for item in books:
         reference = by_id.get(item["id"])
         if reference and not item.get("reference_image_url"):
@@ -535,3 +541,9 @@ async def add_saved_book_artwork(connection, items):
             item["reference_image_path"] = f"/api/v1/owner/inventory/{item['id']}/reference-image"
             item["artwork_kind"] = kind
             item["publisher_source_url"] = candidate["source_url"]
+        elif not item.get("reference_image_url") and item["id"] in community_items:
+            catalogue_id, language = community_items[item["id"]]
+            cover = community.get(str(catalogue_id))
+            if cover and cover["language"] == language:
+                item["community_cover"] = cover
+                item["artwork_kind"] = KIND

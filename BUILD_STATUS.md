@@ -1,3 +1,46 @@
+## 27 October 2026 — Comic/manga cover references and ISBN price matching repair
+
+The new book catalogue contained metadata without an artwork display path for
+its Open Library imports. This release adds a separate, attributed community
+cover reference in catalogue browsing, book selection, saved collections and
+the founder inventory grid. It verifies the exact unchanged import and provider
+mapping before returning a direct, lazy source image. Existing publisher/copy
+images keep priority; community references do not become approved media,
+recognition evidence, physical-printing proof or R2/Shopify assets.
+
+A read-only run of the new helper over all current source rows accepted 1,540
+edition references: 767 manga, 547 other comics, 130 Marvel and 96 DC. There are
+1,541 Open Library-sourced editions; the 1,542 mapping count includes a mapping
+to an already publisher-sourced edition. The known wrong-language/wrong-volume
+cover on OL9465913M is excluded. These are eligible source lookups, not a claim
+that 1,540 images have loaded or are correct. Six bounded source checks returned
+five decodable JPEGs and one 404; four images agreed with the visible title and
+volume, and the fifth produced the exclusion. The UI labels community images
+as cover references and handles missing images without another-edition guesses.
+
+Book sold-price matching now recognises an exact hyphenated ISBN without
+mistaking it for a multi-volume range or a publication year. Wrong/extended identifiers, real bundles,
+different printings, duplicate sales and condition/grade mismatches remain
+rejected. The actual v4 price calculation produces the same result for plain
+and formatted ISBNs in the five-sale regression. This repair does not create
+book prices or change the valuation policy.
+
+The 19:49 UTC live readback still contains zero book market observations and
+zero positive shared book snapshots. The latest recorded provider usage is
+zero remaining out of 250, with its recorded reset on 1 November; subsequent
+provider responses are 429 and the existing pause next checks at 20:34 UTC on
+27 October. Imported editions remain STRUCTURED. No source retry, invented
+printing verification, retailer-price substitution or production data write
+was used to fill missing values.
+
+Integrated focused artwork/market tests passed 85 checks; the full JavaScript
+DOM command passed, including five new cover behavior groups. The release also
+refreshes the founder catalogue script version and keeps attribution compact.
+Normal protected-branch CI and deployment verification remain the release gates;
+their exact results are recorded on the associated pull request. See the
+[cover contract](docs/BOOK_COMMUNITY_COVER_REFERENCES_20261027.md) and
+[dated source/provider evidence](docs/evidence/comic-manga-artwork-values-20261027.json).
+
 ## 27 October 2026 — Founder import migration installed and rebuild enabled
 
 The import-specific connector blocker is resolved. After a fresh read confirmed
