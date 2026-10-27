@@ -37,6 +37,12 @@ canonical binding or confirm a physical printing. Existing metadata review
 holds remain enforced. A cover-only exclusion does not invalidate an otherwise
 eligible ISBN reference from a different source.
 
+Equivalent publication-year and publication-date aspect names are checked
+together. A stated date from a different year cannot bypass the year gate
+merely because the seller uses `Date of Publication` instead of `Publication
+Year`; conflicting or ambiguous date evidence is rejected. A listing without
+a declared publication date still uses its other exact-edition evidence.
+
 Identifiers and aspects are read from the documented item and nested PRODUCT
 containers without discarding conflicts between them. An otherwise eligible
 item whose full response omits an ISBN can be checked with a separate COMPACT
@@ -138,3 +144,10 @@ The [live offer receipt](evidence/book-ebay-discovery-gap-20261027.json),
 [actual search comparison](evidence/book-ebay-isbn-search-comparison-20261027.json)
 record the measured results. Summary prices differed from detail prices on some
 rejected candidates; summaries are never used in the displayed price range.
+
+The ordinary combined query subsequently returned two API-accepted candidates.
+Independent review of their source pages found a 2007 `Date of Publication`
+on the cheaper candidate, against the canonical 2003 year. Display activation
+was held for a narrow publication-date alias repair. The other New paperback
+offer at £13.20 had no conflicting date. See the
+[ordinary lookup and date review](evidence/book-ebay-normal-search-date-review-20261027.json).

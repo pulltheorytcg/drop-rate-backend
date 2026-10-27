@@ -126,6 +126,60 @@ def test_nested_product_aspects_can_supply_explicit_listing_edition_facts():
     assert match(detail(product=product, localizedAspects=[])) is not None
 
 
+@pytest.mark.parametrize("name", ["Date of Publication", "Publication Date"])
+@pytest.mark.parametrize("value", [
+    "2006", "2006-09-03", "2006/09/03", "03/09/2006", "09/30/2006",
+    "3 September 2006", "Sep 3, 2006",
+])
+def test_matching_publication_dates_are_compatible_with_the_canonical_year(name, value):
+    assert match(set_aspect(detail(), name, value)) is not None
+
+
+@pytest.mark.parametrize("name", ["Date of Publication", "Publication Date"])
+@pytest.mark.parametrize("value", [
+    "2007-09-03", "3 September 2007", "2006/2007", "2006-07", "2006–07",
+    "2006-09-03 or 2007-09-03", "2006-09-03 / 2006-10-03", "03/09/06",
+    "2006?", "circa 2006", "2006-02-30", "", "N/A",
+])
+def test_conflicting_or_ambiguous_publication_dates_cannot_bypass_the_year_gate(name, value):
+    assert match(set_aspect(detail(), name, value)) is None
+
+
+@pytest.mark.parametrize("item_name,item_value,product_name,product_values", [
+    ("Publication Year", "2006", "Date of Publication", ["2007-09-03"]),
+    ("Date of Publication", "2007-09-03", "Publication Year", ["2006"]),
+    ("Publication Date", "2006-09-03", "Date of Publication", ["2007-09-03"]),
+    ("Date of Publication", "2007-09-03", "Publication Date", ["2006-09-03"]),
+    ("Publication Date", "2006-09-03", "Publication Date", ["2006-09-03", "2007-09-03"]),
+    ("Publication Year", "2006", "Publication Date", ["2006-09-03"] * 3 + ["2007-09-03"]),
+])
+def test_all_item_and_product_publication_values_must_agree_with_the_canonical_year(
+        item_name, item_value, product_name, product_values):
+    row = set_aspect(detail(), item_name, item_value)
+    row["product"]["aspectGroups"] = [{"aspects": [product_aspect(product_name, *product_values)]}]
+    assert match(row) is None
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_publication_date_conflicts_between_product_groups_are_never_overwritten(reverse):
+    groups = [{"aspects": [product_aspect("Publication Date", "2006-09-03")]},
+              {"aspects": [product_aspect("Date of Publication", "2007-09-03")]}]
+    if reverse:
+        groups.reverse()
+    row = detail(product={"gtins": [ISBN], "aspectGroups": groups})
+    assert match(row) is None
+
+
+def test_absent_publication_dates_do_not_add_a_new_required_edition_fact():
+    assert match(detail()) is not None
+
+
+def test_publication_date_does_not_infer_a_missing_canonical_release_year():
+    canonical = canonical_row(release_year=None)
+    assert match(set_aspect(detail(), "Publication Date", "2007-09-03"), canonical=canonical) is not None
+    assert canonical["release_year"] is None
+
+
 @pytest.mark.parametrize("name,value", [
     ("ISBN", OTHER_ISBN), ("Language", "Japanese"), ("Format", "Hardcover"),
     ("Volume", "2"), ("Publisher", "VIZ Media"), ("Publication Year", "2007"),

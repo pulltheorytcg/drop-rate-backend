@@ -632,6 +632,44 @@ async def test_provider_diagnostics_report_rejections_without_raw_payload_or_tok
 
 
 @pytest.mark.asyncio
+async def test_publication_date_conflicts_are_diagnosed_and_no_date_offer_remains_eligible():
+    dated = detail(1)
+    dated["localizedAspects"].append({"name": "Date of Publication", "value": "2007-09-03"})
+    missing_id = missing_isbn_detail(2)
+    missing_id["product"]["aspectGroups"] = [{"aspects": [
+        {"localizedName": "Publication Date", "localizedValues": ["2007-09-03"]}]}]
+    no_date = detail(3)
+    client = FakeClient(details=[dated, missing_id, no_date])
+    result = await service(client).get(context.edition_target(ROW), diagnostics=True)
+    assert result["status"] == "AVAILABLE" and result["item_count"] == 1
+    assert result["items"][0]["item_id"] == no_date["itemId"]
+    assert result["asking_low_minor"] == result["asking_high_minor"] == 1300
+    assert result["diagnostics"]["compact_count"] == 0
+    candidates = result["diagnostics"]["candidates"]
+    assert [item["reason"] for item in candidates] == ["PUBLICATION_YEAR_CONFLICT", "PUBLICATION_YEAR_CONFLICT", "MATCHED"]
+    assert candidates[0]["publication_dates"] == {"date of publication": ["2007-09-03"]}
+    assert candidates[1]["publication_dates"] == {"publication date": ["2007-09-03"]}
+    assert candidates[1]["product_aspects"]["publication date"] == ["2007-09-03"]
+    assert candidates[2]["publication_dates"] == {}
+    assert len(client.calls) == 4
+
+
+def test_publication_date_diagnostics_use_only_bounded_public_alias_values():
+    row = detail()
+    row["localizedAspects"] += [
+        {"name": "Date of Publication", "value": "x" * 100} for _ in range(4)]
+    row["localizedAspects"].append({"name": "private_token", "value": "must-not-leak"})
+    row["product"]["aspectGroups"] = [{"aspects": [
+        {"localizedName": "Publication Date", "localizedValues": ["y" * 100] * 4},
+        {"localizedName": "private_token", "localizedValues": ["must-not-leak"]}]}]
+    diagnostic = context._diagnostic(row, row["itemId"], "PUBLICATION_YEAR_CONFLICT")
+    assert diagnostic["publication_dates"] == {
+        "date of publication": ["x" * 80] * 3, "publication date": ["y" * 80] * 3}
+    assert diagnostic["product_aspects"] == {"publication date": ["y" * 80] * 3}
+    assert "must-not-leak" not in json.dumps(diagnostic)
+
+
+@pytest.mark.asyncio
 async def test_mixed_isbn_upc_diagnostics_preserve_public_identifiers_without_relaxing_match():
     row = {**detail(), "product": {"gtins": ["9781427800022", "782009000000"],
                                    "access_token": "must-not-leak"}}
