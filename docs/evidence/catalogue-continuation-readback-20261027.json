@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "purpose": "Dated read-only continuation checkpoint after founder import rebuild activation; no catalogue, pricing, ownership or source-rights changes.",
+  "source": {
+    "repository": "pulltheorytcg/drop-rate-backend",
+    "main_commit": "44b1a9325a38ac9edc639588ebf4958c01e5e164",
+    "deployed_api_commit": "fb19e7e8477779577736d90e745ddc171374627a",
+    "project_id": "ozrxenrdladkooixutmm"
+  },
+  "cards": {
+    "checked_at": "2026-10-27 19:34:16.922997+00",
+    "all_references": 69545,
+    "digital": 2480,
+    "physical": 67065,
+    "priced": 43208,
+    "physical_artwork_urls": 60283,
+    "physical_core_fields_art_and_value": 38992,
+    "priced_missing_art": 4216,
+    "naruto_references": 7166
+  },
+  "calculated": {
+    "pricing_coverage_percent": 64.42704838589428,
+    "artwork_url_coverage_percent": 89.88742264966824,
+    "core_fields_art_and_value_percent": 58.14060985610975,
+    "additional_priced_for_90_percent": 17151,
+    "missing_prices": 23857,
+    "missing_artwork_urls": 6782,
+    "net_priced_change_since_1204": 73
+  },
+  "books": {
+    "book_total": 1590,
+    "checked_at": "2026-10-27T19:36:26.102384+00:00",
+    "database_bytes": 370740371,
+    "books_by_profile": [
+      {
+        "system_code": "DC_COMICS",
+        "catalogue_count": 100,
+        "verified_profile_count": 0
+      },
+      {
+        "system_code": "MANGA",
+        "catalogue_count": 805,
+        "verified_profile_count": 0
+      },
+      {
+        "system_code": "MARVEL_COMICS",
+        "catalogue_count": 138,
+        "verified_profile_count": 0
+      },
+      {
+        "system_code": "OTHER_COMICS",
+        "catalogue_count": 547,
+        "verified_profile_count": 0
+      }
+    ],
+    "positive_book_snapshots": 0,
+    "books_with_positive_snapshots": 0
+  },
+  "semantics": [
+    "Physical-card denominator excludes exactly the 2,480 TCGdex English POKEMON digital Pocket entries using verified set ID/name pairs listed in the query.",
+    "Card value uses a positive supported market value from a price row updated within seven days, or a reference_catalogue_prices guide row updated within seven days with exact reference identity. The freshness cutoff is pricing_updated_at. Same production quote/source identity gates are retained.",
+    "Card full-population checkpoint does not apply the browser's released-set display filter; it is comparable to the prior 67,065 physical-reference checkpoint.",
+    "Artwork means a nonempty image_url. It is not an image retrieval, exact-artwork inspection, permission approval or load verification.",
+    "Core fields, artwork and value means this single record has nonblank name, collector number, set name, language, image URL and positive eligible value. This is not all product or printing acceptance.",
+    "Books are product_type COMIC, separated by catalogue_product_profiles.system_code. Zero positive snapshots across all dates proves no current positive shared book snapshot; no book amount is inferred.",
+    "Net price coverage increase is a dated comparison under existing background jobs, not evidence that this session created 73 prices.",
+    "Database size is pg_database_size(current_database()) at the book checkpoint, not bytes reclaimed or a disk-allocation forecast."
+  ],
+  "queries": {
+    "cards": "with digital_sets(set_id,set_name) as (values ('A1','Genetic Apex'),('A1a','Mythical Island'),('A2','Space-Time Smackdown'),('A2a','Triumphant Light'),('A2b','Shining Revelry'),('A3','Celestial Guardians'),('A3a','Extradimensional Crisis'),('A3b','Eevee Grove'),('A4','Wisdom of Sea and Sky'),('A4a','Secluded Springs'),('B1','Mega Rising'),('B1a','Crimson Blaze'),('B2','Fantastical Parade'),('B2a','Paldean Wonders'),('P-A','Promos-A')), joined as (\nselect r.*,s.name as set_name,\nexists(select 1 from digital_sets d where r.provider='TCGdex' and r.system_code='POKEMON_TCG' and r.language='English' and r.set_id=d.set_id and s.name=d.set_name) as digital,\ncoalesce(case when m.pricing_updated_at>=now()-interval '7 days' then m.market_value_minor end,b.market_value_minor) as supported_value\nfrom tcg.reference_cards r join tcg.reference_sets s using(provider,system_code,language,set_id)\nleft join tcg.reference_market_prices m on (m.provider,m.system_code,m.language,m.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)\nand (coalesce(m.quotes->0->>'match_basis','')<>'CARDTRADER_MASTERS_NUMBER_RARITY_SINGLETON_CARDMARKET_ID' or r.rarity is not distinct from m.quotes->0->>'reference_rarity')\nand (coalesce(m.quotes->0->>'source','')<>'CARDMARKET_BULK_SINGLES' or m.quotes->0->'reference_identity'=jsonb_build_object('name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',s.name))\nleft join tcg.reference_catalogue_prices b on (b.provider,b.system_code,b.language,b.provider_id)=(r.provider,r.system_code,r.language,r.provider_id)\nand b.pricing_updated_at>=now()-interval '7 days'\nand b.quotes->0->'reference_identity'=jsonb_build_object('name',r.name,'set_id',r.set_id,'card_number',r.card_number,'set_name',s.name)\n)\nselect clock_timestamp() as checked_at,count(*) as all_references,count(*) filter(where digital) as digital,\ncount(*) filter(where not digital) as physical,\ncount(*) filter(where not digital and supported_value>0) as priced,\ncount(*) filter(where not digital and nullif(btrim(image_url),'') is not null) as physical_artwork_urls,\ncount(*) filter(where not digital and supported_value>0 and nullif(btrim(image_url),'') is not null and nullif(btrim(name),'') is not null and nullif(btrim(card_number),'') is not null and nullif(btrim(set_name),'') is not null and nullif(btrim(language),'') is not null) as physical_core_fields_art_and_value,\ncount(*) filter(where not digital and supported_value>0 and nullif(btrim(image_url),'') is null) as priced_missing_art,\ncount(*) filter(where not digital and system_code in ('NARUTO_KAYOU','NARUTO_BANDAI_LEGACY')) as naruto_references\nfrom joined;",
+    "books": "select jsonb_build_object(\n'checked_at',now(),\n'books_by_profile', (select coalesce(jsonb_agg(x),'[]'::jsonb) from (select coalesce(cp.system_code,'NO_PROFILE') system_code,count(*) catalogue_count,count(*) filter(where cp.identity_status='VERIFIED') verified_profile_count from tcg.catalogue_products p left join tcg.catalogue_product_profiles cp on cp.catalogue_id=p.id where p.product_type='COMIC' group by 1 order by 1) x),\n'book_total',(select count(*) from tcg.catalogue_products where product_type='COMIC'),\n'positive_book_snapshots',(select count(*) from tcg.catalogue_market_snapshots m join tcg.catalogue_products p on p.id=m.catalogue_id where p.product_type='COMIC' and m.market_value_minor>0),\n'books_with_positive_snapshots',(select count(distinct p.id) from tcg.catalogue_market_snapshots m join tcg.catalogue_products p on p.id=m.catalogue_id where p.product_type='COMIC' and m.market_value_minor>0),\n'database_bytes',pg_database_size(current_database())\n) as result;"
+  }
+}

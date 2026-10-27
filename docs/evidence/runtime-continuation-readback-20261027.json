@@ -466,5 +466,12 @@
       "latest_at": "2026-10-04 18:38:23.444719+00"
     }
   ],
-  "workflow_receipt_note": "Current DR93 and DR94 definitions validate successful command responses but do not invoke DR91's success-receipt route. No new durable automation_runs row is expected solely from those success paths; production DR90/DR91 fanout remains unverified."
+  "workflow_receipt_note": "Current DR93 and DR94 definitions validate successful command responses but do not invoke DR91's success-receipt route. No new durable automation_runs row is expected solely from those success paths; production DR90/DR91 fanout remains unverified.",
+  "approved_media_backlog_query_source": {
+    "url": "https://github.com/pulltheorytcg/drop-rate-backend/blob/fb19e7e8477779577736d90e745ddc171374627a/backend/app/r2_media.py",
+    "commit": "fb19e7e8477779577736d90e745ddc171374627a",
+    "blob_sha": "b27bbcd72bfbeb8c6cebcb6084204a5ad8e444df",
+    "constant": "PENDING_MIRRORS_SQL",
+    "interpretation": "Count of unmirrored assets satisfying the existing production scope, image/front, approval, rights, active source, provider and host eligibility predicate. It does not count every approved image."
+  }
 }

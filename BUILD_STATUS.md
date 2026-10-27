@@ -33,12 +33,24 @@ health returned 200 at 19:00:24.483 and heartbeat at 19:00:34.195. This verifies
 the scheduled command response, not new image counts or durable receipt fanout.
 The current mirror registry still contains 401 verified entries; the latest
 mirror verification is dated 26 October at 23:18 UTC.
-The production eligibility query at 19:30:30 UTC returned zero approved assets
+The production eligibility query at 19:30:30 UTC returned zero eligible approved assets
 awaiting mirrors. DR93/94 validate command responses without invoking DR91, so
 these successful schedules do not establish production receipt fanout. See the
 [runtime readback](docs/evidence/runtime-continuation-readback-20261027.json).
 The weekly Drive copy remains disabled pending its existing OAuth and bounded
 live-copy requirements. Catalogue coverage is not changed by this migration.
+
+An independent read-only catalogue checkpoint at 19:34:16 UTC reports
+43,208/67,065 physical references with supported values or labelled guides
+(64.43%), retaining exact Pocket exclusions, seven-day price-row eligibility
+and identity gates. That is 73 more
+than the 12:04 checkpoint under existing background jobs; 17,151 additional
+priced references are needed for 90%. Artwork URL presence is 60,283/67,065
+(89.89%); measured core fields, artwork URL and value together are 38,992/67,065
+(58.14%). URL presence is not load or printing verification. The 19:36:26 book
+readback still has 785 comics and 805 manga, with no positive shared market
+snapshots and no verified product profiles. Database size is 370,740,371 bytes.
+See the [dated catalogue evidence](docs/evidence/catalogue-continuation-readback-20261027.json).
 
 See the [activation evidence](docs/evidence/import-preview-rebuild-activation-20261027.json)
 and [current completion sequence](docs/DROP_RATE_COMPLETION_PLAN_20261027.md).

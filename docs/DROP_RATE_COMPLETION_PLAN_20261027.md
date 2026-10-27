@@ -47,7 +47,7 @@ pricing jobs continue while these bounded releases are implemented.
    command completion only. The mirror registry still contains 401 verified
    entries, latest verification 26 October at 23:18 UTC; no new mirrors are
    claimed. The exact production eligibility query at 19:30:30 UTC found zero
-   approved assets awaiting mirrors. DR93/94 success paths validate responses
+   eligible approved assets awaiting mirrors. DR93/94 success paths validate responses
    but do not call DR91, so durable receipt fanout remains unverified. See the
    [runtime readback](evidence/runtime-continuation-readback-20261027.json).
 5. Weekly private Drive copy: release #759 is merged and deployed behind
@@ -83,9 +83,9 @@ Broad image caching still requires the recorded source permissions.
 
 | Work | Current gap | Acceptance |
 | --- | --- | --- |
-| Card values | Last exact checkpoint: 43,135/67,065 physical references, 64.32%, including labelled guides | Supported current values or clearly labelled guides; 17,224 more needed for 90%; no invented prices |
+| Card values | Fresh 19:34 UTC checkpoint: 43,208/67,065 physical references, 64.43%, including labelled guides | Supported current values or clearly labelled guides; 17,151 more needed for 90%; no invented prices |
 | Artwork | 6,782 physical reference URLs missing; existing URLs are not all load-verified | Correct image visibly loads across search, sets and collection; exact printing and source checks retained |
-| Comics/manga | 785 comics + 805 manga; zero positive shared market snapshots at checkpoint | Reviewed editions/covers/printing evidence and supported market values; 909 staged records stay held until reviewed |
+| Comics/manga | Fresh 19:36 UTC checkpoint: 785 comics + 805 manga; zero positive shared market snapshots and zero verified product profiles | Reviewed editions/covers/printing evidence and supported market values; 909 staged records stay held until reviewed |
 | Phone scanner | Old deletion/two-item queue bugs repaired; representative device acceptance outstanding | Exact result, useful artwork/value, reliable saving and measured phone latency |
 | Import recovery | Exact reviewed migration installed and verified; flag true; targeted deployment SUCCESS and runtime readiness 200; authenticated founder UI acceptance pending | Verify the founder journey with the exact original file; preserve source identity and avoid duplicate copies |
 | Seller fulfilment | Carrier label, dispatch confirmation and tracking sync disabled | Verified actual label/reprint, parcel allocation, cost, dispatch and tracking journey |
@@ -93,8 +93,18 @@ Broad image caching still requires the recorded source permissions.
 | Storefront | Current published-site acceptance needs a new dated pass | Mobile/desktop search, filters, stock, checkout delivery and refund/replay evidence |
 | Operations | Control migration installed and heartbeat live verified; all five DR90–94 definitions active/published and exact; normal DR94 command HTTP 200 observed at 19:00; 401 verified mirrors; real receipt fanout and Drive unverified | Verify durable receipt acceptance, then authorize Google in n8n and prove the bounded private Drive copy |
 
-Exact catalogue counts are dated 12:03–12:04 UTC on 27 October. Later table
-statistics and price refresh writes must not be relabelled as newer coverage.
+The fresh read-only card checkpoint is dated 19:34:16 UTC and the book checkpoint
+19:36:26 UTC on 27 October. Exact Pocket set ID/name pairs exclude 2,480 digital
+references. The seven-day price-row cutoff (`pricing_updated_at`) and production source
+and reference-identity eligibility are retained. Pricing coverage is 73 references higher than the 12:04 checkpoint;
+this is progress under the existing background jobs, not a claim that this
+session wrote 73 new prices. Of 67,065 physical references, 60,283 have an image
+URL (89.89%); 38,992 have the measured core fields, artwork URL and eligible
+value together (58.14%). URL presence does not prove correct artwork or loading.
+There are 4,216 priced references without artwork URLs. The database readback
+is 370,740,371 bytes, below the existing 400 MB guard. Full queries, definitions
+and results are preserved in the
+[current catalogue readback](evidence/catalogue-continuation-readback-20261027.json).
 
 ## Deliberately deferred
 
