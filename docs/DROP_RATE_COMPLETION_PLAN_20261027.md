@@ -15,10 +15,14 @@ pricing jobs continue while these bounded releases are implemented.
    DR92/93/94 lack the reviewed DR90 error links and remain unpublished. No
    supported Google Drive credential exists in the inspected n8n database.
 3. Add an owner-free, exact-set reference-input cache with current Supabase
-   identity, pricing eligibility, ownership and media checks. Implemented;
-   native PostgreSQL 17 CI and production build/readback gates pending.
+   identity, pricing eligibility, ownership and media checks. Live after native
+   PostgreSQL 17 CI and actual R2/query parity: first 20 sets / 1,966 references
+   verified; eligible delivery enabled on successful deployment at 14:38:45 UTC.
+   Warming continues gradually; this is not whole-catalogue cache coverage.
 4. Finish proven scheduled approved-media runs and weekly R2-to-private-Drive
-   transfer with independent byte verification. Not complete.
+   transfer with independent byte verification. Guarded n8n link/publication
+   release #758 is under CI. The private Drive backend and inactive workflow are
+   prepared; native workflow proof, OAuth binding and live copy remain pending.
 
 The existing R2 price-history archive is already recurring and restore-verified.
 It must not be duplicated. Source snapshots are additional durable copies;
