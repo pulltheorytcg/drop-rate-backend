@@ -39,6 +39,7 @@ MAX_SUMMARIES = 50
 MAX_LOOKUP_CALLS = 7
 IDENTIFIER_FIELDS = ("gtin", "gtins", "isbn", "isbn10", "isbn13", "ean", "eans", "upc")
 IDENTIFIER_ASPECTS = {"isbn", "isbn 10", "isbn 13", "isbn10", "isbn13", "ean", "ean 13", "gtin", "upc"}
+PUBLICATION_DATE_ASPECTS = ("date of publication", "publication date")
 LANGUAGES = {
     "english": "English", "en": "English", "eng": "English",
     "japanese": "Japanese", "ja": "Japanese", "jpn": "Japanese",
@@ -110,6 +111,25 @@ def _binding_mentions(value: object) -> set[str]:
     if re.search(r"\b(?:hardcover|hard cover|hardback|hard back)\b", text):
         result.add("Hardcover")
     return result
+
+
+def _publication_date_year(value: str) -> int | None:
+    """Read one explicit year from a recognized date; never ignore a bad date."""
+    value = value.strip()
+    if re.fullmatch(r"[0-9]{4}", value):
+        return int(value)
+    if len(re.findall(r"(?<![0-9])[0-9]{4}(?![0-9])", value)) != 1:
+        return None
+    # Day/month order cannot change the year. Require a complete valid date
+    # instead of extracting a year from ranges, alternatives or uncertain text.
+    for date_format in ("%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y", "%m/%d/%Y",
+                        "%d-%m-%Y", "%m-%d-%Y", "%d %B %Y", "%d %b %Y",
+                        "%B %d, %Y", "%b %d, %Y", "%B %d %Y", "%b %d %Y"):
+        try:
+            return datetime.strptime(value, date_format).year
+        except ValueError:
+            continue
+    return None
 
 
 @dataclass(frozen=True)
@@ -589,6 +609,10 @@ def _assess_listing(detail: dict, target: BookEdition, *, checked_at: datetime, 
     for value in aspects.get("publication year", []):
         if target.release_year and str(target.release_year) != value.strip():
             return reject("PUBLICATION_YEAR_CONFLICT")
+    for name in PUBLICATION_DATE_ASPECTS:
+        for value in aspects.get(name, []):
+            if target.release_year and _publication_date_year(value) != target.release_year:
+                return reject("PUBLICATION_YEAR_CONFLICT")
     if target.release_year and any(int(year) != target.release_year for year in re.findall(r"\b((?:19|20|21)\d{2})\b", masked)):
         return reject("PUBLICATION_YEAR_CONFLICT")
     listed = _date(detail.get("itemCreationDate"))
@@ -878,7 +902,9 @@ def _diagnostic(detail: dict, item_id: str, reason: str) -> dict:
             "binding": (aspects.get("format", []) + aspects.get("book format", []) + aspects.get("binding", []))[:3],
             "volume": (aspects.get("volume", []) + aspects.get("volume number", []) + aspects.get("issue number", []))[:3],
             "publisher": aspects.get("publisher", [])[:3],
-            "publication_year": aspects.get("publication year", [])[:3],
+            "publication_year": [value[:80] for value in aspects.get("publication year", [])[:3]],
+            "publication_dates": {name: [value[:80] for value in aspects[name][:3]]
+                                  for name in PUBLICATION_DATE_ASPECTS if name in aspects},
             "seller_item_revision": _revision(detail),
             "product_present": isinstance(detail.get("product"), dict),
             "availability": []}
@@ -914,7 +940,7 @@ def _diagnostic(detail: dict, item_id: str, reason: str) -> dict:
     safe["product_aspects"] = {}
     try:
         for name, values in _product_aspects(detail):
-            if name in IDENTIFIER_ASPECTS | {"language", "format", "book format", "binding", "volume", "volume number", "issue number", "publisher", "publication year"}:
+            if name in IDENTIFIER_ASPECTS | set(PUBLICATION_DATE_ASPECTS) | {"language", "format", "book format", "binding", "volume", "volume number", "issue number", "publisher", "publication year"}:
                 current = safe["product_aspects"].setdefault(name, [])
                 current.extend(value[:80] for value in values[:max(0, 3-len(current))])
     except ValueError:

@@ -1,0 +1,477 @@
+{
+  "scope": "Ordinary, unpinned ISBN lookup after PR768; activation held after independent publication-date review",
+  "deployment": {
+    "id": "23204167-5154-447a-8aa5-1b9bd278d02c",
+    "status": "SUCCESS",
+    "commit": "19c140e50a09cf38d6ae3d8f755fcc94fe4757b7",
+    "created_at": "2026-10-27T21:59:03.207Z",
+    "updated_at": "2026-10-27T22:00:42.870Z"
+  },
+  "probe": {
+    "timestamp": "2026-10-27T22:00:24.843160666Z",
+    "report": {
+      "browse_calls": 7,
+      "event": "DROP_RATE_BOOK_EBAY_CONTEXT_PROBE",
+      "persisted": false,
+      "physical_valuation_eligible": false,
+      "provider": "OFFICIAL_EBAY_BROWSE",
+      "reason": "EXACT_ISBN_ACTIVE_LISTINGS",
+      "requested_listing_id": null,
+      "result": {
+        "asking_high_minor": 1320,
+        "asking_low_minor": 545,
+        "catalogue_id": "9264f778-e6a2-5f59-b0d2-23e8d725f4e5",
+        "checked_at": "2026-10-27T22:00:20.668194+00:00",
+        "currency": "GBP",
+        "diagnostics": {
+          "candidate_count": 35,
+          "candidates": [
+            {
+              "availability": [
+                "IN_STOCK"
+              ],
+              "binding": [
+                "Paperback"
+              ],
+              "currency": "GBP",
+              "identifiers": [
+                "9781569319000",
+                "9781569319000",
+                "9781569319000"
+              ],
+              "item_id": "v1|800761400014|0",
+              "language": [
+                "English"
+              ],
+              "product_aspects": {},
+              "product_present": false,
+              "publication_year": [],
+              "publisher": [],
+              "raw_identifiers": {
+                "aspects.isbn": [
+                  "9781569319000"
+                ],
+                "aspects.isbn 13": [
+                  "9781569319000"
+                ],
+                "item.gtin": [
+                  "9781569319000"
+                ]
+              },
+              "reason": "MATCHED",
+              "seller_item_revision": "6",
+              "title": "Naruto, Vol. 1: Uzumaki Naruto by Masashi Kishimoto (English) Paperback Book",
+              "volume": []
+            },
+            {
+              "availability": [
+                "IN_STOCK"
+              ],
+              "binding": [],
+              "currency": "GBP",
+              "identifiers": [
+                "9781569319000",
+                "9781569319000"
+              ],
+              "item_id": "v1|168644631267|0",
+              "language": [
+                "english"
+              ],
+              "product_aspects": {},
+              "product_present": false,
+              "publication_year": [],
+              "publisher": [],
+              "raw_identifiers": {
+                "aspects.isbn": [
+                  "1569319006"
+                ],
+                "item.gtin": [
+                  "1569319006"
+                ]
+              },
+              "reason": "PHYSICAL_BINDING_REQUIRED",
+              "seller_item_revision": "63",
+              "title": "Naruto, Vol. 1: Uzumaki Naruto: Volume 1 - Kishimoto, 9781569319000, paperback",
+              "volume": []
+            },
+            {
+              "availability": [
+                "IN_STOCK"
+              ],
+              "binding": [
+                "books",
+                "Paperback / softback"
+              ],
+              "currency": "GBP",
+              "identifiers": [
+                "9781569319000",
+                "9781569319000",
+                "9781569319000"
+              ],
+              "item_id": "v1|301885819244|0",
+              "language": [
+                "English"
+              ],
+              "product_aspects": {},
+              "product_present": false,
+              "publication_year": [],
+              "publisher": [
+                "Viz Media, Subs. of Shogakukan Inc"
+              ],
+              "raw_identifiers": {
+                "aspects.ean": [
+                  "9781569319000"
+                ],
+                "aspects.isbn": [
+                  "1569319006"
+                ],
+                "item.gtin": [
+                  "1569319006"
+                ]
+              },
+              "reason": "PHYSICAL_BINDING_REQUIRED",
+              "seller_item_revision": "1402",
+              "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap",
+              "volume": []
+            },
+            {
+              "availability": [
+                "IN_STOCK"
+              ],
+              "binding": [
+                "Paperback",
+                "Paperback / softback"
+              ],
+              "currency": "GBP",
+              "identifiers": [
+                "9781569319000",
+                "9781569319000"
+              ],
+              "item_id": "v1|116764306695|0",
+              "language": [
+                "English"
+              ],
+              "product_aspects": {},
+              "product_present": false,
+              "publication_year": [],
+              "publisher": [
+                "VIZ Media"
+              ],
+              "raw_identifiers": {
+                "aspects.ean": [
+                  "9781569319000"
+                ],
+                "aspects.isbn": [
+                  "1569319006"
+                ]
+              },
+              "reason": "MATCHED",
+              "seller_item_revision": "1",
+              "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap",
+              "volume": []
+            },
+            {
+              "availability": [
+                "IN_STOCK"
+              ],
+              "binding": [
+                "Paperback"
+              ],
+              "currency": "GBP",
+              "identifiers": [
+                "9781569319000",
+                "9781569319000",
+                "9781569319000",
+                "9781569319000"
+              ],
+              "item_id": "v1|287664798752|0",
+              "language": [
+                "English"
+              ],
+              "product_aspects": {},
+              "product_present": false,
+              "publication_year": [],
+              "publisher": [
+                "Viz Media, Subs. of Shogakukan Inc"
+              ],
+              "raw_identifiers": {
+                "aspects.ean": [
+                  "9781569319000"
+                ],
+                "aspects.isbn": [
+                  "9781569319000"
+                ],
+                "aspects.isbn 10": [
+                  "1569319006"
+                ],
+                "item.gtin": [
+                  "9781569319000"
+                ]
+              },
+              "reason": "PUBLISHER_CONFLICT",
+              "seller_item_revision": "5",
+              "title": "Masashi Kishimoto Naruto, Vol. 1 (Paperback) Naruto",
+              "volume": []
+            },
+            {
+              "availability": [
+                "IN_STOCK"
+              ],
+              "binding": [
+                "Paperback",
+                "Paperback / softback"
+              ],
+              "currency": "GBP",
+              "identifiers": [
+                "9781569319000",
+                "9781569319000",
+                "9781569319000"
+              ],
+              "item_id": "v1|286784715572|0",
+              "language": [
+                "English"
+              ],
+              "product_aspects": {},
+              "product_present": false,
+              "publication_year": [
+                "2021"
+              ],
+              "publisher": [
+                "VIZ Media"
+              ],
+              "raw_identifiers": {
+                "aspects.ean": [
+                  "9781569319000"
+                ],
+                "aspects.isbn": [
+                  "1569319006"
+                ],
+                "item.gtin": [
+                  "9781569319000"
+                ]
+              },
+              "reason": "PUBLICATION_YEAR_CONFLICT",
+              "seller_item_revision": "18",
+              "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book jb",
+              "volume": []
+            }
+          ],
+          "compact_count": 0,
+          "detail_count": 6,
+          "lookup_call_limit": 7,
+          "lookup_call_slots_used": 7,
+          "lookup_limit_reached": true,
+          "search_count": 1,
+          "search_mode": "ISBN_KEYWORD_OR",
+          "search_summaries": [
+            {
+              "item_id": "v1|165630069854|0",
+              "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+            },
+            {
+              "item_id": "v1|301885819244|0",
+              "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap"
+            },
+            {
+              "item_id": "v1|920041781087|0",
+              "title": "Naruto  Vol. 1 By Masashi Kishimoto - Used Copy - 9781569319000"
+            },
+            {
+              "item_id": "v1|168644631267|0",
+              "title": "Naruto, Vol. 1: Uzumaki Naruto: Volume 1 - Kishimoto, 9781569319000, paperback"
+            },
+            {
+              "item_id": "v1|187633439542|0",
+              "title": "Naruto  Vol. 1 By Masashi Kishimoto - New Copy - 9781569319000"
+            },
+            {
+              "item_id": "v1|227191690599|0",
+              "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+            },
+            {
+              "item_id": "v1|358779282953|0",
+              "title": "Naurto Manga Volume 1 Paperback Masashi Kishimoto Graphic Novel Softcover"
+            },
+            {
+              "item_id": "v1|168440882792|0",
+              "title": "Naruto, Vol. 1 & Vol. 2 by Masashi Kishimoto -  Shonen Jump Manga"
+            },
+            {
+              "item_id": "v1|116764306695|0",
+              "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap"
+            },
+            {
+              "item_id": "v1|318494659213|616883994316",
+              "title": "Naruto, by Kishimoto Masashi, Masashi Kishimoto"
+            },
+            {
+              "item_id": "v1|397759988797|0",
+              "title": "Naruto 1"
+            },
+            {
+              "item_id": "v1|287664798752|0",
+              "title": "Masashi Kishimoto Naruto, Vol. 1 (Paperback) Naruto"
+            },
+            {
+              "item_id": "v1|286784715572|0",
+              "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book jb"
+            },
+            {
+              "item_id": "v1|394481664307|0",
+              "title": "Naruto Volume 1: Uzumaki Naruto, Masashi Kishimoto"
+            },
+            {
+              "item_id": "v1|800761400014|0",
+              "title": "Naruto, Vol. 1: Uzumaki Naruto by Masashi Kishimoto (English) Paperback Book"
+            },
+            {
+              "item_id": "v1|306288956595|0",
+              "title": "Naruto, Vol. 1 (Volume 1): Uzumaki ..., Kishimoto, Masa"
+            },
+            {
+              "item_id": "v1|117377975184|0",
+              "title": "Naruto, Vol. 1 Paperback Masashi Kishimoto"
+            },
+            {
+              "item_id": "v1|128123017104|0",
+              "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+            },
+            {
+              "item_id": "v1|298583744784|0",
+              "title": "Naruto, Vol. 1 Paperback Masashi Kishimoto"
+            },
+            {
+              "item_id": "v1|276639563904|0",
+              "title": "Naruto, Vol. 1 by Masashi Kishimoto (Paperback, 2007)"
+            },
+            {
+              "item_id": "v1|800801991903|0",
+              "title": "Naruto, Vol. 1, Masashi Kishimoto,  Paperback"
+            },
+            {
+              "item_id": "v1|375449406765|0",
+              "title": "Masashi Kishimoto - Naruto Vol. 1   1 - New Paperback - X555z"
+            },
+            {
+              "item_id": "v1|196074281512|0",
+              "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback FREE UK POSTAGE "
+            },
+            {
+              "item_id": "v1|375480021065|0",
+              "title": "Naruto, Vol. 1 by Masashi Kishimoto (Paperback, 2007)"
+            },
+            {
+              "item_id": "v1|296942606291|0",
+              "title": "Naruto, V01 by Kishimoto Masashi "
+            },
+            {
+              "item_id": "v1|326262527636|0",
+              "title": "Naruto, Vol.�1"
+            },
+            {
+              "item_id": "v1|267005722723|0",
+              "title": "Naruto, Vol. 1 by Masashi Kishimoto (Paperback, 2007)"
+            },
+            {
+              "item_id": "v1|227548123894|0",
+              "title": "Naruto by Masashi Kishimoto Paperbacks Volumes 1,2. Shonen Jump Manga"
+            },
+            {
+              "item_id": "v1|135530419510|0",
+              "title": "Naruto, Vol. 1 by Masashi Kishimoto "
+            },
+            {
+              "item_id": "v1|354985463659|0",
+              "title": "Naruto Volume 1: Uzumaki Naruto, Kishimoto, Masashi"
+            },
+            {
+              "item_id": "v1|128091007659|0",
+              "title": "Naruto, Vol. 1 & 2: Uzumaki Naruto/The Worst Client by  Masashi Kishimoto Manga"
+            },
+            {
+              "item_id": "v1|285997935292|0",
+              "title": "Naruto, Vol. 1 by Masashi Kishimoto"
+            },
+            {
+              "item_id": "v1|176564450831|0",
+              "title": "Naruto, Vol. 1 And Vol. 21 Masashi Kishimoto (Paperback, 2007) Shonen Jump Manga"
+            },
+            {
+              "item_id": "v1|820193117690|0",
+              "title": "Naruto, Vol. 1: Uzumaki Naruto by Masashi Kishimoto 9781569319000 NEW"
+            },
+            {
+              "item_id": "v1|284913951690|0",
+              "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap"
+            }
+          ]
+        },
+        "edition": {
+          "binding": null,
+          "language": "English",
+          "title": "Naruto",
+          "volume": "1"
+        },
+        "edition_digest": "b43eae5ab8db2705d7a93bbc4f2e6e3e615c75173e359751088ffc7f77f0d0a4",
+        "expires_at": "2026-10-27T23:00:20.668194+00:00",
+        "isbn": "9781569319000",
+        "item_count": 2,
+        "items": [
+          {
+            "binding": "Paperback",
+            "checked_at": "2026-10-27T22:00:22.011192+00:00",
+            "condition": "New",
+            "ends_at": null,
+            "image_url": "https://i.ebayimg.com/images/g/LOQAAeSw4OJq3~iA/s-l1600.jpg",
+            "item_id": "v1|800761400014|0",
+            "listed_at": "2026-10-05T21:01:10+00:00",
+            "price_minor": 1320,
+            "shipping_minor": 0,
+            "title": "Naruto, Vol. 1: Uzumaki Naruto by Masashi Kishimoto (English) Paperback Book",
+            "url": "https://www.ebay.co.uk/itm/800761400014"
+          },
+          {
+            "binding": "Paperback",
+            "checked_at": "2026-10-27T22:00:23.691977+00:00",
+            "condition": "Very Good",
+            "ends_at": null,
+            "image_url": "https://i.ebayimg.com/images/g/xI4AAeSwcE1ouVHQ/s-l1600.jpg",
+            "item_id": "v1|116764306695|0",
+            "listed_at": "2025-09-04T08:46:18+00:00",
+            "price_minor": 545,
+            "shipping_minor": 338,
+            "title": "Naruto Volume 1: Uzumaki Naruto by Masashi Kishimoto Paperback Book The Cheap",
+            "url": "https://www.ebay.co.uk/itm/116764306695"
+          }
+        ],
+        "observation_type": "ACTIVE",
+        "physical_valuation_eligible": false,
+        "reason": "EXACT_ISBN_ACTIVE_LISTINGS",
+        "scope": "EDITION_ACTIVE_LISTINGS",
+        "source": "EBAY_BROWSE",
+        "status": "AVAILABLE"
+      },
+      "source_url": "https://www.viz.com/manga-books/manga/naruto-volume-1-0/product/91",
+      "status": "AVAILABLE",
+      "target_source": "PINNED_PUBLIC_CATALOGUE_FIXTURE_20261027",
+      "version": "book-ebay-context-v1"
+    }
+  },
+  "independent_source_review": {
+    "checked_at": "2026-10-27T22:01:58Z",
+    "source_url": "https://www.ebay.co.uk/itm/116764306695",
+    "public_item_specifics": {
+      "Date of Publication": "2007-09-03",
+      "EAN": "9781569319000",
+      "ISBN": "1569319006",
+      "Publisher": "VIZ Media",
+      "Language": "English",
+      "Format": "Paperback"
+    },
+    "canonical_release_year": 2003,
+    "finding": "The item-specific Date of Publication alias was not checked by the matcher, which checked only Publication Year. The cheaper reference must be excluded on this conflict before display activation. No book values were persisted.",
+    "other_validated_offer": "https://www.ebay.co.uk/itm/800761400014"
+  },
+  "display_enabled": false,
+  "original_predeploy_restored_after_probe": true
+}

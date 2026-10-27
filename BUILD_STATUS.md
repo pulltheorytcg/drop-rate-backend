@@ -1,3 +1,20 @@
+## 27 October 2026 — Ordinary eBay discovery works; publication-date alias repair
+
+PR #768 deployed successfully as `19c140e50a09cf38d6ae3d8f755fcc94fe4757b7`.
+All three normal CI jobs passed, with **7,657 backend tests**. At 22:00 UTC the
+ordinary ISBN lookup found two source offers in seven Browse calls, including
+the independently checked New paperback at **£13.20** with free quoted postage.
+Both exact returned photos decoded under the production image policy.
+
+Independent source-page review found that the cheaper candidate declares
+`Date of Publication: 2007-09-03`, conflicting with the canonical 2003 year.
+The matcher had checked only `Publication Year`. Activation is held while the
+equivalent date fields are added to the same conflict gate and diagnostics.
+The new offer has no conflicting date; absent date metadata remains distinct
+from a stated conflicting date. No prices, media or catalogue records were
+written. See the [ordinary lookup and source review](docs/evidence/book-ebay-normal-search-date-review-20261027.json)
+and [exact returned photo checks](docs/evidence/book-ebay-normal-search-images-20261027.json).
+
 ## 27 October 2026 — Live eBay book offer verified; discovery expansion pending
 
 PR #767 is deployed as `cd23bce9ac2c03bb60e65debbb17573f71f23f8e`.
