@@ -136,13 +136,16 @@ async def test_each_selected_pilot_is_one_bounded_lookup_without_fallback_to_oth
     service = BookListingContextService(Client())
     monkeypatch.setattr(probe, "service_from_settings", lambda _: service)
     result = await probe.run_probe(args(isbn=isbn), settings=object())
-    assert [query["gtin"] for query in searches] == [isbn]
-    assert len(details) == 3
-    assert result["browse_calls"] == 4
+    expected_query = {"9781427800022": "(9781427800022,1427800022)",
+                      "9781569319000": "(9781569319000,1569319006)"}[isbn]
+    assert [query["query"] for query in searches] == [expected_query]
+    assert "gtin" not in searches[0]
+    assert len(details) == 6
+    assert result["browse_calls"] == 7
     assert result["status"] == "UNAVAILABLE"
     assert result["result"]["isbn"] == isbn
     assert result["result"]["diagnostics"]["search_count"] == 1
-    assert result["result"]["diagnostics"]["detail_count"] == 3
+    assert result["result"]["diagnostics"]["detail_count"] == 6
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,26 @@
+## 27 October 2026 — Live eBay book offer verified; discovery expansion pending
+
+PR #767 is deployed as `cd23bce9ac2c03bb60e65debbb17573f71f23f8e`.
+All three applicable checks passed, and normal Railway gates passed **7,640
+tests**. The official Browse probe accepted Naruto volume 1, ISBN
+9781569319000, at **£5.03** in Good condition with zero quoted postage.
+Its returned listing photo decoded in Chromium and visibly matches the title
+and volume. This is an ACTIVE asking-price reference, not a sold market value.
+
+The normal first-ten-result search omitted that offer. Its three selected
+details were correctly rejected for a conflicting publication year, no explicit
+physical binding, or missing ISBN. A fifty-result GTIN check returned only
+fifteen results and still omitted the reviewed offers; exact ISBN13 and ISBN10
+keyword checks returned thirty-five and thirty-three and found both. The next
+release uses one documented ISBN keyword query and progressive detail checks
+within the same seven-call bound. Display remains disabled pending its normal
+live lookup. No catalogue, inventory,
+market, media or financial records were written. See the
+[actual offer and discovery receipt](docs/evidence/book-ebay-discovery-gap-20261027.json)
+and [returned photo check](docs/evidence/book-ebay-naruto-image-delivery-20261027.json).
+The [search comparison](docs/evidence/book-ebay-isbn-search-comparison-20261027.json)
+records the source discovery gap without treating summary prices as quotes.
+
 ## 27 October 2026 — eBay book identifier compatibility follow-up
 
 PR #766 is deployed successfully on API release

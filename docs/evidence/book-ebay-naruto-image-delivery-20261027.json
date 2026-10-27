@@ -1,0 +1,69 @@
+{
+  "checked_at": "2026-10-27T21:39:17.185Z",
+  "source_listing_url": "https://www.ebay.co.uk/itm/298583744784",
+  "observed_image_url": "https://i.ebayimg.com/images/g/4hQAAeSwL8lqfUuR/s-l1600.jpg",
+  "source_evidence": "Exact image URL returned by the official Browse pinned offer 298583744784 on PR767 API release cd23bce9ac2c03bb60e65debbb17573f71f23f8e, supplied by parent agent; this check makes no Browse request",
+  "requested_origin": "https://drop-rate-api-live-production.up.railway.app",
+  "browser": "140.0.7339.186",
+  "test_environment": "Fresh isolated Chromium context. Only the HTML document is locally fulfilled at the production origin; no production app, login, API or account request. ignoreHTTPSErrors is confined to this test context for the local certificate interception; no production TLS setting changes.",
+  "production_image_csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://assets.tcgdex.net https://covers.openlibrary.org https://archive.org/download/ https://*.us.archive.org/view_archive.php https://i.ebayimg.com https://onepiece-cardgame.com https://www.onepiece-cardgame.com https://*.onepiece-cardgame.com https://www.dbs-cardgame.com https://narutocardgame.gg https://cardtrader.com https://www.cardtrader.com https://upload.wikimedia.org https://images.prismic.io https://cdn.shopify.com https://*.shopifycdn.com https://*.shopifycdn.net https://e4d4b363540e991048d2e1812d5ef53e.eu.r2.cloudflarestorage.com; connect-src 'self' https://ozrxenrdladkooixutmm.supabase.co; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+  "requested_image_settings": {
+    "crossOrigin": "anonymous",
+    "referrerPolicy": "no-referrer",
+    "loading": "lazy"
+  },
+  "image_requests": [
+    {
+      "url": "https://i.ebayimg.com/images/g/4hQAAeSwL8lqfUuR/s-l1600.jpg",
+      "method": "GET",
+      "origin": "https://drop-rate-api-live-production.up.railway.app",
+      "referrer_present": false,
+      "authorization_present": false,
+      "cookie_present": false,
+      "sec_fetch_mode": null,
+      "sec_fetch_dest": null
+    }
+  ],
+  "responses": [
+    {
+      "url": "https://i.ebayimg.com/images/g/4hQAAeSwL8lqfUuR/s-l1600.jpg",
+      "status": 200,
+      "content_type": "image/jpeg",
+      "access_control_allow_origin": "*",
+      "access_control_allow_credentials": null,
+      "content_length": "122691",
+      "received_bytes": 122691,
+      "cross_origin_resource_policy": null
+    }
+  ],
+  "console_errors": [],
+  "request_failures": [],
+  "downloaded_image": {
+    "path": "/workspace/scratch/d4e997978efd/evidence/pr767-ebay-image-delivery.jpg",
+    "sha256": "8f80f3d52c1d18c31b62f3227b64ef15c83f17ddea09eec746bd5f7a099c737e"
+  },
+  "image": {
+    "loaded": true,
+    "width": 500,
+    "height": 746,
+    "current_src": "https://i.ebayimg.com/images/g/4hQAAeSwL8lqfUuR/s-l1600.jpg",
+    "cross_origin": "anonymous",
+    "referrer_policy": "no-referrer",
+    "canvas_readable": true
+  },
+  "csp_violations": [],
+  "status": "passed",
+  "completed_at": "2026-10-27T21:39:17.495Z",
+  "visual_review": {
+    "reviewed_at": "2026-10-27T21:39:38.380036+00:00",
+    "status": "MATCHES_TITLE_AND_VOLUME",
+    "method": "Viewed the exact JPEG bytes downloaded by the single Chromium image response, using the image viewer; no additional network request.",
+    "observations": [
+      "Cover visibly reads NARUTO.",
+      "Large numeral 1 and volume 1 text are visible.",
+      "Masashi Kishimoto and Shonen Jump Graphic Novel text are visible.",
+      "Cover image shows Naruto in orange clothing on a toad; no placeholder or error image."
+    ],
+    "limits": "The front cover does not show an ISBN or prove a physical printing, exact seller copy or interior language. This remains a source-linked eBay listing photo reference."
+  }
+}
