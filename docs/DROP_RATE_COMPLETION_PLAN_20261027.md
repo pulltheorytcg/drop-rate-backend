@@ -15,34 +15,51 @@ pricing jobs continue while these bounded releases are implemented.
    native runtime exposed and verified a raw HTTP response parser correction;
    DR92/93/94 now have their reviewed DR90 error links. DR90 was published at
    15:13:36 and both health schedules at 15:17:38. The separate DR91 source
-   repair completed at 16:57:03 with a verified backup, retaining its inactive,
-   unpublished state. All five stored definitions now match reviewed source.
-   Fresh inspection still shows no supported Google Drive OAuth credential.
+   repair completed at 16:57:03 with a verified backup. Its separate publication
+   was verified at 17:55:12 after database repair; the one-time flag is cleared.
+   DR94 approved-media publication was verified at 18:02:25. Independent metadata
+   confirms all five DR90–94 definitions are active/published and match reviewed
+   source, with no supported Google Drive OAuth credential. All six one-time
+   boot mutation flags are cleared. Scheduled media execution remains unverified.
 3. Add an owner-free, exact-set reference-input cache with current Supabase
    identity, pricing eligibility, ownership and media checks. Live after native
    PostgreSQL 17 CI and actual R2/query parity: first 20 sets / 1,966 references
    verified; eligible delivery enabled on successful deployment at 14:38:45 UTC.
-   Warming continues gradually; this is not whole-catalogue cache coverage.
+   The current deployment's 17:05–17:26 warming logs give a fresh, deduplicated
+   checkpoint of 100 sets / 14,297 references / 855,888 compressed bytes. Do not
+   add the first checkpoint again. This is partial reference-input cache
+   coverage, not whole-catalogue delivery or reclaimed database space.
 4. Verify actual scheduled controls before approved media. DR93's signed
    storage-health command returned HTTP 200 at 16:00:23 UTC. DR92's heartbeat
-   returned 500 at 16:00:34 and its DR90 failure receipt returned 503. Those
-   backend/database failures are being repaired. The exact DR92 pause was
-   verified at 16:55:16 with a backup; DR90 and DR93 remain published, while
-   DR91 and DR94 remain unpublished. All one-time operator flags are cleared.
-   Publication alone is not proof of successful scheduled execution.
+   returned 500 at 16:00:34 and its DR90 failure receipt returned 503. The exact
+   DR92 pause was verified at 16:55:16 with a backup. The reviewed automation
+   database repair is now installed as `20261027173335`; subsequent readback
+   verifies the exact control functions and unchanged table privileges/RLS.
+   DR92 has resumed: its durable heartbeat advanced from execution 41/count 1
+   at 17:45:34 to execution 43/count 3 at 17:55:34. R2 health returned HTTP 200
+   at 18:00:23 and heartbeat returned 200 at 18:00:34. Receipt fanout still
+   needs an observed real execution. DR94 approved-media publication was
+   verified at 18:02:25 after those health checks; its first normal opportunity
+   is 19:00:03 London time (UTC on this date). Publication alone does not prove
+   scheduled media execution.
 5. Weekly private Drive copy: release #759 is merged and deployed behind
    disabled backend/workflow gates. Its real pinned n8n smoke passed at
    15:01:41 UTC: three automatic runs, one restart, three synthetic archives,
    seven objects, independent byte readback, saved continuation, receipt replay
-   and cleanup. Real Google OAuth, durable production receipt acceptance,
-   DR91 publication and a bounded real copy remain activation requirements.
-   No live Drive copy has been claimed.
+   and cleanup. DR91 is now published, but real Google OAuth, durable production
+   receipt acceptance and a bounded actual create/download/readback remain
+   activation requirements. Both Drive enable flags remain false. No live Drive
+   copy has been claimed.
 6. Founder import recovery: release #760 is merged and deployed; all four CI
    workflows passed, including PostgreSQL 17, authenticated owner intake and
-   responsive layouts. The rebuild gate remains false. Supabase's governed
-   migration call returned `Invalid or expired requestState`; a later ledger
-   read still had 135 entries and no founder preview rebuild migration. Its
-   installation/activation therefore needs the connector request state fixed.
+   responsive layouts. The rebuild gate remains false. Supabase SQL reads and
+   the automation migration now work, but two resumed governed import-migration
+   attempts returned `Invalid or expired requestState`. The 17:57:21 catalogue
+   and ledger read confirms no rebuild function or migration entry; the final
+   136-entry migration list contains only the automation repair of the two
+   pending migrations. No further retry was made. Resolve this migration-specific
+   connector failure, reconcile actual state, then install and verify the
+   reviewed migration before enabling rebuilding. No existing import is replayed.
 
 The existing R2 price-history archive is already recurring and restore-verified.
 It must not be duplicated. Source snapshots are additional durable copies;
@@ -57,11 +74,11 @@ Broad image caching still requires the recorded source permissions.
 | Artwork | 6,782 physical reference URLs missing; existing URLs are not all load-verified | Correct image visibly loads across search, sets and collection; exact printing and source checks retained |
 | Comics/manga | 785 comics + 805 manga; zero positive shared market snapshots at checkpoint | Reviewed editions/covers/printing evidence and supported market values; 909 staged records stay held until reviewed |
 | Phone scanner | Old deletion/two-item queue bugs repaired; representative device acceptance outstanding | Exact result, useful artwork/value, reliable saving and measured phone latency |
-| Import recovery | Tested same-batch rebuild and founder controls deployed; database migration/activation blocked by connector request state | Apply the reviewed guarded migration, verify live readiness, then enable rebuild; preserve source identity and avoid duplicate copies |
+| Import recovery | Tested same-batch rebuild and founder controls deployed; import-specific migration request fails, function/ledger entry absent at 17:57:21; flag false | Reconcile state after connector recovery, apply the reviewed guarded migration, verify readiness, then enable rebuild; preserve source identity and avoid duplicate copies |
 | Seller fulfilment | Carrier label, dispatch confirmation and tracking sync disabled | Verified actual label/reprint, parcel allocation, cost, dispatch and tracking journey |
 | Seller payouts | Prepared balances/approvals; complete live bank-payout journey unverified | Funding, recipient readiness, transfer/bank payout, reversals/refunds and settlement reconciliation |
 | Storefront | Current published-site acceptance needs a new dated pass | Mobile/desktop search, filters, stock, checkout delivery and refund/replay evidence |
-| Operations | R2 health succeeds; failed heartbeat paused; all five stored control definitions repaired; receipt/database repair prepared; media and Drive held | Install and verify durable heartbeat/receipt writes, resume heartbeat, then prove scheduled media and the separately authorized Drive copy |
+| Operations | Control migration installed and heartbeat live verified; all five DR90–94 definitions active/published and exact; scheduled media, real receipt fanout and Drive unverified | Observe the actual scheduled media outcome and durable receipt acceptance, then authorize Google in n8n and prove the bounded private Drive copy |
 
 Exact catalogue counts are dated 12:03–12:04 UTC on 27 October. Later table
 statistics and price refresh writes must not be relabelled as newer coverage.
@@ -99,3 +116,41 @@ Drive smoke gates passed. Production n8n verified the DR92-only pause at
 The first #761 API build failed in Railway's BuildKit service before tests;
 the previous successful API remained live. No application regression is claimed
 from that build-service failure.
+
+[Automation runtime repair #762](https://github.com/pulltheorytcg/drop-rate-backend/pull/762)
+merged as `fb19e7e8477779577736d90e745ddc171374627a`, exact tree
+`aa8015eef401d9a34c731fa37c8c96d6f411773c`. API deployment
+`a91487a5-7e2b-42d8-809b-0439fdb01562` reached SUCCESS at 17:05:20 UTC after
+7,256 tests passed, 18 skipped and one warning; readiness returned 200. This
+resolved the earlier BuildKit deployment failure. The API remains on that
+release; the resumed production work installed the reviewed database repair
+and recovered the stored automation state.
+
+The automation migration is recorded as
+`20261027173335_automation_control_runtime_repair`. Readback verifies reviewed
+function body hashes, signatures, owners, settings and restricted grants;
+table ACLs, RLS and required indexes are unchanged. Native PostgreSQL 17.6
+checks additionally passed with captured production audit metadata overlaid
+in disposable databases. Their data was synthetic; they are not evidence of
+production receipt fanout or customer-data writes.
+
+Successful n8n deployment `d20f969c-e663-4f84-b1ba-8546f908dfa2` emitted
+`PUBLICATION_VERIFIED` for DR91 at 17:55:12 UTC with a verified SQLite backup.
+The durable heartbeat read at 17:59:15 records execution 43/count 3, received
+at 17:55:34.490942. The 18:00:23 storage-health and 18:00:34 heartbeat requests
+both returned HTTP 200. DR94 then emitted `PUBLICATION_VERIFIED` at 18:02:25
+with a verified SQLite backup on deployment
+`73b85d89-b5a5-4931-bd16-eef34757c1cc` (SUCCESS at 18:02:42.855). Independent
+metadata confirms all five DR90–94 definitions active/published and matching
+source, while native Drive credentials remain absent. All six one-time boot
+mutation flags were cleared with `skipDeploys:true`. No 19:00:03 scheduled
+media outcome is claimed in advance.
+
+At 17:57:21 UTC the import rebuild function and migration remained absent,
+despite the now-working automation capability. The final ledger contains 136
+migrations, including the automation repair and no import rebuild; existing
+advisor warnings are unchanged. The import flag and both Drive flags remain
+false. Full recovery requires the import migration-specific connector issue,
+actual receipt acceptance, native Google authorization and the bounded Drive
+pilot to be resolved. See the
+[dated recovery evidence](evidence/automation-import-recovery-20261027.json).
