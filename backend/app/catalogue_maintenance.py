@@ -29,6 +29,7 @@ from .one_piece_market import refresh_one_piece_prices
 from .pokewallet_one_piece_market import refresh_pokewallet_one_piece
 from .pokewallet_dragon_ball_market import refresh_pokewallet_dragon_ball
 from .pokewallet_pokemon_market import refresh_pokewallet_pokemon
+from .tcgcsv_market import refresh_exports, JOB as TCGCSV_JOB
 from .dragon_ball_market import refresh_dragon_ball_prices
 from .pokemon_catalogue_market import refresh_pokemon_catalogue_prices
 from .reference_sealed import save_sealed_set, sealed_feed
@@ -181,8 +182,11 @@ async def receipt(pool,actor,job,status,report,run_id=None):
 
 async def sync_source(pool,actor,source,settings):
     feed=ReferenceFeeds();sets=cards=0;status='INCOMPLETE'
+    discoveries=[];new_sets=0
     async with user_connection(pool,actor,str(uuid4())) as connection:
         await require_platform_admin(connection)
+        known={tuple(r[k] for k in ('provider','system_code','language','set_id'))
+               for r in await connection.fetch('select provider,system_code,language,set_id from tcg.reference_sets')}
         run_id=await connection.fetchval("insert into tcg.reference_sync_runs(source,status) values($1,'RUNNING') returning id",source)
     try:
         if source=='cardtrader_sealed':
@@ -199,6 +203,12 @@ async def sync_source(pool,actor,source,settings):
                 await connection.execute('''update tcg.reference_sync_runs set sets_loaded=$2,cards_loaded=$3
                   where id=$1''',run_id,sets+1,cards+len({i['provider_id'] for i in items}))
             sets+=1;cards+=len({i['provider_id'] for i in items})
+            identity=tuple(record[k] for k in ('provider','system_code','language','set_id'))
+            if identity not in known:
+                known.add(identity);new_sets+=1
+                if len(discoveries)<30:
+                    discoveries.append({k:record.get(k) for k in
+                        ('provider','system_code','language','set_id','name','release_date','source_url')})
         if not sets:feed.failures.append({'reason':'NO_REFERENCE_RECORDS'})
         status='INCOMPLETE' if feed.failures else 'COMPLETE'
     except asyncio.CancelledError:
@@ -210,7 +220,8 @@ async def sync_source(pool,actor,source,settings):
         async with user_connection(pool,actor,str(uuid4())) as connection:
             await connection.execute('''update tcg.reference_sync_runs set status=$2,finished_at=now(),
               sets_loaded=$3,cards_loaded=$4,report=$5::jsonb where id=$1''',run_id,status,sets,cards,
-              json.dumps({'scheduled':True,'importer_revision':SOURCE_REVISIONS.get(source,1),'failures':feed.failures[:30]}))
+              json.dumps({'scheduled':True,'importer_revision':SOURCE_REVISIONS.get(source,1),
+                'new_sets':new_sets,'new_set_samples':discoveries,'failures':feed.failures[:30]}))
         log.warning('Daily catalogue source=%s status=%s sets=%s records=%s',source,status,sets,cards)
     return {'status':status,'sets':sets,'records':cards}
 
@@ -283,7 +294,7 @@ def coverage_lags_pricing(latest):
         run is not None and run['status']=='COMPLETE' and run['started_at']>checkpoint
         for name in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES',
                      'CARDMARKET_VALUES','CATALOGUE_VALUES','POKEWALLET_PRICES',
-                     'POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES')
+                     'POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES',TCGCSV_JOB)
         for run in (latest.get(name),)
     )
 
@@ -306,17 +317,8 @@ async def daily_pass(pool,settings):
                 jobs=await connection.fetch("select distinct on(job) job,started_at,status,report from tcg.catalogue_job_runs where job in ('REFERENCE_PRICES','SEALED_REFERENCE_PRICES','CATALOGUE_COVERAGE','CATALOGUE_VALUES','CARDMARKET_VALUES','POKEWALLET_PRICES','POKEWALLET_DBS_PRICES','POKEWALLET_POKEMON_PRICES') order by job,started_at desc")
             last={r['source']:r for r in runs};now=datetime.now(timezone.utc)
             latest={r['job']:r for r in jobs}
-            if weekly_price_due(latest.get('CATALOGUE_VALUES'),now,revision=CATALOGUE_VALUE_REVISION):
-                await refresh_catalogue_values(pool,actor)
-            if weekly_price_due(latest.get('CARDMARKET_VALUES'),now,revision=CARDMARKET_VALUE_REVISION):
-                await refresh_cardmarket_values(pool,actor)
-            for source in SOURCES:
-                if due(last.get(source),now,revision=SOURCE_REVISIONS.get(source,1)):
-                    await sync_source(pool,actor,source,settings)
+            latest[TCGCSV_JOB]=last.get(TCGCSV_JOB)
             sealed_refreshed=False
-            if weekly_price_due(latest.get('SEALED_REFERENCE_PRICES'),now,revision=SEALED_MARKET_REVISION):
-                await refresh_sealed_prices(pool,actor)
-                sealed_refreshed=True
             coverage_recorded=False
             # Bounded hourly feeds must run before the long bulk backfill.
             # The same lock, capacity guard, hour receipts and quotas still apply.
@@ -348,7 +350,8 @@ async def daily_pass(pool,settings):
                         request_limit=min(ONE_PIECE_HOURLY_REQUEST_BUDGET,
                             getattr(settings,'pokewallet_pricing_request_limit',60)),
                         previous_cursor=last_cursor)
-                    await receipt(pool,actor,'POKEWALLET_PRICES','COMPLETE',
+                    await receipt(pool,actor,'POKEWALLET_PRICES',
+                                  'INCOMPLETE' if result.get('provider_failures') or result.get('reason') else 'COMPLETE',
                                   {'importer_revision':importer_revision,**result,
                                    **({'replayed_trial_started_at':replay['replayed_trial_started_at']}
                                       if replay is not None else {})})
@@ -380,7 +383,8 @@ async def daily_pass(pool,settings):
                         request_limit=min(DBS_HOURLY_REQUEST_BUDGET,
                             getattr(settings,'pokewallet_dragon_ball_request_limit',35)),
                         previous_cursor=last_cursor)
-                    await receipt(pool,actor,'POKEWALLET_DBS_PRICES','COMPLETE',
+                    await receipt(pool,actor,'POKEWALLET_DBS_PRICES',
+                                  'INCOMPLETE' if result.get('provider_failures') or result.get('reason') else 'COMPLETE',
                                   {'importer_revision':importer_revision,**result,
                                    **({'replayed_trial_started_at':replay['replayed_trial_started_at']}
                                       if replay is not None else {})})
@@ -404,11 +408,33 @@ async def daily_pass(pool,settings):
                         dry_run=not getattr(settings,'pokewallet_pokemon_apply_enabled',False),
                         request_limit=POKEMON_HOURLY_REQUEST_BUDGET,
                         previous_cursor=last_cursor)
-                    await receipt(pool,actor,'POKEWALLET_POKEMON_PRICES','COMPLETE',
+                    await receipt(pool,actor,'POKEWALLET_POKEMON_PRICES',
+                                  'INCOMPLETE' if result.get('provider_failures') or result.get('reason') else 'COMPLETE',
                                   {'importer_revision':revision,**result})
                     if result['writes_attempted']:
                         await record_coverage(pool,actor)
                         coverage_recorded=True
+            # The hourly quota feeds run before *all* bulk work, including
+            # daily metadata. A slow metadata source cannot spend their slot.
+            if getattr(settings,'tcgcsv_free_enabled',False):
+                try:
+                    result=await asyncio.wait_for(
+                        refresh_exports(pool,actor,previous=last.get(TCGCSV_JOB)),timeout=600)
+                    if result and result.get('writes_attempted'):
+                        await record_coverage(pool,actor)
+                        coverage_recorded=True
+                except asyncio.TimeoutError:
+                    log.error('TCGCSV_DAILY_IMPORT_TIMEOUT')
+            if weekly_price_due(latest.get('CATALOGUE_VALUES'),now,revision=CATALOGUE_VALUE_REVISION):
+                await refresh_catalogue_values(pool,actor)
+            if weekly_price_due(latest.get('CARDMARKET_VALUES'),now,revision=CARDMARKET_VALUE_REVISION):
+                await refresh_cardmarket_values(pool,actor)
+            for source in SOURCES:
+                if due(last.get(source),now,revision=SOURCE_REVISIONS.get(source,1)):
+                    await sync_source(pool,actor,source,settings)
+            if weekly_price_due(latest.get('SEALED_REFERENCE_PRICES'),now,revision=SEALED_MARKET_REVISION):
+                await refresh_sealed_prices(pool,actor)
+                sealed_refreshed=True
             if weekly_price_due(latest.get('REFERENCE_PRICES'),now,revision=REFERENCE_JOB_REVISION):
                 # Record the complete database scope before a potentially long
                 # first fill; the final receipt then reflects its progress.

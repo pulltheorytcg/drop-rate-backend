@@ -1,3 +1,27 @@
+## 27 October 2026 — Free catalogue automation expansion
+
+The independent **Drop Rate Catalogue Watch** is enabled hourly for real job
+receipts, stalled imports, primary-source new releases and free-data opportunities.
+The existing archive watch remains enabled separately.
+
+This change prepares a daily, bounded TCGCSV Dragon Ball guide importer with exact
+release/number/name collision checks and verified private R2 snapshots before
+price writes. Prices retain USD originals and ECB conversion, and the interface
+labels them as TCGplayer US guides converted to GBP. Existing hourly price jobs
+now run before daily metadata and report provider failures as INCOMPLETE. Daily
+reference receipts expose newly discovered set identities.
+
+TCGCSV remains **disabled**. The 27 October source review found that TCGCSV's
+access permission does not establish permission under TCGplayer's upstream
+restrictions on third-party and commercial data reuse. The runbook records the
+primary-source conflict. Technical validation alone must not enable this feed.
+The existing-source scheduling and receipt improvements remain independent.
+
+Pre-deployment baseline: **43,033 / 67,065 physical cards (64.17%)**. This change
+does not claim the 90% target, complete artwork, Naruto legacy/Kayou coverage,
+or a completed full Open Library bulk pipeline. The source hold and required
+live readback are recorded in [the automation runbook](docs/FREE_CATALOGUE_AUTOMATION.md).
+
 ## 26 October 2026 — Catalogue recovery deployed and verified
 
 The live implementation pass added **480 supported card values/guides**, restored
