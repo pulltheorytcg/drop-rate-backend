@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "plan_id": "success-receipt-stream-response-20261027-v1",
+  "n8n_version": "2.32.6",
+  "observed_at": "2026-10-27T15:07:24.645509857Z",
+  "observation_deployment_id": "4e16a798-7646-42ed-999e-4394bce145c3",
+  "confirmed_unchanged_at": "2026-10-27T15:09:36.988108013Z",
+  "confirmation_deployment_id": "635a5db2-67a3-442f-9066-d84f8d9a7dd1",
+  "normalization": "drop-rate-workflow-definition-v1",
+  "id": "DR91SuccessReceiptV1",
+  "observed_stored_sha256": "8f8b466d808171b2458fc0bcfc7a64a3ae8271221e084353d7eaf35198981296",
+  "source_sha256": "1687b41a0f99a4ef27f1c1ad99c07bbbbe2aa0d68d959670dd6670ef40055568"
+}

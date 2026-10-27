@@ -90,7 +90,7 @@ $workflow_id"
   done
 fi
 
-# A separate reviewed operation may update only the three observed inactive
+# A separate reviewed operation may update only the four observed inactive
 # control-plane definitions. Its backup, exact-hash guards and readback are
 # mandatory; failure stops this requested upgrade before n8n starts.
 case "${DROP_RATE_N8N_CONTROL_PLANE_UPGRADE_ON_BOOT:-false}" in
@@ -113,6 +113,42 @@ case "${DROP_RATE_N8N_CONTROL_PLANE_PUBLISH_ON_BOOT:-false}" in
   false|'') ;;
   *)
     echo '{"event":"DROP_RATE_N8N_REVIEWED_UPGRADE","status":"BLOCKED","reason":"INVALID_OPERATOR_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
+# A separate opt-in pause unpublishes only the reviewed DR92 heartbeat before
+# server startup. Other workflows and history remain unchanged.
+case "${DROP_RATE_N8N_HEARTBEAT_PAUSE_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-heartbeat-pause.cjs 2>/dev/null
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_HEARTBEAT_PAUSE","status":"BLOCKED","reason":"INVALID_OPERATOR_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+
+# DR91 has a separate observed-state plan. Preserve current core publication,
+# import only this inactive receipt sub-workflow, then publish in a later boot.
+case "${DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-success-receipt-upgrade.cjs 2>/dev/null
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE","status":"BLOCKED","reason":"INVALID_OPERATOR_FLAG"}' >&2
+    exit 1
+    ;;
+esac
+case "${DROP_RATE_N8N_SUCCESS_RECEIPT_PUBLISH_ON_BOOT:-false}" in
+  true)
+    node --no-warnings /opt/drop-rate/ops/guarded-success-receipt-upgrade.cjs --publish 2>/dev/null
+    ;;
+  false|'') ;;
+  *)
+    echo '{"event":"DROP_RATE_N8N_SUCCESS_RECEIPT_UPGRADE","status":"BLOCKED","reason":"INVALID_OPERATOR_FLAG"}' >&2
     exit 1
     ;;
 esac
