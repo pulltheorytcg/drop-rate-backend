@@ -1,7 +1,8 @@
 """Probe documented TCGdex manifest omissions; repair only blank reference URLs.
 
 No inventory/media approval, copied R2 objects, cross-language matching or guessed
-set aliases. Every written URL has passed an actual same-origin image GET.
+set aliases. Every written URL has passed an actual same-origin image GET. The
+individually reviewed M1S 001–056 exception additionally pins the exact image bytes.
 """
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ import re
 import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import httpx
@@ -29,12 +31,12 @@ ISSUES = {
     "English": "https://github.com/tcgdex/cards-database/issues/2362",
     "Japanese": "https://github.com/tcgdex/cards-database/issues/2477",
 }
-# Fixed, reviewed provider reports. Deliberately omit misnumbered M1S (#2395),
-# other undocumented paths, and digital TCG Pocket sets.
+# Fixed, reviewed provider reports. M1S is restricted below to the independently
+# reviewed 001–056 images; its misnumbered remainder and digital Pocket stay out.
 SETS = {
     "English": {"mep": "me", "svp": "sv"},
     "Japanese": {
-        "M4": "M", "S5I": "S", "S6H": "S", "S6K": "S", "S7D": "S",
+        "M1S": "M", "M4": "M", "S5I": "S", "S6H": "S", "S6K": "S", "S7D": "S",
         "S8": "S", "S8b": "S", "S12a": "S",
         **{name: "SM" for name in (
             "SM10", "SM10b", "SM11", "SM11a", "SM11b", "SM12", "SM12a",
@@ -45,6 +47,11 @@ SETS = {
     },
 }
 LOCALES = {"English": "en", "Japanese": "ja"}
+M1S_REVIEW_PATH = Path(__file__).resolve().parents[1] / "data" / "pokemon_artwork_m1s_20261027.json"
+_M1S_REVIEW_BYTES = M1S_REVIEW_PATH.read_bytes()
+M1S_REVIEW = json.loads(_M1S_REVIEW_BYTES)
+M1S_REVIEW_SHA256 = hashlib.sha256(_M1S_REVIEW_BYTES).hexdigest()
+M1S_REVIEWED_CARDS = {card["local_id"]: card for card in M1S_REVIEW["cards"]}
 READ_SQL = """
 select r.*, count(*) over() as candidate_total
 from tcg.reference_cards r
@@ -78,6 +85,22 @@ returning r.language,r.set_id,r.provider_id
 """
 
 
+def _reviewed_m1s(item):
+    """Exact reviewed identity only; never extend the safe range by an offset."""
+    local = item.get("local_id")
+    if (item.get("language") != "Japanese" or item.get("set_id") != "M1S"
+            or not isinstance(local, str) or not re.fullmatch(r"0[0-9]{2}", local)
+            or not 1 <= int(local) <= 56):
+        return None
+    reviewed = M1S_REVIEWED_CARDS.get(local)
+    if not reviewed or any(item.get(key) != reviewed[key] for key in
+                           ("provider_id", "name", "card_number", "image_url")):
+        return None
+    if item.get("source_url") != f"https://api.tcgdex.net/v2/ja/cards/M1S-{local}":
+        return None
+    return reviewed
+
+
 def candidate(row):
     """Bind a documented CDN path to the exact existing provider identity."""
     if row.get("provider") != "TCGdex" or row.get("system_code") != "POKEMON_TCG":
@@ -102,9 +125,12 @@ def candidate(row):
             or not isinstance(name, str) or not name.strip()
             or not isinstance(number, str) or number.split("/", 1)[0] != local):
         return None
-    return {"language": language, "set_id": set_id, "provider_id": ident,
+    item = {"language": language, "set_id": set_id, "provider_id": ident,
             "name": name, "card_number": number, "source_url": source, "local_id": local,
             "image_url": f"https://assets.tcgdex.net/{LOCALES[language]}/{series}/{set_id}/{local}/high.webp"}
+    if set_id == "M1S" and _reviewed_m1s(item) is None:
+        return None
+    return item
 
 
 def decoded_image(data, *, expected_format="WEBP"):
@@ -165,6 +191,17 @@ async def probe(client, item):
     base = f"https://assets.tcgdex.net/{LOCALES[language]}/{series}/{set_id}/{local}"
     if item.get("image_url") != base + "/high.webp":
         return None, "UNSAFE_URL"
+    reviewed = _reviewed_m1s(item) if set_id == "M1S" else None
+    if set_id == "M1S" and reviewed is None:
+        return None, "UNSAFE_IDENTITY"
+    if reviewed:
+        # The set contains known misnumbered files. Accept only the exact full
+        # raster whose Japanese title, set mark and printed number were reviewed.
+        # A different encoding or thumbnail requires its own review; no fallback.
+        metadata, error = await _probe_url(client, base + "/high.webp", "image/webp", "WEBP")
+        if metadata and metadata["content_sha256"] != reviewed["content_sha256"]:
+            return None, "REVIEWED_IMAGE_BYTES_CHANGED"
+        return metadata, error
     # These formats/qualities are documented by TCGdex. Some high assets are
     # absent while their exact low or PNG sibling exists; retry only a 404.
     for suffix, mime_type, image_format in (
@@ -229,6 +266,17 @@ async def probe_rows(rows, *, client=None, progress=None, max_seconds=120):
                     "image_url": item["image_url"], "provider_issue_url": ISSUES[item["language"]],
                     "checked_at": datetime.now(timezone.utc).isoformat(),
                     "scope": "REFERENCE_ONLY_NOT_APPROVED_MEDIA", **metadata}
+                if reviewed := _reviewed_m1s(item):
+                    evidence.update(
+                        verification="TCGDEX_REVIEWED_IMAGE_BYTES_V1",
+                        provider_issue_url=M1S_REVIEW["provider_issue_url"],
+                        review_manifest=M1S_REVIEW_PATH.name,
+                        review_manifest_sha256=M1S_REVIEW_SHA256,
+                        visual_reviewed_at=M1S_REVIEW["reviewed_at"],
+                        visual_review_method=M1S_REVIEW["review_method"],
+                        printed_card_number=reviewed["printed_card_number"],
+                        visual_review_page=reviewed["visual_review_page"],
+                        visual_review_page_sha256=reviewed["visual_review_page_sha256"])
                 verified.append({**item, "image_url": metadata["image_url"], "image_reference": evidence})
                 by_set[key]["verified"] += 1
             if batch:
